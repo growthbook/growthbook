@@ -6,6 +6,7 @@ import {
   getLatestPhaseVariations,
   isDimensionPrecomputed,
   getFactMetricPrimaryFactTableId,
+  isFactFunnelMetric,
 } from "shared/experiments";
 import {
   CreateMetricTimeSeriesSingleDataPoint,
@@ -368,7 +369,7 @@ function getExperimentSettingsHash(
 
 export function getFiltersForHash(
   factTable: FactTableInterface | undefined,
-  columnRef: ColumnRef | null,
+  columnRef: Pick<ColumnRef, "rowFilters"> | null,
 ) {
   if (!factTable || !columnRef) {
     return undefined;
@@ -387,7 +388,7 @@ export function getFiltersForHash(
     }));
 }
 
-function getMetricSettingsHash(
+export function getMetricSettingsHash(
   metricId: string,
   metricSettings?: MetricForSnapshot,
   factMetrics?: FactMetricInterface[],
@@ -414,10 +415,16 @@ function getMetricSettingsHash(
       denominator: factMetric.denominator,
       cappingSettings: factMetric.cappingSettings,
       quantileSettings: factMetric.quantileSettings,
+      funnelSettings: factMetric.funnelSettings,
       numeratorFactTable: {
         sql: numeratorFactTable?.sql,
         eventName: numeratorFactTable?.eventName,
         filters: getFiltersForHash(numeratorFactTable, factMetric.numerator),
+        funnelFilters: isFactFunnelMetric(factMetric)
+          ? factMetric.funnelSettings.steps.flatMap(
+              (step) => getFiltersForHash(numeratorFactTable, step) ?? [],
+            )
+          : undefined,
       },
       denominatorFactTable: {
         sql: denominatorFactTable?.sql,

@@ -247,7 +247,7 @@ function FunnelStepsDisplay({
         const hasMetadata = !!conversionWindowValue || !!step.optional;
         const hasContent = items.length > 0 || hasMetadata;
         return (
-          <Box key={i} className="appbox p-3 mb-2">
+          <Box key={i} className="appbox" p="3" mb="2">
             <Heading
               as="h4"
               size="sm"

@@ -5,6 +5,7 @@ import {
   FunnelSettings,
   FunnelStep,
 } from "shared/types/fact-table";
+import { MAX_FACT_METRIC_FUNNEL_STEPS } from "shared/validators";
 import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useFullFactTable from "@/hooks/useFullFactTable";
@@ -79,7 +80,13 @@ export default function FunnelStepsInput({
   return (
     <Flex direction="column" gap="3">
       {value.steps.map((step, i) => (
-        <Box key={i} className="appbox px-3 pt-3 bg-light">
+        <Box
+          key={i}
+          className="appbox"
+          px="3"
+          pt="3"
+          style={{ backgroundColor: "var(--gray-2)" }}
+        >
           <Flex justify="between" align="center" mb="2">
             <Heading as="h4" size="sm" mb="0">
               Step {i + 1}
@@ -103,7 +110,7 @@ export default function FunnelStepsInput({
           {/* v1 constraint: all steps read from one shared fact table. Step 1
               owns the picker; later steps show it disabled and inherit that
               choice. */}
-          <div className="mb-3">
+          <Box mb="3">
             <SelectField
               size="medium"
               label={i === 0 ? "Fact Table" : "Fact Table (inherited)"}
@@ -143,7 +150,7 @@ export default function FunnelStepsInput({
               placeholder="Select..."
               required
             />
-          </div>
+          </Box>
 
           <Field
             size="md"
@@ -154,13 +161,13 @@ export default function FunnelStepsInput({
           />
 
           {fullFactTable && (
-            <div className="mb-3">
+            <Box mb="3">
               <RowFilterInput
                 factTable={fullFactTable}
                 value={step.rowFilters || []}
                 setValue={(rowFilters) => updateStep(i, { rowFilters })}
               />
-            </div>
+            </Box>
           )}
 
           <Box mt="2" mb="3">
@@ -231,6 +238,7 @@ export default function FunnelStepsInput({
       <Box>
         <Button
           variant="ghost"
+          disabled={value.steps.length >= MAX_FACT_METRIC_FUNNEL_STEPS}
           onClick={() =>
             setValue({
               ...value,

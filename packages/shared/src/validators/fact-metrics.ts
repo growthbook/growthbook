@@ -4,6 +4,7 @@ import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 import {
   isValidRowFilterRangeLength,
+  MAX_FACT_METRIC_FUNNEL_STEPS,
   ROW_FILTER_RANGE_LENGTH_MESSAGE,
 } from "./fact-table";
 
@@ -173,6 +174,8 @@ const apiFunnelSettings = z
   .object({
     steps: z
       .array(apiFunnelStep)
+      .min(2)
+      .max(MAX_FACT_METRIC_FUNNEL_STEPS)
       .describe("Ordered list of funnel steps. Minimum 2 steps required."),
     ordering: z
       .enum(["sequential", "strict", "unordered"])
@@ -193,6 +196,8 @@ const postFunnelSettings = z
   .object({
     steps: z
       .array(apiFunnelStep)
+      .min(2)
+      .max(MAX_FACT_METRIC_FUNNEL_STEPS)
       .describe("Ordered list of funnel steps. Minimum 2 steps required."),
     ordering: z
       .enum(["sequential"])
@@ -299,13 +304,7 @@ const apiMetricTypeEnum = z.enum([
   "funnel",
 ]);
 
-// Funnel metrics cannot be created or updated through the REST API yet, so the
-// response enum is wider than the request enum: existing funnel metrics still
-// need to serialize.
-const apiResponseMetricTypeEnum = z.enum([
-  ...apiMetricTypeEnum.options,
-  "funnel",
-]);
+const apiResponseMetricTypeEnum = apiMetricTypeEnum;
 
 // Corresponds to schemas/FactMetric.yaml
 export const apiFactMetricValidator = namedSchema(
@@ -603,7 +602,7 @@ const postFactMetricBody = z
     projects: z.array(z.string()).optional(),
     tags: z.array(z.string()).optional(),
     metricType: apiMetricTypeEnum,
-    numerator: postNumeratorRef,
+    numerator: postNumeratorRef.nullable().optional(),
     denominator: postDenominatorRef.optional(),
     inverse: z
       .boolean()
@@ -672,7 +671,47 @@ const postFactMetricBody = z
       )
       .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((body, ctx) => {
+    if (body.metricType === "funnel") {
+      if (!body.funnelSettings) {
+        ctx.addIssue({
+          code: "custom",
+          message: "funnelSettings is required for funnel metrics",
+          path: ["funnelSettings"],
+        });
+      }
+      if ((body.numerator ?? null) !== null) {
+        ctx.addIssue({
+          code: "custom",
+          message: "numerator is not allowed for funnel metrics",
+          path: ["numerator"],
+        });
+      }
+      if (body.denominator) {
+        ctx.addIssue({
+          code: "custom",
+          message: "denominator is not allowed for funnel metrics",
+          path: ["denominator"],
+        });
+      }
+    } else {
+      if (!body.numerator) {
+        ctx.addIssue({
+          code: "custom",
+          message: "numerator is required for non-funnel metrics",
+          path: ["numerator"],
+        });
+      }
+      if (body.funnelSettings) {
+        ctx.addIssue({
+          code: "custom",
+          message: "funnelSettings is only allowed for funnel metrics",
+          path: ["funnelSettings"],
+        });
+      }
+    }
+  });
 
 // Corresponds to payload-schemas/UpdateFactMetricPayload.yaml
 const updateFactMetricBody = z
@@ -683,7 +722,7 @@ const updateFactMetricBody = z
     projects: z.array(z.string()).optional(),
     tags: z.array(z.string()).optional(),
     metricType: apiMetricTypeEnum.optional(),
-    numerator: postNumeratorRef.optional(),
+    numerator: postNumeratorRef.nullable().optional(),
     denominator: postDenominatorRef.optional(),
     inverse: z
       .boolean()
@@ -747,7 +786,32 @@ const updateFactMetricBody = z
       )
       .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((body, ctx) => {
+    if (body.metricType !== "funnel") return;
+
+    if (!body.funnelSettings) {
+      ctx.addIssue({
+        code: "custom",
+        message: "funnelSettings is required when changing to a funnel metric",
+        path: ["funnelSettings"],
+      });
+    }
+    if ((body.numerator ?? null) !== null) {
+      ctx.addIssue({
+        code: "custom",
+        message: "numerator is not allowed for funnel metrics",
+        path: ["numerator"],
+      });
+    }
+    if (body.denominator) {
+      ctx.addIssue({
+        code: "custom",
+        message: "denominator is not allowed for funnel metrics",
+        path: ["denominator"],
+      });
+    }
+  });
 
 // Corresponds to payload-schemas/PostFactMetricAnalysisPayload.yaml
 const postFactMetricAnalysisBody = z
@@ -820,7 +884,7 @@ export const listFactMetricsValidator = {
       factTableId: z
         .string()
         .describe(
-          "Filter by Fact Table Id (for ratio metrics, we only look at the numerator)",
+          "Filter by Fact Table Id (for ratio metrics, only the numerator is considered)",
         )
         .optional(),
     })

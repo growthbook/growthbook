@@ -864,7 +864,8 @@ export async function generateExperimentReportSSRData({
 
   let factTableIds: string[] = [];
   factMetrics.forEach((m) => {
-    if (m?.numerator?.factTableId) factTableIds.push(m.numerator.factTableId);
+    const primaryFactTableId = getFactMetricFactTableId(m);
+    if (primaryFactTableId) factTableIds.push(primaryFactTableId);
     if (m?.denominator?.factTableId)
       factTableIds.push(m.denominator.factTableId);
   });
