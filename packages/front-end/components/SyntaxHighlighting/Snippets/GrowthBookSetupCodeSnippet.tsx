@@ -26,6 +26,41 @@ function supportsGrowthbookTrackingPlugin(
   return getSDKCapabilities(language, version).includes("trackingPlugin");
 }
 
+// Shared by every back-end language's Managed Warehouse tracking plugin setup.
+function getManagedWarehouseTrackingState(
+  language: SDKLanguage,
+  version: string | undefined,
+  eventTracker: string,
+  managedWarehouseRegion: DataRegion | undefined,
+) {
+  const usesGrowthbookPlugin =
+    eventTracker === "growthbook" &&
+    supportsGrowthbookTrackingPlugin(language, version);
+  return {
+    usesGrowthbookPlugin,
+    showUpgradeWarning: eventTracker === "growthbook" && !usesGrowthbookPlugin,
+    eventIngestorHost:
+      managedWarehouseRegion && managedWarehouseRegion !== "us-east-1"
+        ? getEventIngestorHost(managedWarehouseRegion)
+        : undefined,
+  };
+}
+
+function ManagedWarehouseUpgradeWarning({
+  minVersion,
+}: {
+  minVersion: string;
+}) {
+  return (
+    <Callout status="warning" mt="3">
+      Upgrade this SDK Connection to SDK version {minVersion} or later to send
+      events to the Managed Warehouse, or send events directly with the{" "}
+      <DocLink docSection="managedWarehouseIngestionApi">Ingestion API</DocLink>
+      .
+    </Callout>
+  );
+}
+
 export default function GrowthBookSetupCodeSnippet({
   language,
   version,
@@ -300,15 +335,13 @@ gb.logEvent("Button Click", {
       paddedVersionString(version) >= paddedVersionString("1.3.1");
 
     if (useMultiUser) {
-      const usesGrowthbookPlugin =
-        eventTracker === "growthbook" &&
-        supportsGrowthbookTrackingPlugin(language, version);
-      const showUpgradeWarning =
-        eventTracker === "growthbook" && !usesGrowthbookPlugin;
-      const eventIngestorHost =
-        managedWarehouseRegion && managedWarehouseRegion !== "us-east-1"
-          ? getEventIngestorHost(managedWarehouseRegion)
-          : undefined;
+      const { usesGrowthbookPlugin, showUpgradeWarning, eventIngestorHost } =
+        getManagedWarehouseTrackingState(
+          language,
+          version,
+          eventTracker,
+          managedWarehouseRegion,
+        );
 
       return (
         <>
@@ -364,14 +397,7 @@ await client.init({ timeout: 1000 });
             }
           />
           {showUpgradeWarning && (
-            <Callout status="warning" mt="3">
-              Upgrade this SDK Connection to SDK version 1.4.0 or later to send
-              events to the Managed Warehouse, or send events directly with the{" "}
-              <DocLink docSection="managedWarehouseIngestionApi">
-                Ingestion API
-              </DocLink>
-              .
-            </Callout>
+            <ManagedWarehouseUpgradeWarning minVersion="1.4.0" />
           )}
           Use a middleware to create a GrowthBook instance that is scoped to the
           current user/request. Store this in the request object for use in
@@ -419,6 +445,14 @@ req.growthbook.logEvent("Request Completed", {
 
     return (
       <>
+        <EventTrackerSelector
+          eventTracker={eventTracker}
+          setEventTracker={setEventTracker}
+          options={backendEventTrackerOptions}
+        />
+        {eventTracker === "growthbook" && (
+          <ManagedWarehouseUpgradeWarning minVersion="1.4.0" />
+        )}
         Add some polyfills for missing browser APIs
         <Code
           language="javascript"
@@ -632,15 +666,13 @@ var gb: GrowthBookSDK = GrowthBookBuilder(
     );
   }
   if (language === "go") {
-    const usesGrowthbookPlugin =
-      eventTracker === "growthbook" &&
-      supportsGrowthbookTrackingPlugin(language, version);
-    const showUpgradeWarning =
-      eventTracker === "growthbook" && !usesGrowthbookPlugin;
-    const eventIngestorHost =
-      managedWarehouseRegion && managedWarehouseRegion !== "us-east-1"
-        ? getEventIngestorHost(managedWarehouseRegion)
-        : undefined;
+    const { usesGrowthbookPlugin, showUpgradeWarning, eventIngestorHost } =
+      getManagedWarehouseTrackingState(
+        language,
+        version,
+        eventTracker,
+        managedWarehouseRegion,
+      );
 
     return (
       <>
@@ -729,14 +761,7 @@ func main() {
           }
         />
         {showUpgradeWarning && (
-          <Callout status="warning" mt="3">
-            Upgrade this SDK Connection to SDK version 0.2.8 or later to send
-            events to the Managed Warehouse, or send events directly with the{" "}
-            <DocLink docSection="managedWarehouseIngestionApi">
-              Ingestion API
-            </DocLink>
-            .
-          </Callout>
+          <ManagedWarehouseUpgradeWarning minVersion="0.2.8" />
         )}
         {usesGrowthbookPlugin && (
           <>
@@ -803,15 +828,13 @@ gb = Growthbook::Context.new(
     );
   }
   if (language === "php") {
-    const usesGrowthbookPlugin =
-      eventTracker === "growthbook" &&
-      supportsGrowthbookTrackingPlugin(language, version);
-    const showUpgradeWarning =
-      eventTracker === "growthbook" && !usesGrowthbookPlugin;
-    const eventIngestorHost =
-      managedWarehouseRegion && managedWarehouseRegion !== "us-east-1"
-        ? getEventIngestorHost(managedWarehouseRegion)
-        : undefined;
+    const { usesGrowthbookPlugin, showUpgradeWarning, eventIngestorHost } =
+      getManagedWarehouseTrackingState(
+        language,
+        version,
+        eventTracker,
+        managedWarehouseRegion,
+      );
 
     return (
       <>
@@ -879,14 +902,7 @@ $growthbook->initialize(
             `.trim()}
         />
         {showUpgradeWarning && (
-          <Callout status="warning" mt="3">
-            Upgrade this SDK Connection to SDK version 2.4.0 or later to send
-            events to the Managed Warehouse, or send events directly with the{" "}
-            <DocLink docSection="managedWarehouseIngestionApi">
-              Ingestion API
-            </DocLink>
-            .
-          </Callout>
+          <ManagedWarehouseUpgradeWarning minVersion="2.4.0" />
         )}
         {usesGrowthbookPlugin && (
           <>
@@ -903,15 +919,13 @@ $growthbook->initialize(
     );
   }
   if (language === "python") {
-    const usesGrowthbookPlugin =
-      eventTracker === "growthbook" &&
-      supportsGrowthbookTrackingPlugin(language, version);
-    const showUpgradeWarning =
-      eventTracker === "growthbook" && !usesGrowthbookPlugin;
-    const eventIngestorHost =
-      managedWarehouseRegion && managedWarehouseRegion !== "us-east-1"
-        ? getEventIngestorHost(managedWarehouseRegion)
-        : undefined;
+    const { usesGrowthbookPlugin, showUpgradeWarning, eventIngestorHost } =
+      getManagedWarehouseTrackingState(
+        language,
+        version,
+        eventTracker,
+        managedWarehouseRegion,
+      );
 
     return (
       <>
@@ -979,14 +993,7 @@ gb.load_features()
           }
         />
         {showUpgradeWarning && (
-          <Callout status="warning" mt="3">
-            Upgrade this SDK Connection to SDK version 2.2.0 or later to send
-            events to the Managed Warehouse, or send events directly with the{" "}
-            <DocLink docSection="managedWarehouseIngestionApi">
-              Ingestion API
-            </DocLink>
-            .
-          </Callout>
+          <ManagedWarehouseUpgradeWarning minVersion="2.2.0" />
         )}
         {usesGrowthbookPlugin && (
           <>
@@ -1074,15 +1081,13 @@ GrowthBook growthBook = new GrowthBook(context);
     );
   }
   if (language === "flutter") {
-    const usesGrowthbookPlugin =
-      eventTracker === "growthbook" &&
-      supportsGrowthbookTrackingPlugin(language, version);
-    const showUpgradeWarning =
-      eventTracker === "growthbook" && !usesGrowthbookPlugin;
-    const eventIngestorHost =
-      managedWarehouseRegion && managedWarehouseRegion !== "us-east-1"
-        ? getEventIngestorHost(managedWarehouseRegion)
-        : undefined;
+    const { usesGrowthbookPlugin, showUpgradeWarning, eventIngestorHost } =
+      getManagedWarehouseTrackingState(
+        language,
+        version,
+        eventTracker,
+        managedWarehouseRegion,
+      );
 
     return (
       <>
@@ -1123,14 +1128,7 @@ final GrowthBookSDK gb = GBSDKBuilderApp(
           }
         />
         {showUpgradeWarning && (
-          <Callout status="warning" mt="3">
-            Upgrade this SDK Connection to SDK version 4.4.0 or later to send
-            events to the Managed Warehouse, or send events directly with the{" "}
-            <DocLink docSection="managedWarehouseIngestionApi">
-              Ingestion API
-            </DocLink>
-            .
-          </Callout>
+          <ManagedWarehouseUpgradeWarning minVersion="4.4.0" />
         )}
         {usesGrowthbookPlugin && (
           <>

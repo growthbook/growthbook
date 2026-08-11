@@ -29,6 +29,12 @@ const EventTrackerSelector: React.FC<{
   setEventTracker: (value: string) => void;
   options?: { label: string; value: string }[];
 }> = ({ eventTracker, setEventTracker, options = eventTrackerOptions }) => {
+  // Fall back to "other" if the current value isn't one of the available
+  // options (e.g. unset, or left over from a different language's tracker).
+  const value = options.some((o) => o.value === eventTracker)
+    ? eventTracker
+    : "other";
+
   return (
     <div className="form-inline mb-3">
       <SelectField
@@ -36,9 +42,8 @@ const EventTrackerSelector: React.FC<{
         label="Event Tracking System"
         labelClassName="mr-2"
         options={options}
-        defaultValue="GA4"
         sort={false}
-        value={eventTracker}
+        value={value}
         onChange={(value) => setEventTracker(value)}
       />
     </div>
