@@ -1,4 +1,7 @@
-import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
+import {
+  NO_ENVIRONMENT_BINDING,
+  canStageArchiveDraft,
+} from "shared/permissions";
 import { useRouter } from "next/router";
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -245,13 +248,25 @@ export default function FeaturesHeader({
     baseFeature,
     liveArchiveEnvs,
   );
-  // The draft-authority fallback reads the live flag too. `canEdit` above is the
-  // viewed draft's, so a draft staging a move into a project the user CAN draft in
-  // enabled the control while the endpoint — which asks about the live flag — refused
-  // it. Same class as the two arms above, one line away.
-  const canDraftArchive = permissionsUtil.canEditFeatureDrafts(baseFeature);
+  // The staging fallback reads the live flag too. `canEdit` above is the viewed
+  // draft's, so a draft staging a move into a project the user CAN draft in
+  // enabled the control while the endpoint — which asks about the live flag —
+  // refused it. Same class as the two arms above, one line away.
+  //
+  // Asked through the shared predicate rather than a bare draft check, so this is
+  // the SAME question the endpoint's entry gate asks (`canLand ||
+  // canStageArchiveDraft` in controllers/features.ts `postFeatureArchive`). It is
+  // also directional: staging an ARCHIVE accepts the project-scoped delete atom,
+  // which a bare `canEditFeatureDrafts` missed — a dev-limited deleter could
+  // stage one the control refused to offer.
   const canToggleArchive =
-    (isArchived ? canUnarchive : canArchive) || canDraftArchive;
+    (isArchived ? canUnarchive : canArchive) ||
+    canStageArchiveDraft({
+      permissions: permissionsUtil,
+      model: "feature",
+      entity: { project: baseFeature.project },
+      archived: !isArchived,
+    });
 
   // Tab chip + tooltip count revisions at "request review" or beyond; drafts
   // still being edited don't need reviewer/publisher attention.
