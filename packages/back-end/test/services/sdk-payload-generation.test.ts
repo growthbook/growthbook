@@ -205,7 +205,7 @@ const CAPABILITY_SETS: Array<{ label: string; capabilities: string[] }> = [
     capabilities: getSDKCapabilities("javascript", "1.6.5"),
   },
   {
-    label: "javascript 1.7.0 (+ contextualBandits, latest)",
+    label: "javascript 1.7.0 (+ contextualBandits)",
     capabilities: getSDKCapabilities("javascript", "1.7.0"),
   },
   { label: "legacy API key (bucketingV2 only)", capabilities: ["bucketingV2"] },
