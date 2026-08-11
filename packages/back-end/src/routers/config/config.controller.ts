@@ -34,7 +34,10 @@ import {
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
 import { assertCanCreateConfigInState } from "back-end/src/revisions/createAuthority";
-import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
+import {
+  canStageArchiveDraft,
+  canWriteArchiveIntoDraft,
+} from "back-end/src/revisions/landAuthority";
 import {
   compensateFailedLanding,
   runGuardedWrite,
@@ -843,12 +846,13 @@ export const putConfig = async (
     fieldsToUpdate.project = project;
   }
   if (hasChanged(archived, comparisonBase.archived)) {
-    // Same gate as the REST archive endpoints: archiving is delete-class,
-    // unarchiving is an ordinary publish. Compared against the LIVE state, so a
-    // caller writing back a full object doesn't get gated for a no-op.
-    if (
-      !!archived !== !!existing.archived &&
-      !canLandArchivedState({
+    // Compared against the LIVE state, so a caller writing back a full object
+    // isn't gated for a no-op.
+    if (!!archived !== !!existing.archived) {
+      // Archiving is delete-class and unarchiving is an ordinary publish — but
+      // that is the rule for LANDING the flip, and this handler also stages it
+      // into a draft.
+      const canLand = canLandArchivedState({
         permissions: context.permissions,
         model: "config",
         entity: existing,
@@ -859,9 +863,22 @@ export const putConfig = async (
           existing,
           configPublishEnvironments(context, existing),
         ),
-      })
-    ) {
-      context.permissions.throwPermissionError();
+      });
+      // Staging publishes nothing, so it asks the project-scoped question — the
+      // same `canStageArchiveDraft` the REST twin (putConfigRevisionArchive) and
+      // the features controller use. Landing stays gated by `willPublish` below,
+      // so a stage-only caller gets the draft and is still refused the publish.
+      const canStage =
+        canLand ||
+        canStageArchiveDraft({
+          permissions: context.permissions,
+          model: "config",
+          entity: existing,
+          archived: !!archived,
+        });
+      if (!canStage) {
+        context.permissions.throwPermissionError();
+      }
     }
     fieldsToUpdate.archived = archived;
   }
