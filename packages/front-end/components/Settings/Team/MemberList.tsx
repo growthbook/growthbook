@@ -5,7 +5,7 @@ import { date, datetime } from "shared/dates";
 import { RxIdCard } from "react-icons/rx";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import router from "next/router";
-import { Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   getEffectiveRolesForProject,
   getRoleDisplayName,
@@ -165,19 +165,20 @@ const MemberList: FC<{
       )}
 
       <div className="my-4">
-        <Flex align="end" mt="4" mb="2" gap="3">
-          <h5 className="mb-0">Active Members{` (${users.size})`}</h5>
-          <Field
-            size="legacy"
-            placeholder="Search..."
-            type="search"
-            {...searchInputProps}
-          />
-          <div className="flex-1" />
+        <Flex align="center" justify="between" gap="3" mt="4" mb="2">
+          <Flex align="center" gap="3">
+            <h5 className="mb-0">Active Members{` (${users.size})`}</h5>
+            <Box style={{ width: 250 }}>
+              <Field
+                size="legacy"
+                placeholder="Search..."
+                type="search"
+                {...searchInputProps}
+              />
+            </Box>
+          </Flex>
           {canInviteMembers && (
-            <Button mb="1" onClick={onInvite}>
-              Invite Member
-            </Button>
+            <Button onClick={onInvite}>Invite Member</Button>
           )}
         </Flex>
         <Table
