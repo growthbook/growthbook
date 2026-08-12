@@ -38,6 +38,7 @@ import ResultsTable, {
 } from "@/components/Experiment/ResultsTable";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
+import FunnelStepLabel from "@/components/Experiment/FunnelStepLabel";
 import RadixTooltip from "@/ui/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useExperimentDimensionRows } from "@/hooks/useExperimentDimensionRows";
@@ -321,32 +322,7 @@ const BreakDownResults: FC<{
               setDifferenceType={setDifferenceType}
               renderLabelColumn={({ label, row }) => {
                 if (row?.childRowType === "funnelStep") {
-                  return (
-                    <div className="pl-4" style={{ position: "relative" }}>
-                      <div
-                        className="ml-2 font-weight-bold"
-                        style={{
-                          display: "-webkit-box",
-                          WebkitLineClamp: 1,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                          color: "var(--color-text-high)",
-                        }}
-                      >
-                        {row.label ?? label}
-                      </div>
-                      <div
-                        className="ml-2"
-                        style={{
-                          fontSize: "0.75rem",
-                          color: "var(--color-text-low)",
-                        }}
-                      >
-                        Step {(row.funnelStepIndex ?? 0) + 1}
-                        {row.funnelStepOptional ? " (optional)" : ""}
-                      </div>
-                    </div>
-                  );
+                  return <FunnelStepLabel label={label} row={row} />;
                 }
 
                 const hasSteps = !!row?.numChildren;
@@ -378,6 +354,11 @@ const BreakDownResults: FC<{
                             size="1"
                             variant="ghost"
                             radius="full"
+                            aria-label={
+                              isExpanded
+                                ? "Collapse funnel steps"
+                                : "Expand funnel steps"
+                            }
                             onClick={() => toggleExpandedRow(parentRowId)}
                           >
                             {isExpanded ? (
