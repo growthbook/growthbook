@@ -121,7 +121,7 @@ export default function LineageTree({
   // from shrinking when a deeply-nested row gets tight in the narrow sidebar.
   const countBadge = (count: number) => (
     <Tooltip
-      content={`${count} field${count === 1 ? "" : "s"} defined in this config`}
+      content={`${count} field${count === 1 ? "" : "s"} defined in this Config`}
     >
       <Badge
         size="xs"
@@ -233,7 +233,7 @@ export default function LineageTree({
             {name}
           </span>
           {isDraftNode && (
-            <Tooltip content="Showing an unpublished draft — values here reflect staged changes, not the live config.">
+            <Tooltip content="Showing an unpublished draft — values here reflect staged changes, not the live Config.">
               <Box
                 style={{
                   flexShrink: 0,
@@ -309,7 +309,7 @@ export default function LineageTree({
             {label}
           </span>
           {isDraftNode && (
-            <Tooltip content="Showing an unpublished draft — values here reflect staged changes, not the live config.">
+            <Tooltip content="Showing an unpublished draft — values here reflect staged changes, not the live Config.">
               <Box
                 style={{
                   flexShrink: 0,
@@ -517,7 +517,7 @@ export default function LineageTree({
               {n.name}
             </span>
             {isDraftNode && (
-              <Tooltip content="Showing an unpublished draft — values here reflect staged changes, not the live config.">
+              <Tooltip content="Showing an unpublished draft — values here reflect staged changes, not the live Config.">
                 <Box
                   style={{
                     flexShrink: 0,
@@ -553,7 +553,7 @@ export default function LineageTree({
                   `resolve, but nothing validates them and validation rules ` +
                   `read them as null.` +
                   (extensible === false
-                    ? " This family is not extensible, so the next changing publish of this config will be rejected until they are removed or re-declared."
+                    ? " This family is not extensible, so the next changing publish of this Config will be rejected until they are removed or re-declared."
                     : "")
                 }
               >

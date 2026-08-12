@@ -11,7 +11,7 @@ import Pill from '@site/src/components/Pill';
 
 # Driving a Contextual Bandit via API <Pill>beta</Pill>
 
-This runbook walks through the full lifecycle of a Contextual Bandit driven entirely from the REST API. Every step assumes you have a valid Personal Access Token or Secret Key with the relevant Contextual Bandit permissions on the target project.
+This runbook walks through the full lifecycle of a Contextual Bandit driven entirely from the REST API. Every step assumes you have a valid Personal Access Token or Secret Key with the relevant Contextual Bandit permissions on the target project, and that the general prerequisites — a 1.7+ SDK, an updated tracking callback, and a connected data source — are already in place. See [Setting up a Contextual Bandit](/contextual-bandits/config) for that checklist.
 
 Contextual Bandits use two REST resources:
 
@@ -26,7 +26,7 @@ Contextual Bandits are an Enterprise-only feature. Every endpoint below returns 
 
 ## 1. Create a Contextual Bandit Query
 
-A Contextual Bandit needs a query that defines the assignment SQL and the targeting-attribute columns it splits on. `targetingAttributeColumns` is required and must be non-empty — a bandit with no context to split on is not a contextual bandit. Each named column must also appear in the query's `SELECT`.
+A Contextual Bandit needs a query that defines the assignment SQL and the targeting-attribute columns it splits on. `targetingAttributeColumns` is required and must be non-empty — a bandit with no context to split on is not a contextual bandit. Each named column must also appear in the query's `SELECT`. The query should also select the `leaf_id`, `bandit_version`, and `variation_weights` columns logged by your [tracking callback](/contextual-bandits/config#2-update-your-tracking-callback) — without them the SRM health check is skipped.
 
 ```bash
 curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandit-queries' \
@@ -36,7 +36,7 @@ curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandit-queries' \
     "datasourceId": "ds_abc",
     "name": "Logged-in users",
     "userIdType": "user_id",
-    "query": "SELECT user_id, timestamp, country, device FROM events",
+    "query": "SELECT user_id, timestamp, experiment_id, variation_id, leaf_id, bandit_version, variation_weights, country, device FROM experiment_viewed",
     "targetingAttributeColumns": ["country", "device"]
   }'
 ```

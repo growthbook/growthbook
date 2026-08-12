@@ -419,12 +419,17 @@ export default function ConfigureLegacyReport({
         label={
           <>
             Activation Metric{" "}
-            <MetricsSelectorTooltip onlyBinomial={true} isSingular={true} />
+            <MetricsSelectorTooltip
+              onlyBinomial={true}
+              noFactFunnelMetrics={true}
+              isSingular={true}
+            />
           </>
         }
         labelClassName="font-weight-bold"
         initialOption="None"
         onlyBinomial
+        filterFactFunnelMetrics
         value={form.watch("activationMetric") || ""}
         onChange={(value) => form.setValue("activationMetric", value || "")}
         helpText="Users must convert on this metric before being included"

@@ -7,10 +7,10 @@ import {
 } from "@stripe/react-stripe-js";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { captureException as sentryCaptureException } from "@sentry/nextjs";
 import { TaxIdType, StripeAddress } from "shared/types/subscriptions";
 import { PiCaretRight } from "react-icons/pi";
 import { useStripeContext } from "@/hooks/useStripeContext";
+import { useForceLicenseRefresh } from "@/hooks/useForceLicenseRefresh";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -135,25 +135,19 @@ interface Props {
 export default function CloudProUpgradeModal({ close, closeParent }: Props) {
   const [step, setStep] = useState(0);
   const [success, setSuccess] = useState(false);
-  const [organizationRefreshFailed, setOrganizationRefreshFailed] =
-    useState(false);
   const [loading, setLoading] = useState(false);
   const [showAddress, setShowAddress] = useState(false);
   const { clientSecret } = useStripeContext();
-  const { refreshOrganization, organization, email } = useUser();
+  const { organization, email } = useUser();
+  const {
+    status: organizationRefreshStatus,
+    refresh: refreshOrganizationAfterUpgrade,
+    retry: retryOrganizationRefresh,
+  } = useForceLicenseRefresh();
+  const showOrganizationRefreshFailure = organizationRefreshStatus !== "idle";
   const { apiCall } = useAuth();
   const elements = useElements();
   const stripe = useStripe();
-
-  const refreshOrganizationAfterUpgrade = async () => {
-    try {
-      await refreshOrganization({ forceLicenseRefresh: true });
-      setOrganizationRefreshFailed(false);
-    } catch (error) {
-      sentryCaptureException(error);
-      setOrganizationRefreshFailed(true);
-    }
-  };
 
   const form = useForm<{
     address: StripeAddress | undefined;
@@ -245,12 +239,6 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
     setSuccess(true);
   };
 
-  const retryOrganizationRefresh = async () => {
-    setLoading(true);
-    await refreshOrganizationAfterUpgrade();
-    setLoading(false);
-  };
-
   if (success) {
     return (
       <Modal
@@ -269,17 +257,17 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
       >
         <div className="container-fluid dashboard p-3 ">
           <h3>
-            {organizationRefreshFailed
+            {showOrganizationRefreshFailure
               ? "GrowthBook Pro Subscription Created"
               : "Welcome to GrowthBook Pro!"}
           </h3>
-          {!organizationRefreshFailed ? (
+          {!showOrganizationRefreshFailure ? (
             <span>
               You&apos;re all set! Your organization now has access to all
               GrowthBook Pro features.
             </span>
           ) : null}
-          {organizationRefreshFailed ? (
+          {showOrganizationRefreshFailure ? (
             <Callout
               status="warning"
               mt="3"
@@ -287,7 +275,7 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
                 <Button
                   size="sm"
                   color="inherit"
-                  loading={loading}
+                  loading={organizationRefreshStatus === "loading"}
                   onClick={retryOrganizationRefresh}
                 >
                   Try again

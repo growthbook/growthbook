@@ -10,7 +10,12 @@ import {
   isReadyForApproval,
   rampScheduleValidator,
 } from "shared/validators";
-import { RULE_ID_ENV_SUFFIX_DELIMITER, stemRuleId } from "shared/util";
+import {
+  rampSchedulePublishEnvironments,
+  RULE_ID_ENV_SUFFIX_DELIMITER,
+  stemRuleId,
+  isRampScheduleServing,
+} from "shared/util";
 import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
 import {
   appendRampEvent,
@@ -30,6 +35,7 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { rampTargetsEquivalent } from "back-end/src/util/flattenRules";
+import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "rampschedules";
@@ -386,24 +392,49 @@ export class RampScheduleModel extends BaseClass {
     );
   }
   protected canCreate(doc: RampScheduleInterface) {
-    return this.context.permissions.canCreateFeature({
+    return this.context.permissions.canEditFeatureDrafts({
       project: this.getProject(doc),
     });
   }
+  // Written by revision-bound edits (draft-class) AND live state changes
+  // (publish-class); the model can't tell which, so it takes the union and the
+  // action handler gates precisely.
   protected canUpdate(
     existing: RampScheduleInterface,
     _updates: UpdateProps<RampScheduleInterface>,
     newDoc: RampScheduleInterface,
   ) {
-    return this.context.permissions.canUpdateFeature(
-      { project: this.getProject(existing) },
-      { project: this.getProject(newDoc) },
+    const project = this.getProject(newDoc);
+    return (
+      this.context.permissions.canEditFeatureDrafts({ project }) ||
+      this.context.permissions.canPublishFeature(
+        { project },
+        this.publishEnvironments(newDoc),
+      )
     );
   }
+  // Removing a serving schedule detaches it from a live rule, so it lands like a
+  // publish. One that isn't serving changes nothing users see, and must not take
+  // more authority than editing its steps does.
   protected canDelete(existing: RampScheduleInterface) {
-    return this.context.permissions.canDeleteFeature({
-      project: this.getProject(existing),
-    });
+    const project = this.getProject(existing);
+    const isServing = isRampScheduleServing(existing);
+    return (
+      (!isServing &&
+        this.context.permissions.canEditFeatureDrafts({ project })) ||
+      this.context.permissions.canPublishFeature(
+        { project },
+        this.publishEnvironments(existing),
+      )
+    );
+  }
+
+  /** Environments a live action on this schedule reaches. */
+  public publishEnvironments(doc: RampScheduleInterface): string[] {
+    return rampSchedulePublishEnvironments(
+      doc,
+      getEnvironmentIdsFromOrg(this.context.org),
+    );
   }
 
   protected migrate(legacyDoc: unknown): RampScheduleInterface {

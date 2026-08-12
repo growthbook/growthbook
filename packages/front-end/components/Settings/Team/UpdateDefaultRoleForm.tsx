@@ -5,7 +5,11 @@ import {
   getDefaultRole,
   getRoleDisplayName,
 } from "shared/permissions";
-import Button from "@/components/Button";
+import { Box, Flex } from "@radix-ui/themes";
+import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
+import HelperText from "@/ui/HelperText";
 import { GroupedValue } from "@/components/Forms/SelectField";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -76,18 +80,19 @@ export default function UpdateDefaultRoleForm() {
   });
 
   return (
-    <div className="appbox p-3 border mt-5 mb-5">
-      <div className="row">
-        <div className="col-sm-3">
-          <h3>Team Settings</h3>
-        </div>
-        <div className="col-sm-9">
-          <h4>Default User Role</h4>
-          <p>
+    <Box className="appbox" p="4" mt="5" mb="5">
+      <Flex direction={{ initial: "column", sm: "row" }} gap="4">
+        <Box width="200px" flexShrink="0">
+          <Heading as="h3" size="md" mb="0">
+            Default Roles
+          </Heading>
+        </Box>
+        <Box flexGrow="1">
+          <Text as="p" color="text-mid" mb="3">
             This is the default role that will be assigned to new users if you
             have auto-join or SCIM enabled. This will not affect any existing
             users.
-          </p>
+          </Text>
           <RoleSelector
             value={form.watch("defaultRole")}
             setValue={(value) => {
@@ -96,13 +101,10 @@ export default function UpdateDefaultRoleForm() {
             }}
           />
           {defaultRoleError ? (
-            <div>
-              <small className="text-danger">{defaultRoleError}</small>
-            </div>
+            <HelperText status="error">{defaultRoleError}</HelperText>
           ) : null}
-          <div className="d-flex justify-content-end pt-3">
+          <Flex justify="end" pt="3">
             <Button
-              color={"primary"}
               disabled={!isDirty}
               onClick={async () => {
                 if (!isDirty) return;
@@ -111,9 +113,9 @@ export default function UpdateDefaultRoleForm() {
             >
               Save
             </Button>
-          </div>
-        </div>
-      </div>
-    </div>
+          </Flex>
+        </Box>
+      </Flex>
+    </Box>
   );
 }

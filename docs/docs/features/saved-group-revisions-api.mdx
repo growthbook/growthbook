@@ -170,7 +170,12 @@ Per-field resolution strategies:
 
 <CommercialFeature feature="require-approvals" />
 
-When your org [requires approvals for saved groups](/features/publishing-and-approval-flows#saved-group-approval-flows), publishing a draft is blocked unless the revision is in `approved` status, the caller has the `bypassApprovalChecks` permission on every target project, or the org has enabled **REST API always bypasses approval requirements**.
+When [Saved Group approvals are
+required](/features/publishing-and-approval-flows#saved-group-approval-flows), a
+draft must be approved before it can be published. Approval is not required when
+the caller has the **Bypass draft approvals** policy in every Project assigned to
+the Saved Group, or when the organization enables **REST API always bypasses
+approval requirements**.
 
 ### Requesting a Review
 
@@ -207,15 +212,40 @@ curl -X POST 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123
   -d '{}'
 ```
 
-Three paths can publish without an `approved` revision:
+There are three ways to publish without an approved revision:
 
-1. **Per-call bypass** — `POST /saved-groups` and `POST /saved-groups/{id}` accept `bypassApproval: true` and write directly to the live saved group, skipping the revision flow entirely. The caller must hold `bypassApprovalChecks` on every target project.
-2. **Per-user bypass on publish** — `POST .../revisions/{version}/publish` succeeds for callers with `bypassApprovalChecks` on the saved group's projects, even if the revision is not `approved`.
-3. **Org-wide bypass** — admins can enable **REST API always bypasses approval requirements** in org settings, after which every REST publish acts as a bypass regardless of the caller's permission.
+1. **Direct-write bypass** — `POST /saved-groups` and `POST
+/saved-groups/{id}` can send `bypassApproval: true` to update the live Saved
+   Group without creating a revision. The caller needs **Bypass draft approvals**
+   in every affected Project.
+2. **Permission-based publish** — the revision publish endpoint automatically
+   skips the approval check for callers with **Bypass draft approvals** in every
+   Project assigned to the Saved Group. The `bypassApproval` field on this
+   endpoint is accepted for backwards compatibility but does not change the
+   result.
+3. **Organization-wide REST bypass** — when **REST API always bypasses approval
+   requirements** is enabled, REST API requests can publish without approval.
 
 ### Permissions
 
-- Read endpoints require `canReadSavedGroup` on the saved group's projects.
-- Edit, request-review, rebase, revert, and publish endpoints require `canUpdateSavedGroup`.
-- Publish re-checks `canUpdateSavedGroup` against the live saved group at publish time, so a `projects` move encoded in the draft can't launder write access.
-- Submitting a review uses the same write gate as editing the saved group.
+Saved Group lifecycle permissions are independent:
+
+- **Create** creates a Saved Group.
+- **Edit** opens and changes drafts, requests review, rebases, and discards
+  drafts.
+- **Review** approves a draft or requests changes. A plain review comment can
+  also be added with the general **Comments** permission.
+- **Publish** applies a draft to the live Saved Group and unarchives it.
+- **Revert** restores a previously published revision.
+- **Archive & delete** archives a Saved Group or permanently deletes one that is
+  already archived.
+- **Bypass draft approvals** skips required review and allows an out-of-date
+  draft to be force-published.
+
+GrowthBook checks permissions again when a draft is published. If the draft
+changes the Saved Group's Projects, the caller must have the required permission
+in both the current and destination Projects.
+
+A user with only **Revert** or **Archive & delete** can still create and complete
+a draft that contains only that action. Adding any unrelated change requires
+**Edit** and **Publish** access.

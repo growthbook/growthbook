@@ -94,16 +94,39 @@ export async function planFeatureContextualBanditLinkage(
 export async function applyFeatureContextualBanditLinkage(
   context: ReqContext | ApiReqContext,
   plan: ContextualBanditLinkagePlan,
+  // Refuse when this feature's slice has moved since the plan was computed. A landing
+  // that lost the feature document to a newer publish would otherwise stamp its stale
+  // delta over the winner's linkage — the same ownership question the rewind asks,
+  // asked on the way in.
+  { guarded }: { guarded?: boolean } = {},
 ): Promise<void> {
   const cbModel = context.models.contextualBandits;
   // Each bandit is independent, so bounded concurrency is safe — a feature can
   // reference thousands of distinct contextual bandits.
-  await promiseAllChunks(
+  //
+  // Every write SETTLES before a failure is surfaced. `Promise.all` rejects on the
+  // first failure while its siblings keep running, so compensation could inspect a
+  // bandit before its forward write had landed, no-op, and then have that write
+  // arrive after the rollback — leaving linkage from a failed publish live with
+  // nothing left to undo it.
+  const results = await promiseAllChunks(
     plan.deltas.map(
-      (delta) => () => cbModel.applyLinkageDelta(plan.featureId, delta),
+      (delta) => () =>
+        cbModel
+          .applyLinkageDelta(
+            plan.featureId,
+            delta,
+            guarded ? plan.preImage[delta.contextualBanditId] : undefined,
+          )
+          .then(
+            () => null,
+            (e: unknown) => e,
+          ),
     ),
     10,
   );
+  const failure = results.find((e) => e !== null);
+  if (failure) throw failure;
 }
 
 /**
@@ -115,17 +138,66 @@ export async function reverseFeatureContextualBanditLinkage(
   plan: ContextualBanditLinkagePlan,
 ): Promise<void> {
   const cbModel = context.models.contextualBandits;
-  await promiseAllChunks(
+  // Settle every rewind before surfacing a failure, for the same reason the
+  // forward pass does — and here it matters more. `promiseAllChunks` runs
+  // `Promise.all` per chunk, which rejects on the first failure: siblings in that
+  // chunk kept running and later chunks never started, so a rewind could throw,
+  // have compensation declare failure and KEEP the published feature, and then
+  // land its remaining reversals afterwards — half the bandits rewound to a
+  // pre-image whose feature is still live.
+  const results = await promiseAllChunks(
     plan.deltas.map(
       (delta) => () =>
-        cbModel.setLinkageState(
-          delta.contextualBanditId,
-          plan.featureId,
-          plan.preImage[delta.contextualBanditId],
-        ),
+        cbModel
+          .setLinkageState(
+            delta.contextualBanditId,
+            plan.featureId,
+            plan.preImage[delta.contextualBanditId],
+            // What the forward pass left this feature's slice holding. A second
+            // writer who has since moved it owns it now, and converging to our
+            // pre-image would undo their change.
+            appliedLinkageState(plan, delta),
+          )
+          .then(
+            () => null,
+            (e: unknown) => e,
+          ),
     ),
     10,
   );
+  const failure = results.find((e) => e !== null);
+  if (failure) throw failure;
+}
+
+/**
+ * The state the forward pass wrote for one bandit: the pre-image with this
+ * delta applied. Derived rather than recorded, so it can't drift from
+ * `applyLinkageDelta`.
+ */
+function appliedLinkageState(
+  plan: ContextualBanditLinkagePlan,
+  delta: ContextualBanditLinkageDelta,
+): ContextualBanditLinkageState {
+  const pre = plan.preImage[delta.contextualBanditId];
+  const linked = new Set(pre.linkedFeatures);
+  if (delta.link) linked.add(plan.featureId);
+  if (delta.unlink) linked.delete(plan.featureId);
+
+  const dropped = new Set(delta.draftsToDrop);
+  const drafts = pre.pendingFeatureDrafts.filter(
+    (d) => d.featureId !== plan.featureId || !dropped.has(d.revisionVersion),
+  );
+  for (const version of delta.draftsToQueue) {
+    if (
+      !drafts.some(
+        (d) => d.featureId === plan.featureId && d.revisionVersion === version,
+      )
+    ) {
+      drafts.push({ featureId: plan.featureId, revisionVersion: version });
+    }
+  }
+
+  return { linkedFeatures: [...linked], pendingFeatureDrafts: drafts };
 }
 
 /**

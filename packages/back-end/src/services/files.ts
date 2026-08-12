@@ -24,6 +24,7 @@ import {
   GCS_DOMAIN,
   AWS_ASSUME_ROLE,
   S3_SESSION_REPLAY_BUCKET,
+  S3_SESSION_REPLAY_BUCKET_EU,
   S3_SESSION_REPLAY_ASSUME_ROLE,
   VISUAL_EDITOR_ASSETS_S3_BUCKET,
   VISUAL_EDITOR_ASSETS_S3_REGION,
@@ -125,22 +126,35 @@ function getS3Client(region: string): S3Client {
   return client;
 }
 
-let sessionReplayS3Client: S3Client | null = null;
+// Which AWS region an org's managed warehouse (and therefore its
+// session-replay data) is provisioned in. Mirrors `GrowthbookClickhouseSettings.region`.
+export type SessionReplayRegion = "us-east-1" | "eu-west-1";
+
+function getSessionReplayBucket(region: SessionReplayRegion): string {
+  return region === "eu-west-1"
+    ? S3_SESSION_REPLAY_BUCKET_EU
+    : S3_SESSION_REPLAY_BUCKET;
+}
+
+const sessionReplayS3Clients = new Map<SessionReplayRegion, S3Client>();
 
 /**
- * S3 client scoped to the session-replay bucket. May use a different role
- * (via `S3_SESSION_REPLAY_ASSUME_ROLE`) than the uploads client so that read
- * access to replay payloads can be granted independently of write access to
- * the general uploads bucket.
+ * S3 client scoped to the session-replay bucket for the given region. May use
+ * a different role (via `S3_SESSION_REPLAY_ASSUME_ROLE`) than the uploads
+ * client so that read access to replay payloads can be granted independently
+ * of write access to the general uploads bucket.
  */
-function getSessionReplayS3Client(): S3Client {
-  if (!sessionReplayS3Client) {
-    sessionReplayS3Client = buildS3Client({
+function getSessionReplayS3Client(region: SessionReplayRegion): S3Client {
+  let client = sessionReplayS3Clients.get(region);
+  if (!client) {
+    client = buildS3Client({
       assumeRoleArn: S3_SESSION_REPLAY_ASSUME_ROLE,
       roleSessionName: "growthbook-session-replay-reads",
+      region,
     });
+    sessionReplayS3Clients.set(region, client);
   }
-  return sessionReplayS3Client;
+  return client;
 }
 
 // --- Low-level S3 primitives ---
@@ -476,26 +490,30 @@ export async function getSignedUploadUrl(
  * `S3_SESSION_REPLAY_BUCKET` set). Use this in the controller to short-circuit
  * with a clean 4xx when the deployment hasn't enabled session-replay reads.
  */
-export function isSessionReplayStorageConfigured(): boolean {
-  return UPLOAD_METHOD === "s3" && !!S3_SESSION_REPLAY_BUCKET;
+export function isSessionReplayStorageConfigured(
+  region: SessionReplayRegion,
+): boolean {
+  return UPLOAD_METHOD === "s3" && !!getSessionReplayBucket(region);
 }
 
 /**
- * Lists every object key under `storagePrefix` in the session-replay bucket.
- * Returns the raw S3 keys (in S3 ordering, which is lexicographic — callers
- * that need numeric chunk-index ordering should sort after parsing).
+ * Lists every object key under `storagePrefix` in the session-replay bucket
+ * for the given region. Returns the raw S3 keys (in S3 ordering, which is
+ * lexicographic — callers that need numeric chunk-index ordering should sort
+ * after parsing).
  */
 export async function listSessionReplayChunks(
   storagePrefix: string,
+  region: SessionReplayRegion,
 ): Promise<string[]> {
-  if (!isSessionReplayStorageConfigured()) {
+  if (!isSessionReplayStorageConfigured(region)) {
     throw new Error(
-      "Session-replay storage is not configured (set S3_SESSION_REPLAY_BUCKET)",
+      "Session-replay storage is not configured (set S3_SESSION_REPLAY_BUCKET / S3_SESSION_REPLAY_BUCKET_EU)",
     );
   }
   return s3ListByPrefix(
-    getSessionReplayS3Client(),
-    S3_SESSION_REPLAY_BUCKET,
+    getSessionReplayS3Client(region),
+    getSessionReplayBucket(region),
     storagePrefix,
   );
 }
@@ -508,15 +526,16 @@ export async function listSessionReplayChunks(
  */
 export async function getSessionReplayObjectBuffer(
   key: string,
+  region: SessionReplayRegion,
 ): Promise<Buffer> {
-  if (!isSessionReplayStorageConfigured()) {
+  if (!isSessionReplayStorageConfigured(region)) {
     throw new Error(
-      "Session-replay storage is not configured (set S3_SESSION_REPLAY_BUCKET)",
+      "Session-replay storage is not configured (set S3_SESSION_REPLAY_BUCKET / S3_SESSION_REPLAY_BUCKET_EU)",
     );
   }
   return s3GetObjectBuffer(
-    getSessionReplayS3Client(),
-    S3_SESSION_REPLAY_BUCKET,
+    getSessionReplayS3Client(region),
+    getSessionReplayBucket(region),
     key,
   );
 }
