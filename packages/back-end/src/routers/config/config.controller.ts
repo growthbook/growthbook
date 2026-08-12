@@ -782,7 +782,10 @@ export const putConfig = async (
       "config",
       "revert",
       existing,
-      configPublishEnvironments(context, existing),
+      // Staging publishes nothing, so the ride-in answers for the project, not
+      // the scoped environments — matching the constant/saved-group twins and
+      // the REST path. Landing re-checks revert over the real footprint below.
+      NO_ENVIRONMENT_BINDING,
     );
 
   if (!canLandArchive && !canDraftEntity && !canRideRevert) {
