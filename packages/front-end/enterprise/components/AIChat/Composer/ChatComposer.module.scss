@@ -1,0 +1,169 @@
+// Tiptap-backed chat composer. Two variants:
+//   compact — unified rounded box for the site-wide agent panel
+//   wide    — centered bar for the PA Explorer chat, matching the
+//             `form-control--legacy` chrome the Field it replaced rendered.
+
+// --- Shared editor surface ---------------------------------------------------
+
+// `.editor` is the wrapper we control; `:global(.ProseMirror)` is the
+// contenteditable Tiptap renders inside it.
+.editor {
+  flex: 1;
+  min-width: 0;
+
+  :global(.ProseMirror) {
+    outline: none;
+    white-space: pre-wrap;
+    word-break: break-word;
+
+    p {
+      margin: 0;
+    }
+
+    // Placeholder decoration: the extension tags the empty paragraph with
+    // `is-empty` and stashes the text in `data-placeholder`.
+    p:global(.is-empty):first-child::before {
+      content: attr(data-placeholder);
+      float: left;
+      height: 0;
+      pointer-events: none;
+      color: var(--gray-a9);
+    }
+  }
+
+  // While streaming the editor is read-only. Mute the text rather than
+  // painting a disabled box over it.
+  &.readOnly :global(.ProseMirror) {
+    color: var(--gray-a11);
+    cursor: default;
+
+    p:global(.is-empty):first-child::before {
+      color: var(--gray-a8);
+    }
+  }
+}
+
+// --- Compact variant ---------------------------------------------------------
+
+.compactWrapper {
+  border-top: 1px solid var(--gray-a3);
+  background: var(--color-panel-solid);
+  padding: 10px 12px 12px;
+}
+
+.composer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: 1px solid var(--gray-a6);
+  border-radius: var(--radius-4);
+  background: var(--color-background);
+  padding: 4px 4px 4px 12px;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.composerFocused {
+  border-color: var(--violet-8);
+  box-shadow: 0 0 0 2px var(--violet-a4);
+}
+
+.compactEditor :global(.ProseMirror) {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--gray-12);
+  padding: 6px 0;
+  // ~6 rows at the line-height above, matching the textarea's old maxRows.
+  max-height: 132px;
+  overflow-y: auto;
+}
+
+// --- Wide variant ------------------------------------------------------------
+
+.wideWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-5) var(--space-9);
+  border-top: 1px solid var(--gray-a3);
+  background: var(--color-panel-solid);
+}
+
+// Mirrors `.form-control` + `.form-control--legacy` from global.scss so the
+// PA composer keeps the chrome it had as a `<Field size="legacy">`.
+.wideField {
+  max-width: 800px;
+  flex: 1;
+  min-height: 36px;
+  padding: 4px 12px;
+  border: 1px solid var(--gray-a7);
+  border-radius: var(--radius-2);
+  background-color: var(--color-surface);
+  transition: box-shadow 120ms ease;
+}
+
+.wideFieldFocused {
+  box-shadow: 0 0 0 1px var(--violet-8);
+}
+
+// 28px line-height + the 4px padding above fills the 36px min-height exactly,
+// so a single line sits centered like the fixed-height input did.
+.wideEditor :global(.ProseMirror) {
+  font-size: var(--font-size-2);
+  line-height: 28px;
+  color: var(--gray-12);
+  max-height: 168px;
+  overflow-y: auto;
+}
+
+// --- Buttons -----------------------------------------------------------------
+
+.sendButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  line-height: 0;
+  border: none;
+  border-radius: var(--radius-3);
+  background: var(--violet-10);
+  color: #fff;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    opacity 120ms ease;
+
+  // The icon defaults to inline (baseline) layout, which leaves descender
+  // space and shifts it off-center; force block layout so flex centering is
+  // exact in both axes.
+  svg {
+    display: block;
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--violet-11);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+// Stop/cancel state during streaming. A filled neutral chip with a clearly
+// visible stop glyph reads better than the near-white square it was before.
+.stopButton {
+  background: var(--gray-a5);
+  color: var(--gray-12);
+
+  &:hover:not(:disabled) {
+    background: var(--gray-a6);
+  }
+}

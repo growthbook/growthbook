@@ -9,7 +9,9 @@ import Button from "@/ui/Button";
 import { useAIChat } from "@/enterprise/hooks/useAIChat";
 import ConversationSidebar from "@/enterprise/components/AIChat/ConversationSidebar";
 import AIChatGatingScreen from "@/enterprise/components/AIChat/AIChatGatingScreen";
-import ChatInputBar from "@/enterprise/components/AIChat/ChatInputBar";
+import ChatComposer, {
+  type ChatComposerHandle,
+} from "@/enterprise/components/AIChat/Composer/ChatComposer";
 import { useChatFeedback } from "@/enterprise/components/AIChat/useChatFeedback";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
@@ -22,7 +24,7 @@ import { useAutoScroll } from "./useAutoScroll";
 export default function ExplorerAIChat() {
   const toolDetailsOpenRef = useRef<Record<string, boolean>>({});
   const prevLoadingRef = useRef(false);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const composerRef = useRef<ChatComposerHandle>(null);
 
   const initialMessageRef = useRef<string | null>(
     (() => {
@@ -162,7 +164,7 @@ export default function ExplorerAIChat() {
   useEffect(() => {
     if (prevLoadingRef.current && !loading) {
       refreshList();
-      inputRef.current?.focus();
+      composerRef.current?.focus();
     }
     prevLoadingRef.current = loading;
   }, [loading, refreshList]);
@@ -174,7 +176,7 @@ export default function ExplorerAIChat() {
   }, []);
 
   useEffect(() => {
-    inputRef.current?.focus();
+    composerRef.current?.focus();
   }, [conversationId]);
 
   useEffect(() => {
@@ -212,16 +214,6 @@ export default function ExplorerAIChat() {
       }
     },
     [deleteConversation, conversationId, newChat],
-  );
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        trackAndSend();
-      }
-    },
-    [trackAndSend],
   );
 
   // -- Render ----------------------------------------------------------------
@@ -306,11 +298,10 @@ export default function ExplorerAIChat() {
           onScroll={handleScroll}
         />
 
-        <ChatInputBar
-          inputRef={inputRef}
-          input={input}
-          onInputChange={setInput}
-          onKeyDown={handleKeyDown}
+        <ChatComposer
+          ref={composerRef}
+          value={input}
+          onChange={setInput}
           onSend={() => trackAndSend()}
           onCancel={cancelGeneration}
           loading={loading}
