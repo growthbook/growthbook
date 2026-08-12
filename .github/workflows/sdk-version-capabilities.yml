@@ -5,31 +5,64 @@ name: SDK version capabilities
 #
 #     /capabilities streaming, redirects
 #
-# and this workflow validates each token against the SDKCapability union in
-# types.ts, sets them on that version entry, regenerates the SDK docs, and
-# commits everything back to the PR branch. An empty `/capabilities` records
-# the release as version-only. Unknown capabilities are rejected with a comment
-# and nothing is changed (so gen-sdk-resources can never be fed a bad value).
+# It validates each token against the SDKCapability union in types.ts, sets them
+# on that version entry, regenerates SDKInfo.ts (the same generator the pre-commit
+# hook runs on any sdk-versioning change), and commits back to the PR branch. An
+# empty `/capabilities` records the release as version-only. Unknown capabilities
+# are rejected with a comment and nothing changes.
 #
-# NOTE: issue_comment workflows only run from the copy on the default branch,
-# so this takes effect once merged to main.
+# Security model (this command has write access and commits/pushes, and it runs
+# the checked-out branch's build/generators):
+#   - authorize job: the commenter must be OWNER/MEMBER/COLLABORATOR
+#     (author_association is set by GitHub and cannot be spoofed).
+#   - same-repo only: cross-repository (fork) PRs are skipped, so fork-controlled
+#     code is never executed with the write token. Same-repo `sdk-version/*`
+#     branches can only be pushed by write-access users (the release bot), so the
+#     residual is limited to repo insiders, which the ChatOps model already trusts.
 #
-# The commit is pushed with SDK_VERSION_BOT_TOKEN (a PAT) when available so the
-# verify-sdk-versions check re-runs on the new commit; it falls back to
-# GITHUB_TOKEN (push works, but the required check won't re-trigger).
+# NOTE: issue_comment workflows only run from the copy on the default branch, so
+# this takes effect once merged to main.
 
 on:
   issue_comment:
     types: [created]
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
+  pull-requests: read
 
 jobs:
-  capabilities:
+  authorize:
     if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/capabilities') }}
     runs-on: ubuntu-latest
+    outputs:
+      ok: ${{ steps.check.outputs.ok }}
+    steps:
+      - name: Require trusted commenter + same-repo PR
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.issue.number }}
+          ASSOC: ${{ github.event.comment.author_association }}
+        run: |
+          set -euo pipefail
+          cross="$(gh pr view "$PR" -R "$REPO" --json isCrossRepository --jq '.isCrossRepository')"
+          echo "author_association=$ASSOC cross_repo=$cross"
+          ok=false
+          case "$ASSOC" in
+            OWNER|MEMBER|COLLABORATOR) [[ "$cross" == "false" ]] && ok=true ;;
+          esac
+          echo "ok=$ok" >> "$GITHUB_OUTPUT"
+          [[ "$ok" == "true" ]] || echo "Not authorized ($ASSOC, cross_repo=$cross) — skipping."
+
+  capabilities:
+    needs: authorize
+    if: ${{ needs.authorize.outputs.ok == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v5
         with:
@@ -65,8 +98,8 @@ jobs:
           set -uo pipefail
           # Strip the command word from the first line; the rest is the CSV.
           CSV="$(printf '%s\n' "$COMMENT" | head -n1 | sed -E 's#^/capabilities##')"
-          # GitHub runs steps with `bash -e`; the apply script exits 2/3 by design,
-          # so guard with `|| code=$?` to capture the code instead of aborting.
+          # GitHub runs steps with `bash -e`; the apply script exits 1/2/3 by
+          # design, so guard with `|| code=$?` to capture the code, not abort.
           code=0
           out="$(bash .github/scripts/apply-sdk-capabilities.sh "$PWD" "$SDK" "$VERSION" "$CSV")" || code=$?
           echo "$out"
@@ -74,7 +107,6 @@ jobs:
             echo "result=$out"
             echo "code=$code"
           } >> "$GITHUB_OUTPUT"
-          exit 0
 
       - name: Reject unknown capabilities
         if: ${{ steps.apply.outputs.code == '3' }}
@@ -84,6 +116,15 @@ jobs:
           RESULT: ${{ steps.apply.outputs.result }}
         run: |
           gh pr comment "$PR" --body "❌ Unknown capabilities: **${RESULT#invalid=}**. Valid values come from \`packages/shared/src/sdk-versioning/types.ts\`. No changes made."
+
+      - name: Fail on structural error
+        if: ${{ steps.pr.outputs.skip != 'true' && steps.apply.outputs.code != '0' && steps.apply.outputs.code != '2' && steps.apply.outputs.code != '3' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.issue.number }}
+          CODE: ${{ steps.apply.outputs.code }}
+        run: |
+          gh pr comment "$PR" --body "⚠️ \`/capabilities\` could not run (internal error, exit \`$CODE\`). No changes made — please check the workflow logs."
           exit 1
 
       - name: Acknowledge version-only
@@ -91,7 +132,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR: ${{ github.event.issue.number }}
-        run: gh pr comment "$PR" --body "No capabilities given — recording this release as version-only. Ready to merge."
+        run: |
+          gh pr comment "$PR" --body "No capabilities given — recording this release as version-only. Ready to merge."
 
       - name: Set up pnpm
         if: ${{ steps.apply.outputs.code == '0' }}
@@ -116,10 +158,10 @@ jobs:
           set -euo pipefail
           caps="${RESULT#applied=}"
           pnpm install
-          # This mirrors the repo's pre-commit hook, which runs
-          # `gen-sdk-resources-for-docs` on any sdk-versioning change to regenerate
-          # docs/src/data/SDKInfo.ts. That generator needs the JS SDK built first.
-          # CAPABILITIES.md is intentionally not regenerated (not in the hook).
+          # Mirrors the pre-commit hook, which runs gen-sdk-resources-for-docs on
+          # any sdk-versioning change to regenerate docs/src/data/SDKInfo.ts. That
+          # generator needs the JS SDK built first. CAPABILITIES.md is intentionally
+          # not regenerated (it is not part of the hook).
           pnpm --filter @growthbook/growthbook run build
           pnpm exec prettier --write "packages/shared/src/sdk-versioning/sdk-versions/$SDK.json"
           pnpm --filter shared gen-sdk-resources-for-docs
