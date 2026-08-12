@@ -140,7 +140,9 @@ export default function DashboardChecklistFilter({
           style={{ justifyContent: "space-between" }}
         >
           <Flex align="center" gap="2">
-            <span style={{ whiteSpace: "nowrap" }}>{label}</span>
+            <Text size="md" weight="regular" whiteSpace="nowrap">
+              {label}
+            </Text>
             {showCount && value.length > 0 ? (
               <FilterCountBadge count={value.length} />
             ) : null}
