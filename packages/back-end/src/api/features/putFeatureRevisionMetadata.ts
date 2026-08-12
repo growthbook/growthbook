@@ -11,8 +11,7 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { getEnabledEnvironments } from "back-end/src/util/features";
-import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import {
   discardIfJustCreated,
   isDraftStatus,
@@ -41,10 +40,7 @@ export async function setRevisionMetadata(
   const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -68,14 +64,15 @@ export async function setRevisionMetadata(
       ]);
     }
 
-    const orgEnvs = getEnvironmentIdsFromOrg(context.org);
-    const enabledEnvs = Array.from(getEnabledEnvironments(feature, orgEnvs));
+    // Draft moves require draft authority in the destination.
     if (
-      !context.permissions.canPublishFeature(feature, enabledEnvs) ||
-      !context.permissions.canPublishFeature(
-        { project: metadataFields.project },
-        enabledEnvs,
-      )
+      !holdsMoveDestination({
+        permissions: context.permissions,
+        model: "feature",
+        action: "draft",
+        existing: feature,
+        proposed: { ...feature, project: metadataFields.project },
+      })
     ) {
       context.permissions.throwPermissionError();
     }
@@ -150,6 +147,10 @@ export async function setRevisionMetadata(
     const finalRevision = updated ?? revision;
 
     await recordRevisionUpdate(context, feature, finalRevision, "metadata", {
+      // No environment-scoped impact — see recordRevisionUpdate. Omitting this lets
+      // routing derive environments from the revision's RULES, sending a metadata
+      // edit to every environment-filtered subscriber those rules touch.
+      environments: [],
       auditDetails: { fields: Object.keys(changes) },
     });
 

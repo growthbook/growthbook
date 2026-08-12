@@ -26,6 +26,9 @@ const { name: _nextName, ...nextRecommendedConfig } =
 
 export default defineConfig([
   globalIgnores([
+    // Claude Code parks agent worktrees (full checkouts) here; linting them
+    // rewrites another branch's files.
+    ".claude/",
     "**/.next",
     "**/dist",
     "**/coverage",

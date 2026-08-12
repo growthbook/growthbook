@@ -1,12 +1,9 @@
 import router from "next/router";
 import React, { FC, useState } from "react";
-import { datetime } from "shared/dates";
-import { FaExclamationTriangle, FaUserLock } from "react-icons/fa";
-import { Box } from "@radix-ui/themes";
-import Link from "@/ui/Link";
+import { date, datetime } from "shared/dates";
+import { BsThreeDotsVertical } from "react-icons/bs";
+import { Flex, IconButton } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
 import TeamModal from "@/components/Teams/TeamModal";
 import { AddMembersModal } from "@/components/Teams/AddMembersModal";
 import { PermissionsModal } from "@/components/Settings/Teams/PermissionModal";
@@ -17,6 +14,22 @@ import { capitalizeFirstLetter } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
+import PageHead from "@/components/Layout/PageHead";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
+import Button from "@/ui/Button";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+} from "@/ui/DropdownMenu";
 
 const TeamPage: FC = () => {
   const { apiCall } = useAuth();
@@ -49,6 +62,8 @@ const TeamPage: FC = () => {
     );
   }
 
+  const memberCount = team.members?.length ?? 0;
+
   return (
     <>
       {teamModalOpen && (
@@ -70,172 +85,174 @@ const TeamPage: FC = () => {
         onClose={() => setPermissionModalOpen(false)}
         onSuccess={() => refreshOrganization()}
       />
+
+      <PageHead
+        breadcrumb={[
+          { display: "Teams", href: "/settings/team#teams" },
+          { display: team.name },
+        ]}
+      />
+
       <div className="container pagecontents">
-        <div className="mb-4">
-          <Link href="/settings/team#teams">
-            <GBCircleArrowLeft className="mr-1" />
-            Back to all teams
-          </Link>
-        </div>
         {!isEditable && (
-          <Callout status="info" mb="3">
+          <Callout status="info" mb="4">
             This team is managed by an idP. To make changes to the{" "}
             <b>team name</b> or <b>team membership</b> please access your idP
             and edit the corresponding group. Team permissions must be edited
-            via the <b>Edit Permissions</b> button below.
+            via the <b>Edit permissions</b> button.
           </Callout>
         )}
-        {team.managedBy?.type ? (
-          <div>
-            <Badge
-              label={`Managed by ${capitalizeFirstLetter(team.managedBy.type)}`}
-            />
-          </div>
-        ) : null}
-        <div className="d-flex align-items-center mb-2">
-          <h1 className="mb-0">{team.name}</h1>
-          {isEditable && (
-            <div className="ml-1">
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setTeamModalOpen(true);
-                }}
-              >
-                <GBEdit />
-              </a>
-            </div>
-          )}
-          <div className="ml-auto">
-            <button
-              className="btn btn-primary"
-              onClick={(e) => {
-                e.preventDefault();
-                setPermissionModalOpen(true);
-              }}
-            >
-              <FaUserLock /> <span> </span>Edit Permissions
-            </button>
-          </div>
-        </div>
-        <div className="d-flex align-items-center mb-2">
-          <div className="text-gray">
-            {team.description || <em>add description</em>}
-          </div>
-          <div className="ml-1">
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setTeamModalOpen(true);
-              }}
-            >
-              <GBEdit />
-            </a>
-          </div>
-        </div>
 
-        <div className="mt-4">
-          <div className="form-group">
-            <label className="font-weight-bold text-dark">
-              Default Project
-            </label>
-            <Box>
-              {projectIsDeReferenced ? (
-                <Tooltip
-                  body={
-                    <>
-                      Project <code>{team?.defaultProject}</code> not found
-                    </>
+        <Flex align="center" justify="between" gap="3" mb="1">
+          <Flex align="center" gap="2">
+            <Heading as="h1" size="xl" mb="0" overflowWrap="anywhere">
+              {team.name}
+            </Heading>
+            {team.managedBy?.type && (
+              <Badge
+                label={`Managed by ${capitalizeFirstLetter(
+                  team.managedBy.type,
+                )}`}
+              />
+            )}
+          </Flex>
+          <Flex align="center" gap="4" flexShrink="0">
+            <Button
+              variant="outline"
+              onClick={() => setPermissionModalOpen(true)}
+            >
+              Edit permissions
+            </Button>
+            {isEditable && canManageTeam && (
+              <DropdownMenu
+                trigger={
+                  <IconButton
+                    variant="ghost"
+                    color="gray"
+                    radius="full"
+                    size="3"
+                    highContrast
+                  >
+                    <BsThreeDotsVertical size={18} />
+                  </IconButton>
+                }
+                menuPlacement="end"
+                variant="soft"
+              >
+                <DropdownMenuGroup>
+                  <DropdownMenuItem onClick={() => setTeamModalOpen(true)}>
+                    Edit team
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenu>
+            )}
+          </Flex>
+        </Flex>
+
+        <Text as="p" color="text-mid" mb="4">
+          {team.description || <em>No description</em>}
+        </Text>
+
+        <Flex align="center" gap="2" mb="5">
+          <Text weight="semibold">Default Project:</Text>
+          {projectIsDeReferenced ? (
+            <Tooltip
+              body={
+                <>
+                  Project <code>{team.defaultProject}</code> not found
+                </>
+              }
+            >
+              <Badge label="Invalid Project" color="red" />
+            </Tooltip>
+          ) : (
+            <Badge label={projectName} />
+          )}
+        </Flex>
+
+        <Flex align="center" justify="between" gap="3" mb="2">
+          <Heading as="h2" size="md" mb="0">
+            Team Members ({memberCount})
+          </Heading>
+          {isEditable && canManageTeam && (
+            <Button onClick={() => setMemberModalOpen(true)}>
+              Add members
+            </Button>
+          )}
+        </Flex>
+
+        <Table variant="surface">
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Name</TableColumnHeader>
+              <TableColumnHeader>Email</TableColumnHeader>
+              <TableColumnHeader>Date Joined</TableColumnHeader>
+              <TableColumnHeader style={{ width: 50 }} />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {team.members?.map((member) => (
+              <TableRow key={member.id}>
+                <TableCell>{member.name}</TableCell>
+                <TableCell>{member.email}</TableCell>
+                <TableCell
+                  title={
+                    member.dateCreated
+                      ? datetime(member.dateCreated)
+                      : undefined
                   }
                 >
-                  <span className="text-danger">
-                    <FaExclamationTriangle /> Invalid project
-                  </span>
-                </Tooltip>
-              ) : (
-                <Badge label={projectName} />
-              )}
-              {isEditable && (
-                <a
-                  className="ml-2"
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setTeamModalOpen(true);
-                  }}
-                >
-                  <GBEdit />
-                </a>
-              )}
-            </Box>
-          </div>
-        </div>
-
-        <div className="d-flex align-center">
-          <h2 className="mt-4 mb-4 mr-2">Team Members</h2>
-          {isEditable && (
-            <span
-              className="h4 pr-2 align-self-center"
-              role="button"
-              onClick={() => setMemberModalOpen(true)}
-            >
-              <GBAddCircle />
-            </span>
-          )}
-        </div>
-
-        <div className="mb-4">
-          <h5>
-            Active Members
-            {` (${team.members ? team.members.length : 0})`}
-          </h5>
-          <table className="table appbox gbtable">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Date Joined</th>
-                <th style={{ width: 50 }} />
-              </tr>
-            </thead>
-            <tbody>
-              {team.members?.map((member) => {
-                return (
-                  <tr key={member.id}>
-                    <td>{member.name}</td>
-                    <td>{member.email}</td>
-                    <td>
-                      {member.dateCreated && datetime(member.dateCreated)}
-                    </td>
-                    <td>
-                      {canManageTeam && isEditable && (
-                        <>
-                          <DeleteButton
-                            useRadix={false}
-                            link={true}
-                            useIcon={true}
-                            displayName={member.email}
-                            onClick={async () => {
+                  {member.dateCreated && date(member.dateCreated)}
+                </TableCell>
+                <TableCell>
+                  {canManageTeam && isEditable && (
+                    <DropdownMenu
+                      trigger={
+                        <IconButton
+                          variant="ghost"
+                          color="gray"
+                          radius="full"
+                          size="2"
+                          highContrast
+                        >
+                          <BsThreeDotsVertical size={18} />
+                        </IconButton>
+                      }
+                      menuPlacement="end"
+                      variant="soft"
+                    >
+                      <DropdownMenuGroup>
+                        <DropdownMenuItem
+                          color="red"
+                          confirmation={{
+                            submit: async () => {
                               await apiCall(
                                 `/teams/${team.id}/member/${member.id}`,
-                                {
-                                  method: "DELETE",
-                                },
+                                { method: "DELETE" },
                               );
                               refreshOrganization();
-                            }}
-                          />
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                            },
+                            confirmationTitle: `Remove ${member.email}?`,
+                            cta: "Remove",
+                          }}
+                        >
+                          Remove from team
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
+                    </DropdownMenu>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+            {memberCount === 0 && (
+              <TableRow>
+                <TableCell colSpan={4} style={{ textAlign: "center" }}>
+                  <Text color="text-mid">This team has no members yet.</Text>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
       </div>
     </>
   );

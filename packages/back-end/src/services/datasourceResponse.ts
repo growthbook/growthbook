@@ -33,11 +33,11 @@ type DataSourceResponse<T extends DataSourceType> = Omit<
   eventForwarderConfig: EventForwarderConfigWithMetadata | null;
 };
 
-export function buildDataSourceWithParams<T extends DataSourceType>(
+function buildDataSourceWithParams<T extends DataSourceType>(
   integration: SourceIntegrationInterface<T>,
   eventForwarderConfig?: EventForwarderConfigWithMetadata | null,
 ): DataSourceWithParamsByType[T];
-export function buildDataSourceWithParams(
+function buildDataSourceWithParams(
   integration: SourceIntegrationInterface,
   eventForwarderConfig?: EventForwarderConfigWithMetadata | null,
 ): unknown {

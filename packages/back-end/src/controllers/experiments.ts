@@ -2410,7 +2410,7 @@ export async function postExperimentStatus(
   ) {
     const adminBypass =
       !!bypassLockdown &&
-      context.permissions.canBypassApprovalChecks(experiment);
+      context.permissions.canBypassFlagApprovalChecks(experiment, "feature");
 
     await validateExperimentChange({
       context,
@@ -4344,12 +4344,14 @@ export async function postExperimentFeatureValues(
     context.permissions.throwPermissionError();
   }
 
-  // Check for permission to update each feature
+  // Authoring authority for each feature. Landing authority is checked by
+  // `validateExperimentFeatureUpdates` below, per feature that actually sets
+  // `autoPublish`, and scoped to the environments its matching rules serve.
+  // Requiring publish here as well — across every org environment, whether or
+  // not the caller is publishing — blocked an author from editing values into a
+  // draft.
   for (const feature of featureObjects) {
-    if (
-      !context.permissions.canUpdateFeature(feature, {}) ||
-      !context.permissions.canManageFeatureDrafts(feature)
-    ) {
+    if (!context.permissions.canEditFeatureDrafts(feature)) {
       context.permissions.throwPermissionError();
     }
   }
@@ -4436,7 +4438,10 @@ export async function postExperimentFeatureValues(
         revision: updatedRevision,
         result: mergeResult.result,
         comment: "auto-publish experiment variation values change",
-        bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+        bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
+          feature,
+          "feature",
+        ),
       });
 
       await req.audit({
@@ -4477,9 +4482,11 @@ export async function deleteExperimentLinkedFeature(
   }
 
   // Also require feature-side edit rights — unlinking cancels a queued
-  // autopublish that the feature team may be managing.
+  // autopublish that the feature team may be managing. Edit-class, not publish:
+  // nothing reaches the payload. Same as the contextual-bandit twin, which
+  // performs the same $pull.
   const feature = await getFeature(context, featureId);
-  if (feature && !context.permissions.canUpdateFeature(feature, {})) {
+  if (feature && !context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 

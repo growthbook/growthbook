@@ -8,11 +8,11 @@ export const getConfigKeyUsage = createApiRequestHandler(
 )(async (req) => {
   const config = await req.context.models.configs.getByKey(req.params.key);
   if (!config) {
-    throw new NotFoundError("Could not find config with that key");
+    throw new NotFoundError("Could not find Config with that key");
   }
   const result = await getConfigKeyImplementations(req.context, config.id);
   if (!result) {
-    throw new NotFoundError("Could not find config with that key");
+    throw new NotFoundError("Could not find Config with that key");
   }
   return result;
 });

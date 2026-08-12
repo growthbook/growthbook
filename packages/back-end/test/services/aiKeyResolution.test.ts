@@ -5,6 +5,7 @@ import { AIProvider } from "shared/ai";
 // before the module graph is required. Each test builds its own module instance
 // via jest.isolateModules to get a clean env AND a clean per-request cache.
 type AICredentialsModule = typeof import("back-end/src/services/aiCredentials");
+type AIKeyContext = Parameters<AICredentialsModule["getResolvedAIKeys"]>[0];
 
 const loadModule = (env: Record<string, string>): AICredentialsModule => {
   let mod: AICredentialsModule | undefined;
@@ -45,14 +46,16 @@ const makeContext = (
   const getAll = jest.fn().mockResolvedValue(credentials);
   const hasPremiumFeature = jest.fn().mockReturnValue(canUseOwnKeys);
   return {
-    context: { models: { aiCredentials: { getAll } }, hasPremiumFeature },
+    context: {
+      models: { aiCredentials: { getAll } },
+      hasPremiumFeature,
+    } as unknown as AIKeyContext,
     getAll,
     hasPremiumFeature,
   };
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const resolve = (mod: AICredentialsModule, context: any) =>
+const resolve = (mod: AICredentialsModule, context: AIKeyContext) =>
   mod.getResolvedAIKeys(context);
 
 describe("getResolvedAIKeys", () => {
@@ -166,7 +169,7 @@ describe("getResolvedAIKeys", () => {
     const context = {
       models: { aiCredentials: { getAll } },
       hasPremiumFeature: () => true,
-    };
+    } as unknown as AIKeyContext;
 
     const keys = await resolve(mod, context);
 
@@ -209,7 +212,7 @@ describe("getResolvedAIKeys", () => {
     const { context, getAll } = makeContext([]);
 
     await resolve(mod, context);
-    mod.clearResolvedAIKeysCache(context as never);
+    mod.clearResolvedAIKeysCache(context);
     await resolve(mod, context);
 
     expect(getAll).toHaveBeenCalledTimes(2);
