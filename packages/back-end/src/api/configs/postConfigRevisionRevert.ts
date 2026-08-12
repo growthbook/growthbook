@@ -53,7 +53,7 @@ export const postConfigRevisionRevert = createApiRequestHandler(
   // restored. Subset-refusing: no footprint or purity path rescues a caller who
   // holds none of these in this project.
   if (
-    (["revert", "publish", "draft"] as const).every(
+    (["revert", "draft"] as const).every(
       (action) =>
         !req.context.permissions.canRevisionAction(
           "config",
