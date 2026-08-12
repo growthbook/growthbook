@@ -388,7 +388,7 @@ export default function FeatureVariationsInput({
                         !editingSplits &&
                         !onlySafeToEditVariationMetadata && (
                           <Tooltip
-                            body="Customize split"
+                            body="Click to unlock split…"
                             usePortal={true}
                             tipPosition="top"
                           >
