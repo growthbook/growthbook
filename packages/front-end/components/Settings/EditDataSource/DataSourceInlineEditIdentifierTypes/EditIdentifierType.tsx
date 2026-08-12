@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { findCollidingUserIdTypeName } from "shared/util";
 import MultiSelectField from "@/ui/MultiSelectField";
+import Callout from "@/ui/Callout";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
@@ -120,6 +121,12 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
       ctaEnabled={saveEnabled}
     >
       <>
+        {isEventForwarderManagedType && (
+          <Callout status="info" mb="3">
+            This identifier type is managed by the Event Forwarder. Only the
+            description can be edited.
+          </Callout>
+        )}
         <Field
           size="legacy"
           label="Identifier Type"
@@ -139,12 +146,19 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
           maxRows={5}
           textarea
         />
-        {hashAttributes && !isEventForwarderManagedType && (
+        {hashAttributes && (
           <MultiSelectField
             legacyHeight
             label="Hash Attributes"
             value={form.watch("attributes")}
-            helpText="Select the hash attributes that map to this identifier type."
+            // Managed types keep the field visible so the linked attribute stays
+            // readable; disabling it explains why it cannot be changed.
+            disabled={isEventForwarderManagedType}
+            helpText={
+              isEventForwarderManagedType
+                ? "Managed by Event Forwarder for this identifier type."
+                : "Select the hash attributes that map to this identifier type."
+            }
             onChange={(value) => {
               form.setValue("attributes", value);
             }}
