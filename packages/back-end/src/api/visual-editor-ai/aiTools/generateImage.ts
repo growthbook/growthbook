@@ -1,11 +1,14 @@
 import { v4 as uuidv4 } from "uuid";
 import { tool as aiTool } from "ai";
 import { z } from "zod";
+import { getImageModelMeta } from "shared/ai";
 import { uploadFile } from "back-end/src/services/files";
 import { optimizeAIImage } from "back-end/src/services/imageOptimization";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { generateImages } from "back-end/src/services/imageGeneration";
 import { updateTokenUsage } from "back-end/src/models/AITokenUsageModel";
+import { secondsUntilAICanBeUsedAgainForProvider } from "back-end/src/enterprise/services/ai";
+import { trackAIUsage } from "back-end/src/services/growthbook";
 import { logger } from "back-end/src/util/logger";
 import type { ApiReqContext } from "back-end/types/api";
 
@@ -54,8 +57,28 @@ export function generateImageTool(toolCtx: GenerateImageToolContext) {
 
       const { context } = toolCtx;
       const org = context.org;
-      const { visualEditorImageModel, visualEditorAIContext } =
-        getAISettingsForOrg(context, true);
+      const { visualEditorImageModel, visualEditorAIContext, keySource } =
+        await getAISettingsForOrg(context, true);
+
+      // BYOK on this provider isn't metered — same rule postAIImageGen and
+      // simpleCompletion apply. Image models have their own registry.
+      const imageProvider = getImageModelMeta(visualEditorImageModel)?.provider;
+      const usesOwnImageKey =
+        !!imageProvider && keySource[imageProvider] === "organization";
+
+      // The turn's pre-flight ran against the *text* model, so an over-cap org
+      // could still bill an image to a managed key. Gate on the image provider,
+      // as postAIImageGen does. Returned as a tool result rather than thrown so
+      // the streaming turn still finishes with its text edits.
+      if (
+        await secondsUntilAICanBeUsedAgainForProvider(context, imageProvider)
+      ) {
+        return {
+          ok: false,
+          error:
+            "Daily AI usage limit reached — no more images can be generated today. Continue without generating images.",
+        } as const;
+      }
 
       // Defensive single-image constraint. Even with the tool
       // description telling the model to make one image per call, an
@@ -84,18 +107,32 @@ export function generateImageTool(toolCtx: GenerateImageToolContext) {
           } as const;
         }
 
+        // Reported for every org whichever key paid — see postAIImageGen.ts.
+        trackAIUsage({
+          organizationId: org.id,
+          userId: context.userId,
+          type: "visual-editor-ai-image-gen",
+          model: visualEditorImageModel,
+          provider: imageProvider,
+          numCompletionTokensUsed: IMAGE_GEN_TOKEN_COST_PER_IMAGE,
+          usedDefaultPrompt: !visualEditorAIContext,
+          usedOwnKey: usesOwnImageKey,
+        });
+
         // Bill before upload — provider already charged us; upload failure
         // is a back-end problem, not the user's.
-        try {
-          await updateTokenUsage({
-            organization: org,
-            numTokensUsed: IMAGE_GEN_TOKEN_COST_PER_IMAGE,
-          });
-        } catch (err) {
-          logger.warn(
-            { err, orgId: org.id },
-            "[ai-tool/generate-image] failed to record token usage",
-          );
+        if (!usesOwnImageKey) {
+          try {
+            await updateTokenUsage({
+              organization: org,
+              numTokensUsed: IMAGE_GEN_TOKEN_COST_PER_IMAGE,
+            });
+          } catch (err) {
+            logger.warn(
+              { err, orgId: org.id },
+              "[ai-tool/generate-image] failed to record token usage",
+            );
+          }
         }
 
         const img = generated[0];

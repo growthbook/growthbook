@@ -12,6 +12,7 @@ export const accountPlans: Set<AccountPlan> = new Set([
 
 export type CommercialFeature =
   | "ai-suggestions"
+  | "ai-byok"
   | "scim"
   | "sso"
   | "advanced-permissions"
@@ -244,6 +245,7 @@ const commercialFeaturesProSso: CommercialFeature[] = [
 
 const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "ai-suggestions",
+  "ai-byok",
   "scim",
   "audit-logging",
   "custom-metadata",

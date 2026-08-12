@@ -223,6 +223,7 @@ export const entityEvents = {
   approvalFlow: ["create", "update", "delete"],
   revision: ["create", "update", "delete"],
   aiPrompt: ["create", "update", "delete"],
+  aiCredential: ["create", "update", "delete"],
   attribute: ["create", "update", "delete"],
   experiment: [
     "create",

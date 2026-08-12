@@ -863,9 +863,6 @@
   "packages/front-end/components/GeneralSettings/AISettings.tsx": {
     "no-restricted-imports": {
       "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 4
     }
   },
   "packages/front-end/components/GeneralSettings/BanditSettings.tsx": {
