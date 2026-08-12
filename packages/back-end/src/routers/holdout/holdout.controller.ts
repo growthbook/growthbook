@@ -258,7 +258,7 @@ export const updateHoldout = async (
 
   const updates = { ...req.body };
 
-  if (updates.statusUpdateSchedule) {
+  if (updates.statusUpdateSchedule !== undefined) {
     const { statusUpdateSchedule, nextScheduledStatusUpdate } =
       normalizeHoldoutScheduleUpdates({
         holdout,
