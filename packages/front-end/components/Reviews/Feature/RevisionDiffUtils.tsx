@@ -1320,7 +1320,7 @@ function RevisionCommentItem({
   // When comparing multiple revisions, label which revision the notes belong to.
   showLabel?: boolean;
   // Mirrors the overview page gating: isDraft = active draft status,
-  // canEdit = canManageFeatureDrafts permission.
+  // canEdit = canEditFeatureDrafts permission.
   isDraft?: boolean;
   canEdit?: boolean;
   onSaved?: () => void;
@@ -1421,7 +1421,7 @@ export function RevisionCommentSection({
     title?: string | null;
   }>;
   // Mirrors the overview page gating: isDraft = active draft status,
-  // canEdit = canManageFeatureDrafts permission.
+  // canEdit = canEditFeatureDrafts permission.
   isDraft?: boolean;
   canEdit?: boolean;
   onSaved?: () => void;
@@ -1560,7 +1560,7 @@ export function DiffContent({
   // to the per-section JSON diffs.
   raw?: { before: unknown; after: unknown; title?: string };
   // Mirrors the overview page gating for the notes edit pencil:
-  // isDraftNotes = active draft status, canEditNotes = canManageFeatureDrafts.
+  // isDraftNotes = active draft status, canEditNotes = canEditFeatureDrafts.
   isDraftNotes?: boolean;
   canEditNotes?: boolean;
   onNotesSaved?: () => void;

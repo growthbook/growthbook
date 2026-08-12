@@ -1,11 +1,10 @@
-import { FC, useEffect, useMemo, useRef, useState } from "react";
+import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Environment } from "shared/types/organization";
 import { FeatureEnvironment } from "shared/types/feature";
 import { filterProjectsByEnvironment } from "shared/util";
 import { Box, Flex, Grid, Text } from "@radix-ui/themes";
 import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
 import { featureStatusColors } from "@/components/Features/FeaturesOverview";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -34,16 +33,21 @@ const EnvironmentSelect: FC<{
   environments: Environment[];
   setValue: (env: Environment, enabled: boolean) => void;
   project?: string;
+  // Whether an environment may be switched on, for the entity THIS form creates.
+  // The rule differs per entity — a new flag takes create plus publish there, a
+  // holdout takes publish — and hardcoding the flag rule here silently blocked
+  // holdout users who hold no feature permissions. Defaults to permitted, so a
+  // form that has no per-environment restriction needn't state one.
+  canEnableEnvironment?: (environmentId: string) => boolean;
   isEditing?: boolean;
 }> = ({
   environmentSettings,
   environments,
+  canEnableEnvironment,
   setValue,
   project = "",
   isEditing = false,
 }) => {
-  const permissionsUtil = usePermissionsUtil();
-
   const relevantEnvironments = useMemo(() => {
     if (!project) return environments;
     return environments.filter(
@@ -51,11 +55,15 @@ const EnvironmentSelect: FC<{
     );
   }, [environments, project]);
 
-  const environmentsUserCanAccess = useMemo(() => {
-    return relevantEnvironments.filter((env) => {
-      return permissionsUtil.canPublishFeature({ project }, [env.id]);
-    });
-  }, [relevantEnvironments, permissionsUtil, project]);
+  const mayEnable = useCallback(
+    (environmentId: string) =>
+      canEnableEnvironment ? canEnableEnvironment(environmentId) : true,
+    [canEnableEnvironment],
+  );
+  const environmentsUserCanAccess = useMemo(
+    () => relevantEnvironments.filter((env) => mayEnable(env.id)),
+    [relevantEnvironments, mayEnable],
+  );
 
   const latestRef = useRef({ environments, environmentSettings, setValue });
   latestRef.current = { environments, environmentSettings, setValue };
@@ -162,10 +170,8 @@ const EnvironmentSelect: FC<{
           >
             {relevantEnvironments.map((env) => (
               <Checkbox
-                disabled={
-                  !permissionsUtil.canPublishFeature({ project }, [env.id])
-                }
-                disabledMessage="You don't have permission to create features in this environment."
+                disabled={!mayEnable(env.id)}
+                disabledMessage="You don't have permission to enable this environment."
                 value={environmentSettings[env.id].enabled}
                 setValue={(enabled) => setValue(env, enabled === true)}
                 label={env.id}

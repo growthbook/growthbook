@@ -9,7 +9,10 @@ import {
   constantRequiresReview,
   configRequiresReview,
 } from "../src/util/features";
-import { getConstantRevisionChange } from "../src/revisions/helpers";
+import {
+  getConstantRestoreChange,
+  getConstantRevisionChange,
+} from "../src/revisions/helpers";
 
 const rule = (overrides = {}) => ({
   requireReviewOn: true,
@@ -695,5 +698,71 @@ describe("getReferencingConstantKeys", () => {
       "x",
       "y",
     ]);
+  });
+});
+
+describe("getConstantRestoreChange", () => {
+  // What restoring a revision changes NOW — not what that revision changed when
+  // it was published. A later change can have moved live in between, which is
+  // exactly when the two answers differ.
+  const target = {
+    snapshot: { environmentValues: { dev: "old" }, project: "a" },
+    proposedChanges: [
+      {
+        op: "replace" as const,
+        path: "/environmentValues",
+        value: { dev: "restored" },
+      },
+    ],
+  };
+
+  it("reports the environments whose override differs from live", () => {
+    const change = getConstantRestoreChange(
+      { environmentValues: { dev: "live", prod: "untouched" } },
+      target,
+    );
+    // prod is absent from the restore, so restoring clears it — a change too.
+    expect(change.changedEnvironments.sort()).toEqual(["dev", "prod"]);
+  });
+
+  it("reports nothing when live already matches the restored state", () => {
+    const change = getConstantRestoreChange(
+      { environmentValues: { dev: "restored" } },
+      target,
+    );
+    expect(change.changedEnvironments).toEqual([]);
+  });
+
+  it("ignores what the revision itself changed when live has moved on", () => {
+    // The revision changed only `dev`, but live has since gained a prod override.
+    const change = getConstantRestoreChange(
+      { environmentValues: { dev: "restored", prod: "new" } },
+      target,
+    );
+    expect(change.changedEnvironments).toEqual(["prod"]);
+  });
+
+  it("names the project the restored state would live in", () => {
+    expect(
+      getConstantRestoreChange({ environmentValues: {}, project: "b" }, target)
+        .restoredProject,
+    ).toBe("a");
+  });
+
+  it("treats an absent and an empty override as the same", () => {
+    const change = getConstantRestoreChange(
+      {},
+      {
+        snapshot: {},
+        proposedChanges: [
+          {
+            op: "replace" as const,
+            path: "/environmentValues",
+            value: { dev: "" },
+          },
+        ],
+      },
+    );
+    expect(change.changedEnvironments).toEqual([]);
   });
 });

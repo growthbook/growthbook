@@ -354,6 +354,13 @@ const makeEventQuantileMetric = (): FactMetricInterface =>
     },
   });
 
+const makeFunnelMetric = (): FactMetricInterface =>
+  makeFactMetric({
+    id: "fact_funnel",
+    metricType: "funnel",
+    funnelSettings: { steps: [] },
+  });
+
 const unsupportedReasonBaseParams = {
   datasourceProperties: {
     hasIncrementalRefresh: true,
@@ -443,6 +450,17 @@ describe("getIncrementalPipelineUnsupportedReason", () => {
       }),
     ).toBe(
       "Legacy metrics aren't supported with Incremental Pipeline mode. Convert them or remove non-Fact Metrics.",
+    );
+  });
+
+  it("flags funnel metrics", () => {
+    expect(
+      getIncrementalPipelineUnsupportedReason({
+        ...unsupportedReasonBaseParams,
+        metrics: [makeFunnelMetric()],
+      }),
+    ).toBe(
+      "Funnel metrics are not supported with Incremental Pipeline mode while in beta. Please remove any funnel metrics from the experiment.",
     );
   });
 
