@@ -65,10 +65,15 @@ jobs:
           set -uo pipefail
           # Strip the command word from the first line; the rest is the CSV.
           CSV="$(printf '%s\n' "$COMMENT" | head -n1 | sed -E 's#^/capabilities##')"
-          out="$(bash .github/scripts/apply-sdk-capabilities.sh "$PWD" "$SDK" "$VERSION" "$CSV")"; code=$?
+          # GitHub runs steps with `bash -e`; the apply script exits 2/3 by design,
+          # so guard with `|| code=$?` to capture the code instead of aborting.
+          code=0
+          out="$(bash .github/scripts/apply-sdk-capabilities.sh "$PWD" "$SDK" "$VERSION" "$CSV")" || code=$?
           echo "$out"
-          echo "result=$out" >> "$GITHUB_OUTPUT"
-          echo "code=$code" >> "$GITHUB_OUTPUT"
+          {
+            echo "result=$out"
+            echo "code=$code"
+          } >> "$GITHUB_OUTPUT"
           exit 0
 
       - name: Reject unknown capabilities
