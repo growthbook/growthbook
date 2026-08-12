@@ -194,7 +194,8 @@ const gbClient = new GrowthBookClient({
     // TODO: Replace with your own tracking implementation
     console.log("Viewed Experiment", userId, {
       experimentId: experiment.key,
-      variationId: result.key
+      variationId: result.key,
+      attributes: userContext.attributes,
     });
   }
 });
