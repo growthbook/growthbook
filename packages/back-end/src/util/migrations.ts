@@ -398,6 +398,23 @@ export function pinLegacyRolloutSeeds<T extends FeatureRule>(
   );
 }
 
+// Backfills the `jsonSchema` keys that postdate the oldest documents, returning
+// a new object. Docs written before `schemaType`/`simple` existed hold a
+// three-key shape that means exactly what the five-key one means, so leaving
+// them unequal makes an untouched schema read as an edit.
+//
+// Applied to the feature on read and to every revision's metadata snapshot, so
+// the two always compare in the same spelling.
+export function normalizeJsonSchemaDef<T extends Partial<JSONSchemaDef>>(
+  jsonSchema: T,
+): T {
+  return {
+    ...jsonSchema,
+    schemaType: jsonSchema.schemaType || "schema",
+    simple: jsonSchema.simple || { type: "object", fields: [] },
+  };
+}
+
 // Non-rule backfills shared by v1 and v2 docs (`version`, `jsonSchema.*`).
 // Mutates and returns. Rules go through `upgradeFeatureRule` separately.
 export function applyNonRuleFeatureUpgrades<
@@ -409,26 +426,20 @@ export function applyNonRuleFeatureUpgrades<
   feature.version = feature.version || 1;
 
   if (feature.jsonSchema) {
-    feature.jsonSchema.schemaType = feature.jsonSchema.schemaType || "schema";
-    feature.jsonSchema.simple = feature.jsonSchema.simple || {
-      type: "object",
-      fields: [],
-    };
+    feature.jsonSchema = normalizeJsonSchemaDef(feature.jsonSchema);
   }
 
   return feature;
 }
 
-/**
- * v0 → v1 upgrade. Redistributes top-level rules into
- * `environmentSettings.{dev,production}.rules`, seeds `enabled` from the
- * legacy env list, promotes `draft` → `legacyDraft`, and applies rule and
- * non-rule backfills.
- *
- * CRITICAL: callers MUST discriminate v0 first (no `environmentSettings`).
- * Running this on a v1/v2 doc would redistribute legitimate v2 top-level
- * rules into v1-only storage.
- */
+// v0 → v1 upgrade. Redistributes top-level rules into
+// `environmentSettings.{dev,production}.rules`, seeds `enabled` from the
+// legacy env list, promotes `draft` → `legacyDraft`, and applies rule and
+// non-rule backfills.
+//
+// CRITICAL: callers MUST discriminate v0 first (no `environmentSettings`).
+// Running this on a v1/v2 doc would redistribute legitimate v2 top-level
+// rules into v1-only storage.
 export function upgradeV0Feature(
   feature: LegacyFeatureInterface,
 ): V1FeatureInterface {

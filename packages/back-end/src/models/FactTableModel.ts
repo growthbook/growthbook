@@ -1,6 +1,9 @@
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
-import { sqlReferencesColumn } from "shared/experiments";
+import {
+  getFactMetricColumnRefs,
+  sqlReferencesColumn,
+} from "shared/experiments";
 import { explorationConfigReferencesColumn } from "shared/enterprise";
 import { SqlIdentifierQuote } from "shared/types/sql";
 import { isEqual, omit } from "lodash";
@@ -877,21 +880,15 @@ export async function deleteColumn(
     context.models.factMetrics.getAll(),
   ]);
   const visibleFactMetricIds = new Set(visibleFactMetrics.map((m) => m.id));
-  const allDependentMetrics = allFactMetrics.filter(
-    (metric) =>
+  const allDependentMetrics = allFactMetrics.filter((metric) =>
+    getFactMetricColumnRefs(metric).some((columnRef) =>
       columnRefReferencesColumn(
-        metric.numerator,
+        columnRef,
         columnName,
         factTable,
         identifierQuote,
-      ) ||
-      (metric.denominator !== null &&
-        columnRefReferencesColumn(
-          metric.denominator,
-          columnName,
-          factTable,
-          identifierQuote,
-        )),
+      ),
+    ),
   );
   const dependentMetrics = allDependentMetrics.filter((m) =>
     visibleFactMetricIds.has(m.id),

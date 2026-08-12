@@ -13,6 +13,10 @@ import { useFeatureIsOn, useFeatureValue } from "@growthbook/growthbook-react";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
+import {
+  getDataRegionLabel,
+  DEFAULT_DATA_REGION,
+} from "@/services/dataRegions";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
 import { DocLink, DocSection } from "@/components/DocLink";
@@ -217,7 +221,7 @@ const DataSourcePage: FC = () => {
       )}
       <Flex align="center" justify="between">
         <Flex align="center" gap="3">
-          <Heading as="h1" size="xl" mb="0">
+          <Heading as="h1" size="xl" overflowWrap="anywhere" mb="0">
             {d.name}
           </Heading>
           <Badge
@@ -364,6 +368,12 @@ const DataSourcePage: FC = () => {
           <Text weight="medium">Type:</Text>{" "}
           {d.type === "growthbook_clickhouse" ? "managed" : d.type}
         </Text>
+        {d.type === "growthbook_clickhouse" && (
+          <Text color="text-mid">
+            <Text weight="medium">Region:</Text>{" "}
+            {getDataRegionLabel(d.settings.region ?? DEFAULT_DATA_REGION)}
+          </Text>
+        )}
         <Box>
           <Text color="text-mid" weight="medium">
             Fact Tables:

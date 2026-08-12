@@ -22,6 +22,7 @@ import { PiCaretRight, PiPause, PiPencilSimple, PiPlay } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import PremiumCallout from "@/ui/PremiumCallout";
+import SelectField from "@/components/Forms/SelectField";
 import BigQueryEventForwarderForm from "@/components/Settings/BigQueryEventForwarderForm";
 import SnowflakeEventForwarderForm from "@/components/Settings/SnowflakeEventForwarderForm";
 import { useEventForwarderAccessTest } from "@/components/Settings/useEventForwarderAccessTest";
@@ -41,6 +42,12 @@ import {
   PROVISIONING_TIMEOUT_MESSAGE,
   useEventForwarderProvisioningPoll,
 } from "@/components/Settings/EditDataSource/EventForwarder/useEventForwarderProvisioningPoll";
+import {
+  DEFAULT_DATA_REGION,
+  DataRegion,
+  getDataRegionLabel,
+  useDataRegionOptions,
+} from "@/services/dataRegions";
 
 type Props = {
   dataSource: DataSourceInterfaceWithParams;
@@ -120,6 +127,7 @@ function getEventForwarderDraft(
   if (existing?.sinkType === "bigquery") {
     return {
       sinkType: "bigquery",
+      region: existing.region,
       config: {
         projectId: existing.config.projectId,
         dataset: existing.config.dataset,
@@ -131,6 +139,7 @@ function getEventForwarderDraft(
   if (existing?.sinkType === "snowflake") {
     return {
       sinkType: "snowflake",
+      region: existing.region,
       config: {
         database: existing.config.database,
         schema: existing.config.schema,
@@ -150,6 +159,7 @@ function getEventForwarderDraft(
 
     return {
       sinkType: "bigquery",
+      region: "us-east-1",
       config: {
         projectId: params.defaultProject || params.projectId || "",
         dataset: params.defaultDataset || "",
@@ -162,6 +172,7 @@ function getEventForwarderDraft(
     const params = dataSource.params as SnowflakeConnectionParams;
     return {
       sinkType: "snowflake",
+      region: "us-east-1",
       config: {
         database: params.database || "",
         schema: params.schema || "",
@@ -323,6 +334,7 @@ function EventForwarderModal({
   const { apiCall } = useAuth();
   const isSubmittingRef = useRef(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const dataRegionOptions = useDataRegionOptions();
   const [datasourceDraft, setDatasourceDraft] =
     useState<EventForwarderDatasourceDraft>(() => ({
       type: dataSource.type as "bigquery" | "snowflake",
@@ -436,12 +448,32 @@ function EventForwarderModal({
                 setEventForwarderConfig={setEventForwarderConfig}
               />
             ) : null}
+            {eventForwarderConfig ? (
+              <SelectField
+                size="small"
+                legacyLabelFormatting={false}
+                label="Data region"
+                value={eventForwarderConfig.region ?? DEFAULT_DATA_REGION}
+                onChange={(value) => {
+                  setEventForwarderConfig({
+                    ...eventForwarderConfig,
+                    region: value as DataRegion,
+                  });
+                  setUsEventForwarderFlowConsent(false);
+                }}
+                disabled={isEditingEventForwarder}
+                options={dataRegionOptions}
+                helpText="Where the forwarder's Kafka/Confluent resources are provisioned. This cannot be changed later."
+              />
+            ) : null}
             <Callout status="info" mb="0" mt="3" icon={null}>
               <Checkbox
                 value={usEventForwarderFlowConsent}
                 setValue={setUsEventForwarderFlowConsent}
                 disabled={isEditingEventForwarder}
-                label="I understand that event data will flow through GrowthBook's US servers and confirm I'm authorized to enable this for my organization."
+                label={`I understand that event data will flow through GrowthBook's servers in ${getDataRegionLabel(
+                  eventForwarderConfig?.region ?? DEFAULT_DATA_REGION,
+                )} and confirm I'm authorized to enable this for my organization.`}
                 weight="regular"
               />
             </Callout>

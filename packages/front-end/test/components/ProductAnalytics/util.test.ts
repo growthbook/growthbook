@@ -4,8 +4,12 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import { ExplorationDataset } from "shared/validators";
-import { getCommonColumns } from "@/enterprise/components/ProductAnalytics/util";
+import { ExplorationConfig, ExplorationDataset } from "shared/validators";
+import {
+  getCommonColumns,
+  getColumnTopValues,
+  validateDimensions,
+} from "@/enterprise/components/ProductAnalytics/util";
 
 function makeColumn(overrides: Partial<ColumnInterface>): ColumnInterface {
   return {
@@ -219,5 +223,215 @@ describe("getCommonColumns", () => {
     expect(
       getCommonColumns(dataset, getFactTableById, getFactMetricById),
     ).toEqual([{ column: "country", name: "Country" }]);
+  });
+
+  it("excludes columns a ratio metric's denominator table can't resolve", () => {
+    const dataset: ExplorationDataset = {
+      type: "metric",
+      values: [
+        {
+          type: "metric",
+          name: "a",
+          rowFilters: [],
+          metricId: "met_a",
+          unit: null,
+          denominatorUnit: null,
+        },
+      ],
+    };
+
+    const numeratorFt = makeFactTable([
+      makeColumn({ column: "country", name: "Country" }),
+      makeColumn({ column: "browser", name: "Browser" }),
+    ]);
+    const denominatorFt = makeFactTable([
+      makeColumn({ column: "country", name: "Country" }),
+    ]);
+
+    const getFactTableById = (id: string) =>
+      id === "ft_numerator"
+        ? numeratorFt
+        : id === "ft_denominator"
+          ? denominatorFt
+          : null;
+    const getFactMetricById = () =>
+      ({
+        numerator: { factTableId: "ft_numerator" },
+        denominator: { factTableId: "ft_denominator" },
+      }) as FactMetricInterface;
+
+    expect(
+      getCommonColumns(dataset, getFactTableById, getFactMetricById),
+    ).toEqual([{ column: "country", name: "Country" }]);
+  });
+});
+
+describe("getColumnTopValues", () => {
+  it("returns empty when dataset or column is missing", () => {
+    const ft = makeFactTable([
+      makeColumn({ column: "country", topValues: ["US", "CA"] }),
+    ]);
+    expect(getColumnTopValues(null, "country", () => ft, noFactMetric)).toEqual(
+      [],
+    );
+    expect(
+      getColumnTopValues(factTableDataset(), null, () => ft, noFactMetric),
+    ).toEqual([]);
+  });
+
+  it("reads cached top values off the fact table for a fact_table dataset", () => {
+    const ft = makeFactTable([
+      makeColumn({ column: "country", topValues: ["US", "CA"] }),
+    ]);
+    expect(
+      getColumnTopValues(factTableDataset(), "country", () => ft, noFactMetric),
+    ).toEqual(["US", "CA"]);
+  });
+
+  it("returns empty for a data_source dataset (no cached column metadata)", () => {
+    const dataset: ExplorationDataset = {
+      type: "data_source",
+      table: "events",
+      path: "events",
+      timestampColumn: "timestamp",
+      columnTypes: { country: "string" },
+      values: [
+        {
+          type: "data_source",
+          name: "value",
+          rowFilters: [],
+          valueType: "count",
+          valueColumn: null,
+          unit: null,
+        },
+      ],
+    };
+    expect(
+      getColumnTopValues(dataset, "country", () => null, noFactMetric),
+    ).toEqual([]);
+  });
+
+  it("unions top values across every metric's fact table for a metric dataset", () => {
+    const dataset: ExplorationDataset = {
+      type: "metric",
+      values: [
+        {
+          type: "metric",
+          name: "a",
+          rowFilters: [],
+          metricId: "met_a",
+          unit: null,
+          denominatorUnit: null,
+        },
+        {
+          type: "metric",
+          name: "b",
+          rowFilters: [],
+          metricId: "met_b",
+          unit: null,
+          denominatorUnit: null,
+        },
+      ],
+    };
+
+    const ftA = makeFactTable([
+      makeColumn({ column: "country", topValues: ["US", "CA"] }),
+    ]);
+    const ftB = makeFactTable([
+      makeColumn({ column: "country", topValues: ["CA", "MX"] }),
+    ]);
+
+    const getFactTableById = (id: string) =>
+      id === "ft_a" ? ftA : id === "ft_b" ? ftB : null;
+    const getFactMetricById = (id: string) =>
+      ({
+        numerator: { factTableId: id === "met_a" ? "ft_a" : "ft_b" },
+      }) as FactMetricInterface;
+
+    expect(
+      getColumnTopValues(
+        dataset,
+        "country",
+        getFactTableById,
+        getFactMetricById,
+      ).sort(),
+    ).toEqual(["CA", "MX", "US"]);
+  });
+});
+
+describe("validateDimensions", () => {
+  function makeConfig(
+    dimensions: ExplorationConfig["dimensions"],
+  ): ExplorationConfig {
+    return {
+      type: "fact_table",
+      datasource: "ds_1",
+      dataset: {
+        type: "fact_table",
+        factTableId: "ft_1",
+        values: [
+          {
+            type: "fact_table",
+            name: "value",
+            rowFilters: [],
+            valueType: "count",
+            valueColumn: null,
+            unit: null,
+          },
+        ],
+      },
+      dimensions,
+      chartType: "bar",
+      dateRange: { predefined: "last7Days" },
+    };
+  }
+
+  it("keeps a static dimension pinned on a JSON dot-notation column", () => {
+    const ft = makeFactTable([
+      makeColumn({
+        column: "props",
+        name: "Props",
+        datatype: "json",
+        jsonFields: { plan: { datatype: "string" } },
+      }),
+    ]);
+    const config = makeConfig([
+      { dimensionType: "static", column: "props.plan", values: ["pro"] },
+    ]);
+
+    expect(
+      validateDimensions(config, () => ft, noFactMetric).dimensions,
+    ).toEqual(config.dimensions);
+  });
+
+  it("keeps a dynamic dimension pinned on a JSON dot-notation column", () => {
+    const ft = makeFactTable([
+      makeColumn({
+        column: "props",
+        name: "Props",
+        datatype: "json",
+        jsonFields: { plan: { datatype: "string" } },
+      }),
+    ]);
+    const config = makeConfig([
+      { dimensionType: "dynamic", column: "props.plan", maxValues: 5 },
+    ]);
+
+    expect(
+      validateDimensions(config, () => ft, noFactMetric).dimensions,
+    ).toEqual(config.dimensions);
+  });
+
+  it("drops a dimension whose column no longer exists on the fact table", () => {
+    const ft = makeFactTable([
+      makeColumn({ column: "country", name: "Country" }),
+    ]);
+    const config = makeConfig([
+      { dimensionType: "static", column: "removed_column", values: ["x"] },
+    ]);
+
+    expect(
+      validateDimensions(config, () => ft, noFactMetric).dimensions,
+    ).toEqual([]);
   });
 });

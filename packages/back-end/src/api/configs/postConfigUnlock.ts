@@ -7,15 +7,18 @@ export const unlockConfig = createApiRequestHandler(unlockConfigValidator)(
   async (req) => {
     const config = await req.context.models.configs.getByKey(req.params.key);
     if (!config) {
-      throw new NotFoundError(`Unable to locate the config: ${req.params.key}`);
+      throw new NotFoundError(`Unable to locate the Config: ${req.params.key}`);
     }
 
-    // Unlocking is the gated action: it requires the elevated bypassApprovalChecks
+    // Unlocking is the gated action: it requires the elevated FlagsBypassApprovals
     // permission (the same trust that skips the review queue), not just edit access.
     if (
-      !req.context.permissions.canBypassApprovalChecks({
-        project: config.project || "",
-      })
+      !req.context.permissions.canBypassFlagApprovalChecks(
+        {
+          project: config.project || "",
+        },
+        "config",
+      )
     ) {
       req.context.permissions.throwPermissionError();
     }

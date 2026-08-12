@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useMemo } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { MemberRoleInfo } from "shared/types/organization";
 import uniqid from "uniqid";
 import {
@@ -179,10 +179,13 @@ export default function SingleRoleSelector({
         </PremiumCallout>
       )}
 
+      {/* A single-environment org has nothing to restrict, so the control is
+          hidden — but a limit already stored (e.g. carried over from a role that
+          supported one) must stay switchable, or there is no way to turn it off. */}
       {roleSupportsEnvLimit(value.role, organization) &&
-        envOptions.length > 1 && (
+        (envOptions.length > 1 || value.limitAccessByEnvironment) && (
           <div>
-            <div className="form-group">
+            <Box mb="4">
               <Flex align="center" gap="2">
                 <Switch
                   disabled={!hasFeature}
@@ -201,7 +204,7 @@ export default function SingleRoleSelector({
                   </PremiumTooltip>
                 </label>
               </Flex>
-            </div>
+            </Box>
             {value.limitAccessByEnvironment && (
               <MultiSelectField
                 legacyHeight

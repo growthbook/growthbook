@@ -61,7 +61,7 @@ export function getInsertAggregatedFactTableDataQuery(
   // Per-metric column shape, computed once so the partial / merge / final
   // projections stay aligned.
   const metricCols = sortedMetrics.map((metric, index) => {
-    const includeNumerator = metric.numerator.factTableId === factTable.id;
+    const includeNumerator = metric.numerator?.factTableId === factTable.id;
     const includeDenominator =
       isRatioMetric(metric) && metric.denominator?.factTableId === factTable.id;
     const enc = encodeMetricIdForColumnName(metric.id);
@@ -101,7 +101,7 @@ export function getInsertAggregatedFactTableDataQuery(
       // the paired count; otherwise COUNT the contributing values.
       const nEventsCol =
         numeratorMeta && quantileMetricType(metric) === "event"
-          ? metric.numerator.aggregation === "kll merge"
+          ? metric.numerator?.aggregation === "kll merge"
             ? `, SUM(COALESCE(m${index}_n_events, 0)) AS ${enc}_n_events`
             : `, COUNT(m${index}_value) AS ${enc}_n_events`
           : "";

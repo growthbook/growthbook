@@ -1,11 +1,13 @@
 import { formatInTimeZone } from "date-fns-tz";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import {
-  buildComparisonDateRange,
+  buildComparisonDateRangeForMode,
   calculateProductAnalyticsDateRange,
   createComparisonAlignmentResolver,
 } from "shared/enterprise";
+import type { ComparisonAlignmentStrategy } from "shared/enterprise";
 import type {
+  ComparisonMode,
   ExplorationConfig,
   ProductAnalyticsExploration,
   ProductAnalyticsResultRow,
@@ -66,10 +68,12 @@ export function formatExplorerDateRangeHeading(dr: {
 export function getComparisonPeriodLabels(
   dateRange: ExplorationConfig["dateRange"],
   explicitPreviousDateRange?: ExplorationConfig["dateRange"],
+  mode: ComparisonMode = "previousPeriod",
 ): { currentLabel: string; previousLabel: string } {
   const currentDr = calculateProductAnalyticsDateRange(dateRange);
   const prevDr = calculateProductAnalyticsDateRange(
-    explicitPreviousDateRange ?? buildComparisonDateRange(dateRange),
+    explicitPreviousDateRange ??
+      buildComparisonDateRangeForMode(dateRange, mode),
   );
   return {
     currentLabel: formatExplorerDateRangeHeading(currentDr),
@@ -267,11 +271,13 @@ export function getAlignedComparisonDimensionKeyForTooltip(
   comparisonXValues: readonly string[],
   currentKey: string,
   firstDimensionIsDate: boolean,
+  strategy?: ComparisonAlignmentStrategy,
 ): string | undefined {
   return createComparisonAlignmentResolver(
     sortedXValues,
     comparisonXValues,
     firstDimensionIsDate,
+    strategy,
   )(currentKey);
 }
 
@@ -293,12 +299,14 @@ export function alignComparisonOverlayToCategories(
   sortedSeriesKeys: string[],
   comparisonXValues: string[],
   firstDimensionIsDate: boolean,
+  strategy?: ComparisonAlignmentStrategy,
 ): Record<string, Record<string, number>> {
   const aligned: Record<string, Record<string, number>> = {};
   const resolveComparisonKey = createComparisonAlignmentResolver(
     sortedXValues,
     comparisonXValues,
     firstDimensionIsDate,
+    strategy,
   );
 
   for (const seriesKey of sortedSeriesKeys) {
@@ -306,6 +314,8 @@ export function alignComparisonOverlayToCategories(
     aligned[seriesKey] = {};
     for (const x of sortedXValues) {
       const compKey = resolveComparisonKey(x);
+      // Buckets past the end of a shorter comparison window read as zero, same
+      // as a matched bucket the comparison simply had no rows in.
       aligned[seriesKey][x] = compKey !== undefined ? (src[compKey] ?? 0) : 0;
     }
   }
@@ -497,6 +507,7 @@ export function buildAlignedComparisonOverlayForExplorer(args: {
   renderOpts: RenderOpts;
   sortedSeriesKeys: string[];
   firstDimensionIsDate: boolean;
+  comparisonAlignment?: ComparisonAlignmentStrategy;
 }): {
   alignedMap: Record<string, Record<string, number>>;
   comparisonXValues: string[];
@@ -514,6 +525,7 @@ export function buildAlignedComparisonOverlayForExplorer(args: {
     args.sortedSeriesKeys,
     comparisonXValues,
     args.firstDimensionIsDate,
+    args.comparisonAlignment,
   );
   return { alignedMap, comparisonXValues };
 }
@@ -1137,6 +1149,7 @@ type BuildExplorerChartTooltipFormatterArgs = {
   sortedXValues: string[];
   seriesConfigsLength: number;
   formatNumber: (value: number) => string;
+  comparisonAlignment?: ComparisonAlignmentStrategy;
 };
 
 export function buildExplorerChartTooltipFormatter({
@@ -1150,6 +1163,7 @@ export function buildExplorerChartTooltipFormatter({
   sortedXValues,
   seriesConfigsLength,
   formatNumber,
+  comparisonAlignment,
 }: BuildExplorerChartTooltipFormatterArgs):
   | ((params: unknown) => string)
   | undefined {
@@ -1201,6 +1215,7 @@ export function buildExplorerChartTooltipFormatter({
             alignedComparisonOverlay.comparisonXValues,
             currentX,
             firstDimensionIsDate,
+            comparisonAlignment,
           );
           const currentFormatted = formatDateByGranularity(
             new Date(currentX),

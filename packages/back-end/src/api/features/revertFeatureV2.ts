@@ -19,5 +19,6 @@ export const revertFeatureV2 = createApiRequestHandler(
   );
   return {
     feature: await resolveOwnerEmail(getApiFeatureObjV2(data), req.context),
+    ...(data.bypassedGates.length ? { bypassedGates: data.bypassedGates } : {}),
   };
 });
