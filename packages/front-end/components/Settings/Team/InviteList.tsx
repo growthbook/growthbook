@@ -61,7 +61,6 @@ const InviteList: FC<{
         color="gray"
         highContrast
         aria-label="Close"
-        style={{ float: "right" }}
         onClick={() => setResendMessage(null)}
       >
         <PiX />
@@ -83,15 +82,13 @@ const InviteList: FC<{
 
       if (status !== 200) {
         setResendMessage(
-          <Callout status="error">
-            {dismissButton}
+          <Callout status="error" action={dismissButton}>
             {message || "Error re-sending the invitation"}
           </Callout>,
         );
       } else if (!emailSent) {
         setResendMessage(
-          <Callout status="info">
-            {dismissButton}
+          <Callout status="info" action={dismissButton}>
             <p>
               Failed to send email to <strong>{email}</strong>. You can manually
               send them the following invite link:
@@ -104,8 +101,7 @@ const InviteList: FC<{
       }
     } catch (e) {
       setResendMessage(
-        <Callout status="error">
-          {dismissButton}
+        <Callout status="error" action={dismissButton}>
           {e.message}
         </Callout>,
       );
