@@ -330,6 +330,26 @@ const postBulkImportFactsBody = z
                     "If true and capping is `percentile`, zeros will be ignored when calculating the percentile.",
                   )
                   .optional(),
+                lowerCappingSettings: z
+                  .object({
+                    type: z.enum(["none", "absolute", "percentile"]),
+                    value: z
+                      .number()
+                      .describe(
+                        "When type is absolute, this is the lower bound. When type is percentile, this is the lower percentile (from 0.0 to 1.0).",
+                      )
+                      .optional(),
+                    ignoreZeros: z
+                      .boolean()
+                      .describe(
+                        "If true and capping is `percentile`, zeros will be ignored when calculating the percentile.",
+                      )
+                      .optional(),
+                  })
+                  .describe(
+                    "Independent lower-tail (negative-value) capping settings. Configured separately from the upper tail, so the type can differ.",
+                  )
+                  .optional(),
               })
               .describe("Controls how outliers are handled")
               .optional(),

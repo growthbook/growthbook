@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { updateFactMetricValidator } from "shared/validators";
+import {
+  getCappingTailState,
+  updateFactMetricValidator,
+} from "shared/validators";
 import {
   FactMetricInterface,
   FactMetricType,
@@ -100,6 +103,33 @@ export async function getUpdateFactMetricPropsFromBody(
       ignoreZeros:
         cappingSettings.ignoreZeros ?? factMetric.cappingSettings.ignoreZeros,
     };
+
+    // Independent lower-tail capping (own type/value/ignoreZeros).
+    const lowerCappingSettings = cappingSettings.lowerCappingSettings;
+    if (lowerCappingSettings !== undefined) {
+      const prevLower = factMetric.lowerCappingSettings;
+      const lowerType =
+        lowerCappingSettings.type === "none" ? "" : lowerCappingSettings.type;
+      const lowerValue = lowerCappingSettings.value ?? prevLower?.value ?? 0;
+      const lowerTails = getCappingTailState(undefined, {
+        type: lowerType,
+        value: lowerValue,
+      });
+      if (lowerTails.lowerPercentileCapped || lowerTails.lowerAbsoluteCapped) {
+        updates.lowerCappingSettings = {
+          type: lowerType,
+          value: lowerValue,
+          ignoreZeros: lowerTails.lowerPercentileCapped
+            ? (lowerCappingSettings.ignoreZeros ??
+              prevLower?.ignoreZeros ??
+              false)
+            : false,
+        };
+      } else {
+        // Explicitly clear the lower tail when disabled.
+        updates.lowerCappingSettings = null;
+      }
+    }
   }
   if (windowSettings) {
     updates.windowSettings = {

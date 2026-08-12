@@ -83,17 +83,34 @@ export function getMetricAnalysisQuery(
   const finalValueColumn = capCoalesceValue(dialect, {
     valueCol: "value",
     metric,
-    capTablePrefix: "cap",
+    capTablePrefix: "cap_upper",
+    lowerCapTablePrefix: metricData.isLowerPercentileCapped
+      ? "cap_lower"
+      : undefined,
     capValueCol: "value_capped",
+    lowerCapValueCol: "value_capped_lower",
     columnRef: metric.numerator,
   });
   const finalDenominatorColumn = capCoalesceValue(dialect, {
     valueCol: "denominator",
     metric,
-    capTablePrefix: "cap",
+    capTablePrefix: "cap_upper",
+    lowerCapTablePrefix: metricData.isLowerPercentileCapped
+      ? "cap_lower"
+      : undefined,
     capValueCol: "denominator_capped",
+    lowerCapValueCol: "denominator_capped_lower",
     columnRef: metric.denominator,
   });
+
+  const metricAnalysisCapJoins = [
+    metricData.isUpperPercentileCapped ? "CROSS JOIN __capValue cap_upper" : "",
+    metricData.isLowerPercentileCapped
+      ? "CROSS JOIN __capValueLower cap_lower"
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n          ");
 
   const populationSQL = getMetricAnalysisPopulationCTEs(dialect, {
     populationExposureQuery: params.populationExposureQuery,
@@ -172,7 +189,7 @@ export function getMetricAnalysisQuery(
             ${baseIdType}
         )
         ${
-          metricData.isPercentileCapped
+          metricData.isUpperPercentileCapped
             ? `
         , __capValue AS (
             ${dialect.percentileCapSelectClause(
@@ -194,6 +211,43 @@ export function getMetricAnalysisQuery(
                           metricData.metric.cappingSettings.value ?? 1,
                         ignoreZeros:
                           metricData.metric.cappingSettings.ignoreZeros ??
+                          false,
+                        sourceIndex: metricData.denominatorSourceIndex,
+                      },
+                    ]
+                  : []),
+              ],
+              "__userMetricOverall",
+            )}
+        )
+        `
+            : ""
+        }
+        ${
+          metricData.isLowerPercentileCapped
+            ? `
+        , __capValueLower AS (
+            ${dialect.percentileCapSelectClause(
+              [
+                {
+                  valueCol: "value",
+                  outputCol: "value_capped_lower",
+                  percentile:
+                    metricData.metric.lowerCappingSettings?.value ?? 0,
+                  ignoreZeros:
+                    metricData.metric.lowerCappingSettings?.ignoreZeros ??
+                    false,
+                  sourceIndex: metricData.numeratorSourceIndex,
+                },
+                ...(metricData.ratioMetric
+                  ? [
+                      {
+                        valueCol: "denominator",
+                        outputCol: "denominator_capped_lower",
+                        percentile:
+                          metricData.metric.lowerCappingSettings?.value ?? 0,
+                        ignoreZeros:
+                          metricData.metric.lowerCappingSettings?.ignoreZeros ??
                           false,
                         sourceIndex: metricData.denominatorSourceIndex,
                       },
@@ -230,7 +284,7 @@ export function getMetricAnalysisQuery(
                 : ""
             }
           FROM __userMetricDaily
-          ${metricData.isPercentileCapped ? "CROSS JOIN __capValue cap" : ""}
+          ${metricAnalysisCapJoins}
           GROUP BY date
         )
         , __statisticsOverall AS (
@@ -255,7 +309,7 @@ export function getMetricAnalysisQuery(
                 : ""
             }
           FROM __userMetricOverall
-        ${metricData.isPercentileCapped ? "CROSS JOIN __capValue cap" : ""}
+          ${metricAnalysisCapJoins}
         )
         ${
           createHistogram
