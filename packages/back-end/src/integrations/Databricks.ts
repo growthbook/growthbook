@@ -12,8 +12,11 @@ export default class Databricks extends SqlIntegration {
   requiresDatabase = true;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params =
+    const params =
       decryptDataSourceParams<DatabricksConnectionParams>(encryptedParams);
+    // Legacy rows predate authType and are always PAT
+    params.authType = params.authType ?? "pat";
+    this.params = params;
   }
   getSqlDialect(): SqlDialect {
     return databricksDialect;
@@ -31,10 +34,6 @@ export default class Databricks extends SqlIntegration {
     return databricksCreateTableOptions(
       this.datasource.settings.pipelineSettings,
     );
-  }
-  getSensitiveParamKeys(): string[] {
-    const sensitiveKeys: (keyof DatabricksConnectionParams)[] = ["token"];
-    return sensitiveKeys;
   }
   runQuery(sql: string): Promise<QueryResponse> {
     return runDatabricksQuery(this.params, sql);

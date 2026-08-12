@@ -1,8 +1,8 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Modal from "@/components/Modal";
 import track from "@/services/track";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import TagsInput from "./TagsInput";
 
 const EditTagsForm: FC<{
@@ -21,10 +21,10 @@ const EditTagsForm: FC<{
   });
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="edit-tags-form"
       trackingEventModalSource={source}
-      header={"Edit Tags"}
+      header="Edit Tags"
       open={true}
       close={cancel}
       submit={form.handleSubmit(async (data) => {
@@ -43,7 +43,7 @@ const EditTagsForm: FC<{
         onChange={(tags) => form.setValue("tags", tags)}
       />
       <div style={{ height: 200 }} />
-    </Modal>
+    </ModalStandard>
   );
 };
 

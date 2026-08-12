@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef } from "react";
+import isEqual from "lodash/isEqual";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   Environment,
   NamespaceUsage,
@@ -25,16 +26,35 @@ import { FeatureUsageRecords } from "shared/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
 import {
   featureHasEnvironment,
+  filterEnvironmentsByFeature,
   generateVariationId,
-  getMatchingRules,
+  getNewDraftExperimentsToPublish,
+  getRulesForEnvironment,
   validateAndFixCondition,
   validateFeatureValue,
+  categorizeUnregisteredAttributes,
+  extractConditionAttributeKeys,
+  getRequireRegisteredAttributesSettings,
+  formatJsonMultilineObjects,
+  getTargetingProjectIds,
+  type MergeResultChanges,
+  type RequireRegisteredAttributesSettings,
 } from "shared/util";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import isEqual from "lodash/isEqual";
-import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
-import { SafeRolloutRule } from "shared/validators";
+import {
+  HoldoutInterface,
+  RevisionRampAction,
+  SafeRolloutRule,
+} from "shared/validators";
+import {
+  featurePublishFootprint,
+  rampActionFootprint,
+  servingEnvironments,
+  holdoutEnvsForChange,
+  HOLDOUT_ENVS_UNRESOLVED,
+} from "shared/permissions";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { getFutureScheduledStartDate } from "@/services/experiments";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
@@ -43,12 +63,7 @@ import useApi from "@/hooks/useApi";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useUser } from "@/services/UserContext";
 import { ALL_COUNTRY_CODES } from "@/components/Forms/CountrySelector";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import {
-  CheckListItem,
-  getChecklistItems,
-} from "@/components/Experiment/PreLaunchChecklist";
-import { SafeRolloutRuleCreateFields } from "@/components/Features/RuleModal";
+import type { SafeRolloutRuleCreateFields } from "@/components/Features/RuleModal";
 import { useDefinitions } from "./DefinitionsContext";
 
 export { generateVariationId } from "shared/util";
@@ -89,6 +104,51 @@ export type NewExperimentRefRule = {
   type: "experiment-ref-new";
   name: string;
 } & Omit<ExperimentRule, "type">;
+
+// Sentinel for the "All environments" tab; a non-empty string keeps Radix
+// Tabs in controlled mode.
+export const FEATURE_RULES_ALL_ENVS = "__all__";
+
+// Persists the selected env tab across page loads; applies any org-level
+// `preferredEnvironment` on first visit. Returns `null` for "All environments".
+export function useFeatureRulesEnv(): [
+  string | null,
+  (v: string | null) => void,
+] {
+  const [stored, setStored] = useLocalStorage<string>(
+    "featureRulesEnv",
+    FEATURE_RULES_ALL_ENVS,
+  );
+  const { settings } = useUser();
+  const environments = useEnvironments();
+  const hasApplied = useRef(false);
+
+  useEffect(() => {
+    if (hasApplied.current) return;
+    if (!settings) return;
+    hasApplied.current = true;
+
+    const preferred = settings.preferredEnvironment;
+    // Empty string means "remember previous" — leave localStorage untouched.
+    if (!preferred) return;
+    // __all__ is a valid stored value.
+    if (preferred === FEATURE_RULES_ALL_ENVS) {
+      setStored(FEATURE_RULES_ALL_ENVS);
+      return;
+    }
+    // Only apply a specific env if it actually exists in the org.
+    if (environments.some((e) => e.id === preferred)) {
+      setStored(preferred);
+    }
+  }, [settings, environments, setStored]);
+
+  const setEnv = useCallback(
+    (v: string | null) => setStored(v ?? FEATURE_RULES_ALL_ENVS),
+    [setStored],
+  );
+
+  return [stored === FEATURE_RULES_ALL_ENVS ? null : stored, setEnv];
+}
 
 export function useEnvironmentState() {
   const [state, setState] = useLocalStorage("currentEnvironment", "dev");
@@ -153,6 +213,10 @@ export function useFeatureSearch({
   environmentStatus,
   draftStates,
   staleStates,
+  rampStates,
+  dependencyIndex,
+  experimentStates,
+  contentSearchPrefixes = [],
 }: {
   allFeatures: FeatureInterface[];
   defaultSortField?:
@@ -175,9 +239,20 @@ export function useFeatureSearch({
       envResults?: Record<string, { stale: boolean }>;
     }
   >;
+  rampStates?: Record<string, unknown>;
+  dependencyIndex?: Set<string> | null;
+  experimentStates?: Record<string, { hasTempRollout: boolean }>;
+  contentSearchPrefixes?: string[];
 }) {
+  const syntaxFilterPassthrough = useCallback(
+    (field: string, value: string) => {
+      if (field !== "has") return false;
+      return contentSearchPrefixes.some((prefix) => value.startsWith(prefix));
+    },
+    [contentSearchPrefixes],
+  );
   const { getOwnerDisplay } = useUser();
-  const { getProjectById } = useDefinitions();
+  const { getProjectById, projects } = useDefinitions();
 
   const features = useAddComputedFields(
     allFeatures,
@@ -200,8 +275,21 @@ export function useFeatureSearch({
     defaultSortField: defaultSortField,
     searchFields: ["id^3", "description"],
     filterResults,
+    syntaxFilterPassthrough,
     updateSearchQueryOnChange: true,
     localStorageKey: localStorageKey,
+    // These back the `has`/`is`/`on`/`off` filters below and load asynchronously;
+    // listing them keeps results from going stale when the data arrives.
+    searchTermFilterDeps: [
+      environmentStatus,
+      draftStates,
+      staleStates,
+      rampStates,
+      dependencyIndex,
+      experimentStates,
+      projects,
+      getProjectById,
+    ],
     searchTermFilters: {
       is: (item) => {
         const is: string[] = [item.valueType];
@@ -231,18 +319,30 @@ export function useFeatureSearch({
           );
           if (hasSomeStaleEnvs) has.push("stale-env");
         }
-
-        // TODO: restore has:experiment/rollout/force/rule/prerequisites/savedgroup filters
-        // once rules are denormalized to a top-level rules[] field with an `environments`
-        // property (collapsing per-environment rules into a single scannable array).
-
+        const meta = item as FeatureInterface & {
+          hasPrerequisites?: boolean;
+          hasSavedGroups?: boolean;
+        };
+        if (meta.hasPrerequisites) has.push("prerequisites");
+        if (meta.hasSavedGroups) has.push("savedgroup", "savedgroups");
+        if (item.linkedExperiments?.length) has.push("experiments");
+        if (rampStates?.[item.id]) has.push("ramp-schedule");
+        if (dependencyIndex?.has(item.id)) has.push("dependents");
+        const expState = experimentStates?.[item.id];
+        if (expState?.hasTempRollout) has.push("temp-rollout");
         return has;
       },
       key: (item) => item.id,
-      project: (item: ComputedFeatureInterface) => [
-        item.project,
-        item.projectName,
-      ],
+      // Match the governance project plus any targeting projects (all
+      // projects when targetingAllProjects), by id and resolved name, so
+      // `project:` discovery mirrors where the feature is actually delivered.
+      project: (item: ComputedFeatureInterface) => {
+        const ids = getTargetingProjectIds(item) ?? projects.map((p) => p.id);
+        return [
+          ...ids,
+          ...ids.map((id) => (id ? getProjectById(id)?.name : undefined)),
+        ];
+      },
       created: (item) => new Date(item.dateCreated),
       updated: (item) => new Date(item.dateUpdated),
       experiment: (item) => item.linkedExperiments || [],
@@ -270,7 +370,7 @@ export function useFeatureSearch({
 }
 
 export function getRules(feature: FeatureInterface, environment: string) {
-  return feature?.environmentSettings?.[environment]?.rules ?? [];
+  return getRulesForEnvironment(feature.rules, environment);
 }
 export function getFeatureDefaultValue(feature: {
   defaultValue?: string;
@@ -321,12 +421,12 @@ export function formatJSON(value: string): string | undefined {
     // Use dirty-json for small files to handle malformed JSON
     try {
       const parsed = dJSON.parse(value);
-      formatted = stringify(parsed);
+      formatted = formatJsonMultilineObjects(parsed);
     } catch (e) {
       // Fallback to native JSON.parse if dirty-json fails
       try {
         const parsed = JSON.parse(value);
-        formatted = stringify(parsed);
+        formatted = formatJsonMultilineObjects(parsed);
       } catch (e2) {
         // Ignore
       }
@@ -335,7 +435,7 @@ export function formatJSON(value: string): string | undefined {
     // For medium+ files, only use native JSON.parse (much faster)
     try {
       const parsed = JSON.parse(value);
-      formatted = stringify(parsed);
+      formatted = formatJsonMultilineObjects(parsed);
     } catch (e) {
       // Invalid JSON - skip formatting to avoid blocking UI
     }
@@ -527,9 +627,94 @@ export function useAttributeSchema(
   }, [attributeSchema, showArchived, projectFilter]);
 }
 
+// Shared formatter so the client-side pre-flight error matches the back-end
+// BadRequestError message byte-for-byte. Mirrors
+// `formatUnregisteredAttributesError` in back-end/src/services/attributes.ts.
+function formatUnregisteredAttributesError(
+  label: string,
+  buckets: { unknown: string[]; outOfProject: string[] },
+): string {
+  const parts: string[] = [];
+  if (buckets.unknown.length) {
+    const quoted = buckets.unknown.map((k) => `"${k}"`).join(", ");
+    parts.push(`Unknown attribute key(s) on ${label}: ${quoted}.`);
+  }
+  if (buckets.outOfProject.length) {
+    const quoted = buckets.outOfProject.map((k) => `"${k}"`).join(", ");
+    parts.push(
+      `Attribute key(s) are not part of this project's scope: ${quoted}.`,
+    );
+  }
+  return parts.join("\n");
+}
+
+type AttributeParts = {
+  hashAttribute?: string;
+  fallbackAttribute?: string;
+  condition?: string;
+};
+
+// Accepts either the raw org setting (legacy boolean | new object) or the
+// already-normalized RequireRegisteredAttributesSettings, so callers can
+// pass `useOrgSettings().requireRegisteredAttributes` directly without
+// repeating the normalization at every call site.
+type RawRequireRegistered =
+  | boolean
+  | RequireRegisteredAttributesSettings
+  | undefined
+  | null;
+
+export function validateUnregisteredAttributes(
+  parts: AttributeParts,
+  label: string,
+  options: {
+    attributeSchema?: SDKAttributeSchema;
+    requireRegisteredAttributes?: RawRequireRegistered;
+    project?: string;
+  },
+  existingParts?: AttributeParts,
+): void {
+  const { isOn, requireProjectScoping } =
+    getRequireRegisteredAttributesSettings(options.requireRegisteredAttributes);
+  if (!isOn) return;
+
+  const changed = (field: keyof AttributeParts): boolean =>
+    !!parts[field] && (!existingParts || parts[field] !== existingParts[field]);
+
+  const keys: string[] = [];
+  if (changed("hashAttribute")) keys.push(parts.hashAttribute!);
+  if (changed("fallbackAttribute")) keys.push(parts.fallbackAttribute!);
+  if (changed("condition") && parts.condition !== "{}") {
+    try {
+      keys.push(...extractConditionAttributeKeys(JSON.parse(parts.condition!)));
+    } catch {
+      // Unparseable condition — `validateAndFixCondition` / `validateCondition`
+      // elsewhere will surface JSON errors.
+      return;
+    }
+  }
+  if (!keys.length) return;
+  // Only narrow by project when the org has opted into project-scope checks.
+  // Without this gate, a registered-but-out-of-project attribute would be
+  // surfaced as `outOfProject` even though the back-end would happily save it.
+  const buckets = categorizeUnregisteredAttributes(
+    keys,
+    options.attributeSchema,
+    requireProjectScoping ? options.project : undefined,
+  );
+  if (buckets.unknown.length || buckets.outOfProject.length) {
+    throw new Error(formatUnregisteredAttributesError(label, buckets));
+  }
+}
+
 export function validateFeatureRule(
   rule: FeatureRule,
-  feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
+  feature: Pick<FeatureInterface, "valueType" | "jsonSchema" | "project">,
+  options: {
+    attributeSchema?: SDKAttributeSchema;
+    requireRegisteredAttributes?: RawRequireRegistered;
+  } = {},
+  existingRule?: FeatureRule,
 ): null | FeatureRule {
   let hasChanges = false;
   const ruleCopy = cloneDeep(rule);
@@ -546,6 +731,30 @@ export function validateFeatureRule(
       false,
     );
   }
+
+  // Opt-in client-side pre-flight — same rules as the back-end, same error
+  // wording. Keeps the user from burning a round-trip on a typo. Only validates
+  // fields that changed from existingRule so pre-existing violations don't
+  // block unrelated edits.
+  validateUnregisteredAttributes(
+    {
+      hashAttribute: (ruleCopy as { hashAttribute?: string }).hashAttribute,
+      fallbackAttribute: (ruleCopy as { fallbackAttribute?: string })
+        .fallbackAttribute,
+      condition: ruleCopy.condition,
+    },
+    "rule",
+    { ...options, project: feature.project },
+    existingRule
+      ? {
+          hashAttribute: (existingRule as { hashAttribute?: string })
+            .hashAttribute,
+          fallbackAttribute: (existingRule as { fallbackAttribute?: string })
+            .fallbackAttribute,
+          condition: existingRule.condition,
+        }
+      : undefined,
+  );
   if (rule.prerequisites) {
     if (rule.prerequisites.some((p) => !p.id)) {
       throw new Error("Cannot have empty prerequisites");
@@ -599,6 +808,20 @@ export function validateFeatureRule(
       if (newValue !== v.value) {
         hasChanges = true;
         (ruleCopy as ExperimentRefRule).variations[i].value = newValue;
+      }
+    });
+  } else if (rule.type === "contextual-bandit-ref") {
+    rule.variations.forEach((v, i) => {
+      const newValue = validateFeatureValue(
+        feature,
+        v.value,
+        "Variation #" + i,
+      );
+      if (newValue !== v.value) {
+        hasChanges = true;
+        (ruleCopy as unknown as { variations: { value: string }[] }).variations[
+          i
+        ].value = newValue;
       }
     });
   } else if (rule.type === "safe-rollout") {
@@ -675,20 +898,105 @@ export function getDefaultValue(valueType: FeatureValueType): string {
   return "";
 }
 
-export function getAffectedRevisionEnvs(
-  liveFeature: FeatureInterface,
-  revision: FeatureRevisionInterface,
-  environments: Environment[],
-): string[] {
-  const enabledEnvs = getEnabledEnvironments(liveFeature, environments);
-  if (revision.defaultValue !== liveFeature.defaultValue) return enabledEnvs;
-
-  return enabledEnvs.filter((env) => {
-    const liveRules = liveFeature.environmentSettings?.[env]?.rules || [];
-    const revisionRules = revision.rules?.[env] || [];
-
-    return !isEqual(liveRules, revisionRules);
+/** Computes the client-side publish footprint using shared server rules. */
+export function getRevisionPublishEnvs({
+  liveFeature,
+  changes,
+  environments,
+  holdoutsMap,
+  rampActions,
+}: {
+  liveFeature: FeatureInterface;
+  changes: MergeResultChanges;
+  environments: Environment[];
+  holdoutsMap: Map<string, HoldoutInterface>;
+  /** Revision ramp actions, which are not part of the merge result. */
+  rampActions?: RevisionRampAction[];
+}): string[] {
+  const environmentIds = environments.map((e) => e.id);
+  const holdout = holdoutEnvsForChange({
+    currentHoldoutId: liveFeature.holdout?.id,
+    newHoldout: changes.holdout,
+    environmentIds,
+    resolve: (id) => holdoutsMap.get(id),
   });
+
+  const base = featurePublishFootprint({
+    feature: liveFeature,
+    liveRules: liveFeature.rules ?? [],
+    changes,
+    environmentIds,
+    holdoutEnvs: holdout.unresolved.length
+      ? HOLDOUT_ENVS_UNRESOLVED
+      : holdout.envs,
+  });
+
+  const rampEnvs = rampActionFootprint({
+    rampActions,
+    liveRules: liveFeature.rules ?? [],
+    environmentIds,
+  });
+  return rampEnvs === "all"
+    ? [...environmentIds]
+    : [...new Set([...base, ...rampEnvs])];
+}
+
+/** Returns environments applicable before or after a staged project move. */
+export function getMoveWidenedEnvironments({
+  feature,
+  changes,
+  allEnvironments,
+}: {
+  feature: FeatureInterface;
+  changes: MergeResultChanges;
+  allEnvironments: Environment[];
+}): Environment[] {
+  const base = filterEnvironmentsByFeature(allEnvironments, feature);
+  const m = changes.metadata;
+  const moves =
+    m?.project !== undefined ||
+    m?.targetingProjects !== undefined ||
+    m?.targetingAllProjects !== undefined;
+  if (!moves) return base;
+  const destination = filterEnvironmentsByFeature(allEnvironments, {
+    ...feature,
+    ...(m?.project !== undefined ? { project: m.project } : {}),
+    ...(m?.targetingProjects !== undefined
+      ? { targetingProjects: m.targetingProjects }
+      : {}),
+    ...(m?.targetingAllProjects !== undefined
+      ? { targetingAllProjects: m.targetingAllProjects }
+      : {}),
+  });
+  const seen = new Set(base.map((e) => e.id));
+  return [...base, ...destination.filter((e) => !seen.has(e.id))];
+}
+
+export function getMetadataEditEnvs({
+  feature,
+  proposed,
+  environments,
+}: {
+  feature: FeatureInterface;
+  proposed: {
+    project?: string;
+    targetingAllProjects?: boolean;
+    targetingProjects?: string[];
+  };
+  environments: Environment[];
+}): string[] {
+  const relocates = (proposed.project || "") !== (feature.project || "");
+  const targetingChanged =
+    !!proposed.targetingAllProjects !== !!feature.targetingAllProjects ||
+    !isEqual(
+      [...(proposed.targetingProjects ?? [])].sort(),
+      [...(feature.targetingProjects ?? [])].sort(),
+    );
+  if (!relocates && !targetingChanged) return [];
+  return servingEnvironments(
+    feature,
+    filterEnvironmentsByFeature(environments, feature).map((e) => e.id),
+  );
 }
 
 export function getDefaultVariationValue(defaultValue: string) {
@@ -718,6 +1026,7 @@ export function getDefaultRuleValue({
   settings,
   datasources,
   isSafeRolloutAutoRollbackEnabled = false,
+  defaultHashVersion = 1,
 }: {
   defaultValue: string;
   attributeSchema?: SDKAttributeSchema;
@@ -725,6 +1034,8 @@ export function getDefaultRuleValue({
   settings?: OrganizationSettings;
   datasources?: DataSourceInterfaceWithParams[];
   isSafeRolloutAutoRollbackEnabled?: boolean;
+  /** Safe default hash version for new rules — pass `hasSDKWithNoBucketingV2 ? 1 : 2` at the call site. Defaults to 1 (safest). */
+  defaultHashVersion?: 1 | 2;
 }): FeatureRule | NewExperimentRefRule | safeRolloutFields {
   const hashAttributes =
     attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
@@ -743,11 +1054,13 @@ export function getDefaultRuleValue({
       type: "rollout",
       description: "",
       id: "",
+      allEnvironments: false,
       value,
       coverage: 1, // we are hardcoding the coverage to 1 for now
       condition: "",
       enabled: true,
       hashAttribute,
+      hashVersion: defaultHashVersion,
       scheduleRules: [
         {
           enabled: true,
@@ -765,6 +1078,7 @@ export function getDefaultRuleValue({
       type: "safe-rollout",
       description: "",
       id: "",
+      allEnvironments: false,
       condition: "",
       safeRolloutId: "",
       enabled: true,
@@ -788,6 +1102,7 @@ export function getDefaultRuleValue({
       type: "experiment",
       description: "",
       id: "",
+      allEnvironments: false,
       condition: "",
       enabled: true,
       hashAttribute,
@@ -828,6 +1143,7 @@ export function getDefaultRuleValue({
       description: "",
       experimentId: "",
       id: "",
+      allEnvironments: false,
       variations: [],
       condition: "",
       enabled: true,
@@ -850,6 +1166,7 @@ export function getDefaultRuleValue({
       description: "",
       name: "",
       id: "",
+      allEnvironments: false,
       condition: "",
       enabled: true,
       hashAttribute,
@@ -889,6 +1206,7 @@ export function getDefaultRuleValue({
       type: "force",
       description: "",
       id: "",
+      allEnvironments: false,
       value,
       enabled: true,
       condition: "",
@@ -906,45 +1224,6 @@ export function getDefaultRuleValue({
     };
   }
   throw new Error("Unknown Rule Type: " + ruleType);
-}
-
-export function getUnreachableRuleIndex(
-  rules: FeatureRule[],
-  experimentsMap: Map<string, ExperimentInterfaceStringDates>,
-) {
-  for (let i = 0; i < rules.length; i++) {
-    const rule = rules[i];
-
-    // Skip over inactive rules
-    if (isRuleInactive(rule, experimentsMap)) continue;
-
-    // Skip rules that are conditional based on a schedule
-    const upcomingScheduleRule = getUpcomingScheduleRule(rule);
-    if (upcomingScheduleRule && upcomingScheduleRule.timestamp) {
-      continue;
-    }
-
-    // Skip rules with targeting conditions
-    if (rule.condition && rule.condition !== "{}") {
-      continue;
-    }
-    if (rule.savedGroups?.length) {
-      continue;
-    }
-    if (rule.prerequisites?.length) {
-      continue;
-    }
-
-    // Only force rules and 100%-coverage rollouts consume all traffic
-    const isFullCoverage =
-      rule.type === "force" || (rule.type === "rollout" && rule.coverage >= 1);
-    if (!isFullCoverage) continue;
-
-    return i + 1;
-  }
-
-  // No unreachable rules
-  return 0;
 }
 
 export function jsonToConds(
@@ -1350,7 +1629,8 @@ export function useAttributeMap(
         datatype: getAttributeDataType(schema.datatype),
         array: !!schema.datatype.match(/\[\]$/),
         enum:
-          schema.datatype === "enum" && schema.enum
+          (schema.datatype === "enum" || schema.datatype.endsWith("[]")) &&
+          schema.enum
             ? schema.enum.split(",").map((x) => x.trim())
             : schema.format === "isoCountryCode"
               ? ALL_COUNTRY_CODES
@@ -1399,7 +1679,7 @@ export function getExperimentDefinitionFromFeature(
     variations,
     phases: [
       {
-        coverage: expRule.coverage || 1,
+        coverage: expRule.coverage ?? 1,
         variationWeights,
         variations: variations.map((v) => ({
           id: v.id,
@@ -1480,7 +1760,8 @@ export function getDefaultOperator(attribute: AttributeData) {
   if (attribute.datatype === "boolean") {
     return "$true";
   } else if (attribute.array) {
-    return "$includes";
+    // Enum-constrained lists use set operators so the restricted MultiSelect shows.
+    return attribute.enum.length ? "$in" : "$includes";
   } else if (attribute.format === "version") {
     return "$veq";
   } else if (attribute.disableEqualityConditions) {
@@ -1535,64 +1816,7 @@ export function genDuplicatedKey({ id }: FeatureInterface) {
   }
 }
 
-export function getNewDraftExperimentsToPublish({
-  environments,
-  feature,
-  revision,
-  experimentsMap,
-}: {
-  feature: FeatureInterface;
-  revision: FeatureRevisionInterface;
-  environments: Environment[];
-  experimentsMap: Map<string, ExperimentInterfaceStringDates>;
-}) {
-  const environmentIds = environments.map((e) => e.id);
-
-  const liveExperimentIds = new Set(
-    getMatchingRules(
-      feature,
-      (rule) => rule.type === "experiment-ref",
-      environmentIds,
-    ).map((result) => (result.rule as ExperimentRefRule).experimentId),
-  );
-
-  function isExp(
-    exp: ExperimentInterfaceStringDates | undefined,
-  ): exp is ExperimentInterfaceStringDates {
-    return !!exp;
-  }
-
-  const draftExperiments = getMatchingRules(
-    feature,
-    (rule) => {
-      if (rule.enabled === false) return false;
-      if (rule.type !== "experiment-ref") return false;
-
-      const exp = experimentsMap.get(rule.experimentId);
-      if (!exp) return false;
-
-      // Skip experiment rules that are already live
-      if (liveExperimentIds.has(rule.experimentId)) return false;
-
-      if (exp.status !== "draft") return false;
-      if (exp.archived) return false;
-
-      // Skip experiments with visual changesets. Those need to be started from the experiment page
-      if (exp.hasVisualChangesets) return false;
-
-      return true;
-    },
-    environmentIds,
-    revision,
-  )
-    .map((result) =>
-      experimentsMap.get((result.rule as ExperimentRefRule).experimentId),
-    )
-    .filter(isExp);
-
-  return [...new Set(draftExperiments)];
-}
-
+// Returns experiments whose draft rules would go live when this revision is published.
 export function useFeatureExperimentChecklists({
   feature,
   revision,
@@ -1604,66 +1828,36 @@ export function useFeatureExperimentChecklists({
 }) {
   const allEnvironments = useEnvironments();
 
-  const { data: checklistData } = useApi<{
-    checklist: ExperimentLaunchChecklistInterface;
-  }>("/experiments/launch-checklist");
+  const experiments = useMemo(
+    () =>
+      revision
+        ? getNewDraftExperimentsToPublish({
+            feature,
+            revision,
+            environments: allEnvironments,
+            experimentsMap,
+          })
+        : [],
+    [feature, revision, allEnvironments, experimentsMap],
+  );
 
-  const settings = useOrgSettings();
-  const orgStickyBucketing = !!settings.useStickyBucketing;
+  const { immediateStartExperiments, scheduledExperiments } = useMemo(() => {
+    const immediate: ExperimentInterfaceStringDates[] = [];
+    const scheduled: ExperimentInterfaceStringDates[] = [];
+    for (const exp of experiments) {
+      if (getFutureScheduledStartDate(exp)) {
+        scheduled.push(exp);
+      } else {
+        immediate.push(exp);
+      }
+    }
+    return {
+      immediateStartExperiments: immediate,
+      scheduledExperiments: scheduled,
+    };
+  }, [experiments]);
 
-  const { data: sdkConnectionsData } = useSDKConnections();
-  const connections = sdkConnectionsData?.connections || [];
-
-  const experimentData = useMemo(() => {
-    const experimentsAvailableToPublish = revision
-      ? getNewDraftExperimentsToPublish({
-          feature,
-          revision,
-          environments: allEnvironments,
-          experimentsMap,
-        })
-      : [];
-
-    const experimentData: {
-      checklist: CheckListItem[];
-      experiment: ExperimentInterfaceStringDates;
-      failedRequired: boolean;
-    }[] = [];
-    experimentsAvailableToPublish.forEach((exp) => {
-      const projectConnections = connections.filter(
-        (connection) =>
-          !connection.projects.length ||
-          connection.projects.includes(exp.project || ""),
-      );
-
-      const checklist = getChecklistItems({
-        experiment: exp,
-        linkedFeatures: [],
-        visualChangesets: [],
-        checklist: checklistData?.checklist,
-        checkLinkedChanges: false,
-        connections: projectConnections,
-      });
-
-      const failedRequired = checklist.some(
-        (item) => item.status === "incomplete" && item.required,
-      );
-
-      experimentData.push({ checklist, experiment: exp, failedRequired });
-    });
-
-    return experimentData;
-  }, [
-    connections,
-    allEnvironments,
-    orgStickyBucketing,
-    checklistData,
-    revision,
-  ]);
-
-  return {
-    experimentData,
-  };
+  return { experiments, immediateStartExperiments, scheduledExperiments };
 }
 
 export function parseDefaultValue(

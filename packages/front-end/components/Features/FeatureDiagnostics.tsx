@@ -3,7 +3,11 @@ import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { OrganizationSettings } from "shared/types/organization";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  isProjectListValidForProject,
+  isManagedWarehouseUnavailable,
+  getActiveFeatureUsageQuery,
+} from "shared/util";
 import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
 import { QueryStatistics } from "shared/types/query";
 import { Box, Flex } from "@radix-ui/themes";
@@ -21,14 +25,14 @@ import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
 import EmptyState from "@/components/EmptyState";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Table, { TableBody, TableCell, TableHeader, TableRow } from "@/ui/Table";
 import Field from "@/components/Forms/Field";
+import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 
 type FeatureEvaluationDiagnosticsQueryResults = {
   rows?: FeatureEvalDiagnosticsQueryResponseRows;
   statistics?: QueryStatistics;
-  error?: string;
-  sql?: string;
 };
 
 // Helper function to format a value for display
@@ -57,13 +61,14 @@ function getDatasourceInitialFormValue(
 
   if (!validDatasources.length) return { datasourceId: "" };
 
-  // Default to the first datasource with a feature usage query
-  // If no datasource with a feature usage query is found, default to the default datasource
+  // Default to the first datasource with a feature usage query or managed warehouse.
+  // If none found, fall back to the org default datasource.
   const initialId =
     validDatasources.find(
       (d) =>
-        d.settings.queries?.featureUsage &&
-        d.settings.queries?.featureUsage.length > 0,
+        (d.type === "growthbook_clickhouse" &&
+          !isManagedWarehouseUnavailable(d)) ||
+        getActiveFeatureUsageQuery(d.settings?.queries?.featureUsage),
     )?.id || settings.defaultDataSource;
 
   const initialDatasource =
@@ -92,30 +97,44 @@ export default function FeatureDiagnostics({
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorSql, setErrorSql] = useState<string | null>(null);
 
   const { datasources, getDatasourceById } = useDefinitions();
   const settings = useOrgSettings();
   const { apiCall } = useAuth();
 
   const validDatasources = useMemo(() => {
-    return datasources.filter((d) =>
-      isProjectListValidForProject(d.projects, feature.project),
-    );
+    return datasources.filter((d) => {
+      if (!isProjectListValidForProject(d.projects, feature.project))
+        return false;
+      return true;
+    });
   }, [datasources, feature.project]);
 
   const form = useForm({
     defaultValues: {
-      ...getDatasourceInitialFormValue(datasources, settings, feature.project),
+      ...getDatasourceInitialFormValue(
+        validDatasources,
+        settings,
+        feature.project,
+      ),
     },
   });
 
   const datasourceId = form.watch("datasourceId");
   const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
 
+  const awaitingProvisioning = datasource
+    ? isManagedWarehouseUnavailable(datasource)
+    : false;
+
+  // Managed warehouse natively supports diagnostics via its feature_usage table.
+  // Event forwarder and regular datasources need a configured feature usage query.
   const datasourceHasFeatureUsageQuery =
     datasource &&
-    datasource.settings.queries?.featureUsage &&
-    datasource.settings.queries.featureUsage.length > 0;
+    !awaitingProvisioning &&
+    (datasource.type === "growthbook_clickhouse" ||
+      !!getActiveFeatureUsageQuery(datasource.settings?.queries?.featureUsage));
 
   // Extract all unique keys from results
   const columns = useMemo(() => {
@@ -165,6 +184,7 @@ export default function FeatureDiagnostics({
   const onRunFeatureUsageQuery = async () => {
     setLoading(true);
     setError(null);
+    setErrorSql(null);
     try {
       const results = await apiCall<FeatureEvaluationDiagnosticsQueryResults>(
         "/query/feature-eval-diagnostic",
@@ -174,6 +194,11 @@ export default function FeatureDiagnostics({
             feature: feature.id,
             datasourceId: form.watch("datasourceId"),
           }),
+        },
+        (responseData) => {
+          if (typeof responseData?.sql === "string") {
+            setErrorSql(responseData.sql);
+          }
         },
       );
       if (results.rows) {
@@ -185,11 +210,8 @@ export default function FeatureDiagnostics({
       } else {
         setResults([]);
       }
-      if (results.error) {
-        setError(results.error);
-      }
     } catch (e) {
-      setError(e.message);
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
@@ -220,6 +242,7 @@ export default function FeatureDiagnostics({
 
       <Box width="400px">
         <SelectField
+          size="legacy"
           label="Select a Data Source"
           labelClassName="font-weight-bold"
           value={form.watch("datasourceId") ?? ""}
@@ -242,15 +265,21 @@ export default function FeatureDiagnostics({
         />
       </Box>
 
-      {datasource && !datasourceHasFeatureUsageQuery && (
-        <Callout status="info" mb="4">
-          Feature Evaluation Diagnostics require setting up a feature usage
-          query in your data source.
-          <Link href={`/datasources/${datasource.id}`} ml="2">
-            Setup a Feature Usage Query
-          </Link>
-        </Callout>
+      {datasource && awaitingProvisioning && (
+        <ManagedWarehouseNoEventsCallout />
       )}
+
+      {datasource &&
+        !awaitingProvisioning &&
+        !datasourceHasFeatureUsageQuery && (
+          <Callout status="info" mb="4">
+            Feature Evaluation Diagnostics require setting up a feature usage
+            query in your data source.
+            <Link href={`/datasources/${datasource.id}`} ml="2">
+              Setup a Feature Usage Query
+            </Link>
+          </Callout>
+        )}
 
       {datasource && datasourceHasFeatureUsageQuery && (
         <Frame mt="4">
@@ -259,7 +288,7 @@ export default function FeatureDiagnostics({
               <Button
                 onClick={onRunFeatureUsageQuery}
                 disabled={loading || !datasourceHasFeatureUsageQuery}
-                size="md"
+                size="lg"
               >
                 {loading
                   ? "Running..."
@@ -272,6 +301,7 @@ export default function FeatureDiagnostics({
             <Flex direction="row" justify="between" my="3">
               <Box flexBasis="40%" flexShrink="1" flexGrow="0">
                 <Field
+                  size="legacy"
                   placeholder="Search..."
                   type="search"
                   {...searchInputProps}
@@ -286,12 +316,22 @@ export default function FeatureDiagnostics({
               </Button>
             </Flex>
           )}
-          {error && (
+          {error && errorSql ? (
+            <Box my="3">
+              <DisplayTestQueryResults
+                results={[]}
+                duration={0}
+                sql={errorSql}
+                error={error}
+                expandable={true}
+              />
+            </Box>
+          ) : error ? (
             <Callout status="error" my="3">
               <strong>Error:</strong> {error}
             </Callout>
-          )}
-          {results && results.length === 0 && (
+          ) : null}
+          {!error && results && results.length === 0 && (
             <Callout status="info" my="3">
               No feature evaluations found.
             </Callout>

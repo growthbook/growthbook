@@ -19,7 +19,7 @@ from gbstats.gbstats import (
     create_bandit_statistics,
     preprocess_bandits,
 )
-from gbstats.bayesian.bandits import BanditsSimple
+from gbstats.bayesian.bandits import BanditsSimple, BanditConfig
 
 from gbstats.models.settings import BanditWeightsSinglePeriod
 from gbstats.models.statistics import (
@@ -382,6 +382,53 @@ BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
     weight_by_period=True,
     top_two=True,
 )
+
+
+class TestBanditMinVariationWeightFloor(TestCase):
+    def _bandit(self, min_variation_weight):
+        # one dominant arm, so several raw Thompson weights fall below the floor
+        stats = [
+            SampleMeanStatistic(n=1000, sum=10, sum_squares=2000),
+            SampleMeanStatistic(n=1000, sum=20, sum_squares=2000),
+            SampleMeanStatistic(n=1000, sum=30, sum_squares=2000),
+            SampleMeanStatistic(n=1000, sum=300, sum_squares=20000),
+        ]
+        config = BanditConfig(
+            bandit_weights_seed=100,
+            top_two=True,
+            inverse=False,
+            min_variation_weight=min_variation_weight,
+        )
+        return BanditsSimple(stats, [1 / 4] * 4, config)
+
+    def test_floor_is_additive_on_the_simplex(self):
+        n, f = 4, 0.1
+        # same fixed seed -> identical Thompson draws, so the f=0 result is w
+        w = np.array(self._bandit(0.0).compute_result().bandit_weights)
+        p = np.array(self._bandit(f).compute_result().bandit_weights)
+        # every arm gets at least the floor, and the weights still sum to 1
+        self.assertTrue(np.all(p >= f - 1e-9))
+        self.assertAlmostEqual(float(np.sum(p)), 1.0, places=9)
+        # additive-simplex identity: p_i = f + (1 - n * f) * w_i
+        np.testing.assert_allclose(p, f + (1.0 - n * f) * w, atol=1e-9)
+
+    def test_zero_floor_is_pure_thompson(self):
+        w = np.array(self._bandit(0.0).compute_result().bandit_weights)
+        self.assertAlmostEqual(float(np.sum(w)), 1.0, places=9)
+        self.assertTrue(np.all(w >= -1e-12))
+
+    def test_floor_too_large_falls_back_to_uniform(self):
+        # n * f = 4 * 0.5 > 1 cannot fit on the simplex -> uniform allocation
+        p = np.array(self._bandit(0.5).compute_result().bandit_weights)
+        np.testing.assert_allclose(p, np.full(4, 1 / 4), atol=1e-9)
+
+    def test_negative_floor_is_clamped_to_zero(self):
+        # a negative floor must not produce weights outside [0, 1]; clamps to f=0
+        w = np.array(self._bandit(0.0).compute_result().bandit_weights)
+        p = np.array(self._bandit(-0.3).compute_result().bandit_weights)
+        self.assertTrue(np.all(p >= -1e-12) and np.all(p <= 1 + 1e-9))
+        self.assertAlmostEqual(float(np.sum(p)), 1.0, places=9)
+        np.testing.assert_allclose(p, w, atol=1e-9)
 
 
 class TestGetMetricDf(TestCase):

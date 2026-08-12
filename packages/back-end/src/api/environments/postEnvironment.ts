@@ -20,6 +20,12 @@ export const postEnvironment = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
+  if (!req.context.limits.isEnvironmentIdAllowed(environment.id)) {
+    req.context.throwPaymentRequiredError(
+      "Your plan does not support custom environments. Upgrade your plan to create environments other than the defaults.",
+    );
+  }
+
   const updates: Partial<OrganizationInterface> = {
     settings: {
       ...org.settings,

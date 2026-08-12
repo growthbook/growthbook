@@ -38,17 +38,22 @@ import { ExperimentPhase } from "shared/types/experiment";
 import { LegacySavedGroupInterface } from "shared/types/saved-group";
 import { encryptParams } from "back-end/src/services/datasource";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
+import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
+import { migrateBlock } from "back-end/src/enterprise/models/DashboardModel";
 import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
 import {
   migrateExperimentReport,
   migrateSnapshot,
+  normalizeJsonSchemaDef,
+  pinLegacyRolloutSeeds,
   upgradeDatasourceObject,
   upgradeExperimentDoc,
-  upgradeFeatureInterface,
   upgradeFeatureRule,
   upgradeMetricDoc,
   upgradeOrganizationDoc,
+  upgradeV0Feature,
 } from "back-end/src/util/migrations";
+import { flattenV1ToV2Rules } from "back-end/src/util/flattenRules";
 
 describe("Fact Metric Migration", () => {
   it("upgrades delay hours", () => {
@@ -550,6 +555,53 @@ describe("Metric Migration", () => {
         delayValue: 3,
       },
     });
+  });
+
+  it("casts string runStarted values to Dates", () => {
+    const baseMetric: LegacyMetricInterface = {
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "",
+      id: "",
+      ignoreNulls: false,
+      inverse: false,
+      name: "",
+      organization: "",
+      owner: "",
+      queries: [],
+      runStarted: null,
+      type: "binomial",
+      userIdColumns: {
+        user_id: "user_id",
+        anonymous_id: "anonymous_id",
+      },
+      cappingSettings: {
+        type: "",
+        value: 0,
+      },
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+      },
+      userIdTypes: ["anonymous_id", "user_id"],
+    };
+
+    expect(
+      upgradeMetricDoc({
+        ...baseMetric,
+        runStarted: "2026-05-20T01:23:45.678Z" as unknown as Date,
+      }).runStarted,
+    ).toEqual(new Date("2026-05-20T01:23:45.678Z"));
+
+    // Dates and nulls pass through unchanged
+    const date = new Date();
+    expect(
+      upgradeMetricDoc({ ...baseMetric, runStarted: date }).runStarted,
+    ).toBe(date);
+    expect(upgradeMetricDoc(baseMetric).runStarted).toBe(null);
   });
 
   it("updates old metric objects - cap and capping", () => {
@@ -1169,7 +1221,15 @@ describe("Datasource Migration", () => {
   });
 });
 
-describe("Feature Migration", () => {
+// v0 -> v1 feature document upgrade. These tests exercise the pipeline
+// `upgradeV0Feature` runs: redistributing legacy top-level `rules` +
+// `environments` arrays into `environmentSettings[env].rules`, moving the
+// old `draft` field into `legacyDraft`, and backfilling version/jsonSchema.
+// Note: the "doesn't overwrite new feature objects" test below demonstrates
+// that the upgrader is a no-op on v1 inputs. In production the 3-way branch
+// in FeatureModel.migrateRawFeatureToV2 never invokes this function on v1 or
+// v2 documents — v0 is identified by the absence of `environmentSettings`.
+describe("v0 Feature Migration", () => {
   it("updates old feature objects", () => {
     const rule: FeatureRule = {
       id: "fr_123",
@@ -1232,7 +1292,7 @@ describe("Feature Migration", () => {
     };
 
     expect(
-      upgradeFeatureInterface({
+      upgradeV0Feature({
         ...origFeature,
         environments: ["dev"],
         rules: [rule],
@@ -1270,7 +1330,7 @@ describe("Feature Migration", () => {
     };
 
     expect(
-      upgradeFeatureInterface({
+      upgradeV0Feature({
         ...origFeature,
         environments: ["dev"],
         rules: [
@@ -1330,7 +1390,7 @@ describe("Feature Migration", () => {
       },
     };
 
-    expect(upgradeFeatureInterface(cloneDeep(origFeature))).toEqual({
+    expect(upgradeV0Feature(cloneDeep(origFeature))).toEqual({
       ...origFeature,
       draft: undefined,
     });
@@ -1483,12 +1543,159 @@ describe("Feature Migration", () => {
       },
     };
 
-    const newFeature = upgradeFeatureInterface(cloneDeep(origFeature));
+    const newFeature = upgradeV0Feature(cloneDeep(origFeature));
 
     if (!newFeature.environmentSettings)
       throw new Error("newFeature.environmentSettings is undefined");
     expect(newFeature.environmentSettings["prod"].rules[0]).toEqual(newRule);
     expect(newFeature.environmentSettings["test"].rules[0]).toEqual(newRule);
+  });
+});
+
+// v0 -> v2 full migration pipeline. The tests above exercise `upgradeV0Feature`
+// in isolation and assert its v1 intermediate contract (legacy top-level
+// `rules` redistributed into `environmentSettings[env].rules`). In production,
+// that v1 intermediate is immediately flattened to the v2 unified top-level
+// `rules` array by `flattenV1ToV2Rules` inside `migrateRawFeatureToV2`.
+// This block composes those two steps and asserts the end-to-end "new shape"
+// that callers actually see, documenting the composition the production code
+// relies on. Fine-grained v1 -> v2 flattening semantics are covered in
+// `test/util/flattenRules.test.ts`; see `test/models/FeatureModel.test.ts`
+// for the full pipeline via `migrateRawFeatureToV2`.
+describe("v0 -> v2 Feature Migration Pipeline", () => {
+  // Helper: run the two stateless halves of the migration pipeline the same
+  // way `migrateRawFeatureToV2` does on the v0 branch.
+  const runV0ToV2 = (
+    raw: LegacyFeatureInterface,
+    envOrder: string[],
+  ): FeatureRule[] => {
+    const v1 = upgradeV0Feature(cloneDeep(raw));
+    const rulesByEnv: Record<string, FeatureRule[]> = {};
+    for (const [envId, envObj] of Object.entries(
+      v1.environmentSettings || {},
+    )) {
+      rulesByEnv[envId] = (envObj?.rules || []) as FeatureRule[];
+    }
+    return flattenV1ToV2Rules(rulesByEnv, {
+      envOrder,
+      applicableEnvs: envOrder,
+    });
+  };
+
+  it("collapses a v0 rule shared across all org envs to a single allEnvironments=true v2 rule", () => {
+    const origRule: FeatureRule = {
+      id: "fr_shared",
+      type: "force",
+      value: "true",
+      description: "",
+    };
+    const origFeature: LegacyFeatureInterface = {
+      dateCreated: new Date("2024-01-01"),
+      dateUpdated: new Date("2024-01-01"),
+      organization: "org_123",
+      owner: "",
+      defaultValue: "false",
+      valueType: "boolean",
+      id: "feat_pipeline_shared",
+      environments: ["dev", "production"],
+      rules: [origRule],
+    } as unknown as LegacyFeatureInterface;
+
+    const v2Rules = runV0ToV2(origFeature, ["dev", "production"]);
+
+    expect(v2Rules).toHaveLength(1);
+    expect(v2Rules[0].id).toBe("fr_shared");
+    expect(v2Rules[0].allEnvironments).toBe(true);
+    // Per-env scoping must be absent when allEnvironments is true.
+    expect(v2Rules[0].environments).toBeUndefined();
+  });
+
+  it("scopes v0 rules to dev+production when the org has additional envs the v0 doc can't reach", () => {
+    // v0 has no way to represent rules for envs other than dev/production:
+    // `upgradeV0Feature` always redistributes top-level `rules` into both dev
+    // and production envSettings, and `environments: []` only controls the
+    // `enabled` flag. If the org has a third env (e.g. staging), the
+    // flattener will correctly see the rule as scoped to {dev, production}
+    // and emit it as a per-env v2 rule instead of collapsing to
+    // allEnvironments=true.
+    const origRule: FeatureRule = {
+      id: "fr_legacy",
+      type: "force",
+      value: "true",
+      description: "",
+    };
+    const origFeature: LegacyFeatureInterface = {
+      dateCreated: new Date("2024-01-01"),
+      dateUpdated: new Date("2024-01-01"),
+      organization: "org_123",
+      owner: "",
+      defaultValue: "false",
+      valueType: "boolean",
+      id: "feat_pipeline_legacy",
+      environments: ["dev", "production"],
+      rules: [origRule],
+    } as unknown as LegacyFeatureInterface;
+
+    const v2Rules = runV0ToV2(origFeature, ["dev", "production", "staging"]);
+
+    expect(v2Rules).toHaveLength(1);
+    expect(v2Rules[0].id).toBe("fr_legacy");
+    // Rule reaches 2 of 3 applicable envs → must NOT collapse to allEnvironments.
+    expect(v2Rules[0].allEnvironments).toBe(false);
+    expect(v2Rules[0].environments?.sort()).toEqual(["dev", "production"]);
+  });
+
+  it("emits an empty v2 rules array for a v0 doc with no rules", () => {
+    const origFeature: LegacyFeatureInterface = {
+      dateCreated: new Date("2024-01-01"),
+      dateUpdated: new Date("2024-01-01"),
+      organization: "org_123",
+      owner: "",
+      defaultValue: "false",
+      valueType: "boolean",
+      id: "feat_pipeline_empty",
+      environments: ["dev", "production"],
+      rules: [],
+    } as unknown as LegacyFeatureInterface;
+
+    const v2Rules = runV0ToV2(origFeature, ["dev", "production"]);
+    expect(v2Rules).toEqual([]);
+  });
+
+  it("preserves experiment-rule upgrades (coverage backfill) through the v0 -> v2 chain", () => {
+    // An old v0 experiment rule with un-normalized weights and no coverage.
+    // upgradeV0Feature -> upgradeFeatureRule backfills coverage during the v1
+    // step; flattenV1ToV2Rules then carries those normalized values forward.
+    const origRule = {
+      type: "experiment",
+      description: "",
+      hashAttribute: "id",
+      id: "exp_rule",
+      trackingKey: "",
+      values: [
+        { value: "a", weight: 0.1 },
+        { value: "b", weight: 0.4 },
+      ],
+    } as unknown as FeatureRule;
+    const origFeature: LegacyFeatureInterface = {
+      dateCreated: new Date("2024-01-01"),
+      dateUpdated: new Date("2024-01-01"),
+      organization: "org_123",
+      owner: "",
+      defaultValue: "false",
+      valueType: "string",
+      id: "feat_pipeline_exp",
+      environments: ["dev", "production"],
+      rules: [origRule],
+    } as unknown as LegacyFeatureInterface;
+
+    const v2Rules = runV0ToV2(origFeature, ["dev", "production"]);
+    expect(v2Rules).toHaveLength(1);
+    const rule = v2Rules[0] as ExperimentRule;
+    // upgradeFeatureRule normalizes weights to sum to 1 and sets coverage to
+    // the original sum (0.5 here).
+    expect(rule.coverage).toBeCloseTo(0.5);
+    expect(rule.values.map((v) => v.weight)).toEqual([0.2, 0.8]);
   });
 });
 
@@ -1664,6 +1871,22 @@ describe("Experiment Migration", () => {
       results: "won",
       winner: 2,
       releasedVariationId: "foo",
+    });
+  });
+  it("uses `winner` 0 (control won) for releasedVariationId, not the default 1", () => {
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        status: "stopped",
+        results: "won",
+        winner: 0,
+      }),
+    ).toEqual({
+      ...upgraded,
+      status: "stopped",
+      results: "won",
+      winner: 0,
+      releasedVariationId: "0",
     });
   });
   it("Doesn't overwrite other attribution models", () => {
@@ -2713,6 +2936,25 @@ describe("saved group migrations", () => {
     });
   });
 
+  it("does not synthesize a runtime condition when the read omitted condition", () => {
+    expect(
+      SavedGroupModel.migrateSavedGroup(
+        {
+          ...baseSavedGroup,
+          attributeKey: "foo",
+          values: [],
+          source: "runtime",
+        },
+        { conditionOmitted: true },
+      ),
+    ).toEqual({
+      ...baseSavedGroup,
+      attributeKey: "foo",
+      values: [],
+      type: "condition",
+    });
+  });
+
   it("does not migrate saved groups that already have type=list", () => {
     expect(
       SavedGroupModel.migrateSavedGroup({
@@ -2746,6 +2988,215 @@ describe("saved group migrations", () => {
       values: [],
       type: "condition",
       condition: JSON.stringify({ id: { $eq: "123" } }),
+    });
+  });
+});
+
+// Documents written before `schemaType`/`simple` existed hold a three-key
+// jsonSchema that means exactly what the five-key one means. Both the feature
+// read and the revision read normalize through this, so an untouched schema
+// never surfaces as an edit.
+describe("normalizeJsonSchemaDef", () => {
+  const legacy = {
+    schema: "",
+    date: new Date("2024-02-26T04:27:49.018Z"),
+    enabled: false,
+  };
+
+  it("backfills the keys that postdate the oldest documents", () => {
+    expect(normalizeJsonSchemaDef(legacy)).toEqual({
+      ...legacy,
+      schemaType: "schema",
+      simple: { type: "object", fields: [] },
+    });
+  });
+
+  it("gives a legacy and an already-backfilled document the same spelling", () => {
+    const backfilled = {
+      ...legacy,
+      schemaType: "schema" as const,
+      simple: { type: "object" as const, fields: [] },
+    };
+    expect(normalizeJsonSchemaDef(legacy)).toEqual(
+      normalizeJsonSchemaDef(backfilled),
+    );
+  });
+
+  it("leaves a configured schema alone", () => {
+    const configured = {
+      schemaType: "simple" as const,
+      schema: '{"type":"object"}',
+      simple: {
+        type: "object" as const,
+        fields: [{ key: "a", type: "string" }],
+      },
+      date: legacy.date,
+      enabled: true,
+    };
+    expect(normalizeJsonSchemaDef(configured)).toEqual(configured);
+  });
+
+  it("does not mutate its input", () => {
+    const input = { ...legacy };
+    normalizeJsonSchemaDef(input);
+    expect(input).toEqual(legacy);
+  });
+});
+
+describe("pinLegacyRolloutSeeds", () => {
+  const rollout = (over: Partial<FeatureRule> = {}) =>
+    ({
+      id: "fr_rule",
+      type: "rollout",
+      value: "true",
+      coverage: 0.5,
+      hashAttribute: "id",
+      ...over,
+    }) as FeatureRule;
+
+  it("pins a seedless rollout rule to the feature id", () => {
+    const [pinned] = pinLegacyRolloutSeeds([rollout()], "feat_1");
+    expect((pinned as { seed?: string }).seed).toBe("feat_1");
+  });
+
+  it("leaves an explicitly-seeded rollout rule untouched", () => {
+    const [pinned] = pinLegacyRolloutSeeds(
+      [rollout({ seed: "fr_rule" })],
+      "feat_1",
+    );
+    // An existing seed (rule.id default or a custom seed) is never rewritten.
+    expect((pinned as { seed?: string }).seed).toBe("fr_rule");
+  });
+
+  it("does not touch non-rollout rules", () => {
+    const force = { id: "fr_f", type: "force", value: "true" } as FeatureRule;
+    const safe = {
+      id: "fr_s",
+      type: "safe-rollout",
+      safeRolloutId: "sr_1",
+    } as unknown as FeatureRule;
+    const [pForce, pSafe] = pinLegacyRolloutSeeds([force, safe], "feat_1");
+    expect(pForce).not.toHaveProperty("seed");
+    // Safe rollouts carry their own random seed and are never pinned.
+    expect((pSafe as { seed?: string }).seed).toBeUndefined();
+  });
+
+  it("does not mutate the input rule objects", () => {
+    const input = rollout();
+    pinLegacyRolloutSeeds([input], "feat_1");
+    expect((input as { seed?: string }).seed).toBeUndefined();
+  });
+
+  it("tolerates sparse null array entries", () => {
+    const rules = [null, rollout()] as unknown as FeatureRule[];
+    const out = pinLegacyRolloutSeeds(rules, "feat_1");
+    expect(out[0]).toBeNull();
+    expect((out[1] as { seed?: string }).seed).toBe("feat_1");
+  });
+});
+
+describe("Funnel Step Migration (factTable → factTableId)", () => {
+  const legacyStep = (factTable: string) => ({
+    name: "Step 1",
+    factTable,
+    rowFilters: [],
+    optional: false,
+  });
+
+  const migratedStep = (factTableId: string) => ({
+    name: "Step 1",
+    factTableId,
+    rowFilters: [],
+    optional: false,
+  });
+
+  describe("AnalyticsExplorationModel.migrateFunnelSteps", () => {
+    it("renames factTable to factTableId", () => {
+      const steps = [legacyStep("orders"), legacyStep("visits")];
+      const result = AnalyticsExplorationModel.migrateFunnelSteps(steps);
+      expect(result).toEqual([migratedStep("orders"), migratedStep("visits")]);
+    });
+
+    it("passes through steps that already have factTableId", () => {
+      const steps = [migratedStep("orders")];
+      const result = AnalyticsExplorationModel.migrateFunnelSteps(
+        steps as Record<string, unknown>[],
+      );
+      expect(result).toEqual([migratedStep("orders")]);
+    });
+
+    it("handles a mix of legacy and migrated steps", () => {
+      const steps = [legacyStep("orders"), migratedStep("visits")];
+      const result = AnalyticsExplorationModel.migrateFunnelSteps(steps);
+      expect(result).toEqual([migratedStep("orders"), migratedStep("visits")]);
+    });
+  });
+
+  describe("migrateBlock (funnel-exploration)", () => {
+    it("renames factTable to factTableId on funnel steps", () => {
+      const block = {
+        type: "funnel-exploration" as const,
+        title: "My funnel",
+        explorerAnalysisId: "ae_1",
+        config: {
+          type: "funnel" as const,
+          datasource: "ds_1",
+          chartType: "bar" as const,
+          dimensions: [],
+          dateRange: {
+            predefined: "last7Days" as const,
+            startDate: null,
+            endDate: null,
+            lookbackValue: null,
+            lookbackUnit: null,
+          },
+          dataset: {
+            type: "funnel" as const,
+            unit: "user_id",
+            steps: [legacyStep("orders"), legacyStep("visits")],
+          },
+        },
+      };
+      expect(migrateBlock(block)).toMatchObject({
+        config: {
+          dataset: {
+            steps: [migratedStep("orders"), migratedStep("visits")],
+          },
+        },
+      });
+    });
+
+    it("passes through blocks that already have factTableId", () => {
+      const block = {
+        type: "funnel-exploration" as const,
+        title: "My funnel",
+        explorerAnalysisId: "ae_1",
+        config: {
+          type: "funnel" as const,
+          datasource: "ds_1",
+          chartType: "bar" as const,
+          dimensions: [],
+          dateRange: {
+            predefined: "last7Days" as const,
+            startDate: null,
+            endDate: null,
+            lookbackValue: null,
+            lookbackUnit: null,
+          },
+          dataset: {
+            type: "funnel" as const,
+            unit: "user_id",
+            steps: [migratedStep("orders")],
+          },
+        },
+      };
+      expect(migrateBlock(block)).toMatchObject({
+        config: {
+          dataset: {
+            steps: [migratedStep("orders")],
+          },
+        },
+      });
     });
   });
 });

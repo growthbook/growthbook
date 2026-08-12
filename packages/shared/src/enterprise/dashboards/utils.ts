@@ -5,11 +5,19 @@ import {
   DashboardBlockInterfaceOrData,
   CreateDashboardBlockInterface,
   DashboardTemplateInterface,
+  DashboardInterface,
+  MetricExplorationBlockInterface,
+  FactTableExplorationBlockInterface,
+  DataSourceExplorationBlockInterface,
+  FunnelExplorationBlockInterface,
 } from "shared/enterprise";
 import {
   MetricExplorationConfig,
   FactTableExplorationConfig,
   DataSourceExplorationConfig,
+  FunnelExplorationConfig,
+  ExplorationDateRange,
+  dateGranularity,
 } from "shared/validators";
 import {
   ExperimentInterface,
@@ -20,8 +28,9 @@ import {
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
 import { MetricGroupInterface } from "shared/types/metric-groups";
+import { DataSourceInterface } from "shared/types/datasource";
 import { isNumber, isString } from "../../util/types";
-import { getSnapshotAnalysis } from "../../util";
+import { getSnapshotAnalysis, isManagedWarehouse } from "../../util";
 import {
   parseSliceQueryString,
   generateSliceString,
@@ -31,6 +40,29 @@ import { DataVizConfig } from "../../../validators";
 import { getInitialConfigByBlockType } from "../product-analytics/utils";
 
 export const differenceTypes = ["absolute", "relative", "scaled"] as const;
+
+// Single source of truth for the Difference Type selector's options (label +
+// value), shared by every block editor that renders the control so the option
+// set can't drift between copies. Ordered as shown in the UI.
+export const DIFFERENCE_TYPE_OPTIONS: {
+  label: string;
+  value: (typeof differenceTypes)[number];
+}[] = [
+  { label: "Relative", value: "relative" },
+  { label: "Absolute", value: "absolute" },
+  { label: "Scaled", value: "scaled" },
+];
+
+export const DEFAULT_DASHBOARD_GLOBAL_CONTROLS = {
+  dateRange: {
+    predefined: "last30Days",
+    lookbackValue: null,
+    lookbackUnit: null,
+    startDate: null,
+    endDate: null,
+  },
+  dateGranularity: "auto",
+} satisfies NonNullable<DashboardInterface["globalControls"]>;
 
 // BlockConfig item types for sql-explorer blocks
 export const BLOCK_CONFIG_ITEM_TYPES = {
@@ -58,6 +90,313 @@ export function dashboardBlockHasIds<T extends DashboardBlockInterface>(
 ): data is T {
   const block = data as T;
   return !!(block.id && block.uid && block.organization);
+}
+
+type DashboardGlobalControlSupportedBlock = DashboardBlockInterfaceOrData<
+  | MetricExplorationBlockInterface
+  | FactTableExplorationBlockInterface
+  | DataSourceExplorationBlockInterface
+  | FunnelExplorationBlockInterface
+>;
+
+const dashboardGlobalControlSupportedBlockTypes = new Set<DashboardBlockType>([
+  "metric-exploration",
+  "fact-table-exploration",
+  "data-source-exploration",
+  "funnel-exploration",
+]);
+
+export function getTemporaryDashboardBlockId(index: number): string {
+  return `tmp:${index}`;
+}
+
+export function isDashboardGlobalControlSupportedBlock(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+): block is DashboardGlobalControlSupportedBlock {
+  return dashboardGlobalControlSupportedBlockTypes.has(block.type);
+}
+
+export function autoEnrollDashboardBlocksInDateControl<
+  T extends DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+>(blocks: T[]): T[] {
+  return blocks.map((block) =>
+    isDashboardGlobalControlSupportedBlock(block) &&
+    block.globalControlSettings?.dateRange === undefined
+      ? ({
+          ...block,
+          globalControlSettings: {
+            ...block.globalControlSettings,
+            dateRange: true,
+          },
+        } as T)
+      : block,
+  );
+}
+
+export function blockUsesDashboardDateControl(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+): block is DashboardGlobalControlSupportedBlock & {
+  globalControlSettings: { dateRange: true };
+} {
+  return (
+    isDashboardGlobalControlSupportedBlock(block) &&
+    block.globalControlSettings?.dateRange === true
+  );
+}
+
+/**
+ * True when a save transitions the dashboard from "no date control" to
+ * "date control enabled" — the moment we auto-enroll supported blocks.
+ */
+export function isEnablingDashboardDateControl(
+  existingGlobalControls: DashboardInterface["globalControls"] | undefined,
+  nextGlobalControls: DashboardInterface["globalControls"] | undefined,
+): boolean {
+  return Boolean(
+    !existingGlobalControls?.dateRange && nextGlobalControls?.dateRange,
+  );
+}
+
+/**
+ * Resolves the blocks to persist when global controls change, applying
+ * first-enable auto-enrollment consistently across the internal controller and
+ * the REST API model.
+ *
+ * - When `nextBlocks` is provided (create, or update whose payload includes
+ *   blocks), returns those blocks, auto-enrolled if this save is enabling the
+ *   date control.
+ * - When `nextBlocks` is omitted (update without a blocks payload), returns
+ *   auto-enrolled `existingBlocks` only if this save is enabling the date
+ *   control, otherwise `undefined` to signal "leave blocks untouched".
+ */
+export function resolveGlobalControlsBlockEnrollment<
+  T extends DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+>({
+  existingGlobalControls,
+  nextGlobalControls,
+  existingBlocks,
+  nextBlocks,
+}: {
+  existingGlobalControls?: DashboardInterface["globalControls"];
+  nextGlobalControls?: DashboardInterface["globalControls"];
+  existingBlocks?: T[];
+  nextBlocks?: T[];
+}): T[] | undefined {
+  const enrolling = isEnablingDashboardDateControl(
+    existingGlobalControls,
+    nextGlobalControls,
+  );
+
+  if (nextBlocks) {
+    return enrolling
+      ? autoEnrollDashboardBlocksInDateControl(nextBlocks)
+      : nextBlocks;
+  }
+
+  if (enrolling && existingBlocks) {
+    return autoEnrollDashboardBlocksInDateControl(existingBlocks);
+  }
+
+  return undefined;
+}
+
+export type DashboardGlobalControlsEvaluation<
+  T extends DashboardGlobalControlSupportedBlock,
+> = {
+  effectiveConfig: T["config"];
+  dateRange: {
+    enabled: boolean;
+    applied: boolean;
+  };
+};
+
+type DateGranularity = (typeof dateGranularity)[number];
+type DashboardGlobalControlSupportedConfig =
+  | MetricExplorationConfig
+  | FactTableExplorationConfig
+  | DataSourceExplorationConfig
+  | FunnelExplorationConfig;
+
+function applyDateGranularity<T extends DashboardGlobalControlSupportedBlock>(
+  config: T["config"],
+  granularity?: DateGranularity,
+): T["config"] {
+  if (!granularity) return config;
+
+  return {
+    ...config,
+    dimensions: config.dimensions.map((dimension) =>
+      dimension.dimensionType === "date"
+        ? {
+            ...dimension,
+            dateGranularity: granularity,
+          }
+        : dimension,
+    ),
+  };
+}
+
+export function restoreBlockLocalDateControls<
+  T extends DashboardGlobalControlSupportedConfig,
+>(effectiveConfig: T, blockConfig: T): T {
+  const blockDateDimension = blockConfig.dimensions.find(
+    (dimension) => dimension.dimensionType === "date",
+  );
+
+  return {
+    ...effectiveConfig,
+    dateRange: blockConfig.dateRange,
+    dimensions: effectiveConfig.dimensions.map((dimension) =>
+      dimension.dimensionType === "date" && blockDateDimension
+        ? {
+            ...dimension,
+            dateGranularity: blockDateDimension.dateGranularity,
+          }
+        : dimension,
+    ),
+  };
+}
+
+export function evaluateDashboardGlobalControlsForBlock<
+  T extends DashboardGlobalControlSupportedBlock,
+>(
+  block: T,
+  dashboard: Pick<DashboardInterface, "globalControls">,
+): DashboardGlobalControlsEvaluation<T> {
+  const dateRangeEnabled = blockUsesDashboardDateControl(block);
+  const dateRangeApplied = Boolean(
+    dateRangeEnabled && dashboard.globalControls?.dateRange,
+  );
+  const config = dateRangeApplied
+    ? applyDateGranularity(
+        {
+          ...block.config,
+          dateRange: dashboard.globalControls!.dateRange!,
+        },
+        dashboard.globalControls?.dateGranularity,
+      )
+    : block.config;
+
+  return {
+    effectiveConfig: config,
+    dateRange: {
+      enabled: dateRangeEnabled,
+      applied: dateRangeApplied,
+    },
+  };
+}
+
+export function getEffectiveExplorationConfig<
+  T extends DashboardGlobalControlSupportedBlock,
+>(
+  block: T,
+  dashboard: Pick<DashboardInterface, "globalControls">,
+): T["config"] {
+  return evaluateDashboardGlobalControlsForBlock(block, dashboard)
+    .effectiveConfig;
+}
+
+/**
+ * The only fields a dashboard date control drives on an exploration config:
+ * the date range and the date dimension's granularity. Staleness checks compare
+ * this fingerprint instead of the whole config so unrelated fields (or future
+ * server-side normalization of other fields) can't produce a spurious
+ * "controls changed" state.
+ */
+export function getExplorationDateControlFingerprint(config: {
+  dateRange: ExplorationDateRange;
+  dimensions: ReadonlyArray<{
+    dimensionType: string;
+    dateGranularity?: DateGranularity;
+  }>;
+}): {
+  dateRange: ExplorationDateRange;
+  dateGranularity: DateGranularity | null;
+} {
+  const dateDimension = config.dimensions.find(
+    (dimension) => dimension.dimensionType === "date",
+  );
+  return {
+    dateRange: config.dateRange,
+    dateGranularity: dateDimension?.dateGranularity ?? null,
+  };
+}
+
+export function getDashboardGlobalControlApplicability(dashboard: {
+  globalControls?: DashboardInterface["globalControls"];
+  blocks: readonly DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+}): {
+  supportedBlocks: DashboardGlobalControlSupportedBlock[];
+  unsupportedBlocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+  dateControlledBlocks: DashboardGlobalControlSupportedBlock[];
+} {
+  const supportedBlocks: DashboardGlobalControlSupportedBlock[] = [];
+  const unsupportedBlocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[] =
+    [];
+
+  dashboard.blocks.forEach((block) => {
+    if (isDashboardGlobalControlSupportedBlock(block)) {
+      supportedBlocks.push(block);
+    } else {
+      unsupportedBlocks.push(block);
+    }
+  });
+
+  const dateControlledBlocks = supportedBlocks.filter(
+    blockUsesDashboardDateControl,
+  );
+
+  return {
+    supportedBlocks,
+    unsupportedBlocks,
+    dateControlledBlocks,
+  };
+}
+
+type DatasourceMap = ReadonlyMap<
+  string,
+  Pick<DataSourceInterface, "type"> | undefined
+>;
+type DatasourceRecord = Readonly<
+  Record<string, Pick<DataSourceInterface, "type"> | undefined>
+>;
+type DatasourceLookup = DatasourceMap | DatasourceRecord;
+
+function isDatasourceMap(
+  datasourcesById: DatasourceLookup,
+): datasourcesById is DatasourceMap {
+  return datasourcesById instanceof Map;
+}
+
+function getDatasourceFromLookup(
+  datasourcesById: DatasourceLookup,
+  datasourceId: string,
+): Pick<DataSourceInterface, "type"> | undefined {
+  if (isDatasourceMap(datasourcesById)) {
+    return datasourcesById.get(datasourceId);
+  }
+
+  return datasourcesById[datasourceId];
+}
+
+export function canAutoRefreshDashboard(
+  dashboard: {
+    globalControls?: DashboardInterface["globalControls"];
+    blocks: readonly DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+  },
+  datasourcesById: DatasourceLookup,
+): boolean {
+  const applicability = getDashboardGlobalControlApplicability(dashboard);
+  const affectedBlocks = new Set(applicability.dateControlledBlocks);
+  if (!affectedBlocks.size) return false;
+
+  return [...affectedBlocks].every((block) => {
+    const datasource = getDatasourceFromLookup(
+      datasourcesById,
+      block.config.datasource,
+    );
+    return datasource ? isManagedWarehouse(datasource) : false;
+  });
 }
 
 export function isDifferenceType(
@@ -131,8 +470,13 @@ export function snapshotSatisfiesBlock(
   }
   if (!blockSettings.dimensionId) return true;
   // If snapshot doesn't have a dimension, check whether the requested dimension is precomputed
-  return snapshot.settings.dimensions.some(
-    ({ id }) => blockSettings.dimensionId === id,
+  // Check both regular precomputed dimensions and precomputed unit dimensions
+  const precomputedDimIds = snapshot.settings.dimensions.map(({ id }) => id);
+  const precomputedUnitDimIds =
+    snapshot.settings.precomputedUnitDimensionIds ?? [];
+  return (
+    precomputedDimIds.includes(blockSettings.dimensionId) ||
+    precomputedUnitDimIds.includes(blockSettings.dimensionId)
   );
 }
 
@@ -192,6 +536,49 @@ export const CREATE_BLOCK_TYPE: {
     metricTagFilter: [],
     sortBy: null,
     sortDirection: null,
+    ...(initialValues || {}),
+  }),
+  "metric-experiments": ({ initialValues }) => ({
+    type: "metric-experiments",
+    title: "",
+    description: "",
+    metricId: "",
+    projects: [],
+    experimentSearchString: "",
+    differenceType: "relative",
+    bandits: false,
+    ...(initialValues || {}),
+  }),
+  "experiments-scaled-impact": ({ initialValues }) => ({
+    type: "experiments-scaled-impact",
+    title: "Scaled Impact",
+    description: "",
+    dateRange: { predefined: "last90Days" },
+    projects: [],
+    experimentSearchString: "",
+    metricId: "",
+    ...(initialValues || {}),
+  }),
+  "experiments-win-rate": ({ initialValues }) => ({
+    type: "experiments-win-rate",
+    title: "Win Percentage",
+    description: "",
+    dateRange: { predefined: "last90Days" },
+    projects: [],
+    experimentSearchString: "",
+    showProjectBreakdown: true,
+    comparison: { enabled: false },
+    ...(initialValues || {}),
+  }),
+  "experiments-status": ({ initialValues }) => ({
+    type: "experiments-status",
+    title: "Team Velocity",
+    description: "",
+    dateRange: { predefined: "last90Days" },
+    projects: [],
+    experimentSearchString: "",
+    dateGranularity: "auto",
+    comparison: { enabled: false },
     ...(initialValues || {}),
   }),
   "experiment-dimension": ({ initialValues, experiment }) => ({
@@ -301,6 +688,19 @@ export const CREATE_BLOCK_TYPE: {
         "data-source-exploration",
         initialValues?.config?.datasource ?? "",
       ) as DataSourceExplorationConfig),
+    ...(initialValues || {}),
+  }),
+  "funnel-exploration": ({ initialValues }) => ({
+    type: "funnel-exploration",
+    title: "",
+    description: "",
+    explorerAnalysisId: "",
+    config:
+      initialValues?.config ??
+      (getInitialConfigByBlockType(
+        "funnel-exploration",
+        initialValues?.config?.datasource ?? "",
+      ) as FunnelExplorationConfig),
     ...(initialValues || {}),
   }),
 };

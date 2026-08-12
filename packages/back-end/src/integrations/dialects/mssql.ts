@@ -1,3 +1,4 @@
+import { createLikeStringMatchFn } from "shared/sql";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 import { baseDialect } from "./base";
@@ -22,6 +23,10 @@ export const mssqlDialect: SqlDialect = {
     }
     return `DATETRUNC(${granularity}, ${col})`;
   },
+  dateDiffMs: (startCol: string, endCol: string) =>
+    `DATEDIFF_BIG(millisecond, ${startCol}, ${endCol})`,
+  addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>
+    `DATEADD(second, ${sign === "-" ? "-" : ""}${amount}, ${col})`,
   castToFloat: (col: string) => `CAST(${col} as FLOAT)`,
   formatDate: (col: string) => `FORMAT(${col}, 'yyyy-MM-dd')`,
   castToString: (col: string) => `cast(${col} as varchar(256))`,
@@ -35,4 +40,28 @@ export const mssqlDialect: SqlDialect = {
   evalBoolean: (col: string, value: boolean) => `${col} = ${value ? "1" : "0"}`,
   percentileCapSelectClause: (values, metricTable, where = "") =>
     defaultPercentileCapSelectClause(mssqlDialect, values, metricTable, where),
+
+  unpivotLabeledPairs: (pairs) => {
+    const rows = pairs
+      .map((p) => `('${p.keyLiteral}', ${p.valueSql})`)
+      .join(", ");
+    return {
+      fromContinuation: `CROSS APPLY (VALUES
+        ${rows}
+      ) AS __col (column_name, value)`,
+      keyExpr: "__col.column_name",
+      valueExpr: "__col.value",
+    };
+  },
+
+  stringLength: (column: string) => `LEN(${column})`,
+
+  arrayElement: (arrayCol: string, index: number) =>
+    mssqlDialect.castToFloat(`JSON_VALUE(${arrayCol}, '$[${index}]')`),
+
+  stringMatch: createLikeStringMatchFn({
+    escapeStringLiteral: baseDialect.escapeStringLiteral,
+    escapeWildcards: (value: string) => value.replace(/([%_[])/g, "[$1]"),
+    emitEscapeClause: false,
+  }),
 };

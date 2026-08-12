@@ -9,7 +9,7 @@ import { getExperimentResultStatus } from "./decisionCriteria";
 
 export type StatusIndicatorData = {
   color: "amber" | "green" | "red" | "gold" | "indigo" | "gray" | "pink";
-  status: "Running" | "Stopped" | "Draft" | "Archived";
+  status: "Running" | "Stopped" | "Draft" | "Scheduled" | "Archived";
   detailedStatus?: string;
   needsAttention?: boolean;
   tooltip?: string;
@@ -32,6 +32,13 @@ export function getStatusIndicatorData(
   }
 
   if (experimentData.status === "draft") {
+    if (experimentData.nextScheduledStatusUpdate) {
+      return {
+        color: "indigo",
+        status: "Scheduled",
+        sortOrder: 7,
+      };
+    }
     return {
       color: "pink",
       status: "Draft",
@@ -58,6 +65,14 @@ export function getStatusIndicatorData(
   }
 
   if (experimentData.status === "stopped") {
+    if (experimentData.type === "contextual-bandit") {
+      return {
+        color: "gray",
+        status: "Stopped",
+        sortOrder: 4,
+      };
+    }
+
     switch (experimentData.results) {
       case "won":
         return {
@@ -88,6 +103,7 @@ export function getStatusIndicatorData(
           detailedStatus: "Didn't finish",
           sortOrder: 1,
         };
+      case undefined:
       default:
         return {
           color: "amber",
@@ -98,9 +114,6 @@ export function getStatusIndicatorData(
         };
     }
   }
-
-  // TODO: Future statuses
-  // return ["indigo", "soft", "Scheduled"];
 
   // FIXME: How can we make this rely on the typechecker instead of throwing an error?
   throw new Error(`Unknown experiment status`);
@@ -136,6 +149,15 @@ function getDetailedRunningStatusIndicatorData(
         tooltip: decisionData.tooltip,
         needsAttention: true,
         sortOrder: 11,
+      };
+    case "scheduled-end-review":
+      return {
+        color: "amber",
+        status: "Running",
+        detailedStatus: "Ready for review",
+        tooltip: decisionData.tooltip,
+        needsAttention: true,
+        sortOrder: 10.5,
       };
     case "no-data":
       return {

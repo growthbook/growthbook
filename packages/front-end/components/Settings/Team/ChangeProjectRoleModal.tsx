@@ -1,19 +1,19 @@
 import React, { FC, useState } from "react";
 import { ProjectMemberRole } from "shared/types/organization";
-import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import SingleRoleSelector from "./SingleRoleSelector";
 
 const ChangeProjectRoleModal: FC<{
   memberName: string;
   projectRole: ProjectMemberRole;
-  close?: () => void;
+  close: () => void;
   onConfirm: (data: ProjectMemberRole) => Promise<void>;
 }> = ({ memberName, projectRole, close, onConfirm }) => {
   const [value, setValue] = useState(projectRole);
   const { getProjectById } = useDefinitions();
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       close={close}
       header="Change Project Role"
@@ -41,7 +41,7 @@ const ChangeProjectRoleModal: FC<{
           });
         }}
       />
-    </Modal>
+    </ModalStandard>
   );
 };
 

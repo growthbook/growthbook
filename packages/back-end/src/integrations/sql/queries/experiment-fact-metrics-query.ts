@@ -1,5 +1,6 @@
 import cloneDeep from "lodash/cloneDeep";
-import { getUserIdTypes } from "shared/experiments";
+import { isFunnelSupportedDatasourceType } from "shared/enterprise";
+import { getUserIdTypes, isFactFunnelMetric } from "shared/experiments";
 import { format } from "shared/sql";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type {
@@ -13,20 +14,28 @@ import { applyMetricOverrides } from "back-end/src/util/integration";
 import { addCaseWhenTimeFilter } from "back-end/src/integrations/sql/clauses/add-case-when-time-filter";
 import { addHours } from "back-end/src/integrations/sql/primitives/add-hours";
 import { getBanditCaseWhen } from "back-end/src/integrations/sql/clauses/bandit-case-when";
+import { getBanditDates } from "back-end/src/integrations/sql/clauses/bandit-variation-period-weights";
 import { getBanditStatisticsFactMetricCTE } from "back-end/src/integrations/sql/ctes/bandit-statistics-fact-metric-cte";
 import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension-col";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/sql/ctes/experiment-fact-metric-statistics-cte";
 import { getExperimentUnitsQuery } from "back-end/src/integrations/sql/queries/experiment-units-query";
-import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
+import {
+  FunnelMetricForResolution,
+  getFunnelResolutionCTEs,
+  getFunnelUserMetricAggColumns,
+} from "back-end/src/integrations/sql/ctes/funnel-resolution-cte";
+import { funnelStepTimestampColumn } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
 import { getFactMetricQuantileData } from "back-end/src/integrations/sql/columns/fact-metric-quantile-data";
 import { getFactTablesForMetrics } from "back-end/src/integrations/sql/fact-metrics/fact-tables-for-metrics";
 import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-cte";
 import { getMetricData } from "back-end/src/integrations/sql/fact-metrics/metric-data";
 import { processActivationMetric } from "back-end/src/integrations/sql/processing/process-activation-metric";
 import { processDimensions } from "back-end/src/integrations/sql/processing/process-dimensions";
+import { appendContextualBanditTargetingAttributeCols } from "back-end/src/integrations/sql/ctes/contextual-bandit-experiment-units-cte";
 import { getQuantileGridColumns } from "back-end/src/integrations/sql/columns/quantile-grid-columns";
+import { getQuantileSketchGridColumns } from "back-end/src/integrations/sql/columns/quantile-sketch-grid-columns";
 
 export function getExperimentFactMetricsQuery(
   dialect: SqlDialect,
@@ -42,6 +51,19 @@ export function getExperimentFactMetricsQuery(
     params.activationMetric,
     settings,
   );
+
+  // Throw noisely instead of letting the dialect throw a generic
+  // unsupported-operation error.
+  if (!isFunnelSupportedDatasourceType(datasource.type)) {
+    const unsupported = metricsWithIndices
+      .filter((m) => isFactFunnelMetric(m.metric))
+      .map((m) => m.metric.name);
+    if (unsupported.length > 0) {
+      throw new Error(
+        `Funnel metrics are not supported for ${datasource.type} data sources (metric(s): ${unsupported.join(", ")})`,
+      );
+    }
+  }
 
   metricsWithIndices.forEach((m) => {
     applyMetricOverrides(m.metric, settings);
@@ -63,15 +85,20 @@ export function getExperimentFactMetricsQuery(
 
   const factTable = factTablesWithIndices[0]?.factTable;
 
-  const queryName = `${
+  const factTableLabel = `${
     factTablesWithIndices.length === 1
       ? `Fact Table`
       : `Cross-Fact Table Metrics`
   }: ${factTablesWithIndices.map((f) => f.factTable.name).join(" & ")}`;
+  const dimensionLabel = unitDimensions.length
+    ? `Dimension: ${unitDimensions.map((d) => d.dimension.name).join(", ")}; `
+    : "";
+  const queryName = `${dimensionLabel}${factTableLabel}`;
 
-  const userIdType =
-    params.forcedUserIdType ??
-    getExposureQuery(datasource, settings.exposureQueryId || "").userIdType;
+  const userIdType = params.unitsSettings.exposureQuery.userIdType;
+  if (!userIdType) {
+    throw new Error("Unable to determine user id type from exposureQuery");
+  }
 
   const metricData = metricsWithIndices.map((metric) =>
     getMetricData(
@@ -127,9 +154,7 @@ export function getExperimentFactMetricsQuery(
   // Get date range for experiment and analysis
   const endDate: Date = getExperimentEndDate(settings, maxHoursToConvert);
 
-  const banditDates = settings.banditSettings?.historicalWeights.map(
-    (w) => w.date,
-  );
+  const banditDates = getBanditDates(settings.banditSettings);
 
   const dimensionCols: DimensionColumnData[] = params.dimensions.map((d) =>
     getDimensionCol(dialect, d),
@@ -143,6 +168,8 @@ export function getExperimentFactMetricsQuery(
       value: dialect.castToString("'All'"),
     });
   }
+
+  appendContextualBanditTargetingAttributeCols(dimensionCols, settings);
 
   const computeOnActivatedUsersOnly =
     activationMetric !== null &&
@@ -263,9 +290,280 @@ export function getExperimentFactMetricsQuery(
       }
     )
     ${factTablesWithIndices
-      .map(
-        (f) =>
-          `, __factTable${f.index === 0 ? "" : f.index} as (
+      .map((f) => {
+        const suffix = f.index === 0 ? "" : f.index;
+        const userMetricJoinTable = `__userMetricJoin${suffix}`;
+        const userMetricAggBaseTable = `__userMetricAggBase${suffix}`;
+        const userMetricAggTable = `__userMetricAgg${suffix}`;
+        const eventQuantileMetricTable = `__eventQuantileMetric${suffix}`;
+
+        const factTableKllMergeMetrics = metricData.filter(
+          (d) =>
+            d.metric.numerator?.aggregation === "kll merge" &&
+            d.numeratorSourceIndex === f.index,
+        );
+
+        const funnelMetrics: FunnelMetricForResolution[] = metricData.flatMap(
+          (d) =>
+            isFactFunnelMetric(d.metric) && d.numeratorSourceIndex === f.index
+              ? [{ metric: d.metric, alias: d.alias }]
+              : [],
+        );
+        // The funnel resolution chain sits between the per-user aggregate and
+        // everything downstream, so when it is present the per-user aggregate
+        // moves to a private name and the chain's terminal CTE takes over
+        // `__userMetricAgg`. Its terminal projects `r.*`, so consumers that
+        // only care about non-funnel columns are unaffected.
+        const perUserAggTableName = funnelMetrics.length
+          ? `__userMetricAggSteps${suffix}`
+          : userMetricAggTable;
+        const hasKllMerge = factTableKllMergeMetrics.length > 0;
+        const hasEventQuantile = eventQuantileData.length > 0;
+        const hasNonKllEventQuantile = eventQuantileData.some(
+          (d) => !d.isKllMerge,
+        );
+        // KLL is mergeable: merge(per-event sketches) ≡ merge(per-user merged
+        // sketches). When every event-quantile metric is 'kll merge', read
+        // the variation-level merge from the per-user sketches in
+        // __userMetricAggBase instead of re-scanning per-event values in
+        // __userMetricJoin — same shape as __eventQuantileSketch +
+        // __eventQuantileMetric in the incremental-refresh path in
+        // SqlIntegration.ts. Mixed cases still read per-event from
+        // __userMetricJoin because non-KLL APPROX_PERCENTILE needs per-event
+        // values and we only emit a single __eventQuantileMetric CTE.
+        const eqmReadsFromBase =
+          hasKllMerge && !hasNonKllEventQuantile && hasEventQuantile;
+
+        // Per-user aggregation body — shared between __userMetricAggBase
+        // (when emitted) and __userMetricAgg (when no KLL merge wrapper is
+        // needed).
+        //
+        // Notes on what this SELECT emits per metric:
+        //   - 'kll merge' numerator: a per-user sketch column
+        //     <alias>_user_sketch via kllMergePartial. The scalar
+        //     <alias>_value is computed post-GROUP-BY in __userMetricAgg
+        //     because kllRankApprox needs the per-user sketch AND the
+        //     variation-level quantile (BigQuery/Snowflake handle scalar
+        //     subqueries with outer-aggregate references inside a GROUP BY
+        //     inconsistently, so the rank recovery is done after the join).
+        //   - non-KLL numerator: a per-user <alias>_value via
+        //     aggregatedValueTransformation; non-KLL event-quantile metrics
+        //     reference qm.<alias>_quantile per-event so they require the
+        //     LEFT JOIN to __eventQuantileMetric below.
+        //   - <alias>_n_events: SUM of the paired count column for kll
+        //     merge (since each row is a pre-aggregated sketch covering many
+        //     events) and COUNT(rows) otherwise.
+        const perUserAggSelect = `
+          -- Add in the aggregate metric value for each user
+          SELECT
+            umj.variation
+            ${dimensionCols
+              .map((c) => `, umj.${c.alias} AS ${c.alias}`)
+              .join("")}
+            ${banditDates?.length ? `, umj.bandit_period` : ""}
+            , umj.${baseIdType}
+            ${
+              // Funnel metrics still need access to the exposure timestamp
+              // to resolve funnel steps.
+              funnelMetrics.length ? `, MIN(umj.timestamp) AS timestamp` : ""
+            }
+            ${metricData
+              .map((data) => {
+                const isKllMergeNumerator =
+                  data.metric.numerator?.aggregation === "kll merge" &&
+                  data.numeratorSourceIndex === f.index;
+
+                const kllMergeColumns = isKllMergeNumerator
+                  ? `, ${dialect.quantileSketchMergePartial(`umj.${data.alias}_value`)} AS ${data.alias}_user_sketch`
+                  : "";
+
+                const numeratorValueColumn =
+                  data.numeratorSourceIndex === f.index &&
+                  !isKllMergeNumerator &&
+                  !isFactFunnelMetric(data.metric)
+                    ? `, ${data.aggregatedValueTransformation({
+                        column: data.numeratorAggFns.fullAggregationFunction(
+                          `umj.${data.alias}_value`,
+                          `qm.${data.alias}_quantile`,
+                        ),
+                        initialTimestampColumn: "MIN(umj.timestamp)",
+                        analysisEndDate: params.settings.endDate,
+                      })} AS ${data.alias}_value`
+                    : "";
+
+                return `${numeratorValueColumn}${kllMergeColumns}
+              ${
+                data.ratioMetric && data.denominatorSourceIndex === f.index
+                  ? `, ${data.aggregatedValueTransformation({
+                      column: data.denominatorAggFns.fullAggregationFunction(
+                        `umj.${data.alias}_denominator`,
+                        `qm.${data.alias}_quantile`,
+                      ),
+                      initialTimestampColumn: "MIN(umj.timestamp)",
+                      analysisEndDate: params.settings.endDate,
+                    })} AS ${data.alias}_denominator`
+                  : ""
+              }`;
+              })
+              .join("\n")}
+            ${eventQuantileData
+              .map((data) =>
+                data.isKllMerge
+                  ? `, SUM(COALESCE(umj.${data.alias}_n_events, 0)) AS ${data.alias}_n_events`
+                  : `, COUNT(umj.${data.alias}_value) AS ${data.alias}_n_events`,
+              )
+              .join("\n")}
+            ${getFunnelUserMetricAggColumns(dialect, funnelMetrics)}
+            ${
+              regressionAdjustedTableIndices.has(f.index)
+                ? regressionAdjustedMetrics
+                    .map(
+                      (metric) =>
+                        `${
+                          metric.numeratorSourceIndex === f.index
+                            ? `, ${metric.covariateNumeratorAggFns.fullAggregationFunction(
+                                `umj.${metric.alias}_covariate_value`,
+                              )} AS ${metric.alias}_covariate_value`
+                            : ""
+                        }${
+                          metric.ratioMetric &&
+                          metric.denominatorSourceIndex === f.index
+                            ? `, ${metric.covariateDenominatorAggFns.fullAggregationFunction(
+                                `umj.${metric.alias}_covariate_denominator`,
+                              )} AS ${metric.alias}_covariate_denominator`
+                            : ""
+                        }`,
+                    )
+                    .join("\n")
+                : ""
+            }
+          FROM
+            ${userMetricJoinTable} umj
+          ${
+            // Non-KLL event-quantile metrics need the variation-level
+            // quantile joined per-event so aggregatedValueTransformation can
+            // reference qm.<alias>_quantile during the per-user GROUP BY.
+            // KLL-only paths avoid this join — the per-user sketch carries
+            // enough information and resolution happens in __userMetricAgg.
+            hasNonKllEventQuantile
+              ? `
+          LEFT JOIN ${eventQuantileMetricTable} qm
+          ON (qm.variation = umj.variation ${dimensionCols
+            .map((c) => `AND qm.${c.alias} = umj.${c.alias}`)
+            .join("\n")})`
+              : ""
+          }
+          GROUP BY
+            umj.variation
+            ${dimensionCols.map((c) => `, umj.${c.alias}`).join("")}
+            ${banditDates?.length ? `, umj.bandit_period` : ""}
+            , umj.${baseIdType}
+        `;
+
+        // __eventQuantileMetric: per (variation, dimension) quantile grid for
+        // event-quantile metrics. Raw event-quantile metrics use
+        // APPROX_PERCENTILE over per-event numeric values in
+        // __userMetricJoin. 'kll merge' metrics merge sketches via
+        // KLL_QUANTILES.MERGE_PARTIAL and read off quantile + bound points
+        // via KLL_QUANTILES.EXTRACT_POINT. When eqmReadsFromBase, the merge
+        // operand is the per-user sketch from __userMetricAggBase (so
+        // __userMetricJoin is scanned exactly once); otherwise it's the
+        // per-event sketch from __userMetricJoin.
+        const eventQuantileMetricCte = hasEventQuantile
+          ? `
+      , ${eventQuantileMetricTable} AS (
+        SELECT
+        m.variation AS variation
+        ${dimensionCols.map((c) => `, m.${c.alias} AS ${c.alias}`).join("")}
+        ${eventQuantileData
+          .map((data) =>
+            data.isKllMerge
+              ? getQuantileSketchGridColumns(
+                  dialect,
+                  data.metricQuantileSettings,
+                  dialect.quantileSketchMergePartial(
+                    eqmReadsFromBase
+                      ? `m.${data.alias}_user_sketch`
+                      : `m.${data.alias}_value`,
+                  ),
+                  `${data.alias}_`,
+                )
+              : getQuantileGridColumns(
+                  dialect,
+                  data.metricQuantileSettings,
+                  `${data.alias}_`,
+                ),
+          )
+          .join("\n")}
+      FROM
+        ${eqmReadsFromBase ? userMetricAggBaseTable : userMetricJoinTable} m
+      GROUP BY
+        m.variation
+        ${dimensionCols.map((c) => `, m.${c.alias}`).join("")}
+      )`
+          : "";
+
+        // __userMetricAggBase: per-user aggregation. Only emitted when
+        // there are KLL merge metrics — its only consumer is __userMetricAgg
+        // (and __eventQuantileMetric when eqmReadsFromBase). Without KLL
+        // merge metrics the per-user aggregation goes directly into
+        // __userMetricAgg.
+        const userMetricAggBaseCte = hasKllMerge
+          ? `
+      , ${userMetricAggBaseTable} as (${perUserAggSelect})`
+          : "";
+
+        // __userMetricAgg: final per-user values consumed by downstream
+        // statistics CTEs.
+        //   - With KLL merge: thin wrapper that joins __userMetricAggBase
+        //     against __eventQuantileMetric to apply kllRankApprox
+        //     post-GROUP-BY (recovers the per-user "count below threshold"
+        //     using the per-user sketch and the variation-level quantile).
+        //   - Without KLL merge: just the per-user aggregation directly.
+        const kllMergeResolutionCols = factTableKllMergeMetrics
+          .map(
+            (data) =>
+              `, ${dialect.quantileSketchRankApprox(
+                `base.${data.alias}_user_sketch`,
+                `qm.${data.alias}_quantile`,
+                `base.${data.alias}_n_events`,
+                100,
+              )} AS ${data.alias}_value`,
+          )
+          .join("\n");
+        const userMetricAggCte =
+          (hasKllMerge
+            ? `
+      , ${perUserAggTableName} as (
+        SELECT base.* ${kllMergeResolutionCols}
+        FROM ${userMetricAggBaseTable} base
+        LEFT JOIN ${eventQuantileMetricTable} qm
+        ON (qm.variation = base.variation ${dimensionCols
+          .map((c) => `AND qm.${c.alias} = base.${c.alias}`)
+          .join("\n")})
+      )`
+            : `
+      , ${perUserAggTableName} as (${perUserAggSelect})`) +
+          (funnelMetrics.length
+            ? getFunnelResolutionCTEs(dialect, {
+                funnelMetrics,
+                sourceTableName: perUserAggTableName,
+                terminalTableName: userMetricAggTable,
+                resolveTablePrefix: `__funnelResolve${suffix}_`,
+                exposureColumn: "timestamp",
+              })
+            : "");
+
+        // CTE order depends on the dependency graph:
+        //   - eqmReadsFromBase (KLL only): join → base → eqm → agg
+        //   - mixed KLL + non-KLL event quantile: join → eqm → base → agg
+        //   - non-KLL event quantile only: join → eqm → agg (no base)
+        //   - no event quantile: join → agg (no base, no eqm)
+        const downstreamCtes = eqmReadsFromBase
+          ? `${userMetricAggBaseCte}${eventQuantileMetricCte}${userMetricAggCte}`
+          : `${eventQuantileMetricCte}${userMetricAggBaseCte}${userMetricAggCte}`;
+
+        return `, __factTable${suffix} as (
         ${getFactMetricCTE(dialect, {
           baseIdType,
           idJoinMap,
@@ -279,10 +577,15 @@ export function getExperimentFactMetricsQuery(
           customFields: settings.customFields,
         })}
       )
-      , __userMetricJoin${f.index === 0 ? "" : f.index} as (
+      , ${userMetricJoinTable} as (
         SELECT
           d.variation AS variation
           , d.timestamp AS timestamp
+          ${
+            // Pass through event_timestamp to enable certain dialects (Redshift)
+            // to order by it for array sorting
+            funnelMetrics.length ? `, m.timestamp AS event_timestamp` : ""
+          }
           ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
           ${banditDates?.length ? `, d.bandit_period AS bandit_period` : ""}
           , d.${baseIdType} AS ${baseIdType}
@@ -290,7 +593,8 @@ export function getExperimentFactMetricsQuery(
             .map(
               (data) =>
                 `${
-                  data.numeratorSourceIndex === f.index
+                  data.numeratorSourceIndex === f.index &&
+                  !isFactFunnelMetric(data.metric)
                     ? `, ${addCaseWhenTimeFilter(dialect, {
                         col: `m.${data.alias}_value`,
                         metric: data.metric,
@@ -316,6 +620,49 @@ export function getExperimentFactMetricsQuery(
                         metricTimestampColExpr: "m.timestamp",
                         exposureTimestampColExpr: "d.timestamp",
                       })} as ${data.alias}_denominator`
+                    : ""
+                }
+                ${
+                  data.metric.numerator?.aggregation === "kll merge" &&
+                  data.numeratorSourceIndex === f.index
+                    ? `, ${addCaseWhenTimeFilter(dialect, {
+                        col: `m.${data.alias}_n_events`,
+                        metric: data.metric,
+                        overrideConversionWindows:
+                          data.overrideConversionWindows,
+                        endDate: settings.endDate,
+                        // Skip ignoreZeros for n_events
+                        metricQuantileSettings: {
+                          ...data.metricQuantileSettings,
+                          ignoreZeros: false,
+                        },
+                        metricTimestampColExpr: "m.timestamp",
+                        exposureTimestampColExpr: "d.timestamp",
+                      })} as ${data.alias}_n_events`
+                    : ""
+                }
+                ${
+                  isFactFunnelMetric(data.metric) &&
+                  data.numeratorSourceIndex === f.index
+                    ? data.metric.funnelSettings.steps
+                        .map((_step, stepIndex) => {
+                          const col = funnelStepTimestampColumn(
+                            data.alias,
+                            stepIndex,
+                          );
+                          // This case when applies the overall conversion window.
+                          // Step-specific conversion windows are applied later.
+                          return `, ${addCaseWhenTimeFilter(dialect, {
+                            col: `m.${col}`,
+                            metric: data.metric,
+                            overrideConversionWindows:
+                              data.overrideConversionWindows,
+                            endDate: settings.endDate,
+                            metricTimestampColExpr: "m.timestamp",
+                            exposureTimestampColExpr: "d.timestamp",
+                          })} as ${col}`;
+                        })
+                        .join("\n")
                     : ""
                 }
                 `,
@@ -353,129 +700,24 @@ export function getExperimentFactMetricsQuery(
           }
         FROM
           __distinctUsers d
-        LEFT JOIN __factTable${f.index === 0 ? "" : f.index} m ON (
+        LEFT JOIN __factTable${suffix} m ON (
           m.${baseIdType} = d.${baseIdType}
         )
-      )
-    ${
-      eventQuantileData.length
-        ? `
-      , __eventQuantileMetric${f.index === 0 ? "" : f.index} AS (
-        SELECT
-        m.variation AS variation
-        ${dimensionCols.map((c) => `, m.${c.alias} AS ${c.alias}`).join("")}
-        ${eventQuantileData
-          .map((data) =>
-            getQuantileGridColumns(
-              dialect,
-              data.metricQuantileSettings,
-              `${data.alias}_`,
-            ),
-          )
-          .join("\n")}
-      FROM
-        __userMetricJoin${f.index === 0 ? "" : f.index} m
-      GROUP BY
-        m.variation
-        ${dimensionCols.map((c) => `, m.${c.alias}`).join("")}
-      )`
-        : ""
-    }
-    , __userMetricAgg${f.index === 0 ? "" : f.index} as (
-      -- Add in the aggregate metric value for each user
-      SELECT
-        umj.variation
-        ${dimensionCols.map((c) => `, umj.${c.alias} AS ${c.alias}`).join("")}
-        ${banditDates?.length ? `, umj.bandit_period` : ""}
-        , umj.${baseIdType}
-        ${metricData
-          .map((data) => {
-            return `${
-              data.numeratorSourceIndex === f.index
-                ? `, ${data.aggregatedValueTransformation({
-                    column: data.numeratorAggFns.fullAggregationFunction(
-                      `umj.${data.alias}_value`,
-                      `qm.${data.alias}_quantile`,
-                    ),
-                    initialTimestampColumn: "MIN(umj.timestamp)",
-                    analysisEndDate: params.settings.endDate,
-                  })} AS ${data.alias}_value`
-                : ""
-            }
-              ${
-                data.ratioMetric && data.denominatorSourceIndex === f.index
-                  ? `, ${data.aggregatedValueTransformation({
-                      column: data.denominatorAggFns.fullAggregationFunction(
-                        `umj.${data.alias}_denominator`,
-                        `qm.${data.alias}_quantile`,
-                      ),
-                      initialTimestampColumn: "MIN(umj.timestamp)",
-                      analysisEndDate: params.settings.endDate,
-                    })} AS ${data.alias}_denominator`
-                  : ""
-              }`;
-          })
-          .join("\n")}
-        ${eventQuantileData
-          .map(
-            (data) =>
-              `, COUNT(umj.${data.alias}_value) AS ${data.alias}_n_events`,
-          )
-          .join("\n")}
-        ${
-          regressionAdjustedTableIndices.has(f.index)
-            ? regressionAdjustedMetrics
-                .map(
-                  (metric) =>
-                    `${
-                      metric.numeratorSourceIndex === f.index
-                        ? `, ${metric.covariateNumeratorAggFns.fullAggregationFunction(
-                            `umj.${metric.alias}_covariate_value`,
-                          )} AS ${metric.alias}_covariate_value`
-                        : ""
-                    }${
-                      metric.ratioMetric &&
-                      metric.denominatorSourceIndex === f.index
-                        ? `, ${metric.covariateDenominatorAggFns.fullAggregationFunction(
-                            `umj.${metric.alias}_covariate_denominator`,
-                          )} AS ${metric.alias}_covariate_denominator`
-                        : ""
-                    }`,
-                )
-                .join("\n")
-            : ""
-        }
-      FROM
-        __userMetricJoin${f.index === 0 ? "" : f.index} umj
-      ${
-        eventQuantileData.length
-          ? `
-      LEFT JOIN __eventQuantileMetric${f.index === 0 ? "" : f.index} qm
-      ON (qm.variation = umj.variation ${dimensionCols
-        .map((c) => `AND qm.${c.alias} = umj.${c.alias}`)
-        .join("\n")})`
-          : ""
-      }
-      GROUP BY
-        umj.variation
-        ${dimensionCols.map((c) => `, umj.${c.alias}`).join("")}
-        ${banditDates?.length ? `, umj.bandit_period` : ""}
-        , umj.${baseIdType}
-    )
+      )${downstreamCtes}
     ${
       percentileTableIndices.has(f.index)
         ? `
-      , __capValue${f.index === 0 ? "" : f.index} AS (
+      , __capValue${suffix} AS (
           ${dialect.percentileCapSelectClause(
             percentileData.filter((p) => p.sourceIndex === f.index),
-            `__userMetricAgg${f.index === 0 ? "" : f.index}`,
+            userMetricAggTable,
           )}
       )
       `
         : ""
     }
-    `,
-      )
+    `;
+      })
       .join("\n")}    
     ${
       banditDates?.length

@@ -1,12 +1,14 @@
 import { QueryInterface, QueryStatistics } from "shared/types/query";
 import { ReactElement } from "react";
+import { isManagedWarehouse } from "shared/util";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBInfo } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 const numberFormatter = Intl.NumberFormat();
 
-function getNumberOfMetricsInQuery(q: QueryInterface) {
+export function getNumberOfMetricsInQuery(q: QueryInterface) {
   if (q.queryType === "experimentMetric") return 1;
   if (q.queryType === "experimentMultiMetric") {
     return (
@@ -26,7 +28,12 @@ export default function QueryStatsRow({
   showPipelineMode?: boolean;
 }) {
   const { hasCommercialFeature } = useUser();
-  const hasOptimizedQueries = hasCommercialFeature("multi-metric-queries");
+  const { datasources } = useDefinitions();
+  // Fact table optimization is an Enterprise feature, but the Managed Warehouse
+  // gets it for free since GrowthBook owns the compute.
+  const hasOptimizedQueries =
+    hasCommercialFeature("multi-metric-queries") ||
+    datasources.some((d) => isManagedWarehouse(d));
 
   const queryStats: QueryStatistics[] = queries
     .map((q) => q.statistics)
@@ -40,12 +47,14 @@ export default function QueryStatsRow({
     return false;
   });
 
-  const factTableOptimizedMetrics = !hasOptimizedQueries
-    ? 0
-    : queries
-        .filter((q) => q.queryType === "experimentMultiMetric")
-        .map((q) => getNumberOfMetricsInQuery(q))
-        .reduce((sum, n) => sum + n, 0);
+  // A fact-metric query is only "optimized" when it actually combines more than
+  // one metric. Single-metric queries share the same query type/builder but
+  // weren't combined, so exclude them from the optimized count.
+  const factTableOptimizedMetrics = queries
+    .filter((q) => q.queryType === "experimentMultiMetric")
+    .map((q) => getNumberOfMetricsInQuery(q))
+    .filter((n) => n > 1)
+    .reduce((sum, n) => sum + n, 0);
 
   const totalMetrics = queries
     .map((q) => getNumberOfMetricsInQuery(q))
@@ -89,7 +98,9 @@ export default function QueryStatsRow({
               </div>
             </>
           }
-          commercialFeature="multi-metric-queries"
+          commercialFeature={
+            hasOptimizedQueries ? undefined : "multi-metric-queries"
+          }
         >
           <div className="col-auto mb-2">
             <span className="uppercase-title">

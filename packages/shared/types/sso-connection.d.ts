@@ -26,4 +26,4 @@ export interface SSOConnectionInterface {
 export type RedirectResponse = { redirectURI: string; confirm?: boolean };
 export type ShowLoginResponse = { showLogin: true; newInstallation: boolean };
 export type UnauthenticatedResponse = RedirectResponse | ShowLoginResponse;
-export type IdTokenResponse = { token: string };
+export type IdTokenResponse = { token: string; ssoConnectionId?: string };

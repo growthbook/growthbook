@@ -1,12 +1,19 @@
-import { Request, Response, NextFunction } from "express";
+import { Request, Response, NextFunction, RequestHandler } from "express";
+import asyncHandler from "express-async-handler";
 import { hasPermission } from "shared/permissions";
-import { EventUserApiKey } from "shared/types/events/event-types";
+import {
+  EventUserApiKey,
+  EventUserLoggedIn,
+} from "shared/types/events/event-types";
 import { OrganizationInterface, Permission } from "shared/types/organization";
 import { ApiKeyInterface, ApiKeyWithRole } from "shared/types/apikey";
 import { TeamInterface } from "shared/types/team";
 import { licenseInit } from "back-end/src/enterprise";
 import { ApiRequestLocals } from "back-end/types/api";
-import { getOrganizationById } from "back-end/src/services/organizations";
+import {
+  getContextFromReq,
+  getOrganizationById,
+} from "back-end/src/services/organizations";
 import { getCustomLogProps } from "back-end/src/util/logger";
 import {
   isApiKeyForUserInOrganization,
@@ -24,6 +31,8 @@ import {
 import { ReqContextClass } from "back-end/src/services/context";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
+import { getAuthConnection, processJWT } from "back-end/src/services/auth";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
 
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
@@ -51,6 +60,150 @@ export default function authenticateApiRequestMiddleware(
     });
   }
 
+  // Detect JWTs by their three-segment base64url shape. API keys are a single
+  // opaque string, so this split is a cheap classifier.
+  if (scheme === "Bearer" && value.trim().split(".").length === 3) {
+    return authenticateWithJwt(req, res, next);
+  }
+
+  return authenticateWithApiKey(req, res, next, scheme, value);
+}
+
+function authenticateWithJwt(
+  req: Request & ApiRequestLocals,
+  res: Response & { log: Request["log"] },
+  next: NextFunction,
+) {
+  const authReq = req as AuthRequest & ApiRequestLocals;
+  const jwtMiddleware = getAuthConnection().middleware as RequestHandler;
+  // Express's RequestHandler generics (ParamsDictionary) don't unify with
+  // AuthRequest's `params: unknown` under stricter TS checkers (tsgo),
+  // so launder through Request to keep the call signature happy.
+  const reqAsExpress = req as Request;
+
+  // Wrap processJWT with asyncHandler so any rejected promise from the async
+  // middleware is forwarded to next(err) instead of becoming an unhandled
+  // rejection that hangs the request. Mirrors how app.ts mounts processJWT.
+  const wrappedProcessJWT = asyncHandler(
+    processJWT as unknown as RequestHandler,
+  );
+
+  runMiddleware(jwtMiddleware, reqAsExpress, res)
+    .then(() => {
+      if (res.headersSent) return;
+      return runMiddleware(wrappedProcessJWT, reqAsExpress, res);
+    })
+    .then(async () => {
+      // processJWT may have responded (e.g. 403 for missing org access) —
+      // skip the rest of the pipeline in that case.
+      if (res.headersSent) return;
+
+      const context = getContextFromReq(authReq);
+
+      const eventAudit: EventUserLoggedIn = {
+        type: "dashboard",
+        id: authReq.userId || "",
+        email: authReq.email || "",
+        name: authReq.name || "",
+      };
+
+      req.apiKey = "";
+      req.user = authReq.currentUser
+        ? (await getUserById(authReq.currentUser.id)) || undefined
+        : undefined;
+      req.organization = context.org;
+      req.eventAudit = eventAudit;
+      req.audit = async (data) => {
+        await context.auditLog(data);
+      };
+      req.context = context;
+      req.isJwtAuth = true;
+
+      // Permission checks for JWT requests mirror the internal-app behavior:
+      // resolve the user's permissions from their org membership + teams.
+      req.checkPermissions = (
+        permission: Permission,
+        project?: string | (string | undefined)[] | undefined,
+        envs?: string[] | Set<string>,
+      ) => {
+        let checkProjects: (string | undefined)[];
+        if (Array.isArray(project)) {
+          checkProjects = project.length > 0 ? project : [undefined];
+        } else {
+          checkProjects = [project];
+        }
+
+        const userPermissions = getUserPermissions(
+          {
+            id: authReq.userId || "",
+            superAdmin: authReq.superAdmin,
+          },
+          context.org,
+          authReq.teams,
+        );
+
+        for (const p of checkProjects) {
+          if (
+            !hasPermission(
+              userPermissions,
+              permission,
+              p,
+              envs ? [...envs] : undefined,
+            )
+          ) {
+            throw new Error(
+              "You do not have permission to complete that action.",
+            );
+          }
+        }
+      };
+
+      res.log = req.log = req.log.child(getCustomLogProps(req as Request));
+
+      await licenseInit(context.org, getUserCodesForOrg, getLicenseMetaData);
+
+      next();
+    })
+    .catch((e) => {
+      if (res.headersSent) return;
+      res.status(401).json({
+        message: e.message || "Authentication failed",
+      });
+    });
+}
+
+function runMiddleware(
+  middleware: RequestHandler,
+  req: Request,
+  res: Response,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const settle = (err?: unknown) => {
+      if (settled) return;
+      settled = true;
+      if (err) reject(err);
+      else resolve();
+    };
+
+    // Some middlewares respond and return without calling next (e.g. processJWT
+    // sending a 403 for org-membership failures). Settle on response lifecycle
+    // events too, so the promise — and the req/res/next closures it captures —
+    // doesn't dangle.
+    res.once("finish", () => settle());
+    res.once("close", () => settle());
+
+    middleware(req, res, (err) => settle(err));
+  });
+}
+
+function authenticateWithApiKey(
+  req: Request & ApiRequestLocals,
+  res: Response & { log: Request["log"] },
+  next: NextFunction,
+  scheme: string,
+  value: string,
+) {
   const xOrganizationHeader = req.headers["x-organization"] as string;
 
   // If using Basic scheme, need to base64 decode and extract the username
@@ -113,6 +266,13 @@ export default function authenticateApiRequestMiddleware(
         }
       }
       req.organization = org;
+
+      if (org.suspended && !req.user?.superAdmin) {
+        return res.status(403).json({
+          message:
+            "This account has been suspended. Please contact support@growthbook.io for assistance.",
+        });
+      }
 
       // If it's a user API key, verify that the user is part of the organization
       // This is important to check in the event that a user leaves an organization, the member list is updated, and the user's API keys are orphaned

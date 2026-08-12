@@ -35,7 +35,7 @@ import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 import Switch from "@/ui/Switch";
 import Field from "@/components/Forms/Field";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { useUser } from "@/services/UserContext";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -51,6 +51,8 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import useURLHash from "@/hooks/useURLHash";
+import Text from "@/ui/Text";
+import Callout from "@/ui/Callout";
 
 export default function LegacyReportPage({
   report,
@@ -135,7 +137,7 @@ export default function LegacyReportPage({
     return <LoadingOverlay />;
   }
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
   if (!report || report.type !== "experiment") {
     return null;
@@ -181,7 +183,7 @@ export default function LegacyReportPage({
       />
       <div className="container-fluid pagecontents experiment-details">
         {editModalOpen && (
-          <Modal
+          <ModalStandard
             trackingEventModalType=""
             open={true}
             submit={form.handleSubmit(async (value) => {
@@ -195,11 +197,12 @@ export default function LegacyReportPage({
               setEditModalOpen(false);
             }}
             header="Edit Report"
-            overflowAuto={false}
           >
-            <Field label="Title" {...form.register("title")} />
+            <Field size="legacy" label="Title" {...form.register("title")} />
             <div className="form-group">
-              <label>Description</label>
+              <Text as="label" weight="semibold">
+                Description
+              </Text>
               <MarkdownInput
                 setValue={(value) => {
                   form.setValue("description", value);
@@ -217,7 +220,7 @@ export default function LegacyReportPage({
                 form.setValue("status", newStatus);
               }}
             />
-          </Modal>
+          </ModalStandard>
         )}
         <div className="mb-3">
           {report?.experimentId && (
@@ -229,6 +232,7 @@ export default function LegacyReportPage({
           {canDeleteReport &&
             (userId === report?.userId || !report?.userId) && (
               <DeleteButton
+                useRadix={false}
                 displayName="Custom Report"
                 link={false}
                 className="float-right btn-sm"
@@ -385,6 +389,7 @@ export default function LegacyReportPage({
                         }}
                       >
                         <RunQueriesButton
+                          useRadixButton={false}
                           icon="refresh"
                           cta="Refresh Data"
                           mutate={mutate}
@@ -443,26 +448,26 @@ export default function LegacyReportPage({
                   </div>
                 </div>
                 {report.error ? (
-                  <div className="alert alert-danger">
+                  <Callout status="error">
                     <strong>Error generating the report: </strong>{" "}
                     {report.error}
-                  </div>
+                  </Callout>
                 ) : null}
                 {refreshError && (
-                  <div className="alert alert-danger">
+                  <Callout status="error">
                     <strong>Error refreshing data: </strong> {refreshError}
-                  </div>
+                  </Callout>
                 )}
                 {!hasMetrics && (
-                  <div className="alert alert-info">
+                  <Callout status="info">
                     Add at least 1 metric to view results.
-                  </div>
+                  </Callout>
                 )}
                 {!hasData &&
                   !report.results?.unknownVariations?.length &&
                   queryStatusData.status !== "running" &&
                   hasMetrics && (
-                    <div className="alert alert-info">
+                    <Callout status="info">
                       No data yet.{" "}
                       {report.results &&
                         phaseAgeMinutes >= 120 &&
@@ -475,7 +480,7 @@ export default function LegacyReportPage({
                       {!report.results &&
                         canUpdateReport &&
                         `Click the "Refresh" button.`}
-                    </div>
+                    </Callout>
                   )}
               </div>
               {hasData &&

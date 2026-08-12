@@ -2,7 +2,6 @@ import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
   ExperimentInterfaceExcludingHoldouts,
   ExperimentTemplateInterface,
-  Variation,
   postExperimentValidator,
 } from "shared/validators";
 import { omit } from "lodash";
@@ -16,7 +15,10 @@ import {
   toExperimentApiInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import { validateScheduleUpdate } from "back-end/src/services/experimentScheduling";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import {
   resolveOwnerToUserId,
   resolveOwnerEmail,
@@ -242,7 +244,16 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       }
     }
     if (payload.variations) {
-      validateVariationIds(payload.variations as Variation[]);
+      validateVariationIds(payload.variations);
+    }
+
+    if (payload.precomputedUnitDimensionIds !== undefined) {
+      await assertExperimentPrecomputedUnitDimensionIdsAreValid({
+        context: req.context,
+        datasource,
+        exposureQueryId: payload.assignmentQueryId,
+        dimensionIds: payload.precomputedUnitDimensionIds,
+      });
     }
 
     // Validate attributionModel + lookbackOverride consistency
@@ -266,6 +277,28 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       );
     }
 
+    // Opt-in attribute registration check (org-level setting). Applies to the
+    // experiment's hashAttribute/fallbackAttribute and every phase's condition.
+    assertRegisteredAttributes(
+      req.context,
+      {
+        hashAttribute: payload.hashAttribute,
+        fallbackAttribute: payload.fallbackAttribute,
+      },
+      "experiment",
+      undefined,
+      payload.project,
+    );
+    for (const phase of payload.phases ?? []) {
+      assertRegisteredAttributes(
+        req.context,
+        { condition: phase.condition },
+        "experiment phase",
+        undefined,
+        payload.project,
+      );
+    }
+
     // transform into exp interface; set sane defaults
     const newExperiment = postExperimentApiPayloadToInterface(
       {
@@ -275,6 +308,22 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       req.organization,
       datasource,
     );
+
+    // Same validation as PUT /schedule; existingSchedule is null on create.
+    if (payload.statusUpdateSchedule) {
+      validateScheduleUpdate({
+        context: req.context,
+        experimentType: payload.type ?? "standard",
+        status: newExperiment.status,
+        archived: !!newExperiment.archived,
+        phaseStart:
+          newExperiment.phases[newExperiment.phases.length - 1]?.dateStarted,
+        existingSchedule: null,
+        variations: newExperiment.variations,
+        goalMetrics: newExperiment.goalMetrics,
+        incoming: payload.statusUpdateSchedule,
+      });
+    }
 
     const experiment = await createExperiment({
       data: newExperiment,

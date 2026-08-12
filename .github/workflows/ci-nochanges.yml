@@ -5,22 +5,39 @@ on:
     paths-ignore:
       - "packages/**"
       - "pnpm-lock.yaml"
+      - "package.json"
       - "eslint.config.mjs"
+      - "eslint-rules/**"
       - "eslint-suppressions.json"
-      - ".prettierignore"
   pull_request:
     paths-ignore:
       - "packages/**"
       - "pnpm-lock.yaml"
+      - "package.json"
       - "eslint.config.mjs"
+      - "eslint-rules/**"
       - "eslint-suppressions.json"
-      - ".prettierignore"
 
-# If nothing of importance changed, the normal CI workflow is skipped
-# Skipped steps do not count as successful, which will block the PR from being merged
-# This is a dummy workflow for those cases so it gets marked as successful in GitHub
+# When code or tooling has not changed, skip the full CI suite but still check formatting.
+# This workflow provides the required successful CI check for those pull requests.
 jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - run: 'echo "No changes, skipping"'
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: "pnpm"
+
+      - name: Install pnpm dependencies
+        run: pnpm install --ignore-scripts
+
+      - name: Check formatting
+        run: pnpm pretty:check

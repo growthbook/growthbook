@@ -1,7 +1,7 @@
 import { FC, ReactElement } from "react";
 import { useForm } from "react-hook-form";
-import Modal from "@/components/Modal";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import MultiSelectField from "@/ui/MultiSelectField";
 import useProjectOptions from "@/hooks/useProjectOptions";
 
 const EditProjectsForm: FC<{
@@ -28,7 +28,7 @@ const EditProjectsForm: FC<{
   });
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       header={"Edit Projects"}
       open={true}
@@ -40,8 +40,9 @@ const EditProjectsForm: FC<{
       cta="Save"
     >
       <MultiSelectField
+        legacyHeight
         label={label}
-        placeholder="All projects"
+        placeholder="All Projects"
         value={form.watch("projects")}
         options={useProjectOptions(permissionRequired, value)}
         onChange={(v) => form.setValue("projects", v)}
@@ -49,7 +50,7 @@ const EditProjectsForm: FC<{
         helpText={`Assign this ${entityName} to specific projects`}
       />
       <div style={{ height: 200 }} />
-    </Modal>
+    </ModalStandard>
   );
 };
 

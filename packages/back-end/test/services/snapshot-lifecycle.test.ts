@@ -5,6 +5,7 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
+  SnapshotQueryRunnerKind,
 } from "shared/types/experiment-snapshot";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import { MetricSnapshotSettings } from "shared/types/report";
@@ -51,6 +52,7 @@ jest.mock("back-end/src/queryRunners/ExperimentResultsQueryRunner", () => ({
     .mockImplementation((_context, snapshot) => ({
       model: snapshot,
       startAnalysis: jest.fn(),
+      setExperimentUpdateExecutionLogger: jest.fn(),
     })),
 }));
 
@@ -62,6 +64,7 @@ jest.mock(
       .mockImplementation((_context, snapshot) => ({
         model: snapshot,
         startAnalysis: jest.fn(),
+        setExperimentUpdateExecutionLogger: jest.fn(),
       })),
   }),
 );
@@ -74,6 +77,7 @@ jest.mock(
       .mockImplementation((_context, snapshot) => ({
         model: snapshot,
         startAnalysis: jest.fn(),
+        setExperimentUpdateExecutionLogger: jest.fn(),
       })),
   }),
 );
@@ -109,6 +113,12 @@ function makeContext(): ApiReqContext {
     org: {
       id: "org_123",
       settings: {},
+    },
+    logger: {
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      debug: jest.fn(),
     },
     models: {
       metricGroups: {
@@ -175,9 +185,19 @@ function makeAnalysisSettings(
   } as ExperimentSnapshotAnalysisSettings;
 }
 
-function makePlan(
-  overrides: Partial<PlannedExperimentSnapshot> = {},
-): PlannedExperimentSnapshot {
+type MakePlanOverrides = Omit<
+  Partial<PlannedExperimentSnapshot>,
+  "snapshot"
+> & {
+  runnerKind?: SnapshotQueryRunnerKind;
+  snapshot?: Partial<PlannedExperimentSnapshot["snapshot"]>;
+};
+
+function makePlan({
+  runnerKind = "results",
+  snapshot: snapshotOverrides,
+  ...overrides
+}: MakePlanOverrides = {}): PlannedExperimentSnapshot {
   const defaultAnalysisSettings = makeAnalysisSettings();
   return {
     snapshot: {
@@ -205,11 +225,14 @@ function makePlan(
         },
       ],
       status: "running",
-    } as ExperimentSnapshotInterface,
-    runnerKind: "results",
+      ...snapshotOverrides,
+      runnerKind,
+    },
     useCache: true,
     fullRefresh: false,
     settingsForSnapshotMetrics: [] as MetricSnapshotSettings[],
+    incrementalFallbackReason: null,
+    fullRefreshReason: null,
     ...overrides,
   };
 }
@@ -260,6 +283,11 @@ describe("snapshot lifecycle", () => {
     );
 
     const queryRunner = resultsQueryRunnerMock.mock.results[0].value;
+    expect(queryRunner.setExperimentUpdateExecutionLogger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        plan: expect.objectContaining({ runnerKind: "results" }),
+      }),
+    );
     expect(queryRunner.startAnalysis).toHaveBeenCalledWith(
       expect.objectContaining({
         snapshotType: "standard",
@@ -301,31 +329,43 @@ describe("snapshot lifecycle", () => {
     expect(updateExperimentDashboardsMock).not.toHaveBeenCalled();
   });
 
-  it("passes fullRefresh to the incremental runner for standard snapshots", async () => {
-    const context = makeContext();
-    const experiment = makeExperiment();
-    const plan = makePlan({
-      runnerKind: "incremental",
-      fullRefresh: true,
-    });
+  it.each([
+    ["incremental-full", false, true],
+    ["incremental-update", true, false],
+  ] as const)(
+    "uses the shared incremental runner for %s and derives fullRefresh from the kind",
+    async (runnerKind, plannedFullRefresh, expectedFullRefresh) => {
+      const context = makeContext();
+      const experiment = makeExperiment();
+      const plan = makePlan({
+        runnerKind,
+        fullRefresh: plannedFullRefresh,
+      });
 
-    await createSnapshotFromPlan({
-      plan,
-      context,
-      experiment,
-      metricMap: new Map<string, ExperimentMetricInterface>(),
-      factTableMap: new Map() as FactTableMap,
-    });
+      await createSnapshotFromPlan({
+        plan,
+        context,
+        experiment,
+        metricMap: new Map<string, ExperimentMetricInterface>(),
+        factTableMap: new Map() as FactTableMap,
+      });
 
-    const queryRunner = incrementalQueryRunnerMock.mock.results[0].value;
-    expect(queryRunner.startAnalysis).toHaveBeenCalledWith(
-      expect.objectContaining({
-        experimentId: experiment.id,
-        fullRefresh: true,
-        snapshotType: "standard",
-      }),
-    );
-  });
+      expect(incrementalQueryRunnerMock).toHaveBeenCalledWith(
+        context,
+        plan.snapshot,
+        expect.any(Object),
+        false,
+      );
+      const queryRunner = incrementalQueryRunnerMock.mock.results[0].value;
+      expect(queryRunner.startAnalysis).toHaveBeenCalledWith(
+        expect.objectContaining({
+          experimentId: experiment.id,
+          fullRefresh: expectedFullRefresh,
+          snapshotType: "standard",
+        }),
+      );
+    },
+  );
 
   it("uses the exploratory incremental runner for exploratory snapshots", async () => {
     const context = makeContext();
@@ -392,24 +432,35 @@ describe("snapshot lifecycle", () => {
   });
 
   describe("incremental refresh lock", () => {
-    it("acquires lock before starting incremental snapshot", async () => {
-      const context = makeContext();
-      const experiment = makeExperiment();
-      const plan = makePlan({ runnerKind: "incremental" });
+    it.each([
+      "incremental-full",
+      "incremental-update",
+      "incremental-exploratory",
+    ] as const)(
+      "acquires lock before starting a %s snapshot",
+      async (runnerKind) => {
+        const context = makeContext();
+        const experiment = makeExperiment();
+        const plan = makePlan({ runnerKind });
 
-      await createSnapshotFromPlan({
-        plan,
-        context,
-        experiment,
-        metricMap: new Map<string, ExperimentMetricInterface>(),
-        factTableMap: new Map() as FactTableMap,
-      });
+        await createSnapshotFromPlan({
+          plan,
+          context,
+          experiment,
+          metricMap: new Map<string, ExperimentMetricInterface>(),
+          factTableMap: new Map() as FactTableMap,
+        });
 
-      expect(
-        context.models.incrementalRefresh.acquireLock,
-      ).toHaveBeenCalledWith(experiment.id, plan.snapshot.id);
-      expect(incrementalQueryRunnerMock).toHaveBeenCalled();
-    });
+        expect(
+          context.models.incrementalRefresh.acquireLock,
+        ).toHaveBeenCalledWith({
+          experimentId: experiment.id,
+          phase: plan.snapshot.phase,
+          snapshotId: plan.snapshot.id,
+          legacyExperimentSettingsHash: expect.any(String),
+        });
+      },
+    );
 
     it("throws ConcurrentIncrementalRefreshError when lock cannot be acquired", async () => {
       const context = makeContext();
@@ -417,7 +468,7 @@ describe("snapshot lifecycle", () => {
         context.models.incrementalRefresh.acquireLock as jest.Mock
       ).mockResolvedValue(false);
       const experiment = makeExperiment();
-      const plan = makePlan({ runnerKind: "incremental" });
+      const plan = makePlan({ runnerKind: "incremental-update" });
 
       await expect(
         createSnapshotFromPlan({
@@ -436,7 +487,7 @@ describe("snapshot lifecycle", () => {
     it("releases lock when snapshot creation fails", async () => {
       const context = makeContext();
       const experiment = makeExperiment();
-      const plan = makePlan({ runnerKind: "incremental" });
+      const plan = makePlan({ runnerKind: "incremental-full" });
 
       // Make snapshot creation throw
       createExperimentSnapshotModelMock.mockRejectedValueOnce(

@@ -196,7 +196,7 @@ const toInterface = (doc: EventWebHookDocument): EventWebHookInterface => {
     void (async () => {
       try {
         EventWebHookModel.updateOne(
-          { id: doc.id },
+          { id: doc.id, organizationId: doc.organizationId },
           {
             $set: defaults,
           },
@@ -382,12 +382,13 @@ type EventWebHookStatusUpdate =
 
 export const updateEventWebHookStatus = async (
   eventWebHookId: string,
+  organizationId: string,
   status: EventWebHookStatusUpdate,
 ) => {
   const lastResponseBody =
     status.state === "success" ? status.responseBody : status.error;
   await EventWebHookModel.updateOne(
-    { id: eventWebHookId },
+    { id: eventWebHookId, organizationId },
     {
       $set: {
         lastRunAt: new Date(),

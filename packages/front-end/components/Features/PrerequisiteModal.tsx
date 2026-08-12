@@ -79,7 +79,7 @@ export default function PrerequisiteModal({
   const defaultDraft = useDefaultDraft(revisionList);
 
   const [mode, setMode] = useState<DraftMode>(
-    defaultDraft != null ? "existing" : "new",
+    defaultDraft !== null ? "existing" : "new",
   );
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
@@ -104,7 +104,6 @@ export default function PrerequisiteModal({
   });
 
   const selectedFeatureId = form.watch("id");
-  const selectedPrerequisite = form.getValues();
   const parentFeatureMeta = featureNames.find(
     (f) => f.id === selectedFeatureId,
   );
@@ -123,23 +122,12 @@ export default function PrerequisiteModal({
     [featureNames, feature?.id],
   );
 
-  const { results: batchStates, checkPrerequisiteCyclic } =
-    useBatchPrerequisiteStates({
-      baseFeatureId: feature.id,
-      featureIds,
-      environments: envs,
-      enabled: featureIds.length > 0 && envs.length > 0,
-      checkPrerequisite: selectedPrerequisite.id
-        ? {
-            id: selectedPrerequisite.id,
-            condition: selectedPrerequisite.condition,
-            prerequisiteIndex: i,
-          }
-        : undefined,
-    });
-
-  const isCyclic = checkPrerequisiteCyclic?.wouldBeCyclic ?? false;
-  const cyclicFeatureId = checkPrerequisiteCyclic?.cyclicFeatureId ?? null;
+  const { results: batchStates } = useBatchPrerequisiteStates({
+    baseFeatureId: feature.id,
+    featureIds,
+    environments: envs,
+    enabled: featureIds.length > 0 && envs.length > 0,
+  });
 
   const featuresStates: Record<
     string,
@@ -161,6 +149,12 @@ export default function PrerequisiteModal({
     }
     return states;
   }, [batchStates]);
+
+  const isCyclic = selectedFeatureId
+    ? (wouldBeCyclicStates[selectedFeatureId] ?? false)
+    : false;
+  const cyclicFeatureId = isCyclic ? selectedFeatureId : null;
+
   const { states: prereqStates, loading: prereqStatesLoading } =
     usePrerequisiteStates({
       featureId: selectedFeatureId,
@@ -209,9 +203,7 @@ export default function PrerequisiteModal({
       const cyclic = targetEnv
         ? featureStates[targetEnv]?.state === "cyclic"
         : false;
-      const wouldBeCyclic = targetEnv
-        ? wouldBeCyclicStates[f.id] || false
-        : false;
+      const wouldBeCyclic = wouldBeCyclicStates[f.id] || false;
 
       const states = targetEnv
         ? [featureStates[targetEnv]].filter(Boolean)
@@ -258,6 +250,7 @@ export default function PrerequisiteModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       close={close}
@@ -280,7 +273,7 @@ export default function PrerequisiteModal({
           mode === "existing"
             ? { targetDraftVersion: selectedDraft }
             : { forceNewDraft: true };
-        const res = await apiCall<{ version: number }>(
+        const res = await apiCall<{ draftVersion: number }>(
           `/feature/${feature.id}/prerequisite`,
           {
             method: action === "add" ? "POST" : "PUT",
@@ -289,8 +282,8 @@ export default function PrerequisiteModal({
         );
         await mutate();
         const resolvedVersion =
-          res?.version ?? (mode === "existing" ? selectedDraft : null);
-        if (resolvedVersion != null) setVersion(resolvedVersion);
+          res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
+        if (resolvedVersion !== null) setVersion(resolvedVersion);
       })}
     >
       <DraftSelectorForChanges

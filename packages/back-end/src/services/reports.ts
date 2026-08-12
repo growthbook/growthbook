@@ -16,14 +16,14 @@ import {
   getAllMetricSettingsForSnapshot,
   expandMetricGroups,
   generateSliceString,
-  expandAllSliceMetricsInMap,
+  expandDerivedMetricsInMap,
   parseSliceMetricId,
   SliceLevelsData,
   getEffectiveLookbackOverride,
   getLatestPhaseVariations,
+  getFactMetricPrimaryFactTableId,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
-import uniqid from "uniqid";
 import { differenceInMinutes } from "date-fns";
 import { getScopedSettings } from "shared/settings";
 import uniq from "lodash/uniq";
@@ -61,6 +61,7 @@ import { DataSourceInterface } from "shared/types/datasource";
 import { ProjectInterface } from "shared/types/project";
 import { accountFeatures, CommercialFeature } from "shared/enterprise";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
+import { generateId } from "back-end/src/util/uuid";
 import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -73,11 +74,12 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   createExperimentSnapshotModel,
-  getLatestSnapshot,
+  getLatestSuccessfulSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import {
-  getAdditionalQueryMetadataForExperiment,
+  getExperimentQueryMetadata,
+  getSnapshotQueryMetadata,
   getDefaultExperimentAnalysisSettings,
   isJoinableMetric,
 } from "back-end/src/services/experiments";
@@ -203,10 +205,10 @@ export function getSnapshotSettingsFromReportArgs(
     stddev: DEFAULT_PROPER_PRIOR_STDDEV,
   };
 
-  // Expand slice metrics if factTableMap is provided
+  // Expand derived metrics if factTableMap is provided
   if (factTableMap) {
-    // Expand all slice metrics (auto and custom) and add them to the metricMap
-    expandAllSliceMetricsInMap({
+    // Expand all derived metrics (slices and funnel steps) into the metricMap
+    expandDerivedMetricsInMap({
       metricMap,
       factTableMap,
       experiment: experiment ?? args,
@@ -461,7 +463,7 @@ export async function createReportSnapshot({
         "Unable to create snapshot for report: invalid experiment",
       );
     snapshotData =
-      (await getLatestSnapshot({
+      (await getLatestSuccessfulSnapshot({
         context,
         experiment: experiment.id,
         phase: Math.max(experiment.phases.length - 1, 0),
@@ -496,8 +498,8 @@ export async function createReportSnapshot({
 
   const metricGroups = await context.models.metricGroups.getAll();
 
-  // Expand all slice metrics (auto and custom) and add them to the metricMap
-  expandAllSliceMetricsInMap({
+  // Expand all derived metrics (slices and funnel steps) into the metricMap
+  expandDerivedMetricsInMap({
     metricMap,
     factTableMap,
     experiment: report.experimentAnalysisSettings,
@@ -566,10 +568,11 @@ export async function createReportSnapshot({
   // Fill in and sanitize the model
   snapshotData = {
     ...snapshotData,
-    id: uniqid("snp_"),
+    id: generateId("snp_"),
     type: snapshotType,
     report: report.id,
     triggeredBy: "manual",
+    runnerKind: "results",
     error: "",
     runStarted: new Date(),
     dateCreated: new Date(),
@@ -620,7 +623,10 @@ export async function createReportSnapshot({
     queryParentId: snapshot.id,
     factTableMap,
     experimentQueryMetadata: experiment
-      ? getAdditionalQueryMetadataForExperiment(experiment)
+      ? {
+          ...getExperimentQueryMetadata(experiment),
+          ...getSnapshotQueryMetadata(snapshot),
+        }
       : null,
   });
 
@@ -858,7 +864,8 @@ export async function generateExperimentReportSSRData({
 
   let factTableIds: string[] = [];
   factMetrics.forEach((m) => {
-    if (m?.numerator?.factTableId) factTableIds.push(m.numerator.factTableId);
+    const primaryFactTableId = getFactMetricPrimaryFactTableId(m);
+    if (primaryFactTableId) factTableIds.push(primaryFactTableId);
     if (m?.denominator?.factTableId)
       factTableIds.push(m.denominator.factTableId);
   });
@@ -918,7 +925,7 @@ export async function generateExperimentReportSSRData({
   > = {};
   for (const factMetric of factMetrics) {
     if (factMetric.metricAutoSlices?.length) {
-      const factTableId = factMetric.numerator.factTableId;
+      const factTableId = getFactMetricPrimaryFactTableId(factMetric);
       const factTable = factTableId ? factTableMap[factTableId] : undefined;
       if (factTable) {
         const dimensionColumns = factTable.columns.filter(

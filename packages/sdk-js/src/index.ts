@@ -5,6 +5,7 @@ export type {
   ClientOptions,
   TrackingCallbackWithUser,
   TrackingDataWithUser,
+  TrackingUserContext,
   FeatureUsageCallback,
   FeatureUsageCallbackWithUser,
   UserContext,

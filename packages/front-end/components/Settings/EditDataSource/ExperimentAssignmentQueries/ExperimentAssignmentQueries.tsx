@@ -4,19 +4,18 @@ import {
   ExposureQuery,
 } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
-import { FaChevronRight, FaPlus } from "react-icons/fa";
-import { Box, Card, Flex, Heading } from "@radix-ui/themes";
+import { PiCaretRight, PiDotsThreeVertical, PiPlus } from "react-icons/pi";
+import { Box, Card, Flex, Heading, IconButton } from "@radix-ui/themes";
 import { DimensionSlicesInterface } from "shared/types/dimension";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/ui/Button";
 import { UpdateDimensionMetadataModal } from "@/components/Settings/EditDataSource/DimensionMetadata/UpdateDimensionMetadata";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { CustomDimensionMetadata } from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
@@ -99,7 +98,6 @@ export const ExperimentAssignmentQueries: FC<
     () => async () => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
       setValidatingQuery(true);
-      // Resaving the document as-is will automatically revalidate any queries in error state
       await onSave(copy);
       setValidatingQuery(false);
     },
@@ -127,13 +125,11 @@ export const ExperimentAssignmentQueries: FC<
           </Flex>
         </Box>
 
-        {canEdit && (
-          <Box>
-            <Button onClick={handleAdd}>
-              <FaPlus className="mr-1" /> Add
-            </Button>
-          </Box>
-        )}
+        <Box>
+          <Button onClick={handleAdd} disabled={!canEdit} icon={<PiPlus />}>
+            Add
+          </Button>
+        </Box>
       </Flex>
       <p>
         Queries that return a list of experiment variation assignment events.
@@ -152,20 +148,23 @@ export const ExperimentAssignmentQueries: FC<
 
       {experimentExposureQueries.map((query, idx) => {
         const isOpen = openIndexes[idx] || false;
+        // Event Forwarder managed queries are intentionally editable and
+        // deletable for now. Restore
+        // `isEventForwarderManagedExposureQuery(query)` here (and in the delete
+        // handler above) to lock them again.
+        const isManaged = false;
 
         return (
           <Card mt="3" key={query.id}>
             <Flex align="start" justify="between" py="2" px="3" gap="3">
               {/* region Title Bar */}
               <Box width="100%">
-                <Flex>
-                  <Heading as="h4" size="3" mb="1">
-                    {query.name}
-                  </Heading>
-                  {query.description && (
-                    <p className="ml-3 text-muted">{query.description}</p>
-                  )}
-                </Flex>
+                <Heading as="h4" size="3" mb="0">
+                  {query.name}
+                </Heading>
+                {query.description && (
+                  <p className="text-muted mb-0 mt-1">{query.description}</p>
+                )}
 
                 <Flex gap="4">
                   <Box>
@@ -198,13 +197,15 @@ export const ExperimentAssignmentQueries: FC<
                       </Box>
                       <Box mt="3">
                         <Button
+                          color="inherit"
                           onClick={handleValidate()}
                           loading={validatingQuery}
                         >
                           Check it again.
                         </Button>
-                        {canEdit && (
+                        {canEdit && !isManaged && (
                           <Button
+                            color="inherit"
                             onClick={handleActionClicked(idx, "edit")}
                             style={{ marginLeft: "1rem" }}
                           >
@@ -223,48 +224,68 @@ export const ExperimentAssignmentQueries: FC<
 
               <Flex align="center">
                 {canEdit && (
-                  <MoreMenu>
-                    <button
-                      className="dropdown-item py-2"
+                  <DropdownMenu
+                    trigger={
+                      <IconButton
+                        variant="ghost"
+                        color="gray"
+                        radius="full"
+                        size="2"
+                        highContrast
+                        aria-label={`${query.name} query actions`}
+                      >
+                        <PiDotsThreeVertical size={18} />
+                      </IconButton>
+                    }
+                    menuPlacement="end"
+                    variant="soft"
+                  >
+                    <DropdownMenuItem
                       onClick={handleActionClicked(idx, "edit")}
                     >
                       Edit Query
-                    </button>
+                    </DropdownMenuItem>
                     {query.dimensions.length > 0 ? (
-                      <button
-                        className="dropdown-item py-2"
+                      <DropdownMenuItem
                         onClick={handleActionClicked(idx, "dimension")}
                       >
                         Edit Dimensions
-                      </button>
+                      </DropdownMenuItem>
                     ) : null}
-
-                    <hr className="dropdown-divider" />
-                    <DeleteButton
-                      onClick={handleActionDeleteClicked(idx)}
-                      className="dropdown-item text-danger py-2"
-                      iconClassName="mr-2"
-                      style={{ borderRadius: 0 }}
-                      useIcon={false}
-                      displayName={query.name}
-                      deleteMessage={`Are you sure you want to delete experiment assignment query ${query.name}?`}
-                      title="Delete"
-                      text="Delete"
-                      outline={false}
-                    />
-                  </MoreMenu>
+                    {!isManaged && (
+                      <DropdownMenuItem
+                        color="red"
+                        confirmation={{
+                          submit: handleActionDeleteClicked(idx),
+                          confirmationTitle: `Delete ${query.name}`,
+                          cta: "Delete",
+                          getConfirmationContent: async () =>
+                            `Are you sure you want to delete experiment assignment query ${query.name}?`,
+                        }}
+                      >
+                        Delete
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenu>
                 )}
 
-                <button
-                  className="btn ml-3 text-dark"
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="2"
+                  highContrast
+                  ml="3"
+                  aria-label={isOpen ? "Collapse query" : "Expand query"}
+                  aria-expanded={isOpen}
                   onClick={handleExpandCollapseForIndex(idx)}
                 >
-                  <FaChevronRight
+                  <PiCaretRight
                     style={{
                       transform: `rotate(${isOpen ? "90deg" : "0deg"})`,
                     }}
                   />
-                </button>
+                </IconButton>
               </Flex>
 
               {/* endregion Actions*/}

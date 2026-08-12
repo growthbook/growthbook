@@ -2,17 +2,17 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { PiArrowSquareOut } from "react-icons/pi";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Flex, Heading, Text } from "@radix-ui/themes";
 import IdLists from "@/components/SavedGroups/IdLists";
 import ConditionGroups from "@/components/SavedGroups/ConditionGroups";
+import SavedGroupReviews from "@/components/SavedGroups/SavedGroupReviews";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Modal from "@/components/Modal";
-import HistoryTable from "@/components/HistoryTable";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useApi from "@/hooks/useApi";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
@@ -20,15 +20,32 @@ import HelperText from "@/ui/HelperText";
 
 export default function SavedGroupsPage() {
   const router = useRouter();
-  const { mutateDefinitions, savedGroups, error } = useDefinitions();
+  const { mutateDefinitions } = useDefinitions();
 
-  const [auditModal, setAuditModal] = useState(false);
+  const { data, error, mutate } = useApi<{
+    savedGroups: SavedGroupWithoutValues[];
+  }>("/saved-groups");
+  const allSavedGroups = useMemo(() => data?.savedGroups ?? [], [data]);
+  const savedGroups = useMemo(
+    () => allSavedGroups.filter((g) => !g.archived),
+    [allSavedGroups],
+  );
+
+  const mutateGroups = async () => {
+    await Promise.all([mutate(), mutateDefinitions()]);
+  };
+
+  const { refreshOrganization } = useUser();
 
   // Initialize activeTab from URL hash, default to conditionGroups
   const getInitialTab = () => {
     if (typeof window !== "undefined") {
       const hash = window.location.hash.slice(1); // Remove the #
-      if (hash === "idLists" || hash === "conditionGroups") {
+      if (
+        hash === "idLists" ||
+        hash === "conditionGroups" ||
+        hash === "drafts"
+      ) {
         return hash;
       }
     }
@@ -41,7 +58,11 @@ export default function SavedGroupsPage() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1);
-      if (hash === "idLists" || hash === "conditionGroups") {
+      if (
+        hash === "idLists" ||
+        hash === "conditionGroups" ||
+        hash === "drafts"
+      ) {
         setActiveTab(hash);
       }
     };
@@ -50,7 +71,12 @@ export default function SavedGroupsPage() {
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
 
-  const { refreshOrganization } = useUser();
+  // Drives the badge count next to the "Drafts" tab. Uses the lightweight
+  // count endpoint so we don't have to fetch full revision documents.
+  const { data: openReviewsCountData } = useApi<{ count: number }>(
+    "/revision/count?entityType=saved-group",
+  );
+  const openReviewsCount = openReviewsCountData?.count ?? 0;
 
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
@@ -105,7 +131,7 @@ export default function SavedGroupsPage() {
     permissionsUtil,
   ]);
 
-  if (!savedGroups) return <LoadingOverlay />;
+  if (!data && !error) return <LoadingOverlay />;
 
   return (
     <div className="p-3 container-fluid pagecontents">
@@ -113,20 +139,9 @@ export default function SavedGroupsPage() {
         <Heading size="7" as="h1">
           Saved Groups
         </Heading>
-        <Box>
-          <Link
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setAuditModal(true);
-            }}
-          >
-            View Audit Logs
-          </Link>
-        </Box>
       </Flex>
       <Text as="p" mb="3" color="gray">
-        Create reusable user groups as targets for feature flags or experiments.
+        Create reusable user groups as targets for Feature Flags or experiments.
       </Text>
       <HelperText status="info" my="4">
         Learn more about using Condition Groups and ID Lists.
@@ -181,33 +196,29 @@ export default function SavedGroupsPage() {
                   {idLists.length}
                 </span>
               </TabsTrigger>
+              <TabsTrigger value="drafts">
+                Drafts
+                <span className="ml-2 round-text-background text-main">
+                  {openReviewsCount}
+                </span>
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="conditionGroups">
-              <ConditionGroups
-                groups={savedGroups}
-                mutate={mutateDefinitions}
-              />
+              {/* Pass the archived-inclusive list so the `is:archived` facet can
+                  surface archived groups (the list hides them by default). */}
+              <ConditionGroups groups={allSavedGroups} mutate={mutateGroups} />
             </TabsContent>
 
             <TabsContent value="idLists">
-              <IdLists groups={savedGroups} mutate={mutateDefinitions} />
+              <IdLists groups={allSavedGroups} mutate={mutateGroups} />
+            </TabsContent>
+
+            <TabsContent value="drafts">
+              <SavedGroupReviews />
             </TabsContent>
           </Tabs>
         </>
-      )}
-
-      {auditModal && (
-        <Modal
-          trackingEventModalType=""
-          open={true}
-          header="Audit Log"
-          close={() => setAuditModal(false)}
-          size="max"
-          closeCta="Close"
-        >
-          <HistoryTable type="savedGroup" showName={true} showType={false} />
-        </Modal>
       )}
     </div>
   );

@@ -38,8 +38,18 @@ def frequentist_variance(var_a, mean_a, n_a, var_b, mean_b, n_b, relative) -> fl
 def truncated_normal_mean(mu, sigma, a, b) -> float:
     # parameterized in scipy.stats as number of sds from mu
     # rescaling for readability
-    a, b = (a - mu) / sigma, (b - mu) / sigma
-    mn, _, _, _ = truncnorm.stats(a, b, loc=mu, scale=sigma, moments="mvsk")
+    alpha, beta = (a - mu) / sigma, (b - mu) / sigma
+    THRESHOLD = 1e3
+    # Mills-ratio asymptotic for extreme tails. scipy's truncnorm loses precision
+    # once the standardized bound |beta| >~ 1e4 (catastrophic cancellation in
+    # exp(logpdf - log_ndtr)) and overflows once |beta| >~ 1e9. At |beta| >= 1e3
+    # the first-order Mills expansion E[X|X<b] = b + sigma**2/(b - mu) is already
+    # accurate to <1e-6 relative error, so switch to it and avoid scipy entirely.
+    if a == -np.inf and beta <= -THRESHOLD:
+        return float(b + sigma / beta)  # = b + sigma**2 / (b - mu)
+    if b == np.inf and alpha >= THRESHOLD:
+        return float(a + sigma / alpha)
+    mn, _, _, _ = truncnorm.stats(alpha, beta, loc=mu, scale=sigma, moments="mvsk")
     return float(mn)
 
 

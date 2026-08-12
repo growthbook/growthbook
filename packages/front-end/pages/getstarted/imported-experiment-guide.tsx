@@ -12,6 +12,7 @@ import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useGetStarted } from "@/services/GetStartedProvider";
+import Callout from "@/ui/Callout";
 
 const ImportedExperimentGuide = (): React.ReactElement => {
   const { organization } = useUser();
@@ -41,7 +42,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
   }
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
 
   // Ignore the demo datasource
@@ -51,7 +52,10 @@ const ImportedExperimentGuide = (): React.ReactElement => {
       )
     : experiments.some((e) => e.project !== demoProjectId);
 
-  const hasFactTables = factTables.length > 0;
+  // Ignore the demo datasource
+  const hasFactTables = factTables.some(
+    (f) => !f.projects?.includes(demoProjectId),
+  );
   // Ignore the demo datasource
   const hasDatasource = datasources.some(
     (d) => !d.projects?.includes(demoProjectId),

@@ -115,7 +115,7 @@ export default function ExperimentDecisionExplanation({
       {decidingRules.map((r) => (
         <>
           <Flex direction="column" mb="2">
-            <Flex direction="row" gap="1" mb="1">
+            <Flex direction="row" align="center" gap="1" mb="1">
               {decidingRules.length > 1
                 ? r.variationIds.map((v, i) => (
                     <>
@@ -139,17 +139,30 @@ export default function ExperimentDecisionExplanation({
                 </Text>
               </Flex>
             )}
-            {!status.powerReached && status.sequentialUsed && (
+            {!status.powerReached && status.scheduledEndPassed && (
               <Flex gap="2" align="center">
                 <Text size="2" className="text-muted">
                   •
                 </Text>
                 <Text size="2">
-                  Sequential testing was used in the analysis, enabling early
-                  stopping.
+                  The scheduled end date has passed and a recommendation can be
+                  made.
                 </Text>
               </Flex>
             )}
+            {!status.powerReached &&
+              !status.scheduledEndPassed &&
+              status.sequentialUsed && (
+                <Flex gap="2" align="center">
+                  <Text size="2" className="text-muted">
+                    •
+                  </Text>
+                  <Text size="2">
+                    Sequential testing was used in the analysis, enabling early
+                    stopping.
+                  </Text>
+                </Flex>
+              )}
             {r.decidingRule?.conditions.map((condition, i) => (
               <Flex key={i} gap="2" align="center">
                 <Text size="2" className="text-muted">

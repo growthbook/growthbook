@@ -701,6 +701,9 @@ function getSchemaObject(type?: SchemaFormat) {
   if (type === "fullstory") {
     return FullStorySchema;
   }
+  if (type === "eventForwarder") {
+    return CustomSchema;
+  }
 
   return CustomSchema;
 }

@@ -1,12 +1,16 @@
+import { subDays } from "date-fns";
 import { createClient, ResponseJSON } from "@clickhouse/client";
 import {
+  FeatureEvalDiagnosticsQueryParams,
   FeatureUsageAggregateRow,
   FeatureUsageLookback,
   QueryResponse,
 } from "shared/types/integrations";
 import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import {
+  isManagedWarehouse,
   isManagedWarehouseAwaitingProvisioning,
+  isManagedWarehouseMigrating,
   ManagedWarehousePendingError,
 } from "shared/util";
 import { SqlDialect } from "shared/types/sql";
@@ -15,6 +19,39 @@ import { getHost } from "back-end/src/util/sql";
 import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";
 import { clickHouseDialect } from "./dialects/clickhouse";
+
+// Matches ClickHouse DateTime/DateTime64 column types with no explicit
+// timezone argument (e.g. "DateTime", "DateTime64(3)", "Nullable(DateTime64(3))").
+// Types with an explicit timezone (e.g. "DateTime('UTC')") contain a quote
+// and are intentionally excluded, since their naive-string rendering already
+// reflects that declared zone rather than needing this override.
+const NAIVE_CLICKHOUSE_DATETIME_TYPE =
+  /^Nullable\(DateTime(64\(\d+\))?\)$|^DateTime(64\(\d+\))?$/;
+
+// Managed warehouse DateTime/DateTime64 columns carry no explicit timezone,
+// so ClickHouse renders them as bare "YYYY-MM-DD HH:mm:ss[.ffffff]" strings
+// (no "Z"/offset) in UTC, GrowthBook's convention for that schema. JS's
+// `new Date(...)` parses that shape as local time on whatever host runs the
+// app server, silently shifting it. Append "Z" so it's parsed as UTC instead.
+function normalizeManagedWarehouseDatetimes(
+  // eslint-disable-next-line
+  rows: Record<string, any>[],
+  meta: Array<{ name: string; type: string }> | undefined,
+): void {
+  const dateCols = (meta ?? [])
+    .filter((col) => NAIVE_CLICKHOUSE_DATETIME_TYPE.test(col.type))
+    .map((col) => col.name);
+  if (!dateCols.length) return;
+
+  for (const row of rows) {
+    for (const col of dateCols) {
+      const value = row[col];
+      if (typeof value === "string") {
+        row[col] = value.replace(" ", "T") + "Z";
+      }
+    }
+  }
+}
 
 export default class ClickHouse extends SqlIntegration {
   params!: ClickHouseConnectionParams;
@@ -33,9 +70,6 @@ export default class ClickHouse extends SqlIntegration {
       delete this.params.host;
     }
   }
-  getSensitiveParamKeys(): string[] {
-    return ["password"];
-  }
   getSqlDialect(): SqlDialect {
     return clickHouseDialect;
   }
@@ -48,7 +82,13 @@ export default class ClickHouse extends SqlIntegration {
   }
 
   async runQuery(sql: string): Promise<QueryResponse> {
-    if (isManagedWarehouseAwaitingProvisioning(this.datasource)) {
+    // Block queries while never-provisioned OR mid-migration (tables being recreated).
+    // Reuse the pending error so existing UI surfaces show the managed-warehouse callout;
+    // the callout distinguishes the migrating case for honest "upgrading" copy.
+    if (
+      isManagedWarehouseAwaitingProvisioning(this.datasource) ||
+      isManagedWarehouseMigrating(this.datasource)
+    ) {
       throw new ManagedWarehousePendingError();
     }
     const client = createClient({
@@ -63,13 +103,28 @@ export default class ClickHouse extends SqlIntegration {
           this.params.maxExecutionTime ?? 1800,
           3600,
         ),
+        // Managed warehouse only: allow bare Dynamic JSON paths
+        // (`attributes.x` / `properties.x`) in GROUP BY / ORDER BY. Generated
+        // SQL always casts, so this only affects hand-written queries; gated to
+        // managed warehouses because customer ClickHouse versions may not know
+        // these settings.
+        ...(isManagedWarehouse(this.datasource)
+          ? {
+              allow_suspicious_types_in_group_by: 1,
+              allow_suspicious_types_in_order_by: 1,
+            }
+          : {}),
       },
     });
     const results = await client.query({ query: sql, format: "JSON" });
     // eslint-disable-next-line
     const data: ResponseJSON<Record<string, any>[]> = await results.json();
+    const rows = data.data ? data.data : [];
+    if (isManagedWarehouse(this.datasource)) {
+      normalizeManagedWarehouseDatetimes(rows, data.meta);
+    }
     return {
-      rows: data.data ? data.data : [],
+      rows,
       statistics: data.statistics
         ? {
             executionDurationMs: data.statistics.elapsed,
@@ -93,6 +148,31 @@ export default class ClickHouse extends SqlIntegration {
         : "";
 
     return `table_schema IN ('${this.params.database}')${extraWhere}`;
+  }
+
+  getFeatureEvalDiagnosticsQuery(
+    params: FeatureEvalDiagnosticsQueryParams,
+  ): string {
+    if (this.datasource.type === "growthbook_clickhouse") {
+      const featureKey = this.getSqlDialect().escapeStringLiteral(
+        params.feature,
+      );
+      const oneWeekAgo = subDays(new Date(), 7);
+      return `SELECT
+        timestamp,
+        feature AS feature_key,
+        environment,
+        value,
+        source,
+        ruleId,
+        variationId
+      FROM feature_usage
+      WHERE feature = '${featureKey}'
+        AND timestamp >= ${this.getSqlDialect().toTimestamp(oneWeekAgo)}
+      ORDER BY timestamp DESC
+      LIMIT 100`;
+    }
+    return super.getFeatureEvalDiagnosticsQuery(params);
   }
 
   async getFeatureUsage(
@@ -162,7 +242,7 @@ WITH _data as (
     return {
       start: start.getTime(),
       rows: res.rows.map((row) => ({
-        timestamp: new Date(row.ts + "Z"),
+        timestamp: new Date(row.ts.includes("T") ? row.ts : row.ts + "Z"),
         environment: "" + row.environment,
         value: "" + row.value,
         source: "" + row.source,

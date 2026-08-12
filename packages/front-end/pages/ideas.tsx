@@ -14,6 +14,7 @@ import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 
 const IdeasPage = (): React.ReactElement => {
   const [includeArchived, setIncludeArchived] = useState(false);
@@ -37,7 +38,7 @@ const IdeasPage = (): React.ReactElement => {
   });
 
   if (error) {
-    return <div className="alert alert-danger">An error occurred</div>;
+    return <Callout status="error">An error occurred</Callout>;
   }
   if (!data) {
     return <LoadingOverlay />;
@@ -99,6 +100,7 @@ const IdeasPage = (): React.ReactElement => {
         <div className="row mb-3 align-items-center">
           <div className="col-auto">
             <Field
+              size="legacy"
               placeholder="Search..."
               type="search"
               {...searchInputProps}

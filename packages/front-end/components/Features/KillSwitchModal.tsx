@@ -18,7 +18,6 @@ import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import Modal from "@/components/Modal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useEnvironments } from "@/services/features";
@@ -29,6 +28,8 @@ import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import PermissionBlocker from "@/ui/PermissionBlocker";
 
 function EnvStateIcon({ enabled }: { enabled: boolean }) {
   return enabled ? (
@@ -111,7 +112,7 @@ function EnvStateGrid({
                 value={getSwitchDisplayState(env.id)}
                 onChange={(val) => onToggle(env.id, val)}
                 disabled={!canToggle(env.id)}
-                size="3"
+                size="lg"
               />
             </Flex>
           ))}
@@ -249,7 +250,10 @@ export default function KillSwitchModal({
   const ctx = useFeatureRevisionsContext();
 
   const liveDoc = baseFeature ?? ctx?.baseFeature ?? feature;
-  const isAdmin = permissionsUtil.canBypassApprovalChecks(feature);
+  const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(
+    liveDoc,
+    "feature",
+  );
 
   const rawRequireReviews = settings?.requireReviews;
   const reviewSetting = Array.isArray(rawRequireReviews)
@@ -273,7 +277,6 @@ export default function KillSwitchModal({
     (r) => r.version === currentVersion,
   );
 
-  // Pre-select: currentVersion if active draft, else mine, else most recent, else null
   const userId = organization?.ownerEmail;
   const defaultDraft = useMemo((): number | null => {
     if (activeDrafts.find((r) => r.version === currentVersion))
@@ -288,9 +291,11 @@ export default function KillSwitchModal({
     return activeDrafts[0]?.version ?? null;
   }, [activeDrafts, currentVersion, userId]);
 
-  const [mode, setMode] = useState<DraftMode>(
-    viewingActiveDraft ? "existing" : "new",
-  );
+  const canDraft = permissionsUtil.canEditFeatureDrafts(liveDoc);
+  let defaultMode: DraftMode = "new";
+  if (!canDraft) defaultMode = "publish";
+  else if (viewingActiveDraft) defaultMode = "existing";
+  const [mode, setMode] = useState<DraftMode>(defaultMode);
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );
@@ -320,7 +325,7 @@ export default function KillSwitchModal({
     revisions: FeatureRevisionInterface[];
   }>(
     `/feature/${feature.id}/revisions?versions=${feature.version},${draftVersionForFetch ?? 0}`,
-    { shouldRun: () => draftVersionForFetch != null },
+    { shouldRun: () => draftVersionForFetch !== null },
   );
   const revisions = ctx?.revisions ?? fetchedRevisionsData?.revisions;
 
@@ -334,7 +339,7 @@ export default function KillSwitchModal({
     const liveRevision = revisions?.find((r) => r.version === feature.version);
     if (liveRevision) {
       const filledLive = liveRevisionFromFeature(liveRevision, liveDoc);
-      if (mode === "existing" && selectedDraft != null) {
+      if (mode === "existing" && selectedDraft !== null) {
         const draftRevision = revisions?.find(
           (r) => r.version === selectedDraft,
         );
@@ -363,8 +368,7 @@ export default function KillSwitchModal({
     return baseEnvEnabled[envId] ?? false;
   };
 
-  // Which envs have an approval policy for kill-switch changes (badge coloring).
-  // featureRequireEnvironmentReview=false means kill-switch changes bypass env approvals.
+  // Environments gated by kill-switch approval policy.
   const gatedEnvSet: Set<string> | "all" | "none" = (() => {
     if (rawRequireReviews === true) return "all";
     if (!reviewSetting?.requireReviewOn) return "none";
@@ -373,7 +377,6 @@ export default function KillSwitchModal({
     return gatedEnvs.length === 0 ? "all" : new Set(gatedEnvs);
   })();
 
-  // Gated only when the proposal actually flips a gated env's switch from live.
   const liveEnvSettings = liveDoc.environmentSettings ?? {};
   const envIsGated =
     gatedEnvSet !== "none" &&
@@ -383,14 +386,27 @@ export default function KillSwitchModal({
       return getEffectiveState(env.id) !== !!liveEnvSettings[env.id]?.enabled;
     });
 
-  const canAutoPublish = isAdmin || !envIsGated;
+  const canPublishFlippedEnvs = visibleEnvs.every(
+    (env) =>
+      getEffectiveState(env.id) === !!liveEnvSettings[env.id]?.enabled ||
+      permissionsUtil.canPublishFeature(liveDoc, [env.id]),
+  );
 
-  // Reset mode if "publish now" becomes unavailable due to a newly gated change.
+  // Require at least one visible environment the user may publish.
+  const canPublishAnyVisibleEnv = visibleEnvs.some((env) =>
+    permissionsUtil.canPublishFeature(liveDoc, [env.id]),
+  );
+  const canAutoPublish =
+    (isAdmin || !envIsGated) &&
+    canPublishFlippedEnvs &&
+    canPublishAnyVisibleEnv;
+  const noRouteAvailable = !canDraft && !canAutoPublish;
+
   useEffect(() => {
-    if (!canAutoPublish && mode === "publish") {
+    if (!canAutoPublish && canDraft && mode === "publish") {
       setMode("new");
     }
-  }, [canAutoPublish, mode]);
+  }, [canAutoPublish, canDraft, mode]);
 
   // Delay the switch animation for pre-toggled envs so users see it animate in.
   const [uiReady, setUiReady] = useState(false);
@@ -406,7 +422,7 @@ export default function KillSwitchModal({
   };
 
   const canToggleEnv = (envId: string) =>
-    permissionsUtil.canPublishFeature(feature, [envId]);
+    canDraft || permissionsUtil.canPublishFeature(liveDoc, [envId]);
 
   const submit = async () => {
     const environments: Record<string, boolean> = {};
@@ -442,7 +458,7 @@ export default function KillSwitchModal({
     await mutate();
     const finalVersion =
       res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
-    if (finalVersion != null) setVersion(finalVersion);
+    if (finalVersion !== null) setVersion(finalVersion);
   };
 
   const noNetChange = visibleEnvs.every(
@@ -463,23 +479,44 @@ export default function KillSwitchModal({
   const changedEnvs = visibleEnvs.filter(
     (env) => getEffectiveState(env.id) !== !!liveEnvSettings[env.id]?.enabled,
   );
+  // Selected "Publish now" but the flip set includes an environment this user
+  // can't publish. The switch was legitimately theirs to flip; the route isn't.
+  const cannotLandSelectedRoute =
+    mode === "publish" && !noRouteAvailable && !canAutoPublish;
   const modalHeader =
     changedEnvs.length === 1
       ? `${getEffectiveState(changedEnvs[0].id) ? "Enable" : "Disable"} ${changedEnvs[0].id}`
       : "Change enabled environments";
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="kill-switch-toggle"
       header={modalHeader}
       close={close}
       open={true}
       cta={mode === "publish" ? "Publish now" : "Save to draft"}
       size="lg"
-      submit={submit}
-      useRadixButton={true}
+      // Without draft rights, publishing is the only route — and an
+      // approval-gated change closes it, leaving nothing to submit.
+      submit={noRouteAvailable ? undefined : submit}
+      // The switches are open to anyone with either route, so the CTA is where
+      // the chosen route is enforced: publishing environments this user can't
+      // publish is refused here rather than by the server.
+      ctaEnabled={!cannotLandSelectedRoute}
     >
       <div style={{ minHeight: 300 }}>
+        {cannotLandSelectedRoute ? (
+          <PermissionBlocker mb="4">
+            You don&apos;t have permission to publish every environment you
+            changed. Save it to a draft instead.
+          </PermissionBlocker>
+        ) : null}
+        {noRouteAvailable ? (
+          <PermissionBlocker mb="4">
+            This change needs review before it can be published, and you
+            don&apos;t have permission to put it in a draft.
+          </PermissionBlocker>
+        ) : null}
         <DraftSelectorForChanges
           feature={feature}
           baseFeature={baseFeature}
@@ -489,6 +526,7 @@ export default function KillSwitchModal({
           selectedDraft={selectedDraft}
           setSelectedDraft={handleSetSelectedDraft}
           canAutoPublish={canAutoPublish}
+          canDraft={canDraft}
           gatedEnvSet={envIsGated ? gatedEnvSet : "none"}
           defaultExpanded
         />
@@ -520,6 +558,6 @@ export default function KillSwitchModal({
             )}
         </Flex>
       </div>
-    </Modal>
+    </ModalStandard>
   );
 }

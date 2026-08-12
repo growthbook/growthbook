@@ -112,7 +112,7 @@ function MetricDiff({
   return (
     <div className="mb-2">
       <div className="mb-1">
-        <Text size="medium" weight="medium" color="text-mid">
+        <Text size="md" weight="medium" color="text-mid">
           {label}
         </Text>
       </div>
@@ -676,7 +676,7 @@ export function renderMetadata(pre: Pre, post: Post): ReactNode | null {
       rows.push(
         <div key="tags" className="mb-2">
           <div className="mb-1">
-            <Text size="medium" weight="medium" color="text-mid">
+            <Text size="md" weight="medium" color="text-mid">
               Tags
             </Text>
           </div>

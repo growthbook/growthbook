@@ -12,4 +12,9 @@ module.exports = {
       "<rootDir>/../../node_modules/.pnpm/@typespec+ts-http-runtime@0.3.1/node_modules/@typespec/ts-http-runtime/dist/commonjs/$1/internal.js",
   },
   setupFilesAfterEnv: ["<rootDir>/test/jest.setup.ts"],
+  // For non-CI, lets make sure to cap the workers
+  ...(process.env.CI ? {} : { maxWorkers: "50%" }),
+  // Each file's module graph stays resident (~140MB/file); recycle workers
+  // before the heap fills.
+  workerIdleMemoryLimit: process.env.CI ? "2GB" : "1GB",
 };

@@ -3,12 +3,12 @@ import { FactTableInterface, RowFilter } from "shared/types/fact-table";
 import { PiPlus, PiX } from "react-icons/pi";
 import { useState } from "react";
 import Field from "@/components/Forms/Field";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import SelectField, {
   GroupedValue,
   SingleValue,
 } from "@/components/Forms/SelectField";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import StringArrayField from "@/ui/StringArrayField";
 import Button from "@/ui/Button";
 import {
   NUMBER_PATTERN,
@@ -16,7 +16,13 @@ import {
   getAllowedOperators,
   operatorLabelMap,
   getColumnInfo,
+  getAttributeFieldsExposedAsColumns,
+  cleanupDateColumnValues,
+  reshapeDateValuesOnOperatorChange,
+  FACT_TABLE_TIMESTAMP_COLUMN,
+  hideTimeColumn,
 } from "./rowFilterUtils";
+import { DateColumnFilterInput } from "./DateColumnFilterInput";
 
 export function RowFilterInput({
   value,
@@ -28,6 +34,7 @@ export function RowFilterInput({
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
 }) {
   const [rowDeleted, setRowDeleted] = useState(false);
+  const hiddenAttributeFields = getAttributeFieldsExposedAsColumns(factTable);
 
   return (
     <Flex direction="column" gap="2">
@@ -36,9 +43,16 @@ export function RowFilterInput({
         const columnOptions: SingleValue[] = [];
 
         factTable.columns.forEach((col) => {
-          if (col.datatype === "date") return;
           if (factTable.userIdTypes?.includes(col.column)) return;
           if (col.deleted) return;
+          if (
+            hideTimeColumn({
+              column: col.column,
+              timeColumn: FACT_TABLE_TIMESTAMP_COLUMN,
+              selectedColumn: filter.column,
+            })
+          )
+            return;
 
           columnOptions.push({
             label: col.name || col.column,
@@ -48,6 +62,11 @@ export function RowFilterInput({
           // Add JSON fields as separate options
           if (col.jsonFields) {
             Object.keys(col.jsonFields).forEach((field) => {
+              if (
+                col.column === "attributes" &&
+                hiddenAttributeFields.has(field)
+              )
+                return;
               columnOptions.push({
                 label: `${col.name || col.column}.${field}`,
                 value: `${col.column}.${field}`,
@@ -118,18 +137,20 @@ export function RowFilterInput({
           }
         }
 
+        const { datatype, topValues } = getColumnInfo(factTable, filter.column);
+
         let inputType: "text" | "number" = "text";
+        let isDateColumn = false;
 
         if (operatorInputRequired) {
-          const { datatype, topValues } = getColumnInfo(
-            factTable,
-            filter.column,
-          );
-
           const allowedOperators = getAllowedOperators(datatype);
 
           if (datatype === "number") {
             inputType = "number";
+          }
+
+          if (datatype === "date") {
+            isDateColumn = true;
           }
 
           if (topValues) {
@@ -209,6 +230,7 @@ export function RowFilterInput({
           >
             {i > 0 && <div>AND</div>}
             <SelectField
+              size="small"
               value={
                 filter.operator === "sql_expr"
                   ? "$$sql_expr"
@@ -245,6 +267,10 @@ export function RowFilterInput({
                     newValues = newValues.filter((v) => numberRegex.test(v));
                   }
 
+                  if (datatype === "date") {
+                    newValues = cleanupDateColumnValues(newValues);
+                  }
+
                   updateRowFilter({
                     operator: newOperator,
                     column: v,
@@ -260,6 +286,7 @@ export function RowFilterInput({
             />
             {operatorInputRequired && firstSelectCompleted && (
               <SelectField
+                size="small"
                 value={filter.operator}
                 onChange={(v: RowFilter["operator"]) => {
                   let newValues = filter.values || [];
@@ -271,6 +298,13 @@ export function RowFilterInput({
                   ) {
                     newValues = newValues.filter((val) => val !== "");
                   }
+
+                  newValues = reshapeDateValuesOnOperatorChange(
+                    newValues,
+                    filter.operator,
+                    v,
+                    isDateColumn,
+                  );
 
                   updateRowFilter({
                     operator: v,
@@ -284,8 +318,16 @@ export function RowFilterInput({
             )}
             {valueInputRequired && firstSelectCompleted && (
               <>
-                {multiValueInput && useValueOptions ? (
+                {isDateColumn && !multiValueInput ? (
+                  <DateColumnFilterInput
+                    operator={filter.operator}
+                    values={filter.values}
+                    onChange={(values) => updateRowFilter({ values })}
+                    inputWidth={260}
+                  />
+                ) : multiValueInput && useValueOptions ? (
                   <MultiSelectField
+                    size="md"
                     value={filter.values || []}
                     onChange={(v) => {
                       updateRowFilter({
@@ -303,6 +345,7 @@ export function RowFilterInput({
                   />
                 ) : multiValueInput ? (
                   <StringArrayField
+                    size="md"
                     value={filter.values || []}
                     onChange={(v) => {
                       updateRowFilter({
@@ -318,6 +361,7 @@ export function RowFilterInput({
                   />
                 ) : useValueOptions ? (
                   <SelectField
+                    size="small"
                     value={filter.values?.[0] || ""}
                     onChange={(v) => {
                       updateRowFilter({
@@ -335,6 +379,7 @@ export function RowFilterInput({
                   />
                 ) : (
                   <Field
+                    size="md"
                     value={filter.values?.[0] || ""}
                     onChange={(e) => {
                       updateRowFilter({

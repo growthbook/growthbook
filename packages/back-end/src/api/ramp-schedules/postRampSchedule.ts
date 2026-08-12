@@ -2,19 +2,26 @@ import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import {
   apiRampScheduleInterface,
+  experimentHealthAction,
   featureRulePatch,
   RampScheduleInterface,
   RampScheduleTemplateInterface,
   RampStepAction,
+  stepHoldConditions,
+  isAwaitingStartApproval,
 } from "shared/validators";
 import type { FeatureInterface } from "shared/types/feature";
+import {
+  assertCanControlRampSchedule,
+  dispatchRampEvent,
+  dispatchAwaitingStartApproval,
+  getStartActionsFromRules,
+  remapTemplateActions,
+} from "back-end/src/services/rampSchedule";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
-import {
-  dispatchRampEvent,
-  remapTemplateActions,
-} from "back-end/src/services/rampSchedule";
+import { resolveRampTargets } from "back-end/src/util/flattenRules";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 
 const postBodyAction = z.object({
@@ -24,18 +31,29 @@ const postBodyAction = z.object({
 });
 type PostBodyAction = z.infer<typeof postBodyAction>;
 
-// Tight ISO datetime validation for all ramp date fields so bad strings
-// fail here rather than downstream in `new Date()`.
-const apiRampTrigger = z.union([
-  z.object({ type: z.literal("interval"), seconds: z.number().positive() }),
-  z.object({ type: z.literal("approval") }),
-  z.object({ type: z.literal("scheduled"), at: z.string().datetime() }),
-]);
+function normalizeMonitoringConfig(
+  monitoringConfig:
+    | RampScheduleInterface["monitoringConfig"]
+    | null
+    | undefined,
+) {
+  if (!monitoringConfig) return monitoringConfig ?? null;
+  if (!monitoringConfig.monitoringMode) return monitoringConfig;
+  return {
+    ...monitoringConfig,
+    autoUpdate: monitoringConfig.monitoringMode === "auto",
+  };
+}
 
+// New unified step shape: `interval` is the hold duration in seconds (null
+// means no time gate). Pure approval steps use
+// `{ interval: null, holdConditions: { requiresApproval: true } }`.
 const postBodyStep = z.object({
-  trigger: apiRampTrigger,
+  interval: z.number().positive().nullable(),
   actions: z.array(postBodyAction).optional().default([]),
   approvalNotes: z.string().nullish(),
+  monitored: z.boolean().default(false),
+  holdConditions: stepHoldConditions.optional(),
 });
 
 const postRampScheduleValidator = {
@@ -52,15 +70,35 @@ const postRampScheduleValidator = {
       ruleId: z.string().optional(),
       environment: z.string().optional(),
       steps: z.array(postBodyStep).optional(),
+      startActions: z.array(postBodyAction).optional(),
       endActions: z.array(postBodyAction).optional(),
       startDate: z.string().datetime().optional().nullable(),
-      endCondition: z
+      cutoffDate: z.string().datetime().optional().nullable(),
+      requiresStartApproval: z
+        .boolean()
+        .nullish()
+        .describe(
+          "When true, the ramp holds at step -1 with its rule disabled (zero traffic) until a human approves the start via /actions/approve-step. Composes with startDate.",
+        ),
+      monitoringConfig: z
         .object({
-          trigger: z
-            .object({ type: z.literal("scheduled"), at: z.string().datetime() })
+          datasourceId: z.string(),
+          exposureQueryId: z.string(),
+          guardrailMetricIds: z.array(z.string()).min(1),
+          signalMetricIds: z.array(z.string()).optional(),
+          monitoringMode: z.enum(["auto", "manual"]).optional(),
+          autoUpdate: z.boolean().optional(),
+          autoRollback: z.boolean().optional(),
+          updateScheduleMinutes: z.number().min(10).optional().nullable(),
+          srmAction: z.enum(["warn", "hold", "rollback"]).optional(),
+          noTrafficAction: z.enum(["warn", "hold", "rollback"]).optional(),
+          multipleExposureAction: z
+            .enum(["warn", "hold", "rollback"])
             .optional(),
         })
-        .optional(),
+        .nullish(),
+      lockdownConfig: z.object({ mode: z.enum(["none", "locked"]) }).optional(),
+      experimentHealthAction: experimentHealthAction.optional(),
       templateId: z.string().optional(),
     })
     .superRefine((data, ctx) => {
@@ -78,27 +116,28 @@ const postRampScheduleValidator = {
           message: "ruleId is required when environment is provided",
         });
       }
-      if (data.ruleId && !data.environment) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["environment"],
-          message: "environment is required when ruleId is provided",
-        });
+      // NOTE: `environment` is no longer required alongside `ruleId`. Post-v2,
+      // `rule.id` is uniquely sufficient within a feature's unified rule list;
+      // env is a deprecated pre-v2 disambiguator. See `rampTarget` in
+      // shared/validators.
+      if (data.steps) {
+        for (let i = 0; i < data.steps.length; i++) {
+          const step = data.steps[i];
+          if (!step.monitored) continue;
+          for (const action of step.actions) {
+            if (action.patch.coverage === 0) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message:
+                  "Monitored steps must have coverage greater than 0. There is nothing to monitor at 0% traffic.",
+                path: ["steps", i],
+              });
+            }
+          }
+        }
       }
     }),
 };
-
-function normalizeApiTrigger(
-  trigger: z.infer<typeof apiRampTrigger>,
-): RampScheduleInterface["steps"][number]["trigger"] {
-  if (trigger.type === "scheduled") {
-    return { type: "scheduled", at: new Date(trigger.at) };
-  }
-  if (trigger.type === "interval") {
-    return { type: "interval", seconds: trigger.seconds };
-  }
-  return { type: "approval" };
-}
 
 function normalizeAction(action: PostBodyAction): RampStepAction {
   return {
@@ -134,7 +173,7 @@ export const postRampSchedule = createApiRequestHandler(
     );
   }
 
-  const hasTarget = !!(body.featureId && body.ruleId && body.environment);
+  const hasTarget = !!(body.featureId && body.ruleId);
 
   let targetId: string | undefined;
   let feature: FeatureInterface | null = null;
@@ -147,24 +186,53 @@ export const postRampSchedule = createApiRequestHandler(
   }
 
   if (hasTarget) {
-    const envRules =
-      feature!.environmentSettings?.[body.environment!]?.rules ?? [];
-    const rule = envRules.find((r) => r.id === body.ruleId);
+    const envSuffix = body.environment
+      ? ` in environment '${body.environment}'`
+      : "";
+    const matches = resolveRampTargets(
+      { ruleId: body.ruleId!, environment: body.environment ?? null },
+      feature!.rules ?? [],
+    );
+    const rule = matches[0];
     if (!rule) {
       throw new NotFoundError(
-        `Rule '${body.ruleId}' not found in environment '${body.environment}'. ` +
+        `Rule '${body.ruleId}' not found${envSuffix}. ` +
           `The rule must be published before attaching a ramp schedule.`,
+      );
+    }
+    if (matches.length > 1 && !body.environment) {
+      const siblingEnvs = Array.from(
+        new Set(
+          matches.flatMap((r) =>
+            r.allEnvironments ? ["(all environments)"] : (r.environments ?? []),
+          ),
+        ),
+      ).sort();
+      throw new BadRequestError(
+        `Rule '${body.ruleId}' is ambiguous — it matches ${matches.length} sibling rules (${siblingEnvs.join(", ")}). ` +
+          `Specify an 'environment' to disambiguate.`,
+      );
+    }
+
+    // "Start on approval" promises zero traffic until approved, but this
+    // endpoint can't publish the rule disabled (no feature revision here). If
+    // the target rule is already serving, reject rather than silently leave it
+    // live while the schedule reports "awaiting approval".
+    if (body.requiresStartApproval && rule.enabled) {
+      throw new BadRequestError(
+        `Rule '${body.ruleId}' is currently enabled${envSuffix}. ` +
+          `Disable it before creating a start-approval ramp schedule, or it would keep serving traffic until approved.`,
       );
     }
 
     const conflicting = await req.context.models.rampSchedules.findByTargetRule(
       body.ruleId!,
-      body.environment!,
+      body.environment ?? undefined,
     );
     if (conflicting.length > 0) {
       throw new BadRequestError(
-        `A ramp schedule (${conflicting[0].id}) already controls rule '${body.ruleId}' ` +
-          `in environment '${body.environment}'. Delete it first before creating a new one.`,
+        `A ramp schedule (${conflicting[0].id}) already controls rule '${body.ruleId}'${envSuffix}. ` +
+          `Delete it first before creating a new one.`,
       );
     }
 
@@ -188,18 +256,20 @@ export const postRampSchedule = createApiRequestHandler(
   const resolvedSteps: RampScheduleInterface["steps"] = (() => {
     if (body.steps !== undefined) {
       return body.steps.map((s) => ({
-        trigger: normalizeApiTrigger(s.trigger),
+        interval: s.interval,
         actions: s.actions.map((a) =>
           hasTarget
             ? injectTarget(a, targetId!, body.ruleId!)
             : normalizeAction(a),
         ),
         approvalNotes: s.approvalNotes ?? undefined,
+        monitored: s.monitored,
+        holdConditions: s.holdConditions ?? undefined,
       }));
     }
     if (template && hasTarget) {
       return template.steps.map((s) => ({
-        trigger: s.trigger,
+        interval: s.interval,
         actions: remapTemplateActions(
           s.actions,
           targetId!,
@@ -207,6 +277,8 @@ export const postRampSchedule = createApiRequestHandler(
           feature!.valueType,
         ),
         approvalNotes: s.approvalNotes ?? undefined,
+        monitored: !!s.monitored,
+        holdConditions: s.holdConditions ?? undefined,
       }));
     }
     return [];
@@ -229,23 +301,65 @@ export const postRampSchedule = createApiRequestHandler(
         {
           targetType: "feature-rule" as const,
           targetId: targetId!,
-          patch: { ruleId: body.ruleId!, ...template.endPatch },
+          patch: {
+            ruleId: body.ruleId!,
+            ...template.endPatch,
+          },
         },
       ];
     }
     return undefined;
   })();
 
-  const rawEndTrigger = body.endCondition?.trigger;
-  const endTrigger = rawEndTrigger
-    ? { type: "scheduled" as const, at: new Date(rawEndTrigger.at) }
-    : undefined;
-  const endCondition = endTrigger ? { trigger: endTrigger } : undefined;
+  const resolvedStartActions: RampStepAction[] | undefined = (() => {
+    if (body.startActions !== undefined) {
+      return body.startActions.map((a) =>
+        hasTarget
+          ? injectTarget(a, targetId!, body.ruleId!)
+          : normalizeAction(a),
+      );
+    }
+    if (hasTarget) {
+      const actions = getStartActionsFromRules({
+        rules: feature!.rules ?? [],
+        targetId: targetId!,
+        ruleId: body.ruleId!,
+        environment: body.environment,
+      });
+      return actions.length > 0 ? actions : undefined;
+    }
+    return undefined;
+  })();
 
   const defaultName = `Ramp schedule \u2013 ${new Date().toLocaleDateString(
     "en-US",
     { month: "short", year: "numeric" },
   )}`;
+
+  // Arming a dated start IS scheduling the live transition: the poller fires it
+  // under an admin context, so it takes the same per-target publish authority the
+  // fire would. The model's create gate is draft-class and cannot see the
+  // targets. Mirrors the internal controller. An approval-gated schedule never
+  // auto-arms (nextProcessAt stays null), and a dateless one is draft-class.
+  if (startDate && !body.requiresStartApproval) {
+    await assertCanControlRampSchedule(req.context, {
+      entityType: "feature",
+      entityId: body.featureId ?? "",
+      targets: hasTarget
+        ? [
+            {
+              id: targetId!,
+              entityType: "feature",
+              entityId: body.featureId ?? "",
+              ruleId: body.ruleId,
+            },
+          ]
+        : [],
+      steps: resolvedSteps,
+      startActions: resolvedStartActions,
+      endActions: resolvedEndActions,
+    } as unknown as RampScheduleInterface);
+  }
 
   const schedule = await req.context.models.rampSchedules.create({
     name: body.name ?? defaultName,
@@ -258,19 +372,35 @@ export const postRampSchedule = createApiRequestHandler(
             entityType: "feature",
             entityId: body.featureId!,
             ruleId: body.ruleId,
-            environment: body.environment,
+            // `environment` is deliberately omitted on new targets. Post-v2
+            // `rule.id` is uniquely sufficient within a feature's unified rule
+            // list; env is a deprecated pre-v2 disambiguator. The resolver
+            // and DB-side lookup still honor stored `environment` for legacy
+            // targets. See `rampTarget` in shared/validators.
             status: "active",
           },
         ]
       : [],
+    startActions: resolvedStartActions,
     steps: resolvedSteps,
     endActions: resolvedEndActions,
     startDate,
-    endCondition,
+    cutoffDate: body.cutoffDate ? new Date(body.cutoffDate) : null,
+    monitoringConfig: normalizeMonitoringConfig(
+      body.monitoringConfig ?? template?.monitoringConfig ?? null,
+    ),
+    lockdownConfig: body.lockdownConfig ?? template?.lockdownConfig,
+    ...(body.experimentHealthAction
+      ? { experimentHealthAction: body.experimentHealthAction }
+      : {}),
+    requiresStartApproval: body.requiresStartApproval || undefined,
     status: hasTarget ? "ready" : "pending",
     currentStepIndex: -1,
     nextStepAt: null,
-    nextProcessAt: startDate ?? null,
+    // An approval-gated schedule must not auto-arm (even with a startDate) — it
+    // holds until /actions/approve-step. Leaving nextProcessAt null keeps the
+    // poller from picking it up until the approval sets it.
+    nextProcessAt: body.requiresStartApproval ? null : (startDate ?? null),
   } as Omit<
     RampScheduleInterface,
     "id" | "organization" | "dateCreated" | "dateUpdated"
@@ -285,6 +415,12 @@ export const postRampSchedule = createApiRequestHandler(
       entityId: schedule.entityId,
     },
   });
+
+  // A schedule created directly into the pre-start hold emits the same
+  // awaiting-approval signal as the publish/rollback paths.
+  if (isAwaitingStartApproval(schedule)) {
+    await dispatchAwaitingStartApproval(req.context, schedule);
+  }
 
   return { rampSchedule: rampScheduleToApiInterface(schedule) };
 });

@@ -3,10 +3,12 @@ import {
   Text,
   RadioCards as RadixRadioCards,
   TextProps,
+  Tooltip,
 } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { forwardRef, ReactElement } from "react";
 import Badge from "@/ui/Badge";
+import { radixSize, Size } from "@/ui/sizes";
 
 export type RadioOptions = {
   value: string;
@@ -15,6 +17,7 @@ export type RadioOptions = {
   description?: ReactElement | string;
   disabled?: boolean;
   badge?: ReactElement | string;
+  tooltip?: string;
 }[];
 
 export type Props = {
@@ -27,10 +30,11 @@ export type Props = {
   value: string;
   setValue: (value: string) => void;
   onClick?: () => void;
-  labelSize?: TextProps["size"];
+  labelSize?: Size<"sm" | "md" | "lg" | "xl">;
   labelWeight?: TextProps["weight"];
-  descriptionSize?: TextProps["size"];
+  descriptionSize?: Size<"sm" | "md" | "lg" | "xl">;
   descriptionWeight?: TextProps["weight"];
+  truncateDescription?: boolean;
 } & MarginProps;
 
 export default forwardRef<HTMLDivElement, Props>(function RadioCards(
@@ -43,10 +47,11 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
     setValue,
     align,
     onClick,
-    labelSize = "3",
+    labelSize = "lg",
     labelWeight = "bold",
-    descriptionSize = "2",
+    descriptionSize = "md",
     descriptionWeight = "regular",
+    truncateDescription = true,
     ...containerProps
   }: Props,
   ref,
@@ -62,8 +67,16 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
           onClick={onClick}
         >
           {options.map(
-            ({ value, label, avatar, description, disabled, badge }) => {
-              return (
+            ({
+              value,
+              label,
+              avatar,
+              description,
+              disabled,
+              badge,
+              tooltip,
+            }) => {
+              const item = (
                 <RadixRadioCards.Item
                   key={value}
                   value={value}
@@ -80,7 +93,7 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
                       <Flex direction="row" gap="3">
                         <Text
                           weight={labelWeight}
-                          size={labelSize}
+                          size={radixSize(labelSize)}
                           className="main-text truncate"
                           style={{ minWidth: 0 }}
                         >
@@ -91,8 +104,10 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
                       {description ? (
                         <Text
                           weight={descriptionWeight}
-                          size={descriptionSize}
-                          className="truncate"
+                          size={radixSize(descriptionSize)}
+                          className={
+                            truncateDescription ? "truncate" : undefined
+                          }
                           style={{ minWidth: 0 }}
                         >
                           {description}
@@ -102,6 +117,15 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
                   </Flex>
                 </RadixRadioCards.Item>
               );
+
+              if (tooltip) {
+                return (
+                  <Tooltip key={value} content={tooltip} side="top">
+                    {item}
+                  </Tooltip>
+                );
+              }
+              return item;
             },
           )}
         </RadixRadioCards.Root>

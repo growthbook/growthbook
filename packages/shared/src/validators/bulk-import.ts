@@ -1,7 +1,11 @@
 import { z } from "zod";
 import { ownerInputField } from "./owner-field";
+import {
+  apiFactTableColumnInputValidator,
+  isValidRowFilterRangeLength,
+  ROW_FILTER_RANGE_LENGTH_MESSAGE,
+} from "./fact-table";
 
-// Corresponds to payload-schemas/BulkImportFactsPayload.yaml
 // The body references PostFactTablePayload, PostFactTableFilterPayload, and PostFactMetricPayload
 const postBulkImportFactsBody = z
   .object({
@@ -9,39 +13,47 @@ const postBulkImportFactsBody = z
       .array(
         z.object({
           id: z.string(),
-          data: z.object({
-            name: z.string(),
-            description: z
-              .string()
-              .describe("Description of the fact table")
-              .optional(),
-            owner: ownerInputField.optional(),
-            projects: z
-              .array(z.string())
-              .describe("List of associated project ids")
-              .optional(),
-            tags: z
-              .array(z.string())
-              .describe("List of associated tags")
-              .optional(),
-            datasource: z.string().describe("The datasource id"),
-            userIdTypes: z
-              .array(z.string())
-              .describe(
-                'List of identifier columns in this table. For example, "id" or "anonymous_id"',
-              ),
-            sql: z.string().describe("The SQL query for this fact table"),
-            eventName: z
-              .string()
-              .describe("The event name used in SQL template variables")
-              .optional(),
-            managedBy: z
-              .enum(["", "api", "admin"])
-              .describe(
-                'Set this to "api" to disable editing in the GrowthBook UI',
-              )
-              .optional(),
-          }),
+          data: z
+            .object({
+              name: z.string(),
+              description: z
+                .string()
+                .describe("Description of the fact table")
+                .optional(),
+              owner: ownerInputField.optional(),
+              projects: z
+                .array(z.string())
+                .describe("List of associated project ids")
+                .optional(),
+              tags: z
+                .array(z.string())
+                .describe("List of associated tags")
+                .optional(),
+              datasource: z.string().describe("The datasource id"),
+              userIdTypes: z
+                .array(z.string())
+                .describe(
+                  'List of identifier columns in this table. For example, "id" or "anonymous_id"',
+                ),
+              sql: z.string().describe("The SQL query for this fact table"),
+              eventName: z
+                .string()
+                .describe("The event name used in SQL template variables")
+                .optional(),
+              columns: z
+                .array(apiFactTableColumnInputValidator)
+                .describe(
+                  'Optional array of column definitions for this fact table. On create, columns are stored as-is. On update, columns upsert by `column`: existing columns are patched, new columns are created, and columns not included are left unchanged. Omit `datatype` to leave an existing column\'s type untouched; send "" to reset it for auto-detection; new columns are auto-detected when `datatype` is omitted or "". Datatype-dependent properties (e.g. `alwaysInlineFilter`) are validated once the datatype is known. Slice-related properties require an enterprise license.',
+                )
+                .optional(),
+              managedBy: z
+                .enum(["", "api", "admin"])
+                .describe(
+                  'Set this to "api" to disable editing in the GrowthBook UI',
+                )
+                .optional(),
+            })
+            .strict(),
         }),
       )
       .optional(),
@@ -97,9 +109,15 @@ const postBulkImportFactsBody = z
                 )
                 .optional(),
               aggregation: z
-                .enum(["sum", "max", "count distinct"])
+                .enum([
+                  "sum",
+                  "max",
+                  "count distinct",
+                  "hll merge",
+                  "kll merge",
+                ])
                 .describe(
-                  "User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.",
+                  "User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; hll merge / kll merge for pre-built sketch columns (requires data-source support); ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion metrics; for event quantile metrics only kll merge is applicable.",
                 )
                 .optional(),
               filters: z
@@ -118,40 +136,47 @@ const postBulkImportFactsBody = z
                 .meta({ deprecated: true }),
               rowFilters: z
                 .array(
-                  z.object({
-                    operator: z.enum([
-                      "=",
-                      "!=",
-                      ">",
-                      "<",
-                      ">=",
-                      "<=",
-                      "in",
-                      "not_in",
-                      "is_null",
-                      "not_null",
-                      "is_true",
-                      "is_false",
-                      "contains",
-                      "not_contains",
-                      "starts_with",
-                      "ends_with",
-                      "sql_expr",
-                      "saved_filter",
-                    ]),
-                    values: z
-                      .array(z.string())
-                      .describe(
-                        "Not required for is_null, not_null, is_true, is_false operators.",
-                      )
-                      .optional(),
-                    column: z
-                      .string()
-                      .describe(
-                        "Required for all operators except sql_expr and saved_filter.",
-                      )
-                      .optional(),
-                  }),
+                  z
+                    .object({
+                      operator: z.enum([
+                        "=",
+                        "!=",
+                        ">",
+                        "<",
+                        ">=",
+                        "<=",
+                        "between",
+                        "not_between",
+                        "in",
+                        "not_in",
+                        "is_null",
+                        "not_null",
+                        "is_true",
+                        "is_false",
+                        "contains",
+                        "not_contains",
+                        "starts_with",
+                        "ends_with",
+                        "sql_expr",
+                        "saved_filter",
+                      ]),
+                      values: z
+                        .array(z.string())
+                        .describe(
+                          "Not required for is_null, not_null, is_true, is_false operators. The between and not_between operators take at most two values, a lower and an upper bound in that order; leave a bound as an empty string for an open-ended range.",
+                        )
+                        .optional(),
+                      column: z
+                        .string()
+                        .describe(
+                          "Required for all operators except sql_expr and saved_filter.",
+                        )
+                        .optional(),
+                    })
+                    .refine(isValidRowFilterRangeLength, {
+                      message: ROW_FILTER_RANGE_LENGTH_MESSAGE,
+                      path: ["values"],
+                    }),
                 )
                 .describe(
                   "Filters to apply to the rows of the fact table before aggregation.",
@@ -179,9 +204,15 @@ const postBulkImportFactsBody = z
                     "The column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit')",
                   ),
                 aggregation: z
-                  .enum(["sum", "max", "count distinct"])
+                  .enum([
+                    "sum",
+                    "max",
+                    "count distinct",
+                    "hll merge",
+                    "kll merge",
+                  ])
                   .describe(
-                    "User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.",
+                    "User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; hll merge / kll merge for pre-built sketch columns (requires data-source support); ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion metrics; for event quantile metrics only kll merge is applicable.",
                   )
                   .optional(),
                 filters: z
@@ -200,40 +231,47 @@ const postBulkImportFactsBody = z
                   .meta({ deprecated: true }),
                 rowFilters: z
                   .array(
-                    z.object({
-                      operator: z.enum([
-                        "=",
-                        "!=",
-                        ">",
-                        "<",
-                        ">=",
-                        "<=",
-                        "in",
-                        "not_in",
-                        "is_null",
-                        "not_null",
-                        "is_true",
-                        "is_false",
-                        "contains",
-                        "not_contains",
-                        "starts_with",
-                        "ends_with",
-                        "sql_expr",
-                        "saved_filter",
-                      ]),
-                      values: z
-                        .array(z.string())
-                        .describe(
-                          "Not required for is_null, not_null, is_true, is_false operators.",
-                        )
-                        .optional(),
-                      column: z
-                        .string()
-                        .describe(
-                          "Required for all operators except sql_expr and saved_filter.",
-                        )
-                        .optional(),
-                    }),
+                    z
+                      .object({
+                        operator: z.enum([
+                          "=",
+                          "!=",
+                          ">",
+                          "<",
+                          ">=",
+                          "<=",
+                          "between",
+                          "not_between",
+                          "in",
+                          "not_in",
+                          "is_null",
+                          "not_null",
+                          "is_true",
+                          "is_false",
+                          "contains",
+                          "not_contains",
+                          "starts_with",
+                          "ends_with",
+                          "sql_expr",
+                          "saved_filter",
+                        ]),
+                        values: z
+                          .array(z.string())
+                          .describe(
+                            "Not required for is_null, not_null, is_true, is_false operators. The between and not_between operators take at most two values, a lower and an upper bound in that order; leave a bound as an empty string for an open-ended range.",
+                          )
+                          .optional(),
+                        column: z
+                          .string()
+                          .describe(
+                            "Required for all operators except sql_expr and saved_filter.",
+                          )
+                          .optional(),
+                      })
+                      .refine(isValidRowFilterRangeLength, {
+                        message: ROW_FILTER_RANGE_LENGTH_MESSAGE,
+                        path: ["values"],
+                      }),
                   )
                   .describe(
                     "Filters to apply to the rows of the fact table before aggregation.",
@@ -266,6 +304,12 @@ const postBulkImportFactsBody = z
                   .gte(0.001)
                   .lte(0.999)
                   .describe("The quantile value (from 0.001 to 0.999)"),
+                quantileEventCountColumn: z
+                  .string()
+                  .describe(
+                    "Optional override for the source-column name used to recover per-row event counts when numerator.aggregation is 'kll merge'. Defaults to '<numerator.column>_n_events'. Only valid for event-quantile metrics with a 'kll merge' numerator.",
+                  )
+                  .optional(),
               })
               .describe(
                 'Controls the settings for quantile metrics (mandatory if metricType is "quantile")',

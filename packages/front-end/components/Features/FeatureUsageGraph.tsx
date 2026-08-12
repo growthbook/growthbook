@@ -20,6 +20,7 @@ import {
   FeatureValueType,
 } from "shared/types/feature";
 import { FeatureUsageLookback } from "shared/types/integrations";
+import { isManagedWarehouseUnavailable, stemRuleId } from "shared/util";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -29,7 +30,6 @@ import { datetime } from "shared/dates";
 import stringify from "json-stringify-pretty-compact";
 import { FaBoltLightning } from "react-icons/fa6";
 import { PiCaretRightBold, PiXBold } from "react-icons/pi";
-import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { growthbook } from "@/services/utils";
@@ -86,22 +86,21 @@ function getDummyData(
   const ruleIds = new Set<string>();
   const sources = new Set<string>(["defaultValue"]);
   const values = new Set<string>([feature.defaultValue]);
-  Object.values(feature.environmentSettings).forEach((env) => {
-    env.rules.forEach((rule) => {
-      if (rule.id) ruleIds.add(rule.id);
-      if (rule.type === "force") {
-        sources.add("force");
-        values.add(rule.value);
-      } else if (rule.type === "rollout") {
-        sources.add("rollout");
-        values.add(rule.value);
-      } else if (rule.type === "experiment-ref") {
-        sources.add("experiment");
-        rule.variations.forEach((v) => {
-          if (v.value) values.add(v.value);
-        });
-      }
-    });
+  (feature.rules ?? []).forEach((rule) => {
+    // Match real SDK telemetry: stem-stripped rule ids (see getFeatureDefinition)
+    if (rule.id) ruleIds.add(stemRuleId(rule.id));
+    if (rule.type === "force") {
+      sources.add("force");
+      values.add(rule.value);
+    } else if (rule.type === "rollout") {
+      sources.add("rollout");
+      values.add(rule.value);
+    } else if (rule.type === "experiment-ref") {
+      sources.add("experiment");
+      rule.variations.forEach((v) => {
+        if (v.value) values.add(v.value);
+      });
+    }
   });
   return {
     total: Math.floor(Math.random() * 500),
@@ -141,13 +140,13 @@ const featureUsageContext = createContext<{
   featureUsage: FeatureUsageData | undefined;
   sparkFeatureUsage: FeatureUsageData | undefined;
   showFeatureUsage: boolean;
-  managedWarehouseAwaitingProvisioning: boolean;
+  managedWarehouseUnavailable: boolean;
   mutateFeatureUsage: () => void;
 }>({
   lookback: "15minute",
   setLookback: () => {},
   showFeatureUsage: false,
-  managedWarehouseAwaitingProvisioning: false,
+  managedWarehouseUnavailable: false,
   featureUsage: undefined,
   sparkFeatureUsage: undefined,
   mutateFeatureUsage: () => {},
@@ -172,8 +171,8 @@ export function FeatureUsageProvider({
   const growthbookManagedDatasource = datasources.find(
     (ds) => ds.type === "growthbook_clickhouse",
   );
-  const managedWarehouseAwaitingProvisioning = growthbookManagedDatasource
-    ? isManagedWarehouseAwaitingProvisioning(growthbookManagedDatasource)
+  const managedWarehouseUnavailable = growthbookManagedDatasource
+    ? isManagedWarehouseUnavailable(growthbookManagedDatasource)
     : false;
   const showFeatureUsage = useDummyData || !!growthbookManagedDatasource;
 
@@ -184,7 +183,7 @@ export function FeatureUsageProvider({
       !!feature &&
       showFeatureUsage &&
       !useDummyData &&
-      !managedWarehouseAwaitingProvisioning,
+      !managedWarehouseUnavailable,
   });
 
   const { data: sparkData, mutate: mutateSparkData } = useApi<{
@@ -194,7 +193,7 @@ export function FeatureUsageProvider({
       !!feature &&
       showFeatureUsage &&
       !useDummyData &&
-      !managedWarehouseAwaitingProvisioning &&
+      !managedWarehouseUnavailable &&
       lookback !== SPARK_LOOKBACK,
   });
 
@@ -214,7 +213,7 @@ export function FeatureUsageProvider({
   );
 
   useEffect(() => {
-    if (managedWarehouseAwaitingProvisioning) return;
+    if (managedWarehouseUnavailable) return;
 
     const hasData =
       (featureUsage?.bySource?.length ?? 0) > 0 ||
@@ -237,7 +236,7 @@ export function FeatureUsageProvider({
     featureUsage,
     sparkFeatureUsage,
     featureUsageAutoRefreshInterval,
-    managedWarehouseAwaitingProvisioning,
+    managedWarehouseUnavailable,
     mutateFeatureUsage,
     mutateSparkData,
   ]);
@@ -248,7 +247,7 @@ export function FeatureUsageProvider({
         lookback,
         setLookback,
         showFeatureUsage,
-        managedWarehouseAwaitingProvisioning,
+        managedWarehouseUnavailable,
         featureUsage,
         sparkFeatureUsage,
         mutateFeatureUsage,
@@ -266,31 +265,38 @@ export function useFeatureUsage() {
 export function FeatureUsageContainer({
   valueType,
   revision,
-  environments,
   initialTab = "value",
 }: {
   valueType: FeatureValueType;
   revision?: FeatureRevisionInterface;
-  environments?: string[];
   initialTab?: "source" | "value" | "rule";
 }) {
   const [tab, setTab] = useState<"source" | "value" | "rule">(initialTab);
-  const {
-    featureUsage,
-    lookback,
-    setLookback,
-    managedWarehouseAwaitingProvisioning,
-  } = useFeatureUsage();
+  const { featureUsage, lookback, setLookback, managedWarehouseUnavailable } =
+    useFeatureUsage();
 
-  if (managedWarehouseAwaitingProvisioning) {
+  if (managedWarehouseUnavailable) {
     return <ManagedWarehouseNoEventsCallout />;
   }
 
+  // Post-unification `revision.rules` is a flat `FeatureRule[]` rather than
+  // `Record<env, rule[]>`. SDK payloads emit the STEM id on telemetry rows
+  // (see `getFeatureDefinition` rule-id comment), so we key the label map by
+  // stem — otherwise rows whose rule id was `__env`-suffixed at flatten time
+  // would never match any entry and get filtered out of the graph.
   const ruleLabelMapping = new Map<string, string>();
-  environments?.forEach((env) => {
-    revision?.rules?.[env]?.forEach((rule, i) => {
-      ruleLabelMapping.set(rule.id, `${env} #${i + 1}`);
-    });
+  const rules = Array.isArray(revision?.rules) ? revision.rules : [];
+  // Holdout occupies rule slot #1 (matches Rule.tsx).
+  const ruleNumberOffset = revision?.holdout ? 2 : 1;
+  rules.forEach((rule, i) => {
+    if (!rule.id) return;
+    const stem = stemRuleId(rule.id);
+    if (!ruleLabelMapping.has(stem)) {
+      ruleLabelMapping.set(
+        stem,
+        rule.description?.trim() || `Rule #${i + ruleNumberOffset}`,
+      );
+    }
   });
 
   return (
@@ -306,7 +312,7 @@ export function FeatureUsageContainer({
           <TabsTrigger value="rule">By Environment &amp; Rule</TabsTrigger>
         </TabsList>
         <Select
-          size="2"
+          size="md"
           value={lookback}
           setValue={(v) => setLookback(v as FeatureUsageLookback)}
           align="end"
@@ -1033,10 +1039,10 @@ export default function FeatureUsageGraph({
                                     align="center"
                                     style={{ whiteSpace: "nowrap" }}
                                   >
-                                    <Text size="small" weight="semibold">
+                                    <Text size="sm" weight="semibold">
                                       {formatter.format(keyTotal)}
                                     </Text>
-                                    <Text size="small" color="text-low">
+                                    <Text size="sm" color="text-low">
                                       ({pct}%)
                                     </Text>
                                   </Flex>
@@ -1048,7 +1054,7 @@ export default function FeatureUsageGraph({
                       );
                     })}
                   {useGrouping && (
-                    <Link onClick={() => setExpanded(true)} size="1">
+                    <Link onClick={() => setExpanded(true)} size="sm">
                       expand
                     </Link>
                   )}
@@ -1061,7 +1067,7 @@ export default function FeatureUsageGraph({
                           setExpanded(false);
                           setDisabledKeys(new Set());
                         }}
-                        size="1"
+                        size="sm"
                       >
                         show fewer groups
                       </Link>
@@ -1083,20 +1089,17 @@ export default function FeatureUsageGraph({
 export function FeatureUsageSparkline({
   valueType,
   revision,
-  environments,
 }: {
   valueType: FeatureValueType;
   revision?: FeatureRevisionInterface;
-  environments?: string[];
 }) {
-  const {
-    sparkFeatureUsage,
-    showFeatureUsage,
-    managedWarehouseAwaitingProvisioning,
-  } = useFeatureUsage();
+  const { sparkFeatureUsage, showFeatureUsage, managedWarehouseUnavailable } =
+    useFeatureUsage();
   const [modalOpen, setModalOpen] = useState(false);
+  const router = useRouter();
+  const useDummyData = router.query["dummy"] === "true";
 
-  if (!showFeatureUsage || managedWarehouseAwaitingProvisioning) return null;
+  if (!showFeatureUsage || managedWarehouseUnavailable) return null;
 
   const defaultBin = "default";
   const overrideBin = "override";
@@ -1292,10 +1295,25 @@ export function FeatureUsageSparkline({
       </Tooltip>
       {modalOpen && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType="feature-usage-sparkline"
           open={true}
           close={() => setModalOpen(false)}
-          header="Usage Analytics"
+          header={
+            useDummyData ? (
+              <Flex align="center" gap="2">
+                Usage Analytics
+                <Badge
+                  label="Using dummy data"
+                  color="cyan"
+                  variant="soft"
+                  size="sm"
+                />
+              </Flex>
+            ) : (
+              "Usage Analytics"
+            )
+          }
           submit={undefined}
           closeCta="Close"
           size="lg"
@@ -1303,7 +1321,6 @@ export function FeatureUsageSparkline({
           <FeatureUsageContainer
             valueType={valueType}
             revision={revision}
-            environments={environments}
             initialTab={valueType === "boolean" ? "value" : "source"}
           />
         </Modal>

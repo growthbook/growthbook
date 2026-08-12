@@ -1,48 +1,63 @@
 import { z } from "zod";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
+import {
+  isValidRowFilterRangeLength,
+  MAX_FACT_METRIC_FUNNEL_STEPS,
+  ROW_FILTER_RANGE_LENGTH_MESSAGE,
+} from "./fact-table";
 
 import { namedSchema } from "./openapi-helpers";
 
 // Shared sub-schemas for fact metric column references
 
-const apiRowFilterValidator = z.object({
-  operator: z.enum([
-    "=",
-    "!=",
-    ">",
-    "<",
-    ">=",
-    "<=",
-    "in",
-    "not_in",
-    "is_null",
-    "not_null",
-    "is_true",
-    "is_false",
-    "contains",
-    "not_contains",
-    "starts_with",
-    "ends_with",
-    "sql_expr",
-    "saved_filter",
-  ]),
-  values: z
-    .array(z.string())
-    .describe(
-      "Not required for is_null, not_null, is_true, is_false operators.",
-    )
-    .optional(),
-  column: z
-    .string()
-    .describe("Required for all operators except sql_expr and saved_filter.")
-    .optional(),
-});
+const apiRowFilterValidator = z
+  .object({
+    operator: z.enum([
+      "=",
+      "!=",
+      ">",
+      "<",
+      ">=",
+      "<=",
+      "between",
+      "not_between",
+      "in",
+      "not_in",
+      "is_null",
+      "not_null",
+      "is_true",
+      "is_false",
+      "contains",
+      "not_contains",
+      "starts_with",
+      "ends_with",
+      "sql_expr",
+      "saved_filter",
+    ]),
+    values: z
+      .array(z.string())
+      .describe(
+        "Not required for is_null, not_null, is_true, is_false operators. The between and not_between operators take at most two values, a lower and an upper bound in that order; leave a bound as an empty string for an open-ended range.",
+      )
+      .optional(),
+    column: z
+      .string()
+      .describe("Required for all operators except sql_expr and saved_filter.")
+      .optional(),
+  })
+  .refine(isValidRowFilterRangeLength, {
+    message: ROW_FILTER_RANGE_LENGTH_MESSAGE,
+    path: ["values"],
+  });
 
 const apiNumeratorRef = z.object({
   factTableId: z.string(),
   column: z.string(),
-  aggregation: z.enum(["sum", "max", "count distinct"]).optional(),
+  aggregation: z
+    .enum(["sum", "max", "count distinct", "hll merge", "kll merge"])
+    .optional(),
   filters: z
     .array(z.string())
     .describe(
@@ -120,10 +135,84 @@ const apiQuantileSettings = z
       .gte(0.001)
       .lte(0.999)
       .describe("The quantile value (from 0.001 to 0.999)"),
+    quantileEventCountColumn: z
+      .string()
+      .describe(
+        "Optional override for the source-column name used to recover per-row event counts when numerator.aggregation is 'kll merge'. Defaults to '<numerator.column>_n_events'. Only valid for event-quantile metrics with a 'kll merge' numerator.",
+      )
+      .optional(),
   })
   .describe(
     'Controls the settings for quantile metrics (mandatory if metricType is "quantile")',
   );
+
+const apiFunnelStep = z.object({
+  name: z.string().describe("Display name for the funnel step"),
+  factTableId: z
+    .string()
+    .describe("The fact table this step draws events from"),
+  rowFilters: z
+    .array(apiRowFilterValidator)
+    .describe("Filters that decide whether an event row counts as this step"),
+  optional: z
+    .boolean()
+    .describe(
+      "When true, this step still counts for its own conversion but does not anchor later steps. Later steps window off the nearest prior required step (or exposure, for experiment funnel metrics, when every prior step is optional).",
+    ),
+  conversionWindow: z
+    .object({
+      unit: z.enum(["weeks", "days", "hours", "minutes"]),
+      value: z.number().positive(),
+    })
+    .describe(
+      "Bounds how long after the nearest prior required step (or exposure, for the first step / after only-optional priors of an experiment funnel metric) this step's event can occur.",
+    )
+    .nullish(),
+});
+
+const apiFunnelSettings = z
+  .object({
+    steps: z
+      .array(apiFunnelStep)
+      .min(2)
+      .max(MAX_FACT_METRIC_FUNNEL_STEPS)
+      .describe("Ordered list of funnel steps. Minimum 2 steps required."),
+    ordering: z
+      .enum(["sequential", "strict", "unordered"])
+      .describe("Step ordering mode. Only 'sequential' is supported in v1.")
+      .optional(),
+    concurrencyWindowSeconds: z
+      .number()
+      .int()
+      .min(0)
+      .describe(
+        "Out-of-order tolerance between adjacent steps in seconds. Defaults to 0.",
+      )
+      .optional(),
+  })
+  .describe('Funnel metric settings (required when metricType is "funnel")');
+
+const postFunnelSettings = z
+  .object({
+    steps: z
+      .array(apiFunnelStep)
+      .min(2)
+      .max(MAX_FACT_METRIC_FUNNEL_STEPS)
+      .describe("Ordered list of funnel steps. Minimum 2 steps required."),
+    ordering: z
+      .enum(["sequential"])
+      .describe("Step ordering mode. Only 'sequential' is supported in v1.")
+      .optional(),
+    concurrencyWindowSeconds: z
+      .number()
+      .int()
+      .min(0)
+      .describe(
+        "Out-of-order tolerance between adjacent steps in seconds. Defaults to 0.",
+      )
+      .optional(),
+  })
+  .describe('Funnel metric settings (required when metricType is "funnel")');
 
 const apiCappingSettings = z
   .object({
@@ -212,7 +301,10 @@ const apiMetricTypeEnum = z.enum([
   "quantile",
   "ratio",
   "dailyParticipation",
+  "funnel",
 ]);
+
+const apiResponseMetricTypeEnum = apiMetricTypeEnum;
 
 // Corresponds to schemas/FactMetric.yaml
 export const apiFactMetricValidator = namedSchema(
@@ -221,14 +313,14 @@ export const apiFactMetricValidator = namedSchema(
     .object({
       id: z.string(),
       name: z.string(),
-      description: z.string(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH),
       owner: ownerField,
       ownerEmail: ownerEmailField,
       projects: z.array(z.string()),
       tags: z.array(z.string()),
       datasource: z.string(),
-      metricType: apiMetricTypeEnum,
-      numerator: apiNumeratorRef,
+      metricType: apiResponseMetricTypeEnum,
+      numerator: apiNumeratorRef.optional(),
       denominator: apiDenominatorRef.optional(),
       inverse: z
         .boolean()
@@ -236,6 +328,7 @@ export const apiFactMetricValidator = namedSchema(
           "Set to true for things like Bounce Rate, where you want the metric to decrease",
         ),
       quantileSettings: apiQuantileSettings.optional(),
+      funnelSettings: apiFunnelSettings.optional(),
       cappingSettings: apiCappingSettings,
       windowSettings: apiWindowSettings,
       priorSettings: apiPriorSettings,
@@ -299,9 +392,9 @@ const postNumeratorRef = z.object({
     )
     .optional(),
   aggregation: z
-    .enum(["sum", "max", "count distinct"])
+    .enum(["sum", "max", "count distinct", "hll merge", "kll merge"])
     .describe(
-      "User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.",
+      "User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; hll merge / kll merge for pre-built sketch columns (requires data-source support); ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion metrics; for event quantile metrics only kll merge is applicable.",
     )
     .optional(),
   filters: z
@@ -347,9 +440,9 @@ const postDenominatorRef = z
         "The column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit')",
       ),
     aggregation: z
-      .enum(["sum", "max", "count distinct"])
+      .enum(["sum", "max", "count distinct", "hll merge", "kll merge"])
       .describe(
-        "User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.",
+        "User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; hll merge / kll merge for pre-built sketch columns (requires data-source support); ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion metrics; for event quantile metrics only kll merge is applicable.",
       )
       .optional(),
     filters: z
@@ -393,6 +486,12 @@ const postQuantileSettings = z
       .gte(0.001)
       .lte(0.999)
       .describe("The quantile value (from 0.001 to 0.999)"),
+    quantileEventCountColumn: z
+      .string()
+      .describe(
+        "Optional override for the source-column name used to recover per-row event counts when numerator.aggregation is 'kll merge'. Defaults to '<numerator.column>_n_events'. Only valid for event-quantile metrics with a 'kll merge' numerator.",
+      )
+      .optional(),
   })
   .describe(
     'Controls the settings for quantile metrics (mandatory if metricType is "quantile")',
@@ -498,12 +597,12 @@ const postRegressionAdjustmentSettings = z
 const postFactMetricBody = z
   .object({
     name: z.string(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     owner: ownerInputField.optional(),
     projects: z.array(z.string()).optional(),
     tags: z.array(z.string()).optional(),
     metricType: apiMetricTypeEnum,
-    numerator: postNumeratorRef,
+    numerator: postNumeratorRef.nullable().optional(),
     denominator: postDenominatorRef.optional(),
     inverse: z
       .boolean()
@@ -512,6 +611,7 @@ const postFactMetricBody = z
       )
       .optional(),
     quantileSettings: postQuantileSettings.optional(),
+    funnelSettings: postFunnelSettings.optional(),
     cappingSettings: postCappingSettings.optional(),
     windowSettings: postWindowSettings.optional(),
     priorSettings: postPriorSettings.optional(),
@@ -571,18 +671,58 @@ const postFactMetricBody = z
       )
       .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((body, ctx) => {
+    if (body.metricType === "funnel") {
+      if (!body.funnelSettings) {
+        ctx.addIssue({
+          code: "custom",
+          message: "funnelSettings is required for funnel metrics",
+          path: ["funnelSettings"],
+        });
+      }
+      if ((body.numerator ?? null) !== null) {
+        ctx.addIssue({
+          code: "custom",
+          message: "numerator is not allowed for funnel metrics",
+          path: ["numerator"],
+        });
+      }
+      if (body.denominator) {
+        ctx.addIssue({
+          code: "custom",
+          message: "denominator is not allowed for funnel metrics",
+          path: ["denominator"],
+        });
+      }
+    } else {
+      if (!body.numerator) {
+        ctx.addIssue({
+          code: "custom",
+          message: "numerator is required for non-funnel metrics",
+          path: ["numerator"],
+        });
+      }
+      if (body.funnelSettings) {
+        ctx.addIssue({
+          code: "custom",
+          message: "funnelSettings is only allowed for funnel metrics",
+          path: ["funnelSettings"],
+        });
+      }
+    }
+  });
 
 // Corresponds to payload-schemas/UpdateFactMetricPayload.yaml
 const updateFactMetricBody = z
   .object({
     name: z.string().optional(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     owner: ownerInputField.optional(),
     projects: z.array(z.string()).optional(),
     tags: z.array(z.string()).optional(),
     metricType: apiMetricTypeEnum.optional(),
-    numerator: postNumeratorRef.optional(),
+    numerator: postNumeratorRef.nullable().optional(),
     denominator: postDenominatorRef.optional(),
     inverse: z
       .boolean()
@@ -591,6 +731,7 @@ const updateFactMetricBody = z
       )
       .optional(),
     quantileSettings: postQuantileSettings.optional(),
+    funnelSettings: postFunnelSettings.optional(),
     cappingSettings: postCappingSettings.optional(),
     windowSettings: postWindowSettings.optional(),
     priorSettings: postPriorSettings.optional(),
@@ -645,7 +786,32 @@ const updateFactMetricBody = z
       )
       .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((body, ctx) => {
+    if (body.metricType !== "funnel") return;
+
+    if (!body.funnelSettings) {
+      ctx.addIssue({
+        code: "custom",
+        message: "funnelSettings is required when changing to a funnel metric",
+        path: ["funnelSettings"],
+      });
+    }
+    if ((body.numerator ?? null) !== null) {
+      ctx.addIssue({
+        code: "custom",
+        message: "numerator is not allowed for funnel metrics",
+        path: ["numerator"],
+      });
+    }
+    if (body.denominator) {
+      ctx.addIssue({
+        code: "custom",
+        message: "denominator is not allowed for funnel metrics",
+        path: ["denominator"],
+      });
+    }
+  });
 
 // Corresponds to payload-schemas/PostFactMetricAnalysisPayload.yaml
 const postFactMetricAnalysisBody = z
@@ -718,7 +884,7 @@ export const listFactMetricsValidator = {
       factTableId: z
         .string()
         .describe(
-          "Filter by Fact Table Id (for ratio metrics, we only look at the numerator)",
+          "Filter by Fact Table Id (for ratio metrics, only the numerator is considered)",
         )
         .optional(),
     })

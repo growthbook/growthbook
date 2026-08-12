@@ -5,6 +5,7 @@ import {
   type AIChatToolResultPart,
 } from "shared/ai-chat";
 import {
+  dateRangePredefined,
   ExplorationConfig,
   explorationConfigValidator,
   ProductAnalyticsResultRow,
@@ -68,8 +69,9 @@ If the user asks for data that spans both a fact table and a metric (different e
 </chart_rules>
 
 <dimension_rules>
-Only use dimensionType 'dynamic'. Never use 'static' or 'slice'.
-'dynamic' shows the top N values for a column — set maxValues (1–20, default 5).
+Only use dimensionType 'dynamic' or 'static'. Never use 'slice'.
+'dynamic' shows the top N values for a column — set maxValues (1–20, default 5). Use this for an open-ended "break down by X" request.
+'static' pins a fixed list of column values (1–20, set via values) — rows whose column value isn't in the list are dropped (no top-N/'other' bucket). Use this when the user names specific values to compare (e.g. "compare US vs UK vs Canada"). Always call getColumnValues first to confirm the real values before setting them — never guess.
 Use dateGranularity 'auto' by default for date dimensions; only use a specific granularity (hour/day/week/month/year) when the user requests it.
 Maximum 2 total dimensions (including the date dimension for timeseries). If dataset has more than 1 value, max 1 dimension.
 bigNumber charts (only when explicitly requested): 0 dimensions and exactly 1 value.
@@ -115,13 +117,14 @@ For fact_table values:
 <row_filter_rules>
 rowFilters shape: { operator, column, values }
 Common operators: "=", "!=", "in", "not_in", "contains", "not_contains", "starts_with", "ends_with", "is_null", "not_null".
+For date columns only, "between" and "not_between" take exactly two values (a lower and an upper bound); "!=" and "is_null" are not offered for date columns.
 CRITICAL — never guess column values for filters. Always call getColumnValues first. Pass a searchTerm for partial matches (e.g. 'US' to find 'United States').
 getColumnValues only works on string-typed columns.
 </row_filter_rules>
 
 <date_range_rules>
 "last14Days" is NOT a valid predefined value. For 14 days use: { predefined: "customLookback", lookbackValue: 14, lookbackUnit: "day" }.
-Valid predefined values: "today", "last7Days", "last30Days", "last90Days", "customLookback", "customDateRange".
+Valid predefined values: ${dateRangePredefined.map((v) => `"${v}"`).join(", ")}.
 </date_range_rules>
 
 <search_rules>
@@ -223,6 +226,7 @@ function buildConfigSchemaSummary(): string {
     "dimensions: array of dimension objects:",
     "  date: { dimensionType: 'date', column: null, dateGranularity: 'auto'|'hour'|'day'|'week'|'month'|'year' }",
     "  dynamic: { dimensionType: 'dynamic', column: string, maxValues: number (1-20) }",
+    "  static: { dimensionType: 'static', column: string, values: string[] (1-20) }",
     'dataset for type="metric": { type: "metric", values: [{ type: "metric", name, metricId, unit, denominatorUnit, rowFilters }] }',
     'dataset for type="fact_table": { type: "fact_table", factTableId, values: [{ type: "fact_table", name, valueType: "unit_count"|"count"|"sum", valueColumn, unit, rowFilters }] }',
     'rowFilters: [{ operator: "="|"!="|"in"|"not_in"|"contains"|"not_contains"|"starts_with"|"ends_with"|"is_null"|"not_null", column: string, values: string[] }]',
@@ -242,9 +246,18 @@ function buildSnapshotSummary(
     parts.push(
       `Initial: ${curr.chartType} chart, ${curr.type} dataset, date range ${curr.dateRange.predefined}`,
     );
-    const valueNames = curr.dataset?.values?.map((v) => v.name).filter(Boolean);
-    if (valueNames?.length) {
-      parts.push(`values: ${valueNames.join(", ")}`);
+    if (curr.dataset?.type === "funnel") {
+      const stepNames = curr.dataset.steps?.map((s) => s.name).filter(Boolean);
+      if (stepNames?.length) {
+        parts.push(`steps: ${stepNames.join(", ")}`);
+      }
+    } else {
+      const valueNames = curr.dataset?.values
+        ?.map((v) => v.name)
+        .filter(Boolean);
+      if (valueNames?.length) {
+        parts.push(`values: ${valueNames.join(", ")}`);
+      }
     }
     if (curr.showAs) {
       parts.push(`showAs: ${curr.showAs}`);
@@ -261,12 +274,28 @@ function buildSnapshotSummary(
     );
   }
 
-  const prevNames = prev.dataset?.values?.map((v) => v.name) ?? [];
-  const currNames = curr.dataset?.values?.map((v) => v.name) ?? [];
-  const added = currNames.filter((n) => !prevNames.includes(n));
-  const removed = prevNames.filter((n) => !currNames.includes(n));
-  if (added.length) parts.push(`added: ${added.join(", ")}`);
-  if (removed.length) parts.push(`removed: ${removed.join(", ")}`);
+  // Funnels carry "steps"; everything else carries "values". Diff whichever
+  // shape applies; treat shape change as a coarse "dataset changed".
+  if (prev.dataset?.type === "funnel" && curr.dataset?.type === "funnel") {
+    const prevSteps = prev.dataset.steps.map((s) => s.name);
+    const currSteps = curr.dataset.steps.map((s) => s.name);
+    const added = currSteps.filter((n) => !prevSteps.includes(n));
+    const removed = prevSteps.filter((n) => !currSteps.includes(n));
+    if (added.length) parts.push(`added steps: ${added.join(", ")}`);
+    if (removed.length) parts.push(`removed steps: ${removed.join(", ")}`);
+  } else if (
+    prev.dataset?.type !== "funnel" &&
+    curr.dataset?.type !== "funnel"
+  ) {
+    const prevNames = prev.dataset?.values?.map((v) => v.name) ?? [];
+    const currNames = curr.dataset?.values?.map((v) => v.name) ?? [];
+    const added = currNames.filter((n) => !prevNames.includes(n));
+    const removed = prevNames.filter((n) => !currNames.includes(n));
+    if (added.length) parts.push(`added: ${added.join(", ")}`);
+    if (removed.length) parts.push(`removed: ${removed.join(", ")}`);
+  } else if (prev.dataset?.type !== curr.dataset?.type) {
+    parts.push(`dataset type: ${prev.dataset?.type} → ${curr.dataset?.type}`);
+  }
 
   const prevDims = prev.dimensions?.length ?? 0;
   const currDims = curr.dimensions?.length ?? 0;
@@ -643,29 +672,12 @@ async function normalizeConfigForExplorer(
   let dims = config.dimensions;
   let dataset = config.dataset;
 
-  // Convert static → dynamic; drop slice
-  const hadStatic = dims.some((d) => d.dimensionType === "static");
+  // Drop slice dimensions — the agent isn't equipped to author them.
   const hadSlice = dims.some((d) => d.dimensionType === "slice");
-  dims = dims
-    .map((d) => {
-      if (d.dimensionType === "static") {
-        return {
-          dimensionType: "dynamic" as const,
-          column: d.column,
-          maxValues: Math.min(d.values.length || 5, 20),
-        };
-      }
-      return d;
-    })
-    .filter((d) => d.dimensionType !== "slice");
-  if (hadStatic) {
-    warnings.push(
-      "Static dimensions are not supported — converted to dynamic. Only use dimensionType 'dynamic'.",
-    );
-  }
+  dims = dims.filter((d) => d.dimensionType !== "slice");
   if (hadSlice) {
     warnings.push(
-      "Slice dimensions are not supported and were removed. Only use dimensionType 'dynamic'.",
+      "Slice dimensions are not supported and were removed. Only use dimensionType 'dynamic' or 'static'.",
     );
   }
 
@@ -700,33 +712,39 @@ async function normalizeConfigForExplorer(
     );
   }
 
-  // bigNumber: no dimensions, single value
-  if (config.chartType === "bigNumber") {
-    if (dims.length > 0) {
-      dims = [];
-      warnings.push(
-        "Removed all dimensions — bigNumber charts do not support dimensions.",
-      );
+  // Funnel datasets have a different structure (steps instead of values)
+  // and the AI agent isn't equipped to produce them. The bigNumber / value
+  // count constraints below assume a `values` array, so we skip them for
+  // funnels — the front-end already enforces funnel-specific limits.
+  if (dataset.type !== "funnel") {
+    // bigNumber: no dimensions, single value
+    if (config.chartType === "bigNumber") {
+      if (dims.length > 0) {
+        dims = [];
+        warnings.push(
+          "Removed all dimensions — bigNumber charts do not support dimensions.",
+        );
+      }
+      if (dataset.values.length > 1) {
+        dataset = {
+          ...dataset,
+          values: dataset.values.slice(0, 1),
+        } as typeof dataset;
+        warnings.push(
+          "Trimmed to 1 value — bigNumber charts only support a single value.",
+        );
+      }
     }
-    if (dataset.values.length > 1) {
-      dataset = {
-        ...dataset,
-        values: dataset.values.slice(0, 1),
-      } as typeof dataset;
-      warnings.push(
-        "Trimmed to 1 value — bigNumber charts only support a single value.",
-      );
-    }
-  }
 
-  // Enforce max dimensions (2, or 1 if multiple values)
-  const maxDims = dataset.values.length > 1 ? 1 : 2;
-  if (dims.length > maxDims) {
-    const removed = dims.length - maxDims;
-    dims = dims.slice(0, maxDims);
-    warnings.push(
-      `Removed ${removed} dimension(s) to stay within the limit of ${maxDims} (max 2, or 1 when multiple values).`,
-    );
+    // Enforce max dimensions (2, or 1 if multiple values)
+    const maxDims = dataset.values.length > 1 ? 1 : 2;
+    if (dims.length > maxDims) {
+      const removed = dims.length - maxDims;
+      dims = dims.slice(0, maxDims);
+      warnings.push(
+        `Removed ${removed} dimension(s) to stay within the limit of ${maxDims} (max 2, or 1 when multiple values).`,
+      );
+    }
   }
 
   // Load every referenced fact metric once. This map serves both the unit
@@ -762,7 +780,7 @@ async function normalizeConfigForExplorer(
         new Set(
           dataset.values
             .filter((v) => !v.unit && v.metricId)
-            .map((v) => metricById.get(v.metricId!)?.numerator.factTableId)
+            .map((v) => metricById.get(v.metricId!)?.numerator?.factTableId)
             .filter((id): id is string => !!id),
         ),
       );
@@ -780,7 +798,9 @@ async function normalizeConfigForExplorer(
         if (v.unit || !v.metricId) return v;
         const metric = metricById.get(v.metricId);
         if (!metric) return v;
-        const factTable = factTableById.get(metric.numerator.factTableId);
+        const factTable = factTableById.get(
+          metric.numerator?.factTableId ?? "",
+        );
         const defaultUnit = factTable?.userIdTypes?.[0];
         if (!defaultUnit) return v;
         filledCount++;
@@ -957,7 +977,7 @@ async function executeGetAvailableColumns(
       const ftIds = [
         ...new Set(
           metrics
-            .map((m) => m.numerator.factTableId)
+            .map((m) => m.numerator?.factTableId)
             .filter((id): id is string => !!id),
         ),
       ];
@@ -972,7 +992,7 @@ async function executeGetAvailableColumns(
           m.metricType === "retention" ||
           m.metricType === "dailyParticipation" ||
           (m.metricType === "ratio" &&
-            m.numerator.column === "$$distinctUsers");
+            m.numerator?.column === "$$distinctUsers");
 
         metricUnitInfo.push({
           metricId: m.id,
@@ -980,7 +1000,7 @@ async function executeGetAvailableColumns(
           needsUnit,
         });
 
-        if (!m.numerator.factTableId) continue;
+        if (!m.numerator?.factTableId) continue;
         const ft = ftMap.get(m.numerator.factTableId) ?? null;
         if (!userIdTypes.length && ft?.userIdTypes?.length) {
           userIdTypes = ft.userIdTypes;
@@ -1042,8 +1062,8 @@ async function executeGetColumnValues(
       const { metricIds } = input;
       if (!metricIds?.length) return "metricIds is required for metric source.";
       const metrics = await ctx.models.factMetrics.getByIds(metricIds);
-      const firstWithFt = metrics.find((m) => m.numerator.factTableId);
-      if (!firstWithFt?.numerator.factTableId) {
+      const firstWithFt = metrics.find((m) => m.numerator?.factTableId);
+      if (!firstWithFt?.numerator?.factTableId) {
         return "Could not resolve a fact table from the provided metric IDs.";
       }
       const ft = await getFactTable(ctx, firstWithFt.numerator.factTableId);
@@ -1109,7 +1129,7 @@ async function executeGetColumnValues(
       colsToQuery,
     );
   } catch (err) {
-    return `Failed to query column values: ${
+    return `Failed to query column values on ${datasource.type}: ${
       err instanceof Error ? err.message : "Unknown error"
     }`;
   }

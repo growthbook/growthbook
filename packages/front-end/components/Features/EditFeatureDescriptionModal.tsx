@@ -5,17 +5,17 @@ import { Box, Flex } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { getReviewSetting } from "shared/util";
-import { useDefaultDraft } from "@/hooks/useDefaultDraft";
+import { useDefaultDraftMode } from "@/hooks/useDefaultDraft";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import Link from "@/ui/Link";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import Modal from "@/components/Modal";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 interface Props {
   close: () => void;
@@ -36,7 +36,10 @@ export default function EditFeatureDescriptionModal({
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
 
-  const isAdmin = permissionsUtil.canBypassApprovalChecks(feature);
+  const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(
+    feature,
+    "feature",
+  );
 
   const metadataGated: boolean = (() => {
     const raw = settings?.requireReviews;
@@ -47,13 +50,19 @@ export default function EditFeatureDescriptionModal({
     return reviewSetting.featureRequireMetadataReview !== false;
   })();
 
-  const canAutoPublish = isAdmin || !metadataGated;
+  // Approval-gating decides whether publish needs review; AUTHORITY decides
+  // whether this user may publish at all. Without the second factor a
+  // draft-only user defaulted into publish mode and 403'd on submit. Metadata
+  // carries no environment footprint, so the project-scoped atom is the rule.
+  const canPublishMetadata = permissionsUtil.canPublishFeature(feature, []);
+  const canAutoPublish = (isAdmin || !metadataGated) && canPublishMetadata;
 
-  const defaultDraft = useDefaultDraft(revisionList);
-
-  const [mode, setMode] = useState<DraftMode>(
-    metadataGated ? "new" : "publish",
+  const { mode: initialMode, defaultDraft } = useDefaultDraftMode(
+    revisionList,
+    canAutoPublish,
   );
+
+  const [mode, setMode] = useState<DraftMode>(initialMode);
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );
@@ -65,7 +74,7 @@ export default function EditFeatureDescriptionModal({
   });
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="edit-feature-description-modal"
       header="Edit Description"
       open={true}
@@ -89,11 +98,10 @@ export default function EditFeatureDescriptionModal({
         mutate();
         const resolvedVersion =
           res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
-        if (resolvedVersion != null && setVersion) setVersion(resolvedVersion);
+        if (resolvedVersion !== null && setVersion) setVersion(resolvedVersion);
       })}
       cta={mode === "publish" ? "Save" : "Save to draft"}
       ctaEnabled={form.formState.isDirty}
-      useRadixButton={true}
     >
       <DraftSelectorForChanges
         feature={feature}
@@ -128,6 +136,6 @@ export default function EditFeatureDescriptionModal({
         }
         placeholder="Add context about this feature for your team"
       />
-    </Modal>
+    </ModalStandard>
   );
 }

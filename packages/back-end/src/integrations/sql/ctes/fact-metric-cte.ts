@@ -1,6 +1,7 @@
 import {
   getColumnRefWhereClause,
   getFactTableTemplateVariables,
+  isFactFunnelMetric,
   isRatioMetric,
   parseSliceMetricId,
 } from "shared/experiments";
@@ -13,7 +14,9 @@ import type {
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
 import { getFactMetricColumn } from "back-end/src/integrations/sql/columns/fact-metric-column";
+import { funnelStepTimestampColumn } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
 import { toTimestampWithMs } from "back-end/src/integrations/sql/primitives/to-timestamp-with-ms";
+import { getKllEventCountSourceColumn } from "back-end/src/services/factMetrics";
 
 /** Fact Table CTE for multiple fact metrics that share the same fact table */
 export function getFactMetricCTE(
@@ -96,6 +99,41 @@ export function getFactMetricCTE(
   metricsWithIndices.forEach((metricWithIndex) => {
     const m = metricWithIndex.metric;
     const index = metricWithIndex.index;
+
+    if (isFactFunnelMetric(m)) {
+      // A funnel has no value column. Each step instead projects the row's
+      // timestamp when the row matches that step's filters, so the resolution
+      // CTEs downstream can collect per-step timestamps per user.
+      m.funnelSettings.steps.forEach((step, stepIndex) => {
+        if (step.factTableId !== factTable.id) return;
+
+        const filters = getColumnRefWhereClause({
+          factTable,
+          columnRef: {
+            factTableId: step.factTableId,
+            column: "",
+            rowFilters: step.rowFilters,
+          },
+          escapeStringLiteral: dialect.escapeStringLiteral,
+          stringMatch: dialect.stringMatch,
+          jsonExtract: dialect.jsonExtract,
+          evalBoolean: dialect.evalBoolean,
+          castToTimestamp: dialect.castToTimestamp,
+          identifierQuote: dialect.identifierQuote,
+        });
+
+        const column = filters.length
+          ? `CASE WHEN (${filters.join("\n AND ")}) THEN ${timestampDateTimeColumn} ELSE NULL END`
+          : timestampDateTimeColumn;
+
+        metricCols.push(`-- ${m.name} (step ${stepIndex + 1}: ${step.name})
+        ${column} AS ${funnelStepTimestampColumn(`m${index}`, stepIndex)}`);
+
+        allMetricFilters.push(filters);
+      });
+      return;
+    }
+
     if (m.numerator?.factTableId === factTable.id) {
       const value = getFactMetricColumn(
         dialect,
@@ -112,9 +150,12 @@ export function getFactMetricCTE(
         factTable,
         columnRef: m.numerator,
         escapeStringLiteral: dialect.escapeStringLiteral,
+        stringMatch: dialect.stringMatch,
         jsonExtract: dialect.jsonExtract,
         evalBoolean: dialect.evalBoolean,
+        castToTimestamp: dialect.castToTimestamp,
         sliceInfo,
+        identifierQuote: dialect.identifierQuote,
       });
 
       const column =
@@ -124,6 +165,27 @@ export function getFactMetricCTE(
 
       metricCols.push(`-- ${m.name}
         ${column} as m${index}_value`);
+
+      // For 'kll merge' metrics, also project the paired event-count
+      // column. KLL sketches do not retain an accessible item count, so
+      // the user must materialize this alongside the sketch. Source-column
+      // resolution: the metric author may override the default convention
+      // (`<sketch>_n_events`) via quantileSettings.quantileEventCountColumn;
+      // the create-time validator guarantees the resolved column exists
+      // and has a numeric datatype on the same fact table.
+      if (m.numerator.aggregation === "kll merge") {
+        const nEventsSourceCol = getKllEventCountSourceColumn({
+          column: m.numerator,
+          quantileEventCountColumn:
+            m.quantileSettings?.quantileEventCountColumn,
+        });
+        const nEventsCol =
+          filters.length > 0
+            ? `CASE WHEN (${filters.join("\n AND ")}) THEN m.${nEventsSourceCol} ELSE NULL END`
+            : `m.${nEventsSourceCol}`;
+        metricCols.push(`-- ${m.name} (paired n_events for kll merge)
+        ${nEventsCol} as m${index}_n_events`);
+      }
 
       allMetricFilters.push(filters);
     }
@@ -148,9 +210,12 @@ export function getFactMetricCTE(
         factTable,
         columnRef: m.denominator,
         escapeStringLiteral: dialect.escapeStringLiteral,
+        stringMatch: dialect.stringMatch,
         jsonExtract: dialect.jsonExtract,
         evalBoolean: dialect.evalBoolean,
+        castToTimestamp: dialect.castToTimestamp,
         sliceInfo,
+        identifierQuote: dialect.identifierQuote,
       });
       const column =
         filters.length > 0

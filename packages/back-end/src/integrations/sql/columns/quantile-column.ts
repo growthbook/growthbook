@@ -1,7 +1,7 @@
 import { SqlDialect } from "shared/types/sql";
 
 export function quantileColumn(
-  dialect: SqlDialect,
+  dialect: Pick<SqlDialect, "percentileApprox">,
   valueCol: string,
   outputCol: string,
   quantile: string | number,

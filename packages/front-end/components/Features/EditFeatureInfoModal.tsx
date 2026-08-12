@@ -3,15 +3,17 @@ import { useForm } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { getReviewSetting } from "shared/util";
+import { holdsFeatureMoveDestination } from "shared/permissions";
 import { Box } from "@radix-ui/themes";
-import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import TagsInput from "@/components/Tags/TagsInput";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import SelectField from "@/components/Forms/SelectField";
+import TargetingProjectsField from "@/components/TargetingProjectsField";
 import Callout from "@/ui/Callout";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { getMetadataEditEnvs, useEnvironments } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
@@ -19,7 +21,8 @@ import { useAuth } from "@/services/auth";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
-import { useDefaultDraft } from "@/hooks/useDefaultDraft";
+import { useDefaultDraftMode } from "@/hooks/useDefaultDraft";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 const EditFeatureInfoModal: FC<{
   feature: FeatureInterface;
@@ -41,10 +44,14 @@ const EditFeatureInfoModal: FC<{
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
+  const allEnvironments = useEnvironments();
   const [showProjectWarningMsg, setShowProjectWarningMsg] = useState(false);
   const { requireProjectForFeatures } = settings;
 
-  const isAdmin = permissionsUtil.canBypassApprovalChecks(feature);
+  const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(
+    feature,
+    "feature",
+  );
 
   // Gated when requireReviewOn is true and featureRequireMetadataReview is not disabled
   const metadataGated: boolean = (() => {
@@ -56,33 +63,55 @@ const EditFeatureInfoModal: FC<{
     return reviewSetting.featureRequireMetadataReview !== false;
   })();
 
-  const canAutoPublish = isAdmin || !metadataGated;
-
-  const defaultDraft = useDefaultDraft(revisionList);
-
-  const [mode, setMode] = useState<DraftMode>(
-    metadataGated ? "new" : "publish",
-  );
-  const [selectedDraft, setSelectedDraft] = useState<number | null>(
-    defaultDraft,
-  );
-
   const form = useForm({
     defaultValues: {
       tags: feature.tags || [],
       owner: feature.owner,
       project: feature.project || "",
+      targetingAllProjects: feature.targetingAllProjects || false,
+      targetingProjects: feature.targetingProjects || [],
       description: feature.description || "",
     },
   });
 
+  // Publishing metadata requires authority over its footprint and destination.
+  const moveDestination = form.watch("project");
+  const metadataEnvs = getMetadataEditEnvs({
+    feature,
+    proposed: {
+      project: moveDestination,
+      targetingAllProjects: form.watch("targetingAllProjects"),
+      targetingProjects: form.watch("targetingProjects"),
+    },
+    environments: allEnvironments,
+  });
+  const canPublishMetadata =
+    permissionsUtil.canPublishFeature(feature, metadataEnvs) &&
+    holdsFeatureMoveDestination(
+      permissionsUtil,
+      feature,
+      moveDestination,
+      metadataEnvs,
+    );
+  const canAutoPublish = (isAdmin || !metadataGated) && canPublishMetadata;
+
+  const { mode: initialMode, defaultDraft } = useDefaultDraftMode(
+    revisionList,
+    canAutoPublish,
+  );
+
+  const [mode, setMode] = useState<DraftMode>(initialMode);
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(
+    defaultDraft,
+  );
+
   const permissionRequired = (project) =>
-    permissionsUtil.canUpdateFeature(feature, { project });
+    permissionsUtil.canEditFeatureDrafts({ project });
   const initialOption =
     permissionRequired("") && !requireProjectForFeatures ? "None" : "";
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="edit-feature-info"
       trackingEventModalSource={source}
       header="Edit Feature Information"
@@ -106,11 +135,10 @@ const EditFeatureInfoModal: FC<{
         mutate();
         const resolvedVersion =
           res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
-        if (resolvedVersion != null && setVersion) setVersion(resolvedVersion);
+        if (resolvedVersion !== null && setVersion) setVersion(resolvedVersion);
       })}
       cta={mode === "publish" ? "Save" : "Save to draft"}
       ctaEnabled={form.formState.isDirty}
-      useRadixButton={true}
       size="lg"
     >
       <Box>
@@ -125,12 +153,14 @@ const EditFeatureInfoModal: FC<{
           gatedEnvSet={metadataGated ? "all" : "none"}
         />
         <Field
+          size="legacy"
           label="Feature Key"
           value={feature.id}
           disabled={true}
           helpText="Feature keys are not editable"
         />
         <Field
+          size="legacy"
           label="Feature Type"
           value={feature.valueType}
           disabled={true}
@@ -142,6 +172,7 @@ const EditFeatureInfoModal: FC<{
         />
         <Box mb="4">
           <SelectField
+            size="legacy"
             label="Project"
             value={form.watch("project")}
             onChange={(v) => {
@@ -175,6 +206,18 @@ const EditFeatureInfoModal: FC<{
             </>
           )}
         </Box>
+        <TargetingProjectsField
+          mb="4"
+          primaryProject={form.watch("project")}
+          allProjects={form.watch("targetingAllProjects")}
+          setAllProjects={(v) =>
+            form.setValue("targetingAllProjects", v, { shouldDirty: true })
+          }
+          targetingProjects={form.watch("targetingProjects")}
+          setTargetingProjects={(v) =>
+            form.setValue("targetingProjects", v, { shouldDirty: true })
+          }
+        />
         <Box mb="4">
           <label>Tags</label>
           <TagsInput
@@ -199,7 +242,7 @@ const EditFeatureInfoModal: FC<{
           </Box>
         </Box>
       </Box>
-    </Modal>
+    </ModalStandard>
   );
 };
 

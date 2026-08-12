@@ -1,3 +1,7 @@
+:global(.rt-TableRootTable .rt-TableColumnHeaderCell) {
+  font-weight: 500;
+}
+
 // List table variant: sticky header, row hover (use same solid surface as surface variant)
 .wrapper[data-table-list] {
   max-width: 100%;
@@ -27,6 +31,7 @@
   }
 
   :global(.rt-TableHeader) {
+    --table-row-background-color: var(--color-panel-solid);
     background-color: var(--color-panel-solid);
     border-top-left-radius: var(--radius-4);
     border-top-right-radius: var(--radius-4);
@@ -41,6 +46,11 @@
     white-space: nowrap;
     box-sizing: border-box;
     padding: var(--space-3);
+    // Top line = table's top edge; bottom line = separator to the first body row
+    // (the drop shadow on .rt-TableHeader alone is invisible in dark mode).
+    box-shadow:
+      inset 0 1px 0 0 var(--slate-a5, rgba(0, 9, 50, 0.12)),
+      inset 0 -1px 0 0 var(--slate-a5, rgba(0, 9, 50, 0.12));
   }
 
   :global(.rt-TableRootTable) {
@@ -97,6 +107,7 @@
   }
 
   :global(.rt-TableCell .rt-TableHeader) {
+    --table-row-background-color: transparent;
     background-color: unset;
     border-top-left-radius: unset;
     border-top-right-radius: unset;
@@ -134,12 +145,6 @@
     position: sticky;
     top: var(--table-sticky-top, var(--sticky-header-top));
     z-index: 900;
-  }
-
-  // Suppress the row separator for middle rows within a grouped set.
-  :global(.rt-TableBody .rt-TableRow[data-group-inner] .rt-TableCell) {
-    box-shadow: none;
-    --table-row-box-shadow: none;
   }
 
   // Nested table headers must not be sticky even when the outer one is

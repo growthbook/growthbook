@@ -2,22 +2,28 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { date } from "shared/dates";
-import { IconButton, Text } from "@radix-ui/themes";
+import { getFactMetricPrimaryFactTableId } from "shared/experiments";
+import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import Link from "@/ui/Link";
-import { tagLinkProps, useSearch } from "@/services/search";
+import {
+  filterSearchTerm,
+  tagLinkProps,
+  useAddComputedFields,
+  useSearch,
+} from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import SortedTags from "@/components/Tags/SortedTags";
 import MetricName from "@/components/Metrics/MetricName";
 import FactMetricTypeDisplayName from "@/components/Metrics/FactMetricTypeDisplayName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
-import Switch from "@/ui/Switch";
+import FactMetricSearchFilters from "@/components/Search/FactMetricSearchFilters";
 import RecommendedFactMetricsModal, {
   getRecommendedFactMetrics,
 } from "@/components/FactTables/RecommendedFactMetricsModal";
@@ -30,6 +36,10 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
+import {
+  isMergeAggregationMetric,
+  REST_API_ONLY_EDIT_MESSAGE,
+} from "@/services/factMetrics";
 import FactMetricModal from "./FactMetricModal";
 
 function FactMetricRowMenu({
@@ -39,6 +49,7 @@ function FactMetricRowMenu({
   canDuplicate,
   onEdit,
   onDuplicate,
+  editDisabledReason,
 }: {
   metric: FactMetricInterface;
   canEdit: boolean;
@@ -46,10 +57,21 @@ function FactMetricRowMenu({
   canDuplicate: boolean;
   onEdit: () => void;
   onDuplicate: () => void;
+  editDisabledReason?: string;
 }) {
   const [open, setOpen] = useState(false);
   const { apiCall } = useAuth();
   const { mutateDefinitions } = useDefinitions();
+  const canEditMenu =
+    canEdit && !metric.archived && !editDisabledReason && !!onEdit;
+  const canShowDisabledEdit =
+    canEdit && !metric.archived && !!editDisabledReason;
+  // Duplicate uses the same FactMetricModal as Edit, so anything that locks
+  // editing to the REST API also has to lock Duplicate — otherwise a user
+  // could open a half-broken modal pre-filled with values the picker can no
+  // longer represent.
+  const canDuplicateMenu = canDuplicate && !editDisabledReason;
+  const canShowDisabledDuplicate = canDuplicate && !!editDisabledReason;
 
   return (
     <DropdownMenu
@@ -69,24 +91,33 @@ function FactMetricRowMenu({
       menuPlacement="end"
     >
       <DropdownMenuGroup>
-        {canEdit && (
+        {(canEditMenu || canShowDisabledEdit) && (
           <DropdownMenuItem
             onClick={() => {
               onEdit();
               setOpen(false);
             }}
+            disabled={canShowDisabledEdit}
           >
-            Edit
+            <Tooltip content={editDisabledReason} enabled={canShowDisabledEdit}>
+              <span>Edit</span>
+            </Tooltip>
           </DropdownMenuItem>
         )}
-        {canDuplicate && (
+        {(canDuplicateMenu || canShowDisabledDuplicate) && (
           <DropdownMenuItem
             onClick={() => {
               onDuplicate();
               setOpen(false);
             }}
+            disabled={canShowDisabledDuplicate}
           >
-            Duplicate
+            <Tooltip
+              content={editDisabledReason}
+              enabled={canShowDisabledDuplicate}
+            >
+              <span>Duplicate</span>
+            </Tooltip>
           </DropdownMenuItem>
         )}
         {canEdit && (
@@ -143,19 +174,22 @@ export default function FactMetricList({
   const [newOpen, setNewOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
 
-  const { _factMetricsIncludingArchived: factMetrics } = useDefinitions();
+  const { _factMetricsIncludingArchived: factMetrics, getProjectById } =
+    useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, getOwnerDisplay } = useUser();
 
-  const metrics =
-    providedMetrics ||
-    factMetrics.filter(
-      (m) =>
-        m.numerator.factTableId === factTable.id ||
-        (m.denominator && m.denominator.factTableId === factTable.id),
-    );
-  const hasArchivedMetrics = factMetrics.some((m) => m.archived);
+  const metrics = useMemo(
+    () =>
+      providedMetrics ||
+      factMetrics.filter(
+        (m) =>
+          getFactMetricPrimaryFactTableId(m) === factTable.id ||
+          (m.denominator && m.denominator.factTableId === factTable.id),
+      ),
+    [providedMetrics, factMetrics, factTable.id],
+  );
 
   const shouldShowSliceAnalysisColumn =
     hasCommercialFeature("metric-slices") &&
@@ -189,29 +223,88 @@ export default function FactMetricList({
     return canDelete;
   };
 
-  const { items, searchInputProps, isFiltered, SortableTH, clear, pagination } =
-    useSearch({
-      items: (showArchived
-        ? metrics
-        : metrics.filter((m) => !m.archived) || []
-      ).map((metric) => {
-        // Calculate numAutoSlices for sorting
-        const numAutoSlices = factTable.columns.filter(
-          (col) =>
-            col.isAutoSliceColumn &&
-            !col.deleted &&
-            metric.metricAutoSlices?.includes(col.column),
-        ).length;
-        return {
-          ...metric,
-          numAutoSlices,
-        };
-      }),
-      defaultSortField: "name",
-      localStorageKey: "factmetrics",
-      searchFields: ["name^3", "description"],
-      pageSize: 10,
-    });
+  const searchItems = useAddComputedFields(
+    metrics,
+    (metric) => ({
+      // Calculate numAutoSlices for sorting
+      numAutoSlices: factTable.columns.filter(
+        (col) =>
+          col.isAutoSliceColumn &&
+          !col.deleted &&
+          metric.metricAutoSlices?.includes(col.column),
+      ).length,
+      ownerName: getOwnerDisplay(metric.owner),
+      projectNames: metric.projects.map((p) => getProjectById(p)?.name || p),
+    }),
+    [factTable.columns, getOwnerDisplay, getProjectById],
+  );
+
+  const filterResults = useCallback(
+    (items: typeof searchItems) => {
+      if (!showArchived) {
+        items = items.filter((m) => !m.archived);
+      }
+      return items;
+    },
+    [showArchived],
+  );
+
+  const {
+    items,
+    searchInputProps,
+    isFiltered,
+    syntaxFilters,
+    setSearchValue,
+    SortableTH,
+    clear,
+    pagination,
+  } = useSearch({
+    items: searchItems,
+    defaultSortField: "name",
+    localStorageKey: "factmetrics",
+    searchFields: ["name^3", "description"],
+    searchTermFilters: {
+      is: (item) => {
+        const is: string[] = [];
+        if (item.archived) is.push("archived");
+        if (item.managedBy) is.push("official");
+        return is;
+      },
+      has: (item) => {
+        const has: string[] = [];
+        if (item.projects?.length) has.push("project", "projects");
+        if (item.tags?.length) has.push("tag", "tags");
+        return has;
+      },
+      created: (item) => (item.dateCreated ? new Date(item.dateCreated) : null),
+      updated: (item) => (item.dateUpdated ? new Date(item.dateUpdated) : null),
+      name: (item) => item.name,
+      description: (item) => item.description,
+      id: (item) => item.id,
+      owner: (item) => [item.owner, item.ownerName],
+      type: (item) => item.metricType,
+      tag: (item) => item.tags,
+      project: (item) => [...item.projectNames, ...item.projects],
+    },
+    filterResults,
+    pageSize: 10,
+  });
+
+  // Include archived metrics in the list whenever an `is:archived` filter is
+  // present, since they are otherwise hidden before filtering. Match with
+  // filterSearchTerm so operator/case variants (`is:~arch`, `is:Archived`)
+  // reveal archived items the same way they filter them.
+  useEffect(() => {
+    const isArchivedFilter = syntaxFilters.some(
+      (filter) =>
+        filter.field === "is" &&
+        !filter.negated &&
+        filter.values.some((v) =>
+          filterSearchTerm("archived", filter.operator, v),
+        ),
+    );
+    setShowArchived(isArchivedFilter);
+  }, [syntaxFilters]);
 
   const canCreateMetrics = permissionsUtil.canCreateFactMetric({
     projects: factTable.projects,
@@ -271,32 +364,28 @@ export default function FactMetricList({
         </Callout>
       )}
 
-      <div className="row align-items-center">
+      <Flex align="center" gap="3" wrap="wrap">
         {metrics.length > 0 && (
-          <div className="col-auto">
-            <Field
-              placeholder="Search..."
-              type="search"
-              {...searchInputProps}
+          <>
+            <Box width={{ initial: "100%", sm: "auto" }}>
+              <Field
+                placeholder="Search..."
+                type="search"
+                {...searchInputProps}
+              />
+            </Box>
+            <FactMetricSearchFilters
+              factMetrics={metrics}
+              searchInputProps={searchInputProps}
+              setSearchValue={setSearchValue}
+              syntaxFilters={syntaxFilters}
             />
-          </div>
+          </>
         )}
-        {hasArchivedMetrics && (
-          <Switch
-            value={showArchived}
-            onChange={setShowArchived}
-            id="show-archived"
-            label="Show archived"
-            ml="2"
-          />
-        )}
-        <div className="col-auto ml-auto">
+        <Box ml="auto">
           <Tooltip
-            body={
-              canCreateMetrics
-                ? ""
-                : `You don't have permission to add metrics to this fact table`
-            }
+            content={`You don't have permission to add metrics to this fact table`}
+            enabled={!canCreateMetrics}
           >
             <Button
               onClick={() => {
@@ -308,8 +397,8 @@ export default function FactMetricList({
               Add Metric
             </Button>
           </Tooltip>
-        </div>
-      </div>
+        </Box>
+      </Flex>
       {metrics.length > 0 && (
         <>
           <table className="table appbox gbtable mt-2 mb-0 table-hover">
@@ -379,7 +468,7 @@ export default function FactMetricList({
                                 style={{ whiteSpace: "nowrap" }}
                               >
                                 <Tooltip
-                                  body={
+                                  content={
                                     hasNoLevels
                                       ? "No slice levels configured"
                                       : levels?.join(", ") || "No levels"
@@ -430,6 +519,11 @@ export default function FactMetricList({
                       canDelete={canDelete(metric)}
                       canDuplicate={canCreateMetrics}
                       onEdit={() => setEditMetric(metric)}
+                      editDisabledReason={
+                        isMergeAggregationMetric(metric)
+                          ? REST_API_ONLY_EDIT_MESSAGE
+                          : undefined
+                      }
                       onDuplicate={() =>
                         setDuplicateMetric({
                           ...metric,

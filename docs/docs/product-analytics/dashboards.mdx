@@ -1,0 +1,184 @@
+---
+title: Dashboards
+description: Combine explorations, custom SQL, and markdown into curated, auto-refreshing dashboards. Share insights with your team without leaving GrowthBook.
+sidebar_label: Dashboards
+slug: /app/product-analytics/dashboards
+---
+
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+import CommercialFeature from "@site/src/components/CommercialFeature";
+
+# Dashboards
+
+<CommercialFeature feature="product-analytics-dashboards" description="Pro organizations can create unlimited private dashboards. Enterprise organizations can also share dashboards with the rest of the organization." />
+
+Product Analytics Dashboards are general-purpose dashboards built from the same explorations you create in the [Explorer](/app/product-analytics/explorer). Use them to monitor KPIs, document findings for stakeholders, or give a team a single place to track the metrics they care about.
+
+:::note
+Product Analytics Dashboards are separate from [Experiment Dashboards](/app/experiment-dashboards), which are scoped to a single experiment. The block types and configuration overlap, but the two surfaces are managed independently.
+:::
+
+## Creating a Dashboard
+
+1. Navigate to **Product Analytics → Dashboards**.
+2. Click **Create Dashboard** in the top right.
+3. Configure the dashboard's settings (see below) and click **Create**.
+
+Once created, you'll be dropped into the dashboard editor where you can start adding blocks.
+
+### Dashboard Settings
+
+When creating or editing a dashboard, you can configure:
+
+- **Name** — A descriptive title for the dashboard.
+- **Projects** — Limit the dashboard to one or more [projects](/account/user-permissions#project-specific-permissions). Leave empty to make it available across all projects.
+- **Auto-update** — When enabled, GrowthBook refreshes the dashboard's data on a schedule (see [Update Schedules](#update-schedules)).
+- **View access** — Who can open the dashboard:
+  - **Organization members** — Anyone in your organization can view it.
+  - **Only me** / **Owner only** — Only the owner (and admins) can view it.
+- **Edit access** — Who can modify the dashboard:
+  - **Any organization members with editing permission** — Other users with dashboard edit permission can change the contents.
+  - **Only me** / **Owner only** — Only the owner (and admins) can edit it.
+
+When **View access** is set to private, **Edit access** is forced to private as well — you can't have a dashboard nobody can see but other people can edit.
+
+:::note
+Sharing dashboards across the organization requires the **Share Product Analytics Dashboards** commercial feature, which is included on Enterprise plans. On Pro plans, dashboards are limited to private (owner-only) view and edit access.
+:::
+
+### Update Schedules
+
+When **Auto-update** is enabled, you can choose how often the dashboard refreshes:
+
+- **Stale-based** — Refresh whenever the data is older than _N_ hours. Defaults to 6 hours; can be set between 1 and 168 (one week).
+- **Cron** — Refresh on a custom cron schedule. The minimum frequency is once per hour. The modal validates the cron string in real time and shows a human-readable description (e.g., `0 0 */2 * *` → "at 12:00 AM, every 2 days").
+
+You can also refresh a dashboard manually at any time using the **Update** button on the dashboard view (see [Refreshing a Dashboard](#refreshing-a-dashboard)).
+
+## The Dashboard Editor
+
+Dashboards are built from a stack of blocks. Click **Edit** on a dashboard to open the editor.
+
+The editor has three areas:
+
+- **The block list** on the left lets you reorder blocks via drag-and-drop. Hovering over a block reveals quick actions for editing, duplicating, and deleting.
+- **The dashboard canvas** in the middle shows the live preview of the dashboard with all blocks rendered.
+- **The configuration sidebar** on the right shows settings for the currently selected block (data source, chart type, dimensions, etc.).
+
+Edits go into a **draft state** — none of your changes are persisted until you click **Save**. Use **Cancel** to discard the draft and return to the published version. The editor also keeps the rest of your in-flight work in memory, so you can switch blocks without losing changes.
+
+### Adding Blocks
+
+Click **Add Block** at the bottom of the block list (or the `+` button between two existing blocks) and pick a type from the dropdown. The dropdown is grouped to make blocks easy to find.
+
+## Dashboard Blocks
+
+The following block types are available on Product Analytics Dashboards. Each block has its own configuration sidebar with controls tailored to that block type.
+
+| Block                    | Purpose                                                                                                               |
+| :----------------------- | :-------------------------------------------------------------------------------------------------------------------- |
+| **Markdown**             | Add formatted text, links, and images for context, headings, summaries, or section dividers.                          |
+| **Metric Explorer**      | Visualize one or more existing metrics. Same configuration as the [Metric Explorer](/app/product-analytics/explorer). |
+| **Fact Table Explorer**  | Aggregate a fact table by counts, distinct units, or a sum. Configure dimensions and chart type.                      |
+| **Data Source Explorer** | Query a timestamped warehouse table without first defining a fact table.                                              |
+| **Custom SQL Query**     | Render saved queries from [Custom SQL Reports](/app/product-analytics/explorer#custom-sql-reports).                   |
+
+### Markdown blocks
+
+Markdown blocks render standard Markdown — headings, lists, links, images, code blocks, and tables. Use them to:
+
+- Title sections of the dashboard.
+- Provide context, methodology, or caveats next to a chart.
+- Embed images (such as wireframes or product screenshots).
+- Link out to related Slack threads, Notion pages, or other documentation.
+
+### Explorer blocks
+
+The Metric, Fact Table, and Data Source Explorer blocks share the same configuration UI as the standalone [Explorer](/app/product-analytics/explorer). The block sidebar shows:
+
+- A condensed toolbar with **Chart Type**, **Date Range**, and (for time-series charts) **Date Granularity**.
+- The full sidebar — data source, values, row filters, group-by dimensions, and Show As.
+
+Each block runs its own query against the warehouse, so a single dashboard can mix data from multiple data sources or fact tables.
+
+### Custom SQL Query blocks
+
+A Custom SQL Query block is bound to a saved query from [Custom SQL Reports](/app/product-analytics/explorer#custom-sql-reports). The block can show:
+
+- One or more visualizations attached to the saved query (Bar, Line, Area, Scatter, Big Value, or Pivot Table).
+- The raw results table — useful when the value of the report is the data itself rather than a chart.
+
+The order of items in the block matches the order configured on the saved query, and you can reuse the same saved query across multiple dashboards.
+
+## Saving an Exploration to a Dashboard
+
+You can build a chart in the Explorer and add it to a dashboard in one step:
+
+1. Configure the exploration in the Explorer.
+2. Click **Save to Dashboard** in the top-right of the configuration sidebar.
+3. Pick an existing dashboard or create a new one.
+
+This saves the exploration as a **Metric Explorer**, **Fact Table Explorer**, or **Data Source Explorer** block on the destination dashboard. See [Save to Dashboard](/app/product-analytics/explorer#save-to-dashboard) for the full details on the modal.
+
+## Refreshing a Dashboard
+
+Each dashboard has an **Update** button in the top right.
+
+When you click **Update**, GrowthBook re-runs every block's query against the warehouse. While the refresh is in progress, you'll see:
+
+- A **progress bar** under the button showing how many of the queries have finished.
+- A live status text — `Updated 5m ago`, `One or more queries failed`, or `Update Failed` — with a tooltip describing the error if one occurred.
+
+If auto-update is enabled, a **lightning icon** appears next to the status, and the tooltip shows when the next automatic refresh will run.
+
+:::note
+Refreshing the dashboard requires the **Create Analyses** permission and read access to every data source the dashboard touches.
+:::
+
+## Sharing and Collaboration
+
+:::note
+Only **Enterprise** organizations can publish dashboards for organization-wide viewing. On **Pro** plans, dashboards are limited to private (owner-only) view and edit access.
+:::
+
+Once a dashboard is published to the organization, anyone with view access can:
+
+- Open the dashboard.
+- See the latest auto-refreshed data (or trigger a manual refresh).
+- Click **Share...** to copy a direct link.
+
+To control sharing on an existing dashboard, use the **More** menu (⋯) on the dashboards list and choose **Share...**. Only the owner and organization admins can change view and edit access.
+
+### Reassigning Ownership
+
+Editing a dashboard you own (or that you administer) lets you change the **Owner**. Reassigning ownership is useful when a teammate leaves the company or hands a dashboard off to a different team.
+
+### Duplicating Dashboards
+
+Use the **Duplicate** option in the **More** menu to create a copy of an existing dashboard. This is useful when you want to use one dashboard as a template for another (for example, copying a "Marketing KPIs" dashboard to start a "Growth KPIs" version). Duplicates inherit all blocks but are owned by the user who duplicated the dashboard.
+
+## Permissions
+
+Dashboard actions are controlled by per-project permissions:
+
+| Action                          | Required permission                                            |
+| :------------------------------ | :------------------------------------------------------------- |
+| View a dashboard                | View access on the dashboard + access to its projects          |
+| Create a dashboard              | Create General Dashboards                                      |
+| Edit a dashboard                | Update General Dashboards (and edit access on the dashboard)   |
+| Refresh dashboard data          | Create Analyses + Run SQL Explorer Queries on each data source |
+| Delete a dashboard              | Delete General Dashboards (only the owner or org admins)       |
+| Change view/edit access         | Owner or organization admin                                    |
+| Share dashboards across the org | Enterprise plan (Share Product Analytics Dashboards feature)   |
+
+Private dashboards (where edit access is set to **Owner only**) can only be edited and deleted by the owner and organization admins, regardless of other permissions.
+
+See [User Permissions](/account/user-permissions) for the full set of dashboard-related permissions.
+
+## Best Practices
+
+- **Group by project** — Scope dashboards to a project so the right people see them in the dashboards list and so they show up under the project filter.
+- **Lead with markdown** — Use a Markdown block at the top of the dashboard to explain the dashboard's purpose, the data sources it uses, and any caveats. Stakeholders shouldn't have to guess what they're looking at.
+- **Mix explorations and SQL** — Cover the common cases with Metric and Fact Table explorers, and drop into Custom SQL Reports for the long-tail questions that don't fit a structured explorer.
+- **Keep auto-update enabled** — Pick a refresh cadence that matches your team's data freshness needs (6 hours for daily standups, nightly cron for weekly reviews) so stakeholders always see fresh data when they open the dashboard.
+- **Reuse saved queries** — A single saved SQL query can be referenced by many dashboards. Update the query once and every dashboard that links to it gets the new logic.

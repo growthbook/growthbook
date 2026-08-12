@@ -1,8 +1,12 @@
 import { FC, useMemo, useState } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { SegmentInterface } from "shared/types/segment";
 import { useForm } from "react-hook-form";
-import { FaArrowRight, FaExternalLinkAlt } from "react-icons/fa";
+import { FaExternalLinkAlt } from "react-icons/fa";
+import { PiArrowRight } from "react-icons/pi";
 import { isProjectListValidForProject } from "shared/util";
+import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { validateSQL } from "@/services/datasources";
@@ -13,7 +17,7 @@ import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import FactSegmentForm from "./FactSegmentForm";
@@ -136,6 +140,7 @@ const SegmentForm: FC<{
         />
       )}
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         close={close}
         open={true}
@@ -181,21 +186,24 @@ const SegmentForm: FC<{
         })}
       >
         {!current.id && factTables.length > 0 ? (
-          <div className="alert border badge-purple text-center d-flex align-items-center">
-            Want to use Fact Tables to create your segments instead?{" "}
-            <a
-              href="#"
-              className="ml-2 btn btn-primary btn-sm"
-              onClick={(e) => {
-                e.preventDefault();
-                setCreateFactSegment(true);
-              }}
-            >
-              Use Fact Tables <FaArrowRight />
-            </a>
-          </div>
+          <Callout
+            status="info"
+            action={
+              <Button
+                color="inherit"
+                icon={<PiArrowRight />}
+                iconPosition="right"
+                onClick={() => setCreateFactSegment(true)}
+              >
+                Use Fact Tables
+              </Button>
+            }
+          >
+            Want to use Fact Tables to create your segments instead?
+          </Callout>
         ) : null}
         <Field
+          size="legacy"
           label="Name"
           required
           {...form.register("name")}
@@ -207,12 +215,15 @@ const SegmentForm: FC<{
           onChange={(v) => form.setValue("owner", v)}
         />
         <Field
+          size="legacy"
           label="Description"
+          maxLength={MAX_DESCRIPTION_LENGTH}
           {...form.register("description")}
           textarea
           disabled={isReadOnly}
         />
         <SelectField
+          size="legacy"
           label="Data Source"
           required
           value={form.watch("datasource")}
@@ -232,6 +243,7 @@ const SegmentForm: FC<{
         />
         {datasource?.properties?.userIds && (
           <SelectField
+            size="legacy"
             label="Identifier Type"
             required
             disabled={isReadOnly}
@@ -248,6 +260,7 @@ const SegmentForm: FC<{
         {projects?.length > 0 && (
           <div className="form-group">
             <MultiSelectField
+              legacyHeight
               label={
                 <>
                   Projects{" "}
@@ -258,7 +271,7 @@ const SegmentForm: FC<{
                   />
                 </>
               }
-              placeholder="All projects"
+              placeholder="All Projects"
               value={form.watch("projects")}
               disabled={isReadOnly}
               options={projectOptions}
@@ -288,6 +301,7 @@ const SegmentForm: FC<{
           </div>
         ) : (
           <Field
+            size="legacy"
             label="Event Condition"
             required
             {...form.register("sql")}

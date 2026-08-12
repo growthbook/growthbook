@@ -135,6 +135,7 @@ export const ExperimentVariationRow = forwardRef<
         <td key={`${variation.id}__${i}__2`}>
           {setVariations ? (
             <Field
+              size="legacy"
               label=""
               placeholder={`${getVariationDefaultName(variation, valueType)}`}
               value={variation.name || ""}
@@ -157,6 +158,7 @@ export const ExperimentVariationRow = forwardRef<
               <div className="col d-flex flex-row">
                 <div className={`position-relative ${styles.percentInputWrap}`}>
                   <Field
+                    size="legacy"
                     id={`${variation.id}__${i}__3__input`}
                     style={{ width: 95 }}
                     value={val}
@@ -189,7 +191,7 @@ export const ExperimentVariationRow = forwardRef<
             )}
             {setVariations && (
               <div className="col-auto">
-                <MoreMenu zIndex={1000000}>
+                <MoreMenu useRadix={false} zIndex={1000000}>
                   <Tooltip
                     body="Experiments must have at least two variations"
                     shouldDisplay={variations.length <= 2}

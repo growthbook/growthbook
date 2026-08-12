@@ -5,9 +5,10 @@
  * with every behavior from the original tests asserted per connection.
  */
 import cloneDeep from "lodash/cloneDeep";
-import { FeatureInterface } from "shared/types/feature";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ExperimentInterface } from "shared/types/experiment";
-import { HoldoutInterface } from "shared/validators";
+import { ContextualBanditInterface, HoldoutInterface } from "shared/validators";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { OrganizationInterface } from "shared/types/organization";
@@ -173,7 +174,7 @@ const CONNECTION_PRESETS: Array<{
   connection: ConnectionPayloadOptions;
 }> = [];
 
-// Capability sets from javascript.json: everything (undefined), 0.0.0, 0.23.0, 0.34.0, 1.1.0, 0.36.0, 1.6.5, legacy
+// Capability sets from javascript.json: everything (undefined), 0.0.0, 0.23.0, 0.34.0, 1.1.0, 0.36.0, 1.6.5, 1.7.0, legacy
 const CAPABILITY_SETS: Array<{ label: string; capabilities: string[] }> = [
   {
     label: "javascript default (everything)",
@@ -200,8 +201,12 @@ const CAPABILITY_SETS: Array<{ label: string; capabilities: string[] }> = [
     capabilities: getSDKCapabilities("javascript", "0.36.0"),
   },
   {
-    label: "javascript 1.6.5 (latest)",
+    label: "javascript 1.6.5",
     capabilities: getSDKCapabilities("javascript", "1.6.5"),
+  },
+  {
+    label: "javascript 1.7.0 (+ contextualBandits)",
+    capabilities: getSDKCapabilities("javascript", "1.7.0"),
   },
   { label: "legacy API key (bucketingV2 only)", capabilities: ["bucketingV2"] },
 ];
@@ -1013,7 +1018,8 @@ describe("SDK payload generation (scenario-specific)", () => {
         description: "",
         version: 1,
         prerequisites: [{ id: parentId, condition: '{"value": true}' }],
-        environmentSettings: { production: { enabled: true, rules: [] } },
+        environmentSettings: { production: { enabled: true } },
+        rules: [],
       } as FeatureInterface;
     }
 
@@ -1032,25 +1038,25 @@ describe("SDK payload generation (scenario-specific)", () => {
         description: "",
         version: 1,
         environmentSettings: {
-          production: {
-            enabled: true,
-            rules: [
-              {
-                type: "experiment",
-                id: "r1",
-                enabled: true,
-                coverage: 1,
-                values: [
-                  { value: "false", weight: 0.5, name: "C" },
-                  { value: "true", weight: 0.5, name: "T" },
-                ],
-                hashAttribute: "id",
-                seed: "s1",
-                prerequisites: [{ id: parentId, condition: '{"value": true}' }],
-              },
-            ],
-          },
+          production: { enabled: true },
         },
+        rules: [
+          {
+            type: "experiment",
+            id: "r1",
+            allEnvironments: false,
+            environments: ["production"],
+            enabled: true,
+            coverage: 1,
+            values: [
+              { value: "false", weight: 0.5, name: "C" },
+              { value: "true", weight: 0.5, name: "T" },
+            ],
+            hashAttribute: "id",
+            seed: "s1",
+            prerequisites: [{ id: parentId, condition: '{"value": true}' }],
+          },
+        ],
       } as FeatureInterface;
     }
 
@@ -1590,5 +1596,418 @@ describe("SDK payload generation (scenario-specific)", () => {
       organization: ctx.org as OrganizationInterface,
     });
     expect(outIncluded.experiments?.length).toBe(1);
+  });
+
+  describe("contextual bandits gated by SDK version", () => {
+    const cbDoc = {
+      id: "cb1",
+      organization: "org-1",
+      name: "CB One",
+      status: "running",
+      trackingKey: "cb-track",
+      hashAttribute: "id",
+      seed: "cb-seed",
+      coverage: 1,
+      variations: [
+        { id: "v0", key: "0", name: "Control" },
+        { id: "v1", key: "1", name: "Treatment" },
+      ],
+      variationWeights: [
+        { variationId: "v0", weight: 0.5 },
+        { variationId: "v1", weight: 0.5 },
+      ],
+      currentLeafWeights: [
+        {
+          leafId: 1,
+          condition: { country: "US" },
+          weights: [
+            { variationId: "v0", weight: 0.6 },
+            { variationId: "v1", weight: 0.4 },
+          ],
+        },
+      ],
+      banditVersion: 3,
+    } as unknown as ContextualBanditInterface;
+
+    function cbContext(): ApiReqContext {
+      const ctx = minimalContext();
+      ctx.models = {
+        contextualBandits: {
+          getById: async (id: string) => (id === "cb1" ? cbDoc : null),
+        },
+      } as unknown as ApiReqContext["models"];
+      return ctx;
+    }
+
+    function cbData(): SDKPayloadRawData {
+      const feature: FeatureInterface = {
+        id: "f-cb",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: "x",
+        organization: "org-1",
+        owner: "",
+        valueType: "string",
+        archived: false,
+        description: "",
+        version: 1,
+        environmentSettings: {
+          production: { enabled: true, rules: [] },
+        },
+        rules: [
+          {
+            type: "contextual-bandit-ref",
+            id: "r-cb",
+            description: "",
+            enabled: true,
+            contextualBanditId: "cb1",
+            variations: [
+              { variationId: "v0", value: "a" },
+              { variationId: "v1", value: "b" },
+            ],
+            allEnvironments: true,
+          } as FeatureRule,
+        ],
+      } as FeatureInterface;
+      return minimalRawData({ features: [feature] });
+    }
+
+    const connectionForVersion = (
+      version: string,
+    ): ConnectionPayloadOptions => ({
+      capabilities: getSDKCapabilities(
+        "javascript",
+        version,
+      ) as ConnectionPayloadOptions["capabilities"],
+      environment: "production",
+      projects: [],
+    });
+
+    it("javascript 1.6.5: no contextualBandits map; rule has no contextualBanditRef and no variations (SDK skips it)", async () => {
+      const out = await buildSDKPayloadForConnection({
+        context: cbContext(),
+        connection: connectionForVersion("1.6.5"),
+        data: cbData(),
+      });
+      expect(out.contextualBandits).toBeUndefined();
+      const rules = out.features["f-cb"]?.rules as Record<string, unknown>[];
+      expect(rules?.length).toBe(1);
+      expect(rules[0].contextualBanditRef).toBeUndefined();
+      expect(rules[0].variations).toBeUndefined();
+    });
+
+    it("javascript 1.7.0: contextualBandits map and CB rule keys included", async () => {
+      const out = await buildSDKPayloadForConnection({
+        context: cbContext(),
+        connection: connectionForVersion("1.7.0"),
+        data: cbData(),
+      });
+      expect(out.contextualBandits).toEqual({
+        cb1: {
+          banditVersion: 3,
+          contexts: [
+            { leafId: 1, condition: { country: "US" }, weights: [0.6, 0.4] },
+          ],
+        },
+      });
+      const rules = out.features["f-cb"]?.rules as Record<string, unknown>[];
+      expect(rules?.length).toBe(1);
+      expect(rules[0].contextualBanditRef).toBe("cb1");
+      expect(rules[0].contextualVariations).toEqual(["a", "b"]);
+      expect(rules[0].weights).toEqual([0.5, 0.5]);
+      expect(rules[0].key).toBe("cb-track");
+      expect(rules[0].hashVersion).toBe(2);
+      expect(rules[0].disableStickyBucketing).toBe(true);
+      expect(rules[0].variations).toBeUndefined();
+    });
+  });
+
+  // Regression: the legacy SDK payload path read per-env rule arrays, so a
+  // feature with the unified top-level `rules: FeatureRule[]` and empty
+  // env-rules bucket emitted no rules at all. These cases pin the flat read path.
+  describe("v2 feature/revision rule read path", () => {
+    const v2BaseFeature = (): FeatureInterface =>
+      ({
+        id: "f1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: "x",
+        organization: "org-1",
+        owner: "",
+        valueType: "string",
+        archived: false,
+        description: "",
+        version: 1,
+        environmentSettings: {
+          production: { enabled: true, rules: [] },
+          dev: { enabled: true, rules: [] },
+        },
+      }) as FeatureInterface;
+
+    it("reads rules from the v2 top-level feature.rules array (allEnvironments)", () => {
+      const feature: FeatureInterface = {
+        ...v2BaseFeature(),
+        rules: [
+          {
+            type: "force",
+            id: "r-all",
+            description: "",
+            enabled: true,
+            value: "y",
+            allEnvironments: true,
+          } as FeatureRule,
+        ],
+      };
+      const def = getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: new Map(),
+        experimentMap: new Map(),
+        safeRolloutMap: new Map(),
+        capabilities: undefined,
+        includeRuleIds: true,
+      });
+      expect(def?.rules).toBeDefined();
+      expect(def?.rules?.length).toBe(1);
+      expect((def?.rules?.[0] as Record<string, unknown>).id).toBe("r-all");
+      expect((def?.rules?.[0] as Record<string, unknown>).force).toBe("y");
+    });
+
+    it("reads rules from the v2 top-level revision.rules array and projects per env", () => {
+      const feature = v2BaseFeature();
+      const revision = {
+        organization: "org-1",
+        featureId: "f1",
+        version: 2,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: null,
+        status: "published",
+        baseVersion: 1,
+        comment: "",
+        defaultValue: "x",
+        rules: [
+          {
+            type: "force",
+            id: "r-prod",
+            description: "",
+            enabled: true,
+            value: "prod-only",
+            allEnvironments: false,
+            environments: ["production"],
+          } as FeatureRule,
+          {
+            type: "force",
+            id: "r-dev",
+            description: "",
+            enabled: true,
+            value: "dev-only",
+            allEnvironments: false,
+            environments: ["dev"],
+          } as FeatureRule,
+        ],
+      } as unknown as FeatureRevisionInterface;
+
+      const prodDef = getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: new Map(),
+        experimentMap: new Map(),
+        safeRolloutMap: new Map(),
+        revision,
+        capabilities: undefined,
+        includeRuleIds: true,
+      });
+      expect(prodDef?.rules?.length).toBe(1);
+      expect((prodDef?.rules?.[0] as Record<string, unknown>).id).toBe(
+        "r-prod",
+      );
+
+      const devDef = getFeatureDefinition({
+        feature,
+        environment: "dev",
+        groupMap: new Map(),
+        experimentMap: new Map(),
+        safeRolloutMap: new Map(),
+        revision,
+        capabilities: undefined,
+        includeRuleIds: true,
+      });
+      expect(devDef?.rules?.length).toBe(1);
+      expect((devDef?.rules?.[0] as Record<string, unknown>).id).toBe("r-dev");
+    });
+
+    it("v2 revision.rules takes precedence over feature.rules when both are present", () => {
+      const feature: FeatureInterface = {
+        ...v2BaseFeature(),
+        rules: [
+          {
+            type: "force",
+            id: "r-live",
+            description: "",
+            enabled: true,
+            value: "from-feature",
+            allEnvironments: true,
+          } as FeatureRule,
+        ],
+      };
+      const revision = {
+        organization: "org-1",
+        featureId: "f1",
+        version: 2,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: null,
+        status: "draft",
+        baseVersion: 1,
+        comment: "",
+        defaultValue: "x",
+        rules: [
+          {
+            type: "force",
+            id: "r-draft",
+            description: "",
+            enabled: true,
+            value: "from-revision",
+            allEnvironments: true,
+          } as FeatureRule,
+        ],
+      } as unknown as FeatureRevisionInterface;
+
+      const def = getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: new Map(),
+        experimentMap: new Map(),
+        safeRolloutMap: new Map(),
+        revision,
+        capabilities: undefined,
+        includeRuleIds: true,
+      });
+      expect(def?.rules?.length).toBe(1);
+      expect((def?.rules?.[0] as Record<string, unknown>).id).toBe("r-draft");
+      expect((def?.rules?.[0] as Record<string, unknown>).force).toBe(
+        "from-revision",
+      );
+    });
+
+    it("preserves global array order as per-env sub-order in the SDK payload", () => {
+      const feature: FeatureInterface = {
+        ...v2BaseFeature(),
+        rules: [
+          {
+            type: "force",
+            id: "r-1",
+            description: "",
+            enabled: true,
+            value: "a",
+            allEnvironments: false,
+            environments: ["production"],
+          } as FeatureRule,
+          {
+            type: "force",
+            id: "r-2",
+            description: "",
+            enabled: true,
+            value: "b",
+            allEnvironments: false,
+            environments: ["dev"],
+          } as FeatureRule,
+          {
+            type: "force",
+            id: "r-3",
+            description: "",
+            enabled: true,
+            value: "c",
+            allEnvironments: true,
+          } as FeatureRule,
+          {
+            type: "force",
+            id: "r-4",
+            description: "",
+            enabled: true,
+            value: "d",
+            allEnvironments: false,
+            environments: ["production"],
+          } as FeatureRule,
+        ],
+      };
+      const def = getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: new Map(),
+        experimentMap: new Map(),
+        safeRolloutMap: new Map(),
+        capabilities: undefined,
+        includeRuleIds: true,
+      });
+      const ids = (def?.rules || []).map(
+        (r) => (r as Record<string, unknown>).id,
+      );
+      expect(ids).toEqual(["r-1", "r-3", "r-4"]);
+    });
+
+    // `allEnvironments: true` semantically means "all envs APPLICABLE to this
+    // feature" — `flattenV1ToV2Rules` collapses to it whenever a rule covers
+    // the project-scoped applicable env set. When the SDK definition iterates
+    // a non-applicable org env, the rule must NOT leak in. Origin/main avoided
+    // this naturally via per-env storage (the rule simply wasn't in
+    // `dev.rules`); we mirror that by intersecting with `applicableEnvs` at
+    // the consumer.
+    it("does not emit allEnvironments rules into project-scoped-out envs", () => {
+      const feature: FeatureInterface = {
+        ...v2BaseFeature(),
+        project: "prj_other",
+        rules: [
+          {
+            type: "force",
+            id: "r-prod-only",
+            description: "",
+            enabled: true,
+            value: "y",
+            allEnvironments: true,
+          } as FeatureRule,
+        ],
+      };
+      // `dev` is project-scoped to `prj_dev_only` — non-applicable to a
+      // feature in `prj_other`. `production` has no `projects` filter, so
+      // applies everywhere.
+      const organization = {
+        id: "org-1",
+        settings: {
+          environments: [
+            { id: "production" },
+            { id: "dev", projects: ["prj_dev_only"] },
+          ],
+        },
+      } as unknown as OrganizationInterface;
+
+      const prodDef = getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: new Map(),
+        experimentMap: new Map(),
+        safeRolloutMap: new Map(),
+        capabilities: undefined,
+        includeRuleIds: true,
+        organization,
+      });
+      expect(prodDef?.rules?.length).toBe(1);
+      expect((prodDef?.rules?.[0] as Record<string, unknown>).id).toBe(
+        "r-prod-only",
+      );
+
+      const devDef = getFeatureDefinition({
+        feature,
+        environment: "dev",
+        groupMap: new Map(),
+        experimentMap: new Map(),
+        safeRolloutMap: new Map(),
+        capabilities: undefined,
+        includeRuleIds: true,
+        organization,
+      });
+      expect(devDef?.rules ?? []).toEqual([]);
+    });
   });
 });

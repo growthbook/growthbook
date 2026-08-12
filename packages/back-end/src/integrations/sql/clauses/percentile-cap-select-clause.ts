@@ -12,7 +12,7 @@ export type PercentileCapSelectClauseValue = {
 
 /** Default SQL for a percentile-cap subquery; warehouses may override via `SqlDialect.percentileCapSelectClause`. */
 export function defaultPercentileCapSelectClause(
-  dialect: SqlDialect,
+  dialect: Pick<SqlDialect, "ifElse" | "percentileApprox">,
   values: PercentileCapSelectClauseValue[],
   metricTable: string,
   where: string = "",

@@ -11,6 +11,7 @@ import { DatabricksConnectionParams } from "./integrations/databricks";
 import { MetricType } from "./metric";
 import { MssqlConnectionParams } from "./integrations/mssql";
 import { FactTableColumnType } from "./fact-table";
+import { EventForwarderConfigWithMetadata } from "./event-forwarder";
 
 export type DataSourceType =
   | "growthbook_clickhouse"
@@ -59,6 +60,7 @@ export type SchemaFormat =
   | "firebase"
   | "keen"
   | "clevertap"
+  | "eventForwarder"
   | "custom";
 
 export type AutoFactTableSchemas = "segment" | "rudderstack" | "amplitude";
@@ -144,8 +146,9 @@ export interface DataSourceProperties {
   hasEfficientPercentiles?: boolean;
   canGroupPercentileCappedMetrics?: boolean;
   hasCountDistinctHLL?: boolean;
-  hasQuantileKLL?: boolean;
+  hasQuantileSketch?: boolean;
   hasIncrementalRefresh?: boolean;
+  hasArrayQuantileGrid?: boolean;
   maxColumns: number;
 }
 
@@ -153,6 +156,7 @@ type WithParams<B, P> = Omit<B, "params"> & {
   params: P;
   properties?: DataSourceProperties;
   decryptionError: boolean;
+  eventForwarderConfig?: EventForwarderConfigWithMetadata | null;
 };
 
 export type IdentityJoinQuery = {
@@ -177,11 +181,17 @@ export interface ExposureQuery {
   dimensionSlicesId?: string;
   dimensionMetadata?: ExperimentDimensionMetadata[];
   error?: string;
+  /** Set to "api" for queries auto-created by Event Forwarder (not deletable in UI). */
+  managedBy?: "" | "api";
 }
 
 export interface FeatureUsageQuery {
   id: string;
   query: string;
+  description?: string;
+  error?: string;
+  /** Set to "api" for queries auto-created by Event Forwarder (not deletable in UI). */
+  managedBy?: "" | "api";
 }
 
 export interface UserIdType {
@@ -237,6 +247,18 @@ export type DataSourcePipelineSettings = {
    * even when mode is "incremental". They will fall back to standard queries.
    */
   excludedExperimentIds?: string[];
+  /**
+   * Experiments explicitly opted into incremental refresh while the data
+   * source's default `mode` is not `"incremental"` (typically `"ephemeral"`).
+   * Ignored when `mode === "incremental"` — use `includedExperimentIds` /
+   * `excludedExperimentIds` for per-experiment scoping in that mode.
+   *
+   * If incremental fails at run time, these experiments fall back to whatever
+   * `mode` says. The incremental write configuration (writeDataset, etc.)
+   * must still be valid; the UI enforces this by running the incremental
+   * validation probes whenever this list is non-empty.
+   */
+  incrementalOptInExperimentIds?: string[];
 };
 
 export type MaterializedColumnType = "" | "identifier" | "dimension";
@@ -246,6 +268,18 @@ export type MaterializedColumn = {
   sourceField: string;
   datatype: FactTableColumnType;
   type?: MaterializedColumnType;
+};
+
+/**
+ * A schema-declared attribute exposed as a typed ALIAS column literally named
+ * `attributes.<property>` on the per-org managed-warehouse JSON tables, so
+ * hand-written SQL can reference the path bare (typed, drift-safe) instead of
+ * casting. `number` maps to Nullable(Float64) via toFloat64OrNull; everything
+ * else to Nullable(String) (mirroring the dialect's jsonExtract semantics).
+ */
+export type TypedAttributeColumn = {
+  property: string;
+  datatype: "string" | "number";
 };
 
 export type DataSourceSettings = {
@@ -296,7 +330,66 @@ export type DataSourceSettings = {
 export interface GrowthbookClickhouseSettings extends DataSourceSettings {
   /** When false, the warehouse exists in GrowthBook but ClickHouse was not provisioned yet. */
   hasBeenProvisioned?: boolean;
+  sessionReplayProvisioned?: boolean;
+  /** AWS region the managed warehouse is provisioned in. Absent means `us-east-1` (pre-EU warehouses). */
+  region?: "us-east-1" | "eu-west-1";
+  /** @deprecated Replaced by native JSON columns (`useJsonColumns`); kept for legacy warehouses. */
   materializedColumns?: MaterializedColumn[];
+  /**
+   * When true, per-org tables store `attributes`/`properties` as native JSON columns
+   * (vs String + materialized columns), with identifiers aliased in the fact-table SQL.
+   */
+  useJsonColumns?: boolean;
+  /**
+   * Transient: set while a provisioned warehouse's per-org tables are being recreated
+   * for the JSON-columns migration. Queries are blocked and the UI shows an "upgrading"
+   * state during this window. Distinct from `hasBeenProvisioned: false` (never set up).
+   */
+  migrating?: boolean;
+  /**
+   * Custom identifiers preserved from a legacy materialized-column warehouse during the
+   * JSON migration that aren't current `hashAttribute`s. They're aliased out of the
+   * `attributes` JSON column (like hashAttribute identifiers) so legacy `userIdType`s and
+   * the joins keyed on them survive. Persisted so the attribute-change sync re-includes
+   * them rather than regenerating identifiers from the schema alone.
+   */
+  migratedIdentifiers?: string[];
+  /**
+   * Non-identifier materialized columns (dimensions) preserved from a legacy warehouse
+   * during the JSON migration. Like `migratedIdentifiers`, each is re-exposed as a
+   * top-level SELECT alias out of the `attributes` JSON column (`attributes.<sourceField>
+   * AS <columnName>`, cast to its declared datatype) so bare references to it — raw-SQL
+   * fact filters, `sql_expr` row filters, exposure breakdowns, fact-table-routed metrics —
+   * keep resolving without rewriting any stored SQL. Persisted so the attribute-change
+   * sync re-emits the aliases. A live attribute also remains an `attributes.<field>` JSON
+   * field; that duplicate listing is harmless — both resolve to the same data.
+   */
+  migratedColumns?: MaterializedColumn[];
+  /**
+   * Schema-declared attributes exposed as typed `attributes.<property>` ALIAS
+   * columns on the per-org JSON tables (see TypedAttributeColumn). Derived from
+   * the org attribute schema on every attribute-change sync and persisted here
+   * so the license server (which applies the DDL at provision/recreate/sync
+   * time) reads the desired state from this doc.
+   */
+  typedAttributeColumns?: TypedAttributeColumn[];
+  /**
+   * Version of the JSON-ergonomics setup (user settings + typed attribute
+   * columns) last applied to this warehouse. The backfill sweep enqueues
+   * provisioned JSON warehouses whose version is behind
+   * MANAGED_WAREHOUSE_JSON_ERGONOMICS_VERSION; bump that constant to re-sweep.
+   */
+  jsonErgonomicsVersion?: number;
+  /**
+   * Which built-in identifier the `id` attribute folds into in generated SQL.
+   * Defaults to "device_id" (the SDK tracking plugin's contract). Orgs that send
+   * a logged-in user ID under the `id` key via the Ingestion API can set
+   * "user_id" so `attributes.id` participates in user_id joins instead. Only
+   * meaningful on JSON-column warehouses, and incompatible with the tracking
+   * plugin: the plugin folds `id` into the physical device_id column client-side
+   * and strips it from the JSON, where this query-time remap can't see it.
+   */
+  idAttributeIdentifier?: "user_id" | "device_id";
 }
 
 interface DataSourceBase {

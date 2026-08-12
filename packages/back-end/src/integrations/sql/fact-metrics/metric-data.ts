@@ -1,8 +1,9 @@
 import {
   eligibleForUncappedMetric,
   ExperimentMetricInterface,
+  getFactMetricPrimaryFactTableId,
+  isFactFunnelMetric,
   isFactMetric,
-  isFunnelMetric,
   isPercentileCappedMetric,
   isRatioMetric,
   isRegressionAdjusted,
@@ -26,6 +27,24 @@ import { getMetricMinDelay } from "back-end/src/integrations/sql/dates/metric-mi
 import { getMetricStart } from "back-end/src/integrations/sql/dates/metric-start";
 import { getRaMetricPhaseStartSettings } from "back-end/src/integrations/sql/dates/ra-metric-phase-start-settings";
 
+export function getMetricRegressionAdjustmentData(
+  metric: FactMetricInterface,
+  regressionAdjustmentEnabled: boolean,
+): {
+  regressionAdjusted: boolean;
+  regressionAdjustmentHours: number;
+} {
+  const regressionAdjusted =
+    regressionAdjustmentEnabled && isRegressionAdjusted(metric);
+  const regressionAdjustmentHours = regressionAdjusted
+    ? (metric.regressionAdjustmentDays ?? 0) * 24
+    : 0;
+  return {
+    regressionAdjusted,
+    regressionAdjustmentHours,
+  };
+}
+
 export function getMetricData(
   dialect: SqlDialect,
   metricWithIndex: { metric: FactMetricInterface; index: number },
@@ -40,19 +59,21 @@ export function getMetricData(
 ): FactMetricData {
   const { metric, index: metricIndex } = metricWithIndex;
   const ratioMetric = isRatioMetric(metric);
-  const funnelMetric = isFunnelMetric(metric);
-  const quantileMetric = quantileMetricType(metric);
+  const funnelMetric = isFactFunnelMetric(metric);
+  const quantileMetric = funnelMetric ? "" : quantileMetricType(metric);
   const metricQuantileSettings: MetricQuantileSettings = (isFactMetric(
     metric,
   ) && !!quantileMetric
     ? metric.quantileSettings
     : undefined) ?? { type: "unit", quantile: 0, ignoreZeros: false };
 
-  const regressionAdjusted =
-    settings.regressionAdjustmentEnabled && isRegressionAdjusted(metric);
-  const regressionAdjustmentHours = regressionAdjusted
-    ? (metric.regressionAdjustmentDays ?? 0) * 24
-    : 0;
+  const { regressionAdjusted, regressionAdjustmentHours } = funnelMetric
+    ? // TODO(funnel): CUPED for funnel metrics
+      { regressionAdjusted: false, regressionAdjustmentHours: 0 }
+    : getMetricRegressionAdjustmentData(
+        metric,
+        settings.regressionAdjustmentEnabled,
+      );
 
   const overrideConversionWindows =
     settings.attributionModel === "experimentDuration" ||
@@ -63,7 +84,8 @@ export function getMetricData(
 
   const numeratorSourceIndex =
     factTablesWithIndices.find(
-      (f) => f.factTable.id === metric.numerator?.factTableId,
+      // TODO(funnel): multi-fact table support for funnel metrics
+      (f) => f.factTable.id === getFactMetricPrimaryFactTableId(metric),
     )?.index ?? 0;
   const denominatorSourceIndex =
     factTablesWithIndices.find(

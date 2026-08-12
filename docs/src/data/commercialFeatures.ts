@@ -9,6 +9,10 @@ export default {
     plan: "pro",
     displayName: "Advanced Permissions",
   },
+  "ai-byok": {
+    plan: "enterprise",
+    displayName: "Ai Byok",
+  },
   "ai-suggestions": {
     plan: "enterprise",
     displayName: "AI Suggestions",
@@ -28,6 +32,10 @@ export default {
   "code-references": {
     plan: "pro",
     displayName: "Code References",
+  },
+  "contextual-bandits": {
+    plan: "enterprise",
+    displayName: "Contextual Bandits",
   },
   "custom-hooks": {
     plan: "enterprise",
@@ -65,9 +73,21 @@ export default {
     plan: "enterprise",
     displayName: "Environment Inheritance",
   },
+  "events-forwarder": {
+    plan: "pro",
+    displayName: "Events Forwarder",
+  },
   "experiment-impact": {
     plan: "enterprise",
     displayName: "Experiment Impact",
+  },
+  "feature-configs": {
+    plan: "enterprise",
+    displayName: "Feature Configs",
+  },
+  "funnel-metrics": {
+    plan: "pro",
+    displayName: "Funnel Metrics",
   },
   "hash-secure-attributes": {
     plan: "pro",
@@ -92,6 +112,10 @@ export default {
   "large-saved-groups": {
     plan: "enterprise",
     displayName: "Large Saved Groups",
+  },
+  learnings: {
+    plan: "enterprise",
+    displayName: "Learnings",
   },
   livechat: {
     plan: "pro",
@@ -178,7 +202,7 @@ export default {
     displayName: "Quantile Metrics",
   },
   "ramp-schedules": {
-    plan: "enterprise",
+    plan: "pro",
     displayName: "Ramp Schedules",
   },
   redirects: {
@@ -188,6 +212,10 @@ export default {
   "regression-adjustment": {
     plan: "pro",
     displayName: "CUPED",
+  },
+  releases: {
+    plan: "enterprise",
+    displayName: "Releases",
   },
   "remote-evaluation": {
     plan: "pro",
@@ -200,6 +228,10 @@ export default {
   "require-project-for-features-setting": {
     plan: "enterprise",
     displayName: "Require Project For Features Setting",
+  },
+  "require-project-for-sdk-connections-setting": {
+    plan: "enterprise",
+    displayName: "Require Project For Sdk Connections Setting",
   },
   "retention-metrics": {
     plan: "pro",
@@ -216,6 +248,10 @@ export default {
   "schedule-feature-flag": {
     plan: "pro",
     displayName: "Schedule Feature Flag",
+  },
+  "scheduled-revisions": {
+    plan: "enterprise",
+    displayName: "Scheduled Revisions",
   },
   scim: {
     plan: "enterprise",

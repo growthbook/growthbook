@@ -1,12 +1,19 @@
 import { createContext, useContext } from "react";
 import { ExperimentTableRow } from "@/services/experiments";
 
-export type MetricDrilldownTab = "overview" | "slices" | "debug";
+export type MetricDrilldownTab = "overview" | "slices" | "debug" | "funnel";
+
+export interface DrilldownDimensionInfo {
+  id: string;
+  name: string;
+  value: string;
+  rawValue: string;
+}
 
 export interface DrilldownOptions {
   initialTab?: MetricDrilldownTab;
   initialSliceSearchTerm?: string;
-  dimensionInfo?: { name: string; value: string };
+  dimensionInfo?: DrilldownDimensionInfo;
 }
 
 export interface MetricDrilldownContextValue {

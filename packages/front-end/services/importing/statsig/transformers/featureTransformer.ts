@@ -102,15 +102,15 @@ export async function transformStatsigFeatureGateToGB(
     ? JSON.stringify((featureGate as StatsigDynamicConfig).defaultValue)
     : "false";
 
-  // Transform rules to GrowthBook format per environment
   const environmentSettings: FeatureInterface["environmentSettings"] = {};
+  const allRules: FeatureRule[] = [];
+  const stampEnv = (r: FeatureRule, envs: string[] | "all"): FeatureRule =>
+    envs === "all"
+      ? { ...r, allEnvironments: true }
+      : { ...r, allEnvironments: false, environments: envs };
 
-  // Initialize all available environments
   availableEnvironments.forEach((envKey) => {
-    environmentSettings[envKey] = {
-      enabled: isEnabled,
-      rules: [],
-    };
+    environmentSettings[envKey] = { enabled: isEnabled };
   });
 
   // Process each Statsig rule and assign to appropriate environments
@@ -123,11 +123,8 @@ export async function transformStatsigFeatureGateToGB(
         featuresMap,
       );
 
-      // Determine which environments this rule applies to
-      const targetEnvironments =
-        rule.environments === null
-          ? availableEnvironments // null means all environments
-          : rule.environments || []; // specific environments or empty array
+      const targetEnvironments: string[] | "all" =
+        rule.environments === null ? "all" : rule.environments || [];
 
       // Create the appropriate rule type based on passPercentage
       let gbRule: FeatureRule;
@@ -145,6 +142,7 @@ export async function transformStatsigFeatureGateToGB(
             type: "rollout",
             id: `${rule.id}_variant_${variantIndex}`,
             description: `${rule.name || `Rule ${ruleIndex + 1}`} - ${variant.name}`,
+            allEnvironments: false,
             condition: transformedCondition.condition,
             enabled: true,
             value: JSON.stringify(variant.returnValue),
@@ -158,12 +156,7 @@ export async function transformStatsigFeatureGateToGB(
             scheduleRules: transformedCondition.scheduleRules || [],
           };
 
-          // Add the variant rule to all target environments
-          targetEnvironments.forEach((envKey) => {
-            if (environmentSettings[envKey]) {
-              environmentSettings[envKey].rules.push(variantRule);
-            }
-          });
+          allRules.push(stampEnv(variantRule, targetEnvironments));
 
           cumulativeCoverage += variantCoverage;
         });
@@ -178,11 +171,11 @@ export async function transformStatsigFeatureGateToGB(
         : "true"; // Feature gates are boolean
 
       if (rule.passPercentage === 100) {
-        // Create a force rule for 100% pass percentage
         gbRule = {
           type: "force",
           id: rule.id || `rule_${ruleIndex}`,
           description: rule.name || `Rule ${ruleIndex + 1}`,
+          allEnvironments: false,
           condition: transformedCondition.condition,
           enabled: true,
           value: ruleValue,
@@ -191,31 +184,26 @@ export async function transformStatsigFeatureGateToGB(
           scheduleRules: transformedCondition.scheduleRules || [],
         };
       } else {
-        // Create a rollout rule for partial pass percentage
         gbRule = {
           type: "rollout",
           id: rule.id || `rule_${ruleIndex}`,
           description: rule.name || `Rule ${ruleIndex + 1}`,
+          allEnvironments: false,
           condition: transformedCondition.condition,
           enabled: true,
           value: ruleValue,
-          coverage: rule.passPercentage / 100, // Convert percentage to decimal
+          coverage: rule.passPercentage / 100,
           hashAttribute: mapStatsigAttributeToGB(
             "user_id",
             skipAttributeMapping,
-          ), // Default hash attribute for rollouts
+          ),
           savedGroups: transformedCondition.savedGroups,
           prerequisites: transformedCondition.prerequisites,
           scheduleRules: transformedCondition.scheduleRules || [],
         };
       }
 
-      // Add the rule to all target environments
-      targetEnvironments.forEach((envKey) => {
-        if (environmentSettings[envKey]) {
-          environmentSettings[envKey].rules.push(gbRule);
-        }
-      });
+      allRules.push(stampEnv(gbRule, targetEnvironments));
     } catch (error) {
       console.error(`Error transforming rule ${rule.id}:`, error);
     }
@@ -230,6 +218,7 @@ export async function transformStatsigFeatureGateToGB(
     valueType,
     defaultValue,
     environmentSettings,
+    rules: allRules,
     owner: ownerString,
     tags: tags || [],
     project: project || "",

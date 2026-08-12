@@ -1,3 +1,4 @@
+import { PermissionError } from "shared/util";
 import request from "supertest";
 import { FeatureInterface } from "shared/types/feature";
 import {
@@ -15,6 +16,8 @@ import {
   createInterfaceEnvSettingsFromApiEnvSettings,
   updateInterfaceEnvSettingsFromApiEnvSettings,
   getNextScheduledUpdate,
+  addIdsToFlatRules,
+  buildFeatureRulesFromApiEnvSettings,
 } from "back-end/src/services/features";
 import { setupApp } from "./api.setup";
 
@@ -36,6 +39,7 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
 
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
   getRevision: jest.fn(),
+  normalizeRulesInputToV2: jest.fn(() => []),
   registerRevisionPublishedHook: jest.fn(),
 }));
 
@@ -44,8 +48,12 @@ jest.mock("back-end/src/services/features", () => ({
   getSavedGroupMap: jest.fn(),
   getNextScheduledUpdate: jest.fn(),
   addIdsToRules: jest.fn(),
+  addIdsToFlatRules: jest.fn(),
+  inheritStoredRolloutSeeds: jest.fn(),
   createInterfaceEnvSettingsFromApiEnvSettings: jest.fn(),
   updateInterfaceEnvSettingsFromApiEnvSettings: jest.fn(),
+  buildFeatureRulesFromApiEnvSettings: jest.fn(() => []),
+  fromApiEnvSettingsRulesToFeatureEnvSettingsRules: jest.fn(() => []),
 }));
 
 // ---------------------------------------------------------------------------
@@ -115,9 +123,14 @@ describe("features API", () => {
 
   const defaultPermissions = (extra = {}) => ({
     canPublishFeature: () => true,
-    canUpdateFeature: () => true,
+    canEditFeatureDrafts: () => true,
     canCreateFeature: () => true,
-    canBypassApprovalChecks: () => false,
+    // Archiving is delete-class, so the update paths consult this too.
+    canDeleteFeature: () => true,
+    canBypassFlagApprovalChecks: () => false,
+    throwPermissionError: () => {
+      throw new PermissionError("permission denied");
+    },
     ...extra,
   });
 
@@ -232,10 +245,40 @@ describe("features API", () => {
       }),
     );
     expect(auditMock).toHaveBeenCalledWith({
-      details: `{"post":{"defaultValue":"defaultValue","valueType":"string","owner":"${testUser.id}","description":"description","project":"project","dateCreated":"${response.body.feature.feature.dateCreated}","dateUpdated":"${response.body.feature.feature.dateUpdated}","organization":"org","id":"id","archived":true,"version":1,"environmentSettings":"createInterfaceEnvSettingsFromApiEnvSettings","prerequisites":[],"tags":["tag"],"jsonSchema":{"schemaType":"schema","schema":"","simple":{"type":"object","fields":[]},"date":"${response.body.feature.feature.jsonSchema.date}","enabled":false}},"context":{}}`,
+      details: `{"post":{"defaultValue":"defaultValue","valueType":"string","owner":"${testUser.id}","description":"description","project":"project","targetingAllProjects":false,"targetingProjects":[],"dateCreated":"${response.body.feature.feature.dateCreated}","dateUpdated":"${response.body.feature.feature.dateUpdated}","organization":"org","id":"id","archived":true,"version":1,"environmentSettings":"createInterfaceEnvSettingsFromApiEnvSettings","rules":[],"prerequisites":[],"tags":["tag"],"jsonSchema":{"schemaType":"schema","schema":"","simple":{"type":"object","fields":[]},"date":"${response.body.feature.feature.jsonSchema.date}","enabled":false}},"context":{}}`,
       entity: { id: "id", object: "feature" },
       event: "feature.create",
     });
+  });
+
+  // Regression: client payloads arrive with `id: ""` on new rules; if the POST
+  // handler skips `addIdsToFlatRules` the rule is persisted unaddressable.
+  it("stamps ids on top-level rules when creating a feature", async () => {
+    defaultContext();
+    const unstampedRule = {
+      id: "",
+      type: "force",
+      description: "",
+      value: "true",
+      enabled: true,
+      allEnvironments: true,
+    };
+    (buildFeatureRulesFromApiEnvSettings as jest.Mock).mockReturnValueOnce([
+      unstampedRule,
+    ]);
+
+    const response = await request(app)
+      .post("/api/v1/features")
+      .send({
+        defaultValue: "false",
+        valueType: "boolean",
+        owner: testUser.id,
+        id: "stamp-me",
+      })
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(addIdsToFlatRules).toHaveBeenCalledWith([unstampedRule], "stamp-me");
   });
 
   it("resolves email to userId when creating a feature", async () => {
@@ -634,7 +677,7 @@ describe("features API", () => {
     it("writes nextScheduledUpdate when scheduleRules are updated via API", async () => {
       defaultContext({
         permissions: defaultPermissions({
-          canBypassApprovalChecks: () => true,
+          canBypassFlagApprovalChecks: () => true,
         }),
         hasPremiumFeature: () => true,
         getProjects: async () => [{ id: "project_1" }],
@@ -817,13 +860,13 @@ describe("features API", () => {
       );
     });
 
-    it("role-based bypassApprovalChecks permission bypasses when restApiBypassesReviews=false", async () => {
-      // Tokens/roles that grant bypassApprovalChecks for the feature's project
+    it("role-based FlagsBypassApprovals permission bypasses when restApiBypassesReviews=false", async () => {
+      // Tokens/roles that grant FlagsBypassApprovals for the feature's project
       // can still publish through the REST API even when the org-level
       // restApiBypassesReviews setting is disabled.
       setupUpdateTest(
         { ...approvalRequiredSettings, restApiBypassesReviews: false },
-        { canBypassApprovalChecks: () => true },
+        { canBypassFlagApprovalChecks: () => true },
       );
       const response = await request(app)
         .post("/api/v1/features/myfeature")
@@ -835,10 +878,36 @@ describe("features API", () => {
       );
     });
 
+    it("refuses to archive without delete authority, even for a publisher", async () => {
+      // Archiving takes the flag out of service, so it is delete-class on every
+      // path that can land it — this endpoint included.
+      setupUpdateTest({}, { canDeleteFeature: () => false });
+
+      const response = await request(app)
+        .post("/api/v1/features/myfeature")
+        .send({ archived: true });
+
+      expect(response.status).toBe(403);
+    });
+
+    it("still lets a publisher unarchive without delete authority", async () => {
+      const existing = setupUpdateTest({}, { canDeleteFeature: () => false });
+      (getFeature as jest.Mock).mockResolvedValue({
+        ...existing,
+        archived: true,
+      });
+
+      const response = await request(app)
+        .post("/api/v1/features/myfeature")
+        .send({ archived: false });
+
+      expect(response.status).toBe(200);
+    });
+
     it("throws when approvals required and neither restApiBypassesReviews nor role permission allow bypass", async () => {
       setupUpdateTest(
         { ...approvalRequiredSettings, restApiBypassesReviews: false },
-        { canBypassApprovalChecks: () => false },
+        { canBypassFlagApprovalChecks: () => false },
       );
       (createAndPublishRevision as jest.Mock).mockRejectedValue(
         Object.assign(
@@ -954,7 +1023,7 @@ describe("features API", () => {
           ],
           restApiBypassesReviews: false,
         },
-        { canBypassApprovalChecks: () => false },
+        { canBypassFlagApprovalChecks: () => false },
       );
 
       const response = await request(app)

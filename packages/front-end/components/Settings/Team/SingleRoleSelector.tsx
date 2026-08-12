@@ -1,5 +1,5 @@
-import { ReactNode, useMemo } from "react";
-import { Flex } from "@radix-ui/themes";
+import { ReactNode, useEffect, useMemo } from "react";
+import { Box, Flex } from "@radix-ui/themes";
 import { MemberRoleInfo } from "shared/types/organization";
 import uniqid from "uniqid";
 import {
@@ -8,8 +8,10 @@ import {
   getRoleDisplayName,
 } from "shared/permissions";
 import { useUser } from "@/services/UserContext";
+import PremiumCallout from "@/ui/PremiumCallout";
 import { useEnvironments } from "@/services/features";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import useOrgLimits from "@/hooks/useOrgLimits";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Switch from "@/ui/Switch";
 import SelectField, {
   GroupedValue,
@@ -24,6 +26,7 @@ export default function SingleRoleSelector({
   includeAdminRole = false,
   includeProjectAdminRole = false,
   disabled = false,
+  isNewAssignment = false,
 }: {
   value: MemberRoleInfo;
   setValue: (value: MemberRoleInfo) => void;
@@ -31,6 +34,7 @@ export default function SingleRoleSelector({
   includeAdminRole?: boolean;
   includeProjectAdminRole?: boolean;
   disabled?: boolean;
+  isNewAssignment?: boolean;
 }) {
   const { roles, hasCommercialFeature, organization } = useUser();
   const hasFeature = hasCommercialFeature("advanced-permissions");
@@ -39,6 +43,20 @@ export default function SingleRoleSelector({
 
   const isNoAccessRoleEnabled = hasCommercialFeature("no-access-role");
   const isProjectAdminRoleEnabled = hasCommercialFeature("project-admin-role");
+
+  // Free plans can only assign the admin global role. This only applies to the
+  // global role selector (includeAdminRole); project roles are gated separately.
+  const { orgSupportsRoles } = useOrgLimits();
+  const rolesRestricted = includeAdminRole && !orgSupportsRoles();
+
+  // Only default NEW assignments to admin — existing assignments are
+  // grandfathered and must never be auto-escalated.
+  useEffect(() => {
+    if (isNewAssignment && rolesRestricted && value.role !== "admin") {
+      setValue({ ...value, role: "admin" });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rolesRestricted, isNewAssignment]);
 
   let roleOptions = [...roles];
 
@@ -58,6 +76,10 @@ export default function SingleRoleSelector({
   // if the org has custom-roles feature and has deactivated roles, remove those from the roleOptions
   if (hasCustomRolesFeature && deactivatedRoles.length) {
     roleOptions = roleOptions.filter((r) => !deactivatedRoles.includes(r.id));
+  }
+
+  if (rolesRestricted) {
+    roleOptions = roleOptions.filter((r) => r.id === "admin");
   }
 
   const standardOptions: { label: string; value: string }[] = [];
@@ -122,6 +144,7 @@ export default function SingleRoleSelector({
   return (
     <div>
       <SelectField
+        size="legacy"
         label={label}
         value={value.role}
         onChange={(role) => {
@@ -144,13 +167,25 @@ export default function SingleRoleSelector({
             </div>
           );
         }}
-        disabled={disabled}
+        disabled={disabled || rolesRestricted}
       />
+      {rolesRestricted && (
+        <PremiumCallout
+          commercialFeature="advanced-permissions"
+          id="role-plan-limit"
+          mb="3"
+        >
+          Your plan only supports the admin role.
+        </PremiumCallout>
+      )}
 
+      {/* A single-environment org has nothing to restrict, so the control is
+          hidden — but a limit already stored (e.g. carried over from a role that
+          supported one) must stay switchable, or there is no way to turn it off. */}
       {roleSupportsEnvLimit(value.role, organization) &&
-        envOptions.length > 1 && (
+        (envOptions.length > 1 || value.limitAccessByEnvironment) && (
           <div>
-            <div className="form-group">
+            <Box mb="4">
               <Flex align="center" gap="2">
                 <Switch
                   disabled={!hasFeature}
@@ -169,9 +204,10 @@ export default function SingleRoleSelector({
                   </PremiumTooltip>
                 </label>
               </Flex>
-            </div>
+            </Box>
             {value.limitAccessByEnvironment && (
               <MultiSelectField
+                legacyHeight
                 label="Environments"
                 className="mb-4"
                 helpText="Select all environments you want the person to have permissions for"
