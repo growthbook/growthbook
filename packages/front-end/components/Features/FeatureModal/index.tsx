@@ -215,8 +215,9 @@ export default function FeatureModal({
     !!defaultValues.description?.length,
   );
   const [showTags, setShowTags] = useState(!!defaultValues.tags?.length);
-  // The default value is rarely changed at creation time (it falls back to the
-  // type default / bare config), so it's progressively disclosed behind a link.
+  // A config-backed flag's default falls back to its chosen base Config, so its
+  // (optional, descendant-picking) value field is progressively disclosed behind
+  // a link. Plain flags always show the field — see the render below.
   const [showDefaultValue, setShowDefaultValue] = useState(false);
 
   const form = useForm({ defaultValues });
@@ -568,59 +569,67 @@ export default function FeatureModal({
           decision of which rule to display (out of potentially many) in the
           modal is not deterministic.
         */}
-        {!featureToDuplicate && valueType && !showDefaultValue && (
-          <Box mb="5">
-            <Link onClick={() => setShowDefaultValue(true)}>
-              {configType ? "+ Choose default Config" : "+ Set default value"}
-            </Link>
-          </Box>
-        )}
+        {/* Config-backed flags default to the chosen base Config, so the value
+            field (which only refines to a descendant) is disclosed behind a link.
+            Plain flags always show it. */}
+        {!featureToDuplicate &&
+          valueType &&
+          configType &&
+          !showDefaultValue && (
+            <Box mb="5">
+              <Link onClick={() => setShowDefaultValue(true)}>
+                + Choose default Config
+              </Link>
+            </Box>
+          )}
 
-        {!featureToDuplicate && valueType && showDefaultValue && (
-          <FeatureValueField
-            label={
-              <>
-                Default Value when Enabled{" "}
-                <Tooltip
-                  body={
-                    <>
-                      After creating your feature, you will be able to add
-                      targeted rules such as <strong>A/B Tests</strong> and{" "}
-                      <strong>Percentage Rollouts</strong> to control exactly
-                      how it gets released to users.
-                    </>
-                  }
-                >
-                  <PiInfo style={{ color: "var(--violet-11)" }} />
-                </Tooltip>
-              </>
-            }
-            id="defaultValue"
-            value={form.watch("defaultValue")}
-            setValue={(v) => form.setValue("defaultValue", v)}
-            valueType={valueType}
-            // The feature doesn't exist yet, so scope the constant/config picker
-            // to the selected project instead of passing a `feature`.
-            project={selectedProject || undefined}
-            constantContext={{ project: selectedProject || undefined }}
-            useCodeInput={true}
-            showFullscreenButton={true}
-            // Config-backing is offered only for the "config" authoring type — a
-            // plain JSON flag can't extend a config (any manual `@config:` in its
-            // value is stripped on submit).
-            allowConfigBacking={configType}
-            // "config" type: the mainline picker chose the base; the default is
-            // exactly a config in that family — the base itself, or a descendant
-            // picked here. No inline overrides (config selection only), so no
-            // patch editor (configBackingShowPatch stays false).
-            configBackingOptionKeys={
-              configType && baseConfigKey
-                ? getConfigSubtree(baseConfigKey, configs)
-                : undefined
-            }
-            lockConfigBacking={configType}
-          />
-        )}
+        {!featureToDuplicate &&
+          valueType &&
+          (!configType || showDefaultValue) && (
+            <FeatureValueField
+              label={
+                <>
+                  Default Value when Enabled{" "}
+                  <Tooltip
+                    body={
+                      <>
+                        After creating your feature, you will be able to add
+                        targeted rules such as <strong>A/B Tests</strong> and{" "}
+                        <strong>Percentage Rollouts</strong> to control exactly
+                        how it gets released to users.
+                      </>
+                    }
+                  >
+                    <PiInfo style={{ color: "var(--violet-11)" }} />
+                  </Tooltip>
+                </>
+              }
+              id="defaultValue"
+              value={form.watch("defaultValue")}
+              setValue={(v) => form.setValue("defaultValue", v)}
+              valueType={valueType}
+              // The feature doesn't exist yet, so scope the constant/config picker
+              // to the selected project instead of passing a `feature`.
+              project={selectedProject || undefined}
+              constantContext={{ project: selectedProject || undefined }}
+              useCodeInput={true}
+              showFullscreenButton={true}
+              // Config-backing is offered only for the "config" authoring type — a
+              // plain JSON flag can't extend a config (any manual `@config:` in its
+              // value is stripped on submit).
+              allowConfigBacking={configType}
+              // "config" type: the mainline picker chose the base; the default is
+              // exactly a config in that family — the base itself, or a descendant
+              // picked here. No inline overrides (config selection only), so no
+              // patch editor (configBackingShowPatch stays false).
+              configBackingOptionKeys={
+                configType && baseConfigKey
+                  ? getConfigSubtree(baseConfigKey, configs)
+                  : undefined
+              }
+              lockConfigBacking={configType}
+            />
+          )}
 
         <Box className="appbox bg-light" px="4" pt="4" pb="1" mb="3">
           <EnvironmentSelect
