@@ -20,7 +20,7 @@ The heart of the experiment results page is the table of results. What you will 
 
 In both engines, the first two data columns are:
 
-**Baseline** - the average value of the metric in the baseline variation; either a percentage of users in that variation (for proportion metrics) or an average value for mean or ratio metrics.
+**Baseline** - the average value of the metric in the baseline variation; either a percentage of users in that variation (for proportion, retention, and funnel metrics) or an average value for mean or ratio metrics.
 **Variation** the average value of the metric in the comparison variation.
 
 For both columns, the raw data in grey underneath shows the numerator and denominator totals.
@@ -52,6 +52,8 @@ Clicking any metric or slice row in the results table opens the **Metric Drilldo
 - **Slices** - All slices for that metric displayed in a searchable, sortable table. Clicking a slice row in the main results table opens the modal with the Slices tab focused and that slice pre-filtered for quick exploration. This is also where time series for metric slices are displayed.
 - **Debug** - Debug information for power users to show the impact of: CUPED, Post-Stratification, Capping, and informative priors (Bayesian engine only).
 
+For [Funnel Metrics](/app/metrics/funnel), a **Funnel** tab replaces the Slices tab. See [Funnel Metric Results](#funnel-metric-results).
+
 <MaxWidthImage maxWidth={800} border>
   ![Metric Drilldown modal - Overview tab](/images/experiment-results/metric-drilldown-overview.png)
 </MaxWidthImage>
@@ -61,6 +63,47 @@ Clicking any metric or slice row in the results table opens the **Metric Drilldo
 </MaxWidthImage>
 
 For more information on how metric slices are defined, see [Metric Slices](/app/metrics#metric-slices), an Enterprise-only feature.
+
+## Funnel Metric Results
+
+[Funnel Metrics](/app/metrics/funnel) measure the share of exposed units who complete an ordered series of steps. In the results table they appear as a single row marked with a funnel icon that expands into one row per step.
+
+### Step rows
+
+Click the caret next to a funnel metric to **Expand funnel steps**. Each step gets its own row, labeled with the step name and `Step N` below it, plus `(optional)` for steps you marked optional.
+
+Every step row is an ordinary proportion, so it reports a baseline rate, a variation rate, a % change, and significance in the same columns as your other metrics. The parent row measures the share of units who reach the last step, which is the end-to-end completion rate.
+
+The denominator is the same for the parent row and for every step row: all exposed units in that variation. Step 3's rate is the share of exposed units who reached step 3, not the share of step 2 completers who continued. For step-to-step conversion, use the funnel chart below.
+
+Step rows always stay in funnel order, first step to last, no matter which column you sort by. Sorting reorders the parent metrics and keeps each funnel's steps grouped beneath it.
+
+Funnel rows expand the same way in the metric and time series blocks on [Experiment Dashboards](/app/experiment-dashboards).
+
+### Funnel chart
+
+Clicking a funnel metric opens the [Metric Drilldown](#metric-drilldown) with a **Funnel** tab in place of the Slices tab. It charts every variation's funnel side by side, one color per variation, with a faded bar stacked above each step showing the drop-off from the previous step.
+
+The chart is normalized so that each variation's first step is 100%, which lets you compare shapes across variations of different sizes. Hovering a step shows each variation's unit count, its share of the first step, and its share of the previous step.
+
+:::note
+Average time to convert between steps is not yet available for funnel metrics in experiments. The [Funnel explorer](/app/product-analytics/explorer#funnels) reports it for ad-hoc funnels.
+:::
+
+### Dimensions and date results
+
+Funnel metrics support dimensions. When you break results down by [date](#date), each step gets its own chart under the funnel's heading, titled `Step N: <step name>`, with `(optional)` appended for optional steps.
+
+### Downloading results
+
+CSV exports include one row per step alongside the funnel itself, with step rows named `Funnel name: Step name`. The [bulk experiment results API](/app/experiment-bulk-results-api) reports the same, using per-step metric ids of the form `<metricId>?step=<index>`.
+
+### Funnel limitations
+
+- **CUPED and regression adjustment** are always off for funnel metrics and their steps.
+- **Metric slices** are not supported. The Slices tab is replaced by the Funnel tab.
+- **Activation metrics** cannot be funnel metrics.
+- **Incremental Refresh** does not support funnel metrics while the incremental pipeline is in beta.
 
 ## Guardrails
 
