@@ -82,9 +82,9 @@ export default function UpdateDefaultRoleForm() {
   return (
     <Box className="appbox" p="4" mt="5" mb="5">
       <Flex direction={{ initial: "column", sm: "row" }} gap="4">
-        <Box flexShrink="0" style={{ width: 200 }}>
+        <Box width="200px" flexShrink="0">
           <Heading as="h3" size="md" mb="0">
-            Default roles
+            Default Roles
           </Heading>
         </Box>
         <Box flexGrow="1">

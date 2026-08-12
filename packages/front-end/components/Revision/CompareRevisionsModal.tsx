@@ -333,7 +333,7 @@ function activityLabel(item: ActivityTimelineItem): string {
     case "reopened":
       return "Reopened";
     case "recalled":
-      return "Review Recalled";
+      return "Review recalled";
     default:
       return item.action;
   }

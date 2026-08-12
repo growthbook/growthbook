@@ -1,6 +1,6 @@
 import React, { FC, useState, ReactElement } from "react";
 import { Invite, MemberRoleInfo } from "shared/types/organization";
-import { FaCheck, FaTimes } from "react-icons/fa";
+import { PiCheckBold, PiX, PiXBold } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { date, datetime } from "shared/dates";
 import { getRoleDisplayName } from "shared/permissions";
@@ -12,6 +12,7 @@ import ProjectBadges from "@/components/ProjectBadges";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import Table, {
   TableHeader,
   TableBody,
@@ -55,18 +56,16 @@ const InviteList: FC<{
     setResendMessage(null);
 
     const dismissButton = (
-      <button
-        type="button"
-        className="close"
-        data-dismiss="alert"
+      <IconButton
+        variant="ghost"
+        color="gray"
+        highContrast
         aria-label="Close"
-        onClick={(e) => {
-          e.preventDefault();
-          setResendMessage(null);
-        }}
+        style={{ float: "right" }}
+        onClick={() => setResendMessage(null)}
       >
-        <span aria-hidden="true">&times;</span>
-      </button>
+        <PiX />
+      </IconButton>
     );
 
     try {
@@ -118,10 +117,10 @@ const InviteList: FC<{
   return (
     <Box>
       <h5>Pending Invites{` (${invites.length})`}</h5>
-      <div className="text-muted mb-2">
+      <Text as="p" color="text-mid" mb="2">
         Invites that have been sent but have not yet been accepted.{" "}
         <strong>Invited users count towards plan seat limits.</strong>
-      </div>
+      </Text>
       {roleModal && (
         <ChangeRoleModal
           displayInfo={roleModal.displayInfo}
@@ -201,11 +200,11 @@ const InviteList: FC<{
                   return (
                     <TableCell key={env.id}>
                       {access === "N/A" ? (
-                        <span className="text-muted">N/A</span>
+                        <Text color="text-low">N/A</Text>
                       ) : access === "yes" ? (
-                        <FaCheck className="text-success" />
+                        <PiCheckBold color="var(--green-11)" />
                       ) : (
-                        <FaTimes className="text-danger" />
+                        <PiXBold color="var(--red-11)" />
                       )}
                     </TableCell>
                   );
@@ -236,14 +235,14 @@ const InviteList: FC<{
                           });
                         }}
                       >
-                        Edit Role
+                        Edit role
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => {
                           onResend(key, email);
                         }}
                       >
-                        Resend Invite
+                        Resend invite
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         color="red"

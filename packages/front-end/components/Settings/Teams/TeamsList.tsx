@@ -1,7 +1,7 @@
 import React, { FC } from "react";
 import { useRouter } from "next/router";
 import { date } from "shared/dates";
-import { FaCheck, FaTimes } from "react-icons/fa";
+import { PiCheckBold, PiXBold } from "react-icons/pi";
 import { RxIdCard } from "react-icons/rx";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, IconButton } from "@radix-ui/themes";
@@ -14,6 +14,7 @@ import { memberEnvAccess, useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
+import Text from "@/ui/Text";
 import { capitalizeFirstLetter } from "@/services/utils";
 import Table, {
   TableHeader,
@@ -111,11 +112,11 @@ const TeamsList: FC = () => {
                     return (
                       <TableCell key={env.id}>
                         {access === "N/A" ? (
-                          <span className="text-muted">N/A</span>
+                          <Text color="text-low">N/A</Text>
                         ) : access === "yes" ? (
-                          <FaCheck className="text-success" />
+                          <PiCheckBold color="var(--green-11)" />
                         ) : (
-                          <FaTimes className="text-danger" />
+                          <PiXBold color="var(--red-11)" />
                         )}
                       </TableCell>
                     );

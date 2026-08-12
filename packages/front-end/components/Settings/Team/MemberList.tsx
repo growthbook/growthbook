@@ -1,5 +1,5 @@
 import React, { FC, useEffect, useState } from "react";
-import { FaCheck, FaTimes } from "react-icons/fa";
+import { PiCheckBold, PiXBold } from "react-icons/pi";
 import { ExpandedMember } from "shared/types/organization";
 import { date, datetime } from "shared/dates";
 import { RxIdCard } from "react-icons/rx";
@@ -168,7 +168,7 @@ const MemberList: FC<{
         <Flex align="center" justify="between" gap="3" mt="4" mb="2">
           <Flex align="center" gap="3">
             <h5 className="mb-0">Active Members{` (${users.size})`}</h5>
-            <Box style={{ width: 250 }}>
+            <Box width="250px" flexShrink="0">
               <Field
                 size="legacy"
                 placeholder="Search..."
@@ -178,7 +178,7 @@ const MemberList: FC<{
             </Box>
           </Flex>
           {canInviteMembers && (
-            <Button onClick={onInvite}>Invite Member</Button>
+            <Button onClick={onInvite}>Invite member</Button>
           )}
         </Flex>
         <Table
@@ -331,11 +331,11 @@ const MemberList: FC<{
                     return (
                       <TableCell key={env.id}>
                         {access === "N/A" ? (
-                          <span className="text-muted">N/A</span>
+                          <Text color="text-low">N/A</Text>
                         ) : access === "yes" ? (
-                          <FaCheck className="text-success" />
+                          <PiCheckBold color="var(--green-11)" />
                         ) : (
-                          <FaTimes className="text-danger" />
+                          <PiXBold color="var(--red-11)" />
                         )}
                       </TableCell>
                     );
@@ -369,7 +369,7 @@ const MemberList: FC<{
                                 setRoleModal(member.id);
                               }}
                             >
-                              Edit Role
+                              Edit role
                             </DropdownMenuItem>
                           )}
                           {!canEditRoles && canEditProjectRoles && (
@@ -378,7 +378,7 @@ const MemberList: FC<{
                                 setProjectRoleModal(member.id);
                               }}
                             >
-                              Edit Project Role
+                              Edit project role
                             </DropdownMenuItem>
                           )}
                           {canDeleteMembers && !usingSSO() && (
@@ -387,7 +387,7 @@ const MemberList: FC<{
                                 setPasswordResetModal(member);
                               }}
                             >
-                              Reset Password
+                              Reset password
                             </DropdownMenuItem>
                           )}
                           {canDeleteMembers && (
@@ -400,8 +400,8 @@ const MemberList: FC<{
                                   });
                                   mutate();
                                 },
-                                confirmationTitle: "Remove User",
-                                cta: "Remove User",
+                                confirmationTitle: "Remove user",
+                                cta: "Remove user",
                                 getConfirmationContent: async () => (
                                   <>
                                     Are you sure you want to remove{" "}
@@ -432,7 +432,7 @@ const MemberList: FC<{
                                 ),
                               }}
                             >
-                              Remove User
+                              Remove user
                             </DropdownMenuItem>
                           )}
                         </DropdownMenuGroup>

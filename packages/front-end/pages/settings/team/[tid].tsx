@@ -1,7 +1,7 @@
 import router from "next/router";
 import React, { FC, useState } from "react";
 import { date, datetime } from "shared/dates";
-import { FaUserLock } from "react-icons/fa";
+import { PiLockSimple } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Flex, IconButton } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
@@ -101,7 +101,7 @@ const TeamPage: FC = () => {
             This team is managed by an idP. To make changes to the{" "}
             <b>team name</b> or <b>team membership</b> please access your idP
             and edit the corresponding group. Team permissions must be edited
-            via the <b>Edit Permissions</b> button.
+            via the <b>Edit permissions</b> button.
           </Callout>
         )}
 
@@ -121,10 +121,10 @@ const TeamPage: FC = () => {
           <Flex align="center" gap="4" flexShrink="0">
             <Button
               variant="outline"
-              icon={<FaUserLock />}
+              icon={<PiLockSimple />}
               onClick={() => setPermissionModalOpen(true)}
             >
-              Edit Permissions
+              Edit permissions
             </Button>
             {isEditable && canManageTeam && (
               <DropdownMenu
@@ -157,7 +157,7 @@ const TeamPage: FC = () => {
         </Text>
 
         <Flex align="center" gap="2" mb="5">
-          <Text weight="semibold">Default project:</Text>
+          <Text weight="semibold">Default Project:</Text>
           {projectIsDeReferenced ? (
             <Tooltip
               body={
@@ -166,7 +166,7 @@ const TeamPage: FC = () => {
                 </>
               }
             >
-              <Badge label="Invalid project" color="red" />
+              <Badge label="Invalid Project" color="red" />
             </Tooltip>
           ) : (
             <Badge label={projectName} />
@@ -182,7 +182,7 @@ const TeamPage: FC = () => {
               icon={<GBAddCircle />}
               onClick={() => setMemberModalOpen(true)}
             >
-              Add Members
+              Add members
             </Button>
           )}
         </Flex>

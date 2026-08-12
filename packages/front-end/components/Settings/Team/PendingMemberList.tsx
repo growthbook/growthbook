@@ -1,5 +1,5 @@
 import { FC, useState } from "react";
-import { FaCheck, FaTimes, FaUserCheck } from "react-icons/fa";
+import { PiCheckBold, PiUserCheck, PiXBold } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PendingMember } from "shared/types/organization";
 import { date, datetime } from "shared/dates";
@@ -12,6 +12,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import ChangeRoleModal from "@/components/Settings/Team/ChangeRoleModal";
 import { useUser } from "@/services/UserContext";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import Table, {
   TableHeader,
   TableBody,
@@ -42,10 +43,10 @@ const PendingMemberList: FC<{
   return (
     <Box my="4">
       <h5>Pending Members{` (${pendingMembers.length})`}</h5>
-      <div className="text-muted mb-2">
+      <Text as="p" color="text-mid" mb="2">
         Members who have requested to join this organization. They must be
         manually approved.
-      </div>
+      </Text>
       {roleModalUser && (
         <ChangeRoleModal
           displayInfo={roleModalUser.name || roleModalUser.email}
@@ -137,11 +138,11 @@ const PendingMemberList: FC<{
                   return (
                     <TableCell key={env.id}>
                       {access === "N/A" ? (
-                        <span className="text-muted">N/A</span>
+                        <Text color="text-low">N/A</Text>
                       ) : access === "yes" ? (
-                        <FaCheck className="text-success" />
+                        <PiCheckBold color="var(--green-11)" />
                       ) : (
-                        <FaTimes className="text-danger" />
+                        <PiXBold color="var(--red-11)" />
                       )}
                     </TableCell>
                   );
@@ -149,7 +150,7 @@ const PendingMemberList: FC<{
                 <TableCell>
                   <Button
                     variant="outline"
-                    icon={<FaUserCheck />}
+                    icon={<PiUserCheck />}
                     onClick={async () => {
                       await apiCall(`/member/${member.id}/approve`, {
                         method: "POST",
