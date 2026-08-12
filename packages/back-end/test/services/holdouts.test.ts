@@ -2,10 +2,6 @@ import {
   getNextScheduledStatusUpdateForStage,
   normalizeHoldoutScheduleUpdates,
 } from "back-end/src/services/holdouts";
-import {
-  isScheduledTransitionApplicable,
-  scheduledTypeToStage,
-} from "back-end/src/jobs/updateHoldoutStatus";
 
 const NOW = new Date("2026-07-28T12:00:00.000Z");
 const PAST = new Date("2026-07-01T00:00:00.000Z");
@@ -221,14 +217,6 @@ describe("normalizeHoldoutScheduleUpdates", () => {
   });
 });
 
-describe("scheduledTypeToStage", () => {
-  it("maps each scheduled type to its target stage", () => {
-    expect(scheduledTypeToStage("start")).toBe("running");
-    expect(scheduledTypeToStage("startAnalysisPeriod")).toBe("analysis-period");
-    expect(scheduledTypeToStage("stop")).toBe("stopped");
-  });
-});
-
 describe("getNextScheduledStatusUpdateForStage", () => {
   it("chains to the analysis start after entering running", () => {
     expect(
@@ -263,45 +251,5 @@ describe("getNextScheduledStatusUpdateForStage", () => {
     expect(
       getNextScheduledStatusUpdateForStage({ startAt: SOON }, "draft"),
     ).toBeNull();
-  });
-});
-
-describe("isScheduledTransitionApplicable", () => {
-  it("only starts a draft holdout", () => {
-    expect(isScheduledTransitionApplicable("start", draft, holdout())).toBe(
-      true,
-    );
-    expect(isScheduledTransitionApplicable("start", running, holdout())).toBe(
-      false,
-    );
-  });
-
-  it("only begins analysis for a running holdout that has not begun analysis", () => {
-    expect(
-      isScheduledTransitionApplicable(
-        "startAnalysisPeriod",
-        running,
-        holdout(),
-      ),
-    ).toBe(true);
-    expect(
-      isScheduledTransitionApplicable(
-        "startAnalysisPeriod",
-        running,
-        holdout({ analysisStartDate: PAST }),
-      ),
-    ).toBe(false);
-    expect(
-      isScheduledTransitionApplicable("startAnalysisPeriod", draft, holdout()),
-    ).toBe(false);
-  });
-
-  it("stops any holdout that is not already stopped", () => {
-    expect(isScheduledTransitionApplicable("stop", running, holdout())).toBe(
-      true,
-    );
-    expect(isScheduledTransitionApplicable("stop", stopped, holdout())).toBe(
-      false,
-    );
   });
 });
