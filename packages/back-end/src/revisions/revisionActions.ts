@@ -443,6 +443,24 @@ export async function assertCanPublishRevision(
     snapshot,
   );
 
+  // The move-destination side answers over the DESTINATION's served
+  // environments, not the source's: an environment scoped to the destination
+  // project is absent from the source footprint, so reusing it would skip the
+  // check there (a move+unarchive into a production-served project).
+  const destinationSnapshot = {
+    ...snapshot,
+    ...proposedProjectScope(revision.target.proposedChanges),
+  };
+  const destinationFootprint = resolvePublishFootprint(
+    context,
+    adapter.publishFootprint?.(
+      context,
+      destinationSnapshot,
+      revision.target.proposedChanges,
+    ),
+    destinationSnapshot,
+  );
+
   // Computed once: the landing exemption below and the move-destination check
   // both need it, and it reads the reverted-from revision.
   const pureRevert = await isPureRevertRevision(context, revision);
@@ -492,11 +510,8 @@ export async function assertCanPublishRevision(
       model: revision.target.type,
       action: moveDestinationAction,
       existing: snapshot,
-      proposed: {
-        ...snapshot,
-        ...proposedProjectScope(revision.target.proposedChanges),
-      },
-      environments: footprint,
+      proposed: destinationSnapshot,
+      environments: destinationFootprint,
     })
   ) {
     context.permissions.throwPermissionError();

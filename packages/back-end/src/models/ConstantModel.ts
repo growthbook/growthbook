@@ -18,6 +18,7 @@ import {
   entityKey,
 } from "back-end/src/events/bulkPublishCorrelation";
 import { canLandEntityUpdate } from "back-end/src/revisions/archiveTransition";
+import { archiveServeFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import {
   logConstantCreatedEvent,
   logConstantUpdatedEvent,
@@ -114,7 +115,14 @@ export class ConstantModel extends BaseClass {
       model: "constant",
       existing,
       newDoc,
-      environments: NO_ENVIRONMENT_BINDING,
+      // An archived flip reaches everywhere the Constant serves, and a base
+      // Constant binds no environments — which SKIPS the env check instead of
+      // narrowing it. Derive the footprint from newDoc so a move+unarchive
+      // answers for the DESTINATION's served environments. Mirrors ConfigModel.
+      environments:
+        !!existing.archived !== !!newDoc.archived
+          ? archiveServeFootprint(this.context, newDoc)
+          : NO_ENVIRONMENT_BINDING,
     });
   }
 
