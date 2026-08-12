@@ -24,6 +24,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "@/components/Forms/Field";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import UiTooltip from "@/ui/Tooltip";
 import styles from "./VariationsInput.module.scss";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import {
@@ -387,11 +388,7 @@ export default function FeatureVariationsInput({
                         !disableCustomSplit &&
                         !editingSplits &&
                         !onlySafeToEditVariationMetadata && (
-                          <Tooltip
-                            body="Click to unlock split…"
-                            usePortal={true}
-                            tipPosition="top"
-                          >
+                          <UiTooltip content="Click to unlock split…" side="top">
                             <a
                               role="button"
                               className="ml-1 mb-0"
@@ -404,7 +401,7 @@ export default function FeatureVariationsInput({
                                 size={15}
                               />
                             </a>
-                          </Tooltip>
+                          </UiTooltip>
                         )}
                       {editingSplits &&
                         !isEqualWeights &&
