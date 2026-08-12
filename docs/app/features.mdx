@@ -1,0 +1,36 @@
+---
+title: Feature Flags
+og:description: Learn about feature flags and how to use them in your application.
+sidebarTitle: Feature Flags
+slug: /app/features
+---
+
+Feature flags let you control your application's behavior from GrowthBook, without deploying new code. Target specific users, gradually roll out changes, or run A/B tests on the client or the server.
+
+Feature flags decouple deploys from releases. Release code more frequently and with less risk by launching to a subset of users, ramping up gradually, or turning any change into an experiment.
+
+<Frame>![Features Overview](/static/images/features/features-overview.png)</Frame>
+
+## Getting Started
+
+To use feature flags, set up an [SDK Connection](/lib/quickstart), then explore the docs below.
+
+### Learn the Basics
+
+- [Fundamentals](/features/basics) — Keys, feature types, default values, and publishing
+- [Environments](/features/environments) — Control which features are enabled per environment (dev, staging, production)
+
+### Set Up Targeting and Rules
+
+- [Rules](/features/rules) — How rules work, choosing a rule type, and configuring forced values, rollouts, experiments, and scheduling
+- [Targeting Conditions](/features/targeting) — Define who sees a feature using attributes, conditions, and saved groups
+- [Safe Rollouts](/features/safe-rollouts) — Release features with automatic guardrail monitoring
+- [Prerequisites](/features/prerequisites) — Gate features based on the state of other features
+
+### Manage Flags at Scale
+
+- [Publishing & Approval Flows](/features/publishing-and-approval-flows) — Drafts, revisions, merge conflicts, and requiring approvals for features and saved groups
+- [Stale Feature Detection](/features/stale-detection) — Identify flags that may no longer be in use
+- [Code References](/features/code-references) — Find where flags are used in your codebase
+- [Feature Diagnostics](/features/diagnostics) — Inspect feature evaluations in production
+- [Custom Hooks](/features/custom-hooks) — Extend GrowthBook with custom validation logic (self-hosted Enterprise)
