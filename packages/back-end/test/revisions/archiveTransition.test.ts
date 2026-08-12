@@ -5,6 +5,7 @@ import type {
 } from "shared/permissions";
 import {
   canLandArchivedState,
+  canLandEntityUpdate,
   isArchiveTransition,
   isPureArchiveRevision,
   proposedArchivedValue,
@@ -270,5 +271,65 @@ describe("canLandArchivedState", () => {
         archived: false,
       }),
     ).toBe(false);
+  });
+});
+
+describe("canLandEntityUpdate", () => {
+  // Holds every atom, but only within `allowed` environments — the shape an
+  // environment-limited role takes. The footprint the caller passes is what
+  // decides whether the limit bites.
+  function limitedToEnvs(
+    allowed: string[],
+  ): Pick<Permissions, "canRevisionAction"> {
+    return {
+      canRevisionAction: (
+        _model: RevisionModel,
+        _action: RevisionAction,
+        _entity: { project?: string; projects?: string[] },
+        environments: string[] = [],
+      ) => environments.every((e) => allowed.includes(e)),
+    } as Pick<Permissions, "canRevisionAction">;
+  }
+
+  // Move src -> dst that also archives (delete-class on both sides of the move).
+  const archiveMove = {
+    existing: { project: "src", archived: false },
+    newDoc: { project: "dst", archived: true },
+  };
+
+  it("refuses a move that archives over an environment the caller can't reach", () => {
+    expect(
+      canLandEntityUpdate({
+        permissions: limitedToEnvs(["dev"]),
+        model: "constant",
+        ...archiveMove,
+        environments: ["dev", "production"],
+      }),
+    ).toBe(false);
+  });
+
+  it("allows the move when the caller covers the whole footprint", () => {
+    expect(
+      canLandEntityUpdate({
+        permissions: limitedToEnvs(["dev", "production"]),
+        model: "constant",
+        ...archiveMove,
+        environments: ["dev", "production"],
+      }),
+    ).toBe(true);
+  });
+
+  it("treats an empty footprint as unrestricted — the caller MUST pass the destination's served envs, not NO_ENVIRONMENT_BINDING", () => {
+    // Regression guard: ConstantModel.canUpdate used to pass an empty footprint
+    // for an archive flip, so a dev-limited publisher could archive/unarchive an
+    // entity into production. The fix derives the destination's served envs.
+    expect(
+      canLandEntityUpdate({
+        permissions: limitedToEnvs(["dev"]),
+        model: "constant",
+        ...archiveMove,
+        environments: [],
+      }),
+    ).toBe(true);
   });
 });
