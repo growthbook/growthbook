@@ -229,11 +229,13 @@ export async function runSnapshotAnalysis(
     throw new Error("Error in stats engine: no rows returned");
   }
   if (analysis.error) {
-    let errorMsg = "Failed to run stats model:\n" + analysis.error;
+    const errorMsg = "Failed to run stats model:\n" + analysis.error;
     logger.error(analysis.error, errorMsg);
     if (analysis.traceback) {
-      logger.error("Traceback:\n" + analysis.traceback);
-      errorMsg += "\n\n" + analysis.traceback;
+      logger.error(
+        { experimentId: params.id, traceback: analysis.traceback },
+        "Stats engine analysis failed",
+      );
     }
     throw new Error("Error in stats engine: " + errorMsg);
   }
@@ -503,18 +505,24 @@ function parseStatsEngineResult({
   analysisSettings.forEach((_, i) => {
     const dimensionMap: Map<string, ExperimentReportResultDimension> =
       new Map();
-    result.forEach(({ metric, analyses }) => {
+    // A failed analysis cell contributes no rows here. Its structured error is
+    // collected separately into the corresponding snapshot analysis.
+    result.forEach(({ metric, analyses, error }) => {
+      const analysis = analyses[i];
+      const analysisError = analysis?.error ?? error;
+      if (analysisError) {
+        return;
+      }
       // each result can have multiple analyses (a set of computations that
       // use the same snapshot)
       // we loop over the analyses requested and pull out the results for each one
-      const result = analyses[i];
-      if (!result) return;
+      if (!analysis) return;
 
       unknownVariationsCopy = unknownVariationsCopy.concat(
-        result.unknownVariations,
+        analysis.unknownVariations,
       );
 
-      result.dimensions.forEach((row) => {
+      analysis.dimensions.forEach((row) => {
         const dim = dimensionMap.get(row.dimension) || {
           name: row.dimension,
           srm: 1,
@@ -616,6 +624,16 @@ export async function writeSnapshotAnalyses(
     const { analysisObj, unknownVariations } = params.data;
 
     if (result.error) {
+      if (result.traceback) {
+        logger.error(
+          {
+            experimentId: snapshotSettings.experimentId,
+            snapshotId: snapshot,
+            traceback: result.traceback,
+          },
+          "Stats engine analysis failed",
+        );
+      }
       analysisObj.results = [];
       analysisObj.status = "error";
       analysisObj.error = result.error;

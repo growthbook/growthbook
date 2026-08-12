@@ -166,7 +166,13 @@ export type ExperimentMetricAnalysis = {
     unknownVariations: string[];
     multipleExposures: number;
     dimensions: StatsEngineDimensionResponse[];
+    error?: string;
+    traceback?: string;
   }[];
+  // Legacy whole-metric failure fields. New stats engines return one result
+  // slot per requested analysis and put failures on the corresponding slot.
+  error?: string;
+  traceback?: string;
 }[];
 
 export type SingleVariationResult = {
