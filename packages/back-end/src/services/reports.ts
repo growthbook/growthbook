@@ -16,11 +16,12 @@ import {
   getAllMetricSettingsForSnapshot,
   expandMetricGroups,
   generateSliceString,
-  expandAllSliceMetricsInMap,
+  expandDerivedMetricsInMap,
   parseSliceMetricId,
   SliceLevelsData,
   getEffectiveLookbackOverride,
   getLatestPhaseVariations,
+  getFactMetricPrimaryFactTableId,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import { differenceInMinutes } from "date-fns";
@@ -204,10 +205,10 @@ export function getSnapshotSettingsFromReportArgs(
     stddev: DEFAULT_PROPER_PRIOR_STDDEV,
   };
 
-  // Expand slice metrics if factTableMap is provided
+  // Expand derived metrics if factTableMap is provided
   if (factTableMap) {
-    // Expand all slice metrics (auto and custom) and add them to the metricMap
-    expandAllSliceMetricsInMap({
+    // Expand all derived metrics (slices and funnel steps) into the metricMap
+    expandDerivedMetricsInMap({
       metricMap,
       factTableMap,
       experiment: experiment ?? args,
@@ -497,8 +498,8 @@ export async function createReportSnapshot({
 
   const metricGroups = await context.models.metricGroups.getAll();
 
-  // Expand all slice metrics (auto and custom) and add them to the metricMap
-  expandAllSliceMetricsInMap({
+  // Expand all derived metrics (slices and funnel steps) into the metricMap
+  expandDerivedMetricsInMap({
     metricMap,
     factTableMap,
     experiment: report.experimentAnalysisSettings,
@@ -863,7 +864,8 @@ export async function generateExperimentReportSSRData({
 
   let factTableIds: string[] = [];
   factMetrics.forEach((m) => {
-    if (m?.numerator?.factTableId) factTableIds.push(m.numerator.factTableId);
+    const primaryFactTableId = getFactMetricPrimaryFactTableId(m);
+    if (primaryFactTableId) factTableIds.push(primaryFactTableId);
     if (m?.denominator?.factTableId)
       factTableIds.push(m.denominator.factTableId);
   });
@@ -923,7 +925,7 @@ export async function generateExperimentReportSSRData({
   > = {};
   for (const factMetric of factMetrics) {
     if (factMetric.metricAutoSlices?.length) {
-      const factTableId = factMetric.numerator.factTableId;
+      const factTableId = getFactMetricPrimaryFactTableId(factMetric);
       const factTable = factTableId ? factTableMap[factTableId] : undefined;
       if (factTable) {
         const dimensionColumns = factTable.columns.filter(

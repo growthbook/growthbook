@@ -1,6 +1,7 @@
 import {
   getColumnRefWhereClause,
   getFactTableTemplateVariables,
+  isFactFunnelMetric,
   isRatioMetric,
   parseSliceMetricId,
 } from "shared/experiments";
@@ -13,6 +14,7 @@ import type {
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
 import { getFactMetricColumn } from "back-end/src/integrations/sql/columns/fact-metric-column";
+import { funnelStepTimestampColumn } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
 import { toTimestampWithMs } from "back-end/src/integrations/sql/primitives/to-timestamp-with-ms";
 import { getKllEventCountSourceColumn } from "back-end/src/services/factMetrics";
 
@@ -97,6 +99,41 @@ export function getFactMetricCTE(
   metricsWithIndices.forEach((metricWithIndex) => {
     const m = metricWithIndex.metric;
     const index = metricWithIndex.index;
+
+    if (isFactFunnelMetric(m)) {
+      // A funnel has no value column. Each step instead projects the row's
+      // timestamp when the row matches that step's filters, so the resolution
+      // CTEs downstream can collect per-step timestamps per user.
+      m.funnelSettings.steps.forEach((step, stepIndex) => {
+        if (step.factTableId !== factTable.id) return;
+
+        const filters = getColumnRefWhereClause({
+          factTable,
+          columnRef: {
+            factTableId: step.factTableId,
+            column: "",
+            rowFilters: step.rowFilters,
+          },
+          escapeStringLiteral: dialect.escapeStringLiteral,
+          stringMatch: dialect.stringMatch,
+          jsonExtract: dialect.jsonExtract,
+          evalBoolean: dialect.evalBoolean,
+          castToTimestamp: dialect.castToTimestamp,
+          identifierQuote: dialect.identifierQuote,
+        });
+
+        const column = filters.length
+          ? `CASE WHEN (${filters.join("\n AND ")}) THEN ${timestampDateTimeColumn} ELSE NULL END`
+          : timestampDateTimeColumn;
+
+        metricCols.push(`-- ${m.name} (step ${stepIndex + 1}: ${step.name})
+        ${column} AS ${funnelStepTimestampColumn(`m${index}`, stepIndex)}`);
+
+        allMetricFilters.push(filters);
+      });
+      return;
+    }
+
     if (m.numerator?.factTableId === factTable.id) {
       const value = getFactMetricColumn(
         dialect,

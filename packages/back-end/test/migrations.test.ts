@@ -38,6 +38,8 @@ import { ExperimentPhase } from "shared/types/experiment";
 import { LegacySavedGroupInterface } from "shared/types/saved-group";
 import { encryptParams } from "back-end/src/services/datasource";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
+import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
+import { migrateBlock } from "back-end/src/enterprise/models/DashboardModel";
 import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
 import {
   migrateExperimentReport,
@@ -52,8 +54,6 @@ import {
   upgradeV0Feature,
 } from "back-end/src/util/migrations";
 import { flattenV1ToV2Rules } from "back-end/src/util/flattenRules";
-import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
-import { migrateBlock } from "back-end/src/enterprise/models/DashboardModel";
 
 describe("Fact Metric Migration", () => {
   it("upgrades delay hours", () => {

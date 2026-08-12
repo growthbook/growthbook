@@ -715,12 +715,14 @@ export default function ExperimentRefNewFields({
                       Activation Metric{" "}
                       <MetricsSelectorTooltip
                         onlyBinomial={true}
+                        noFactFunnelMetrics={true}
                         isSingular={true}
                       />
                     </>
                   }
                   initialOption="None"
                   onlyBinomial
+                  filterFactFunnelMetrics
                   value={form.watch("activationMetric")}
                   onChange={(value) =>
                     form.setValue("activationMetric", value || "")
