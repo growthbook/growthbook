@@ -40,6 +40,7 @@ import Link from "@/ui/Link";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ExperimentTableRow } from "@/services/experiments";
+import FunnelStepLabel from "@/components/Experiment/FunnelStepLabel";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import RadixTooltip from "@/ui/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -583,29 +584,7 @@ export function getRenderLabelColumn({
 
     // Funnel step row
     if (isFunnelStepRow) {
-      return (
-        <div className="pl-4" style={{ position: "relative" }}>
-          <div
-            className="ml-2 font-weight-bold"
-            style={{
-              display: "-webkit-box",
-              WebkitLineClamp: 1,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-              color: "var(--color-text-high)",
-            }}
-          >
-            {row?.label ?? label}
-          </div>
-          <div
-            className="ml-2"
-            style={{ fontSize: "0.75rem", color: "var(--color-text-low)" }}
-          >
-            Step {(row?.funnelStepIndex ?? 0) + 1}
-            {row?.funnelStepOptional ? " (optional)" : ""}
-          </div>
-        </div>
-      );
+      return <FunnelStepLabel label={label} row={row} />;
     }
 
     // Slice row
@@ -725,7 +704,16 @@ export function getRenderLabelColumn({
             }
           >
             {shouldShowExpandButton ? (
-              <div style={{ position: "absolute", left: 7, marginTop: 3 }}>
+              <div
+                style={{
+                  position: "absolute",
+                  left: 7,
+                  top: 0,
+                  bottom: 0,
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
                 <RadixTooltip
                   content={
                     isFactFunnelMetric(metric)
@@ -742,6 +730,15 @@ export function getRenderLabelColumn({
                     size="1"
                     variant="ghost"
                     radius="full"
+                    aria-label={
+                      isFactFunnelMetric(metric)
+                        ? isExpanded
+                          ? "Collapse funnel steps"
+                          : "Expand funnel steps"
+                        : isExpanded
+                          ? "Collapse metric slices"
+                          : "Expand metric slices"
+                    }
                     onClick={
                       row?.labelOnly || sliceTagsFilter?.includes("overall")
                         ? undefined
