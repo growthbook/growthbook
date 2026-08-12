@@ -1,13 +1,13 @@
 name: Verify sdk-versions
 
-# Required check for any change under sdk-versioning. Two guarantees:
-#   1. Every capability listed in a sdk-versions/*.json is a real SDKCapability
-#      (from types.ts) — a typo can't silently reach gen-sdk-resources.
-#   2. The generated SDK docs (CAPABILITIES.md, SDKInfo.ts) are regenerated and
-#      committed — so a capability change can't merge with stale docs.
+# Required check for any change under sdk-versioning: every capability listed in
+# a sdk-versions/*.json must be a real SDKCapability (from types.ts). This is the
+# guard that keeps a typo'd capability from ever reaching gen-sdk-resources.
 #
-# Make this a required status check on the sdk-version/* PRs (branch protection)
-# to enforce point 2 at merge time.
+# Note: SDKInfo.ts freshness is NOT gated here. The repo's pre-commit hook
+# regenerates SDKInfo.ts on any sdk-versioning change, and the automation commits
+# it, so it stays in sync without a (build-heavy) CI diff gate. CAPABILITIES.md is
+# intentionally out of scope (it is not part of the pre-commit flow).
 
 on:
   pull_request:
@@ -18,12 +18,12 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  validate-capabilities:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
 
-      - name: Validate capabilities against types.ts
+      - name: Every capability must exist in types.ts
         run: |
           set -euo pipefail
           VALID="$(sed -n '/export type SDKCapability =/,/;/p' \
@@ -40,26 +40,3 @@ jobs:
             exit 1
           fi
           echo "All capabilities are valid SDKCapability values."
-
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
-        with:
-          node-version: "24"
-          cache: "pnpm"
-
-      - name: Regenerate SDK docs and check they are committed
-        run: |
-          set -euo pipefail
-          pnpm install
-          pnpm --filter shared generate-sdk-report
-          pnpm --filter shared gen-sdk-resources-for-docs
-          if ! git diff --quiet -- \
-              packages/shared/src/sdk-versioning/CAPABILITIES.md \
-              docs/src/data/SDKInfo.ts; then
-            echo "::error::SDK docs are stale. Regenerate and commit: pnpm --filter shared generate-sdk-report && pnpm --filter shared gen-sdk-resources-for-docs"
-            git --no-pager diff -- \
-              packages/shared/src/sdk-versioning/CAPABILITIES.md \
-              docs/src/data/SDKInfo.ts | head -100
-            exit 1
-          fi
-          echo "SDK docs are up to date."

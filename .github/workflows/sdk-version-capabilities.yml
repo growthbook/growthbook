@@ -99,7 +99,7 @@ jobs:
           node-version: "24"
           cache: "pnpm"
 
-      - name: Regenerate docs, commit, and comment
+      - name: Regenerate SDKInfo.ts, commit, and comment
         if: ${{ steps.apply.outputs.code == '0' }}
         env:
           GH_TOKEN: ${{ secrets.SDK_VERSION_BOT_TOKEN || secrets.GITHUB_TOKEN }}
@@ -111,13 +111,16 @@ jobs:
           set -euo pipefail
           caps="${RESULT#applied=}"
           pnpm install
-          pnpm exec prettier --write "packages/shared/src/sdk-versioning/sdk-versions/$SDK.json" || \
-            pnpm exec prettier --write "packages/shared/src/sdk-versioning/sdk-versions/"*.json
-          pnpm --filter shared generate-sdk-report
+          # This mirrors the repo's pre-commit hook, which runs
+          # `gen-sdk-resources-for-docs` on any sdk-versioning change to regenerate
+          # docs/src/data/SDKInfo.ts. That generator needs the JS SDK built first.
+          # CAPABILITIES.md is intentionally not regenerated (not in the hook).
+          pnpm --filter @growthbook/growthbook run build
+          pnpm exec prettier --write "packages/shared/src/sdk-versioning/sdk-versions/$SDK.json"
           pnpm --filter shared gen-sdk-resources-for-docs
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add packages/shared/src/sdk-versioning docs/src/data/SDKInfo.ts
+          git add packages/shared/src/sdk-versioning docs
           git commit -m "chore(sdk-versions): $SDK $VERSION capabilities [$caps]"
           git push
-          gh pr comment "$PR" --body "✅ Set capabilities **[$caps]** on \`$SDK\` $VERSION and regenerated SDK docs (\`CAPABILITIES.md\`, \`SDKInfo.ts\`)."
+          gh pr comment "$PR" --body "✅ Set capabilities **[$caps]** on \`$SDK\` $VERSION and regenerated \`SDKInfo.ts\`."
