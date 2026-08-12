@@ -15,9 +15,10 @@ import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
+  getFactMetricPrimaryFactTableId,
   isFactMetric,
   isMetricJoinable,
-  expandAllSliceMetricsInMap,
+  expandDerivedMetricsInMap,
   ExperimentMetricDefinition,
   getLatestPhaseVariations,
   isDimensionPrecomputed,
@@ -438,8 +439,9 @@ export default function AnalysisSettingsSummary({
       const metric = getExperimentMetricById(m);
       if (!metric) return;
       const userIdTypes = isFactMetric(metric)
-        ? factTables.find((f) => f.id === metric.numerator.factTableId)
-            ?.userIdTypes || []
+        ? factTables.find(
+            (f) => f.id === getFactMetricPrimaryFactTableId(metric),
+          )?.userIdTypes || []
         : metric.userIdTypes || [];
       const isJoinable =
         userIdType && datasourceSettings
@@ -984,8 +986,8 @@ export default function AnalysisSettingsSummary({
                   factTables.map((table) => [table.id, table]),
                 );
 
-                // Expand slice metrics and add them to the map
-                expandAllSliceMetricsInMap({
+                // Expand derived metrics and add them to the map
+                expandDerivedMetricsInMap({
                   metricMap,
                   factTableMap,
                   experiment,

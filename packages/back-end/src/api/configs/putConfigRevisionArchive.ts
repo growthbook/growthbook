@@ -1,4 +1,8 @@
 import { putConfigRevisionArchiveValidator } from "shared/validators";
+import {
+  canStageArchiveDraft,
+  canWriteArchiveIntoDraft,
+} from "back-end/src/revisions/landAuthority";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
@@ -21,10 +25,17 @@ export const putConfigRevisionArchive = createApiRequestHandler(
 )(async (req) => {
   const config = await req.context.models.configs.getByKey(req.params.key);
   if (!config) {
-    throw new NotFoundError("Could not find config");
+    throw new NotFoundError("Could not find Config");
   }
 
-  if (!req.context.permissions.canUpdateConfig(config, config)) {
+  if (
+    !canStageArchiveDraft({
+      permissions: req.context.permissions,
+      model: "config",
+      entity: config,
+      archived: req.body.archived,
+    })
+  ) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -65,6 +76,22 @@ export const putConfigRevisionArchive = createApiRequestHandler(
   );
 
   try {
+    // A pinned EXISTING draft is someone else's work: writing `archived` into
+    // it makes it delete-class, which would lock its author out of publishing
+    // their own draft. The delete atom stages a NEW archive draft, not a
+    // reach into one it does not own.
+    if (
+      !created &&
+      !canWriteArchiveIntoDraft({
+        permissions: req.context.permissions,
+        model: "config",
+        entity: config,
+        revision,
+        userId: req.context.userId,
+      })
+    ) {
+      req.context.permissions.throwPermissionError();
+    }
     if (!isDraftStatus(revision.status)) {
       throw new BadRequestError(
         `Cannot edit a revision with status "${revision.status}"`,

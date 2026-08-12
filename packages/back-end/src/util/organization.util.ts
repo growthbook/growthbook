@@ -145,6 +145,12 @@ function mergeUserPermissionObj(
     updatedUserPermissionObj.permissions,
     userPermission2.permissions,
   );
+  if (updatedUserPermissionObj.envGrants || userPermission2.envGrants) {
+    updatedUserPermissionObj.envGrants = [
+      ...(updatedUserPermissionObj.envGrants ?? []),
+      ...(userPermission2.envGrants ?? []),
+    ];
+  }
 
   return updatedUserPermissionObj;
 }
@@ -190,10 +196,15 @@ function getLimitAccessByEnvironment(
   limitAccessByEnvironment: boolean,
   org: OrganizationInterface,
 ): boolean {
-  // If all environments are selected, treat that the same as not limiting by environment
+  // If all environments are selected, treat that the same as not limiting by
+  // environment. `every` on an empty list is vacuously true, so an org whose
+  // settings carry no environments would otherwise read as "all selected" and
+  // drop the restriction entirely — keep it when there is nothing to compare
+  // against.
   const validEnvs = org.settings?.environments?.map((e) => e.id) || [];
   if (
     limitAccessByEnvironment &&
+    validEnvs.length > 0 &&
     validEnvs.every((e) => environments?.includes(e))
   ) {
     return false;
@@ -218,14 +229,33 @@ function getUserPermission(
     limitAccessByEnvironment = false;
   }
 
+  const permissions = roleToPermissionMap(info.role, org);
+  const environments = info.environments || [];
+  const effectiveLimit = getLimitAccessByEnvironment(
+    environments,
+    limitAccessByEnvironment,
+    org,
+  );
+  const envScoped = ENV_SCOPED_PERMISSIONS.filter((p) => permissions[p]);
   return {
-    environments: info.environments || [],
-    limitAccessByEnvironment: getLimitAccessByEnvironment(
-      info.environments || [],
-      limitAccessByEnvironment,
-      org,
-    ),
-    permissions: roleToPermissionMap(info.role, org),
+    environments,
+    limitAccessByEnvironment: effectiveLimit,
+    permissions,
+    // The env verdict for scoped permissions comes from per-role grants, so two
+    // roles with different restrictions can't cross-contaminate when merged.
+    // Omitted (not []) when the role grants nothing env-scoped, so the object
+    // keeps its historical shape for roles the field says nothing about.
+    ...(envScoped.length
+      ? {
+          envGrants: [
+            {
+              environments,
+              limitAccessByEnvironment: effectiveLimit,
+              permissions: envScoped,
+            },
+          ],
+        }
+      : {}),
   };
 }
 
