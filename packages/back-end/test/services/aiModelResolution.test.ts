@@ -4,6 +4,9 @@ import type { AIKeySource } from "back-end/src/services/aiCredentials";
 // IS_CLOUD is captured at module load, so each case builds its own module
 // instance with the flag already set.
 type OrganizationsModule = typeof import("back-end/src/services/organizations");
+type AISettingsContext = Parameters<
+  OrganizationsModule["getAISettingsForOrg"]
+>[0];
 
 const loadModule = (isCloud: boolean, owned: AIProvider[]) => {
   let mod: OrganizationsModule | undefined;
@@ -40,10 +43,10 @@ const loadModule = (isCloud: boolean, owned: AIProvider[]) => {
   return mod;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const makeContext = (settings: Record<string, unknown>): any => ({
-  org: { id: "org_1", settings: { aiEnabled: true, ...settings } },
-});
+const makeContext = (settings: Record<string, unknown>): AISettingsContext =>
+  ({
+    org: { id: "org_1", settings: { aiEnabled: true, ...settings } },
+  }) as unknown as AISettingsContext;
 
 describe("getAISettingsForOrg model resolution", () => {
   it("keeps the Visual Editor on Sonnet when a Cloud org sets its own default", async () => {

@@ -6,6 +6,7 @@ import {
   Role,
   ProjectMemberRole,
   MemberRoleInfo,
+  UserPermission,
 } from "shared/types/organization";
 import {
   DEFAULT_ROLES,
@@ -39,6 +40,22 @@ export function getPermissionsObjectByPolicies(
   });
 
   return permissions;
+}
+
+// Effective permissions for a role. Policies are the only grant mechanism —
+// atoms are an implementation detail of what a policy carries.
+export function permissionsFromRole(
+  role: Pick<Role, "policies">,
+): PermissionsObject {
+  return getPermissionsObjectByPolicies(role.policies || []);
+}
+
+// Whether a role can be limited by environment: true if any of its policies
+// carries an environment-scoped atom.
+export function roleSupportsEnvLimitFromRole(
+  role: Pick<Role, "policies">,
+): boolean {
+  return policiesSupportEnvLimit(role.policies || []);
 }
 
 export function getRoleById(
@@ -129,12 +146,29 @@ export function hasPermission(
     return false;
   }
 
-  if (!envs || !usersPermissionsToCheck.limitAccessByEnvironment) {
-    return true;
-  }
-  return envs.every((env) =>
-    usersPermissionsToCheck.environments.includes(env),
+  return envsAllowedBy(usersPermissionsToCheck, permissionToCheck, envs);
+}
+
+// Resolve coverage from relevant grants; use merged legacy fields only when none exist.
+export function envsAllowedBy(
+  userPermission: UserPermission,
+  permissionToCheck: Permission,
+  envs?: string[],
+): boolean {
+  if (!envs) return true;
+
+  const relevantGrants = (userPermission.envGrants ?? []).filter((g) =>
+    g.permissions.includes(permissionToCheck),
   );
+  if (relevantGrants.length) {
+    // Union environments across grants carrying this permission.
+    if (relevantGrants.some((g) => !g.limitAccessByEnvironment)) return true;
+    const allowed = new Set(relevantGrants.flatMap((g) => g.environments));
+    return envs.every((env) => allowed.has(env));
+  }
+
+  if (!userPermission.limitAccessByEnvironment) return true;
+  return envs.every((env) => userPermission.environments.includes(env));
 }
 
 export const userHasPermission = (
@@ -178,8 +212,9 @@ export function roleSupportsEnvLimit(
   if (["admin", "gbDefault_projectAdmin"].includes(roleId)) return false;
 
   const role = getRoleById(roleId, org);
+  if (!role) return false;
 
-  return policiesSupportEnvLimit(role?.policies || []);
+  return roleSupportsEnvLimitFromRole(role);
 }
 
 export function roleToPermissionMap(
@@ -187,8 +222,8 @@ export function roleToPermissionMap(
   org: OrganizationInterface,
 ): PermissionsObject {
   const role = getRoleById(roleId || "readonly", org);
-  const policies = role?.policies || [];
-  return getPermissionsObjectByPolicies(policies);
+  if (!role) return {};
+  return permissionsFromRole(role);
 }
 
 export type EffectiveRoleSource = {
@@ -197,15 +232,13 @@ export type EffectiveRoleSource = {
   sourceName: string;
 };
 
-/**
- * Resolve the roles that actually apply to a member, combining their own role
- * with any teams they're on, using the same precedence as the back-end
- * permission merge (mergeUserAndTeamPermissions): an explicit project-scoped
- * role — from the member or any team — takes precedence over global roles for
- * that project, and only when no explicit project role applies do global roles
- * contribute. The result is the set of contributing roles (a union, which may
- * be more than one role). Pass `project = null` to resolve global roles.
- */
+// Resolve the roles that actually apply to a member, combining their own role
+// with any teams they're on, using the same precedence as the back-end
+// permission merge (mergeUserAndTeamPermissions): an explicit project-scoped
+// role — from the member or any team — takes precedence over global roles for
+// that project, and only when no explicit project role applies do global roles
+// contribute. The result is the set of contributing roles (a union, which may
+// be more than one role). Pass `project = null` to resolve global roles.
 export function getEffectiveRolesForProject(
   member: Pick<MemberRoleInfo, "role"> & {
     projectRoles?: ProjectMemberRole[];

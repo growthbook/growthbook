@@ -4,7 +4,7 @@ import {
   AI_PROVIDER_MODEL_MAP,
   DEFAULT_EMBEDDING_MODEL,
   getImageModelMeta,
-  getProviderFromEmbeddingModel,
+  getProviderForAIModel,
 } from "shared/ai";
 import { ensureValuesExactlyMatchUnion } from "shared/util";
 
@@ -110,8 +110,6 @@ export const EMBEDDING_MODEL_OPTIONS =
     { value: "gemini-embedding-001", label: "Google: gemini-embedding-001" },
   ]);
 
-// Keeps the saved model selectable even when its provider has no key —
-// otherwise SelectField renders empty while the form still holds that model.
 function withSelectedOption<T extends FlatOption | GroupedOption>(
   options: T[],
   selected: string | undefined,
@@ -133,27 +131,17 @@ function withSelectedOption<T extends FlatOption | GroupedOption>(
   ];
 }
 
-/**
- * Model options grouped by provider, restricted to the providers this org can
- * reach. Callers pass those in: the front-end env flags can't see stored keys.
- *
- * - `undefined` providers: still loading, show all.
- * - Empty providers: no key anywhere, show all.
- * - Pass `sort={false}` to SelectField to keep the registry's newest-first order.
- */
 export function getAvailableAIModelOptions(
   availableProviders: readonly AIProvider[] | undefined,
   selectedModel?: string,
 ): (FlatOption | GroupedOption)[] {
   const allProviders = Object.keys(AI_PROVIDER_MODEL_MAP) as AIProvider[];
 
-  // Filter, don't map, so provider order doesn't follow key storage order.
   const filtered =
     availableProviders === undefined
       ? allProviders
       : allProviders.filter((p) => availableProviders.includes(p));
 
-  // No key anywhere: show everything so a fresh install can still pick.
   const providers = filtered.length > 0 ? filtered : allProviders;
 
   const groups = providers
@@ -248,9 +236,6 @@ export function getAvailableImageModelOptions(
 
   return withSelectedOption(
     [
-      // Names the model rather than using USE_DEFAULT_MODEL_OPTION: this picker
-      // has no org-level image default to inherit, so the fallback is worth
-      // spelling out.
       { value: "", label: "Use default (Gemini 2.5 Flash Image)" },
       ...group("Supports reference image", true),
       ...group("Text prompt only", false),
@@ -260,14 +245,6 @@ export function getAvailableImageModelOptions(
   );
 }
 
-/**
- * Embedding model options, restricted to providers with a key the same way as
- * getAvailableAIModelOptions(). Embedding models live in their own registry, so
- * they need their own model → provider lookup.
- *
- * Carries the same "use default" entry as the others: on Cloud an org whose
- * providers serve no embedding model would otherwise face an empty picker.
- */
 export function getAvailableEmbeddingModelOptions(
   availableProviders: readonly AIProvider[] | undefined,
   selectedModel?: string,
@@ -276,14 +253,8 @@ export function getAvailableEmbeddingModelOptions(
     availableProviders === undefined
       ? EMBEDDING_MODEL_OPTIONS
       : EMBEDDING_MODEL_OPTIONS.filter((o) => {
-          try {
-            return availableProviders.includes(
-              getProviderFromEmbeddingModel(o.value),
-            );
-          } catch {
-            // Unknown provider mapping — keep the option rather than hide it.
-            return true;
-          }
+          const provider = getProviderForAIModel("embedding", o.value);
+          return provider === null || availableProviders.includes(provider);
         });
 
   return withSelectedOption(

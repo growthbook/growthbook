@@ -9,10 +9,13 @@ import {
   savedGroupValidator,
   savedGroupUpdatableFieldsSchema,
 } from "shared/validators";
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
+  ApplyChangesResult,
   EntityRevisionAdapter,
   filterUpdatableChanges,
+  revisionActionHooks,
 } from "back-end/src/revisions/EntityRevisionAdapter";
 import {
   ArmAcknowledgments,
@@ -55,7 +58,7 @@ function canBypassAcrossProjects(
 ): boolean {
   const projects = snapshot.projects?.length ? snapshot.projects : [""];
   return projects.every((project) =>
-    context.permissions.canBypassApprovalChecks({ project }),
+    context.permissions.canBypassSavedGroupApprovalChecks({ project }),
   );
 }
 
@@ -65,7 +68,12 @@ function canEditSavedGroup(
   context: Context,
   snapshot: SavedGroupInterface,
 ): boolean {
-  return context.permissions.canUpdateSavedGroup(snapshot, {});
+  return context.permissions.canRevisionAction(
+    "saved-group",
+    "publish",
+    snapshot,
+    NO_ENVIRONMENT_BINDING,
+  );
 }
 
 function isSavedGroupApprovalRequired(context: Context): boolean {
@@ -79,6 +87,7 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
   getModel(context: Context) {
     return context.models.savedGroups as {
       getById(id: string): Promise<SavedGroupInterface | null>;
+      getReadScopesByIds(ids: string[]): Promise<SavedGroupInterface[]>;
     };
   },
 
@@ -124,6 +133,11 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
     return canBypassAcrossProjects(context, snapshot);
   },
 
+  ...revisionActionHooks<SavedGroupInterface>({
+    model: "saved-group",
+    projectsOf: (snapshot) => snapshot.projects ?? [],
+  }),
+
   isApprovalRequired(context: Context): boolean {
     return isSavedGroupApprovalRequired(context);
   },
@@ -154,27 +168,61 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
     context: Context,
     entity: SavedGroupInterface,
     changes: Record<string, unknown>,
-    options?: { isRevert?: boolean },
-  ): Promise<string[]> {
+    options?: {
+      isRevert?: boolean;
+      guarded?: boolean;
+      onPersisted?: (result: ApplyChangesResult) => void;
+    },
+  ): Promise<ApplyChangesResult> {
     const filteredChanges = filterUpdatableChanges(
       changes,
       entity as Record<string, unknown>,
       UPDATABLE_FIELDS,
     );
 
-    if (Object.keys(filteredChanges).length === 0) return [];
+    if (Object.keys(filteredChanges).length === 0) {
+      // REPORTED, not just returned: `null` means "ran and wrote nothing",
+      // which compensation must be able to tell apart from "never reported".
+      // Without this the two collapse into `undefined` and a no-op apply is
+      // indistinguishable from a failure that left state behind.
+      const nothing = { persistedKeys: [] as string[], written: null };
+      options?.onPersisted?.(nothing);
+      return nothing;
+    }
 
     // Reverts restore a previously-published condition as-is; skip the
     // registered-attributes check so an attribute removed/archived since the
     // snapshot was taken doesn't block the revert.
-    await context.models.savedGroups.update(
+    const writeEntity = options?.guarded
+      ? context.models.savedGroups.updateIfUnchanged.bind(
+          context.models.savedGroups,
+        )
+      : context.models.savedGroups.update.bind(context.models.savedGroups);
+    // Reported from INSIDE the write, before audit logging and the
+    // afterUpdate hooks: those run after the document has landed, so a
+    // throw there is a persisted change. Reporting after this call
+    // returned could not tell that from "never wrote", and compensation
+    // read the second as the first — leaving the change live, unrecorded.
+    const report = (doc: Record<string, unknown>) =>
+      options?.onPersisted?.({
+        persistedKeys: Object.keys(filteredChanges),
+        written: doc,
+      });
+    const written = await writeEntity(
       entity,
       filteredChanges as Parameters<
         typeof context.models.savedGroups.update
       >[1],
       options?.isRevert ? { skipAttributeValidation: true } : undefined,
+      {
+        onWritten: (doc: unknown) => report(doc as Record<string, unknown>),
+      },
     );
-    return Object.keys(filteredChanges);
+    const applied = {
+      persistedKeys: Object.keys(filteredChanges),
+      written: written as Record<string, unknown>,
+    };
+    return applied;
   },
 
   // Snapshot the archive-dependents fingerprint when arming a deferred publish

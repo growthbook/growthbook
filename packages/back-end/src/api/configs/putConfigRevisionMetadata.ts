@@ -5,6 +5,7 @@ import {
   ancestorCollisionWarnings,
   SchemaWarning,
 } from "shared/util";
+import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
@@ -28,23 +29,28 @@ export const putConfigRevisionMetadata = createApiRequestHandler(
 )(async (req) => {
   const config = await req.context.models.configs.getByKey(req.params.key);
   if (!config) {
-    throw new NotFoundError("Could not find config");
+    throw new NotFoundError("Could not find Config");
   }
 
   const { name, owner, description, project, parent, extensible } = req.body;
   const extendsKeys = req.body.extends;
 
-  // Re-check edit permission so a `project` move needs edit on old AND new.
-  // Done BEFORE probing project existence so it can't be an existence oracle.
+  // Authorize both scopes before checking project existence.
+  if (!req.context.permissions.canRevisionAction("config", "draft", config)) {
+    req.context.permissions.throwPermissionError();
+  }
   if (
-    !req.context.permissions.canUpdateConfig(config, {
-      project: typeof project !== "undefined" ? project : config.project,
+    !holdsMoveDestination({
+      permissions: req.context.permissions,
+      model: "config",
+      action: "draft",
+      existing: config,
+      proposed: { ...config, ...(project === undefined ? {} : { project }) },
     })
   ) {
     req.context.permissions.throwPermissionError();
   }
 
-  // Mass-assignment guard: only allowlisted fields reach the patch builder.
   const fieldsToUpdate: Record<string, unknown> = {};
   if (typeof name !== "undefined") fieldsToUpdate.name = name;
   if (typeof owner !== "undefined") fieldsToUpdate.owner = owner;

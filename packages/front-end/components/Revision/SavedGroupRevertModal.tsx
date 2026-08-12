@@ -23,6 +23,13 @@ export interface Props {
   revertsBypassApproval: boolean;
   approvalRequired: boolean;
   canBypassApproval: boolean;
+  canRevert: boolean;
+  canLandRevert?: boolean;
+  // Per-target: restoring an older snapshot can relocate the entity, so the
+  // destination has to be re-derived for whichever target the picker lands on.
+  canLandRevertForTarget?: (targetRevision: Revision) => boolean;
+  canLandArchive?: boolean;
+  canDraft: boolean;
   close: () => void;
   onRevisionCreated: (revision: Revision) => void;
 }

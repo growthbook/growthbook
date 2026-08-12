@@ -5,6 +5,7 @@ import {
   expandMetricGroups,
   quantileMetricType,
   isFactMetric,
+  isFactFunnelMetric,
   getUserIdTypes,
 } from "shared/experiments";
 import {
@@ -132,6 +133,18 @@ export default function ExperimentMetricsSelector({
             reason: "Only fact metrics are supported with Incremental Refresh",
           };
         }
+
+        const hasFunnelMetrics = expandedIds.some((id) => {
+          const metric = getExperimentMetricById(id);
+          return metric && isFactFunnelMetric(metric);
+        });
+
+        if (hasFunnelMetrics) {
+          return {
+            disabled: true,
+            reason: "Funnel metrics are not supported with Incremental Refresh",
+          };
+        }
       } else {
         const metric = getExperimentMetricById(metricId);
 
@@ -153,6 +166,13 @@ export default function ExperimentMetricsSelector({
           return {
             disabled: true,
             reason: "Only fact metrics are supported with Incremental Refresh",
+          };
+        }
+
+        if (metric && isFactFunnelMetric(metric)) {
+          return {
+            disabled: true,
+            reason: "Funnel metrics are not supported with Incremental Refresh",
           };
         }
       }

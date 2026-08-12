@@ -1,6 +1,34 @@
 {
   "versions": [
     {
+      "version": "2.3.1"
+    },
+    {
+      "version": "2.3.0",
+      "capabilities": ["remoteEval"]
+    },
+    {
+      "version": "2.2.2"
+    },
+    {
+      "version": "2.2.1"
+    },
+    {
+      "version": "2.2.0"
+    },
+    {
+      "version": "2.1.5"
+    },
+    {
+      "version": "2.1.4"
+    },
+    {
+      "version": "2.1.3"
+    },
+    {
+      "version": "2.1.2"
+    },
+    {
       "version": "2.1.1",
       "capabilities": ["caseInsensitiveMembership"]
     },
@@ -12,13 +40,43 @@
       "version": "2.0.0"
     },
     {
+      "version": "1.4.10"
+    },
+    {
+      "version": "1.4.9"
+    },
+    {
+      "version": "1.4.8"
+    },
+    {
+      "version": "1.4.7"
+    },
+    {
+      "version": "1.4.6"
+    },
+    {
       "version": "1.4.5"
+    },
+    {
+      "version": "1.4.4"
+    },
+    {
+      "version": "1.4.3"
     },
     {
       "version": "1.4.2"
     },
     {
+      "version": "1.4.1"
+    },
+    {
+      "version": "1.4.0"
+    },
+    {
       "version": "1.3.1"
+    },
+    {
+      "version": "1.3.0"
     },
     {
       "version": "1.2.1",
@@ -37,6 +95,21 @@
     {
       "version": "1.0.0",
       "capabilities": ["bucketingV2", "encryption"]
+    },
+    {
+      "version": "0.3.1"
+    },
+    {
+      "version": "0.3.0"
+    },
+    {
+      "version": "0.2.0"
+    },
+    {
+      "version": "0.1.1"
+    },
+    {
+      "version": "0.1.0"
     }
   ]
 }

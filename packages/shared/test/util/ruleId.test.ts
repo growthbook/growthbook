@@ -1,4 +1,5 @@
 import {
+  rampRuleEnvKey,
   stemRuleId,
   suffixRuleId,
   isMigrationSuffixedRuleId,
@@ -121,5 +122,57 @@ describe("ruleId helpers", () => {
     // Lock-test: nothing else in the codebase should split on `__`. If we
     // ever change the delimiter, it happens here and the test moves with it.
     expect(RULE_ID_ENV_SUFFIX_DELIMITER).toBe("__");
+  });
+});
+
+// The key must be INJECTIVE. A bare `:` join was not: feature ids permit `:` and rule
+// ids are an unconstrained client-supplied string, so a decoy target on a feature the
+// caller controls could collide with one it does not — the same last-write-wins
+// collision the environment component was added to close, through a different door.
+describe("rampRuleEnvKey", () => {
+  it("cannot be made ambiguous by a `:` in either id", () => {
+    expect(rampRuleEnvKey("a:b", "c", "dev")).not.toEqual(
+      rampRuleEnvKey("a", "b:c", "dev"),
+    );
+  });
+
+  it("still distinguishes the environment, which is the identity it carries", () => {
+    expect(rampRuleEnvKey("f", "r", "dev")).not.toEqual(
+      rampRuleEnvKey("f", "r", "production"),
+    );
+  });
+
+  it("treats a missing id and a missing environment as empty, not as each other", () => {
+    expect(rampRuleEnvKey("f", undefined, "dev")).not.toEqual(
+      rampRuleEnvKey("f", "dev", undefined),
+    );
+  });
+});
+
+// `encodeURIComponent` throws on a lone surrogate, and rule ids carry no charset
+// constraint — so a crafted id made the gate's key computation a 500 rather than a
+// decision. The fallback must stay injective and must not collide with normal keys.
+describe("rampRuleEnvKey with characters encodeURIComponent rejects", () => {
+  const LONE_SURROGATE = "\uD800";
+
+  it("does not throw", () => {
+    expect(() => rampRuleEnvKey("f", LONE_SURROGATE, "dev")).not.toThrow();
+  });
+
+  it("stays injective across the fallback", () => {
+    expect(rampRuleEnvKey("f", LONE_SURROGATE, "dev")).not.toEqual(
+      rampRuleEnvKey("f", LONE_SURROGATE, "production"),
+    );
+    expect(rampRuleEnvKey("a:b", LONE_SURROGATE, "dev")).not.toEqual(
+      rampRuleEnvKey("a", `b:${LONE_SURROGATE}`, "dev"),
+    );
+  });
+
+  it("cannot collide with a normally-encoded key", () => {
+    // The fallback starts with `[`, which encodeURIComponent always escapes.
+    expect(rampRuleEnvKey("f", LONE_SURROGATE, "dev")).not.toEqual(
+      rampRuleEnvKey("f", "r", "dev"),
+    );
+    expect(rampRuleEnvKey("f", "r", "dev").startsWith("[")).toBe(false);
   });
 });

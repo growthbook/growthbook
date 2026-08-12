@@ -443,7 +443,7 @@ export function validateScheduleUpdate({
 
 // Validate the scheduled-stop plan against the experiment and the end this update
 // is setting. Throws on hard config errors; returns soft warnings.
-export function validateScheduledStopPlan(
+function validateScheduledStopPlan(
   context: Context,
   experiment: Pick<ExperimentInterface, "variations" | "goalMetrics">,
   plan: ScheduledStopPlan,

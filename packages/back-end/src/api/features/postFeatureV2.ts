@@ -1,6 +1,10 @@
 import { validateFeatureValue, normalizeTargetingProjects } from "shared/util";
 import { postFeatureV2Validator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
+import {
+  getApiCreateEnabledEnvironments,
+  getEnabledEnvironments,
+} from "back-end/src/util/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerEmail,
@@ -8,7 +12,6 @@ import {
 } from "back-end/src/services/owner";
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
-import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
   addIdsToFlatRules,
   assertFeatureValuesValid,
@@ -40,7 +43,19 @@ import {
 
 export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
   async (req) => {
-    if (!req.context.permissions.canCreateFeature(req.body)) {
+    if (
+      !req.context.permissions.canCreateFeature(
+        req.body,
+        // The API body carries `environments`, not the stored
+        // `environmentSettings` shape getEnabledEnvironments reads. Resolved the
+        // same way the create itself resolves it, so an environment left out of
+        // the body but enabled by its `defaultState` still counts.
+        getApiCreateEnabledEnvironments(
+          getEnvironments(req.context.org),
+          req.body.environments,
+        ),
+      )
+    ) {
       req.context.permissions.throwPermissionError();
     }
 
@@ -79,9 +94,6 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     );
 
     const tags = req.body.tags || [];
-    if (tags.length > 0) {
-      await addTags(req.context.org.id, tags);
-    }
 
     const feature: FeatureInterface = {
       defaultValue: req.body.defaultValue ?? "",
@@ -182,7 +194,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     feature.jsonSchema = jsonSchema;
     // Always normalize; enforce the schema unless explicitly skipped.
     feature.defaultValue = validateFeatureValue(
-      req.context.skipSchemaValidation
+      req.context.canSkipSchemaValidationFor("feature")
         ? { ...feature, jsonSchema: undefined }
         : feature,
       feature.defaultValue,
@@ -200,18 +212,28 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       baseConfig: feature.baseConfig,
     });
 
-    if (
-      !req.context.permissions.canPublishFeature(
+    const enabledOnCreate = Array.from(
+      getEnabledEnvironments(
         feature,
-        Array.from(
-          getEnabledEnvironments(
-            feature,
-            orgEnvs.map((e) => e.id),
-          ),
-        ),
-      )
+        orgEnvs.map((e) => e.id),
+      ),
+    );
+    // The environments a new flag starts enabled in are its whole live footprint,
+    // so gating those on publish is the only control needed — and a flag enabling
+    // none is in no payload at all, leaving create authority sufficient. Approval
+    // doesn't apply: there's no prior state to review a new flag against.
+    if (
+      enabledOnCreate.length &&
+      !req.context.permissions.canPublishFeature(feature, enabledOnCreate)
     ) {
       req.context.permissions.throwPermissionError();
+    }
+
+    // AFTER every authorization: tags are a persistent org-level side effect, and
+    // writing them first meant a request that then 403'd had already mutated tag
+    // state — a rejected call must leave nothing behind.
+    if (tags.length > 0) {
+      await addTags(req.context.org.id, tags);
     }
 
     addIdsToFlatRules(feature.rules, feature.id);
