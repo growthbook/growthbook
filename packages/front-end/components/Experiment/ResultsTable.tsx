@@ -803,7 +803,7 @@ export default function ResultsTable({
                           {/* Render the main results tbody */}
                           <tbody
                             className={clsx("results-group-row", {
-                              "slice-row": row.isSliceRow,
+                              "child-row": row.isChildRow,
                               [styles.clickableRow]: !!effectiveOnRowClick,
                             })}
                             key={`${rowId}-tbody`}
@@ -1017,7 +1017,7 @@ export default function ResultsTable({
                                         {!compactResults ? (
                                           <div
                                             className={`d-flex align-items-center ml-2 ${
-                                              row.isSliceRow
+                                              row.isChildRow
                                                 ? "pl-4"
                                                 : dimension
                                                   ? "pl-2" // less padding because no expansion buttons

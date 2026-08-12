@@ -13,7 +13,7 @@ import {
   includeExperimentInPayload,
 } from "shared/util";
 import {
-  expandAllSliceMetricsInMap,
+  expandDerivedMetricsInMap,
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
   getAllVariations,
@@ -3484,9 +3484,9 @@ export async function postSnapshotAnalysis(
   const factTableMap = await getFactTableMap(context);
   const metricGroups = await context.models.metricGroups.getAll();
 
-  // Expand all slice metrics (auto and custom) and add them to the metricMap
-  // This ensures slice metrics are available when passed to the stats engine
-  expandAllSliceMetricsInMap({
+  // Expand all derived metrics (slices and funnel steps) into the metricMap
+  // This ensures they are available when passed to the stats engine
+  expandDerivedMetricsInMap({
     metricMap,
     factTableMap,
     experiment: experiment,

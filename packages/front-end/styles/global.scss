@@ -677,7 +677,7 @@ pre {
 .experiment-results,
 .bandit-summary-results {
   tbody {
-    &.slice-row {
+    &.child-row {
       background-color: var(--slate-a2);
     }
     tr {

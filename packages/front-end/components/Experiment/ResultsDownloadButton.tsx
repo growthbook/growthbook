@@ -6,6 +6,7 @@ import React, { useCallback, useMemo } from "react";
 import { FaFileExport } from "react-icons/fa";
 import { Parser } from "json2csv";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { getResultMetricDisplayName } from "@/services/experiments";
 
 type CsvRow = {
   date?: string;
@@ -68,33 +69,10 @@ export default function ResultsDownloadButton({
           const stats = variation.metrics[metricId];
           if (!stats) return;
 
-          // Get metric name from the metric ID
-          // For slice metrics, extract the base name and slice info
-          let metricName = metricId;
-          if (metricId.includes("?")) {
-            const baseMetricId = metricId.split("?")[0];
-            const baseMetric = getExperimentMetricById(baseMetricId);
-            if (baseMetric) {
-              // Extract slice info from the query string
-              const queryString = metricId.split("?")[1];
-              const params = new URLSearchParams(queryString);
-              const sliceParts: string[] = [];
-              for (const [key, value] of params.entries()) {
-                if (key.startsWith("dim:")) {
-                  const column = decodeURIComponent(key.substring(4));
-                  const level =
-                    value === "" ? "other" : decodeURIComponent(value);
-                  sliceParts.push(`${column}: ${level}`);
-                }
-              }
-              metricName = `${baseMetric.name} (${sliceParts.join(", ")})`;
-            }
-          } else {
-            const metric = getExperimentMetricById(metricId);
-            if (metric) {
-              metricName = metric.name;
-            }
-          }
+          const metricName = getResultMetricDisplayName(
+            metricId,
+            getExperimentMetricById,
+          );
 
           csvRows.push({
             ...(dimensionName && { [dimensionName]: result.name }),
