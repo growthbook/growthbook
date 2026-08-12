@@ -215,10 +215,7 @@ export default function FeatureModal({
     !!defaultValues.description?.length,
   );
   const [showTags, setShowTags] = useState(!!defaultValues.tags?.length);
-  // A config-backed flag's default falls back to its chosen base Config, so its
-  // (optional, descendant-picking) value field is progressively disclosed behind
-  // a link. Plain flags always show the field — see the render below.
-  const [showDefaultValue, setShowDefaultValue] = useState(false);
+  const [showConfigDefaultValue, setShowConfigDefaultValue] = useState(false);
 
   const form = useForm({ defaultValues });
 
@@ -569,15 +566,12 @@ export default function FeatureModal({
           decision of which rule to display (out of potentially many) in the
           modal is not deterministic.
         */}
-        {/* Config-backed flags default to the chosen base Config, so the value
-            field (which only refines to a descendant) is disclosed behind a link.
-            Plain flags always show it. */}
         {!featureToDuplicate &&
           valueType &&
           configType &&
-          !showDefaultValue && (
+          !showConfigDefaultValue && (
             <Box mb="5">
-              <Link onClick={() => setShowDefaultValue(true)}>
+              <Link onClick={() => setShowConfigDefaultValue(true)}>
                 + Choose default Config
               </Link>
             </Box>
@@ -585,7 +579,7 @@ export default function FeatureModal({
 
         {!featureToDuplicate &&
           valueType &&
-          (!configType || showDefaultValue) && (
+          (!configType || showConfigDefaultValue) && (
             <FeatureValueField
               label={
                 <>

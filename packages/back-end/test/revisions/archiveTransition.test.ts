@@ -279,8 +279,8 @@ describe("canLandEntityUpdate", () => {
     allowed: string[],
   ): Pick<Permissions, "canRevisionAction"> {
     return {
-      canRevisionAction: (...args) =>
-        (args[3] ?? []).every((environment) => allowed.includes(environment)),
+      canRevisionAction: (model, action, entity, environments = []) =>
+        environments.every((environment) => allowed.includes(environment)),
     };
   }
 
