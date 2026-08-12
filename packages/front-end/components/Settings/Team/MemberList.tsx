@@ -245,11 +245,11 @@ const MemberList: FC<{
                   <TableCell>{member.name}</TableCell>
                   <TableCell>
                     <Flex align="center" gap="2">
-                      {member.managedByIdp ? (
+                      {member.managedByIdp && (
                         <Tooltip body="This user is managed by an external identity provider.">
                           <RxIdCard className="text-blue" />
                         </Tooltip>
-                      ) : null}
+                      )}
                       {member.email}
                     </Flex>
                   </TableCell>
@@ -335,9 +335,7 @@ const MemberList: FC<{
                     );
                   })}
 
-                  <TableCell>
-                    {member.teams ? member.teams.length : 0}
-                  </TableCell>
+                  <TableCell>{member.teams?.length ?? 0}</TableCell>
 
                   <TableCell>
                     {member.id !== userId && (
@@ -400,7 +398,7 @@ const MemberList: FC<{
                                   <>
                                     Are you sure you want to remove{" "}
                                     {member.email}?
-                                    {member.managedByIdp ? (
+                                    {member.managedByIdp && (
                                       <Callout status="warning" mt="2">
                                         <Flex direction="column" gap="2">
                                           <Text weight="semibold" size="md">
@@ -421,7 +419,7 @@ const MemberList: FC<{
                                           </span>
                                         </Flex>
                                       </Callout>
-                                    ) : null}
+                                    )}
                                   </>
                                 ),
                               }}

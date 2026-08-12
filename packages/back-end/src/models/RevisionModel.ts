@@ -670,7 +670,6 @@ export class RevisionModel extends BaseClass {
     );
   }
 
-  // Paginated revision listing (the org-level inbox).
   async getAllPaginated(
     opts: {
       status?: string | string[];

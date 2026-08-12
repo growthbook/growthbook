@@ -65,7 +65,6 @@ import {
   withBufferedPayloadRefreshes,
 } from "back-end/src/revisions/landingSequence";
 
-// Actions the generic revision controller dispatches to adapter hooks.
 export type RevisionActionKind =
   | "draft"
   | "review"
@@ -443,10 +442,7 @@ export async function assertCanPublishRevision(
     snapshot,
   );
 
-  // The move-destination side answers over the DESTINATION's served
-  // environments, not the source's: an environment scoped to the destination
-  // project is absent from the source footprint, so reusing it would skip the
-  // check there (a move+unarchive into a production-served project).
+  // Destination authority includes environments absent from the source scope.
   const destinationSnapshot = {
     ...snapshot,
     ...proposedProjectScope(revision.target.proposedChanges),
@@ -461,8 +457,6 @@ export async function assertCanPublishRevision(
     destinationSnapshot,
   );
 
-  // Computed once: the landing exemption below and the move-destination check
-  // both need it, and it reads the reverted-from revision.
   const pureRevert = await isPureRevertRevision(context, revision);
 
   await assertCanLandRevision({

@@ -115,10 +115,7 @@ export class ConstantModel extends BaseClass {
       model: "constant",
       existing,
       newDoc,
-      // An archived flip reaches everywhere the Constant serves, and a base
-      // Constant binds no environments — which SKIPS the env check instead of
-      // narrowing it. Derive the footprint from newDoc so a move+unarchive
-      // answers for the DESTINATION's served environments. Mirrors ConfigModel.
+      // Archive flips use the destination serving scope for environment checks.
       environments:
         !!existing.archived !== !!newDoc.archived
           ? archiveServeFootprint(this.context, newDoc)

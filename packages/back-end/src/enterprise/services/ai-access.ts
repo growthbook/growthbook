@@ -47,7 +47,6 @@ async function assertAIUsageCap(
   }
 }
 
-/** Enforces plan, AI-enabled, and provider-specific usage gates. */
 export async function assertAIAccess(
   context: ReqContext,
   target: AIUsageTarget = {},

@@ -51,12 +51,12 @@ export default function RoleList() {
                     <Link href={`/settings/role/${r.id}`}>
                       {getRoleDisplayName(r.id, organization)}
                     </Link>
-                    {isCustom ? (
+                    {isCustom && (
                       <Badge label="Custom" color="violet" variant="soft" />
-                    ) : null}
-                    {isDeactivated ? (
+                    )}
+                    {isDeactivated && (
                       <Badge label="Deactivated" color="gray" variant="soft" />
-                    ) : null}
+                    )}
                   </Flex>
                 </TableCell>
                 <TableCell>{r.description}</TableCell>

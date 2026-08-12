@@ -74,7 +74,7 @@ const TeamsList: FC = () => {
                 >
                   <TableCell>
                     <Link href={`/settings/team/${t.id}`}>{t.name}</Link>
-                    {t.managedBy?.type ? (
+                    {t.managedBy?.type && (
                       <div>
                         <Badge
                           label={`Managed by ${capitalizeFirstLetter(
@@ -82,7 +82,7 @@ const TeamsList: FC = () => {
                           )}`}
                         />
                       </div>
-                    ) : null}
+                    )}
                   </TableCell>
                   <TableCell className="text-gray" style={{ fontSize: 12 }}>
                     {t.description}
@@ -90,22 +90,21 @@ const TeamsList: FC = () => {
                   <TableCell>{date(t.dateUpdated)}</TableCell>
                   <TableCell>{t.role}</TableCell>
                   <TableCell>
-                    {t.projectRoles &&
-                      t.projectRoles.map((pr) => {
-                        const p = projects.find((p) => p.id === pr.project);
-                        if (p?.name) {
-                          return (
-                            <div key={`project-tags-${p.id}`}>
-                              <ProjectBadges
-                                resourceType="team"
-                                projectIds={[p.id]}
-                              />{" "}
-                              — {pr.role}
-                            </div>
-                          );
-                        }
-                        return null;
-                      })}
+                    {t.projectRoles?.map((pr) => {
+                      const p = projects.find((p) => p.id === pr.project);
+                      if (p?.name) {
+                        return (
+                          <div key={`project-tags-${p.id}`}>
+                            <ProjectBadges
+                              resourceType="team"
+                              projectIds={[p.id]}
+                            />{" "}
+                            — {pr.role}
+                          </div>
+                        );
+                      }
+                      return null;
+                    })}
                   </TableCell>
                   {environments.map((env) => {
                     const access = memberEnvAccess(t, env, organization, "");
@@ -121,7 +120,7 @@ const TeamsList: FC = () => {
                       </TableCell>
                     );
                   })}
-                  <TableCell>{t.members ? t.members.length : 0}</TableCell>
+                  <TableCell>{t.members?.length ?? 0}</TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     {canManageTeam && !teamIsExternallyManaged ? (
                       <DropdownMenu

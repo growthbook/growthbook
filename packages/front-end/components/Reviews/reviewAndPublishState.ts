@@ -1,7 +1,5 @@
 import type { RevisionStatus } from "shared/validators";
 
-// Shared CTA state machine for feature and generic revisions.
-
 export type RnPMode = "fix-conflicts" | "main";
 
 // What the primary CTA does when clicked.

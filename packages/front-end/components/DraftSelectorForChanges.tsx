@@ -3,7 +3,6 @@ import DraftSelector, { DraftMode } from "@/components/DraftSelector";
 
 export type { DraftMode };
 
-/** Shared publish-or-draft selector behavior for revisioned entities. */
 export default function DraftSelectorForChanges<K>({
   activeDraftKeys: allActiveDraftKeys,
   writableDraftKeys,

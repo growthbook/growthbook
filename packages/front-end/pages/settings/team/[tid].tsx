@@ -62,7 +62,7 @@ const TeamPage: FC = () => {
     );
   }
 
-  const memberCount = team.members ? team.members.length : 0;
+  const memberCount = team.members?.length ?? 0;
 
   return (
     <>
@@ -108,13 +108,13 @@ const TeamPage: FC = () => {
             <Heading as="h1" size="xl" mb="0" overflowWrap="anywhere">
               {team.name}
             </Heading>
-            {team.managedBy?.type ? (
+            {team.managedBy?.type && (
               <Badge
                 label={`Managed by ${capitalizeFirstLetter(
                   team.managedBy.type,
                 )}`}
               />
-            ) : null}
+            )}
           </Flex>
           <Flex align="center" gap="4" flexShrink="0">
             <Button
@@ -159,7 +159,7 @@ const TeamPage: FC = () => {
             <Tooltip
               body={
                 <>
-                  Project <code>{team?.defaultProject}</code> not found
+                  Project <code>{team.defaultProject}</code> not found
                 </>
               }
             >

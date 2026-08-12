@@ -4,19 +4,6 @@ import type { OrganizationInterface } from "shared/types/organization";
 import { postSubmit } from "back-end/src/routers/revision/revision.controller";
 import { setupApp } from "../api/api.setup";
 
-/**
- * Submitting an ARMED revision for review UNARMED cancels its deferred publish
- * (submitForReview applies CLEARED_SCHEDULE). That is a schedule transition, and
- * schedule subscribers watch `publishScheduleChanged`, not `reviewRequested` — so
- * a cancellation that fires only `reviewRequested` leaves them holding a schedule
- * the server has already dropped. The dispatch is a single conditional the type
- * checker is happy with either way, so it regresses silently.
- *
- * The negative control (unarmed → unarmed submit) pins the other direction: a fix
- * that just fired `publishScheduleChanged` on every submit would pass the first
- * case and spam consumers on plain submits.
- */
-
 const dispatch = jest.fn();
 jest.mock("back-end/src/events/revisionWebhookAdapters", () => ({
   ...jest.requireActual("back-end/src/events/revisionWebhookAdapters"),
@@ -60,7 +47,6 @@ describe("submitting unarmed cancels a schedule and signals it", () => {
     return { res, captured };
   };
 
-  // Unarmed submit: no schedule fields in the body.
   const req = () =>
     ({
       params: { id: REV_ID },
@@ -73,7 +59,6 @@ describe("submitting unarmed cancels a schedule and signals it", () => {
       headers: {},
     }) as never;
 
-  // `armed` seeds the deferred-publish fields that submitForReview will clear.
   const seed = async (armed: boolean) => {
     for (const c of ["revisions", "constants"]) {
       await mongoose.connection
@@ -104,7 +89,6 @@ describe("submitting unarmed cancels a schedule and signals it", () => {
       ...(armed
         ? {
             autoPublishOnApproval: true,
-            // A day out, so the arm is a real dated schedule, not just the flag.
             scheduledPublishAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
           }
         : {}),

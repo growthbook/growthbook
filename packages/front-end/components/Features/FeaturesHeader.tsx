@@ -216,16 +216,8 @@ export default function FeaturesHeader({
     { project: projectId },
     NO_ENVIRONMENT_BINDING,
   );
-  // Live state, not the viewed revision's: a draft staging an archive must not
-  // make the page claim the flag is already out of service.
+  // Archive controls use live state, not the viewed draft projection.
   const isArchived = baseFeature.archived;
-  // Archiving is scoped to the environments the flag serves in. Deleting is
-  // not: it is only reachable once archived, when there is no footprint left.
-  //
-  // Measured on the LIVE flag, like `isArchived` above and like the endpoint's
-  // `getArchiveFootprint`. `feature` here is the draft projection, so a draft staging a
-  // project move or an environment toggle had these asking about a state that is not
-  // what the archive would act on.
   const liveArchiveEnvs = getEnabledEnvironments(
     baseFeature,
     filterEnvironmentsByFeature(allEnvironments, baseFeature),
@@ -238,17 +230,10 @@ export default function FeaturesHeader({
     baseFeature,
     NO_ENVIRONMENT_BINDING,
   );
-  // Archiving carries delete authority; unarchiving is an ordinary publish.
-  // A draft author without either can still stage the flip.
-  //
-  // Both arms read the LIVE flag over the archive footprint: the general `canPublish`
-  // above is the draft projection's, so a draft moving projects or toggling an
-  // environment answered the unarchive question about a state the flip never touches.
   const canUnarchive = permissionsUtil.canPublishFeature(
     baseFeature,
     liveArchiveEnvs,
   );
-  // Stage against live state; archiving may use delete authority.
   const canToggleArchive =
     (isArchived ? canUnarchive : canArchive) ||
     canStageArchiveDraft({

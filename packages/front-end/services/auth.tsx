@@ -723,8 +723,6 @@ export function roleHasAccessToEnv(
   env: string,
   org: Partial<OrganizationInterface>,
 ): "yes" | "no" | "N/A" {
-  // Admins and project admins have full, unconditional access to every
-  // environment, so show a check rather than "N/A".
   if (role.role === "admin" || role.role === "gbDefault_projectAdmin") {
     return "yes";
   }
@@ -738,30 +736,17 @@ export function roleHasAccessToEnv(
   return "no";
 }
 
-// A principal (member, invite, or team) whose access we can resolve across
-// projects: a base role plus any per-project role overrides.
 type EnvAccessPrincipal = MemberRoleInfo & {
   projectRoles?: (MemberRoleInfo & { project: string })[];
 };
 
-/**
- * Resolves a principal's access to an environment, accounting for BOTH scoping
- * dimensions — the environment's own project restriction (`env.projects`) and
- * the principal's per-project roles.
- *
- * - A specific `project` is selected: an environment restricted to other
- *   projects is "N/A" (it doesn't exist here); otherwise the principal's
- *   effective role in that project decides.
- * - "All Projects" (`project` is ""): union across the base role and every
- *   project role whose project the environment covers — a "yes" anywhere wins.
- */
+/** Resolves effective environment access for one project or across all projects. */
 export function memberEnvAccess(
   principal: EnvAccessPrincipal,
   environment: { id: string; projects?: string[] },
   org: Partial<OrganizationInterface>,
   project: string,
 ): "yes" | "no" | "N/A" {
-  // Empty/absent list means the environment applies to every project.
   const envProjects = environment.projects?.length
     ? environment.projects
     : null;
@@ -774,8 +759,6 @@ export function memberEnvAccess(
     return roleHasAccessToEnv(projectRole ?? principal, environment.id, org);
   }
 
-  // The base role covers every project; project roles only count where the
-  // environment applies.
   const results: ("yes" | "no" | "N/A")[] = [
     roleHasAccessToEnv(principal, environment.id, org),
   ];

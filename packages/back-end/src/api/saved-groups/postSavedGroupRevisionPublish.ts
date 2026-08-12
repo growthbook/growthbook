@@ -137,10 +137,6 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
 
   const isBypass = approvalRequired && revision.status !== "approved";
 
-  // A projects move (including a clear to global) lands content in the
-  // destination, so it takes edit rights on the resulting doc AND publish
-  // authority there. Saved Groups carry no environment footprint, so the
-  // destination check is project-scoped.
   const destination = {
     ...(savedGroup as unknown as Record<string, unknown>),
     ...desiredState,

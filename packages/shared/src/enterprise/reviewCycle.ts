@@ -1,9 +1,3 @@
-/**
- * Monotonic identity for a review round, preventing stale verdicts from
- * applying after recall and resubmission.
- */
-
-/** Statuses in which a review cycle is open. */
 export const REVIEW_CYCLE_STATUSES = [
   "pending-review",
   "changes-requested",

@@ -304,13 +304,7 @@ export default function EditSavedGroupPage() {
       )
     : false;
 
-  // Archiving is delete-class server-side — it takes the group out of service,
-  // and being archived is what allows deleting it. Unarchiving returns it to
-  // service, so it's an ordinary publish. Either authority is enough: the
-  // landing atom stands on its own for a pure archive, and someone without it
-  // can still stage the flip as a draft.
-  // LIVE state, matching the endpoint and the modal — the projected state inverts
-  // the menu label and the atom whenever the viewed draft stages the opposite flip.
+  // Archive controls use live state and allow either landing or draft authority.
   const isArchivedInView = !!savedGroup?.archived;
   const canToggleArchive =
     !!savedGroup &&

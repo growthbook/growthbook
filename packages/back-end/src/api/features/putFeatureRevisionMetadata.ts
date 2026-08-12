@@ -64,10 +64,7 @@ export async function setRevisionMetadata(
       ]);
     }
 
-    // Staging a move publishes nothing, so it answers for the destination
-    // project as a draft, not a publish (source draft is checked above).
-    // Landing re-checks publish in the destination via
-    // assertCanPublishFeatureRevision.
+    // Draft moves require draft authority in the destination.
     if (
       !holdsMoveDestination({
         permissions: context.permissions,

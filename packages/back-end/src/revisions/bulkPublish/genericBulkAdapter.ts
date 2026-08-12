@@ -46,7 +46,6 @@ function toRef(revision: Revision): BulkRevisionRef {
   };
 }
 
-// Adapts generic RevisionModel entities while allowing entity-specific plan gates.
 export function makeGenericBulkAdapter(
   targetType: RevisionTargetType,
   adapter: EntityRevisionAdapter,

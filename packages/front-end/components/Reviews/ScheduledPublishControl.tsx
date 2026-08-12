@@ -51,7 +51,6 @@ function getLockTargets(
   return lockEdits ? "this draft" : "";
 }
 
-// Shared auto-publish and scheduling control for revision flows.
 export default function ScheduledPublishControl({
   revision,
   pending,

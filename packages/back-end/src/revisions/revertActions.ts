@@ -40,11 +40,6 @@ export function revertTargetState(
   ) as Record<string, unknown>;
 }
 
-/**
- * Resolve the strategy the way every surface documents it: a draft unless the org
- * enables "reverts bypass approval", which makes an immediate publish the default.
- * Callers pass the requested strategy through verbatim.
- */
 export function resolveRevertStrategy(
   requested: RevertStrategy | undefined,
   revertsBypassApproval: boolean,
@@ -336,7 +331,6 @@ export async function landDirectChange<T>({
   });
 }
 
-/** Land a revert: `landDirectChange` with the adapter's apply and revert provenance. */
 async function applyRevertDirectly({
   context,
   entityType,

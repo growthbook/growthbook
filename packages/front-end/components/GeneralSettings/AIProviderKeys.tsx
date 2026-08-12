@@ -379,7 +379,6 @@ export default function AIProviderKeys({
 
   if (isLoading && !loaded) return null;
 
-  // Show configured providers and the row currently being added.
   const visibleProviders = AI_PROVIDERS.filter(
     (p) =>
       configured.has(p) ||

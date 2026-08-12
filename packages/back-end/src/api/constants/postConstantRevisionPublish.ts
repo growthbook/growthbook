@@ -127,8 +127,6 @@ export const postConstantRevisionPublish = createApiRequestHandler(
 
   const isBypass = approvalRequired && revision.status !== "approved";
 
-  // The state this publish would land, used below to authorize a relocation
-  // into the destination project.
   const destination = {
     ...(constant as unknown as Record<string, unknown>),
     ...desiredState,

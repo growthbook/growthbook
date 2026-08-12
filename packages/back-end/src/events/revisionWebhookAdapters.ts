@@ -117,14 +117,12 @@ export interface RevisionWebhookAdapter {
   ): Promise<void>;
 }
 
-// Plug in a new approval type's webhook events here.
 const registry: Partial<Record<RevisionTargetType, RevisionWebhookAdapter>> = {
   "saved-group": { dispatch: dispatchSavedGroupRevisionEvent },
   constant: { dispatch: dispatchConstantRevisionEvent },
   config: { dispatch: dispatchConfigRevisionEvent },
 };
 
-/** Return the webhook adapter for the given entity type, if one is registered. */
 export function getRevisionWebhookAdapter(
   type: RevisionTargetType,
 ): RevisionWebhookAdapter | undefined {

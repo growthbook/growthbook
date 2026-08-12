@@ -407,25 +407,15 @@ export const putConstant = async (
     fieldsToUpdate.project = project;
   }
   if (hasChanged(archived, comparisonBase.archived)) {
-    // Compared against the LIVE state, so a caller writing back a full object
-    // isn't gated for a no-op.
+    // Gate only live-state transitions.
     if (!!archived !== !!existing.archived) {
-      // Archiving is delete-class and unarchiving is an ordinary publish — but
-      // that is the rule for LANDING the flip, and this handler also stages it
-      // into a draft.
       const canLand = canLandArchivedState({
         permissions: context.permissions,
         model: "constant",
         entity: existing,
         archived: !!archived,
-        // Serve footprint — see the adapter's archive arm.
         environments: archiveServeFootprint(context, existing),
       });
-      // Staging publishes nothing, so it asks the project-scoped question — the
-      // same `canStageArchiveDraft` the REST twin (putConstantRevisionArchive)
-      // and the features controller use. Landing stays gated by `willPublish`
-      // below, so a stage-only caller gets the draft and is still refused the
-      // publish.
       const canStage =
         canLand ||
         canStageArchiveDraft({

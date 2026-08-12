@@ -1,8 +1,6 @@
 import { Revision } from "shared/enterprise";
 import { RevisionLog } from "shared/types/feature-revision";
 
-// Maps generic revision reviews and activity into RevisionTimeline logs.
-
 type ResolveUser = (id: string) => { name?: string; email?: string };
 
 const ACTIVITY_ACTION_MAP: Record<string, string> = {
