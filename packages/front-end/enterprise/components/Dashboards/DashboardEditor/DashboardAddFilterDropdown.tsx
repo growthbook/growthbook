@@ -22,6 +22,7 @@ const UNAVAILABLE_REASON: Record<
   (typeof DASHBOARD_OPTIONAL_FILTERS)[number]["requires"],
   string
 > = {
+  projects: "Add a block that includes experiments to use this filter",
   experimentSearchString:
     "Add a block that includes experiments to use this filter",
 };
@@ -37,6 +38,7 @@ interface Props {
   visibleKeys: DashboardOptionalFilterKey[];
   // Which requirements the current blocks satisfy.
   applicability: {
+    projects: boolean;
     experimentSearchString: boolean;
   };
   disabled?: boolean;

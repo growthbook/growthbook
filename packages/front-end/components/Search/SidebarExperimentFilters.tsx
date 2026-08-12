@@ -197,8 +197,7 @@ const SidebarExperimentFilters: FC<Props> = ({
         })),
       });
     }
-    // Distinguished from a block's own calculation metric, which sits directly
-    // above this panel in the dashboard block sidebars.
+    // Distinguished from the block's own calculation metric, directly above.
     add({ key: "metric", heading: "Includes metric", items: metricItems });
     add({ key: "is", heading: "Result", items: resultItems });
     add({

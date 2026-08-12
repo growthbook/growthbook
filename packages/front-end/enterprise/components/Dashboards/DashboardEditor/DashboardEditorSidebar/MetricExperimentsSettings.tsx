@@ -69,25 +69,30 @@ export default function MetricExperimentsSettings({
   const [columnsOpen, setColumnsOpen] = useState(false);
 
   // A field inherits only if the block opted in AND the dashboard has a value.
+  const projectsSet = globalFilterIsSet(dashboardGlobalControls, "projects");
   const searchSet = globalFilterIsSet(
     dashboardGlobalControls,
     "experimentSearchString",
   );
 
+  const projectsInherited =
+    blockUsesGlobalFilter(block, "projects") && projectsSet;
   const searchInherited =
     blockUsesGlobalFilter(block, "experimentSearchString") && searchSet;
 
   // Keys in `claim` stop following the dashboard in the same update as the patch.
   const patchBlock = (
     patch: Partial<MetricExperimentsBlockInterface>,
-    claim: "experimentSearchString"[] = [],
+    claim: ("projects" | "experimentSearchString")[] = [],
   ) =>
     setBlock(
       withBlockGlobalFilterFollowing({ ...block, ...patch }, claim, false),
     );
 
-  const revert = (key: "experimentSearchString") =>
+  const revert = (key: "projects" | "experimentSearchString") =>
     setBlock(withBlockGlobalFilterFollowing(block, [key], true));
+
+  const dashboardProjects = dashboardGlobalControls?.projects ?? [];
 
   const projectOptions = (
     projects.length > 0
@@ -95,11 +100,7 @@ export default function MetricExperimentsSettings({
       : allProjects
   ).map((p) => ({ label: p.name, value: p.id }));
 
-  // While the block follows the dashboard's experiment filters, the dashboard's
-  // `project:` token is the only project scope applied (getEffectiveExperimentBlock
-  // clears the block's own list), so show this field empty and disabled rather
-  // than displaying a value that isn't in play.
-  const projectsValue = searchInherited ? [] : block.projects;
+  const projectsValue = projectsInherited ? dashboardProjects : block.projects;
 
   const resolvedColumns = resolveMetricExperimentColumns(
     block.columns,
@@ -178,9 +179,7 @@ export default function MetricExperimentsSettings({
 
   return (
     <Flex direction="column" gap="5">
-      {/* The metric this block reports lift for — always the block's own, never
-          a dashboard filter. The dashboard Metric pill filters which experiments
-          appear; it does not change what is calculated. */}
+      {/* What this block calculates, not a filter — always the block's own. */}
       <SidebarSettingField label="Metric">
         <MetricSelector
           containerClassName="mb-0"
@@ -207,15 +206,25 @@ export default function MetricExperimentsSettings({
         sort={false}
       />
 
-      <SidebarSettingField label="Projects">
+      <SidebarSettingField
+        label="Projects"
+        accessory={
+          projectsSet ? (
+            <DashboardFilterInheritTag
+              label="Projects"
+              inherited={projectsInherited}
+              onRevert={() => revert("projects")}
+            />
+          ) : undefined
+        }
+      >
         <MultiSelectField
           value={projectsValue}
           options={projectOptions}
-          onChange={(v) => patchBlock({ projects: v })}
-          disabled={searchInherited}
-          placeholder={
-            searchInherited ? "Set by dashboard filters" : "All projects"
+          onChange={(v) =>
+            patchBlock({ projects: v }, projectsInherited ? ["projects"] : [])
           }
+          placeholder="All projects"
         />
       </SidebarSettingField>
 

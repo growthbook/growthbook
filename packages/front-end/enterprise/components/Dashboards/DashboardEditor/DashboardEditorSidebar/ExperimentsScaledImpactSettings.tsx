@@ -27,9 +27,7 @@ export default function ExperimentsScaledImpactSettings({
 }: Props) {
   return (
     <Flex direction="column" gap="5">
-      {/* The metric this block scales impact for — always the block's own, never
-          a dashboard filter. The dashboard Metric pill filters which experiments
-          appear; it does not change what is calculated. */}
+      {/* What this block calculates, not a filter — always the block's own. */}
       <SidebarSettingField label="Metric">
         <MetricSelector
           value={block.metricId}

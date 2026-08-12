@@ -219,23 +219,19 @@ const legacyExperimentMetricBlockInterface = experimentMetricBlockInterface
     sliceTagsFilter: z.array(z.string()).nullable().optional(),
   });
 
-// Per-block opt-in for each dashboard-wide global filter. `true` means the block
-// follows the dashboard filter; `false` means the user opted out; `undefined`
-// means "not yet decided" and is auto-enrolled the first time the corresponding
-// filter is enabled.
-//
-// Date range is the only filter exploration blocks can follow.
+// Per-block opt-in for each dashboard-wide global filter. `true` follows the
+// dashboard, `false` is an explicit opt-out, `undefined` is undecided and gets
+// auto-enrolled the first time that filter is enabled.
 const explorationGlobalControlSettingsValidator = z
   .object({ dateRange: z.boolean().optional() })
   .strict();
 
-// Experiment blocks add the experiment-only filters on top. Experiments with
-// Lift never follows `dateRange` (it has its own phase-date windows), but the
-// flag stays in the shape — support is enforced per block type in
+// Which block type actually honors which flag lives in
 // EXPERIMENT_BLOCK_FILTER_SUPPORT.
 const experimentGlobalControlSettingsValidator =
   explorationGlobalControlSettingsValidator
     .extend({
+      projects: z.boolean().optional(),
       experimentSearchString: z.boolean().optional(),
     })
     .strict();
