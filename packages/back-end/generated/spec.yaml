@@ -33007,8 +33007,6 @@ paths:
                       type: array
                       items:
                         type: string
-                    metricId:
-                      type: string
                     experimentSearchString:
                       type: string
                   additionalProperties: false
@@ -33373,8 +33371,6 @@ paths:
                                     type: boolean
                                   projects:
                                     type: boolean
-                                  metricId:
-                                    type: boolean
                                   experimentSearchString:
                                     type: boolean
                                 additionalProperties: false
@@ -33530,8 +33526,6 @@ paths:
                                   dateRange:
                                     type: boolean
                                   projects:
-                                    type: boolean
-                                  metricId:
                                     type: boolean
                                   experimentSearchString:
                                     type: boolean
@@ -33689,8 +33683,6 @@ paths:
                                     type: boolean
                                   projects:
                                     type: boolean
-                                  metricId:
-                                    type: boolean
                                   experimentSearchString:
                                     type: boolean
                                 additionalProperties: false
@@ -33846,8 +33838,6 @@ paths:
                                   dateRange:
                                     type: boolean
                                   projects:
-                                    type: boolean
-                                  metricId:
                                     type: boolean
                                   experimentSearchString:
                                     type: boolean
@@ -34426,12 +34416,6 @@ paths:
                                 properties:
                                   dateRange:
                                     type: boolean
-                                  projects:
-                                    type: boolean
-                                  metricId:
-                                    type: boolean
-                                  experimentSearchString:
-                                    type: boolean
                                 additionalProperties: false
                               config:
                                 type: object
@@ -34803,12 +34787,6 @@ paths:
                                 type: object
                                 properties:
                                   dateRange:
-                                    type: boolean
-                                  projects:
-                                    type: boolean
-                                  metricId:
-                                    type: boolean
-                                  experimentSearchString:
                                     type: boolean
                                 additionalProperties: false
                               config:
@@ -35190,12 +35168,6 @@ paths:
                                 type: object
                                 properties:
                                   dateRange:
-                                    type: boolean
-                                  projects:
-                                    type: boolean
-                                  metricId:
-                                    type: boolean
-                                  experimentSearchString:
                                     type: boolean
                                 additionalProperties: false
                               config:
@@ -36051,8 +36023,6 @@ paths:
                                     type: boolean
                                   projects:
                                     type: boolean
-                                  metricId:
-                                    type: boolean
                                   experimentSearchString:
                                     type: boolean
                                 additionalProperties: false
@@ -36217,8 +36187,6 @@ paths:
                                   dateRange:
                                     type: boolean
                                   projects:
-                                    type: boolean
-                                  metricId:
                                     type: boolean
                                   experimentSearchString:
                                     type: boolean
@@ -36385,8 +36353,6 @@ paths:
                                     type: boolean
                                   projects:
                                     type: boolean
-                                  metricId:
-                                    type: boolean
                                   experimentSearchString:
                                     type: boolean
                                 additionalProperties: false
@@ -36551,8 +36517,6 @@ paths:
                                   dateRange:
                                     type: boolean
                                   projects:
-                                    type: boolean
-                                  metricId:
                                     type: boolean
                                   experimentSearchString:
                                     type: boolean
@@ -37019,12 +36983,6 @@ paths:
                                 properties:
                                   dateRange:
                                     type: boolean
-                                  projects:
-                                    type: boolean
-                                  metricId:
-                                    type: boolean
-                                  experimentSearchString:
-                                    type: boolean
                                 additionalProperties: false
                               config:
                                 type: object
@@ -37405,12 +37363,6 @@ paths:
                                 type: object
                                 properties:
                                   dateRange:
-                                    type: boolean
-                                  projects:
-                                    type: boolean
-                                  metricId:
-                                    type: boolean
-                                  experimentSearchString:
                                     type: boolean
                                 additionalProperties: false
                               config:
@@ -37801,12 +37753,6 @@ paths:
                                 type: object
                                 properties:
                                   dateRange:
-                                    type: boolean
-                                  projects:
-                                    type: boolean
-                                  metricId:
-                                    type: boolean
-                                  experimentSearchString:
                                     type: boolean
                                 additionalProperties: false
                               config:
@@ -38214,12 +38160,6 @@ paths:
                                 type: object
                                 properties:
                                   dateRange:
-                                    type: boolean
-                                  projects:
-                                    type: boolean
-                                  metricId:
-                                    type: boolean
-                                  experimentSearchString:
                                     type: boolean
                                 additionalProperties: false
                               config:
@@ -38668,8 +38608,6 @@ paths:
                       type: array
                       items:
                         type: string
-                    metricId:
-                      type: string
                     experimentSearchString:
                       type: string
                   additionalProperties: false
@@ -39033,8 +38971,6 @@ paths:
                                 type: boolean
                               projects:
                                 type: boolean
-                              metricId:
-                                type: boolean
                               experimentSearchString:
                                 type: boolean
                             additionalProperties: false
@@ -39190,8 +39126,6 @@ paths:
                               dateRange:
                                 type: boolean
                               projects:
-                                type: boolean
-                              metricId:
                                 type: boolean
                               experimentSearchString:
                                 type: boolean
@@ -39349,8 +39283,6 @@ paths:
                                 type: boolean
                               projects:
                                 type: boolean
-                              metricId:
-                                type: boolean
                               experimentSearchString:
                                 type: boolean
                             additionalProperties: false
@@ -39506,8 +39438,6 @@ paths:
                               dateRange:
                                 type: boolean
                               projects:
-                                type: boolean
-                              metricId:
                                 type: boolean
                               experimentSearchString:
                                 type: boolean
@@ -40086,12 +40016,6 @@ paths:
                             properties:
                               dateRange:
                                 type: boolean
-                              projects:
-                                type: boolean
-                              metricId:
-                                type: boolean
-                              experimentSearchString:
-                                type: boolean
                             additionalProperties: false
                           config:
                             type: object
@@ -40463,12 +40387,6 @@ paths:
                             type: object
                             properties:
                               dateRange:
-                                type: boolean
-                              projects:
-                                type: boolean
-                              metricId:
-                                type: boolean
-                              experimentSearchString:
                                 type: boolean
                             additionalProperties: false
                           config:
@@ -40850,12 +40768,6 @@ paths:
                             type: object
                             properties:
                               dateRange:
-                                type: boolean
-                              projects:
-                                type: boolean
-                              metricId:
-                                type: boolean
-                              experimentSearchString:
                                 type: boolean
                             additionalProperties: false
                           config:
@@ -58890,8 +58802,6 @@ components:
               type: array
               items:
                 type: string
-            metricId:
-              type: string
             experimentSearchString:
               type: string
           additionalProperties: false
@@ -59541,8 +59451,6 @@ components:
                         type: boolean
                       projects:
                         type: boolean
-                      metricId:
-                        type: boolean
                       experimentSearchString:
                         type: boolean
                     additionalProperties: false
@@ -59707,8 +59615,6 @@ components:
                       dateRange:
                         type: boolean
                       projects:
-                        type: boolean
-                      metricId:
                         type: boolean
                       experimentSearchString:
                         type: boolean
@@ -59875,8 +59781,6 @@ components:
                         type: boolean
                       projects:
                         type: boolean
-                      metricId:
-                        type: boolean
                       experimentSearchString:
                         type: boolean
                     additionalProperties: false
@@ -60041,8 +59945,6 @@ components:
                       dateRange:
                         type: boolean
                       projects:
-                        type: boolean
-                      metricId:
                         type: boolean
                       experimentSearchString:
                         type: boolean
@@ -60509,12 +60411,6 @@ components:
                     properties:
                       dateRange:
                         type: boolean
-                      projects:
-                        type: boolean
-                      metricId:
-                        type: boolean
-                      experimentSearchString:
-                        type: boolean
                     additionalProperties: false
                   config:
                     type: object
@@ -60895,12 +60791,6 @@ components:
                     type: object
                     properties:
                       dateRange:
-                        type: boolean
-                      projects:
-                        type: boolean
-                      metricId:
-                        type: boolean
-                      experimentSearchString:
                         type: boolean
                     additionalProperties: false
                   config:
@@ -61291,12 +61181,6 @@ components:
                     type: object
                     properties:
                       dateRange:
-                        type: boolean
-                      projects:
-                        type: boolean
-                      metricId:
-                        type: boolean
-                      experimentSearchString:
                         type: boolean
                     additionalProperties: false
                   config:
@@ -61704,12 +61588,6 @@ components:
                     type: object
                     properties:
                       dateRange:
-                        type: boolean
-                      projects:
-                        type: boolean
-                      metricId:
-                        type: boolean
-                      experimentSearchString:
                         type: boolean
                     additionalProperties: false
                   config:

@@ -83,23 +83,32 @@ const globalControls = {
   dateRange: { predefined: "last7Days" as const },
   dateGranularity: "day" as const,
   projects: ["prj_dashboard"],
-  metricId: "met_dashboard",
   experimentSearchString: "tag:checkout",
 };
 
 describe("getEffectiveExperimentBlock", () => {
   it("overrides only the filters the block has opted into", () => {
     const block = scaledImpactBlock({
-      globalControlSettings: { metricId: true, dateRange: false },
+      globalControlSettings: { projects: true, dateRange: false },
     });
     const effective = getEffectiveExperimentBlock(block, { globalControls });
-    // Opted into metric -> overridden
-    expect(effective.metricId).toEqual("met_dashboard");
+    // Opted into projects -> overridden
+    expect(effective.projects).toEqual(["prj_dashboard"]);
     // Opted out of date -> keeps its own
     expect(effective.dateRange).toEqual({ predefined: "last90Days" });
-    // Not decided on projects/search -> keeps its own
-    expect(effective.projects).toEqual(["prj_block"]);
+    // Not decided on search -> keeps its own
     expect(effective.experimentSearchString).toEqual("status:stopped");
+  });
+
+  it("keeps the block's own metric even when it inherits everything else", () => {
+    // metricId is what the block calculates, not a filter over experiments, so
+    // it is not a global control at all (the dashboard has no metric to apply).
+    const block = scaledImpactBlock({
+      globalControlSettings:
+        getDefaultExperimentBlockGlobalControlSettings(scaledImpactBlock()),
+    });
+    const effective = getEffectiveExperimentBlock(block, { globalControls });
+    expect(effective.metricId).toEqual("met_block");
   });
 
   it("applies date range and granularity to Team Velocity when opted in", () => {
@@ -115,12 +124,12 @@ describe("getEffectiveExperimentBlock", () => {
         // Even if a (nonsensical) dateRange opt-in were persisted, the block
         // does not support it, so it is ignored.
         dateRange: true,
-        metricId: true,
+        experimentSearchString: true,
       },
     });
     const effective = getEffectiveExperimentBlock(block, { globalControls });
     expect("dateRange" in effective).toBe(false);
-    expect(effective.metricId).toEqual("met_dashboard");
+    expect(effective.experimentSearchString).toEqual("tag:checkout");
   });
 
   it("applies an empty (all-projects) global filter to opted-in blocks", () => {
@@ -150,12 +159,13 @@ describe("blockUsesGlobalFilter", () => {
   it("is true only when supported and opted in", () => {
     expect(
       blockUsesGlobalFilter(
-        scaledImpactBlock({ globalControlSettings: { metricId: true } }),
-        "metricId",
+        scaledImpactBlock({
+          globalControlSettings: { experimentSearchString: true },
+        }),
+        "experimentSearchString",
       ),
     ).toBe(true);
-    // Win-rate-style block does not support metric; scaled impact does. Metric
-    // Experiments never supports date.
+    // Metric Experiments never supports date.
     expect(
       blockUsesGlobalFilter(
         metricExperimentsBlock({ globalControlSettings: { dateRange: true } }),
@@ -169,14 +179,14 @@ describe("autoEnrollDashboardBlocksInGlobalFilter", () => {
   it("enrolls undecided blocks but leaves explicit choices untouched", () => {
     const blocks: AnyBlock[] = [
       scaledImpactBlock(), // undefined -> enroll
-      scaledImpactBlock({ globalControlSettings: { metricId: false } }), // opted out -> keep
+      scaledImpactBlock({ globalControlSettings: { projects: false } }), // opted out -> keep
       metricExperimentsBlock(), // does not support date -> unchanged
     ];
     const next = autoEnrollDashboardBlocksInGlobalFilter(blocks, "dateRange");
     expect(next[0].globalControlSettings?.dateRange).toBe(true);
-    // metricId opt-out preserved; dateRange freshly enrolled
+    // projects opt-out preserved; dateRange freshly enrolled
     expect(next[1].globalControlSettings?.dateRange).toBe(true);
-    expect(next[1].globalControlSettings?.metricId).toBe(false);
+    expect(next[1].globalControlSettings?.projects).toBe(false);
     // metric-experiments does not support dateRange
     expect(next[2].globalControlSettings?.dateRange).toEqual(undefined);
   });
@@ -192,16 +202,15 @@ describe("getDashboardExperimentFilterApplicability", () => {
     expect(applicability.showGranularity).toBe(true);
     expect(applicability.showProjects).toBe(true);
     expect(applicability.showExperimentSearch).toBe(true);
-    // Team Velocity has no metric
-    expect(applicability.showMetric).toBe(false);
     expect(applicability.hasDateExcludedBlock).toBe(false);
   });
 
-  it("flags the date-excluded block and metric support for Experiments with Lift", () => {
+  it("flags the date-excluded block for Experiments with Lift", () => {
     const applicability = getDashboardExperimentFilterApplicability([
       metricExperimentsBlock(),
     ]);
-    expect(applicability.showMetric).toBe(true);
+    expect(applicability.showProjects).toBe(true);
+    expect(applicability.showExperimentSearch).toBe(true);
     expect(applicability.showDateRange).toBe(false);
     expect(applicability.hasDateExcludedBlock).toBe(true);
   });
@@ -211,30 +220,34 @@ describe("resolveGlobalControlsBlockEnrollment", () => {
   it("enrolls supported blocks for each newly enabled filter", () => {
     const enrolled = resolveGlobalControlsBlockEnrollment({
       existingGlobalControls: {},
-      nextGlobalControls: { metricId: "met_dashboard" },
-      nextBlocks: [scaledImpactBlock(), statusBlock()],
+      nextGlobalControls: { dateRange: { predefined: "last7Days" } },
+      nextBlocks: [scaledImpactBlock(), metricExperimentsBlock()],
     });
-    // Scaled impact supports metric -> enrolled; status does not -> untouched
-    expect(enrolled?.[0].globalControlSettings?.metricId).toBe(true);
-    expect(enrolled?.[1].globalControlSettings?.metricId).toEqual(undefined);
+    // Scaled impact supports the date range -> enrolled; Experiments with Lift
+    // does not -> untouched
+    expect(enrolled?.[0].globalControlSettings?.dateRange).toBe(true);
+    expect(enrolled?.[1].globalControlSettings?.dateRange).toEqual(undefined);
   });
 
   it("does nothing when no filter is newly enabled", () => {
     expect(
-      isEnablingGlobalFilter({ metricId: "a" }, { metricId: "b" }, "metricId"),
+      isEnablingGlobalFilter(
+        { experimentSearchString: "a" },
+        { experimentSearchString: "b" },
+        "experimentSearchString",
+      ),
     ).toBe(false);
   });
 });
 
 describe("getActiveExperimentGlobalFilterKeys", () => {
   it("returns only supported filters that are active on the dashboard", () => {
-    // Scaled impact supports all four; only projects/metric are active here.
+    // Scaled impact supports all three; only projects is active here.
     expect(
       getActiveExperimentGlobalFilterKeys(scaledImpactBlock(), {
         projects: ["prj_dashboard"],
-        metricId: "met_dashboard",
       }),
-    ).toEqual(["projects", "metricId"]);
+    ).toEqual(["projects"]);
   });
 
   it("excludes date range for Experiments with Lift", () => {
@@ -243,7 +256,7 @@ describe("getActiveExperimentGlobalFilterKeys", () => {
         metricExperimentsBlock(),
         globalControls,
       ),
-    ).toEqual(["projects", "metricId", "experimentSearchString"]);
+    ).toEqual(["projects", "experimentSearchString"]);
   });
 
   it("is empty for a non-experiment block", () => {
@@ -282,7 +295,6 @@ describe("experimentBlockFollowsGlobalFilters", () => {
       globalControlSettings: {
         dateRange: true,
         projects: true,
-        metricId: true,
         experimentSearchString: true,
       },
     });
@@ -296,8 +308,7 @@ describe("experimentBlockFollowsGlobalFilters", () => {
       globalControlSettings: {
         dateRange: true,
         projects: true,
-        metricId: false,
-        experimentSearchString: true,
+        experimentSearchString: false,
       },
     });
     expect(experimentBlockFollowsGlobalFilters(block, globalControls)).toBe(
@@ -306,9 +317,9 @@ describe("experimentBlockFollowsGlobalFilters", () => {
   });
 
   it("ignores opt-in for filters the dashboard does not expose", () => {
-    // Only projects is active; metric opt-in is irrelevant.
+    // Only projects is active; the search opt-out is irrelevant.
     const block = scaledImpactBlock({
-      globalControlSettings: { projects: true, metricId: false },
+      globalControlSettings: { projects: true, experimentSearchString: false },
     });
     expect(
       experimentBlockFollowsGlobalFilters(block, {
@@ -344,7 +355,6 @@ describe("experimentBlockOptedOutOfGlobalFilters", () => {
       globalControlSettings: {
         dateRange: true,
         projects: true,
-        metricId: true,
         experimentSearchString: true,
       },
     });
@@ -370,7 +380,6 @@ describe("setExperimentBlockGlobalFilterFollowing", () => {
     expect(settings).toEqual({
       dateRange: true,
       projects: true,
-      metricId: true,
       experimentSearchString: true,
     });
   });
@@ -381,7 +390,6 @@ describe("setExperimentBlockGlobalFilterFollowing", () => {
         globalControlSettings: {
           dateRange: true,
           projects: true,
-          metricId: true,
           experimentSearchString: true,
         },
       }),
@@ -391,7 +399,6 @@ describe("setExperimentBlockGlobalFilterFollowing", () => {
     expect(settings).toEqual({
       dateRange: false,
       projects: false,
-      metricId: false,
       experimentSearchString: false,
     });
   });
@@ -414,7 +421,6 @@ describe("getDefaultExperimentBlockGlobalControlSettings", () => {
     ).toEqual({
       dateRange: true,
       projects: true,
-      metricId: true,
       experimentSearchString: true,
     });
   });
@@ -426,15 +432,6 @@ describe("getDefaultExperimentBlockGlobalControlSettings", () => {
       getDefaultExperimentBlockGlobalControlSettings(metricExperimentsBlock()),
     ).toEqual({
       projects: true,
-      metricId: true,
-      experimentSearchString: true,
-    });
-    // Team Velocity has no metric field.
-    expect(
-      getDefaultExperimentBlockGlobalControlSettings(statusBlock()),
-    ).toEqual({
-      dateRange: true,
-      projects: true,
       experimentSearchString: true,
     });
   });
@@ -442,7 +439,7 @@ describe("getDefaultExperimentBlockGlobalControlSettings", () => {
   it("does not depend on what the dashboard currently has set", () => {
     const settings =
       getDefaultExperimentBlockGlobalControlSettings(scaledImpactBlock());
-    expect(settings.metricId).toBe(true);
+    expect(settings.projects).toBe(true);
     expect(settings.experimentSearchString).toBe(true);
   });
 });
@@ -451,12 +448,11 @@ describe("getActiveBlockGlobalFilterKeys", () => {
   it("lists only filters the block supports and the dashboard has set", () => {
     expect(
       getActiveBlockGlobalFilterKeys(scaledImpactBlock(), globalControls),
-    ).toEqual(["dateRange", "projects", "metricId", "experimentSearchString"]);
+    ).toEqual(["dateRange", "projects", "experimentSearchString"]);
     // Experiments with Lift never follows the date range.
     expect(
       getActiveBlockGlobalFilterKeys(metricExperimentsBlock(), globalControls),
-    ).toEqual(["projects", "metricId", "experimentSearchString"]);
-    // Team Velocity has no metric field.
+    ).toEqual(["projects", "experimentSearchString"]);
     expect(
       getActiveBlockGlobalFilterKeys(statusBlock(), globalControls),
     ).toEqual(["dateRange", "projects", "experimentSearchString"]);
@@ -465,11 +461,11 @@ describe("getActiveBlockGlobalFilterKeys", () => {
   it("drops filters the dashboard has no value for", () => {
     expect(
       getActiveBlockGlobalFilterKeys(scaledImpactBlock(), {
-        metricId: "met_dashboard",
+        projects: ["prj_dashboard"],
         // An empty string is not an active filter.
         experimentSearchString: "",
       }),
-    ).toEqual(["metricId"]);
+    ).toEqual(["projects"]);
   });
 
   it("covers exploration blocks, which support the date range only", () => {
@@ -498,14 +494,13 @@ describe("getCustomBlockGlobalFilterKeys", () => {
         dateRange: true,
         // Three project chips still count as one custom filter.
         projects: false,
-        metricId: false,
-        experimentSearchString: true,
+        experimentSearchString: false,
       },
       projects: ["prj_a", "prj_b", "prj_c"],
     });
     expect(getCustomBlockGlobalFilterKeys(block, globalControls)).toEqual([
       "projects",
-      "metricId",
+      "experimentSearchString",
     ]);
   });
 
@@ -515,7 +510,6 @@ describe("getCustomBlockGlobalFilterKeys", () => {
     expect(getCustomBlockGlobalFilterKeys(block, globalControls)).toEqual([
       "dateRange",
       "projects",
-      "metricId",
       "experimentSearchString",
     ]);
   });
@@ -530,25 +524,25 @@ describe("getCustomBlockGlobalFilterKeys", () => {
 
   it("ignores opted-out filters the dashboard has no value for", () => {
     const block = scaledImpactBlock({
-      globalControlSettings: { metricId: false, projects: false },
+      globalControlSettings: { experimentSearchString: false, projects: false },
     });
     expect(
-      getCustomBlockGlobalFilterKeys(block, { metricId: "met_dashboard" }),
-    ).toEqual(["metricId"]);
+      getCustomBlockGlobalFilterKeys(block, { projects: ["prj_dashboard"] }),
+    ).toEqual(["projects"]);
   });
 });
 
 describe("withBlockGlobalFilterFollowing", () => {
   it("flips the given keys and leaves the rest of the block alone", () => {
     const block = scaledImpactBlock({
-      globalControlSettings: { dateRange: true, metricId: true },
+      globalControlSettings: { dateRange: true, projects: true },
     });
-    const next = withBlockGlobalFilterFollowing(block, ["metricId"], false);
+    const next = withBlockGlobalFilterFollowing(block, ["projects"], false);
     expect(next.globalControlSettings).toEqual({
       dateRange: true,
-      metricId: false,
+      projects: false,
     });
-    expect(next.metricId).toEqual("met_block");
+    expect(next.projects).toEqual(["prj_block"]);
   });
 
   it("returns the same block when no keys are given", () => {
@@ -564,7 +558,6 @@ describe("withBlockGlobalFilterFollowing", () => {
       globalControlSettings: {
         dateRange: false,
         projects: false,
-        metricId: false,
         experimentSearchString: false,
       },
     });
@@ -580,14 +573,14 @@ describe("withBlockGlobalFilterFollowing", () => {
     // The sidebar spreads the patch in before flipping the flag, so both land in
     // one setBlock.
     const block = scaledImpactBlock({
-      globalControlSettings: { metricId: true },
+      globalControlSettings: { projects: true },
     });
     const next = withBlockGlobalFilterFollowing(
-      { ...block, metricId: "met_picked" },
-      ["metricId"],
+      { ...block, projects: ["prj_picked"] },
+      ["projects"],
       false,
     );
-    expect(next.metricId).toEqual("met_picked");
-    expect(next.globalControlSettings).toEqual({ metricId: false });
+    expect(next.projects).toEqual(["prj_picked"]);
+    expect(next.globalControlSettings).toEqual({ projects: false });
   });
 });

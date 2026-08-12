@@ -21,7 +21,7 @@ interface Props {
   // the user can pick a value straight away.
   autoOpenKey?: DashboardOptionalFilterKey | null;
   disabled?: boolean;
-  // Restrict metric/project options to the dashboard's projects (empty = all).
+  // Restrict project options to the dashboard's projects (empty = all).
   projects: string[];
   // Reports which filter changed alongside the patch, so the bar can keep a
   // touched pill visible even once the user clears its last value.
@@ -40,7 +40,7 @@ interface Props {
  * The filter pills in the dashboard filter bar (everything except the permanent
  * Date Range control). Each pill holds the same contents it had in the old
  * combined filter card; the experiment filter categories are split into one pill
- * each and rendered after the dashboard's own Metric and Projects filters.
+ * each and rendered after the dashboard's own Projects filter.
  */
 export default function DashboardFilterPills({
   globalControls,
@@ -51,7 +51,7 @@ export default function DashboardFilterPills({
   onChange,
   onRemove,
 }: Props) {
-  const { projects: allProjects, metrics, factMetrics } = useDefinitions();
+  const { projects: allProjects } = useDefinitions();
 
   const experimentCategories = useMemo(
     () =>
@@ -71,21 +71,6 @@ export default function DashboardFilterPills({
     [allProjects, projects],
   );
 
-  // Metric --------------------------------------------------------------------
-  const metricOptions: ChecklistOption[] = useMemo(() => {
-    const inScope = (m: { projects?: string[] }) =>
-      projects.length === 0 ||
-      !m.projects?.length ||
-      projects.some((p) => m.projects?.includes(p));
-    const seen = new Set<string>();
-    return [...metrics, ...factMetrics]
-      .filter(inScope)
-      .map((m) => ({ label: m.name, value: m.id }))
-      .filter((o) => (seen.has(o.value) ? false : (seen.add(o.value), true)))
-      .sort((a, b) => a.label.localeCompare(b.label));
-  }, [metrics, factMetrics, projects]);
-
-  const metricId = globalControls?.metricId ?? "";
   const autoOpenCategory = autoOpenKey
     ? getExperimentCategory(autoOpenKey)
     : null;
@@ -103,22 +88,6 @@ export default function DashboardFilterPills({
           disabled={disabled}
           searchPlaceholder="Search projects..."
           emptyText="No projects found"
-        />
-      ) : null}
-
-      {visibleKeys.includes("metricId") ? (
-        <DashboardChecklistFilter
-          label="Metric"
-          autoOpen={autoOpenKey === "metricId"}
-          options={metricOptions}
-          value={metricId ? [metricId] : []}
-          onChange={(v) => onChange("metricId", { metricId: v[0] })}
-          onRemove={() => onRemove("metricId", { metricId: undefined })}
-          singleSelect
-          variant="list"
-          disabled={disabled}
-          searchPlaceholder="Search metrics..."
-          emptyText="No metrics found"
         />
       ) : null}
 

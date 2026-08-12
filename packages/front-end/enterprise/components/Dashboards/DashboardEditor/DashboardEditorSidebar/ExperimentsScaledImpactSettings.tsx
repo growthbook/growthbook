@@ -4,14 +4,11 @@ import {
   DashboardBlockInterfaceOrData,
   DashboardInterface,
   ExperimentsScaledImpactBlockInterface,
-  blockUsesGlobalFilter,
-  globalFilterIsSet,
   withBlockGlobalFilterFollowing,
 } from "shared/enterprise";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import CompletedExperimentsFilterFields from "./CompletedExperimentsFilterFields";
 import SidebarSettingField from "./SidebarSettingField";
-import DashboardFilterInheritTag from "./DashboardFilterInheritTag";
 
 interface Props {
   block: DashboardBlockInterfaceOrData<ExperimentsScaledImpactBlockInterface>;
@@ -28,42 +25,15 @@ export default function ExperimentsScaledImpactSettings({
   projects,
   dashboardGlobalControls,
 }: Props) {
-  const metricSet = globalFilterIsSet(dashboardGlobalControls, "metricId");
-  const metricInherited = blockUsesGlobalFilter(block, "metricId") && metricSet;
-
-  const dashboardMetricId = dashboardGlobalControls?.metricId;
-  const metricValue =
-    metricInherited && dashboardMetricId ? dashboardMetricId : block.metricId;
-
   return (
     <Flex direction="column" gap="5">
-      <SidebarSettingField
-        label="Metric"
-        accessory={
-          metricSet ? (
-            <DashboardFilterInheritTag
-              label="Metric"
-              inherited={metricInherited}
-              onRevert={() =>
-                setBlock(
-                  withBlockGlobalFilterFollowing(block, ["metricId"], true),
-                )
-              }
-            />
-          ) : undefined
-        }
-      >
+      {/* The metric this block scales impact for — always the block's own, never
+          a dashboard filter. The dashboard Metric pill filters which experiments
+          appear; it does not change what is calculated. */}
+      <SidebarSettingField label="Metric">
         <MetricSelector
-          value={metricValue}
-          onChange={(metricId) =>
-            setBlock(
-              withBlockGlobalFilterFollowing(
-                { ...block, metricId },
-                metricInherited ? ["metricId"] : [],
-                false,
-              ),
-            )
-          }
+          value={block.metricId}
+          onChange={(metricId) => setBlock({ ...block, metricId })}
           includeFacts={true}
           projects={projects}
           placeholder="Select a metric..."

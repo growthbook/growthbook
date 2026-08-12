@@ -23,8 +23,6 @@ const UNAVAILABLE_REASON: Record<
   string
 > = {
   projects: "Add a block that includes experiments to use this filter",
-  metricId:
-    "Add an Experiments with Lift or Scaled Impact block to use this filter",
   experimentSearchString:
     "Add a block that includes experiments to use this filter",
 };
@@ -41,7 +39,6 @@ interface Props {
   // Which requirements the current blocks satisfy.
   applicability: {
     projects: boolean;
-    metricId: boolean;
     experimentSearchString: boolean;
   };
   disabled?: boolean;
@@ -94,38 +91,36 @@ export default function DashboardAddFilterDropdown({
       >
         Add a filter
       </DropdownMenuLabel>
-      {DASHBOARD_OPTIONAL_FILTERS.filter((filter) => filter.addable).map(
-        (filter) => {
-          const added = visibleKeys.includes(filter.key);
-          const available = applicability[filter.requires];
-          // Already in the bar, or no block on the dashboard honors it.
-          const status = added ? "added" : available ? null : "unavailable";
-          return (
-            <DropdownMenuItem
-              key={filter.key}
-              disabled={status !== null}
-              tooltip={
-                status === "unavailable"
-                  ? UNAVAILABLE_REASON[filter.requires]
-                  : undefined
-              }
-              onClick={() => {
-                addedFilterRef.current = true;
-                onAdd(filter.key);
-              }}
-            >
-              <Flex align="center" justify="between" gap="4" width="100%">
-                <span>{filter.label}</span>
-                {status ? (
-                  <Text size="sm" color="text-low">
-                    {STATUS_LABEL[status]}
-                  </Text>
-                ) : null}
-              </Flex>
-            </DropdownMenuItem>
-          );
-        },
-      )}
+      {DASHBOARD_OPTIONAL_FILTERS.map((filter) => {
+        const added = visibleKeys.includes(filter.key);
+        const available = applicability[filter.requires];
+        // Already in the bar, or no block on the dashboard honors it.
+        const status = added ? "added" : available ? null : "unavailable";
+        return (
+          <DropdownMenuItem
+            key={filter.key}
+            disabled={status !== null}
+            tooltip={
+              status === "unavailable"
+                ? UNAVAILABLE_REASON[filter.requires]
+                : undefined
+            }
+            onClick={() => {
+              addedFilterRef.current = true;
+              onAdd(filter.key);
+            }}
+          >
+            <Flex align="center" justify="between" gap="4" width="100%">
+              <span>{filter.label}</span>
+              {status ? (
+                <Text size="sm" color="text-low">
+                  {STATUS_LABEL[status]}
+                </Text>
+              ) : null}
+            </Flex>
+          </DropdownMenuItem>
+        );
+      })}
       <DropdownMenuSeparator />
       <Box px="2" py="1">
         <Text size="sm" color="text-low">

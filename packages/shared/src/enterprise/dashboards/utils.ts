@@ -126,7 +126,6 @@ export function isDashboardGlobalControlSupportedBlock(
 export const DASHBOARD_GLOBAL_FILTER_KEYS = [
   "dateRange",
   "projects",
-  "metricId",
   "experimentSearchString",
 ] as const;
 export type DashboardGlobalFilterKey =
@@ -142,15 +141,19 @@ type DashboardExperimentBlock = DashboardBlockInterfaceOrData<
 // Which global filters each experiment block type honors. Experiments with Lift
 // (metric-experiments) intentionally omits `dateRange` — it has its own separate
 // phase start/end date windows, so the dashboard Date Range filter does not
-// drive it. Win Percentage and Team Velocity omit `metricId` (no metric field).
+// drive it.
+//
+// A block's own `metricId` is deliberately not a global filter: it selects what
+// Scaled Impact / Experiments with Lift *calculate*, not which experiments they
+// show. The dashboard's Metric pill is the `metric:` experiment filter, which
+// narrows the experiment list.
 const EXPERIMENT_BLOCK_FILTER_SUPPORT: Partial<
   Record<DashboardBlockType, readonly DashboardGlobalFilterKey[]>
 > = {
-  "metric-experiments": ["projects", "metricId", "experimentSearchString"],
+  "metric-experiments": ["projects", "experimentSearchString"],
   "experiments-scaled-impact": [
     "dateRange",
     "projects",
-    "metricId",
     "experimentSearchString",
   ],
   "experiments-win-rate": ["dateRange", "projects", "experimentSearchString"],
@@ -380,7 +383,6 @@ export function globalFilterIsSet(
       // "All projects" (see dashboardGlobalControlsValidator). Only an absent
       // (undefined) value means the projects filter is unset.
       return Array.isArray(value);
-    case "metricId":
     case "experimentSearchString":
       return typeof value === "string" && value.length > 0;
     default:
@@ -562,11 +564,14 @@ export function getEffectiveExplorationConfig<
 
 /**
  * Overlays the dashboard's global filters onto an experiment block, honoring
- * each block's per-filter opt-in. Returns a block with `projects` / `metricId` /
+ * each block's per-filter opt-in. Returns a block with `projects` /
  * `experimentSearchString` / `dateRange` (and, for Team Velocity,
  * `dateGranularity`) replaced by the dashboard values where the block has opted
  * in. Render code uses the result exactly as it would the stored block, so the
  * stored block is never mutated (edit flows keep the local values).
+ *
+ * A block's `metricId` is never overridden — it is the metric the block
+ * calculates on, not a filter over experiments.
  *
  * Experiments with Lift is never date-controlled (it has its own separate phase
  * start/end windows), which falls out of EXPERIMENT_BLOCK_FILTER_SUPPORT.
@@ -585,12 +590,6 @@ export function getEffectiveExperimentBlock<T extends DashboardExperimentBlock>(
     globalFilterIsSet(globalControls, "projects")
   ) {
     overrides.projects = globalControls.projects;
-  }
-  if (
-    blockUsesGlobalFilter(block, "metricId") &&
-    globalFilterIsSet(globalControls, "metricId")
-  ) {
-    overrides.metricId = globalControls.metricId;
   }
   if (
     blockUsesGlobalFilter(block, "experimentSearchString") &&
@@ -625,7 +624,6 @@ export function getDashboardExperimentFilterApplicability(
   showDateRange: boolean;
   showGranularity: boolean;
   showProjects: boolean;
-  showMetric: boolean;
   showExperimentSearch: boolean;
   // Experiments with Lift ignores the dashboard Date Range filter; the bar
   // surfaces this caveat when such a block is present.
@@ -643,7 +641,6 @@ export function getDashboardExperimentFilterApplicability(
       (block) => block.type === "experiments-status",
     ),
     showProjects: supports("projects"),
-    showMetric: supports("metricId"),
     showExperimentSearch: supports("experimentSearchString"),
     hasDateExcludedBlock: experimentBlocks.some(
       (block) => block.type === "metric-experiments",

@@ -69,14 +69,12 @@ export default function MetricExperimentsSettings({
   const [columnsOpen, setColumnsOpen] = useState(false);
 
   // A field inherits only if the block opted in AND the dashboard has a value.
-  const metricSet = globalFilterIsSet(dashboardGlobalControls, "metricId");
   const projectsSet = globalFilterIsSet(dashboardGlobalControls, "projects");
   const searchSet = globalFilterIsSet(
     dashboardGlobalControls,
     "experimentSearchString",
   );
 
-  const metricInherited = blockUsesGlobalFilter(block, "metricId") && metricSet;
   const projectsInherited =
     blockUsesGlobalFilter(block, "projects") && projectsSet;
   const searchInherited =
@@ -85,13 +83,13 @@ export default function MetricExperimentsSettings({
   // Keys in `claim` stop following the dashboard in the same update as the patch.
   const patchBlock = (
     patch: Partial<MetricExperimentsBlockInterface>,
-    claim: ("metricId" | "projects" | "experimentSearchString")[] = [],
+    claim: ("projects" | "experimentSearchString")[] = [],
   ) =>
     setBlock(
       withBlockGlobalFilterFollowing({ ...block, ...patch }, claim, false),
     );
 
-  const revert = (key: "metricId" | "projects" | "experimentSearchString") =>
+  const revert = (key: "projects" | "experimentSearchString") =>
     setBlock(withBlockGlobalFilterFollowing(block, [key], true));
 
   const dashboardProjects = dashboardGlobalControls?.projects ?? [];
@@ -102,10 +100,6 @@ export default function MetricExperimentsSettings({
       : allProjects
   ).map((p) => ({ label: p.name, value: p.id }));
 
-  const metricValue =
-    metricInherited && dashboardGlobalControls?.metricId
-      ? dashboardGlobalControls.metricId
-      : block.metricId;
   const projectsValue = projectsInherited ? dashboardProjects : block.projects;
 
   const resolvedColumns = resolveMetricExperimentColumns(
@@ -185,24 +179,14 @@ export default function MetricExperimentsSettings({
 
   return (
     <Flex direction="column" gap="5">
-      <SidebarSettingField
-        label="Metric"
-        accessory={
-          metricSet ? (
-            <DashboardFilterInheritTag
-              label="Metric"
-              inherited={metricInherited}
-              onRevert={() => revert("metricId")}
-            />
-          ) : undefined
-        }
-      >
+      {/* The metric this block reports lift for — always the block's own, never
+          a dashboard filter. The dashboard Metric pill filters which experiments
+          appear; it does not change what is calculated. */}
+      <SidebarSettingField label="Metric">
         <MetricSelector
           containerClassName="mb-0"
-          value={metricValue}
-          onChange={(metricId) =>
-            patchBlock({ metricId }, metricInherited ? ["metricId"] : [])
-          }
+          value={block.metricId}
+          onChange={(metricId) => patchBlock({ metricId })}
           includeFacts={true}
           projects={projects}
           placeholder="Select a metric..."

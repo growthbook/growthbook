@@ -106,7 +106,6 @@ export default function DashboardGlobalControlsBar({
       getDashboardExperimentFilterApplicability(blocks);
     return {
       projects: experimentApplicability.showProjects,
-      metricId: experimentApplicability.showMetric,
       experimentSearchString: experimentApplicability.showExperimentSearch,
     };
   }, [blocks]);
@@ -145,7 +144,6 @@ export default function DashboardGlobalControlsBar({
   const canReset =
     addedKeys.length > 0 ||
     Boolean(globalControls?.dateRange) ||
-    Boolean(globalControls?.metricId) ||
     Boolean(globalControls?.experimentSearchString) ||
     Array.isArray(globalControls?.projects) ||
     // Set from this bar's date dropdown, so it counts as a global filter.
@@ -169,7 +167,6 @@ export default function DashboardGlobalControlsBar({
     if (!nextGlobalControls.projects) {
       delete nextGlobalControls.projects;
     }
-    if (!nextGlobalControls.metricId) delete nextGlobalControls.metricId;
     if (!nextGlobalControls.experimentSearchString) {
       delete nextGlobalControls.experimentSearchString;
     }

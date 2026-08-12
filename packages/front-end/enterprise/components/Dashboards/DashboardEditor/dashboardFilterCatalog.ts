@@ -11,18 +11,21 @@ import {
  * hidden and is added from the "Add filter" dropdown (or shown automatically
  * because the dashboard already has a value for it).
  *
- * `projects` and `metricId` are their own global controls; the `exp:*` keys are
- * the experiment filter categories, which all persist into the single
- * `experimentSearchString`.
+ * `projects` is its own global control; the `exp:*` keys are the experiment
+ * filter categories, which all persist into the single `experimentSearchString`.
+ *
+ * A block's own `metricId` is not here: it selects the metric Scaled Impact /
+ * Experiments with Lift calculate on, not which experiments they show. The
+ * `exp:metric` pill below is the filter — it narrows the list to experiments
+ * that analyzed the chosen metric.
  */
 export type DashboardOptionalFilterKey =
   | "projects"
-  | "metricId"
   | `exp:${DashboardExperimentCategoryKey}`;
 
 // Which applicability flag gates a filter: a filter can only be added when a
 // block on the dashboard actually honors it.
-type FilterRequirement = "projects" | "metricId" | "experimentSearchString";
+type FilterRequirement = "projects" | "experimentSearchString";
 
 export const EXPERIMENT_CATEGORY_LABELS: Record<
   DashboardExperimentCategoryKey,
@@ -68,15 +71,11 @@ export const DASHBOARD_OPTIONAL_FILTERS: {
   key: DashboardOptionalFilterKey;
   label: string;
   requires: FilterRequirement;
-  // Offered in the "Add filter" menu. A filter that isn't still gets a pill when
-  // the dashboard has a saved value, so the value stays visible and removable.
-  addable: boolean;
 }[] = [
   {
     key: "projects",
     label: "Projects",
     requires: "projects",
-    addable: true,
   },
   ...[...DASHBOARD_EXPERIMENT_CATEGORY_KEYS]
     .sort(
@@ -87,16 +86,7 @@ export const DASHBOARD_OPTIONAL_FILTERS: {
       key: `exp:${category}` as DashboardOptionalFilterKey,
       label: EXPERIMENT_CATEGORY_LABELS[category],
       requires: "experimentSearchString" as FilterRequirement,
-      addable: true,
     })),
-  {
-    // Retired from the menu: the experiment Metric filter above covers picking a
-    // metric, so offering both read as duplicates.
-    key: "metricId",
-    label: "Metric",
-    requires: "metricId",
-    addable: false,
-  },
 ];
 
 /** The experiment filter category behind an `exp:*` key, or null for the rest. */
@@ -124,10 +114,7 @@ export function isOptionalFilterActive(
       ).length > 0
     );
   }
-  if (key === "projects") {
-    // An empty array is an active "All Projects" override; only an absent value
-    // means the filter is unset.
-    return Array.isArray(globalControls?.projects);
-  }
-  return Boolean(globalControls?.metricId);
+  // An empty array is an active "All Projects" override; only an absent value
+  // means the filter is unset.
+  return Array.isArray(globalControls?.projects);
 }
