@@ -86,7 +86,7 @@ export function getAvailableDimensionColumns(
     for (const value of dataset.values) {
       const factMetric = getFactMetricById(value.metricId);
       if (!factMetric) continue;
-      const ft = getFactTableById(factMetric.numerator.factTableId);
+      const ft = getFactTableById(factMetric.numerator?.factTableId || "");
       if (!ft) continue;
       ft.userIdTypes?.forEach((u) => userIdTypes.add(u));
 
