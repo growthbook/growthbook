@@ -435,7 +435,6 @@ export async function setHoldoutStage(
         phases[1].dateEnded = new Date();
       }
       Object.assign(changes, { phases, status: "stopped" });
-      // await validateExperimentChange({ context, experiment, changes });
       await updateExperiment({ context, experiment, changes });
       await context.models.holdout.update(holdout, {
         nextScheduledStatusUpdate: getNextScheduledStatusUpdateForStage(
@@ -453,7 +452,6 @@ export async function setHoldoutStage(
       }
       phases[0].dateEnded = undefined;
       Object.assign(changes, { phases: [phases[0]], status: "draft" });
-      // await validateExperimentChange({ context, experiment, changes });
       await updateExperiment({ context, experiment, changes });
       await context.models.holdout.update(holdout, {
         analysisStartDate: undefined,
@@ -468,7 +466,6 @@ export async function setHoldoutStage(
           changes,
           await getChangesToStartExperiment(context, experiment),
         );
-        // await validateExperimentChange({ context, experiment, changes });
         await updateExperiment({ context, experiment, changes });
         await context.models.holdout.update(holdout, {
           analysisStartDate: undefined,
@@ -489,7 +486,6 @@ export async function setHoldoutStage(
         phases = [phases[0]];
       }
       Object.assign(changes, { phases, status: "running" });
-      // await validateExperimentChange({ context, experiment, changes });
       await updateExperiment({ context, experiment, changes });
       await context.models.holdout.update(holdout, {
         analysisStartDate: undefined,
@@ -514,7 +510,6 @@ export async function setHoldoutStage(
         name: "Analysis",
       };
       Object.assign(changes, { phases, status: "running" });
-      // await validateExperimentChange({ context, experiment, changes });
       await updateExperiment({ context, experiment, changes });
       await context.models.holdout.update(holdout, {
         analysisStartDate: new Date(),
