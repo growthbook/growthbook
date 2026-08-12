@@ -161,12 +161,6 @@ export async function createHoldoutWithExperiment(
 }> {
   const { org, userId } = context;
 
-  if (
-    !context.permissions.canCreateHoldout({ projects: data.projects || [] })
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
   const { metricIds, datasource } = await validateExperimentData(context, data);
 
   const variations = [
