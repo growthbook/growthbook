@@ -1,0 +1,125 @@
+name: Sync SDK version
+
+# Receiver for SDK release notifications. An SDK repo (via the
+# growthbook/sdk-version-sync action) fires a repository_dispatch
+# (event_type: update-sdk-version) after it publishes. This workflow prepends the
+# new version to packages/shared/src/sdk-versioning/sdk-versions/<sdk>.json,
+# regenerates docs/src/data/SDKInfo.ts (the same generator the pre-commit hook
+# runs on any sdk-versioning change), and opens a PR. Generic over `sdk`.
+#
+# Trigger it two ways:
+#   - repository_dispatch: from an SDK release (or a manual `gh api ... /dispatches`).
+#   - workflow_dispatch: run by hand with sdk + version inputs.
+
+on:
+  repository_dispatch:
+    types: [update-sdk-version]
+  workflow_dispatch:
+    inputs:
+      sdk:
+        required: true
+        description: "SDK key, e.g. rust"
+      version:
+        required: true
+        description: "Released version, e.g. 0.2.1"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Prepend version (idempotent; no-op if not newer)
+        id: bump
+        env:
+          SDK: ${{ github.event.client_payload.sdk || inputs.sdk }}
+          VERSION: ${{ github.event.client_payload.version || inputs.version }}
+        run: |
+          set -euo pipefail
+          # Validate untrusted dispatch inputs: sdk becomes a filename, so keep
+          # it to a strict slug (no path traversal); version must be plain x.y.z.
+          if ! echo "$SDK" | grep -qE '^[a-z0-9-]+$'; then
+            echo "SDK '$SDK' is not a valid slug"; exit 1
+          fi
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Version '$VERSION' is not x.y.z"; exit 1
+          fi
+          # SDK key -> filename (a few keys don't map 1:1 to their file).
+          case "$SDK" in
+            android)  F=kotlin ;;
+            ios)      F=swift ;;
+            nocode-*) F=nocode ;;
+            *)        F="$SDK" ;;
+          esac
+          FILE="packages/shared/src/sdk-versioning/sdk-versions/$F.json"
+          if [ ! -f "$FILE" ]; then
+            echo "No sdk-versions file for '$SDK' ($FILE)"; exit 1
+          fi
+          CURRENT=$(jq -r '.versions[0].version' "$FILE")
+          # No-op if the version is already listed, or is not strictly newer than
+          # the current top entry (sort -V is version-aware: 0.2.10 > 0.2.9).
+          if jq -e --arg v "$VERSION" '.versions[] | select(.version == $v)' "$FILE" >/dev/null \
+             || [ "$(printf '%s\n%s\n' "$CURRENT" "$VERSION" | sort -V | tail -1)" != "$VERSION" ]; then
+            echo "$FILE already up to date ($VERSION <= $CURRENT); nothing to do."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Prepend a version-only entry. Capabilities (if any) are added later
+          # via the /capabilities comment — they can't be derived from a version.
+          jq --arg v "$VERSION" '.versions |= ([{version: $v}] + .)' "$FILE" > "$FILE.tmp"
+          mv "$FILE.tmp" "$FILE"
+          {
+            echo "changed=true"
+            echo "sdk=$SDK"
+            echo "version=$VERSION"
+            echo "file=$FILE"
+          } >> "$GITHUB_OUTPUT"
+          echo "Prepended $VERSION to $FILE (was $CURRENT)."
+
+      - name: Set up pnpm
+        if: steps.bump.outputs.changed == 'true'
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        if: steps.bump.outputs.changed == 'true'
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: "pnpm"
+
+      - name: Format JSON + regenerate SDKInfo.ts
+        if: steps.bump.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          pnpm install
+          pnpm exec prettier --write "${{ steps.bump.outputs.file }}"
+          # Mirrors the pre-commit hook: regenerate docs/src/data/SDKInfo.ts on the
+          # sdk-versioning change. The generator needs the JS SDK built first.
+          pnpm --filter @growthbook/growthbook run build
+          pnpm --filter shared gen-sdk-resources-for-docs
+
+      - name: Open PR
+        if: steps.bump.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: sdk-version/${{ steps.bump.outputs.sdk }}-${{ steps.bump.outputs.version }}
+          commit-message: "chore(sdk-versions): ${{ steps.bump.outputs.sdk }} ${{ steps.bump.outputs.version }}"
+          title: "chore(sdk-versions): ${{ steps.bump.outputs.sdk }} ${{ steps.bump.outputs.version }}"
+          labels: sdk-versions, automated
+          body: |
+            Automated version sync for the **${{ steps.bump.outputs.sdk }}** SDK - **${{ steps.bump.outputs.version }}** release — adds it to
+            `${{ steps.bump.outputs.file }}` and regenerates the derived docs.
+
+            #### Did this release add a gated capability?
+
+            Comment on this PR and the bot does the rest (validates each value against `types.ts`):
+
+            ```
+            /capabilities streaming, redirects
+            ```
+
+            **Otherwise, just merge** — recording the version is all that's needed.
