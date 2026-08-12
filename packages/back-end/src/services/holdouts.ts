@@ -214,7 +214,7 @@ export async function createHoldoutWithExperiment(
     goalMetrics: data.goalMetrics || [],
     secondaryMetrics: data.secondaryMetrics || [],
     guardrailMetrics: data.guardrailMetrics || [],
-    activationMetric: data.activationMetric || "",
+    activationMetric: "",
     metricOverrides: [],
     segment: "",
     queryFilter: "",
@@ -503,16 +503,17 @@ export async function setHoldoutStage(
       if (!phases[0]) {
         throw new BadRequestError("Holdout does not have a phase");
       }
+      const analysisStartDate = phases[1]?.lookbackStartDate ?? new Date();
       phases[1] = {
         ...phases[0],
-        lookbackStartDate: new Date(),
+        lookbackStartDate: analysisStartDate,
         dateEnded: undefined,
         name: "Analysis",
       };
       Object.assign(changes, { phases, status: "running" });
       await updateExperiment({ context, experiment, changes });
       await context.models.holdout.update(holdout, {
-        analysisStartDate: new Date(),
+        analysisStartDate,
         nextScheduledStatusUpdate: getNextScheduledStatusUpdateForStage(
           holdout.statusUpdateSchedule,
           "analysis-period",
