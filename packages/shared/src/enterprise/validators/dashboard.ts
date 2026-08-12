@@ -52,20 +52,12 @@ export const dashboardGlobalControlsValidator = z
   .object({
     dateRange: baseExplorationConfigValidator.shape.dateRange.optional(),
     dateGranularity: z.enum(dateGranularity).optional(),
-    // Experiment-block filters (Experiments with Lift, Scaled Impact, Win
-    // Percentage, Team Velocity). Each is applied per-block through the block's
-    // globalControlSettings opt-in; empty/undefined means "no dashboard-wide
-    // filter". `projects` empty array means all projects.
+    // Experiment-block filters, applied per-block via globalControlSettings.
+    // `projects: []` means all projects; absent means no dashboard-wide filter.
     //
-    // TODO: `projects` could fold into `experimentSearchString` as a `project:`
-    // token, the way Insights does it (one search string, no separate control).
-    // Deferred, not blocked — it needs a `migrateBlock` step because:
-    //  - every experiment block has its own pre-existing `projects` field, read
-    //    by the `?projects=` query param and `filterCompletedExperiments`
-    //  - the block validators and `updateDashboardBody` are `.strict()`, so a
-    //    saved block still carrying `projects` fails on save, not just on read
-    //  - stored ids work as `project:` values (both the server and client search
-    //    match project id or name), so the conversion itself is mechanical
+    // TODO: fold `projects` into `experimentSearchString` as a `project:` token
+    // (as Insights does). Needs a `migrateBlock` step: blocks keep their own
+    // `projects` field and the validators are `.strict()`, so saves would fail.
     projects: z.array(z.string()).optional(),
     experimentSearchString: z.string().optional(),
   })
