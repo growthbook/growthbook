@@ -15,6 +15,8 @@ import { NuqsAdapter } from "nuqs/adapters/next/pages";
 import ShadowedScrollArea from "@/components/ShadowedScrollArea/ShadowedScrollArea";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/ui/Button";
+import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import EmptyState from "./EmptyState";
@@ -25,6 +27,9 @@ import {
   useDefaultDataSourceId,
 } from "./ExplorerContext";
 import ExplorerMainSection from "./MainSection/ExplorerMainSection";
+import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
+import ExplorerPageActions from "./ExplorerPageActions";
+import { useOptionalSqlEditorContext } from "./SqlEditorContext";
 import {
   createEmptyDataset,
   createEmptyValue,
@@ -93,7 +98,58 @@ export function ExplorerContent({
   hideSidebarHeaderActions?: boolean;
   sidebarHeaderActions?: React.ReactNode;
 }) {
-  const { managedWarehouseUnavailable } = useExplorerContext();
+  const { managedWarehouseUnavailable, draftExploreState } =
+    useExplorerContext();
+  const sqlEditorContext = useOptionalSqlEditorContext();
+  const isSql = draftExploreState.type === "sql";
+
+  const explorerBody = (
+    <PanelGroup direction="horizontal">
+      <Panel
+        id="main-section"
+        order={1}
+        defaultSize={75}
+        minSize={65}
+        style={{ display: "flex", flexDirection: "column" }}
+      >
+        <ExplorerMainSection
+          showDataSourceSelector={!hideDataSourceSelector && !isSql}
+        />
+      </Panel>
+
+      <PanelResizeHandle
+        style={{
+          width: "10px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Box
+          flexGrow="1"
+          mb="3"
+          mt={isSql ? "3" : "9"}
+          style={{ backgroundColor: "var(--gray-a3)", width: "1px" }}
+        ></Box>
+        <PiDotsSix size={16} style={{ transform: "rotate(90deg)" }} />
+        <Box
+          flexGrow="1"
+          my="3"
+          style={{ backgroundColor: "var(--gray-a3)", width: "1px" }}
+        ></Box>
+      </PanelResizeHandle>
+
+      <Panel id="sidebar" order={2} defaultSize={25} minSize={20}>
+        <ShadowedScrollArea height="100%">
+          <ExplorerSideBar
+            hideHeaderActions={hideSidebarHeaderActions || isSql}
+            headerActions={sidebarHeaderActions}
+          />
+        </ShadowedScrollArea>
+      </Panel>
+    </PanelGroup>
+  );
 
   return (
     <Flex direction="column" gap="3" height={height}>
@@ -102,58 +158,92 @@ export function ExplorerContent({
           <ManagedWarehouseNoEventsCallout />
         </Box>
       ) : null}
-      <PanelGroup direction="horizontal">
-        {/* Main Section */}
-        <Panel
-          id="main-section"
-          order={1}
-          defaultSize={75}
-          minSize={65}
-          style={{ display: "flex", flexDirection: "column" }}
-        >
-          <ExplorerMainSection
-            showDataSourceSelector={!hideDataSourceSelector}
-          />
-        </Panel>
-
-        {/* Resize Handle */}
-        <PanelResizeHandle
-          style={{
-            width: "10px",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Box
-            flexGrow="1"
-            mb="3"
-            mt="9"
-            style={{ backgroundColor: "var(--gray-a3)", width: "1px" }}
-          ></Box>
-          <PiDotsSix size={16} style={{ transform: "rotate(90deg)" }} />
-          <Box
-            flexGrow="1"
-            my="3"
-            style={{ backgroundColor: "var(--gray-a3)", width: "1px" }}
-          ></Box>
-        </PanelResizeHandle>
-
-        {/* Sidebar */}
-        <Panel id="sidebar" order={2} defaultSize={25} minSize={20}>
-          {/* Let the scroll area fill the panel (which already sizes itself
-              against the parent group's height) instead of a hardcoded
-              `calc(100vh - 160px)` — the latter left ~88px dead space at
-              the bottom and caused unnecessary scrolling. */}
-          <ShadowedScrollArea height="100%">
-            <ExplorerSideBar
-              hideHeaderActions={hideSidebarHeaderActions}
-              headerActions={sidebarHeaderActions}
-            />
-          </ShadowedScrollArea>
-        </Panel>
-      </PanelGroup>
+      {isSql && sqlEditorContext ? (
+        <>
+          <Flex direction="column" gap="1" px="2" flexShrink="0">
+            {!hideDataSourceSelector ? (
+              <Flex align="center" height="32px" mt="1">
+                <DataSourceDropdown />
+              </Flex>
+            ) : null}
+          </Flex>
+          <Tabs
+            value={sqlEditorContext.viewMode}
+            onValueChange={(value) => {
+              if (value === "dataset" || value === "explore") {
+                sqlEditorContext.setViewMode(value);
+                if (value === "explore") {
+                  sqlEditorContext.markExploreSeen();
+                }
+              }
+            }}
+            style={{
+              flex: 1,
+              minHeight: 0,
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <Flex
+              align="center"
+              justify="between"
+              flexShrink="0"
+              px="2"
+              style={{
+                width: "100%",
+                borderBottom: "1px solid var(--gray-a5)",
+              }}
+            >
+              <TabsList
+                style={{
+                  boxShadow: "none",
+                }}
+                size="lg"
+              >
+                <TabsTrigger value="dataset">1. Build Dataset</TabsTrigger>
+                <Tooltip
+                  body="Write or generate a query to build your dataset. Then you can explore the results and build visualizations with the data."
+                  shouldDisplay={!sqlEditorContext.exploreReady}
+                >
+                  <span style={{ display: "inline-flex" }}>
+                    <TabsTrigger
+                      value="explore"
+                      disabled={!sqlEditorContext.exploreReady}
+                    >
+                      <Flex align="center" gap="2">
+                        2. Explore Dataset
+                        {sqlEditorContext.exploreReady &&
+                        !sqlEditorContext.hasSeenExplore ? (
+                          <span
+                            style={{
+                              width: 6,
+                              height: 6,
+                              borderRadius: "50%",
+                              backgroundColor: "var(--green-9)",
+                              flexShrink: 0,
+                            }}
+                            aria-label="Sample results ready"
+                          />
+                        ) : null}
+                      </Flex>
+                    </TabsTrigger>
+                  </span>
+                </Tooltip>
+              </TabsList>
+              <Flex align="center" gap="2">
+                {!hideSidebarHeaderActions && !sidebarHeaderActions ? (
+                  <ExplorerPageActions />
+                ) : (
+                  sidebarHeaderActions
+                )}
+              </Flex>
+            </Flex>
+            <Box style={{ flex: 1, minHeight: 0 }}>{explorerBody}</Box>
+          </Tabs>
+        </>
+      ) : (
+        explorerBody
+      )}
     </Flex>
   );
 }
@@ -273,7 +363,10 @@ function ExplorerInner({ type }: { type: DatasetType }) {
     // Funnels don't render time-series charts, so the default date dimension
     // from DEFAULT_EXPLORE_STATE doesn't apply — start with no dimensions and
     // let the user add one explicitly via "Group By".
-    ...(type === "funnel" ? { dimensions: [] } : {}),
+    // SQL starts as a table exploration with no dimensions until the user
+    // configures them after testing their query.
+    ...(type === "funnel" || type === "sql" ? { dimensions: [] } : {}),
+    ...(type === "sql" ? { chartType: "table" as const } : {}),
   } as ExplorerDraftConfig;
 
   let seedError: string | null = null;

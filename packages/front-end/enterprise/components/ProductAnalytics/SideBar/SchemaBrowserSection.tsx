@@ -17,29 +17,6 @@ export default function SchemaBrowserSection({
 
   if (!datasource) return null;
 
-  const browser = (
-    <Box
-      mt="2"
-      height={fullHeight ? "100%" : "600px"}
-      style={{
-        flex: fullHeight ? 1 : undefined,
-        minHeight: 0,
-        maxHeight: fullHeight ? undefined : "calc(100vh - 240px)",
-        overflow: "hidden",
-      }}
-    >
-      <SchemaBrowser
-        datasource={datasource}
-        cursorData={cursorData ?? undefined}
-        updateSqlInput={(sql) => {
-          if (sql !== localSql) {
-            setLocalSql(sql);
-          }
-        }}
-      />
-    </Box>
-  );
-
   return (
     <Box
       style={{
@@ -48,16 +25,42 @@ export default function SchemaBrowserSection({
         flexDirection: "column",
         minHeight: 0,
         height: fullHeight ? "100%" : undefined,
+        // Match SqlQuerySection Query panel so content tops align.
         border: "1px solid var(--gray-a3)",
-        borderRadius: "var(--radius-3)",
-        padding: "var(--space-3)",
+        borderRadius: "var(--radius-4)",
+        overflow: "hidden",
         backgroundColor: "var(--color-panel-translucent)",
       }}
     >
-      <Flex align="center" gap="2" style={{ minWidth: 0 }}>
+      <Flex
+        align="center"
+        p="3"
+        flexShrink="0"
+        style={{ borderBottom: "1px solid var(--gray-a3)" }}
+      >
         <Text weight="medium">Schema Browser</Text>
+        {/* Matches size="sm" action buttons in the Query header. */}
+        <Box style={{ height: 32, width: 0 }} aria-hidden />
       </Flex>
-      {browser}
+      <Box
+        height={fullHeight ? undefined : "600px"}
+        style={{
+          flex: fullHeight ? 1 : undefined,
+          minHeight: 0,
+          maxHeight: fullHeight ? undefined : "calc(100vh - 240px)",
+          overflow: "hidden",
+        }}
+      >
+        <SchemaBrowser
+          datasource={datasource}
+          cursorData={cursorData ?? undefined}
+          updateSqlInput={(sql) => {
+            if (sql !== localSql) {
+              setLocalSql(sql);
+            }
+          }}
+        />
+      </Box>
     </Box>
   );
 }

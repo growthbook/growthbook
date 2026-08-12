@@ -25,7 +25,7 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
   saveAndCloseTrigger,
   onSaveAndClose,
   hideDataSourceSelector = false,
-  sqlChartConfigOnly = false,
+  sqlExploreConfigOnly = false,
   dashboardHeaderLeadingContent,
 }: {
   block: DashboardBlockInterfaceOrData<
@@ -49,7 +49,7 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
   saveAndCloseTrigger?: number;
   onSaveAndClose?: () => void;
   hideDataSourceSelector?: boolean;
-  sqlChartConfigOnly?: boolean;
+  sqlExploreConfigOnly?: boolean;
   dashboardHeaderLeadingContent?: ReactNode;
 }) {
   const {
@@ -194,7 +194,7 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
       <ExplorerSideBar
         renderingInDashboardSidebar
         hideDataSourceSelector={hideDataSourceSelector}
-        sqlChartConfigOnly={sqlChartConfigOnly}
+        sqlExploreConfigOnly={sqlExploreConfigOnly}
         dashboardHeaderLeadingContent={dashboardHeaderLeadingContent}
         dashboardDateRange={dashboardGlobalControls?.dateRange}
         useDashboardDateControl={usesDashboardDateRange}

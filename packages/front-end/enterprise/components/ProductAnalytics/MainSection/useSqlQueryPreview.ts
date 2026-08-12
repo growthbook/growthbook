@@ -26,26 +26,30 @@ const idleState: SqlQueryPreviewState = {
 export default function useSqlQueryPreview({
   dataset,
   datasourceId,
-  onChartReadyChange,
   onRunStart,
   onRunSuccess,
   onRunError,
 }: {
   dataset: SqlDataset | null;
   datasourceId: string;
-  onChartReadyChange?: (ready: boolean) => void;
   onRunStart?: () => void;
   onRunSuccess?: () => void;
   onRunError?: () => void;
 }) {
   const { apiCall } = useAuth();
   const { setDraftExploreState } = useExplorerContext();
-  const { setIsQueryRunning } = useSqlEditorContext();
+  const { localSql, setIsQueryRunning, setExploreReady } =
+    useSqlEditorContext();
   const [state, setState] = useState<SqlQueryPreviewState>(idleState);
   const lastPreviewedSqlRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if ((dataset?.sql ?? "") !== lastPreviewedSqlRef.current) {
+    const datasetSql = dataset?.sql ?? "";
+    if (
+      lastPreviewedSqlRef.current !== null &&
+      datasetSql !== lastPreviewedSqlRef.current
+    ) {
+      lastPreviewedSqlRef.current = null;
       setState(idleState);
     }
   }, [dataset?.sql]);
@@ -55,16 +59,19 @@ export default function useSqlQueryPreview({
     setState(idleState);
   }, [datasourceId]);
 
-  const chartReady =
+  // Ready when columns exist and the editor matches the tested dataset SQL.
+  // Covers both a successful in-session test and configs loaded from a URL/dashboard.
+  const exploreReady =
     state.status !== "loading" &&
     state.status !== "error" &&
     dataset !== null &&
-    dataset.sql.trim().length > 0 &&
+    localSql.trim().length > 0 &&
+    localSql === dataset.sql &&
     Object.keys(dataset.columnTypes).length > 0;
 
   useEffect(() => {
-    onChartReadyChange?.(chartReady);
-  }, [chartReady, onChartReadyChange]);
+    setExploreReady(exploreReady);
+  }, [exploreReady, setExploreReady]);
 
   const applyColumnMetadata = useCallback(
     (

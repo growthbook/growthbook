@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
+  PiArrowRight,
   PiCaretDown,
   PiCaretRight,
   PiPlay,
@@ -11,10 +12,9 @@ import {
 } from "react-icons/pi";
 import type { ImperativePanelHandle } from "react-resizable-panels";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
-import DisplayTestQueryResults, {
-  type AdditionalQueryResultsTab,
-} from "@/components/Settings/DisplayTestQueryResults";
+import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -33,9 +33,7 @@ import { useSqlEditorContext } from "@/enterprise/components/ProductAnalytics/Sq
 import styles from "@/components/SchemaBrowser/EditSqlModal.module.scss";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import useSqlQueryPreview, { PREVIEW_ROW_LIMIT } from "./useSqlQueryPreview";
-const SQL_PLACEHOLDER = `-- Write a query to get started, or use the "Generate Query" helper to ask for what you want in plain text.
-
-SELECT
+const SQL_PLACEHOLDER = `SELECT
     orderId,
     orderDate,
     total,
@@ -82,7 +80,7 @@ function SqlQueryActions({
         onClick={onRun}
         icon={<PiPlay />}
       >
-        Run
+        Test query
       </Button>
       {queryHelp}
       <DropdownMenu
@@ -114,29 +112,21 @@ function SqlQueryActions({
 export default function SqlQuerySection({
   fullHeight = false,
   showHeader = true,
-  onChartReadyChange,
   onRunStart,
   onRunSuccess,
   onRunError,
   resultsTarget,
-  activeResultsTab,
-  onResultsTabChange,
-  additionalResultsTab,
   onOpenChange,
-  onQueryFocus,
+  onPreviewPresenceChange,
 }: {
   fullHeight?: boolean;
   showHeader?: boolean;
-  onChartReadyChange?: (ready: boolean) => void;
   onRunStart?: () => void;
   onRunSuccess?: () => void;
   onRunError?: () => void;
   resultsTarget?: HTMLDivElement | null;
-  activeResultsTab?: string;
-  onResultsTabChange?: (value: string) => void;
-  additionalResultsTab?: AdditionalQueryResultsTab;
   onOpenChange?: (open: boolean) => void;
-  onQueryFocus?: () => void;
+  onPreviewPresenceChange?: (hasPreview: boolean) => void;
 }) {
   const { getDatasourceById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
@@ -157,6 +147,9 @@ export default function SqlQuerySection({
     setLocalSql,
     setCursorData,
     setIsAutocompleteEnabled,
+    exploreReady,
+    setViewMode,
+    markExploreSeen,
   } = useSqlEditorContext();
 
   const [open, setOpen] = useState(true);
@@ -172,21 +165,27 @@ export default function SqlQuerySection({
   } = useSqlQueryPreview({
     dataset,
     datasourceId: draftExploreState.datasource,
-    onChartReadyChange,
     onRunStart,
     onRunSuccess,
     onRunError,
   });
 
   useEffect(() => {
-    if (status === "success" && !resultsTarget) {
-      editorPanelRef.current?.resize(30);
+    if ((status === "success" || status === "error") && !resultsTarget) {
+      const lineCount = Math.max(localSql.split("\n").length, 1);
+      // Nested editor/results split: roughly fit SQL, capped well below 50%.
+      const percent = Math.min(60, Math.max(20, 12 + lineCount * 2));
+      editorPanelRef.current?.resize(percent);
     }
-  }, [resultsTarget, status]);
+  }, [localSql, resultsTarget, status]);
 
   useEffect(() => {
     onOpenChange?.(open);
   }, [onOpenChange, open]);
+
+  useEffect(() => {
+    onPreviewPresenceChange?.(status !== "idle");
+  }, [onPreviewPresenceChange, status]);
 
   if (!dataset) return null;
 
@@ -209,37 +208,60 @@ export default function SqlQuerySection({
   const canFormat =
     !loading && datasource ? canFormatSql(datasource.type) : false;
   const showContent = open || !showHeader;
+  const previewRowCount = previewResult?.results?.length ?? 0;
   const previewContent =
-    previewResult || additionalResultsTab ? (
+    status === "idle" ? null : (
       <DisplayTestQueryResults
         duration={previewResult?.duration ?? 0}
         results={previewResult?.results ?? []}
         sql={previewResult?.sql ?? localSql}
         error={error ?? previewResult?.error ?? ""}
-        allowDownload
-        activeTab={activeResultsTab}
-        onTabChange={onResultsTabChange}
-        additionalTab={additionalResultsTab}
-        showNoRowsWarning={previewResult !== null}
+        allowDownload={status === "success"}
+        showNoRowsWarning={status === "success"}
+        resultsHeader="Sample Results"
         emptyResultsContent={
-          !previewResult ? (
+          status === "loading" ? (
             <Flex
               align="center"
               justify="center"
               height="100%"
               style={{ color: "var(--color-text-mid)" }}
             >
-              <Text>Run the query to preview its raw rows.</Text>
+              <Text>Running query...</Text>
             </Flex>
           ) : undefined
         }
         rowsLabel={
-          previewResult?.results?.length === PREVIEW_ROW_LIMIT
-            ? `Showing the first ${PREVIEW_ROW_LIMIT} rows`
-            : undefined
+          status === "success" && previewRowCount > 0 ? (
+            <Flex align="center" gap="3" wrap="wrap">
+              <Text as="span" size="sm" weight="medium">
+                {previewRowCount === PREVIEW_ROW_LIMIT
+                  ? `Showing the first ${PREVIEW_ROW_LIMIT} rows`
+                  : `${previewRowCount} rows`}
+              </Text>
+              {exploreReady ? (
+                <Link
+                  size="sm"
+                  weight="medium"
+                  onClick={() => {
+                    markExploreSeen();
+                    setViewMode("explore");
+                  }}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                >
+                  Explore full dataset
+                  <PiArrowRight size={14} aria-hidden />
+                </Link>
+              ) : null}
+            </Flex>
+          ) : undefined
         }
       />
-    ) : null;
+    );
   const queryHelp = (
     <Tooltip
       body={
@@ -250,9 +272,10 @@ export default function SqlQuerySection({
             comparisons, and time-series charts.
           </Text>
           <Text>
-            Use the Schema Browser on the side bar to explore what data is
-            available in your Data Source, and optionally use our AI SQL
-            Generator to help you write the query.{" "}
+            Test the query to preview sample rows, then explore full results to
+            aggregate, filter, and chart without rewriting SQL. Use the Schema
+            Browser on the side bar to see what data is available, and
+            optionally use our AI SQL Generator to help write the query.
           </Text>
         </Flex>
       }
@@ -275,7 +298,6 @@ export default function SqlQuerySection({
     >
       {({ prompt, trigger }) => (
         <Box
-          onPointerDown={onQueryFocus}
           style={{
             border: showHeader ? "1px solid var(--gray-a3)" : undefined,
             borderRadius: showHeader ? "var(--radius-4)" : undefined,
@@ -402,7 +424,7 @@ export default function SqlQuerySection({
                         />
                       </AreaWithHeader>
                     </Panel>
-                    {previewResult && !resultsTarget && (
+                    {!resultsTarget && previewContent ? (
                       <>
                         <PanelResizeHandle />
                         <Panel
@@ -414,7 +436,7 @@ export default function SqlQuerySection({
                           {previewContent}
                         </Panel>
                       </>
-                    )}
+                    ) : null}
                   </PanelGroup>
                 </Panel>
               </PanelGroup>

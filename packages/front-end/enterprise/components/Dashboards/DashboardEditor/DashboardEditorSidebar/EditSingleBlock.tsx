@@ -1787,7 +1787,7 @@ export default function EditSingleBlock({
                     saveAndCloseTrigger={saveAndCloseTrigger}
                     onSaveAndClose={submit}
                     hideDataSourceSelector
-                    sqlChartConfigOnly
+                    sqlExploreConfigOnly
                     dashboardHeaderLeadingContent={
                       <SqlExplorationExternalEditor
                         block={

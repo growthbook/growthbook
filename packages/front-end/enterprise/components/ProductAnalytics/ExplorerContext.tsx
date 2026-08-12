@@ -1181,8 +1181,8 @@ export function ExplorerProvider({
           initialViewMode={
             draftExploreState.dataset.sql.trim().length > 0 &&
             Object.keys(draftExploreState.dataset.columnTypes).length > 0
-              ? "chart"
-              : "sql"
+              ? "explore"
+              : "dataset"
           }
         >
           {children}

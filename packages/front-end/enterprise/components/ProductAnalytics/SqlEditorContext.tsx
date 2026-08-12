@@ -1,6 +1,7 @@
 import {
   createContext,
   ReactNode,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -10,7 +11,7 @@ import { AceCompletion } from "@/components/Forms/CodeTextArea";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import useSqlAutocomplete from "@/components/SchemaBrowser/useSqlAutocomplete";
 
-export type SqlEditorViewMode = "chart" | "results" | "sql";
+export type SqlEditorViewMode = "dataset" | "explore";
 
 interface SqlEditorContextValue {
   localSql: string;
@@ -22,10 +23,14 @@ interface SqlEditorContextValue {
   setIsAutocompleteEnabled: (enabled: boolean) => void;
   viewMode: SqlEditorViewMode;
   setViewMode: (viewMode: SqlEditorViewMode) => void;
-  isQueryActive: boolean;
-  setIsQueryActive: (active: boolean) => void;
   isQueryRunning: boolean;
   setIsQueryRunning: (running: boolean) => void;
+  exploreReady: boolean;
+  setExploreReady: (ready: boolean) => void;
+  // True after the user opens Explore; cleared when exploreReady is reset so a
+  // fresh successful test can show the "ready" cue again.
+  hasSeenExplore: boolean;
+  markExploreSeen: () => void;
 }
 
 const SqlEditorContext = createContext<SqlEditorContextValue | null>(null);
@@ -43,8 +48,13 @@ export function SqlEditorProvider({
 }) {
   const [localSql, setLocalSql] = useState(sql);
   const [viewMode, setViewMode] = useState<SqlEditorViewMode>(initialViewMode);
-  const [isQueryActive, setIsQueryActive] = useState(false);
   const [isQueryRunning, setIsQueryRunning] = useState(false);
+  const [exploreReady, setExploreReadyState] = useState(
+    initialViewMode === "explore",
+  );
+  const [hasSeenExplore, setHasSeenExplore] = useState(
+    initialViewMode === "explore",
+  );
   const {
     autoCompletions,
     cursorData,
@@ -61,6 +71,14 @@ export function SqlEditorProvider({
     setLocalSql(sql);
   }, [sql]);
 
+  const setExploreReady = useCallback((ready: boolean) => {
+    setExploreReadyState(ready);
+    // A new test cycle can show the ready cue again.
+    if (!ready) setHasSeenExplore(false);
+  }, []);
+
+  const markExploreSeen = useCallback(() => setHasSeenExplore(true), []);
+
   const value = useMemo(
     () => ({
       localSql,
@@ -72,19 +90,24 @@ export function SqlEditorProvider({
       setIsAutocompleteEnabled,
       viewMode,
       setViewMode,
-      isQueryActive,
-      setIsQueryActive,
       isQueryRunning,
       setIsQueryRunning,
+      exploreReady,
+      setExploreReady,
+      hasSeenExplore,
+      markExploreSeen,
     }),
     [
       autoCompletions,
       cursorData,
+      exploreReady,
+      hasSeenExplore,
       isAutocompleteEnabled,
-      isQueryActive,
       isQueryRunning,
       localSql,
+      markExploreSeen,
       setCursorData,
+      setExploreReady,
       setIsAutocompleteEnabled,
       viewMode,
     ],

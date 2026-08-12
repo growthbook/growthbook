@@ -39,7 +39,7 @@ export type Props = {
   expandable?: boolean;
   allowDownload?: boolean;
   showSampleHeader?: boolean;
-  rowsLabel?: string;
+  rowsLabel?: ReactNode;
   showDuration?: boolean;
   headerStructure?: HeaderStructure;
   orderedColumnKeys?: string[];
@@ -72,6 +72,9 @@ export type Props = {
   additionalTab?: AdditionalQueryResultsTab;
   resultsDisabled?: boolean;
   emptyResultsContent?: ReactNode;
+  headerActions?: ReactNode;
+  /** Label for the results tab. Defaults to "Results". */
+  resultsHeader?: string;
 };
 
 export default function DisplayTestQueryResults({
@@ -98,6 +101,8 @@ export default function DisplayTestQueryResults({
   additionalTab,
   resultsDisabled = false,
   emptyResultsContent,
+  headerActions,
+  resultsHeader = "Results",
 }: Props) {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [showQueryModal, setShowQueryModal] = useState(false);
@@ -257,19 +262,22 @@ export default function DisplayTestQueryResults({
             paddingTop: `${paddingTop}px`,
           }}
           header={
-            <TabsList>
-              <TabsTrigger value="results" disabled={resultsDisabled}>
-                Results
-              </TabsTrigger>
-              {additionalTab ? (
-                <TabsTrigger
-                  value={additionalTab.value}
-                  disabled={additionalTab.disabled}
-                >
-                  {additionalTab.label}
+            <Flex align="center" justify="between" width="100%" gap="2">
+              <TabsList>
+                <TabsTrigger value="results" disabled={resultsDisabled}>
+                  {resultsHeader}
                 </TabsTrigger>
-              ) : null}
-              <div className="flex-grow-1">
+                {additionalTab ? (
+                  <TabsTrigger
+                    value={additionalTab.value}
+                    disabled={additionalTab.disabled}
+                  >
+                    {additionalTab.label}
+                  </TabsTrigger>
+                ) : null}
+              </TabsList>
+              <Flex align="center" justify="end" gap="2" flexShrink="0">
+                {headerActions}
                 {close ? (
                   <button
                     type="button"
@@ -284,8 +292,8 @@ export default function DisplayTestQueryResults({
                     <span aria-hidden="true">×</span>
                   </button>
                 ) : null}
-              </div>
-            </TabsList>
+              </Flex>
+            </Flex>
           }
         >
           <TabsContent
@@ -369,10 +377,13 @@ export default function DisplayTestQueryResults({
                             </Button>
                           </Flex>
                         ) : (
-                          <strong className="pr-1">
-                            {rowsLabel ??
-                              `${showSampleHeader ? "Sample " : ""}${results?.length} Rows`}
-                          </strong>
+                          <div className="mr-1">
+                            {rowsLabel ?? (
+                              <strong>
+                                {`${showSampleHeader ? "Sample " : ""}${results?.length} Rows`}
+                              </strong>
+                            )}
+                          </div>
                         )}
                       </Flex>
                       {showDurationStatus ? (

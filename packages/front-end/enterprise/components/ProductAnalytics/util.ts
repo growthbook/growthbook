@@ -1108,10 +1108,9 @@ export function compareConfig(
   const newMode = previousWindows?.newComparisonMode ?? null;
 
   if (!lastSubmittedConfig) {
-    const hasInputs =
-      newConfig.dataset.type === "funnel"
-        ? newConfig.dataset.steps.length > 0
-        : newConfig.dataset.values.length > 0;
+    // Placeholder seeds (e.g. default Count before a fact table / table is
+    // chosen) are not fetchable yet — don't treat them as pending changes.
+    const hasInputs = isSubmittableConfig(newConfig);
     return { needsFetch: hasInputs, needsUpdate: hasInputs };
   }
 

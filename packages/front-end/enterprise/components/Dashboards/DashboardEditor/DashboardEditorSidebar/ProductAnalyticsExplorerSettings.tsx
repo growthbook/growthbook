@@ -49,7 +49,7 @@ interface Props {
   saveAndCloseTrigger?: number;
   onSaveAndClose?: () => void;
   hideDataSourceSelector?: boolean;
-  sqlChartConfigOnly?: boolean;
+  sqlExploreConfigOnly?: boolean;
   dashboardHeaderLeadingContent?: ReactNode;
 }
 
@@ -60,7 +60,7 @@ export default function ProductAnalyticsExplorerSettings({
   saveAndCloseTrigger,
   onSaveAndClose,
   hideDataSourceSelector,
-  sqlChartConfigOnly,
+  sqlExploreConfigOnly,
   dashboardHeaderLeadingContent,
 }: Props) {
   const { data, error } = useApi<{
@@ -216,7 +216,7 @@ export default function ProductAnalyticsExplorerSettings({
         saveAndCloseTrigger={saveAndCloseTrigger}
         onSaveAndClose={onSaveAndClose}
         hideDataSourceSelector={hideDataSourceSelector}
-        sqlChartConfigOnly={sqlChartConfigOnly}
+        sqlExploreConfigOnly={sqlExploreConfigOnly}
         dashboardHeaderLeadingContent={dashboardHeaderLeadingContent}
       />
     </ExplorerProvider>

@@ -90,7 +90,7 @@ export default function SqlTabContent() {
             }}
           >
             <Text size="sm" color="text-low">
-              Add at least one value to chart
+              Add at least one value to explore
             </Text>
           </Flex>
         )}
