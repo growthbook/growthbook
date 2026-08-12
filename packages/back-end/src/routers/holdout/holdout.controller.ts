@@ -2,14 +2,18 @@ import type { Response } from "express";
 import isEqual from "lodash/isEqual";
 import { omit } from "lodash";
 import { UpdateProps } from "shared/types/base-model";
-import { HoldoutInterface, HoldoutStage } from "shared/validators";
+import { HoldoutInterface } from "shared/validators";
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
-import { PermissionError, getApplicableEnvIds } from "shared/util";
+import {
+  getApplicableEnvIds,
+  HoldoutStage,
+  PermissionError,
+} from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getContextFromReq,
@@ -23,7 +27,7 @@ import {
   hasArchivedExperiments,
 } from "back-end/src/models/ExperimentModel";
 import {
-  advanceHoldoutStage,
+  setHoldoutStage,
   assertHoldoutScopeCoversLinked,
   createHoldoutWithExperiment,
   deleteHoldoutAndExperiment,
@@ -319,7 +323,7 @@ export const editStatus = async (
     stage = req.body.holdoutRunningStatus ?? "running";
   }
 
-  await advanceHoldoutStage(context, { holdout, experiment, stage });
+  await setHoldoutStage(context, { holdout, experiment, stage });
 
   return res.status(200).json({ status: 200 });
 };

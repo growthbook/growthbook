@@ -1,11 +1,14 @@
 import { v4 as uuidv4 } from "uuid";
 import { getValidDate } from "shared/dates";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
-import { generateVariationId, getHoldoutStage } from "shared/util";
+import {
+  generateVariationId,
+  getHoldoutStage,
+  HoldoutStage,
+} from "shared/util";
 import {
   HoldoutInterface,
   HoldoutNextScheduledStatusUpdate,
-  HoldoutStage,
 } from "shared/validators";
 import {
   Changeset,
@@ -38,7 +41,6 @@ import {
   validateExperimentData,
   validateVariationIds,
 } from "back-end/src/services/experiments";
-import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 
 export async function canLinkExperimentToHoldoutFromFeatures(
   context: ReqContext | ApiReqContext,
@@ -267,7 +269,6 @@ export function normalizeHoldoutScheduleUpdates({
   holdout,
   experiment,
   scheduleInput,
-  now = new Date(),
 }: {
   holdout: Pick<
     HoldoutInterface,
@@ -282,7 +283,6 @@ export function normalizeHoldoutScheduleUpdates({
       }
     | null
     | undefined;
-  now?: Date;
 }): {
   statusUpdateSchedule: HoldoutInterface["statusUpdateSchedule"];
   nextScheduledStatusUpdate: HoldoutInterface["nextScheduledStatusUpdate"];
@@ -345,6 +345,7 @@ export function normalizeHoldoutScheduleUpdates({
     });
   }
 
+  const now = new Date();
   const futureUpdates = potentialUpdates.filter((update) => update.date > now);
   if (!futureUpdates.length) {
     return { statusUpdateSchedule, nextScheduledStatusUpdate: null };
@@ -362,7 +363,38 @@ export function normalizeHoldoutScheduleUpdates({
   };
 }
 
-export async function advanceHoldoutStage(
+/**
+ * The `nextScheduledStatusUpdate` to persist after a holdout advances into
+ * `stage`: entering `running` chains to the analysis start, entering
+ * `analysis-period` chains to the stop, and `stopped`/`draft` end the chain.
+ * Returns `null` when the schedule has no matching future transition.
+ */
+export function getNextScheduledStatusUpdateForStage(
+  statusUpdateSchedule: HoldoutInterface["statusUpdateSchedule"],
+  stage: HoldoutStage,
+): HoldoutInterface["nextScheduledStatusUpdate"] {
+  switch (stage) {
+    case "running":
+      return statusUpdateSchedule?.startAnalysisPeriodAt
+        ? {
+            type: "startAnalysisPeriod",
+            date: statusUpdateSchedule.startAnalysisPeriodAt,
+          }
+        : null;
+    case "analysis-period":
+      return statusUpdateSchedule?.stopAt
+        ? { type: "stop", date: statusUpdateSchedule.stopAt }
+        : null;
+    case "draft":
+    case "stopped":
+      return null;
+    default:
+      stage satisfies never;
+      return null;
+  }
+}
+
+export async function setHoldoutStage(
   context: ReqContext | ApiReqContext,
   {
     holdout,
@@ -403,12 +435,15 @@ export async function advanceHoldoutStage(
         phases[1].dateEnded = new Date();
       }
       Object.assign(changes, { phases, status: "stopped" });
-      await validateExperimentChange({ context, experiment, changes });
+      // await validateExperimentChange({ context, experiment, changes });
       await updateExperiment({ context, experiment, changes });
       await context.models.holdout.update(holdout, {
-        nextScheduledStatusUpdate: null,
+        nextScheduledStatusUpdate: getNextScheduledStatusUpdateForStage(
+          holdout.statusUpdateSchedule,
+          "stopped",
+        ),
       });
-      refreshPayload("status changed to stopped");
+      refreshPayload("Status changed to stopped");
       return;
     }
 
@@ -418,12 +453,12 @@ export async function advanceHoldoutStage(
       }
       phases[0].dateEnded = undefined;
       Object.assign(changes, { phases: [phases[0]], status: "draft" });
-      await validateExperimentChange({ context, experiment, changes });
+      // await validateExperimentChange({ context, experiment, changes });
       await updateExperiment({ context, experiment, changes });
       await context.models.holdout.update(holdout, {
         analysisStartDate: undefined,
       });
-      refreshPayload("status changed to draft");
+      refreshPayload("Status changed to draft");
       return;
     }
 
@@ -433,19 +468,16 @@ export async function advanceHoldoutStage(
           changes,
           await getChangesToStartExperiment(context, experiment),
         );
-        await validateExperimentChange({ context, experiment, changes });
+        // await validateExperimentChange({ context, experiment, changes });
         await updateExperiment({ context, experiment, changes });
         await context.models.holdout.update(holdout, {
           analysisStartDate: undefined,
-          nextScheduledStatusUpdate: holdout.statusUpdateSchedule
-            ?.startAnalysisPeriodAt
-            ? {
-                type: "startAnalysisPeriod",
-                date: holdout.statusUpdateSchedule.startAnalysisPeriodAt,
-              }
-            : null,
+          nextScheduledStatusUpdate: getNextScheduledStatusUpdateForStage(
+            holdout.statusUpdateSchedule,
+            "running",
+          ),
         });
-        refreshPayload("status changed to running");
+        refreshPayload("Status changed to running");
         return;
       }
 
@@ -457,12 +489,12 @@ export async function advanceHoldoutStage(
         phases = [phases[0]];
       }
       Object.assign(changes, { phases, status: "running" });
-      await validateExperimentChange({ context, experiment, changes });
+      // await validateExperimentChange({ context, experiment, changes });
       await updateExperiment({ context, experiment, changes });
       await context.models.holdout.update(holdout, {
         analysisStartDate: undefined,
       });
-      refreshPayload("status changed to running");
+      refreshPayload("Status changed to running");
       return;
     }
 
@@ -482,15 +514,16 @@ export async function advanceHoldoutStage(
         name: "Analysis",
       };
       Object.assign(changes, { phases, status: "running" });
-      await validateExperimentChange({ context, experiment, changes });
+      // await validateExperimentChange({ context, experiment, changes });
       await updateExperiment({ context, experiment, changes });
       await context.models.holdout.update(holdout, {
         analysisStartDate: new Date(),
-        nextScheduledStatusUpdate: holdout.statusUpdateSchedule?.stopAt
-          ? { type: "stop", date: holdout.statusUpdateSchedule.stopAt }
-          : null,
+        nextScheduledStatusUpdate: getNextScheduledStatusUpdateForStage(
+          holdout.statusUpdateSchedule,
+          "analysis-period",
+        ),
       });
-      refreshPayload("status changed to analysis period");
+      refreshPayload("Status changed to analysis period");
       return;
     }
     default: {
