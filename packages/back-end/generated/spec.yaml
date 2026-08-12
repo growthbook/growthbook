@@ -49460,10 +49460,7 @@ paths:
     put:
       operationId: updateHoldout
       summary: Update a single holdout
-      description: >-
-        Updates a Holdout. Fields are written to the Holdout and its companion
-        experiment as needed, so callers do not need to know where each field is
-        stored. Use POST /holdouts/{id}/stage to change the stage.
+      description: Updates a Holdout. Use POST /holdouts/{id}/stage to change the stage.
       tags:
         - Holdouts
       parameters:
@@ -49548,12 +49545,6 @@ paths:
                   type: array
                   items:
                     type: string
-                guardrailMetrics:
-                  type: array
-                  items:
-                    type: string
-                activationMetric:
-                  type: string
                 variations:
                   description: >-
                     Rename a Holdout's variations. A Holdout always has exactly
@@ -49643,8 +49634,8 @@ paths:
       operationId: createHoldout
       summary: Create a single holdout
       description: >-
-        Creates a Holdout along with its companion experiment. The Holdout
-        starts in the `draft` stage — use POST /holdouts/{id}/stage to start it.
+        Creates a Holdout. The Holdout starts in the `draft` stage — use POST
+        /holdouts/{id}/stage to start it.
       tags:
         - Holdouts
       requestBody:
@@ -49723,12 +49714,6 @@ paths:
                   type: array
                   items:
                     type: string
-                guardrailMetrics:
-                  type: array
-                  items:
-                    type: string
-                activationMetric:
-                  type: string
                 environments:
                   description: >-
                     Per-environment state, keyed by environment ID. Environments
@@ -65726,12 +65711,6 @@ components:
           type: array
           items:
             type: string
-        guardrailMetrics:
-          type: array
-          items:
-            type: string
-        activationMetric:
-          type: string
         variations:
           type: array
           items:
@@ -65881,7 +65860,6 @@ components:
         - assignmentQueryId
         - goalMetrics
         - secondaryMetrics
-        - guardrailMetrics
         - variations
         - environments
         - linkedFeatures

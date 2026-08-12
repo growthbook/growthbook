@@ -170,8 +170,6 @@ export function toApiHoldout(
     assignmentQueryId: experiment?.exposureQueryId ?? "",
     goalMetrics: experiment?.goalMetrics ?? [],
     secondaryMetrics: experiment?.secondaryMetrics ?? [],
-    guardrailMetrics: experiment?.guardrailMetrics ?? [],
-    activationMetric: experiment?.activationMetric || undefined,
     variations: (experiment?.variations ?? []).map((v) => ({
       variationId: v.id,
       key: v.key,
@@ -350,8 +348,6 @@ export class HoldoutModel extends BaseClass {
         savedGroups: body.savedGroups,
         goalMetrics: body.goalMetrics,
         secondaryMetrics: body.secondaryMetrics,
-        guardrailMetrics: body.guardrailMetrics,
-        activationMetric: body.activationMetric,
         environmentSettings: body.environments
           ? Object.fromEntries(
               Object.entries(body.environments).map(([id, settings]) => [
