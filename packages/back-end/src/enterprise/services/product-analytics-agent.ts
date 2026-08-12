@@ -781,7 +781,7 @@ async function normalizeConfigForExplorer(
       if (dataset.factTableId) dimensionFactTableIds.add(dataset.factTableId);
     } else if (dataset.type === "metric") {
       referencedMetrics.forEach((m) => {
-        if (m.numerator.factTableId) {
+        if (m.numerator?.factTableId) {
           dimensionFactTableIds.add(m.numerator.factTableId);
         }
         if (m.denominator?.factTableId) {
