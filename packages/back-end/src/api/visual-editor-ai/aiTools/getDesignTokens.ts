@@ -19,7 +19,10 @@ export function getDesignTokensTool(context: ApiReqContext) {
       "Fetch the organization's brand guidelines and design context. Call this when the user asks for a change that should be 'on brand', 'match the site style', 'use the brand colors', or similar. Returns free-text guidelines set by the org admin. Skip this for prompts that are purely about specific elements with no brand-tone implication.",
     inputSchema,
     execute: async () => {
-      const { visualEditorAIContext } = getAISettingsForOrg(context, true);
+      const { visualEditorAIContext } = await getAISettingsForOrg(
+        context,
+        true,
+      );
       if (!visualEditorAIContext) {
         return {
           ok: true,

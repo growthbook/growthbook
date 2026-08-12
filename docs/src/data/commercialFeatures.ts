@@ -9,6 +9,10 @@ export default {
     plan: "pro",
     displayName: "Advanced Permissions",
   },
+  "ai-byok": {
+    plan: "enterprise",
+    displayName: "Ai Byok",
+  },
   "ai-suggestions": {
     plan: "enterprise",
     displayName: "AI Suggestions",
@@ -104,6 +108,10 @@ export default {
   "large-saved-groups": {
     plan: "enterprise",
     displayName: "Large Saved Groups",
+  },
+  learnings: {
+    plan: "enterprise",
+    displayName: "Learnings",
   },
   livechat: {
     plan: "pro",
