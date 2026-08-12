@@ -1,12 +1,6 @@
 import { FeatureInterface, FeatureValueType } from "shared/types/feature";
 import { Box, Flex, Slider } from "@radix-ui/themes";
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getEqualWeights } from "shared/experiments";
 import { PiArrowsClockwise, PiLockSimpleFill } from "react-icons/pi";
 import {
@@ -19,12 +13,11 @@ import {
   generateVariationId,
   getDefaultVariationValue,
 } from "@/services/features";
-import { GBAddCircle } from "@/components/Icons";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import { GBAddCircle, GBInfo } from "@/components/Icons";
 import Field from "@/components/Forms/Field";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import UiTooltip from "@/ui/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import styles from "./VariationsInput.module.scss";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import {
@@ -207,7 +200,12 @@ export default function FeatureVariationsInput({
           {!hideCoverage ? (
             <div className="px-3 pt-3 bg-highlight rounded mb-3">
               <label className="mb-0">
-                {coverageLabel} <Tooltip body={coverageTooltip} />
+                {coverageLabel}{" "}
+                <Tooltip content={coverageTooltip} side="top">
+                  <Box display="inline-block">
+                    <GBInfo />
+                  </Box>
+                </Tooltip>
               </label>
               <div className="row align-items-center pb-3 mx-1">
                 <div className="col pl-0">
@@ -288,7 +286,12 @@ export default function FeatureVariationsInput({
           {!hideCoverage ? (
             <div className="px-3 pt-3 bg-highlight rounded mb-3">
               <label className="mb-0">
-                {coverageLabel} <Tooltip body={coverageTooltip} />
+                {coverageLabel}{" "}
+                <Tooltip content={coverageTooltip} side="top">
+                  <Box display="inline-block">
+                    <GBInfo />
+                  </Box>
+                </Tooltip>
               </label>
               <div className="row align-items-center pb-3 mx-1">
                 <div className="col pl-0">
@@ -388,29 +391,26 @@ export default function FeatureVariationsInput({
                         !disableCustomSplit &&
                         !editingSplits &&
                         !onlySafeToEditVariationMetadata && (
-                          <UiTooltip content="Click to unlock split…" side="top">
-                            <a
-                              role="button"
-                              className="ml-1 mb-0"
-                              onClick={() => {
+                          <Tooltip content="Customize split" side="top">
+                            <Link
+                              onClick={(e) => {
+                                e.preventDefault();
                                 setEditingSplits(true);
                               }}
+                              ml="1"
+                              aria-label="Customize split"
                             >
-                              <PiLockSimpleFill
-                                className="text-purple"
-                                size={15}
-                              />
-                            </a>
-                          </UiTooltip>
+                              <PiLockSimpleFill size={15} />
+                            </Link>
+                          </Tooltip>
                         )}
                       {editingSplits &&
                         !isEqualWeights &&
                         !disableCustomSplit &&
                         !hideSplits && (
                           <Tooltip
-                            body="Assign equal weights to all variations"
-                            usePortal={true}
-                            tipPosition="top"
+                            content="Assign equal weights to all variations"
+                            side="top"
                           >
                             <a
                               role="button"
@@ -494,7 +494,10 @@ export default function FeatureVariationsInput({
                           )}
                           {valueType === "boolean" && (
                             <>
-                              <Tooltip body="Boolean features can only have two variations. Use a different feature type to add multiple variations.">
+                              <Tooltip
+                                content="Boolean features can only have two variations. Use a different feature type to add multiple variations."
+                                side="top"
+                              >
                                 <Link
                                   style={{
                                     cursor: "not-allowed",
