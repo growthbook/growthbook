@@ -52,7 +52,10 @@ import {
   assertIncrementalRefreshPrerequisites,
 } from "back-end/src/enterprise/services/data-pipeline";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
-import { chunkMetrics } from "back-end/src/services/experimentQueries/experimentQueries";
+import {
+  chunkMetrics,
+  getQueryableMetricsFromSnapshotSettings,
+} from "back-end/src/services/experimentQueries/experimentQueries";
 import {
   filterRegressionAdjustedMetrics,
   planMetricFanOut,
@@ -246,9 +249,10 @@ const startExperimentIncrementalRefreshQueries = async (
   // after the introduction of metric slices
   // TODO(bryce): refactor the source of truth for metrics so that the expandedMetricMap isn't used to add
   // metrics to an experiment
-  const selectedMetrics = snapshotSettings.metricSettings
-    .map((m) => metricMap.get(m.id))
-    .filter((m) => m) as ExperimentMetricInterface[];
+  const selectedMetrics = getQueryableMetricsFromSnapshotSettings(
+    snapshotSettings,
+    metricMap,
+  );
   if (!selectedMetrics.length) {
     throw new Error("Experiment must have at least 1 metric selected.");
   }
@@ -637,7 +641,7 @@ const startExperimentIncrementalRefreshQueries = async (
     // half-populated columns.
     const sameFtMetrics = group.metrics.filter(
       (m) =>
-        m.numerator.factTableId === group.factTableId &&
+        m.numerator?.factTableId === group.factTableId &&
         (!isRatioMetric(m) || m.denominator?.factTableId === group.factTableId),
     );
 

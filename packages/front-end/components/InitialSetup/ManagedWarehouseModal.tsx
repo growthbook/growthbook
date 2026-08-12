@@ -17,6 +17,11 @@ import Modal from "@/components/Modal";
 import Badge from "@/ui/Badge";
 import SelectField from "@/components/Forms/SelectField";
 import Checkbox from "@/ui/Checkbox";
+import {
+  DEFAULT_DATA_REGION,
+  DataRegion,
+  useDataRegionOptions,
+} from "@/services/dataRegions";
 
 export default function ManagedWarehouseModal({
   close,
@@ -31,6 +36,8 @@ export default function ManagedWarehouseModal({
 
   const [agree, setAgree] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [region, setRegion] = useState<DataRegion>(DEFAULT_DATA_REGION);
+  const dataRegionOptions = useDataRegionOptions();
 
   const settings = useOrgSettings();
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -112,6 +119,7 @@ export default function ManagedWarehouseModal({
           datasource: DataSourceInterfaceWithParams;
         }>("/datasources/managed-warehouse", {
           method: "POST",
+          body: JSON.stringify({ region }),
         });
 
         if (res.id) {
@@ -146,12 +154,11 @@ export default function ManagedWarehouseModal({
 
       <SelectField
         size="legacy"
-        label="Data Region"
-        value="us-east-1"
-        onChange={() => {}}
-        options={[{ label: "AWS us-east-1", value: "us-east-1" }]}
-        disabled
-        helpText="This is the only region available for now."
+        label="Data region"
+        value={region}
+        onChange={(value) => setRegion(value as DataRegion)}
+        options={dataRegionOptions}
+        helpText="Where your event data will be ingested and stored. This cannot be changed later."
       />
 
       <div className="mb-3">

@@ -125,10 +125,9 @@ function makeContext(): ReqContext {
     environments: ["production", "staging"],
     auditUser: { type: "dashboard" },
     permissions: {
-      canUpdateFeature: jest.fn().mockReturnValue(true),
-      canManageFeatureDrafts: jest.fn().mockReturnValue(true),
+      canEditFeatureDrafts: jest.fn().mockReturnValue(true),
       canPublishFeature: jest.fn().mockReturnValue(true),
-      canBypassApprovalChecks: jest.fn().mockReturnValue(false),
+      canBypassFlagApprovalChecks: jest.fn().mockReturnValue(false),
       throwPermissionError: jest.fn(() => {
         throw new Error("Permission denied");
       }),
@@ -309,6 +308,28 @@ describe("linkFeatureToContextualBandit", () => {
       environments: ["production"],
     });
     expect(changes.environmentsEnabled).toEqual({ production: true });
+    // Staging into a draft publishes nothing, so no publish authority is asked
+    // for — the environment-scoped check belongs to the landing call below.
+    expect(context.permissions.canPublishFeature).not.toHaveBeenCalled();
+  });
+
+  it("scopes the publish check to the rule's environments when the call lands", async () => {
+    getDraftRevisionMock.mockResolvedValue(makeRevision());
+    const context = makeContext();
+
+    await linkFeatureToContextualBandit({
+      context,
+      contextualBandit: makeCb(),
+      feature: makeFeature(),
+      rule: makeRule({
+        allEnvironments: false,
+        environments: ["production"],
+      }),
+      eventAudit: { type: "dashboard" },
+      audit,
+      autoPublish: true,
+    });
+
     expect(context.permissions.canPublishFeature).toHaveBeenCalledWith(
       expect.objectContaining({ id: "feat_1" }),
       ["production"],

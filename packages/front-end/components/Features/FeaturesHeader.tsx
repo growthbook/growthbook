@@ -1,3 +1,7 @@
+import {
+  NO_ENVIRONMENT_BINDING,
+  canStageArchiveDraft,
+} from "shared/permissions";
 import { useRouter } from "next/router";
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -54,6 +58,7 @@ import FeatureDeleteModal from "./FeatureDeleteModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
 export default function FeaturesHeader({
   feature,
+  baseFeature,
   mutate,
   setVersion,
   version,
@@ -66,6 +71,10 @@ export default function FeaturesHeader({
   onCompareRevisions,
 }: {
   feature: FeatureInterface;
+  // Live feature doc. `feature` is merged with whichever revision is being
+  // viewed, so anything describing the flag's actual service state has to read
+  // this instead.
+  baseFeature: FeatureInterface;
   mutate: () => Promise<unknown>;
   setVersion: (version: number) => void;
   version: number | null;
@@ -196,10 +205,43 @@ export default function FeaturesHeader({
   const projectName = project?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
 
-  const canEdit = permissionsUtil.canViewFeatureModal(projectId);
+  // Editing an existing flag takes draft authority, not the create gate:
+  // `canViewFeatureModal` answers "may this user create a feature".
+  const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
   const enabledEnvs = getEnabledEnvironments(feature, environments);
   const canPublish = permissionsUtil.canPublishFeature(feature, enabledEnvs);
-  const isArchived = feature.archived;
+  // Duplicating CREATES a flag, so it takes create authority — not authority over
+  // the one being copied. The modal gates its own environment toggles.
+  const canDuplicate = permissionsUtil.canCreateFeature(
+    { project: projectId },
+    NO_ENVIRONMENT_BINDING,
+  );
+  // Archive controls use live state, not the viewed draft projection.
+  const isArchived = baseFeature.archived;
+  const liveArchiveEnvs = getEnabledEnvironments(
+    baseFeature,
+    filterEnvironmentsByFeature(allEnvironments, baseFeature),
+  );
+  const canArchive = permissionsUtil.canDeleteFeature(
+    baseFeature,
+    liveArchiveEnvs,
+  );
+  const canDelete = permissionsUtil.canDeleteFeature(
+    baseFeature,
+    NO_ENVIRONMENT_BINDING,
+  );
+  const canUnarchive = permissionsUtil.canPublishFeature(
+    baseFeature,
+    liveArchiveEnvs,
+  );
+  const canToggleArchive =
+    (isArchived ? canUnarchive : canArchive) ||
+    canStageArchiveDraft({
+      permissions: permissionsUtil,
+      model: "feature",
+      entity: { project: baseFeature.project },
+      archived: !isArchived,
+    });
 
   // Tab chip + tooltip count revisions at "request review" or beyond; drafts
   // still being edited don't need reviewer/publisher attention.
@@ -241,7 +283,9 @@ export default function FeaturesHeader({
         menuPlacement="end"
       >
         <DropdownMenuGroup>
-          {canEdit && canPublish && !isReadOnly && (
+          {/* Metadata is draft-class server-side; requiring publish here shut
+              draft-only editors out of an action they are allowed to take. */}
+          {canEdit && !isReadOnly && (
             <DropdownMenuItem
               onClick={() => {
                 setEditFeatureInfoModal(true);
@@ -363,45 +407,56 @@ export default function FeaturesHeader({
             </DropdownMenuItem>
           )}
         </DropdownMenuGroup>
-        {canEdit && canPublish && !isReadOnly && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem
-                onClick={() => {
-                  setDuplicateModal(true);
-                  setDropdownOpen(false);
-                }}
-              >
-                Duplicate
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  setArchiveModal(true);
-                  setDropdownOpen(false);
-                }}
-              >
-                {isArchived ? "Unarchive" : "Archive"}
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            {isArchived && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
+        {/* `canDuplicate` belongs in this predicate, not only on its own item: a
+            create-only user holds none of the other three, so the whole group was
+            hidden and Duplicate never rendered even though its own check passed. */}
+        {(canDuplicate ||
+          (canEdit && canPublish) ||
+          canToggleArchive ||
+          (isArchived && canDelete)) &&
+          !isReadOnly && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                {canDuplicate && (
                   <DropdownMenuItem
-                    color="red"
                     onClick={() => {
-                      setDeleteModal(true);
+                      setDuplicateModal(true);
                       setDropdownOpen(false);
                     }}
                   >
-                    Delete
+                    Duplicate
                   </DropdownMenuItem>
-                </DropdownMenuGroup>
-              </>
-            )}
-          </>
-        )}
+                )}
+                {canToggleArchive && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setArchiveModal(true);
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    {isArchived ? "Unarchive" : "Archive"}
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuGroup>
+              {isArchived && canDelete && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      color="red"
+                      onClick={() => {
+                        setDeleteModal(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </>
+              )}
+            </>
+          )}
       </DropdownMenu>
     </Flex>
   );
@@ -412,11 +467,12 @@ export default function FeaturesHeader({
         <Box>
           <Flex align="start" justify="between" gap="2">
             <Flex align="center" mb="2" gap="3" style={{ marginTop: "-4px" }}>
-              <Heading size="xl" as="h1" mb="0">
+              <Heading size="xl" as="h1" overflowWrap="anywhere" mb="0">
                 {feature.id}
               </Heading>
               <FeatureStatusBadge
-                feature={feature}
+                // Live doc: the chip states actual status, not the draft's.
+                feature={baseFeature}
                 staleData={staleData}
                 fetchStaleData={handleRerunStale}
                 onDisable={canEdit ? () => setStaleFFModal(true) : undefined}
@@ -536,12 +592,18 @@ export default function FeaturesHeader({
               </Box>
             ) : null}
           </Box>
-          {isArchived && (
+          {isArchived ? (
             <Callout status="info" mb="2">
-              <strong>This feature is archived.</strong> It will not be included
-              in SDK Endpoints or Webhook payloads.
+              <strong>This Feature Flag is archived.</strong> It will not be
+              included in SDK Endpoints or Webhook payloads.
             </Callout>
-          )}
+          ) : feature.archived ? (
+            <Callout status="warning" mb="2">
+              <strong>This draft will archive the Feature Flag.</strong> Once
+              published it will be removed from SDK Endpoints and Webhook
+              payloads.
+            </Callout>
+          ) : null}
         </Box>
       </Box>
       <>
@@ -660,7 +722,10 @@ export default function FeaturesHeader({
       )}
       {archiveModal && (
         <FeatureArchiveModal
-          feature={feature}
+          // LIVE state, like the menu label above: the endpoint flips against
+          // live, and handing the revision-projected feature here inverted the
+          // action whenever the viewed draft staged the opposite archive state.
+          feature={baseFeature}
           close={() => setArchiveModal(false)}
           revisionList={revisions}
           mutate={mutate}

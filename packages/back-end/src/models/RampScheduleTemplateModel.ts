@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import {
   RampScheduleTemplateInterface,
@@ -52,19 +53,23 @@ export class RampScheduleTemplateModel extends BaseClass {
     return this.context.permissions.canViewFeatureModal(undefined);
   }
   protected canCreate() {
-    return this.context.permissions.canCreateFeature({ project: undefined });
+    return this.context.permissions.canEditFeatureDrafts({
+      project: undefined,
+    });
   }
   protected canUpdate(
     _existing: RampScheduleTemplateInterface,
     _updates: UpdateProps<RampScheduleTemplateInterface>,
   ) {
-    return this.context.permissions.canUpdateFeature(
-      { project: undefined },
-      { project: undefined },
-    );
+    return this.context.permissions.canEditFeatureDrafts({
+      project: undefined,
+    });
   }
   protected canDelete(_existing: RampScheduleTemplateInterface) {
-    return this.context.permissions.canDeleteFeature({ project: undefined });
+    return this.context.permissions.canDeleteFeature(
+      { project: undefined },
+      NO_ENVIRONMENT_BINDING,
+    );
   }
 
   // Templates in manual order. Ties (e.g. legacy order=0) fall back to

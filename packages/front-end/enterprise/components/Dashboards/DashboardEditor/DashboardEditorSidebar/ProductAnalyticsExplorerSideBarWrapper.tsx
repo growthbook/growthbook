@@ -49,6 +49,7 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     setDraftExploreState,
     handleSubmit,
     loading,
+    comparisonMode,
   } = useExplorerContext();
   const pendingCloseRef = useRef(false);
   const onSaveAndCloseRef = useRef(onSaveAndClose);
@@ -87,14 +88,11 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
 
     return {
       enabled: true,
-      ...(draftExploreState.dateRange.predefined === "customDateRange"
-        ? { previousTimeFrame }
-        : {}),
+      mode: comparisonMode,
+      // Only a hand-picked window needs persisting; the derived modes roll.
+      ...(comparisonMode === "custom" ? { previousTimeFrame } : {}),
     };
-  }, [
-    draftExploreState.dateRange.predefined,
-    draftExploreState.previousTimeFrame,
-  ]);
+  }, [comparisonMode, draftExploreState.previousTimeFrame]);
   useEffect(() => {
     const nextDraftConfig = stripExplorerDraftFields(draftExploreState);
     const nextConfig = usesDashboardDateRange

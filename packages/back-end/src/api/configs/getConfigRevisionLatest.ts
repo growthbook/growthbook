@@ -10,7 +10,7 @@ export const getConfigRevisionLatest = createApiRequestHandler(
 )(async (req) => {
   const config = await req.context.models.configs.getByKey(req.params.key);
   if (!config) {
-    throw new NotFoundError("Could not find config");
+    throw new NotFoundError("Could not find Config");
   }
 
   const mine = stringToBoolean(req.query.mine?.toString());
@@ -24,8 +24,8 @@ export const getConfigRevisionLatest = createApiRequestHandler(
   if (!revision) {
     throw new NotFoundError(
       mine
-        ? "No active draft revision found for this config where you are the author"
-        : "No active draft revision found for this config",
+        ? "No active draft revision found for this Config where you are the author"
+        : "No active draft revision found for this Config",
     );
   }
 

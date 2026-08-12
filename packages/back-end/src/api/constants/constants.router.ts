@@ -20,6 +20,10 @@ import { postConstantRevisionRebase } from "./postConstantRevisionRebase";
 import { postConstantRevisionRevert } from "./postConstantRevisionRevert";
 import { postConstantRevisionRequestReview } from "./postConstantRevisionRequestReview";
 import { postConstantRevisionSubmitReview } from "./postConstantRevisionSubmitReview";
+import { postConstantRevisionRecallReview } from "./postConstantRevisionRecallReview";
+import { postConstantRevisionReopen } from "./postConstantRevisionReopen";
+import { postConstantRevisionSchedulePublish } from "./postConstantRevisionSchedulePublish";
+import { postConstantRevisionUndoReview } from "./postConstantRevisionUndoReview";
 import { putConstantRevisionMetadata } from "./putConstantRevisionMetadata";
 import { putConstantRevisionValue } from "./putConstantRevisionValue";
 import { putConstantRevisionArchive } from "./putConstantRevisionArchive";
@@ -54,6 +58,10 @@ export const constantsRoutes: OpenApiRoute[] = [
   // Review & lifecycle
   postConstantRevisionRequestReview,
   postConstantRevisionSubmitReview,
+  postConstantRevisionRecallReview,
+  postConstantRevisionReopen,
+  postConstantRevisionSchedulePublish,
+  postConstantRevisionUndoReview,
   getConstantRevisionMergeStatus,
   postConstantRevisionRebase,
   postConstantRevisionPublish,

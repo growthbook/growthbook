@@ -322,7 +322,7 @@ You can specify this globally in your GrowthBookClient class and/or per-request 
 
 We recommend using a global callback if you plan to track events directly from Node and using a user context callback if you plan to send events to the front-end to fire.
 
-When specified globally, the callbacks will receive an additional argument with the user context that triggered the event.
+Starting in version 1.7.0, tracking callbacks receive a third `userContext` argument: a `TrackingUserContext` containing the `attributes` and optional `url` used when the experiment was evaluated. We recommend recording attributes from this argument so exposure events consistently reflect the attributes GrowthBook used for targeting and assignment.
 
 ```js
 // Callback configured globally
@@ -332,7 +332,8 @@ const gbClient = new GrowthBookClient({
 
     console.log("Viewed Experiment", userId, {
       experimentId: experiment.key,
-      variationId: result.key
+      variationId: result.key,
+      attributes: userContext.attributes,
     });
   }
 });
@@ -342,10 +343,11 @@ const userContext = {
   attributes: {
     id: req.user.id
   },
-  trackingCallback: (experiment, result) => {
-    console.log("Viewed Experiment", req.user.id, {
+  trackingCallback: (experiment, result, userContext) => {
+    console.log("Viewed Experiment", userContext.attributes.id, {
       experimentId: experiment.key,
-      variationId: result.key
+      variationId: result.key,
+      attributes: userContext.attributes,
     });
   }
 }
@@ -376,8 +378,8 @@ app.use((req, res, next) => {
   req.trackingData = [];
   const userContext = {
     attributes: {id: "123"},
-    trackingCallback: (experiment, result) => {
-      req.trackingData.push({experiment, result});
+    trackingCallback: (experiment, result, userContext) => {
+      req.trackingData.push({experiment, result, user: userContext});
     }
   }
   req.growthbook = gbClient.createScopedInstance(userContext);
@@ -392,11 +394,12 @@ app.get("/", (req, res) => {
       (function() {
         const data = ${JSON.stringify(req.trackingData)};
 
-        data.forEach(({experiment, result}) => {
+        data.forEach(({experiment, result, user}) => {
           // Example using Segment.io
           analytics.track("Experiment Viewed", {
             experimentId: experiment.key,
             variationId: result.key,
+            attributes: user.attributes,
           });
         })
       })();

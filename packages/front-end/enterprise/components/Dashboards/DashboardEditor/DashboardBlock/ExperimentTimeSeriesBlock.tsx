@@ -114,7 +114,7 @@ export default function ExperimentTimeSeriesBlock({
     }
     // When no filter, filter out slice rows that aren't expanded
     return rows.filter((row) => {
-      if (!row.isSliceRow) return true; // Always include parent rows
+      if (!row.isChildRow) return true; // Always include parent rows
       // For slice rows, check if parent metric is expanded
       if (row.parentRowId) {
         const expandedKey = `${row.parentRowId}:${row.resultGroup}`;
