@@ -229,13 +229,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.requireRegisteredAttributes,
       ),
       aiEnabled: settings.aiEnabled ?? false,
-      defaultAIModel: settings.defaultAIModel || "gpt-4o-mini",
+      // Seeding a model on Cloud would persist it on the next save of any
+      // setting, silently taking the org off the managed default.
+      defaultAIModel:
+        settings.defaultAIModel || (isCloud() ? undefined : "gpt-4o-mini"),
       embeddingModel: settings.embeddingModel || "text-embedding-ada-002",
-      // `undefined` represents "use default" — the back-end's resolver
-      // (getAISettingsForOrg) falls back to defaultAIModel for text and
-      // the GEMINI_IMAGE_MODEL env var for image when these are unset.
-      // We can't use empty string here because visualEditorAIModel is
-      // typed as the AIModel union (which doesn't include "").
       visualEditorAIModel: settings.visualEditorAIModel,
       visualEditorImageModel: settings.visualEditorImageModel || "",
       visualEditorAIContext: settings.visualEditorAIContext || "",
@@ -305,11 +303,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
     aiEnabled: form.watch("aiEnabled"),
     defaultAIModel: form.watch("defaultAIModel"),
     embeddingModel: form.watch("embeddingModel"),
-    // Empty string from the form → undefined on the wire so we don't
-    // pollute the saved settings doc with empty values. The back-end's
-    // resolver treats both unset and empty-string as "no override".
-    visualEditorAIModel: form.watch("visualEditorAIModel") || undefined,
-    visualEditorImageModel: form.watch("visualEditorImageModel") || undefined,
+    visualEditorAIModel: form.watch("visualEditorAIModel"),
+    visualEditorImageModel: form.watch("visualEditorImageModel"),
     visualEditorAIContext: form.watch("visualEditorAIContext") || undefined,
     disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
     defaultFeatureRulesInAllEnvs: form.watch("defaultFeatureRulesInAllEnvs"),

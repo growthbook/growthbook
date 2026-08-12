@@ -90,6 +90,7 @@ import { EventForwarderConfigModel } from "back-end/src/models/EventForwarderCon
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { FigmaConnectionModel } from "back-end/src/models/FigmaConnectionModel";
+import { AICredentialModel } from "back-end/src/models/AICredentialModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
 import { OAuthGrantModel } from "back-end/src/models/OAuthGrantModel";
@@ -156,11 +157,13 @@ export type ModelName =
   | "contextualBanditSnapshots"
   | "contextualBanditEvents"
   | "sessionReplays"
-  | "eventForwarderConfigs";
+  | "eventForwarderConfigs"
+  | "aiCredentials";
 
 export const modelClasses = {
   agreements: AgreementModel,
   aiPrompts: AiPromptModel,
+  aiCredentials: AICredentialModel,
   customFields: CustomFieldModel,
   factMetrics: FactMetricModel,
   featureRevisionLogs: FeatureRevisionLogModel,
@@ -304,6 +307,7 @@ export class ReqContextClass {
     this.models = {
       agreements: new AgreementModel(this),
       aiPrompts: new AiPromptModel(this),
+      aiCredentials: new AICredentialModel(this),
       customFields: new CustomFieldModel(this),
       factMetrics: new FactMetricModel(this),
       featureRevisionLogs: new FeatureRevisionLogModel(this),

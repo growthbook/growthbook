@@ -863,9 +863,6 @@
   "packages/front-end/components/GeneralSettings/AISettings.tsx": {
     "no-restricted-imports": {
       "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 4
     }
   },
   "packages/front-end/components/GeneralSettings/BanditSettings.tsx": {
@@ -2001,11 +1998,6 @@
     }
   },
   "packages/front-end/enterprise/components/ProductAnalytics/SideBar/FactTableTabContent.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "packages/front-end/enterprise/components/ProductAnalytics/SideBar/GroupBySection.tsx": {
     "no-restricted-syntax": {
       "count": 2
     }
