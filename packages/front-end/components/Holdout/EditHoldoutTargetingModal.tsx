@@ -5,12 +5,12 @@ import {
   ExperimentTargetingData,
 } from "shared/types/experiment";
 import React from "react";
-import { validateAndFixCondition } from "shared/util";
 import {
   coverageToHoldoutSize,
   holdoutSizeToCoverage,
   MAX_HOLDOUT_SIZE,
-} from "shared/validators";
+  validateAndFixCondition,
+} from "shared/util";
 import { Text, Separator } from "@radix-ui/themes";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
