@@ -495,7 +495,9 @@ export function getRelevantFactTableIds(
     dataset.values.forEach((value) => {
       const metric = getFactMetricById(value.metricId);
       if (!metric) return;
-      if (metric.numerator.factTableId) ids.add(metric.numerator.factTableId);
+      if (metric.numerator?.factTableId) {
+        ids.add(metric.numerator.factTableId);
+      }
       if (metric.denominator?.factTableId) {
         ids.add(metric.denominator.factTableId);
       }
