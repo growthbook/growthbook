@@ -93,14 +93,28 @@ describe("inviteUser email validation", () => {
     );
   });
 
-  it("rejects an email with a trailing semicolon", async () => {
+  it("strips a stray trailing semicolon before storing the invite", async () => {
     const organization = makeOrganization();
 
-    await expect(sendInvite(organization, "gsj@brolo.me;")).rejects.toThrow(
-      "Invalid email address: gsj@brolo.me;",
-    );
+    await sendInvite(organization, "gsj@brolo.me;");
 
-    expect(mockedAddOrganizationInviteIfSeatAvailable).not.toHaveBeenCalled();
+    expect(mockedAddOrganizationInviteIfSeatAvailable).toHaveBeenCalledWith(
+      organization.id,
+      expect.objectContaining({ email: "gsj@brolo.me" }),
+      null,
+    );
+  });
+
+  it("strips leading and trailing separators and whitespace", async () => {
+    const organization = makeOrganization();
+
+    await sendInvite(organization, " ;User@Example.com,; ");
+
+    expect(mockedAddOrganizationInviteIfSeatAvailable).toHaveBeenCalledWith(
+      organization.id,
+      expect.objectContaining({ email: "user@example.com" }),
+      null,
+    );
   });
 
   it("rejects a clearly malformed email", async () => {
@@ -109,6 +123,16 @@ describe("inviteUser email validation", () => {
     await expect(sendInvite(organization, "not-an-email")).rejects.toThrow(
       "Invalid email address: not-an-email",
     );
+
+    expect(mockedAddOrganizationInviteIfSeatAvailable).not.toHaveBeenCalled();
+  });
+
+  it("rejects multiple addresses joined by a separator", async () => {
+    const organization = makeOrganization();
+
+    await expect(
+      sendInvite(organization, "a@example.com;b@example.com"),
+    ).rejects.toThrow("Invalid email address: a@example.com;b@example.com");
 
     expect(mockedAddOrganizationInviteIfSeatAvailable).not.toHaveBeenCalled();
   });

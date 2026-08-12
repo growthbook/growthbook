@@ -889,12 +889,17 @@ export async function inviteUser({
 } & MemberRoleWithProjects) {
   organization.invites = organization.invites || [];
 
-  email = email.trim().toLowerCase();
+  // Strip stray leading/trailing separators (e.g. a trailing ";" from a pasted
+  // Outlook-style list). Mail servers ignore these separators when sending, so
+  // stripping them stores the address the invite email is actually delivered to.
+  email = email
+    .toLowerCase()
+    .replace(/^[\s;,]+/, "")
+    .replace(/[\s;,]+$/, "");
 
-  // Reject malformed addresses (e.g. a stray trailing ";" from a pasted
-  // Outlook-style list). Mail servers silently strip such separators, so the
-  // email would be delivered, but accepting the invite would then fail because
-  // the stored email would never match the recipient's real address.
+  // Reject addresses that are still malformed. Storing one would break
+  // acceptance later: the stored email would never match the recipient's
+  // real address, so they'd get "sent to a different email address" errors.
   if (!z.string().email().safeParse(email).success) {
     throw new Error(`Invalid email address: ${email}`);
   }
