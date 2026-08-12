@@ -94,17 +94,17 @@ When the metric uses a conversion window and every step has its own conversion w
 
 Funnel metrics work as **goal**, **secondary**, and **guardrail** metrics on experiments and reports, including with dimensions, date results, and [Experiment Dashboards](/app/experiment-dashboards).
 
-The following are not supported:
+The following are not supported yet:
 
-| Feature                                                       | Behavior                                                                                                                                                                                 |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Activation metrics                                            | Funnel metrics are hidden from the activation metric dropdown. Use a proportion metric instead.                                                                                          |
-| [Metric Slices](/app/metrics#metric-slices)                   | Not supported. The drilldown's Slices tab is replaced by a Funnel tab.                                                                                                                   |
-| [CUPED and regression adjustment](/statistics/cuped)          | Always off for a funnel and its steps, because the funnel query does not emit covariate columns.                                                                                         |
-| Standalone metric analysis                                    | The metric page cannot chart a funnel on its own. It is analyzed in the context of an experiment.                                                                                        |
-| [Product Analytics Explorer](/app/product-analytics/explorer) | Funnel metrics cannot be charted in the Explorer or in a metric explorer dashboard block. Use the [Funnel explorer](/app/product-analytics/explorer#funnels) for ad-hoc funnel analysis. |
-| Incremental Refresh                                           | Funnel metrics are not supported while Incremental Pipeline mode is in beta. Remove them from the experiment, or run the experiment without incremental refresh.                         |
-| Capping and quantile settings                                 | Not supported.                                                                                                                                                                           |
+| Feature                                                       | Behavior                                                                                                                                                                                                                           |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Activation metrics                                            | Funnel metrics are hidden from the activation metric dropdown. Use a proportion metric instead.                                                                                                                                    |
+| [Metric Slices](/app/metrics#metric-slices)                   | Not supported. The drilldown's Slices tab is replaced by a Funnel tab.                                                                                                                                                             |
+| [CUPED and regression adjustment](/statistics/cuped)          | Always off for a funnel and its steps, because the funnel query does not emit covariate columns. CUPED support for funnel metrics is coming soon!                                                                                  |
+| Standalone metric analysis                                    | The metric page cannot chart a funnel on its own. It is analyzed in the context of an experiment.                                                                                                                                  |
+| [Product Analytics Explorer](/app/product-analytics/explorer) | Funnel metrics cannot be charted in the Explorer or in a metric explorer dashboard block, and this is coming soon! In the meantime, use the [Funnel explorer](/app/product-analytics/explorer#funnels) for ad-hoc funnel analysis. |
+| Incremental Refresh                                           | Funnel metrics are not supported for Incremental Pipeline experiments yet, but support is coming soon! For now, remove them from the experiment, or run the experiment without incremental refresh.                                |
+| Capping and quantile settings                                 | Not supported.                                                                                                                                                                                                                     |
 
 ### Supported data sources
 
