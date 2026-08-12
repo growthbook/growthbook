@@ -133,44 +133,41 @@ const LINKAGE_FIELDS = ["linkedFeatures", "linkedExperiments"] as const;
 /**
  * Merges a holdout and its companion experiment into the public API shape.
  *
- * The experiment is nullable because a holdout can outlive a deleted experiment;
- * in that case the experiment-derived fields fall back to empty values rather
- * than failing the whole response.
+ * A holdout is invalid without its companion experiment, so callers must resolve
+ * it before serializing.
  */
 export function toApiHoldout(
   holdout: HoldoutInterface,
-  experiment: ExperimentInterface | null,
+  experiment: ExperimentInterface,
 ): ApiHoldoutInterface {
-  const phase = experiment?.phases?.[experiment.phases.length - 1];
-  const firstPhase = experiment?.phases?.[0];
+  const phase = experiment.phases[experiment.phases.length - 1];
+  const firstPhase = experiment.phases[0];
 
   return {
     id: holdout.id,
     dateCreated: holdout.dateCreated.toISOString(),
     dateUpdated: holdout.dateUpdated.toISOString(),
     name: holdout.name,
-    description: experiment?.description ?? "",
+    description: experiment.description ?? "",
     projects: holdout.projects,
-    owner: experiment?.owner ?? "",
-    tags: experiment?.tags ?? [],
-    archived: experiment?.archived ?? false,
-    stage: experiment
-      ? getHoldoutStage(holdout, experiment)
-      : /* No experiment left to derive from. */ "stopped",
+    owner: experiment.owner,
+    tags: experiment.tags,
+    archived: experiment.archived,
+    stage: getHoldoutStage(holdout, experiment),
     experimentId: holdout.experimentId,
-    trackingKey: experiment?.trackingKey ?? "",
+    trackingKey: experiment.trackingKey,
     skipAsDefaultHoldout: holdout.skipAsDefaultHoldout ?? false,
 
     holdoutSize: coverageToHoldoutSize(phase?.coverage ?? 0),
-    hashAttribute: experiment?.hashAttribute ?? "",
+    hashAttribute: experiment.hashAttribute,
     targetingCondition: phase?.condition ?? "",
     savedGroups: phase?.savedGroups,
 
-    datasourceId: experiment?.datasource ?? "",
-    assignmentQueryId: experiment?.exposureQueryId ?? "",
-    goalMetrics: experiment?.goalMetrics ?? [],
-    secondaryMetrics: experiment?.secondaryMetrics ?? [],
-    variations: (experiment?.variations ?? []).map((v) => ({
+    datasourceId: experiment.datasource,
+    assignmentQueryId: experiment.exposureQueryId,
+    goalMetrics: experiment.goalMetrics,
+    secondaryMetrics: experiment.secondaryMetrics,
+    variations: experiment.variations.map((v) => ({
       variationId: v.id,
       key: v.key,
       name: v.name,
@@ -196,7 +193,7 @@ export function toApiHoldout(
     dateStarted: firstPhase?.dateStarted?.toISOString(),
     analysisStartDate: holdout.analysisStartDate?.toISOString(),
     dateStopped:
-      experiment?.status === "stopped"
+      experiment.status === "stopped"
         ? phase?.dateEnded?.toISOString()
         : undefined,
 
@@ -248,11 +245,13 @@ export class HoldoutModel extends BaseClass {
    * the companion experiment that supplies most of the API shape.
    ***************/
 
-  protected toApiInterface(doc: HoldoutInterface): ApiHoldoutInterface {
-    // Only reached if a caller bypasses the overrides below. Returning the
-    // holdout half alone is better than throwing, and every handler here
-    // resolves the experiment properly.
-    return toApiHoldout(doc, null);
+  protected toApiInterface(): ApiHoldoutInterface {
+    // A holdout needs its companion experiment to serialize, and fetching it is
+    // async. Every handler below resolves the experiment and calls `toApiHoldout`
+    // directly, so this default is never the right path.
+    throw new Error(
+      "Use handleApi* handlers to serialize a Holdout; toApiInterface cannot resolve its experiment.",
+    );
   }
 
   private async getExperimentOrThrow(
@@ -301,13 +300,8 @@ export class HoldoutModel extends BaseClass {
     const results: ApiHoldoutInterface[] = [];
     for (const holdout of filteredByProject) {
       const experiment = experimentsById.get(holdout.experimentId);
-      // A holdout whose experiment was deleted cannot be filtered on
-      // experiment-derived fields, so drop it from filtered listings.
-      if (!experiment) {
-        if (datasourceId || stage || wantArchived !== undefined) continue;
-        results.push(toApiHoldout(holdout, null));
-        continue;
-      }
+      // A holdout without its companion experiment is invalid, so drop it.
+      if (!experiment) continue;
       if (datasourceId && experiment.datasource !== datasourceId) continue;
       if (stage && getHoldoutStage(holdout, experiment) !== stage) continue;
       if (
