@@ -125,30 +125,35 @@ export default function ValueCard({
 
   let supportsUnitSelection = false;
 
-  if (
-    draftExploreState.dataset.type === "fact_table" ||
-    draftExploreState.dataset.type === "data_source" ||
-    draftExploreState.dataset.type === "sql"
-  ) {
-    supportsUnitSelection =
-      draftExploreState.dataset.values[index].valueType === "unit_count";
-  } else if (draftExploreState.dataset.type === "metric") {
-    const factMetric = getFactMetricById(
-      draftExploreState.dataset.values[index].metricId ?? "",
-    );
-    if (
-      factMetric?.metricType === "mean" ||
-      factMetric?.metricType === "proportion" ||
-      factMetric?.metricType === "retention" ||
-      factMetric?.metricType === "dailyParticipation"
-    ) {
-      supportsUnitSelection = true;
-    } else if (factMetric?.metricType === "ratio") {
-      if (factMetric.numerator.column === "$$distinctUsers") {
+  switch (draftExploreState.dataset.type) {
+    case "fact_table":
+    case "data_source":
+    case "sql":
+      supportsUnitSelection =
+        draftExploreState.dataset.values[index].valueType === "unit_count";
+      break;
+    case "metric": {
+      const factMetric = getFactMetricById(
+        draftExploreState.dataset.values[index].metricId ?? "",
+      );
+      if (
+        factMetric?.metricType === "mean" ||
+        factMetric?.metricType === "proportion" ||
+        factMetric?.metricType === "retention" ||
+        factMetric?.metricType === "dailyParticipation"
+      ) {
         supportsUnitSelection = true;
+      } else if (
+        factMetric?.metricType === "ratio" &&
+        factMetric.numerator.column === "$$distinctUsers"
+      ) {
+        supportsUnitSelection = true;
+        // TODO: handle separate denominator unit selector
       }
-      // TODO: handle separate denominator unit selector
+      break;
     }
+    case "funnel":
+      break;
   }
 
   const canAddFilter = !!columnSource;

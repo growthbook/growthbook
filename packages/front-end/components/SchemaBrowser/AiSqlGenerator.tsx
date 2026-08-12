@@ -117,13 +117,14 @@ export default function AiSqlGenerator({
         "AI suggestions are not enabled for your organization. Please contact your administrator.",
       );
     }
-    if (!aiAgreedTo) {
-      openAgreementModal();
-    }
     if (!aiEnabled) {
       throw new Error(
         "AI suggestions are disabled for your organization. Please contact your administrator.",
       );
+    }
+
+    if (!aiAgreedTo) {
+      openAgreementModal();
     }
 
     const nextIsOpen = !isOpen;

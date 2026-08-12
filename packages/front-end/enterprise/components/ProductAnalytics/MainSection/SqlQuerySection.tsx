@@ -31,6 +31,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { useSqlEditorContext } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
 import styles from "@/components/SchemaBrowser/EditSqlModal.module.scss";
+import { useAISettings } from "@/hooks/useOrgSettings";
 import useSqlQueryPreview, { PREVIEW_ROW_LIMIT } from "./useSqlQueryPreview";
 const SQL_PLACEHOLDER = `-- Write a query to get started, or use the "Generate Query" helper to ask for what you want in plain text.
 
@@ -139,6 +140,7 @@ export default function SqlQuerySection({
 }) {
   const { getDatasourceById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
+  const { aiEnabled } = useAISettings();
   const { draftExploreState } = useExplorerContext();
   const dataset =
     draftExploreState.dataset.type === "sql" ? draftExploreState.dataset : null;
@@ -265,7 +267,7 @@ export default function SqlQuerySection({
   const content = (
     <AiSqlGenerator
       datasourceId={draftExploreState.datasource}
-      disabled={loading || !canRunQueries}
+      disabled={loading || !canRunQueries || !aiEnabled}
       onLoadingChange={setAiLoading}
       onSqlGenerated={(sql) => {
         setLocalSql(sql);

@@ -4,6 +4,7 @@ import { Flex, IconButton } from "@radix-ui/themes";
 import { useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { isManagedWarehousePendingQueryError } from "shared/util";
+import { SQL_ROW_LIMIT } from "shared/sql";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import { convertToCSV, downloadCSVFile } from "@/services/sql";
@@ -330,10 +331,8 @@ export default function DisplayTestQueryResults({
                               Showing {page * pageSize - pageSize + 1} -{" "}
                               {Math.min(page * pageSize, results.length)} of{" "}
                               <Tooltip
-                                body={
-                                  "GrowthBook limits the result to 1,000 rows max"
-                                }
-                                shouldDisplay={results.length >= 1000}
+                                body={`GrowthBook limits the result to ${SQL_ROW_LIMIT} rows max`}
+                                shouldDisplay={results.length >= SQL_ROW_LIMIT}
                               >
                                 <strong>{results.length}</strong> rows
                               </Tooltip>

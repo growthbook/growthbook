@@ -1060,16 +1060,15 @@ export function isSubmittableConfig(
       return false;
   }
 
-  if (
-    cleanedConfig.dataset.type === "sql" &&
-    (!cleanedConfig.dataset.sql.trim() ||
-      (cleanedConfig.dataset.timestampColumn !== null &&
-        cleanedConfig.dataset.columnTypes[
-          cleanedConfig.dataset.timestampColumn
-        ] !== "date") ||
-      Object.keys(cleanedConfig.dataset.columnTypes).length === 0)
-  )
-    return false;
+  if (cleanedConfig.dataset.type === "sql") {
+    const { sql, timestampColumn, columnTypes } = cleanedConfig.dataset;
+    const hasSql = sql.trim().length > 0;
+    const hasColumnTypes = Object.keys(columnTypes).length > 0;
+    const timestampIsDate =
+      timestampColumn === null || columnTypes[timestampColumn] === "date";
+    // Config is not submittable without sql, columns, or if timestamp column is not a date
+    if (!hasSql || !hasColumnTypes || !timestampIsDate) return false;
+  }
 
   if (
     cleanedConfig.dateRange.predefined === "customDateRange" &&
