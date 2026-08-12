@@ -42,6 +42,7 @@ export * from "./types";
 export * from "./errors";
 export * from "./namespaces";
 export * from "./custom-fields";
+export * from "./holdouts";
 export * from "./diffFormats";
 export * from "./format-json";
 export * from "./datasource";

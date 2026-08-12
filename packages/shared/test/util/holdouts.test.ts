@@ -2,7 +2,7 @@ import {
   coverageToHoldoutSize,
   holdoutSizeToCoverage,
   MAX_HOLDOUT_SIZE,
-} from "../src/validators/holdout";
+} from "../../src/util/holdouts";
 
 describe("holdout size / coverage conversion", () => {
   it("converts between holdoutSize and coverage", () => {

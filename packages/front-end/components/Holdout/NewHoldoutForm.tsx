@@ -6,7 +6,10 @@ import { useRouter } from "next/router";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { OrganizationSettings } from "shared/types/organization";
 import {
+  coverageToHoldoutSize,
+  holdoutSizeToCoverage,
   isProjectListValidForProject,
+  MAX_HOLDOUT_SIZE,
   validateAndFixCondition,
 } from "shared/util";
 import { getScopedSettings } from "shared/settings";
@@ -16,12 +19,7 @@ import { Tooltip, Separator } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
 import { FeatureEnvironment } from "shared/types/feature";
-import {
-  coverageToHoldoutSize,
-  holdoutSizeToCoverage,
-  HoldoutInterfaceStringDates,
-  MAX_HOLDOUT_SIZE,
-} from "shared/validators";
+import { HoldoutInterfaceStringDates } from "shared/validators";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
