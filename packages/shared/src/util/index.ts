@@ -22,11 +22,7 @@ import {
   SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotInterface,
 } from "../validators/safe-rollout-snapshot";
-import {
-  HoldoutInterface,
-  HoldoutInterfaceStringDates,
-  HoldoutStage,
-} from "../validators/holdout";
+import { HoldoutInterfaceStringDates } from "../validators/holdout";
 import { featureHasEnvironment } from "./features";
 
 export * from "./strings";
@@ -274,19 +270,6 @@ export function includeHoldoutInPayload(
   }
 
   return true;
-}
-
-export function getHoldoutStage(
-  holdout:
-    | Pick<HoldoutInterface, "analysisStartDate">
-    | { analysisStartDate?: string | null },
-  exp:
-    | Pick<ExperimentInterface, "status">
-    | Pick<ExperimentInterfaceStringDates, "status">,
-): HoldoutStage {
-  if (exp.status === "draft") return "draft";
-  if (exp.status === "stopped") return "stopped";
-  return holdout.analysisStartDate ? "analysis-period" : "running";
 }
 
 export function isValidEnvironment(

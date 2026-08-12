@@ -1,4 +1,11 @@
-import { normalizeHoldoutScheduleUpdates } from "back-end/src/services/holdouts";
+import {
+  getNextScheduledStatusUpdateForStage,
+  normalizeHoldoutScheduleUpdates,
+} from "back-end/src/services/holdouts";
+import {
+  isScheduledTransitionApplicable,
+  scheduledTypeToStage,
+} from "back-end/src/jobs/updateHoldoutStatus";
 
 const NOW = new Date("2026-07-28T12:00:00.000Z");
 const PAST = new Date("2026-07-01T00:00:00.000Z");
@@ -28,6 +35,14 @@ const holdout = (
 });
 
 describe("normalizeHoldoutScheduleUpdates", () => {
+  beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(NOW);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   describe("clearing and absent input", () => {
     it("clears both fields when the schedule is explicitly null", () => {
       expect(
@@ -38,7 +53,6 @@ describe("normalizeHoldoutScheduleUpdates", () => {
           }),
           experiment: draft,
           scheduleInput: null,
-          now: NOW,
         }),
       ).toEqual({
         statusUpdateSchedule: null,
@@ -56,7 +70,6 @@ describe("normalizeHoldoutScheduleUpdates", () => {
           holdout: stored,
           experiment: draft,
           scheduleInput: undefined,
-          now: NOW,
         }),
       ).toEqual({
         statusUpdateSchedule: { startAt: SOON },
@@ -73,7 +86,6 @@ describe("normalizeHoldoutScheduleUpdates", () => {
         }),
         experiment: draft,
         scheduleInput: { startAnalysisPeriodAt: LATER },
-        now: NOW,
       });
       expect(result.statusUpdateSchedule).toEqual({
         startAt: SOON,
@@ -89,7 +101,6 @@ describe("normalizeHoldoutScheduleUpdates", () => {
         }),
         experiment: draft,
         scheduleInput: { stopAt: "" },
-        now: NOW,
       });
       expect(result.statusUpdateSchedule).toEqual({
         startAt: SOON,
@@ -102,7 +113,6 @@ describe("normalizeHoldoutScheduleUpdates", () => {
         holdout: holdout(),
         experiment: draft,
         scheduleInput: { startAt: SOON.toISOString() },
-        now: NOW,
       });
       expect(result.statusUpdateSchedule?.startAt).toEqual(SOON);
     });
@@ -118,7 +128,6 @@ describe("normalizeHoldoutScheduleUpdates", () => {
           startAnalysisPeriodAt: LATER,
           stopAt: LATEST,
         },
-        now: NOW,
       });
       expect(result.nextScheduledStatusUpdate).toEqual({
         type: "start",
@@ -131,7 +140,6 @@ describe("normalizeHoldoutScheduleUpdates", () => {
         holdout: holdout(),
         experiment: draft,
         scheduleInput: { startAt: PAST, stopAt: LATEST },
-        now: NOW,
       });
       expect(result.nextScheduledStatusUpdate).toEqual({
         type: "stop",
@@ -144,7 +152,6 @@ describe("normalizeHoldoutScheduleUpdates", () => {
         holdout: holdout(),
         experiment: draft,
         scheduleInput: { startAt: PAST },
-        now: NOW,
       });
       expect(result.nextScheduledStatusUpdate).toBeNull();
     });
@@ -156,7 +163,6 @@ describe("normalizeHoldoutScheduleUpdates", () => {
         holdout: holdout(),
         experiment: running,
         scheduleInput: { startAt: SOON, stopAt: LATEST },
-        now: NOW,
       });
       expect(result.nextScheduledStatusUpdate).toEqual({
         type: "stop",
@@ -169,7 +175,6 @@ describe("normalizeHoldoutScheduleUpdates", () => {
         holdout: holdout(),
         experiment: draft,
         scheduleInput: { startAnalysisPeriodAt: SOON, stopAt: LATEST },
-        now: NOW,
       });
       expect(result.nextScheduledStatusUpdate).toEqual({
         type: "stop",
@@ -182,7 +187,6 @@ describe("normalizeHoldoutScheduleUpdates", () => {
         holdout: holdout({ analysisStartDate: PAST }),
         experiment: running,
         scheduleInput: { startAnalysisPeriodAt: SOON, stopAt: LATEST },
-        now: NOW,
       });
       expect(result.nextScheduledStatusUpdate).toEqual({
         type: "stop",
@@ -195,7 +199,6 @@ describe("normalizeHoldoutScheduleUpdates", () => {
         holdout: holdout(),
         experiment: running,
         scheduleInput: { startAnalysisPeriodAt: SOON, stopAt: LATEST },
-        now: NOW,
       });
       expect(result.nextScheduledStatusUpdate).toEqual({
         type: "startAnalysisPeriod",
@@ -212,9 +215,93 @@ describe("normalizeHoldoutScheduleUpdates", () => {
           startAnalysisPeriodAt: LATER,
           stopAt: LATEST,
         },
-        now: NOW,
       });
       expect(result.nextScheduledStatusUpdate).toBeNull();
     });
+  });
+});
+
+describe("scheduledTypeToStage", () => {
+  it("maps each scheduled type to its target stage", () => {
+    expect(scheduledTypeToStage("start")).toBe("running");
+    expect(scheduledTypeToStage("startAnalysisPeriod")).toBe("analysis-period");
+    expect(scheduledTypeToStage("stop")).toBe("stopped");
+  });
+});
+
+describe("getNextScheduledStatusUpdateForStage", () => {
+  it("chains to the analysis start after entering running", () => {
+    expect(
+      getNextScheduledStatusUpdateForStage(
+        { startAnalysisPeriodAt: LATER, stopAt: LATEST },
+        "running",
+      ),
+    ).toEqual({ type: "startAnalysisPeriod", date: LATER });
+  });
+
+  it("chains to the stop after entering the analysis period", () => {
+    expect(
+      getNextScheduledStatusUpdateForStage(
+        { stopAt: LATEST },
+        "analysis-period",
+      ),
+    ).toEqual({ type: "stop", date: LATEST });
+  });
+
+  it("returns null when the schedule has no matching next transition", () => {
+    expect(getNextScheduledStatusUpdateForStage({}, "running")).toBeNull();
+    expect(
+      getNextScheduledStatusUpdateForStage({}, "analysis-period"),
+    ).toBeNull();
+    expect(getNextScheduledStatusUpdateForStage(null, "running")).toBeNull();
+  });
+
+  it("ends the chain for stopped and draft", () => {
+    expect(
+      getNextScheduledStatusUpdateForStage({ stopAt: LATEST }, "stopped"),
+    ).toBeNull();
+    expect(
+      getNextScheduledStatusUpdateForStage({ startAt: SOON }, "draft"),
+    ).toBeNull();
+  });
+});
+
+describe("isScheduledTransitionApplicable", () => {
+  it("only starts a draft holdout", () => {
+    expect(isScheduledTransitionApplicable("start", draft, holdout())).toBe(
+      true,
+    );
+    expect(isScheduledTransitionApplicable("start", running, holdout())).toBe(
+      false,
+    );
+  });
+
+  it("only begins analysis for a running holdout that has not begun analysis", () => {
+    expect(
+      isScheduledTransitionApplicable(
+        "startAnalysisPeriod",
+        running,
+        holdout(),
+      ),
+    ).toBe(true);
+    expect(
+      isScheduledTransitionApplicable(
+        "startAnalysisPeriod",
+        running,
+        holdout({ analysisStartDate: PAST }),
+      ),
+    ).toBe(false);
+    expect(
+      isScheduledTransitionApplicable("startAnalysisPeriod", draft, holdout()),
+    ).toBe(false);
+  });
+
+  it("stops any holdout that is not already stopped", () => {
+    expect(isScheduledTransitionApplicable("stop", running, holdout())).toBe(
+      true,
+    );
+    expect(isScheduledTransitionApplicable("stop", stopped, holdout())).toBe(
+      false,
+    );
   });
 });
