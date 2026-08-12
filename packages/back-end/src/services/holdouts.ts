@@ -213,7 +213,7 @@ export async function createHoldoutWithExperiment(
     hypothesis: "",
     goalMetrics: data.goalMetrics || [],
     secondaryMetrics: data.secondaryMetrics || [],
-    guardrailMetrics: data.guardrailMetrics || [],
+    guardrailMetrics: [],
     activationMetric: "",
     metricOverrides: [],
     segment: "",
