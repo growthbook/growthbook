@@ -13,8 +13,11 @@ const ENTRY_TTL_MS = 10 * 60 * 1000; // 10 minutes per entry
 export default function useFullFactTablesByIds() {
   const { apiCall } = useAuth();
   const { getFactTableById: getSlimFactTableById } = useDefinitions();
+  // `null` marks an id the fetch resolved but the endpoint didn't return
+  // (deleted, or no longer permission-accessible) — distinct from "not
+  // fetched yet" — so `isFullyLoaded` can tell the two apart.
   const [factTables, setFactTables] = useState<
-    Record<string, FactTableInterface>
+    Record<string, FactTableInterface | null>
   >({});
   const entryTimestamps = useRef<Record<string, number>>({});
   const inflightKey = useRef<string | null>(null);
@@ -46,8 +49,12 @@ export default function useFullFactTablesByIds() {
         const fetchedAt = Date.now();
         setFactTables((prev) => {
           const next = { ...prev };
+          const foundIds = new Set(res.factTables.map((ft) => ft.id));
           res.factTables.forEach((ft) => {
             next[ft.id] = ft;
+          });
+          toFetch.forEach((id) => {
+            if (!foundIds.has(id)) next[id] = null;
           });
           return next;
         });
