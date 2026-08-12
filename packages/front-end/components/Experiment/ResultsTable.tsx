@@ -169,7 +169,6 @@ export default function ResultsTable({
   isLatestPhase,
   phase,
   status,
-  queryStatusData,
   rows,
   dimension,
   tableRowAxis,
@@ -453,10 +452,8 @@ export default function ResultsTable({
             rr[i].push(null);
             return;
           }
-          if (
-            queryStatusData?.status === "partially-succeeded" &&
-            queryStatusData?.failedNames?.includes(row.metric.id)
-          ) {
+          // Structured per-metric error from the snapshot analysis.
+          if (row.metricError) {
             rr[i].push("query error");
             return;
           }
@@ -517,7 +514,6 @@ export default function ResultsTable({
       startDate,
       isLatestPhase,
       status,
-      queryStatusData,
       ssrPolyfills,
       getExperimentMetricById,
     ]);
@@ -947,7 +943,8 @@ export default function ResultsTable({
                                             mx="2"
                                           >
                                             {isQueryError
-                                              ? "Query error"
+                                              ? (row.metricError?.message ??
+                                                "Query error")
                                               : "Quantile metrics not available for pre-computed dimensions. Use a custom report instead."}
                                           </HelperText>
                                         </>

@@ -85,7 +85,6 @@ export default function ResultsTable({
   significanceThresholds,
   isLatestPhase,
   status,
-  queryStatusData,
   rows,
   dimension,
   editMetrics,
@@ -178,10 +177,7 @@ export default function ResultsTable({
           rr[i].push(null);
           return;
         }
-        if (
-          queryStatusData?.status === "partially-succeeded" &&
-          queryStatusData?.failedNames?.includes(row.metric.id)
-        ) {
+        if (row.metricError) {
           rr[i].push("query error");
           return;
         }
@@ -236,7 +232,6 @@ export default function ResultsTable({
     startDate,
     isLatestPhase,
     status,
-    queryStatusData,
     ssrPolyfills,
     getExperimentMetricById,
   ]);
@@ -430,7 +425,7 @@ export default function ResultsTable({
                                 </div>
                               ) : null}
                               <Callout status="error" mb="1" ml="1" size="sm">
-                                Query error
+                                {row.metricError?.message ?? "Query error"}
                               </Callout>
                             </>
                           ),

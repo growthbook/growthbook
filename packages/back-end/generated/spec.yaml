@@ -52940,6 +52940,39 @@ components:
             - succeeded
             - partially-succeeded
             - failed
+        metricErrors:
+          description: >-
+            Metrics that produced no results, and why each one failed. A metric
+            listed here is absent from `results`.
+          type: array
+          items:
+            type: object
+            properties:
+              metricId:
+                type: string
+              metricName:
+                type: string
+              type:
+                description: >-
+                  Which stage failed. `query` the metric's warehouse query
+                  failed, `build` its query could not be generated, `analysis`
+                  its statistics failed, `dependency` an upstream query it
+                  needed failed, `config-drift` the metric changed or was
+                  deleted after the query started.
+                type: string
+                enum:
+                  - query
+                  - build
+                  - analysis
+                  - dependency
+                  - config-drift
+              message:
+                type: string
+            required:
+              - metricId
+              - type
+              - message
+            additionalProperties: false
         results:
           type: array
           items:

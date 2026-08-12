@@ -20,6 +20,7 @@ import ResultsTable from "@/components/Experiment/ResultsTable";
 import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
+import { getMetricErrorsForDisplay } from "@/services/experiments";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import { useDashboardEditorHooks } from "@/enterprise/hooks/useDashboardEditorHooks";
@@ -79,6 +80,11 @@ export default function ExperimentMetricBlock({
   const lastPhaseIndex = experiment.phases.length - 1;
   const latestPhase = experiment.phases[lastPhaseIndex];
   const result = analysis.results[0];
+  const displayMetricErrors = getMetricErrorsForDisplay({
+    metricErrors: analysis.metricErrors,
+    queries: snapshot.queries,
+    failedQueryNames: queryStatusData.failedNames,
+  });
 
   const settingsForSnapshotMetrics: MetricSnapshotSettings[] =
     snapshot?.settings?.metricSettings?.map((m) => ({
@@ -144,6 +150,7 @@ export default function ExperimentMetricBlock({
         ? blockMetricIds
         : undefined,
     pValueThreshold,
+    metricErrors: displayMetricErrors,
   });
 
   // Filter rows based on expansion state when there's no slice filter

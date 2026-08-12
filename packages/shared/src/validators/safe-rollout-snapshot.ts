@@ -212,6 +212,21 @@ const safeRolloutSnapshotAnalysisObject = z.object({
   dateCreated: z.date(),
   status: z.enum(["running", "success", "error"]),
   error: z.string().optional(),
+  metricErrors: z
+    .record(
+      z.string(),
+      z.object({
+        type: z.enum([
+          "query",
+          "build",
+          "analysis",
+          "dependency",
+          "config-drift",
+        ]),
+        message: z.string(),
+      }),
+    )
+    .optional(),
   results: z.array(safeRolloutReportResultDimensionObject),
 });
 

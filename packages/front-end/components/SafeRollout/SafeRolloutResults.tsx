@@ -185,6 +185,7 @@ const SafeRolloutResults: FC<{
                 significanceThresholds={significanceThresholds}
                 variations={SAFE_ROLLOUT_VARIATIONS}
                 results={analysis.results[0]}
+                metricErrors={analysis.metricErrors}
                 queryStatusData={queryStatusData}
                 reportDate={snapshot.dateCreated}
                 startDate={getValidDate(safeRollout.startedAt).toDateString()}

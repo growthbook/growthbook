@@ -185,6 +185,7 @@ export default function PublicExperimentResults({
                 significanceThresholds={significanceThresholds}
                 key={snapshot.dimension}
                 results={analysis?.results ?? []}
+                metricErrors={analysis?.metricErrors}
                 queryStatusData={queryStatusData}
                 variations={variations}
                 goalMetrics={experiment.goalMetrics}
@@ -214,6 +215,7 @@ export default function PublicExperimentResults({
                 variations={variations}
                 multipleExposures={snapshot.multipleExposures || 0}
                 results={analysis.results[0]}
+                metricErrors={analysis.metricErrors}
                 queryStatusData={queryStatusData}
                 reportDate={snapshot.dateCreated}
                 startDate={phaseObj?.dateStarted ?? ""}

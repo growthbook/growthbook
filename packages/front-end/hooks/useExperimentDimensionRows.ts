@@ -4,6 +4,7 @@ import {
   MetricSnapshotSettings,
 } from "shared/types/report";
 import { MetricOverride } from "shared/types/experiment";
+import { MetricError } from "shared/types/experiment-snapshot";
 import { PValueCorrection, StatsEngine } from "shared/types/stats";
 import {
   expandMetricGroups,
@@ -19,6 +20,7 @@ import {
   applyMetricOverrides,
   ExperimentTableRow,
   compareRows,
+  resolveMetricRowError,
 } from "@/services/experiments";
 import { RowError } from "@/components/Experiment/ResultsTable";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -50,6 +52,8 @@ export interface UseExperimentDimensionRowsParams {
   dimensionValuesFilter?: string[];
   showErrorsOnQuantileMetrics?: boolean;
   pValueThreshold: number;
+  // Structured per-metric errors from the snapshot analysis, keyed by metricId.
+  metricErrors?: Record<string, MetricError>;
 }
 
 export interface UseExperimentDimensionRowsReturn {
@@ -79,6 +83,7 @@ export function useExperimentDimensionRows({
   dimensionValuesFilter,
   showErrorsOnQuantileMetrics = false,
   pValueThreshold,
+  metricErrors,
 }: UseExperimentDimensionRowsParams): UseExperimentDimensionRowsReturn {
   const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -360,6 +365,7 @@ export function useExperimentDimensionRows({
             overrideFields,
             metricSnapshotSettings: _metricSnapshotSettings,
             newMetric,
+            metricErrors,
           });
 
           return {
@@ -419,6 +425,7 @@ export function useExperimentDimensionRows({
     expandedSecondaries,
     expandedGuardrails,
     showErrorsOnQuantileMetrics,
+    metricErrors,
   ]);
 
   return {
@@ -459,6 +466,7 @@ export function generateDimensionRowsForMetric({
   overrideFields,
   metricSnapshotSettings,
   newMetric,
+  metricErrors,
 }: {
   metricId: string;
   resultGroup: "goal" | "secondary" | "guardrail";
@@ -467,6 +475,7 @@ export function generateDimensionRowsForMetric({
   overrideFields: string[];
   metricSnapshotSettings: MetricSnapshotSettings | undefined;
   newMetric: ExperimentMetricDefinition;
+  metricErrors?: Record<string, MetricError>;
 }): ExperimentTableRow[] {
   const filteredResults = includeVariation(results, dimensionValuesFilter);
 
@@ -474,23 +483,28 @@ export function generateDimensionRowsForMetric({
 
   // Create a row for each dimension result
   filteredResults.forEach((dimensionResult) => {
+    const variations = dimensionResult.variations.map((v) => {
+      return (
+        v.metrics?.[metricId] || {
+          users: 0,
+          value: 0,
+          cr: 0,
+          errorMessage: "No data",
+        }
+      );
+    });
     const row: ExperimentTableRow = {
       label: dimensionResult.name,
       metric: newMetric,
       metricOverrideFields: overrideFields,
       rowClass: newMetric?.inverse ? "inverse" : "",
-      variations: dimensionResult.variations.map((v) => {
-        return (
-          v.metrics?.[metricId] || {
-            users: 0,
-            value: 0,
-            cr: 0,
-            errorMessage: "No data",
-          }
-        );
-      }),
+      variations,
       metricSnapshotSettings,
       resultGroup,
+      metricError: resolveMetricRowError({
+        metricId,
+        metricErrors,
+      }),
     };
 
     rows.push(row);

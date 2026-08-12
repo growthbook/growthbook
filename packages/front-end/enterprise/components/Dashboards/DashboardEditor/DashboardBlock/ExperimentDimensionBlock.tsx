@@ -156,6 +156,7 @@ export default function ExperimentDimensionBlock({
         idPrefix={blockId}
         key={snapshot.dimension}
         results={analysis.results}
+        metricErrors={analysis.metricErrors}
         queryStatusData={queryStatusData}
         variations={variations}
         variationFilter={variationFilter}

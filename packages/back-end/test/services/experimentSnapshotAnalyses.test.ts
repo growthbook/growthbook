@@ -35,6 +35,7 @@ jest.mock("back-end/src/services/stats", () => ({
 jest.mock("back-end/src/queryRunners/QueryRunner", () => ({
   QueryRunner: class {},
   getMetricAwareQueryStatus: jest.fn(() => null),
+  getMetricQueryOwnership: jest.fn(() => ({})),
   getQueryMap: jest.fn(),
 }));
 
@@ -652,6 +653,7 @@ describe("createSnapshotAnalysesBatched", () => {
     );
     (analyzeExperimentResults as jest.Mock).mockResolvedValue({
       results: [{ dimensions: [{ name: "US", variations: [] }] }],
+      metricErrors: [{}],
     });
 
     const analysisSettingsList = [
@@ -706,6 +708,7 @@ describe("createSnapshotAnalysis", () => {
     );
     (analyzeExperimentResults as jest.Mock).mockResolvedValue({
       results: [{ dimensions: [] }],
+      metricErrors: [{}],
     });
 
     await createSnapshotAnalysis({ org: { id: "org_1" } } as never, {

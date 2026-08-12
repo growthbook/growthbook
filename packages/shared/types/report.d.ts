@@ -16,7 +16,7 @@ import {
   Variation,
   ExperimentAnalysisSettings,
 } from "./experiment";
-import { SnapshotVariation } from "./experiment-snapshot";
+import { MetricError, SnapshotVariation } from "./experiment-snapshot";
 import { Queries } from "./query";
 import { DifferenceType, StatsEngine } from "./stats";
 
@@ -151,6 +151,7 @@ export interface ExperimentReportResults {
   unknownVariations: string[];
   multipleExposures: number;
   dimensions: ExperimentReportResultDimension[];
+  metricErrors?: Record<string, MetricError>;
 }
 
 export type ReportInterface =

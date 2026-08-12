@@ -244,6 +244,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
     enableExpansion: true,
     expandedMetrics,
     pValueThreshold: significanceThresholds.pValueThreshold,
+    metricErrors: analysis?.metricErrors,
   });
 
   const mainMetricRow = useMemo(() => {

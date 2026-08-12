@@ -181,11 +181,13 @@ import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/Experime
 import {
   QueryMap,
   getMetricAwareQueryStatus,
+  getMetricQueryOwnership,
   getQueryMap,
 } from "back-end/src/queryRunners/QueryRunner";
 import {
   buildUnitDimensionQueryMap,
   filterParentQueryMap,
+  parseUnitDimQueryName,
 } from "back-end/src/queryRunners/unitDimensionQueryNaming";
 import {
   FactTableMap,
@@ -2557,10 +2559,17 @@ async function getSnapshotAnalyses(
       }),
     );
 
+    const dimensionId = getUnitDimensionIdForAnalysis(snapshot, [
+      analysisSettings,
+    ]);
+    const analysisQueryMap = dimensionId
+      ? buildUnitDimensionQueryMap(queryMap, dimensionId)
+      : filterParentQueryMap(queryMap);
     const mdat = getMetricsAndQueryDataForStatsEngine(
-      queryMap,
+      analysisQueryMap,
       expandedMetricMap,
       snapshot.settings,
+      getMetricOwnershipForAnalysis(snapshot, [analysisSettings]),
     );
     const id = `${i}_${experiment.id}_${snapshot.id}`;
     const variationNames = getLatestPhaseVariations(experiment).map(
@@ -2594,6 +2603,7 @@ async function getSnapshotAnalyses(
       data: {
         unknownVariations: unknownVariations,
         analysisObj: analysis,
+        metricErrors: mdat.metricErrors,
       },
     });
   });
@@ -2615,6 +2625,30 @@ function getUnitDimensionIdForAnalysis(
     snapshot.settings.precomputedUnitDimensionIds?.includes(dimensionId)
     ? dimensionId
     : null;
+}
+
+function getMetricOwnershipForAnalysis(
+  snapshot: ExperimentSnapshotInterface,
+  analysisSettingsList: ExperimentSnapshotAnalysisSettings[],
+): Record<string, string[]> {
+  const dimensionId = getUnitDimensionIdForAnalysis(
+    snapshot,
+    analysisSettingsList,
+  );
+  if (!dimensionId) {
+    return getMetricQueryOwnership(snapshot.queries);
+  }
+
+  return Object.fromEntries(
+    Object.entries(
+      getMetricQueryOwnership(snapshot.queries, "dimension", dimensionId),
+    ).flatMap(([name, metricIds]) => {
+      const parsed = parseUnitDimQueryName(name);
+      return parsed?.dimensionId === dimensionId
+        ? [[parsed.baseQueryName, metricIds]]
+        : [];
+    }),
+  );
 }
 
 function snapshotQueriesAvailableForAnalysis(
@@ -2723,16 +2757,20 @@ export async function createSnapshotAnalysis(
   ]);
 
   // Run the analysis
-  const { results } = await analyzeExperimentResults({
+  const { results, metricErrors } = await analyzeExperimentResults({
     queryData: queryMap,
     snapshotSettings: snapshot.settings,
     analysisSettings: [analysisSettings],
     variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
     metricMap: metricMap,
+    factMetricGroups: getMetricOwnershipForAnalysis(snapshot, [
+      analysisSettings,
+    ]),
   });
   analysis.results = results[0]?.dimensions || [];
   analysis.status = "success";
   analysis.error = undefined;
+  analysis.metricErrors = metricErrors[0];
 
   await updateSnapshotAnalysis({
     context,
@@ -2789,12 +2827,16 @@ export async function createSnapshotAnalysesBatched(
   // metric settings, so we can use a single python process
   let completedAnalyses: ExperimentSnapshotAnalysis[];
   try {
-    const { results } = await analyzeExperimentResults({
+    const { results, metricErrors } = await analyzeExperimentResults({
       queryData: queryMap,
       snapshotSettings: snapshot.settings,
       analysisSettings: analysisSettingsList,
       variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
       metricMap,
+      factMetricGroups: getMetricOwnershipForAnalysis(
+        snapshot,
+        analysisSettingsList,
+      ),
     });
 
     completedAnalyses = analyses.map((analysis, i) => ({
@@ -2802,6 +2844,7 @@ export async function createSnapshotAnalysesBatched(
       results: results[i]?.dimensions ?? [],
       status: "success" as const,
       error: undefined,
+      metricErrors: metricErrors[i],
     }));
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
@@ -3147,12 +3190,20 @@ export function toSnapshotApiInterface(
     });
   });
 
-  // Resolve display names for every metric that appears in the results, using
-  // the canonical "Parent (col: val, ...)" format for slice metrics so the
-  // payload is self-describing.
+  // Metrics that produced no results at all. Deliberately kept out of
+  // `metricIds`, which drives the `results[].metrics[]` array: a metric with no
+  // data does not belong there as a row of zeros.
+  const metricErrorEntries = Object.entries(analysis?.metricErrors ?? {});
+
+  // Resolve display names for every metric that appears in the results or
+  // failed, using the canonical "Parent (col: val, ...)" format for slice
+  // metrics so the payload is self-describing.
   const baseMetricIds = Array.from(
     new Set(
-      Array.from(metricIds).map((id) => parseSliceMetricId(id).baseMetricId),
+      [
+        ...Array.from(metricIds),
+        ...metricErrorEntries.map(([metricId]) => metricId),
+      ].map((id) => parseSliceMetricId(id).baseMetricId),
     ),
   );
   const baseMetricsById = new Map(
@@ -3216,6 +3267,14 @@ export function toSnapshotApiInterface(
     // See toApiExperimentSnapshot: snapshot `status` collapses a partial run
     // into "success", so completeness needs a field of its own.
     queryStatus: getMetricAwareQueryStatus(snapshot.queries) ?? undefined,
+    metricErrors: metricErrorEntries.length
+      ? metricErrorEntries.map(([metricId, { type, message }]) => ({
+          metricId,
+          metricName: getMetricName(metricId),
+          type,
+          message,
+        }))
+      : undefined,
     results: (analysis?.results || []).map((s) => {
       return {
         dimension: s.name,
