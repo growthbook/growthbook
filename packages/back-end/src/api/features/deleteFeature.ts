@@ -23,12 +23,7 @@ export async function deleteFeatureHandler(
     );
   }
 
-  // Deleting a LIVE feature drops it from the SDK payload in the environments it is
-  // enabled in, so BOTH atoms answer for those environments. Checking delete with no
-  // binding skipped its environment check entirely, so production publish combined
-  // with a dev-only delete hard-deleted a production feature — the publish half was
-  // scoped and the delete half was not. An archived feature is already out of
-  // service, so there the delete atom alone covers it, unscoped.
+  // Live deletion requires authority across the feature's serving footprint.
   const deleteFootprint = feature.archived
     ? NO_ENVIRONMENT_BINDING
     : Array.from(

@@ -71,7 +71,6 @@ export type ConfigRevisionReopenedPayload = z.infer<
   typeof configRevisionReopenedPayload
 >;
 
-// Recall retracts review; reopen restores discarded work.
 export const configRevisionRecalledPayload = configRevisionWebhookPayload;
 export type ConfigRevisionRecalledPayload = z.infer<
   typeof configRevisionRecalledPayload

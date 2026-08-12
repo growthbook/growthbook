@@ -554,7 +554,6 @@ export async function approveRevision(
     "approve",
     comment ?? "",
     reviewAuthorityOnRow(context),
-    // The cycle THIS caller read — see addReview.
     revision.reviewCycle ?? 0,
   );
 
@@ -933,7 +932,6 @@ async function publishRevisionInner(
     throw e;
   }
 
-  // See above: a revert landing is also a publish and owes both events.
   const webhookAdapter = getRevisionWebhookAdapter(merged.target.type);
   await webhookAdapter?.dispatch(context, merged, { type: "published" });
   if (merged.revertedFrom) {
@@ -1382,7 +1380,6 @@ export async function submitRevisionReview({
     decision,
     comment ?? "",
     reviewAuthorityOnRow(context),
-    // The cycle THIS caller read — see addReview.
     revision.reviewCycle ?? 0,
   );
 
@@ -1400,11 +1397,7 @@ export async function submitRevisionReview({
   return { revision: updated, autoPublished: false };
 }
 
-// Rebase a draft onto live state, resolving conflicts per the caller's
-// strategies. Pinned by test/api/*-revision-rebase.test.ts: an unresolved
-// conflict answers 409, and `union` orders live values first, then the draft's
-// additions, deduped. The request schema validates which strategies an entity
-// offers; this only requires one per conflicting field.
+// "union" keeps live values first, followed by deduplicated draft additions.
 export async function rebaseRevision({
   context,
   entityType,
@@ -1420,7 +1413,6 @@ export async function rebaseRevision({
   strategies: Record<string, "overwrite" | "discard" | "union">;
   customValues?: Record<string, unknown>;
 }): Promise<Revision> {
-  // The canonical list in shared — the per-entity isDraftStatus copies disagree.
   if (!(ACTIVE_DRAFT_STATUSES as readonly string[]).includes(revision.status)) {
     throw new BadRequestError(
       `Can only rebase active draft revisions (status is "${revision.status}")`,

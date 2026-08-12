@@ -22,11 +22,7 @@ export const deleteConfig = createApiRequestHandler(deleteConfigValidator)(
     if (
       !req.context.permissions.canDeleteConfig(
         config,
-        // An archived config serves nothing anywhere; a live one (reachable here
-        // only under the REST bypass setting) answers for everywhere it SERVES.
-        // Its own scope is empty for a base Config, and an empty footprint skips
-        // the environment check rather than narrowing it — the same widening
-        // archiving already uses, and deleting is strictly stronger than archiving.
+        // Live deletion requires authority across the Config's serving footprint.
         config.archived
           ? NO_ENVIRONMENT_BINDING
           : archiveServeFootprint(req.context, config),

@@ -19,7 +19,6 @@ import {
   reviewAuthorityOnRow,
 } from "back-end/src/revisions/revisionAuthority";
 
-/** Return a revision that is in review to `draft`, clearing its reviews. */
 export async function recallRevisionReview({
   context,
   type,
@@ -36,7 +35,6 @@ export async function recallRevisionReview({
     );
   }
 
-  // Lifecycle authority follows the revision snapshot, not later live-entity moves.
   if (
     !isRevisionAuthor(revision.authorId, context.userId) &&
     !canRevisionOwnedAction(context, revision, "draft")
@@ -55,7 +53,6 @@ export async function recallRevisionReview({
   return recalled;
 }
 
-/** Return a discarded revision to `draft` so it can be edited again. */
 export async function reopenRevision({
   context,
   type,
@@ -88,7 +85,6 @@ export async function reopenRevision({
   return reopened;
 }
 
-/** Retract the calling user's own active verdict, returning the draft to review. */
 export async function undoRevisionReview({
   context,
   type,
@@ -122,7 +118,6 @@ export async function undoRevisionReview({
   return updated;
 }
 
-/** Arm a deferred publish, or cancel a pending one when `scheduledPublishAt` is null. */
 export async function scheduleRevisionPublish({
   context,
   type,
@@ -156,12 +151,9 @@ export async function scheduleRevisionPublish({
     );
   }
 
-  if (!isCancel) {
-    assertArmable?.();
-  }
-
   let parsedDate: Date | null = null;
   if (!isCancel) {
+    assertArmable?.();
     parsedDate = new Date(scheduledPublishAt);
     if (isNaN(parsedDate.getTime())) {
       throw new BadRequestError("scheduledPublishAt must be a valid date");
@@ -173,8 +165,8 @@ export async function scheduleRevisionPublish({
 
   const adapter = getAdapter(type);
 
-  // Cancelling needs publish authority; arming additionally needs the
-  // scheduled-publish capability (premium feature + that publish authority).
+  // Arming requires scheduled-publish capability plus change-aware authority;
+  // cancellation only requires coarse publish authority.
   const canPublish = adapter.canPublishRevision
     ? adapter.canPublishRevision(context, entity)
     : adapter.canUpdate(context, entity);
@@ -184,7 +176,6 @@ export async function scheduleRevisionPublish({
   if (isCancel ? !canPublish : !canSchedule) {
     context.permissions.throwPermissionError();
   }
-  // Arming uses change-aware publish authority; cancellation remains coarse.
   if (!isCancel) {
     await assertCanPublishRevision(context, revision, entity);
   }
@@ -246,7 +237,6 @@ export async function scheduleRevisionPublish({
   return updated;
 }
 
-/** The deferred-publish state, for deciding whether a request moved it. */
 function isSameSchedule(before: Revision, after: Revision): boolean {
   return (
     !!before.autoPublishOnApproval === !!after.autoPublishOnApproval &&

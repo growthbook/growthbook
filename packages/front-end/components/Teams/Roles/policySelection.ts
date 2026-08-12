@@ -34,6 +34,8 @@ export function holdsPolicyPart(
 }
 
 // Selecting the parent replaces its individual parts with the bundle.
+export function togglePolicy(policy: Policy, policies: Policy[]): Policy[];
+export function togglePolicy(policy: Policy, policies: string[]): string[];
 export function togglePolicy(policy: Policy, policies: string[]): string[] {
   const parts = new Set<string>(partsOf(policy));
   const rest = policies.filter((p) => p !== policy && !parts.has(p));
@@ -41,6 +43,16 @@ export function togglePolicy(policy: Policy, policies: string[]): string[] {
 }
 
 // Editing a part expands the bundle, then collapses it again when all parts remain.
+export function togglePolicyPart(
+  policy: Policy,
+  part: Policy,
+  policies: Policy[],
+): Policy[];
+export function togglePolicyPart(
+  policy: Policy,
+  part: Policy,
+  policies: string[],
+): string[];
 export function togglePolicyPart(
   policy: Policy,
   part: Policy,

@@ -74,9 +74,7 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     canUseRestApiBypassSetting(req) ||
     adapter.canBypassApproval(req.context, config as Record<string, unknown>);
 
-  // Approval bypass and stale-base force-merge are different capabilities: the
-  // org's `restApiBypassesReviews` setting waives APPROVAL only, never the right
-  // to merge onto a base that has moved under another author's landed work.
+  // Approval bypass does not permit merging a stale base.
   const canForceMerge = adapter.canBypassApproval(
     req.context,
     config as Record<string, unknown>,

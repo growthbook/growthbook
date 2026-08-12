@@ -3,18 +3,7 @@ import DraftSelector, { DraftMode } from "@/components/DraftSelector";
 
 export type { DraftMode };
 
-/**
- * Shared shell logic for the "publish now / add to existing draft / create new
- * draft" picker. Lifted verbatim from the feature implementation; entity
- * wrappers (features, saved groups, constants) inject their entity-specific
- * inputs as props. Generic over the draft key type `K` (features key by version
- * `number`; saved groups/constants key by revision id `string`).
- *
- * The shell owns: active-draft → singleOption computation, the org soft
- * draft-cap logic, the render-time mode auto-correction, and the final
- * <DraftSelector .../> prop wiring. It contains NO environment logic — the
- * entity bundles any environment badges into `revisionDropdown`.
- */
+/** Shared publish-or-draft selector behavior for revisioned entities. */
 export default function DraftSelectorForChanges<K>({
   activeDraftKeys: allActiveDraftKeys,
   writableDraftKeys,

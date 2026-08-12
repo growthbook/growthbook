@@ -1880,9 +1880,7 @@ export async function postFeatureUndoReview(
       version: parseInt(version),
     })) ?? revision;
 
-  // Retraction is its own event, announced here as the other revision families
-  // do. Carries the REFRESHED revision: the pre-image still holds the verdict
-  // just removed, which is exactly what the event exists to report.
+  // Dispatch the post-retraction revision, not the stale pre-image.
   await dispatchFeatureRevisionEvent(
     context,
     feature,

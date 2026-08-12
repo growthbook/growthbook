@@ -1,5 +1,6 @@
-import { AIProvider } from "shared/ai";
+import { AIModel, AIProvider } from "shared/ai";
 import { AIKeySource } from "back-end/src/services/aiCredentials";
+import { ReqContext } from "back-end/types/request";
 
 // The cap only exists on Cloud, so every case here is a Cloud case.
 jest.mock("back-end/src/util/secrets", () => ({
@@ -60,18 +61,16 @@ const keySources = (
 // unrelated to the cap decision.
 const setSettings = (settings: {
   keySource: Record<AIProvider, AIKeySource>;
-  defaultAIModel?: string;
+  defaultAIModel?: AIModel;
   embeddingModel?: string;
 }) => {
   mockedSettings.mockResolvedValue({
     defaultAIModel: "gpt-4o-mini",
     embeddingModel: "text-embedding-ada-002",
     ...settings,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } as any);
+  } as unknown as Awaited<ReturnType<typeof getAISettingsForOrg>>);
 };
 
-// Over the daily cap, resetting in one minute.
 const setOverCap = () => {
   mockedTokens.mockResolvedValue({
     numTokensUsed: 100,
@@ -80,8 +79,7 @@ const setOverCap = () => {
   });
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const context = { org: { id: "org_1" } } as any;
+const context = { org: { id: "org_1" } } as unknown as ReqContext;
 
 describe("provider-exact AI usage cap", () => {
   beforeEach(() => {
@@ -100,8 +98,6 @@ describe("provider-exact AI usage cap", () => {
   it("still caps a managed-key provider when a different provider is org-owned", async () => {
     setSettings({ keySource: keySources({ anthropic: "organization" }) });
 
-    // The org brought its own Anthropic key; this OpenAI model still runs on
-    // GrowthBook's managed key, so it stays capped.
     expect(
       await secondsUntilAICanBeUsedAgainForModel(context, "gpt-4o-mini"),
     ).toBeGreaterThan(0);
@@ -131,8 +127,10 @@ describe("provider-exact AI usage cap", () => {
     });
 
     expect(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await secondsUntilAICanBeUsedAgainForModel(context, "not-a-model" as any),
+      await secondsUntilAICanBeUsedAgainForModel(
+        context,
+        "not-a-model" as AIModel,
+      ),
     ).toBeGreaterThan(0);
   });
 

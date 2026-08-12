@@ -187,10 +187,7 @@ export default function RoleForm({
     }
   });
 
-  // The select-all state machine lives in `policySelection`, property-tested over
-  // the whole state space; these just thread the form value through it.
-  const applyPolicies = (next: string[]) =>
-    form.setValue("policies", next as typeof currentValue.policies);
+  const applyPolicies = (next: Policy[]) => form.setValue("policies", next);
   const togglePolicy = (policy: Policy) =>
     applyPolicies(togglePolicySelection(policy, form.getValues("policies")));
   const togglePolicyPart = (policy: Policy, part: Policy) =>
@@ -227,7 +224,7 @@ export default function RoleForm({
                 <strong>Cannot be changed later!</strong>
               </>
             ) : (
-              <>Role names cannot be changed once created.</>
+              "Role names cannot be changed once created."
             )
           }
         />

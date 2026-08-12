@@ -26,7 +26,7 @@ export default function ProjectRolesSelector({
   const hasFeature = hasCommercialFeature("advanced-permissions");
   if (!projects?.length) return null;
 
-  const usedProjectIds = projectRoles.map((r) => r.project) || [];
+  const usedProjectIds = projectRoles.map((r) => r.project);
   const unusedProjects = projects.filter((p) => !usedProjectIds.includes(p.id));
 
   return (

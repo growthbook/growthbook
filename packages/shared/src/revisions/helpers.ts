@@ -405,44 +405,34 @@ export function normalizeProposedChanges(
     : [];
 }
 
-/**
- * Apply the top-level `replace` / `add` / `remove` operations from a JSON Patch
- * array to an object and return the resulting merged object.  Nested paths
- * (e.g. `/values/0`) are treated as a no-op since we only track top-level fields.
- *
- * This is intentionally a lightweight, dependency-free alternative to
- * `fast-json-patch` so it can be used in both front-end and back-end shared code.
- */
-/** Is this a path `applyTopLevelPatchOps` can apply — exactly `/field`? */
-function isTopLevelPath(path: string): boolean {
+function topLevelField(path: string): string | null {
   const parts = path.split("/");
-  return parts.length === 2 && !!parts[1];
+  return parts.length === 2 && parts[1] ? parts[1] : null;
 }
 
 /**
  * Detects operations the lightweight top-level applier cannot represent.
  * Callers widen authority and approval scope for legacy nested operations.
  */
-export function hasUnappliablePatchOps(
-  proposedChanges: JsonPatchOperation[] | unknown,
-): boolean {
+export function hasUnappliablePatchOps(proposedChanges: unknown): boolean {
   return normalizeProposedChanges(proposedChanges).some(
-    (op) => !isTopLevelPath(op.path),
+    (op) => topLevelField(op.path) === null,
   );
 }
 
+/**
+ * Applies top-level add, replace, and remove operations. Nested paths are ignored.
+ */
 export function applyTopLevelPatchOps<T extends Record<string, unknown>>(
   snapshot: T,
-  proposedChanges: JsonPatchOperation[] | unknown,
+  proposedChanges: unknown,
 ): T {
   const ops = normalizeProposedChanges(proposedChanges);
   if (ops.length === 0) return snapshot;
   const result: Record<string, unknown> = { ...snapshot };
   for (const op of ops) {
-    // Only handle simple top-level paths like "/fieldName"
-    if (!isTopLevelPath(op.path)) continue;
-    const parts = op.path.split("/");
-    const field = parts[1];
+    const field = topLevelField(op.path);
+    if (field === null) continue;
     if (op.op === "replace" || op.op === "add") {
       result[field] = op.value;
     } else if (op.op === "remove") {

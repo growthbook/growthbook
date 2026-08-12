@@ -71,7 +71,6 @@ export type ConstantRevisionReopenedPayload = z.infer<
   typeof constantRevisionReopenedPayload
 >;
 
-// Recall retracts review; reopen restores discarded work.
 export const constantRevisionRecalledPayload = constantRevisionWebhookPayload;
 export type ConstantRevisionRecalledPayload = z.infer<
   typeof constantRevisionRecalledPayload

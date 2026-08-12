@@ -100,7 +100,6 @@ export type FeatureRevisionReopenedPayload = z.infer<
   typeof featureRevisionReopenedPayload
 >;
 
-// Recall retracts review; reopen restores discarded work.
 export const featureRevisionRecalledPayload =
   featureRevisionWebhookPayload.strict();
 export type FeatureRevisionRecalledPayload = z.infer<

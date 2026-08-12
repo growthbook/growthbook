@@ -123,7 +123,7 @@ const TeamsList: FC = () => {
                   })}
                   <TableCell>{t.members ? t.members.length : 0}</TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
-                    {(canManageTeam && !teamIsExternallyManaged && (
+                    {canManageTeam && !teamIsExternallyManaged ? (
                       <DropdownMenu
                         trigger={
                           <IconButton
@@ -159,7 +159,7 @@ const TeamsList: FC = () => {
                           </DropdownMenuItem>
                         </DropdownMenuGroup>
                       </DropdownMenu>
-                    )) || (
+                    ) : (
                       <Tooltip
                         className="mr-2"
                         body="This team is managed by an external identity provider."

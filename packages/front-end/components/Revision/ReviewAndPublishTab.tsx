@@ -18,6 +18,7 @@ import {
   isScheduledPublishLockActive,
   findPublishLockingScheduledRevision,
 } from "shared/enterprise";
+import type { RevisionStatus } from "shared/validators";
 import type { PublishGovernanceResult } from "shared/util";
 import {
   isArchiveTransition,
@@ -94,9 +95,7 @@ const ACTIVE_STATUSES = [
 // The feature state machine types `status` against the feature-revision
 // union; the active statuses are identical across both systems, and the
 // terminal "merged" maps onto "published".
-function toBadgeStatus(
-  status: Revision["status"],
-): Parameters<typeof revisionStatusColor>[0] {
+function toBadgeStatus(status: Revision["status"]): RevisionStatus {
   return status === "merged" ? "published" : status;
 }
 
@@ -568,6 +567,7 @@ function ReviewAndPublishRevision<T>({
     revision.status === "changes-requested";
   const canReviewOrEdit = canReviewEntity ?? canEditEntity;
   const canDraftOrEdit = canManageDraftsEntity ?? canEditEntity;
+  const hasRevertAuthority = canRevertEntity ?? canEditEntity;
   // Commenting is participation, not authority over the entity: the server
   // accepts the addComments atom OR draft OR review authority.
   const canComment =
@@ -575,7 +575,7 @@ function ReviewAndPublishRevision<T>({
   // Revert authority alone is enough — a revert-only role holds no draft rights
   // — and draft authority is enough to PROPOSE one. Mirrors the Feature pane;
   // the revert modal narrows the routes to the ones actually held.
-  const canRevertOrEdit = (canRevertEntity ?? canEditEntity) || canDraftOrEdit;
+  const canRevertOrEdit = hasRevertAuthority || canDraftOrEdit;
   // Advancing a draft (request review / recall / discard) is not editing its
   // content. Mirrors the server's canAdvanceRevision, which re-checks purity.
   const draftStagesRevert = !!revision.revertedFrom;
@@ -590,11 +590,11 @@ function ReviewAndPublishRevision<T>({
     proposedChanges: revision.target.proposedChanges,
     current: liveArchived,
   });
-  const narrowAtom = (canRevertEntity ?? canEditEntity) || !!canDeleteEntity;
+  const narrowAtom = hasRevertAuthority || !!canDeleteEntity;
   const canAdvanceDraft =
     canDraftOrEdit ||
     (isAuthor && narrowAtom) ||
-    ((canRevertEntity ?? canEditEntity) && draftStagesRevert) ||
+    (hasRevertAuthority && draftStagesRevert) ||
     (!!canDeleteEntity && draftIsPureArchive);
   // DISCARDING is narrower than advancing, matching `canDiscardRevision`: draft
   // authority or authorship only. A narrow atom lets you land a draft or leave it —
@@ -606,7 +606,7 @@ function ReviewAndPublishRevision<T>({
   // ordinary publish. Landing a revert answers for the environments it
   // restores, so this arm takes the landing value, not the project-scoped
   // `canRevertEntity`.
-  const canLandRevert = canLandRevertEntity ?? canRevertEntity ?? canEditEntity;
+  const canLandRevert = canLandRevertEntity ?? hasRevertAuthority;
   // A draft that relocates the entity also takes publish authority in the
   // DESTINATION, so the narrow-atom fallbacks must not offer Publish on source
   // authority alone.
@@ -801,9 +801,7 @@ function ReviewAndPublishRevision<T>({
     // re-submits rather than dead-ending.
     editsResetStatus: false,
     requireReviews: requiresApproval,
-    status: toBadgeStatus(revision.status) as Parameters<
-      typeof getReviewAndPublishState
-    >[0]["status"],
+    status: toBadgeStatus(revision.status),
     mergeSuccess,
     hasChanges,
     hasReviewPermission: canReviewOrEdit,

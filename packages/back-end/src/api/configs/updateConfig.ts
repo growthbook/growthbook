@@ -504,7 +504,6 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       };
     }
 
-    // Direct updates require publish authority.
     if (
       !req.context.permissions.canRevisionAction(
         "config",

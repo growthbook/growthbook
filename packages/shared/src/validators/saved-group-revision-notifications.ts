@@ -85,7 +85,6 @@ export type SavedGroupRevisionReopenedPayload = z.infer<
   typeof savedGroupRevisionReopenedPayload
 >;
 
-// Recall retracts review; reopen restores discarded work.
 export const savedGroupRevisionRecalledPayload =
   savedGroupRevisionWebhookPayload;
 export type SavedGroupRevisionRecalledPayload = z.infer<

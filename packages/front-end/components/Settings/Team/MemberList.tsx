@@ -63,9 +63,6 @@ const MemberList: FC<{
     useState<ExpandedMember | null>(null);
   const { projects } = useDefinitions();
   const environments = useEnvironments();
-  // Past a few environment columns the table is too wide to fit; keep the
-  // columns at their natural width and let it scroll rather than compressing
-  // them to slivers.
   const forceScroll = environments.length > 3;
 
   const openInviteModal = !!router.query["just-subscribed"];
@@ -85,13 +82,10 @@ const MemberList: FC<{
     a[1].name.localeCompare(b[1].name),
   );
 
-  const membersList: ExpandedMember[] =
-    members.map(([, member]) => {
-      return {
-        ...member,
-        numTeams: member.teams?.length || 0,
-      } as ExpandedMember;
-    }) || [];
+  const membersList: ExpandedMember[] = members.map(([, member]) => ({
+    ...member,
+    numTeams: member.teams?.length || 0,
+  }));
 
   const {
     items,
@@ -100,7 +94,7 @@ const MemberList: FC<{
     SortableTableColumnHeader,
     pagination,
   } = useSearch({
-    items: membersList || [],
+    items: membersList,
     localStorageKey: "members",
     defaultSortField: "name",
     searchFields: ["name", "email"],

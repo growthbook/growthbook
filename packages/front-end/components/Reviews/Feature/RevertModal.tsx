@@ -170,12 +170,7 @@ export default function RevertModal({
   // authority alone is enough to propose one as a draft — so a revert-only role
   // can roll back without any edit or publish rights.
   const canRevert = permissionsUtil.canRevertFeature(feature, affectedEnvs);
-  // A revert can restore an older PROJECT, relocating the flag. The endpoints
-  // require authority in the DESTINATION too (postFeatureRevert via
-  // assertCanRevertRevision, postFeatureRevertDraft directly) — the source check
-  // above answers only for where the flag is now. Vacuously true when the revert
-  // doesn't move projects. Publishing lands under the revert verb + footprint;
-  // staging a draft takes draft authority there.
+  // Project-moving reverts also require destination authority.
   const destProject = targetRevisionForAction.metadata?.project;
   const proposedMove = {
     project: destProject !== undefined ? destProject : feature.project,

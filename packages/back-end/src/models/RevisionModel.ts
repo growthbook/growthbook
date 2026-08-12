@@ -88,7 +88,6 @@ const CLEARED_SCHEDULE = {
   ...CLEARED_DATED_SCHEDULE,
 } as const;
 
-// Schedule fields cleared together on cancel.
 const SCHEDULED_PUBLISH_UNSET = {
   scheduledPublishAt: 1,
   scheduledPublishLockEdits: 1,
@@ -948,7 +947,6 @@ export class RevisionModel extends BaseClass {
       lockOthers?: boolean;
     } = {},
   ) {
-    // A date implies the armed flag, the same unification the feature twin makes.
     const dated = (scheduledPublishAt ?? null) !== null;
     const armed = !!autoPublishOnApproval || dated;
 
@@ -1037,10 +1035,7 @@ export class RevisionModel extends BaseClass {
               {
                 id: uniqid("act_"),
                 userId,
-                // Dedicated action so the timeline renders a "Review Requested" event
-                // (mirrors FeatureRevisionModel.markRevisionAsReviewRequested) rather
-                // than a confusing "reopened"/"created" row. Recognized as a review
-                // cycle-start marker by addReview/undoReview.
+                // Timeline label and review-cycle start marker.
                 action: "review-requested",
                 description: "Submitted for review",
                 dateCreated: new Date(),
@@ -1402,7 +1397,6 @@ export class RevisionModel extends BaseClass {
           dateCreated: new Date(),
         };
 
-        // Recompute status from the remaining active verdicts.
         const verdictByReviewer = new Map<string, ReviewDecision>();
         for (const r of newReviews) {
           if (r.decision === "comment" || r.stale) continue;
@@ -1840,7 +1834,6 @@ export class RevisionModel extends BaseClass {
               dateCreated: new Date(),
             },
           ],
-          // Spent on discard, same as on merge.
           ...(hadSchedule ? CLEARED_SCHEDULE : {}),
         } as UpdateProps<Revision>;
       },

@@ -1,16 +1,18 @@
 import { Revision } from "shared/enterprise";
 
+function serializeDate(
+  date: Date | string | null | undefined,
+): string | undefined {
+  if ((date ?? null) === null) return undefined;
+  return date instanceof Date ? date.toISOString() : String(date);
+}
+
 /** Serializes deferred-publish fields, omitting absent values across revision APIs. */
 export function revisionScheduleApiFields(revision: Revision) {
-  const date = (d: Date | string | null | undefined): string | undefined =>
-    (d ?? null) === null
-      ? undefined
-      : d instanceof Date
-        ? d.toISOString()
-        : String(d);
-
-  const scheduledPublishAt = date(revision.scheduledPublishAt);
-  const scheduledPublishGaveUpAt = date(revision.scheduledPublishGaveUpAt);
+  const scheduledPublishAt = serializeDate(revision.scheduledPublishAt);
+  const scheduledPublishGaveUpAt = serializeDate(
+    revision.scheduledPublishGaveUpAt,
+  );
 
   return {
     ...(revision.autoPublishOnApproval ? { autoPublishOnApproval: true } : {}),

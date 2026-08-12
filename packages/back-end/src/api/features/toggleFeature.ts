@@ -156,7 +156,6 @@ export async function toggleFeatureCore(
     );
   }
 
-  // Report approval bypasses consistently with other publish endpoints.
   const bypassedGates: BypassedGate[] =
     reviewRequired && canBypass
       ? [

@@ -170,7 +170,7 @@ export function makeGenericBulkAdapter(
             callerContext,
             adapter.publishFootprint?.(
               callerContext,
-              entity as Record<string, unknown>,
+              entity,
               raw.target.proposedChanges,
             ),
             entity as ProjectScoped,
@@ -203,7 +203,7 @@ export function makeGenericBulkAdapter(
             callerContext,
             adapter.publishFootprint?.(
               callerContext,
-              entity as Record<string, unknown>,
+              entity,
               raw.target.proposedChanges,
             ),
             entity as ProjectScoped,

@@ -96,18 +96,12 @@ export type RevisionLifecycleAction =
     }
   | { type: "discarded" }
   | { type: "reopened" }
-  // A review request retracted by its author (or an editor) — the revision returns
-  // to draft with its verdicts cleared. Not `reopened`, which revives a DISCARDED
-  // revision; a consumer watching for "work is live again" must not see a recall.
+  // Recall returns an active review to draft; reopen revives discarded work.
   | { type: "recalled" }
-  // Review/scheduling lifecycle. Deliberately NOT `updated`: that action's `change`
-  // is derived from the revision's existing patch ops, so a lifecycle-only write
-  // announced whatever content change the draft happened to already carry.
+  // Lifecycle transitions must not reuse content-diff events.
   | { type: "reviewRetracted" }
   | { type: "publishScheduleChanged" }
-  // Fires whenever a revert lands on the live entity — both the direct-publish
-  // path and an approval-gated draft that's later merged (the dispatcher
-  // detects the latter via the revision's `revertedFrom`).
+  // Reverted fires for direct and approval-gated landings.
   | { type: "reverted" };
 
 export interface RevisionWebhookAdapter {

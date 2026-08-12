@@ -47,20 +47,18 @@ export const postConfigRevisionRevert = createApiRequestHandler(
   );
   const isPublish = strategy === "publish";
 
-  // Coarse standing, before the reconstruction below. The authoritative check is
-  // assertCanRevertRevision once the change set is known — it needs the fields to
-  // judge the footprint, the destination and whether an archive is being
-  // restored. Subset-refusing: no footprint or purity path rescues a caller who
-  // holds none of these in this project.
   if (
-    (["revert", "draft"] as const).every(
-      (action) =>
-        !req.context.permissions.canRevisionAction(
-          "config",
-          action,
-          config,
-          NO_ENVIRONMENT_BINDING,
-        ),
+    !req.context.permissions.canRevisionAction(
+      "config",
+      "revert",
+      config,
+      NO_ENVIRONMENT_BINDING,
+    ) &&
+    !req.context.permissions.canRevisionAction(
+      "config",
+      "draft",
+      config,
+      NO_ENVIRONMENT_BINDING,
     )
   ) {
     req.context.permissions.throwPermissionError();
@@ -128,17 +126,6 @@ export const postConfigRevisionRevert = createApiRequestHandler(
       `Revision #${req.params.version} matches the current Config — nothing to revert.`,
     );
   }
-
-  // Resolve the strategy up front so validation matches: publish uses the
-  // bypassable publish-time check; a draft uses the write-time check (it can be
-  // staged for later review even if it won't pass publish).
-
-  // A publish-strategy revert advances live state, so block it while locked
-  // (before any merge). A draft-strategy revert only stages a draft, so it's fine.
-  // The archive-dependents guard for a re-archiving revert runs below via the
-  // authoritative assertConfigPublishGuards call, which fingerprints the reverted
-  // (proposed) value/lineage — a duplicate check here against the current live
-  // state would only over-block a combined archive+reparent revert.
 
   // A historical value may predate the current schema; ensure the post-revert
   // state still conforms (against current ancestors).

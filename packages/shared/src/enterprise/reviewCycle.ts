@@ -22,8 +22,9 @@ export function isSameReviewCycle(
   return reviewCycleOf(a) === reviewCycleOf(b);
 }
 
-/** `what` names the lost action from the caller's view: "review", "retraction". */
-export function reviewCycleSupersededMessage(what: string): string {
+export function reviewCycleSupersededMessage(
+  what: "review" | "retraction",
+): string {
   return `This review request was superseded — the draft was recalled and resubmitted while your ${what} was in flight. Reload and review the current request.`;
 }
 

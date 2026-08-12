@@ -17,12 +17,7 @@ export const deleteConstant = createApiRequestHandler(deleteConstantValidator)(
       );
     }
 
-    // Deleting a LIVE Constant takes its value out of every environment it serves, so
-    // the delete atom must hold in all of them — the same footprint archiving uses,
-    // and deleting is strictly stronger than archiving. The unbound sentinel skipped
-    // the environment check rather than narrowing it, so with the REST bypass enabled
-    // a dev-limited deleter could delete a Constant serving production. An archived
-    // Constant is already out of service, so there the atom alone covers it.
+    // Live deletion requires authority across the Constant's serving footprint.
     if (
       !req.context.permissions.canDeleteConstant(
         constant,

@@ -125,7 +125,6 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
       );
     }
 
-    // Direct updates require publish authority over the change footprint.
     if (
       !req.context.permissions.canRevisionAction(
         "constant",

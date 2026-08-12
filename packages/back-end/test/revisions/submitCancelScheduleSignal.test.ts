@@ -140,19 +140,15 @@ describe("submitting unarmed cancels a schedule and signals it", () => {
     await postSubmit(req(), res);
 
     expect(captured.status).toBe(200);
-    // The transition actually happened: the schedule is gone from storage.
     const schedule = await storedSchedule();
     expect(schedule.autoPublishOnApproval).not.toBe(true);
     expect(schedule.scheduledPublishAt ?? null).toBeNull();
-    // Both signals fire — the review request AND the schedule cancellation.
     expect(dispatchedTypes()).toEqual(
       expect.arrayContaining(["reviewRequested", "publishScheduleChanged"]),
     );
   });
 
   it("an unarmed revision submitted unarmed emits no schedule signal", async () => {
-    // The control: nothing was scheduled, so nothing changed, so no
-    // publishScheduleChanged — only the review request.
     await seed(false);
     const { res, captured } = resSpy();
     await postSubmit(req(), res);

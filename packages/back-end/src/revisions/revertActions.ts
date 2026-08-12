@@ -481,7 +481,6 @@ export async function revertRevision({
       { forceCreate: true, title, revertedFrom: targetRevision.id },
     );
     await dispatch?.dispatch(context, draft, { type: "created" });
-    // A draft lands nothing, so it clears no publish gate.
     return { revision: draft, published: false, bypassedGates: [] };
   }
 

@@ -248,17 +248,7 @@ export default function FeaturesHeader({
     baseFeature,
     liveArchiveEnvs,
   );
-  // The staging fallback reads the live flag too. `canEdit` above is the viewed
-  // draft's, so a draft staging a move into a project the user CAN draft in
-  // enabled the control while the endpoint — which asks about the live flag —
-  // refused it. Same class as the two arms above, one line away.
-  //
-  // Asked through the shared predicate rather than a bare draft check, so this is
-  // the SAME question the endpoint's entry gate asks (`canLand ||
-  // canStageArchiveDraft` in controllers/features.ts `postFeatureArchive`). It is
-  // also directional: staging an ARCHIVE accepts the project-scoped delete atom,
-  // which a bare `canEditFeatureDrafts` missed — a dev-limited deleter could
-  // stage one the control refused to offer.
+  // Stage against live state; archiving may use delete authority.
   const canToggleArchive =
     (isArchived ? canUnarchive : canArchive) ||
     canStageArchiveDraft({

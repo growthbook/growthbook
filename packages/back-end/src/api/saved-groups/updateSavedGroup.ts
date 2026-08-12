@@ -119,7 +119,6 @@ export const updateSavedGroup = createApiRequestHandler(
 
   const adapter = getAdapter("saved-group");
 
-  // Direct updates require publish authority.
   if (
     !req.context.permissions.canRevisionAction(
       "saved-group",

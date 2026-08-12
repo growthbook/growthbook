@@ -38,25 +38,20 @@ export interface ScheduleControlRevision {
   scheduledPublishGaveUpAt?: Date | string | null;
 }
 
-// Shared "arm auto-publish / schedule a publish" control. Lifted line-for-line
-// from the feature flow (components/Reviews/Feature/ReviewAndPublish.tsx) so the
-// behavior and controls are identical: one "Automatically publish" checkbox + a
-// mode dropdown ("when approved" vs "on a specific date" — mutually exclusive on
-// the backend), and a "Lock edits to [this {entityNoun} | this draft]" checkbox
-// + scope dropdown, where lockEdits = enabled and lockOthers = enabled && scope
-// === "feature" (entity scope is the superset).
-//
-// Entity-agnostic by design (so the feature side can adopt it later): the caller
-// supplies the persistence endpoints, the lifecycle flags it derives from its
-// own helpers (pending / lockActive), and the entity noun. Key parity points:
-//   - There is NO "save"/"schedule" button: every control change (date, lock,
-//     scope, admin bypass) auto-persists. Engaging the admin bypass flips
-//     `schedulePersistsImmediately` true, so it arms the schedule on toggle.
-//   - effectiveMode forces "date" whenever "when approved" isn't available.
-//   - The date option is gated on publish authority, NOT the premium flag; the
-//     premium gate only swaps the date picker for an upgrade prompt.
-//   - An admin can arm a dated schedule that bypasses approval even when the
-//     draft isn't approved; that schedule is then cancel-and-re-arm only.
+function getLockTargets(
+  revision: ScheduleControlRevision,
+  entityNoun: string,
+): string {
+  const lockEdits = !!revision.scheduledPublishLockEdits;
+  const lockOthers = !!revision.scheduledPublishLockOthers;
+  if (lockOthers && lockEdits) {
+    return `this draft and other drafts of this ${entityNoun}`;
+  }
+  if (lockOthers) return `other drafts of this ${entityNoun}`;
+  return lockEdits ? "this draft" : "";
+}
+
+// Shared auto-publish and scheduling control for revision flows.
 export default function ScheduledPublishControl({
   revision,
   pending,
@@ -239,19 +234,7 @@ export default function ScheduledPublishControl({
     !requiresApproval ||
     (canBypassScheduleApproval && bypass);
 
-  // Lock-target wording: entity-agnostic and explicit about what each lock
-  // covers — lockEdits freezes this draft's edits, lockOthers freezes publishing
-  // of the other drafts of this {entityNoun}. Single source of truth for both the
-  // feature flow and the generic revision flow.
-  const lockTargets = (() => {
-    const lockEdits = !!revision.scheduledPublishLockEdits;
-    const lockOthers = !!revision.scheduledPublishLockOthers;
-    if (lockOthers && lockEdits)
-      return `this draft and other drafts of this ${entityNoun}`;
-    if (lockOthers) return `other drafts of this ${entityNoun}`;
-    if (lockEdits) return "this draft";
-    return "";
-  })();
+  const lockTargets = getLockTargets(revision, entityNoun);
 
   // ── Persistence ──
   const doDisarm = async () => {

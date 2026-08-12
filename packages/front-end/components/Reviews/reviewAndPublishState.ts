@@ -1,15 +1,6 @@
 import type { RevisionStatus } from "shared/validators";
 
-// Pure, entity-agnostic decision logic for the review-and-publish CTA
-// lifecycle. Lives in components/Reviews/ (the shared core) and is consumed by
-// entity-specific adapters (e.g. components/Reviews/Feature/ReviewAndPublish).
-//
-// Relationship to components/Revision/: that namespace is the newer generic
-// revision system (RevisionModel + EntityRevisionAdapter) currently serving
-// saved groups. This module belongs to the older feature-revision pipeline.
-// Once feature revisions converge onto the generic system, this state machine
-// can be unified with the generic revision approval logic — until then the two
-// coexist as separate UI flows sharing the same entity-agnostic concepts.
+// Shared CTA state machine for feature and generic revisions.
 
 export type RnPMode = "fix-conflicts" | "main";
 

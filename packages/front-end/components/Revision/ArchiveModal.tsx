@@ -16,6 +16,25 @@ const DRAFT_STATUSES = [
 ];
 const isDraftRevision = (r: Revision) => DRAFT_STATUSES.includes(r.status);
 
+function getAcknowledgementLabel({
+  elevatedWarning,
+  mode,
+  lowerNoun,
+}: {
+  elevatedWarning: boolean;
+  mode: DraftMode;
+  lowerNoun: string;
+}): string {
+  if (elevatedWarning) {
+    return mode === "publish"
+      ? "I understand this will break live Feature Flags and want to archive anyway."
+      : "I understand this will break live Feature Flags when the draft is published, and want to continue.";
+  }
+  return mode === "publish"
+    ? `I acknowledge these references and want to archive this ${lowerNoun} anyway.`
+    : `I acknowledge these references and want to archive this ${lowerNoun} when the draft is published.`;
+}
+
 export interface Props {
   entityNoun: string;
   entityId: string;
@@ -247,19 +266,11 @@ export default function ArchiveModal({
             weight="regular"
             value={acknowledged}
             setValue={setAcknowledged}
-            label={
-              // The consequence lands when the archive PUBLISHES, not when it is
-              // staged — unconditional wording implied a draft took effect on its
-              // own. True of the ordinary reference warning as much as the elevated
-              // one, so both arms branch on the mode.
-              elevatedWarning
-                ? mode === "publish"
-                  ? "I understand this will break live Feature Flags and want to archive anyway."
-                  : "I understand this will break live Feature Flags when the draft is published, and want to continue."
-                : mode === "publish"
-                  ? `I acknowledge these references and want to archive this ${lowerNoun} anyway.`
-                  : `I acknowledge these references and want to archive this ${lowerNoun} when the draft is published.`
-            }
+            label={getAcknowledgementLabel({
+              elevatedWarning,
+              mode,
+              lowerNoun,
+            })}
           />
         </>
       ) : (

@@ -309,12 +309,6 @@ export default function EditSavedGroupPage() {
   // service, so it's an ordinary publish. Either authority is enough: the
   // landing atom stands on its own for a pure archive, and someone without it
   // can still stage the flip as a draft.
-  //
-  // Asked through the shared predicates rather than rebuilt here, so this is the
-  // SAME question the endpoint's entry gate asks (`canLand || canStageArchiveDraft`
-  // in saved-group.controller). A hand-rolled `|| canDraft` happened to agree
-  // today, but it is not directional the way `canStageArchiveDraft` is, so it
-  // would drift the moment either rule moved.
   // LIVE state, matching the endpoint and the modal — the projected state inverts
   // the menu label and the atom whenever the viewed draft stages the opposite flip.
   const isArchivedInView = !!savedGroup?.archived;

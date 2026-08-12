@@ -64,12 +64,7 @@ export default function RevisionDraftSelectorForChanges({
    * groups use the org approval flow (true); constants opt out (false).
    */
   dropdownRequiresApproval?: boolean;
-  /**
-   * Drafts this flow may WRITE into. Filtering by status alone offered another
-   * author's draft to a caller the endpoint refuses — the archive flows submit
-   * `?revisionId=<picked draft>`, which `canWriteArchiveIntoDraft` now rejects, so
-   * picking one produced a 403 from a list that should never have contained it.
-   */
+  /** Restricts the picker to drafts this flow may write. */
   canWriteIntoDraft?: (revision: Revision) => boolean;
 }) {
   const activeDrafts = useMemo(
@@ -98,12 +93,7 @@ export default function RevisionDraftSelectorForChanges({
       }`
     : null;
 
-  // The DROPDOWN has to be filtered too, not just the radio. `activeDrafts` gated
-  // the radio and the cap logic while the dropdown was built from every revision, so
-  // a caller could still pick another author's draft — and the archive flows submit
-  // `?revisionId=<picked>`, which `canWriteArchiveIntoDraft` refuses. The currently
-  // selected one is kept regardless, so a selection made before a permission change
-  // still renders its label instead of vanishing.
+  // Keep the selected revision visible after permission changes.
   const selectableRevisions = useMemo(
     () =>
       allRevisions.filter(

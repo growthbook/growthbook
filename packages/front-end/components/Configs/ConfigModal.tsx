@@ -95,8 +95,6 @@ export default function ConfigModal({
     !!existing?.description,
   );
 
-  // Called unconditionally (rules of hooks); unused on the create path.
-
   const permissionsUtil = usePermissionsUtil();
 
   const form = useForm<FormValues>({
@@ -213,20 +211,16 @@ export default function ConfigModal({
             await onSaved(res.revision);
           }
         } else {
+          const extendsKeys = [...new Set(values.extends)].filter(
+            (key) => key && key !== values.parent,
+          );
           await apiCall(`/configs`, {
             method: "POST",
             body: JSON.stringify({
               key: values.key,
               name: values.name,
               parent: values.parent || undefined,
-              // Dedupe and drop the parent (it's the spine, not a mixin) so we
-              // never submit a self-conflicting composition the backend rejects.
-              extends: (() => {
-                const cleaned = [...new Set(values.extends)].filter(
-                  (k) => k && k !== values.parent,
-                );
-                return cleaned.length ? cleaned : undefined;
-              })(),
+              extends: extendsKeys.length ? extendsKeys : undefined,
               description: values.description || undefined,
               project: values.project || undefined,
               ...(values.parent ? {} : { extensible: values.extensible }),

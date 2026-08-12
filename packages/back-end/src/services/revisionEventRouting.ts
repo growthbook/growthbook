@@ -6,22 +6,8 @@ import { revisionEventProjects } from "back-end/src/events/revisionWebhookAdapte
 
 type RoutableEntity = { project?: string; projects?: string[] };
 
-/**
- * Where a revision event is delivered: the projects and environments a subscription
- * is filtered on.
- *
- * `[]` means "affects nothing" to the delivery filter, so the same trap the
- * permission layer has applies here — a change felt in every environment while
- * naming none would reach no environment-filtered subscriber. Whether a type
- * partitions by environment is therefore something the caller states:
- *
- *  - Omit `scopedFor` — no environment dimension (Saved Groups); `[]` is honest.
- *  - Provide it — an empty result means "felt everywhere that entity serves".
- *
- * Resolved over snapshot ∪ live, the same union `projects` takes: a draft opened
- * before a move names the old project, and a Config's scoped set can move on the
- * live entity. Routing on either alone loses the subscribers on the other side.
- */
+// Routes over snapshot ∪ live scope. Without scopedFor there is no environment
+// dimension; an empty scoped result widens to serving scope.
 export async function revisionEventRouting({
   context,
   revision,
