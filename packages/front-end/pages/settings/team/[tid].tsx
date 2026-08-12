@@ -1,11 +1,9 @@
 import router from "next/router";
 import React, { FC, useState } from "react";
 import { date, datetime } from "shared/dates";
-import { PiLockSimple } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Flex, IconButton } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
-import { GBAddCircle } from "@/components/Icons";
 import TeamModal from "@/components/Teams/TeamModal";
 import { AddMembersModal } from "@/components/Teams/AddMembersModal";
 import { PermissionsModal } from "@/components/Settings/Teams/PermissionModal";
@@ -121,7 +119,6 @@ const TeamPage: FC = () => {
           <Flex align="center" gap="4" flexShrink="0">
             <Button
               variant="outline"
-              icon={<PiLockSimple />}
               onClick={() => setPermissionModalOpen(true)}
             >
               Edit permissions
@@ -178,10 +175,7 @@ const TeamPage: FC = () => {
             Team Members ({memberCount})
           </Heading>
           {isEditable && canManageTeam && (
-            <Button
-              icon={<GBAddCircle />}
-              onClick={() => setMemberModalOpen(true)}
-            >
+            <Button onClick={() => setMemberModalOpen(true)}>
               Add members
             </Button>
           )}
