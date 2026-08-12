@@ -378,7 +378,7 @@ const MemberList: FC<{
                                 setProjectRoleModal(member.id);
                               }}
                             >
-                              Edit project role
+                              Edit Project role
                             </DropdownMenuItem>
                           )}
                           {canDeleteMembers && !usingSSO() && (

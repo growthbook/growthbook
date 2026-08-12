@@ -38,44 +38,46 @@ export default function ProjectRolesSelector({
       </Text>
       {projectRoles.map((projectRole, i) => (
         <div className="appbox px-3 pt-2 bg-light" key={i}>
-          <div style={{ float: "right" }}>
-            <a
-              href="#"
-              className="text-danger"
-              onClick={(e) => {
-                e.preventDefault();
+          <Flex justify="between" align="start" gap="3">
+            <Box flexGrow="1">
+              <SingleRoleSelector
+                value={{
+                  role: projectRole.role,
+                  environments: projectRole.environments,
+                  limitAccessByEnvironment:
+                    projectRole.limitAccessByEnvironment,
+                }}
+                setValue={(newRoleInfo) => {
+                  const newProjectRoles = [...projectRoles];
+                  newProjectRoles[i] = {
+                    ...projectRole,
+                    ...newRoleInfo,
+                  };
+                  setProjectRoles(newProjectRoles);
+                }}
+                label={
+                  <>
+                    Project:{" "}
+                    <strong>{getProjectById(projectRole.project)?.name}</strong>
+                  </>
+                }
+                disabled={!hasFeature}
+                includeAdminRole={false}
+                includeProjectAdminRole={true}
+              />
+            </Box>
+            <Button
+              variant="ghost"
+              color="red"
+              onClick={() => {
                 const newProjectRoles = [...projectRoles];
                 newProjectRoles.splice(i, 1);
                 setProjectRoles(newProjectRoles);
               }}
             >
-              remove
-            </a>
-          </div>
-          <SingleRoleSelector
-            value={{
-              role: projectRole.role,
-              environments: projectRole.environments,
-              limitAccessByEnvironment: projectRole.limitAccessByEnvironment,
-            }}
-            setValue={(newRoleInfo) => {
-              const newProjectRoles = [...projectRoles];
-              newProjectRoles[i] = {
-                ...projectRole,
-                ...newRoleInfo,
-              };
-              setProjectRoles(newProjectRoles);
-            }}
-            label={
-              <>
-                Project:{" "}
-                <strong>{getProjectById(projectRole.project)?.name}</strong>
-              </>
-            }
-            disabled={!hasFeature}
-            includeAdminRole={false}
-            includeProjectAdminRole={true}
-          />
+              Remove
+            </Button>
+          </Flex>
         </div>
       ))}
       {unusedProjects.length > 0 && (
@@ -110,7 +112,7 @@ export default function ProjectRolesSelector({
               setNewProject("");
             }}
           >
-            Add Project Role
+            Add Project role
           </Button>
         </Flex>
       )}
