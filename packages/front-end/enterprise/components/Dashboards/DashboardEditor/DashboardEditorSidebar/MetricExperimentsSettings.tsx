@@ -69,30 +69,25 @@ export default function MetricExperimentsSettings({
   const [columnsOpen, setColumnsOpen] = useState(false);
 
   // A field inherits only if the block opted in AND the dashboard has a value.
-  const projectsSet = globalFilterIsSet(dashboardGlobalControls, "projects");
   const searchSet = globalFilterIsSet(
     dashboardGlobalControls,
     "experimentSearchString",
   );
 
-  const projectsInherited =
-    blockUsesGlobalFilter(block, "projects") && projectsSet;
   const searchInherited =
     blockUsesGlobalFilter(block, "experimentSearchString") && searchSet;
 
   // Keys in `claim` stop following the dashboard in the same update as the patch.
   const patchBlock = (
     patch: Partial<MetricExperimentsBlockInterface>,
-    claim: ("projects" | "experimentSearchString")[] = [],
+    claim: "experimentSearchString"[] = [],
   ) =>
     setBlock(
       withBlockGlobalFilterFollowing({ ...block, ...patch }, claim, false),
     );
 
-  const revert = (key: "projects" | "experimentSearchString") =>
+  const revert = (key: "experimentSearchString") =>
     setBlock(withBlockGlobalFilterFollowing(block, [key], true));
-
-  const dashboardProjects = dashboardGlobalControls?.projects ?? [];
 
   const projectOptions = (
     projects.length > 0
@@ -100,7 +95,11 @@ export default function MetricExperimentsSettings({
       : allProjects
   ).map((p) => ({ label: p.name, value: p.id }));
 
-  const projectsValue = projectsInherited ? dashboardProjects : block.projects;
+  // While the block follows the dashboard's experiment filters, the dashboard's
+  // `project:` token is the only project scope applied (getEffectiveExperimentBlock
+  // clears the block's own list), so show this field empty and disabled rather
+  // than displaying a value that isn't in play.
+  const projectsValue = searchInherited ? [] : block.projects;
 
   const resolvedColumns = resolveMetricExperimentColumns(
     block.columns,
@@ -208,25 +207,15 @@ export default function MetricExperimentsSettings({
         sort={false}
       />
 
-      <SidebarSettingField
-        label="Projects"
-        accessory={
-          projectsSet ? (
-            <DashboardFilterInheritTag
-              label="Projects"
-              inherited={projectsInherited}
-              onRevert={() => revert("projects")}
-            />
-          ) : undefined
-        }
-      >
+      <SidebarSettingField label="Projects">
         <MultiSelectField
           value={projectsValue}
           options={projectOptions}
-          onChange={(v) =>
-            patchBlock({ projects: v }, projectsInherited ? ["projects"] : [])
+          onChange={(v) => patchBlock({ projects: v })}
+          disabled={searchInherited}
+          placeholder={
+            searchInherited ? "Set by dashboard filters" : "All projects"
           }
-          placeholder="All projects"
         />
       </SidebarSettingField>
 

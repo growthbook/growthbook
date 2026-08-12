@@ -53,12 +53,14 @@ export const dashboardGlobalControlsValidator = z
     dateRange: baseExplorationConfigValidator.shape.dateRange.optional(),
     dateGranularity: z.enum(dateGranularity).optional(),
     // Experiment-block filters, applied per-block via globalControlSettings.
-    // `projects: []` means all projects; absent means no dashboard-wide filter.
+    // Every category (project, metric, owner, …) lives in this one search
+    // string as a `field:value` token, the way Insights does it — there is no
+    // separate dashboard-wide projects control.
     //
-    // TODO: fold `projects` into `experimentSearchString` as a `project:` token
-    // (as Insights does). Needs a `migrateBlock` step: blocks keep their own
-    // `projects` field and the validators are `.strict()`, so saves would fail.
-    projects: z.array(z.string()).optional(),
+    // Blocks keep their own `projects` field for when they opt out; a block
+    // that inherits this string has its local projects cleared, so the
+    // dashboard's `project:` token is the only project scope in play (see
+    // getEffectiveExperimentBlock).
     experimentSearchString: z.string().optional(),
   })
   .strict();

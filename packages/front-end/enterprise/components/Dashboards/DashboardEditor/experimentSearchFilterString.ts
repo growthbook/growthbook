@@ -17,10 +17,10 @@ import { SyntaxFilter, transformQuery } from "@/services/search";
  */
 
 // Experiment filter categories the dashboard bar exposes as their own pill.
-// `project` is intentionally absent: the dashboard has a dedicated Projects
-// filter, so offering the experiment-search Project category too would apply
-// the same restriction twice.
+// `project` is one of them: the dashboard has no separate projects control, so
+// project scope is a `project:` token in this string like every other category.
 export const DASHBOARD_EXPERIMENT_CATEGORY_KEYS = [
+  "project",
   "metric",
   "is",
   "owner",

@@ -11,8 +11,8 @@ import {
  * hidden and is added from the "Add filter" dropdown (or shown automatically
  * because the dashboard already has a value for it).
  *
- * `projects` is its own global control; the `exp:*` keys are the experiment
- * filter categories, which all persist into the single `experimentSearchString`.
+ * Every key is an experiment filter category; they all persist into the single
+ * `experimentSearchString`, Project included.
  *
  * A block's own `metricId` is not here: it selects the metric Scaled Impact /
  * Experiments with Lift calculate on, not which experiments they show. The
@@ -20,18 +20,21 @@ import {
  * that analyzed the chosen metric.
  */
 export type DashboardOptionalFilterKey =
-  | "projects"
-  | `exp:${DashboardExperimentCategoryKey}`;
+  `exp:${DashboardExperimentCategoryKey}`;
 
 // Which applicability flag gates a filter: a filter can only be added when a
 // block on the dashboard actually honors it.
-type FilterRequirement = "projects" | "experimentSearchString";
+type FilterRequirement = "experimentSearchString";
 
 export const EXPERIMENT_CATEGORY_LABELS: Record<
   DashboardExperimentCategoryKey,
   string
 > = {
-  metric: "Metric",
+  project: "Projects",
+  // "Includes metric", not "Metric": this narrows the list to experiments that
+  // analyzed the chosen metric. It does not change the metric a block
+  // calculates on (Scaled Impact / Experiments with Lift each pick their own).
+  metric: "Includes metric",
   is: "Result",
   owner: "Owner",
   status: "Status",
@@ -43,6 +46,7 @@ export const EXPERIMENT_CATEGORY_SEARCH_PLACEHOLDERS: Record<
   DashboardExperimentCategoryKey,
   string
 > = {
+  project: "Search projects...",
   metric: "Search metrics...",
   is: "Search results...",
   owner: "Search owners...",
@@ -58,12 +62,14 @@ const EXPERIMENT_CATEGORY_MENU_ORDER: Record<
   DashboardExperimentCategoryKey,
   number
 > = {
-  metric: 0,
-  owner: 1,
-  is: 2,
-  tag: 3,
-  has: 4,
-  status: 5,
+  // Projects first, keeping the position the old standalone control had.
+  project: 0,
+  metric: 1,
+  owner: 2,
+  is: 3,
+  tag: 4,
+  has: 5,
+  status: 6,
 };
 
 // Bar and "Add filter" menu order.
@@ -72,11 +78,6 @@ export const DASHBOARD_OPTIONAL_FILTERS: {
   label: string;
   requires: FilterRequirement;
 }[] = [
-  {
-    key: "projects",
-    label: "Projects",
-    requires: "projects",
-  },
   ...[...DASHBOARD_EXPERIMENT_CATEGORY_KEYS]
     .sort(
       (a, b) =>
@@ -89,11 +90,10 @@ export const DASHBOARD_OPTIONAL_FILTERS: {
     })),
 ];
 
-/** The experiment filter category behind an `exp:*` key, or null for the rest. */
+/** The experiment filter category behind an `exp:*` key. */
 export function getExperimentCategory(
   key: DashboardOptionalFilterKey,
-): DashboardExperimentCategoryKey | null {
-  if (!key.startsWith("exp:")) return null;
+): DashboardExperimentCategoryKey {
   return key.slice("exp:".length) as DashboardExperimentCategoryKey;
 }
 
@@ -105,16 +105,10 @@ export function isOptionalFilterActive(
   globalControls: DashboardInterface["globalControls"],
   key: DashboardOptionalFilterKey,
 ): boolean {
-  const category = getExperimentCategory(key);
-  if (category) {
-    return (
-      getExperimentCategoryValues(
-        globalControls?.experimentSearchString,
-        category,
-      ).length > 0
-    );
-  }
-  // An empty array is an active "All Projects" override; only an absent value
-  // means the filter is unset.
-  return Array.isArray(globalControls?.projects);
+  return (
+    getExperimentCategoryValues(
+      globalControls?.experimentSearchString,
+      getExperimentCategory(key),
+    ).length > 0
+  );
 }

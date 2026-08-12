@@ -105,7 +105,6 @@ export default function DashboardGlobalControlsBar({
     const experimentApplicability =
       getDashboardExperimentFilterApplicability(blocks);
     return {
-      projects: experimentApplicability.showProjects,
       experimentSearchString: experimentApplicability.showExperimentSearch,
     };
   }, [blocks]);
@@ -145,28 +144,23 @@ export default function DashboardGlobalControlsBar({
     addedKeys.length > 0 ||
     Boolean(globalControls?.dateRange) ||
     Boolean(globalControls?.experimentSearchString) ||
-    Array.isArray(globalControls?.projects) ||
     // Set from this bar's date dropdown, so it counts as a global filter.
     Boolean(dashboardComparison?.enabled);
 
-  // Persist a change to one of the experiment-block filters (projects / metric /
-  // experiment search). Unlike the date control, these never trigger a snapshot
-  // refresh — the affected experiment blocks re-render client-side (or re-key
-  // their own query) from the new global controls. We intentionally do NOT flip
-  // `saving` here: the local state updates optimistically, and disabling the
-  // controls on every checkbox toggle makes the pills flicker.
+  // Persist a change to one of the experiment filter categories. Unlike the date
+  // control, these never trigger a snapshot refresh — the affected experiment
+  // blocks re-render client-side (or re-key their own query) from the new global
+  // controls. We intentionally do NOT flip `saving` here: the local state updates
+  // optimistically, and disabling the controls on every checkbox toggle makes the
+  // pills flicker.
   const persistExperimentFilter = async (
     patch: Partial<NonNullable<DashboardInterface["globalControls"]>>,
   ) => {
     const nextGlobalControls: NonNullable<
       DashboardInterface["globalControls"]
     > = { ...(globalControls ?? {}), ...patch };
-    // Normalize "empty" values back to absent so the filter reads as inactive.
-    // Projects is the exception: an empty array explicitly means "All projects"
-    // (an active override), so it's kept — only an absent value is inactive.
-    if (!nextGlobalControls.projects) {
-      delete nextGlobalControls.projects;
-    }
+    // Normalize an empty search string back to absent so the filter reads as
+    // inactive rather than as a filter matching everything.
     if (!nextGlobalControls.experimentSearchString) {
       delete nextGlobalControls.experimentSearchString;
     }

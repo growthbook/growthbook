@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { DashboardInterface } from "shared/enterprise";
 import { useExperiments } from "@/hooks/useExperiments";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperimentFilterCategories } from "@/components/Search/experimentFilterCategories";
 import { SearchFiltersItem } from "@/components/Search/SearchFilters";
 import Tag from "@/components/Tags/Tag";
@@ -27,6 +28,8 @@ interface Props {
   categories: DashboardExperimentCategoryKey[];
   // Category just added from the "Add filter" menu; its popover opens on mount.
   autoOpenCategory?: DashboardExperimentCategoryKey | null;
+  // Restrict the Project options to the dashboard's projects (empty = all).
+  projects: string[];
   disabled?: boolean;
   onChange: (
     category: DashboardExperimentCategoryKey,
@@ -59,11 +62,13 @@ export default function DashboardExperimentCategoryPills({
   globalControls,
   categories,
   autoOpenCategory,
+  projects,
   disabled,
   onChange,
   onRemove,
 }: Props) {
   const { experiments } = useExperiments();
+  const { projects: allProjects } = useDefinitions();
   const {
     availableTags,
     metricItems,
@@ -77,6 +82,13 @@ export default function DashboardExperimentCategoryPills({
     Record<DashboardExperimentCategoryKey, ChecklistOption[]>
   >(
     () => ({
+      // Persist the project id, not the name: both the server and client search
+      // match `project:` against either, and an id survives a rename. Same
+      // trade-off the metric taxonomy already makes.
+      project: (projects.length > 0
+        ? allProjects.filter((p) => projects.includes(p.id))
+        : allProjects
+      ).map((p) => ({ label: p.name, value: p.id })),
       metric: toChecklistOptions(metricItems),
       is: toChecklistOptions(resultItems),
       owner: owners.map((owner) => ({ label: owner, value: owner })),
@@ -88,7 +100,16 @@ export default function DashboardExperimentCategoryPills({
       })),
       has: toChecklistOptions(typeItems),
     }),
-    [metricItems, resultItems, owners, statusItems, availableTags, typeItems],
+    [
+      allProjects,
+      projects,
+      metricItems,
+      resultItems,
+      owners,
+      statusItems,
+      availableTags,
+      typeItems,
+    ],
   );
 
   const searchString = globalControls?.experimentSearchString;

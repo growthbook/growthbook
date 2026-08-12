@@ -28,7 +28,7 @@ export interface CompletedExperimentsFilterValue {
   dateGranularity?: (typeof dateGranularity)[number];
 }
 
-type FollowKey = "dateRange" | "projects" | "experimentSearchString";
+type FollowKey = "dateRange" | "experimentSearchString";
 
 interface Props {
   value: CompletedExperimentsFilterValue;
@@ -51,7 +51,6 @@ interface Props {
   dashboardGlobalControls?: DashboardInterface["globalControls"];
   globalControlSettings?: {
     dateRange?: boolean;
-    projects?: boolean;
     experimentSearchString?: boolean;
   };
 }
@@ -80,15 +79,12 @@ export default function CompletedExperimentsFilterFields({
 
   // A field inherits only if the block opted in AND the dashboard has a value.
   const dateSet = globalFilterIsSet(dashboardGlobalControls, "dateRange");
-  const projectsSet = globalFilterIsSet(dashboardGlobalControls, "projects");
   const searchSet = globalFilterIsSet(
     dashboardGlobalControls,
     "experimentSearchString",
   );
 
   const dateInherited = globalControlSettings?.dateRange === true && dateSet;
-  const projectsInherited =
-    globalControlSettings?.projects === true && projectsSet;
   const searchInherited =
     globalControlSettings?.experimentSearchString === true && searchSet;
 
@@ -101,9 +97,11 @@ export default function CompletedExperimentsFilterFields({
   const granularityValue = dateInherited
     ? (dashboardGlobalControls?.dateGranularity ?? value.dateGranularity)
     : value.dateGranularity;
-  const projectsValue = projectsInherited
-    ? (dashboardGlobalControls?.projects ?? [])
-    : value.projects;
+  // While the block follows the dashboard's experiment filters, the dashboard's
+  // `project:` token is the only project scope applied (getEffectiveExperimentBlock
+  // clears the block's own list), so show this field as empty and disabled rather
+  // than displaying a value that isn't in play.
+  const projectsValue = searchInherited ? [] : value.projects;
   const searchValue = searchInherited
     ? (dashboardGlobalControls?.experimentSearchString ?? "")
     : (value.experimentSearchString ?? "");
@@ -155,25 +153,15 @@ export default function CompletedExperimentsFilterFields({
 
       {afterDateRange}
 
-      <SidebarSettingField
-        label="Projects"
-        accessory={
-          projectsSet ? (
-            <DashboardFilterInheritTag
-              label="Projects"
-              inherited={projectsInherited}
-              onRevert={() => onRevert("projects")}
-            />
-          ) : undefined
-        }
-      >
+      <SidebarSettingField label="Projects">
         <MultiSelectField
           value={projectsValue}
           options={projectOptions}
-          onChange={(v) =>
-            onChange({ projects: v }, projectsInherited ? ["projects"] : [])
+          onChange={(v) => onChange({ projects: v })}
+          disabled={searchInherited}
+          placeholder={
+            searchInherited ? "Set by dashboard filters" : "All projects"
           }
-          placeholder="All projects"
         />
       </SidebarSettingField>
 

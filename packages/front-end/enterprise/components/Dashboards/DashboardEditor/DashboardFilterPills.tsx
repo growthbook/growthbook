@@ -1,15 +1,10 @@
 import { useMemo } from "react";
 import { DashboardInterface } from "shared/enterprise";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import DashboardChecklistFilter, {
-  ChecklistOption,
-} from "./DashboardChecklistFilter";
 import DashboardExperimentCategoryPills from "./DashboardExperimentCategoryPills";
 import {
   DashboardOptionalFilterKey,
   getExperimentCategory,
 } from "./dashboardFilterCatalog";
-import { DashboardExperimentCategoryKey } from "./experimentSearchFilterString";
 
 type GlobalControls = DashboardInterface["globalControls"];
 
@@ -38,9 +33,8 @@ interface Props {
 
 /**
  * The filter pills in the dashboard filter bar (everything except the permanent
- * Date Range control). Each pill holds the same contents it had in the old
- * combined filter card; the experiment filter categories are split into one pill
- * each and rendered after the dashboard's own Projects filter.
+ * Date Range control). Every pill is an experiment filter category — Projects
+ * included — so they all persist into the single `experimentSearchString`.
  */
 export default function DashboardFilterPills({
   globalControls,
@@ -51,56 +45,22 @@ export default function DashboardFilterPills({
   onChange,
   onRemove,
 }: Props) {
-  const { projects: allProjects } = useDefinitions();
-
-  const experimentCategories = useMemo(
-    () =>
-      visibleKeys
-        .map(getExperimentCategory)
-        .filter((c): c is DashboardExperimentCategoryKey => c !== null),
+  const categories = useMemo(
+    () => visibleKeys.map(getExperimentCategory),
     [visibleKeys],
   );
 
-  // Projects ------------------------------------------------------------------
-  const projectOptions: ChecklistOption[] = useMemo(
-    () =>
-      (projects.length > 0
-        ? allProjects.filter((p) => projects.includes(p.id))
-        : allProjects
-      ).map((p) => ({ label: p.name, value: p.id })),
-    [allProjects, projects],
-  );
-
-  const autoOpenCategory = autoOpenKey
-    ? getExperimentCategory(autoOpenKey)
-    : null;
+  if (categories.length === 0) return null;
 
   return (
-    <>
-      {visibleKeys.includes("projects") ? (
-        <DashboardChecklistFilter
-          label="Projects"
-          autoOpen={autoOpenKey === "projects"}
-          options={projectOptions}
-          value={globalControls?.projects ?? []}
-          onChange={(v) => onChange("projects", { projects: v })}
-          onRemove={() => onRemove("projects", { projects: undefined })}
-          disabled={disabled}
-          searchPlaceholder="Search projects..."
-          emptyText="No projects found"
-        />
-      ) : null}
-
-      {experimentCategories.length > 0 ? (
-        <DashboardExperimentCategoryPills
-          globalControls={globalControls}
-          categories={experimentCategories}
-          autoOpenCategory={autoOpenCategory}
-          disabled={disabled}
-          onChange={(category, patch) => onChange(`exp:${category}`, patch)}
-          onRemove={(category, patch) => onRemove(`exp:${category}`, patch)}
-        />
-      ) : null}
-    </>
+    <DashboardExperimentCategoryPills
+      globalControls={globalControls}
+      categories={categories}
+      autoOpenCategory={autoOpenKey ? getExperimentCategory(autoOpenKey) : null}
+      projects={projects}
+      disabled={disabled}
+      onChange={(category, patch) => onChange(`exp:${category}`, patch)}
+      onRemove={(category, patch) => onRemove(`exp:${category}`, patch)}
+    />
   );
 }

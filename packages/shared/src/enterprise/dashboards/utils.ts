@@ -125,7 +125,6 @@ export function isDashboardGlobalControlSupportedBlock(
 // blocks only.
 export const DASHBOARD_GLOBAL_FILTER_KEYS = [
   "dateRange",
-  "projects",
   "experimentSearchString",
 ] as const;
 export type DashboardGlobalFilterKey =
@@ -147,17 +146,17 @@ type DashboardExperimentBlock = DashboardBlockInterfaceOrData<
 // Scaled Impact / Experiments with Lift *calculate*, not which experiments they
 // show. The dashboard's Metric pill is the `metric:` experiment filter, which
 // narrows the experiment list.
+//
+// Nor is `projects`: the dashboard's project scope is a `project:` token inside
+// `experimentSearchString`, so it rides the search-string opt-in rather than
+// having one of its own.
 const EXPERIMENT_BLOCK_FILTER_SUPPORT: Partial<
   Record<DashboardBlockType, readonly DashboardGlobalFilterKey[]>
 > = {
-  "metric-experiments": ["projects", "experimentSearchString"],
-  "experiments-scaled-impact": [
-    "dateRange",
-    "projects",
-    "experimentSearchString",
-  ],
-  "experiments-win-rate": ["dateRange", "projects", "experimentSearchString"],
-  "experiments-status": ["dateRange", "projects", "experimentSearchString"],
+  "metric-experiments": ["experimentSearchString"],
+  "experiments-scaled-impact": ["dateRange", "experimentSearchString"],
+  "experiments-win-rate": ["dateRange", "experimentSearchString"],
+  "experiments-status": ["dateRange", "experimentSearchString"],
 };
 
 export function isDashboardExperimentBlock(
@@ -378,11 +377,6 @@ export function globalFilterIsSet(
   switch (key) {
     case "dateRange":
       return Boolean(value);
-    case "projects":
-      // A defined array is an active filter — an empty array explicitly means
-      // "All projects" (see dashboardGlobalControlsValidator). Only an absent
-      // (undefined) value means the projects filter is unset.
-      return Array.isArray(value);
     case "experimentSearchString":
       return typeof value === "string" && value.length > 0;
     default:
@@ -423,8 +417,8 @@ export function isEnablingDashboardDateControl(
 /**
  * Resolves the blocks to persist when global controls change, applying
  * first-enable auto-enrollment consistently across the internal controller and
- * the REST API model. Runs for every global filter (date range, projects,
- * metric, experiment search) that this save newly enables.
+ * the REST API model. Runs for every global filter (date range, experiment
+ * search) that this save newly enables.
  *
  * - When `nextBlocks` is provided (create, or update whose payload includes
  *   blocks), returns those blocks, auto-enrolled for any newly enabled filter.
@@ -564,11 +558,20 @@ export function getEffectiveExplorationConfig<
 
 /**
  * Overlays the dashboard's global filters onto an experiment block, honoring
- * each block's per-filter opt-in. Returns a block with `projects` /
- * `experimentSearchString` / `dateRange` (and, for Team Velocity,
- * `dateGranularity`) replaced by the dashboard values where the block has opted
- * in. Render code uses the result exactly as it would the stored block, so the
- * stored block is never mutated (edit flows keep the local values).
+ * each block's per-filter opt-in. Returns a block with `experimentSearchString`
+ * / `dateRange` (and, for Team Velocity, `dateGranularity`) replaced by the
+ * dashboard values where the block has opted in. Render code uses the result
+ * exactly as it would the stored block, so the stored block is never mutated
+ * (edit flows keep the local values).
+ *
+ * Inheriting the search string also clears the block's own `projects`. The
+ * dashboard's project scope is a `project:` token inside that string, so
+ * leaving the local list in place would apply two project filters at once —
+ * and the two paths disagree about what that means (the server unions the
+ * `?projects=` param with parsed `project:` tokens, while the client applies
+ * them in sequence, i.e. intersects). Clearing keeps the dashboard's token the
+ * single source, matching how every other inherited filter replaces rather than
+ * combines. Blocks that opt out keep their own Projects Filter untouched.
  *
  * A block's `metricId` is never overridden — it is the metric the block
  * calculates on, not a filter over experiments.
@@ -586,16 +589,13 @@ export function getEffectiveExperimentBlock<T extends DashboardExperimentBlock>(
   const overrides: Record<string, unknown> = {};
 
   if (
-    blockUsesGlobalFilter(block, "projects") &&
-    globalFilterIsSet(globalControls, "projects")
-  ) {
-    overrides.projects = globalControls.projects;
-  }
-  if (
     blockUsesGlobalFilter(block, "experimentSearchString") &&
     globalFilterIsSet(globalControls, "experimentSearchString")
   ) {
     overrides.experimentSearchString = globalControls.experimentSearchString;
+    // See the note above: the dashboard's `project:` token is the only project
+    // scope for an inheriting block.
+    overrides.projects = [];
   }
   if (
     blockUsesGlobalFilter(block, "dateRange") &&
@@ -623,7 +623,6 @@ export function getDashboardExperimentFilterApplicability(
   hasExperimentBlocks: boolean;
   showDateRange: boolean;
   showGranularity: boolean;
-  showProjects: boolean;
   showExperimentSearch: boolean;
   // Experiments with Lift ignores the dashboard Date Range filter; the bar
   // surfaces this caveat when such a block is present.
@@ -640,7 +639,6 @@ export function getDashboardExperimentFilterApplicability(
     showGranularity: experimentBlocks.some(
       (block) => block.type === "experiments-status",
     ),
-    showProjects: supports("projects"),
     showExperimentSearch: supports("experimentSearchString"),
     hasDateExcludedBlock: experimentBlocks.some(
       (block) => block.type === "metric-experiments",

@@ -33003,10 +33003,6 @@ paths:
                         - week
                         - month
                         - year
-                    projects:
-                      type: array
-                      items:
-                        type: string
                     experimentSearchString:
                       type: string
                   additionalProperties: false
@@ -33369,8 +33365,6 @@ paths:
                                 properties:
                                   dateRange:
                                     type: boolean
-                                  projects:
-                                    type: boolean
                                   experimentSearchString:
                                     type: boolean
                                 additionalProperties: false
@@ -33524,8 +33518,6 @@ paths:
                                 type: object
                                 properties:
                                   dateRange:
-                                    type: boolean
-                                  projects:
                                     type: boolean
                                   experimentSearchString:
                                     type: boolean
@@ -33681,8 +33673,6 @@ paths:
                                 properties:
                                   dateRange:
                                     type: boolean
-                                  projects:
-                                    type: boolean
                                   experimentSearchString:
                                     type: boolean
                                 additionalProperties: false
@@ -33836,8 +33826,6 @@ paths:
                                 type: object
                                 properties:
                                   dateRange:
-                                    type: boolean
-                                  projects:
                                     type: boolean
                                   experimentSearchString:
                                     type: boolean
@@ -36021,8 +36009,6 @@ paths:
                                 properties:
                                   dateRange:
                                     type: boolean
-                                  projects:
-                                    type: boolean
                                   experimentSearchString:
                                     type: boolean
                                 additionalProperties: false
@@ -36185,8 +36171,6 @@ paths:
                                 type: object
                                 properties:
                                   dateRange:
-                                    type: boolean
-                                  projects:
                                     type: boolean
                                   experimentSearchString:
                                     type: boolean
@@ -36351,8 +36335,6 @@ paths:
                                 properties:
                                   dateRange:
                                     type: boolean
-                                  projects:
-                                    type: boolean
                                   experimentSearchString:
                                     type: boolean
                                 additionalProperties: false
@@ -36515,8 +36497,6 @@ paths:
                                 type: object
                                 properties:
                                   dateRange:
-                                    type: boolean
-                                  projects:
                                     type: boolean
                                   experimentSearchString:
                                     type: boolean
@@ -38604,10 +38584,6 @@ paths:
                         - week
                         - month
                         - year
-                    projects:
-                      type: array
-                      items:
-                        type: string
                     experimentSearchString:
                       type: string
                   additionalProperties: false
@@ -38969,8 +38945,6 @@ paths:
                             properties:
                               dateRange:
                                 type: boolean
-                              projects:
-                                type: boolean
                               experimentSearchString:
                                 type: boolean
                             additionalProperties: false
@@ -39124,8 +39098,6 @@ paths:
                             type: object
                             properties:
                               dateRange:
-                                type: boolean
-                              projects:
                                 type: boolean
                               experimentSearchString:
                                 type: boolean
@@ -39281,8 +39253,6 @@ paths:
                             properties:
                               dateRange:
                                 type: boolean
-                              projects:
-                                type: boolean
                               experimentSearchString:
                                 type: boolean
                             additionalProperties: false
@@ -39436,8 +39406,6 @@ paths:
                             type: object
                             properties:
                               dateRange:
-                                type: boolean
-                              projects:
                                 type: boolean
                               experimentSearchString:
                                 type: boolean
@@ -58798,10 +58766,6 @@ components:
                 - week
                 - month
                 - year
-            projects:
-              type: array
-              items:
-                type: string
             experimentSearchString:
               type: string
           additionalProperties: false
@@ -59449,8 +59413,6 @@ components:
                     properties:
                       dateRange:
                         type: boolean
-                      projects:
-                        type: boolean
                       experimentSearchString:
                         type: boolean
                     additionalProperties: false
@@ -59613,8 +59575,6 @@ components:
                     type: object
                     properties:
                       dateRange:
-                        type: boolean
-                      projects:
                         type: boolean
                       experimentSearchString:
                         type: boolean
@@ -59779,8 +59739,6 @@ components:
                     properties:
                       dateRange:
                         type: boolean
-                      projects:
-                        type: boolean
                       experimentSearchString:
                         type: boolean
                     additionalProperties: false
@@ -59943,8 +59901,6 @@ components:
                     type: object
                     properties:
                       dateRange:
-                        type: boolean
-                      projects:
                         type: boolean
                       experimentSearchString:
                         type: boolean

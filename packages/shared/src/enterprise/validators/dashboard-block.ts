@@ -236,7 +236,6 @@ const explorationGlobalControlSettingsValidator = z
 const experimentGlobalControlSettingsValidator =
   explorationGlobalControlSettingsValidator
     .extend({
-      projects: z.boolean().optional(),
       experimentSearchString: z.boolean().optional(),
     })
     .strict();

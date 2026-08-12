@@ -79,25 +79,26 @@ function statusBlock(
   } as DashboardBlockInterfaceOrData<ExperimentsStatusBlockInterface>;
 }
 
+// Project scope rides in the search string as a `project:` token, alongside
+// every other experiment filter category.
 const globalControls = {
   dateRange: { predefined: "last7Days" as const },
   dateGranularity: "day" as const,
-  projects: ["prj_dashboard"],
-  experimentSearchString: "tag:checkout",
+  experimentSearchString: "tag:checkout project:prj_dashboard",
 };
 
 describe("getEffectiveExperimentBlock", () => {
   it("overrides only the filters the block has opted into", () => {
     const block = scaledImpactBlock({
-      globalControlSettings: { projects: true, dateRange: false },
+      globalControlSettings: { experimentSearchString: true, dateRange: false },
     });
     const effective = getEffectiveExperimentBlock(block, { globalControls });
-    // Opted into projects -> overridden
-    expect(effective.projects).toEqual(["prj_dashboard"]);
+    // Opted into the search string -> overridden
+    expect(effective.experimentSearchString).toEqual(
+      "tag:checkout project:prj_dashboard",
+    );
     // Opted out of date -> keeps its own
     expect(effective.dateRange).toEqual({ predefined: "last90Days" });
-    // Not decided on search -> keeps its own
-    expect(effective.experimentSearchString).toEqual("status:stopped");
   });
 
   it("keeps the block's own metric even when it inherits everything else", () => {
@@ -109,6 +110,26 @@ describe("getEffectiveExperimentBlock", () => {
     });
     const effective = getEffectiveExperimentBlock(block, { globalControls });
     expect(effective.metricId).toEqual("met_block");
+  });
+
+  it("clears the block's own projects when it inherits the search string", () => {
+    // The dashboard's `project:` token is the only project scope in play —
+    // leaving the local list would apply two project filters at once, and the
+    // server (union) and client (intersect) paths disagree about what that means.
+    const block = scaledImpactBlock({
+      globalControlSettings: { experimentSearchString: true },
+    });
+    const effective = getEffectiveExperimentBlock(block, { globalControls });
+    expect(effective.projects).toEqual([]);
+  });
+
+  it("leaves the block's projects alone when it opts out", () => {
+    const block = scaledImpactBlock({
+      globalControlSettings: { experimentSearchString: false },
+    });
+    const effective = getEffectiveExperimentBlock(block, { globalControls });
+    expect(effective.projects).toEqual(["prj_block"]);
+    expect(effective.experimentSearchString).toEqual("status:stopped");
   });
 
   it("applies date range and granularity to Team Velocity when opted in", () => {
@@ -129,28 +150,20 @@ describe("getEffectiveExperimentBlock", () => {
     });
     const effective = getEffectiveExperimentBlock(block, { globalControls });
     expect("dateRange" in effective).toBe(false);
-    expect(effective.experimentSearchString).toEqual("tag:checkout");
+    expect(effective.experimentSearchString).toEqual(
+      "tag:checkout project:prj_dashboard",
+    );
   });
 
-  it("applies an empty (all-projects) global filter to opted-in blocks", () => {
-    // An explicit empty projects array means "All projects" and must widen an
-    // opted-in block instead of leaving its narrower local scope in place.
+  it("ignores an unset search-string filter", () => {
     const block = scaledImpactBlock({
-      globalControlSettings: { projects: true },
-    });
-    const effective = getEffectiveExperimentBlock(block, {
-      globalControls: { projects: [] },
-    });
-    expect(effective.projects).toEqual([]);
-  });
-
-  it("ignores an absent (unset) projects filter", () => {
-    const block = scaledImpactBlock({
-      globalControlSettings: { projects: true },
+      globalControlSettings: { experimentSearchString: true },
     });
     const effective = getEffectiveExperimentBlock(block, {
       globalControls: {},
     });
+    expect(effective.experimentSearchString).toEqual("status:stopped");
+    // Nothing inherited, so the local projects survive.
     expect(effective.projects).toEqual(["prj_block"]);
   });
 });
@@ -179,14 +192,16 @@ describe("autoEnrollDashboardBlocksInGlobalFilter", () => {
   it("enrolls undecided blocks but leaves explicit choices untouched", () => {
     const blocks: AnyBlock[] = [
       scaledImpactBlock(), // undefined -> enroll
-      scaledImpactBlock({ globalControlSettings: { projects: false } }), // opted out -> keep
+      scaledImpactBlock({
+        globalControlSettings: { experimentSearchString: false },
+      }), // opted out -> keep
       metricExperimentsBlock(), // does not support date -> unchanged
     ];
     const next = autoEnrollDashboardBlocksInGlobalFilter(blocks, "dateRange");
     expect(next[0].globalControlSettings?.dateRange).toBe(true);
-    // projects opt-out preserved; dateRange freshly enrolled
+    // search opt-out preserved; dateRange freshly enrolled
     expect(next[1].globalControlSettings?.dateRange).toBe(true);
-    expect(next[1].globalControlSettings?.projects).toBe(false);
+    expect(next[1].globalControlSettings?.experimentSearchString).toBe(false);
     // metric-experiments does not support dateRange
     expect(next[2].globalControlSettings?.dateRange).toEqual(undefined);
   });
@@ -200,7 +215,6 @@ describe("getDashboardExperimentFilterApplicability", () => {
     expect(applicability.hasExperimentBlocks).toBe(true);
     expect(applicability.showDateRange).toBe(true);
     expect(applicability.showGranularity).toBe(true);
-    expect(applicability.showProjects).toBe(true);
     expect(applicability.showExperimentSearch).toBe(true);
     expect(applicability.hasDateExcludedBlock).toBe(false);
   });
@@ -209,7 +223,6 @@ describe("getDashboardExperimentFilterApplicability", () => {
     const applicability = getDashboardExperimentFilterApplicability([
       metricExperimentsBlock(),
     ]);
-    expect(applicability.showProjects).toBe(true);
     expect(applicability.showExperimentSearch).toBe(true);
     expect(applicability.showDateRange).toBe(false);
     expect(applicability.hasDateExcludedBlock).toBe(true);
@@ -242,12 +255,12 @@ describe("resolveGlobalControlsBlockEnrollment", () => {
 
 describe("getActiveExperimentGlobalFilterKeys", () => {
   it("returns only supported filters that are active on the dashboard", () => {
-    // Scaled impact supports all three; only projects is active here.
+    // Scaled impact supports both; only the search string is active here.
     expect(
       getActiveExperimentGlobalFilterKeys(scaledImpactBlock(), {
-        projects: ["prj_dashboard"],
+        experimentSearchString: "tag:checkout",
       }),
-    ).toEqual(["projects"]);
+    ).toEqual(["experimentSearchString"]);
   });
 
   it("excludes date range for Experiments with Lift", () => {
@@ -256,7 +269,7 @@ describe("getActiveExperimentGlobalFilterKeys", () => {
         metricExperimentsBlock(),
         globalControls,
       ),
-    ).toEqual(["projects", "experimentSearchString"]);
+    ).toEqual(["experimentSearchString"]);
   });
 
   it("is empty for a non-experiment block", () => {
@@ -294,7 +307,6 @@ describe("experimentBlockFollowsGlobalFilters", () => {
     const block = scaledImpactBlock({
       globalControlSettings: {
         dateRange: true,
-        projects: true,
         experimentSearchString: true,
       },
     });
@@ -307,7 +319,6 @@ describe("experimentBlockFollowsGlobalFilters", () => {
     const block = scaledImpactBlock({
       globalControlSettings: {
         dateRange: true,
-        projects: true,
         experimentSearchString: false,
       },
     });
@@ -317,13 +328,13 @@ describe("experimentBlockFollowsGlobalFilters", () => {
   });
 
   it("ignores opt-in for filters the dashboard does not expose", () => {
-    // Only projects is active; the search opt-out is irrelevant.
+    // Only the date range is active; the search opt-out is irrelevant.
     const block = scaledImpactBlock({
-      globalControlSettings: { projects: true, experimentSearchString: false },
+      globalControlSettings: { dateRange: true, experimentSearchString: false },
     });
     expect(
       experimentBlockFollowsGlobalFilters(block, {
-        projects: ["prj_dashboard"],
+        dateRange: { predefined: "last7Days" },
       }),
     ).toBe(true);
   });
@@ -331,7 +342,7 @@ describe("experimentBlockFollowsGlobalFilters", () => {
   it("is false when the dashboard has no active filters", () => {
     expect(
       experimentBlockFollowsGlobalFilters(
-        scaledImpactBlock({ globalControlSettings: { projects: true } }),
+        scaledImpactBlock({ globalControlSettings: { dateRange: true } }),
         {},
       ),
     ).toBe(false);
@@ -341,11 +352,11 @@ describe("experimentBlockFollowsGlobalFilters", () => {
 describe("experimentBlockOptedOutOfGlobalFilters", () => {
   it("is true when active filters exist but the block does not follow them", () => {
     const block = scaledImpactBlock({
-      globalControlSettings: { projects: false },
+      globalControlSettings: { experimentSearchString: false },
     });
     expect(
       experimentBlockOptedOutOfGlobalFilters(block, {
-        projects: ["prj_dashboard"],
+        experimentSearchString: "tag:checkout",
       }),
     ).toBe(true);
   });
@@ -354,7 +365,6 @@ describe("experimentBlockOptedOutOfGlobalFilters", () => {
     const block = scaledImpactBlock({
       globalControlSettings: {
         dateRange: true,
-        projects: true,
         experimentSearchString: true,
       },
     });
@@ -379,7 +389,6 @@ describe("setExperimentBlockGlobalFilterFollowing", () => {
     );
     expect(settings).toEqual({
       dateRange: true,
-      projects: true,
       experimentSearchString: true,
     });
   });
@@ -389,7 +398,6 @@ describe("setExperimentBlockGlobalFilterFollowing", () => {
       scaledImpactBlock({
         globalControlSettings: {
           dateRange: true,
-          projects: true,
           experimentSearchString: true,
         },
       }),
@@ -398,7 +406,6 @@ describe("setExperimentBlockGlobalFilterFollowing", () => {
     );
     expect(settings).toEqual({
       dateRange: false,
-      projects: false,
       experimentSearchString: false,
     });
   });
@@ -406,11 +413,14 @@ describe("setExperimentBlockGlobalFilterFollowing", () => {
   it("only touches active filters and never adds date range to Experiments with Lift", () => {
     const settings = setExperimentBlockGlobalFilterFollowing(
       metricExperimentsBlock(),
-      // Only projects is active on the dashboard.
-      { projects: ["prj_dashboard"], dateRange: { predefined: "last7Days" } },
+      // Both are active on the dashboard, but this block supports only search.
+      {
+        experimentSearchString: "tag:checkout",
+        dateRange: { predefined: "last7Days" },
+      },
       true,
     );
-    expect(settings).toEqual({ projects: true });
+    expect(settings).toEqual({ experimentSearchString: true });
   });
 });
 
@@ -420,7 +430,6 @@ describe("getDefaultExperimentBlockGlobalControlSettings", () => {
       getDefaultExperimentBlockGlobalControlSettings(scaledImpactBlock()),
     ).toEqual({
       dateRange: true,
-      projects: true,
       experimentSearchString: true,
     });
   });
@@ -431,7 +440,6 @@ describe("getDefaultExperimentBlockGlobalControlSettings", () => {
     expect(
       getDefaultExperimentBlockGlobalControlSettings(metricExperimentsBlock()),
     ).toEqual({
-      projects: true,
       experimentSearchString: true,
     });
   });
@@ -439,7 +447,7 @@ describe("getDefaultExperimentBlockGlobalControlSettings", () => {
   it("does not depend on what the dashboard currently has set", () => {
     const settings =
       getDefaultExperimentBlockGlobalControlSettings(scaledImpactBlock());
-    expect(settings.projects).toBe(true);
+    expect(settings.dateRange).toBe(true);
     expect(settings.experimentSearchString).toBe(true);
   });
 });
@@ -448,24 +456,24 @@ describe("getActiveBlockGlobalFilterKeys", () => {
   it("lists only filters the block supports and the dashboard has set", () => {
     expect(
       getActiveBlockGlobalFilterKeys(scaledImpactBlock(), globalControls),
-    ).toEqual(["dateRange", "projects", "experimentSearchString"]);
+    ).toEqual(["dateRange", "experimentSearchString"]);
     // Experiments with Lift never follows the date range.
     expect(
       getActiveBlockGlobalFilterKeys(metricExperimentsBlock(), globalControls),
-    ).toEqual(["projects", "experimentSearchString"]);
+    ).toEqual(["experimentSearchString"]);
     expect(
       getActiveBlockGlobalFilterKeys(statusBlock(), globalControls),
-    ).toEqual(["dateRange", "projects", "experimentSearchString"]);
+    ).toEqual(["dateRange", "experimentSearchString"]);
   });
 
   it("drops filters the dashboard has no value for", () => {
     expect(
       getActiveBlockGlobalFilterKeys(scaledImpactBlock(), {
-        projects: ["prj_dashboard"],
+        dateRange: { predefined: "last7Days" },
         // An empty string is not an active filter.
         experimentSearchString: "",
       }),
-    ).toEqual(["projects"]);
+    ).toEqual(["dateRange"]);
   });
 
   it("covers exploration blocks, which support the date range only", () => {
@@ -492,14 +500,12 @@ describe("getCustomBlockGlobalFilterKeys", () => {
     const block = scaledImpactBlock({
       globalControlSettings: {
         dateRange: true,
-        // Three project chips still count as one custom filter.
-        projects: false,
+        // A multi-token search string still counts as one custom filter.
         experimentSearchString: false,
       },
-      projects: ["prj_a", "prj_b", "prj_c"],
+      experimentSearchString: "tag:a tag:b owner:me",
     });
     expect(getCustomBlockGlobalFilterKeys(block, globalControls)).toEqual([
-      "projects",
       "experimentSearchString",
     ]);
   });
@@ -509,7 +515,6 @@ describe("getCustomBlockGlobalFilterKeys", () => {
     const block = scaledImpactBlock({ globalControlSettings: {} });
     expect(getCustomBlockGlobalFilterKeys(block, globalControls)).toEqual([
       "dateRange",
-      "projects",
       "experimentSearchString",
     ]);
   });
@@ -524,25 +529,34 @@ describe("getCustomBlockGlobalFilterKeys", () => {
 
   it("ignores opted-out filters the dashboard has no value for", () => {
     const block = scaledImpactBlock({
-      globalControlSettings: { experimentSearchString: false, projects: false },
+      globalControlSettings: {
+        experimentSearchString: false,
+        dateRange: false,
+      },
     });
     expect(
-      getCustomBlockGlobalFilterKeys(block, { projects: ["prj_dashboard"] }),
-    ).toEqual(["projects"]);
+      getCustomBlockGlobalFilterKeys(block, {
+        experimentSearchString: "tag:checkout",
+      }),
+    ).toEqual(["experimentSearchString"]);
   });
 });
 
 describe("withBlockGlobalFilterFollowing", () => {
   it("flips the given keys and leaves the rest of the block alone", () => {
     const block = scaledImpactBlock({
-      globalControlSettings: { dateRange: true, projects: true },
+      globalControlSettings: { dateRange: true, experimentSearchString: true },
     });
-    const next = withBlockGlobalFilterFollowing(block, ["projects"], false);
+    const next = withBlockGlobalFilterFollowing(
+      block,
+      ["experimentSearchString"],
+      false,
+    );
     expect(next.globalControlSettings).toEqual({
       dateRange: true,
-      projects: false,
+      experimentSearchString: false,
     });
-    expect(next.projects).toEqual(["prj_block"]);
+    expect(next.experimentSearchString).toEqual("status:stopped");
   });
 
   it("returns the same block when no keys are given", () => {
@@ -557,7 +571,6 @@ describe("withBlockGlobalFilterFollowing", () => {
     const block = scaledImpactBlock({
       globalControlSettings: {
         dateRange: false,
-        projects: false,
         experimentSearchString: false,
       },
     });
@@ -573,14 +586,16 @@ describe("withBlockGlobalFilterFollowing", () => {
     // The sidebar spreads the patch in before flipping the flag, so both land in
     // one setBlock.
     const block = scaledImpactBlock({
-      globalControlSettings: { projects: true },
+      globalControlSettings: { experimentSearchString: true },
     });
     const next = withBlockGlobalFilterFollowing(
-      { ...block, projects: ["prj_picked"] },
-      ["projects"],
+      { ...block, experimentSearchString: "tag:picked" },
+      ["experimentSearchString"],
       false,
     );
-    expect(next.projects).toEqual(["prj_picked"]);
-    expect(next.globalControlSettings).toEqual({ projects: false });
+    expect(next.experimentSearchString).toEqual("tag:picked");
+    expect(next.globalControlSettings).toEqual({
+      experimentSearchString: false,
+    });
   });
 });
