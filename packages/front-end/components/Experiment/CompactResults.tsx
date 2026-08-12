@@ -704,7 +704,16 @@ export function getRenderLabelColumn({
             }
           >
             {shouldShowExpandButton ? (
-              <div style={{ position: "absolute", left: 7, marginTop: 3 }}>
+              <div
+                style={{
+                  position: "absolute",
+                  left: 7,
+                  top: 0,
+                  bottom: 0,
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
                 <RadixTooltip
                   content={
                     isFactFunnelMetric(metric)

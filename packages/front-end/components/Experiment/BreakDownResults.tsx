@@ -332,7 +332,6 @@ const BreakDownResults: FC<{
                   <div
                     className="pl-3 font-weight-bold"
                     style={{
-                      position: "relative",
                       display: "-webkit-box",
                       WebkitLineClamp: 1,
                       WebkitBoxOrient: "vertical",
@@ -341,7 +340,16 @@ const BreakDownResults: FC<{
                     }}
                   >
                     {hasSteps ? (
-                      <span style={{ position: "absolute", left: 7, top: 1 }}>
+                      <span
+                        style={{
+                          position: "absolute",
+                          left: 7,
+                          top: 0,
+                          bottom: 0,
+                          display: "flex",
+                          alignItems: "center",
+                        }}
+                      >
                         <RadixTooltip
                           content={
                             isExpanded
