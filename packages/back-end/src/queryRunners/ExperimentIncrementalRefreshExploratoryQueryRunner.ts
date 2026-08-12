@@ -27,6 +27,7 @@ import {
   planMetricFanOut,
 } from "back-end/src/services/experimentQueries/planMetricFanOut";
 import { buildCrossFtSubGroups } from "back-end/src/services/experimentQueries/crossFtSubGroups";
+import { getQueryableMetricsFromSnapshotSettings } from "back-end/src/services/experimentQueries/experimentQueries";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
@@ -87,9 +88,10 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
 
   // Only include metrics tied to this experiment, which is goverend by the snapshotSettings.metricSettings
   // after the introduction of metric slices
-  const selectedMetrics = snapshotSettings.metricSettings
-    .map((m) => metricMap.get(m.id))
-    .filter((m) => m) as ExperimentMetricInterface[];
+  const selectedMetrics = getQueryableMetricsFromSnapshotSettings(
+    snapshotSettings,
+    metricMap,
+  );
 
   const queries: Queries = [];
 
@@ -223,7 +225,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     // live in the cross-FT pair pass below.
     const sameFtMetrics = group.metrics.filter(
       (m) =>
-        m.numerator.factTableId === group.factTableId &&
+        m.numerator?.factTableId === group.factTableId &&
         (!isRatioMetric(m) || m.denominator?.factTableId === group.factTableId),
     );
     if (sameFtMetrics.length === 0) continue;

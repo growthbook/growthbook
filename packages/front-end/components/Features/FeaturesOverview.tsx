@@ -523,8 +523,16 @@ export default function FeaturesOverview({
     approvalsEngaged &&
     featureReviewConfig?.featureRequireMetadataReview !== false;
 
-  const canEdit = permissionsUtil.canViewFeatureModal(projectId);
-  const canEditDrafts = permissionsUtil.canManageFeatureDrafts(feature);
+  // Judged on the LIVE flag, like the toggle endpoint — `feature` is the draft
+  // projection, so a draft staging a project move judged the wrong project.
+  const canEditDrafts = permissionsUtil.canEditFeatureDrafts(baseFeature);
+  // An env change can be staged in a draft or published straight out. Offer the
+  // control when either route is open; the modal narrows it to the ones that are.
+  const canChangeEnvironments =
+    canEditDrafts ||
+    envs.some((envId) =>
+      permissionsUtil.canPublishFeature(baseFeature, [envId]),
+    );
 
   const featureCustomFields = filterCustomFieldsForSectionAndProject(
     allCustomFields,
@@ -1005,7 +1013,7 @@ export default function FeaturesOverview({
                     : "Description"}
                 </Heading>
                 <Flex align="center" gap="2">
-                  {canEdit && canEditDrafts && !isReadOnly && (
+                  {canEditDrafts && !isReadOnly && (
                     <Button
                       variant="ghost"
                       size="md"
@@ -1039,7 +1047,7 @@ export default function FeaturesOverview({
               </Box>
               <CustomFieldDisplay
                 target={feature}
-                canEdit={canEdit && !isReadOnly}
+                canEdit={canEditDrafts && !isReadOnly}
                 mutate={mutate}
                 section={"feature"}
                 mt="4"
@@ -1077,7 +1085,7 @@ export default function FeaturesOverview({
           {prerequisites.length > 0 ? (
             /* Grid layout: env icons column-aligned with prereq rows */
             <>
-              {!isReadOnly && (
+              {!isReadOnly && canChangeEnvironments && (
                 <Flex
                   justify="end"
                   style={{
@@ -1140,11 +1148,11 @@ export default function FeaturesOverview({
                               flipTheme={false}
                               body={environmentKillSwitchTooltipBody(
                                 enabled,
-                                !isReadOnly,
+                                !isReadOnly && canChangeEnvironments,
                                 envAndSummaryTooltipNonLiveDisclaimer,
                               )}
                             >
-                              {!isReadOnly ? (
+                              {!isReadOnly && canChangeEnvironments ? (
                                 <IconButton
                                   variant="ghost"
                                   radius="full"
@@ -1254,7 +1262,7 @@ export default function FeaturesOverview({
                   </Flex>
                 </Flex>
               </div>
-              {canEdit && canEditDrafts && !isReadOnly && (
+              {canEditDrafts && !isReadOnly && (
                 <PremiumTooltip
                   commercialFeature="prerequisites"
                   className="d-inline-flex align-items-center mt-2"
@@ -1291,7 +1299,7 @@ export default function FeaturesOverview({
                 <span>
                   <span className="font-weight-bold">Enabled Environments</span>
                 </span>
-                {!isReadOnly && (
+                {!isReadOnly && canChangeEnvironments && (
                   <Button
                     variant="ghost"
                     size="md"
@@ -1329,11 +1337,11 @@ export default function FeaturesOverview({
                           flipTheme={false}
                           body={environmentKillSwitchTooltipBody(
                             enabled,
-                            !isReadOnly,
+                            !isReadOnly && canChangeEnvironments,
                             envAndSummaryTooltipNonLiveDisclaimer,
                           )}
                         >
-                          {!isReadOnly ? (
+                          {!isReadOnly && canChangeEnvironments ? (
                             <IconButton
                               variant="ghost"
                               radius="full"
@@ -1391,7 +1399,7 @@ export default function FeaturesOverview({
                   </Box>
                 )}
               </Flex>
-              {canEdit && canEditDrafts && !isReadOnly && (
+              {canEditDrafts && !isReadOnly && (
                 <PremiumTooltip
                   commercialFeature="prerequisites"
                   className="d-inline-flex align-items-center mt-2"
@@ -1529,7 +1537,7 @@ export default function FeaturesOverview({
                     Default Value
                   </Heading>
                 </Flex>
-                {canEdit && canEditDrafts && !isReadOnly && (
+                {canEditDrafts && !isReadOnly && (
                   <Button
                     variant="ghost"
                     size="md"
@@ -1655,7 +1663,7 @@ export default function FeaturesOverview({
               </>
             }
             permissionRequired={(project) =>
-              permissionsUtil.canUpdateFeature({ project }, {})
+              permissionsUtil.canEditFeatureDrafts({ project })
             }
             apiEndpoint={`/feature/${feature.id}`}
             cancel={() => setEditProjectModal(false)}

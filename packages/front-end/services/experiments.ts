@@ -29,10 +29,12 @@ import {
   ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
   getEqualWeights,
+  getFunnelStepMetric,
   getLatestPhaseVariations,
   getMetricResultStatus,
   getMetricSampleSize,
   hasEnoughData,
+  isFactFunnelMetric,
   isFactMetric,
   isMetricGroupId,
   isRatioMetric,
@@ -42,6 +44,8 @@ import {
   createAutoSliceDataForMetric,
   generateSliceString,
   generateSelectAllSliceString,
+  parseFunnelStepMetricId,
+  parseSliceMetricId,
   parseSliceQueryString,
   SliceDataForMetric,
 } from "shared/experiments";
@@ -192,7 +196,10 @@ export type ExperimentTableRow = {
   metricSnapshotSettings?: MetricSnapshotSettings;
   resultGroup: "goal" | "secondary" | "guardrail";
   error?: RowError;
-  numSlices?: number;
+  // Child row presentation (generic parent/child)
+  numChildren?: number;
+  isChildRow?: boolean;
+  childRowType?: "slice" | "funnelStep";
   // Slice row properties
   isSliceRow?: boolean;
   parentRowId?: string;
@@ -203,6 +210,9 @@ export type ExperimentTableRow = {
     levels: string[];
   }>;
   allSliceLevels?: string[];
+  // Funnel step row properties
+  funnelStepIndex?: number;
+  funnelStepOptional?: boolean;
   isHiddenByFilter?: boolean;
   labelOnly?: boolean;
 };
@@ -1052,6 +1062,43 @@ export function getPipelineSettingsAfterReenablingExperiment(
   }
 
   return next;
+}
+
+/**
+ * Display name for a metric id that appears in snapshot results, including the
+ * derived ids that have no stored metric of their own: funnel steps are named
+ * off their parent as "Parent: Step", slices off their encoded levels as
+ * "Parent (col: val)". Falls back to the raw id so an unresolvable metric still
+ * labels its row.
+ */
+export function getResultMetricDisplayName(
+  metricId: string,
+  getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null,
+): string {
+  const metric = getExperimentMetricById(metricId);
+  if (metric) return metric.name;
+
+  const stepInfo = parseFunnelStepMetricId(metricId);
+  if (stepInfo.isFunnelStepMetric && stepInfo.stepIndex !== null) {
+    const parent = getExperimentMetricById(stepInfo.baseMetricId);
+    const step =
+      parent && isFactFunnelMetric(parent)
+        ? getFunnelStepMetric(parent, stepInfo.stepIndex)
+        : null;
+    return step?.name ?? metricId;
+  }
+
+  const { baseMetricId, sliceLevels } = parseSliceMetricId(metricId);
+  const baseName = getExperimentMetricById(baseMetricId)?.name;
+  if (!baseName || !sliceLevels.length) return metricId;
+
+  const sliceContext = sliceLevels
+    .map(
+      (s) =>
+        `${s.column}: ${s.levels.length ? s.levels.join(" OR ") : "other"}`,
+    )
+    .join(", ");
+  return `${baseName} (${sliceContext})`;
 }
 
 // Extracts available metrics and groups (for result filtering) from experiment metrics

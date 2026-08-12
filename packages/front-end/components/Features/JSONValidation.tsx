@@ -61,15 +61,15 @@ export default function JSONValidation({
           <Heading as="h3" size="md" mb="0">
             Schema Validation
           </Heading>
-          <Badge label="Provided by config" color="violet" variant="soft" />
+          <Badge label="Provided by Config" color="violet" variant="soft" />
         </Flex>
         <Text as="p" size="sm" color="text-low" fontStyle="italic">
-          This flag&apos;s default value is backed by the{" "}
+          This Feature Flag&apos;s default value is backed by the{" "}
           <Link href={`/configs/${configBackedKey}`}>
             <code>{configBackedKey}</code>
           </Link>{" "}
-          config, which supplies its own schema. The flag-level schema is
-          disabled while a config is attached.
+          Config, which supplies its own schema. The Feature Flag&apos;s own
+          schema is disabled while a Config is attached.
         </Text>
       </Box>
     );
