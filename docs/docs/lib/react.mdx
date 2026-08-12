@@ -43,10 +43,11 @@ const gb = new GrowthBook({
   enableDevMode: true,
   // Only required for A/B testing
   // Called every time a user is put into an experiment
-  trackingCallback: (experiment, result) => {
+  trackingCallback: (experiment, result, user) => {
     console.log("Experiment Viewed", {
       experimentId: experiment.key,
       variationId: result.key,
+      attributes: user?.attributes,
     });
   },
 });
@@ -478,15 +479,18 @@ In order to run A/B tests, you need to set up a tracking callback function. This
 const gb = new GrowthBook({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
-  trackingCallback: (experiment, result) => {
+  trackingCallback: (experiment, result, user) => {
     // Example using Segment
     analytics.track("Experiment Viewed", {
       experimentId: experiment.key,
       variationId: result.key,
+      attributes: user?.attributes,
     });
   },
 });
 ```
+
+Starting in version 1.7.0, the callback receives a third `user` argument: a `TrackingUserContext` containing the `attributes` and optional `url` used when the experiment was evaluated. We recommend tracking attributes from this argument instead of reading them from the current GrowthBook instance or application state, since those may have changed since the evaluation.
 
 This same tracking callback is used for both feature flag experiments and Visual Editor experiments.
 
@@ -689,10 +693,11 @@ export default function GrowthBookWrapper({
         apiHost: process.env.NEXT_PUBLIC_GROWTHBOOK_API_HOST,
         clientKey: process.env.NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY,
         decryptionKey: process.env.NEXT_PUBLIC_GROWTHBOOK_DECRYPTION_KEY,
-        trackingCallback: (experiment, result) => {
+        trackingCallback: (experiment, result, user) => {
           console.log("Viewed Experiment", {
             experimentId: experiment.key,
-            variationId: result.key
+            variationId: result.key,
+            attributes: user?.attributes,
           });
         },
         // Targeting attributes
@@ -874,10 +879,11 @@ export default function MyPage({ payload }) {
         apiHost: process.env.NEXT_PUBLIC_GROWTHBOOK_API_HOST,
         clientKey: process.env.NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY,
         decryptionKey: process.env.NEXT_PUBLIC_GROWTHBOOK_DECRYPTION_KEY,
-        trackingCallback: (experiment, result) => {
+        trackingCallback: (experiment, result, user) => {
           console.log("Viewed Experiment", {
             experimentId: experiment.key,
-            variationId: result.key
+            variationId: result.key,
+            attributes: user?.attributes,
           });
         },
         attributes: {

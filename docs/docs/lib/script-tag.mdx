@@ -177,10 +177,11 @@ mixpanel.init("[YOUR PROJECT TOKEN]", {
    })
   },
 });
-window.growthbook_config.trackingCallback = (experiment, result) => {
+window.growthbook_config.trackingCallback = (experiment, result, user) => {
     mixpanel.track("$experiment_started", {
       "Experiment name": experiment.key,
       "Variant name": result.variationId,
+      "GrowthBook attributes": user?.attributes,
       $source: "growthbook",
     });
 </script>
@@ -195,13 +196,16 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
 
 For any other event tracking system (or if the built-in ones above do not meet your requirements), you can define your own custom tracking callback function. This must be defined _BEFORE_ loading the main GrowthBook snippet on the page.
 
+Starting in version 1.7.0, the callback receives a third `user` argument containing the `attributes` and optional `url` used when the experiment was evaluated. We recommend tracking attributes from this argument instead of reading them from the current GrowthBook instance or application state, since those may have changed since the evaluation.
+
 ```html
 <script>
 window.growthbook_config = window.growthbook_config || {};
-window.growthbook_config.trackingCallback = (experiment, result) => {
+window.growthbook_config.trackingCallback = (experiment, result, user) => {
   customEventTracker("Viewed Experiment", {
     experiment_id: experiment.key,
-    variation_id: result.key
+    variation_id: result.key,
+    attributes: user?.attributes
   })
 };
 </script>
