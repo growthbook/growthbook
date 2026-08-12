@@ -99,7 +99,7 @@ export default function FunnelStepsInput({
           className="appbox"
           px="3"
           pt="3"
-          style={{ backgroundColor: "var(--gray-2)" }}
+          style={{ backgroundColor: "var(--gray-a2)" }}
         >
           <Flex justify="between" align="center" mb="2">
             <Heading as="h4" size="sm" mb="0">
