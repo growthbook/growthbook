@@ -386,45 +386,49 @@ export default function FeatureVariationsInput({
                   {showDescriptions && <th>Description</th>}
                   {!hideSplits && (
                     <th>
-                      Split
-                      {!disableVariations &&
-                        !disableCustomSplit &&
-                        !editingSplits &&
-                        !onlySafeToEditVariationMetadata && (
-                          <Tooltip content="Customize split" side="top">
-                            <Link
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setEditingSplits(true);
-                              }}
-                              ml="1"
-                              aria-label="Customize split"
+                      <Flex align="center" gap="1">
+                        <span>Split</span>
+                        {!disableVariations &&
+                          !disableCustomSplit &&
+                          !editingSplits &&
+                          !onlySafeToEditVariationMetadata && (
+                            <Tooltip content="Customize split" side="top">
+                              <Link
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setEditingSplits(true);
+                                }}
+                                aria-label="Customize split"
+                              >
+                                <PiLockSimpleFill size={15} />
+                              </Link>
+                            </Tooltip>
+                          )}
+                        {editingSplits &&
+                          !isEqualWeights &&
+                          !disableCustomSplit &&
+                          !hideSplits && (
+                            <Tooltip
+                              content="Assign equal weights to all variations"
+                              side="top"
                             >
-                              <PiLockSimpleFill size={15} />
-                            </Link>
-                          </Tooltip>
-                        )}
-                      {editingSplits &&
-                        !isEqualWeights &&
-                        !disableCustomSplit &&
-                        !hideSplits && (
-                          <Tooltip
-                            content="Assign equal weights to all variations"
-                            side="top"
-                          >
-                            <a
-                              role="button"
-                              className="ml-2 link-purple small"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setEqualWeights();
-                              }}
-                            >
-                              <PiArrowsClockwise className="mr-1" size={12} />
-                              set equal
-                            </a>
-                          </Tooltip>
-                        )}
+                              <Link
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setEqualWeights();
+                                }}
+                                aria-label="Set equal weights"
+                              >
+                                <Flex align="center" gap="1">
+                                  <PiArrowsClockwise size={12} />
+                                  <Box as="span" style={{ fontSize: "11px" }}>
+                                    set equal
+                                  </Box>
+                                </Flex>
+                              </Link>
+                            </Tooltip>
+                          )}
+                      </Flex>
                     </th>
                   )}
                 </tr>
