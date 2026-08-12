@@ -392,12 +392,15 @@ export function useExperimentDimensionRows({
         sortDirection: sortDirection || "desc",
       };
 
-      // A funnel table's rows are dimension-value groups with per-step child
-      // rows beneath each; a flat sort would tear that grouping apart, so leave
-      // funnel tables in their emitted order.
+      // A funnel table's rows are dimension-value parents with per-step child
+      // rows beneath each. Sort the parents but keep each parent's steps
+      // attached in step order; a flat sort would tear that grouping apart.
       return tables.map((table) =>
         isFactFunnelMetric(table.metric)
-          ? table
+          ? {
+              ...table,
+              rows: sortFunnelDimensionRows(table.rows, sortOptions),
+            }
           : {
               ...table,
               rows: [...table.rows].sort((a, b) =>
@@ -538,4 +541,37 @@ export function generateDimensionRowsForMetric({
   });
 
   return rows;
+}
+
+export interface FunnelDimensionRowGroup {
+  parent: ExperimentTableRow;
+  children: ExperimentTableRow[];
+}
+
+// A funnel dimension table is a flat list of dimension-value parent rows, each
+// followed by its step child rows. Group them so a parent can move without
+// detaching its steps.
+export function groupFunnelDimensionRows(
+  rows: ExperimentTableRow[],
+): FunnelDimensionRowGroup[] {
+  const groups: FunnelDimensionRowGroup[] = [];
+  for (const row of rows) {
+    if (row.isChildRow && groups.length > 0) {
+      groups[groups.length - 1].children.push(row);
+    } else {
+      groups.push({ parent: row, children: [] });
+    }
+  }
+  return groups;
+}
+
+// Sort the parent dimension rows by significance/change while keeping each
+// parent's step children beneath it in their original step order.
+export function sortFunnelDimensionRows(
+  rows: ExperimentTableRow[],
+  sortOptions: Parameters<typeof compareRows>[2],
+): ExperimentTableRow[] {
+  return groupFunnelDimensionRows(rows)
+    .sort((a, b) => compareRows(a.parent, b.parent, sortOptions))
+    .flatMap((group) => [group.parent, ...group.children]);
 }

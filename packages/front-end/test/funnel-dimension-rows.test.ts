@@ -2,7 +2,12 @@ import { funnelStepMetricId } from "shared/experiments";
 import { FunnelFactMetricInterface } from "shared/types/fact-table";
 import { ExperimentReportResultDimension } from "shared/types/report";
 import { SnapshotVariation } from "shared/types/experiment-snapshot";
-import { generateDimensionRowsForMetric } from "@/hooks/useExperimentDimensionRows";
+import {
+  generateDimensionRowsForMetric,
+  groupFunnelDimensionRows,
+  sortFunnelDimensionRows,
+} from "@/hooks/useExperimentDimensionRows";
+import { ExperimentTableRow } from "@/services/experiments";
 
 const FUNNEL_METRIC_ID = "fact__funnel";
 const STEP_NAMES = ["Viewed landing page", "Signed up", "Completed onboarding"];
@@ -90,6 +95,86 @@ describe("generateDimensionRowsForMetric funnel", () => {
         });
       });
     });
+  });
+});
+
+function makeParent(
+  label: string,
+  variations: ExperimentTableRow["variations"],
+): ExperimentTableRow {
+  return {
+    label,
+    metric: funnelMetric,
+    variations,
+    resultGroup: "goal",
+    numChildren: NUM_STEPS,
+  } as unknown as ExperimentTableRow;
+}
+
+function makeStep(parentLabel: string, stepIndex: number): ExperimentTableRow {
+  return {
+    label: `${parentLabel} step ${stepIndex}`,
+    metric: funnelMetric,
+    variations: [],
+    resultGroup: "goal",
+    isChildRow: true,
+    childRowType: "funnelStep",
+    funnelStepIndex: stepIndex,
+    numChildren: 0,
+    parentRowId: `${FUNNEL_METRIC_ID}:${parentLabel}`,
+  } as unknown as ExperimentTableRow;
+}
+
+describe("groupFunnelDimensionRows", () => {
+  it("groups each parent with the step rows that follow it, in order", () => {
+    const flat = [
+      makeParent("US", []),
+      makeStep("US", 0),
+      makeStep("US", 1),
+      makeParent("UK", []),
+      makeStep("UK", 0),
+    ];
+
+    const groups = groupFunnelDimensionRows(flat);
+
+    expect(groups.map((g) => g.parent.label)).toEqual(["US", "UK"]);
+    expect(groups[0].children.map((c) => c.funnelStepIndex)).toEqual([0, 1]);
+    expect(groups[1].children.map((c) => c.funnelStepIndex)).toEqual([0]);
+  });
+});
+
+describe("sortFunnelDimensionRows", () => {
+  it("reorders parents by significance while keeping steps attached in order", () => {
+    // A no-data parent sorts after one with data (compareRows early-return),
+    // which is deterministic without depending on the significance math.
+    const withData = [
+      { users: 100, value: 50, cr: 0.5 },
+      { users: 100, value: 50, cr: 0.5, expected: 0.1 },
+    ];
+    const flat = [
+      makeParent("US", []),
+      makeStep("US", 0),
+      makeStep("US", 1),
+      makeParent("UK", withData as ExperimentTableRow["variations"]),
+      makeStep("UK", 0),
+      makeStep("UK", 1),
+    ];
+
+    const sorted = sortFunnelDimensionRows(flat, {
+      sortBy: "change",
+      variationFilter: [],
+      metricDefaults: {},
+      sortDirection: "desc",
+    } as unknown as Parameters<typeof sortFunnelDimensionRows>[1]);
+
+    expect(sorted.map((r) => r.label)).toEqual([
+      "UK",
+      "UK step 0",
+      "UK step 1",
+      "US",
+      "US step 0",
+      "US step 1",
+    ]);
   });
 });
 
