@@ -71,7 +71,6 @@ const dataSourceDatasetValidator = z
   .strict();
 
 // Funnels
-
 /** Y-axis scaling for the funnel bar chart.
  *  - `count`: raw user counts per step.
  *  - `percent`: each series is normalized so step 1 is 100%, surfacing

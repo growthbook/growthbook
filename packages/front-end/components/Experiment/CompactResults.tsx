@@ -699,7 +699,9 @@ export function getRenderLabelColumn({
         size={14}
         style={{
           marginLeft: 4,
-          verticalAlign: "middle",
+          // "middle" centers on x-height, leaving the icon low against the
+          // Title Case label; nudge to sit on the cap-height center.
+          verticalAlign: "-0.15em",
           color: "var(--color-text-mid)",
         }}
       />

@@ -155,7 +155,7 @@ describe("funnel step metric ids", () => {
 });
 
 const signupRowFilter: RowFilter = {
-  operator: "equals",
+  operator: "=",
   column: "event",
   values: ["signup"],
 };

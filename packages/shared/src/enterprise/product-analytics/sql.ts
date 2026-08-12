@@ -34,7 +34,6 @@ import {
   ProductAnalyticsResultRow,
   FunnelDataset,
 } from "../../validators/product-analytics";
-// FunnelStep moved to validators/fact-table (see note there).
 import { FunnelStep } from "../../validators/fact-table";
 import {
   getRowFilterSQL,

@@ -1127,10 +1127,6 @@ export function isBinomialMetric(m: ExperimentMetricDefinition) {
   return m.type === "binomial";
 }
 
-export function isEligibleAsActivationMetric(m: ExperimentMetricDefinition) {
-  return isBinomialMetric(m) && !isFactFunnelMetric(m);
-}
-
 /**
  * Fact table the metric's primary events come from: the numerator's for most
  * metric types, the first step's for funnels (which have no numerator).
