@@ -363,12 +363,6 @@ export function normalizeHoldoutScheduleUpdates({
   };
 }
 
-/**
- * The `nextScheduledStatusUpdate` to persist after a holdout advances into
- * `stage`: entering `running` chains to the analysis start, entering
- * `analysis-period` chains to the stop, and `stopped`/`draft` end the chain.
- * Returns `null` when the schedule has no matching future transition.
- */
 export function getNextScheduledStatusUpdateForStage(
   statusUpdateSchedule: HoldoutInterface["statusUpdateSchedule"],
   stage: HoldoutStage,

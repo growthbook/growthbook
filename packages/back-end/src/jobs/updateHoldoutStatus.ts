@@ -37,9 +37,6 @@ export function scheduledTypeToStage(
   }
 }
 
-// Whether the holdout is still in a state where this scheduled transition makes
-// sense. A manual status change can move the holdout past a queued transition,
-// leaving a stale pointer that would otherwise be re-applied every poll.
 export function isScheduledTransitionApplicable(
   scheduledType: HoldoutNextScheduledStatusUpdate["type"],
   experiment: Pick<ExperimentInterface, "status">,
@@ -149,9 +146,7 @@ const updateSingleHoldout = async (job: UpdateSingleHoldoutJob) => {
     return;
   }
 
-  // The holdout may have moved past this transition since it was queued (e.g. a
-  // manual status change). Reconcile the pointer to the next still-applicable
-  // transition rather than re-applying — and repolling — a stale one.
+  // A manual status change can leave a stale scheduled transition.
   if (
     !isScheduledTransitionApplicable(scheduled.type, holdoutExperiment, holdout)
   ) {
