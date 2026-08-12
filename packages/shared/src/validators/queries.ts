@@ -15,6 +15,9 @@ export const queryPointerValidator = z
     query: z.string(),
     status: queryStatusValidator,
     name: z.string(),
+    // Raw error from the underlying Query doc, copied onto the pointer so the
+    // per-query error is reachable from the snapshot without a separate fetch.
+    error: z.string().optional(),
   })
   .strict();
 

@@ -11,6 +11,7 @@ import {
 import { parseIntWithDefault, parseOptionalInt } from "shared/util";
 import {
   countRunningQueries,
+  createFailedQuery,
   createNewQuery,
   createNewQueryFromCached,
   getQueriesByIds,
@@ -59,7 +60,11 @@ export type ProcessedRowsType = Record<string, any>;
 export type StartQueryParams<Rows, ProcessedRows> = {
   name: string;
   displayTitle?: string;
-  query: string;
+  // Either the already-built SQL, or a builder invoked inside startQuery. Pass a
+  // builder when construction can throw (invalid metric/fact-table config): the
+  // throw is caught and recorded as a terminal failed query for this unit
+  // instead of escaping and failing the whole snapshot.
+  query: string | (() => string);
   dependencies: string[];
   run: (
     query: string,
@@ -83,19 +88,43 @@ const MAX_CONCURRENCY_TIMEOUT = 4000;
 const GENERIC_QUERY_FAILURE_ERROR =
   "Failed to run a majority of the database queries";
 
+// Prefix the dependency-cascade mechanism (startReadyQueries) writes onto a
+// query's error when it is marked failed because an upstream dependency failed
+// (i.e. one of the queries it depends on failed). This string is persisted on
+// Query documents and matched in multiple places, so it must be a single
+// source of truth — do not inline the literal.
+export const DEPENDENCY_FAILURE_PREFIX = "Dependencies failed";
+
+// Prefix written onto a query's error when its SQL failed to build (a throw
+// during query construction). Turning a build-time throw into a failed-query
+// record carrying this prefix lets the existing per-metric attribution
+// (buildMetricErrorFromQuery) classify it as an `errorType: "build"` error and
+// lets dependent queries cascade-fail through the normal mechanism, instead of
+// the throw escaping and failing the whole snapshot. Single source of truth —
+// do not inline the literal.
+export const BUILD_FAILURE_PREFIX = "Failed to build query";
+
 // Pick the most useful error to surface for a failed runner. Prefer a real
 // failing query's error (e.g. the warehouse's invalid-SQL message) over the
 // "Dependencies failed: ..." cascade messages the runner writes onto queries
 // whose upstream failed, and fall back to a generic message when no query
 // carries a usable error.
-export function getQueryFailureError(queryMap: QueryMap): string {
-  const failed = Array.from(queryMap.values()).filter(
-    (q) => q.status === "failed" && q.error,
-  );
+//
+// Works on anything carrying a status + error, so it can chain the root cause
+// from either the standalone Query documents (`getQueryFailureError`) or the
+// embedded query pointers, which carry the error too.
+export function pickQueryFailureError(
+  queries: { status: QueryStatus; error?: string }[],
+): string {
+  const failed = queries.filter((q) => q.status === "failed" && q.error);
   const rootCause = failed.find(
-    (q) => !q.error?.startsWith("Dependencies failed"),
+    (q) => !q.error?.startsWith(DEPENDENCY_FAILURE_PREFIX),
   );
   return (rootCause ?? failed[0])?.error || GENERIC_QUERY_FAILURE_ERROR;
+}
+
+export function getQueryFailureError(queryMap: QueryMap): string {
+  return pickQueryFailureError(Array.from(queryMap.values()));
 }
 
 export async function getQueryMap(
@@ -377,7 +406,10 @@ export abstract class QueryRunner<
     } else if (queryStatus === "failed") {
       this.experimentUpdateExecutionLogger?.endPhase("runQueries");
       logger.debug(this.model.id + " runner: Query failed immediately");
-      error = "Error running one or more database queries";
+      // Queries that failed before ever running (build-time SQL-generation
+      // failures, cached failures) already carry their error on the pointer, so
+      // chain the real root cause instead of a generic message.
+      error = pickQueryFailureError(queries);
     }
 
     const newModel = await this.updateModel({
@@ -488,7 +520,7 @@ export abstract class QueryRunner<
         await updateQuery(this.context, query, {
           finishedAt: new Date(),
           status: "failed",
-          error: `Dependencies failed: ${failedDependencies.map(
+          error: `${DEPENDENCY_FAILURE_PREFIX}: ${failedDependencies.map(
             (q) => q.query,
           )}`,
         });
@@ -887,7 +919,7 @@ export abstract class QueryRunner<
     const {
       name,
       displayTitle,
-      query,
+      query: queryOrBuilder,
       dependencies,
       runAtEnd,
       run,
@@ -896,6 +928,40 @@ export abstract class QueryRunner<
       onSuccess,
       queryType,
     } = params;
+
+    // Resolve the SQL. Building it can throw (e.g. invalid metric/fact-table
+    // config); when it does, register a terminal failed query for this unit
+    // rather than letting the exception escape and fail the whole snapshot.
+    // Downstream attribution and the aggregate status machinery then treat it
+    // like any other failed query.
+    let query: string;
+    try {
+      query =
+        typeof queryOrBuilder === "function"
+          ? queryOrBuilder()
+          : queryOrBuilder;
+    } catch (e) {
+      const error = `${BUILD_FAILURE_PREFIX}: ${
+        e instanceof Error ? e.message : String(e)
+      }`;
+      const doc = await createFailedQuery({
+        query: "",
+        queryType,
+        displayTitle,
+        datasource: this.integration.datasource.id,
+        organization: this.integration.context.org.id,
+        language: this.integration.getSourceProperties().queryLanguage,
+        dependencies,
+        error,
+      });
+      return {
+        name,
+        query: doc.id,
+        status: "failed",
+        error,
+      };
+    }
+
     // Re-use recent identical query if it exists
     if (this.useCache) {
       logger.debug("Trying to reuse existing query for " + name);
@@ -1084,6 +1150,13 @@ export abstract class QueryRunner<
       if (pointer.status !== query.status) {
         hasChanges = true;
         pointer.status = query.status;
+      }
+
+      // Copy the standalone Query's error onto the embedded pointer so the
+      // per-query error is reachable from the snapshot without a separate fetch.
+      if ((pointer.error ?? undefined) !== (query.error ?? undefined)) {
+        hasChanges = true;
+        pointer.error = query.error;
       }
 
       // If the query succeeded, add it to the cache

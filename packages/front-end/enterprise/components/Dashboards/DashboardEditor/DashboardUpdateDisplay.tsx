@@ -71,7 +71,7 @@ function DashboardStatusSummary({
           : lastUpdateTime
             ? `Updated ${ago(lastUpdateTime).replace("about ", "")}`
             : "Not started yet";
-  const tooltipBody = refreshError ? refreshError : undefined;
+  const tooltipBody = refreshError ?? snapshotError ?? undefined;
 
   return (
     <Flex gap="1" align="center">

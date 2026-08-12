@@ -2,6 +2,7 @@ import { getExperimentSnapshotValidator } from "shared/validators";
 import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { toApiExperimentSnapshot } from "./toApiExperimentSnapshot";
 
 export const getExperimentSnapshot = createApiRequestHandler(
   getExperimentSnapshotValidator,
@@ -17,10 +18,6 @@ export const getExperimentSnapshot = createApiRequestHandler(
     throw new Error("Snapshot not found or no permission to access");
   }
   return {
-    snapshot: {
-      id: snapshot.id,
-      experiment: snapshot.experiment,
-      status: snapshot.status,
-    },
+    snapshot: toApiExperimentSnapshot(snapshot),
   };
 });

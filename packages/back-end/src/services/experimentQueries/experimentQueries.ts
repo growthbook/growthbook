@@ -273,6 +273,14 @@ export interface GroupedMetrics {
   legacyMetricSingles: MetricInterface[];
 }
 
+// Canonical query name for the i-th fact-metric group. The query-building loops
+// and the error-attribution map both derive names from here so they can never
+// drift apart — changing the format in one place would silently break the
+// mapping of a failed group query back to its constituent metrics.
+export function getFactMetricGroupQueryName(i: number): string {
+  return `group_${i}`;
+}
+
 export function getFactMetricGroups(
   metrics: ExperimentMetricInterface[],
   settings: ExperimentSnapshotSettings,

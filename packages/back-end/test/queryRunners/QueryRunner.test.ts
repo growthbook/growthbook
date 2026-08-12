@@ -7,7 +7,11 @@ import {
   getQueryFailureError,
 } from "back-end/src/queryRunners/QueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
-import { getQueriesByIds, updateQuery } from "back-end/src/models/QueryModel";
+import {
+  createFailedQuery,
+  getQueriesByIds,
+  updateQuery,
+} from "back-end/src/models/QueryModel";
 
 jest.mock("back-end/src/models/QueryModel");
 
@@ -92,6 +96,7 @@ const createMockIntegration = (): SourceIntegrationInterface => {
     context: {
       org: { id: "test-org" },
     },
+    getSourceProperties: () => ({ queryLanguage: "sql" }),
   } as unknown as SourceIntegrationInterface;
 };
 
@@ -144,6 +149,56 @@ describe("getQueryFailureError", () => {
   it("returns the generic message when no failed query has an error", () => {
     const error = getQueryFailureError(makeFailedQueryMap(["a", { id: "q1" }]));
     expect(error).toBe("Failed to run a majority of the database queries");
+  });
+});
+
+describe("startQuery build-time isolation", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("records a terminal failed query when the SQL builder throws, instead of escaping", async () => {
+    const model: InterfaceWithQueries = {
+      id: "test-model",
+      organization: "test-org",
+      queries: [],
+      runStarted: new Date(),
+    };
+    const runner = new TestQueryRunner(
+      createMockContext(),
+      model,
+      createMockIntegration(),
+    );
+
+    (createFailedQuery as jest.Mock).mockResolvedValue({ id: "qry_failed" });
+
+    const pointer = await runner.startQuery({
+      name: "met_bad",
+      query: () => {
+        throw new Error("Unknown fact table");
+      },
+      dependencies: [],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      run: jest.fn() as any,
+      queryType: "experimentMetric",
+    });
+
+    expect(pointer).toEqual({
+      name: "met_bad",
+      query: "qry_failed",
+      status: "failed",
+      error: "Failed to build query: Unknown fact table",
+    });
+    // The failure is persisted as a terminal failed Query doc, never executed.
+    expect(createFailedQuery as jest.Mock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: "Failed to build query: Unknown fact table",
+        queryType: "experimentMetric",
+        organization: "test-org",
+        datasource: "test-ds",
+      }),
+    );
+    expect(runner.executeQuerySpy).not.toHaveBeenCalled();
   });
 });
 
