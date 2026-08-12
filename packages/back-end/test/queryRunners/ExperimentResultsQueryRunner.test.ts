@@ -477,6 +477,68 @@ describe("ExperimentResultsQueryRunner.runAnalysis step isolation", () => {
     });
   });
 
+  it("keeps metric results when the power and covariate steps both throw, recording each error on its own block", async () => {
+    mockedAnalyzeExperimentPower.mockImplementation(() => {
+      throw new Error("Cannot read properties of undefined");
+    });
+    mockedTabulateCovariateImbalance.mockImplementation(() => {
+      throw new Error("covariate tabulation failed");
+    });
+
+    const model = makeSnapshotModel();
+    const result = await makeRunner(model).runAnalysis(makeQueryMap());
+
+    // The metric results (and their per-metric errors) survive both throws.
+    expect(result.analyses[0].results).toEqual([METRIC_DIMENSION]);
+    expect(result.analyses[0].status).toBe("success");
+    expect(result.analyses[0].metricErrors).toEqual({
+      met_2: { type: "query", message: "Query failed: boom" },
+    });
+
+    // Traffic still computed; each failed step is absent but explained.
+    expect(result.health?.traffic).toEqual(TRAFFIC_HEALTH);
+    expect(result.health?.power).toBeUndefined();
+    expect(result.health?.covariateImbalance).toBeUndefined();
+    expect(result.health?.stepErrors).toEqual({
+      power: "Cannot read properties of undefined",
+      covariateImbalance: "covariate tabulation failed",
+    });
+  });
+
+  it("keeps metric results when the traffic step throws, recording the error on the traffic block and skipping power", async () => {
+    mockedAnalyzeExperimentTraffic.mockImplementation(
+      ({ error }: { error?: string }) => {
+        // Mirrors the real function, which returns early when given an error.
+        if (error) return { ...TRAFFIC_HEALTH, error };
+        throw new Error("traffic aggregation failed");
+      },
+    );
+
+    const model = makeSnapshotModel();
+    const result = await makeRunner(model).runAnalysis(makeQueryMap());
+
+    expect(result.analyses[0].results).toEqual([METRIC_DIMENSION]);
+    expect(result.health?.traffic.error).toBe("traffic aggregation failed");
+    // Power is derived from the traffic health, so it is skipped rather than
+    // computed from the placeholder — and it is not reported as its own failure.
+    expect(mockedAnalyzeExperimentPower).not.toHaveBeenCalled();
+    expect(result.health?.power).toBeUndefined();
+    expect(result.health?.stepErrors).toBeUndefined();
+  });
+
+  it("still computes every step when nothing throws", async () => {
+    const model = makeSnapshotModel();
+    const result = await makeRunner(model).runAnalysis(makeQueryMap());
+
+    expect(result.analyses[0].results).toEqual([METRIC_DIMENSION]);
+    expect(result.health?.traffic).toEqual(TRAFFIC_HEALTH);
+    expect(result.health?.power).toMatchObject({ type: "success" });
+    expect(result.health?.covariateImbalance).toMatchObject({
+      isImbalanced: false,
+    });
+    expect(result.health?.stepErrors).toBeUndefined();
+  });
+
   it("still analyzes metrics when recomputing fact-metric group membership throws", async () => {
     mockedGetFactMetricGroups.mockImplementation(() => {
       throw new Error("grouping failed");

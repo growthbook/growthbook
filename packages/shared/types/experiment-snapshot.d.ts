@@ -305,10 +305,25 @@ export type SnapshotStatusSummary = Pick<
   | "triggeredBy"
 >;
 
+/**
+ * Steps of the results analysis that run *after* metric analysis and are
+ * isolated from it: each one's failure is recorded on the health block instead
+ * of failing the whole snapshot and discarding the metric results that already
+ * computed. A traffic-step failure is recorded on `traffic.error` (which the
+ * Health tab already renders) rather than here, since a traffic block must
+ * always exist.
+ */
+export type IsolatedAnalysisStep = "power" | "covariateImbalance";
+
 export interface ExperimentSnapshotHealth {
   traffic: ExperimentSnapshotTraffic;
   power?: MidExperimentPowerCalculationResult;
   covariateImbalance?: CovariateImbalanceResult;
+  /**
+   * Why a health step produced no result. Present only for a step that threw;
+   * the corresponding result field above is then absent.
+   */
+  stepErrors?: Partial<Record<IsolatedAnalysisStep, string>>;
 }
 
 export interface ExperimentSnapshotTraffic {
