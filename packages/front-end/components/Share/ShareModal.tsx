@@ -18,7 +18,7 @@ import {
 import { GrDrag } from "react-icons/gr";
 import { FaCheck, FaRegTrashAlt } from "react-icons/fa";
 import { FiAlertTriangle } from "react-icons/fi";
-import { HexColorPicker } from "react-colorful";
+import { HexColorInput, HexColorPicker } from "react-colorful";
 import { getValidDate, ago, datetime, date } from "shared/dates";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { PiArrowLeft, PiCaretRight, PiX } from "react-icons/pi";
@@ -1155,7 +1155,9 @@ const ShareModal = ({
                                 >
                                   Background color
                                 </label>
+
                                 <HexColorPicker
+                                  data-testid="background-color-picker"
                                   onChange={(c) => {
                                     form.setValue(
                                       "customTheme.backgroundColor",
@@ -1166,7 +1168,20 @@ const ShareModal = ({
                                   color={
                                     value.customTheme?.backgroundColor || ""
                                   }
+                                />
+
+                                <HexColorInput
+                                  className="form-control"
+                                  color={
+                                    value.customTheme?.backgroundColor || ""
+                                  }
                                   id="custombackground"
+                                  onChange={(c) => {
+                                    form.setValue(
+                                      "customTheme.backgroundColor",
+                                      c,
+                                    );
+                                  }}
                                 />
                               </Flex>
                               <Flex direction="column" align="center" gap="2">
@@ -1176,13 +1191,23 @@ const ShareModal = ({
                                 >
                                   Text color
                                 </label>
+
                                 <HexColorPicker
+                                  data-testid="text-color-picker"
                                   onChange={(c) => {
                                     form.setValue("customTheme.textColor", c);
                                   }}
                                   style={{ margin: "0 auto" }}
                                   color={value.customTheme?.textColor || ""}
+                                />
+
+                                <HexColorInput
+                                  className="form-control"
+                                  color={value.customTheme?.textColor || ""}
                                   id="customtextcolor"
+                                  onChange={(c) => {
+                                    form.setValue("customTheme.textColor", c);
+                                  }}
                                 />
                               </Flex>
                             </Grid>
