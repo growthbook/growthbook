@@ -11,8 +11,7 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { getEnabledEnvironments } from "back-end/src/util/features";
-import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import {
   discardIfJustCreated,
   isDraftStatus,
@@ -65,14 +64,18 @@ export async function setRevisionMetadata(
       ]);
     }
 
-    const orgEnvs = getEnvironmentIdsFromOrg(context.org);
-    const enabledEnvs = Array.from(getEnabledEnvironments(feature, orgEnvs));
+    // Staging a move publishes nothing, so it answers for the destination
+    // project as a draft, not a publish (source draft is checked above).
+    // Landing re-checks publish in the destination via
+    // assertCanPublishFeatureRevision.
     if (
-      !context.permissions.canPublishFeature(feature, enabledEnvs) ||
-      !context.permissions.canPublishFeature(
-        { project: metadataFields.project },
-        enabledEnvs,
-      )
+      !holdsMoveDestination({
+        permissions: context.permissions,
+        model: "feature",
+        action: "draft",
+        existing: feature,
+        proposed: { ...feature, project: metadataFields.project },
+      })
     ) {
       context.permissions.throwPermissionError();
     }
