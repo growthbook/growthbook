@@ -1,0 +1,41 @@
+---
+title: Setting up Vertica as a data source
+description: This document outlines the steps needed to configure Vertica as a data source in GrowthBook.
+sidebar_label: Vertica
+slug: vertica
+---
+
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
+To connect GrowthBook to Vertica, GrowthBook must be able to connect to your Vertica instance and run queries on your behalf in your Vertica warehouse. This guide walks you through connecting GrowthBook to your Vertica instance.
+
+## 1. (optional) Create a user in Vertica for GrowthBook queries
+
+Create a user in Vertica for the purpose of connecting GrowthBook to your Vertica warehouse. You can re-use an existing user, but using a dedicated user is recommended to keep access control and limited to necessary permissions.
+
+This user needs to:
+
+- have SELECT permissions in the schema that houses your experiment assignment and metric data.
+- be able to be authenticated via the HOST method from the cloud GrowthBook server (or your own GrowthBook instance if self-hosting). This can be achieved by granting the 'password' method authentication to the user.
+
+## 2. Create a new Data Source in GrowthBook
+
+Navigate to _Metrics and Data → Data Sources_ to create a new Data Source. In the creation flow, you can either select your tracker of choice in the "Guided Setup" or select "Manual Set Up". The guided setup allows GrowthBook to use well known tracker schemas to pre-specify certain queries. If your tracker isn't available or you have a custom schema for your event data, pick a manual set up and you will be able to modify your queries later.
+
+In either case, select "Vertica" as the warehouse type.
+
+## 3. Enter your Vertica connection details
+
+Once you select "Vertica" you will enter the credentials to connect GrowthBook to your warehouse. We need a host that GrowthBook can connect to, a port, and the user credentials from Step 1. You can additionally use SSL to validate your connection.
+
+We also require a "Database". This field helps us populate a schema browser that makes writing queries in GrowthBook easier.
+
+<MaxWidthImage maxWidth={600} border>
+  ![Vertica warehouse connection](/images/vertica.png)
+</MaxWidthImage>
+
+When you save your Datasource, we will immediately test the connection with a simple `"SELECT 1"` query to ensure the connection is working.
+
+## 4. Begin setting up your experiment assignment queries and metrics
+
+You can now begin modifying or creating your [Experiment Assignment Queries](/app/datasources#experiment-assignment-queries) and [Fact Tables](/app/metrics) to define your Metrics.

@@ -1,0 +1,39 @@
+---
+title: Connect AI Agents to GrowthBook
+description: "GrowthBook connects to AI coding agents like Claude Code and Cursor in two ways: the MCP server and the Agent Skills library. Learn which to use."
+sidebar_label: AI Agents
+---
+
+GrowthBook works directly inside your AI coding agent: Claude Code, Cursor, and others. There are two ways to connect, and they're complementary:
+
+- **[MCP Server](/integrations/mcp):** a live set of tools your agent can call mid-conversation.
+- **[Agent Skills](/integrations/ai-agents/agent-skills):** installable workflows that run the full feature-flag and experiment lifecycle, with GrowthBook's draft → review → publish guardrails built in. No server to run.
+
+You can install both. Many teams reach for the MCP server for quick, conversational tasks and the skills for repeatable, end-to-end workflows.
+
+## Which should I use?
+
+|                        | MCP Server                                                              | Agent Skills                                                                                                              |
+| ---------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **What it is**         | A server exposing GrowthBook tools to your agent                        | Markdown playbooks your agent follows step by step                                                                        |
+| **Setup**              | Add an MCP server entry that runs `npx @growthbook/mcp`                 | Install the plugin (no running server)                                                                                    |
+| **Best for**           | Quick lookups and one-off actions while you code                        | Repeatable, multi-step lifecycle workflows                                                                                |
+| **Lifecycle coverage** | Core flag, experiment, and product analytics actions                    | The full flag and experimentation lifecycle: create, target, ramp, experiment, analyze, stop, and clean up                |
+| **Governance**         | Direct API calls                                                        | Draft → review → publish, safe rollouts, and two-step deletes built into each skill                                       |
+| **Where it runs**      | Any MCP-compatible host, including agents that can't run shell commands | Agents that can run shell commands: Claude Code, Cursor, Codex, and other [agentskills.io](https://agentskills.io) agents |
+
+:::info Agent can't run a terminal? Use the MCP server
+The Agent Skills work by having your agent run a local Node helper, so they only work in agents that can execute shell commands, such as Claude Code, Cursor, and Codex. The MCP server is launched by your agent host from a one-time config entry. That lets it work in MCP-compatible hosts that don't give the agent a terminal, like Claude Desktop. If your agent can't run shell commands, use the MCP server.
+:::
+
+:::tip Not sure where to start?
+Start with [Agent Skills](/integrations/ai-agents/agent-skills) if you want to run flags and experiments end-to-end from your agent. Add the [MCP Server](/integrations/mcp) if you mostly want quick, conversational access while you code.
+:::
+
+## Next steps
+
+- [Set up the MCP Server](/integrations/mcp)
+- [Install the Agent Skills library](/integrations/ai-agents/agent-skills)
+- [Browse the GrowthBook REST API](/app/api), which both tools call under the hood
+
+[Join our community Slack for additional help and announcements](https://join.slack.com/t/growthbookusers/shared_invite/zt-2xw8fu279-Y~hwnfCEf7WrEI9qScHURQ)

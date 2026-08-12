@@ -1,0 +1,187 @@
+---
+title: Remote Evaluation
+description: Secure feature flag evaluation for client-side environments
+sidebar_label: Remote Evaluation
+slug: remote-evaluation
+---
+
+# Remote Evaluation
+
+Remote Evaluation brings the security benefits of a backend SDK to client-side environments by evaluating feature flags exclusively on a private server. This ensures that sensitive information within targeting rules and unused features and experiment variations are never exposed to the client.
+
+## Overview
+
+When using Remote Evaluation, your client-side SDK sends user attributes to a remote evaluation endpoint, which then returns the evaluated feature flag values for that specific user.
+
+The primary benefit is **security**: sensitive targeting rules, unused variations, business logic, and experiment configuration details remain hidden on your server and never get exposed to the client. Clients only receive the evaluated feature flag values they need for their specific attributes.
+
+### Trade-offs
+
+Remote Evaluation improves security through feature obfuscation, but this comes with trade-offs:
+
+- **Added Latency** - Each evaluation requires a network request to your remote evaluation endpoint, adding latency compared to local evaluation.
+- **Reduced Cacheability** - The SDK payload cannot be cached and reused across users or when user attributes change; each new user or new set of attributes requires a new request to the remote evaluation endpoint.
+- **Increased Infrastructure** - Requires running and maintaining a GrowthBook Proxy Server, edge worker, or private evaluation endpoint.
+
+Remote Evaluation is ideal when SDK payload security is paramount and the latency trade-off is acceptable for your use case.
+
+:::note When to Use Remote Evaluation
+
+Remote Evaluation is designed for **client-side environments** (web browsers, mobile apps, desktop apps) where code and data are exposed to end users. It should **not** be used in backend contexts where your SDK already runs in a secure server environment.
+
+:::
+
+## How It Works
+
+Remote Evaluation changes what data flows between your client, evaluation endpoint, and GrowthBook:
+
+**Traditional (Local Evaluation):**
+
+1. Client SDK fetches the entire feature payload from GrowthBook (contains all feature rules, targeting conditions, experiment configurations, and variations)
+2. Client evaluates features locally using user attributes
+3. All targeting logic and unused variations are visible in the client
+
+**Remote Evaluation:**
+
+1. Client SDK sends user attributes to your remote evaluation endpoint.
+2. Endpoint periodically fetches and caches the feature payload from GrowthBook (non-blocking).
+3. Endpoint evaluates features server-side using the provided user attributes.
+4. Endpoint returns evaluated feature values and scrubbed experiment metadata to the client. Targeting rules, unused variations, and experiment configurations never reach the client.
+5. Client SDK fires any experiment tracking callbacks (experiment exposure events); these are deferred by the remote evaluation endpoint and hydrated back to the client and are only fired when needed.
+
+This architecture ensures that sensitive business logic remains on your server while clients receive only the evaluated results they need. Experiment tracking callbacks execute on the client, allowing you to send exposure events to your existing analytics tools.
+
+## Supported SDKs
+
+The following SDKs support Remote Evaluation (see each SDK's documentation for setup instructions):
+
+- [**JavaScript**](/lib/js#remote-evaluation) (v0.29.0+)
+- [**React**](/lib/react#remote-evaluation) (v0.19.0+)
+- [**HTML Script Tag**](/lib/script-tag)
+- [**Android**](/lib/kotlin#remote-evaluation) (v1.1.50+)
+- [**iOS**](/lib/swift#remote-evaluation-vs-local-evaluation) (v1.0.50+)
+- [**Java**](/lib/java) (v0.9.92+)
+- [**Flutter**](/lib/flutter#remote-evaluation) (v3.7.0+)
+- [**C#**](/lib/csharp#remote-evaluation) (v1.1.3)
+
+:::tip
+
+Check the SDK version requirements in your specific SDK's documentation. Remote Evaluation must be explicitly enabled in your SDK Connection settings in GrowthBook.
+
+:::
+
+## Installation Options
+
+Several options are available for self-hosting a Remote Evaluation endpoint or service. Choose the GrowthBook Proxy for a full-featured solution with caching and streaming, edge workers for global low-latency, or build a custom endpoint to integrate with your existing infrastructure.
+
+### 1. GrowthBook Proxy {#growthbook-proxy}
+
+The **GrowthBook Proxy** is a standalone server that sits between your application and GrowthBook, providing a caching layer which supports both streaming and remote evaluation.
+
+Remote evaluation is enabled by default on the GrowthBook Proxy.
+
+If you want to use sticky bucketing with remote evaluation, you must configure a Redis store for your proxy to use for user sticky bucket storage.
+
+See the [GrowthBook Proxy documentation](/self-host/proxy) for complete details.
+
+### 2. Edge Worker {#edge-worker}
+
+You may configure an **edge worker** to host a remote evaluation endpoint distributed on an edge network, providing a lightweight solution with lower network latency.
+
+An edge remote evaluation implementation requires implementing the [`@growthbook/proxy-eval`](https://www.npmjs.com/package/@growthbook/proxy-eval) NPM package ([source](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/eval)) within an edge runtime. This library is supported across all major edge providers.
+
+A [Cloudflare example project](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/eval/example/cloudflare) is available to help you get started.
+
+:::note Sticky Bucketing Limitations
+
+Sticky bucketing for remote evaluation on edge currently has limited support. Contact us for more information if you need this functionality.
+
+:::
+
+### 3. Custom Remote Evaluation Endpoint {#remote-evaluation-endpoint}
+
+You may build your own remote evaluation endpoint using the [`@growthbook/proxy-eval`](https://www.npmjs.com/package/@growthbook/proxy-eval) NPM package ([source](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/eval)).
+
+This library provides the core remote evaluation logic and can be integrated into any Node.js environment, including:
+
+- Express or other Node.js web servers
+- Serverless functions (AWS Lambda, Google Cloud Functions, etc.)
+- Other backend JavaScript runtimes
+
+This approach gives you complete control over your remote evaluation infrastructure, allowing you to integrate with existing authentication, logging, and monitoring systems.
+
+**Example Express integration:**
+
+```typescript
+import express from "express";
+import cors from "cors";
+import { evaluateFeatures } from "@growthbook/proxy-eval";
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// Cache the GrowthBook payload
+let cachedPayload: any = null;
+let lastFetch = 0;
+const CACHE_TTL = 60 * 1000; // 1 minute
+
+async function getPayload() {
+  // Refresh cache if stale
+  if (!cachedPayload || Date.now() - lastFetch > CACHE_TTL) {
+    const response = await fetch(
+      "https://cdn.growthbook.io/api/features/sdk-abc123"
+    );
+    cachedPayload = await response.json();
+    lastFetch = Date.now();
+  }
+  return cachedPayload;
+}
+
+app.post("/api/eval", async (req, res) => {
+  try {
+    const {
+      attributes = {},
+      forcedVariations = {},
+      forcedFeatures = [],
+      url = "",
+    } = req.body;
+    const forcedFeaturesMap = new Map(forcedFeatures);
+
+    const payload = await getPayload();
+
+    const evalResponse = await evaluateFeatures({
+      payload,
+      attributes,
+      forcedVariations,
+      forcedFeatures: forcedFeaturesMap,
+      url,
+    });
+
+    res.json(evalResponse);
+  } catch (error) {
+    console.error("Evaluation error:", error);
+    res.status(500).json({ error: "Evaluation failed" });
+  }
+});
+
+app.listen(3000, () => {
+  console.log("Remote evaluation endpoint running on port 3000");
+});
+```
+
+For a complete Cloudflare Worker example, see the [reference implementation](https://github.com/growthbook/growthbook-proxy/blob/main/packages/lib/eval/example/cloudflare/src/index.ts).
+
+See the [`@growthbook/proxy-eval` documentation](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/eval) for complete integration details and configuration options.
+
+#### Debug Endpoint for Self-Hosted GrowthBook
+
+If you're running a self-hosted GrowthBook instance, a debug remote evaluation endpoint is available at:
+
+```
+POST https://your-growthbook-api.example.com/api/eval/:clientKey
+```
+
+This endpoint is provided for debugging and testing your remote evaluation connection. It is **not designed for production scale** and should only be used during development.
+
+For production workloads, use the GrowthBook Proxy, an edge worker, or build a custom endpoint as described above.
