@@ -96,6 +96,72 @@ describe("snapshots API", () => {
     });
   });
 
+  it("reports a partially successful run as partially-succeeded, even though status is success", async () => {
+    setReqContext({
+      org,
+      permissions: {
+        canReadSingleProjectResource: () => true,
+      },
+    });
+
+    // One metric query failed, one survived. The snapshot status collapses that
+    // to "success", so queryStatus is the only field that says results are
+    // incomplete.
+    const snapshot = snapshotFactory.build({
+      organization: org.id,
+      status: "success",
+      queries: [
+        {
+          name: "met_ok",
+          query: "qry_1",
+          status: "succeeded",
+          metrics: ["met_ok"],
+        },
+        {
+          name: "met_bad",
+          query: "qry_2",
+          status: "failed",
+          metrics: ["met_bad"],
+        },
+      ],
+    });
+
+    findSnapshotById.mockReturnValueOnce(snapshot);
+    getExperimentById.mockReturnValueOnce({ id: snapshot.experiment });
+
+    const response = await request(app)
+      .get("/api/v1/snapshots/snp_1")
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(response.body.snapshot.status).toBe("success");
+    expect(response.body.snapshot.queryStatus).toBe("partially-succeeded");
+  });
+
+  it("omits queryStatus for a snapshot whose queries never recorded metric ownership", async () => {
+    setReqContext({
+      org,
+      permissions: {
+        canReadSingleProjectResource: () => true,
+      },
+    });
+
+    const snapshot = snapshotFactory.build({
+      organization: org.id,
+      queries: [{ name: "met_1", query: "qry_1", status: "succeeded" }],
+    });
+
+    findSnapshotById.mockReturnValueOnce(snapshot);
+    getExperimentById.mockReturnValueOnce({ id: snapshot.experiment });
+
+    const response = await request(app)
+      .get("/api/v1/snapshots/snp_1")
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(response.body.snapshot).not.toHaveProperty("queryStatus");
+  });
+
   it("checks permission on experiment when getting a snapshot", async () => {
     setReqContext({
       org,

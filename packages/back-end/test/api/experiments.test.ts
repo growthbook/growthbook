@@ -2379,6 +2379,87 @@ describe("experiments API", () => {
       expect(res.body).toHaveProperty("result");
     });
 
+    it("reports partially-succeeded on results whose snapshot status is success", async () => {
+      updateReqContext({
+        org,
+        permissions: {
+          canViewExperiment: () => true,
+        },
+      });
+
+      const experimentWithPhases = {
+        ...experiment,
+        phases: [
+          {
+            name: "Main",
+            dateStarted: new Date("2024-01-01"),
+            dateEnded: null,
+            reason: "",
+            seed: "test-seed",
+            coverage: 1,
+            variationWeights: [0.5, 0.5],
+            condition: "",
+            savedGroups: [],
+            prerequisites: [],
+            namespace: { enabled: false },
+          },
+        ],
+      };
+      (getExperimentById as jest.Mock).mockResolvedValue(experimentWithPhases);
+      (getLatestSuccessfulSnapshot as jest.Mock).mockResolvedValue({
+        id: "snap_123",
+        organization: "org_1",
+        experiment: "exp_123",
+        phase: 0,
+        dimension: null,
+        dateCreated: new Date(),
+        runStarted: new Date(),
+        // One metric query survived, one failed. The snapshot is stored as
+        // "success", so queryStatus is the only signal that a metric is missing.
+        queries: [
+          {
+            name: "met_ok",
+            query: "qry_1",
+            status: "succeeded",
+            metrics: ["met_ok"],
+          },
+          {
+            name: "met_bad",
+            query: "qry_2",
+            status: "failed",
+            metrics: ["met_bad"],
+          },
+        ],
+        unknownVariations: [],
+        multipleExposures: 0,
+        hasCorrectedStats: false,
+        results: [],
+        settings: {
+          manual: false,
+          activationMetric: null,
+          queryFilter: "",
+          segment: "",
+          skipPartialData: false,
+          attributionModel: "firstExposure",
+          experimentId: "exp_123",
+          statsEngine: "bayesian",
+          regressionAdjustmentEnabled: false,
+          sequentialTestingEnabled: false,
+          sequentialTestingTuningParameter: 5000,
+          pValueThreshold: 0.05,
+          pValueCorrection: null,
+          differenceType: "relative",
+        },
+      });
+
+      const res = await request(app)
+        .get("/api/v1/experiments/exp_123/results")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.result.queryStatus).toBe("partially-succeeded");
+    });
+
     it("includes metricName and variationName for each metric/variation pair", async () => {
       updateReqContext({
         org,

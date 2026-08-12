@@ -52928,6 +52928,18 @@ components:
           type: array
           items:
             type: string
+        queryStatus:
+          description: >-
+            Outcome of the warehouse queries behind these results.
+            `partially-succeeded` means at least one metric produced no results,
+            so the metric list is incomplete.
+          type: string
+          enum:
+            - queued
+            - running
+            - succeeded
+            - partially-succeeded
+            - failed
         results:
           type: array
           items:
@@ -62756,6 +62768,18 @@ components:
             the underlying cause, such as the warehouse error or the reason a
             metric's query could not be built.
           type: string
+        queryStatus:
+          description: >-
+            Outcome of the warehouse queries behind these results.
+            `partially-succeeded` means at least one metric produced no results,
+            so the metric list is incomplete.
+          type: string
+          enum:
+            - queued
+            - running
+            - succeeded
+            - partially-succeeded
+            - failed
       required:
         - id
         - experiment
@@ -65706,6 +65730,18 @@ components:
             the underlying cause, such as the warehouse error or the reason a
             metric's query could not be built.
           type: string
+        queryStatus:
+          description: >-
+            Outcome of the warehouse queries behind these results.
+            `partially-succeeded` means at least one metric produced no results,
+            so the metric list is incomplete.
+          type: string
+          enum:
+            - queued
+            - running
+            - succeeded
+            - partially-succeeded
+            - failed
       required:
         - id
         - experiment

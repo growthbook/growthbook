@@ -16,6 +16,7 @@ import { getSnapshotSettingsFromReportArgs } from "back-end/src/services/reports
 import { analyzeExperimentResults } from "back-end/src/services/stats";
 import {
   ExperimentResultsQueryParams,
+  getExperimentResultsQueryStatus,
   startExperimentResultQueries,
 } from "./ExperimentResultsQueryRunner";
 import { QueryRunner, QueryMap } from "./QueryRunner";
@@ -45,6 +46,16 @@ export class ExperimentReportQueryRunner extends QueryRunner<
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
       this.integration.datasource,
+    );
+  }
+
+  // Shares `startExperimentResultQueries`, so it shares its metric-aware
+  // aggregate status: analyze the metric queries that survived rather than
+  // failing everything once half the queries failed.
+  protected override getOverallQueryStatus(): QueryStatus {
+    return (
+      getExperimentResultsQueryStatus(this.model.queries) ??
+      super.getOverallQueryStatus()
     );
   }
 

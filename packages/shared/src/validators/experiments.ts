@@ -992,6 +992,13 @@ export const apiExperimentWithEnhancedStatus = namedSchema(
   ),
 );
 
+const apiQueryStatusDescription =
+  "Outcome of the warehouse queries behind these results. `partially-succeeded` means at least one metric produced no results, so the metric list is incomplete.";
+
+const apiSnapshotQueryStatus = z
+  .enum(["queued", "running", "succeeded", "partially-succeeded", "failed"])
+  .describe(apiQueryStatusDescription);
+
 // Corresponds to schemas/ExperimentSnapshot.yaml
 const apiExperimentSnapshotShape = z.object({
   id: z.string(),
@@ -1003,6 +1010,7 @@ const apiExperimentSnapshotShape = z.object({
       "Why this snapshot failed. Present only when status is `error`. Names the underlying cause, such as the warehouse error or the reason a metric's query could not be built.",
     )
     .optional(),
+  queryStatus: apiSnapshotQueryStatus.optional(),
 });
 export const apiExperimentSnapshotValidator = namedSchema(
   "ExperimentSnapshot",
@@ -1030,6 +1038,7 @@ export const apiExperimentResultsValidator = namedSchema(
       }),
       settings: apiExperimentAnalysisSettingsValidator,
       queryIds: z.array(z.string()),
+      queryStatus: apiSnapshotQueryStatus.optional(),
       results: z.array(
         z.object({
           dimension: z.string(),

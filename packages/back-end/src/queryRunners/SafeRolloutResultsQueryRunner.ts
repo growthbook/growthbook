@@ -18,6 +18,7 @@ import { logger } from "back-end/src/util/logger";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 import {
   ExperimentResultsQueryParams,
+  getExperimentResultsQueryStatus,
   startExperimentResultQueries,
   TRAFFIC_QUERY_NAME,
 } from "./ExperimentResultsQueryRunner";
@@ -45,6 +46,16 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
       this.integration.datasource,
+    );
+  }
+
+  // Shares `startExperimentResultQueries`, so it shares its metric-aware
+  // aggregate status: analyze the metric queries that survived rather than
+  // failing everything once half the queries failed.
+  protected override getOverallQueryStatus(): QueryStatus {
+    return (
+      getExperimentResultsQueryStatus(this.model.queries) ??
+      super.getOverallQueryStatus()
     );
   }
 
