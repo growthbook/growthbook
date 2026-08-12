@@ -125,6 +125,12 @@ export const createHoldout = async (
 ) => {
   const context = getContextFromReq(req);
 
+  if (
+    !context.permissions.canCreateHoldout({ projects: req.body.projects || [] })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
   try {
     const { holdout, experiment, datasource, metricIds } =
       await createHoldoutWithExperiment(context, req.body);
