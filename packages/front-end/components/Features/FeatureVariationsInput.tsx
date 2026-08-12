@@ -202,7 +202,12 @@ export default function FeatureVariationsInput({
               <label className="mb-0">
                 {coverageLabel}{" "}
                 <Tooltip content={coverageTooltip} side="top">
-                  <Box display="inline-block">
+                  <Box
+                    as="span"
+                    display="inline-block"
+                    tabIndex={0}
+                    aria-label={`More information about ${coverageLabel}`}
+                  >
                     <GBInfo />
                   </Box>
                 </Tooltip>
@@ -288,7 +293,12 @@ export default function FeatureVariationsInput({
               <label className="mb-0">
                 {coverageLabel}{" "}
                 <Tooltip content={coverageTooltip} side="top">
-                  <Box display="inline-block">
+                  <Box
+                    as="span"
+                    display="inline-block"
+                    tabIndex={0}
+                    aria-label={`More information about ${coverageLabel}`}
+                  >
                     <GBInfo />
                   </Box>
                 </Tooltip>
