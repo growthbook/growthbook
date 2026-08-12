@@ -146,11 +146,8 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
     ...desiredState,
   };
   if (
-    // Only a relocation lands content in a new project; an in-place publish is
-    // already fully authorized by assertCanPublishRevision above (which honors
-    // the pure-revert/pure-archive narrow atoms). Running canUpdate — publish
-    // over the destination — unconditionally would re-demand publish and block
-    // a revert-only or delete-only role from landing its own pure draft.
+    // In-place publishes are already authorized above (narrow revert/archive
+    // atoms included); only a relocation needs the destination publish check.
     (projectScopeChanged(
       savedGroup as ProjectScoped,
       destination as ProjectScoped,
