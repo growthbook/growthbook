@@ -322,7 +322,7 @@ You can specify this globally in your GrowthBookClient class and/or per-request 
 
 We recommend using a global callback if you plan to track events directly from Node and using a user context callback if you plan to send events to the front-end to fire.
 
-Starting in version 1.7.0, tracking callbacks receive a third `userContext` argument: a `TrackingUserContext` containing the `attributes` and optional `url` used when the experiment was evaluated. We recommend tracking attributes from this argument instead of reading them from the request or other application state, since those may differ from the attributes GrowthBook used for the evaluation.
+Starting in version 1.7.0, tracking callbacks receive a third `userContext` argument: a `TrackingUserContext` containing the `attributes` and optional `url` used when the experiment was evaluated. We recommend recording attributes from this argument so exposure events consistently reflect the attributes GrowthBook used for targeting and assignment.
 
 ```js
 // Callback configured globally
