@@ -761,36 +761,40 @@ const AnalysisForm: FC<{
             </small>
           </div>
         )}
-        {!!phaseObj && editDates && !isBandit && !isHoldout && (
-          <div className="row">
-            <div className="col">
-              <DatePicker
-                label="Start Time (UTC)"
-                helpText="Only include users who entered the experiment on or after this date"
-                date={form.watch("dateStarted")}
-                setDate={(v) => {
-                  form.setValue("dateStarted", v ? datetime(v) : "");
-                }}
-                scheduleEndDate={form.watch("dateEnded")}
-                disableAfter={form.watch("dateEnded") || undefined}
-              />
-            </div>
-            {experiment.status === "stopped" && (
+        {!!phaseObj &&
+          editDates &&
+          !isBandit &&
+          !isHoldout &&
+          experiment.status !== "draft" && (
+            <div className="row">
               <div className="col">
                 <DatePicker
-                  label="End Time (UTC)"
-                  helpText="Only include users who entered the experiment on or before this date"
-                  date={form.watch("dateEnded")}
+                  label="Start Time (UTC)"
+                  helpText="Only include users who entered the experiment on or after this date"
+                  date={form.watch("dateStarted")}
                   setDate={(v) => {
-                    form.setValue("dateEnded", v ? datetime(v) : "");
+                    form.setValue("dateStarted", v ? datetime(v) : "");
                   }}
-                  scheduleStartDate={form.watch("dateStarted")}
-                  disableBefore={form.watch("dateStarted") || undefined}
+                  scheduleEndDate={form.watch("dateEnded")}
+                  disableAfter={form.watch("dateEnded") || undefined}
                 />
               </div>
-            )}
-          </div>
-        )}
+              {experiment.status === "stopped" && (
+                <div className="col">
+                  <DatePicker
+                    label="End Time (UTC)"
+                    helpText="Only include users who entered the experiment on or before this date"
+                    date={form.watch("dateEnded")}
+                    setDate={(v) => {
+                      form.setValue("dateEnded", v ? datetime(v) : "");
+                    }}
+                    scheduleStartDate={form.watch("dateStarted")}
+                    disableBefore={form.watch("dateStarted") || undefined}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         <Flex gap="3" align="start" wrap="wrap">
           <Box style={{ flex: "1 1 200px", minWidth: 200 }}>
             <StatsEngineSelect

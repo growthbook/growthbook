@@ -133,7 +133,19 @@ router.get(
   revisionController.getRevision,
 );
 
-// Submit a draft for review (changes status from "draft" to "pending-review")
+/** Exported for middleware-boundary validation tests. */
+export const submitBodySchema = z
+  .object({
+    autoPublishOnApproval: z.boolean().optional(),
+    // A dated schedule armed as part of the same request. A review-required draft
+    // cannot arm one through the schedule endpoint — it refuses until review is
+    // requested — so the control stages it and sends it here.
+    scheduledPublishAt: z.string().nullable().optional(),
+    scheduledPublishLockEdits: z.boolean().optional(),
+    scheduledPublishLockOthers: z.boolean().optional(),
+  })
+  .strict();
+
 router.post(
   "/:id/submit",
   validateRequestMiddleware({
@@ -142,11 +154,7 @@ router.post(
         id: z.string(),
       })
       .strict(),
-    body: z
-      .object({
-        autoPublishOnApproval: z.boolean().optional(),
-      })
-      .strict(),
+    body: submitBodySchema,
   }),
   revisionController.postSubmit,
 );

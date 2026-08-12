@@ -1,11 +1,52 @@
 import {
   formatAIRateLimitRetryMessage,
+  getAIModelSettingsUsingProvider,
+  getProviderForAIModel,
   parseAspectRatio,
   snapAspectRatio,
   aspectRatioToDims,
   humanizeAspectRatio,
   buildImageAspectInstruction,
 } from "../src/ai";
+
+describe("getProviderForAIModel", () => {
+  it("resolves text models", () => {
+    expect(getProviderForAIModel("text", "gpt-4o-mini")).toBe("openai");
+    expect(getProviderForAIModel("text", "claude-sonnet-4-6")).toBe(
+      "anthropic",
+    );
+    expect(getProviderForAIModel("text", "mistral-small")).toBe("mistral");
+  });
+
+  it("resolves embedding models from their own registry", () => {
+    // Text and embedding models share a provider namespace, not a registry.
+    expect(getProviderForAIModel("embedding", "gemini-embedding-001")).toBe(
+      "google",
+    );
+    expect(getProviderForAIModel("text", "gemini-embedding-001")).toBeNull();
+    expect(getProviderForAIModel("embedding", "gemini-2.5-flash")).toBeNull();
+  });
+
+  it("resolves image models, including legacy aliases", () => {
+    expect(getProviderForAIModel("image", "dall-e-3")).toBe("openai");
+    expect(getProviderForAIModel("image", "grok-2-image")).toBe("xai");
+    expect(getProviderForAIModel("image", "imagen-4.0-generate-001")).toBe(
+      "google",
+    );
+    // Stored on orgs from before the id changed.
+    expect(
+      getProviderForAIModel("image", "gemini-2.5-flash-image-preview"),
+    ).toBe("google");
+  });
+
+  it("returns null for an unknown id rather than throwing", () => {
+    // Read off saved org settings, so a stale value must not throw.
+    expect(getProviderForAIModel("text", "not-a-model")).toBeNull();
+    expect(getProviderForAIModel("embedding", "not-a-model")).toBeNull();
+    expect(getProviderForAIModel("image", "not-a-model")).toBeNull();
+    expect(getProviderForAIModel("text", "")).toBeNull();
+  });
+});
 
 describe("formatAIRateLimitRetryMessage", () => {
   it("formats duration with singular units when appropriate", () => {
@@ -140,5 +181,51 @@ describe("buildImageAspectInstruction", () => {
       honorsAspectRatio: false,
     });
     expect(out).toContain("center-cropped");
+  });
+});
+
+describe("getAIModelSettingsUsingProvider", () => {
+  const settings = {
+    defaultAIModel: "claude-haiku-4-5-20251001",
+    visualEditorAIModel: "gpt-4o",
+    visualEditorImageModel: "gemini-2.5-flash-image",
+    embeddingModel: "gemini-embedding-001",
+  };
+
+  it("finds every setting served by the provider", () => {
+    expect(
+      getAIModelSettingsUsingProvider(settings, "google").map((s) => s.key),
+    ).toEqual(["visualEditorImageModel", "embeddingModel"]);
+  });
+
+  it("matches across the text, image and embedding registries", () => {
+    expect(
+      getAIModelSettingsUsingProvider(settings, "anthropic").map((s) => s.key),
+    ).toEqual(["defaultAIModel"]);
+    expect(
+      getAIModelSettingsUsingProvider(settings, "openai").map((s) => s.key),
+    ).toEqual(["visualEditorAIModel"]);
+  });
+
+  it("returns nothing for a provider no setting uses", () => {
+    expect(getAIModelSettingsUsingProvider(settings, "mistral")).toEqual([]);
+  });
+
+  it("catches the legacy openAIDefaultModel field", () => {
+    expect(
+      getAIModelSettingsUsingProvider(
+        { openAIDefaultModel: "gpt-4o-mini" },
+        "openai",
+      ).map((s) => s.key),
+    ).toEqual(["openAIDefaultModel"]);
+  });
+
+  it("ignores an unset or unrecognized model", () => {
+    expect(
+      getAIModelSettingsUsingProvider(
+        { defaultAIModel: "", visualEditorAIModel: "some-future-model" },
+        "openai",
+      ),
+    ).toEqual([]);
   });
 });

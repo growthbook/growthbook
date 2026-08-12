@@ -228,8 +228,9 @@ export class LearningModel extends BaseClass {
     }
     // Enforce the same premium, AI-enabled, and rate-limit gates as the find
     // flow — otherwise external search could keep spending embeddings after
-    // the org is throttled.
-    await assertAIAccess(this.context);
+    // the org is throttled. Metered against the embedding provider: a BYOK key
+    // for the org's text model doesn't pay for managed embeddings.
+    await assertAIAccess(this.context, { embeddings: true });
 
     const candidates = (await this.getAll()).filter(
       (i) =>

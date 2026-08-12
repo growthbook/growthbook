@@ -1,3 +1,4 @@
+import isEqual from "lodash/isEqual";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   Environment,
@@ -25,6 +26,7 @@ import { FeatureUsageRecords } from "shared/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
 import {
   featureHasEnvironment,
+  filterEnvironmentsByFeature,
   generateVariationId,
   getNewDraftExperimentsToPublish,
   getRulesForEnvironment,
@@ -35,11 +37,22 @@ import {
   getRequireRegisteredAttributesSettings,
   formatJsonMultilineObjects,
   getTargetingProjectIds,
+  type MergeResultChanges,
   type RequireRegisteredAttributesSettings,
 } from "shared/util";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import isEqual from "lodash/isEqual";
-import { SafeRolloutRule } from "shared/validators";
+import {
+  HoldoutInterface,
+  RevisionRampAction,
+  SafeRolloutRule,
+} from "shared/validators";
+import {
+  featurePublishFootprint,
+  rampActionFootprint,
+  servingEnvironments,
+  holdoutEnvsForChange,
+  HOLDOUT_ENVS_UNRESOLVED,
+} from "shared/permissions";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getFutureScheduledStartDate } from "@/services/experiments";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
@@ -885,20 +898,105 @@ export function getDefaultValue(valueType: FeatureValueType): string {
   return "";
 }
 
-export function getAffectedRevisionEnvs(
-  liveFeature: FeatureInterface,
-  revision: FeatureRevisionInterface,
-  environments: Environment[],
-): string[] {
-  const enabledEnvs = getEnabledEnvironments(liveFeature, environments);
-  if (revision.defaultValue !== liveFeature.defaultValue) return enabledEnvs;
-
-  return enabledEnvs.filter((env) => {
-    const liveRules = getRulesForEnvironment(liveFeature.rules, env);
-    const revisionRules = getRulesForEnvironment(revision.rules, env);
-
-    return !isEqual(liveRules, revisionRules);
+/** Computes the client-side publish footprint using shared server rules. */
+export function getRevisionPublishEnvs({
+  liveFeature,
+  changes,
+  environments,
+  holdoutsMap,
+  rampActions,
+}: {
+  liveFeature: FeatureInterface;
+  changes: MergeResultChanges;
+  environments: Environment[];
+  holdoutsMap: Map<string, HoldoutInterface>;
+  /** Revision ramp actions, which are not part of the merge result. */
+  rampActions?: RevisionRampAction[];
+}): string[] {
+  const environmentIds = environments.map((e) => e.id);
+  const holdout = holdoutEnvsForChange({
+    currentHoldoutId: liveFeature.holdout?.id,
+    newHoldout: changes.holdout,
+    environmentIds,
+    resolve: (id) => holdoutsMap.get(id),
   });
+
+  const base = featurePublishFootprint({
+    feature: liveFeature,
+    liveRules: liveFeature.rules ?? [],
+    changes,
+    environmentIds,
+    holdoutEnvs: holdout.unresolved.length
+      ? HOLDOUT_ENVS_UNRESOLVED
+      : holdout.envs,
+  });
+
+  const rampEnvs = rampActionFootprint({
+    rampActions,
+    liveRules: liveFeature.rules ?? [],
+    environmentIds,
+  });
+  return rampEnvs === "all"
+    ? [...environmentIds]
+    : [...new Set([...base, ...rampEnvs])];
+}
+
+/** Returns environments applicable before or after a staged project move. */
+export function getMoveWidenedEnvironments({
+  feature,
+  changes,
+  allEnvironments,
+}: {
+  feature: FeatureInterface;
+  changes: MergeResultChanges;
+  allEnvironments: Environment[];
+}): Environment[] {
+  const base = filterEnvironmentsByFeature(allEnvironments, feature);
+  const m = changes.metadata;
+  const moves =
+    m?.project !== undefined ||
+    m?.targetingProjects !== undefined ||
+    m?.targetingAllProjects !== undefined;
+  if (!moves) return base;
+  const destination = filterEnvironmentsByFeature(allEnvironments, {
+    ...feature,
+    ...(m?.project !== undefined ? { project: m.project } : {}),
+    ...(m?.targetingProjects !== undefined
+      ? { targetingProjects: m.targetingProjects }
+      : {}),
+    ...(m?.targetingAllProjects !== undefined
+      ? { targetingAllProjects: m.targetingAllProjects }
+      : {}),
+  });
+  const seen = new Set(base.map((e) => e.id));
+  return [...base, ...destination.filter((e) => !seen.has(e.id))];
+}
+
+export function getMetadataEditEnvs({
+  feature,
+  proposed,
+  environments,
+}: {
+  feature: FeatureInterface;
+  proposed: {
+    project?: string;
+    targetingAllProjects?: boolean;
+    targetingProjects?: string[];
+  };
+  environments: Environment[];
+}): string[] {
+  const relocates = (proposed.project || "") !== (feature.project || "");
+  const targetingChanged =
+    !!proposed.targetingAllProjects !== !!feature.targetingAllProjects ||
+    !isEqual(
+      [...(proposed.targetingProjects ?? [])].sort(),
+      [...(feature.targetingProjects ?? [])].sort(),
+    );
+  if (!relocates && !targetingChanged) return [];
+  return servingEnvironments(
+    feature,
+    filterEnvironmentsByFeature(environments, feature).map((e) => e.id),
+  );
 }
 
 export function getDefaultVariationValue(defaultValue: string) {
