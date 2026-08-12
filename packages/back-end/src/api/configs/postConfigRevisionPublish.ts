@@ -1,4 +1,8 @@
-import { holdsMoveDestination, type ProjectScoped } from "shared/permissions";
+import {
+  holdsMoveDestination,
+  projectScopeChanged,
+  type ProjectScoped,
+} from "shared/permissions";
 import {
   checkMergeConflicts,
   normalizeProposedChanges,
@@ -153,15 +157,23 @@ export const postConfigRevisionPublish = createApiRequestHandler(
 
   const isBypass = approvalRequired && revision.status !== "approved";
 
-  // A project move lands content in the destination, so it takes edit rights on
-  // the resulting doc AND publish authority there over the environments the
-  // change reaches. `canUpdate` alone is edit-class and cannot see the change.
+  // The state this publish would land, used below to authorize a relocation
+  // into the destination project.
   const destination = {
     ...(config as unknown as Record<string, unknown>),
     ...desiredState,
   };
   if (
-    !adapter.canUpdate(req.context, destination) ||
+    // Only a relocation lands content in a new project; an in-place publish is
+    // already fully authorized by assertCanPublishRevision above (which honors
+    // the pure-revert/pure-archive narrow atoms). Running canUpdate — publish
+    // over the destination — unconditionally would re-demand publish and block
+    // a revert-only or delete-only role from landing its own pure draft.
+    (projectScopeChanged(
+      config as ProjectScoped,
+      destination as ProjectScoped,
+    ) &&
+      !adapter.canUpdate(req.context, destination)) ||
     !holdsMoveDestination({
       permissions: req.context.permissions,
       model: "config",
