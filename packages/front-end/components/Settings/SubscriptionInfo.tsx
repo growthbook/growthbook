@@ -47,6 +47,25 @@ export default function SubscriptionInfo() {
     subscription?.nextBillDate &&
     !subscription?.pendingCancelation;
 
+  const showOrbInvoiceBlockedCallout =
+    subscription?.billingPlatform === "orb" &&
+    subscription?.status === "active" &&
+    !subscription?.stripeCustomerId;
+
+  const showStripeManageButton = subscription?.billingPlatform === "stripe";
+  const showUpdateInvoiceButton =
+    subscription?.billingPlatform === "orb" &&
+    subscription?.status === "active" &&
+    !!subscription?.stripeCustomerId;
+  const showRenewButton = subscription?.status === "canceled" && canSubscribe;
+  const showCancelButton =
+    hasActiveOrbSubscription && accountPlan !== "enterprise";
+  const showActionButtons =
+    showStripeManageButton ||
+    showUpdateInvoiceButton ||
+    showRenewButton ||
+    showCancelButton;
+
   return (
     <div className="p-3">
       {upgradeModal && (
@@ -203,52 +222,64 @@ export default function SubscriptionInfo() {
           Your plan was canceled on {` ${subscription?.cancelationDate}.`}
         </Callout>
       )}
-      <Flex mt="4" mb="3" gap="3" align="center" wrap="wrap">
-        {subscription?.billingPlatform === "stripe" ? (
-          <Button
-            onClick={async () => {
-              const res = await apiCall<{ url: string }>(
-                `/subscription/manage`,
-                {
-                  method: "POST",
-                },
-              );
-              if (res && res.url) {
-                await redirectWithTimeout(res.url);
-              } else {
-                throw new Error("Unknown response");
-              }
-            }}
-          >
-            {subscription?.status !== "canceled"
-              ? "View Plan Details"
-              : "View Previous Invoices"}
-          </Button>
-        ) : null}
-        {subscription?.billingPlatform === "orb" &&
-        subscription?.status === "active" ? (
-          subscription?.stripeCustomerId ? (
+      {showOrbInvoiceBlockedCallout ? (
+        <Box maxWidth="550px" mt="4" mb="3">
+          <Callout status="info">
+            To make changes to your subscription, please contact your account
+            executive or{" "}
+            <a href="mailto:support@growthbook.io">support@growthbook.io</a>.
+          </Callout>
+        </Box>
+      ) : null}
+      {showActionButtons ? (
+        <Flex
+          mt={showOrbInvoiceBlockedCallout ? "0" : "4"}
+          mb="3"
+          gap="3"
+          align="center"
+          wrap="wrap"
+        >
+          {showStripeManageButton ? (
+            <Button
+              onClick={async () => {
+                const res = await apiCall<{ url: string }>(
+                  `/subscription/manage`,
+                  {
+                    method: "POST",
+                  },
+                );
+                if (res && res.url) {
+                  await redirectWithTimeout(res.url);
+                } else {
+                  throw new Error("Unknown response");
+                }
+              }}
+            >
+              {subscription?.status !== "canceled"
+                ? "View Plan Details"
+                : "View Previous Invoices"}
+            </Button>
+          ) : null}
+          {showUpdateInvoiceButton ? (
             <Button onClick={() => setUpdateOrbSubscriptionModal(true)}>
               Update Invoice Details
             </Button>
-          ) : (
-            <Box maxWidth="550px">
-              <Callout status="info">
-                To make changes to your subscription, please contact your
-                account executive or support@growthbook.io.
-              </Callout>
-            </Box>
-          )
-        ) : null}
-        {subscription?.status === "canceled" && canSubscribe ? (
-          <Button onClick={() => setUpgradeModal(true)}>Renew Your Plan</Button>
-        ) : null}
-        {hasActiveOrbSubscription && accountPlan !== "enterprise" ? (
-          <Button color="red" onClick={() => setCancelSubscriptionModal(true)}>
-            Cancel Subscription
-          </Button>
-        ) : null}
-      </Flex>
+          ) : null}
+          {showRenewButton ? (
+            <Button onClick={() => setUpgradeModal(true)}>
+              Renew Your Plan
+            </Button>
+          ) : null}
+          {showCancelButton ? (
+            <Button
+              color="red"
+              onClick={() => setCancelSubscriptionModal(true)}
+            >
+              Cancel Subscription
+            </Button>
+          ) : null}
+        </Flex>
+      ) : null}
     </div>
   );
 }
