@@ -218,7 +218,7 @@ export default {
   },
   php: {
     name: "PHP SDK",
-    version: "1.7.0",
+    version: "2.6.1",
     github: "https://github.com/growthbook/growthbook-php",
     examples: [],
     packageRepos: [
@@ -233,6 +233,15 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        remoteEval: "≥ v2.5.0",
+      },
+      {
+        caseInsensitiveRegex: "≥ v2.3.0",
+      },
+      {
+        caseInsensitiveMembership: "≥ v2.3.0",
       },
       {
         savedGroupReferences: "≥ v1.7.0",
@@ -373,7 +382,7 @@ export default {
   },
   python: {
     name: "Python SDK",
-    version: "2.1.1",
+    version: "2.3.1",
     github: "https://github.com/growthbook/growthbook-python",
     examples: [],
     packageRepos: [
@@ -388,6 +397,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        remoteEval: "≥ v2.3.0",
       },
       {
         caseInsensitiveMembership: "≥ v2.1.1",
@@ -423,7 +435,7 @@ export default {
   },
   go: {
     name: "Go SDK",
-    version: "0.2.8",
+    version: "0.2.9",
     github: "https://github.com/growthbook/growthbook-golang",
     examples: [
       {
@@ -481,7 +493,7 @@ export default {
   },
   rust: {
     name: "Rust SDK",
-    version: "0.1.1",
+    version: "0.2.0",
     github: "https://github.com/growthbook/growthbook-rust",
     examples: [
       {
@@ -501,6 +513,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferences: "≥ v0.2.0",
       },
       {
         caseInsensitiveRegex: "≥ v0.1.1",
@@ -533,7 +548,7 @@ export default {
   },
   java: {
     name: "Java SDK",
-    version: "0.10.6",
+    version: "0.10.10",
     github: "https://github.com/growthbook/growthbook-sdk-java",
     examples: [
       {
@@ -565,6 +580,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveMembership: "≥ v0.10.9",
       },
       {
         caseInsensitiveRegex: "≥ v0.10.6",
@@ -600,7 +618,7 @@ export default {
   },
   csharp: {
     name: "C# SDK",
-    version: "1.1.3",
+    version: "1.2.0",
     github: "https://github.com/growthbook/growthbook-c-sharp",
     examples: [
       {
@@ -620,6 +638,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveMembership: "≥ v1.2.0",
+      },
+      {
+        caseInsensitiveRegex: "≥ v1.2.0",
       },
       {
         remoteEval: "≥ v1.1.3",
@@ -693,7 +717,7 @@ export default {
   },
   kotlin: {
     name: "Kotlin SDK",
-    version: "7.1.1",
+    version: "7.3.0",
     github: "https://github.com/growthbook/growthbook-kotlin",
     examples: [],
     packageRepos: [
@@ -746,7 +770,7 @@ export default {
   },
   swift: {
     name: "Swift SDK",
-    version: "1.1.4",
+    version: "1.1.12",
     github: "https://github.com/growthbook/growthbook-swift",
     examples: [],
     packageRepos: [
@@ -876,7 +900,7 @@ export default {
   },
   edgeCloudflare: {
     name: "Cloudflare Workers App & SDK",
-    version: "0.2.8",
+    version: "0.2.9",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare",
     examples: [
@@ -947,7 +971,7 @@ export default {
   },
   edgeFastly: {
     name: "Fastly Compute App & SDK",
-    version: "0.2.8",
+    version: "0.2.9",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-fastly",
     examples: [
@@ -1018,7 +1042,7 @@ export default {
   },
   edgeLambda: {
     name: "Lambda@Edge App & SDK",
-    version: "0.0.28",
+    version: "0.0.29",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-lambda",
     examples: [],
@@ -1084,7 +1108,7 @@ export default {
   },
   edgeUtils: {
     name: "Edge Utils",
-    version: "0.2.8",
+    version: "0.2.9",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils",
     examples: [],
@@ -1150,7 +1174,7 @@ export default {
   },
   flutter: {
     name: "Flutter SDK",
-    version: "4.2.1",
+    version: "4.4.0",
     github: "https://github.com/growthbook/growthbook-flutter",
     examples: [],
     packageRepos: [
@@ -1165,6 +1189,15 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveRegex: "≥ v4.3.0",
+      },
+      {
+        caseInsensitiveMembership: "≥ v4.3.0",
+      },
+      {
+        savedGroupReferences: "≥ v3.9.4",
       },
       {
         stickyBucketing: "≥ v3.8.0",
@@ -1197,7 +1230,7 @@ export default {
   },
   roku: {
     name: "Roku SDK",
-    version: "1.3.1",
+    version: "1.4.1",
     github: "https://github.com/growthbook/growthbook-roku",
     examples: [
       {
@@ -1216,6 +1249,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        encryption: "≥ v1.4.1",
+      },
+      {
+        stickyBucketing: "≥ v1.4.1",
       },
       {
         prerequisites: "≥ v1.3.0",

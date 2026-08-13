@@ -26,30 +26,7 @@ export default function ExperimentsWinRateSettings({
         value={block}
         onChange={(patch) => setBlock({ ...block, ...patch })}
         availableProjects={projects}
-        comparisonEnabled={!!block.comparison?.enabled}
-        previousTimeFrame={block.comparison?.previousTimeFrame}
-        onPreviousTimeFrameChange={(previousTimeFrame) =>
-          setBlock({
-            ...block,
-            comparison: {
-              ...(block.comparison ?? {}),
-              enabled: true,
-              previousTimeFrame,
-            },
-          })
-        }
-        dateRangeAccessory={
-          <Switch
-            label="Compare"
-            value={!!block.comparison?.enabled}
-            onChange={(checked) =>
-              setBlock({
-                ...block,
-                comparison: { ...(block.comparison ?? {}), enabled: checked },
-              })
-            }
-          />
-        }
+        showCompare
       />
 
       <Switch

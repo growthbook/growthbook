@@ -29,6 +29,12 @@ const BaseClass = MakeModelClass({
   ],
 });
 
+// Guarded on BOTH maps by every linkage write, even one that touches only one of
+// them: they are updated together often enough (link a feature with its
+// experiments, compensate a publish) that guarding half would let the other half
+// be clobbered by a writer this one never saw.
+const LINKAGE_FIELDS = ["linkedFeatures", "linkedExperiments"] as const;
+
 export class HoldoutModel extends BaseClass {
   // CRUD permission checks
   protected canCreate(doc: HoldoutInterface): boolean {
@@ -230,43 +236,62 @@ export class HoldoutModel extends BaseClass {
     holdoutId: string,
     experimentId: string,
   ) {
-    const holdout = await this.getLinkageTarget(holdoutId);
-    const { [experimentId]: _, ...linkedExperiments } =
-      holdout.linkedExperiments;
-    await this.writeLinkage(holdout, { linkedExperiments });
+    await this.mutateLinkage(holdoutId, ({ linkedExperiments }) => {
+      const { [experimentId]: _, ...rest } = linkedExperiments;
+      return { linkedExperiments: rest };
+    });
   }
 
   public async removeFeatureFromHoldout(holdoutId: string, featureId: string) {
-    const holdout = await this.getLinkageTarget(holdoutId);
-    const { [featureId]: _, ...linkedFeatures } = holdout.linkedFeatures;
-    await this.writeLinkage(holdout, { linkedFeatures });
+    await this.mutateLinkage(holdoutId, ({ linkedFeatures }) => {
+      const { [featureId]: _, ...rest } = linkedFeatures;
+      return { linkedFeatures: rest };
+    });
   }
 
+  /**
+   * Returns the feature entry this call WROTE, or null when an entry was already
+   * there and won the spread below. Compensation needs it: `dateAdded` is what
+   * distinguishes the entry this publish added from an identical-looking one a
+   * later writer put back, and without it a rewind removes whichever entry it
+   * finds.
+   */
   public async addFeatureToHoldout(
     holdoutId: string,
     featureId: string,
     experimentIds: string[] = [],
-  ) {
-    const holdout = await this.getLinkageTarget(holdoutId);
-    await this.writeLinkage(holdout, {
-      linkedFeatures: {
-        [featureId]: { id: featureId, dateAdded: new Date() },
-        ...holdout.linkedFeatures,
+  ): Promise<{ id: string; dateAdded: Date } | null> {
+    const entry = { id: featureId, dateAdded: new Date() };
+    // Set on every attempt, so the value that survives is the one computed from
+    // the row the write actually landed on — a retry that finds the feature
+    // already linked must report "added nothing", not the first attempt's answer.
+    let added: { id: string; dateAdded: Date } | null = null;
+    await this.mutateLinkage(
+      holdoutId,
+      ({ linkedFeatures, linkedExperiments }) => {
+        // The spread puts existing entries last, so an entry that was already
+        // there wins and this call added nothing.
+        added = linkedFeatures[featureId] ? null : entry;
+        return {
+          linkedFeatures: { [featureId]: entry, ...linkedFeatures },
+          ...(experimentIds.length
+            ? {
+                linkedExperiments: {
+                  ...Object.fromEntries(
+                    experimentIds.map((experimentId) => [
+                      experimentId,
+                      { id: experimentId, dateAdded: new Date() },
+                    ]),
+                  ),
+                  ...linkedExperiments,
+                },
+              }
+            : {}),
+        };
       },
-      ...(experimentIds.length
-        ? {
-            linkedExperiments: {
-              ...Object.fromEntries(
-                experimentIds.map((experimentId) => [
-                  experimentId,
-                  { id: experimentId, dateAdded: new Date() },
-                ]),
-              ),
-              ...holdout.linkedExperiments,
-            },
-          }
-        : {}),
-    });
+      { required: true },
+    );
+    return added;
   }
 
   public async addExperimentToHoldout(holdoutId: string, experimentId: string) {
@@ -278,14 +303,17 @@ export class HoldoutModel extends BaseClass {
     experimentIds: string[],
   ) {
     if (!experimentIds.length) return;
-    const holdout = await this.getLinkageTarget(holdoutId);
     const added = Object.fromEntries(
       experimentIds.map((id) => [id, { id, dateAdded: new Date() }]),
     );
-    await this.writeLinkage(holdout, {
-      // Existing entries win, so re-linking keeps the original `dateAdded`.
-      linkedExperiments: { ...added, ...holdout.linkedExperiments },
-    });
+    await this.mutateLinkage(
+      holdoutId,
+      ({ linkedExperiments }) => ({
+        // Existing entries win, so re-linking keeps the original `dateAdded`.
+        linkedExperiments: { ...added, ...linkedExperiments },
+      }),
+      { required: true },
+    );
   }
 
   public async removeExperimentsFromHoldout(
@@ -293,15 +321,16 @@ export class HoldoutModel extends BaseClass {
     experimentIds: string[],
   ) {
     if (!experimentIds.length) return;
-    const holdout = await this.getLinkageTarget(holdoutId);
     const drop = new Set(experimentIds);
-    await this.writeLinkage(holdout, {
-      linkedExperiments: Object.fromEntries(
-        Object.entries(holdout.linkedExperiments).filter(
-          ([id]) => !drop.has(id),
+    await this.mutateLinkage(
+      holdoutId,
+      ({ linkedExperiments }) => ({
+        linkedExperiments: Object.fromEntries(
+          Object.entries(linkedExperiments).filter(([id]) => !drop.has(id)),
         ),
-      ),
-    });
+      }),
+      { required: true },
+    );
   }
 
   // Publish-rewind counterpart to `addFeatureToHoldout`: drops only the entries a
@@ -313,27 +342,53 @@ export class HoldoutModel extends BaseClass {
     {
       featureId,
       experimentIds,
-    }: { featureId?: string | null; experimentIds?: string[] },
+      // The feature entry the caller is undoing. Presence alone is not ownership:
+      // a writer who unlinked the feature and re-linked it wrote a NEW entry, and
+      // removing that one undoes their work, not ours. `dateAdded` is what tells
+      // the two apart, so a caller that knows what it wrote passes it and this
+      // declines when live no longer matches. Omitted by callers that mean "drop
+      // whatever is there" (unlinking a feature outright, not compensating).
+      expectFeatureEntry,
+    }: {
+      featureId?: string | null;
+      experimentIds?: string[];
+      expectFeatureEntry?: { dateAdded: Date } | null;
+    },
   ) {
-    const holdout = await this.getByIdForLinkage(holdoutId);
-    if (!holdout) return;
-
     const drop = new Set(experimentIds ?? []);
-    const linkedExperiments = Object.fromEntries(
-      Object.entries(holdout.linkedExperiments).filter(([id]) => !drop.has(id)),
-    );
-    const linkedFeatures = { ...holdout.linkedFeatures };
-    if (featureId) delete linkedFeatures[featureId];
+    await this.mutateLinkage(holdoutId, (holdout) => {
+      const linkedExperiments = Object.fromEntries(
+        Object.entries(holdout.linkedExperiments).filter(
+          ([id]) => !drop.has(id),
+        ),
+      );
+      const linkedFeatures = { ...holdout.linkedFeatures };
+      const liveEntry = featureId
+        ? holdout.linkedFeatures[featureId]
+        : undefined;
+      // Decided HERE, not before the write: the `dateAdded` comparison is only
+      // ownership if it describes the row being written. Deciding it against an
+      // earlier read and then replacing the whole map let a relink land in between
+      // and be deleted anyway — the exact ABA `dateAdded` was added to prevent,
+      // just moved from "which entry" to "which moment".
+      const ownsFeatureEntry =
+        expectFeatureEntry === undefined ||
+        (!!liveEntry &&
+          !!expectFeatureEntry &&
+          new Date(liveEntry.dateAdded).getTime() ===
+            expectFeatureEntry.dateAdded.getTime());
+      if (featureId && ownsFeatureEntry) delete linkedFeatures[featureId];
 
-    if (
-      Object.keys(linkedExperiments).length ===
-        Object.keys(holdout.linkedExperiments).length &&
-      Object.keys(linkedFeatures).length ===
-        Object.keys(holdout.linkedFeatures).length
-    ) {
-      return;
-    }
-    await this.writeLinkage(holdout, { linkedFeatures, linkedExperiments });
+      if (
+        Object.keys(linkedExperiments).length ===
+          Object.keys(holdout.linkedExperiments).length &&
+        Object.keys(linkedFeatures).length ===
+          Object.keys(holdout.linkedFeatures).length
+      ) {
+        return null;
+      }
+      return { linkedFeatures, linkedExperiments };
+    });
   }
 
   // Puts a feature back under the holdout it was unlinked from, with its original
@@ -342,11 +397,11 @@ export class HoldoutModel extends BaseClass {
     holdoutId: string,
     feature: { id: string; dateAdded: Date },
   ) {
-    const holdout = await this.getByIdForLinkage(holdoutId);
-    if (!holdout || holdout.linkedFeatures[feature.id]) return;
-    await this.writeLinkage(holdout, {
-      linkedFeatures: { ...holdout.linkedFeatures, [feature.id]: feature },
-    });
+    await this.mutateLinkage(holdoutId, ({ linkedFeatures }) =>
+      linkedFeatures[feature.id]
+        ? null
+        : { linkedFeatures: { ...linkedFeatures, [feature.id]: feature } },
+    );
   }
 
   // Bypasses read scope: the Holdout reference is already committed on the
@@ -369,12 +424,46 @@ export class HoldoutModel extends BaseClass {
     return holdout;
   }
 
-  // A side effect of an authorized Feature Flag write, so flag authority is
-  // enough — gating on `createAnalyses` fails mid-publish for flag publishers.
-  private async writeLinkage(
-    holdout: HoldoutInterface,
-    updates: UpdateProps<HoldoutInterface>,
+  /**
+   * The only way linkage is written.
+   *
+   * Every linkage update is a read-modify-write of a WHOLE map, so an unguarded
+   * one silently drops whatever another writer put there in between — a relinked
+   * feature, another feature's experiments, a compensation's restore. The CAS
+   * guards both maps and re-runs `compute` against the row it will write, which is
+   * also the only way an ownership test on `dateAdded` means anything.
+   *
+   * All three bypasses — authority, readability, licence — say the same thing: this
+   * write's authority comes from the Feature Flag write that caused it, which is
+   * already committed. None were enforced on the raw writer this replaces; the CAS
+   * is here for atomicity, not to add gates.
+   *
+   * `compute` returning null means "nothing to do" and writes nothing.
+   */
+  private async mutateLinkage(
+    holdoutId: string,
+    compute: (
+      holdout: HoldoutInterface,
+    ) => UpdateProps<HoldoutInterface> | null,
+    // Set by the link/unlink verbs, which are acting on a Holdout the caller just
+    // resolved: a missing one is a real error there, where for compensation it just
+    // means there is nothing left to undo.
+    { required = false }: { required?: boolean } = {},
   ) {
-    await this.dangerousUpdateBypassPermission(holdout, updates);
+    const updated = await this.updateWithCas(
+      holdoutId,
+      [...LINKAGE_FIELDS],
+      compute,
+      {
+        dangerouslyBypassCanUpdate: true,
+        dangerouslyBypassCanRead: true,
+        dangerouslyBypassPremium: true,
+      },
+    );
+    if (!updated && required) {
+      const stillThere = await this.getByIdForLinkage(holdoutId);
+      if (!stillThere) throw new NotFoundError("Holdout not found");
+    }
+    return updated;
   }
 }

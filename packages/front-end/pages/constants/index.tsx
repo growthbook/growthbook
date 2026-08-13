@@ -1,3 +1,4 @@
+import { canCreateInSelectedScope } from "shared/permissions";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { date, datetime } from "shared/dates";
@@ -194,8 +195,10 @@ export default function ConstantsPage(): React.ReactElement {
     return <LoadingOverlay />;
   }
 
-  const canAdd = permissionsUtil.canCreateConstant({
-    project: project || undefined,
+  const canAdd = canCreateInSelectedScope({
+    project,
+    projectIds: projects.map((p) => p.id),
+    canCreateIn: (p) => permissionsUtil.canCreateConstant({ project: p }),
   });
   // Include archived so an org with only archived constants still gets the list
   // (and its `is:archived` facet) rather than the empty state.
@@ -217,14 +220,14 @@ export default function ConstantsPage(): React.ReactElement {
           {hasConstants && canAdd && addButton}
         </Flex>
         <Text as="p" mb="3" color="text-mid">
-          Define a value once and reference it across your feature flags. Change
+          Define a value once and reference it across your Feature Flags. Change
           it in one place and every consumer updates.
         </Text>
 
         {!hasConstants ? (
           <EmptyState
-            title="Reusable values for your configs"
-            description="Define a value once and reference it from feature flags with {{ @const:key }}. Change it in one place and every consumer updates."
+            title="Reusable values for your Configs"
+            description="Define a value once and reference it from Feature Flags with {{ @const:key }}. Change it in one place and every consumer updates."
             leftButton={
               <LinkButton
                 href="https://docs.growthbook.io/features/constants"
@@ -397,8 +400,8 @@ export default function ConstantsPage(): React.ReactElement {
                       <TableRow>
                         <TableCell colSpan={7} style={{ textAlign: "center" }}>
                           {isFiltered
-                            ? "No constants match the current filter."
-                            : "No constants found."}
+                            ? "No Constants match the current filter."
+                            : "No Constants found."}
                         </TableCell>
                       </TableRow>
                     )}

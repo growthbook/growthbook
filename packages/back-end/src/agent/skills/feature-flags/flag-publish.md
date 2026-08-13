@@ -103,7 +103,7 @@ The draft exists but publish is blocked by the org's approval policy. Branch on 
 >
 > **A. Org-wide bypass** — an admin enables "REST API always bypasses approval requirements" under Settings → General → Approvals. Re-run flag-publish after that.
 >
-> **B. Per-token bypass** — use credentials whose role grants `bypassApprovalChecks` on this project, then re-run."
+> **B. Per-token bypass** — use credentials whose role grants `FlagsBypassApprovals` on this project, then re-run."
 
 **If `draft` or `changes-requested`:** review hasn't been requested yet. Offer to request it now:
 
@@ -115,7 +115,7 @@ The draft exists but publish is blocked by the org's approval policy. Branch on 
 >
 > **C. Org-wide bypass** — an admin enables "REST API always bypasses approval requirements" under Settings → General → Approvals.
 >
-> **D. Per-token bypass** — use credentials whose role grants `bypassApprovalChecks` on this project, then re-run."
+> **D. Per-token bypass** — use credentials whose role grants `FlagsBypassApprovals` on this project, then re-run."
 
 If the user picks **A**, request review and stop:
 
