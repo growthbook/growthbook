@@ -23,7 +23,7 @@ import {
   InterleaveOptions,
   InterleaveResult,
 } from "./types/growthbook";
-import { teamDraft } from "./interleave";
+import { itemDraft } from "./interleave";
 import { evalCondition } from "./mongrule";
 import { ConditionInterface } from "./types/mongrule";
 import {
@@ -1059,6 +1059,7 @@ export function runInterleave<T>(
     definition.hashVersion || 2,
   );
   if (enrollHash === null) return fallbackResult();
+  // TODO consider tracking with experiment for measurement/holdout
   if (enrollHash > (definition.coverage ?? 1)) return fallbackResult();
 
   // 4. Realize only the selected lists and run the per-impression draft
@@ -1072,7 +1073,7 @@ export function runInterleave<T>(
       interleaveId + ":" + round + ":" + captain,
       2,
     ) ?? 0.5;
-  const { items, meta } = teamDraft(
+  const { items, meta } = itemDraft(
     realized,
     getItemId,
     rng,
