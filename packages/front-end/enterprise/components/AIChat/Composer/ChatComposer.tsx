@@ -34,7 +34,6 @@ export interface ChatComposerProps {
   onCancel: () => void;
   loading: boolean;
   isLocalStream: boolean;
-  /** Read once, when the editor is created — Tiptap freezes extension options there. */
   placeholder?: string;
   /** Focus once the editor mounts. Later refocusing goes through the ref. */
   autoFocus?: boolean;
