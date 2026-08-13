@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   productAnalyticsRunRequestBodyValidator,
   aiChatFeedbackRatingValidator,
+  aiChatMentionValidator,
 } from "shared/validators";
 import { aiModelValidator } from "back-end/src/routers/ai/ai.validators";
 import { wrapController } from "back-end/src/routers/wrapController";
@@ -41,6 +42,8 @@ router.post(
         conversationId: z.string().min(1),
         datasourceId: z.string(),
         model: aiModelValidator,
+        // Entities the user @-mentioned in the composer — see the agent router.
+        mentions: aiChatMentionValidator.array().max(20).optional(),
       })
       .strict(),
   }),

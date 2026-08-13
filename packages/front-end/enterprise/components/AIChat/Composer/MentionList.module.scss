@@ -1,0 +1,57 @@
+// Anchored to the composer box (which is `position: relative`) rather than to
+// the caret, so it spans the composer and needs no positioning library.
+.popup {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 10;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--gray-a6);
+  border-radius: var(--radius-3);
+  background: var(--color-panel-solid);
+  box-shadow: var(--shadow-4);
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: var(--radius-2);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--gray-a3);
+  }
+}
+
+.rowActive {
+  background: var(--violet-a3);
+
+  &:hover {
+    background: var(--violet-a4);
+  }
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--font-size-2);
+  color: var(--gray-12);
+}
+
+.type {
+  flex-shrink: 0;
+  font-size: var(--font-size-1);
+  color: var(--gray-a11);
+}

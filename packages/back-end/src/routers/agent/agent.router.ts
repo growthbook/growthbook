@@ -1,6 +1,9 @@
 import express from "express";
 import { z } from "zod";
-import { aiChatFeedbackRatingValidator } from "shared/validators";
+import {
+  aiChatFeedbackRatingValidator,
+  aiChatMentionValidator,
+} from "shared/validators";
 import { aiModelValidator } from "back-end/src/routers/ai/ai.validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
@@ -26,6 +29,10 @@ router.post(
         // Optional preselected product analytics datasource. The eval runner
         // uses this to keep generic-agent PA cases deterministic.
         datasourceId: z.string().min(1).optional(),
+        // Entities the user @-mentioned in the composer. Persisted on the user
+        // message and surfaced to the LLM as a `[Referenced metrics: …]`
+        // prefix so it resolves names to ids without searching.
+        mentions: aiChatMentionValidator.array().max(20).optional(),
         // Deterministic mutation-confirmation gate: when the user responds to
         // a parked mutation, the UI sends the action id and their decision so
         // the harness can replay or discard the exact stored call.

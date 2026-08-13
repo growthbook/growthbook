@@ -162,11 +162,31 @@ export type AIChatSystemMessage = {
   content: string;
 };
 
+/** Kinds of entity a user can @-mention in the chat composer. */
+export type AIChatMentionType = "metric" | "factMetric" | "metricGroup";
+
+/**
+ * An entity the user @-mentioned. The composer writes the readable form
+ * ("@Revenue") into the message text and sends the resolved id alongside it, so
+ * the agent never has to guess which metric a name refers to.
+ */
+export type AIChatMention = {
+  type: AIChatMentionType;
+  id: string;
+  name: string;
+};
+
 export type AIChatUserMessage = {
   role: "user";
   id: string;
   ts: number;
   content: string | AIChatUserContentPart[];
+  /**
+   * Entities the user @-mentioned in this message. Persisted so the reference
+   * survives a reload, and injected by `toModelMessages` as a
+   * `[Referenced metrics: …]` prefix carrying the ids.
+   */
+  mentions?: AIChatMention[];
   /**
    * URL path (+ search) the user was on when they sent this message.
    * Captured at send time and persisted on the message so per-turn page

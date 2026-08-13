@@ -4,6 +4,7 @@ import {
   type AIChatAssistantContentPart,
   type AIChatFilePart,
   type AIChatImagePart,
+  type AIChatMention,
   type AIChatMessage,
   type AIChatUserContentPart,
 } from "shared/ai-chat";
@@ -26,6 +27,7 @@ function mapMediaPart(p: AIChatImagePart | AIChatFilePart) {
 function buildContextPrefix(
   currentPage?: string,
   datasourceHint?: string,
+  mentions?: AIChatMention[],
 ): string {
   const lines: string[] = [];
   if (currentPage && currentPage.trim()) {
@@ -36,6 +38,14 @@ function buildContextPrefix(
       `[Active product-analytics datasource: ${datasourceHint.trim()}]`,
     );
   }
+  if (mentions && mentions.length) {
+    // The composer already wrote "@Name" into the text; this line resolves each
+    // name to the id the agent should act on.
+    const rendered = mentions
+      .map((m) => `${m.name} (${m.type}: ${m.id})`)
+      .join(", ");
+    lines.push(`[Referenced by the user: ${rendered}]`);
+  }
   return lines.length ? `${lines.join("\n")}\n\n` : "";
 }
 
@@ -43,8 +53,9 @@ function mapUserContent(
   content: string | AIChatUserContentPart[],
   currentPage?: string,
   datasourceHint?: string,
+  mentions?: AIChatMention[],
 ) {
-  const prefix = buildContextPrefix(currentPage, datasourceHint);
+  const prefix = buildContextPrefix(currentPage, datasourceHint, mentions);
 
   if (typeof content === "string") {
     return prefix ? `${prefix}${content}` : content;
@@ -136,6 +147,7 @@ export function toModelMessages(messages: AIChatMessage[]): ModelMessage[] {
             msg.content,
             msg.currentPage,
             msg.datasourceHint,
+            msg.mentions,
           ),
         } as ModelMessage;
       case "assistant":

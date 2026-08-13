@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiX, PiPlus, PiArrowLineLeft, PiArrowLineRight } from "react-icons/pi";
-import type { AIChatMessage } from "shared/ai-chat";
+import type { AIChatMention, AIChatMessage } from "shared/ai-chat";
 import Markdown from "@/components/Markdown/Markdown";
 import Text from "@/ui/Text";
 import track from "@/services/track";
@@ -33,6 +33,7 @@ import aiChatStyles from "@/enterprise/components/AIChat/AIChatPrimitives.module
 import ChatComposer, {
   type ChatComposerHandle,
 } from "@/enterprise/components/AIChat/Composer/ChatComposer";
+import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
 import AgentChatHistory from "./AgentChatHistory";
 import {
   type MessageTurn,
@@ -170,6 +171,11 @@ export default function AgentPanel({
   // Holds the decision to attach to the next outgoing message. Consumed (and
   // cleared) by buildRequestBody so it only rides along with one request.
   const pendingDecisionRef = useRef<ConfirmDecisionBody | null>(null);
+  // Same one-shot pattern as the decision above: set just before sendMessage,
+  // consumed by buildRequestBody so it rides along with exactly one request.
+  const pendingMentionsRef = useRef<AIChatMention[]>([]);
+
+  const mentionItems = useMetricMentionItems();
 
   const {
     feedbackMap,
@@ -205,11 +211,14 @@ export default function AgentPanel({
     const dsId = datasourceIdRef.current;
     const decision = pendingDecisionRef.current;
     pendingDecisionRef.current = null;
+    const mentions = pendingMentionsRef.current;
+    pendingMentionsRef.current = [];
     return {
       message,
       conversationId: cid,
       ...(path ? { currentPage: path } : {}),
       ...(dsId ? { datasourceId: dsId } : {}),
+      ...(mentions.length ? { mentions } : {}),
       ...(decision ?? {}),
     };
   }, []);
@@ -404,20 +413,24 @@ export default function AgentPanel({
     });
   }, [defaultAIModel, messages.length]);
 
-  const handleSend = useCallback(() => {
-    const text = input.trim();
-    if (!text || loading) return;
-    if (askPrompt && !askPrompt.resolved) {
-      // Typing a free-text reply also resolves the active question.
-      setAskPrompt({ ...askPrompt, resolved: true });
-    }
-    if (confirmPrompt && !confirmPrompt.resolved) {
-      // Typing instead of clicking supersedes the parked mutation server-side.
-      setConfirmPrompt({ ...confirmPrompt, resolved: true });
-    }
-    trackMessageSent();
-    sendMessage();
-  }, [input, loading, sendMessage, askPrompt, confirmPrompt, trackMessageSent]);
+  const handleSend = useCallback(
+    (mentions: AIChatMention[] = []) => {
+      const text = input.trim();
+      if (!text || loading) return;
+      pendingMentionsRef.current = mentions;
+      if (askPrompt && !askPrompt.resolved) {
+        // Typing a free-text reply also resolves the active question.
+        setAskPrompt({ ...askPrompt, resolved: true });
+      }
+      if (confirmPrompt && !confirmPrompt.resolved) {
+        // Typing instead of clicking supersedes the parked mutation server-side.
+        setConfirmPrompt({ ...confirmPrompt, resolved: true });
+      }
+      trackMessageSent();
+      sendMessage();
+    },
+    [input, loading, sendMessage, askPrompt, confirmPrompt, trackMessageSent],
+  );
 
   const handleAskOption = useCallback(
     (option: AskUserOption) => {
@@ -654,6 +667,7 @@ export default function AgentPanel({
         variant="compact"
         ref={composerRef}
         autoFocus
+        mentionItems={mentionItems}
         value={input}
         onChange={setInput}
         onSend={handleSend}

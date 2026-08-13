@@ -13,8 +13,16 @@ import HardBreak from "@tiptap/extension-hard-break";
 import { Placeholder, UndoRedo } from "@tiptap/extensions";
 import { Flex } from "@radix-ui/themes";
 import { PiArrowRightBold, PiStop } from "react-icons/pi";
+import type { AIChatMention } from "shared/ai-chat";
 import Button from "@/ui/Button";
-import { editorToText, textToContent } from "./serialize";
+import { collectMentions, editorToText, textToContent } from "./serialize";
+import {
+  MetricMention,
+  METRIC_MENTION_NAME,
+  filterMentionItems,
+  type MentionItem,
+} from "./extensions/metricMention";
+import MentionList from "./MentionList";
 import styles from "./ChatComposer.module.scss";
 
 /**
@@ -30,7 +38,8 @@ export interface ChatComposerProps {
   value: string;
   /** Must be referentially stable — Tiptap binds this once, when the editor is created. */
   onChange: (value: string) => void;
-  onSend: () => void;
+  /** Receives the entities @-mentioned in the message being sent. */
+  onSend: (mentions: AIChatMention[]) => void;
   onCancel: () => void;
   loading: boolean;
   isLocalStream: boolean;
@@ -43,6 +52,11 @@ export interface ChatComposerProps {
    * site-wide agent panel.
    */
   variant?: "wide" | "compact";
+  /**
+   * Metrics offered by the `@` menu. Safe to arrive late or change — it is read
+   * through the extension's storage, not captured at editor creation.
+   */
+  mentionItems?: MentionItem[];
 }
 
 function ChatComposer(
@@ -56,10 +70,26 @@ function ChatComposer(
     placeholder = "Ask about metrics, experiments, or setup...",
     autoFocus = false,
     variant = "wide",
+    mentionItems,
   }: ChatComposerProps,
   ref: React.ForwardedRef<ChatComposerHandle>,
 ) {
   const [focused, setFocused] = useState(false);
+  // Populated by the suggestion plugin while an `@` query is active. Null means
+  // no popup, which also lets Enter fall through to send.
+  const [mention, setMention] = useState<{
+    items: MentionItem[];
+    command: (item: MentionItem) => void;
+  } | null>(null);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const mentionOpen = mention !== null && mention.items.length > 0;
+
+  // `MentionItem` is shaped as the node's attrs, so the stock Mention `command`
+  // can insert it directly.
+  const selectMention = useCallback(
+    (item: MentionItem) => mention?.command(item),
+    [mention],
+  );
 
   const editor = useEditor({
     // Next renders this on the server first; deferring the first render keeps
@@ -80,6 +110,26 @@ function ChatComposer(
         // stay visible then, as it did on the disabled textarea.
         showOnlyWhenEditable: false,
       }),
+      MetricMention.configure({
+        suggestion: {
+          char: "@",
+          // Read from storage, not from a captured `mentionItems`, since the
+          // metric list loads asynchronously after the editor is created.
+          items: ({ query, editor: e }) =>
+            filterMentionItems(e.storage[METRIC_MENTION_NAME].items, query),
+          render: () => ({
+            onStart: (props) => {
+              setMention({ items: props.items, command: props.command });
+              setMentionIndex(0);
+            },
+            onUpdate: (props) => {
+              setMention({ items: props.items, command: props.command });
+              setMentionIndex(0);
+            },
+            onExit: () => setMention(null),
+          }),
+        },
+      }),
     ],
     content: textToContent(value),
     editorProps: {
@@ -88,11 +138,32 @@ function ChatComposer(
         "aria-multiline": "true",
         "aria-label": "Chat message",
       },
-      handleKeyDown: (_view, event) => {
+      handleKeyDown: (view, event) => {
+        // ProseMirror consults `editorProps` BEFORE plugin props, so while the
+        // mention popup is open its navigation keys have to be claimed here —
+        // otherwise Enter would send the message instead of picking a metric.
+        if (mentionOpen && mention) {
+          const count = mention.items.length;
+          if (event.key === "ArrowDown") {
+            setMentionIndex((i) => (i + 1) % count);
+            return true;
+          }
+          if (event.key === "ArrowUp") {
+            setMentionIndex((i) => (i - 1 + count) % count);
+            return true;
+          }
+          if (event.key === "Enter" || event.key === "Tab") {
+            selectMention(mention.items[mentionIndex] ?? mention.items[0]);
+            return true;
+          }
+          // Escape is left alone — the suggestion plugin dispatches its own
+          // exit for it, which fires `onExit` and clears the popup.
+          return false;
+        }
         // Enter sends; Shift+Enter falls through to HardBreak's own shortcut.
         if (event.key === "Enter" && !event.shiftKey) {
           event.preventDefault();
-          if (!loading) onSend();
+          if (!loading) onSend(collectMentions(view.state.doc));
           return true;
         }
         return false;
@@ -119,8 +190,21 @@ function ChatComposer(
     editor?.setEditable(!loading);
   }, [editor, loading]);
 
+  // Extension options are frozen at creation but the metric list arrives later
+  // from `useDefinitions`, so it lives in the extension's storage — which the
+  // suggestion `items` callback reads through the editor it is handed.
+  useEffect(() => {
+    if (!editor) return;
+    editor.storage[METRIC_MENTION_NAME].items = mentionItems ?? [];
+  }, [editor, mentionItems]);
+
   const handleFocus = useCallback(() => setFocused(true), []);
   const handleBlur = useCallback(() => setFocused(false), []);
+
+  const submit = useCallback(() => {
+    if (!editor) return;
+    onSend(collectMentions(editor.state.doc));
+  }, [editor, onSend]);
 
   const canSend = value.trim().length > 0 && !loading;
   const isCompact = variant === "compact";
@@ -130,7 +214,7 @@ function ChatComposer(
   const Icon = isLocalStream ? PiStop : PiArrowRightBold;
   const action = isLocalStream
     ? { onClick: onCancel, label: "Cancel generation", disabled: false }
-    : { onClick: onSend, label: "Send message", disabled: !canSend };
+    : { onClick: submit, label: "Send message", disabled: !canSend };
 
   // Each variant keeps its own control so the button dimensions stay exactly as
   // designed: a 30x30 chip in the narrow panel, a `@/ui/Button` in the wide bar.
@@ -168,6 +252,13 @@ function ChatComposer(
     <div
       className={`${styles.box} ${boxClass}${focused ? ` ${boxFocusClass}` : ""}`}
     >
+      {mentionOpen && mention && (
+        <MentionList
+          items={mention.items}
+          activeIndex={mentionIndex}
+          onSelect={selectMention}
+        />
+      )}
       <EditorContent
         editor={editor}
         className={`${styles.editor}${loading ? ` ${styles.readOnly}` : ""}`}

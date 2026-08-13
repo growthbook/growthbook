@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useCallback, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiArrowLineLeft, PiArrowLineRight } from "react-icons/pi";
+import type { AIChatMention } from "shared/ai-chat";
 import { useUser } from "@/services/UserContext";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -12,6 +13,7 @@ import AIChatGatingScreen from "@/enterprise/components/AIChat/AIChatGatingScree
 import ChatComposer, {
   type ChatComposerHandle,
 } from "@/enterprise/components/AIChat/Composer/ChatComposer";
+import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
 import { useChatFeedback } from "@/enterprise/components/AIChat/useChatFeedback";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
@@ -44,6 +46,9 @@ export default function ExplorerAIChat() {
   const permissionsUtil = usePermissionsUtil();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
   const { draftExploreState } = useExplorerContext();
+  // Scoped to the active datasource — PA queries run against it, so offering a
+  // metric from another datasource would build a chart that can't run.
+  const mentionItems = useMetricMentionItems(draftExploreState.datasource);
 
   // -- Hooks with no cross-dependencies (safe to call first) -----------------
 
@@ -57,13 +62,22 @@ export default function ExplorerAIChat() {
     conversationIdRef: feedbackConversationIdRef,
   } = useChatFeedback();
 
+  // Set just before sendMessage and consumed by buildRequestBody, so a set of
+  // mentions rides along with exactly one request.
+  const pendingMentionsRef = useRef<AIChatMention[]>([]);
+
   const buildRequestBody = useCallback(
-    (message: string, cid: string) => ({
-      message,
-      conversationId: cid,
-      datasourceId: draftExploreState.datasource,
-      model: chatModel,
-    }),
+    (message: string, cid: string) => {
+      const mentions = pendingMentionsRef.current;
+      pendingMentionsRef.current = [];
+      return {
+        message,
+        conversationId: cid,
+        datasourceId: draftExploreState.datasource,
+        model: chatModel,
+        ...(mentions.length ? { mentions } : {}),
+      };
+    },
     [draftExploreState.datasource, chatModel],
   );
 
@@ -146,9 +160,10 @@ export default function ExplorerAIChat() {
   // -- Handlers --------------------------------------------------------------
 
   const trackAndSend = useCallback(
-    (messageOverride?: string) => {
+    (messageOverride?: string, mentions: AIChatMention[] = []) => {
       const text = (messageOverride ?? input).trim();
       if (!text) return;
+      pendingMentionsRef.current = mentions;
       track("AI Chat Message Sent", {
         model: chatModel,
         messageCount: messages.length,
@@ -303,9 +318,10 @@ export default function ExplorerAIChat() {
         <ChatComposer
           ref={composerRef}
           autoFocus
+          mentionItems={mentionItems}
           value={input}
           onChange={setInput}
-          onSend={() => trackAndSend()}
+          onSend={(mentions) => trackAndSend(undefined, mentions)}
           onCancel={cancelGeneration}
           loading={loading}
           isLocalStream={isLocalStream}

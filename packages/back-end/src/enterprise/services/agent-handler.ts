@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import type { Response } from "express";
 import type { ToolSet, TextStreamPart } from "ai";
 import type { AIModel, AIPromptType } from "shared/ai";
-import type { AIChatMessage } from "shared/ai-chat";
+import type { AIChatMention, AIChatMessage } from "shared/ai-chat";
 import { stringifyToolResultForStorage } from "shared/ai-chat";
 import type { AIAgentPendingAction } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
@@ -144,6 +144,12 @@ type AgentRequestBody = {
    * message as a soft `datasourceHint` (see `AIChatUserMessage`).
    */
   datasourceId?: string;
+  /**
+   * Entities the user @-mentioned in the composer. Persisted on the user
+   * message and surfaced to the LLM via a `[Referenced metrics: …]` prefix in
+   * `toModelMessages`, so it resolves a name to an id without searching.
+   */
+  mentions?: AIChatMention[];
 } & Record<string, unknown>;
 
 type ErrorPart = Extract<AgentStreamPart, { type: "error" }>;
@@ -280,7 +286,13 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
         config.injectDatasourceHint && typeof body.datasourceId === "string"
           ? body.datasourceId
           : undefined;
-      appendUserMessage(buffer, message, body.currentPage, datasourceHint);
+      appendUserMessage(
+        buffer,
+        message,
+        body.currentPage,
+        datasourceHint,
+        body.mentions,
+      );
     }
     buffer.setStreaming(true);
 
@@ -402,6 +414,7 @@ function appendUserMessage(
   message: string,
   currentPage?: string,
   datasourceHint?: string,
+  mentions?: AIChatMention[],
 ): void {
   const userMessage: AIChatMessage = {
     role: "user",
@@ -415,6 +428,7 @@ function appendUserMessage(
     ...(datasourceHint && datasourceHint.trim()
       ? { datasourceHint: datasourceHint.trim() }
       : {}),
+    ...(mentions && mentions.length ? { mentions } : {}),
   };
   buffer.appendMessages([userMessage]);
 }

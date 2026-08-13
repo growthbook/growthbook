@@ -50,6 +50,19 @@ export const aiChatToolResultPartValidator = z
   })
   .passthrough();
 
+/**
+ * An @-mentioned entity — see AIChatMention in shared/ai-chat.ts. Exported so
+ * the chat routers can validate the same shape on the request body. Lengths are
+ * capped since the values are echoed into the model prompt.
+ */
+export const aiChatMentionValidator = z
+  .object({
+    type: z.enum(["metric", "factMetric", "metricGroup"]),
+    id: z.string().min(1).max(64),
+    name: z.string().min(1).max(200),
+  })
+  .strict();
+
 // ---------------------------------------------------------------------------
 // Message validators (discriminated on role)
 // ---------------------------------------------------------------------------
@@ -84,6 +97,8 @@ const aiChatUserMessageValidator = z
     // Optional soft datasource hint — see AIChatUserMessage in
     // shared/ai-chat.ts. Cap matches the agent router's datasourceId.
     datasourceHint: z.string().max(256).optional(),
+    // Entities the user @-mentioned — see AIChatMention in shared/ai-chat.ts.
+    mentions: aiChatMentionValidator.array().max(20).optional(),
   })
   .passthrough();
 

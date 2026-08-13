@@ -28,6 +28,16 @@
       margin: 0;
     }
 
+    // The @-mention node. Reads as a chip so it's clearly one atomic token
+    // rather than typed text.
+    span[data-type="metricMention"] {
+      padding: 1px 4px;
+      border-radius: var(--radius-2);
+      background: var(--violet-a3);
+      color: var(--violet-11);
+      white-space: nowrap;
+    }
+
     // Placeholder decoration: the extension tags the empty paragraph with
     // `is-empty` and stashes the text in `data-placeholder`.
     p:global(.is-empty):first-child::before {
@@ -60,6 +70,8 @@
   align-items: flex-end;
   gap: 6px;
   width: 100%;
+  // Anchors the @-mention popup, which sits directly above the composer.
+  position: relative;
   // Reduced on the right so the button sits close to the edge.
   padding: 4px 4px 4px 12px;
   transition:
