@@ -374,18 +374,12 @@ export default function AgentPanel({
     displayedTextMap,
   );
 
-  // Focus the composer after a short delay so any slide-in / layout transition
-  // settles first. Used on open, new chat, conversation select, and turn end.
+  // Focus the composer after a short delay so any layout transition settles
+  // first. Used on new chat, conversation select, and turn end — opening the
+  // panel remounts the composer, so that case is its own `autoFocus`.
   const focusInput = useCallback((delay = 100) => {
     window.setTimeout(() => composerRef.current?.focus(), delay);
   }, []);
-
-  useEffect(() => {
-    if (open) {
-      const t = setTimeout(() => composerRef.current?.focus(), 100);
-      return () => clearTimeout(t);
-    }
-  }, [open]);
 
   // Re-focus the input when a turn finishes (loading true → false) so the user
   // can immediately type a follow-up. The composer is read-only while loading,
@@ -659,6 +653,7 @@ export default function AgentPanel({
       <ChatComposer
         variant="compact"
         ref={composerRef}
+        autoFocus
         value={input}
         onChange={setInput}
         onSend={handleSend}

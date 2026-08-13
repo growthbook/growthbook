@@ -175,6 +175,8 @@ export default function ExplorerAIChat() {
     });
   }, []);
 
+  // Refocus when switching conversations. The mount case is the composer's
+  // own `autoFocus`, since the editor doesn't exist yet on the first commit.
   useEffect(() => {
     composerRef.current?.focus();
   }, [conversationId]);
@@ -300,6 +302,7 @@ export default function ExplorerAIChat() {
 
         <ChatComposer
           ref={composerRef}
+          autoFocus
           value={input}
           onChange={setInput}
           onSend={() => trackAndSend()}

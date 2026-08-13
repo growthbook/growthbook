@@ -18,8 +18,9 @@ import { editorToText, textToContent } from "./serialize";
 import styles from "./ChatComposer.module.scss";
 
 /**
- * Imperative handle for the parents, which focus the composer on open, on
- * conversation switch, and when a turn finishes.
+ * Imperative handle for refocusing a live editor — after a turn finishes, on
+ * conversation switch, and on new chat. Focusing on mount is `autoFocus`
+ * instead, which Tiptap applies itself once the view exists.
  */
 export interface ChatComposerHandle {
   focus: () => void;
@@ -33,6 +34,8 @@ export interface ChatComposerProps {
   loading: boolean;
   isLocalStream: boolean;
   placeholder?: string;
+  /** Focus once the editor mounts. Later refocusing goes through the ref. */
+  autoFocus?: boolean;
   /**
    * "wide" (default) is the centered, max-width layout used by the PA Explorer
    * chat. "compact" is a unified rounded composer tuned for the narrow
@@ -50,6 +53,7 @@ function ChatComposer(
     loading,
     isLocalStream,
     placeholder = "Ask about metrics, experiments, or setup...",
+    autoFocus = false,
     variant = "wide",
   }: ChatComposerProps,
   ref: React.ForwardedRef<ChatComposerHandle>,
@@ -72,6 +76,9 @@ function ChatComposer(
     // Next renders this on the server first; deferring the first render keeps
     // the client markup from mismatching.
     immediatelyRender: false,
+    // Tiptap applies this itself in a deferred tick once the view exists,
+    // which is the only reliable moment to focus a not-yet-created editor.
+    autofocus: autoFocus ? "end" : false,
     extensions: [
       Document,
       Paragraph,
@@ -105,26 +112,11 @@ function ChatComposer(
     onUpdate: ({ editor: e }) => onChangeRef.current(editorToText(e)),
   });
 
-  // `immediatelyRender: false` means the editor is null for the first commit,
-  // so a mount-time focus() from a parent would otherwise be dropped. Park it
-  // and apply it as soon as the editor exists.
-  const pendingFocusRef = useRef(false);
   useImperativeHandle(
     ref,
-    () => ({
-      focus: () => {
-        if (editor) editor.commands.focus("end");
-        else pendingFocusRef.current = true;
-      },
-    }),
+    () => ({ focus: () => editor?.commands.focus("end") }),
     [editor],
   );
-
-  useEffect(() => {
-    if (!editor || !pendingFocusRef.current) return;
-    pendingFocusRef.current = false;
-    editor.commands.focus("end");
-  }, [editor]);
 
   // The chat hook owns `value` and clears it on send, so mirror external
   // changes back into the document. Comparing first keeps this from clobbering
