@@ -134,79 +134,56 @@ function ChatComposer(
   const handleBlur = useCallback(() => setFocused(false), []);
 
   const canSend = value.trim().length > 0 && !loading;
+  const isCompact = variant === "compact";
 
-  const editorNode = (
-    <EditorContent
-      editor={editor}
-      className={`${styles.editor}${loading ? ` ${styles.readOnly}` : ""} ${
-        variant === "compact" ? styles.compactEditor : styles.wideEditor
-      }`}
-      onFocus={handleFocus}
-      onBlur={handleBlur}
-    />
+  // Mid-stream the button cancels instead of sending; everything else about it
+  // is identical, so resolve the action once rather than per variant.
+  const Icon = isLocalStream ? PiStop : PiArrowRightBold;
+  const action = isLocalStream
+    ? { onClick: onCancel, label: "Cancel generation", disabled: false }
+    : { onClick: onSend, label: "Send message", disabled: !canSend };
+
+  const sendButton = isCompact ? (
+    <button
+      type="button"
+      className={`${styles.sendButton}${isLocalStream ? ` ${styles.stopButton}` : ""}`}
+      onClick={action.onClick}
+      disabled={action.disabled}
+      title={action.label}
+      aria-label={action.label}
+    >
+      <Icon size={15} />
+    </button>
+  ) : (
+    <Button
+      className={styles.wideSendButton}
+      onClick={action.onClick}
+      disabled={action.disabled}
+      title={action.label}
+      aria-label={action.label}
+    >
+      <Icon size={16} />
+    </Button>
   );
 
-  if (variant === "compact") {
-    return (
-      <div className={styles.compactWrapper}>
-        <div
-          className={`${styles.composer}${focused ? ` ${styles.composerFocused}` : ""}`}
-        >
-          {editorNode}
-          {isLocalStream ? (
-            <button
-              type="button"
-              className={`${styles.sendButton} ${styles.stopButton}`}
-              onClick={onCancel}
-              title="Cancel generation"
-              aria-label="Cancel generation"
-            >
-              <PiStop size={15} />
-            </button>
-          ) : (
-            <button
-              type="button"
-              className={styles.sendButton}
-              onClick={onSend}
-              disabled={!canSend}
-              title="Send message"
-              aria-label="Send message"
-            >
-              <PiArrowRightBold size={15} />
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  }
+  const boxClass = isCompact ? styles.compactBox : styles.wideBox;
+  const boxFocusClass = isCompact
+    ? styles.compactBoxFocused
+    : styles.wideBoxFocused;
 
   return (
-    <div className={styles.wideWrapper}>
+    <div className={isCompact ? styles.compactWrapper : styles.wideWrapper}>
       <div
-        className={`${styles.wideField}${focused ? ` ${styles.wideFieldFocused}` : ""}`}
+        className={`${styles.box} ${boxClass}${focused ? ` ${boxFocusClass}` : ""}`}
       >
-        {editorNode}
+        <EditorContent
+          editor={editor}
+          className={`${styles.editor}${loading ? ` ${styles.readOnly}` : ""}`}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+        />
+        {sendButton}
       </div>
-      {isLocalStream ? (
-        <Button
-          className={styles.wideSendButton}
-          onClick={onCancel}
-          title="Cancel generation"
-          aria-label="Cancel generation"
-        >
-          <PiStop size={16} />
-        </Button>
-      ) : (
-        <Button
-          className={styles.wideSendButton}
-          onClick={onSend}
-          disabled={!canSend}
-          title="Send message"
-          aria-label="Send message"
-        >
-          <PiArrowRightBold size={16} />
-        </Button>
-      )}
     </div>
   );
 }

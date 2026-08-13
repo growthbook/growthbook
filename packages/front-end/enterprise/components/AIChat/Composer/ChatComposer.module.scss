@@ -1,7 +1,8 @@
-// Tiptap-backed chat composer. Two variants:
-//   compact — unified rounded box for the site-wide agent panel
-//   wide    — centered bar for the PA Explorer chat, matching the
-//             `form-control--legacy` chrome the Field it replaced rendered.
+// Tiptap-backed chat composer. Both variants share one structure — a bordered
+// box holding the editor and the send button, bottom-aligned so the button
+// stays put as the editor grows. They differ only in chrome:
+//   compact — pill-rounded box filling the narrow site-wide agent panel
+//   wide    — centered, max-width box for the PA Explorer chat
 
 // --- Shared editor surface ---------------------------------------------------
 
@@ -15,6 +16,13 @@
     outline: none;
     white-space: pre-wrap;
     word-break: break-word;
+    font-size: var(--font-size-2);
+    line-height: 20px;
+    color: var(--gray-12);
+    padding: 6px 0;
+    // 6 rows + the padding above, matching the textarea's old maxRows.
+    max-height: 132px;
+    overflow-y: auto;
 
     p {
       margin: 0;
@@ -43,6 +51,22 @@
   }
 }
 
+// --- Shared box --------------------------------------------------------------
+
+// Holds the editor and the send button. Bottom-aligned so the button sits at
+// the base of the box as the editor grows, rather than drifting to the middle.
+.box {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  width: 100%;
+  // Reduced on the right so the button sits close to the edge.
+  padding: 4px 4px 4px 12px;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
 // --- Compact variant ---------------------------------------------------------
 
 .compactWrapper {
@@ -51,76 +75,39 @@
   padding: 10px 12px 12px;
 }
 
-.composer {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
+.compactBox {
   border: 1px solid var(--gray-a6);
   border-radius: var(--radius-4);
   background: var(--color-background);
-  padding: 4px 4px 4px 12px;
-  transition:
-    border-color 120ms ease,
-    box-shadow 120ms ease;
 }
 
-.composerFocused {
+.compactBoxFocused {
   border-color: var(--violet-8);
   box-shadow: 0 0 0 2px var(--violet-a4);
-}
-
-.compactEditor :global(.ProseMirror) {
-  font-size: 14px;
-  line-height: 20px;
-  color: var(--gray-12);
-  padding: 6px 0;
-  // 6 rows + the padding above, matching the textarea's old maxRows.
-  max-height: 132px;
-  overflow-y: auto;
 }
 
 // --- Wide variant ------------------------------------------------------------
 
 .wideWrapper {
   display: flex;
-  align-items: center;
   justify-content: center;
-  gap: var(--space-2);
   width: 100%;
   padding: var(--space-5) var(--space-9);
   border-top: 1px solid var(--gray-a3);
   background: var(--color-panel-solid);
 }
 
-// Mirrors `.form-control` + `.form-control--legacy` from global.scss so the
-// PA composer keeps the chrome it had as a `<Field size="legacy">`.
-.wideField {
+// Border chrome mirrors `.form-control` from global.scss, so the PA composer
+// keeps the look it had as a `<Field size="legacy">`.
+.wideBox {
   max-width: 800px;
-  flex: 1;
-  min-height: 36px;
-  // 8px + one 20px line + 8px fills the 36px min-height exactly, so a single
-  // line sits centered without inflating line-height (which would space out
-  // every line in a multi-line message).
-  padding: 8px 12px;
   border: 1px solid var(--gray-a7);
   border-radius: var(--radius-2);
   background-color: var(--color-surface);
-  transition: box-shadow 120ms ease;
 }
 
-.wideFieldFocused {
+.wideBoxFocused {
   box-shadow: 0 0 0 1px var(--violet-8);
-}
-
-// Same 20px rhythm as the compact variant, so both composers space lines
-// identically. 6 rows + the field's vertical padding.
-.wideEditor :global(.ProseMirror) {
-  font-size: var(--font-size-2);
-  line-height: 20px;
-  color: var(--gray-12);
-  max-height: 136px;
-  overflow-y: auto;
 }
 
 // --- Buttons -----------------------------------------------------------------
@@ -129,6 +116,10 @@
 // as a child lands on the text baseline and sits high in the button. Collapse
 // that line box and center the icon — the same correction the compact
 // variant's `svg { display: block }` makes below.
+//
+// Passing the icon via Button's `icon` prop instead would dodge the wrapper,
+// but `.rt-Button` sets `gap`, so the empty `<Text>` left behind would push the
+// icon off-center horizontally.
 .wideSendButton > span {
   display: flex;
   align-items: center;
