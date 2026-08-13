@@ -1,16 +1,14 @@
 import { useState } from "react";
-import { Box, Text } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
-import Button from "@/components/Button";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import { planNameFromAccountPlan } from "@/services/utils";
 import { useForceLicenseRefresh } from "@/hooks/useForceLicenseRefresh";
 import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
 import Callout from "@/ui/Callout";
-import UIButton from "@/ui/Button";
+import Button from "@/ui/Button";
 import Modal from "@/components/Modal";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import UpgradeModal from "./UpgradeModal";
 import UpdateOrbSubscriptionModal from "./UpdateOrbSubscriptionModal";
 
@@ -134,14 +132,14 @@ export default function SubscriptionInfo() {
           status="warning"
           mb="3"
           action={
-            <UIButton
+            <Button
               size="sm"
               color="inherit"
               loading={organizationRefreshStatus === "loading"}
               onClick={retryOrganizationRefresh}
             >
               Try again
-            </UIButton>
+            </Button>
           }
         >
           We couldn&apos;t refresh your organization details. Try again to see
@@ -205,73 +203,52 @@ export default function SubscriptionInfo() {
           Your plan was canceled on {` ${subscription?.cancelationDate}.`}
         </Callout>
       )}
-      <div className="col-md-12 mt-4 mb-3 d-flex flex-row px-0">
+      <Flex mt="4" mb="3" gap="3" align="center" wrap="wrap">
         {subscription?.billingPlatform === "stripe" ? (
-          <div className="col-auto">
-            <Button
-              color="primary"
-              onClick={async () => {
-                const res = await apiCall<{ url: string }>(
-                  `/subscription/manage`,
-                  {
-                    method: "POST",
-                  },
-                );
-                if (res && res.url) {
-                  await redirectWithTimeout(res.url);
-                } else {
-                  throw new Error("Unknown response");
-                }
-              }}
-            >
-              {subscription?.status !== "canceled"
-                ? "View Plan Details"
-                : "View Previous Invoices"}
-            </Button>
-          </div>
+          <Button
+            onClick={async () => {
+              const res = await apiCall<{ url: string }>(
+                `/subscription/manage`,
+                {
+                  method: "POST",
+                },
+              );
+              if (res && res.url) {
+                await redirectWithTimeout(res.url);
+              } else {
+                throw new Error("Unknown response");
+              }
+            }}
+          >
+            {subscription?.status !== "canceled"
+              ? "View Plan Details"
+              : "View Previous Invoices"}
+          </Button>
         ) : null}
         {subscription?.billingPlatform === "orb" &&
         subscription?.status === "active" ? (
-          <div className="col-auto">
-            <Tooltip
-              body={
-                !subscription?.stripeCustomerId
-                  ? "To make changes to your subscription, please contact your account executive or support@growthbook.io."
-                  : ""
-              }
-            >
-              <Button
-                color="primary"
-                disabled={!subscription?.stripeCustomerId}
-                onClick={() => setUpdateOrbSubscriptionModal(true)}
-              >
-                Update Invoice Details
-              </Button>
-            </Tooltip>
-          </div>
+          subscription?.stripeCustomerId ? (
+            <Button onClick={() => setUpdateOrbSubscriptionModal(true)}>
+              Update Invoice Details
+            </Button>
+          ) : (
+            <Box maxWidth="550px">
+              <Callout status="info">
+                To make changes to your subscription, please contact your
+                account executive or support@growthbook.io.
+              </Callout>
+            </Box>
+          )
         ) : null}
-        {subscription?.status === "canceled" && canSubscribe && (
-          <div className="col-auto">
-            <button
-              className="btn btn-success"
-              onClick={(e) => {
-                e.preventDefault();
-                setUpgradeModal(true);
-              }}
-            >
-              Renew Your Plan
-            </button>
-          </div>
-        )}
+        {subscription?.status === "canceled" && canSubscribe ? (
+          <Button onClick={() => setUpgradeModal(true)}>Renew Your Plan</Button>
+        ) : null}
         {hasActiveOrbSubscription && accountPlan !== "enterprise" ? (
-          <Button
-            onClick={() => setCancelSubscriptionModal(true)}
-            color="danger"
-          >
+          <Button color="red" onClick={() => setCancelSubscriptionModal(true)}>
             Cancel Subscription
           </Button>
         ) : null}
-      </div>
+      </Flex>
     </div>
   );
 }
