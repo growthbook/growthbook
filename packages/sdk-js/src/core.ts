@@ -23,7 +23,7 @@ import {
   InterleaveOptions,
   InterleaveResult,
 } from "./types/growthbook";
-import { teamDraft } from "./interleave";
+import { itemDraft } from "./interleave";
 import { evalCondition } from "./mongrule";
 import { ConditionInterface } from "./types/mongrule";
 import {
@@ -1072,7 +1072,7 @@ export function runInterleave<T>(
       interleaveId + ":" + round + ":" + captain,
       2,
     ) ?? 0.5;
-  const { items, meta } = teamDraft(
+  const { items, meta } = itemDraft(
     realized,
     getItemId,
     rng,

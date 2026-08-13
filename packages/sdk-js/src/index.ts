@@ -111,4 +111,4 @@ export {
 
 export { EVENT_EXPERIMENT_VIEWED, EVENT_FEATURE_EVALUATED } from "./core";
 
-export { teamDraft, flattenInterleaveExposure } from "./interleave";
+export { itemDraft, flattenInterleaveExposure } from "./interleave";

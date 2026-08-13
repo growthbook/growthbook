@@ -1,5 +1,5 @@
 import { GrowthBook } from "../src";
-import { teamDraft, flattenInterleaveExposure } from "../src/interleave";
+import { itemDraft, flattenInterleaveExposure } from "../src/interleave";
 import { hash } from "../src/util";
 import {
   InterleaveExperiment,
@@ -16,9 +16,9 @@ function summarize(
   return meta.map((m) => `${m.itemId},${m.variation},${m.competitive ? 1 : 0}`);
 }
 
-describe("teamDraft", () => {
+describe("itemDraft", () => {
   it("marks near-identical lists non-competitive except the tail (DoorDash ex. 1)", () => {
-    const { meta } = teamDraft(
+    const { meta } = itemDraft(
       [
         { name: "C1", items: ["A", "B", "C", "D", "E"] },
         { name: "C2", items: ["A", "B", "C", "D", "F"] },
@@ -37,7 +37,7 @@ describe("teamDraft", () => {
   });
 
   it("handles divergent lists with shared picks and exhaustion (DoorDash ex. 2)", () => {
-    const { meta } = teamDraft(
+    const { meta } = itemDraft(
       [
         { name: "C1", items: ["A", "B", "J", "C", "D", "G", "H"] },
         { name: "C2", items: ["A", "E", "J", "G", "H", "D", "I"] },
@@ -59,7 +59,7 @@ describe("teamDraft", () => {
   });
 
   it("only runs complete rounds when maxItems is set", () => {
-    const { items, meta } = teamDraft(
+    const { items, meta } = itemDraft(
       [
         { name: "C1", items: ["A", "B", "C"] },
         { name: "C2", items: ["D", "E", "F"] },
@@ -81,7 +81,7 @@ describe("teamDraft", () => {
       // the same seeded rng runInterleave uses, swept over interleaveIds
       const rng = (round: number, captain: number) =>
         hash("seed__interleave", `imp-${i}:${round}:${captain}`, 2) ?? 0.5;
-      const { meta } = teamDraft(
+      const { meta } = itemDraft(
         [
           { name: "C1", items: ["A", "B"] },
           { name: "C2", items: ["C", "D"] },

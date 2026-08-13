@@ -19,7 +19,7 @@ export interface TeamDraftResult<T> {
 // each takes its most-preferred item not already drafted. A round is marked
 // non-competitive when captains desire the same item or a captain's list is
 // exhausted; competitive picks always come in groups with one pick per captain.
-export function teamDraft<T>(
+export function itemDraft<T>(
   lists: RealizedInterleaveList<T>[],
   getItemId: (item: T) => string,
   rng: (round: number, captain: number) => number,
