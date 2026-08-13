@@ -17,6 +17,7 @@ import {
   stemRuleId,
   parsePlainJSONObject,
   stripDefaultsForSparse,
+  MergeStrategy,
 } from "shared/util";
 import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
@@ -60,6 +61,11 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import useApi from "@/hooks/useApi";
 import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVersionSelector";
 import Modal from "@/components/Modal";
+import {
+  ExpandableConflict,
+  stringifyForRawDiff,
+} from "@/components/Reviews/Feature/RevisionDiffUtils";
+import { normalizeFeatureRules } from "@/components/Features/FeatureDiffRenders";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
@@ -199,45 +205,6 @@ export type SafeRolloutRuleCreateFields = SafeRolloutRule & {
   sameSeed?: boolean;
 };
 
-// One row of the conflict banner: a field the other person changed, and
-// whether the user's own edit collides with it.
-type ConflictFieldChange = {
-  field: string;
-  theirs: unknown;
-  conflictsWithYours: boolean;
-};
-
-function conflictFieldChanges(
-  base: FeatureRule | undefined,
-  theirs: FeatureRule,
-  yours: Record<string, unknown>,
-): ConflictFieldChange[] {
-  const keys = new Set([...Object.keys(base ?? {}), ...Object.keys(theirs)]);
-  keys.delete("id");
-  const out: ConflictFieldChange[] = [];
-  for (const k of keys) {
-    const b = JSON.stringify(
-      (base as Record<string, unknown> | undefined)?.[k],
-    );
-    const t = JSON.stringify((theirs as Record<string, unknown>)[k]);
-    if (t === b) continue;
-    const y = JSON.stringify((yours as Record<string, unknown>)[k]);
-    out.push({
-      field: k,
-      theirs: (theirs as Record<string, unknown>)[k],
-      conflictsWithYours: y !== undefined && y !== b && y !== t,
-    });
-  }
-  return out;
-}
-
-function fmtConflictValue(v: unknown): string {
-  if (v === undefined) return "(removed)";
-  const s = typeof v === "string" ? v : JSON.stringify(v);
-  if (!s) return '""';
-  return s.length > 80 ? s.slice(0, 77) + "…" : s;
-}
-
 export default function RuleModal({
   close,
   feature,
@@ -294,7 +261,9 @@ export default function RuleModal({
   const [conflict, setConflict] = useState<
     (PutFeatureRuleConflict & { attemptedRule: Record<string, unknown> }) | null
   >(null);
-  const [overwriteArmed, setOverwriteArmed] = useState(false);
+  // "" = unresolved, "overwrite" = save mine over theirs (baseline omitted on
+  // the next save), "discard" handled immediately (close + refresh).
+  const [conflictStrategy, setConflictStrategy] = useState<MergeStrategy>("");
   // Set when the save's error handler saw a 409, so the submit catch can
   // suppress the Modal's own error text — the banner is the single message.
   const conflictSignaledRef = useRef(false);
@@ -1635,7 +1604,7 @@ export default function RuleModal({
               body: JSON.stringify({
                 rule: values,
                 ruleId,
-                ...(baselineRule && !overwriteArmed
+                ...(baselineRule && conflictStrategy !== "overwrite"
                   ? { baseline: { rule: baselineRule } }
                   : {}),
                 ...(rampScheduleInline
@@ -2013,64 +1982,52 @@ export default function RuleModal({
         submit={submit}
         bodyPrefix={
           <>
-            {conflict && !overwriteArmed && (
-              <Callout status="error" mb="3">
-                <Text weight="semibold">
+            {conflict && conflictStrategy !== "overwrite" && (
+              <>
+                <Callout status="error" mb="3">
                   Someone else updated this rule while you had it open
                   {conflict.draftVersion
                     ? " (in the draft you're saving to)"
                     : conflict.currentRule
                       ? " (and published it)"
-                      : ""}
-                  {conflict.currentRule ? ":" : " — it no longer exists."}
-                </Text>
-                {conflict.currentRule && (
-                  <Box mt="2">
-                    {conflictFieldChanges(
-                      baselineRule,
-                      conflict.currentRule,
-                      conflict.attemptedRule,
-                    ).map((c) => (
-                      <Flex key={c.field} gap="2" align="baseline" wrap="wrap">
-                        <Text weight="medium">{c.field}</Text>
-                        <Text>
-                          → <code>{fmtConflictValue(c.theirs)}</code>
-                        </Text>
-                        {c.conflictsWithYours && (
-                          <Text weight="semibold">— you edited this too</Text>
-                        )}
-                      </Flex>
-                    ))}
-                  </Box>
-                )}
-                <Box mt="2">
-                  <Text size="sm">
-                    &ldquo;Overwrite&rdquo; saves your version and undoes all of
-                    their changes above. &ldquo;Discard&rdquo; keeps their
-                    version and closes this editor.
-                  </Text>
-                </Box>
-                <Flex gap="3" mt="2">
-                  <Button
-                    color="red"
-                    variant="soft"
-                    onClick={() => setOverwriteArmed(true)}
-                  >
-                    Overwrite their version
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={async () => {
-                      await mutate();
-                      close();
-                    }}
-                  >
-                    Discard my changes
-                  </Button>
-                </Flex>
-              </Callout>
+                      : " — it no longer exists"}
+                  . Choose which version to keep below.
+                </Callout>
+                <ExpandableConflict
+                  conflict={{
+                    name: "Rule",
+                    key: conflict.ruleId,
+                    resolved: false,
+                    base: stringifyForRawDiff(
+                      baselineRule ? normalizeFeatureRules([baselineRule]) : [],
+                    ),
+                    live: stringifyForRawDiff(
+                      conflict.currentRule
+                        ? normalizeFeatureRules([conflict.currentRule])
+                        : [],
+                    ),
+                    revision: stringifyForRawDiff(
+                      normalizeFeatureRules([
+                        conflict.attemptedRule as unknown as FeatureRule,
+                      ]),
+                    ),
+                  }}
+                  strategy={conflictStrategy}
+                  setStrategy={(s) => {
+                    if (s === "discard") {
+                      // Keep theirs: refresh and close the editor.
+                      (async () => {
+                        await mutate();
+                        close();
+                      })();
+                      return;
+                    }
+                    setConflictStrategy(s);
+                  }}
+                />
+              </>
             )}
-            {overwriteArmed && (
+            {conflictStrategy === "overwrite" && (
               <Callout status="warning" mb="3">
                 Saving will now overwrite the other person&apos;s version of
                 this rule. Click Save to continue.
