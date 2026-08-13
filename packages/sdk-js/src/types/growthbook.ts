@@ -180,6 +180,80 @@ export type CBContext = {
   banditVersion?: number;
 };
 
+// A named ranked candidate list supplied by the caller at serving time.
+// Lazy generators are only invoked for lists the experiment actually weaves.
+export interface InterleaveList<T> {
+  name: string;
+  items: T[] | (() => T[]);
+}
+
+// Payload-delivered definition controlling an interleaving experiment
+export interface InterleaveExperiment {
+  key: string;
+  // Names of the caller's lists to weave (>=2). Caller lists not named here
+  // are ignored; a name with no matching caller list serves the fallback.
+  lists: string[];
+  condition?: ConditionInterface;
+  coverage?: number;
+  hashAttribute?: string;
+  fallbackAttribute?: string;
+  hashVersion?: number;
+  seed?: string;
+  filters?: Filter[];
+  active?: boolean;
+  maxItems?: number;
+}
+
+export interface InterleavedItemMeta {
+  itemId: string;
+  variation: string;
+  position: number;
+  competitive: boolean;
+}
+
+export interface InterleaveResult<T> {
+  inExperiment: boolean;
+  interleaveId: string;
+  key: string;
+  items: T[];
+  meta: InterleavedItemMeta[];
+}
+
+export interface InterleaveOptions<T> {
+  key: string;
+  lists: InterleaveList<T>[];
+  getItemId: (item: T) => string;
+  interleaveId?: string;
+  // List name served when not enrolled; defaults to the first list
+  fallback?: string;
+}
+
+// One exposure record per impression, handed to onInterleaveExposure
+export interface InterleaveExposureData {
+  timestamp: number;
+  experimentId: string;
+  interleaveId: string;
+  hashAttribute: string;
+  hashValue: string;
+  items: InterleavedItemMeta[];
+}
+
+export type InterleaveExposureCallback = (
+  data: InterleaveExposureData,
+) => void | Promise<void>;
+
+// Flat projection of one exposure: one row per impression x item
+export interface InterleaveExposureRow {
+  timestamp: number;
+  user_id: string;
+  experiment_id: string;
+  interleave_id: string;
+  item_id: string;
+  variation: string;
+  position: number;
+  competitive: boolean;
+}
+
 export type Attributes = Record<string, any>;
 
 export type TrackingUserContext = Pick<UserContext, "attributes" | "url">;
@@ -315,6 +389,8 @@ export type Options = {
   applyDomChangesCallback?: ApplyDomChangesCallback;
   savedGroups?: SavedGroupsValues;
   contextualBandits?: ContextualBanditDefinitions;
+  interleaveExperiments?: InterleaveExperiment[];
+  onInterleaveExposure?: InterleaveExposureCallback;
   plugins?: Plugin[];
 };
 
@@ -354,6 +430,8 @@ export type GlobalContext = {
   qaMode?: boolean;
   savedGroups?: SavedGroupsValues;
   contextualBandits?: ContextualBanditDefinitions;
+  interleaveExperiments?: InterleaveExperiment[];
+  onInterleaveExposure?: InterleaveExposureCallback;
   forcedVariations?: Record<string, number>;
   forcedFeatureValues?: Map<string, any>;
   trackingCallback?: TrackingCallbackWithUser;
@@ -493,6 +571,7 @@ export type FeatureApiResponse = {
   encryptedSavedGroups?: string;
   contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
+  interleaveExperiments?: InterleaveExperiment[];
 };
 
 // Alias

@@ -32,6 +32,8 @@ import type {
   EventLogger,
   LogUnion,
   DestroyOptions,
+  InterleaveOptions,
+  InterleaveResult,
 } from "./types/growthbook";
 import {
   decrypt,
@@ -50,6 +52,7 @@ import {
 } from "./feature-repository";
 import {
   runExperiment,
+  runInterleave,
   evalFeature as _evalFeature,
   getExperimentResult,
   getAllStickyBucketAssignmentDocs,
@@ -231,6 +234,9 @@ export class GrowthBook<
     if (data.contextualBandits) {
       this._options.contextualBandits = data.contextualBandits;
     }
+    if (data.interleaveExperiments) {
+      this._options.interleaveExperiments = data.interleaveExperiments;
+    }
     if (data.experiments) {
       this._options.experiments = data.experiments;
       this._updateAllAutoExperiments();
@@ -269,6 +275,9 @@ export class GrowthBook<
     }
     if (payload.contextualBandits) {
       this._options.contextualBandits = payload.contextualBandits;
+    }
+    if (payload.interleaveExperiments) {
+      this._options.interleaveExperiments = payload.interleaveExperiments;
     }
     if (payload.experiments) {
       this._options.experiments = payload.experiments;
@@ -640,6 +649,10 @@ export class GrowthBook<
     return result;
   }
 
+  public interleave<T>(options: InterleaveOptions<T>): InterleaveResult<T> {
+    return runInterleave(options, this._getEvalContext());
+  }
+
   public triggerExperiment(key: string) {
     this._triggeredExpKeys.add(key);
     if (!this._options.experiments) return null;
@@ -701,6 +714,8 @@ export class GrowthBook<
       qaMode: this._options.qaMode,
       savedGroups: this._options.savedGroups,
       contextualBandits: this._options.contextualBandits,
+      interleaveExperiments: this._options.interleaveExperiments,
+      onInterleaveExposure: this._options.onInterleaveExposure,
       groups: this._options.groups,
       overrides: this._options.overrides,
       onExperimentEval: this._onExperimentEval,

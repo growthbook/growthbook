@@ -58,6 +58,14 @@ export type {
   EventProperties,
   Plugin,
   LogUnion,
+  InterleaveList,
+  InterleaveExperiment,
+  InterleavedItemMeta,
+  InterleaveResult,
+  InterleaveOptions,
+  InterleaveExposureData,
+  InterleaveExposureCallback,
+  InterleaveExposureRow,
 } from "./types/growthbook";
 
 export type {
@@ -101,3 +109,5 @@ export {
 } from "./util";
 
 export { EVENT_EXPERIMENT_VIEWED, EVENT_FEATURE_EVALUATED } from "./core";
+
+export { teamDraft, flattenInterleaveExposure } from "./interleave";
