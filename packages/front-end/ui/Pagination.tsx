@@ -146,7 +146,11 @@ const Pagination: FC<PaginationProps> = ({
                       isCurrent && styles.current,
                     )}
                     aria-current={isCurrent ? "page" : undefined}
-                    aria-label={`Go to page ${item.page}`}
+                    aria-label={
+                      isCurrent
+                        ? `Page ${item.page}`
+                        : `Go to page ${item.page}`
+                    }
                     onClick={() => {
                       if (!isCurrent) onPageChange(item.page);
                     }}
