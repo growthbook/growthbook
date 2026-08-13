@@ -43,15 +43,22 @@ export interface ChatComposerProps {
   onCancel: () => void;
   loading: boolean;
   isLocalStream: boolean;
+  /**
+   * Unavailable rather than busy — e.g. AI is switched off for the org. Blocks
+   * typing and sending, independently of `loading`.
+   */
+  disabled?: boolean;
+  /** Minimum visible rows. Only meaningful for the tall `hero` variant. */
+  minRows?: number;
   placeholder?: string;
   /** Focus once the editor mounts. Later refocusing goes through the ref. */
   autoFocus?: boolean;
   /**
-   * "wide" (default) is the centered, max-width layout used by the PA Explorer
-   * chat. "compact" is a unified rounded composer tuned for the narrow
-   * site-wide agent panel.
+   * "wide" (default) is the centered, max-width bar used by the PA Explorer
+   * chat, "compact" the rounded composer in the narrow site-wide agent panel,
+   * and "hero" the tall entry composer on the PA empty state.
    */
-  variant?: "wide" | "compact";
+  variant?: "wide" | "compact" | "hero";
   /**
    * Metrics offered by the `@` menu. Safe to arrive late or change — it is read
    * through the extension's storage, not captured at editor creation.
@@ -67,6 +74,8 @@ function ChatComposer(
     onCancel,
     loading,
     isLocalStream,
+    disabled = false,
+    minRows,
     placeholder = "Ask about metrics, experiments, or setup...",
     autoFocus = false,
     variant = "wide",
@@ -163,7 +172,7 @@ function ChatComposer(
         // Enter sends; Shift+Enter falls through to HardBreak's own shortcut.
         if (event.key === "Enter" && !event.shiftKey) {
           event.preventDefault();
-          if (!loading) onSend(collectMentions(view.state.doc));
+          if (!loading && !disabled) onSend(collectMentions(view.state.doc));
           return true;
         }
         return false;
@@ -187,8 +196,8 @@ function ChatComposer(
   }, [editor, value]);
 
   useEffect(() => {
-    editor?.setEditable(!loading);
-  }, [editor, loading]);
+    editor?.setEditable(!loading && !disabled);
+  }, [editor, loading, disabled]);
 
   // Extension options are frozen at creation but the metric list arrives later
   // from `useDefinitions`, so it lives in the extension's storage — which the
@@ -206,8 +215,9 @@ function ChatComposer(
     onSend(collectMentions(editor.state.doc));
   }, [editor, onSend]);
 
-  const canSend = value.trim().length > 0 && !loading;
+  const canSend = value.trim().length > 0 && !loading && !disabled;
   const isCompact = variant === "compact";
+  const isHero = variant === "hero";
 
   // Mid-stream the button cancels instead of sending. Cancel is a neutral soft
   // chip so it doesn't read as a second primary CTA next to Send.
@@ -217,7 +227,7 @@ function ChatComposer(
     : { onClick: submit, label: "Send message", disabled: !canSend };
 
   // Each variant keeps its own control so the button dimensions stay exactly as
-  // designed: a 30x30 chip in the narrow panel, a `@/ui/Button` in the wide bar.
+  // designed: a 30x30 chip in the narrow panel, a `@/ui/Button` elsewhere.
   const sendButton = isCompact ? (
     <button
       type="button"
@@ -243,15 +253,22 @@ function ChatComposer(
     </Button>
   );
 
-  const boxClass = isCompact ? styles.compactBox : styles.wideBox;
-  const boxFocusClass = isCompact
-    ? styles.compactBoxFocused
-    : styles.wideBoxFocused;
+  const boxClasses = [
+    styles.box,
+    // Hero places its button absolutely; the others sit it beside the editor.
+    isHero ? styles.heroBox : styles.inlineBox,
+    isHero ? "" : isCompact ? styles.compactBox : styles.wideBox,
+    focused
+      ? isHero
+        ? styles.heroBoxFocused
+        : isCompact
+          ? styles.compactBoxFocused
+          : styles.wideBoxFocused
+      : "",
+  ].filter(Boolean);
 
   const box = (
-    <div
-      className={`${styles.box} ${boxClass}${focused ? ` ${boxFocusClass}` : ""}`}
-    >
+    <div className={boxClasses.join(" ")}>
       {mentionOpen && mention && (
         <MentionList
           items={mention.items}
@@ -261,17 +278,25 @@ function ChatComposer(
       )}
       <EditorContent
         editor={editor}
-        className={`${styles.editor}${loading ? ` ${styles.readOnly}` : ""}`}
+        className={`${styles.editor}${loading || disabled ? ` ${styles.readOnly}` : ""}`}
+        // Rows are the caller's unit; 20px is the editor's line-height.
+        style={minRows ? { minHeight: minRows * 20 } : undefined}
         onFocus={handleFocus}
         onBlur={handleBlur}
       />
-      {sendButton}
+      {isHero ? (
+        <div className={styles.heroSendButton}>{sendButton}</div>
+      ) : (
+        sendButton
+      )}
     </div>
   );
 
   if (isCompact) {
     return <div className={styles.compactWrapper}>{box}</div>;
   }
+
+  if (isHero) return box;
 
   return (
     <Flex justify="center" py="5" px="9" className={styles.wideWrapper}>

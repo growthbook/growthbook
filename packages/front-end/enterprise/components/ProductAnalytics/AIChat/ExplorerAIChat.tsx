@@ -17,7 +17,10 @@ import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/u
 import { useChatFeedback } from "@/enterprise/components/AIChat/useChatFeedback";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
-import { PA_AI_CHAT_INITIAL_MESSAGE_KEY } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  takeInitialChatMessage,
+  type PAInitialChatMessage,
+} from "@/enterprise/components/ProductAnalytics/util";
 import ChatMessageList, { TOOL_STATUS_LABELS } from "./ChatMessageList";
 import { useConversationList } from "./useConversationList";
 import { useChatModel } from "./useChatModel";
@@ -28,15 +31,10 @@ export default function ExplorerAIChat() {
   const prevLoadingRef = useRef(false);
   const composerRef = useRef<ChatComposerHandle>(null);
 
-  const initialMessageRef = useRef<string | null>(
-    (() => {
-      const stored = sessionStorage.getItem(PA_AI_CHAT_INITIAL_MESSAGE_KEY);
-      if (stored) {
-        sessionStorage.removeItem(PA_AI_CHAT_INITIAL_MESSAGE_KEY);
-        return stored.trim() || null;
-      }
-      return null;
-    })(),
+  // Handed over from the empty state, which stashes the message rather than
+  // sending it. Read once, on mount.
+  const initialMessageRef = useRef<PAInitialChatMessage | null>(
+    takeInitialChatMessage(),
   );
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -197,10 +195,10 @@ export default function ExplorerAIChat() {
   }, [conversationId]);
 
   useEffect(() => {
-    const msg = initialMessageRef.current;
-    if (!msg) return;
+    const initial = initialMessageRef.current;
+    if (!initial) return;
     initialMessageRef.current = null;
-    trackAndSend(msg);
+    trackAndSend(initial.text, initial.mentions);
   }, [trackAndSend]);
 
   const handleNewChat = useCallback(() => {

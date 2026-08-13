@@ -1,8 +1,9 @@
-// Tiptap-backed chat composer. Both variants share one structure — a bordered
-// box holding the editor and the send button, bottom-aligned so the button
-// stays put as the editor grows. They differ only in chrome:
+// Tiptap-backed chat composer. Every variant is a bordered box holding the
+// editor and a send button; they differ in chrome and in how the button is
+// placed:
 //   compact — pill-rounded box filling the narrow site-wide agent panel
-//   wide    — centered, max-width box for the PA Explorer chat
+//   wide    — centered, max-width bar for the PA Explorer chat
+//   hero    — tall entry composer on the PA empty state
 
 // --- Shared editor surface ---------------------------------------------------
 
@@ -20,8 +21,6 @@
     line-height: 20px;
     color: var(--gray-12);
     padding: 6px 0;
-    // 6 rows + the padding above, matching the textarea's old maxRows.
-    max-height: 132px;
     overflow-y: auto;
 
     p {
@@ -63,20 +62,29 @@
 
 // --- Shared box --------------------------------------------------------------
 
-// Holds the editor and the send button. Bottom-aligned so the button sits at
-// the base of the box as the editor grows, rather than drifting to the middle.
+// Common to every variant: anchors the @-mention popup, which sits directly
+// above the composer.
 .box {
-  display: flex;
-  align-items: flex-end;
-  gap: 6px;
-  width: 100%;
-  // Anchors the @-mention popup, which sits directly above the composer.
   position: relative;
-  // Reduced on the right so the button sits close to the edge.
-  padding: 4px 4px 4px 12px;
+  width: 100%;
   transition:
     border-color 120ms ease,
     box-shadow 120ms ease;
+}
+
+// The single-line-ish variants (compact, wide) sit the button beside the
+// editor, bottom-aligned so it stays put as the editor grows.
+.inlineBox {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  // Reduced on the right so the button sits close to the edge.
+  padding: 4px 4px 4px 12px;
+
+  // 6 rows + the editor's own padding, matching the textarea's old maxRows.
+  .editor :global(.ProseMirror) {
+    max-height: 132px;
+  }
 }
 
 // --- Compact variant ---------------------------------------------------------
@@ -119,6 +127,35 @@
 
 .wideBoxFocused {
   box-shadow: 0 0 0 1px var(--violet-8);
+}
+
+// --- Hero variant ------------------------------------------------------------
+
+// The tall entry composer on the PA empty state. The button is absolutely
+// positioned rather than a flex sibling so the box keeps the roomy bottom
+// padding it had as a `<Field textarea>`.
+.heroBox {
+  padding: 16px 16px 40px;
+  // 8 rows, matching the textarea's old maxRows. The min comes from `minRows`,
+  // set inline by the component.
+  .editor :global(.ProseMirror) {
+    max-height: 160px;
+  }
+
+  border: 1px solid var(--gray-a7);
+  border-radius: var(--radius-5);
+  background-color: var(--color-surface);
+}
+
+.heroBoxFocused {
+  box-shadow: 0 0 0 1px var(--violet-8);
+}
+
+.heroSendButton {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 1;
 }
 
 // --- Buttons -----------------------------------------------------------------
