@@ -62,7 +62,7 @@ You only need to configure `GB_API_KEY` and `GB_EMAIL`.
 2. Click **Add new global MCP server**
 3. Add an entry for the GrowthBook MCP, following the pattern below:
 
-   <CodeGroup>
+<CodeGroup>
 ```json macOS
 {
   "mcpServers": {
@@ -80,58 +80,58 @@ You only need to configure `GB_API_KEY` and `GB_EMAIL`.
 }
 ```
 
-   ```json Windows
-   {
-     "mcpServers": {
-       "growthbook": {
-         "command": "cmd",
-         "args": ["/c", "npx", "-y", "@growthbook/mcp@latest"],
-         "env": {
-           "GB_API_KEY": "YOUR_API_KEY",
-           "GB_API_URL": "YOUR_API_URL",
-           "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-           "GB_EMAIL": "YOUR_EMAIL"
-         }
-       }
-     }
-   }
-   ```
+```json Windows
+{
+  "mcpServers": {
+    "growthbook": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@growthbook/mcp@latest"],
+      "env": {
+        "GB_API_KEY": "YOUR_API_KEY",
+        "GB_API_URL": "YOUR_API_URL",
+        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
+        "GB_EMAIL": "YOUR_EMAIL"
+      }
+    }
+  }
+}
+```
 
-   ```json WSL
-   {
-     "mcpServers": {
-       "growthbook": {
-         "command": "wsl",
-         "args": ["npx", "-y", "@growthbook/mcp@latest"],
-         "env": {
-           "GB_API_KEY": "YOUR_API_KEY",
-           "GB_API_URL": "YOUR_API_URL",
-           "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-           "GB_EMAIL": "YOUR_EMAIL"
-         }
-       }
-     }
-   }
-   ```
+```json WSL
+{
+  "mcpServers": {
+    "growthbook": {
+      "command": "wsl",
+      "args": ["npx", "-y", "@growthbook/mcp@latest"],
+      "env": {
+        "GB_API_KEY": "YOUR_API_KEY",
+        "GB_API_URL": "YOUR_API_URL",
+        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
+        "GB_EMAIL": "YOUR_EMAIL"
+      }
+    }
+  }
+}
+```
 
-   ```json Linux
-   {
-     "mcpServers": {
-       "growthbook": {
-         "command": "npx",
-         "args": ["-y", "@growthbook/mcp@latest"],
-         "env": {
-           "GB_API_KEY": "YOUR_API_KEY",
-           "GB_API_URL": "YOUR_API_URL",
-           "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-           "GB_EMAIL": "YOUR_EMAIL"
-         }
-       }
-     }
-   }
-   ```
+```json Linux
+{
+  "mcpServers": {
+    "growthbook": {
+      "command": "npx",
+      "args": ["-y", "@growthbook/mcp@latest"],
+      "env": {
+        "GB_API_KEY": "YOUR_API_KEY",
+        "GB_API_URL": "YOUR_API_URL",
+        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
+        "GB_EMAIL": "YOUR_EMAIL"
+      }
+    }
+  }
+}
+```
 
-   </CodeGroup>
+</CodeGroup>
 
 4. Save the settings.
 
@@ -144,7 +144,7 @@ You should now see a green active status after the server successfully connects!
 1. Open **User Settings (JSON)**
 2. Add an MCP entry:
 
-   <CodeGroup>
+<CodeGroup>
 ```json macOS
 {
   "servers": {
@@ -162,58 +162,58 @@ You should now see a green active status after the server successfully connects!
 }
 ```
 
-   ```json Windows
-   {
-     "servers": {
-       "growthbook": {
-         "command": "cmd",
-         "args": ["/c", "npx", "-y", "@growthbook/mcp@latest"],
-         "env": {
-           "GB_API_KEY": "YOUR_API_KEY",
-           "GB_API_URL": "YOUR_API_URL",
-           "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-           "GB_EMAIL": "YOUR_EMAIL"
-         }
-       }
-     }
-   }
-   ```
+```json Windows
+{
+  "servers": {
+    "growthbook": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@growthbook/mcp@latest"],
+      "env": {
+        "GB_API_KEY": "YOUR_API_KEY",
+        "GB_API_URL": "YOUR_API_URL",
+        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
+        "GB_EMAIL": "YOUR_EMAIL"
+      }
+    }
+  }
+}
+```
 
-   ```json WSL
-   {
-     "servers": {
-       "growthbook": {
-         "command": "wsl",
-         "args": ["npx", "-y", "@growthbook/mcp@latest"],
-         "env": {
-           "GB_API_KEY": "YOUR_API_KEY",
-           "GB_API_URL": "YOUR_API_URL",
-           "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-           "GB_EMAIL": "YOUR_EMAIL"
-         }
-       }
-     }
-   }
-   ```
+```json WSL
+{
+  "servers": {
+    "growthbook": {
+      "command": "wsl",
+      "args": ["npx", "-y", "@growthbook/mcp@latest"],
+      "env": {
+        "GB_API_KEY": "YOUR_API_KEY",
+        "GB_API_URL": "YOUR_API_URL",
+        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
+        "GB_EMAIL": "YOUR_EMAIL"
+      }
+    }
+  }
+}
+```
 
-   ```json Linux
-   {
-     "servers": {
-       "growthbook": {
-         "command": "npx",
-         "args": ["-y", "@growthbook/mcp@latest"],
-         "env": {
-           "GB_API_KEY": "YOUR_API_KEY",
-           "GB_API_URL": "YOUR_API_URL",
-           "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-           "GB_EMAIL": "YOUR_EMAIL"
-         }
-       }
-     }
-   }
-   ```
+```json Linux
+{
+  "servers": {
+    "growthbook": {
+      "command": "npx",
+      "args": ["-y", "@growthbook/mcp@latest"],
+      "env": {
+        "GB_API_KEY": "YOUR_API_KEY",
+        "GB_API_URL": "YOUR_API_URL",
+        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
+        "GB_EMAIL": "YOUR_EMAIL"
+      }
+    }
+  }
+}
+```
 
-   </CodeGroup>
+</CodeGroup>
 
 3. Save your settings. In your file, a **Start** button will appear. Click it to the start the server.
 

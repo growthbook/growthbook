@@ -329,7 +329,7 @@ To set up Auto Slices:
 
 1. Navigate to your Fact Table that has the metrics and the columns by which you want to slice. Ensure the Fact Table SQL is returning the relevant column. If it isn't you can click "Edit SQL" on the Fact Table page, add your column (e.g. `product_type`) to the SELECT statement, and then press "Confirm Changes". Only **string** and **boolean** columns can be used.
 
-   <Frame>
+<Frame>
   <img src="/static/images/metrics/metric-dim-config.png" alt="Configuring a column for metric slicing" width="700" />
 </Frame>
 
@@ -337,9 +337,9 @@ To set up Auto Slices:
    - For **string** columns, add the slices you want to split your metric by. We run a query to populate the top values for you, and you can update the values found in the data by clicking the "Refresh" button. Slice values here could be "apparel", "equipment", and more. An "other" slice will also be shown if any metric value is attributed to values outside of your selected slices. You can have these levels automatically refresh over time by enabling [auto-update slice levels](#auto-update-slice-levels).
    - For **boolean** columns, no other slice configuration is necessary—both "true" and "false" slices will be generated. A "null" slice will also be shown for nullable columns if any metric value is attributed to "null".
 
-    <Frame>
-   <img src="/static/images/metrics/metric-dim-levels.png" alt="Configuring slice levels" width="350" />
- </Frame>
+<Frame>
+  <img src="/static/images/metrics/metric-dim-levels.png" alt="Configuring slice levels" width="350" />
+</Frame>
 
 3. Scroll down to the list of Fact Metrics, or navigate to a Fact Metric from this Fact Table.
 4. Click "Edit" and select your slices you want to apply to that metric for all experiments.
