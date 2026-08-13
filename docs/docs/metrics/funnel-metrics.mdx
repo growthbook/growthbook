@@ -26,7 +26,26 @@ This is the most important thing to know about funnel metrics: **each step is me
 
 If 1,000 units are exposed to a variation and 400 view a product, 120 add to cart, and 60 purchase, the three steps report 40%, 12%, and 6%. They do not report 40%, 30%, and 50%.
 
-That choice keeps every step statistically comparable to every other metric in your experiment. Each step is an ordinary proportion metric over the same denominator, so its lift, confidence interval, and chance to win mean exactly what they mean everywhere else. Step-to-step conversion rates are still available in the [funnel chart](/app/experiment-results#funnel-metric-results) in the metric drilldown.
+That choice is critical for deriving the correct interpretation from your results. Using the conversion total from the previous step as the denominator for your next step will mislead most experimenters, because it carries forward the indirect effect of the last step into the current step's analysis.
+
+**Example: why step-to-step conversion rates can mislead**
+
+Suppose you run an experiment on a two-step funnel: Add to Cart -> Purchase, with 1,000 users in each variation. Imagine we know the true effect: the treatment brings in many new, lower-intent cart-adders, but checkout rates are unchanged by this experiment (low-intent users still checkout at the same rates as before and high-intent users still checkout at the same rates as before.
+
+
+| Metric                        | Control     | Treatment   |
+| ----------------------------- | ----------- | ----------- |
+| Users assigned                | 1,000       | 1,000       |
+| Added to cart                 | 200 (20%)   | 400 (40%)   |
+| Purchased                     | 100         | 140         |
+| Cart → Purchase rate (conditional)          | 50%         | 35%         |
+| Assignment → Purchase rate (unconditional) | 10%     | 14%     |
+
+The step-to-step, conditional conversion rate (Cart → Purchase) fell from 50% to 35% so it looks like the treatment hurt checkout. But nothing about checkout changed. The control arm's carts were 200 high-intent shoppers; the treatment arm added 200 casual browsers who convert at ~20%, dragging the average down. Reading the 50% -> 35% drop as "checkout got worse" conflates the treatment's effect on who reaches the cart with its effect on checkout itself.
+
+The last row is what GrowthBook would represent as the second step conversion rate and it tells the true story in this case: purchases per assigned user rose from 10% to 14%. That comparison is safe because randomization guarantees the two groups of 1,000 are comparable, comparing the groups of cart-adders are not. This is an example of the well known "post-treatment bias" problem, and is akin to what happens when sample ratio mismatch is a sign of assignment bias.
+
+Step-to-step conversion rates are still available in the [funnel chart](/app/experiment-results#funnel-metric-results) in the metric drilldown, but we do not currently provide them as a top-level metric with the confidence intervals and statistics used for decision making. Those are reserved for the safer, unconditional conversion rates.
 
 The metric's own value is the share of exposed units who reach the **last** step, which is your end-to-end completion rate.
 
