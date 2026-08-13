@@ -493,7 +493,7 @@ export default {
   },
   rust: {
     name: "Rust SDK",
-    version: "0.2.0",
+    version: "0.2.1",
     github: "https://github.com/growthbook/growthbook-rust",
     examples: [
       {
@@ -770,7 +770,7 @@ export default {
   },
   swift: {
     name: "Swift SDK",
-    version: "1.1.12",
+    version: "1.1.14",
     github: "https://github.com/growthbook/growthbook-swift",
     examples: [],
     packageRepos: [
