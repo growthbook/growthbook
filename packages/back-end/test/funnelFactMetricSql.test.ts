@@ -46,9 +46,16 @@ const ordersFactTable = factTableFactory.build({
   sql: "SELECT user_id, timestamp, amount FROM orders",
 });
 
+const refundsFactTable = factTableFactory.build({
+  id: "refunds",
+  name: "Refunds",
+  sql: "SELECT user_id, timestamp, amount FROM refunds",
+});
+
 const factTableMap = new Map([
   [eventsFactTable.id, eventsFactTable],
   [ordersFactTable.id, ordersFactTable],
+  [refundsFactTable.id, refundsFactTable],
 ]);
 
 // @ts-expect-error -- context is not needed to read `.datasource`
@@ -150,6 +157,11 @@ function buildSql(
   );
 }
 
+/** Collapses the generated SQL's whitespace so assertions can span clauses. */
+function flatten(sql: string): string {
+  return sql.replace(/\s+/g, " ").trim();
+}
+
 const threeStepFunnel = buildFunnelMetric({
   steps: [
     buildStep("view"),
@@ -164,22 +176,29 @@ const threeStepFunnel = buildFunnelMetric({
   concurrencyWindowSeconds: 300,
 });
 
+const crossFactTableFunnel = buildFunnelMetric({
+  id: "fact__cross_funnel",
+  steps: [
+    buildStep("view"),
+    buildStep("purchase", {
+      factTableId: "orders",
+      rowFilters: [],
+      conversionWindow: { unit: "days", value: 1 },
+    }),
+  ],
+});
+
 describe("funnel fact metric SQL", () => {
   it("matches the BigQuery snapshot", () => {
     expect(
-      format(
-        buildSql([threeStepFunnel]).replace(/\s+/g, " ").trim(),
-        "bigquery",
-      ),
+      format(flatten(buildSql([threeStepFunnel])), "bigquery"),
     ).toMatchSnapshot();
   });
 
   it("matches the Redshift snapshot", () => {
     expect(
       format(
-        buildSql([threeStepFunnel], redshiftDialect, "redshift")
-          .replace(/\s+/g, " ")
-          .trim(),
+        flatten(buildSql([threeStepFunnel], redshiftDialect, "redshift")),
         "redshift",
       ),
     ).toMatchSnapshot();
@@ -322,5 +341,63 @@ describe("funnel fact metric SQL", () => {
     expect(() => buildSql([threeStepFunnel], bigQueryDialect, "mysql")).toThrow(
       /not supported for mysql/,
     );
+  });
+
+  describe("steps spanning several fact tables", () => {
+    it("matches the BigQuery snapshot", () => {
+      expect(
+        format(flatten(buildSql([crossFactTableFunnel])), "bigquery"),
+      ).toMatchSnapshot();
+    });
+
+    it("reads each step's timestamps from its own fact table", () => {
+      const sql = flatten(buildSql([crossFactTableFunnel]));
+
+      const eventsCte = sql.slice(
+        sql.indexOf("__factTable as ("),
+        sql.indexOf("__factTable1 as ("),
+      );
+      const ordersCte = sql.slice(sql.indexOf("__factTable1 as ("));
+
+      expect(eventsCte).toContain("m0_step_0_ts");
+      expect(eventsCte).not.toContain("m0_step_1_ts");
+      expect(ordersCte).toContain("m0_step_1_ts");
+      expect(ordersCte).toContain("FROM orders");
+    });
+
+    it("gathers every step onto one row per unit before resolving", () => {
+      const sql = flatten(buildSql([crossFactTableFunnel]));
+
+      // Step 1's candidates live in the orders per-user aggregate, so
+      // resolution can only run after both aggregates are joined.
+      expect(sql).toMatch(
+        /__funnelUsers AS \([\s\S]*m1\.m0_step_1_arr[\s\S]*LEFT JOIN __userMetricAgg1 m1/,
+      );
+      expect(sql).toMatch(/FROM __funnelUsers r/);
+      expect(sql).toContain("LEFT JOIN __funnelMetric fm");
+    });
+
+    it("labels the query with every fact table it reads", () => {
+      expect(buildSql([crossFactTableFunnel])).toContain(
+        "Cross-Fact Table Metrics: Events & Orders",
+      );
+    });
+
+    it("supports funnels spanning more than two fact tables", () => {
+      const sql = flatten(
+        buildSql([
+          buildFunnelMetric({
+            steps: [
+              buildStep("view"),
+              buildStep("purchase", { factTableId: "orders", rowFilters: [] }),
+              buildStep("refund", { factTableId: "refunds", rowFilters: [] }),
+            ],
+          }),
+        ]),
+      );
+
+      expect(sql).toContain("__factTable2 as (");
+      expect(sql).toContain("LEFT JOIN __userMetricAgg2 m2");
+    });
   });
 });

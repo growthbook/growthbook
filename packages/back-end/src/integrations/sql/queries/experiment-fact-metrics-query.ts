@@ -22,9 +22,11 @@ import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/
 import { getExperimentUnitsQuery } from "back-end/src/integrations/sql/queries/experiment-units-query";
 import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
 import {
-  FunnelMetricForResolution,
+  FunnelMetricSteps,
+  FunnelMetricWithSources,
   getFunnelResolutionCTEs,
   getFunnelUserMetricAggColumns,
+  getFunnelUsersCTE,
 } from "back-end/src/integrations/sql/ctes/funnel-resolution-cte";
 import { funnelStepTimestampColumn } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
 import { getFactMetricQuantileData } from "back-end/src/integrations/sql/columns/fact-metric-quantile-data";
@@ -83,8 +85,6 @@ export function getExperimentFactMetricsQuery(
     factTableMap,
   );
 
-  const factTable = factTablesWithIndices[0]?.factTable;
-
   const factTableLabel = `${
     factTablesWithIndices.length === 1
       ? `Fact Table`
@@ -129,7 +129,10 @@ export function getExperimentFactMetricsQuery(
   );
 
   // Get any required identity join queries
-  const idTypeObjects = [[userIdType], factTable.userIdTypes || []];
+  const idTypeObjects = [
+    [userIdType],
+    ...factTablesWithIndices.map((f) => f.factTable.userIdTypes || []),
+  ];
   // add idTypes usually handled in units query here in the case where
   // we don't have a separate table for the units query
   if (params.unitsSource === "exposureQuery") {
@@ -229,6 +232,21 @@ export function getExperimentFactMetricsQuery(
     );
   }
 
+  const funnelMetricsWithSources: FunnelMetricWithSources[] =
+    metricData.flatMap((d) =>
+      isFactFunnelMetric(d.metric)
+        ? [
+            {
+              metric: d.metric,
+              alias: d.alias,
+              stepSourceIndices: d.funnelStepSourceIndices,
+            },
+          ]
+        : [],
+    );
+  const funnelUsersTable = "__funnelUsers";
+  const funnelMetricTable = "__funnelMetric";
+
   const regressionAdjustedMetrics = metricData.filter(
     (m) => m.regressionAdjusted,
   );
@@ -303,20 +321,19 @@ export function getExperimentFactMetricsQuery(
             d.numeratorSourceIndex === f.index,
         );
 
-        const funnelMetrics: FunnelMetricForResolution[] = metricData.flatMap(
-          (d) =>
-            isFactFunnelMetric(d.metric) && d.numeratorSourceIndex === f.index
-              ? [{ metric: d.metric, alias: d.alias }]
-              : [],
-        );
-        // The funnel resolution chain sits between the per-user aggregate and
-        // everything downstream, so when it is present the per-user aggregate
-        // moves to a private name and the chain's terminal CTE takes over
-        // `__userMetricAgg`. Its terminal projects `r.*`, so consumers that
-        // only care about non-funnel columns are unaffected.
-        const perUserAggTableName = funnelMetrics.length
-          ? `__userMetricAggSteps${suffix}`
-          : userMetricAggTable;
+        // Only the steps this fact table hosts. A funnel whose steps span
+        // several tables contributes candidates to each of them, and they are
+        // stitched back together in __funnelUsers after this loop.
+        const funnelMetrics: FunnelMetricSteps[] = metricData.flatMap((d) => {
+          if (!isFactFunnelMetric(d.metric)) return [];
+          const stepIndices = d.funnelStepSourceIndices.flatMap(
+            (sourceIndex, stepIndex) =>
+              sourceIndex === f.index ? [stepIndex] : [],
+          );
+          return stepIndices.length
+            ? [{ metric: d.metric, alias: d.alias, stepIndices }]
+            : [];
+        });
         const hasKllMerge = factTableKllMergeMetrics.length > 0;
         const hasEventQuantile = eventQuantileData.length > 0;
         const hasNonKllEventQuantile = eventQuantileData.some(
@@ -363,9 +380,12 @@ export function getExperimentFactMetricsQuery(
             ${banditDates?.length ? `, umj.bandit_period` : ""}
             , umj.${baseIdType}
             ${
-              // Funnel metrics still need access to the exposure timestamp
-              // to resolve funnel steps.
-              funnelMetrics.length ? `, MIN(umj.timestamp) AS timestamp` : ""
+              // __funnelUsers drives off source 0, which holds every exposed
+              // unit, and reads the exposure timestamp funnel steps resolve
+              // against from there.
+              funnelMetricsWithSources.length && f.index === 0
+                ? `, MIN(umj.timestamp) AS timestamp`
+                : ""
             }
             ${metricData
               .map((data) => {
@@ -531,10 +551,9 @@ export function getExperimentFactMetricsQuery(
               )} AS ${data.alias}_value`,
           )
           .join("\n");
-        const userMetricAggCte =
-          (hasKllMerge
-            ? `
-      , ${perUserAggTableName} as (
+        const userMetricAggCte = hasKllMerge
+          ? `
+      , ${userMetricAggTable} as (
         SELECT base.* ${kllMergeResolutionCols}
         FROM ${userMetricAggBaseTable} base
         LEFT JOIN ${eventQuantileMetricTable} qm
@@ -542,17 +561,8 @@ export function getExperimentFactMetricsQuery(
           .map((c) => `AND qm.${c.alias} = base.${c.alias}`)
           .join("\n")})
       )`
-            : `
-      , ${perUserAggTableName} as (${perUserAggSelect})`) +
-          (funnelMetrics.length
-            ? getFunnelResolutionCTEs(dialect, {
-                funnelMetrics,
-                sourceTableName: perUserAggTableName,
-                terminalTableName: userMetricAggTable,
-                resolveTablePrefix: `__funnelResolve${suffix}_`,
-                exposureColumn: "timestamp",
-              })
-            : "");
+          : `
+      , ${userMetricAggTable} as (${perUserAggSelect})`;
 
         // CTE order depends on the dependency graph:
         //   - eqmReadsFromBase (KLL only): join → base → eqm → agg
@@ -642,25 +652,31 @@ export function getExperimentFactMetricsQuery(
                     : ""
                 }
                 ${
-                  isFactFunnelMetric(data.metric) &&
-                  data.numeratorSourceIndex === f.index
+                  isFactFunnelMetric(data.metric)
                     ? data.metric.funnelSettings.steps
-                        .map((_step, stepIndex) => {
+                        .flatMap((_step, stepIndex) => {
+                          if (
+                            data.funnelStepSourceIndices[stepIndex] !== f.index
+                          ) {
+                            return [];
+                          }
                           const col = funnelStepTimestampColumn(
                             data.alias,
                             stepIndex,
                           );
                           // This case when applies the overall conversion window.
                           // Step-specific conversion windows are applied later.
-                          return `, ${addCaseWhenTimeFilter(dialect, {
-                            col: `m.${col}`,
-                            metric: data.metric,
-                            overrideConversionWindows:
-                              data.overrideConversionWindows,
-                            endDate: settings.endDate,
-                            metricTimestampColExpr: "m.timestamp",
-                            exposureTimestampColExpr: "d.timestamp",
-                          })} as ${col}`;
+                          return [
+                            `, ${addCaseWhenTimeFilter(dialect, {
+                              col: `m.${col}`,
+                              metric: data.metric,
+                              overrideConversionWindows:
+                                data.overrideConversionWindows,
+                              endDate: settings.endDate,
+                              metricTimestampColExpr: "m.timestamp",
+                              exposureTimestampColExpr: "d.timestamp",
+                            })} as ${col}`,
+                          ];
                         })
                         .join("\n")
                     : ""
@@ -720,6 +736,28 @@ export function getExperimentFactMetricsQuery(
       })
       .join("\n")}    
     ${
+      // Funnel resolution runs once per query rather than once per fact table:
+      // a funnel's steps can be spread across several tables, and a step can
+      // only be windowed against a predecessor after every candidate timestamp
+      // has been gathered into one row per unit.
+      funnelMetricsWithSources.length
+        ? getFunnelUsersCTE({
+            funnelMetrics: funnelMetricsWithSources,
+            tableName: funnelUsersTable,
+            perUserAggTableName: "__userMetricAgg",
+            baseIdType,
+            exposureColumn: "timestamp",
+          }) +
+          getFunnelResolutionCTEs(dialect, {
+            funnelMetrics: funnelMetricsWithSources,
+            sourceTableName: funnelUsersTable,
+            terminalTableName: funnelMetricTable,
+            resolveTablePrefix: "__funnelResolve_",
+            exposureColumn: "timestamp",
+          })
+        : ""
+    }
+    ${
       banditDates?.length
         ? getBanditStatisticsFactMetricCTE(dialect, {
             baseIdType,
@@ -739,6 +777,7 @@ export function getExperimentFactMetricsQuery(
       joinedMetricTableName: "__userMetricAgg",
       eventQuantileTableName: "__eventQuantileMetric",
       capValueTableName: "__capValue",
+      funnelMetricTableName: funnelMetricTable,
       factTablesWithIndices,
       percentileTableIndices,
     })}

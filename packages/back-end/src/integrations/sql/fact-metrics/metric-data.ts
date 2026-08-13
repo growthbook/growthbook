@@ -82,15 +82,23 @@ export function getMetricData(
   const isPercentileCapped = isPercentileCappedMetric(metric);
   const computeUncappedMetric = eligibleForUncappedMetric(metric);
 
-  const numeratorSourceIndex =
-    factTablesWithIndices.find(
-      // TODO(funnel): multi-fact table support for funnel metrics
-      (f) => f.factTable.id === getFactMetricPrimaryFactTableId(metric),
-    )?.index ?? 0;
-  const denominatorSourceIndex =
-    factTablesWithIndices.find(
-      (f) => f.factTable.id === metric.denominator?.factTableId,
-    )?.index ?? 0;
+  const sourceIndexForFactTable = (factTableId: string | undefined): number =>
+    factTablesWithIndices.find((f) => f.factTable.id === factTableId)?.index ??
+    0;
+
+  const numeratorSourceIndex = sourceIndexForFactTable(
+    getFactMetricPrimaryFactTableId(metric),
+  );
+  const denominatorSourceIndex = sourceIndexForFactTable(
+    metric.denominator?.factTableId,
+  );
+  // Funnel steps can each come from a different fact table, so a funnel isn't
+  // anchored to one source the way a numerator is.
+  const funnelStepSourceIndices = isFactFunnelMetric(metric)
+    ? metric.funnelSettings.steps.map((step) =>
+        sourceIndexForFactTable(step.factTableId),
+      )
+    : [];
   const numeratorAlias = `${numeratorSourceIndex === 0 ? "" : numeratorSourceIndex}`;
   const denominatorAlias = `${denominatorSourceIndex === 0 ? "" : denominatorSourceIndex}`;
   const capCoalesceMetric = capCoalesceValue(dialect, {
@@ -243,6 +251,7 @@ export function getMetricData(
     computeUncappedMetric,
     numeratorSourceIndex,
     denominatorSourceIndex,
+    funnelStepSourceIndices,
     capCoalesceMetric,
     capCoalesceDenominator,
     capCoalesceCovariate,

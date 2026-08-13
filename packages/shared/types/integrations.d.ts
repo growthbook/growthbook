@@ -136,6 +136,10 @@ export type FactMetricData = {
   computeUncappedMetric: boolean;
   numeratorSourceIndex: number;
   denominatorSourceIndex: number;
+  // One source index per funnel step, in step order. Empty for every other
+  // metric type. Steps can come from different fact tables, so a funnel spans
+  // as many sources as its steps do.
+  funnelStepSourceIndices: number[];
   capCoalesceMetric: string;
   capCoalesceDenominator: string;
   capCoalesceCovariate: string;

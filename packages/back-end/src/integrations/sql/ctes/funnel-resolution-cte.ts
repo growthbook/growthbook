@@ -18,6 +18,16 @@ export interface FunnelMetricForResolution {
   alias: string;
 }
 
+export interface FunnelMetricSteps extends FunnelMetricForResolution {
+  /** Steps this fact table hosts. Other steps come from other sources. */
+  stepIndices: number[];
+}
+
+export interface FunnelMetricWithSources extends FunnelMetricForResolution {
+  /** Source index per step, in step order. */
+  stepSourceIndices: number[];
+}
+
 /** Step 0 needs array + resolve CTE when its conversion window is relative to exposure. */
 export function funnelStep0NeedsExposureWindow(
   metric: FunnelFactMetricInterface,
@@ -26,7 +36,24 @@ export function funnelStep0NeedsExposureWindow(
 }
 
 /**
- * Per-user aggregate columns a funnel needs out of `__userMetricAgg`.
+ * Per-unit column carrying step k's candidate timestamps into resolution.
+ *
+ * Step 0 without a conversion window is anchored directly, so its per-unit
+ * aggregate is already the resolved timestamp. Every other step is resolved
+ * against a window, which needs the full sorted candidate list.
+ */
+function funnelStepUnitColumn(
+  metric: FunnelFactMetricInterface,
+  alias: string,
+  stepIndex: number,
+): string {
+  return stepIndex > 0 || funnelStep0NeedsExposureWindow(metric)
+    ? funnelStepArrayColumn(alias, stepIndex)
+    : funnelStepResolvedTsColumn(alias, 0);
+}
+
+/**
+ * Per-user aggregate columns for the funnel steps a single fact table hosts.
  *
  * Step 0 without a conversion window is anchored directly: its resolved
  * timestamp is the earliest matching event. Step 0 with a conversion window,
@@ -37,11 +64,11 @@ export function funnelStep0NeedsExposureWindow(
  */
 export function getFunnelUserMetricAggColumns(
   dialect: SqlDialect,
-  funnelMetrics: FunnelMetricForResolution[],
+  funnelMetrics: FunnelMetricSteps[],
 ): string {
   return funnelMetrics
-    .flatMap(({ metric, alias }) =>
-      metric.funnelSettings.steps.map((_step, stepIndex) => {
+    .flatMap(({ metric, alias, stepIndices }) =>
+      stepIndices.map((stepIndex) => {
         const ts = `umj.${funnelStepTimestampColumn(alias, stepIndex)}`;
         // All arrays share one ORDER BY expression (the raw event timestamp
         // projected by __userMetricJoin): each step column equals it whenever
@@ -55,6 +82,63 @@ export function getFunnelUserMetricAggColumns(
       }),
     )
     .join("\n");
+}
+
+/**
+ * One row per unit with every step's candidates, gathered from each fact table
+ * that hosts a step so resolution can run once over the whole funnel.
+ *
+ * Source 0 drives the join: it holds a row for every exposed unit (its
+ * per-user aggregate is built off `__distinctUsers`), and carries the exposure
+ * timestamp that exposure-relative windows anchor on.
+ */
+export function getFunnelUsersCTE({
+  funnelMetrics,
+  tableName,
+  perUserAggTableName,
+  baseIdType,
+  exposureColumn,
+}: {
+  funnelMetrics: FunnelMetricWithSources[];
+  tableName: string;
+  /** Per-source per-user aggregate; source i is suffixed with `i` (0 is bare). */
+  perUserAggTableName: string;
+  baseIdType: string;
+  exposureColumn: string;
+}): string {
+  const sourceAlias = (index: number) => `m${index === 0 ? "" : index}`;
+
+  const joinIndices = Array.from(
+    new Set(funnelMetrics.flatMap((f) => f.stepSourceIndices)),
+  )
+    .filter((index) => index !== 0)
+    .sort((a, b) => a - b);
+
+  const stepCols = funnelMetrics.flatMap(
+    ({ metric, alias, stepSourceIndices }) =>
+      metric.funnelSettings.steps.map((_step, stepIndex) => {
+        const col = funnelStepUnitColumn(metric, alias, stepIndex);
+        return `, ${sourceAlias(stepSourceIndices[stepIndex])}.${col} AS ${col}`;
+      }),
+  );
+
+  return `
+      , ${tableName} AS (
+        SELECT
+          m.${baseIdType} AS ${baseIdType}
+          , m.${exposureColumn} AS ${exposureColumn}
+          ${stepCols.join("\n          ")}
+        FROM ${perUserAggTableName} m
+        ${joinIndices
+          .map(
+            (index) => `LEFT JOIN ${perUserAggTableName}${index} ${sourceAlias(
+              index,
+            )} ON (
+          ${sourceAlias(index)}.${baseIdType} = m.${baseIdType}
+        )`,
+          )
+          .join("\n        ")}
+      )`;
 }
 
 /**
@@ -147,9 +231,9 @@ export function getFunnelResolutionCTEs(
     if (resolutionCols.length === 0) continue;
 
     const name = `${resolveTablePrefix}${stepIndex}`;
-    // `r.*` rather than an explicit column list: this chain sits in the middle
-    // of a query whose other metrics have their own per-user columns, and each
-    // CTE only ever adds names, never shadows them.
+    // `r.*` rather than an explicit column list: each CTE in the chain only
+    // ever adds names, never shadows them, so later steps can reference the
+    // resolved timestamps of every earlier one.
     ctes.push(`
       , ${name} AS (
         SELECT

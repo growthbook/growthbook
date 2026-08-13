@@ -24,6 +24,7 @@ export function getExperimentFactMetricStatisticsCTE(
     joinedMetricTableName,
     eventQuantileTableName,
     capValueTableName,
+    funnelMetricTableName,
     factTablesWithIndices,
     percentileTableIndices,
   }: {
@@ -34,11 +35,22 @@ export function getExperimentFactMetricStatisticsCTE(
     joinedMetricTableName: string;
     eventQuantileTableName: string;
     capValueTableName: string;
+    // Per-unit table holding the resolved funnel step values. Funnels resolve
+    // across every fact table their steps come from, so their columns live
+    // outside the per-source per-user aggregates.
+    funnelMetricTableName?: string;
     factTablesWithIndices: { factTable: FactTableInterface; index: number }[];
     percentileTableIndices: Set<number>;
   },
 ): string {
   const useArrayQuantileGrid = dialect.hasArrayQuantileGrid();
+  const funnelTableAlias = "fm";
+  const hasFunnelMetrics = metricData.some((d) => isFactFunnelMetric(d.metric));
+  if (hasFunnelMetrics && !funnelMetricTableName) {
+    throw new Error(
+      "ImplementationError: funnel metrics require a resolved funnel table",
+    );
+  }
   return `SELECT
         m.variation AS variation
         ${dimensionCols.map((c) => `, m.${c.alias} AS ${c.alias}`).join("")}
@@ -52,7 +64,7 @@ export function getExperimentFactMetricStatisticsCTE(
             ${data.metric.funnelSettings.steps
               .map(
                 (step, stepIndex) => `-- ${step.name}
-            , SUM(COALESCE(m.${funnelStepValueColumn(data.alias, stepIndex)}, 0)) AS ${funnelStepSumColumn(data.alias, stepIndex)}`,
+            , SUM(COALESCE(${funnelTableAlias}.${funnelStepValueColumn(data.alias, stepIndex)}, 0)) AS ${funnelStepSumColumn(data.alias, stepIndex)}`,
               )
               .join("\n            ")}
           `;
@@ -208,6 +220,13 @@ export function getExperimentFactMetricStatisticsCTE(
             .map((c) => `AND qm.${c.alias} = m.${c.alias}`)
             .join("\n")}
             )`
+            : ""
+        }
+        ${
+          hasFunnelMetrics
+            ? `LEFT JOIN ${funnelMetricTableName} ${funnelTableAlias} ON (
+          ${funnelTableAlias}.${baseIdType} = m.${baseIdType}
+        )`
             : ""
         }
       ${factTablesWithIndices
