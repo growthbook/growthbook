@@ -1072,6 +1072,11 @@ export async function persistContextualBanditEvent(
   );
 
   if (weightsWereUpdated) {
+    await refreshLinkedFeaturePayloads(
+      context,
+      updatedCb,
+      "contextualBandit.refresh",
+    );
     await context.auditLog({
       event: "contextualBandit.update",
       entity: {
@@ -1080,11 +1085,6 @@ export async function persistContextualBanditEvent(
       },
       details: auditDetailsUpdate(cb, updatedCb),
     });
-    await refreshLinkedFeaturePayloads(
-      context,
-      updatedCb,
-      "contextualBandit.refresh",
-    );
   }
 
   return cbe;
