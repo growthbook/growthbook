@@ -8,11 +8,8 @@ export type PaginationItem =
   | { type: "ellipsis"; side: "start" | "end" };
 
 export type PaginationModel = {
-  /** Integer >= 0. Non-finite or negative input degrades to 0. */
   pageCount: number;
-  /** Integer clamped to [1, max(pageCount, 1)]. */
   currentPage: number;
-  /** Constant length for a given pageCount: min(pageCount, SLOT_COUNT). */
   items: PaginationItem[];
 };
 
@@ -27,8 +24,7 @@ function getPageItems(start: number, end: number): PaginationItem[] {
   }));
 }
 
-// A gap hiding a single page renders that page instead, so the slot count stays
-// the same as when an ellipsis is needed.
+/** A 1-page gap renders that page so the slot count stays constant. */
 function getGapItems(
   side: "start" | "end",
   from: number,
@@ -65,8 +61,7 @@ export function getPaginationModel({
     };
   }
 
-  // Clamping the window so it slides toward the far side near an edge, rather
-  // than centering it on the current page, is what keeps the slot count constant.
+  // Slide the window toward the far edge instead of centering, so slot count stays constant.
   const start = Math.max(
     Math.min(
       currentPage - SIBLING_COUNT,
