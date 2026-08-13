@@ -22,7 +22,7 @@ import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
-import { kebabCase } from "lodash";
+import { cloneDeep, kebabCase } from "lodash";
 import { Box, Flex } from "@radix-ui/themes";
 import {
   CreateSafeRolloutInterface,
@@ -35,6 +35,7 @@ import {
 import {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
+  PutFeatureRuleConflict,
 } from "shared/types/feature-rule";
 import {
   FeatureRevisionInterface,
@@ -243,6 +244,17 @@ export default function RuleModal({
   // without an extra round-trip. The back-end preserves a truthy id sent by the client.
   const [pregenRuleId] = useState(() => uniqId("fr_"));
 
+  // Optimistic-concurrency pins, captured once at modal open. `feature` is
+  // reactive (a publish elsewhere revalidates it and advances feature.version
+  // under the open modal), so saves must target what the user actually loaded.
+  // The baseline rides the PUT; the server 409s if the rule changed since.
+  const [pinnedFeatureVersion] = useState(() => feature.version);
+  const [baselineRule] = useState<FeatureRule | undefined>(() =>
+    rule ? cloneDeep(rule) : undefined,
+  );
+  const [conflict, setConflict] = useState<PutFeatureRuleConflict | null>(null);
+  const [overwriteArmed, setOverwriteArmed] = useState(false);
+
   // Find any existing ramp schedule that already targets this specific rule.
   // Uses stem matching so environment-suffixed rule IDs (e.g. fr_abc__production)
   // still resolve to the same schedule as their bare stem (fr_abc).
@@ -357,11 +369,12 @@ export default function RuleModal({
     defaultDraft,
   );
 
-  // Determines which draft/revision to target in the API call.
+  // Determines which draft/revision to target in the API call. Uses the
+  // pinned version, not the reactive feature.version — see pin above.
   const targetVersion =
     draftMode === "existing" && selectedDraft !== null
       ? selectedDraft
-      : feature.version;
+      : pinnedFeatureVersion;
 
   // Holdout a newly-created experiment should join: the holdout of the draft the
   // rule is being added to (revision.holdout), not just the live feature's — so
@@ -1578,10 +1591,18 @@ export default function RuleModal({
               body: JSON.stringify({
                 rule: values,
                 ruleId,
+                ...(baselineRule && !overwriteArmed
+                  ? { baseline: { rule: baselineRule } }
+                  : {}),
                 ...(rampScheduleInline
                   ? { rampSchedule: rampScheduleInline }
                   : {}),
               } as PutFeatureRuleBody),
+            },
+            (responseData) => {
+              if (responseData?.status === 409 && responseData?.conflict) {
+                setConflict(responseData.conflict as PutFeatureRuleConflict);
+              }
             },
           );
         }
@@ -1937,16 +1958,54 @@ export default function RuleModal({
         }
         submit={submit}
         bodyPrefix={
-          <DraftSelectorForChanges
-            feature={feature}
-            revisionList={revisionList}
-            mode={draftMode}
-            setMode={setDraftMode}
-            selectedDraft={selectedDraft}
-            setSelectedDraft={setSelectedDraft}
-            canAutoPublish={false}
-            gatedEnvSet={gatedEnvSet}
-          />
+          <>
+            {conflict && !overwriteArmed && (
+              <Callout status="error" mb="3">
+                This rule was changed by someone else after you opened this
+                editor
+                {conflict.draftVersion
+                  ? " (in the draft you're saving to)"
+                  : conflict.currentRule
+                    ? " (and published)"
+                    : " (it no longer exists)"}
+                . Saving would replace their version with yours.
+                <Flex gap="3" mt="2">
+                  <Button
+                    color="red"
+                    variant="soft"
+                    onClick={() => setOverwriteArmed(true)}
+                  >
+                    Overwrite their version
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={async () => {
+                      await mutate();
+                      close();
+                    }}
+                  >
+                    Discard my changes
+                  </Button>
+                </Flex>
+              </Callout>
+            )}
+            {overwriteArmed && (
+              <Callout status="warning" mb="3">
+                Saving will now overwrite the other person&apos;s version of
+                this rule. Click Save to continue.
+              </Callout>
+            )}
+            <DraftSelectorForChanges
+              feature={feature}
+              revisionList={revisionList}
+              mode={draftMode}
+              setMode={setDraftMode}
+              selectedDraft={selectedDraft}
+              setSelectedDraft={setSelectedDraft}
+              canAutoPublish={false}
+              gatedEnvSet={gatedEnvSet}
+            />
+          </>
         }
       >
         {(ruleType === "force" || ruleType === "rollout") && (

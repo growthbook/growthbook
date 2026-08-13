@@ -90,6 +90,7 @@ import { Changeset, ExperimentInterface } from "shared/types/experiment";
 import {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
+  PutFeatureRuleConflict,
 } from "shared/types/feature-rule";
 import { getValidDate } from "shared/dates";
 import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
@@ -4398,14 +4399,37 @@ export async function putSafeRolloutStatus(
   });
 }
 
+// The baseline arrived via JSON and the current rule came from Mongo, so
+// normalize both through a JSON round-trip (drops undefined keys, stringifies
+// dates) before comparing.
+function rulesMatchBaseline(
+  baselineRule: FeatureRule,
+  currentRule: FeatureRule | null,
+): boolean {
+  if (!currentRule) return false;
+  return isEqual(
+    JSON.parse(JSON.stringify(baselineRule)),
+    JSON.parse(JSON.stringify(currentRule)),
+  );
+}
+
 export async function putFeatureRule(
   req: AuthRequest<PutFeatureRuleBody, { id: string; version: string }>,
-  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
+  res: Response<
+    | { status: 200; version: number }
+    | { status: 409; message: string; conflict: PutFeatureRuleConflict },
+    EventUserForResponseLocals
+  >,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
   const { id, version } = req.params;
-  const { rule, ruleId, rampSchedule: rampSchedulePayload } = req.body;
+  const {
+    rule,
+    ruleId,
+    baseline,
+    rampSchedule: rampSchedulePayload,
+  } = req.body;
 
   if (!ruleId) {
     throw new Error("Must provide ruleId to identify the rule");
@@ -4473,7 +4497,62 @@ export async function putFeatureRule(
     }
   }
 
-  const revision = await getDraftRevision(context, feature, parseInt(version));
+  // Resolve the target revision. The URL version is pinned by the client when
+  // the editor opens, so it may no longer be live (someone published) or the
+  // draft it named may have been published/discarded. With a baseline present
+  // we can handle that safely: conflict-check the rule and, if it hasn't
+  // actually changed, re-anchor to the current live. Without a baseline
+  // (legacy clients), keep the old behavior exactly.
+  const requestedVersion = parseInt(version);
+  let revision: FeatureRevisionInterface | null = null;
+  if (requestedVersion !== feature.version) {
+    const existing = await getRevision({
+      context,
+      organization: feature.organization,
+      featureId: feature.id,
+      feature,
+      version: requestedVersion,
+    });
+    if (
+      existing &&
+      (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(existing.status)
+    ) {
+      revision = existing;
+    } else if (!baseline) {
+      revision = await getDraftRevision(context, feature, requestedVersion);
+    }
+    // else: stale pin — fall through; the baseline check below runs against
+    // live, and on a match we fork off the current live version.
+  }
+
+  if (baseline) {
+    // The authoritative current copy of the rule: the target draft's (falling
+    // back to live for the stale-draft pull-from-live case below), or live's
+    // when this save is forking a new draft.
+    const liveRule = (feature.rules ?? []).find((r) => r.id === ruleId) ?? null;
+    const currentRule = revision
+      ? ((revision.rules ?? []).find((r) => r.id === ruleId) ?? liveRule)
+      : liveRule;
+    if (!rulesMatchBaseline(baseline.rule, currentRule)) {
+      return res.status(409).json({
+        status: 409,
+        message:
+          "This rule was changed by someone else after you loaded it. Review their version before saving.",
+        conflict: {
+          ruleId,
+          currentRule,
+          liveVersion: feature.version,
+          ...(revision ? { draftVersion: revision.version } : {}),
+        },
+      });
+    }
+  }
+
+  if (!revision) {
+    // Targeting live (or a pinned version that is no longer live but whose
+    // rule is unchanged): fork a draft off the CURRENT live version.
+    revision = await getDraftRevision(context, feature, feature.version);
+  }
 
   const existingRules = cloneDeep(revision.rules ?? []);
   let existingRule = existingRules.find((r) => r.id === ruleId);

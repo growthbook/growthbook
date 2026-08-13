@@ -76,11 +76,30 @@ export type PostFeatureRuleBody = {
   rampSchedule?: InlineRampScheduleCreate | InlineRampScheduleDetach;
 };
 
+// Returned with a 409 when a baseline check fails, so the client can show the
+// conflicting version and offer overwrite/discard.
+export type PutFeatureRuleConflict = {
+  ruleId: string;
+  // The rule as it exists right now in the target draft (or on live when the
+  // save was forking a new draft). Null when the rule was deleted.
+  currentRule: FeatureRule | null;
+  liveVersion: number;
+  // Set when the conflict is against a draft rather than live.
+  draftVersion?: number;
+};
+
 export type PutFeatureRuleBody = {
   rule: Partial<FeatureRule>;
   // Stable rule locator. Every rule in v2 has an id (assigned at creation
   // or via JIT migration on read), so app callers always send this.
   ruleId: string;
+  // Optimistic-concurrency baseline: the rule as the client loaded it when the
+  // editor opened. When present, the save is rejected (409 + PutFeatureRuleConflict)
+  // if the rule has since changed in the target draft or on live. Omitted by
+  // legacy clients and by explicit "overwrite" resubmits.
+  baseline?: {
+    rule: FeatureRule;
+  };
   rampSchedule?:
     | InlineRampScheduleCreate
     | InlineRampScheduleUpdate
