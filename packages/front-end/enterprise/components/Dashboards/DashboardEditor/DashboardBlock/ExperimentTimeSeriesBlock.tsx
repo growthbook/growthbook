@@ -4,7 +4,10 @@ import { MetricSnapshotSettings } from "shared/types/report";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { groupBy } from "lodash";
 import { getValidDate } from "shared/dates";
-import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  funnelStepMetricId,
+  getLatestPhaseVariations,
+} from "shared/experiments";
 import ExperimentMetricTimeSeriesGraphWrapper from "@/components/Experiment/ExperimentMetricTimeSeriesGraphWrapper";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
@@ -208,6 +211,12 @@ export default function ExperimentTimeSeriesBlock({
                         pValueAdjustmentEnabled={!!appliedPValueCorrection}
                         firstDateToRender={phaseStartDate}
                         sliceId={row.sliceId}
+                        funnelStepId={
+                          row.childRowType === "funnelStep" &&
+                          row.funnelStepIndex !== undefined
+                            ? funnelStepMetricId(metric.id, row.funnelStepIndex)
+                            : undefined
+                        }
                       />
                     )}
                   </div>
