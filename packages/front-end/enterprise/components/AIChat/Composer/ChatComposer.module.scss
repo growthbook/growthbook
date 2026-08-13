@@ -72,10 +72,10 @@
 
 .compactEditor :global(.ProseMirror) {
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 20px;
   color: var(--gray-12);
   padding: 6px 0;
-  // ~6 rows at the line-height above, matching the textarea's old maxRows.
+  // 6 rows + the padding above, matching the textarea's old maxRows.
   max-height: 132px;
   overflow-y: auto;
 }
@@ -99,7 +99,10 @@
   max-width: 800px;
   flex: 1;
   min-height: 36px;
-  padding: 4px 12px;
+  // 8px + one 20px line + 8px fills the 36px min-height exactly, so a single
+  // line sits centered without inflating line-height (which would space out
+  // every line in a multi-line message).
+  padding: 8px 12px;
   border: 1px solid var(--gray-a7);
   border-radius: var(--radius-2);
   background-color: var(--color-surface);
@@ -110,17 +113,27 @@
   box-shadow: 0 0 0 1px var(--violet-8);
 }
 
-// 28px line-height + the 4px padding above fills the 36px min-height exactly,
-// so a single line sits centered like the fixed-height input did.
+// Same 20px rhythm as the compact variant, so both composers space lines
+// identically. 6 rows + the field's vertical padding.
 .wideEditor :global(.ProseMirror) {
   font-size: var(--font-size-2);
-  line-height: 28px;
+  line-height: 20px;
   color: var(--gray-12);
-  max-height: 168px;
+  max-height: 136px;
   overflow-y: auto;
 }
 
 // --- Buttons -----------------------------------------------------------------
+
+// `@/ui/Button` wraps its children in a Radix `<Text>` span, so an icon passed
+// as a child lands on the text baseline and sits high in the button. Collapse
+// that line box and center the icon — the same correction the compact
+// variant's `svg { display: block }` makes below.
+.wideSendButton > span {
+  display: flex;
+  align-items: center;
+  line-height: 0;
+}
 
 .sendButton {
   display: inline-flex;

@@ -188,11 +188,22 @@ function ChatComposer(
         {editorNode}
       </div>
       {isLocalStream ? (
-        <Button onClick={onCancel} title="Cancel generation">
+        <Button
+          className={styles.wideSendButton}
+          onClick={onCancel}
+          title="Cancel generation"
+          aria-label="Cancel generation"
+        >
           <PiStop size={16} />
         </Button>
       ) : (
-        <Button onClick={onSend} disabled={!canSend}>
+        <Button
+          className={styles.wideSendButton}
+          onClick={onSend}
+          disabled={!canSend}
+          title="Send message"
+          aria-label="Send message"
+        >
           <PiArrowRightBold size={16} />
         </Button>
       )}
