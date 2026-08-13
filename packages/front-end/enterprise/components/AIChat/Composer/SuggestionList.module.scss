@@ -1,5 +1,6 @@
 // Anchored to the composer box (which is `position: relative`) rather than to
 // the caret, so it spans the composer and needs no positioning library.
+// Shared by the `@` mention menu and the `/` command menu.
 .popup {
   position: absolute;
   bottom: calc(100% + 6px);
@@ -40,8 +41,10 @@
   }
 }
 
+// Names are short; give them what they need and let the description truncate.
 .name {
-  flex: 1;
+  flex-shrink: 0;
+  max-width: 60%;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
@@ -51,7 +54,11 @@
 }
 
 .type {
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-size: var(--font-size-1);
   color: var(--gray-a11);
 }

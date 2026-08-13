@@ -33,6 +33,10 @@ router.post(
         // message and surfaced to the LLM as a `[Referenced metrics: …]`
         // prefix so it resolves names to ids without searching.
         mentions: aiChatMentionValidator.array().max(20).optional(),
+        // A skill invoked explicitly via a slash command. Its body is seeded
+        // into the turn as a completed `loadSkill` call. Unknown names are
+        // ignored server-side, so this needs no enum here.
+        skill: z.string().min(1).max(64).optional(),
         // Deterministic mutation-confirmation gate: when the user responds to
         // a parked mutation, the UI sends the action id and their decision so
         // the harness can replay or discard the exact stored call.
@@ -45,6 +49,8 @@ router.post(
 );
 
 router.get("/chat", agentController.listChats);
+
+router.get("/skills", agentController.listSkills);
 
 router.get(
   "/chat/:conversationId",

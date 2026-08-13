@@ -5,6 +5,7 @@ import TextNode from "@tiptap/extension-text";
 import HardBreak from "@tiptap/extension-hard-break";
 import {
   collectMentions,
+  collectSkill,
   editorToText,
   textToContent,
 } from "@/enterprise/components/AIChat/Composer/serialize";
@@ -13,8 +14,23 @@ import {
   filterMentionItems,
   type MentionItem,
 } from "@/enterprise/components/AIChat/Composer/extensions/metricMention";
+import {
+  SkillCommand,
+  filterSkillItems,
+  type SkillItem,
+} from "@/enterprise/components/AIChat/Composer/extensions/skillCommand";
 
-const EXTENSIONS = [Document, Paragraph, TextNode, HardBreak, MetricMention];
+const EXTENSIONS = [
+  Document,
+  Paragraph,
+  TextNode,
+  HardBreak,
+  MetricMention,
+  // Configured with its trigger char as the composer does: the node resolves
+  // its prefix from the extension's suggestion list, so an unconfigured
+  // instance would serialize commands with the default "@".
+  SkillCommand.configure({ suggestion: { char: "/" } }),
+];
 
 function makeEditor(content: string) {
   return new Editor({
@@ -146,6 +162,98 @@ describe("chat composer serialization", () => {
 
     it("returns nothing when no label matches", () => {
       expect(filterMentionItems(items, "zzz")).toEqual([]);
+    });
+  });
+
+  describe("slash commands", () => {
+    // Mirrors what the composer's `command` inserts, including the trigger
+    // char the node serializes with.
+    const skillNode = (id: string): JSONContent => ({
+      type: "skillCommand",
+      attrs: { id, label: id, mentionSuggestionChar: "/" },
+    });
+
+    it("serializes a command into the text as /name", () => {
+      const editor = makeMentionEditor([
+        skillNode("flag-create"),
+        { type: "text", text: " a dark mode flag" },
+      ]);
+      expect(editorToText(editor)).toBe("/flag-create a dark mode flag");
+      editor.destroy();
+    });
+
+    it("collects the invoked skill", () => {
+      const editor = makeMentionEditor([skillNode("flag-create")]);
+      expect(collectSkill(editor.state.doc)).toBe("flag-create");
+      editor.destroy();
+    });
+
+    it("honours only the first when two are present", () => {
+      const editor = makeMentionEditor([
+        skillNode("flag-create"),
+        { type: "text", text: " then " },
+        skillNode("flag-targeting"),
+      ]);
+      expect(collectSkill(editor.state.doc)).toBe("flag-create");
+      editor.destroy();
+    });
+
+    it("returns null when there is no command", () => {
+      const editor = makeEditor("just text");
+      expect(collectSkill(editor.state.doc)).toBeNull();
+      editor.destroy();
+    });
+
+    it("does not confuse a mention for a command", () => {
+      const editor = makeMentionEditor([
+        mentionNode("met_1", "Revenue", "metric"),
+      ]);
+      expect(collectSkill(editor.state.doc)).toBeNull();
+      editor.destroy();
+    });
+
+    it("does not confuse a command for a mention", () => {
+      const editor = makeMentionEditor([skillNode("flag-create")]);
+      expect(collectMentions(editor.state.doc)).toEqual([]);
+      editor.destroy();
+    });
+  });
+
+  describe("filterSkillItems", () => {
+    const items: SkillItem[] = [
+      {
+        id: "feature-flags",
+        label: "feature-flags",
+        description: "Read and modify flags",
+      },
+      {
+        id: "flag-targeting",
+        label: "flag-targeting",
+        description: "Targeting rules",
+      },
+      {
+        id: "experiments",
+        label: "experiments",
+        description: "Targeting an audience",
+      },
+    ];
+
+    it("ranks name matches above description matches", () => {
+      expect(filterSkillItems(items, "targeting").map((i) => i.id)).toEqual([
+        "flag-targeting",
+        "experiments",
+      ]);
+    });
+
+    it("matches on description when the name does not", () => {
+      expect(filterSkillItems(items, "modify").map((i) => i.id)).toEqual([
+        "feature-flags",
+      ]);
+    });
+
+    it("returns everything up to the limit for an empty query", () => {
+      expect(filterSkillItems(items, "")).toHaveLength(3);
+      expect(filterSkillItems(items, "", 2)).toHaveLength(2);
     });
   });
 

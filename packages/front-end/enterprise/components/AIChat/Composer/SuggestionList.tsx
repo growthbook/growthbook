@@ -1,29 +1,31 @@
 import { useEffect, useRef } from "react";
-import type { MentionItem } from "./extensions/metricMention";
-import styles from "./MentionList.module.scss";
+import styles from "./SuggestionList.module.scss";
 
-const TYPE_LABELS: Record<MentionItem["metricType"], string> = {
-  metric: "Metric",
-  factMetric: "Fact Metric",
-  metricGroup: "Metric Group",
-};
+/** A row in the popup, flattened from whichever kind of suggestion is open. */
+export interface SuggestionRow {
+  key: string;
+  primary: string;
+  secondary?: string;
+}
 
 /**
- * The @-mention popup. Purely presentational — the active index and the
- * keyboard handling live in `ChatComposer`, because the suggestion plugin
- * delivers key events to the editor, not to this list.
+ * The popup shared by the `@` and `/` menus. Purely presentational — the
+ * active index and the keyboard handling live in `ChatComposer`, because the
+ * suggestion plugin delivers key events to the editor, not to this list.
  *
  * Anchored above the composer rather than at the caret, which is what the
  * surrounding chat apps do and avoids pulling in a positioning library.
  */
-export default function MentionList({
+export default function SuggestionList({
   items,
   activeIndex,
   onSelect,
+  ariaLabel,
 }: {
-  items: MentionItem[];
+  items: SuggestionRow[];
   activeIndex: number;
-  onSelect: (item: MentionItem) => void;
+  onSelect: (index: number) => void;
+  ariaLabel: string;
 }) {
   const activeRef = useRef<HTMLButtonElement>(null);
 
@@ -35,10 +37,10 @@ export default function MentionList({
   if (!items.length) return null;
 
   return (
-    <div className={styles.popup} role="listbox" aria-label="Metrics">
+    <div className={styles.popup} role="listbox" aria-label={ariaLabel}>
       {items.map((item, i) => (
         <button
-          key={item.id}
+          key={item.key}
           ref={i === activeIndex ? activeRef : undefined}
           type="button"
           role="option"
@@ -46,10 +48,12 @@ export default function MentionList({
           className={`${styles.row}${i === activeIndex ? ` ${styles.rowActive}` : ""}`}
           // The editor still owns the selection, so a click must not blur it.
           onMouseDown={(e) => e.preventDefault()}
-          onClick={() => onSelect(item)}
+          onClick={() => onSelect(i)}
         >
-          <span className={styles.name}>{item.label}</span>
-          <span className={styles.type}>{TYPE_LABELS[item.metricType]}</span>
+          <span className={styles.name}>{item.primary}</span>
+          {item.secondary && (
+            <span className={styles.type}>{item.secondary}</span>
+          )}
         </button>
       ))}
     </div>

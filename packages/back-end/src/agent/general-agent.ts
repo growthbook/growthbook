@@ -71,6 +71,11 @@ How to use skills:
 - Pick the narrowest leaf that matches; only load multiple leaves if the
   request genuinely spans workflows (e.g. create flag then target it).
 - If no domain fits, ask the user to clarify. Do not invent endpoints.
+- The turn may already **open** with a completed \`loadSkill\` call you did not
+  make. That means the user picked that skill explicitly from the composer's
+  slash-command menu, so treat it as their stated intent: follow it rather than
+  routing to a different skill, and don't re-load it. If it's a domain router,
+  still \`loadSkill\` the leaf it points you to.
 
 # Page context
 
@@ -465,6 +470,9 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
   injectDatasourceHint: true,
 
   buildSystemPrompt: async () => buildGeneralAgentSystemPrompt(),
+
+  // Slash commands resolve against the same index the menu is built from.
+  resolveSkill: (name) => getSkillByName(name)?.body,
 
   buildTools: (ctx, buffer, _params, emit) => {
     const stripQueryStrings = (

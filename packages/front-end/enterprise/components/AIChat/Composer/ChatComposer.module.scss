@@ -27,14 +27,26 @@
       margin: 0;
     }
 
-    // The @-mention node. Reads as a chip so it's clearly one atomic token
-    // rather than typed text.
-    span[data-type="metricMention"] {
+    // Mention and slash-command nodes. Both read as chips so they're clearly
+    // atomic tokens rather than typed text; the command is tinted differently
+    // since it changes how the turn is handled, not just what it refers to.
+    span[data-type="metricMention"],
+    span[data-type="skillCommand"] {
       padding: 1px 4px;
       border-radius: var(--radius-2);
+      white-space: nowrap;
+    }
+
+    span[data-type="metricMention"] {
       background: var(--violet-a3);
       color: var(--violet-11);
-      white-space: nowrap;
+    }
+
+    span[data-type="skillCommand"] {
+      background: var(--gray-a4);
+      color: var(--gray-12);
+      font-family: var(--code-font-family, monospace);
+      font-size: 0.9em;
     }
 
     // Placeholder decoration: the extension tags the empty paragraph with

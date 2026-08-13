@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiX, PiPlus, PiArrowLineLeft, PiArrowLineRight } from "react-icons/pi";
-import type { AIChatMention, AIChatMessage } from "shared/ai-chat";
+import type { AIChatMessage } from "shared/ai-chat";
 import Markdown from "@/components/Markdown/Markdown";
 import Text from "@/ui/Text";
 import track from "@/services/track";
@@ -32,8 +32,10 @@ import { findToolCallPart } from "@/enterprise/hooks/useAIChat/pairAIChatToolMes
 import aiChatStyles from "@/enterprise/components/AIChat/AIChatPrimitives.module.scss";
 import ChatComposer, {
   type ChatComposerHandle,
+  type ComposerSubmission,
 } from "@/enterprise/components/AIChat/Composer/ChatComposer";
 import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
+import { useSkillCommandItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
 import AgentChatHistory from "./AgentChatHistory";
 import {
   type MessageTurn,
@@ -173,9 +175,11 @@ export default function AgentPanel({
   const pendingDecisionRef = useRef<ConfirmDecisionBody | null>(null);
   // Same one-shot pattern as the decision above: set just before sendMessage,
   // consumed by buildRequestBody so it rides along with exactly one request.
-  const pendingMentionsRef = useRef<AIChatMention[]>([]);
+  const pendingSubmissionRef = useRef<ComposerSubmission>({ mentions: [] });
 
   const mentionItems = useMetricMentionItems();
+  // Slash commands are agent-panel only — the PA chat's agent has no skills.
+  const skillItems = useSkillCommandItems();
 
   const {
     feedbackMap,
@@ -211,14 +215,15 @@ export default function AgentPanel({
     const dsId = datasourceIdRef.current;
     const decision = pendingDecisionRef.current;
     pendingDecisionRef.current = null;
-    const mentions = pendingMentionsRef.current;
-    pendingMentionsRef.current = [];
+    const { mentions, skill } = pendingSubmissionRef.current;
+    pendingSubmissionRef.current = { mentions: [] };
     return {
       message,
       conversationId: cid,
       ...(path ? { currentPage: path } : {}),
       ...(dsId ? { datasourceId: dsId } : {}),
       ...(mentions.length ? { mentions } : {}),
+      ...(skill ? { skill } : {}),
       ...(decision ?? {}),
     };
   }, []);
@@ -414,10 +419,10 @@ export default function AgentPanel({
   }, [defaultAIModel, messages.length]);
 
   const handleSend = useCallback(
-    (mentions: AIChatMention[] = []) => {
+    (submission: ComposerSubmission = { mentions: [] }) => {
       const text = input.trim();
       if (!text || loading) return;
-      pendingMentionsRef.current = mentions;
+      pendingSubmissionRef.current = submission;
       if (askPrompt && !askPrompt.resolved) {
         // Typing a free-text reply also resolves the active question.
         setAskPrompt({ ...askPrompt, resolved: true });
@@ -668,6 +673,7 @@ export default function AgentPanel({
         ref={composerRef}
         autoFocus
         mentionItems={mentionItems}
+        skillItems={skillItems}
         value={input}
         onChange={setInput}
         onSend={handleSend}

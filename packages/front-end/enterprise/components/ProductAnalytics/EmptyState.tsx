@@ -10,7 +10,6 @@ import {
   PiTable,
 } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import type { AIChatMention } from "shared/ai-chat";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import TextDivider from "@/components/TextDivider/TextDivider";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -27,6 +26,7 @@ import { useAISettings } from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import ChatComposer, {
   type ChatComposerHandle,
+  type ComposerSubmission,
 } from "@/enterprise/components/AIChat/Composer/ChatComposer";
 import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
 import { PA_AI_CHAT_INITIAL_MESSAGE_KEY } from "./util";
@@ -51,7 +51,7 @@ export default function EmptyState() {
   // The message isn't sent here — it's stashed and replayed by the chat page
   // after navigation, so the mentions have to travel with it.
   const handleSubmit = useCallback(
-    (mentions: AIChatMention[] = []) => {
+    ({ mentions }: ComposerSubmission = { mentions: [] }) => {
       const trimmed = input.trim();
       if (!trimmed) return;
       sessionStorage.setItem(

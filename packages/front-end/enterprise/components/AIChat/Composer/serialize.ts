@@ -2,6 +2,7 @@ import type { Editor, JSONContent } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { AIChatMention, AIChatMentionType } from "shared/ai-chat";
 import { METRIC_MENTION_NAME } from "./extensions/metricMention";
+import { SKILL_COMMAND_NAME } from "./extensions/skillCommand";
 
 /**
  * Conversion between the composer's editor document and the plain string the
@@ -57,4 +58,24 @@ export function collectMentions(doc: ProseMirrorNode): AIChatMention[] {
   });
 
   return mentions;
+}
+
+/**
+ * The skill invoked by a `/` command, or null.
+ *
+ * Only the first is honoured — a turn loads one skill, and silently picking the
+ * first is more predictable than picking the last if a user inserts two.
+ */
+export function collectSkill(doc: ProseMirrorNode): string | null {
+  let skill: string | null = null;
+
+  doc.descendants((node) => {
+    if (skill !== null) return false;
+    if (node.type.name !== SKILL_COMMAND_NAME) return;
+    const { id } = node.attrs;
+    if (typeof id === "string" && id) skill = id;
+    return;
+  });
+
+  return skill;
 }

@@ -91,6 +91,13 @@ export interface AgentConfig<TParams = unknown> {
     emit?: AgentEmit,
   ) => ToolSet;
 
+  /**
+   * Resolves a slash-command skill name to its body. Agents without skills
+   * (e.g. PA chat) leave this unset, which makes any `skill` on the body a
+   * no-op rather than an error.
+   */
+  resolveSkill?: (name: string) => string | undefined;
+
   temperature?: number;
   maxSteps?: number;
 
@@ -150,6 +157,12 @@ type AgentRequestBody = {
    * `toModelMessages`, so it resolves a name to an id without searching.
    */
   mentions?: AIChatMention[];
+  /**
+   * A skill the user invoked explicitly via a slash command. When the agent
+   * config can resolve it, its body is seeded into the turn as a completed
+   * `loadSkill` tool call so the model starts with it already in context.
+   */
+  skill?: string;
 } & Record<string, unknown>;
 
 type ErrorPart = Extract<AgentStreamPart, { type: "error" }>;
@@ -293,6 +306,11 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
         datasourceHint,
         body.mentions,
       );
+      // Seeded after the user message so the transcript reads in the order it
+      // happened: the user asked, then the skill was loaded.
+      if (typeof body.skill === "string" && config.resolveSkill) {
+        seedSkillLoad(buffer, emit, body.skill, config.resolveSkill);
+      }
     }
     buffer.setStreaming(true);
 
@@ -431,6 +449,68 @@ function appendUserMessage(
     ...(mentions && mentions.length ? { mentions } : {}),
   };
   buffer.appendMessages([userMessage]);
+}
+
+/**
+ * Seed an already-completed `loadSkill` call for a slash command.
+ *
+ * The user picked the skill explicitly, so there is nothing for the model to
+ * decide — replaying it as a synthetic tool-call/result pair (the same shape
+ * `resolvePendingAction` builds) puts the body in context without spending a
+ * turn on the round-trip, and the UI renders it as an ordinary tool step.
+ *
+ * An unknown name is ignored rather than surfaced: the menu is built from this
+ * same list, so a mismatch means a stale client, and failing the whole message
+ * over it would be worse than just letting the model route normally.
+ */
+function seedSkillLoad(
+  buffer: ConversationBuffer,
+  emit: AgentEmit,
+  name: string,
+  resolveSkill: (name: string) => string | undefined,
+): void {
+  const body = resolveSkill(name);
+  if (!body) {
+    logger.warn(`Ignoring unknown slash-command skill "${name}"`);
+    return;
+  }
+
+  const toolCallId = randomUUID();
+  const args = { name };
+
+  emit("tool-call-input", {
+    toolCallId,
+    toolName: "loadSkill",
+    input: serializeUnknownForSSE(args),
+  });
+  emit("tool-call-end", {
+    toolName: "loadSkill",
+    toolCallId,
+    input: serializeUnknownForSSE(args),
+    output: serializeUnknownForSSE(body),
+  });
+
+  buffer.appendMessages([
+    {
+      role: "assistant",
+      id: randomUUID(),
+      ts: Date.now(),
+      content: [{ type: "tool-call", toolCallId, toolName: "loadSkill", args }],
+    },
+    {
+      role: "tool",
+      id: randomUUID(),
+      ts: Date.now(),
+      content: [
+        {
+          type: "tool-result",
+          toolCallId,
+          toolName: "loadSkill",
+          result: stringifyToolResultForStorage(body),
+        },
+      ],
+    },
+  ]);
 }
 
 /**

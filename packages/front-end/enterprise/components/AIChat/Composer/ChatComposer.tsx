@@ -13,16 +13,28 @@ import HardBreak from "@tiptap/extension-hard-break";
 import { Placeholder, UndoRedo } from "@tiptap/extensions";
 import { Flex } from "@radix-ui/themes";
 import { PiArrowRightBold, PiStop } from "react-icons/pi";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { AIChatMention } from "shared/ai-chat";
 import Button from "@/ui/Button";
-import { collectMentions, editorToText, textToContent } from "./serialize";
+import {
+  collectMentions,
+  collectSkill,
+  editorToText,
+  textToContent,
+} from "./serialize";
 import {
   MetricMention,
   METRIC_MENTION_NAME,
   filterMentionItems,
   type MentionItem,
 } from "./extensions/metricMention";
-import MentionList from "./MentionList";
+import {
+  SkillCommand,
+  SKILL_COMMAND_NAME,
+  filterSkillItems,
+  type SkillItem,
+} from "./extensions/skillCommand";
+import SuggestionList, { type SuggestionRow } from "./SuggestionList";
 import styles from "./ChatComposer.module.scss";
 
 /**
@@ -34,12 +46,19 @@ export interface ChatComposerHandle {
   focus: () => void;
 }
 
+export interface ComposerSubmission {
+  /** Entities the user @-mentioned. */
+  mentions: AIChatMention[];
+  /** Skill invoked via `/`, if any. */
+  skill?: string;
+}
+
 export interface ChatComposerProps {
   value: string;
   /** Must be referentially stable — Tiptap binds this once, when the editor is created. */
   onChange: (value: string) => void;
-  /** Receives the entities @-mentioned in the message being sent. */
-  onSend: (mentions: AIChatMention[]) => void;
+  /** Receives what the composer resolved from the message being sent. */
+  onSend: (payload: ComposerSubmission) => void;
   onCancel: () => void;
   loading: boolean;
   isLocalStream: boolean;
@@ -64,6 +83,50 @@ export interface ChatComposerProps {
    * through the extension's storage, not captured at editor creation.
    */
   mentionItems?: MentionItem[];
+  /**
+   * Skills offered by the `/` menu. Leave unset to disable slash commands —
+   * which the PA chat does, since its agent has no skills.
+   */
+  skillItems?: SkillItem[];
+}
+
+type ActiveSuggestion =
+  | {
+      kind: "mention";
+      items: MentionItem[];
+      command: (item: MentionItem) => void;
+    }
+  | { kind: "skill"; items: SkillItem[]; command: (item: SkillItem) => void };
+
+const METRIC_TYPE_LABELS: Record<MentionItem["metricType"], string> = {
+  metric: "Metric",
+  factMetric: "Fact Metric",
+  metricGroup: "Metric Group",
+};
+
+/** Everything the composer resolves out of the document at send time. */
+function readSubmission(doc: ProseMirrorNode): ComposerSubmission {
+  const skill = collectSkill(doc);
+  return {
+    mentions: collectMentions(doc),
+    ...(skill ? { skill } : {}),
+  };
+}
+
+/** Flatten either suggestion kind into the popup's row shape. */
+function toRows(suggestion: ActiveSuggestion): SuggestionRow[] {
+  if (suggestion.kind === "mention") {
+    return suggestion.items.map((item) => ({
+      key: item.id,
+      primary: item.label,
+      secondary: METRIC_TYPE_LABELS[item.metricType],
+    }));
+  }
+  return suggestion.items.map((item) => ({
+    key: item.id,
+    primary: item.label,
+    secondary: item.description,
+  }));
 }
 
 function ChatComposer(
@@ -80,24 +143,32 @@ function ChatComposer(
     autoFocus = false,
     variant = "wide",
     mentionItems,
+    skillItems,
   }: ChatComposerProps,
   ref: React.ForwardedRef<ChatComposerHandle>,
 ) {
   const [focused, setFocused] = useState(false);
-  // Populated by the suggestion plugin while an `@` query is active. Null means
-  // no popup, which also lets Enter fall through to send.
-  const [mention, setMention] = useState<{
-    items: MentionItem[];
-    command: (item: MentionItem) => void;
-  } | null>(null);
-  const [mentionIndex, setMentionIndex] = useState(0);
-  const mentionOpen = mention !== null && mention.items.length > 0;
+  // Populated by whichever suggestion plugin has an active query. Null means no
+  // popup, which is also what lets Enter fall through to send. One piece of
+  // state for both triggers — only one can be open at a time.
+  const [suggestion, setSuggestion] = useState<ActiveSuggestion | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const rows = suggestion ? toRows(suggestion) : [];
+  const suggestionOpen = rows.length > 0;
 
-  // `MentionItem` is shaped as the node's attrs, so the stock Mention `command`
-  // can insert it directly.
-  const selectMention = useCallback(
-    (item: MentionItem) => mention?.command(item),
-    [mention],
+  const selectSuggestion = useCallback(
+    (index: number) => {
+      if (!suggestion) return;
+      // Narrowed per kind so each `command` gets the item type it expects.
+      if (suggestion.kind === "mention") {
+        const item = suggestion.items[index];
+        if (item) suggestion.command(item);
+      } else {
+        const item = suggestion.items[index];
+        if (item) suggestion.command(item);
+      }
+    },
+    [suggestion],
   );
 
   const editor = useEditor({
@@ -128,14 +199,73 @@ function ChatComposer(
             filterMentionItems(e.storage[METRIC_MENTION_NAME].items, query),
           render: () => ({
             onStart: (props) => {
-              setMention({ items: props.items, command: props.command });
-              setMentionIndex(0);
+              setSuggestion({
+                kind: "mention",
+                items: props.items,
+                command: props.command,
+              });
+              setActiveIndex(0);
             },
             onUpdate: (props) => {
-              setMention({ items: props.items, command: props.command });
-              setMentionIndex(0);
+              setSuggestion({
+                kind: "mention",
+                items: props.items,
+                command: props.command,
+              });
+              setActiveIndex(0);
             },
-            onExit: () => setMention(null),
+            onExit: () => setSuggestion(null),
+          }),
+        },
+      }),
+      SkillCommand.configure({
+        suggestion: {
+          char: "/",
+          // Only after a space or at the start, so a URL or a date in the
+          // message body doesn't pop the command menu open.
+          allowedPrefixes: [" "],
+          startOfLine: false,
+          items: ({ query, editor: e }) =>
+            filterSkillItems(e.storage[SKILL_COMMAND_NAME].items, query),
+          // The stock command spreads the whole item into attrs; a skill item
+          // carries display-only fields (description, group) that aren't
+          // attributes, so insert the node explicitly instead.
+          command: ({ editor: e, range, props }) => {
+            e.chain()
+              .focus()
+              .insertContentAt(range, [
+                {
+                  type: SKILL_COMMAND_NAME,
+                  // `mentionSuggestionChar` is what `renderText`/`renderHTML`
+                  // prefix with; without it the node serializes as "@name".
+                  attrs: {
+                    id: props.id,
+                    label: props.label,
+                    mentionSuggestionChar: "/",
+                  },
+                },
+                { type: "text", text: " " },
+              ])
+              .run();
+          },
+          render: () => ({
+            onStart: (props) => {
+              setSuggestion({
+                kind: "skill",
+                items: props.items,
+                command: props.command,
+              });
+              setActiveIndex(0);
+            },
+            onUpdate: (props) => {
+              setSuggestion({
+                kind: "skill",
+                items: props.items,
+                command: props.command,
+              });
+              setActiveIndex(0);
+            },
+            onExit: () => setSuggestion(null),
           }),
         },
       }),
@@ -151,18 +281,18 @@ function ChatComposer(
         // ProseMirror consults `editorProps` BEFORE plugin props, so while the
         // mention popup is open its navigation keys have to be claimed here —
         // otherwise Enter would send the message instead of picking a metric.
-        if (mentionOpen && mention) {
-          const count = mention.items.length;
+        if (suggestionOpen) {
+          const count = rows.length;
           if (event.key === "ArrowDown") {
-            setMentionIndex((i) => (i + 1) % count);
+            setActiveIndex((i) => (i + 1) % count);
             return true;
           }
           if (event.key === "ArrowUp") {
-            setMentionIndex((i) => (i - 1 + count) % count);
+            setActiveIndex((i) => (i - 1 + count) % count);
             return true;
           }
           if (event.key === "Enter" || event.key === "Tab") {
-            selectMention(mention.items[mentionIndex] ?? mention.items[0]);
+            selectSuggestion(activeIndex < count ? activeIndex : 0);
             return true;
           }
           // Escape is left alone — the suggestion plugin dispatches its own
@@ -172,7 +302,7 @@ function ChatComposer(
         // Enter sends; Shift+Enter falls through to HardBreak's own shortcut.
         if (event.key === "Enter" && !event.shiftKey) {
           event.preventDefault();
-          if (!loading && !disabled) onSend(collectMentions(view.state.doc));
+          if (!loading && !disabled) onSend(readSubmission(view.state.doc));
           return true;
         }
         return false;
@@ -207,12 +337,17 @@ function ChatComposer(
     editor.storage[METRIC_MENTION_NAME].items = mentionItems ?? [];
   }, [editor, mentionItems]);
 
+  useEffect(() => {
+    if (!editor) return;
+    editor.storage[SKILL_COMMAND_NAME].items = skillItems ?? [];
+  }, [editor, skillItems]);
+
   const handleFocus = useCallback(() => setFocused(true), []);
   const handleBlur = useCallback(() => setFocused(false), []);
 
   const submit = useCallback(() => {
     if (!editor) return;
-    onSend(collectMentions(editor.state.doc));
+    onSend(readSubmission(editor.state.doc));
   }, [editor, onSend]);
 
   const canSend = value.trim().length > 0 && !loading && !disabled;
@@ -269,11 +404,12 @@ function ChatComposer(
 
   const box = (
     <div className={boxClasses.join(" ")}>
-      {mentionOpen && mention && (
-        <MentionList
-          items={mention.items}
-          activeIndex={mentionIndex}
-          onSelect={selectMention}
+      {suggestionOpen && suggestion && (
+        <SuggestionList
+          items={rows}
+          activeIndex={activeIndex}
+          onSelect={selectSuggestion}
+          ariaLabel={suggestion.kind === "mention" ? "Metrics" : "Skills"}
         />
       )}
       <EditorContent
