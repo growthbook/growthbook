@@ -8,6 +8,7 @@ import { PostgresConnectionParams } from "./integrations/postgres";
 import { PrestoConnectionParams } from "./integrations/presto";
 import { SnowflakeConnectionParams } from "./integrations/snowflake";
 import { DatabricksConnectionParams } from "./integrations/databricks";
+import { AdobeEpConnectionParams } from "./integrations/adobe-ep";
 import { MetricType } from "./metric";
 import { MssqlConnectionParams } from "./integrations/mssql";
 import { FactTableColumnType } from "./fact-table";
@@ -27,7 +28,8 @@ export type DataSourceType =
   | "presto"
   | "databricks"
   | "mixpanel"
-  | "vertica";
+  | "vertica"
+  | "adobe_ep_query_service";
 
 export type DataSourceParams =
   | PostgresConnectionParams
@@ -40,7 +42,8 @@ export type DataSourceParams =
   | SnowflakeConnectionParams
   | BigQueryConnectionParams
   | ClickHouseConnectionParams
-  | MixpanelConnectionParams;
+  | MixpanelConnectionParams
+  | AdobeEpConnectionParams;
 
 export type QueryLanguage = "sql" | "javascript" | "json" | "none";
 
@@ -449,6 +452,10 @@ interface VerticaDataSource extends DataSourceBase {
   type: "vertica";
 }
 
+interface AdobeEpQueryServiceDataSource extends DataSourceBase {
+  type: "adobe_ep_query_service";
+}
+
 interface BigQueryDataSource extends DataSourceBase {
   type: "bigquery";
 }
@@ -493,10 +500,13 @@ export type PostgresDataSourceWithParams = WithParams<
   PostgresDataSource,
   PostgresConnectionParams
 >;
-
 export type VerticaDataSourceWithParams = WithParams<
   VerticaDataSource,
   PostgresConnectionParams
+>;
+export type AdobeEpQueryServiceDataSourceWithParams = WithParams<
+  AdobeEpQueryServiceDataSource,
+  AdobeEpConnectionParams
 >;
 export type MysqlDataSourceWithParams = WithParams<
   MysqlDataSource,
@@ -533,7 +543,8 @@ export type DataSourceInterface =
   | MssqlDataSource
   | BigQueryDataSource
   | ClickHouseDataSource
-  | MixpanelDataSource;
+  | MixpanelDataSource
+  | AdobeEpQueryServiceDataSource;
 
 export type DataSourceInterfaceWithParams =
   | GrowthbookClickhouseDataSourceWithParams
@@ -549,4 +560,5 @@ export type DataSourceInterfaceWithParams =
   | MssqlDataSourceWithParams
   | BigQueryDataSourceWithParams
   | ClickHouseDataSourceWithParams
-  | MixpanelDataSourceWithParams;
+  | MixpanelDataSourceWithParams
+  | AdobeEpQueryServiceDataSourceWithParams;

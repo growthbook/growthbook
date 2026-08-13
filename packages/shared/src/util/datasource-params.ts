@@ -205,6 +205,17 @@ const DATA_SOURCE_PARAM_SENSITIVITY = {
     viewId: "public",
     delimiter: "public",
   },
+
+  adobe_ep_query_service: {
+    host: "public",
+    port: "public",
+    orgId: "public",
+    sandbox: "public",
+    container: "public",
+    flatten: "public",
+    technicalAccountId: "public",
+    credential: "secret",
+  },
 } satisfies {
   [T in DataSourceType]: ParamClassification<DataSourceParamsForType<T>>;
 };

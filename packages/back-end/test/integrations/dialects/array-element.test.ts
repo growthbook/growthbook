@@ -11,6 +11,7 @@ import { clickHouseDialect } from "back-end/src/integrations/dialects/clickhouse
 import { athenaDialect } from "back-end/src/integrations/dialects/athena";
 import { prestoDialect } from "back-end/src/integrations/dialects/presto";
 import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
+import { adobeEpDialect } from "back-end/src/integrations/dialects/adobeEp";
 
 describe("SqlDialect.arrayElement", () => {
   const cases: [string, Pick<SqlDialect, "arrayElement">, string, string][] = [
@@ -26,6 +27,7 @@ describe("SqlDialect.arrayElement", () => {
       "w[SAFE_OFFSET(2)]",
     ],
     ["databricks (0-based)", databricksDialect, "w[0]", "w[2]"],
+    ["adobe (spark, 0-based)", adobeEpDialect, "w[0]", "w[2]"],
     ["vertica (0-based native)", verticaDialect, "w[0]", "w[2]"],
     [
       "snowflake (0-based variant, cast)",

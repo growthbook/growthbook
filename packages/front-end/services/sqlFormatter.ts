@@ -20,6 +20,7 @@ function getSqlDialect(datasourceType: DataSourceType): FormatDialect | "" {
     presto: "trino",
     databricks: "spark",
     vertica: "postgresql",
+    adobe_ep_query_service: "spark",
     mixpanel: "",
     google_analytics: "",
   };

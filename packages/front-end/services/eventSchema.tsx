@@ -20,6 +20,7 @@ import {
   SiPresto,
   SiSnowflake,
 } from "react-icons/si";
+import { BiLogoAdobe } from "react-icons/bi";
 import { DocSection } from "@/components/DocLink";
 
 export type eventSchema = {
@@ -488,6 +489,22 @@ export const dataSourceConnections: {
         trustServerCertificate: true,
         encrypt: true,
       },
+    },
+  },
+  {
+    type: "adobe_ep_query_service",
+    display: "Adobe Experience Platform",
+    icon: <BiLogoAdobe />,
+    docs: "adobe_ep_query_service",
+    default: {
+      host: "",
+      port: 5432,
+      orgId: "",
+      sandbox: "prod",
+      container: "all",
+      flatten: false,
+      technicalAccountId: "",
+      credential: "",
     },
   },
   {

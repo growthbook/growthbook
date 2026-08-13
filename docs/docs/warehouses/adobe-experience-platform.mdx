@@ -1,0 +1,66 @@
+---
+title: Setting up Adobe Experience Platform as a data source
+description: This document outlines the steps needed to configure Adobe Experience Platform Query Service as a data source in GrowthBook.
+slug: adobe-experience-platform
+unlisted: true
+---
+
+GrowthBook connects to Adobe Experience Platform through Query Service, which speaks the PostgreSQL wire protocol. GrowthBook runs read-only queries against your XDM datasets to build experiment results.
+
+## 1. Create OAuth Server-to-Server credentials in Adobe
+
+GrowthBook authenticates with an OAuth Server-to-Server credential from the Adobe Developer Console. Use a non-expiring credential so GrowthBook does not lose access when a token rotates, and scope it to read-only data access.
+
+1. In the [Adobe Developer Console](https://developer.adobe.com/console), open (or create) a project and add the Adobe Experience Platform Query Service API to it.
+2. Add an OAuth Server-to-Server credential to that project. Configure it as non-expiring so GrowthBook can keep running scheduled queries without manual token refresh.
+3. Assign the credential a product profile that grants SELECT access to the datasets you want GrowthBook to read. Do not grant write or management access. GrowthBook only reads data.
+
+When you finish, the credential page gives you three values you will need in GrowthBook:
+
+- **Organization ID** — your Adobe organization identifier. GrowthBook appends `@AdobeOrg` for you, so enter the raw ID.
+- **Technical Account ID** — the public identity of the Server-to-Server credential.
+- **Credential** — the client secret paired with the technical account. This is the only secret value. Copy it now and store it somewhere safe.
+
+## 2. Add the Data Source in GrowthBook
+
+Navigate to _Metrics and Data → Data Sources_ and add a new Data Source. You can pick your event tracker under "Guided Setup" or choose "Manual Set Up". Query Service has no built-in tracker schema, so most setups use the manual path and define the queries by hand.
+
+Select "Adobe Experience Platform" as the warehouse type.
+
+## 3. Enter your connection details
+
+Map each field to a value from Adobe.
+
+- **Host** — your Query Service host, for example `acme.platform.adobe.io`.
+- **Port** — `5432`. Use `80` if your network blocks outbound `5432`.
+- **Organization ID** — the Organization ID from step 1. GrowthBook appends `@AdobeOrg`, so do not add it yourself.
+- **Sandbox** — the sandbox name, for example `prod`.
+- **Container** — the scope GrowthBook queries within the sandbox. Use `all` to query across the sandbox, or a specific dataset id, view id, or database name to narrow it.
+- **Flatten** — when on, GrowthBook asks Query Service to flatten XDM structs into dot notation, so nested fields read as `a.b.c`. Leave it off to keep the nested structure.
+- **Technical account ID** — the Technical Account ID from step 1.
+- **Credential** — the client secret from step 1.
+
+TLS is always on. Query Service rejects unencrypted connections, so there is no SSL section to configure.
+
+When you save the Data Source, GrowthBook tests the connection with a simple `SELECT 1` query.
+
+## 4. Guardrails and limits
+
+Query Service enforces limits that shape how GrowthBook queries it.
+
+- **10-minute interactive query timeout.** Interactive queries that run longer than 10 minutes are cancelled and return SQLSTATE `53400`. Keep experiment queries within this window.
+- **50,000-row client result cap.** A single interactive query returns at most 50,000 rows to the client. Experiment-results queries return aggregated rows, so they stay well under this in normal use.
+- **100,000 `LIMIT` ceiling.** Query Service rejects a `LIMIT` above 100,000.
+- **Per-license session and concurrency limits.** Your Adobe license caps how many sessions and concurrent queries you can run. GrowthBook seeds a conservative `maxConcurrentQueries` of 5 for this Data Source so it does not exhaust a small entitlement. You can change this value in the connection settings if your license allows more.
+
+## 5. Not supported in the first release
+
+A few capabilities are off for Adobe Experience Platform in this release.
+
+- **Schema browsing.** The schema browser that suggests tables and columns while you write queries is off. Write queries against your known dataset and column names.
+- **Funnels and Product Analytics.** Funnel metrics and Product Analytics are not available for this Data Source.
+- **Pipeline (incremental refresh) mode.** Every refresh runs as a full query. Incremental refresh is not available.
+
+## 6. Set up your experiment assignment queries and metrics
+
+You can now create your [Experiment Assignment Queries](/app/datasources#experiment-assignment-queries) and [Fact Tables](/app/metrics) to define your metrics against your XDM datasets.

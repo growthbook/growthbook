@@ -250,6 +250,10 @@ export async function postDataSources(
       ...settings?.events,
     };
 
+    if (type === "adobe_ep_query_service" && !settings.maxConcurrentQueries) {
+      settings.maxConcurrentQueries = "5";
+    }
+
     const datasource = await createDataSource(
       context,
       name,
