@@ -211,12 +211,25 @@ export interface InterleavedItemMeta {
   competitive: boolean;
 }
 
+// The enrichment nugget for the customer's own analytics events: spread it
+// into the properties of an existing track call to link the event back to
+// the interleaving experiment. Keys match the canonical exposure schema.
+export interface InterleaveTrackingProps {
+  item_id: string;
+  interleave_id?: string;
+  experiment_id?: string;
+}
+
 export interface InterleaveResult<T> {
   inExperiment: boolean;
   interleaveId: string;
   key: string;
   items: T[];
   meta: InterleavedItemMeta[];
+  // Identity-keyed (safe under client-side filtering/sorting). On fallback
+  // results the interleave keys are omitted, so spreading is always safe:
+  //   analytics.track("Add to Cart", { value, ...result.trackingProps(id) })
+  trackingProps: (itemId: string) => InterleaveTrackingProps;
 }
 
 export interface InterleaveOptions<T> {

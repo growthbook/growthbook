@@ -184,6 +184,31 @@ describe("interleave", () => {
     gb.destroy();
   });
 
+  it("returns spreadable trackingProps in and out of the experiment", () => {
+    const gb = new GrowthBook({
+      attributes: { id: "user-1" },
+      interleaveExperiments: [definition],
+    });
+    const res = gb.interleave({
+      key: "ranker-test",
+      lists,
+      getItemId: id,
+      interleaveId: "imp-1",
+    });
+    expect(res.trackingProps("A")).toEqual({
+      item_id: "A",
+      interleave_id: "imp-1",
+      experiment_id: "ranker-test",
+    });
+    gb.destroy();
+
+    // Fallback: no interleave keys, so spreading is a safe no-op
+    const gb2 = new GrowthBook({ attributes: { id: "user-1" } });
+    const fallback = gb2.interleave({ key: "nope", lists, getItemId: id });
+    expect(fallback.trackingProps("A")).toEqual({ item_id: "A" });
+    gb2.destroy();
+  });
+
   it("only realizes lazy lists when enrolled", () => {
     let realized = 0;
     const lazyLists = [

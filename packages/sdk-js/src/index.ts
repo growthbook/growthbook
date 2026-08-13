@@ -66,6 +66,7 @@ export type {
   InterleaveExposureData,
   InterleaveExposureCallback,
   InterleaveExposureRow,
+  InterleaveTrackingProps,
 } from "./types/growthbook";
 
 export type {

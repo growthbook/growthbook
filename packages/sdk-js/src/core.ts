@@ -1007,6 +1007,9 @@ export function runInterleave<T>(
       key,
       items: list ? realizeInterleaveList(list) : [],
       meta: [],
+      // No interleave keys outside the experiment, so callers can spread
+      // this into their analytics events unconditionally
+      trackingProps: (itemId: string) => ({ item_id: itemId }),
     };
   };
 
@@ -1090,7 +1093,18 @@ export function runInterleave<T>(
     safeCall(() => cb(data));
   }
 
-  return { inExperiment: true, interleaveId, key, items, meta };
+  return {
+    inExperiment: true,
+    interleaveId,
+    key,
+    items,
+    meta,
+    trackingProps: (itemId: string) => ({
+      item_id: itemId,
+      interleave_id: interleaveId,
+      experiment_id: key,
+    }),
+  };
 }
 
 export function getExperimentResult<T>(
