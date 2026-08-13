@@ -1063,12 +1063,28 @@ export async function persistContextualBanditEvent(
     ...(result.srm ? { degreesOfFreedom: result.srm.degreesOfFreedom } : {}),
   });
 
-  await context.models.contextualBandits.patchLeafWeights(cb.id, leafWeights, {
-    bumpVersion: weightsWereUpdated,
-  });
+  const updatedCb = await context.models.contextualBandits.patchLeafWeights(
+    cb.id,
+    leafWeights,
+    {
+      bumpVersion: weightsWereUpdated,
+    },
+  );
 
   if (weightsWereUpdated) {
-    await refreshLinkedFeaturePayloads(context, cb, "contextualBandit.refresh");
+    await context.auditLog({
+      event: "contextualBandit.update",
+      entity: {
+        object: "contextualBandit",
+        id: cb.id,
+      },
+      details: auditDetailsUpdate(cb, updatedCb),
+    });
+    await refreshLinkedFeaturePayloads(
+      context,
+      updatedCb,
+      "contextualBandit.refresh",
+    );
   }
 
   return cbe;
