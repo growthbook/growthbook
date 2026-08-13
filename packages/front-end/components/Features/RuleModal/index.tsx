@@ -17,7 +17,6 @@ import {
   stemRuleId,
   parsePlainJSONObject,
   stripDefaultsForSparse,
-  MergeStrategy,
 } from "shared/util";
 import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
@@ -62,9 +61,10 @@ import useApi from "@/hooks/useApi";
 import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVersionSelector";
 import Modal from "@/components/Modal";
 import {
-  ExpandableConflict,
+  ExpandableDiff,
   stringifyForRawDiff,
 } from "@/components/Reviews/Feature/RevisionDiffUtils";
+import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import { normalizeFeatureRules } from "@/components/Features/FeatureDiffRenders";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -255,15 +255,17 @@ export default function RuleModal({
   // under the open modal), so saves must target what the user actually loaded.
   // The baseline rides the PUT; the server 409s if the rule changed since.
   const [pinnedFeatureVersion] = useState(() => feature.version);
-  const [baselineRule] = useState<FeatureRule | undefined>(() =>
-    rule ? cloneDeep(rule) : undefined,
+  // Mutable on purpose: after a conflict is surfaced, the baseline is rebased
+  // to the other person's version. The user has seen their changes, so the
+  // form becomes the resolution — the next save passes the guard (while still
+  // catching any third change that lands during resolution).
+  const [baselineRule, setBaselineRule] = useState<FeatureRule | undefined>(
+    () => (rule ? cloneDeep(rule) : undefined),
   );
   const [conflict, setConflict] = useState<
-    (PutFeatureRuleConflict & { attemptedRule: Record<string, unknown> }) | null
+    | (PutFeatureRuleConflict & { baseAtConflict: FeatureRule | undefined })
+    | null
   >(null);
-  // "" = unresolved, "overwrite" = save mine over theirs (baseline omitted on
-  // the next save), "discard" handled immediately (close + refresh).
-  const [conflictStrategy, setConflictStrategy] = useState<MergeStrategy>("");
   // Set when the save's error handler saw a 409, so the submit catch can
   // suppress the Modal's own error text — the banner is the single message.
   const conflictSignaledRef = useRef(false);
@@ -1604,9 +1606,7 @@ export default function RuleModal({
               body: JSON.stringify({
                 rule: values,
                 ruleId,
-                ...(baselineRule && conflictStrategy !== "overwrite"
-                  ? { baseline: { rule: baselineRule } }
-                  : {}),
+                ...(baselineRule ? { baseline: { rule: baselineRule } } : {}),
                 ...(rampScheduleInline
                   ? { rampSchedule: rampScheduleInline }
                   : {}),
@@ -1615,10 +1615,15 @@ export default function RuleModal({
             (responseData) => {
               if (responseData?.status === 409 && responseData?.conflict) {
                 conflictSignaledRef.current = true;
-                setConflict({
-                  ...(responseData.conflict as PutFeatureRuleConflict),
-                  attemptedRule: values as unknown as Record<string, unknown>,
-                });
+                const payload = responseData.conflict as PutFeatureRuleConflict;
+                setConflict({ ...payload, baseAtConflict: baselineRule });
+                // Rebase: the user has now seen their version, so the next
+                // save is an informed decision, not a silent overwrite.
+                setBaselineRule(
+                  payload.currentRule
+                    ? cloneDeep(payload.currentRule)
+                    : undefined,
+                );
               }
             },
           );
@@ -1982,56 +1987,48 @@ export default function RuleModal({
         submit={submit}
         bodyPrefix={
           <>
-            {conflict && conflictStrategy !== "overwrite" && (
-              <>
-                <Callout status="error" mb="3">
+            {conflict && (
+              <Box mb="3">
+                <Callout status="warning" mb="2">
                   Someone else updated this rule while you had it open
                   {conflict.draftVersion
                     ? " (in the draft you're saving to)"
                     : conflict.currentRule
                       ? " (and published it)"
-                      : " — it no longer exists"}
-                  . Choose which version to keep below.
-                </Callout>
-                <ExpandableConflict
-                  conflict={{
-                    name: "Rule",
-                    key: conflict.ruleId,
-                    resolved: false,
-                    base: stringifyForRawDiff(
-                      baselineRule ? normalizeFeatureRules([baselineRule]) : [],
-                    ),
-                    live: stringifyForRawDiff(
-                      conflict.currentRule
-                        ? normalizeFeatureRules([conflict.currentRule])
-                        : [],
-                    ),
-                    revision: stringifyForRawDiff(
-                      normalizeFeatureRules([
-                        conflict.attemptedRule as unknown as FeatureRule,
-                      ]),
-                    ),
-                  }}
-                  strategy={conflictStrategy}
-                  setStrategy={(s) => {
-                    if (s === "discard") {
-                      // Keep theirs: refresh and close the editor.
-                      (async () => {
+                      : " — it no longer exists there"}
+                  .{" "}
+                  {conflict.currentRule
+                    ? "Review their changes below and adjust your edits if needed — saving will replace their version with what's in this form."
+                    : "Saving will re-add the rule with what's in this form."}
+                  <Flex mt="2">
+                    <Button
+                      variant="ghost"
+                      onClick={async () => {
                         await mutate();
                         close();
-                      })();
-                      return;
-                    }
-                    setConflictStrategy(s);
-                  }}
-                />
-              </>
-            )}
-            {conflictStrategy === "overwrite" && (
-              <Callout status="warning" mb="3">
-                Saving will now overwrite the other person&apos;s version of
-                this rule. Click Save to continue.
-              </Callout>
+                      }}
+                    >
+                      Discard my edits and close
+                    </Button>
+                  </Flex>
+                </Callout>
+                {conflict.currentRule && (
+                  <ExpandableDiff
+                    title="Their changes"
+                    a={stringifyForRawDiff(
+                      conflict.baseAtConflict
+                        ? normalizeFeatureRules([conflict.baseAtConflict])
+                        : [],
+                    )}
+                    b={stringifyForRawDiff(
+                      normalizeFeatureRules([conflict.currentRule]),
+                    )}
+                    leftTitle="When you opened this editor"
+                    rightTitle="Their version (current)"
+                    styles={COMPACT_DIFF_STYLES}
+                  />
+                )}
+              </Box>
             )}
             <DraftSelectorForChanges
               feature={feature}
