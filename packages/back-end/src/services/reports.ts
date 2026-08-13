@@ -221,7 +221,9 @@ export function getSnapshotSettingsFromReportArgs(
       exp: args,
       expandedMetricMap: metricMap,
       includeActivationMetric: true,
-      metricGroups: [],
+      // Must match the groups used to expand the map above, otherwise group
+      // members (and now their derived metrics) are left out.
+      metricGroups,
     })
       .map((m) =>
         getMetricForSnapshot({
@@ -730,8 +732,15 @@ export function getReportSnapshotSettings({
           }
         : undefined;
 
+  // Use the scrubbed lists so metricSettings lines up with the goal/secondary/
+  // guardrail lists returned below (a scrubbed metric must not be queried).
   const metricSettings = getAllExpandedMetricIdsFromExperiment({
-    exp: report.experimentAnalysisSettings,
+    exp: {
+      goalMetrics,
+      secondaryMetrics,
+      guardrailMetrics,
+      activationMetric: report.experimentAnalysisSettings.activationMetric,
+    },
     expandedMetricMap: metricMap,
     includeActivationMetric: true,
     metricGroups,
