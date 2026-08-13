@@ -1425,17 +1425,17 @@ export function jsonToConds(
             value: "",
           });
         }
-        if (operator === "$eq" && (v === true || v === false)) {
+        if (v === true || v === false) {
+          // Only `$eq` round-trips through `$true` / `$false`. Anything else
+          // (e.g. `{$ne: true}`, which also matches an unset attribute) has no
+          // simple-editor equivalent and would be rewritten on save.
+          if (operator !== "$eq") {
+            valid = false;
+            return;
+          }
           return conds.push({
             field,
             operator: v ? "$true" : "$false",
-            value: "",
-          });
-        }
-        if (operator === "$ne" && (v === true || v === false)) {
-          return conds.push({
-            field,
-            operator: v ? "$false" : "$true",
             value: "",
           });
         }
