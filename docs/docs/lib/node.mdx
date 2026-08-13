@@ -856,21 +856,15 @@ The `hashUsed` flag will only be true if the user was randomly assigned a variat
 
 ## Implementing DevTools
 
-The DevTools plugins are designed to work both GrowthBookClient and GrowthBook
-(legacy) SDK instances. Your SDK must be in dev mode (`enableDevMode: true`) for the plugin to work.
+The DevTools plugins are designed to work both GrowthBookClient and GrowthBook (legacy) SDK instances. Your SDK must be in dev mode (`enableDevMode: true`) for the plugin to work.
 
 ### Helper Functions
 
-The framework-specific sections below (Next.js, Express, and platform-agnostic Node.js) all rely on the
-same two helper functions, exported from `@growthbook/growthbook/plugins`, to send evaluation logs back
-to the DevTools extension.
+The framework-specific sections below (Next.js, Express, and platform-agnostic Node.js) all rely on the same two helper functions, exported from `@growthbook/growthbook/plugins`, to send evaluation logs back to the DevTools extension.
 
 #### `getDebugScriptContents(gb, source?)`
 
-Returns a `<script>` body that pushes the SDK's current dev-mode logs (feature evaluations, experiment
-exposures, decrypted payload, and attributes) onto `window._gbdebugEvents`. The GrowthBook DevTools
-extension reads this array from the page to display back-end evaluation results — this is the only
-contract between your server and the extension for back-end logging.
+Returns a `<script>` body that pushes the SDK's current dev-mode logs (feature evaluations, experiment exposures, decrypted payload, and attributes) onto `window._gbdebugEvents`. The GrowthBook DevTools extension reads this array from the page to display back-end evaluation results. This is the only contract between your server and the extension for back-end logging.
 
 ```ts
 import { getDebugScriptContents } from "@growthbook/growthbook/plugins";
@@ -881,14 +875,10 @@ const scriptBody = getDebugScriptContents(growthbook, "my-service");
 
 Notes:
 
-- Returns an **empty string** (not `null`/`undefined`) when `enableDevMode` is off, or when the instance
-  has no evaluation logs yet. Always check for a non-empty result before injecting a `<script>` tag, to
-  avoid emitting an empty `<script></script>`.
-- It snapshots `gb.logs` **at call time** — call it *after* you've finished evaluating every feature/experiment
-  you want visible in DevTools for that request, not before.
-- `source` is a free-text label (e.g. `"nextjs"`, `"express"`, your service name) shown in the DevTools UI
-  to identify which back-end emitted the event — it has no effect on behavior.
-- The returned string is raw JavaScript, not HTML — wrap it in your own `<script>` tags:
+- Returns an **empty string** (not `null`/`undefined`) when `enableDevMode` is off, or when the instance has no evaluation logs yet. Always check for a non-empty result before injecting a `<script>` tag, to avoid emitting an empty `<script></script>`.
+- It snapshots `gb.logs` **at call time**. Call it _after_ you've finished evaluating every feature/experiment you want visible in DevTools for that request, not before.
+- `source` is a free-text label (e.g. `"nextjs"`, `"express"`, your service name) shown in the DevTools UI to identify which back-end emitted the event. It has no effect on behavior.
+- The returned string is raw JavaScript, not HTML. Wrap it in your own `<script>` tags:
 
 ```ts
 const debugScript = getDebugScriptContents(growthbook, "my-service");
@@ -897,16 +887,11 @@ if (debugScript) {
 }
 ```
 
-- If your platform caches or shares rendered responses across requests/users (e.g. an edge/CDN worker),
-  make sure this injection happens **after** any cache read/write step, not before — otherwise one
-  visitor's debug logs can end up baked into a response served to other visitors.
+- If your platform caches or shares rendered responses across requests/users (e.g. an edge/CDN worker), make sure this injection happens **after** any cache read/write step, not before. Otherwise one visitor's debug logs can end up baked into a response served to other visitors.
 
 #### `getDebugEvent(gb, source?)`
 
-The lower-level function `getDebugScriptContents` wraps — returns the raw `LogEvent` object (`{ logs, sdkInfo }`)
-instead of a serialized script string. Use this directly if you want to transport the event yourself
-(e.g. via a response header, as shown in the Next.js middleware example below) rather than embedding it as
-an inline script.
+The lower-level function `getDebugScriptContents` wraps. It returns the raw `LogEvent` object (`{ logs, sdkInfo }`) instead of a serialized script string. Use this directly if you want to transport the event yourself (e.g. via a response header, as shown in the Next.js middleware example below) rather than embedding it as an inline script.
 
 ### Next.js
 
@@ -1032,12 +1017,9 @@ Similar to the Next.js middleware example above, you are responsible for parsing
 
 ### Node.js (platform agnostic)
 
-We provide a simple `devtoolsPlugin` for other Node.js back-end implementations. This plugin is a stub for the other
-platform-specific plugins (Next.js, Express); however, it may be used directly.
+We provide a simple `devtoolsPlugin` for other Node.js back-end implementations. This plugin is a stub for the other platform-specific plugins (Next.js, Express); however, it may be used directly.
 
-When using this plugin, you are responsible for building the `devtoolsState` object by parsing the `_gbdebug` cookie
-and the `_gbdebug` URL query parameter. `devtoolsState` represents the overrides applied to attributes, features, and
-experiments; it takes the form:
+When using this plugin, you are responsible for building the `devtoolsState` object by parsing the `_gbdebug` cookie and the `_gbdebug` URL query parameter. `devtoolsState` represents the overrides applied to attributes, features, and experiments; it takes the form:
 
 ```ts
 type DevtoolsState = {
@@ -1047,18 +1029,16 @@ type DevtoolsState = {
 };
 ```
 
-Note: unlike the query param (already decoded by most URL parsers), the `_gbdebug` **cookie** value is
-percent-encoded. Decode it before parsing, or overrides will silently fail to apply:
+Note: unlike the query param (already decoded by most URL parsers), the `_gbdebug` **cookie** value is percent-encoded. Decode it before parsing, or overrides will silently fail to apply:
 
 ```ts
 import { devtoolsPlugin } from "@growthbook/growthbook/plugins";
 
 function getDevtoolsState(request): DevtoolsState {
-  const raw =
-    new URL(request.url).searchParams.get("_gbdebug") ??
-    decodeURIComponent(getCookie(request, "_gbdebug") ?? "");
-
   try {
+    const raw =
+      new URL(request.url, "http://localhost").searchParams.get("_gbdebug") ??
+      decodeURIComponent(getCookie(request, "_gbdebug") ?? "");
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
@@ -1073,8 +1053,7 @@ const growthbook = new GrowthBook({
 });
 ```
 
-Similar to the Express and Next.js middleware examples above, you can generate your own `_gbdebugEvents` payload using
-`getDebugEvent()`.
+Similar to the Express and Next.js middleware examples above, you can generate your own `_gbdebugEvents` payload using `getDebugEvent()`.
 
 ## Examples
 
