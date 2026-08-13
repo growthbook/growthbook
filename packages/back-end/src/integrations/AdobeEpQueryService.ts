@@ -11,11 +11,12 @@ import { adobeEpDialect } from "./dialects/adobeEp";
 export function toPostgresConnection(
   p: AdobeEpConnectionParams,
 ): PostgresConnectionParams {
+  const orgId = p.orgId.trim().replace(/@AdobeOrg$/i, "");
   return {
     host: p.host,
     port: p.port,
     database: `${p.sandbox}:${p.container}${p.flatten ? "?FLATTEN" : ""}`,
-    user: `${p.orgId}@AdobeOrg`,
+    user: `${orgId}@AdobeOrg`,
     password: `${p.technicalAccountId}:${p.credential}`,
     // TLS is required on both port 80 and 5432; sslmode=disable is rejected.
     ssl: true,

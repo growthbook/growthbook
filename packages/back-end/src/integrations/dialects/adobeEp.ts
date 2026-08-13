@@ -1,10 +1,20 @@
+import { createLikeStringMatchFn } from "shared/sql";
 import type { SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 import { baseDialect } from "./base";
 
+const adobeEpEscapeStringLiteral = (value: string) =>
+  value.replace(/(['\\])/g, "\\$1");
+
 export const adobeEpDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "spark",
+  escapeStringLiteral: adobeEpEscapeStringLiteral,
+  stringMatch: createLikeStringMatchFn({
+    escapeStringLiteral: adobeEpEscapeStringLiteral,
+    emitEscapeClause: false,
+  }),
+  toTimestamp: (date: Date) => `to_timestamp(${baseDialect.toTimestamp(date)})`,
   castToFloat: (col: string) => `cast(${col} as double)`,
   castToString: (col: string) => `cast(${col} as string)`,
   formatDate: (col: string) => `date_format(${col}, 'y-MM-dd')`,
