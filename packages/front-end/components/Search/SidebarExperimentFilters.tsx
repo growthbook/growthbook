@@ -357,9 +357,18 @@ const SidebarExperimentFilters: FC<Props> = ({
     return plusCircle;
   };
 
+  // size="xs" matches the dashboard filter bar's FilterCountBadge (single digit
+  // renders as a circle). Not imported from there — that lives under
+  // enterprise/Dashboards and this component is shared with the experiment list.
   const countBadge = (count: number) =>
     count > 0 ? (
-      <Badge label={`${count}`} color="gray" variant="soft" radius="full" />
+      <Badge
+        label={`${count}`}
+        size="xs"
+        color="gray"
+        variant="soft"
+        radius="full"
+      />
     ) : null;
 
   // A selected-value chip: gray pill with a remove ×.
@@ -603,6 +612,8 @@ const SidebarExperimentFilters: FC<Props> = ({
           py="3"
           role="button"
           tabIndex={0}
+          aria-expanded={expanded}
+          aria-controls={`${category.key}-panel`}
           className="cursor-pointer"
           onClick={() => toggleExpand(category.key)}
           onKeyDown={(e) => activateOnKey(e, () => toggleExpand(category.key))}
@@ -616,7 +627,11 @@ const SidebarExperimentFilters: FC<Props> = ({
           {rowControl(expanded, count)}
         </Flex>
 
-        {expanded ? renderCategoryPanel(category) : null}
+        {expanded ? (
+          <Box id={`${category.key}-panel`}>
+            {renderCategoryPanel(category)}
+          </Box>
+        ) : null}
       </Box>
     );
   };
@@ -634,6 +649,8 @@ const SidebarExperimentFilters: FC<Props> = ({
           py="3"
           role="button"
           tabIndex={0}
+          aria-expanded={expanded}
+          aria-controls={`${extra.key}-panel`}
           className="cursor-pointer"
           onClick={() => toggleExpand(extra.key)}
           onKeyDown={(e) => activateOnKey(e, () => toggleExpand(extra.key))}
@@ -652,7 +669,11 @@ const SidebarExperimentFilters: FC<Props> = ({
         </Flex>
 
         {expanded ? (
-          <Box pb="3" style={{ maxWidth: extra.panelWidth }}>
+          <Box
+            id={`${extra.key}-panel`}
+            pb="3"
+            style={{ maxWidth: extra.panelWidth }}
+          >
             {extra.renderPanel()}
             {extra.isActive ? (
               <Box mt="2">

@@ -54,17 +54,13 @@ export default function DashboardExperimentSearchTermPill({
           style={{ justifyContent: "space-between" }}
         >
           <Flex align="center" gap="2">
-            <span
-              style={{
-                maxWidth: 160,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-              title={value}
-            >
-              {`Search: ${value}`}
-            </span>
+            {/* maxWidth lives on the Box: @/ui/Text takes no style prop, and
+                truncate needs a bounded parent to ellipsize. */}
+            <Box style={{ maxWidth: 160, minWidth: 0 }}>
+              <Text size="md" truncate title={value}>
+                {`Search: ${value}`}
+              </Text>
+            </Box>
             <PiCaretDown aria-hidden />
           </Flex>
         </Button>
