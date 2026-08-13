@@ -3,7 +3,6 @@ import React, {
   useCallback,
   useEffect,
   useImperativeHandle,
-  useRef,
   useState,
 } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
@@ -12,6 +11,7 @@ import Paragraph from "@tiptap/extension-paragraph";
 import TextNode from "@tiptap/extension-text";
 import HardBreak from "@tiptap/extension-hard-break";
 import { Placeholder, UndoRedo } from "@tiptap/extensions";
+import { Flex } from "@radix-ui/themes";
 import { PiArrowRightBold, PiStop } from "react-icons/pi";
 import Button from "@/ui/Button";
 import { editorToText, textToContent } from "./serialize";
@@ -28,11 +28,13 @@ export interface ChatComposerHandle {
 
 export interface ChatComposerProps {
   value: string;
+  /** Must be referentially stable — Tiptap binds this once, when the editor is created. */
   onChange: (value: string) => void;
   onSend: () => void;
   onCancel: () => void;
   loading: boolean;
   isLocalStream: boolean;
+  /** Read once, when the editor is created — Tiptap freezes extension options there. */
   placeholder?: string;
   /** Focus once the editor mounts. Later refocusing goes through the ref. */
   autoFocus?: boolean;
@@ -60,18 +62,6 @@ function ChatComposer(
 ) {
   const [focused, setFocused] = useState(false);
 
-  // Editor options are captured once at creation, so the handlers it calls
-  // read through refs to stay current without recreating the editor (which
-  // would drop the caret and any in-progress text).
-  const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
-  const onSendRef = useRef(onSend);
-  onSendRef.current = onSend;
-  const placeholderRef = useRef(placeholder);
-  placeholderRef.current = placeholder;
-  const loadingRef = useRef(loading);
-  loadingRef.current = loading;
-
   const editor = useEditor({
     // Next renders this on the server first; deferring the first render keeps
     // the client markup from mismatching.
@@ -86,7 +76,7 @@ function ChatComposer(
       HardBreak,
       UndoRedo,
       Placeholder.configure({
-        placeholder: () => placeholderRef.current,
+        placeholder,
         // The editor is read-only while streaming, but the placeholder should
         // stay visible then, as it did on the disabled textarea.
         showOnlyWhenEditable: false,
@@ -103,13 +93,13 @@ function ChatComposer(
         // Enter sends; Shift+Enter falls through to HardBreak's own shortcut.
         if (event.key === "Enter" && !event.shiftKey) {
           event.preventDefault();
-          if (!loadingRef.current) onSendRef.current();
+          if (!loading) onSend();
           return true;
         }
         return false;
       },
     },
-    onUpdate: ({ editor: e }) => onChangeRef.current(editorToText(e)),
+    onUpdate: ({ editor: e }) => onChange(editorToText(e)),
   });
 
   useImperativeHandle(
@@ -136,13 +126,15 @@ function ChatComposer(
   const canSend = value.trim().length > 0 && !loading;
   const isCompact = variant === "compact";
 
-  // Mid-stream the button cancels instead of sending; everything else about it
-  // is identical, so resolve the action once rather than per variant.
+  // Mid-stream the button cancels instead of sending. Cancel is a neutral soft
+  // chip so it doesn't read as a second primary CTA next to Send.
   const Icon = isLocalStream ? PiStop : PiArrowRightBold;
   const action = isLocalStream
     ? { onClick: onCancel, label: "Cancel generation", disabled: false }
     : { onClick: onSend, label: "Send message", disabled: !canSend };
 
+  // Each variant keeps its own control so the button dimensions stay exactly as
+  // designed: a 30x30 chip in the narrow panel, a `@/ui/Button` in the wide bar.
   const sendButton = isCompact ? (
     <button
       type="button"
@@ -152,11 +144,13 @@ function ChatComposer(
       title={action.label}
       aria-label={action.label}
     >
-      <Icon size={15} />
+      <Icon size={16} />
     </button>
   ) : (
     <Button
       className={styles.wideSendButton}
+      color={isLocalStream ? "gray" : "violet"}
+      variant={isLocalStream ? "soft" : "solid"}
       onClick={action.onClick}
       disabled={action.disabled}
       title={action.label}
@@ -171,20 +165,28 @@ function ChatComposer(
     ? styles.compactBoxFocused
     : styles.wideBoxFocused;
 
-  return (
-    <div className={isCompact ? styles.compactWrapper : styles.wideWrapper}>
-      <div
-        className={`${styles.box} ${boxClass}${focused ? ` ${boxFocusClass}` : ""}`}
-      >
-        <EditorContent
-          editor={editor}
-          className={`${styles.editor}${loading ? ` ${styles.readOnly}` : ""}`}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
-        />
-        {sendButton}
-      </div>
+  const box = (
+    <div
+      className={`${styles.box} ${boxClass}${focused ? ` ${boxFocusClass}` : ""}`}
+    >
+      <EditorContent
+        editor={editor}
+        className={`${styles.editor}${loading ? ` ${styles.readOnly}` : ""}`}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+      />
+      {sendButton}
     </div>
+  );
+
+  if (isCompact) {
+    return <div className={styles.compactWrapper}>{box}</div>;
+  }
+
+  return (
+    <Flex justify="center" py="5" px="9" className={styles.wideWrapper}>
+      {box}
+    </Flex>
   );
 }
 

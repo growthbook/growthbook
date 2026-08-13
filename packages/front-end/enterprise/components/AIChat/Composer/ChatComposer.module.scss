@@ -88,11 +88,10 @@
 
 // --- Wide variant ------------------------------------------------------------
 
+// Layout (centering, padding) comes from the Radix `Flex` in the component;
+// this only carries the chrome Flex has no prop for.
 .wideWrapper {
-  display: flex;
-  justify-content: center;
   width: 100%;
-  padding: var(--space-5) var(--space-9);
   border-top: 1px solid var(--gray-a3);
   background: var(--color-panel-solid);
 }
