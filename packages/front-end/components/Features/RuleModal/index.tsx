@@ -5,7 +5,7 @@ import {
   FeatureRule,
   ScheduleRule,
 } from "shared/types/feature";
-import { useCallback, useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
@@ -199,6 +199,45 @@ export type SafeRolloutRuleCreateFields = SafeRolloutRule & {
   sameSeed?: boolean;
 };
 
+// One row of the conflict banner: a field the other person changed, and
+// whether the user's own edit collides with it.
+type ConflictFieldChange = {
+  field: string;
+  theirs: unknown;
+  conflictsWithYours: boolean;
+};
+
+function conflictFieldChanges(
+  base: FeatureRule | undefined,
+  theirs: FeatureRule,
+  yours: Record<string, unknown>,
+): ConflictFieldChange[] {
+  const keys = new Set([...Object.keys(base ?? {}), ...Object.keys(theirs)]);
+  keys.delete("id");
+  const out: ConflictFieldChange[] = [];
+  for (const k of keys) {
+    const b = JSON.stringify(
+      (base as Record<string, unknown> | undefined)?.[k],
+    );
+    const t = JSON.stringify((theirs as Record<string, unknown>)[k]);
+    if (t === b) continue;
+    const y = JSON.stringify((yours as Record<string, unknown>)[k]);
+    out.push({
+      field: k,
+      theirs: (theirs as Record<string, unknown>)[k],
+      conflictsWithYours: y !== undefined && y !== b && y !== t,
+    });
+  }
+  return out;
+}
+
+function fmtConflictValue(v: unknown): string {
+  if (v === undefined) return "(removed)";
+  const s = typeof v === "string" ? v : JSON.stringify(v);
+  if (!s) return '""';
+  return s.length > 80 ? s.slice(0, 77) + "…" : s;
+}
+
 export default function RuleModal({
   close,
   feature,
@@ -252,8 +291,13 @@ export default function RuleModal({
   const [baselineRule] = useState<FeatureRule | undefined>(() =>
     rule ? cloneDeep(rule) : undefined,
   );
-  const [conflict, setConflict] = useState<PutFeatureRuleConflict | null>(null);
+  const [conflict, setConflict] = useState<
+    (PutFeatureRuleConflict & { attemptedRule: Record<string, unknown> }) | null
+  >(null);
   const [overwriteArmed, setOverwriteArmed] = useState(false);
+  // Set when the save's error handler saw a 409, so the submit catch can
+  // suppress the Modal's own error text — the banner is the single message.
+  const conflictSignaledRef = useRef(false);
 
   // Find any existing ramp schedule that already targets this specific rule.
   // Uses stem matching so environment-suffixed rule IDs (e.g. fr_abc__production)
@@ -1601,7 +1645,11 @@ export default function RuleModal({
             },
             (responseData) => {
               if (responseData?.status === 409 && responseData?.conflict) {
-                setConflict(responseData.conflict as PutFeatureRuleConflict);
+                conflictSignaledRef.current = true;
+                setConflict({
+                  ...(responseData.conflict as PutFeatureRuleConflict),
+                  attemptedRule: values as unknown as Record<string, unknown>,
+                });
               }
             },
           );
@@ -1714,6 +1762,12 @@ export default function RuleModal({
         error: e.message,
       });
       forceConditionRender();
+      // A conflict renders its own banner; an empty message keeps the Modal's
+      // error display from duplicating it.
+      if (conflictSignaledRef.current) {
+        conflictSignaledRef.current = false;
+        throw new Error("");
+      }
       throw e;
     }
   });
@@ -1961,14 +2015,41 @@ export default function RuleModal({
           <>
             {conflict && !overwriteArmed && (
               <Callout status="error" mb="3">
-                This rule was changed by someone else after you opened this
-                editor
-                {conflict.draftVersion
-                  ? " (in the draft you're saving to)"
-                  : conflict.currentRule
-                    ? " (and published)"
-                    : " (it no longer exists)"}
-                . Saving would replace their version with yours.
+                <Text weight="semibold">
+                  Someone else updated this rule while you had it open
+                  {conflict.draftVersion
+                    ? " (in the draft you're saving to)"
+                    : conflict.currentRule
+                      ? " (and published it)"
+                      : ""}
+                  {conflict.currentRule ? ":" : " — it no longer exists."}
+                </Text>
+                {conflict.currentRule && (
+                  <Box mt="2">
+                    {conflictFieldChanges(
+                      baselineRule,
+                      conflict.currentRule,
+                      conflict.attemptedRule,
+                    ).map((c) => (
+                      <Flex key={c.field} gap="2" align="baseline" wrap="wrap">
+                        <Text weight="medium">{c.field}</Text>
+                        <Text>
+                          → <code>{fmtConflictValue(c.theirs)}</code>
+                        </Text>
+                        {c.conflictsWithYours && (
+                          <Text weight="semibold">— you edited this too</Text>
+                        )}
+                      </Flex>
+                    ))}
+                  </Box>
+                )}
+                <Box mt="2">
+                  <Text size="sm">
+                    &ldquo;Overwrite&rdquo; saves your version and undoes all of
+                    their changes above. &ldquo;Discard&rdquo; keeps their
+                    version and closes this editor.
+                  </Text>
+                </Box>
                 <Flex gap="3" mt="2">
                   <Button
                     color="red"
