@@ -546,7 +546,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   {variations.map((v, i) => {
                     if (!showVariations[i]) return null;
                     if (yaxis === "effect" && i === 0) {
-                      return <></>;
+                      return null;
                     }
                     // Render a shaded area for error bars for each variation if defined
                     return (
