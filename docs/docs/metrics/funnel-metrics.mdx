@@ -87,7 +87,7 @@ In the example above, if **Added to cart** were optional and the unit never adde
 Use optional steps for parts of a journey you want to measure but that are not required to continue.
 
 :::note Partial data
-When the metric uses a conversion window and every step has its own conversion window, GrowthBook bounds the time a unit needs to complete the funnel at the sum of the step windows, capped by the metric window. If any step has no conversion window, the metric window alone is used. This only matters if the experiment has **Skip Partial Data** enabled, where it controls which recent exposures are excluded as not having had time to convert.
+Metric level conversion windows are a hard cap on the completion of all steps. Data that lands after a conversion window has closed are not considered. If the experiment has **Skip Partial Data** enabled, where it controls which recent exposures are excluded as not having had time to convert, time to convert is measured as the sum of each steps conversion windows, capped by the metric window.
 :::
 
 ## Where funnel metrics can be used
