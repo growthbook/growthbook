@@ -205,6 +205,13 @@ export function getSnapshotSettingsFromReportArgs(
     stddev: DEFAULT_PROPER_PRIOR_STDDEV,
   };
 
+  const expandedArgs: LegacyExperimentReportArgs = {
+    ...args,
+    goalMetrics: expandMetricGroups(args.goalMetrics, metricGroups),
+    secondaryMetrics: expandMetricGroups(args.secondaryMetrics, metricGroups),
+    guardrailMetrics: expandMetricGroups(args.guardrailMetrics, metricGroups),
+  };
+
   // Expand derived metrics if factTableMap is provided
   if (factTableMap) {
     // Expand all derived metrics (slices and funnel steps) into the metricMap
@@ -218,12 +225,9 @@ export function getSnapshotSettingsFromReportArgs(
 
   const snapshotSettings: ExperimentSnapshotSettings = {
     metricSettings: getAllExpandedMetricIdsFromExperiment({
-      exp: args,
+      exp: expandedArgs,
       expandedMetricMap: metricMap,
       includeActivationMetric: true,
-      // Must match the groups used to expand the map above, otherwise group
-      // members (and now their derived metrics) are left out.
-      metricGroups,
     })
       .map((m) =>
         getMetricForSnapshot({
@@ -255,9 +259,9 @@ export function getSnapshotSettingsFromReportArgs(
     skipPartialData: !!args.skipPartialData,
     defaultMetricPriorSettings: defaultMetricPriorSettings,
     regressionAdjustmentEnabled: !!args.regressionAdjustmentEnabled,
-    goalMetrics: args.goalMetrics,
-    secondaryMetrics: args.secondaryMetrics,
-    guardrailMetrics: args.guardrailMetrics,
+    goalMetrics: expandedArgs.goalMetrics,
+    secondaryMetrics: expandedArgs.secondaryMetrics,
+    guardrailMetrics: expandedArgs.guardrailMetrics,
     dimensions: args.dimension ? [{ id: args.dimension }] : [],
     variations: args.variations.map((v) => ({
       id: v.id,
@@ -265,7 +269,7 @@ export function getSnapshotSettingsFromReportArgs(
     })),
     coverage: args.coverage,
   };
-  const analysisSettings = getAnalysisSettingsFromReportArgs(args);
+  const analysisSettings = getAnalysisSettingsFromReportArgs(expandedArgs);
 
   return { snapshotSettings, analysisSettings };
 }

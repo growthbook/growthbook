@@ -12,8 +12,10 @@ import {
 } from "shared/types/experiment-snapshot";
 import {
   ExperimentSnapshotReportInterface,
+  LegacyExperimentReportArgs,
   MetricSnapshotSettings,
 } from "shared/types/report";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ApiReqContext } from "back-end/types/api";
 import {
   assertIncrementalRefreshPrerequisites,
@@ -31,7 +33,10 @@ import {
 } from "back-end/src/services/experiments";
 import { planMetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
 import { getQueryableMetricsFromSnapshotSettings } from "back-end/src/services/experimentQueries/experimentQueries";
-import { getReportSnapshotSettings } from "back-end/src/services/reports";
+import {
+  getReportSnapshotSettings,
+  getSnapshotSettingsFromReportArgs,
+} from "back-end/src/services/reports";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
@@ -518,6 +523,74 @@ describe("snapshot planning", () => {
     });
 
     expectOnlyJoinableMetricsAnalyzed(snapshotSettings, metricMap);
+  });
+
+  it("expands legacy report metric groups consistently", () => {
+    const metricGroups = [
+      { id: "mg_goal", metrics: ["m_goal_a", "m_goal_b"] },
+      { id: "mg_secondary", metrics: ["m_secondary"] },
+      { id: "mg_guardrail", metrics: ["m_guardrail_a", "m_guardrail_b"] },
+    ].map(
+      ({ id, metrics }): MetricGroupInterface => ({
+        id,
+        organization: "org_123",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        owner: "",
+        name: id,
+        description: "",
+        tags: [],
+        projects: [],
+        metrics,
+        datasource: "ds_123",
+        archived: false,
+      }),
+    );
+    const metrics = metricGroups
+      .flatMap((group) => group.metrics)
+      .map((id) => factMetricFactory.build({ id }));
+    const metricMap = new Map<string, ExperimentMetricInterface>(
+      metrics.map((metric) => [metric.id, metric]),
+    );
+    const args: LegacyExperimentReportArgs = {
+      trackingKey: "experiment",
+      datasource: "ds_123",
+      exposureQueryId: "exposure",
+      startDate: new Date(),
+      variations: [
+        { id: "0", index: 0, name: "Control", weight: 0.5 },
+        { id: "1", index: 1, name: "Treatment", weight: 0.5 },
+      ],
+      goalMetrics: ["mg_goal"],
+      secondaryMetrics: ["mg_secondary"],
+      guardrailMetrics: ["mg_guardrail"],
+      decisionFrameworkSettings: {},
+    };
+
+    const { snapshotSettings, analysisSettings } =
+      getSnapshotSettingsFromReportArgs(
+        args,
+        metricMap,
+        undefined,
+        undefined,
+        metricGroups,
+      );
+
+    expect(snapshotSettings.metricSettings.map((metric) => metric.id)).toEqual([
+      "m_goal_a",
+      "m_goal_b",
+      "m_secondary",
+      "m_guardrail_a",
+      "m_guardrail_b",
+    ]);
+    expect(snapshotSettings.goalMetrics).toEqual(["m_goal_a", "m_goal_b"]);
+    expect(snapshotSettings.secondaryMetrics).toEqual(["m_secondary"]);
+    expect(snapshotSettings.guardrailMetrics).toEqual([
+      "m_guardrail_a",
+      "m_guardrail_b",
+    ]);
+    expect(analysisSettings.numGoalMetrics).toBe(2);
+    expect(analysisSettings.numGuardrailMetrics).toBe(2);
   });
 
   it("rejects a snapshot for an experiment with no metrics without persisting a record", async () => {
