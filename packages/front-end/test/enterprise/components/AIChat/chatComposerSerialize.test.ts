@@ -7,6 +7,7 @@ import {
   collectMentions,
   collectSkill,
   editorToText,
+  stripDanglingTriggers,
   textToContent,
 } from "@/enterprise/components/AIChat/Composer/serialize";
 import {
@@ -278,5 +279,45 @@ describe("chat composer serialization", () => {
       expect(editorToText(editor)).toBe("a\nb");
       editor.destroy();
     });
+  });
+});
+
+describe("stripDanglingTriggers", () => {
+  it.each([
+    // An "@" abandoned by pressing space, then typing on.
+    ["@ what about revenue", "what about revenue"],
+    // Abandoned at the end and sent with Enter.
+    ["what about revenue @", "what about revenue"],
+    ["@", ""],
+    // "@" is stripped mid-message too — a bare one is never content.
+    ["a @ b", "a b"],
+  ])("strips a standalone @ in %j", (input, expected) => {
+    expect(stripDanglingTriggers(input).trim()).toBe(expected);
+  });
+
+  it.each([
+    ["/ what are my flags", "what are my flags"],
+    ["what are my flags /", "what are my flags"],
+    ["/", ""],
+  ])("strips an abandoned / in %j", (input, expected) => {
+    expect(stripDanglingTriggers(input).trim()).toBe(expected);
+  });
+
+  it.each([
+    ["email me@example.com", "email me@example.com"],
+    ["the @Revenue metric", "the @Revenue metric"],
+    ["handle @someone", "handle @someone"],
+    ["/feature-flags what do I have?", "/feature-flags what do I have?"],
+    // Mid-message "/" is prose, not an abandoned trigger.
+    ["what is A / B testing", "what is A / B testing"],
+    ["ship it and / or revert", "ship it and / or revert"],
+  ])("leaves %j alone", (input, expected) => {
+    expect(stripDanglingTriggers(input)).toBe(expected);
+  });
+
+  it("handles both triggers abandoned in one message", () => {
+    expect(stripDanglingTriggers("/ trend of @ revenue").trim()).toBe(
+      "trend of revenue",
+    );
   });
 });

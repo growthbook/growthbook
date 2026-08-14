@@ -319,7 +319,7 @@ export default function ExplorerAIChat() {
           mentionItems={mentionItems}
           value={input}
           onChange={setInput}
-          onSend={({ mentions }) => trackAndSend(undefined, mentions)}
+          onSend={({ text, mentions }) => trackAndSend(text, mentions)}
           onCancel={cancelGeneration}
           loading={loading}
           isLocalStream={isLocalStream}

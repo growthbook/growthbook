@@ -15,11 +15,14 @@ import { Flex } from "@radix-ui/themes";
 import { PiArrowRightBold, PiStop } from "react-icons/pi";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { AIChatMention } from "shared/ai-chat";
+import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import {
   collectMentions,
   collectSkill,
+  docToText,
   editorToText,
+  stripDanglingTriggers,
   textToContent,
 } from "./serialize";
 import {
@@ -34,7 +37,11 @@ import {
   filterSkillItems,
   type SkillItem,
 } from "./extensions/skillCommand";
-import SuggestionList, { type SuggestionRow } from "./SuggestionList";
+import SuggestionList, {
+  SUGGESTION_LISTBOX_ID,
+  suggestionOptionId,
+  type SuggestionRow,
+} from "./SuggestionList";
 import styles from "./ChatComposer.module.scss";
 
 /**
@@ -47,6 +54,12 @@ export interface ChatComposerHandle {
 }
 
 export interface ComposerSubmission {
+  /**
+   * The message to send. Read from the document rather than the `value` prop so
+   * it matches the mentions below exactly, and so an abandoned "@" or "/" is
+   * cleaned off rather than shipped.
+   */
+  text: string;
   /** Entities the user @-mentioned. */
   mentions: AIChatMention[];
   /** Skill invoked via `/`, if any. */
@@ -108,6 +121,7 @@ const METRIC_TYPE_LABELS: Record<MentionItem["metricType"], string> = {
 function readSubmission(doc: ProseMirrorNode): ComposerSubmission {
   const skill = collectSkill(doc);
   return {
+    text: stripDanglingTriggers(docToText(doc)).trim(),
     mentions: collectMentions(doc),
     ...(skill ? { skill } : {}),
   };
@@ -119,7 +133,15 @@ function toRows(suggestion: ActiveSuggestion): SuggestionRow[] {
     return suggestion.items.map((item) => ({
       key: item.id,
       primary: item.label,
-      secondary: METRIC_TYPE_LABELS[item.metricType],
+      // A badge for the short categorical kind; skill descriptions below stay
+      // plain text, since a sentence in a badge would read as a label.
+      secondary: (
+        <Badge
+          size="xs"
+          variant="soft"
+          label={METRIC_TYPE_LABELS[item.metricType]}
+        />
+      ),
     }));
   }
   return suggestion.items.map((item) => ({
@@ -154,6 +176,11 @@ function ChatComposer(
   const [suggestion, setSuggestion] = useState<ActiveSuggestion | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const rows = suggestion ? toRows(suggestion) : [];
+  // Visible whenever a query is active — including with no matches, so the
+  // popup shows "nothing matched" instead of silently disappearing.
+  const suggestionVisible = suggestion !== null;
+  // Only capture keys when there is something to pick; with no matches Enter
+  // must still fall through and send the message.
   const suggestionOpen = rows.length > 0;
 
   const selectSuggestion = useCallback(
@@ -276,6 +303,18 @@ function ChatComposer(
         role: "textbox",
         "aria-multiline": "true",
         "aria-label": "Chat message",
+        // Focus never leaves the editor, so the textbox is what announces the
+        // popup and its highlighted option. `editorProps` is resynced by
+        // tiptap on every render, so these track the live state.
+        ...(suggestionVisible
+          ? {
+              "aria-expanded": "true",
+              "aria-controls": SUGGESTION_LISTBOX_ID,
+              ...(suggestionOpen
+                ? { "aria-activedescendant": suggestionOptionId(activeIndex) }
+                : {}),
+            }
+          : {}),
       },
       handleKeyDown: (view, event) => {
         // ProseMirror consults `editorProps` BEFORE plugin props, so while the
@@ -404,12 +443,17 @@ function ChatComposer(
 
   const box = (
     <div className={boxClasses.join(" ")}>
-      {suggestionOpen && suggestion && (
+      {suggestionVisible && suggestion && (
         <SuggestionList
           items={rows}
           activeIndex={activeIndex}
           onSelect={selectSuggestion}
           ariaLabel={suggestion.kind === "mention" ? "Metrics" : "Skills"}
+          emptyLabel={
+            suggestion.kind === "mention"
+              ? "No matching metrics"
+              : "No matching skills"
+          }
         />
       )}
       <EditorContent

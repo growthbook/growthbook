@@ -13,6 +13,7 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import TextDivider from "@/components/TextDivider/TextDivider";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { dataSourceConnections } from "@/services/eventSchema";
 import track from "@/services/track";
 import Button from "@/ui/Button";
@@ -46,13 +47,19 @@ export default function EmptyState() {
     useState<null | Partial<DataSourceInterfaceWithParams>>(null);
 
   const isDataSourceEmpty = datasources.length === 0;
-  const mentionItems = useMetricMentionItems();
+  // Scoped like the chat page's composer: this message is replayed there
+  // against this datasource, so offering another one's metrics would attach
+  // entities that chat can't resolve.
+  const { draftExploreState } = useExplorerContext();
+  const mentionItems = useMetricMentionItems(draftExploreState.datasource);
 
   // The message isn't sent here — it's stashed and replayed by the chat page
   // after navigation, so the mentions have to travel with it.
   const handleSubmit = useCallback(
-    ({ mentions }: ComposerSubmission = { mentions: [] }) => {
-      const trimmed = input.trim();
+    (
+      { text, mentions }: ComposerSubmission = { text: input, mentions: [] },
+    ) => {
+      const trimmed = text.trim();
       if (!trimmed) return;
       sessionStorage.setItem(
         PA_AI_CHAT_INITIAL_MESSAGE_KEY,

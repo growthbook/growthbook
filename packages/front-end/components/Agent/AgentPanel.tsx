@@ -176,7 +176,10 @@ export default function AgentPanel({
   const pendingDecisionRef = useRef<ConfirmDecisionBody | null>(null);
   // Same one-shot pattern as the decision above: set just before sendMessage,
   // consumed by buildRequestBody so it rides along with exactly one request.
-  const pendingSubmissionRef = useRef<ComposerSubmission>({ mentions: [] });
+  const pendingSubmissionRef = useRef<ComposerSubmission>({
+    text: "",
+    mentions: [],
+  });
 
   const mentionItems = useMetricMentionItems();
   // Slash commands are agent-panel only — the PA chat's agent has no skills.
@@ -217,7 +220,7 @@ export default function AgentPanel({
     const decision = pendingDecisionRef.current;
     pendingDecisionRef.current = null;
     const { mentions, skill } = pendingSubmissionRef.current;
-    pendingSubmissionRef.current = { mentions: [] };
+    pendingSubmissionRef.current = { text: "", mentions: [] };
     return {
       message,
       conversationId: cid,
@@ -420,8 +423,8 @@ export default function AgentPanel({
   }, [defaultAIModel, messages.length]);
 
   const handleSend = useCallback(
-    (submission: ComposerSubmission = { mentions: [] }) => {
-      const text = input.trim();
+    (submission: ComposerSubmission = { text: input, mentions: [] }) => {
+      const text = submission.text.trim();
       if (!text || loading) return;
       pendingSubmissionRef.current = submission;
       if (askPrompt && !askPrompt.resolved) {
@@ -433,7 +436,7 @@ export default function AgentPanel({
         setConfirmPrompt({ ...confirmPrompt, resolved: true });
       }
       trackMessageSent();
-      sendMessage(undefined, {
+      sendMessage(text, {
         mentions: submission.mentions,
         ...(submission.skill ? { skill: submission.skill } : {}),
       });

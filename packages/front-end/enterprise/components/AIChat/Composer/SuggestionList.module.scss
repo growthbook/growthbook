@@ -62,3 +62,11 @@
   font-size: var(--font-size-1);
   color: var(--gray-a11);
 }
+
+// Zero results. A visible "nothing matched" beats the popup silently vanishing,
+// which reads as though mentions stopped working.
+.empty {
+  padding: 8px;
+  font-size: var(--font-size-2);
+  color: var(--gray-a11);
+}

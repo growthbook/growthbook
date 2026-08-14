@@ -1,4 +1,9 @@
-import type { Editor, JSONContent } from "@tiptap/core";
+import {
+  getText,
+  getTextSerializersFromSchema,
+  type Editor,
+  type JSONContent,
+} from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { AIChatMention, AIChatMentionType } from "shared/ai-chat";
 import { METRIC_MENTION_NAME } from "./extensions/metricMention";
@@ -24,10 +29,51 @@ export function textToContent(text: string): JSONContent {
   };
 }
 
+/**
+ * Mention and command nodes serialize through their extension's `renderText`,
+ * so they land in the string as "@Name" / "/skill" — readable in the chat
+ * bubble and in history.
+ *
+ * Works from the document rather than the editor so a ProseMirror key handler
+ * can call it with its own `view.state.doc`.
+ */
+export function docToText(doc: ProseMirrorNode): string {
+  return getText(doc, {
+    blockSeparator: "\n",
+    textSerializers: getTextSerializersFromSchema(doc.type.schema),
+  });
+}
+
 export function editorToText(editor: Editor): string {
-  // Mention nodes serialize through the extension's `renderText`, so they land
-  // in the string as "@Name" — readable in the chat bubble and in history.
-  return editor.getText({ blockSeparator: "\n" });
+  return docToText(editor.state.doc);
+}
+
+/**
+ * Drop an abandoned trigger — one the user typed to open a menu, then dismissed
+ * with a space or Enter without picking anything. A real mention or command is
+ * a node by then, not loose text, so only stray characters are in scope.
+ *
+ * The two triggers get different rules because they collide with prose
+ * differently:
+ *
+ * - "@" goes wherever it stands alone. A bare "@" as content is vanishingly
+ *   rare, and "me@example.com" is untouched since the "@" isn't standalone.
+ * - "/" goes only at the very start or end of the message — the positions a
+ *   command is actually abandoned in. Mid-message it is left alone, because
+ *   "what is A / B testing" is ordinary prose that stripping would corrupt.
+ */
+export function stripDanglingTriggers(text: string): string {
+  return (
+    text
+      .replace(
+        /(^|[ \t])@([ \t]|$)/g,
+        (_match, before: string, after: string) => before || after,
+      )
+      // Leading "/", plus the whitespace it left behind.
+      .replace(/^\/(?=[ \t]|$)[ \t]*/, "")
+      // Trailing "/", plus the whitespace before it.
+      .replace(/[ \t]+\/$/, "")
+  );
 }
 
 /**
