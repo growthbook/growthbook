@@ -566,6 +566,33 @@ function DiffCommentCell({
   );
 }
 
+// Chrome-free compact JSON diff for embedding inside a callout or card that
+// already provides its own framing (ExpandableDiff's header box reads as a
+// separate, disconnected element there). Renders nothing when the sides match.
+export function CompactInlineDiff({
+  a,
+  b,
+  leftTitle,
+  rightTitle,
+}: {
+  a: string;
+  b: string;
+  leftTitle?: string;
+  rightTitle?: string;
+}) {
+  if (a === b) return null;
+  return (
+    <ReactDiffViewer
+      oldValue={a}
+      newValue={b}
+      compareMethod={DiffMethod.LINES}
+      leftTitle={leftTitle}
+      rightTitle={rightTitle}
+      styles={COMPACT_DIFF_STYLES}
+    />
+  );
+}
+
 export function ExpandableDiff({
   title,
   a,

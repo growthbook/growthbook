@@ -18,7 +18,7 @@ import {
   parsePlainJSONObject,
   stripDefaultsForSparse,
 } from "shared/util";
-import { PiCaretRight } from "react-icons/pi";
+import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
@@ -61,10 +61,9 @@ import useApi from "@/hooks/useApi";
 import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVersionSelector";
 import Modal from "@/components/Modal";
 import {
-  ExpandableDiff,
+  CompactInlineDiff,
   stringifyForRawDiff,
 } from "@/components/Reviews/Feature/RevisionDiffUtils";
-import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import { normalizeFeatureRules } from "@/components/Features/FeatureDiffRenders";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -266,6 +265,7 @@ export default function RuleModal({
     | (PutFeatureRuleConflict & { baseAtConflict: FeatureRule | undefined })
     | null
   >(null);
+  const [showTheirChanges, setShowTheirChanges] = useState(false);
   // Set when the save's error handler saw a 409, so the submit catch can
   // suppress the Modal's own error text — the banner is the single message.
   const conflictSignaledRef = useRef(false);
@@ -1952,6 +1952,8 @@ export default function RuleModal({
               Next: Ramp-up{" "}
               <PiCaretRight className="position-relative" style={{ top: -1 }} />
             </>
+          ) : conflict ? (
+            "Save my version"
           ) : (
             "Save to Draft"
           )
@@ -1988,47 +1990,86 @@ export default function RuleModal({
         bodyPrefix={
           <>
             {conflict && (
-              <Box mb="3">
-                <Callout status="warning" mb="2">
-                  Someone else updated this rule while you had it open
-                  {conflict.draftVersion
-                    ? " (in the draft you're saving to)"
-                    : conflict.currentRule
-                      ? " (and published it)"
-                      : " — it no longer exists there"}
-                  .{" "}
+              <Callout status="warning" mb="3">
+                <Text weight="semibold">
+                  This rule was updated while you were editing
+                </Text>
+                <Box mt="1">
                   {conflict.currentRule
-                    ? "Review their changes below and adjust your edits if needed — saving will replace their version with what's in this form."
-                    : "Saving will re-add the rule with what's in this form."}
-                  <Flex mt="2">
-                    <Button
-                      variant="ghost"
-                      onClick={async () => {
-                        await mutate();
-                        close();
+                    ? `Someone else saved changes to this rule${
+                        conflict.draftVersion
+                          ? " in this draft"
+                          : " and published them"
+                      }. Nothing has been overwritten — your edits are still in the form below.`
+                    : "Someone else removed this rule. Nothing has been overwritten — your edits are still in the form below, and saving will re-add the rule."}
+                </Box>
+                {conflict.currentRule && (
+                  <Box mt="2">
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setShowTheirChanges((s) => !s);
                       }}
                     >
-                      Discard my edits and close
-                    </Button>
-                  </Flex>
-                </Callout>
-                {conflict.currentRule && (
-                  <ExpandableDiff
-                    title="Their changes"
-                    a={stringifyForRawDiff(
-                      conflict.baseAtConflict
-                        ? normalizeFeatureRules([conflict.baseAtConflict])
-                        : [],
+                      {showTheirChanges ? (
+                        <>
+                          <PiCaretDown /> Hide their changes
+                        </>
+                      ) : (
+                        <>
+                          <PiCaretRight /> Show their changes
+                        </>
+                      )}
+                    </a>
+                    {showTheirChanges && (
+                      <Box
+                        mt="2"
+                        style={{
+                          background: "var(--color-surface)",
+                          borderRadius: "var(--radius-2)",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <CompactInlineDiff
+                          a={stringifyForRawDiff(
+                            conflict.baseAtConflict
+                              ? normalizeFeatureRules([conflict.baseAtConflict])
+                              : [],
+                          )}
+                          b={stringifyForRawDiff(
+                            normalizeFeatureRules([conflict.currentRule]),
+                          )}
+                          leftTitle="When you opened this editor"
+                          rightTitle="Their version"
+                        />
+                      </Box>
                     )}
-                    b={stringifyForRawDiff(
-                      normalizeFeatureRules([conflict.currentRule]),
-                    )}
-                    leftTitle="When you opened this editor"
-                    rightTitle="Their version (current)"
-                    styles={COMPACT_DIFF_STYLES}
-                  />
+                  </Box>
                 )}
-              </Box>
+                <Flex
+                  mt="3"
+                  align="center"
+                  justify="between"
+                  gap="3"
+                  wrap="wrap"
+                >
+                  <Box>
+                    Ready? Click <strong>Save my version</strong> to replace
+                    their update with what&apos;s in this form.
+                  </Box>
+                  <a
+                    href="#"
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      await mutate();
+                      close();
+                    }}
+                  >
+                    Discard my edits and close
+                  </a>
+                </Flex>
+              </Callout>
             )}
             <DraftSelectorForChanges
               feature={feature}
