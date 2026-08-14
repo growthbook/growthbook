@@ -64,6 +64,16 @@ export const aiChatMentionValidator = z
   .strict();
 
 /**
+ * The persisted form, which additionally carries the server's staleness
+ * verdict. Deliberately not the wire shape above: whether a mention resolves
+ * against the turn's Data Source is the server's call, so a client cannot
+ * assert it.
+ */
+export const aiChatStoredMentionValidator = aiChatMentionValidator.extend({
+  stale: z.boolean().optional(),
+});
+
+/**
  * Skills invoked via `/` commands. Exported so the agent router validates the
  * same shape on the request body. Capped because each one seeds a full skill
  * body into the turn, and that body stays in the transcript afterwards.
@@ -105,7 +115,7 @@ const aiChatUserMessageValidator = z
     // shared/ai-chat.ts. Cap matches the agent router's datasourceId.
     datasourceHint: z.string().max(256).optional(),
     // Entities the user @-mentioned — see AIChatMention in shared/ai-chat.ts.
-    mentions: aiChatMentionValidator.array().max(20).optional(),
+    mentions: aiChatStoredMentionValidator.array().max(20).optional(),
     // Skills invoked via `/` commands — see AIChatUserMessage.
     skills: aiChatSkillsValidator.optional(),
   })

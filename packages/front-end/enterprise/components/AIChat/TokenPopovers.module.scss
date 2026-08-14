@@ -1,0 +1,55 @@
+// The card behind a composer token. Both surfaces render it on the popover's
+// own panel background, so — unlike the inverted tooltip this replaced — the
+// ordinary theme colours apply and nothing has to be pinned to a step that
+// survives inversion.
+//
+// Narrow and quiet: it annotates a word in a sentence, so it should read at a
+// glance rather than be a panel in its own right.
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 280px;
+  font-size: var(--font-size-1);
+  line-height: 1.5;
+  color: var(--gray-12);
+}
+
+// Name and type badge, the same pairing the `@` menu shows for the same metric.
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.name {
+  font-weight: 500;
+}
+
+// The command as written, e.g. "/flag-create".
+.command {
+  font-family: var(--code-font-family, monospace);
+  font-weight: 500;
+}
+
+.description {
+  color: var(--gray-11);
+}
+
+.empty {
+  color: var(--gray-a9);
+  font-style: italic;
+}
+
+// Why the chip is gray with a red "!".
+.warning {
+  color: var(--red-11);
+  font-weight: 500;
+}
+
+// Sits on its own line under the description rather than beside the name: it
+// is the one thing here you can act on, and the card is too narrow to hold a
+// name, a badge and an action on one row without them colliding.
+.action {
+  align-self: flex-start;
+}

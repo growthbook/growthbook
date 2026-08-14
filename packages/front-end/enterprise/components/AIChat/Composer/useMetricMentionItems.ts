@@ -51,11 +51,18 @@ export function metricTypeLabel(
  * queries against one datasource, so offering metrics from another would
  * produce a chart that can't run. Metric groups have no datasource of their own,
  * so they are dropped entirely when scoping.
+ *
+ * `ready` comes straight from the definitions context. It is what tells an
+ * empty list that means "no metrics in this Data Source" (every mention is
+ * stale) from one that means "not loaded yet" (nothing can be judged).
  */
-export function useMetricMentionItems(datasourceId?: string): MentionItem[] {
-  const { metrics, factMetrics, metricGroups } = useDefinitions();
+export function useMetricMentionItems(datasourceId?: string): {
+  items: MentionItem[];
+  ready: boolean;
+} {
+  const { metrics, factMetrics, metricGroups, ready } = useDefinitions();
 
-  return useMemo(() => {
+  const items = useMemo(() => {
     const items: MentionItem[] = [];
 
     for (const m of metrics) {
@@ -89,4 +96,6 @@ export function useMetricMentionItems(datasourceId?: string): MentionItem[] {
 
     return items.sort((a, b) => a.label.localeCompare(b.label));
   }, [metrics, factMetrics, metricGroups, datasourceId]);
+
+  return { items, ready };
 }

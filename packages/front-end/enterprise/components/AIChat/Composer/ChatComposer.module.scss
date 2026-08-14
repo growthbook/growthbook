@@ -42,6 +42,21 @@
       color: var(--violet-11);
     }
 
+    // Stranded by a Data Source switch — the metric is no longer on the `@`
+    // menu, so the chip drops its accent for neutral gray and picks up a red
+    // "!". The mention still reads as itself; it just stops looking resolved.
+    span[data-type="metricMention"][data-stale="true"] {
+      background: var(--gray-a4);
+      color: var(--gray-11);
+
+      &::after {
+        content: "!";
+        margin-left: 3px;
+        color: var(--red-11);
+        font-weight: 700;
+      }
+    }
+
     span[data-type="skillCommand"] {
       background: var(--gray-a4);
       color: var(--gray-12);

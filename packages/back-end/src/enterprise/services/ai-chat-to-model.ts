@@ -40,11 +40,23 @@ function buildContextPrefix(
   }
   if (mentions && mentions.length) {
     // The composer already wrote "@Name" into the text; this line resolves each
-    // name to the id the agent should act on.
+    // name to the id the agent should act on. A stale one is still listed —
+    // the user did reference it, and saying so is more useful than dropping it
+    // silently and answering as though they never mentioned it.
     const rendered = mentions
-      .map((m) => `${m.name} (${m.type}: ${m.id})`)
+      .map(
+        (m) =>
+          `${m.name} (${m.type}: ${m.id}${m.stale ? ", STALE — not in this datasource" : ""})`,
+      )
       .join(", ");
     lines.push(`[Referenced by the user: ${rendered}]`);
+    if (mentions.some((m) => m.stale)) {
+      lines.push(
+        "[Note: a reference marked STALE was picked under a different datasource and " +
+          "cannot be used here. Tell the user it is unavailable in the current datasource, " +
+          "name it, and ask them to re-pick it — do not query it or substitute a similar metric.]",
+      );
+    }
   }
   return lines.length ? `${lines.join("\n")}\n\n` : "";
 }

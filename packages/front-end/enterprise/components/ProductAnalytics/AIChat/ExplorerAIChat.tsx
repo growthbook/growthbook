@@ -46,7 +46,8 @@ export default function ExplorerAIChat() {
   const { draftExploreState } = useExplorerContext();
   // Scoped to the active datasource — PA queries run against it, so offering a
   // metric from another datasource would build a chart that can't run.
-  const mentionItems = useMetricMentionItems(draftExploreState.datasource);
+  const { items: mentionItems, ready: mentionItemsReady } =
+    useMetricMentionItems(draftExploreState.datasource);
 
   // -- Hooks with no cross-dependencies (safe to call first) -----------------
 
@@ -317,6 +318,7 @@ export default function ExplorerAIChat() {
           ref={composerRef}
           autoFocus
           mentionItems={mentionItems}
+          mentionItemsReady={mentionItemsReady}
           value={input}
           onChange={setInput}
           onSend={({ text, mentions }) => trackAndSend(text, mentions)}

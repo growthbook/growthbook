@@ -1,17 +1,14 @@
-// The hover card for a token inside the editor.
-//
-// Unlike the chat log's tooltip — which rides on Radix's inverted surface — this
-// is our own element on the composer's own background, so it uses the ordinary
-// panel colours and reads correctly in both themes without any inversion.
-.card {
+// Positioning for the editor's token card. The card's own chrome comes from
+// `PopoverContent`, so this only places it — and keeps the pointer's path to it
+// unbroken.
+.anchor {
   position: absolute;
   z-index: 10;
-  padding: 8px 10px;
-  border: 1px solid var(--gray-a6);
-  border-radius: var(--radius-3);
-  background: var(--color-panel-solid);
-  color: var(--gray-12);
-  box-shadow: var(--shadow-4);
-  // Informational only — never swallow a click meant for the editor.
-  pointer-events: none;
+
+  // The card sits flush on top of the token, and this lifts it clear by the
+  // same amount a popover offsets from its trigger. The gap is padding on the
+  // card's own hit area rather than empty space between two elements, so
+  // moving from the token to the card never leaves the card — which is what
+  // stops it closing before the link can be clicked.
+  padding-bottom: 6px;
 }

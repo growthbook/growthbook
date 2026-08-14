@@ -182,7 +182,8 @@ export default function AgentPanel({
     skills: [],
   });
 
-  const mentionItems = useMetricMentionItems();
+  const { items: mentionItems, ready: mentionItemsReady } =
+    useMetricMentionItems();
   // Slash commands are agent-panel only — the PA chat's agent has no skills.
   const skillItems = useSkillCommandItems();
 
@@ -687,6 +688,7 @@ export default function AgentPanel({
         ref={composerRef}
         autoFocus
         mentionItems={mentionItems}
+        mentionItemsReady={mentionItemsReady}
         skillItems={skillItems}
         value={input}
         onChange={setInput}

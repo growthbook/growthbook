@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   tryParseToolResultJson,
   toolResultSnapshotId,
+  type AIChatMention,
   type AIChatToolResultPart,
 } from "shared/ai-chat";
 import {
@@ -36,6 +37,7 @@ import {
   getAllFactTablesForOrganization,
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getMetricById } from "back-end/src/models/MetricModel";
 import { runColumnsTopValuesQuery } from "back-end/src/jobs/refreshFactTableColumns";
 
 // =============================================================================
@@ -194,7 +196,9 @@ async function buildProductAnalyticsSystemPrompt(
     "The chat UI adds it when the user @-mentioned entities in the composer — it is " +
     "not something they typed, so do not echo it. It maps each `@Name` already in " +
     "their text to the exact id they picked, so use those ids directly rather than " +
-    "calling search to re-resolve the name.\n\n" +
+    "calling search to re-resolve the name. An entry marked STALE was picked under a " +
+    "different datasource and is not usable here — say so, name it, and ask the user " +
+    "to re-pick it rather than searching for a replacement.\n\n" +
     buildConfigSchemaSummary() +
     "\n\n" +
     PA_SYSTEM_INSTRUCTIONS
@@ -1291,6 +1295,48 @@ interface PAParams {
   datasourceId: string;
 }
 
+/** The datasource an @-mentioned entity belongs to, or undefined if it's gone. */
+async function mentionDatasource(
+  ctx: ReqContext,
+  mention: AIChatMention,
+): Promise<string | undefined> {
+  if (mention.type === "factMetric") {
+    return (await ctx.models.factMetrics.getById(mention.id))?.datasource;
+  }
+  if (mention.type === "metricGroup") {
+    return (await ctx.models.metricGroups.getById(mention.id))?.datasource;
+  }
+  return (await getMetricById(ctx, mention.id))?.datasource;
+}
+
+/**
+ * Flags mentions that don't belong to the datasource this chat runs against.
+ *
+ * The composer scopes its `@` menu to the active Data Source, but the menu is
+ * only a filter at insert time — switching Data Sources afterwards strands a
+ * mention the user already placed, and the message is still sent with it. This
+ * is the authoritative check, so a client can't assert that a metric is usable
+ * here. An id that no longer resolves counts as stale too: deleted since it was
+ * picked is the same problem from the model's point of view.
+ */
+async function resolveProductAnalyticsMentions(
+  ctx: ReqContext,
+  mentions: AIChatMention[],
+  datasourceId: string,
+): Promise<AIChatMention[]> {
+  // Nothing to judge against — an unscoped chat can use anything.
+  if (!datasourceId) return mentions;
+
+  return Promise.all(
+    mentions.map(async (mention) => {
+      const datasource = await mentionDatasource(ctx, mention);
+      return datasource === datasourceId
+        ? mention
+        : { ...mention, stale: true };
+    }),
+  );
+}
+
 const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
   agentType: "product-analytics",
   promptType: "product-analytics-chat",
@@ -1301,6 +1347,9 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
 
   buildSystemPrompt: (ctx, { datasourceId }) =>
     buildProductAnalyticsSystemPrompt(ctx, datasourceId),
+
+  resolveMentions: (ctx, mentions, { datasourceId }) =>
+    resolveProductAnalyticsMentions(ctx, mentions, datasourceId),
 
   buildTools: (ctx, buffer, { datasourceId }) => {
     let metricsCache: FactMetricInterface[] | null = null;

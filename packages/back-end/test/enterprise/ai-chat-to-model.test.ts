@@ -67,6 +67,44 @@ describe("toModelMessages context prefix", () => {
     ]);
   });
 
+  it("marks a stale mention inline and tells the model what to do about it", () => {
+    const text = firstUserText([
+      userMessage({
+        content: "how is @Revenue doing?",
+        mentions: [
+          { type: "metric", id: "met_abc", name: "Revenue", stale: true },
+        ],
+      }),
+    ]);
+    // Still listed, not dropped — the user did reference it, and the answer
+    // should name it rather than quietly ignore it.
+    expect(text).toContain(
+      "[Referenced by the user: Revenue (metric: met_abc, STALE — not in this datasource)]",
+    );
+    expect(text).toContain("[Note: a reference marked STALE");
+  });
+
+  it("adds no note when every mention resolves", () => {
+    const text = firstUserText([
+      userMessage({
+        mentions: [
+          { type: "metric", id: "met_abc", name: "Revenue" },
+          { type: "factMetric", id: "fact__xyz", name: "Signups", stale: true },
+        ],
+      }),
+    ]);
+    expect(text).toContain("Revenue (metric: met_abc),");
+    expect(text).toContain("Signups (factMetric: fact__xyz, STALE");
+    expect(text).toContain("[Note: a reference marked STALE");
+
+    const clean = firstUserText([
+      userMessage({
+        mentions: [{ type: "metric", id: "met_abc", name: "Revenue" }],
+      }),
+    ]);
+    expect(clean).not.toContain("STALE");
+  });
+
   it("emits no mention line for an empty array", () => {
     const text = firstUserText([userMessage({ mentions: [] })]);
     expect(text).toBe("how is it doing?");

@@ -31,6 +31,7 @@ import {
   METRIC_MENTION_NAME,
   filterMentionItems,
   type MentionItem,
+  type MentionStorage,
 } from "./extensions/metricMention";
 import {
   SkillCommand,
@@ -102,6 +103,12 @@ export interface ChatComposerProps {
    */
   mentionItems?: MentionItem[];
   /**
+   * Whether `mentionItems` is the loaded list. Until it is, no mention is
+   * marked stale — an empty list on its own can't say whether the Data Source
+   * has no metrics or the definitions simply haven't arrived.
+   */
+  mentionItemsReady?: boolean;
+  /**
    * Skills offered by the `/` menu. Leave unset to disable slash commands —
    * which the PA chat does, since its agent has no skills.
    */
@@ -115,6 +122,14 @@ type ActiveSuggestion =
       command: (item: MentionItem) => void;
     }
   | { kind: "skill"; items: SkillItem[]; command: (item: SkillItem) => void };
+
+/**
+ * Grace period before the token hover card closes. The card's hit area already
+ * reaches down to the token, so this only covers leaving both at an angle —
+ * long enough to forgive a wobble, short enough that the card doesn't linger
+ * over text the pointer has moved on to.
+ */
+const HOVER_CARD_CLOSE_DELAY_MS = 200;
 
 /** Identity of a hovered token, for cheap change detection between events. */
 function tokenKey(hovered: HoveredToken | null): string | null {
@@ -165,6 +180,7 @@ function ChatComposer(
     autoFocus = false,
     variant = "wide",
     mentionItems,
+    mentionItemsReady = false,
     skillItems,
   }: ChatComposerProps,
   ref: React.ForwardedRef<ChatComposerHandle>,
@@ -177,6 +193,7 @@ function ChatComposer(
   const [activeIndex, setActiveIndex] = useState(0);
   // The token under the pointer, for the hover card. Anchored against the box.
   const boxRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const [hoveredToken, setHoveredToken] = useState<HoveredToken | null>(null);
   const rows = suggestion ? toRows(suggestion) : [];
   // Visible whenever a query is active — including with no matches, so the
@@ -185,6 +202,58 @@ function ChatComposer(
   // Only capture keys when there is something to pick; with no matches Enter
   // must still fall through and send the message.
   const suggestionOpen = rows.length > 0;
+
+  // The card holds an "Open metric" link, so it has to survive the pointer
+  // leaving the token. Hover is tracked on the box rather than through the
+  // editor's own DOM handlers because the card is a child of the box: the
+  // pointer moving from token to card never leaves the box, and events
+  // bubbling out of the card are ignored, so nothing closes it while it is
+  // being used. The delay only covers a diagonal exit off both.
+  const hideCardTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelHideCard = useCallback(() => {
+    if (hideCardTimer.current) {
+      clearTimeout(hideCardTimer.current);
+      hideCardTimer.current = null;
+    }
+  }, []);
+
+  const scheduleHideCard = useCallback(() => {
+    cancelHideCard();
+    hideCardTimer.current = setTimeout(
+      () => setHoveredToken(null),
+      HOVER_CARD_CLOSE_DELAY_MS,
+    );
+  }, [cancelHideCard]);
+
+  useEffect(() => cancelHideCard, [cancelHideCard]);
+
+  const handleBoxMouseOver = useCallback(
+    (event: React.MouseEvent) => {
+      // Over the card itself — it must stay open to be clickable.
+      if (cardRef.current?.contains(event.target as Node)) {
+        cancelHideCard();
+        return;
+      }
+      const next = readHoveredToken(event.target, boxRef.current);
+      // Off a token, but possibly on the way to the card — defer rather than
+      // close, and leave whatever is showing in place meanwhile.
+      if (!next) {
+        scheduleHideCard();
+        return;
+      }
+      cancelHideCard();
+      // Compare the resolved token, not the object, so moving within one token
+      // doesn't re-render on every pixel.
+      setHoveredToken((prev) =>
+        prev?.token.kind === next.token.kind &&
+        tokenKey(prev) === tokenKey(next)
+          ? prev
+          : next,
+      );
+    },
+    [cancelHideCard, scheduleHideCard],
+  );
 
   const selectSuggestion = useCallback(
     (index: number) => {
@@ -319,24 +388,6 @@ function ChatComposer(
             }
           : {}),
       },
-      handleDOMEvents: {
-        mouseover: (_view, event) => {
-          const next = readHoveredToken(event.target, boxRef.current);
-          // Compare the resolved token, not the object, so moving within one
-          // token (or across plain text) doesn't re-render on every pixel.
-          setHoveredToken((prev) =>
-            prev?.token.kind === next?.token.kind &&
-            tokenKey(prev) === tokenKey(next)
-              ? prev
-              : next,
-          );
-          return false;
-        },
-        mouseleave: () => {
-          setHoveredToken(null);
-          return false;
-        },
-      },
       handleKeyDown: (view, event) => {
         // ProseMirror consults `editorProps` BEFORE plugin props, so while the
         // mention popup is open its navigation keys have to be claimed here —
@@ -393,9 +444,17 @@ function ChatComposer(
   // from `useDefinitions`, so it lives in the extension's storage — which the
   // suggestion `items` callback reads through the editor it is handed.
   useEffect(() => {
-    if (!editor) return;
-    editor.storage[METRIC_MENTION_NAME].items = mentionItems ?? [];
-  }, [editor, mentionItems]);
+    if (!editor || editor.isDestroyed) return;
+    const storage = editor.storage[METRIC_MENTION_NAME] as MentionStorage;
+    storage.items = mentionItems ?? [];
+    storage.ready = mentionItemsReady;
+    // Storage is a plain object, so writing to it changes nothing on screen.
+    // The stale-mention decorations are computed from it, and only a new state
+    // makes ProseMirror ask for them again — hence an empty transaction. It
+    // touches neither the document nor the selection, so `onUpdate` (and the
+    // caret) are untouched, and it is kept out of the undo history.
+    editor.view.dispatch(editor.state.tr.setMeta("addToHistory", false));
+  }, [editor, mentionItems, mentionItemsReady]);
 
   useEffect(() => {
     if (!editor) return;
@@ -463,8 +522,13 @@ function ChatComposer(
   ].filter(Boolean);
 
   const box = (
-    <div ref={boxRef} className={boxClasses.join(" ")}>
-      <TokenHoverCard hovered={hoveredToken} />
+    <div
+      ref={boxRef}
+      className={boxClasses.join(" ")}
+      onMouseOver={handleBoxMouseOver}
+      onMouseLeave={scheduleHideCard}
+    >
+      <TokenHoverCard hovered={hoveredToken} cardRef={cardRef} />
       {suggestionVisible && suggestion && (
         <SuggestionList
           items={rows}

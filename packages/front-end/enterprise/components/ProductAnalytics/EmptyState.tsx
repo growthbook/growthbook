@@ -51,7 +51,8 @@ export default function EmptyState() {
   // against this datasource, so offering another one's metrics would attach
   // entities that chat can't resolve.
   const { draftExploreState } = useExplorerContext();
-  const mentionItems = useMetricMentionItems(draftExploreState.datasource);
+  const { items: mentionItems, ready: mentionItemsReady } =
+    useMetricMentionItems(draftExploreState.datasource);
 
   // The message isn't sent here — it's stashed and replayed by the chat page
   // after navigation, so the mentions have to travel with it.
@@ -212,6 +213,7 @@ export default function EmptyState() {
                   isLocalStream={false}
                   disabled={chatDisabled || isDataSourceEmpty}
                   mentionItems={mentionItems}
+                  mentionItemsReady={mentionItemsReady}
                 />
               </Box>
 

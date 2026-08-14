@@ -174,6 +174,14 @@ export type AIChatMention = {
   type: AIChatMentionType;
   id: string;
   name: string;
+  /**
+   * The entity doesn't belong to the Data Source this turn runs against (or no
+   * longer exists). Set by the server at send time, never accepted from the
+   * client, and persisted so the transcript keeps what was true when the
+   * message was sent. The reference is still passed to the model, which is told
+   * to say so rather than act on it — see `toModelMessages`.
+   */
+  stale?: boolean;
 };
 
 export type AIChatUserMessage = {

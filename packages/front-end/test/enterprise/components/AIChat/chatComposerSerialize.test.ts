@@ -12,7 +12,9 @@ import {
 } from "@/enterprise/components/AIChat/Composer/serialize";
 import {
   MetricMention,
+  METRIC_MENTION_NAME,
   filterMentionItems,
+  offeredMentionIds,
   type MentionItem,
 } from "@/enterprise/components/AIChat/Composer/extensions/metricMention";
 import {
@@ -135,6 +137,55 @@ describe("chat composer serialization", () => {
       expect(collectMentions(editor.state.doc)).toEqual([]);
       editor.destroy();
     });
+
+    // The decoration is what the stale styling hangs off, and it reads the
+    // metric list out of storage, which nothing else in the editor observes.
+    it("marks mentions the @ menu no longer offers with data-stale", () => {
+      const element = document.createElement("div");
+      const editor = new Editor({
+        element,
+        extensions: EXTENSIONS,
+        content: {
+          type: "doc",
+          content: [
+            {
+              type: "paragraph",
+              content: [
+                mentionNode("met_1", "Revenue", "metric"),
+                { type: "text", text: " vs " },
+                mentionNode("met_2", "Signups", "metric"),
+              ],
+            },
+          ],
+        },
+      });
+
+      // What the composer dispatches to make the view recompute decorations.
+      const sync = (items: MentionItem[], ready: boolean) => {
+        editor.storage[METRIC_MENTION_NAME].items = items;
+        editor.storage[METRIC_MENTION_NAME].ready = ready;
+        editor.view.dispatch(editor.state.tr.setMeta("addToHistory", false));
+        return Array.from(element.querySelectorAll("[data-stale]")).map((el) =>
+          el.getAttribute("data-id"),
+        );
+      };
+
+      const revenue: MentionItem = {
+        id: "met_1",
+        label: "Revenue",
+        metricType: "metric",
+        typeLabel: "Revenue",
+      };
+
+      // Nothing is judged before the definitions load, however empty the list.
+      expect(sync([], false)).toEqual([]);
+      expect(sync([revenue], true)).toEqual(["met_2"]);
+      // A loaded-but-empty list is a Data Source with no metrics of its own,
+      // which strands every mention rather than none.
+      expect(sync([], true)).toEqual(["met_1", "met_2"]);
+
+      editor.destroy();
+    });
   });
 
   describe("filterMentionItems", () => {
@@ -174,6 +225,12 @@ describe("chat composer serialization", () => {
 
     it("returns nothing when no label matches", () => {
       expect(filterMentionItems(items, "zzz")).toEqual([]);
+    });
+
+    describe("offeredMentionIds", () => {
+      it("collects the ids currently on offer", () => {
+        expect(offeredMentionIds(items)).toEqual(new Set(["1", "2", "3"]));
+      });
     });
   });
 

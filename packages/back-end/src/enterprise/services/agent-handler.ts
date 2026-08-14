@@ -98,6 +98,21 @@ export interface AgentConfig<TParams = unknown> {
    */
   resolveSkill?: (name: string) => string | undefined;
 
+  /**
+   * Checks the user's @-mentions against what this turn can actually use,
+   * returning them annotated with `stale` (see `AIChatMention`). Only agents
+   * that are genuinely scoped implement this — the general agent reaches
+   * metrics across the whole org, so nothing it is handed can be out of scope.
+   *
+   * Mentions are never dropped here: a stale one still reaches the model, which
+   * is told to say it is unavailable rather than answer around it.
+   */
+  resolveMentions?: (
+    ctx: ReqContext,
+    mentions: AIChatMention[],
+    params: TParams,
+  ) => Promise<AIChatMention[]>;
+
   temperature?: number;
   maxSteps?: number;
 
@@ -301,12 +316,18 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
           : undefined;
       // Duplicates would seed the same body twice for no benefit.
       const skills = Array.from(new Set(body.skills ?? []));
+      // Resolved before persisting, so the staleness stored on the message is
+      // the verdict for the turn it was actually sent in.
+      const mentions =
+        config.resolveMentions && body.mentions?.length
+          ? await config.resolveMentions(context, body.mentions, params)
+          : body.mentions;
       appendUserMessage(
         buffer,
         message,
         body.currentPage,
         datasourceHint,
-        body.mentions,
+        mentions,
         skills,
       );
       // Seeded after the user message so the transcript reads in the order it
