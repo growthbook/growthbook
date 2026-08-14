@@ -16,6 +16,7 @@ import ConditionalWrapper from "@/components/ConditionalWrapper";
 import ErrorDisplay from "@/ui/ErrorDisplay";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import { useTx } from "@/services/i18n";
 import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
 import Tooltip from "./Tooltip/Tooltip";
@@ -131,6 +132,7 @@ const Modal: FC<ModalProps> = ({
   onBackdropClick,
   dismissible = false,
 }) => {
+  const tx = useTx();
   const [modalUuid] = useState(_modalUuid || uuidv4());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -207,7 +209,7 @@ const Modal: FC<ModalProps> = ({
                   style={{ height: 40 }}
                 />
               ) : (
-                header
+                tx(header)
               )}
               {docSection && (
                 <DocLink useRadix={false} docSection={docSection}>
@@ -215,7 +217,7 @@ const Modal: FC<ModalProps> = ({
                 </DocLink>
               )}
             </h4>
-            {subHeader ? <div className="mt-1">{subHeader}</div> : null}
+            {subHeader ? <div className="mt-1">{tx(subHeader)}</div> : null}
           </div>
           {close && showHeaderCloseButton && (
             <button
@@ -225,7 +227,7 @@ const Modal: FC<ModalProps> = ({
                 e.preventDefault();
                 close();
               }}
-              aria-label="Close"
+              aria-label={String(tx("Close"))}
             >
               <span aria-hidden="true">×</span>
             </button>
@@ -242,7 +244,7 @@ const Modal: FC<ModalProps> = ({
                   e.preventDefault();
                   close();
                 }}
-                aria-label="Close"
+                aria-label={String(tx("Close"))}
               >
                 <Text aria-hidden="true" size="6">
                   &times;
@@ -277,7 +279,7 @@ const Modal: FC<ModalProps> = ({
         }}
       >
         {isSuccess ? (
-          <Callout status="success">{successMessage}</Callout>
+          <Callout status="success">{tx(successMessage)}</Callout>
         ) : (
           <>
             {aboveBodyContent}
@@ -321,7 +323,7 @@ const Modal: FC<ModalProps> = ({
                         close();
                       }}
                     >
-                      {isSuccess && successMessage ? "Close" : closeCta}
+                      {isSuccess && successMessage ? tx("Close") : tx(closeCta)}
                     </Button>
                   </div>
                 ) : (
@@ -334,7 +336,7 @@ const Modal: FC<ModalProps> = ({
                       close();
                     }}
                   >
-                    {isSuccess && successMessage ? "Close" : closeCta}
+                    {isSuccess && successMessage ? tx("Close") : tx(closeCta)}
                   </button>
                 )}
               </>

@@ -31,6 +31,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import ExperimentsListTable from "@/components/Experiment/ExperimentsListTable";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import useURLHash from "@/hooks/useURLHash";
+import { useT } from "@/services/i18n";
 
 const EXPERIMENT_LIST_TABS = [
   "all",
@@ -45,6 +46,7 @@ const isExperimentListTab = (value: string): value is ExperimentListTab => {
 };
 
 const ExperimentsPage = (): React.ReactElement => {
+  const t = useT();
   const { ready, project, projects, datasources } = useDefinitions();
   const { organization } = useUser();
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(
@@ -182,7 +184,7 @@ const ExperimentsPage = (): React.ReactElement => {
         <div className="my-3">
           <div className="filters md-form row align-items-center">
             <div className="col-auto">
-              <h1>Experiments</h1>
+              <h1>{t("Experiments")}</h1>
             </div>
             <div style={{ flex: 1 }} />
             {showViewSampleButton && <ViewSampleDataButton />}
@@ -245,10 +247,11 @@ const ExperimentsPage = (): React.ReactElement => {
                 }
               />
               <Callout status="info">
-                Want to analyze results of an existing experiment that you ran
-                elsewhere?{" "}
+                {t(
+                  "Want to analyze results of an existing experiment that you ran elsewhere? ",
+                )}
                 <Link href="/getstarted/imported-experiment-guide">
-                  Learn More
+                  {t("Learn More")}
                 </Link>
               </Callout>
             </>
@@ -273,8 +276,10 @@ const ExperimentsPage = (): React.ReactElement => {
 
                           return (
                             <TabsTrigger value={tabValue} key={tabValue + i}>
-                              {tabValue.slice(0, 1).toUpperCase()}
-                              {tabValue.slice(1)}
+                              {t(
+                                tabValue.slice(0, 1).toUpperCase() +
+                                  tabValue.slice(1),
+                              )}
                               {tabValue !== "archived" && (
                                 <span
                                   style={{

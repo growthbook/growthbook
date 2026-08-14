@@ -11,6 +11,7 @@ import {
 import { Box, Tabs as RadixTabs } from "@radix-ui/themes";
 import useURLHash from "@/hooks/useURLHash";
 import { radixSize, Size } from "@/ui/sizes";
+import { useTx } from "@/services/i18n";
 
 /**
  * See more examples in design-system/index.tsx
@@ -188,9 +189,10 @@ export const TabsTrigger = forwardRef<
   HTMLButtonElement,
   React.ComponentProps<typeof RadixTabs.Trigger>
 >(function TabsTrigger({ children, ...props }, ref) {
+  const tx = useTx();
   return (
     <RadixTabs.Trigger {...props} ref={ref}>
-      {children}
+      {tx(children)}
     </RadixTabs.Trigger>
   );
 });

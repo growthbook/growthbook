@@ -11,6 +11,7 @@ import { inferDocUrl } from "@/components/DocLink";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { WhiteButton } from "@/ui/Button";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useT } from "@/services/i18n";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import { navlinks } from "./sidebarNav";
@@ -77,6 +78,7 @@ const Layout = (): React.ReactElement => {
   const permissionsUtil = usePermissionsUtil();
   const { organization, canSubscribe } = useUser();
   const { breadcrumb } = usePageHead();
+  const t = useT();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
   const showUpgradeButton =
@@ -101,19 +103,19 @@ const Layout = (): React.ReactElement => {
   // If no breadcrumb provided, try to figure out a page name based on the path
   otherPageTitles.forEach((o) => {
     if (!pageTitle && o.path.test(path)) {
-      pageTitle = o.title;
+      pageTitle = t(o.title);
     }
   });
   breadcumbLinks.forEach((o) => {
     if (o.subLinks) {
       o.subLinks.forEach((s) => {
         if (!pageTitle && s.path.test(path)) {
-          pageTitle = s.name;
+          pageTitle = t(s.name);
         }
       });
     }
     if (!pageTitle && o.path.test(path)) {
-      pageTitle = o.name;
+      pageTitle = t(o.name);
     }
   });
 
@@ -163,7 +165,7 @@ const Layout = (): React.ReactElement => {
                 href="/"
                 aria-current="page"
                 className="app-sidebar-logo active"
-                title="GrowthBook Home"
+                title={t("GrowthBook Home")}
                 onClick={() => setOpen(false)}
               >
                 <div className={styles.sidebarlogo}>
@@ -234,7 +236,7 @@ const Layout = (): React.ReactElement => {
                     }}
                   >
                     <BsSearch size={13} />
-                    <span className={styles.searchTriggerLabel}>Search</span>
+                    <span className={styles.searchTriggerLabel}>{t("Search")}</span>
                     <span className={styles.searchTriggerKbd}>
                       {typeof navigator !== "undefined" &&
                       /Mac|iPhone|iPad/.test(navigator.userAgent)
@@ -255,17 +257,17 @@ const Layout = (): React.ReactElement => {
         <Flex p="3" direction="column" gap="4">
           {showUpgradeButton && (
             <WhiteButton onClick={() => setUpgradeModal(true)}>
-              <>Upgrade</>
+              <>{t("Upgrade")}</>
             </WhiteButton>
           )}
           <a href={inferDocUrl()} target="_blank" rel="noreferrer">
-            <WhiteButton variant="outline">View docs</WhiteButton>
+            <WhiteButton variant="outline">{t("View docs")}</WhiteButton>
           </a>
         </Flex>
         {build.sha && (
           <div className="px-3 my-1 text-center">
             <small>
-              <span className="text-muted">Build:</span>{" "}
+              <span className="text-muted">{t("Build")}:</span>{" "}
               <a
                 href={`https://github.com/growthbook/growthbook/commit/${build.sha}`}
                 target="_blank"

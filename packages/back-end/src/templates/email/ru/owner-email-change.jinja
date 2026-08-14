@@ -1,0 +1,21 @@
+{% extends "base.jinja" %}
+{% import "utils.jinja" as utils %}
+
+{% block preview %}
+  Владелец {{ organization }} в GrowthBook изменился.
+{% endblock %}
+
+{% block top %}
+  <p>
+    Владельца организации <strong>{{ organization }}</strong> в GrowthBook сменил {{ email }}.<br/>
+    <br/>
+    Прежний владелец: <strong>{{ originalOwner }}</strong><br/>
+    Новый владелец: <strong>{{ newOwner }}</strong><br/>
+    <br/>
+    Если вы не согласны с этим изменением, сразу свяжитесь с поддержкой или администратором аккаунта.
+  </p>
+{% endblock %}
+
+{% block lower %}
+  <p>Вы получили это письмо, потому что являетесь владельцем организации {{ organization }} в GrowthBook.</p>
+{% endblock %}

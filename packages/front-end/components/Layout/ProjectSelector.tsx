@@ -9,6 +9,7 @@ import { useSearch } from "@/services/search";
 import usePermissions from "@/hooks/usePermissions";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import DropdownLink from "@/components/Dropdown/DropdownLink";
+import { useT } from "@/services/i18n";
 import LetterAvatar from "./LetterAvatar";
 
 const demoBadge = {
@@ -28,10 +29,11 @@ const ProjectDropdownBadge: FC<ProjectDropdownBadgeProps> = ({
   badgeColor,
   badgeTitle,
 }) => {
+  const t = useT();
   return (
     <div
       className="badge badge-pill position-absolute text-white"
-      title={badgeTitle}
+      title={t(badgeTitle)}
       style={{
         backgroundColor: badgeColor,
         bottom: -6,
@@ -39,7 +41,7 @@ const ProjectDropdownBadge: FC<ProjectDropdownBadgeProps> = ({
         fontSize: "0.7em",
       }}
     >
-      {badgeText}
+      {t(badgeText)}
     </div>
   );
 };
@@ -90,6 +92,7 @@ function ProjectName({
 }
 
 export default function ProjectSelector() {
+  const t = useT();
   const { projects, project, getProjectById, setProject } = useDefinitions();
   const { orgId } = useAuth();
   const current = getProjectById(project);
@@ -162,7 +165,7 @@ export default function ProjectSelector() {
           <ProjectName
             caret
             avatarName={current?.name || ""}
-            display={current?.name || "All Projects"}
+            display={current?.name || t("All Projects")}
             bold={true}
             badge={currentProjectIsDemoProject ? demoBadge : null}
             size="large"
@@ -172,7 +175,7 @@ export default function ProjectSelector() {
         <div className="mt-2 mx-2">
           <Field
             size="legacy"
-            placeholder="Search..."
+            placeholder={t("Search...")}
             type="search"
             {...searchInputProps}
           />
@@ -187,7 +190,7 @@ export default function ProjectSelector() {
             badge={null}
             className="text-dark"
             avatarName={""}
-            display={"All Projects"}
+            display={t("All Projects")}
             bold={!project}
           />
         </DropdownLink>

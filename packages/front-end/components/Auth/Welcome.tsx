@@ -10,6 +10,7 @@ import Field from "@/components/Forms/Field";
 import Button, { WhiteButton } from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
+import { useT } from "@/services/i18n";
 import WelcomeFrame from "./WelcomeFrame";
 
 type LoginHeroContent = {
@@ -48,6 +49,7 @@ export default function Welcome({
     "login-page-content",
     null,
   );
+  const t = useT();
 
   useEffect(() => {
     if (pathname === "/invitation") {
@@ -56,21 +58,21 @@ export default function Welcome({
   }, [pathname]);
 
   const welcomeMsg = [
-    <>Welcome to GrowthBook!</>,
-    <>Hello! Welcome to GrowthBook</>,
-    "Hello there, Welcome!",
-    "Hey there!",
+    t("Welcome to GrowthBook!"),
+    t("Hello! Welcome to GrowthBook"),
+    t("Hello there, Welcome!"),
+    t("Hey there!"),
   ];
   const cta =
     state === "login"
-      ? "Log in"
+      ? t("Log in")
       : state === "register"
-        ? "Create Account"
+        ? t("Create Account")
         : state === "forgot"
-          ? "Look up"
+          ? t("Look up")
           : state === "firsttime"
-            ? "Sign up"
-            : "Submit";
+            ? t("Sign up")
+            : t("Submit");
 
   const submit =
     state === "forgotSuccess"
@@ -92,7 +94,7 @@ export default function Welcome({
           } = await res.json();
           if (json.status > 200) {
             throw new Error(
-              json.message || "An error occurred. Please try again.",
+              json.message || t("An error occurred. Please try again."),
             );
           }
 
@@ -111,22 +113,23 @@ export default function Welcome({
 
   const welcomeContent =
     state === "login" ? (
-      <p>Welcome back, lets get started with some experiments</p>
+      <p>{t("Welcome back, lets get started with some experiments")}</p>
     ) : state === "register" ? (
       <p>
-        Let&apos;s run some experiments! Enter your information to get started.
+        {t("Let's run some experiments! Enter your information to get started.")}
       </p>
     ) : state === "forgot" ? (
-      <p>Happens to the best of us</p>
+      <p>{t("Happens to the best of us")}</p>
     ) : state === "firsttime" ? (
       <>
         <p>
-          Getting started with GrowthBook only takes a few minutes. <br />
-          To start, we&apos;ll need a bit of information about you.
+          {t("Getting started with GrowthBook only takes a few minutes. ")}
+          <br />
+          {t("To start, we'll need a bit of information about you.")}
         </p>
       </>
     ) : (
-      <p>Let&apos;s get started with some experimentation</p>
+      <p>{t("Let's get started with some experimentation")}</p>
     );
 
   const ctaText = hero?.cta?.trim();
@@ -225,9 +228,9 @@ export default function Welcome({
         >
           {state === "register" && (
             <div>
-              <h3 className="h2">Register</h3>
+              <h3 className="h2">{t("Register")}</h3>
               <p>
-                Already have an account?{" "}
+                {t("Already have an account? ")}
                 <a
                   href="#"
                   onClick={(e) => {
@@ -235,18 +238,18 @@ export default function Welcome({
                     setState("login");
                   }}
                 >
-                  Log In
+                  {t("Log In")}
                 </a>
               </p>
             </div>
           )}
           {state === "firsttime" && (
             <div>
-              <h3 className="h2">Set up your first account</h3>
+              <h3 className="h2">{t("Set up your first account")}</h3>
               <p>
-                This information stays on your servers and is never shared.{" "}
+                {t("This information stays on your servers and is never shared. ")}{" "}
                 <br />
-                You can invite the rest of your team later.
+                {t("You can invite the rest of your team later.")}
               </p>
             </div>
           )}
@@ -262,7 +265,7 @@ export default function Welcome({
           )}
           {state === "forgot" && (
             <div>
-              <h3 className="h2">Forgot Password</h3>
+              <h3 className="h2">{t("Forgot Password")}</h3>
               <p>
                 <a
                   href="#"
@@ -271,20 +274,21 @@ export default function Welcome({
                     setState("login");
                   }}
                 >
-                  Go back to Log In
+                  {t("Go back to Log In")}
                 </a>
               </p>
             </div>
           )}
           {state === "forgotSuccess" && (
             <div>
-              <h3 className="h2">Forgot Password</h3>
+              <h3 className="h2">{t("Forgot Password")}</h3>
               <Callout status="success" mb="3">
-                Password reset link sent to <strong>{email}</strong>.
+                {t("Password reset link sent to ")}
+                <strong>{email}</strong>.
               </Callout>
-              <p>Click the link in the email to reset your password.</p>
+              <p>{t("Click the link in the email to reset your password.")}</p>
               <p>
-                Sent to the wrong email or need to resend?{" "}
+                {t("Sent to the wrong email or need to resend? ")}
                 <a
                   href="#"
                   onClick={(e) => {
@@ -292,7 +296,7 @@ export default function Welcome({
                     setState("forgot");
                   }}
                 >
-                  Go Back
+                  {t("Go Back")}
                 </a>
               </p>
             </div>
@@ -354,7 +358,7 @@ export default function Welcome({
                       setState("forgot");
                     }}
                   >
-                    Forgot Password?
+                    {t("Forgot Password?")}
                   </a>
                 ) : null
               }
@@ -378,7 +382,7 @@ export default function Welcome({
           {state === "login" && (
             <Flex justify="center" align="center">
               <Text color="text-mid" weight="regular" align="center">
-                Don&apos;t have an account yet?{" "}
+                {t("Don't have an account yet? ")}
                 <a
                   href="#"
                   onClick={(e) => {
@@ -386,7 +390,7 @@ export default function Welcome({
                     setState("register");
                   }}
                 >
-                  Start for free
+                  {t("Start for free")}
                 </a>
               </Text>
             </Flex>

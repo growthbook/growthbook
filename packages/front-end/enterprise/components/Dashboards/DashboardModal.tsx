@@ -1,4 +1,5 @@
 import cronstrue from "cronstrue";
+import "cronstrue/locales/ru";
 import { useForm } from "react-hook-form";
 import React, { useEffect, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
@@ -12,6 +13,7 @@ import Field from "@/components/Forms/Field";
 import Checkbox from "@/ui/Checkbox";
 import { getExperimentRefreshFrequency } from "@/services/env";
 import { useUser } from "@/services/UserContext";
+import { cronLocale } from "@/services/i18n";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -87,6 +89,7 @@ export default function DashboardModal({
     if (updateSchedule.cron) {
       const cronString = cronstrue.toString(updateSchedule.cron, {
         verbose: false,
+        locale: cronLocale(),
       });
       return cronString.charAt(0).toLowerCase() + cronString.slice(1);
     }

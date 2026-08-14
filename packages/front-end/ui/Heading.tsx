@@ -1,6 +1,7 @@
 import { Heading as RadixHeading } from "@radix-ui/themes";
 import type { HeadingProps as RadixHeadingProps } from "@radix-ui/themes";
 import { Size } from "@/ui/sizes";
+import { useTx } from "@/services/i18n";
 
 type HeadingSizes = Size<"xs" | "sm" | "md" | "lg" | "xl" | "2xl">;
 type HeadingWeights = "medium" | "semibold";
@@ -73,6 +74,7 @@ export default function Heading({
   mb,
   ml,
 }: HeadingProps) {
+  const tx = useTx();
   const style: React.CSSProperties = { overflowWrap };
   if (whiteSpace) style.whiteSpace = whiteSpace;
   if (textTransform) style.textTransform = textTransform;
@@ -102,7 +104,7 @@ export default function Heading({
       mb={mb ?? "0"}
       ml={ml}
     >
-      {children}
+      {tx(children)}
     </RadixHeading>
   );
 }

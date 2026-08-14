@@ -1,5 +1,6 @@
 import { Html, Head, Main, NextScript } from "next/document";
 import { AppearanceUISnippet } from "@/services/AppearanceUIThemeProvider";
+import { LocaleSnippet } from "@/services/i18n";
 
 export default function Document() {
   return (
@@ -11,7 +12,7 @@ export default function Document() {
       <Head>
         <script
           dangerouslySetInnerHTML={{
-            __html: AppearanceUISnippet,
+            __html: AppearanceUISnippet + LocaleSnippet,
           }}
         />
         <style>

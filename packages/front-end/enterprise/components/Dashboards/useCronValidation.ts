@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import cronstrue from "cronstrue";
+import "cronstrue/locales/ru";
 import { DashboardUpdateSchedule } from "shared/enterprise";
+import { cronLocale, translate } from "@/services/i18n";
 
 export function useCronValidation(
   currentUpdateSchedule: DashboardUpdateSchedule | undefined,
@@ -17,7 +19,8 @@ export function useCronValidation(
         `${cronstrue.toString(currentUpdateSchedule.cron, {
           throwExceptionOnParseError: true,
           verbose: true,
-        })} (UTC time)`,
+          locale: cronLocale(),
+        })} ${translate("(UTC time)")}`,
       );
     } catch {
       setCronError(true);

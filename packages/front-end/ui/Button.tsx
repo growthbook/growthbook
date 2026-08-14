@@ -8,6 +8,7 @@ import {
 } from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { radixSize, Size as SharedSize } from "@/ui/sizes";
+import { useTx } from "@/services/i18n";
 
 // "inherit" drops the forced accent color so the button inherits the
 // surrounding Radix accent context (e.g. a Callout's status color).
@@ -57,11 +58,23 @@ const Button = forwardRef<HTMLButtonElement, Props>(
   ) => {
     const [_internalLoading, setLoading] = useState(false);
     const loading = _externalLoading || _internalLoading;
+    const tx = useTx();
+    const label = tx(children);
 
     return (
       <RadixButton
         ref={ref}
         {...otherProps}
+        title={
+          typeof otherProps.title === "string"
+            ? (tx(otherProps.title) as string)
+            : otherProps.title
+        }
+        aria-label={
+          typeof otherProps["aria-label"] === "string"
+            ? (tx(otherProps["aria-label"]) as string)
+            : otherProps["aria-label"]
+        }
         onClick={
           onClick
             ? async (e) => {
@@ -87,7 +100,7 @@ const Button = forwardRef<HTMLButtonElement, Props>(
         type={type}
       >
         {icon && iconPosition === "left" ? icon : null}
-        <Text weight="medium">{children}</Text>
+        <Text weight="medium">{label}</Text>
         {icon && iconPosition === "right" ? icon : null}
       </RadixButton>
     );
@@ -120,6 +133,7 @@ export const WhiteButton = forwardRef<HTMLButtonElement, WhiteButtonProps>(
   ) {
     const [_internalLoading, setLoading] = useState(false);
     const loading = _externalLoading || _internalLoading;
+    const tx = useTx();
 
     return (
       <RadixButton
@@ -157,7 +171,7 @@ export const WhiteButton = forwardRef<HTMLButtonElement, WhiteButtonProps>(
         tabIndex={tabIndex}
       >
         {icon && iconPosition === "left" ? icon : null}
-        <Text weight="medium">{children}</Text>
+        <Text weight="medium">{tx(children)}</Text>
         {icon && iconPosition === "right" ? icon : null}
       </RadixButton>
     );

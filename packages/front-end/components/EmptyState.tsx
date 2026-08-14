@@ -1,5 +1,6 @@
 import { FC } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
+import { useTx } from "@/services/i18n";
 
 const EmptyState: FC<{
   title: string;
@@ -8,6 +9,7 @@ const EmptyState: FC<{
   rightButton: React.ReactNode | null;
   image?: string;
 }> = ({ title, description, leftButton, rightButton, image }) => {
+  const tx = useTx();
   return (
     <Box p="60px" pb="70px" className={`box text-center`}>
       <Flex direction="column" align="center" gap="8px">
@@ -15,10 +17,10 @@ const EmptyState: FC<{
           size="6"
           style={{ fontWeight: 500, color: "var(--color-text-high)" }}
         >
-          {title}
+          {tx(title)}
         </Text>
         <Text size="3" style={{ color: "var(--color-text-mid)" }}>
-          {description}
+          {tx(description)}
         </Text>
 
         {(leftButton || rightButton) && (
@@ -31,7 +33,7 @@ const EmptyState: FC<{
           <div className="mt-4">
             <img
               src={image}
-              alt={title}
+              alt={String(tx(title))}
               style={{ width: "100%", maxWidth: "740px", height: "auto" }}
             />
           </div>

@@ -15,6 +15,7 @@ import Portal from "@/components/Modal/Portal";
 import track from "@/services/track";
 import { RadixTheme } from "@/services/RadixTheme";
 import { GBInfo } from "@/components/Icons";
+import { useTx } from "@/services/i18n";
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
   body: ReactNode;
@@ -53,6 +54,7 @@ const Tooltip: FC<Props> = ({
   flipTheme = true,
   ...otherProps
 }) => {
+  const tx = useTx();
   const [open, setOpen] = useState(state ?? false);
   const [fadeIn, setFadeIn] = useState(false);
   const [alreadyHovered, setAlreadyHovered] = useState(false);
@@ -171,7 +173,7 @@ const Tooltip: FC<Props> = ({
               )}
               role="tooltip"
             >
-              <div className={`body ${innerClassName}`}>{body}</div>
+              <div className={`body ${innerClassName}`}>{tx(body)}</div>
               <div ref={arrowRef} style={styles.arrow} className="arrow" />
             </Box>
           </RadixTheme>

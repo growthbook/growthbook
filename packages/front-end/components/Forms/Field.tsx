@@ -4,6 +4,7 @@ import TextareaAutosize, {
   TextareaAutosizeProps,
 } from "react-textarea-autosize";
 import HelperText from "@/ui/HelperText";
+import { useTx } from "@/services/i18n";
 
 export type FieldSize = "sm" | "md" | "legacy" | "lg";
 
@@ -71,9 +72,19 @@ const Field = forwardRef(
     // eslint-disable-next-line
     ref: any,
   ) => {
+    const tx = useTx();
     const [fieldId] = useState(
       () => id || `field_${Math.floor(Math.random() * 1000000)}`,
     );
+
+    const translatedPlaceholder =
+      typeof otherProps.placeholder === "string"
+        ? (tx(otherProps.placeholder) as string)
+        : otherProps.placeholder;
+    const inputProps = {
+      ...otherProps,
+      placeholder: translatedPlaceholder,
+    };
 
     const cn = clsx(
       "form-control",
@@ -91,7 +102,7 @@ const Field = forwardRef(
     } else if (textarea) {
       component = (
         <TextareaAutosize
-          {...(otherProps as unknown as TextareaAutosizeProps)}
+          {...(inputProps as unknown as TextareaAutosizeProps)}
           ref={ref}
           id={fieldId}
           className={cn}
@@ -102,7 +113,7 @@ const Field = forwardRef(
     } else {
       component = (
         <input
-          {...otherProps}
+          {...inputProps}
           ref={ref}
           id={fieldId}
           type={type}
@@ -153,7 +164,7 @@ const Field = forwardRef(
               className={clsx(labelClassName)}
               style={{ fontWeight: 600 }}
             >
-              {label}
+              {tx(label)}
               {markRequired && <span className="text-danger ml-1">*</span>}
             </label>
           )}
@@ -166,12 +177,12 @@ const Field = forwardRef(
         {component}
         {error && (
           <HelperText status={errorLevel} mt="1">
-            {error}
+            {tx(error)}
           </HelperText>
         )}
         {helpText && (
           <small className={clsx("form-text text-muted", helpTextClassName)}>
-            {helpText}
+            {tx(helpText)}
           </small>
         )}
       </div>

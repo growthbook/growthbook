@@ -13,6 +13,7 @@ import {
 import { ExperimentSortBy } from "shared/experiments";
 import { PiCaretRight, PiArrowSquareOut } from "react-icons/pi";
 import cronstrue from "cronstrue";
+import "cronstrue/locales/ru";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -20,6 +21,7 @@ import { useExperimentDashboards } from "@/hooks/useDashboards";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
+import { cronLocale } from "@/services/i18n";
 import { useAuth } from "@/services/auth";
 import { getExperimentRefreshFrequency } from "@/services/env";
 import LinkButton from "@/ui/LinkButton";
@@ -226,6 +228,7 @@ export default function MigrateResultsToDashboardModal({
     if (updateSchedule.cron) {
       const cronString = cronstrue.toString(updateSchedule.cron, {
         verbose: false,
+        locale: cronLocale(),
       });
       return cronString.charAt(0).toLowerCase() + cronString.slice(1);
     }

@@ -1,0 +1,28 @@
+{% extends "base.jinja" %}
+{% import "utils.jinja" as utils %}
+
+{% block preview %}
+  Вас пригласили в {{ organizationName|noHyperlink }} в GrowthBook
+{% endblock %}
+
+{% block title %}
+  Присоединиться к {{ organizationName|noHyperlink }} в GrowthBook
+{% endblock %}
+
+{% block top %}
+  {% if invitedBy %}
+    <p style='margin: 0 0 24px; font-size: 15px; color: #444444; line-height: 24px;'>{{ invitedBy }} приглашает вас пользоваться GrowthBook в аккаунте <strong>{{ organizationName|noHyperlink }}</strong>.</p>
+  {% else %}
+    <p style='margin: 0 0 24px; font-size: 15px; color: #444444; line-height: 24px;'>Вас пригласили пользоваться GrowthBook в аккаунте <strong>{{ organizationName|noHyperlink }}</strong>.</p>
+  {% endif %}
+  {{ utils.button("Принять приглашение", inviteUrl) }}
+{% endblock %}
+
+{% block bottom %}
+  <p style='margin: 0 0 12px; font-size: 15px; color: #444444; line-height: 24px;'>GrowthBook — платформа для флагов функций, A/B-тестов и продуктовой аналитики. Если вы не ожидали это письмо, его можно проигнорировать.</p>
+  <p style='margin: 0; font-size: 12px;'>Если кнопка не работает, <a href="{{ inviteUrl }}" style="color: #888888;">нажмите здесь</a> или скопируйте ссылку в браузер: {{ inviteUrl }}</p>
+{% endblock %}
+
+{% block lower %}
+  <p style='margin: 0;'>Продолжая, вы соглашаетесь присоединиться к организации, которой управляет администратор{% if invitedBy %} ({{ invitedBy }}){% endif %}, и подтверждаете <a href="https://www.growthbook.io/privacy" style="color: #888888; text-decoration: underline;">политику конфиденциальности GrowthBook</a>. <a href="https://www.growthbook.io" style="color: #888888; text-decoration: underline;">Подробнее о GrowthBook</a>.</p>
+{% endblock %}

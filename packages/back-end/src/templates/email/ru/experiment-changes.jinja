@@ -1,0 +1,24 @@
+{% extends "base.jinja" %}
+{% import "utils.jinja" as utils %}
+
+{% block preview %}
+  В эксперименте {{ experimentName|noHyperlink }} значимое изменение метрики
+{% endblock %}
+
+{% block title %}
+  В эксперименте «{{ experimentName|noHyperlink }}» значимое изменение метрики
+{% endblock %}
+
+{% block top %}
+  <p>Изменились следующие метрики эксперимента:</p>
+  <ul style='padding: 0; margin: 0 0 10px 0; list-style-type: disc;'>
+    {% for change in experimentChanges %}
+      <li style='margin:0 0 10px 30px;'>{{ change }}</li>
+    {% endfor %}
+  </ul>
+  {{ utils.button("Смотреть результаты", experimentUrl) }}
+{% endblock %}
+
+{% block bottom %}
+  <p style='margin: 30px 0;'>Вы получили это письмо, потому что следите за экспериментом.</p>
+{% endblock %}

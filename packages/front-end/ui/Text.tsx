@@ -2,6 +2,7 @@ import { forwardRef } from "react";
 import { Text as RadixText } from "@radix-ui/themes";
 import type { TextProps as RadixTextProps } from "@radix-ui/themes";
 import { radixSize, Size } from "@/ui/sizes";
+import { useTx } from "@/services/i18n";
 
 export type TextSizes = Size<"sm" | "md" | "lg" | "xl"> | "inherit";
 export type TextWeights = "regular" | "medium" | "semibold";
@@ -79,6 +80,7 @@ export default forwardRef<
   },
   ref,
 ) {
+  const tx = useTx();
   const style: React.CSSProperties = {
     overflowWrap,
     fontStyle,
@@ -117,7 +119,7 @@ export default forwardRef<
       mb={mb}
       ml={ml}
     >
-      {children}
+      {tx(children)}
     </RadixText>
   );
 });

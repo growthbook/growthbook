@@ -11,6 +11,7 @@ import {
   PiSunDim,
   PiBuildingFill,
   PiSparkle,
+  PiGlobe,
 } from "react-icons/pi";
 import Head from "next/head";
 import { Flex, Text } from "@radix-ui/themes";
@@ -41,6 +42,7 @@ import Field from "@/components/Forms/Field";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Checkbox from "@/ui/Checkbox";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import { useLocale } from "@/services/i18n";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
 import { useOpenRevisionCount } from "@/hooks/useRevisions";
@@ -85,6 +87,7 @@ const TopNav: FC<{
   }
 
   const { setTheme, preferredTheme } = useAppearanceUITheme();
+  const { locale, setLocale, t } = useLocale();
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
 
   const {
@@ -117,7 +120,7 @@ const TopNav: FC<{
         return (
           <div className="align-middle">
             <PiMoon size="16" className="mr-1 " />
-            Theme
+            {t("Theme")}
           </div>
         );
 
@@ -125,7 +128,7 @@ const TopNav: FC<{
         return (
           <div className="align-middle">
             <PiSunDim size="16" className="mr-1" />
-            Theme
+            {t("Theme")}
           </div>
         );
 
@@ -133,11 +136,11 @@ const TopNav: FC<{
         return (
           <div className="align-middle">
             <PiCircleHalf size="16" className="mr-1" />
-            Theme
+            {t("Theme")}
           </div>
         );
     }
-  }, [preferredTheme]);
+  }, [preferredTheme, t]);
 
   let orgName = orgId || "";
   if (organizations && organizations.length) {
@@ -155,7 +158,7 @@ const TopNav: FC<{
           logout();
         }}
       >
-        Sign Out
+        {t("Sign Out")}
       </DropdownMenuItem>
     );
   };
@@ -168,7 +171,7 @@ const TopNav: FC<{
           setEditUserOpen(true);
         }}
       >
-        Edit profile
+        {t("Edit profile")}
       </DropdownMenuItem>
     );
   };
@@ -198,7 +201,7 @@ const TopNav: FC<{
           router.push("/account/personal-access-tokens");
         }}
       >
-        Personal Access Tokens
+        {t("Personal Access Tokens")}
       </DropdownMenuItem>
     );
   };
@@ -210,7 +213,7 @@ const TopNav: FC<{
           router.push("/reports");
         }}
       >
-        My Reports
+        {t("My Reports")}
       </DropdownMenuItem>
     );
   };
@@ -225,7 +228,7 @@ const TopNav: FC<{
       >
         <div className="align-middle">
           <PiListChecks size="16" className="mr-1" />
-          Activity Feed
+          {t("Activity Feed")}
         </div>
       </DropdownMenuItem>
     );
@@ -242,7 +245,7 @@ const TopNav: FC<{
       >
         <div className="align-middle d-flex align-items-center">
           <PiHourglassHigh size="16" className="mr-1" />
-          Pending Reviews
+          {t("Pending Reviews")}
           {pendingReviewCount > 0 && (
             <span
               style={{
@@ -284,7 +287,7 @@ const TopNav: FC<{
         >
           <span>
             <PiCircleHalf size="16" className="mr-1" />
-            System Default
+            {t("System Default")}
           </span>
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -297,7 +300,7 @@ const TopNav: FC<{
         >
           <span>
             <PiSunDim size="16" className="mr-1" />
-            Light
+            {t("Light")}
           </span>
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -310,12 +313,50 @@ const TopNav: FC<{
         >
           <span>
             <PiMoon size="16" className="mr-1" />
-            Dark
+            {t("Dark")}
           </span>
         </DropdownMenuItem>
       </DropdownSubMenu>
     );
   };
+
+  const renderLanguageSubDropDown = () => {
+    return (
+      <DropdownSubMenu
+        trigger={
+          <div className="align-middle">
+            <PiGlobe size="16" className="mr-1" />
+            {t("Language")}
+          </div>
+        }
+        triggerClassName={styles.dropdownItemIconColor}
+      >
+        <DropdownMenuItem
+          className={styles.dropdownItemIconColor}
+          key="ru"
+          onClick={() => {
+            setDropdownOpen(false);
+            setLocale("ru");
+          }}
+        >
+          {t("Russian")}
+          {locale === "ru" ? " ✓" : ""}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className={styles.dropdownItemIconColor}
+          key="en"
+          onClick={() => {
+            setDropdownOpen(false);
+            setLocale("en");
+          }}
+        >
+          {t("English")}
+          {locale === "en" ? " ✓" : ""}
+        </DropdownMenuItem>
+      </DropdownSubMenu>
+    );
+  };
+
   const renderOrganizationDropDown = () => {
     if (organizations && organizations.length === 1) {
       return (
@@ -343,7 +384,7 @@ const TopNav: FC<{
             </Flex>
           }
         >
-          <DropdownMenuLabel>Organization</DropdownMenuLabel>
+          <DropdownMenuLabel>{t("Organization")}</DropdownMenuLabel>
           {organizations.map((o) => (
             <DropdownMenuItem
               key={o.id}
@@ -377,7 +418,7 @@ const TopNav: FC<{
                 >
                   <Flex align="center" gap="1">
                     <PiPlusBold />
-                    Add Organization
+                    {t("Add Organization")}
                   </Flex>
                 </DropdownMenuItem>
               </>
@@ -406,7 +447,7 @@ const TopNav: FC<{
             setChangePasswordOpen(true);
           }}
         >
-          Change Password
+          {t("Change Password")}
         </DropdownMenuItem>
       );
     }
@@ -423,14 +464,16 @@ const TopNav: FC<{
           trackingEventModalType=""
           close={() => setEditUserOpen(false)}
           submit={onSubmitEditProfile}
-          header="Edit Profile"
+          header={t("Edit Profile")}
           open={true}
         >
-          <Field size="legacy" label="Name" {...form.register("name")} />
+          <Field size="legacy" label={t("Name")} {...form.register("name")} />
           <Checkbox
             id="allowCelebration"
-            label="Allow celebration"
-            description="Show confetti celebrations randomly when you complete certain actions like launching an experiment."
+            label={t("Allow celebration")}
+            description={t(
+              "Show confetti celebrations randomly when you complete certain actions like launching an experiment.",
+            )}
             value={form.watch("enableCelebrations")}
             setValue={(v) => form.setValue("enableCelebrations", v)}
           />
@@ -451,13 +494,13 @@ const TopNav: FC<{
               href="#main-menu"
               id="main-menu-toggle"
               className={styles.mobilemenu}
-              aria-label="Open main menu"
+              aria-label={t("Open main menu")}
               onClick={(e) => {
                 e.preventDefault();
                 toggleLeftMenu();
               }}
             >
-              <span className="sr-only">Open main menu</span>
+              <span className="sr-only">{t("Open main menu")}</span>
               <FaBars />
             </a>
           ) : showLogo ? (
@@ -487,11 +530,11 @@ const TopNav: FC<{
               onClick={toggleAgentPanel}
               aria-label={
                 agentOpen
-                  ? "Close GrowthBook AI assistant"
-                  : "Open GrowthBook AI assistant"
+                  ? t("Close GrowthBook AI assistant")
+                  : t("Open GrowthBook AI assistant")
               }
               aria-pressed={agentOpen}
-              title="Ask GrowthBook AI"
+              title={t("Ask GrowthBook AI")}
               className={`nav-link ${styles.agentTrigger} ${
                 agentOpen ? styles.agentTriggerActive : ""
               }`}
@@ -531,6 +574,7 @@ const TopNav: FC<{
             {renderPendingReviewsDropDown()}
             {renderMyActivityFeedsDropDown()}
             {renderThemeSubDropDown()}
+            {renderLanguageSubDropDown()}
             <DropdownMenuSeparator />
             {renderMyReportsDropDown()}
             {renderPersonalAccessTokensDropDown()}

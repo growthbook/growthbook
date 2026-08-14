@@ -1,0 +1,22 @@
+{% extends "base.jinja" %}
+{% import "utils.jinja" as utils %}
+
+{% block preview %}
+  {{ name|noHyperlink }} ({{ email }})
+{% endblock %}
+
+{% block title %}
+  Пользователь просит присоединиться к <strong>{{ organization|noHyperlink }}</strong> в GrowthBook
+{% endblock %}
+
+{% block top %}
+  <p style='margin: 0 0 20px;'>
+    Имя: <strong>{{ name|noHyperlink }}</strong><br/>
+    Email: <strong>{{ email }}</strong><br/>
+  </p>
+  {{ utils.button("Просмотреть заявки", teamUrl) }}
+{% endblock %}
+
+{% block lower %}
+  <p>Вы получили это письмо, потому что являетесь владельцем организации <strong>{{ organization|noHyperlink }}</strong> в GrowthBook.</p>
+{% endblock %}

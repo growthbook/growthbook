@@ -23,6 +23,7 @@ import { useExperiments } from "@/hooks/useExperiments";
 import { useDashboards } from "@/hooks/useDashboards";
 import { buildSidebarLinkFilterProps } from "@/components/Layout/SidebarLink";
 import { flattenNavItems, navlinks } from "@/components/Layout/sidebarNav";
+import { useT } from "@/services/i18n";
 import { getDocSectionsForCommandPalette } from "@/components/DocLink";
 import {
   buildCommandPaletteIndex,
@@ -172,6 +173,7 @@ export const CommandPaletteLauncher: FC = () => {
 };
 
 const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
+  const t = useT();
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [expandedSections, setExpandedSections] = useState<
@@ -210,8 +212,8 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
     const result: CommandPaletteItem[] = flatNav.map((row) => ({
       id: `nav::${row.href}::${row.name}`,
       type: "navigation",
-      name: row.parentName ? `${row.parentName} → ${row.name}` : row.name,
-      description: row.parentName ? row.name : "",
+      name: row.parentName ? `${t(row.parentName)} → ${t(row.name)}` : t(row.name),
+      description: row.parentName ? t(row.name) : "",
       url: row.href,
       tags: row.parentName ? `${row.parentName} ${row.name}` : row.name,
     }));
@@ -339,6 +341,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
     dashboards,
     docPaletteRows,
     apiReferenceRows,
+    t,
   ]);
 
   const { strictItems, fuzzyItems } = useMemo(
@@ -520,10 +523,10 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
 
           <div className={styles.results} ref={resultsRef}>
             {!query.trim() && (
-              <div className={styles.empty}>Start typing to search...</div>
+              <div className={styles.empty}>{t("Start typing to search...")}</div>
             )}
             {query.trim() && flatResults.length === 0 && (
-              <div className={styles.empty}>No results found</div>
+              <div className={styles.empty}>{t("No results found")}</div>
             )}
             {groupedResults &&
               SECTION_ORDER.map((type) => {
@@ -537,7 +540,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
                 return (
                   <div key={type}>
                     <div className={styles.sectionHeader}>
-                      {SECTION_LABELS[type]}
+                      {t(SECTION_LABELS[type])}
                     </div>
                     {sectionItems.map((item) => {
                       const idx = flatIndex++;

@@ -33,6 +33,7 @@ import "diff2html/bundles/css/diff2html.min.css";
 import "react-grid-layout/css/styles.css";
 import Layout from "@/components/Layout/Layout";
 import { AppearanceUIThemeProvider } from "@/services/AppearanceUIThemeProvider";
+import { LocaleProvider, translate } from "@/services/i18n";
 import TopNavLite from "@/components/Layout/TopNavLite";
 import GetStartedProvider from "@/services/GetStartedProvider";
 import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
@@ -51,7 +52,7 @@ import Callout from "@/ui/Callout";
 if (typeof window === "undefined") React.useLayoutEffect = React.useEffect;
 
 // If loading a variable font, you don't need to specify the font weight
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ["latin", "cyrillic"] });
 
 type ModAppProps = AppProps & {
   Component: {
@@ -191,6 +192,7 @@ function App({
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       <AppearanceUIThemeProvider>
+        <LocaleProvider>
         <RadixTheme>
           {ready || noLoadingOverlay ? (
             <HoverTooltipProvider>
@@ -253,7 +255,7 @@ function App({
           ) : error ? (
             <Container mt="9">
               <Callout status="error">
-                Error Initializing GrowthBook:
+                {translate("Error Initializing GrowthBook:")}
                 <br />
                 <br />
                 {error}
@@ -263,6 +265,7 @@ function App({
             <LoadingOverlay />
           )}
         </RadixTheme>
+        </LocaleProvider>
       </AppearanceUIThemeProvider>
     </>
   );

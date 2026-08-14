@@ -1,0 +1,20 @@
+{% extends "base.jinja" %}
+
+{% block preview %}
+  {{ email }} в {{ company|noHyperlink }}
+{% endblock %}
+
+{% block title %}
+  В GrowthBook появилась новая организация
+{% endblock %}
+
+{% block top %}
+  <p>
+    Компания: <strong>{{ company|noHyperlink }}</strong><br/>
+    Email: <strong>{{ email }}</strong>
+  </p>
+{% endblock %}
+
+{% block lower %}
+  <p>Вы получили это письмо, потому что являетесь администратором.</p>
+{% endblock %}

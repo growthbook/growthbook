@@ -64,6 +64,7 @@ import Table, {
   TableColumnHeader,
   TableCell,
 } from "@/ui/Table";
+import { useT } from "@/services/i18n";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
@@ -105,6 +106,7 @@ const FEATURE_TABLE_COLUMN_WIDTH = {
 } as const;
 
 export default function FeaturesPage() {
+  const t = useT();
   const router = useRouter();
   const { organization } = useUser();
   const { data: sdkConnectionData } = useSDKConnections();
@@ -689,7 +691,7 @@ export default function FeaturesPage() {
       )}
       <Flex align="center" justify="between" gap="3" mt="4" mb="2">
         <Box style={{ flex: 1 }}>
-          <h1>Feature Flags</h1>
+          <h1>{t("Feature Flags")}</h1>
         </Box>
         {!showSetUpFlow && (
           <Box>
@@ -768,8 +770,9 @@ export default function FeaturesPage() {
             {renderFeaturesTable()}
             {!isDemoProject && (
               <Callout status="info" mt="5" mb="3">
-                Test what values these features will return for your users from
-                the <Link href="/archetypes#simulate">Simulate</Link> page.
+                {t("Test what values these features will return for your users from the ")}
+                <Link href="/archetypes#simulate">{t("Simulate")}</Link>
+                {t(" page.")}
               </Callout>
             )}
           </TabsContent>

@@ -17,6 +17,14 @@ export const LOG_LEVEL = process.env.LOG_LEVEL;
 export const IS_CLOUD = stringToBoolean(process.env.IS_CLOUD);
 export const IS_MULTI_ORG = stringToBoolean(process.env.IS_MULTI_ORG);
 
+const rawAppLocale = (process.env.APP_LOCALE || "").toLowerCase();
+export const APP_LOCALE: "en" | "ru" =
+  rawAppLocale === "en" || rawAppLocale === "ru"
+    ? rawAppLocale
+    : ENVIRONMENT === "test"
+      ? "en"
+      : "ru";
+
 /** Enable GrowthBook OAuth 2.1 Authorization Server endpoints (MCP / CLI login). Default off. */
 export const OAUTH_AS_ENABLED = stringToBoolean(process.env.OAUTH_AS_ENABLED);
 

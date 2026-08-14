@@ -12,8 +12,10 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import CreateMetricFromTemplate from "@/components/FactTables/CreateMetricFromTemplate";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useT } from "@/services/i18n";
 
 const MetricsPage = (): React.ReactElement => {
+  const t = useT();
   const { metrics, factMetrics, factTables, datasources, project } =
     useDefinitions();
 
@@ -45,14 +47,15 @@ const MetricsPage = (): React.ReactElement => {
       )}
       <CreateMetricFromTemplate />
       <Box mb="4">
-        <h1 style={{ margin: 0 }}>Metrics</h1>
+        <h1 style={{ margin: 0 }}>{t("Metrics")}</h1>
       </Box>
       {!hasMetrics ? (
         <Box className="appbox" p="5" style={{ textAlign: "center" }}>
-          <h2>Define What Success Looks Like</h2>
+          <h2>{t("Define What Success Looks Like")}</h2>
           <p>
-            Metrics are defined with SQL on top of your data warehouse. Use them
-            as goals and guardrails in experiments to measure success.
+            {t(
+              "Metrics are defined with SQL on top of your data warehouse. Use them as goals and guardrails in experiments to measure success.",
+            )}
           </p>
           <Box mt="3">
             {!hasDatasource ? (
@@ -60,8 +63,9 @@ const MetricsPage = (): React.ReactElement => {
             ) : !hasFactTables ? (
               <>
                 <p>
-                  Start by creating a <strong>Fact Table</strong>, which serves
-                  as the foundation for your metrics.
+                  {t("Start by creating a ")}
+                  <strong>{t("Fact Table")}</strong>
+                  {t(", which serves as the foundation for your metrics.")}
                 </p>
                 <LinkButton href="/fact-tables">Create Fact Table</LinkButton>
               </>
@@ -85,7 +89,7 @@ const MetricsPage = (): React.ReactElement => {
           <TabsList>
             <TabsTrigger value="metrics">Individual Metrics</TabsTrigger>
             <TabsTrigger value="metricgroups">
-              Metric Groups{" "}
+              {t("Metric Groups")}{" "}
               <PaidFeatureBadge commercialFeature="metric-groups" mx="2" />
             </TabsTrigger>
           </TabsList>

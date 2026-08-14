@@ -1,0 +1,20 @@
+{% extends "base.jinja" %}
+
+{% block preview %}
+  {{ name|noHyperlink }} ({{ email }})
+{% endblock %}
+
+{% block title %}
+  Новый пользователь присоединился к <strong>{{ organization|noHyperlink }}</strong> в GrowthBook
+{% endblock %}
+
+{% block top %}
+  <p>
+    Имя: <strong>{{ name|noHyperlink }}</strong><br/>
+    Email: <strong>{{ email }}</strong><br/>
+  </p>
+{% endblock %}
+
+{% block lower %}
+  <p>Вы получили это письмо, потому что являетесь владельцем организации {{ organization|noHyperlink }} в GrowthBook.</p>
+{% endblock %}

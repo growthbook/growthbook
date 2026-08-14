@@ -2,6 +2,7 @@ import React, { forwardRef, useEffect, useRef } from "react";
 import { Table as RadixTable } from "@radix-ui/themes";
 import clsx from "clsx";
 import { radixSize, Size } from "@/ui/sizes";
+import { useTx } from "@/services/i18n";
 import styles from "./Table.module.scss";
 
 /** Standard top offset (px) for sticky table headers. Must be >= top nav height (56px) so the header's top border isn't covered. */
@@ -135,9 +136,10 @@ export function TableColumnHeader({
   children,
   ...props
 }: React.ComponentProps<typeof RadixTable.ColumnHeaderCell>) {
+  const tx = useTx();
   return (
     <RadixTable.ColumnHeaderCell {...props}>
-      {children}
+      {tx(children)}
     </RadixTable.ColumnHeaderCell>
   );
 }

@@ -1,0 +1,15 @@
+{% extends "base.jinja" %}
+{% import "utils.jinja" as utils %}
+
+{% block preview %}
+  {{ name|noHyperlink }} ({{ email }})
+{% endblock %}
+
+{% block title %}
+  Вас приняли в <strong>{{ organization|noHyperlink }}</strong> в GrowthBook
+{% endblock %}
+
+{% block top %}
+  <p style='text-align:center; margin: 20px 0 30px;'>Можно пользоваться GrowthBook в организации <strong>{{ organization|noHyperlink }}</strong></p>
+  {{ utils.button("Открыть GrowthBook", mainUrl) }}
+{% endblock %}

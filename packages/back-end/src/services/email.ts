@@ -11,6 +11,7 @@ import {
   EMAIL_PORT,
   SITE_MANAGER_EMAIL,
   APP_ORIGIN,
+  APP_LOCALE,
 } from "back-end/src/util/secrets";
 import { getEmailFromUserId } from "back-end/src/models/UserModel";
 import { getInviteUrl } from "./organizations";
@@ -29,6 +30,17 @@ const env = nunjucks.configure(
 );
 
 env.addFilter("noHyperlink", noHyperlink);
+
+function emailTemplate(name: string): string {
+  return APP_LOCALE === "ru" ? `ru/${name}` : name;
+}
+
+function renderEmail(name: string, ctx: Record<string, unknown>): string {
+  return nunjucks.render(emailTemplate(name), {
+    ...ctx,
+    htmlLang: APP_LOCALE,
+  });
+}
 
 const transporter = isEmailEnabled()
   ? nodemailer.createTransport({
@@ -102,7 +114,7 @@ export async function sendInviteEmail(
   }
 
   const inviteUrl = getInviteUrl(key);
-  const html = nunjucks.render("invite.jinja", {
+  const html = renderEmail("invite.jinja", {
     inviteUrl,
     organizationName: organization.name,
     invitedBy: invite.invitedBy || "",
@@ -110,9 +122,15 @@ export async function sendInviteEmail(
 
   await sendMail({
     html,
-    subject: `You're invited to join ${noHyperlink(organization.name)} on GrowthBook`,
+    subject:
+      APP_LOCALE === "ru"
+        ? `Вас пригласили в ${noHyperlink(organization.name)} в GrowthBook`
+        : `You're invited to join ${noHyperlink(organization.name)} on GrowthBook`,
     to: invite.email,
-    text: `${invite.invitedBy ? `${invite.invitedBy} is inviting you to` : "You've been invited to"} use GrowthBook with ${noHyperlink(organization.name)}. Accept your invitation: ${inviteUrl}`,
+    text:
+      APP_LOCALE === "ru"
+        ? `${invite.invitedBy ? `${invite.invitedBy} приглашает вас` : "Вас пригласили"} пользоваться GrowthBook в организации ${noHyperlink(organization.name)}. Принять приглашение: ${inviteUrl}`
+        : `${invite.invitedBy ? `${invite.invitedBy} is inviting you to` : "You've been invited to"} use GrowthBook with ${noHyperlink(organization.name)}. Accept your invitation: ${inviteUrl}`,
     ignoreUnsubscribes: true,
   });
 }
@@ -129,12 +147,15 @@ export async function sendExperimentChangesEmail(
     "experiment/" +
     experimentId +
     "#results";
-  const html = nunjucks.render("experiment-changes.jinja", {
+  const html = renderEmail("experiment-changes.jinja", {
     experimentChanges,
     experimentUrl,
     experimentName,
   });
-  const subject = `Experiment Change for: ${noHyperlink(experimentName)}`;
+  const subject =
+    APP_LOCALE === "ru"
+      ? `Изменения в эксперименте: ${noHyperlink(experimentName)}`
+      : `Experiment Change for: ${noHyperlink(experimentName)}`;
 
   await Promise.all(
     userIds.map(async (id) => {
@@ -144,26 +165,34 @@ export async function sendExperimentChangesEmail(
         subject,
         to: email,
         text:
-          `The experiment '${noHyperlink(
-            experimentName,
-          )}' has the following metric changes:` +
-          "- " +
-          experimentChanges.join("\n- ") +
-          `\n\nSee more details at ${experimentUrl}`,
+          APP_LOCALE === "ru"
+            ? `В эксперименте «${noHyperlink(experimentName)}» изменились метрики:\n- ${experimentChanges.join("\n- ")}\n\nПодробности: ${experimentUrl}`
+            : `The experiment '${noHyperlink(
+                experimentName,
+              )}' has the following metric changes:` +
+              "- " +
+              experimentChanges.join("\n- ") +
+              `\n\nSee more details at ${experimentUrl}`,
       });
     }),
   );
 }
 
 export async function sendResetPasswordEmail(email: string, resetUrl: string) {
-  const html = nunjucks.render("reset-password.jinja", {
+  const html = renderEmail("reset-password.jinja", {
     resetUrl,
   });
   await sendMail({
     html,
-    subject: "Reset GrowthBook Password",
+    subject:
+      APP_LOCALE === "ru"
+        ? "Сброс пароля GrowthBook"
+        : "Reset GrowthBook Password",
     to: email,
-    text: `Reset your password by visiting ${resetUrl}`,
+    text:
+      APP_LOCALE === "ru"
+        ? `Сбросить пароль: ${resetUrl}`
+        : `Reset your password by visiting ${resetUrl}`,
     ignoreUnsubscribes: true,
   });
 }
@@ -171,13 +200,16 @@ export async function sendResetPasswordEmail(email: string, resetUrl: string) {
 export async function sendNewOrgEmail(company: string, email: string) {
   if (!SITE_MANAGER_EMAIL) return;
 
-  const html = nunjucks.render("new-organization.jinja", {
+  const html = renderEmail("new-organization.jinja", {
     company,
     email,
   });
   await sendMail({
     html,
-    subject: `New company created: ${noHyperlink(company)}`,
+    subject:
+      APP_LOCALE === "ru"
+        ? `Создана новая компания: ${noHyperlink(company)}`
+        : `New company created: ${noHyperlink(company)}`,
     to: SITE_MANAGER_EMAIL,
     text: `Company Name: ${noHyperlink(company)}\nOwner Email: ${email}`,
   });
@@ -189,7 +221,7 @@ export async function sendNewMemberEmail(
   organization: string,
   ownerEmail: string,
 ) {
-  const html = nunjucks.render("new-member.jinja", {
+  const html = renderEmail("new-member.jinja", {
     name,
     email,
     organization,
@@ -197,9 +229,14 @@ export async function sendNewMemberEmail(
 
   await sendMail({
     html,
-    subject: `A new user joined your GrowthBook account: ${noHyperlink(
-      name,
-    )} (${email})`,
+    subject:
+      APP_LOCALE === "ru"
+        ? `Новый пользователь присоединился к аккаунту GrowthBook: ${noHyperlink(
+            name,
+          )} (${email})`
+        : `A new user joined your GrowthBook account: ${noHyperlink(
+            name,
+          )} (${email})`,
     to: ownerEmail,
     text: `Organization: ${noHyperlink(organization)}\nName: ${noHyperlink(
       name,
@@ -214,7 +251,7 @@ export async function sendPendingMemberEmail(
   ownerEmail: string,
   teamUrl: string,
 ) {
-  const html = nunjucks.render("pending-member.jinja", {
+  const html = renderEmail("pending-member.jinja", {
     name,
     email,
     organization,
@@ -223,9 +260,14 @@ export async function sendPendingMemberEmail(
 
   await sendMail({
     html,
-    subject: `A new user is requesting to join your GrowthBook account: ${noHyperlink(
-      name,
-    )} (${email})`,
+    subject:
+      APP_LOCALE === "ru"
+        ? `Пользователь просит присоединиться к аккаунту GrowthBook: ${noHyperlink(
+            name,
+          )} (${email})`
+        : `A new user is requesting to join your GrowthBook account: ${noHyperlink(
+            name,
+          )} (${email})`,
     to: ownerEmail,
     text: `Organization: ${noHyperlink(organization)}\nName: ${noHyperlink(
       name,
@@ -239,7 +281,7 @@ export async function sendPendingMemberApprovalEmail(
   organization: string,
   mainUrl: string,
 ) {
-  const html = nunjucks.render("pending-member-approval.jinja", {
+  const html = renderEmail("pending-member-approval.jinja", {
     name,
     organization,
     mainUrl,
@@ -247,11 +289,17 @@ export async function sendPendingMemberApprovalEmail(
 
   await sendMail({
     html,
-    subject: `You've been approved as a member with ${noHyperlink(
-      organization,
-    )} on GrowthBook`,
+    subject:
+      APP_LOCALE === "ru"
+        ? `Вас приняли в ${noHyperlink(organization)} в GrowthBook`
+        : `You've been approved as a member with ${noHyperlink(
+            organization,
+          )} on GrowthBook`,
     to: email,
-    text: `Join ${noHyperlink(organization)} on GrowthBook`,
+    text:
+      APP_LOCALE === "ru"
+        ? `Присоединиться к ${noHyperlink(organization)} в GrowthBook`
+        : `Join ${noHyperlink(organization)} on GrowthBook`,
   });
 }
 
@@ -261,7 +309,7 @@ export async function sendOwnerEmailChangeEmail(
   originalOwner: string,
   newOwner: string,
 ) {
-  const html = nunjucks.render("owner-email-change.jinja", {
+  const html = renderEmail("owner-email-change.jinja", {
     email,
     organization,
     originalOwner,
@@ -270,14 +318,20 @@ export async function sendOwnerEmailChangeEmail(
 
   await sendMail({
     html,
-    subject: `The owner for ${organization} on GrowthBook has changed`,
+    subject:
+      APP_LOCALE === "ru"
+        ? `Владелец ${organization} в GrowthBook изменился`
+        : `The owner for ${organization} on GrowthBook has changed`,
     to: originalOwner,
     text: `The owner for ${organization} on GrowthBook has been changed to ${newOwner} by ${email}`,
   });
 
   await sendMail({
     html,
-    subject: `The owner for ${organization} on GrowthBook has changed`,
+    subject:
+      APP_LOCALE === "ru"
+        ? `Владелец ${organization} в GrowthBook изменился`
+        : `The owner for ${organization} on GrowthBook has changed`,
     to: newOwner,
     text: `The owner for ${organization} on GrowthBook has been changed to ${newOwner} by ${email}`,
   });

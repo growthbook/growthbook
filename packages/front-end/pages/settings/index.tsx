@@ -1,4 +1,5 @@
 import cronstrue from "cronstrue";
+import "cronstrue/locales/ru";
 import React, { useEffect, useState } from "react";
 import { FormProvider, useForm, useFormContext } from "react-hook-form";
 import isEqual from "lodash/isEqual";
@@ -38,6 +39,7 @@ import {
   useOrganizationMetricDefaults,
 } from "@/hooks/useOrganizationMetricDefaults";
 import { useUser } from "@/services/UserContext";
+import { cronLocale, translate } from "@/services/i18n";
 import { useCurrency } from "@/hooks/useCurrency";
 import useURLHash from "@/hooks/useURLHash";
 import OrganizationAndLicenseSettings from "@/components/GeneralSettings/OrganizationAndLicenseSettings";
@@ -326,7 +328,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       `${cronstrue.toString(cron, {
         throwExceptionOnParseError: false,
         verbose: true,
-      })} (UTC time)`,
+        locale: cronLocale(),
+      })} ${translate("(UTC time)")}`,
     );
   }
 

@@ -8,60 +8,83 @@ import addHours from "date-fns/addHours";
 import formatRelative from "date-fns/formatRelative";
 import previousMonday from "date-fns/previousMonday";
 import { formatInTimeZone } from "date-fns-tz";
+import ruLocale from "date-fns/locale/ru";
+import enLocale from "date-fns/locale/en-US";
+
+type SharedUiLocale = "ru" | "en";
+
+let uiLocale: SharedUiLocale =
+  process.env.NODE_ENV === "test" ? "en" : "ru";
+
+export function setSharedUiLocale(locale: SharedUiLocale): void {
+  uiLocale = locale === "en" ? "en" : "ru";
+}
+
+function dateFnsLocale() {
+  return uiLocale === "ru" ? ruLocale : enLocale;
+}
 
 export function dateNoYear(date: string | Date): string {
   if (!date) return "";
   const d = getValidDate(date);
   const isCurrentYear = d.getFullYear() === new Date().getFullYear();
-  return format(d, isCurrentYear ? "MMM d" : "MMM d, yyyy");
+  return format(d, isCurrentYear ? "MMM d" : "MMM d, yyyy", {
+    locale: dateFnsLocale(),
+  });
 }
 export function date(date: string | Date, inTimezone?: string): string {
   if (!date) return "";
   const d = getValidDate(date);
   const formatStr = "PP";
   return inTimezone
-    ? formatInTimeZone(d, inTimezone, formatStr)
-    : format(d, formatStr);
+    ? formatInTimeZone(d, inTimezone, formatStr, { locale: dateFnsLocale() })
+    : format(d, formatStr, { locale: dateFnsLocale() });
 }
 export function datetime(date: string | Date, inTimezone?: string): string {
   if (!date) return "";
   const d = getValidDate(date);
   const formatStr = "PPp";
   return inTimezone
-    ? formatInTimeZone(d, inTimezone, formatStr)
-    : format(d, formatStr);
+    ? formatInTimeZone(d, inTimezone, formatStr, { locale: dateFnsLocale() })
+    : format(d, formatStr, { locale: dateFnsLocale() });
 }
 export function datetimeAt(date: string | Date, inTimezone?: string): string {
   if (!date) return "";
   const d = getValidDate(date);
-  const formatStr = "MMM d, yyyy 'at' h:mm a";
+  const formatStr =
+    uiLocale === "ru" ? "d MMM yyyy 'в' HH:mm" : "MMM d, yyyy 'at' h:mm a";
   return inTimezone
-    ? formatInTimeZone(d, inTimezone, formatStr)
-    : format(d, formatStr);
+    ? formatInTimeZone(d, inTimezone, formatStr, { locale: dateFnsLocale() })
+    : format(d, formatStr, { locale: dateFnsLocale() });
 }
 export function dateOnly(date: string | Date, inTimezone?: string): string {
   if (!date) return "";
   const d = getValidDate(date);
   const formatStr = "yyyy-MM-dd";
   return inTimezone
-    ? formatInTimeZone(d, inTimezone, formatStr)
-    : format(d, formatStr);
+    ? formatInTimeZone(d, inTimezone, formatStr, { locale: dateFnsLocale() })
+    : format(d, formatStr, { locale: dateFnsLocale() });
 }
 export function timestamp(date: string | Date, inTimezone?: string): string {
   if (!date) return "";
   const d = getValidDate(date);
   const formatStr = "yyyy-MM-dd HH:mm:ss";
   return inTimezone
-    ? formatInTimeZone(d, inTimezone, formatStr)
-    : format(d, formatStr);
+    ? formatInTimeZone(d, inTimezone, formatStr, { locale: dateFnsLocale() })
+    : format(d, formatStr, { locale: dateFnsLocale() });
 }
 export function relativeDate(date: string | Date): string {
   if (!date) return "";
-  return formatRelative(getValidDate(date), new Date());
+  return formatRelative(getValidDate(date), new Date(), {
+    locale: dateFnsLocale(),
+  });
 }
 export function ago(date: string | Date): string {
   if (!date) return "";
-  return formatDistance(getValidDate(date), new Date(), { addSuffix: true });
+  return formatDistance(getValidDate(date), new Date(), {
+    addSuffix: true,
+    locale: dateFnsLocale(),
+  });
 }
 export function daysLeft(date: string | Date): number {
   return differenceInDays(getValidDate(date), new Date());
@@ -70,7 +93,7 @@ export function subtractMonths(date: string | Date, num: number): Date {
   return addMonths(getValidDate(date), -1 * num);
 }
 export function monthYear(date: string | Date): string {
-  return format(getValidDate(date), "MMM yyy");
+  return format(getValidDate(date), "MMM yyy", { locale: dateFnsLocale() });
 }
 export function daysBetween(start: string | Date, end: string | Date): number {
   return differenceInDays(getValidDate(end), getValidDate(start));
@@ -140,17 +163,28 @@ export function formatShortAgo(dateOrTimestamp: Date | number): string {
       ? dateOrTimestamp
       : dateOrTimestamp.getTime();
   const seconds = Math.floor((Date.now() - ts) / 1000);
-  if (seconds < 1) return "just now";
-  if (seconds < 60) return `${seconds}s ago`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  return `${Math.floor(seconds / 86400)}d ago`;
+  if (seconds < 1) return uiLocale === "ru" ? "только что" : "just now";
+  if (seconds < 60)
+    return uiLocale === "ru" ? `${seconds} с назад` : `${seconds}s ago`;
+  if (seconds < 3600)
+    return uiLocale === "ru"
+      ? `${Math.floor(seconds / 60)} мин назад`
+      : `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400)
+    return uiLocale === "ru"
+      ? `${Math.floor(seconds / 3600)} ч назад`
+      : `${Math.floor(seconds / 3600)}h ago`;
+  return uiLocale === "ru"
+    ? `${Math.floor(seconds / 86400)} д назад`
+    : `${Math.floor(seconds / 86400)}d ago`;
 }
 
 // returns an abbreviated version of the "ago" string.
 // ex: "about 5 minutes ago" -> "5 min ago"
 export function abbreviateAgo(date: string | Date | null | undefined): string {
-  return ago(date ?? "")
+  const value = ago(date ?? "");
+  if (uiLocale === "ru") return value;
+  return value
     .replace("about ", "")
     .replace("less than a", "<1")
     .replace(/second(s)?/g, "sec$1")
