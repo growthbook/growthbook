@@ -3,6 +3,7 @@ import React, {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useRef,
   useState,
 } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
@@ -37,6 +38,10 @@ import {
   filterSkillItems,
   type SkillItem,
 } from "./extensions/skillCommand";
+import TokenHoverCard, {
+  readHoveredToken,
+  type HoveredToken,
+} from "./TokenHoverCard";
 import SuggestionList, {
   SUGGESTION_LISTBOX_ID,
   suggestionOptionId,
@@ -111,6 +116,14 @@ type ActiveSuggestion =
     }
   | { kind: "skill"; items: SkillItem[]; command: (item: SkillItem) => void };
 
+/** Identity of a hovered token, for cheap change detection between events. */
+function tokenKey(hovered: HoveredToken | null): string | null {
+  if (!hovered) return null;
+  return hovered.token.kind === "mention"
+    ? hovered.token.mention.id
+    : hovered.token.skill;
+}
+
 /** Everything the composer resolves out of the document at send time. */
 function readSubmission(doc: ProseMirrorNode): ComposerSubmission {
   return {
@@ -162,6 +175,9 @@ function ChatComposer(
   // state for both triggers — only one can be open at a time.
   const [suggestion, setSuggestion] = useState<ActiveSuggestion | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  // The token under the pointer, for the hover card. Anchored against the box.
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [hoveredToken, setHoveredToken] = useState<HoveredToken | null>(null);
   const rows = suggestion ? toRows(suggestion) : [];
   // Visible whenever a query is active — including with no matches, so the
   // popup shows "nothing matched" instead of silently disappearing.
@@ -303,6 +319,24 @@ function ChatComposer(
             }
           : {}),
       },
+      handleDOMEvents: {
+        mouseover: (_view, event) => {
+          const next = readHoveredToken(event.target, boxRef.current);
+          // Compare the resolved token, not the object, so moving within one
+          // token (or across plain text) doesn't re-render on every pixel.
+          setHoveredToken((prev) =>
+            prev?.token.kind === next?.token.kind &&
+            tokenKey(prev) === tokenKey(next)
+              ? prev
+              : next,
+          );
+          return false;
+        },
+        mouseleave: () => {
+          setHoveredToken(null);
+          return false;
+        },
+      },
       handleKeyDown: (view, event) => {
         // ProseMirror consults `editorProps` BEFORE plugin props, so while the
         // mention popup is open its navigation keys have to be claimed here —
@@ -429,7 +463,8 @@ function ChatComposer(
   ].filter(Boolean);
 
   const box = (
-    <div className={boxClasses.join(" ")}>
+    <div ref={boxRef} className={boxClasses.join(" ")}>
+      <TokenHoverCard hovered={hoveredToken} />
       {suggestionVisible && suggestion && (
         <SuggestionList
           items={rows}

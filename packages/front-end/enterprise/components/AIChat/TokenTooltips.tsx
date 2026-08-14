@@ -27,13 +27,8 @@ function metricHref({ type, id }: AIChatMention): string {
   return `/metric/${id}`;
 }
 
-export function MentionTooltip({
-  mention,
-  children,
-}: {
-  mention: AIChatMention;
-  children: ReactElement;
-}) {
+/** The inner markup, so the editor's hover card can render it without a Tooltip. */
+export function MentionTooltipContent({ mention }: { mention: AIChatMention }) {
   const { getMetricById, getFactMetricById, getMetricGroupById } =
     useDefinitions();
 
@@ -54,27 +49,61 @@ export function MentionTooltip({
   }
 
   return (
-    <Tooltip
-      content={
-        <span className={styles.tooltip}>
-          <span className={styles.tooltipMeta}>
-            <span className={styles.tooltipName}>
-              {metricTypeLabel(mention.type, rawType)}
-            </span>
-            <Link href={metricHref(mention)} className={styles.tooltipLink}>
-              Open metric
-            </Link>
-          </span>
-          {description ? (
-            <span>{description}</span>
-          ) : (
-            <span className={styles.tooltipEmpty}>No description</span>
-          )}
+    <span className={styles.tooltip}>
+      <span className={styles.tooltipMeta}>
+        <span className={styles.tooltipName}>
+          {metricTypeLabel(mention.type, rawType)}
         </span>
-      }
-    >
+        <Link href={metricHref(mention)} className={styles.tooltipLink}>
+          Open metric
+        </Link>
+      </span>
+      {description ? (
+        <span>{description}</span>
+      ) : (
+        <span className={styles.tooltipEmpty}>No description</span>
+      )}
+    </span>
+  );
+}
+
+export function MentionTooltip({
+  mention,
+  children,
+}: {
+  mention: AIChatMention;
+  children: ReactElement;
+}) {
+  return (
+    <Tooltip content={<MentionTooltipContent mention={mention} />}>
       {children}
     </Tooltip>
+  );
+}
+
+/** Undefined when the skill isn't in the index — nothing to explain. */
+export function useSkillDescription(skill: string): string | undefined {
+  const skillItems = useSkillCommandItems();
+  return skillItems.find((s) => s.id === skill)?.description;
+}
+
+export function SkillTooltipContent({
+  skill,
+  text,
+}: {
+  skill: string;
+  text: string;
+}) {
+  const description = useSkillDescription(skill);
+  if (!description) return null;
+
+  return (
+    <span className={styles.tooltip}>
+      <span className={styles.tooltipMeta}>
+        <span className={styles.tooltipName}>{text}</span>
+      </span>
+      <span>{description}</span>
+    </span>
   );
 }
 
@@ -88,20 +117,12 @@ export function SkillTooltip({
   text: string;
   children: ReactElement;
 }) {
-  const skillItems = useSkillCommandItems();
-  const description = skillItems.find((s) => s.id === skill)?.description;
+  const description = useSkillDescription(skill);
 
   return (
     <Tooltip
       enabled={!!description}
-      content={
-        <span className={styles.tooltip}>
-          <span className={styles.tooltipMeta}>
-            <span className={styles.tooltipName}>{text}</span>
-          </span>
-          <span>{description}</span>
-        </span>
-      }
+      content={<SkillTooltipContent skill={skill} text={text} />}
     >
       {children}
     </Tooltip>
