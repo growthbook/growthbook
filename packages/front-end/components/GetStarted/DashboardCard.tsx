@@ -11,7 +11,10 @@ import { useDashboards } from "@/hooks/useDashboards";
 import DashboardSelector from "@/enterprise/components/Dashboards/DashboardSelector";
 import DashboardView from "@/enterprise/components/Dashboards/DashboardView";
 
-const PREVIEW_HEIGHT = "280px";
+// Cap the number of blocks shown, rather than shrinking/scrolling a full
+// dashboard, so everything visible fits at its native (author-configured)
+// size. See DashboardView for the "View full dashboard" link this implies.
+const PREVIEW_MAX_BLOCKS = 2;
 
 // Resolution order: the user's own localStorage pick, then the project's
 // admin-configured default, then nothing selected. The selector itself always
@@ -75,13 +78,14 @@ export default function DashboardCard() {
           pb="4"
           px="4"
           style={{
-            maxHeight: PREVIEW_HEIGHT,
-            overflow: "auto",
             border: "1px solid var(--slate-a4)",
             borderRadius: "var(--radius-3)",
           }}
         >
-          <DashboardView dashboardId={resolvedDashboardId} />
+          <DashboardView
+            dashboardId={resolvedDashboardId}
+            maxBlocks={PREVIEW_MAX_BLOCKS}
+          />
         </Box>
       ) : (
         <Text color="text-mid">
