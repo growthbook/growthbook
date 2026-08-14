@@ -20,6 +20,7 @@ import {
   filterSkillItems,
   type SkillItem,
 } from "@/enterprise/components/AIChat/Composer/extensions/skillCommand";
+import { metricTypeLabel } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
 
 const EXTENSIONS = [
   Document,
@@ -138,9 +139,19 @@ describe("chat composer serialization", () => {
 
   describe("filterMentionItems", () => {
     const items: MentionItem[] = [
-      { id: "1", label: "Revenue", metricType: "metric" },
-      { id: "2", label: "Total Revenue", metricType: "metric" },
-      { id: "3", label: "Signups", metricType: "factMetric" },
+      { id: "1", label: "Revenue", metricType: "metric", typeLabel: "Revenue" },
+      {
+        id: "2",
+        label: "Total Revenue",
+        metricType: "metric",
+        typeLabel: "Count",
+      },
+      {
+        id: "3",
+        label: "Signups",
+        metricType: "factMetric",
+        typeLabel: "Proportion",
+      },
     ];
 
     it("ranks prefix matches above substring matches", () => {
@@ -351,5 +362,35 @@ describe("stripDanglingTriggers", () => {
     expect(stripDanglingTriggers("/ trend of @ revenue").trim()).toBe(
       "trend of revenue",
     );
+  });
+});
+
+describe("metricTypeLabel", () => {
+  it.each([
+    ["proportion", "Proportion"],
+    ["mean", "Mean"],
+    ["ratio", "Ratio"],
+    ["retention", "Retention"],
+    ["quantile", "Quantile"],
+    ["dailyParticipation", "Daily Participation"],
+  ])("labels the fact metric type %j as %j", (raw, expected) => {
+    expect(metricTypeLabel("factMetric", raw)).toBe(expected);
+  });
+
+  it.each([
+    ["binomial", "Binomial"],
+    ["count", "Count"],
+    ["revenue", "Revenue"],
+  ])("labels the legacy metric type %j as %j", (raw, expected) => {
+    expect(metricTypeLabel("metric", raw)).toBe(expected);
+  });
+
+  it("labels a metric group by its kind, since it has no statistical type", () => {
+    expect(metricTypeLabel("metricGroup")).toBe("Metric Group");
+  });
+
+  it("names the kind rather than leaking a raw enum it doesn't know", () => {
+    expect(metricTypeLabel("factMetric", "somethingNew")).toBe("Fact Metric");
+    expect(metricTypeLabel("metric", undefined)).toBe("Metric");
   });
 });

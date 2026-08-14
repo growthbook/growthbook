@@ -111,12 +111,6 @@ type ActiveSuggestion =
     }
   | { kind: "skill"; items: SkillItem[]; command: (item: SkillItem) => void };
 
-const METRIC_TYPE_LABELS: Record<MentionItem["metricType"], string> = {
-  metric: "Metric",
-  factMetric: "Fact Metric",
-  metricGroup: "Metric Group",
-};
-
 /** Everything the composer resolves out of the document at send time. */
 function readSubmission(doc: ProseMirrorNode): ComposerSubmission {
   return {
@@ -134,13 +128,7 @@ function toRows(suggestion: ActiveSuggestion): SuggestionRow[] {
       primary: item.label,
       // A badge for the short categorical kind; skill descriptions below stay
       // plain text, since a sentence in a badge would read as a label.
-      secondary: (
-        <Badge
-          size="xs"
-          variant="soft"
-          label={METRIC_TYPE_LABELS[item.metricType]}
-        />
-      ),
+      secondary: <Badge size="xs" variant="soft" label={item.typeLabel} />,
     }));
   }
   return suggestion.items.map((item) => ({

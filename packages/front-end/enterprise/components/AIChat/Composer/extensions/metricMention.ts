@@ -6,14 +6,17 @@ export const METRIC_MENTION_NAME = "metricMention";
 /**
  * One selectable row in the @-mention list.
  *
- * Deliberately shaped exactly like the mention node's attributes: the stock
- * Mention `command` spreads the chosen item straight into `attrs`, so keeping
- * them identical avoids a mapping step and keeps the types honest.
+ * `id` / `label` / `metricType` are the mention node's attributes, so the stock
+ * Mention `command` can spread a chosen item straight into `attrs` with no
+ * mapping step. `typeLabel` is display-only and is dropped on insert, since
+ * ProseMirror builds attrs from the node's declared spec and ignores the rest.
  */
 export interface MentionItem {
   id: string;
   label: string;
   metricType: AIChatMentionType;
+  /** The statistical type, e.g. "Proportion" — shown beside the name. */
+  typeLabel: string;
 }
 
 /**
