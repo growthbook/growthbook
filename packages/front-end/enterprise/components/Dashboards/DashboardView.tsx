@@ -1,7 +1,9 @@
 import { DashboardInterface } from "shared/enterprise";
+import { Flex } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import DashboardEditor from "@/enterprise/components/Dashboards/DashboardEditor";
 import DashboardSnapshotProvider from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 
@@ -10,8 +12,13 @@ import DashboardSnapshotProvider from "@/enterprise/components/Dashboards/Dashbo
 // are provided, so omitting them here is enough to make this view-only.
 export default function DashboardView({
   dashboardId,
+  maxBlocks,
 }: {
   dashboardId: string;
+  // When set, only the first N blocks render (in the dashboard's own saved
+  // order/sizing) instead of shrinking or reflowing everything to fit a
+  // smaller space. A "View full dashboard" link covers the rest.
+  maxBlocks?: number;
 }) {
   const { data, isLoading, error, mutate } = useApi<{
     dashboard: DashboardInterface;
@@ -32,6 +39,11 @@ export default function DashboardView({
     return <Callout status="error">Dashboard not found</Callout>;
   }
 
+  const visibleBlocks = maxBlocks
+    ? dashboard.blocks.slice(0, maxBlocks)
+    : dashboard.blocks;
+  const hasHiddenBlocks = visibleBlocks.length < dashboard.blocks.length;
+
   return (
     <DashboardSnapshotProvider dashboard={dashboard} mutateDefinitions={mutate}>
       <DashboardEditor
@@ -44,7 +56,7 @@ export default function DashboardView({
         isGeneralDashboard={true}
         isEditing={false}
         title={dashboard.title}
-        blocks={dashboard.blocks}
+        blocks={visibleBlocks}
         globalControls={dashboard.globalControls}
         enableAutoUpdates={dashboard.enableAutoUpdates}
         setBlock={undefined}
@@ -55,6 +67,13 @@ export default function DashboardView({
         dashboardLastUpdated={dashboard.lastUpdated}
         dashboardComparison={dashboard.comparison}
       />
+      {hasHiddenBlocks && (
+        <Flex justify="end" mt="2">
+          <Link href={`/product-analytics/dashboards/${dashboard.id}`}>
+            View full dashboard →
+          </Link>
+        </Flex>
+      )}
     </DashboardSnapshotProvider>
   );
 }
