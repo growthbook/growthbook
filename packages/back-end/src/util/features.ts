@@ -1173,12 +1173,22 @@ export function getFeatureDefinition({
             return null;
           }
 
+          // Only active arms are emitted; pending arms aren't live yet and
+          // deactivated ones are tombstones.
+          const cbActiveVariations = cb.variations.filter(
+            (v) => !v.status || v.status === "active",
+          );
+          // No active arms left: drop the rule instead of serving an empty experiment.
+          if (cbActiveVariations.length === 0) {
+            return null;
+          }
+
           // Store variations under `contextualVariations` (a CB-capability
           // gated key) rather than `variations`. Older SDKs drop this key and,
           // finding no `variations`, skip the rule instead of bucketing users
           // into a plain experiment split. CB-capable SDKs read it back into
           // the experiment during evaluation.
-          rule.contextualVariations = cb.variations.map((v) => {
+          rule.contextualVariations = cbActiveVariations.map((v) => {
             const variation = r.variations?.find(
               (rv) => rv.variationId === v.id,
             );
@@ -1193,7 +1203,7 @@ export function getFeatureDefinition({
               : null;
           });
           rule.weights = cb.variationWeights
-            ? pairedWeightsToPositional(cb.variationWeights, cb.variations)
+            ? pairedWeightsToPositional(cb.variationWeights, cbActiveVariations)
             : undefined;
 
           const cbCapable =
@@ -1206,8 +1216,8 @@ export function getFeatureDefinition({
 
           rule.key = cb.trackingKey;
           rule.meta = includeExperimentNames
-            ? cb.variations.map((v) => ({ key: v.key, name: v.name }))
-            : cb.variations.map((v) => ({ key: v.key }));
+            ? cbActiveVariations.map((v) => ({ key: v.key, name: v.name }))
+            : cbActiveVariations.map((v) => ({ key: v.key }));
           rule.phase = "0";
           if (includeExperimentNames) rule.name = cb.name;
 
