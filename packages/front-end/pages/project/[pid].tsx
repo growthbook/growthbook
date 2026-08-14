@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState } from "react";
+import React, { FC, useEffect, useMemo, useState } from "react";
 import router from "next/router";
 import NextLink from "next/link";
 import { useForm } from "react-hook-form";
@@ -36,6 +36,8 @@ import Metadata from "@/ui/Metadata";
 import ChanceToWinThresholdField from "@/components/GeneralSettings/ExperimentSettings/ChanceToWinThresholdField";
 import PValueThresholdField from "@/components/GeneralSettings/ExperimentSettings/PValueThresholdField";
 import Callout from "@/ui/Callout";
+import { useDashboards } from "@/hooks/useDashboards";
+import DashboardSelector from "@/enterprise/components/Dashboards/DashboardSelector";
 
 function emptyStringToUndefined(v: unknown): number | undefined {
   if (v === "" || v === null || v === undefined) return undefined;
@@ -83,6 +85,13 @@ const ProjectPage: FC = () => {
   }>(`/experiments/launch-checklist?projectId=${pid}`);
 
   const checklist = data?.checklist;
+
+  const { dashboards } = useDashboards(false);
+  const projectDashboards = useMemo(
+    () =>
+      dashboards.filter((d) => !d.projects?.length || d.projects.includes(pid)),
+    [dashboards, pid],
+  );
 
   useEffect(() => {
     if (settings) {
@@ -389,6 +398,34 @@ const ProjectPage: FC = () => {
                             }}
                           />
                         ) : null}
+                      </Box>
+                    </Flex>
+                  </Flex>
+                </Frame>
+                <Frame>
+                  <Flex gap="4" mb="4">
+                    <Box width="220px" flexShrink="0">
+                      <Heading as="h4" size="md">
+                        Home Page Dashboard
+                      </Heading>
+                    </Box>
+                    <Flex align="start" direction="column" flexGrow="1">
+                      <Box mb="3" width="100%">
+                        <Heading as="h5" size="sm">
+                          Default Dashboard
+                        </Heading>
+                        <p className="pt-2">
+                          Members of this project see this dashboard on their
+                          home page by default. They can still pick a different
+                          one for themselves.
+                        </p>
+                        <DashboardSelector
+                          dashboards={projectDashboards}
+                          value={form.watch("defaultDashboardId") || ""}
+                          setValue={(v) =>
+                            form.setValue("defaultDashboardId", v || undefined)
+                          }
+                        />
                       </Box>
                     </Flex>
                   </Flex>
