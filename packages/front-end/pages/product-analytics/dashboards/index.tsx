@@ -379,6 +379,15 @@ export default function DashboardsPage() {
                             permissionsUtil.canCreateGeneralDashboards(d);
                           const canManageSharingAndEditLevels =
                             canEdit && (isOwner || isAdmin);
+                          const eligibleProjectsForDefault =
+                            getEligibleProjectsForDefault(d);
+                          const singleEligibleProjectForDefault =
+                            eligibleProjectsForDefault.length === 1
+                              ? eligibleProjectsForDefault[0]
+                              : undefined;
+                          const isDefaultForSingleProject =
+                            singleEligibleProjectForDefault?.settings
+                              ?.defaultDashboardId === d.id;
 
                           // If the dashboard is private, and the currentUser isn't the owner, they don't have edit/delete rights, regardless of their permissions
                           if (
@@ -490,56 +499,48 @@ export default function DashboardsPage() {
                                         Share...
                                       </DropdownMenuItem>
 
-                                      {(() => {
-                                        const eligibleProjects =
-                                          getEligibleProjectsForDefault(d);
-                                        if (!eligibleProjects.length) {
-                                          return null;
-                                        }
-                                        if (eligibleProjects.length === 1) {
-                                          const p = eligibleProjects[0];
-                                          const isDefault =
-                                            p.settings?.defaultDashboardId ===
-                                            d.id;
-                                          return (
-                                            <DropdownMenuItem
-                                              disabled={isDefault}
-                                              onClick={() =>
-                                                setDefaultDashboard(p.id, d.id)
-                                              }
-                                            >
-                                              {isDefault
-                                                ? `Default for ${p.name}`
-                                                : `Set as Default for ${p.name}`}
-                                            </DropdownMenuItem>
-                                          );
-                                        }
-                                        return (
-                                          <DropdownSubMenu trigger="Set as Default Dashboard">
-                                            {eligibleProjects.map((p) => {
-                                              const isDefault =
-                                                p.settings
-                                                  ?.defaultDashboardId === d.id;
-                                              return (
-                                                <DropdownMenuItem
-                                                  key={p.id}
-                                                  disabled={isDefault}
-                                                  onClick={() =>
-                                                    setDefaultDashboard(
-                                                      p.id,
-                                                      d.id,
-                                                    )
-                                                  }
-                                                >
-                                                  {isDefault
-                                                    ? `${p.name} (current default)`
-                                                    : p.name}
-                                                </DropdownMenuItem>
-                                              );
-                                            })}
-                                          </DropdownSubMenu>
-                                        );
-                                      })()}
+                                      {singleEligibleProjectForDefault ? (
+                                        <DropdownMenuItem
+                                          disabled={isDefaultForSingleProject}
+                                          onClick={() =>
+                                            setDefaultDashboard(
+                                              singleEligibleProjectForDefault.id,
+                                              d.id,
+                                            )
+                                          }
+                                        >
+                                          {isDefaultForSingleProject
+                                            ? `Default for ${singleEligibleProjectForDefault.name}`
+                                            : `Set as Default for ${singleEligibleProjectForDefault.name}`}
+                                        </DropdownMenuItem>
+                                      ) : eligibleProjectsForDefault.length >
+                                        1 ? (
+                                        <DropdownSubMenu trigger="Set as Default Dashboard">
+                                          {eligibleProjectsForDefault.map(
+                                            (p) => (
+                                              <DropdownMenuItem
+                                                key={p.id}
+                                                disabled={
+                                                  p.settings
+                                                    ?.defaultDashboardId ===
+                                                  d.id
+                                                }
+                                                onClick={() =>
+                                                  setDefaultDashboard(
+                                                    p.id,
+                                                    d.id,
+                                                  )
+                                                }
+                                              >
+                                                {p.settings
+                                                  ?.defaultDashboardId === d.id
+                                                  ? `${p.name} (current default)`
+                                                  : p.name}
+                                              </DropdownMenuItem>
+                                            ),
+                                          )}
+                                        </DropdownSubMenu>
+                                      ) : null}
 
                                       {canDelete && (
                                         <>
