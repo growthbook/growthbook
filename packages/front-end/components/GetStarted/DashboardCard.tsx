@@ -11,7 +11,7 @@ import { useDashboards } from "@/hooks/useDashboards";
 import DashboardSelector from "@/enterprise/components/Dashboards/DashboardSelector";
 import DashboardView from "@/enterprise/components/Dashboards/DashboardView";
 
-const PREVIEW_HEIGHT = "420px";
+const PREVIEW_HEIGHT = "280px";
 
 // Resolution order: the user's own localStorage pick, then the project's
 // admin-configured default, then nothing selected. The selector itself always
@@ -57,7 +57,7 @@ export default function DashboardCard() {
   }
 
   return (
-    <Box mb="5">
+    <Box mt="5" mb="5">
       <Flex align="center" justify="between" mb="3">
         <Heading as="h4" size="sm">
           Dashboard
@@ -71,6 +71,7 @@ export default function DashboardCard() {
       </Flex>
       {resolvedDashboardId ? (
         <Box
+          p="4"
           style={{
             maxHeight: PREVIEW_HEIGHT,
             overflow: "auto",
