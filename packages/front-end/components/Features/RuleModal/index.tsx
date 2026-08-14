@@ -288,7 +288,13 @@ export default function RuleModal({
   >(null);
   const [showConflictDetails, setShowConflictDetails] = useState(false);
   // Fields from the conflict the user pulled into the form via "Use theirs".
-  const [appliedTheirs, setAppliedTheirs] = useState<Set<string>>(new Set());
+  // Per-contested-chunk acknowledgment: "mine" (keep the form's value) or
+  // "theirs" (their value was applied into the form). Saving into the
+  // conflicted target is blocked until every contested chunk is acked — or
+  // the user switches to a new draft, which can't overwrite anyone.
+  const [conflictResolutions, setConflictResolutions] = useState<
+    Map<string, "mine" | "theirs">
+  >(new Map());
   // Set when the save's error handler saw a 409, so the submit catch can
   // suppress the Modal's own error text — the banner is the single message.
   const conflictSignaledRef = useRef(false);
@@ -729,6 +735,20 @@ export default function RuleModal({
   const canSubmit = useMemo(() => {
     return !isCyclic && !prerequisiteTargetingSdkIssues && !monitoringError;
   }, [isCyclic, prerequisiteTargetingSdkIssues, monitoringError]);
+
+  // Contested chunks the user must ack before saving into the conflicted
+  // target. Non-mergeable conflicts (restructured/removed) use one synthetic
+  // key. Switching to a new draft is a compatible strategy — nothing gets
+  // overwritten — so it unblocks the save without acks.
+  const contestedKeys: string[] = conflict
+    ? conflict.merge && !conflict.merge.wholeRule && conflict.currentRule
+      ? conflict.merge.contested.map((c) => c.key)
+      : ["__rule__"]
+    : [];
+  const conflictResolved =
+    !conflict ||
+    draftMode === "new" ||
+    contestedKeys.every((k) => conflictResolutions.has(k));
 
   const isRampType = scheduleType === "ramp";
   const hasRampPage =
@@ -1640,7 +1660,7 @@ export default function RuleModal({
                 conflictSignaledRef.current = true;
                 const payload = responseData.conflict as PutFeatureRuleConflict;
                 setConflict({ ...payload, baseAtConflict: baselineRule });
-                setAppliedTheirs(new Set());
+                setConflictResolutions(new Map());
                 // The form is the merge preview: fields only THEY changed are
                 // applied into the form so what the user sees is what a save
                 // would keep. Contested fields stay as the user's version.
@@ -1789,16 +1809,18 @@ export default function RuleModal({
     }
   });
 
-  // Conflict warning, rendered inside the draft selector's selected option:
-  // one quiet line; specifics (contested fields, their values, full diff)
-  // only on drill-down. Cancel already covers "discard my edits".
+  // One-line conflict warning inside the draft selector's selected option;
+  // "View details" reveals only the raw diff. Per-field resolution callouts
+  // (with their own CTAs) render below the selector — see conflictCallouts.
   const conflictAlert = conflict ? (
     <Box style={{ width: "100%" }}>
       <Flex align="center" gap="3" wrap="wrap">
         <HelperText status="warning">
-          {conflict.currentRule
-            ? "This rule was also updated here while you had it open — saving replaces that update with this form."
-            : "This rule was removed while you had it open — saving re-adds it."}
+          {!conflict.currentRule
+            ? "This rule was removed while you had it open — saving re-adds it."
+            : draftMode === "new"
+              ? "This rule was also updated in the draft you started from — saving here keeps both versions."
+              : "This rule was also updated here while you had it open — resolve the conflicting edits below, or save to a new draft."}
         </HelperText>
         {conflict.currentRule && (
           <a
@@ -1813,15 +1835,60 @@ export default function RuleModal({
         )}
       </Flex>
       {showConflictDetails && conflict.currentRule && (
-        <Box mt="2">
-          {conflict.merge &&
-            !conflict.merge.wholeRule &&
-            conflict.merge.contested.map(({ key, fields }) => (
-              <Flex key={key} align="center" gap="2" mb="1" wrap="wrap">
+        <Box
+          mt="2"
+          style={{
+            background: "var(--color-surface)",
+            borderRadius: "var(--radius-2)",
+            overflow: "hidden",
+          }}
+        >
+          <CompactInlineDiff
+            a={stringifyForRawDiff(
+              conflict.baseAtConflict
+                ? normalizeFeatureRules([conflict.baseAtConflict])
+                : [],
+            )}
+            b={stringifyForRawDiff(
+              normalizeFeatureRules([conflict.currentRule]),
+            )}
+            leftTitle="When you opened this editor"
+            rightTitle="Their version"
+          />
+        </Box>
+      )}
+    </Box>
+  ) : undefined;
+
+  // One callout per contested chunk, immediately visible below the selector:
+  // both values side by side, and an explicit Keep mine / Use theirs choice.
+  // The save CTA stays disabled until every one is answered (or the user
+  // switches to a new draft).
+  const conflictCallouts = conflict ? (
+    <>
+      {conflict.merge && !conflict.merge.wholeRule && conflict.currentRule ? (
+        conflict.merge.contested.map(({ key, fields }) => {
+          const resolution = conflictResolutions.get(key);
+          return (
+            <Callout status="warning" mb="3" key={key}>
+              <Flex align="center" gap="2" wrap="wrap">
                 <Text weight="semibold">
                   {fields.length > 1 ? fields.join(" + ") : key}
                 </Text>
-                <Text>theirs:</Text>
+                <Text>— you set</Text>
+                <code
+                  style={{
+                    background: "var(--color-surface)",
+                    borderRadius: "var(--radius-1)",
+                    padding: "1px 6px",
+                  }}
+                >
+                  {fmtChunkValue(
+                    form.getValues() as unknown as FeatureRule,
+                    fields,
+                  )}
+                </code>
+                <Text>, they set</Text>
                 <code
                   style={{
                     background: "var(--color-surface)",
@@ -1831,55 +1898,76 @@ export default function RuleModal({
                 >
                   {fmtChunkValue(conflict.currentRule, fields)}
                 </code>
-                {appliedTheirs.has(key) ? (
-                  <Text>✓ applied</Text>
+                {resolution ? (
+                  <Text weight="semibold">
+                    ✓ {resolution === "mine" ? "keeping yours" : "using theirs"}
+                  </Text>
                 ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      const cur = conflict.currentRule as unknown as Record<
-                        string,
-                        unknown
-                      >;
-                      for (const f of fields) {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        form.setValue(f as any, cur[f] as any, {
-                          shouldDirty: true,
-                        });
-                      }
-                      setAppliedTheirs((s) => new Set([...s, key]));
-                    }}
-                  >
-                    Use theirs
-                  </Button>
+                  <>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setConflictResolutions(
+                          (m) => new Map([...m, [key, "mine" as const]]),
+                        );
+                      }}
+                    >
+                      Keep mine
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const cur = conflict.currentRule as unknown as Record<
+                          string,
+                          unknown
+                        >;
+                        for (const f of fields) {
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          form.setValue(f as any, cur[f] as any, {
+                            shouldDirty: true,
+                          });
+                        }
+                        setConflictResolutions(
+                          (m) => new Map([...m, [key, "theirs" as const]]),
+                        );
+                      }}
+                    >
+                      Use theirs
+                    </Button>
+                  </>
                 )}
               </Flex>
-            ))}
-          <Box
-            style={{
-              background: "var(--color-surface)",
-              borderRadius: "var(--radius-2)",
-              overflow: "hidden",
-            }}
-          >
-            <CompactInlineDiff
-              a={stringifyForRawDiff(
-                conflict.baseAtConflict
-                  ? normalizeFeatureRules([conflict.baseAtConflict])
-                  : [],
-              )}
-              b={stringifyForRawDiff(
-                normalizeFeatureRules([conflict.currentRule]),
-              )}
-              leftTitle="When you opened this editor"
-              rightTitle="Their version"
-            />
-          </Box>
-        </Box>
+            </Callout>
+          );
+        })
+      ) : (
+        <Callout status="warning" mb="3">
+          <Flex align="center" gap="3" wrap="wrap">
+            <Text>
+              {conflict.currentRule
+                ? "Their version can't be merged with yours automatically. Saving replaces it with this form."
+                : "Saving will re-add this rule with what's in this form."}
+            </Text>
+            {conflictResolutions.has("__rule__") ? (
+              <Text weight="semibold">✓ acknowledged</Text>
+            ) : (
+              <Button
+                size="sm"
+                onClick={() =>
+                  setConflictResolutions(
+                    (m) => new Map([...m, ["__rule__", "mine" as const]]),
+                  )
+                }
+              >
+                {conflict.currentRule ? "Replace their version" : "Re-add it"}
+              </Button>
+            )}
+          </Flex>
+        </Callout>
       )}
-    </Box>
-  ) : undefined;
+    </>
+  ) : null;
 
   if (newRuleOverviewPage) {
     return (
@@ -2099,10 +2187,14 @@ export default function RuleModal({
             ? ruleType !== undefined
             : hasRampPage && step === 0
               ? !isCyclic && !prerequisiteTargetingSdkIssues
-              : canSubmit
+              : canSubmit && conflictResolved
         }
         disabledMessage={
-          hasRampPage && step === 0 ? undefined : (monitoringError ?? undefined)
+          hasRampPage && step === 0
+            ? undefined
+            : !conflictResolved
+              ? "Resolve the conflicting edits above, or save to a new draft."
+              : (monitoringError ?? undefined)
         }
         header={headerText}
         docSection={
@@ -2123,17 +2215,20 @@ export default function RuleModal({
         }
         submit={submit}
         bodyPrefix={
-          <DraftSelectorForChanges
-            feature={feature}
-            revisionList={revisionList}
-            mode={draftMode}
-            setMode={setDraftMode}
-            selectedDraft={selectedDraft}
-            setSelectedDraft={setSelectedDraft}
-            canAutoPublish={false}
-            gatedEnvSet={gatedEnvSet}
-            alert={conflictAlert}
-          />
+          <>
+            <DraftSelectorForChanges
+              feature={feature}
+              revisionList={revisionList}
+              mode={draftMode}
+              setMode={setDraftMode}
+              selectedDraft={selectedDraft}
+              setSelectedDraft={setSelectedDraft}
+              canAutoPublish={false}
+              gatedEnvSet={gatedEnvSet}
+              alert={conflictAlert}
+            />
+            {draftMode !== "new" && conflictCallouts}
+          </>
         }
       >
         {(ruleType === "force" || ruleType === "rollout") && (
