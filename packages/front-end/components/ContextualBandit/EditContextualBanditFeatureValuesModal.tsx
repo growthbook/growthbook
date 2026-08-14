@@ -29,6 +29,8 @@ export interface Props {
   linkedFeatureInfo: LinkedFeatureInfo;
   close: () => void;
   mutate: () => void;
+  /** Revision the values landed on — nothing on the page changes until it publishes. */
+  onSaved?: (revisionVersion: number) => void;
 }
 
 type FeatureRevisionResponse = {
@@ -49,6 +51,7 @@ export default function EditContextualBanditFeatureValuesModal({
   linkedFeatureInfo,
   close,
   mutate,
+  onSaved,
 }: Props) {
   const { apiCall } = useAuth();
   const { defaultConfigKey, isConfigBacked, configBackingOptionKeys } =
@@ -57,8 +60,12 @@ export default function EditContextualBanditFeatureValuesModal({
     `/feature/${feature.id}`,
   );
 
+  // Target a draft already carrying staged changes to this rule, so repeated
+  // edits accumulate there instead of spawning a new draft per save.
   const targetVersion =
-    linkedFeatureInfo.draftRevisionVersion ?? feature.version;
+    linkedFeatureInfo.draftRevisionVersion ??
+    linkedFeatureInfo.stagedDraft?.version ??
+    feature.version;
 
   const existingRule = useMemo<ContextualBanditRefRule | undefined>(() => {
     const matchesCbRule = (rule: { type: string }) =>
@@ -78,7 +85,11 @@ export default function EditContextualBanditFeatureValuesModal({
   const initialVariations = useMemo(
     () =>
       cb.variations.map((v) => {
+        // Staged values win — they are what the targeted revision holds.
         const raw =
+          linkedFeatureInfo.stagedDraft?.values.find(
+            (x) => x.variationId === v.id,
+          )?.value ??
           linkedFeatureInfo.values.find((x) => x.variationId === v.id)?.value ??
           "";
         // Seed the config backing so a config-backed feature's bandit arms open
@@ -91,7 +102,13 @@ export default function EditContextualBanditFeatureValuesModal({
               : raw,
         };
       }),
-    [cb.variations, linkedFeatureInfo.values, isConfigBacked, defaultConfigKey],
+    [
+      cb.variations,
+      linkedFeatureInfo.values,
+      linkedFeatureInfo.stagedDraft,
+      isConfigBacked,
+      defaultConfigKey,
+    ],
   );
 
   const form = useForm<FormValues>({
@@ -104,6 +121,8 @@ export default function EditContextualBanditFeatureValuesModal({
       header="Edit Feature Flag Values"
       subheader="Changes made here will be saved to a draft on the linked Feature Flag rule."
       cta="Save to draft"
+      // Nothing to submit until the revisions load and there's a rule to patch.
+      ctaEnabled={!!data && !!existingRule}
       close={close}
       open={true}
       size={"lg"}
@@ -136,7 +155,7 @@ export default function EditContextualBanditFeatureValuesModal({
           variations: updatedVariations,
         };
 
-        await apiCall<{ status: number; version: number }>(
+        const res = await apiCall<{ status: number; version: number }>(
           `/feature/${feature.id}/${targetVersion}/rule`,
           {
             method: "PUT",
@@ -148,6 +167,8 @@ export default function EditContextualBanditFeatureValuesModal({
         );
 
         await mutate();
+        // The save lands on a draft the card can't show — report where it went.
+        if (res?.version != null) onSaved?.(res.version);
       })}
     >
       {error ? (
@@ -165,6 +186,13 @@ export default function EditContextualBanditFeatureValuesModal({
         </Callout>
       ) : (
         <Flex direction="column" gap="3" pt="2">
+          {cb.status === "running" && (
+            <Callout status="warning" size="sm">
+              This Bandit is running. Users in each variation keep seeing the
+              current value until you publish the Feature Flag revision this
+              draft creates.
+            </Callout>
+          )}
           {cb.variations.map((v, i) => (
             <Box key={v.id}>
               <Box mb="3" minWidth="0">

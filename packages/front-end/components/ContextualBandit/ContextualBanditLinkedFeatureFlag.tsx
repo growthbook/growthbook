@@ -35,6 +35,11 @@ export default function ContextualBanditLinkedFeatureFlag({
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const [removing, setRemoving] = useState(false);
+  // Value edits land on a feature draft, so nothing visible changes until it
+  // publishes — track where the last save went so the card can say so.
+  const [stagedValuesVersion, setStagedValuesVersion] = useState<number | null>(
+    null,
+  );
   const [editModalOpen, setEditModalOpen] = useState(false);
 
   const canEditCb =
@@ -48,25 +53,13 @@ export default function ContextualBanditLinkedFeatureFlag({
     canUpdateLinkedFeature &&
     permissionsUtil.canEditFeatureDrafts(info.feature);
 
-  // Removal strips the rule off the feature and publishes, so it needs the same
-  // rights the API enforces, scoped to the environments the rule reaches.
-  const ruleEnvironments = Object.entries(info.environmentStates || {})
-    .filter(([, state]) => state !== "missing")
-    .map(([env]) => env);
-
-  const canRemoveLinkedFeature =
-    canEditFeatureDraft &&
-    permissionsUtil.canPublishFeature(info.feature, ruleEnvironments);
-
-  const handleRemove = async (draftRevisionVersion?: number) => {
+  // Only offered for a discarded linkage (the rule is already absent, so this
+  // just clears the leftover bookkeeping — nothing publishes).
+  const handleRemove = async () => {
     setRemoving(true);
     try {
-      const params = new URLSearchParams({ autoPublish: "true" });
-      if (draftRevisionVersion != null) {
-        params.set("draftVersion", String(draftRevisionVersion));
-      }
       await apiCall(
-        `/api/v1/contextual-bandits/${cb.id}/linked-feature/${info.feature.id}?${params.toString()}`,
+        `/api/v1/contextual-bandits/${cb.id}/linked-feature/${info.feature.id}?autoPublish=true`,
         { method: "DELETE" },
       );
       mutate?.();
@@ -105,6 +98,12 @@ export default function ContextualBanditLinkedFeatureFlag({
   const orderedValues = cb.variations.map(
     (v) => info.values.find((v2) => v2.variationId === v.id)?.value || "",
   );
+  // A value staged behind approval exists only on the draft — show it rather
+  // than reporting the arm as unconfigured.
+  const stagedValues = info.stagedDraft?.values ?? [];
+  const orderedStagedValues = cb.variations.map(
+    (v) => stagedValues.find((v2) => v2.variationId === v.id)?.value,
+  );
 
   const environmentStates = Object.entries(info.environmentStates || {}).map(
     ([env, state]) => ({
@@ -122,15 +121,12 @@ export default function ContextualBanditLinkedFeatureFlag({
     }),
   );
 
+  // Values stay editable while the bandit is a draft or running — edits only
+  // ever land on a Feature Flag draft, published separately.
   const showEditButton =
     canEditFeatureDraft &&
-    cb.status === "draft" &&
+    cb.status !== "stopped" &&
     info.state !== "discarded" &&
-    info.state !== "locked" &&
-    info.state !== "archived";
-
-  const showRemoveButton =
-    canRemoveLinkedFeature &&
     info.state !== "locked" &&
     info.state !== "archived";
 
@@ -143,19 +139,15 @@ export default function ContextualBanditLinkedFeatureFlag({
           linkedFeatureInfo={info}
           close={() => setEditModalOpen(false)}
           mutate={() => mutate?.()}
+          onSaved={(version) => setStagedValuesVersion(version)}
         />
       )}
       <LinkedChange
         changeType={"flag"}
         heading={info.feature?.id || "Feature"}
         feature={info.feature}
-        canEdit={showEditButton || showRemoveButton}
+        canEdit={showEditButton}
         onEdit={showEditButton ? () => setEditModalOpen(true) : undefined}
-        onDelete={
-          showRemoveButton
-            ? () => handleRemove(info.draftRevisionVersion)
-            : undefined
-        }
         additionalBadge={(() => {
           if (info.state === "archived") {
             return <Badge label="Archived" radius="full" color="gray" />;
@@ -180,6 +172,18 @@ export default function ContextualBanditLinkedFeatureFlag({
           );
         })()}
       >
+        {stagedValuesVersion != null && (
+          <Callout status="info" my="4">
+            Values are staged in revision #{stagedValuesVersion}. This Bandit
+            keeps serving the current values until that revision is published.{" "}
+            <Link
+              href={`/features/${info.feature?.id}?v=${stagedValuesVersion}`}
+              target="_blank"
+            >
+              View revision <PiArrowSquareOut className="ml-1" />
+            </Link>
+          </Callout>
+        )}
         {info.state === "archived" && (
           <Callout status="warning" my="4">
             This Feature Flag has been archived. Unarchive it to make this
@@ -278,17 +282,30 @@ export default function ContextualBanditLinkedFeatureFlag({
                         </Text>
                       </Flex>
                       <Box flexGrow="1">
-                        {!configuredVariationIds.has(v.id) ? (
-                          <HelperText status="warning">
-                            Define missing values
-                          </HelperText>
-                        ) : (
+                        {configuredVariationIds.has(v.id) ? (
                           <ForceSummary
                             value={orderedValues[j]}
                             feature={info.feature}
                             sparse={info.sparse}
                             maxHeight={60}
                           />
+                        ) : orderedStagedValues[j] !== undefined ? (
+                          <Flex direction="column" gap="1" align="end">
+                            <ForceSummary
+                              value={orderedStagedValues[j] ?? ""}
+                              feature={info.feature}
+                              sparse={info.sparse}
+                              maxHeight={60}
+                            />
+                            <Callout status="warning" size="sm">
+                              Staged in revision #{info.stagedDraft?.version} —
+                              not serving yet
+                            </Callout>
+                          </Flex>
+                        ) : (
+                          <HelperText status="warning">
+                            Define missing values
+                          </HelperText>
                         )}
                       </Box>
                     </Flex>
