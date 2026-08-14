@@ -7,11 +7,19 @@ import {
   getFeatureAutopublishOnApproval,
   getMatchingRules,
   getNewDraftExperimentsToPublish,
+  autoMerge,
+  liveRevisionFromFeature,
+  fillRevisionFromFeature,
 } from "shared/util";
+import type { FeatureRule } from "shared/types/feature";
 import {
   isScheduledPublishDue,
   isScheduledPublishPending,
 } from "shared/enterprise";
+import {
+  getLiveAndBaseRevisionsForFeature,
+  getMergeResultPublishEnvs,
+} from "back-end/src/services/features";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getEnvironments } from "back-end/src/util/organization.util";
@@ -22,6 +30,7 @@ import {
   parkScheduledPublish,
   setScheduledPublishNextAttempt,
   setAutoPublishOnApproval,
+  getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
   BadRequestError,
@@ -33,10 +42,13 @@ import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevis
 import { logger } from "back-end/src/util/logger";
 import { publishFeatureRevision } from "./postFeatureRevisionPublish";
 
-export function canEnableFeatureAutoPublishOnApproval(
+export async function canEnableFeatureAutoPublishOnApproval(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
-): boolean {
+  // The draft being armed. Auto-publish commits a future publish, and a draft that
+  // moves projects lands in the DESTINATION — so arming needs authority there too.
+  revision?: FeatureRevisionInterface | { metadata?: { project?: string } },
+): Promise<boolean> {
   if (!context.hasPremiumFeature("require-approvals")) return false;
   if (
     !getFeatureAutopublishOnApproval(
@@ -47,12 +59,18 @@ export function canEnableFeatureAutoPublishOnApproval(
     return false;
   }
 
-  const allEnvironments = getEnvironments(context.org);
-  const environmentIds = filterEnvironmentsByFeature(
-    allEnvironments,
-    feature,
-  ).map((e) => e.id);
-  return context.permissions.canPublishFeature(feature, environmentIds);
+  // Delegates to the shared arming check so the source and destination rule is
+  // stated once.
+  return canPublishFeatureRevision(context, feature, revision);
+}
+
+/** Disarming requires publish authority, but not scheduling eligibility. */
+export async function canDisarmFeatureAutoPublishOnApproval(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision?: FeatureRevisionInterface | { metadata?: { project?: string } },
+): Promise<boolean> {
+  return canPublishFeatureRevision(context, feature, revision);
 }
 
 // Validate a client-supplied schedule date. null/undefined means "no schedule";
@@ -71,28 +89,96 @@ export function parseScheduledPublishDate(
   return date;
 }
 
-// Publish authority over every environment the feature applies to. Anyone with
-// it can cancel (or take over) a pending schedule.
-export function canPublishFeatureRevision(
+/**
+ * The environments an arming decision is judged over: the ones the PUBLISH this
+ * arm commits to will touch.
+ *
+ * Computed the way the PUBLISH computes it (`getMergeResultPublishEnvs`), not the
+ * review-side `getDraftAffectedEnvironments`. The two disagree on metadata, holdout
+ * and ramp reach, and a disagreement here answers the permission question against
+ * the wrong footprint — a publisher limited to `dev` could publish a dev-only change
+ * directly but not arm the same one.
+ *
+ * Falls back to the full serving scope whenever the merge can't be computed.
+ * Failing closed here means requiring MORE authority, never less.
+ */
+async function armingEnvironments(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
-): boolean {
-  const allEnvironments = getEnvironments(context.org);
-  const environmentIds = filterEnvironmentsByFeature(
-    allEnvironments,
+  revision?: FeatureRevisionInterface | { metadata?: { project?: string } },
+): Promise<string[]> {
+  const servingIds = filterEnvironmentsByFeature(
+    getEnvironments(context.org),
     feature,
   ).map((e) => e.id);
-  return context.permissions.canPublishFeature(feature, environmentIds);
+
+  const draft = revision as FeatureRevisionInterface | undefined;
+  if (!draft?.version) return servingIds;
+
+  try {
+    const { live, base } = await getLiveAndBaseRevisionsForFeature({
+      context,
+      feature,
+      revision: draft,
+    });
+    // No drift repair: arming is a read-only decision and must not write to reach
+    // it. A drifted live simply falls back to the broader scope below.
+    const merged = autoMerge(
+      liveRevisionFromFeature(live, feature),
+      fillRevisionFromFeature(base, feature),
+      draft,
+      servingIds,
+      {},
+    );
+    if (!merged.success) return servingIds;
+    return await getMergeResultPublishEnvs({
+      context,
+      feature,
+      filledLiveRules: { ...live, ...liveRevisionFromFeature(live, feature) }
+        .rules as FeatureRule[],
+      result: merged.result,
+      environmentIds: servingIds,
+      rampActions: draft.rampActions,
+    });
+  } catch {
+    return servingIds;
+  }
+}
+
+// Publish authority over the environments this revision changes. Anyone with it
+// can cancel (or take over) a pending schedule.
+export async function canPublishFeatureRevision(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  // The revision being armed, when there is one. A draft that moves projects lands
+  // in the DESTINATION, so arming a schedule for it commits a future publish there —
+  // judging the live feature's scope alone let someone arm a publish they cannot
+  // perform, which then failed on every poller tick until it gave up.
+  revision?: FeatureRevisionInterface | { metadata?: { project?: string } },
+): Promise<boolean> {
+  const environmentIds = await armingEnvironments(context, feature, revision);
+  if (!context.permissions.canPublishFeature(feature, environmentIds)) {
+    return false;
+  }
+  const destination = revision?.metadata?.project;
+  if (destination === undefined || destination === (feature.project ?? "")) {
+    return true;
+  }
+  return context.permissions.canPublishFeature(
+    { ...feature, project: destination },
+    environmentIds,
+  );
 }
 
 // Whether the caller may arm a date-based publish. Needs publish authority plus
 // the premium feature (canceling needs neither, so a lapsed license can disarm).
-export function canScheduleFeaturePublish(
+export async function canScheduleFeaturePublish(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
-): boolean {
+  revision?: FeatureRevisionInterface | { metadata?: { project?: string } },
+): Promise<boolean> {
   if (!context.hasPremiumFeature("scheduled-revisions")) return false;
-  return canPublishFeatureRevision(context, feature);
+  return canPublishFeatureRevision(context, feature, revision);
 }
 
 async function revisionRequiresPreLaunchChecklist(
@@ -225,7 +311,7 @@ function scheduledPublishMayForceMerge(
 ): boolean {
   return (
     !!revision.scheduledPublishBypassApproval &&
-    context.permissions.canBypassApprovalChecks(feature)
+    context.permissions.canBypassFlagApprovalChecks(feature, "feature")
   );
 }
 
@@ -249,7 +335,14 @@ export async function maybeAutoPublishFeatureRevision(
       { featureId: feature.id, version: revision.version },
       "auto-publish-on-approval skipped: enabling user could not be resolved; revision left approved",
     );
-    return revision;
+    // Returning quietly let "approve and publish" report success having only
+    // approved — the same hole the generic twin closed. The approval itself
+    // stands; the caller has to learn the publish did not run, or nobody goes
+    // back for it. Permanent and actionable, unlike the transient failures below,
+    // which stay approved for a manual publish.
+    throw new BadRequestError(
+      "Approved, but the publish did not run: the user who armed auto-publish is no longer a member of this organization. Publish it directly.",
+    );
   }
 
   try {
@@ -300,6 +393,9 @@ async function handleScheduledPublishFailure(
 ): Promise<void> {
   const message = getErrorMessage(error);
   const attempts = await recordScheduledPublishFailure(revision, message);
+  // Zero means the revision moved on — closed, or re-armed with a different schedule
+  // — so this attempt is stale and must not report a failure for it.
+  if (!attempts) return;
   const outcome = decideScheduledPublishOutcome({
     error,
     attempts,
@@ -321,15 +417,30 @@ async function handleScheduledPublishFailure(
   }
 
   const terminal = outcome.classification === "terminal";
-  await parkScheduledPublish(revision);
+  const parked = await parkScheduledPublish(revision);
+  // A no-op park means the revision moved on — a concurrent publish succeeded, or the
+  // schedule was replaced — so this attempt's failure is not this revision's outcome.
+  if (!parked) return;
   logger.error(
     { featureId: feature.id, version: revision.version, attempts, terminal },
     `scheduled-publish gave up (${terminal ? "terminal failure" : "max attempts reached"}): ${message}`,
   );
+  // The PARKED revision, re-read. Parking clears the schedule and disarms
+  // auto-publish, so the pre-image describes a revision that is still armed and
+  // still scheduled — the opposite of what this event reports. A subscriber
+  // mirroring state from the payload would put the schedule back.
+  const afterPark =
+    (await getRevision({
+      context,
+      organization: revision.organization,
+      featureId: feature.id,
+      feature,
+      version: revision.version,
+    })) ?? revision;
   await dispatchFeatureRevisionEvent(
     context,
     feature,
-    revision,
+    afterPark,
     "revision.publishFailed",
     { failureReason: message, terminal, attempts },
   );

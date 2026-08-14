@@ -106,7 +106,7 @@ export default function ExplorerSideBar({
       ? dataset
       : null;
   const hasFunnelInputs =
-    dataset?.type === "funnel" && !!dataset.steps?.some((s) => !!s.factTable);
+    dataset?.type === "funnel" && !!dataset.steps?.some((s) => !!s.factTableId);
   const hasInputs =
     dataset?.type === "funnel"
       ? hasFunnelInputs
@@ -162,6 +162,16 @@ export default function ExplorerSideBar({
       };
     });
   };
+
+  const emptyStaticDimension = draftExploreState.dimensions.some(
+    (d) => d.dimensionType === "static" && d.values.length === 0,
+  );
+  const updateDisabledReason =
+    hasInputs && !isSubmittable
+      ? emptyStaticDimension
+        ? "Select at least one value for the pinned dimension before updating."
+        : "Configure a valid exploration before updating."
+      : undefined;
 
   const isTimeSeriesChart = ["line", "area", "timeseries-table"].includes(
     draftExploreState.chartType,
@@ -256,8 +266,11 @@ export default function ExplorerSideBar({
           <Flex direction="row" align="center" justify="between" width="100%">
             <DataSourceDropdown />
             <Tooltip
-              body="Configuration has changed. Click to refresh the chart."
-              shouldDisplay={isStale}
+              body={
+                updateDisabledReason ||
+                "Configuration has changed. Click to refresh the chart."
+              }
+              shouldDisplay={!!updateDisabledReason || isStale}
             >
               <Button
                 size="md"

@@ -34,6 +34,7 @@ import {
   MakeModelClass,
   ScopedFilterQuery,
 } from "back-end/src/models/BaseModel";
+import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import {
   getCollection,
   removeMongooseFields,
@@ -892,6 +893,28 @@ export function migrateBlock(
       }
       return migrated;
     }
+    case "funnel-exploration": {
+      const steps = doc.config?.dataset?.steps;
+      if (Array.isArray(steps)) {
+        const needsMigration = steps.some(
+          (s: Record<string, unknown>) =>
+            "factTable" in s && !("factTableId" in s),
+        );
+        if (needsMigration) {
+          return {
+            ...doc,
+            config: {
+              ...doc.config,
+              dataset: {
+                ...doc.config.dataset,
+                steps: AnalyticsExplorationModel.migrateFunnelSteps(steps),
+              },
+            },
+          } as DashboardBlockInterface | CreateDashboardBlockInterface;
+        }
+      }
+      return doc;
+    }
     case "metric-explorer":
     case "markdown":
     case "experiment-metadata":
@@ -899,7 +922,6 @@ export function migrateBlock(
     case "metric-exploration":
     case "fact-table-exploration":
     case "data-source-exploration":
-    case "funnel-exploration":
     default:
       return doc;
   }

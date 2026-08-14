@@ -226,19 +226,26 @@ const getUUID=()=>{const a=(a,b)=>{var c=new Date;c.setTime(c.getTime()+86400000
 
 ### What is the difference between a Dimension and a Segment?
 
-:::info Dimensions recommended over Segments
+:::caution Segments are deprecated
 
-We recommend using Dimensions instead of Segments for new implementations. While Segments remain fully supported, we plan to deprecate them in a future release.
+Segments have been deprecated and are being phased out. If you don't already have a Segment configured, you shouldn't create one — use a Dimension instead, or apply a custom SQL filter in the experiment's analysis settings.
 
 :::
 
 A dimension is a user attribute that can have multiple values. Some examples are `country`, `account_type`, and `browser`.
 
-A segment is a specific group of users. Some examples are `visitors in the US`, `premium users`, and `chrome users`.
+A segment was a specific group of users, defined with SQL from the "Data and Metrics → Segments" page. Some examples are `visitors in the US`, `premium users`, and `chrome users`. Segments could apply a filter to results, usually to compensate for bad data — for example, if your experiment was only visible to premium users, but your database inaccurately shows that free users were also included, you could apply a `premium users` segment to only include those who were actually exposed to the test.
 
 Dimensions are used to explore experiment results. For example, you can use a `country` dimension to see which countries had the highest conversion rates. Or an `account_type` dimension to see if there was a significant difference in how free vs paid users behaved. Or a `browser` dimension to detect any browser-specific bugs in your implementation.
 
-Segments can apply a filter to results, usually to compensate for bad data. For example, if your experiment was only visible to premium users, but your database inaccurately shows that free users were also included, you could apply a `premium users` segment to only include those who were actually exposed to the test. Ideally, you could just fix the underlying data, but that's often not feasible so segments provide a quick and dirty alternative.
+If you were relying on a Segment to filter out bad data (rather than to explore results), a custom SQL filter in the experiment's analysis settings is the recommended replacement, provided the dimension you need to filter on already exists on your experiment assignment query.
+
+### How do I break down experiment results by more than one dimension?
+
+GrowthBook only lets you select a single dimension at a time when viewing experiment results. There isn't native support yet for combining two or more dimensions in one breakdown, but there are two workarounds:
+
+- **Custom SQL filter**: If one of the dimensions you care about already exists on your experiment assignment query, add a custom SQL filter in the experiment's analysis settings to restrict results to a specific value of that dimension, then use the dimension selector to break down by the second dimension.
+- **Custom dimension SQL**: Create a new dimension whose SQL computes the intersection of the two dimensions you care about (for example, concatenating `country` and `account_type` into a single value like `US - premium`). See [Dimensions](/app/dimensions) for how to write custom dimension SQL.
 
 ### My old exported notebook stopped working. How can I fix it?
 

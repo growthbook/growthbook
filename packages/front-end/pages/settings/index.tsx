@@ -16,6 +16,7 @@ import {
   DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
   DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS,
   DEFAULT_POST_STRATIFICATION_ENABLED,
+  DEFAULT_LEARNING_STATUSES,
   DEFAULT_REVISION_CONFIGURATION,
 } from "shared/constants";
 import {
@@ -49,6 +50,7 @@ import RampScheduleTemplates from "@/components/GeneralSettings/RampScheduleTemp
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
+import LearningSettings from "@/components/GeneralSettings/LearningSettings";
 import AISettings from "@/components/GeneralSettings/AISettings";
 import {
   SETTINGS_TAB,
@@ -227,13 +229,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.requireRegisteredAttributes,
       ),
       aiEnabled: settings.aiEnabled ?? false,
-      defaultAIModel: settings.defaultAIModel || "gpt-4o-mini",
+      // Seeding a model on Cloud would persist it on the next save of any
+      // setting, silently taking the org off the managed default.
+      defaultAIModel:
+        settings.defaultAIModel || (isCloud() ? undefined : "gpt-4o-mini"),
       embeddingModel: settings.embeddingModel || "text-embedding-ada-002",
-      // `undefined` represents "use default" — the back-end's resolver
-      // (getAISettingsForOrg) falls back to defaultAIModel for text and
-      // the GEMINI_IMAGE_MODEL env var for image when these are unset.
-      // We can't use empty string here because visualEditorAIModel is
-      // typed as the AIModel union (which doesn't include "").
       visualEditorAIModel: settings.visualEditorAIModel,
       visualEditorImageModel: settings.visualEditorImageModel || "",
       visualEditorAIContext: settings.visualEditorAIContext || "",
@@ -254,6 +254,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.approvalFlows,
         hasRequireApprovals,
       ),
+      learningStatuses: settings.learningStatuses ?? DEFAULT_LEARNING_STATUSES,
     },
   });
   const { apiCall } = useAuth();
@@ -302,11 +303,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
     aiEnabled: form.watch("aiEnabled"),
     defaultAIModel: form.watch("defaultAIModel"),
     embeddingModel: form.watch("embeddingModel"),
-    // Empty string from the form → undefined on the wire so we don't
-    // pollute the saved settings doc with empty values. The back-end's
-    // resolver treats both unset and empty-string as "no override".
-    visualEditorAIModel: form.watch("visualEditorAIModel") || undefined,
-    visualEditorImageModel: form.watch("visualEditorImageModel") || undefined,
+    visualEditorAIModel: form.watch("visualEditorAIModel"),
+    visualEditorImageModel: form.watch("visualEditorImageModel"),
     visualEditorAIContext: form.watch("visualEditorAIContext") || undefined,
     disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
     defaultFeatureRulesInAllEnvs: form.watch("defaultFeatureRulesInAllEnvs"),
@@ -315,6 +313,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     topValuesLookbackValue: form.watch("topValuesLookbackValue"),
     savedGroupSizeLimit: form.watch("savedGroupSizeLimit"),
     approvalFlows: form.watch("approvalFlows"),
+    learningStatuses: form.watch("learningStatuses"),
     requireRegisteredAttributes: form.watch("requireRegisteredAttributes"),
   };
   function updateCronString(cron?: string) {
@@ -562,6 +561,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
               />
               <Frame mb="4">
                 <BanditSettings page="org-settings" />
+              </Frame>
+              <Frame mb="4">
+                <LearningSettings />
               </Frame>
             </TabsContent>
 

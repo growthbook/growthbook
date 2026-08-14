@@ -43,6 +43,7 @@ import {
   PendingDraftPublishFailedError,
 } from "back-end/src/util/errors";
 import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
+import { trackEventForContext } from "back-end/src/services/growthbook";
 
 export type StartChecklistItemStatus = {
   key: string;
@@ -462,6 +463,13 @@ export async function executeExperimentStart(
     experiment,
     changes: { ...changes, nextScheduledStatusUpdate },
   });
+
+  trackEventForContext(context, "Experiment Started", {
+    source: context.auditUser?.type ?? "agenda-job",
+    hasDatasource: !!updated.datasource,
+    hasExperimentAssignmentQuery: !!updated.exposureQueryId,
+  });
+
   return { updated, publishResult };
 }
 
@@ -788,6 +796,14 @@ export async function stopExperiment({
     experiment,
     changes,
   });
+
+  // Only track true stop events; ignore results edits to already-stopped experiments.
+  if (isEnding) {
+    trackEventForContext(context, "Experiment Stopped", {
+      source: context.auditUser?.type ?? "agenda-job",
+      result: updated.results,
+    });
+  }
 
   return { experiment, updated, isEnding };
 }

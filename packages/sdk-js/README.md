@@ -58,10 +58,11 @@ const gb = new GrowthBook({
   },
   // Only required for A/B testing
   // Called every time a user is put into an experiment
-  trackingCallback: (experiment, result) => {
+  trackingCallback: (experiment, result, user) => {
     console.log("Experiment Viewed", {
       experimentId: experiment.key,
       variationId: result.key,
+      attributes: user?.attributes,
     });
   },
 });
@@ -198,6 +199,7 @@ const gb = new GrowthBookClient({
     console.log("Experiment Viewed", user.attributes.id, {
       experimentId: experiment.key,
       variationId: result.key,
+      attributes: user?.attributes,
     });
   },
 });
@@ -210,10 +212,11 @@ const userContext = {
   attributes: {
     id: req.user.id,
   },
-  trackingCallback: (experiment, result) => {
-    console.log("Experiment Viewed", req.user.id, {
+  trackingCallback: (experiment, result, user) => {
+    console.log("Experiment Viewed", user?.attributes.id, {
       experimentId: experiment.key,
       variationId: result.key,
+      attributes: user?.attributes,
     });
   },
 };
@@ -304,15 +307,18 @@ In order to run A/B tests, you need to set up a tracking callback function. This
 const gb = new GrowthBook({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
-  trackingCallback: (experiment, result) => {
+  trackingCallback: (experiment, result, user) => {
     // Example using Segment
     analytics.track("Experiment Viewed", {
       experimentId: experiment.key,
       variationId: result.key,
+      attributes: user?.attributes,
     });
   },
 });
 ```
+
+Starting in version 1.7.0, the callback receives a third `user` argument: a `TrackingUserContext` containing the `attributes` and optional `url` used when the experiment was evaluated. We recommend recording attributes from this argument so exposure events consistently reflect the attributes GrowthBook used for targeting and assignment.
 
 This same tracking callback is used for both feature flag experiments and Visual Editor experiments.
 
