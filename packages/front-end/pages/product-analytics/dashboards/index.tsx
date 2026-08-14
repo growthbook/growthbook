@@ -38,6 +38,7 @@ import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownSubMenu,
 } from "@/ui/DropdownMenu";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -47,7 +48,8 @@ import LinkButton from "@/ui/LinkButton";
 export default function DashboardsPage() {
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature, userId } = useUser();
-  const { project } = useDefinitions();
+  const { project, projects, getProjectById, mutateDefinitions } =
+    useDefinitions();
   const { apiCall } = useAuth();
   const [saving, setSaving] = useState(false);
   const router = useRouter();
@@ -150,6 +152,31 @@ export default function DashboardsPage() {
     },
     [apiCall, mutateDashboards],
   );
+
+  // A dashboard scoped to specific projects can only be set as the default
+  // for one of those; a global dashboard (no projects) is eligible for any
+  // project. Either way, setting a project's default requires permission on
+  // that project specifically, not on the dashboard.
+  const getEligibleProjectsForDefault = (d: DashboardInterface) => {
+    const candidates = d.projects?.length
+      ? projects.filter((p) => d.projects?.includes(p.id))
+      : projects;
+    return candidates.filter((p) => permissionsUtil.canUpdateProject(p.id));
+  };
+
+  const setDefaultDashboard = async (projectId: string, dashId: string) => {
+    const p = getProjectById(projectId);
+    await apiCall(`/projects/${projectId}/settings`, {
+      method: "PUT",
+      body: JSON.stringify({
+        // `settings` is a single field server-side (replaced wholesale, not
+        // merged), so the rest of the project's settings must be spread back
+        // in or this would silently clear statsEngine/confidenceLevel/etc.
+        settings: { ...p?.settings, defaultDashboardId: dashId },
+      }),
+    });
+    mutateDefinitions();
+  };
 
   if (loading || saving) return <LoadingOverlay />;
 
@@ -462,6 +489,57 @@ export default function DashboardsPage() {
                                       >
                                         Share...
                                       </DropdownMenuItem>
+
+                                      {(() => {
+                                        const eligibleProjects =
+                                          getEligibleProjectsForDefault(d);
+                                        if (!eligibleProjects.length) {
+                                          return null;
+                                        }
+                                        if (eligibleProjects.length === 1) {
+                                          const p = eligibleProjects[0];
+                                          const isDefault =
+                                            p.settings?.defaultDashboardId ===
+                                            d.id;
+                                          return (
+                                            <DropdownMenuItem
+                                              disabled={isDefault}
+                                              onClick={() =>
+                                                setDefaultDashboard(p.id, d.id)
+                                              }
+                                            >
+                                              {isDefault
+                                                ? `Default for ${p.name}`
+                                                : `Set as Default for ${p.name}`}
+                                            </DropdownMenuItem>
+                                          );
+                                        }
+                                        return (
+                                          <DropdownSubMenu trigger="Set as Default Dashboard">
+                                            {eligibleProjects.map((p) => {
+                                              const isDefault =
+                                                p.settings
+                                                  ?.defaultDashboardId === d.id;
+                                              return (
+                                                <DropdownMenuItem
+                                                  key={p.id}
+                                                  disabled={isDefault}
+                                                  onClick={() =>
+                                                    setDefaultDashboard(
+                                                      p.id,
+                                                      d.id,
+                                                    )
+                                                  }
+                                                >
+                                                  {isDefault
+                                                    ? `${p.name} (current default)`
+                                                    : p.name}
+                                                </DropdownMenuItem>
+                                              );
+                                            })}
+                                          </DropdownSubMenu>
+                                        );
+                                      })()}
 
                                       {canDelete && (
                                         <>
