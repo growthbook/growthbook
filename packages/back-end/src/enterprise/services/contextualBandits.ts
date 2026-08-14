@@ -1077,14 +1077,22 @@ export async function persistContextualBanditEvent(
       updatedCb,
       "contextualBandit.refresh",
     );
-    await context.auditLog({
-      event: "contextualBandit.update",
-      entity: {
-        object: "contextualBandit",
-        id: cb.id,
-      },
-      details: auditDetailsUpdate(cb, updatedCb),
-    });
+    // Best-effort: a throw here would leave the snapshot running and re-persist.
+    try {
+      await context.auditLog({
+        event: "contextualBandit.update",
+        entity: {
+          object: "contextualBandit",
+          id: cb.id,
+        },
+        details: auditDetailsUpdate(cb, updatedCb),
+      });
+    } catch (e) {
+      context.logger.error(
+        e,
+        `Error creating audit log for contextualBandit.update (${cb.id})`,
+      );
+    }
   }
 
   return cbe;
