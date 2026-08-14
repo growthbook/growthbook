@@ -5086,6 +5086,17 @@ export async function getRefLinkedFeatureInfo({
             draftRevisionVersion: matchedDraftRevision.version,
             draftRevisionStatus: matchedDraftRevision.status,
           }),
+        // `state` is "live" whenever the live revision has the rule, even if a
+        // draft is changing it, so report that draft separately.
+        ...(matchedDraftRevision &&
+          draftDiffersFromLive &&
+          state === "live" && {
+            stagedDraft: {
+              version: matchedDraftRevision.version,
+              status: matchedDraftRevision.status,
+              values: refRuleValues(draftMatches[0]?.rule),
+            },
+          }),
         ...(hasMergeConflict !== undefined && { hasMergeConflict }),
         ...(hasUnrelatedDraftChanges !== undefined && {
           hasUnrelatedDraftChanges,

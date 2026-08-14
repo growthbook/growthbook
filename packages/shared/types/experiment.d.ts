@@ -298,6 +298,16 @@ export interface LinkedFeatureInfo {
   draftRevisionVersion?: number;
   /** Status of the matching draft revision (present when state === "draft"). */
   draftRevisionStatus?: RevisionStatus;
+  /**
+   * Open draft changing this entity's ref rule while live still serves the old
+   * one (`state` stays "live", `values` shows what is serving). Lets the UI
+   * show staged values instead of reporting them missing.
+   */
+  stagedDraft?: {
+    version: number;
+    status: RevisionStatus;
+    values: ExperimentRefVariation[];
+  };
   /** True when the draft cannot be auto-merged into live due to conflicting changes. */
   hasMergeConflict?: boolean;
   /**
