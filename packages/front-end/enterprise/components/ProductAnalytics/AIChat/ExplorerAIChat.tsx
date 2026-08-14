@@ -167,7 +167,7 @@ export default function ExplorerAIChat() {
         messageCount: messages.length,
         isFirstMessage: messages.length === 0,
       });
-      sendMessage(messageOverride);
+      sendMessage(messageOverride, { mentions });
     },
     [input, chatModel, messages.length, sendMessage],
   );

@@ -305,6 +305,7 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
         body.currentPage,
         datasourceHint,
         body.mentions,
+        typeof body.skill === "string" ? body.skill : undefined,
       );
       // Seeded after the user message so the transcript reads in the order it
       // happened: the user asked, then the skill was loaded.
@@ -433,6 +434,7 @@ function appendUserMessage(
   currentPage?: string,
   datasourceHint?: string,
   mentions?: AIChatMention[],
+  skill?: string,
 ): void {
   const userMessage: AIChatMessage = {
     role: "user",
@@ -447,6 +449,7 @@ function appendUserMessage(
       ? { datasourceHint: datasourceHint.trim() }
       : {}),
     ...(mentions && mentions.length ? { mentions } : {}),
+    ...(skill ? { skill } : {}),
   };
   buffer.appendMessages([userMessage]);
 }

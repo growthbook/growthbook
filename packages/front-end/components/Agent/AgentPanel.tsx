@@ -28,6 +28,7 @@ import {
   type FeedbackState,
 } from "@/enterprise/components/AIChat/AIChatFeedback";
 import { useChatFeedback } from "@/enterprise/components/AIChat/useChatFeedback";
+import MessageTokens from "@/enterprise/components/AIChat/MessageTokens";
 import { findToolCallPart } from "@/enterprise/hooks/useAIChat/pairAIChatToolMessages";
 import aiChatStyles from "@/enterprise/components/AIChat/AIChatPrimitives.module.scss";
 import ChatComposer, {
@@ -432,7 +433,10 @@ export default function AgentPanel({
         setConfirmPrompt({ ...confirmPrompt, resolved: true });
       }
       trackMessageSent();
-      sendMessage();
+      sendMessage(undefined, {
+        mentions: submission.mentions,
+        ...(submission.skill ? { skill: submission.skill } : {}),
+      });
     },
     [input, loading, sendMessage, askPrompt, confirmPrompt, trackMessageSent],
   );
@@ -796,7 +800,15 @@ function PersistedTurn({
     <>
       {turn.user && (
         <UserBubble>
-          <Text size="sm">{getUserText(turn.user)}</Text>
+          <Text size="sm">
+            <MessageTokens
+              text={getUserText(turn.user)}
+              mentions={
+                turn.user.role === "user" ? turn.user.mentions : undefined
+              }
+              skill={turn.user.role === "user" ? turn.user.skill : undefined}
+            />
+          </Text>
         </UserBubble>
       )}
 

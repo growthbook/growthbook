@@ -1,0 +1,17 @@
+// Composer tokens (@-mentions and `/` commands) inside a sent message.
+//
+// Typography is inherited so a token reads as part of the sentence — only the
+// background sets it apart. `UserBubble` paints a solid `--violet-10` ground
+// with white text, so the highlight is a translucent white rather than a tinted
+// background: it stays legible on that ground in both themes, where a fixed
+// colour would not. The leading `@` / `/` already distinguishes the two kinds,
+// so they share one treatment.
+.token {
+  padding: 1px 5px;
+  margin: 0 1px;
+  border-radius: var(--radius-2);
+  background: rgba(255, 255, 255, 0.22);
+  font-weight: 500;
+  // Keeps a name from being split across lines mid-token.
+  white-space: nowrap;
+}

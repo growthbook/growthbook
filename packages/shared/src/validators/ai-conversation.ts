@@ -99,6 +99,8 @@ const aiChatUserMessageValidator = z
     datasourceHint: z.string().max(256).optional(),
     // Entities the user @-mentioned — see AIChatMention in shared/ai-chat.ts.
     mentions: aiChatMentionValidator.array().max(20).optional(),
+    // Skill invoked via a `/` command — see AIChatUserMessage.
+    skill: z.string().max(64).optional(),
   })
   .passthrough();
 

@@ -9,6 +9,7 @@ import { useAuth } from "@/services/auth";
 import type {
   ActiveTurnItem,
   ConversationLoadResponse,
+  AIChatMention,
   AIChatMessage,
   UseAIChatOptions,
   UseAIChatReturn,
@@ -323,7 +324,11 @@ export function useAIChat({
   const sendMessage = useCallback(
     async (
       messageOverride?: string,
-      options?: { suppressUserMessage?: boolean },
+      options?: {
+        suppressUserMessage?: boolean;
+        mentions?: AIChatMention[];
+        skill?: string;
+      },
     ) => {
       const trimmed = (messageOverride ?? input).trim();
       if (!trimmed || loading) return;
@@ -336,6 +341,10 @@ export function useAIChat({
           id: `msg_${messageCounterRef.current++}`,
           content: trimmed,
           ts: Date.now(),
+          // Carried on the optimistic bubble too, so the mention renders as a
+          // chip immediately rather than only after the conversation reloads.
+          ...(options?.mentions?.length ? { mentions: options.mentions } : {}),
+          ...(options?.skill ? { skill: options.skill } : {}),
         };
         setMessages((prev) => [...prev, userMessage]);
       }
