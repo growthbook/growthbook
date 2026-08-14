@@ -33,6 +33,7 @@ import AutoRunCallout from "@/components/GetStarted/AutoRunCallout";
 import Link from "@/ui/Link";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import NeedingAttention from "@/components/GetStarted/NeedingAttention";
+import DashboardCard from "@/components/GetStarted/DashboardCard";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
@@ -280,6 +281,8 @@ const GetStartedAndHomePage = ({
             </Flex>
           )}
         </Grid>
+
+        <DashboardCard />
 
         {!orgIsUsingFeatureOrExperiment && (
           <Text size="4" weight="medium" mb="3" as="div">
