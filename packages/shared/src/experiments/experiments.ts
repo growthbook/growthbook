@@ -1329,8 +1329,10 @@ export function parseSliceQueryString(
 
   for (const [key, value] of params.entries()) {
     if (key.startsWith("dim:")) {
-      const column = decodeURIComponent(key.substring(4)); // Remove 'dim:' prefix
-      const level = value === "" ? null : decodeURIComponent(value);
+      // URLSearchParams already percent-decodes keys and values; decoding
+      // again throws URIError on values containing a bare "%"
+      const column = key.substring(4); // Remove 'dim:' prefix
+      const level = value === "" ? null : value;
       // Look up datatype from factTableMap if available
       let datatype: "string" | "boolean" = "string";
       if (factTableMap) {
