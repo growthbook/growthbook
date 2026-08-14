@@ -12,10 +12,13 @@ import {
   updateContextualBanditFeatureRule,
 } from "back-end/src/enterprise/services/contextualBandits";
 import {
+  assertCanAutoPublish,
   getDraftRevision,
   getLiveAndBaseRevisionsForFeature,
 } from "back-end/src/services/features";
+import { ApprovalRequiredError } from "back-end/src/util/errors";
 import {
+  getLinkageSyncRevisionSummaries,
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
@@ -88,6 +91,11 @@ const updateRevisionMock = updateRevision as jest.MockedFunction<
   typeof updateRevision
 >;
 const getRevisionMock = getRevision as jest.MockedFunction<typeof getRevision>;
+const getLinkageSyncRevisionSummariesMock =
+  getLinkageSyncRevisionSummaries as jest.Mock;
+const assertCanAutoPublishMock = assertCanAutoPublish as jest.MockedFunction<
+  typeof assertCanAutoPublish
+>;
 const publishRevisionMock = publishRevision as jest.MockedFunction<
   typeof publishRevision
 >;
@@ -133,6 +141,7 @@ function makeContext(): ReqContext {
       }),
     },
     models: { contextualBandits: cbModel },
+    logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
   } as unknown as ReqContext;
 }
 
@@ -222,6 +231,11 @@ function changesFromUpdateRevision(): Partial<FeatureRevisionInterface> {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  getLinkageSyncRevisionSummariesMock.mockResolvedValue({
+    openDrafts: [],
+    liveRevision: null,
+  });
+  getRevisionMock.mockResolvedValue(null);
   updateRevisionMock.mockImplementation(
     async (_context, _feature, revision, changes) =>
       ({ ...revision, ...changes }) as FeatureRevisionInterface,
@@ -387,7 +401,12 @@ describe("updateContextualBanditFeatureRule", () => {
     });
     expect(changes.rules?.[1]).toEqual(otherBanditRule);
 
-    expect(result).toEqual({ version: 4, published: false, ruleIds: ["fr_1"] });
+    expect(result).toEqual({
+      version: 4,
+      published: false,
+      pendingApproval: false,
+      ruleIds: ["fr_1"],
+    });
     expectNoDirectLinkageWrites();
   });
 
@@ -491,6 +510,73 @@ describe("unlinkFeatureFromContextualBandit", () => {
       removedRuleIds: ["fr_1"],
       revisionVersion: 4,
       published: false,
+      stagedDraftVersions: [],
+    });
+  });
+
+  it("also strips the rule from every other open draft holding it", async () => {
+    // Linkage is derived from live rules AND open drafts, so a leftover draft
+    // would re-link the feature and the unlink would look like a no-op.
+    const liveRule = cbRefRule("fr_1", "cb_1");
+    getDraftRevisionMock.mockResolvedValue(
+      makeRevision({ version: 4, rules: [liveRule] }),
+    );
+    getLinkageSyncRevisionSummariesMock.mockResolvedValue({
+      openDrafts: [
+        { version: 4, rules: [liveRule] },
+        { version: 5, rules: [cbRefRule("fr_9", "cb_1")] },
+        { version: 6, rules: [cbRefRule("fr_8", "cb_2")] },
+      ],
+      liveRevision: { version: 3, rules: [liveRule] },
+    });
+    getRevisionMock.mockImplementation(async ({ version }) =>
+      version === 5
+        ? makeRevision({ version: 5, rules: [cbRefRule("fr_9", "cb_1")] })
+        : null,
+    );
+
+    const result = await unlinkFeatureFromContextualBandit({
+      context: makeContext(),
+      contextualBandit: makeCb({ linkedFeatures: ["feat_1"] }),
+      featureId: "feat_1",
+      feature: makeFeature({ rules: [liveRule] }),
+      eventAudit: { type: "dashboard" },
+      audit,
+    });
+
+    // Draft 4 is the one just edited, draft 6 belongs to another bandit.
+    expect(result.stagedDraftVersions).toEqual([5]);
+    const sweptChanges = updateRevisionMock.mock.calls[1][3] as {
+      rules: FeatureRule[];
+    };
+    expect(sweptChanges.rules).toEqual([]);
+  });
+
+  it("stages the removal instead of losing it when the publish needs approval", async () => {
+    const liveRule = cbRefRule("fr_1", "cb_1");
+    getDraftRevisionMock.mockResolvedValue(makeRevision({ rules: [liveRule] }));
+    assertCanAutoPublishMock.mockRejectedValueOnce(
+      new ApprovalRequiredError("Draft #4 of feat_1 requires approval"),
+    );
+
+    const result = await unlinkFeatureFromContextualBandit({
+      context: makeContext(),
+      contextualBandit: makeCb({ linkedFeatures: ["feat_1"] }),
+      featureId: "feat_1",
+      feature: makeFeature({ rules: [liveRule] }),
+      eventAudit: { type: "dashboard" },
+      audit,
+      autoPublish: true,
+    });
+
+    // The rule is already stripped on the draft, so the draft is kept (not
+    // discarded) and reported back as unpublished.
+    expect(publishRevisionMock).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      removedRuleIds: ["fr_1"],
+      revisionVersion: 4,
+      published: false,
+      stagedDraftVersions: [],
     });
   });
 
@@ -519,6 +605,7 @@ describe("unlinkFeatureFromContextualBandit", () => {
       removedRuleIds: [],
       revisionVersion: null,
       published: false,
+      stagedDraftVersions: [],
     });
   });
 
