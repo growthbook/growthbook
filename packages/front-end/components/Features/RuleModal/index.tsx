@@ -204,6 +204,26 @@ export type SafeRolloutRuleCreateFields = SafeRolloutRule & {
   sameSeed?: boolean;
 };
 
+function fmtTheirValue(v: unknown): string {
+  if (v === undefined) return "(removed)";
+  const s = typeof v === "string" ? v : JSON.stringify(v);
+  if (!s) return '""';
+  return s.length > 60 ? s.slice(0, 57) + "…" : s;
+}
+
+// Renders a contested chunk's their-side value: the bare value for a single
+// field, or a small keyed object for exclusion chunks (env/project scope).
+function fmtChunkValue(rule: FeatureRule | null, fields: string[]): string {
+  if (!rule) return "(removed)";
+  const rec = rule as unknown as Record<string, unknown>;
+  if (fields.length === 1) return fmtTheirValue(rec[fields[0]]);
+  return fmtTheirValue(
+    Object.fromEntries(
+      fields.filter((f) => rec[f] !== undefined).map((f) => [f, rec[f]]),
+    ),
+  );
+}
+
 export default function RuleModal({
   close,
   feature,
@@ -266,6 +286,8 @@ export default function RuleModal({
     | null
   >(null);
   const [showTheirChanges, setShowTheirChanges] = useState(false);
+  // Fields from the conflict the user pulled into the form via "Use theirs".
+  const [appliedTheirs, setAppliedTheirs] = useState<Set<string>>(new Set());
   // Set when the save's error handler saw a 409, so the submit catch can
   // suppress the Modal's own error text — the banner is the single message.
   const conflictSignaledRef = useRef(false);
@@ -1617,6 +1639,26 @@ export default function RuleModal({
                 conflictSignaledRef.current = true;
                 const payload = responseData.conflict as PutFeatureRuleConflict;
                 setConflict({ ...payload, baseAtConflict: baselineRule });
+                setAppliedTheirs(new Set());
+                // The form is the merge preview: fields only THEY changed are
+                // applied into the form so what the user sees is what a save
+                // would keep. Contested fields stay as the user's version.
+                if (
+                  payload.merge &&
+                  !payload.merge.wholeRule &&
+                  payload.currentRule
+                ) {
+                  const cur = payload.currentRule as unknown as Record<
+                    string,
+                    unknown
+                  >;
+                  for (const f of payload.merge.theirFields) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    form.setValue(f as any, cur[f] as any, {
+                      shouldDirty: true,
+                    });
+                  }
+                }
                 // Rebase: the user has now seen their version, so the next
                 // save is an informed decision, not a silent overwrite.
                 setBaselineRule(
@@ -1996,15 +2038,77 @@ export default function RuleModal({
                 </Text>
                 <Box mt="1">
                   {conflict.currentRule
-                    ? `Someone else saved changes to this rule${
-                        conflict.draftVersion
-                          ? " in this draft"
-                          : " and published them"
-                      }. Nothing has been overwritten — your edits are still in the form below.`
+                    ? conflict.merge && !conflict.merge.wholeRule
+                      ? `You and someone else edited this rule at the same time${
+                          conflict.draftVersion ? " in this draft" : ""
+                        }. Everything that didn't overlap has been merged into the form below — only the fields here need your call:`
+                      : `Someone else restructured this rule${
+                          conflict.draftVersion
+                            ? " in this draft"
+                            : " and published it"
+                        }. The changes can't be merged automatically — review the diff below.`
                     : "Someone else removed this rule. Nothing has been overwritten — your edits are still in the form below, and saving will re-add the rule."}
                 </Box>
                 {conflict.currentRule && (
-                  <Box mt="2">
+                  <Box mt="3">
+                    {(conflict.merge && !conflict.merge.wholeRule
+                      ? conflict.merge.contested
+                      : []
+                    ).map(({ key, fields }) => (
+                      <Flex key={key} align="center" gap="3" py="1" wrap="wrap">
+                        <Text weight="semibold">
+                          {fields.length > 1 ? fields.join(" + ") : key}
+                        </Text>
+                        <Text>theirs:</Text>
+                        <code
+                          style={{
+                            background: "var(--color-surface)",
+                            borderRadius: "var(--radius-1)",
+                            padding: "1px 6px",
+                          }}
+                        >
+                          {fmtChunkValue(conflict.currentRule, fields)}
+                        </code>
+                        {appliedTheirs.has(key) ? (
+                          <Text weight="semibold">✓ applied to form</Text>
+                        ) : (
+                          <>
+                            <Text>yours is in the form.</Text>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                const cur =
+                                  conflict.currentRule as unknown as Record<
+                                    string,
+                                    unknown
+                                  >;
+                                for (const f of fields) {
+                                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                  form.setValue(f as any, cur[f] as any, {
+                                    shouldDirty: true,
+                                  });
+                                }
+                                setAppliedTheirs((s) => new Set([...s, key]));
+                              }}
+                            >
+                              Use theirs
+                            </Button>
+                          </>
+                        )}
+                      </Flex>
+                    ))}
+                    {conflict.merge &&
+                      !conflict.merge.wholeRule &&
+                      conflict.merge.theirFields.length > 0 && (
+                        <Box mt="1" mb="1">
+                          <Text size="sm" color="text-low">
+                            Their changes to{" "}
+                            {conflict.merge.theirFields.join(", ")} didn&apos;t
+                            overlap with yours and are already in the form.
+                          </Text>
+                        </Box>
+                      )}
                     <a
                       href="#"
                       onClick={(e) => {
@@ -2014,11 +2118,11 @@ export default function RuleModal({
                     >
                       {showTheirChanges ? (
                         <>
-                          <PiCaretDown /> Hide their changes
+                          <PiCaretDown /> Hide full diff
                         </>
                       ) : (
                         <>
-                          <PiCaretRight /> Show their changes
+                          <PiCaretRight /> View full diff
                         </>
                       )}
                     </a>
@@ -2055,19 +2159,19 @@ export default function RuleModal({
                   wrap="wrap"
                 >
                   <Box>
-                    Ready? Click <strong>Save my version</strong> to replace
-                    their update with what&apos;s in this form.
+                    Ready? Click <strong>Save my version</strong>
+                    {" below to save what's in this form."}
                   </Box>
-                  <a
-                    href="#"
-                    onClick={async (e) => {
-                      e.preventDefault();
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
                       await mutate();
                       close();
                     }}
                   >
-                    Discard my edits and close
-                  </a>
+                    Discard my edits
+                  </Button>
                 </Flex>
               </Callout>
             )}

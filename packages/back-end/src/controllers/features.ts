@@ -46,6 +46,7 @@ import {
   assertSchemaMatchesValueType,
   getEffectiveRevisionHoldout,
   getRevertTargetHoldout,
+  threeWayMergeRule,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -4416,7 +4417,7 @@ function rulesMatchBaseline(
 export async function putFeatureRule(
   req: AuthRequest<PutFeatureRuleBody, { id: string; version: string }>,
   res: Response<
-    | { status: 200; version: number }
+    | { status: 200; version: number; autoMergedTheirFields?: string[] }
     | { status: 409; message: string; conflict: PutFeatureRuleConflict },
     EventUserForResponseLocals
   >,
@@ -4525,6 +4526,10 @@ export async function putFeatureRule(
     // live, and on a match we fork off the current live version.
   }
 
+  // The rule that will be applied. Starts as the submitted edit; a clean
+  // three-way merge below may fold in the other person's disjoint changes.
+  let effectiveRule = rule;
+  let autoMergedTheirFields: string[] = [];
   if (baseline) {
     // The authoritative current copy of the rule: the target draft's (falling
     // back to live for the stale-draft pull-from-live case below), or live's
@@ -4534,17 +4539,43 @@ export async function putFeatureRule(
       ? ((revision.rules ?? []).find((r) => r.id === ruleId) ?? liveRule)
       : liveRule;
     if (!rulesMatchBaseline(baseline.rule, currentRule)) {
-      return res.status(409).json({
-        status: 409,
-        message:
-          "This rule was changed by someone else after you loaded it. Review their version before saving.",
-        conflict: {
-          ruleId,
-          currentRule,
-          liveVersion: feature.version,
-          ...(revision ? { draftVersion: revision.version } : {}),
-        },
-      });
+      // Field-level three-way merge: edits to disjoint fields resolve
+      // automatically; only chunks both sides changed differently (or a
+      // structural type change) come back as a conflict.
+      const merge = currentRule
+        ? threeWayMergeRule(baseline.rule, currentRule, rule as FeatureRule)
+        : null;
+      if (
+        merge &&
+        merge.merged &&
+        !merge.wholeRule &&
+        merge.contested.length === 0
+      ) {
+        effectiveRule = merge.merged;
+        autoMergedTheirFields = merge.theirFields;
+      } else {
+        return res.status(409).json({
+          status: 409,
+          message:
+            "This rule was changed by someone else after you loaded it. Review their version before saving.",
+          conflict: {
+            ruleId,
+            currentRule,
+            liveVersion: feature.version,
+            ...(revision ? { draftVersion: revision.version } : {}),
+            ...(merge
+              ? {
+                  merge: {
+                    contested: merge.contested,
+                    theirFields: merge.theirFields,
+                    yourFields: merge.yourFields,
+                    ...(merge.wholeRule ? { wholeRule: true } : {}),
+                  },
+                }
+              : {}),
+          },
+        });
+      }
     }
   }
 
@@ -4576,7 +4607,7 @@ export async function putFeatureRule(
   // An existing rollout inherits its stored (read-time-pinned) seed so it's
   // never re-bucketed; a force rule the UI promoted by dropping coverage has no
   // rollout history, so it seeds off its own id. Id first, so nothing mints one.
-  const inboundRule = rule as FeatureRule;
+  const inboundRule = effectiveRule as FeatureRule;
   if (!inboundRule.id) inboundRule.id = ruleId;
   inheritStoredRolloutSeeds([inboundRule], existingRules);
   addIdsToFlatRules([inboundRule], feature.id);
@@ -4601,10 +4632,11 @@ export async function putFeatureRule(
   assertRegisteredAttributes(
     context,
     {
-      hashAttribute: (rule as { hashAttribute?: string }).hashAttribute,
-      fallbackAttribute: (rule as { fallbackAttribute?: string })
+      hashAttribute: (effectiveRule as { hashAttribute?: string })
+        .hashAttribute,
+      fallbackAttribute: (effectiveRule as { fallbackAttribute?: string })
         .fallbackAttribute,
-      condition: rule.condition,
+      condition: effectiveRule.condition,
     },
     "rule",
     {
@@ -4720,7 +4752,7 @@ export async function putFeatureRule(
   const { rules: nextRules } = updateRuleById(existingRules, ruleId, (e) => {
     let merged = {
       ...e,
-      ...(rule as Partial<FeatureRule>),
+      ...(effectiveRule as Partial<FeatureRule>),
     } as FeatureRule;
     if (merged.allEnvironments === true) {
       merged = {
@@ -4785,7 +4817,7 @@ export async function putFeatureRule(
       user: res.locals.eventAudit,
       action: "edit rule" + (rampActionsUpdate ? " with ramp schedule" : ""),
       subject: `rule ${ruleId}`,
-      value: JSON.stringify(rule),
+      value: JSON.stringify(effectiveRule),
     },
     resetReview,
   );
@@ -4821,6 +4853,7 @@ export async function putFeatureRule(
   res.status(200).json({
     status: 200,
     version: updatedRevisionAfterRuleEdit?.version ?? revision.version,
+    ...(autoMergedTheirFields.length ? { autoMergedTheirFields } : {}),
   });
 }
 

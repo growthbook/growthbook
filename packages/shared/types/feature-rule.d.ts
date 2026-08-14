@@ -86,6 +86,15 @@ export type PutFeatureRuleConflict = {
   liveVersion: number;
   // Set when the conflict is against a draft rather than live.
   draftVersion?: number;
+  // Field-level three-way merge outcome (absent when the rule was deleted).
+  // Disjoint edits never 409 — they auto-merge server-side — so when this is
+  // present, `contested` is non-empty or `wholeRule` is true.
+  merge?: {
+    contested: Array<{ key: string; fields: string[] }>;
+    theirFields: string[];
+    yourFields: string[];
+    wholeRule?: boolean;
+  };
 };
 
 export type PutFeatureRuleBody = {
