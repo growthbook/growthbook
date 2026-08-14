@@ -130,6 +130,64 @@ export default function ContextualBanditLinkedFeatureFlag({
     info.state !== "locked" &&
     info.state !== "archived";
 
+  // Messaging for an unpublished draft revision turns on two independent axes,
+  // so build the pieces here rather than nesting ternaries in the JSX:
+  //   1. cb.status — auto-publish only ever fires on the start transition, so
+  //      only a not-yet-started bandit can promise it. On a started bandit,
+  //      info.state === "draft" means no live rule exists at all (see
+  //      getRefLinkedFeatureInfo: refIsDraft is false, so the draft-differs
+  //      branch is skipped and "draft" implies zero live matches).
+  //   2. approval — a draft behind a required review can't be published until
+  //      somebody approves it, so "publish manually" on its own isn't
+  //      actionable advice.
+  const cbNotStarted = cb.status === "draft";
+  const awaitingApproval =
+    !!info.pendingApproval && info.draftRevisionStatus !== "approved";
+  const approvedNotPublished =
+    !!info.pendingApproval && info.draftRevisionStatus === "approved";
+
+  const draftRevisionHref = `/features/${info.feature?.id}${
+    info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : ""
+  }`;
+
+  const draftRevisionDescription = awaitingApproval ? (
+    <>
+      a <strong>draft</strong> revision pending approval
+    </>
+  ) : approvedNotPublished ? (
+    <>
+      a <strong>draft</strong> revision that has been <strong>approved</strong>
+    </>
+  ) : (
+    <>
+      a <strong>draft</strong> revision
+    </>
+  );
+
+  const draftCalloutBody = cbNotStarted ? (
+    <>
+      Rule changes for this feature are in {draftRevisionDescription}.{" "}
+      {awaitingApproval ? "Once approved, they" : "They"} will be auto-published
+      when this contextual bandit starts, or you can publish manually.
+    </>
+  ) : (
+    <>
+      Rule changes for this feature are in {draftRevisionDescription}, so this
+      contextual bandit is not serving this Feature Flag.{" "}
+      {cb.status === "stopped"
+        ? "This contextual bandit has stopped, so the draft will not be auto-published."
+        : awaitingApproval
+          ? "Drafts are only auto-published when a contextual bandit starts, so this one has to be approved and then published manually."
+          : "Drafts are only auto-published when a contextual bandit starts, so this one has to be published manually."}
+    </>
+  );
+
+  const draftCalloutLinkLabel = awaitingApproval
+    ? "Review and approve draft"
+    : cb.status === "running"
+      ? "Publish draft"
+      : "Review draft";
+
   return (
     <>
       {editModalOpen && (
@@ -214,10 +272,7 @@ export default function ContextualBanditLinkedFeatureFlag({
           <Callout status="error" my="4" icon={blockedAutoPublishIcon}>
             This feature draft has a <strong>merge conflict</strong> and cannot
             be auto-published.{" "}
-            <Link
-              href={`/features/${info.feature?.id}${info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : ""}`}
-              target="_blank"
-            >
+            <Link href={draftRevisionHref} target="_blank">
               Fix conflicts
               <PiArrowSquareOut className="ml-1" />
             </Link>
@@ -231,10 +286,7 @@ export default function ContextualBanditLinkedFeatureFlag({
               <strong>changes beyond this contextual bandit</strong> and cannot
               be auto-published. Either remove the unrelated edits from the
               draft or publish the full draft manually.{" "}
-              <Link
-                href={`/features/${info.feature?.id}${info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : ""}`}
-                target="_blank"
-              >
+              <Link href={draftRevisionHref} target="_blank">
                 Review draft
                 <PiArrowSquareOut className="ml-1" />
               </Link>
@@ -242,42 +294,27 @@ export default function ContextualBanditLinkedFeatureFlag({
           )}
         {info.state === "draft" &&
           !info.hasMergeConflict &&
-          !info.hasUnrelatedDraftChanges &&
-          (cb.status === "draft" ? (
+          !info.hasUnrelatedDraftChanges && (
             <Callout
-              status="info"
+              status={cbNotStarted ? "info" : "warning"}
               my="4"
-              icon={<PiGitMerge style={{ fontSize: "1.2em" }} />}
+              icon={
+                cbNotStarted ? (
+                  <PiGitMerge style={{ fontSize: "1.2em" }} />
+                ) : (
+                  blockedAutoPublishIcon
+                )
+              }
             >
-              Rule changes for this feature are in a <strong>draft</strong>{" "}
-              revision. They will be auto-published when this contextual bandit
-              starts, or you can publish manually from the{" "}
-              <Link
-                href={`/features/${info.feature?.id}${info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : ""}`}
-                target="_blank"
-              >
-                Feature Flag detail page
-                <PiArrowSquareOut className="ml-1" />
-              </Link>
-              .
+              {draftCalloutBody}
+              <Box mt="1">
+                <Link href={draftRevisionHref} target="_blank">
+                  {draftCalloutLinkLabel}
+                  <PiArrowSquareOut className="ml-1" />
+                </Link>
+              </Box>
             </Callout>
-          ) : (
-            <Callout status="warning" my="4" icon={blockedAutoPublishIcon}>
-              Rule changes for this feature are in an unpublished{" "}
-              <strong>draft</strong> revision, so this contextual bandit is not
-              serving this Feature Flag.{" "}
-              {cb.status === "running"
-                ? "Drafts are only auto-published when a contextual bandit starts, so this one has to be published manually."
-                : "This contextual bandit has stopped, so the draft will not be auto-published."}{" "}
-              <Link
-                href={`/features/${info.feature?.id}${info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : ""}`}
-                target="_blank"
-              >
-                Review draft
-                <PiArrowSquareOut className="ml-1" />
-              </Link>
-            </Callout>
-          ))}
+          )}
         {info.state !== "discarded" && info.state !== "archived" && (
           <Box className="appbox" style={{ backgroundColor: "transparent" }}>
             <Flex width="100%" gap="4" py="4" px="5" direction="column">
@@ -317,10 +354,10 @@ export default function ContextualBanditLinkedFeatureFlag({
                               sparse={info.sparse}
                               maxHeight={60}
                             />
-                            <HelperText status="warning">
+                            <Callout status="warning" size="sm">
                               Staged in revision #{info.stagedDraft?.version} —
                               not serving yet
-                            </HelperText>
+                            </Callout>
                           </Flex>
                         ) : (
                           <HelperText status="warning">

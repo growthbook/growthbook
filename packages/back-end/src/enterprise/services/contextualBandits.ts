@@ -128,15 +128,8 @@ type ContextualBanditFeatureLinkOptions = {
   contextualBandit: ContextualBanditInterface;
   eventAudit: EventUser;
   audit: (input: AuditInterfaceInput) => Promise<void>;
-  /** Publish the resulting revision immediately instead of leaving it as a draft. */
   autoPublish?: boolean;
-  /** Bundle the change into this existing draft instead of starting a new one. */
   draftVersion?: number;
-  /**
-   * Refuse the auto-publish when the org requires review, instead of spending
-   * the caller's `bypassApprovalChecks` permission — the draft then waits for
-   * approval. Set by callers that publish as a side effect of another action.
-   */
   respectApprovalFlow?: boolean;
 };
 
@@ -214,12 +207,6 @@ export async function targetRevisionHasContextualBanditRule({
   return rules.some((r) => isRuleForContextualBandit(r, contextualBandit.id));
 }
 
-/**
- * Merge the draft against live and publish it, mirroring the feature page's
- * publish flow. With `respectApprovalFlow`, a draft that requires approval is
- * not an error: it stays staged for review and `pendingApproval: true` is
- * returned instead.
- */
 async function publishContextualBanditRevision({
   context,
   feature,
@@ -666,11 +653,6 @@ export async function updateContextualBanditFeatureRule({
   }
 }
 
-/**
- * Strip this bandit's rules from every open draft except `skipVersion`, leaving
- * each edit staged. Linkage is derived from live rules and every open draft, so
- * a draft left holding the rule would immediately re-link the feature.
- */
 async function stripContextualBanditRuleFromOpenDrafts({
   context,
   contextualBandit,
@@ -785,7 +767,6 @@ export async function unlinkFeatureFromContextualBandit({
   removedRuleIds: string[];
   revisionVersion: number | null;
   published: boolean;
-  /** Other open drafts the rule was stripped from, staged for their own publish. */
   stagedDraftVersions: number[];
 }> {
   const { org, environments } = context;
@@ -820,8 +801,6 @@ export async function unlinkFeatureFromContextualBandit({
     targetVersion,
   );
   if (!baseRules.some(isRuleForBandit)) {
-    // Nothing to remove on the revision we were pointed at, but another draft
-    // may still be holding the rule.
     const stagedDraftVersions = await sweepOtherOpenDrafts();
     const { openDrafts, liveRevision } = await getLinkageSyncRevisionSummaries(
       feature.organization,
@@ -920,8 +899,6 @@ export async function unlinkFeatureFromContextualBandit({
     // `linkedFeatures`, once the removal is actually live.
     let published = false;
     if (autoPublish) {
-      // The approval flow governs removals the same as variation changes: when
-      // review is required the removal stays staged on the draft for review.
       const { pendingApproval } = await publishContextualBanditRevision({
         context,
         feature,
@@ -945,9 +922,6 @@ export async function unlinkFeatureFromContextualBandit({
   }
 }
 
-// Live arm ids per linked feature, read from the feature docs (drafts live
-// in revisions). An arm is live only if every enabled CB rule on the
-// feature includes it.
 async function getLiveArmIdsByLinkedFeature(
   context: ReqContext | ApiReqContext,
   cb: ContextualBanditInterface,
@@ -986,11 +960,6 @@ function computePendingVariationIds(
   );
 }
 
-/**
- * Promotes pending arms whose values are now live everywhere and seeds their
- * weights. Called from the feature publish hook and after every
- * variation-change save (also catches missed publish events).
- */
 export async function activatePendingContextualBanditVariations(
   context: ReqContext | ApiReqContext,
   cb: ContextualBanditInterface,
@@ -1064,7 +1033,6 @@ export async function executeContextualBanditVariationChange(
     );
   }
 
-  // Request is declarative over visible arms; tombstones carry through untouched.
   const previousVisible = getVisibleVariations(cb.variations);
   const tombstones = cb.variations.filter(isDeactivatedVariation);
   const tombstoneIds = new Set(tombstones.map((v) => v.id));
@@ -1078,7 +1046,7 @@ export async function executeContextualBanditVariationChange(
     }),
   );
 
-  // Never resurrect a tombstoned id.
+  // Never resurrect a deactivated id
   for (const v of newVariations) {
     if (tombstoneIds.has(v.id)) {
       throw new BadRequestError(

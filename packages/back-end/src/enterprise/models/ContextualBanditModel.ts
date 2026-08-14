@@ -230,7 +230,7 @@ export function toApiContextualBandit(
     dateStopped: doc.dateStopped?.toISOString(),
     trackingKey: doc.trackingKey,
     hashAttribute: doc.hashAttribute,
-    // Tombstones are hidden from API consumers; pending arms surface status.
+    // Deactivated variations are hidden from API consumers; pending arms surface status.
     variations: doc.variations
       .filter((v) => v.status !== "deactivated")
       .map((v) => ({
@@ -497,11 +497,6 @@ export class ContextualBanditModel extends BaseClass {
     return refreshed;
   }
 
-  /**
-   * Feature-revision publish hook: promotes pending variations on any bandit
-   * this feature's rules reference. Best-effort — never throws; a missed
-   * promotion self-heals on the next variation-change save.
-   */
   public async activatePendingVariationsForFeature(
     feature: FeatureInterface,
   ): Promise<void> {

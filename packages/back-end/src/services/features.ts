@@ -3909,19 +3909,12 @@ export async function revisionRequiresReview(
   });
 }
 
-// Throws if the draft requires approval and this publish may not proceed.
-// Callers publishing as a side effect of another action pass
-// `respectApprovalFlow: true`: the approval flow then wins over the caller's
-// `bypassApprovalChecks` permission (ApprovalRequiredError) so the draft waits
-// for review; an already-approved draft still publishes.
 export async function assertCanAutoPublish(
   context: ReqContext,
   feature: FeatureInterface,
   draft: FeatureRevisionInterface,
   { respectApprovalFlow = false }: { respectApprovalFlow?: boolean } = {},
 ): Promise<void> {
-  // Fail closed on an unresolvable base revision only when the org configures
-  // review at all — approvals-off orgs must not have publishes blocked by it.
   const requireReviews = context.org.settings?.requireReviews;
   const reviewsConfigured =
     context.hasPremiumFeature("require-approvals") &&
