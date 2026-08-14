@@ -79,16 +79,14 @@ export const paginationQueryFields = {
     .meta({ default: 0 }),
 };
 
-/**
- * Comma-separated query param restricted to a fixed set of values
- * (case-insensitive), e.g. `?result=won,lost`.
- *
- * At runtime the value is a plain string validated by the refinement. The
- * meta() overrides the generated OpenAPI schema to the spec-correct encoding
- * for CSV enums — `type: array` with `items.enum` and `explode: false` (the
- * generator hoists `explode` to the parameter level) — so the docs surface
- * the allowed values instead of a bare string.
- */
+// Comma-separated query param restricted to a fixed set of values
+// (case-insensitive), e.g. `?result=won,lost`.
+//
+// At runtime the value is a plain string validated by the refinement. The
+// meta() overrides the generated OpenAPI schema to the spec-correct encoding
+// for CSV enums — `type: array` with `items.enum` and `explode: false` (the
+// generator hoists `explode` to the parameter level) — so the docs surface
+// the allowed values instead of a bare string.
 export const csvQueryField = (
   allowed: readonly string[],
   description: string,
@@ -181,19 +179,19 @@ export const ignoreWarningsBodyField = z
   .boolean()
   .optional()
   .describe(
-    "Acknowledge and proceed past ACKNOWLEDGE-class warnings: a value served to a running experiment, a locked dependent, and dependents dropped by an archive. A blocked request lists what this would acknowledge in `warnings`. Does NOT clear validation-class failures (schema errors, cross-field invariants, downstream schema breaks, or custom-hook rejections) — those require `skipSchemaValidation` — EXCEPT when the org disables 'block publishing on JSON schema errors' (warn mode), where schema, invariant, and schema-break failures become soft and this flag clears them (custom-hook rejections still need `skipSchemaValidation`). On publish endpoints this also force-merges a draft whose base is stale, when you hold the bypass-approval permission.",
+    "Set to true to acknowledge the warnings listed in a blocked response and continue. This covers experiment guards, locked dependents, and references affected by an archive. When the organization treats schema failures as warnings, it also covers schema and invariant warnings. It never bypasses a rejected Custom Hook. On revision publish endpoints, it can also force-publish an out-of-date draft when the caller has Bypass draft approvals access.",
   );
 export const skipSchemaValidationBodyField = z
   .boolean()
   .optional()
   .describe(
-    "Force past schema-validation failures: JSON-schema validation of the value(s) written, cross-field invariants, and downstream schema breaks (a change that makes a dependent config or config-backed feature value violate its schema). Does NOT clear a custom validation-hook rejection — use `skipHooks` for that. Only honored for callers with org-wide bypass authority (the `bypassApprovalChecks` permission on all projects); ignored otherwise. Validation is enforced by default.",
+    "Set to true to publish despite schema validation errors, failed invariants, or schema changes that invalidate dependent resources. This does not bypass a rejected Custom Hook; use `skipHooks` for that. The caller must have Bypass draft approvals access for Feature Flags, Configs, and Constants in every Project. Otherwise, this field is ignored.",
   );
 export const skipHooksBodyField = z
   .boolean()
   .optional()
   .describe(
-    "Force past a custom validation hook that rejected the change (a hook that threw). Separate from `skipSchemaValidation` — a hook failure is not a schema error. Only honored for callers with org-wide bypass authority (the `bypassApprovalChecks` permission on all projects); ignored otherwise.",
+    "Set to true to publish despite a Custom Hook rejection. This does not bypass schema validation; use `skipSchemaValidation` for that. The caller must have Bypass draft approvals access for Feature Flags, Configs, and Constants in every Project. Otherwise, this field is ignored.",
   );
 export const publishOverrideBodyFields = {
   ignoreWarnings: ignoreWarningsBodyField,
@@ -209,8 +207,27 @@ export const bypassApprovalPublishBodyField = z
   .boolean()
   .optional()
   .describe(
-    "Has no effect and is accepted only for backwards compatibility. Callers with the `bypassApprovalChecks` permission (or under the org-level REST bypass setting) bypass approval requirements automatically; all other callers must have the revision approved before publishing.",
+    "Deprecated and ignored. Approval is bypassed automatically when the caller has Bypass draft approvals access for this resource or when the organization enables the REST API approval bypass. Otherwise, the revision must be approved before it can be published.",
   );
+
+/**
+ * The closed set of bypass sources a response may report: a request field
+ * (`ignoreWarnings`, the privileged `skipSchemaValidation`, `skipHooks`), the
+ * caller's permission on the entity (`bypassApprovalPermission`), or an
+ * organization setting (`restApiBypassesReviews`, or `revertsBypassApproval` on a
+ * revert).
+ *
+ * The source of truth for both the runtime schema and `BypassVia`, so a handler
+ * cannot report a provenance the API docs do not describe.
+ */
+export const bypassViaValues = [
+  "ignoreWarnings",
+  "skipSchemaValidation",
+  "skipHooks",
+  "bypassApprovalPermission",
+  "restApiBypassesReviews",
+  "revertsBypassApproval",
+] as const;
 
 // Reported on a SUCCESSFUL publish when a gate that would otherwise have blocked
 // the publish was bypassed by the caller's authority. Omitted entirely when no
@@ -226,9 +243,9 @@ export const publishBypassedGatesField = z
           ),
         outcome: z.literal("bypassed"),
         via: z
-          .string()
+          .enum(bypassViaValues)
           .describe(
-            'The bypass source: an override flag ("ignoreWarnings", or the privileged "skipSchemaValidation" / "skipHooks"), the caller\'s permission ("bypassApprovalChecks"), or the org setting ("restApiBypassesReviews").',
+            "How the gate was bypassed. The value identifies a request field (`ignoreWarnings`, `skipSchemaValidation`, or `skipHooks`), the caller's permission (`bypassApprovalPermission`), or an organization setting (`restApiBypassesReviews`, or `revertsBypassApproval` on a revert).",
           ),
       })
       .strict(),
@@ -237,3 +254,56 @@ export const publishBypassedGatesField = z
   .describe(
     "Gates that would have blocked this publish but were bypassed by the caller's authority. Present only when at least one gate was bypassed.",
   );
+
+/** Optional deferred-publish state shared by all revision responses. */
+export const revisionScheduleResponseFields = {
+  autoPublishOnApproval: z
+    .boolean()
+    .optional()
+    .describe("Publish automatically the moment this revision is approved."),
+  autoPublishEnabledBy: z
+    .string()
+    .optional()
+    .describe(
+      "User the deferred publish will run as. Its authority is re-checked when the publish fires.",
+    ),
+  scheduledPublishAt: z
+    .string()
+    .meta({ format: "date-time" })
+    .optional()
+    .describe(
+      "When the deferred publish fires. Absent when the revision publishes on approval instead, or is not armed at all.",
+    ),
+  scheduledPublishLockEdits: z
+    .boolean()
+    .optional()
+    .describe("Content edits to this revision are frozen until it fires."),
+  scheduledPublishLockOthers: z
+    .boolean()
+    .optional()
+    .describe(
+      "Other revisions of the same resource cannot publish until this one fires or is cancelled.",
+    ),
+  scheduledPublishBypassApproval: z
+    .boolean()
+    .optional()
+    .describe(
+      "Armed by a caller who bypassed the approval requirement. Such a schedule must be cancelled and re-armed rather than edited.",
+    ),
+  scheduledPublishAttempts: z
+    .number()
+    .int()
+    .optional()
+    .describe("How many times the poller has tried to publish this revision."),
+  scheduledPublishLastError: z
+    .string()
+    .optional()
+    .describe("Why the most recent deferred-publish attempt failed."),
+  scheduledPublishGaveUpAt: z
+    .string()
+    .meta({ format: "date-time" })
+    .optional()
+    .describe(
+      "When the poller stopped retrying. Giving up CLEARS the schedule and disarms auto-publish, so nothing fires again until the revision is re-armed. The draft is left open, with `scheduledPublishLastError` preserved for context.",
+    ),
+};

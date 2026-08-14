@@ -186,30 +186,30 @@ export type CBContext = {
 
 export type Attributes = Record<string, any>;
 
-export type UserContextAttributes = Pick<UserContext, "attributes">;
+export type TrackingUserContext = Pick<UserContext, "attributes" | "url">;
 
 export interface TrackingData {
   experiment: Experiment<any>;
   result: Result<any>;
-  user?: UserContextAttributes;
+  user?: TrackingUserContext;
 }
 
 export interface TrackingDataWithUser {
   experiment: Experiment<any>;
   result: Result<any>;
-  user: UserContext;
+  user: TrackingUserContext;
 }
 
 export type TrackingCallback = (
   experiment: Experiment<any>,
   result: Result<any>,
-  user?: UserContext,
+  user?: TrackingUserContext,
 ) => Promise<void> | void;
 
 export type TrackingCallbackWithUser = (
   experiment: Experiment<any>,
   result: Result<any>,
-  user: UserContext,
+  user: TrackingUserContext,
 ) => Promise<void> | void;
 
 export type FeatureUsageCallback = (
@@ -220,7 +220,7 @@ export type FeatureUsageCallback = (
 export type FeatureUsageCallbackWithUser = (
   key: string,
   result: FeatureResult<any>,
-  user: UserContext,
+  user: TrackingUserContext,
 ) => void;
 
 // Callback types for internal plugin subscriptions (e.g. session replay).
@@ -243,7 +243,7 @@ export type EventProperties = Record<string, unknown>;
 export type EventLogger = (
   eventName: string,
   properties: EventProperties,
-  userContext: UserContext,
+  userContext: TrackingUserContext,
 ) => void | Promise<void>;
 
 export type NavigateCallback = (url: string) => void | Promise<void>;
@@ -335,7 +335,7 @@ export type ClientOptions = {
   onFeatureUsage?: (
     key: string,
     result: FeatureResult<any>,
-    user: UserContext,
+    user: TrackingUserContext,
   ) => void;
   eventLogger?: EventLogger;
   apiHost?: string;

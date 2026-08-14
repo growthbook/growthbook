@@ -10,14 +10,13 @@ import {
   PiX,
 } from "react-icons/pi";
 import Collapsible from "react-collapsible";
-import { z } from "zod";
 import {
+  ConversionWindow,
   ExplorationConfig,
   FunnelDataset,
   FunnelStep,
-  conversionWindowValidator,
-  rowFilterValidator,
 } from "shared/validators";
+import { RowFilter } from "shared/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
@@ -34,9 +33,6 @@ import {
 import { factTableToColumnSource } from "./ExplorerFilterRow";
 import { ExplorerRowFilterInput } from "./ExplorerRowFilterInput";
 import styles from "./ValueCard.module.scss";
-
-type RowFilter = z.infer<typeof rowFilterValidator>;
-type ConversionWindow = z.infer<typeof conversionWindowValidator>;
 
 const CONVERSION_WINDOW_UNITS: ConversionWindow["unit"][] = [
   "minutes",
@@ -102,7 +98,7 @@ export default function FunnelStepCard({
   // For follow-on steps: when the step inherits, we hide the picker until the
   // user clicks "Override". Once they're overriding (or the step was loaded
   // with an override already), we show the picker inline.
-  const isInherited = index > 0 && step.factTable === previousFactTable;
+  const isInherited = index > 0 && step.factTableId === previousFactTable;
   const [overrideOpen, setOverrideOpen] = useState(!isInherited);
 
   // Keep the local override state in sync if the step's relationship to its
@@ -111,7 +107,9 @@ export default function FunnelStepCard({
     setOverrideOpen(!isInherited || index === 0);
   }, [isInherited, index]);
 
-  const factTable = step.factTable ? getFactTableById(step.factTable) : null;
+  const factTable = step.factTableId
+    ? getFactTableById(step.factTableId)
+    : null;
   const availableFactTables = useMemo(
     () =>
       factTables.filter((ft) => ft.datasource === draftExploreState.datasource),
@@ -147,7 +145,7 @@ export default function FunnelStepCard({
         const seededFilters = newFt
           ? getInitialInlineFilters(newFt, cleanedFilters)
           : cleanedFilters;
-        return { ...s, factTable: newFactTableId, rowFilters: seededFilters };
+        return { ...s, factTableId: newFactTableId, rowFilters: seededFilters };
       }),
     );
   };
@@ -325,7 +323,7 @@ export default function FunnelStepCard({
                 Fact Table
               </Text>
               <SelectField
-                value={step.factTable}
+                value={step.factTableId}
                 onChange={handleFactTableChange}
                 options={availableFactTables.map((ft) => ({
                   label: ft.name,
@@ -358,7 +356,7 @@ export default function FunnelStepCard({
                   Fact table:
                 </Text>
                 <Text size="sm" weight="medium" truncate>
-                  {factTable?.name ?? step.factTable ?? "(inherited)"}
+                  {factTable?.name ?? step.factTableId ?? "(inherited)"}
                 </Text>
                 <Button
                   variant="ghost"

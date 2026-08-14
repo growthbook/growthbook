@@ -439,7 +439,7 @@ describe("features", () => {
     expect(onExperimentViewed.mock.calls[0]).toEqual([
       exp,
       result,
-      { attributes: {} },
+      { attributes: {}, url: "http://localhost/" },
     ]);
 
     growthbook.destroy();

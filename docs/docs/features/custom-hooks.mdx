@@ -23,13 +23,28 @@ You can create multiple hooks of the same type for flexible, granular validation
 - **Project** — runs only for resources in the selected projects.
 - **Feature** — runs only for a single feature.
 
-Global and project-scoped hooks are managed under **Settings → Custom Hooks**. Feature-scoped hooks are created and managed from a feature's **Validation** tab by anyone who can edit that feature; that tab also lists any global and project hooks that apply to the feature. We currently do not support creating custom hooks that are Experiment-scoped, meaning that `validateExperiment` needs to be either global or project-scoped.
+Manage global and Project-scoped hooks under **Settings → Custom Hooks**. Manage
+a hook for one Feature Flag from that flag's **Validation** tab. This tab also
+lists the global and Project hooks that apply to the Feature Flag. Experiment
+hooks can only use a global or Project scope.
 
-The same mechanism applies to [Configs](/features/configs): the `validateConfig` and `validateConfigRevision` hook types run on config saves and publishes, scoped Global / Project / Config. Config-scoped hooks are created and managed from a config's **Validation** tab (and listed under Settings → Custom Hooks).
+The same model applies to [Configs](/features/configs). The `validateConfig` and
+`validateConfigRevision` hook types run when a Config is saved or published and
+can use a global, Project, or Config scope. Manage Config-scoped hooks from the
+Config's **Validation** tab or from **Settings → Custom Hooks**.
 
-A config-scoped hook always covers the whole family: it runs for the scoped config _and_ every config that inherits from it — via `parent` or `extends`, transitively. Family membership is evaluated against the lineage being published, so a config that is re-parented into the family is validated by the family's hooks on that same publish. Descendant pages list inherited family hooks alongside their own.
+A Config-scoped hook also runs for every Config that inherits from it, including
+indirect descendants through `parent` or `extends`. If a publish moves a Config
+into that family, the hook runs during the same publish. A descendant Config's
+page lists both its own hooks and the hooks it inherits.
 
-A hook's scope (`entityType`/`entityId`) can be changed after creation via the REST API — retargeting requires permission on both the old and the new target. Pass `entityType: null, entityId: null` to turn an entity-scoped hook into a global/project one.
+Creating or changing a global, Project-scoped, or Config-scoped hook requires the
+**Custom Hooks** permission. A hook for one Feature Flag requires **Edit** access
+to that flag instead.
+
+The REST API can change a hook's scope after creation. The caller must have
+permission to manage both the old and new scopes. To remove an entity scope,
+send `entityType: null` and `entityId: null`.
 
 ### Limits
 
@@ -56,7 +71,14 @@ Use `console.log` statements liberally while developing hooks to inspect variabl
 
 ### Warnings
 
-Instead of `throw`, a hook can call `addWarning("message")` to raise a **soft warning**. A warning doesn't hard-block: in the UI the user can review it and click **Save anyway**, and REST API clients can re-submit the request with `"ignoreWarnings": true` in the body. A `throw` is stronger — it blocks the save outright, and `ignoreWarnings` will not clear it. Forcing past a `throw` requires org-wide bypass authority (the **bypass-approvals** permission): over the REST API such a caller can re-submit with `"skipHooks": true`. This is separate from `"skipSchemaValidation"` (which forces past schema and validation-rule failures, not hook rejections) — a hook failure is not a schema error.
+Instead of `throw`, a hook can call `addWarning("message")` to raise a **soft
+warning**. In the app, a user can review the warning and select **Save anyway**.
+A REST API client can send `"ignoreWarnings": true`.
+
+A thrown error blocks the change. `ignoreWarnings` does not bypass it. A REST
+API caller with **Bypass draft approvals** in every Project can send
+`"skipHooks": true` to continue despite the error. The
+`"skipSchemaValidation"` field does not bypass Custom Hooks.
 
 ```js
 if (feature.tags.length === 0) {
@@ -264,7 +286,10 @@ if (!config.name || Object.keys(config.value || {}).length === 0) {
 
 ### validateConfigRevision
 
-Called on every config publish path (manual publish, direct REST update, auto-publish-on-approval, and scheduled publish), before the change is committed — so throwing blocks the publish and leaves the draft editable. Runs even for bypass-approval publishes, so it works as a hard gate. Receives:
+Called before every Config publish, including manual publishes, direct REST
+updates, automatic publishing after approval, and scheduled publishing. A thrown
+error blocks the publish and leaves the draft editable. Skipping approval does
+not skip the hook. Receives:
 
 - `config` — the config's published content: `key`, `name`, `project`, staged `value` (a parsed JSON object), `schema`, and lineage (`parent`/`extends`, plus a `lineage` object with `ancestors`, `descendants`, `hasParent`, `hasChildren`, `isRoot`, `isLeaf`). Because a config-scoped hook also runs for descendants, `config.isHookTarget` is `true` only when this is the exact config the hook is pinned to (and `false` for a descendant it inherited); `config.hookTargetKey` names that pinned config (`null` for project/global hooks). Use these to enforce a rule only on the target config, or on the whole family. When the config is an [environment/project override](/features/configs#environment-overrides), `config.scopedConfig` is `{ parent, environments, projects }` (its base and the scope it applies to) — absent otherwise — so you can gate environment-specific rules.
 - `revision` — the revision being published (when publishing a reviewed draft): `version`, `status`, `comment`, `authorId`, `contributors`, and `reviews`. Each review is `{ userId, decision, comment, stale, dateCreated }` where `decision` is `"approve"` / `"request-changes"` / `"comment"` and `userId` is the reviewer's user ID (or the API key ID for a service account). `revision` is absent on direct (non-draft) writes.

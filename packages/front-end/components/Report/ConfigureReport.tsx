@@ -617,12 +617,14 @@ export default function ConfigureReport({
                   Activation Metric{" "}
                   <MetricsSelectorTooltip
                     onlyBinomial={true}
+                    noFactFunnelMetrics={true}
                     isSingular={true}
                   />
                 </>
               }
               initialOption="None"
               onlyBinomial
+              filterFactFunnelMetrics
               value={
                 form.watch("experimentAnalysisSettings.activationMetric") || ""
               }
