@@ -31,6 +31,7 @@ export default function DraftSelector({
   newDraftDisabled = false,
   newDraftDisabledReason,
   recommendExisting = false,
+  alert,
 }: {
   hasActiveDrafts: boolean;
   mode: DraftMode;
@@ -65,6 +66,11 @@ export default function DraftSelector({
   newDraftDisabledReason?: ReactNode;
   /** Flag "add to existing draft" as the recommended choice (soft cap reached). */
   recommendExisting?: boolean;
+  /** Single-line warning (HelperText) rendered inside the selected target
+   *  option — the conflict is a property of the save target, and switching
+   *  targets is itself a remedy. While present the selector is held open so
+   *  the options are visible. */
+  alert?: ReactNode;
 }) {
   const [isOpen, setIsOpen] = useState(defaultExpanded ?? false);
 
@@ -103,18 +109,21 @@ export default function DraftSelector({
       </>
     );
 
-  const existingDraftDisclosure = revisionDropdown ? (
-    <Flex
-      direction="column"
-      gap="2"
-      pl="5"
-      pb="1"
-      mb="2"
-      style={{ width: "100%" }}
-    >
-      {revisionDropdown}
-    </Flex>
-  ) : null;
+  const alertInsideExisting = mode === "existing" ? alert : null;
+  const existingDraftDisclosure =
+    revisionDropdown || alertInsideExisting ? (
+      <Flex
+        direction="column"
+        gap="2"
+        pl="5"
+        pb="1"
+        mb="2"
+        style={{ width: "100%" }}
+      >
+        {revisionDropdown}
+        {alertInsideExisting}
+      </Flex>
+    ) : null;
 
   const options = [
     ...(hasActiveDrafts && canDraft
@@ -219,12 +228,15 @@ export default function DraftSelector({
         trigger={trigger}
         transitionTime={75}
         contentInnerClassName="draft-selector-collapsible-content"
-        open={isOpen}
+        open={isOpen || !!alert}
         handleTriggerClick={() => {
-          if (!singleOption) setIsOpen((v) => !v);
+          if (!singleOption && !alert) setIsOpen((v) => !v);
         }}
       >
         <Box px="3" py="3" style={{ backgroundColor: "var(--violet-a3)" }}>
+          {/* When the conflicted target isn't the selected option (or has no
+              disclosure area), surface the warning above the options. */}
+          {alert && mode !== "existing" && <Box mb="2">{alert}</Box>}
           <RadioGroup
             options={options}
             value={mode}

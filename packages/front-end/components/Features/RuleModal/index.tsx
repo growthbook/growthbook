@@ -18,7 +18,7 @@ import {
   parsePlainJSONObject,
   stripDefaultsForSparse,
 } from "shared/util";
-import { PiCaretDown, PiCaretRight } from "react-icons/pi";
+import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
@@ -71,6 +71,7 @@ import { useUser } from "@/services/UserContext";
 import RadioCards from "@/ui/RadioCards";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import PagedModal from "@/components/Modal/PagedModal";
 import StandardRuleFields, {
   type ScheduleType,
@@ -285,7 +286,7 @@ export default function RuleModal({
     | (PutFeatureRuleConflict & { baseAtConflict: FeatureRule | undefined })
     | null
   >(null);
-  const [showTheirChanges, setShowTheirChanges] = useState(false);
+  const [showConflictDetails, setShowConflictDetails] = useState(false);
   // Fields from the conflict the user pulled into the form via "Use theirs".
   const [appliedTheirs, setAppliedTheirs] = useState<Set<string>>(new Set());
   // Set when the save's error handler saw a 409, so the submit catch can
@@ -1788,6 +1789,98 @@ export default function RuleModal({
     }
   });
 
+  // Conflict warning, rendered inside the draft selector's selected option:
+  // one quiet line; specifics (contested fields, their values, full diff)
+  // only on drill-down. Cancel already covers "discard my edits".
+  const conflictAlert = conflict ? (
+    <Box style={{ width: "100%" }}>
+      <Flex align="center" gap="3" wrap="wrap">
+        <HelperText status="warning">
+          {conflict.currentRule
+            ? "This rule was also updated here while you had it open — saving replaces that update with this form."
+            : "This rule was removed while you had it open — saving re-adds it."}
+        </HelperText>
+        {conflict.currentRule && (
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              setShowConflictDetails((s) => !s);
+            }}
+          >
+            {showConflictDetails ? "Hide details" : "View details"}
+          </a>
+        )}
+      </Flex>
+      {showConflictDetails && conflict.currentRule && (
+        <Box mt="2">
+          {conflict.merge &&
+            !conflict.merge.wholeRule &&
+            conflict.merge.contested.map(({ key, fields }) => (
+              <Flex key={key} align="center" gap="2" mb="1" wrap="wrap">
+                <Text weight="semibold">
+                  {fields.length > 1 ? fields.join(" + ") : key}
+                </Text>
+                <Text>theirs:</Text>
+                <code
+                  style={{
+                    background: "var(--color-surface)",
+                    borderRadius: "var(--radius-1)",
+                    padding: "1px 6px",
+                  }}
+                >
+                  {fmtChunkValue(conflict.currentRule, fields)}
+                </code>
+                {appliedTheirs.has(key) ? (
+                  <Text>✓ applied</Text>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const cur = conflict.currentRule as unknown as Record<
+                        string,
+                        unknown
+                      >;
+                      for (const f of fields) {
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        form.setValue(f as any, cur[f] as any, {
+                          shouldDirty: true,
+                        });
+                      }
+                      setAppliedTheirs((s) => new Set([...s, key]));
+                    }}
+                  >
+                    Use theirs
+                  </Button>
+                )}
+              </Flex>
+            ))}
+          <Box
+            style={{
+              background: "var(--color-surface)",
+              borderRadius: "var(--radius-2)",
+              overflow: "hidden",
+            }}
+          >
+            <CompactInlineDiff
+              a={stringifyForRawDiff(
+                conflict.baseAtConflict
+                  ? normalizeFeatureRules([conflict.baseAtConflict])
+                  : [],
+              )}
+              b={stringifyForRawDiff(
+                normalizeFeatureRules([conflict.currentRule]),
+              )}
+              leftTitle="When you opened this editor"
+              rightTitle="Their version"
+            />
+          </Box>
+        </Box>
+      )}
+    </Box>
+  ) : undefined;
+
   if (newRuleOverviewPage) {
     return (
       <Modal
@@ -2030,162 +2123,17 @@ export default function RuleModal({
         }
         submit={submit}
         bodyPrefix={
-          <>
-            {conflict && (
-              <Callout status="warning" mb="3">
-                <Text weight="semibold">
-                  This rule was updated while you were editing
-                </Text>
-                <Box mt="1">
-                  {conflict.currentRule
-                    ? conflict.merge && !conflict.merge.wholeRule
-                      ? `You and someone else edited this rule at the same time${
-                          conflict.draftVersion ? " in this draft" : ""
-                        }. Everything that didn't overlap has been merged into the form below — only the fields here need your call:`
-                      : `Someone else restructured this rule${
-                          conflict.draftVersion
-                            ? " in this draft"
-                            : " and published it"
-                        }. The changes can't be merged automatically — review the diff below.`
-                    : "Someone else removed this rule. Nothing has been overwritten — your edits are still in the form below, and saving will re-add the rule."}
-                </Box>
-                {conflict.currentRule && (
-                  <Box mt="3">
-                    {(conflict.merge && !conflict.merge.wholeRule
-                      ? conflict.merge.contested
-                      : []
-                    ).map(({ key, fields }) => (
-                      <Flex key={key} align="center" gap="3" py="1" wrap="wrap">
-                        <Text weight="semibold">
-                          {fields.length > 1 ? fields.join(" + ") : key}
-                        </Text>
-                        <Text>theirs:</Text>
-                        <code
-                          style={{
-                            background: "var(--color-surface)",
-                            borderRadius: "var(--radius-1)",
-                            padding: "1px 6px",
-                          }}
-                        >
-                          {fmtChunkValue(conflict.currentRule, fields)}
-                        </code>
-                        {appliedTheirs.has(key) ? (
-                          <Text weight="semibold">✓ applied to form</Text>
-                        ) : (
-                          <>
-                            <Text>yours is in the form.</Text>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                const cur =
-                                  conflict.currentRule as unknown as Record<
-                                    string,
-                                    unknown
-                                  >;
-                                for (const f of fields) {
-                                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                  form.setValue(f as any, cur[f] as any, {
-                                    shouldDirty: true,
-                                  });
-                                }
-                                setAppliedTheirs((s) => new Set([...s, key]));
-                              }}
-                            >
-                              Use theirs
-                            </Button>
-                          </>
-                        )}
-                      </Flex>
-                    ))}
-                    {conflict.merge &&
-                      !conflict.merge.wholeRule &&
-                      conflict.merge.theirFields.length > 0 && (
-                        <Box mt="1" mb="1">
-                          <Text size="sm" color="text-low">
-                            Their changes to{" "}
-                            {conflict.merge.theirFields.join(", ")} didn&apos;t
-                            overlap with yours and are already in the form.
-                          </Text>
-                        </Box>
-                      )}
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setShowTheirChanges((s) => !s);
-                      }}
-                    >
-                      {showTheirChanges ? (
-                        <>
-                          <PiCaretDown /> Hide full diff
-                        </>
-                      ) : (
-                        <>
-                          <PiCaretRight /> View full diff
-                        </>
-                      )}
-                    </a>
-                    {showTheirChanges && (
-                      <Box
-                        mt="2"
-                        style={{
-                          background: "var(--color-surface)",
-                          borderRadius: "var(--radius-2)",
-                          overflow: "hidden",
-                        }}
-                      >
-                        <CompactInlineDiff
-                          a={stringifyForRawDiff(
-                            conflict.baseAtConflict
-                              ? normalizeFeatureRules([conflict.baseAtConflict])
-                              : [],
-                          )}
-                          b={stringifyForRawDiff(
-                            normalizeFeatureRules([conflict.currentRule]),
-                          )}
-                          leftTitle="When you opened this editor"
-                          rightTitle="Their version"
-                        />
-                      </Box>
-                    )}
-                  </Box>
-                )}
-                <Flex
-                  mt="3"
-                  align="center"
-                  justify="between"
-                  gap="3"
-                  wrap="wrap"
-                >
-                  <Box>
-                    Ready? Click <strong>Save my version</strong>
-                    {" below to save what's in this form."}
-                  </Box>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
-                      await mutate();
-                      close();
-                    }}
-                  >
-                    Discard my edits
-                  </Button>
-                </Flex>
-              </Callout>
-            )}
-            <DraftSelectorForChanges
-              feature={feature}
-              revisionList={revisionList}
-              mode={draftMode}
-              setMode={setDraftMode}
-              selectedDraft={selectedDraft}
-              setSelectedDraft={setSelectedDraft}
-              canAutoPublish={false}
-              gatedEnvSet={gatedEnvSet}
-            />
-          </>
+          <DraftSelectorForChanges
+            feature={feature}
+            revisionList={revisionList}
+            mode={draftMode}
+            setMode={setDraftMode}
+            selectedDraft={selectedDraft}
+            setSelectedDraft={setSelectedDraft}
+            canAutoPublish={false}
+            gatedEnvSet={gatedEnvSet}
+            alert={conflictAlert}
+          />
         }
       >
         {(ruleType === "force" || ruleType === "rollout") && (
