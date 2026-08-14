@@ -279,8 +279,6 @@ const GetStartedAndHomePage = ({
           )}
         </Grid>
 
-        <DashboardCard />
-
         {!orgIsUsingFeatureOrExperiment && (
           <Text size="4" weight="medium" mb="3" as="div">
             Get Started
@@ -300,6 +298,7 @@ const GetStartedAndHomePage = ({
               {orgIsUsingFeatureOrExperiment && (
                 <Box>
                   <NeedingAttention />
+                  <DashboardCard />
                   <Box mt="6" mb="2">
                     <Box mb="3">
                       <Text

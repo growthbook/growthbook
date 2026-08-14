@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import {
   useDefinitions,
   LOCALSTORAGE_DASHBOARD_KEY,
@@ -10,8 +11,12 @@ import { useDashboards } from "@/hooks/useDashboards";
 import DashboardSelector from "@/enterprise/components/Dashboards/DashboardSelector";
 import DashboardView from "@/enterprise/components/Dashboards/DashboardView";
 
+const PREVIEW_HEIGHT = "420px";
+
 // Resolution order: the user's own localStorage pick, then the project's
-// admin-configured default, then nothing (no dashboard shown).
+// admin-configured default, then nothing selected. The selector itself always
+// shows (as long as candidate dashboards exist) so a project without a
+// default yet is still discoverable/pickable from the home page.
 export default function DashboardCard() {
   const { project, getProjectById } = useDefinitions();
   const { dashboards, loading } = useDashboards(false);
@@ -52,7 +57,7 @@ export default function DashboardCard() {
   }
 
   return (
-    <Box mb="6">
+    <Box mb="5">
       <Flex align="center" justify="between" mb="3">
         <Heading as="h4" size="sm">
           Dashboard
@@ -65,8 +70,21 @@ export default function DashboardCard() {
         />
       </Flex>
       {resolvedDashboardId ? (
-        <DashboardView dashboardId={resolvedDashboardId} />
-      ) : null}
+        <Box
+          style={{
+            maxHeight: PREVIEW_HEIGHT,
+            overflow: "auto",
+            border: "1px solid var(--slate-a4)",
+            borderRadius: "var(--radius-3)",
+          }}
+        >
+          <DashboardView dashboardId={resolvedDashboardId} />
+        </Box>
+      ) : (
+        <Text color="text-mid">
+          Select a dashboard above to preview it here.
+        </Text>
+      )}
     </Box>
   );
 }
