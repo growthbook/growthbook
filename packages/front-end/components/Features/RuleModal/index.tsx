@@ -1817,10 +1817,10 @@ export default function RuleModal({
       <Flex align="center" gap="3" wrap="wrap">
         <HelperText status="warning">
           {!conflict.currentRule
-            ? "This rule was removed while you had it open — saving re-adds it."
+            ? "This rule was removed while you had it open. Saving re-adds it."
             : draftMode === "new"
-              ? "This rule was also updated in the draft you started from — saving here keeps both versions."
-              : "This rule was also updated here while you had it open — resolve the conflicting edits below, or save to a new draft."}
+              ? "This rule was modified while you were editing. Saving to a new draft keeps both versions."
+              : "This rule was modified while you were editing. Resolve the conflicting edits below, or save to a new draft."}
         </HelperText>
         {conflict.currentRule && (
           <a
