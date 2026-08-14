@@ -39,7 +39,7 @@ import {
   useOrganizationMetricDefaults,
 } from "@/hooks/useOrganizationMetricDefaults";
 import { useUser } from "@/services/UserContext";
-import { cronLocale, translate } from "@/services/i18n";
+import { cronLocale, translate, useLocale } from "@/services/i18n";
 import { useCurrency } from "@/hooks/useCurrency";
 import useURLHash from "@/hooks/useURLHash";
 import OrganizationAndLicenseSettings from "@/components/GeneralSettings/OrganizationAndLicenseSettings";
@@ -103,6 +103,7 @@ function applyApprovalFlowEntitlements(
 }
 
 const GeneralSettingsPage = (): React.ReactElement => {
+  const { locale } = useLocale();
   const { refreshOrganization, settings, organization, hasCommercialFeature } =
     useUser();
   const [saveMsg, setSaveMsg] = useState(false);
@@ -407,6 +408,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
       }
     }
   }, [settings, hasRequireApprovals]);
+
+  useEffect(() => {
+    updateCronString();
+  }, [locale]);
 
   useEffect(() => {
     form.setValue(

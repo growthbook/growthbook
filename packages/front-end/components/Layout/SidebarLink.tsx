@@ -14,7 +14,7 @@ import { PermissionFunctions, useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/ui/Badge";
-import { useTx } from "@/services/i18n";
+import { useLocale } from "@/services/i18n";
 import styles from "./SidebarLink.module.scss";
 
 export type SidebarLinkFilterProps = {
@@ -68,7 +68,7 @@ export function buildSidebarLinkFilterProps(input: {
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
   const { permissions, superAdmin } = useUser();
   const { project, segments } = useDefinitions();
-  const tx = useTx();
+  const { t, tx } = useLocale();
 
   const router = useRouter();
 
@@ -220,7 +220,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
                   {l.beta && (
                     <Badge
                       color="indigo"
-                      label="Beta"
+                      label={t("Beta")}
                       variant="solid"
                       size="xs"
                       ml="1"

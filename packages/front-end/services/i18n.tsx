@@ -113,15 +113,18 @@ export const LocaleSnippet = `
 `;
 
 export const LocaleProvider: FC<PropsWithChildren> = ({ children }) => {
-  const [locale, setLocaleState] = useState<Locale>(readStoredLocale);
+  // SSR and the first client render must share this value; stored locale is applied after hydration.
+  const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
 
   useLayoutEffect(() => {
-    persistLocale(locale);
-  }, [locale]);
+    const stored = readStoredLocale();
+    persistLocale(stored);
+    setLocaleState(stored);
+  }, []);
 
   const setLocale = useCallback((next: Locale) => {
-    setLocaleState(next);
     persistLocale(next);
+    setLocaleState(next);
   }, []);
 
   const t = useCallback(

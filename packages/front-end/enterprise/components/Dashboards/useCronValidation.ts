@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import cronstrue from "cronstrue";
 import "cronstrue/locales/ru";
 import { DashboardUpdateSchedule } from "shared/enterprise";
-import { cronLocale, translate } from "@/services/i18n";
+import { cronLocale, translate, useLocale } from "@/services/i18n";
 
 export function useCronValidation(
   currentUpdateSchedule: DashboardUpdateSchedule | undefined,
 ): { cronString: string; cronError: boolean } {
+  const { locale } = useLocale();
   const [cronString, setCronString] = useState("");
   const [cronError, setCronError] = useState(false);
 
@@ -25,7 +26,7 @@ export function useCronValidation(
     } catch {
       setCronError(true);
     }
-  }, [currentUpdateSchedule]);
+  }, [currentUpdateSchedule, locale]);
 
   return { cronString, cronError };
 }

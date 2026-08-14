@@ -21,7 +21,7 @@ import { useExperimentDashboards } from "@/hooks/useDashboards";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
-import { cronLocale } from "@/services/i18n";
+import { cronLocale, useLocale } from "@/services/i18n";
 import { useAuth } from "@/services/auth";
 import { getExperimentRefreshFrequency } from "@/services/env";
 import LinkButton from "@/ui/LinkButton";
@@ -112,6 +112,7 @@ export default function MigrateResultsToDashboardModal({
     settings: { updateSchedule },
   } = useUser();
   const { apiCall } = useAuth();
+  const { locale } = useLocale();
   const defaultRefreshInterval = getExperimentRefreshFrequency();
 
   const {
@@ -232,7 +233,7 @@ export default function MigrateResultsToDashboardModal({
       });
       return cronString.charAt(0).toLowerCase() + cronString.slice(1);
     }
-  }, [updateSchedule, defaultRefreshInterval]);
+  }, [updateSchedule, defaultRefreshInterval, locale]);
 
   // Initialize dashboardId with default or first available
   useEffect(() => {

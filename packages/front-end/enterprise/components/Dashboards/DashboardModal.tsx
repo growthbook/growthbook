@@ -13,7 +13,7 @@ import Field from "@/components/Forms/Field";
 import Checkbox from "@/ui/Checkbox";
 import { getExperimentRefreshFrequency } from "@/services/env";
 import { useUser } from "@/services/UserContext";
-import { cronLocale } from "@/services/i18n";
+import { cronLocale, useLocale } from "@/services/i18n";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -60,6 +60,7 @@ export default function DashboardModal({
   type?: "general" | "experiment";
 }) {
   const defaultRefreshInterval = getExperimentRefreshFrequency();
+  const { locale } = useLocale();
   const {
     settings: { updateSchedule },
     hasCommercialFeature,
@@ -93,7 +94,7 @@ export default function DashboardModal({
       });
       return cronString.charAt(0).toLowerCase() + cronString.slice(1);
     }
-  }, [updateSchedule, defaultRefreshInterval]);
+  }, [updateSchedule, defaultRefreshInterval, locale]);
 
   const form = useForm<{
     title: string;
