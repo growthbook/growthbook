@@ -58,6 +58,7 @@ import {
   ContextualBanditResultsQueryRunner,
   ContextualBanditSrmResult,
 } from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
+import { logger } from "back-end/src/util/logger";
 import {
   ContextualBanditResult,
   ContextualBanditStatsSettings,
@@ -1088,7 +1089,7 @@ export async function persistContextualBanditEvent(
         details: auditDetailsUpdate(cb, updatedCb),
       });
     } catch (e) {
-      context.logger.error(
+      logger.error(
         e,
         `Error creating audit log for contextualBandit.update (${cb.id})`,
       );
