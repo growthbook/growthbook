@@ -290,7 +290,7 @@ export default function ContextualBanditLinkedFeatureFlag({
                             maxHeight={60}
                           />
                         ) : orderedStagedValues[j] !== undefined ? (
-                          <Flex direction="column" gap="1" align="end">
+                          <Flex direction="row" gap="1" align="center">
                             <ForceSummary
                               value={orderedStagedValues[j] ?? ""}
                               feature={info.feature}
