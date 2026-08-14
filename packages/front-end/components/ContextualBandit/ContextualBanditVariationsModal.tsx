@@ -189,6 +189,9 @@ export default function ContextualBanditVariationsModal({
             </Box>
             {linkedFeatures.map((lf) => (
               <Box key={lf.feature.id} mb="3">
+                <Heading as="h4" size="sm" mb="1">
+                  {lf.feature.id}
+                </Heading>
                 {addedVariations.map((v) => (
                   <Box key={`${lf.feature.id}:${v.id}`} mb="2">
                     <FeatureValueField

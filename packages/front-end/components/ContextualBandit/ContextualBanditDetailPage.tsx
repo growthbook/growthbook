@@ -584,7 +584,7 @@ export default function ContextualBanditDetailPage({
                 )}
               </Grid>
               {conflictingAttributes.length > 0 && (
-                <Callout status="warning" mt="4">
+                <Callout status="info" mt="4">
                   <Flex direction="column" gap="2">
                     <Text as="span">
                       Your attribute targeting overlaps with the Bandit&apos;s

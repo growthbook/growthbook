@@ -242,7 +242,8 @@ export default function ContextualBanditLinkedFeatureFlag({
           )}
         {info.state === "draft" &&
           !info.hasMergeConflict &&
-          !info.hasUnrelatedDraftChanges && (
+          !info.hasUnrelatedDraftChanges &&
+          (cb.status === "draft" ? (
             <Callout
               status="info"
               my="4"
@@ -251,13 +252,32 @@ export default function ContextualBanditLinkedFeatureFlag({
               Rule changes for this feature are in a <strong>draft</strong>{" "}
               revision. They will be auto-published when this contextual bandit
               starts, or you can publish manually from the{" "}
-              <Link href={`/features/${info.feature?.id}`} target="_blank">
+              <Link
+                href={`/features/${info.feature?.id}${info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : ""}`}
+                target="_blank"
+              >
                 Feature Flag detail page
                 <PiArrowSquareOut className="ml-1" />
               </Link>
               .
             </Callout>
-          )}
+          ) : (
+            <Callout status="warning" my="4" icon={blockedAutoPublishIcon}>
+              Rule changes for this feature are in an unpublished{" "}
+              <strong>draft</strong> revision, so this contextual bandit is not
+              serving this Feature Flag.{" "}
+              {cb.status === "running"
+                ? "Drafts are only auto-published when a contextual bandit starts, so this one has to be published manually."
+                : "This contextual bandit has stopped, so the draft will not be auto-published."}{" "}
+              <Link
+                href={`/features/${info.feature?.id}${info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : ""}`}
+                target="_blank"
+              >
+                Review draft
+                <PiArrowSquareOut className="ml-1" />
+              </Link>
+            </Callout>
+          ))}
         {info.state !== "discarded" && info.state !== "archived" && (
           <Box className="appbox" style={{ backgroundColor: "transparent" }}>
             <Flex width="100%" gap="4" py="4" px="5" direction="column">
@@ -297,10 +317,10 @@ export default function ContextualBanditLinkedFeatureFlag({
                               sparse={info.sparse}
                               maxHeight={60}
                             />
-                            <Callout status="warning" size="sm">
+                            <HelperText status="warning">
                               Staged in revision #{info.stagedDraft?.version} —
                               not serving yet
-                            </Callout>
+                            </HelperText>
                           </Flex>
                         ) : (
                           <HelperText status="warning">
