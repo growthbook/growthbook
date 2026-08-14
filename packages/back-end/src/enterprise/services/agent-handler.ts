@@ -158,11 +158,11 @@ type AgentRequestBody = {
    */
   mentions?: AIChatMention[];
   /**
-   * A skill the user invoked explicitly via a slash command. When the agent
-   * config can resolve it, its body is seeded into the turn as a completed
-   * `loadSkill` tool call so the model starts with it already in context.
+   * Skills the user invoked explicitly via slash commands. When the agent
+   * config can resolve them, each body is seeded into the turn as a completed
+   * `loadSkill` tool call so the model starts with them already in context.
    */
-  skill?: string;
+  skills?: string[];
 } & Record<string, unknown>;
 
 type ErrorPart = Extract<AgentStreamPart, { type: "error" }>;
@@ -299,18 +299,24 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
         config.injectDatasourceHint && typeof body.datasourceId === "string"
           ? body.datasourceId
           : undefined;
+      // Duplicates would seed the same body twice for no benefit.
+      const skills = Array.from(new Set(body.skills ?? []));
       appendUserMessage(
         buffer,
         message,
         body.currentPage,
         datasourceHint,
         body.mentions,
-        typeof body.skill === "string" ? body.skill : undefined,
+        skills,
       );
       // Seeded after the user message so the transcript reads in the order it
-      // happened: the user asked, then the skill was loaded.
-      if (typeof body.skill === "string" && config.resolveSkill) {
-        seedSkillLoad(buffer, emit, body.skill, config.resolveSkill);
+      // happened: the user asked, then the skills were loaded. One pair each,
+      // in the order they appeared, which is the shape the model would have
+      // produced itself had it loaded them.
+      if (config.resolveSkill) {
+        for (const name of skills) {
+          seedSkillLoad(buffer, emit, name, config.resolveSkill);
+        }
       }
     }
     buffer.setStreaming(true);
@@ -434,7 +440,7 @@ function appendUserMessage(
   currentPage?: string,
   datasourceHint?: string,
   mentions?: AIChatMention[],
-  skill?: string,
+  skills?: string[],
 ): void {
   const userMessage: AIChatMessage = {
     role: "user",
@@ -449,7 +455,7 @@ function appendUserMessage(
       ? { datasourceHint: datasourceHint.trim() }
       : {}),
     ...(mentions && mentions.length ? { mentions } : {}),
-    ...(skill ? { skill } : {}),
+    ...(skills && skills.length ? { skills } : {}),
   };
   buffer.appendMessages([userMessage]);
 }

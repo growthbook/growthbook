@@ -40,6 +40,7 @@ export function useSkillCommandItems(): SkillItem[] {
         id: s.name,
         label: s.name,
         description: s.description,
+        kind: s.kind,
         ...(s.group !== undefined ? { group: s.group } : {}),
       }),
     );

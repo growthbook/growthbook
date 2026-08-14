@@ -107,21 +107,20 @@ export function collectMentions(doc: ProseMirrorNode): AIChatMention[] {
 }
 
 /**
- * The skill invoked by a `/` command, or null.
+ * Skills invoked by `/` commands, in document order and de-duplicated.
  *
- * Only the first is honoured — a turn loads one skill, and silently picking the
- * first is more predictable than picking the last if a user inserts two.
+ * All of them, not just the first: chaining several in one message is
+ * supported, and each is seeded into the turn as its own completed `loadSkill`
+ * call.
  */
-export function collectSkill(doc: ProseMirrorNode): string | null {
-  let skill: string | null = null;
+export function collectSkills(doc: ProseMirrorNode): string[] {
+  const seen = new Set<string>();
 
   doc.descendants((node) => {
-    if (skill !== null) return false;
     if (node.type.name !== SKILL_COMMAND_NAME) return;
     const { id } = node.attrs;
-    if (typeof id === "string" && id) skill = id;
-    return;
+    if (typeof id === "string" && id) seen.add(id);
   });
 
-  return skill;
+  return Array.from(seen);
 }

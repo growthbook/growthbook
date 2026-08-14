@@ -179,6 +179,7 @@ export default function AgentPanel({
   const pendingSubmissionRef = useRef<ComposerSubmission>({
     text: "",
     mentions: [],
+    skills: [],
   });
 
   const mentionItems = useMetricMentionItems();
@@ -219,15 +220,15 @@ export default function AgentPanel({
     const dsId = datasourceIdRef.current;
     const decision = pendingDecisionRef.current;
     pendingDecisionRef.current = null;
-    const { mentions, skill } = pendingSubmissionRef.current;
-    pendingSubmissionRef.current = { text: "", mentions: [] };
+    const { mentions, skills } = pendingSubmissionRef.current;
+    pendingSubmissionRef.current = { text: "", mentions: [], skills: [] };
     return {
       message,
       conversationId: cid,
       ...(path ? { currentPage: path } : {}),
       ...(dsId ? { datasourceId: dsId } : {}),
       ...(mentions.length ? { mentions } : {}),
-      ...(skill ? { skill } : {}),
+      ...(skills.length ? { skills } : {}),
       ...(decision ?? {}),
     };
   }, []);
@@ -423,7 +424,13 @@ export default function AgentPanel({
   }, [defaultAIModel, messages.length]);
 
   const handleSend = useCallback(
-    (submission: ComposerSubmission = { text: input, mentions: [] }) => {
+    (
+      submission: ComposerSubmission = {
+        text: input,
+        mentions: [],
+        skills: [],
+      },
+    ) => {
       const text = submission.text.trim();
       if (!text || loading) return;
       pendingSubmissionRef.current = submission;
@@ -438,7 +445,7 @@ export default function AgentPanel({
       trackMessageSent();
       sendMessage(text, {
         mentions: submission.mentions,
-        ...(submission.skill ? { skill: submission.skill } : {}),
+        skills: submission.skills,
       });
     },
     [input, loading, sendMessage, askPrompt, confirmPrompt, trackMessageSent],
@@ -809,7 +816,7 @@ function PersistedTurn({
               mentions={
                 turn.user.role === "user" ? turn.user.mentions : undefined
               }
-              skill={turn.user.role === "user" ? turn.user.skill : undefined}
+              skills={turn.user.role === "user" ? turn.user.skills : undefined}
             />
           </Text>
         </UserBubble>

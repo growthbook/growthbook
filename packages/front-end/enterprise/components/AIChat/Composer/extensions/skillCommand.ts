@@ -8,6 +8,8 @@ export interface SkillItem {
   id: string;
   label: string;
   description: string;
+  /** Domain routers are the browsable entry points; leaves sit under them. */
+  kind: "domain" | "leaf";
   /** Parent domain for leaf skills; equals `id` for domain routers. */
   group?: string;
 }
@@ -32,16 +34,26 @@ export const SkillCommand = Mention.extend<
 
 /**
  * Matches on name first, then description, so typing "targeting" surfaces
- * `flag-targeting` above skills that merely mention targeting. Domain routers
- * outrank their leaves on an equal match, since they're the broader entry point.
+ * `flag-targeting` above skills that merely mention targeting.
+ *
+ * With no query the list is domains first, then leaves. Taking the head of the
+ * natural (domain-then-its-own-leaves) order would bury the later domain
+ * routers behind the first domain's leaves — with 22 leaves across 4 domains,
+ * two of the four entry points would never be seen by someone just pressing
+ * "/" to browse.
  */
 export function filterSkillItems(
   items: SkillItem[],
   query: string,
-  limit = 8,
+  limit = 20,
 ): SkillItem[] {
   const q = query.trim().toLowerCase();
-  if (!q) return items.slice(0, limit);
+  if (!q) {
+    return [
+      ...items.filter((i) => i.kind === "domain"),
+      ...items.filter((i) => i.kind !== "domain"),
+    ].slice(0, limit);
+  }
 
   const nameMatch: SkillItem[] = [];
   const descriptionMatch: SkillItem[] = [];

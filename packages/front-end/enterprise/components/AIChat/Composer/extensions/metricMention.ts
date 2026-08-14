@@ -56,13 +56,13 @@ export const MetricMention = Mention.extend<
 
 /**
  * Prefix matches first, then substring matches, each alphabetical. Capped
- * because the popup is scrolled, not paged, and an org can have hundreds of
+ * because the popup scrolls rather than pages, and an org can have hundreds of
  * metrics.
  */
 export function filterMentionItems(
   items: MentionItem[],
   query: string,
-  limit = 8,
+  limit = 20,
 ): MentionItem[] {
   const q = query.trim().toLowerCase();
   if (!q) return items.slice(0, limit);

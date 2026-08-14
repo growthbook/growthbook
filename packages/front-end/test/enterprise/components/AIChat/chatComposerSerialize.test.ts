@@ -5,7 +5,7 @@ import TextNode from "@tiptap/extension-text";
 import HardBreak from "@tiptap/extension-hard-break";
 import {
   collectMentions,
-  collectSkill,
+  collectSkills,
   editorToText,
   stripDanglingTriggers,
   textToContent,
@@ -185,23 +185,36 @@ describe("chat composer serialization", () => {
 
     it("collects the invoked skill", () => {
       const editor = makeMentionEditor([skillNode("flag-create")]);
-      expect(collectSkill(editor.state.doc)).toBe("flag-create");
+      expect(collectSkills(editor.state.doc)).toEqual(["flag-create"]);
       editor.destroy();
     });
 
-    it("honours only the first when two are present", () => {
+    it("collects several chained commands in document order", () => {
       const editor = makeMentionEditor([
         skillNode("flag-create"),
         { type: "text", text: " then " },
         skillNode("flag-targeting"),
       ]);
-      expect(collectSkill(editor.state.doc)).toBe("flag-create");
+      expect(collectSkills(editor.state.doc)).toEqual([
+        "flag-create",
+        "flag-targeting",
+      ]);
       editor.destroy();
     });
 
-    it("returns null when there is no command", () => {
+    it("de-duplicates a command repeated in one message", () => {
+      const editor = makeMentionEditor([
+        skillNode("flag-create"),
+        { type: "text", text: " and again " },
+        skillNode("flag-create"),
+      ]);
+      expect(collectSkills(editor.state.doc)).toEqual(["flag-create"]);
+      editor.destroy();
+    });
+
+    it("returns nothing when there is no command", () => {
       const editor = makeEditor("just text");
-      expect(collectSkill(editor.state.doc)).toBeNull();
+      expect(collectSkills(editor.state.doc)).toEqual([]);
       editor.destroy();
     });
 
@@ -209,7 +222,7 @@ describe("chat composer serialization", () => {
       const editor = makeMentionEditor([
         mentionNode("met_1", "Revenue", "metric"),
       ]);
-      expect(collectSkill(editor.state.doc)).toBeNull();
+      expect(collectSkills(editor.state.doc)).toEqual([]);
       editor.destroy();
     });
 
@@ -226,16 +239,20 @@ describe("chat composer serialization", () => {
         id: "feature-flags",
         label: "feature-flags",
         description: "Read and modify flags",
+        kind: "domain",
       },
       {
         id: "flag-targeting",
         label: "flag-targeting",
         description: "Targeting rules",
+        kind: "leaf",
+        group: "feature-flags",
       },
       {
         id: "experiments",
         label: "experiments",
         description: "Targeting an audience",
+        kind: "domain",
       },
     ];
 
@@ -255,6 +272,21 @@ describe("chat composer serialization", () => {
     it("returns everything up to the limit for an empty query", () => {
       expect(filterSkillItems(items, "")).toHaveLength(3);
       expect(filterSkillItems(items, "", 2)).toHaveLength(2);
+    });
+
+    it("lists domains before leaves when browsing, so entry points stay visible", () => {
+      expect(filterSkillItems(items, "").map((i) => i.id)).toEqual([
+        "feature-flags",
+        "experiments",
+        "flag-targeting",
+      ]);
+    });
+
+    it("keeps every domain visible even when the limit would cut leaves off", () => {
+      expect(filterSkillItems(items, "", 2).map((i) => i.id)).toEqual([
+        "feature-flags",
+        "experiments",
+      ]);
     });
   });
 

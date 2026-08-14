@@ -188,11 +188,12 @@ export type AIChatUserMessage = {
    */
   mentions?: AIChatMention[];
   /**
-   * Skill invoked via a `/` command. The agent receives it as a pre-loaded
-   * `loadSkill` result rather than from here — this is persisted so the chat
-   * log can render the command it was invoked with.
+   * Skills invoked via `/` commands, in the order they appear in the message.
+   * The agent receives each as a pre-loaded `loadSkill` result rather than from
+   * here — these are persisted so the chat log can render the commands the
+   * message was sent with.
    */
-  skill?: string;
+  skills?: string[];
   /**
    * URL path (+ search) the user was on when they sent this message.
    * Captured at send time and persisted on the message so per-turn page

@@ -57,7 +57,11 @@ export default function EmptyState() {
   // after navigation, so the mentions have to travel with it.
   const handleSubmit = useCallback(
     (
-      { text, mentions }: ComposerSubmission = { text: input, mentions: [] },
+      { text, mentions }: ComposerSubmission = {
+        text: input,
+        mentions: [],
+        skills: [],
+      },
     ) => {
       const trimmed = text.trim();
       if (!trimmed) return;

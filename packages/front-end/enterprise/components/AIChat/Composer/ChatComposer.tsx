@@ -19,7 +19,7 @@ import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import {
   collectMentions,
-  collectSkill,
+  collectSkills,
   docToText,
   editorToText,
   stripDanglingTriggers,
@@ -62,8 +62,8 @@ export interface ComposerSubmission {
   text: string;
   /** Entities the user @-mentioned. */
   mentions: AIChatMention[];
-  /** Skill invoked via `/`, if any. */
-  skill?: string;
+  /** Skills invoked via `/`, in the order they appear. */
+  skills: string[];
 }
 
 export interface ChatComposerProps {
@@ -119,11 +119,10 @@ const METRIC_TYPE_LABELS: Record<MentionItem["metricType"], string> = {
 
 /** Everything the composer resolves out of the document at send time. */
 function readSubmission(doc: ProseMirrorNode): ComposerSubmission {
-  const skill = collectSkill(doc);
   return {
     text: stripDanglingTriggers(docToText(doc)).trim(),
     mentions: collectMentions(doc),
-    ...(skill ? { skill } : {}),
+    skills: collectSkills(doc),
   };
 }
 

@@ -30,7 +30,11 @@ describe("splitMessageTokens", () => {
 
   it("picks out a leading slash command", () => {
     expect(
-      splitMessageTokens("/feature-flags what do I have?", [], "feature-flags"),
+      splitMessageTokens(
+        "/feature-flags what do I have?",
+        [],
+        ["feature-flags"],
+      ),
     ).toEqual([
       { text: "/feature-flags", kind: "command" },
       { text: " what do I have?", kind: null },
@@ -42,7 +46,7 @@ describe("splitMessageTokens", () => {
       splitMessageTokens(
         "/feature-flags tied to @Any Purchases",
         [revenue],
-        "feature-flags",
+        ["feature-flags"],
       ),
     ).toEqual([
       { text: "/feature-flags", kind: "command" },
@@ -80,6 +84,18 @@ describe("splitMessageTokens", () => {
         undefined,
       ),
     ).toEqual([{ text: "email me@example.com or see a/b tests", kind: null }]);
+  });
+
+  it("marks each of several chained commands", () => {
+    const parts = splitMessageTokens(
+      "/flag-create then /flag-targeting",
+      [],
+      ["flag-create", "flag-targeting"],
+    );
+    expect(parts.filter((p) => p.kind === "command")).toEqual([
+      { text: "/flag-create", kind: "command" },
+      { text: "/flag-targeting", kind: "command" },
+    ]);
   });
 
   it("does not mark a name that was never mentioned", () => {

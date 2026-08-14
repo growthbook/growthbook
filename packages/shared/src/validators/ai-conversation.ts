@@ -63,6 +63,13 @@ export const aiChatMentionValidator = z
   })
   .strict();
 
+/**
+ * Skills invoked via `/` commands. Exported so the agent router validates the
+ * same shape on the request body. Capped because each one seeds a full skill
+ * body into the turn, and that body stays in the transcript afterwards.
+ */
+export const aiChatSkillsValidator = z.array(z.string().min(1).max(64)).max(5);
+
 // ---------------------------------------------------------------------------
 // Message validators (discriminated on role)
 // ---------------------------------------------------------------------------
@@ -99,8 +106,8 @@ const aiChatUserMessageValidator = z
     datasourceHint: z.string().max(256).optional(),
     // Entities the user @-mentioned — see AIChatMention in shared/ai-chat.ts.
     mentions: aiChatMentionValidator.array().max(20).optional(),
-    // Skill invoked via a `/` command — see AIChatUserMessage.
-    skill: z.string().max(64).optional(),
+    // Skills invoked via `/` commands — see AIChatUserMessage.
+    skills: aiChatSkillsValidator.optional(),
   })
   .passthrough();
 

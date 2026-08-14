@@ -327,7 +327,7 @@ export function useAIChat({
       options?: {
         suppressUserMessage?: boolean;
         mentions?: AIChatMention[];
-        skill?: string;
+        skills?: string[];
       },
     ) => {
       const trimmed = (messageOverride ?? input).trim();
@@ -344,7 +344,7 @@ export function useAIChat({
           // Carried on the optimistic bubble too, so the mention renders as a
           // chip immediately rather than only after the conversation reloads.
           ...(options?.mentions?.length ? { mentions: options.mentions } : {}),
-          ...(options?.skill ? { skill: options.skill } : {}),
+          ...(options?.skills?.length ? { skills: options.skills } : {}),
         };
         setMessages((prev) => [...prev, userMessage]);
       }

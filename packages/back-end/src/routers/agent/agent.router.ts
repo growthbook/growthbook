@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   aiChatFeedbackRatingValidator,
   aiChatMentionValidator,
+  aiChatSkillsValidator,
 } from "shared/validators";
 import { aiModelValidator } from "back-end/src/routers/ai/ai.validators";
 import { wrapController } from "back-end/src/routers/wrapController";
@@ -33,10 +34,10 @@ router.post(
         // message and surfaced to the LLM as a `[Referenced metrics: …]`
         // prefix so it resolves names to ids without searching.
         mentions: aiChatMentionValidator.array().max(20).optional(),
-        // A skill invoked explicitly via a slash command. Its body is seeded
-        // into the turn as a completed `loadSkill` call. Unknown names are
-        // ignored server-side, so this needs no enum here.
-        skill: z.string().min(1).max(64).optional(),
+        // Skills invoked explicitly via slash commands. Each body is seeded
+        // into the turn as a completed `loadSkill` call, in order. Unknown
+        // names are ignored server-side, so this needs no enum here.
+        skills: aiChatSkillsValidator.optional(),
         // Deterministic mutation-confirmation gate: when the user responds to
         // a parked mutation, the UI sends the action id and their decision so
         // the harness can replay or discard the exact stored call.

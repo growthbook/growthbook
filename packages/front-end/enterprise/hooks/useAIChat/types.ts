@@ -141,7 +141,7 @@ export interface UseAIChatReturn {
     options?: {
       suppressUserMessage?: boolean;
       mentions?: AIChatMention[];
-      skill?: string;
+      skills?: string[];
     },
   ) => void;
   /** Cancels the active live stream. No-op unless `isLocalStream` is true. */

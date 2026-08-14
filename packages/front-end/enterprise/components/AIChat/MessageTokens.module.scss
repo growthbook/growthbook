@@ -1,17 +1,54 @@
 // Composer tokens (@-mentions and `/` commands) inside a sent message.
 //
-// Typography is inherited so a token reads as part of the sentence — only the
-// background sets it apart. `UserBubble` paints a solid `--violet-10` ground
-// with white text, so the highlight is a translucent white rather than a tinted
-// background: it stays legible on that ground in both themes, where a fixed
-// colour would not. The leading `@` / `/` already distinguishes the two kinds,
-// so they share one treatment.
+// Typography is inherited and there is no fill by default, so a token sits in
+// the sentence rather than interrupting it — the leading "@" / "/" and the
+// weight are enough to mark it. Hovering reveals the box, which pairs with the
+// tooltip appearing at the same moment.
+//
+// `UserBubble` paints a solid `--violet-10` ground with white text, so that
+// hover fill is a translucent white rather than a tinted background: it stays
+// legible on that ground in both themes, where a fixed colour would not.
 .token {
   padding: 1px 5px;
   margin: 0 1px;
   border-radius: var(--radius-2);
-  background: rgba(255, 255, 255, 0.22);
+  background: transparent;
   font-weight: 500;
   // Keeps a name from being split across lines mid-token.
   white-space: nowrap;
+  transition: background-color 120ms ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.22);
+  }
+}
+
+// --- Tooltip -----------------------------------------------------------------
+
+// Stacked so the tag and the prose each get their own line.
+.tooltip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.tooltipName {
+  opacity: 0.7;
+}
+
+// The metric's type.
+//
+// Radix paints the tooltip as an inverted surface (`--gray-12`, which is
+// near-white in dark mode) and sets its text to match. A `@/ui/Badge` would
+// draw from the *page* palette instead — light-violet text on a near-white
+// card in dark mode — so the tag is outlined from `currentColor`, which is
+// whatever the tooltip already decided is legible on itself.
+.tooltipTag {
+  padding: 0 5px;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-1);
+  font-size: var(--font-size-1);
+  line-height: 1.6;
+  opacity: 0.75;
 }

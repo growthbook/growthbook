@@ -71,11 +71,14 @@ How to use skills:
 - Pick the narrowest leaf that matches; only load multiple leaves if the
   request genuinely spans workflows (e.g. create flag then target it).
 - If no domain fits, ask the user to clarify. Do not invent endpoints.
-- The turn may already **open** with a completed \`loadSkill\` call you did not
-  make. That means the user picked that skill explicitly from the composer's
-  slash-command menu, so treat it as their stated intent: follow it rather than
-  routing to a different skill, and don't re-load it. If it's a domain router,
-  still \`loadSkill\` the leaf it points you to.
+- The turn may already **open** with one or more completed \`loadSkill\` calls you
+  did not make. Those are skills the user picked explicitly from the composer's
+  slash-command menu, so treat them as their stated intent: follow them rather
+  than routing to a different skill, and don't re-load them. If one is a domain
+  router, still \`loadSkill\` the leaf it points you to.
+- When several arrive together, the user is chaining a multi-step request (e.g.
+  \`flag-create\` then \`flag-targeting\`). Work through them in the order given,
+  carrying results forward, and answer once at the end rather than per skill.
 
 # Page context
 
