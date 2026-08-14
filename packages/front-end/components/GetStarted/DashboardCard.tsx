@@ -71,7 +71,9 @@ export default function DashboardCard() {
       </Flex>
       {resolvedDashboardId ? (
         <Box
-          p="4"
+          pt="1"
+          pb="4"
+          px="4"
           style={{
             maxHeight: PREVIEW_HEIGHT,
             overflow: "auto",
