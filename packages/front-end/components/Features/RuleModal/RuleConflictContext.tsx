@@ -6,7 +6,7 @@ import {
   useMemo,
 } from "react";
 import { Flex } from "@radix-ui/themes";
-import { PiGitMerge } from "react-icons/pi";
+import { PiCheck, PiGitMerge } from "react-icons/pi";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
@@ -80,30 +80,33 @@ export function useContestedChunk(field: string): ContestedChunk | undefined {
   return ctx?.contested.find((c) => c.fields.includes(field));
 }
 
-/** The resolve buttons, or the recorded choice once answered. */
+/**
+ * Both choices stay on screen as a toggle pair — the active one is filled and
+ * check-marked — so a resolution can be changed rather than being a one-way
+ * door. Switching back to "mine" restores the value the field held when the
+ * conflict surfaced (see `resolve` in RuleModal).
+ */
 function ConflictButtons({ chunk }: { chunk: ContestedChunk }) {
   const ctx = useRuleConflict();
   if (!ctx) return null;
   const resolution = ctx.resolutions.get(chunk.key);
-  if (resolution) {
+  const choice = (side: ConflictResolution, label: string) => {
+    const active = resolution === side;
     return (
-      <Text weight="semibold">
-        ✓ {resolution === "mine" ? "keeping yours" : "using theirs"}
-      </Text>
-    );
-  }
-  return (
-    <Flex gap="2" align="center">
-      <Button size="sm" onClick={() => ctx.resolve(chunk, "mine")}>
-        Keep mine
-      </Button>
       <Button
         size="sm"
-        variant="outline"
-        onClick={() => ctx.resolve(chunk, "theirs")}
+        variant={active ? "solid" : "outline"}
+        icon={active ? <PiCheck /> : undefined}
+        onClick={() => ctx.resolve(chunk, side)}
       >
-        Use theirs
+        {label}
       </Button>
+    );
+  };
+  return (
+    <Flex gap="2" align="center">
+      {choice("mine", "Keep mine")}
+      {choice("theirs", "Use theirs")}
     </Flex>
   );
 }

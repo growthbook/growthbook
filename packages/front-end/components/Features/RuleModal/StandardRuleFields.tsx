@@ -506,28 +506,35 @@ export default function StandardRuleFields({
       ) : (
         <Flex direction="column" gap="5" mb="4">
           {rampControlsCoverage ? null : (
-            <RolloutPercentInput
-              value={form.watch("coverage") ?? 1}
-              setValue={(coverage) => form.setValue("coverage", coverage)}
-              rampSchedule={ruleRampSchedule}
-              hashAttribute={form.watch("hashAttribute")}
-              setHashAttribute={(v: string) =>
-                form.setValue("hashAttribute", v)
-              }
-              attributeSchema={attributeSchema}
-              hasHashAttributes={hasHashAttributes}
-              hashVersion={form.watch("hashVersion") as 1 | 2 | undefined}
-              setHashVersion={(v: 1 | 2) => form.setValue("hashVersion", v)}
-              project={feature.project}
-              seed={form.watch("seed")}
-              setSeed={(v: string) => form.setValue("seed", v)}
-              ruleId={form.watch("id") as string}
-              featureId={feature.id}
-              isLiveRule={isLiveRule}
-              isNew={isNew}
-              advancedOpen={advancedOptionsOpen}
-              setAdvancedOpen={setadvancedOptionsOpen}
-            />
+            <>
+              <RolloutPercentInput
+                value={form.watch("coverage") ?? 1}
+                setValue={(coverage) => form.setValue("coverage", coverage)}
+                rampSchedule={ruleRampSchedule}
+                hashAttribute={form.watch("hashAttribute")}
+                setHashAttribute={(v: string) =>
+                  form.setValue("hashAttribute", v)
+                }
+                attributeSchema={attributeSchema}
+                hasHashAttributes={hasHashAttributes}
+                hashVersion={form.watch("hashVersion") as 1 | 2 | undefined}
+                setHashVersion={(v: 1 | 2) => form.setValue("hashVersion", v)}
+                project={feature.project}
+                seed={form.watch("seed")}
+                setSeed={(v: string) => form.setValue("seed", v)}
+                ruleId={form.watch("id") as string}
+                featureId={feature.id}
+                isLiveRule={isLiveRule}
+                isNew={isNew}
+                advancedOpen={advancedOptionsOpen}
+                setAdvancedOpen={setadvancedOptionsOpen}
+              />
+              {/* Inside the branch on purpose: when the ramp controls coverage
+                  this input is gone, and an unclaimed chunk falls back to the
+                  callouts above the form rather than pointing at nothing. */}
+              <RuleConflictCallout field="coverage" />
+              <RuleConflictCallout field="hashAttribute" />
+            </>
           )}
 
           <SavedGroupTargetingField
@@ -538,6 +545,7 @@ export default function StandardRuleFields({
             project={feature.project || ""}
             label="Saved Groups"
           />
+          <RuleConflictCallout field="savedGroups" />
 
           <ConditionInput
             defaultValue={form.watch("condition") || ""}
@@ -546,6 +554,7 @@ export default function StandardRuleFields({
             project={feature.project || ""}
             label="Attributes"
           />
+          <RuleConflictCallout field="condition" />
 
           <PrerequisiteInput
             value={form.watch("prerequisites") || []}
@@ -560,6 +569,7 @@ export default function StandardRuleFields({
             label="Prerequisite Features"
             onRuleCyclicChange={onRuleCyclicChange}
           />
+          <RuleConflictCallout field="prerequisites" />
         </Flex>
       )}
       {isCyclic && (

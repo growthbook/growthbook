@@ -321,6 +321,11 @@ export default function RuleModal({
   const [conflictResolutions, setConflictResolutions] = useState<
     Map<string, "mine" | "theirs">
   >(new Map());
+  // Your pre-resolution values per contested chunk, so "Keep mine" can undo a
+  // "Use theirs" that overwrote the form.
+  const myConflictValuesRef = useRef<Map<string, Record<string, unknown>>>(
+    new Map(),
+  );
   // Chunks a form field is rendering inline; the rest fall back to callouts
   // above the form. Registered by RuleConflictCallout during layout.
   const [claimedConflictKeys, setClaimedConflictKeys] = useState<Set<string>>(
@@ -1703,6 +1708,7 @@ export default function RuleModal({
                 const payload = responseData.conflict as PutFeatureRuleConflict;
                 setConflict({ ...payload, baseAtConflict: baselineRule });
                 setConflictResolutions(new Map());
+                myConflictValuesRef.current = new Map();
                 // The form is the merge preview: fields only THEY changed are
                 // applied into the form so what the user sees is what a save
                 // would keep. Contested fields stay as the user's version.
@@ -1917,14 +1923,27 @@ export default function RuleModal({
 
   const resolveConflict = useCallback(
     (chunk: ContestedChunk, choice: ConflictResolution) => {
-      if (choice === "theirs") {
-        const cur = (conflict?.currentRule ?? {}) as unknown as Record<
-          string,
-          unknown
-        >;
+      const values = form.getValues() as unknown as Record<string, unknown>;
+      const stash = myConflictValuesRef.current;
+      // Stash your values the first time a chunk goes to "theirs", so choosing
+      // "Keep mine" afterwards restores them instead of leaving theirs behind.
+      if (choice === "theirs" && !stash.has(chunk.key)) {
+        stash.set(
+          chunk.key,
+          Object.fromEntries(chunk.fields.map((f) => [f, values[f]])),
+        );
+      }
+      const source =
+        choice === "theirs"
+          ? ((conflict?.currentRule ?? {}) as unknown as Record<
+              string,
+              unknown
+            >)
+          : stash.get(chunk.key);
+      if (source) {
         for (const f of chunk.fields) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          form.setValue(f as any, cur[f] as any, { shouldDirty: true });
+          form.setValue(f as any, source[f] as any, { shouldDirty: true });
         }
       }
       setConflictResolutions((m) => new Map([...m, [chunk.key, choice]]));
