@@ -18,7 +18,7 @@ import {
   parsePlainJSONObject,
   stripDefaultsForSparse,
 } from "shared/util";
-import { PiCaretRight } from "react-icons/pi";
+import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
@@ -1868,23 +1868,24 @@ export default function RuleModal({
         ? "This rule was removed while you had it open. Saving re-adds it."
         : draftMode === "new"
           ? "This rule was modified while you were editing. Saving to a new draft keeps both versions."
-          : "This rule was modified while you were editing. Resolve the conflicting edits below, or save to a new draft."}
+          : "This rule was modified while you were editing. Resolve the conflicts below, or save to a new draft."}
     </HelperText>
   ) : undefined;
 
   // The raw diff, opened from below the selector.
   const conflictDetails =
     conflict && conflict.currentRule ? (
-      <Box mb="3">
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            setShowConflictDetails((s) => !s);
-          }}
+      // Pulled up under the selector, which carries a large bottom margin of
+      // its own — this belongs to the widget above it, not to the form below.
+      <Box mt="-4" mb="3">
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={showConflictDetails ? <PiCaretDown /> : <PiCaretRight />}
+          onClick={() => setShowConflictDetails((s) => !s)}
         >
-          {showConflictDetails ? "Hide details" : "View details"}
-        </a>
+          {showConflictDetails ? "Hide comparison" : "Compare versions"}
+        </Button>
         {showConflictDetails && (
           <Box
             mt="2"
@@ -2263,8 +2264,8 @@ export default function RuleModal({
               gatedEnvSet={gatedEnvSet}
               alert={conflictAlert}
             />
-            {draftMode !== "new" && conflictCallouts}
             {draftMode !== "new" && conflictDetails}
+            {draftMode !== "new" && conflictCallouts}
           </>
         }
       >
