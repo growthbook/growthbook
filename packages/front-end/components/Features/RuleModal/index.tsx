@@ -73,6 +73,12 @@ import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import PagedModal from "@/components/Modal/PagedModal";
+import {
+  ConflictChoice,
+  ConflictResolution,
+  ContestedChunk,
+  RuleConflictProvider,
+} from "@/components/Features/RuleModal/RuleConflictContext";
 import StandardRuleFields, {
   type ScheduleType,
   deriveScheduleType,
@@ -315,6 +321,22 @@ export default function RuleModal({
   const [conflictResolutions, setConflictResolutions] = useState<
     Map<string, "mine" | "theirs">
   >(new Map());
+  // Chunks a form field is rendering inline; the rest fall back to callouts
+  // above the form. Registered by RuleConflictCallout during layout.
+  const [claimedConflictKeys, setClaimedConflictKeys] = useState<Set<string>>(
+    new Set(),
+  );
+  const claimConflictKey = useCallback((key: string) => {
+    setClaimedConflictKeys((s) => (s.has(key) ? s : new Set(s).add(key)));
+  }, []);
+  const releaseConflictKey = useCallback((key: string) => {
+    setClaimedConflictKeys((s) => {
+      if (!s.has(key)) return s;
+      const next = new Set(s);
+      next.delete(key);
+      return next;
+    });
+  }, []);
   // Set when the save's error handler saw a 409, so the submit catch can
   // suppress the Modal's own error text — the banner is the single message.
   const conflictSignaledRef = useRef(false);
@@ -1885,87 +1907,53 @@ export default function RuleModal({
     </Box>
   ) : undefined;
 
-  // One callout per contested chunk, immediately visible below the selector:
-  // both values side by side, and an explicit Keep mine / Use theirs choice.
-  // The save CTA stays disabled until every one is answered (or the user
-  // switches to a new draft).
+  // Resolution plumbing shared with the inline per-field callouts. A field
+  // that renders <RuleConflictCallout field="..."/> claims its chunk; whatever
+  // stays unclaimed falls back to the callouts above the form below.
+  const contestedChunks: ContestedChunk[] =
+    conflict?.merge && !conflict.merge.wholeRule && conflict.currentRule
+      ? conflict.merge.contested
+      : [];
+
+  const resolveConflict = useCallback(
+    (chunk: ContestedChunk, choice: ConflictResolution) => {
+      if (choice === "theirs") {
+        const cur = (conflict?.currentRule ?? {}) as unknown as Record<
+          string,
+          unknown
+        >;
+        for (const f of chunk.fields) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          form.setValue(f as any, cur[f] as any, { shouldDirty: true });
+        }
+      }
+      setConflictResolutions((m) => new Map([...m, [chunk.key, choice]]));
+    },
+    [conflict, form],
+  );
+
+  const formatConflictValue = useCallback(
+    (chunk: ContestedChunk, side: ConflictResolution) =>
+      fmtChunkValue(
+        side === "theirs"
+          ? (conflict?.currentRule ?? null)
+          : (form.getValues() as unknown as FeatureRule),
+        chunk.fields,
+      ),
+    [conflict, form],
+  );
+
+  // Chunks no field rendered inline, plus the non-mergeable single-ack case.
   const conflictCallouts = conflict ? (
     <>
-      {conflict.merge && !conflict.merge.wholeRule && conflict.currentRule ? (
-        conflict.merge.contested.map(({ key, fields }) => {
-          const resolution = conflictResolutions.get(key);
-          return (
-            <Callout status="warning" mb="3" key={key}>
-              <Flex align="center" gap="2" wrap="wrap">
-                <Text weight="semibold">
-                  {fields.length > 1 ? fields.join(" + ") : key}
-                </Text>
-                <Text>— you set</Text>
-                <code
-                  style={{
-                    background: "var(--color-surface)",
-                    borderRadius: "var(--radius-1)",
-                    padding: "1px 6px",
-                  }}
-                >
-                  {fmtChunkValue(
-                    form.getValues() as unknown as FeatureRule,
-                    fields,
-                  )}
-                </code>
-                <Text>, they set</Text>
-                <code
-                  style={{
-                    background: "var(--color-surface)",
-                    borderRadius: "var(--radius-1)",
-                    padding: "1px 6px",
-                  }}
-                >
-                  {fmtChunkValue(conflict.currentRule, fields)}
-                </code>
-                {resolution ? (
-                  <Text weight="semibold">
-                    ✓ {resolution === "mine" ? "keeping yours" : "using theirs"}
-                  </Text>
-                ) : (
-                  <>
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        setConflictResolutions(
-                          (m) => new Map([...m, [key, "mine" as const]]),
-                        );
-                      }}
-                    >
-                      Keep mine
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        const cur = conflict.currentRule as unknown as Record<
-                          string,
-                          unknown
-                        >;
-                        for (const f of fields) {
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          form.setValue(f as any, cur[f] as any, {
-                            shouldDirty: true,
-                          });
-                        }
-                        setConflictResolutions(
-                          (m) => new Map([...m, [key, "theirs" as const]]),
-                        );
-                      }}
-                    >
-                      Use theirs
-                    </Button>
-                  </>
-                )}
-              </Flex>
+      {contestedChunks.length ? (
+        contestedChunks
+          .filter((c) => !claimedConflictKeys.has(c.key))
+          .map((chunk) => (
+            <Callout status="warning" mb="3" key={chunk.key}>
+              <ConflictChoice chunk={chunk} />
             </Callout>
-          );
-        })
+          ))
       ) : (
         <Callout status="warning" mb="3">
           <Flex align="center" gap="3" wrap="wrap">
@@ -2188,7 +2176,8 @@ export default function RuleModal({
     ? environments.map((e) => e.id)
     : selectedEnvironments;
 
-  return (
+  // Held in a variable so the provider wrapper doesn't reindent the tree.
+  const modalContent = (
     <FormProvider {...form}>
       <PagedModal
         trackingEventModalType={trackingEventModalType}
@@ -2490,5 +2479,19 @@ export default function RuleModal({
           : null}
       </PagedModal>
     </FormProvider>
+  );
+
+  return (
+    <RuleConflictProvider
+      contested={contestedChunks}
+      resolutions={conflictResolutions}
+      resolve={resolveConflict}
+      format={formatConflictValue}
+      claimed={claimedConflictKeys}
+      claim={claimConflictKey}
+      release={releaseConflictKey}
+    >
+      {modalContent}
+    </RuleConflictProvider>
   );
 }

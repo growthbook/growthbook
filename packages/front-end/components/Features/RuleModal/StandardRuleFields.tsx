@@ -32,6 +32,7 @@ import Callout from "@/ui/Callout";
 import MonitoredIcon from "@/components/Features/RuleModal/MonitoredIcon";
 import RampScheduleBadge from "@/components/RampSchedule/RampScheduleBadge";
 import ScheduleInputs from "@/components/Features/RuleModal/ScheduleInputs";
+import RuleConflictCallout from "@/components/Features/RuleModal/RuleConflictContext";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
@@ -278,9 +279,12 @@ export default function StandardRuleFields({
         {...form.register("description")}
         placeholder="Short human-readable description of the rule"
       />
+      <RuleConflictCallout field="description" />
 
       <RuleEnvironmentScopeField {...envScope} my="5" />
+      <RuleConflictCallout field="environments" />
       <RuleProjectScopeField {...projectScope} mb="5" />
+      <RuleConflictCallout field="projects" />
 
       <Box mb="5">
         <FeatureValueField
@@ -304,6 +308,7 @@ export default function StandardRuleFields({
           configBackingShowPatch={isConfigBacked}
           lockConfigBacking={isConfigBacked}
         />
+        <RuleConflictCallout field="value" />
       </Box>
 
       <div className="mb-3">
