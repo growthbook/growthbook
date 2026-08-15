@@ -79,11 +79,6 @@ import {
   ContestedChunk,
   RuleConflictProvider,
 } from "@/components/Features/RuleModal/RuleConflictContext";
-// TEMPORARY DEV HARNESS — delete with the module.
-import {
-  DEV_FAKE_CONFLICT,
-  buildFakeConflict,
-} from "@/components/Features/RuleModal/devFakeConflict";
 import StandardRuleFields, {
   type ScheduleType,
   deriveScheduleType,
@@ -313,28 +308,9 @@ export default function RuleModal({
     | null
   >(null);
   const [showConflictDetails, setShowConflictDetails] = useState(false);
-  // Fields from the conflict the user pulled into the form via "Use theirs".
   const [conflictResolutions, setConflictResolutions] = useState<
     Map<string, "mine" | "theirs">
   >(new Map());
-  // TEMPORARY DEV HARNESS — see devFakeConflict.ts.
-  useEffect(() => {
-    if (!DEV_FAKE_CONFLICT || !ruleId || !rule) return;
-    setConflict({
-      ...buildFakeConflict(
-        ruleId,
-        feature.version,
-        draftMode === "existing" && selectedDraft !== null
-          ? selectedDraft
-          : undefined,
-        rule,
-      ),
-      baseAtConflict: rule,
-      attempted: rule,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // Lets "Keep mine" undo a "Use theirs" that already overwrote the form.
   const myConflictValuesRef = useRef<Map<string, Record<string, unknown>>>(
     new Map(),
