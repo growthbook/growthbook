@@ -94,16 +94,19 @@ export default function ContextualBanditLinkedFeatureFlag({
     return match?.weight ?? fallback;
   };
 
-  const configuredVariationIds = new Set(info.values.map((v) => v.variationId));
-  const orderedValues = cb.variations.map(
-    (v) => info.values.find((v2) => v2.variationId === v.id)?.value || "",
-  );
-  // A value staged behind approval exists only on the draft — show it rather
-  // than reporting the arm as unconfigured.
   const stagedValues = info.stagedDraft?.values ?? [];
-  const orderedStagedValues = cb.variations.map(
-    (v) => stagedValues.find((v2) => v2.variationId === v.id)?.value,
-  );
+  const variationValueStates = cb.variations.map((v) => {
+    const liveValue = info.values.find((v2) => v2.variationId === v.id)?.value;
+    const stagedValue = stagedValues.find(
+      (v2) => v2.variationId === v.id,
+    )?.value;
+    return {
+      liveValue,
+      stagedValue,
+      hasLiveValue: liveValue !== undefined,
+      hasStagedChange: stagedValue !== undefined && stagedValue !== liveValue,
+    };
+  });
 
   const environmentStates = Object.entries(info.environmentStates || {}).map(
     ([env, state]) => ({
@@ -339,30 +342,38 @@ export default function ContextualBanditLinkedFeatureFlag({
                         </Text>
                       </Flex>
                       <Box flexGrow="1">
-                        {configuredVariationIds.has(v.id) ? (
-                          <ForceSummary
-                            value={orderedValues[j]}
-                            feature={info.feature}
-                            sparse={info.sparse}
-                            maxHeight={60}
-                          />
-                        ) : orderedStagedValues[j] !== undefined ? (
-                          <Flex direction="row" gap="1" align="center">
-                            <ForceSummary
-                              value={orderedStagedValues[j] ?? ""}
-                              feature={info.feature}
-                              sparse={info.sparse}
-                              maxHeight={60}
-                            />
-                            <Callout status="warning" size="sm">
-                              Staged in revision #{info.stagedDraft?.version} —
-                              not serving yet
-                            </Callout>
-                          </Flex>
-                        ) : (
+                        {!variationValueStates[j].hasLiveValue &&
+                        !variationValueStates[j].hasStagedChange ? (
                           <HelperText status="warning">
                             Define missing values
                           </HelperText>
+                        ) : (
+                          <Flex direction="column" gap="1">
+                            {variationValueStates[j].hasLiveValue && (
+                              <ForceSummary
+                                value={variationValueStates[j].liveValue ?? ""}
+                                feature={info.feature}
+                                sparse={info.sparse}
+                                maxHeight={60}
+                              />
+                            )}
+                            {variationValueStates[j].hasStagedChange && (
+                              <Flex direction="row" gap="1" align="center">
+                                <ForceSummary
+                                  value={
+                                    variationValueStates[j].stagedValue ?? ""
+                                  }
+                                  feature={info.feature}
+                                  sparse={info.sparse}
+                                  maxHeight={60}
+                                />
+                                <Callout status="warning" size="sm">
+                                  Staged in revision #
+                                  {info.stagedDraft?.version} — not serving yet
+                                </Callout>
+                              </Flex>
+                            )}
+                          </Flex>
                         )}
                       </Box>
                     </Flex>

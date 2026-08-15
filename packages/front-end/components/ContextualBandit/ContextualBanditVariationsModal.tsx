@@ -5,8 +5,8 @@ import { ApiContextualBanditInterface } from "shared/validators";
 import { LinkedFeatureInfo } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
+import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
@@ -41,8 +41,6 @@ export default function ContextualBanditVariationsModal({
 }) {
   const { apiCall } = useAuth();
 
-  const exploiting = cb.stage === "exploit" || cb.stage === "paused";
-
   const originalIds = new Set(cb.variations.map((v) => v.id));
 
   const initialVariationCount = cb.variations.length;
@@ -64,6 +62,7 @@ export default function ContextualBanditVariationsModal({
 
   const [newVariationValues, setNewVariationValues] =
     useState<NewVariationValues>({});
+  const [showValueErrors, setShowValueErrors] = useState(false);
 
   const watchedVariations = form.watch("variations") ?? [];
   const addedVariations = watchedVariations
@@ -72,11 +71,11 @@ export default function ContextualBanditVariationsModal({
   const showNewValueEditors =
     addedVariations.length > 0 && linkedFeatures.length > 0;
 
-  const defaultValueFor = (lf: LinkedFeatureInfo) =>
-    lf.values?.[0]?.value ?? lf.feature.defaultValue;
-
   const valueFor = (lf: LinkedFeatureInfo, variationId: string) =>
-    newVariationValues[lf.feature.id]?.[variationId] ?? defaultValueFor(lf);
+    newVariationValues[lf.feature.id]?.[variationId] ?? "";
+
+  const isMissingValue = (lf: LinkedFeatureInfo, variationId: string) =>
+    valueFor(lf, variationId).trim() === "";
 
   const setValueFor = (featureId: string, variationId: string, value: string) =>
     setNewVariationValues((prev) => ({
@@ -110,6 +109,24 @@ export default function ContextualBanditVariationsModal({
             newVariationValues?: NewVariationValues;
           } = { variations };
           if (addedIds.length > 0 && linkedFeatures.length > 0) {
+            const missing: string[] = [];
+            linkedFeatures.forEach((lf) => {
+              addedIds.forEach((variationId) => {
+                if (!isMissingValue(lf, variationId)) return;
+                const variation = variations.find((v) => v.id === variationId);
+                missing.push(
+                  `${lf.feature.id} → ${
+                    variation?.name || variation?.key || "new variation"
+                  }`,
+                );
+              });
+            });
+            if (missing.length > 0) {
+              setShowValueErrors(true);
+              throw new Error(
+                "Set a Feature Flag value for every new variation before saving",
+              );
+            }
             const values: NewVariationValues = {};
             linkedFeatures.forEach((lf) => {
               addedIds.forEach((variationId) => {
@@ -129,15 +146,6 @@ export default function ContextualBanditVariationsModal({
           mutate();
         })}
       >
-        <Callout status="info" size="sm" mb="4">
-          {exploiting
-            ? "This Bandit is exploiting. Removing a variation redistributes its weight proportionally across the others; a new variation starts with an even share and the Bandit re-learns its weight from there."
-            : "Traffic is split evenly across variations while the Bandit explores. Adding or removing a variation re-balances that even split."}
-          {linkedFeatures.length > 0 &&
-            (showNewValueEditors
-              ? " Linked Feature Flags are updated automatically: removed variations are dropped from their rules, and new variations serve the values you set below. Where a Feature Flag requires approval, the change is saved as a draft instead and the new variation receives no traffic until that revision is published."
-              : " Linked Feature Flags are updated automatically: removed variations are dropped from their rules. Where a Feature Flag requires approval, the change is saved as a draft for review instead.")}
-        </Callout>
         <FeatureVariationsInput
           label={null}
           valueAsId
@@ -183,8 +191,8 @@ export default function ContextualBanditVariationsModal({
               </Heading>
               <Text as="div" size="sm" color="text-low">
                 Set the value each linked Feature Flag serves for the
-                variation(s) you added. Defaults to the control value; you can
-                change it later on the Feature Flag.
+                variation(s) you added. A value is required for each one; you
+                can change it later on the Feature Flag.
               </Text>
             </Box>
             {linkedFeatures.map((lf) => (
@@ -194,6 +202,11 @@ export default function ContextualBanditVariationsModal({
                 </Heading>
                 {addedVariations.map((v) => (
                   <Box key={`${lf.feature.id}:${v.id}`} mb="2">
+                    {showValueErrors && isMissingValue(lf, v.id) && (
+                      <HelperText status="error">
+                        Set a value for this variation
+                      </HelperText>
+                    )}
                     <FeatureValueField
                       id={`cb-newval-${lf.feature.id}-${v.id}`}
                       label={
