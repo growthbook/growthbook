@@ -117,22 +117,42 @@ function ConflictButtons({ chunk }: { chunk: ContestedChunk }) {
 }
 
 /**
- * The fallback presentation, rendered above the form for chunks no field
- * claimed — it has to name the field and both values, since nothing around
- * it supplies that context.
+ * The conflict sentence, in one format everywhere: the field name, what it was
+ * changed to, and — where the surrounding context doesn't already show it —
+ * what you set.
  */
-export function ConflictChoice({ chunk }: { chunk: ContestedChunk }) {
+export function ConflictMessage({
+  chunk,
+  showMine = false,
+}: {
+  chunk: ContestedChunk;
+  showMine?: boolean;
+}) {
   const ctx = useRuleConflict();
   if (!ctx) return null;
   return (
-    <Flex align="center" gap="2" wrap="wrap">
-      <Text weight="semibold">
-        {chunk.fields.length > 1 ? chunk.fields.join(" + ") : chunk.key}
-      </Text>
-      <Text>— you set</Text>
-      <code style={CONFLICT_VALUE_STYLE}>{ctx.format(chunk, "mine")}</code>
-      <Text>, they set</Text>
-      <code style={CONFLICT_VALUE_STYLE}>{ctx.format(chunk, "theirs")}</code>
+    <Text>
+      <Text weight="semibold">{chunk.key}</Text> was modified to{" "}
+      <code style={CONFLICT_VALUE_STYLE}>{ctx.format(chunk, "theirs")}</code>.
+      {showMine ? (
+        <>
+          {" "}
+          You set{" "}
+          <code style={CONFLICT_VALUE_STYLE}>{ctx.format(chunk, "mine")}</code>.
+        </>
+      ) : null}
+    </Text>
+  );
+}
+
+/**
+ * The fallback presentation, rendered above the form for chunks no field
+ * claimed — nothing around it shows your own value, so it states both.
+ */
+export function ConflictChoice({ chunk }: { chunk: ContestedChunk }) {
+  return (
+    <Flex align="center" gap="3" wrap="wrap">
+      <ConflictMessage chunk={chunk} showMine />
       <ConflictButtons chunk={chunk} />
     </Flex>
   );
@@ -158,9 +178,9 @@ export default function RuleConflictCallout({ field }: { field: string }) {
   }, [key, claim, release]);
 
   if (!ctx || !chunk) return null;
-  // The label and your own value are already on screen next to this, so the
-  // inline copy only states what it was changed to. The buttons ride the
-  // Callout's action slot, which right-aligns them on the first line.
+  // Your own value is already in the field beside this, so the inline copy
+  // omits it. The buttons ride the Callout's action slot, which right-aligns
+  // them on the first line.
   return (
     <Callout
       status="warning"
@@ -168,8 +188,7 @@ export default function RuleConflictCallout({ field }: { field: string }) {
       icon={<PiGitMerge size={13} />}
       action={<ConflictButtons chunk={chunk} />}
     >
-      Rule was modified to:{" "}
-      <code style={CONFLICT_VALUE_STYLE}>{ctx.format(chunk, "theirs")}</code>
+      <ConflictMessage chunk={chunk} />
     </Callout>
   );
 }

@@ -364,6 +364,32 @@ describe("putFeatureRule baseline guard", () => {
     expect(draft?.rules?.[0]?.description).toBe("mine");
   });
 
+  it("takes theirs without contesting when your side omits the field", async () => {
+    // Your side can't express "unset" on the wire, so offering a choice here
+    // would be a no-op button. base has sparse, they change it, you omit it.
+    const sparseBase = { ...baseRule, sparse: true } as unknown as FeatureRule;
+    const theirEdit = { ...sparseBase, sparse: false } as FeatureRule;
+    const myEdit = { ...baseRule, value: "false" } as FeatureRule; // no `sparse`
+    await seed({
+      liveRules: [sparseBase],
+      liveVersion: 1,
+      drafts: [{ version: 2, rules: [theirEdit] }],
+    });
+    const { res, captured } = resSpy();
+    await putFeatureRule(
+      reqFor(2, {
+        rule: myEdit,
+        ruleId: baseRule.id,
+        baseline: { rule: sparseBase },
+      }),
+      res,
+    );
+    expect(captured.body).toMatchObject({ status: 200 });
+    const draft = await storedRevision(2);
+    expect(draft?.rules?.[0]?.sparse).toBe(false);
+    expect(draft?.rules?.[0]?.value).toBe("false");
+  });
+
   it("cross-family type change is a whole-rule conflict, no field merge", async () => {
     const theirEdit = {
       ...baseRule,
