@@ -2213,7 +2213,7 @@ export default function RuleModal({
               Next: Ramp-up{" "}
               <PiCaretRight className="position-relative" style={{ top: -1 }} />
             </>
-          ) : conflict ? (
+          ) : conflict && draftMode !== "new" ? (
             "Save my version"
           ) : (
             "Save to Draft"
@@ -2508,7 +2508,9 @@ export default function RuleModal({
 
   return (
     <RuleConflictProvider
-      contested={contestedChunks}
+      // A new draft can't overwrite anyone, so there is nothing to resolve —
+      // this also empties the inline callouts rendered from context.
+      contested={draftMode === "new" ? [] : contestedChunks}
       resolutions={conflictResolutions}
       resolve={resolveConflict}
       format={formatConflictValue}
