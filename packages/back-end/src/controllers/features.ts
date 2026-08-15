@@ -46,7 +46,8 @@ import {
   assertSchemaMatchesValueType,
   getEffectiveRevisionHoldout,
   getRevertTargetHoldout,
-  threeWayMergeRule,
+  featureRuleMergeConfig,
+  resolveDraftEdit,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -88,6 +89,7 @@ import {
   RevisionLog,
 } from "shared/types/feature-revision";
 import { Changeset, ExperimentInterface } from "shared/types/experiment";
+import { DraftConflict } from "shared/types/draft-conflict";
 import {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
@@ -4121,13 +4123,24 @@ export async function putRevisionTitle(
 }
 
 export async function postFeatureDefaultValue(
-  req: AuthRequest<{ defaultValue: string }, { id: string; version: string }>,
-  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
+  req: AuthRequest<
+    { defaultValue: string; baseline?: { defaultValue: string } },
+    { id: string; version: string }
+  >,
+  res: Response<
+    | { status: 200; version: number }
+    | {
+        status: 409;
+        message: string;
+        conflict: DraftConflict<{ defaultValue: string }>;
+      },
+    EventUserForResponseLocals
+  >,
 ) {
   const context = getContextFromReq(req);
   const { environments, org } = context;
   const { id, version } = req.params;
-  const { defaultValue } = req.body;
+  const { defaultValue, baseline } = req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -4139,6 +4152,24 @@ export async function postFeatureDefaultValue(
   }
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
+
+  const resolution = resolveDraftEdit<{ defaultValue: string }>({
+    entityId: feature.id,
+    baseline,
+    current: { defaultValue: revision.defaultValue },
+    incoming: { defaultValue },
+    liveVersion: feature.version,
+    draftVersion: revision.version,
+  });
+  if (!resolution.ok) {
+    return res.status(409).json({
+      status: 409,
+      message:
+        "The default value was changed by someone else after you loaded it. Review their version before saving.",
+      conflict: resolution.conflict,
+    });
+  }
+
   const resetReview = resetReviewOnChange({
     feature,
     changedEnvironments: environments,
@@ -4149,7 +4180,7 @@ export async function postFeatureDefaultValue(
     context,
     feature,
     revision,
-    defaultValue,
+    resolution.merged.defaultValue,
     res.locals.eventAudit,
     resetReview,
   );
@@ -4400,17 +4431,6 @@ export async function putSafeRolloutStatus(
   });
 }
 
-function rulesMatchBaseline(
-  baselineRule: FeatureRule,
-  currentRule: FeatureRule | null,
-): boolean {
-  if (!currentRule) return false;
-  return isEqual(
-    JSON.parse(JSON.stringify(baselineRule)),
-    JSON.parse(JSON.stringify(currentRule)),
-  );
-}
-
 export async function putFeatureRule(
   req: AuthRequest<PutFeatureRuleBody, { id: string; version: string }>,
   res: Response<
@@ -4519,45 +4539,27 @@ export async function putFeatureRule(
   let autoMergedTheirFields: string[] = [];
   if (baseline) {
     const liveRule = (feature.rules ?? []).find((r) => r.id === ruleId) ?? null;
-    const currentRule = revision
-      ? ((revision.rules ?? []).find((r) => r.id === ruleId) ?? liveRule)
-      : liveRule;
-    if (!rulesMatchBaseline(baseline.rule, currentRule)) {
-      const merge = currentRule
-        ? threeWayMergeRule(baseline.rule, currentRule, rule as FeatureRule)
-        : null;
-      if (
-        merge &&
-        merge.merged &&
-        !merge.wholeRule &&
-        merge.contested.length === 0
-      ) {
-        effectiveRule = merge.merged;
-        autoMergedTheirFields = merge.theirFields;
-      } else {
-        return res.status(409).json({
-          status: 409,
-          message:
-            "This rule was changed by someone else after you loaded it. Review their version before saving.",
-          conflict: {
-            entityId: ruleId,
-            current: currentRule,
-            liveVersion: feature.version,
-            ...(revision ? { draftVersion: revision.version } : {}),
-            ...(merge
-              ? {
-                  merge: {
-                    contested: merge.contested,
-                    theirFields: merge.theirFields,
-                    yourFields: merge.yourFields,
-                    ...(merge.wholeRule ? { wholeEntity: true } : {}),
-                  },
-                }
-              : {}),
-          },
-        });
-      }
+    const resolution = resolveDraftEdit<FeatureRule>({
+      entityId: ruleId,
+      baseline: baseline.rule,
+      current: revision
+        ? ((revision.rules ?? []).find((r) => r.id === ruleId) ?? liveRule)
+        : liveRule,
+      incoming: rule as FeatureRule,
+      liveVersion: feature.version,
+      draftVersion: revision?.version,
+      config: featureRuleMergeConfig(rule as FeatureRule),
+    });
+    if (!resolution.ok) {
+      return res.status(409).json({
+        status: 409,
+        message:
+          "This rule was changed by someone else after you loaded it. Review their version before saving.",
+        conflict: resolution.conflict,
+      });
     }
+    effectiveRule = resolution.merged;
+    autoMergedTheirFields = resolution.theirFields;
   }
 
   if (!revision) {

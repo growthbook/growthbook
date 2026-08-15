@@ -44,7 +44,11 @@ import {
   expandNestedSavedGroups,
   EXTENDS_KEY,
 } from "../sdk-versioning";
-import { threeWayMerge, ThreeWayMergeResult } from "./threeWayMerge";
+import {
+  threeWayMerge,
+  ThreeWayMergeConfig,
+  ThreeWayMergeResult,
+} from "./threeWayMerge";
 import { formatJsonMultilineObjects } from "./format-json";
 import { stemRuleId } from "./ruleId";
 import {
@@ -1682,17 +1686,15 @@ function ruleTypeFamily(type: string | undefined): string {
 
 export type RuleMergeResult = ThreeWayMergeResult<FeatureRule>;
 
-export function threeWayMergeRule(
-  base: FeatureRule,
-  theirs: FeatureRule,
+export function featureRuleMergeConfig(
   yours: FeatureRule,
-): RuleMergeResult {
+): ThreeWayMergeConfig<FeatureRule> {
+  // Type follows coverage here, so resolve coverage and derive it.
   const derivesTypeFromCoverage =
     ruleTypeFamily(yours.type) === "force-rollout";
-  return threeWayMerge<FeatureRule>(base, theirs, yours, {
+  return {
     chunks: RULE_MERGE_CHUNKS,
     family: (r) => ruleTypeFamily(r.type),
-    // Type follows coverage here, so resolve coverage and derive it.
     ignoreFields: () => (derivesTypeFromCoverage ? ["id", "type"] : ["id"]),
     derive: derivesTypeFromCoverage
       ? (merged) => {
@@ -1701,7 +1703,20 @@ export function threeWayMergeRule(
             typeof coverage === "number" && coverage < 1 ? "rollout" : "force";
         }
       : undefined,
-  });
+  };
+}
+
+export function threeWayMergeRule(
+  base: FeatureRule,
+  theirs: FeatureRule,
+  yours: FeatureRule,
+): RuleMergeResult {
+  return threeWayMerge<FeatureRule>(
+    base,
+    theirs,
+    yours,
+    featureRuleMergeConfig(yours),
+  );
 }
 
 function mergeRulesGranular(
