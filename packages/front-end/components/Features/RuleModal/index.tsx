@@ -1861,7 +1861,9 @@ export default function RuleModal({
   // a compact summary row — the drill-down lives below the selector instead
   // (see conflictDetails).
   const conflictAlert = conflict ? (
-    <HelperText status="warning">
+    // Icon-less: the selector's summary line switches to the warning icon, so
+    // a second one here would just stack.
+    <HelperText status="warning" icon={null}>
       {!conflict.currentRule
         ? "This rule was removed while you had it open. Saving re-adds it."
         : draftMode === "new"

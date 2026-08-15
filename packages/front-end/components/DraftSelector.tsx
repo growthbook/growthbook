@@ -186,7 +186,9 @@ export default function DraftSelector({
       className={`draft-selector-collapsible-trigger${singleOption ? " no-hover" : ""}${hasAlert ? " has-conflict" : ""}`}
     >
       <Box style={{ flex: 1, minWidth: 0 }}>
-        <HelperText status="info">
+        {/* One icon for the whole widget: in a warning state the summary line
+            carries it, and the alert below renders icon-less. */}
+        <HelperText status={hasAlert ? "warning" : "info"}>
           <div
             className="ml-1"
             style={{
