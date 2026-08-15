@@ -201,8 +201,7 @@ export default function DraftSelector({
           </div>
         </HelperText>
         {alert && (
-          // Interactive bits inside the alert must not toggle the collapse.
-          <Box mt="1" className="ml-1" onClick={(e) => e.stopPropagation()}>
+          <Box mt="1" className="ml-1">
             {alert}
           </Box>
         )}
