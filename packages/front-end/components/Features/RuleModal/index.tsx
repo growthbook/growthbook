@@ -1877,8 +1877,8 @@ export default function RuleModal({
                 ),
               ]),
             )}
-            leftTitle="Their version (saved)"
-            rightTitle="Your version (what you'd save)"
+            leftTitle="Modified version"
+            rightTitle="My version"
           />
         </Box>
       )}
