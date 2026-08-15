@@ -304,7 +304,12 @@ export default function RuleModal({
     () => (rule ? cloneDeep(rule) : undefined),
   );
   const [conflict, setConflict] = useState<
-    | (PutFeatureRuleConflict & { baseAtConflict: FeatureRule | undefined })
+    | (PutFeatureRuleConflict & {
+        baseAtConflict: FeatureRule | undefined;
+        // What you submitted, so "You set …" stays put when a resolution
+        // overwrites the form.
+        attempted: FeatureRule | undefined;
+      })
     | null
   >(null);
   const [showConflictDetails, setShowConflictDetails] = useState(false);
@@ -325,6 +330,7 @@ export default function RuleModal({
         rule,
       ),
       baseAtConflict: rule,
+      attempted: rule,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1707,7 +1713,11 @@ export default function RuleModal({
               if (responseData?.status === 409 && responseData?.conflict) {
                 conflictSignaledRef.current = true;
                 const payload = responseData.conflict as PutFeatureRuleConflict;
-                setConflict({ ...payload, baseAtConflict: baselineRule });
+                setConflict({
+                  ...payload,
+                  baseAtConflict: baselineRule,
+                  attempted: values as unknown as FeatureRule,
+                });
                 setConflictResolutions(new Map());
                 myConflictValuesRef.current = new Map();
                 // The form is the merge preview: their non-conflicting
@@ -1944,10 +1954,10 @@ export default function RuleModal({
       fmtChunkValue(
         side === "theirs"
           ? (conflict?.currentRule ?? null)
-          : (form.getValues() as unknown as FeatureRule),
+          : (conflict?.attempted ?? null),
         chunk.fields,
       ),
-    [conflict, form],
+    [conflict],
   );
 
   const conflictCallouts = conflict ? (
