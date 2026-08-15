@@ -1998,12 +1998,12 @@ export default function RuleModal({
         contestedChunks
           .filter((c) => !claimedConflictKeys.has(c.key))
           .map((chunk) => (
-            <Callout status="warning" mb="3" key={chunk.key}>
+            <Callout status="warning" size="sm" mb="3" key={chunk.key}>
               <ConflictChoice chunk={chunk} />
             </Callout>
           ))
       ) : (
-        <Callout status="warning" mb="3">
+        <Callout status="warning" size="sm" mb="3">
           <Flex align="center" gap="3" wrap="wrap">
             <Text>
               {conflict.currentRule
