@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiCaretRightBold } from "react-icons/pi";
@@ -73,6 +73,14 @@ export default function DraftSelector({
   alert?: ReactNode;
 }) {
   const [isOpen, setIsOpen] = useState(defaultExpanded ?? false);
+
+  // An arriving alert opens the selector so the save-target options are
+  // visible, but doesn't pin it open — the user can still collapse it.
+  // Keyed off a boolean, since `alert` is a node with a new identity each render.
+  const hasAlert = !!alert;
+  useEffect(() => {
+    if (hasAlert) setIsOpen(true);
+  }, [hasAlert]);
 
   const newOptionLabel = metadataOnly
     ? "Add to a new revision"
@@ -228,9 +236,9 @@ export default function DraftSelector({
         trigger={trigger}
         transitionTime={75}
         contentInnerClassName="draft-selector-collapsible-content"
-        open={isOpen || !!alert}
+        open={isOpen}
         handleTriggerClick={() => {
-          if (!singleOption && !alert) setIsOpen((v) => !v);
+          if (!singleOption) setIsOpen((v) => !v);
         }}
       >
         <Box px="3" py="3" style={{ backgroundColor: "var(--violet-a3)" }}>
