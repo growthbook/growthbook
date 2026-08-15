@@ -218,8 +218,7 @@ function fmtTheirValue(v: unknown): string {
   return s;
 }
 
-// Projects form values onto the stored rule's keys (and key order), so
-// editor-only fields don't show up as diff noise.
+// Drops editor-only form fields, which would otherwise be diff noise.
 function formRuleForDiff(
   values: Record<string, unknown>,
   reference: Array<FeatureRule | null | undefined>,
@@ -291,18 +290,15 @@ export default function RuleModal({
   // without an extra round-trip. The back-end preserves a truthy id sent by the client.
   const [pregenRuleId] = useState(() => uniqId("fr_"));
 
-  // Pinned at open: `feature` is reactive, so a publish elsewhere would
-  // otherwise retarget the save under the user.
+  // Pinned at open; `feature` is reactive and would retarget the save.
   const [pinnedFeatureVersion] = useState(() => feature.version);
-  // Rebased once a conflict is surfaced, so the next save is an informed one.
   const [baselineRule, setBaselineRule] = useState<FeatureRule | undefined>(
     () => (rule ? cloneDeep(rule) : undefined),
   );
   const [conflict, setConflict] = useState<
     | (PutFeatureRuleConflict & {
         baseAtConflict: FeatureRule | undefined;
-        // What you submitted, so "You set …" stays put when a resolution
-        // overwrites the form.
+        // Frozen, so "You set …" survives a resolution overwriting the form.
         attempted: FeatureRule | undefined;
       })
     | null
@@ -311,11 +307,10 @@ export default function RuleModal({
   const [conflictResolutions, setConflictResolutions] = useState<
     Map<string, "mine" | "theirs">
   >(new Map());
-  // Lets "Keep mine" undo a "Use theirs" that already overwrote the form.
+  // Lets "Keep mine" undo a "Use theirs" that overwrote the form.
   const myConflictValuesRef = useRef<Map<string, Record<string, unknown>>>(
     new Map(),
   );
-  // Chunks a field is rendering inline; the rest fall back to callouts above.
   const [claimedConflictKeys, setClaimedConflictKeys] = useState<Set<string>>(
     new Set(),
   );
@@ -330,7 +325,6 @@ export default function RuleModal({
       return next;
     });
   }, []);
-  // Lets the submit catch suppress the Modal's own error text on a 409.
   const conflictSignaledRef = useRef(false);
 
   // Find any existing ramp schedule that already targets this specific rule.
@@ -768,8 +762,6 @@ export default function RuleModal({
     return !isCyclic && !prerequisiteTargetingSdkIssues && !monitoringError;
   }, [isCyclic, prerequisiteTargetingSdkIssues, monitoringError]);
 
-  // Saving into the conflicted target is blocked until every chunk is acked;
-  // switching to a new draft can't overwrite anyone, so it needs no acks.
   const contestedKeys: string[] = conflict
     ? conflict.merge && !conflict.merge.wholeRule && conflict.currentRule
       ? conflict.merge.contested.map((c) => c.key)
@@ -1696,8 +1688,7 @@ export default function RuleModal({
                 });
                 setConflictResolutions(new Map());
                 myConflictValuesRef.current = new Map();
-                // The form is the merge preview: their non-conflicting
-                // changes land in it, contested fields keep yours.
+                // The form is the merge preview.
                 if (
                   payload.merge &&
                   !payload.merge.wholeRule &&
@@ -1831,8 +1822,7 @@ export default function RuleModal({
         error: e.message,
       });
       forceConditionRender();
-      // A conflict renders its own banner; an empty message keeps the Modal's
-      // error display from duplicating it.
+      // Empty message: the conflict renders its own banner.
       if (conflictSignaledRef.current) {
         conflictSignaledRef.current = false;
         throw new Error("");
@@ -1855,7 +1845,6 @@ export default function RuleModal({
 
   const conflictDetails =
     conflict && conflict.currentRule ? (
-      // Pulled up through the selector's own bottom margin.
       <Box mt="-4" mb="3">
         <Button
           variant="ghost"
@@ -2188,7 +2177,6 @@ export default function RuleModal({
     ? environments.map((e) => e.id)
     : selectedEnvironments;
 
-  // In a variable so the provider wrapper doesn't reindent the whole tree.
   const modalContent = (
     <FormProvider {...form}>
       <PagedModal
@@ -2495,8 +2483,7 @@ export default function RuleModal({
 
   return (
     <RuleConflictProvider
-      // A new draft can't overwrite anyone, so there is nothing to resolve —
-      // this also empties the inline callouts rendered from context.
+      // A new draft can't overwrite anyone, so nothing needs resolving.
       contested={draftMode === "new" ? [] : contestedChunks}
       resolutions={conflictResolutions}
       resolve={resolveConflict}

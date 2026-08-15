@@ -49,7 +49,6 @@ export default function DraftSelectorForChanges<K>({
   capNoun?: string;
   /** Active drafts this flow may write to. */
   writableDraftKeys?: K[];
-  /** Conflict/alert banner rendered inside the selector (see DraftSelector). */
   alert?: ReactNode;
   alertActive?: boolean;
 }) {

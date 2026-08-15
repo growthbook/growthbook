@@ -1667,19 +1667,13 @@ function revisionHasMetadataOnlyGlobalChange(
 //
 // Returns the conflicts found (resolved or not) and the merged array — or
 // `merged: null` while any rule-level conflict remains unresolved.
-// Field chunks that must merge as a unit because their members are mutually
-// exclusive — merging them independently can produce a self-contradictory
-// rule (e.g. allEnvironments: true alongside a scoped environments list).
+// Mutually-exclusive pairs; merged independently they can contradict.
 const RULE_MERGE_CHUNKS: string[][] = [
   ["environments", "allEnvironments"],
   ["projects", "allProjects"],
 ];
 
-// force<->rollout share a field vocabulary (a rollout is a force rule with
-// coverage), so a type flip within the family merges like any field change.
-// Every other type is its own family: cross-family flips swap the field set
-// entirely, so edits from the other side lose their meaning — whole-rule
-// conflict.
+// force/rollout share a field vocabulary; other types each stand alone.
 function ruleTypeFamily(type: string | undefined): string {
   return type === "force" || type === "rollout"
     ? "force-rollout"
@@ -1687,15 +1681,10 @@ function ruleTypeFamily(type: string | undefined): string {
 }
 
 export type RuleMergeResult = {
-  // The auto-merged rule. Null when the merge is not applicable (wholeRule).
   merged: FeatureRule | null;
-  // Chunks both sides changed differently — need a human. Each entry lists
-  // the concrete fields in the chunk (singletons for unchunked fields).
   contested: Array<{ key: string; fields: string[] }>;
-  // Fields auto-taken from theirs / auto-kept from yours (flattened).
   theirFields: string[];
   yourFields: string[];
-  // Structural change (cross-family type flip) — field merge not attempted.
   wholeRule: boolean;
 };
 
@@ -1731,10 +1720,7 @@ export function threeWayMergeRule(
     for (const f of chunk) chunkOf.set(f, chunk);
   }
 
-  // Within the force/rollout family the type is a function of coverage
-  // (coverage < 1 is a rollout, otherwise a force) — the editor derives it that
-  // way too. So never contest `type` here: resolve `coverage`, which has a real
-  // control behind it, and recompute the type from the merged value below.
+  // Type follows coverage here, so resolve coverage and derive it.
   const derivesTypeFromCoverage =
     ruleTypeFamily(yours.type) === "force-rollout";
 
@@ -1742,7 +1728,6 @@ export function threeWayMergeRule(
     ...new Set([...Object.keys(b), ...Object.keys(t), ...Object.keys(y)]),
   ].filter((f) => f !== "id" && !(derivesTypeFromCoverage && f === "type"));
 
-  // Group fields into chunk units, preserving first-seen order.
   const units: Array<{ key: string; fields: string[] }> = [];
   const seen = new Set<string>();
   for (const f of allFields) {
@@ -1754,10 +1739,7 @@ export function threeWayMergeRule(
     units.push({ key: fields[0], fields });
   }
 
-  // Canonicalize values before comparing so form-serialization artifacts
-  // don't register as edits: an empty array is equivalent to the key being
-  // absent (environments, projects, savedGroups, scheduleRules, ...), and
-  // undefined stringifies to null either way.
+  // An empty array and an absent key mean the same thing to the editor.
   const canon = (v: unknown) =>
     Array.isArray(v) && v.length === 0 ? null : (v ?? null);
   const pick = (obj: Record<string, unknown>, fields: string[]) =>
@@ -1771,15 +1753,12 @@ export function threeWayMergeRule(
     const theirsChanged = tv !== bv;
     const yoursChanged = yv !== bv;
 
-    // An omitted field can't be expressed on the wire, so a choice would be a
-    // no-op — their value survives the write either way.
+    // An omitted field can't be expressed on the wire, so a choice is a no-op.
     const yoursOmitted = unit.fields.every((f) => y[f] === undefined);
 
     if (theirsChanged && yoursChanged && tv !== yv && !yoursOmitted) {
       result.contested.push(unit);
     } else if (theirsChanged && (!yoursChanged || yoursOmitted)) {
-      // Take theirs: copy each field, deleting fields theirs omits so
-      // exclusion chunks stay coherent (e.g. allEnvironments drops the list).
       const merged = result.merged as unknown as Record<string, unknown>;
       for (const f of unit.fields) {
         if (f in t) merged[f] = t[f];

@@ -67,16 +67,13 @@ export default function DraftSelector({
   newDraftDisabledReason?: ReactNode;
   /** Flag "add to existing draft" as the recommended choice (soft cap reached). */
   recommendExisting?: boolean;
-  /** Single-line warning shown in the trigger. */
   alert?: ReactNode;
-  /** Whether that warning still applies to the selected target. When false the
-   *  control keeps its normal styling and only the warning line reads amber. */
+  /** When false, the warning shows but the control keeps its normal styling. */
   alertActive?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(defaultExpanded ?? false);
 
   const hasAlert = !!alert;
-  // Recolor only while the warning applies to the chosen target.
   const showsConflict = hasAlert && alertActive;
 
   const newOptionLabel = metadataOnly

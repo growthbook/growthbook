@@ -28,8 +28,7 @@ type RuleConflictContextValue = {
   resolutions: Map<string, ConflictResolution>;
   resolve: (chunk: ContestedChunk, choice: ConflictResolution) => void;
   format: (chunk: ContestedChunk, side: ConflictResolution) => string;
-  // Chunks a field is rendering inline; registered during layout so the
-  // modal's fallback settles before paint.
+  // Chunks a field renders inline; the rest fall back to the modal's callouts.
   claimed: Set<string>;
   claim: (key: string) => void;
   release: (key: string) => void;
@@ -78,7 +77,6 @@ export function useContestedChunk(field: string): ContestedChunk | undefined {
   return ctx?.contested.find((c) => c.fields.includes(field));
 }
 
-// A toggle pair, not a one-way door: either choice can be switched afterwards.
 function ConflictButtons({ chunk }: { chunk: ContestedChunk }) {
   const ctx = useRuleConflict();
   if (!ctx) return null;
@@ -128,10 +126,8 @@ export function ConflictMessage({
   );
 }
 
-// One row for both placements: icon, message, and the choice buttons, all
-// vertically centered until the row wraps. Rendered as children rather than
-// via Callout's icon/action slots, which pin themselves to a single text line
-// and so sit off-center against taller buttons.
+// Not Callout's icon/action slots: they pin to one text line, off-center
+// against taller buttons.
 export function ConflictCalloutRow({
   chunk,
   showMine = false,
@@ -139,9 +135,7 @@ export function ConflictCalloutRow({
 }: {
   chunk: ContestedChunk;
   showMine?: boolean;
-  // Keeps the row on screen after a choice, as a toggle that can be switched.
-  // Inline rows instead apply the value and disappear — the field itself now
-  // shows the outcome.
+  // Keeps the row after a choice; inline rows apply the value and disappear.
   stateful?: boolean;
 }) {
   const ctx = useRuleConflict();
@@ -168,9 +162,7 @@ export function ConflictCalloutRow({
   );
 }
 
-// Drop under a form control to render that field's conflict in place. Inert
-// when the field isn't contested; unclaimed chunks fall back to the callouts
-// the modal renders above the form.
+// Drop under a form control to render that field's conflict in place.
 export default function RuleConflictCallout({ field }: { field: string }) {
   const ctx = useRuleConflict();
   const chunk = useContestedChunk(field);

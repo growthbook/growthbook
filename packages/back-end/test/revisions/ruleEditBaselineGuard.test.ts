@@ -350,7 +350,7 @@ describe("putFeatureRule baseline guard", () => {
   it("takes theirs without contesting when your side omits the field", async () => {
     const sparseBase = { ...baseRule, sparse: true } as unknown as FeatureRule;
     const theirEdit = { ...sparseBase, sparse: false } as FeatureRule;
-    const myEdit = { ...baseRule, value: "false" } as FeatureRule; // no `sparse`
+    const myEdit = { ...baseRule, value: "false" } as FeatureRule;
     await seed({
       liveRules: [sparseBase],
       liveVersion: 1,

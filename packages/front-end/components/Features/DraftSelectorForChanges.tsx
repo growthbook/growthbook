@@ -65,7 +65,6 @@ export default function DraftSelectorForChanges({
   allowNewDraftAtCap?: boolean;
   /** Only drafts this flow may WRITE into; omit when every active draft is fine. */
   canWriteIntoDraft?: (revision: MinimalFeatureRevisionInterface) => boolean;
-  /** Conflict/alert banner rendered inside the selector (see DraftSelector). */
   alert?: React.ReactNode;
   alertActive?: boolean;
 }) {

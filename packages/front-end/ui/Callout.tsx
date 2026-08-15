@@ -32,7 +32,7 @@ export default forwardRef<
     children: ReactNode;
     status: Status;
     size?: Size;
-    /** Drops the tinted fill (keeping the layout), for resolved or de-emphasized states. */
+    /** Drops the tinted fill, keeping the layout. */
     transparent?: boolean;
     icon?: ReactNode | null;
     action?: ReactNode;

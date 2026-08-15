@@ -4400,7 +4400,6 @@ export async function putSafeRolloutStatus(
   });
 }
 
-// JSON round-trip both sides: one arrived as JSON, the other from Mongo.
 function rulesMatchBaseline(
   baselineRule: FeatureRule,
   currentRule: FeatureRule | null,
@@ -4496,9 +4495,7 @@ export async function putFeatureRule(
     }
   }
 
-  // The client pins the version when the editor opens, so it may no longer be
-  // live. With a baseline we can re-anchor safely; without one (legacy
-  // clients), behavior is unchanged.
+  // The pinned version may no longer be live; a baseline lets us re-anchor.
   const requestedVersion = parseInt(version);
   let revision: FeatureRevisionInterface | null = null;
   if (requestedVersion !== feature.version) {
@@ -4565,7 +4562,6 @@ export async function putFeatureRule(
   }
 
   if (!revision) {
-    // Fork off the CURRENT live version, not the pinned one.
     revision = await getDraftRevision(context, feature, feature.version);
   }
 

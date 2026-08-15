@@ -76,12 +76,10 @@ export type PostFeatureRuleBody = {
   rampSchedule?: InlineRampScheduleCreate | InlineRampScheduleDetach;
 };
 
-// Returned with a 409 when the baseline check fails.
 export type PutFeatureRuleConflict = {
   ruleId: string;
   currentRule: FeatureRule | null;
   liveVersion: number;
-  // Set when the conflict is against a draft rather than live.
   draftVersion?: number;
   merge?: {
     contested: Array<{ key: string; fields: string[] }>;
@@ -96,7 +94,7 @@ export type PutFeatureRuleBody = {
   // Stable rule locator. Every rule in v2 has an id (assigned at creation
   // or via JIT migration on read), so app callers always send this.
   ruleId: string;
-  // The rule as the client loaded it; a save is rejected if it has since changed.
+  // Rejects the save if the rule changed since the client loaded it.
   baseline?: {
     rule: FeatureRule;
   };
