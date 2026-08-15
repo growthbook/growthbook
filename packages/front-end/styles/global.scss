@@ -1515,6 +1515,17 @@ main.main {
   &.no-hover:hover {
     background-color: var(--violet-a3);
   }
+  // An unresolved conflict recolors the whole control, so the warning reads as
+  // a property of the save target rather than of one option inside it.
+  &.has-conflict {
+    background-color: var(--amber-a3);
+    &:hover {
+      background-color: var(--amber-a4);
+    }
+    &.no-hover:hover {
+      background-color: var(--amber-a3);
+    }
+  }
 }
 
 .draft-selector-collapsible-content {

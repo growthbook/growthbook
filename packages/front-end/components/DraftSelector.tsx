@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiCaretRightBold } from "react-icons/pi";
@@ -66,21 +66,14 @@ export default function DraftSelector({
   newDraftDisabledReason?: ReactNode;
   /** Flag "add to existing draft" as the recommended choice (soft cap reached). */
   recommendExisting?: boolean;
-  /** Single-line warning (HelperText) rendered inside the selected target
-   *  option — the conflict is a property of the save target, and switching
-   *  targets is itself a remedy. While present the selector is held open so
-   *  the options are visible. */
+  /** Single-line warning rendered in the trigger, under the target summary —
+   *  the conflict is a property of the save target as a whole, and switching
+   *  targets is itself a remedy. Its presence also recolors the control amber. */
   alert?: ReactNode;
 }) {
   const [isOpen, setIsOpen] = useState(defaultExpanded ?? false);
 
-  // An arriving alert opens the selector so the save-target options are
-  // visible, but doesn't pin it open — the user can still collapse it.
-  // Keyed off a boolean, since `alert` is a node with a new identity each render.
   const hasAlert = !!alert;
-  useEffect(() => {
-    if (hasAlert) setIsOpen(true);
-  }, [hasAlert]);
 
   const newOptionLabel = metadataOnly
     ? "Add to a new revision"
@@ -117,21 +110,18 @@ export default function DraftSelector({
       </>
     );
 
-  const alertInsideExisting = mode === "existing" ? alert : null;
-  const existingDraftDisclosure =
-    revisionDropdown || alertInsideExisting ? (
-      <Flex
-        direction="column"
-        gap="2"
-        pl="5"
-        pb="1"
-        mb="2"
-        style={{ width: "100%" }}
-      >
-        {revisionDropdown}
-        {alertInsideExisting}
-      </Flex>
-    ) : null;
+  const existingDraftDisclosure = revisionDropdown ? (
+    <Flex
+      direction="column"
+      gap="2"
+      pl="5"
+      pb="1"
+      mb="2"
+      style={{ width: "100%" }}
+    >
+      {revisionDropdown}
+    </Flex>
+  ) : null;
 
   const options = [
     ...(hasActiveDrafts && canDraft
@@ -190,9 +180,9 @@ export default function DraftSelector({
         cursor: singleOption ? "default" : "pointer",
         userSelect: "none",
       }}
-      className={`draft-selector-collapsible-trigger${singleOption ? " no-hover" : ""}`}
+      className={`draft-selector-collapsible-trigger${singleOption ? " no-hover" : ""}${hasAlert ? " has-conflict" : ""}`}
     >
-      <Box style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+      <Box style={{ flex: 1, minWidth: 0 }}>
         <HelperText status="info">
           <div
             className="ml-1"
@@ -206,6 +196,12 @@ export default function DraftSelector({
             {triggerLabel}
           </div>
         </HelperText>
+        {alert && (
+          // Interactive bits inside the alert must not toggle the collapse.
+          <Box mt="1" onClick={(e) => e.stopPropagation()}>
+            {alert}
+          </Box>
+        )}
       </Box>
       {!singleOption && (
         <Button
@@ -241,10 +237,13 @@ export default function DraftSelector({
           if (!singleOption) setIsOpen((v) => !v);
         }}
       >
-        <Box px="3" py="3" style={{ backgroundColor: "var(--violet-a3)" }}>
-          {/* When the conflicted target isn't the selected option (or has no
-              disclosure area), surface the warning above the options. */}
-          {alert && mode !== "existing" && <Box mb="2">{alert}</Box>}
+        <Box
+          px="3"
+          py="3"
+          style={{
+            backgroundColor: hasAlert ? "var(--amber-a3)" : "var(--violet-a3)",
+          }}
+        >
           <RadioGroup
             options={options}
             value={mode}
