@@ -20,6 +20,8 @@ type ConflictContextValue = {
   resolutions: Map<string, ConflictResolution>;
   resolve: (chunk: ContestedChunk, choice: ConflictResolution) => void;
   format: (chunk: ContestedChunk, side: ConflictResolution) => string;
+  // Maps a chunk to the label its form control uses; falls back to the key.
+  labelFor?: (chunk: ContestedChunk) => string;
   // Chunks a field renders inline; the rest fall back to the modal's callouts.
   claimed: Set<string>;
   claim: (key: string) => void;
@@ -33,6 +35,7 @@ export function ConflictProvider({
   resolutions,
   resolve,
   format,
+  labelFor,
   claimed,
   claim,
   release,
@@ -44,11 +47,21 @@ export function ConflictProvider({
       resolutions,
       resolve,
       format,
+      labelFor,
       claimed,
       claim,
       release,
     }),
-    [contested, resolutions, resolve, format, claimed, claim, release],
+    [
+      contested,
+      resolutions,
+      resolve,
+      format,
+      labelFor,
+      claimed,
+      claim,
+      release,
+    ],
   );
 
   return (
@@ -103,7 +116,8 @@ export function ConflictMessage({
   if (!ctx) return null;
   return (
     <Text>
-      <Text weight="semibold">{chunk.key}</Text> was modified to{" "}
+      <Text weight="semibold">{ctx.labelFor?.(chunk) ?? chunk.key}</Text> was
+      modified to{" "}
       <code style={CONFLICT_VALUE_STYLE}>{ctx.format(chunk, "theirs")}</code>.
       {showMine ? (
         <>

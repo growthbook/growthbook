@@ -197,7 +197,7 @@ export default function DraftSelector({
           </div>
         </HelperText>
         {alert && (
-          <Box mt="1" className="ml-1">
+          <Box mt="1" ml="1">
             {alert}
           </Box>
         )}

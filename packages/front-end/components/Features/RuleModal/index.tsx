@@ -216,6 +216,24 @@ export type SafeRolloutRuleCreateFields = SafeRolloutRule & {
   sameSeed?: boolean;
 };
 
+const RULE_FIELD_LABELS: Record<string, string> = {
+  description: "Description",
+  environments: "Rule Environments",
+  projects: "Rule Projects",
+  value: "Value",
+  coverage: "Rollout Percentage",
+  hashAttribute: "Assignment Attribute",
+  seed: "Seed",
+  hashVersion: "Hashing",
+  savedGroups: "Saved Groups",
+  condition: "Attributes",
+  prerequisites: "Prerequisite Features",
+  scheduleRules: "Schedule",
+  enabled: "Enabled",
+  variations: "Variations",
+  experimentId: "Experiment",
+};
+
 export default function RuleModal({
   close,
   feature,
@@ -1892,6 +1910,12 @@ export default function RuleModal({
     [conflict, formValues, setFormField],
   );
 
+  // The labels the form controls use, so a conflict names what the user sees.
+  const conflictFieldLabel = useCallback(
+    (chunk: ContestedChunk) => RULE_FIELD_LABELS[chunk.key] ?? chunk.key,
+    [],
+  );
+
   const formatConflictValue = useCallback(
     (chunk: ContestedChunk, side: ConflictResolution) =>
       formatChunkValue(
@@ -2433,6 +2457,7 @@ export default function RuleModal({
       resolutions={conflictResolutions}
       resolve={resolveConflict}
       format={formatConflictValue}
+      labelFor={conflictFieldLabel}
       claimed={claimedConflictKeys}
       claim={claimConflictKey}
       release={releaseConflictKey}
