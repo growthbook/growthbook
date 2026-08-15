@@ -1731,9 +1731,16 @@ export function threeWayMergeRule(
     for (const f of chunk) chunkOf.set(f, chunk);
   }
 
+  // Within the force/rollout family the type is a function of coverage
+  // (coverage < 1 is a rollout, otherwise a force) — the editor derives it that
+  // way too. So never contest `type` here: resolve `coverage`, which has a real
+  // control behind it, and recompute the type from the merged value below.
+  const derivesTypeFromCoverage =
+    ruleTypeFamily(yours.type) === "force-rollout";
+
   const allFields = [
     ...new Set([...Object.keys(b), ...Object.keys(t), ...Object.keys(y)]),
-  ].filter((f) => f !== "id");
+  ].filter((f) => f !== "id" && !(derivesTypeFromCoverage && f === "type"));
 
   // Group fields into chunk units, preserving first-seen order.
   const units: Array<{ key: string; fields: string[] }> = [];
@@ -1779,6 +1786,14 @@ export function threeWayMergeRule(
       result.yourFields.push(...unit.fields.filter((f) => f in y || f in t));
     }
   }
+
+  if (derivesTypeFromCoverage && result.merged) {
+    const merged = result.merged as unknown as Record<string, unknown>;
+    const coverage = merged.coverage;
+    merged.type =
+      typeof coverage === "number" && coverage < 1 ? "rollout" : "force";
+  }
+
   return result;
 }
 

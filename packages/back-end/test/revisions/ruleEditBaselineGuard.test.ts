@@ -301,6 +301,69 @@ describe("putFeatureRule baseline guard", () => {
     ]);
   });
 
+  it("derives force/rollout type from the merged coverage instead of contesting it", async () => {
+    // They converted the force rule to a rollout; you edited the value. `type`
+    // must not surface as a conflict — it follows from coverage.
+    const theirEdit = {
+      ...baseRule,
+      type: "rollout",
+      coverage: 0.25,
+      hashAttribute: "id",
+    } as unknown as FeatureRule;
+    await seed({
+      liveRules: [baseRule],
+      liveVersion: 1,
+      drafts: [{ version: 2, rules: [theirEdit] }],
+    });
+    const { res, captured } = resSpy();
+    await putFeatureRule(
+      reqFor(2, {
+        rule: edited,
+        ruleId: baseRule.id,
+        baseline: { rule: baseRule },
+      }),
+      res,
+    );
+    expect(captured.body).toMatchObject({ status: 200 });
+    const draft = await storedRevision(2);
+    expect(draft?.rules?.[0]?.type).toBe("rollout");
+    expect(draft?.rules?.[0]?.coverage).toBe(0.25);
+    expect(draft?.rules?.[0]?.value).toBe("false");
+  });
+
+  it("recomputes the type back to force when the merged coverage is full", async () => {
+    const rolloutBase = {
+      ...baseRule,
+      type: "rollout",
+      coverage: 0.5,
+      hashAttribute: "id",
+    } as unknown as FeatureRule;
+    // They took it to full coverage; you edited the description.
+    const theirEdit = { ...rolloutBase, coverage: 1 } as FeatureRule;
+    const myEdit = {
+      ...rolloutBase,
+      description: "mine",
+    } as unknown as FeatureRule;
+    await seed({
+      liveRules: [rolloutBase],
+      liveVersion: 1,
+      drafts: [{ version: 2, rules: [theirEdit] }],
+    });
+    const { res, captured } = resSpy();
+    await putFeatureRule(
+      reqFor(2, {
+        rule: myEdit,
+        ruleId: baseRule.id,
+        baseline: { rule: rolloutBase },
+      }),
+      res,
+    );
+    expect(captured.body).toMatchObject({ status: 200 });
+    const draft = await storedRevision(2);
+    expect(draft?.rules?.[0]?.type).toBe("force");
+    expect(draft?.rules?.[0]?.description).toBe("mine");
+  });
+
   it("cross-family type change is a whole-rule conflict, no field merge", async () => {
     const theirEdit = {
       ...baseRule,
