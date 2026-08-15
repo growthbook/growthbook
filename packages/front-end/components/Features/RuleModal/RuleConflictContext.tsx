@@ -6,8 +6,9 @@ import {
   useMemo,
 } from "react";
 import { Flex } from "@radix-ui/themes";
+import { PiGitMerge } from "react-icons/pi";
 import Button from "@/ui/Button";
-import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 
 export type ContestedChunk = { key: string; fields: string[] };
@@ -73,26 +74,39 @@ export function useContestedChunk(field: string): ContestedChunk | undefined {
   return ctx?.contested.find((c) => c.fields.includes(field));
 }
 
-export function ConflictChoice({ chunk }: { chunk: ContestedChunk }) {
+export function ConflictChoice({
+  chunk,
+  // Inline under its own field, the field name and your own value are both
+  // already on screen — so only their value needs stating.
+  inline = false,
+}: {
+  chunk: ContestedChunk;
+  inline?: boolean;
+}) {
   const ctx = useRuleConflict();
   if (!ctx) return null;
   const resolution = ctx.resolutions.get(chunk.key);
   return (
     <Flex align="center" gap="2" wrap="wrap">
-      <Text weight="semibold">
-        {chunk.fields.length > 1 ? chunk.fields.join(" + ") : chunk.key}
-      </Text>
-      <Text>— you set</Text>
-      <code
-        style={{
-          background: "var(--color-surface)",
-          borderRadius: "var(--radius-1)",
-          padding: "1px 6px",
-        }}
-      >
-        {ctx.format(chunk, "mine")}
-      </code>
-      <Text>, they set</Text>
+      {!inline && (
+        <>
+          <Text weight="semibold">
+            {chunk.fields.length > 1 ? chunk.fields.join(" + ") : chunk.key}
+          </Text>
+          <Text>— you set</Text>
+          <code
+            style={{
+              background: "var(--color-surface)",
+              borderRadius: "var(--radius-1)",
+              padding: "1px 6px",
+            }}
+          >
+            {ctx.format(chunk, "mine")}
+          </code>
+          <Text>,</Text>
+        </>
+      )}
+      <Text>they set</Text>
       <code
         style={{
           background: "var(--color-surface)",
@@ -145,8 +159,8 @@ export default function RuleConflictCallout({ field }: { field: string }) {
 
   if (!ctx || !chunk) return null;
   return (
-    <Callout status="warning" mb="3">
-      <ConflictChoice chunk={chunk} />
-    </Callout>
+    <HelperText status="error" mt="2" mb="3" icon={<PiGitMerge size={15} />}>
+      <ConflictChoice chunk={chunk} inline />
+    </HelperText>
   );
 }
