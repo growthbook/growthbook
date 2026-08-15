@@ -128,14 +128,27 @@ export function ConflictMessage({
   );
 }
 
-// Fallback presentation, above the form: nothing nearby shows your value, so
-// this states both sides.
-export function ConflictChoice({ chunk }: { chunk: ContestedChunk }) {
+// One row for both placements: icon, message, and the choice buttons, all
+// vertically centered until the row wraps. Rendered as children rather than
+// via Callout's icon/action slots, which pin themselves to a single text line
+// and so sit off-center against taller buttons.
+export function ConflictCalloutRow({
+  chunk,
+  showMine = false,
+}: {
+  chunk: ContestedChunk;
+  showMine?: boolean;
+}) {
   return (
-    <Flex align="center" gap="3" wrap="wrap">
-      <ConflictMessage chunk={chunk} showMine />
-      <ConflictButtons chunk={chunk} />
-    </Flex>
+    <Callout status="warning" size="sm" icon={null} mb="3">
+      <Flex align="center" justify="between" gap="3" wrap="wrap" width="100%">
+        <Flex align="center" gap="2" style={{ minWidth: 0 }}>
+          <PiGitMerge size={13} style={{ flexShrink: 0 }} />
+          <ConflictMessage chunk={chunk} showMine={showMine} />
+        </Flex>
+        <ConflictButtons chunk={chunk} />
+      </Flex>
+    </Callout>
   );
 }
 
@@ -156,14 +169,5 @@ export default function RuleConflictCallout({ field }: { field: string }) {
   }, [key, claim, release]);
 
   if (!ctx || !chunk) return null;
-  return (
-    <Callout
-      status="warning"
-      size="sm"
-      icon={<PiGitMerge size={13} />}
-      action={<ConflictButtons chunk={chunk} />}
-    >
-      <ConflictMessage chunk={chunk} />
-    </Callout>
-  );
+  return <ConflictCalloutRow chunk={chunk} />;
 }

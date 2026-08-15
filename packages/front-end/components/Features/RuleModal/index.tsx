@@ -18,7 +18,7 @@ import {
   parsePlainJSONObject,
   stripDefaultsForSparse,
 } from "shared/util";
-import { PiCaretDown, PiCaretRight } from "react-icons/pi";
+import { PiCaretDown, PiCaretRight, PiGitMerge } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
@@ -74,7 +74,7 @@ import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import PagedModal from "@/components/Modal/PagedModal";
 import {
-  ConflictChoice,
+  ConflictCalloutRow,
   ConflictResolution,
   ContestedChunk,
   RuleConflictProvider,
@@ -1956,18 +1956,25 @@ export default function RuleModal({
         contestedChunks
           .filter((c) => !claimedConflictKeys.has(c.key))
           .map((chunk) => (
-            <Callout status="warning" size="sm" mb="3" key={chunk.key}>
-              <ConflictChoice chunk={chunk} />
-            </Callout>
+            <ConflictCalloutRow chunk={chunk} showMine key={chunk.key} />
           ))
       ) : (
-        <Callout status="warning" size="sm" mb="3">
-          <Flex align="center" gap="3" wrap="wrap">
-            <Text>
-              {conflict.currentRule
-                ? "Their version can't be merged with yours automatically. Saving replaces it with this form."
-                : "Saving will re-add this rule with what's in this form."}
-            </Text>
+        <Callout status="warning" size="sm" icon={null} mb="3">
+          <Flex
+            align="center"
+            justify="between"
+            gap="3"
+            wrap="wrap"
+            width="100%"
+          >
+            <Flex align="center" gap="2" style={{ minWidth: 0 }}>
+              <PiGitMerge size={13} style={{ flexShrink: 0 }} />
+              <Text>
+                {conflict.currentRule
+                  ? "Their version can't be merged with yours automatically. Saving replaces it with this form."
+                  : "Saving will re-add this rule with what's in this form."}
+              </Text>
+            </Flex>
             {conflictResolutions.has("__rule__") ? (
               <Text weight="semibold">✓ acknowledged</Text>
             ) : (
