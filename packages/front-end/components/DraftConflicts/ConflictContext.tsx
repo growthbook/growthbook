@@ -118,6 +118,34 @@ export function ConflictMessage({
 
 // Not Callout's icon/action slots: they pin to one text line, off-center
 // against taller buttons.
+function ConflictShell({
+  resolved,
+  message,
+  choices,
+}: {
+  resolved: boolean;
+  message: ReactNode;
+  choices: ReactNode;
+}) {
+  return (
+    <Callout
+      status="warning"
+      size="sm"
+      icon={null}
+      mb="3"
+      style={resolved ? { backgroundColor: "transparent" } : undefined}
+    >
+      <Flex align="center" gap="3" width="100%">
+        <Flex align="center" gap="2" style={{ minWidth: 0, flex: "1 1 auto" }}>
+          <PiGitMerge size={13} style={{ flexShrink: 0 }} />
+          {message}
+        </Flex>
+        <Flex style={{ flexShrink: 0 }}>{choices}</Flex>
+      </Flex>
+    </Callout>
+  );
+}
+
 export function ConflictCalloutRow({
   chunk,
   showMine = false,
@@ -132,23 +160,44 @@ export function ConflictCalloutRow({
   const resolved = !!ctx?.resolutions.get(chunk.key);
   if (resolved && !stateful) return null;
   return (
-    <Callout
-      status="warning"
-      size="sm"
-      icon={null}
-      mb="3"
-      style={resolved ? { backgroundColor: "transparent" } : undefined}
-    >
-      <Flex align="center" gap="3" width="100%">
-        <Flex align="center" gap="2" style={{ minWidth: 0, flex: "1 1 auto" }}>
-          <PiGitMerge size={13} style={{ flexShrink: 0 }} />
-          <ConflictMessage chunk={chunk} showMine={showMine} />
-        </Flex>
-        <Flex style={{ flexShrink: 0 }}>
-          <ConflictButtons chunk={chunk} />
-        </Flex>
-      </Flex>
-    </Callout>
+    <ConflictShell
+      resolved={resolved}
+      message={<ConflictMessage chunk={chunk} showMine={showMine} />}
+      choices={<ConflictButtons chunk={chunk} />}
+    />
+  );
+}
+
+/**
+ * For conflicts with no fields to resolve — the entity was restructured or
+ * deleted — where keeping your version is the only move.
+ */
+export function WholeConflictCallout({
+  chunkKey,
+  message,
+}: {
+  chunkKey: string;
+  message: ReactNode;
+}) {
+  const ctx = useConflict();
+  if (!ctx) return null;
+  const chunk = { key: chunkKey, fields: [] };
+  const resolved = !!ctx.resolutions.get(chunkKey);
+  return (
+    <ConflictShell
+      resolved={resolved}
+      message={<Text>{message}</Text>}
+      choices={
+        <Button
+          size="sm"
+          variant={resolved ? "solid" : "outline"}
+          icon={resolved ? <PiCheck /> : undefined}
+          onClick={() => ctx.resolve(chunk, "mine")}
+        >
+          Keep mine
+        </Button>
+      }
+    />
   );
 }
 

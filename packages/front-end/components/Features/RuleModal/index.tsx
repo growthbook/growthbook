@@ -18,7 +18,7 @@ import {
   parsePlainJSONObject,
   stripDefaultsForSparse,
 } from "shared/util";
-import { PiCaretDown, PiCaretRight, PiGitMerge } from "react-icons/pi";
+import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
@@ -75,6 +75,7 @@ import HelperText from "@/ui/HelperText";
 import PagedModal from "@/components/Modal/PagedModal";
 import {
   ConflictCalloutRow,
+  WholeConflictCallout,
   ConflictProvider,
   ConflictResolution,
   ContestedChunk,
@@ -1916,48 +1917,14 @@ export default function RuleModal({
             />
           ))
       ) : (
-        <Callout
-          status="warning"
-          size="sm"
-          icon={null}
-          mb="3"
-          style={
-            conflictResolutions.has("__rule__")
-              ? { backgroundColor: "transparent" }
-              : undefined
+        <WholeConflictCallout
+          chunkKey="__rule__"
+          message={
+            conflict.current
+              ? "This rule was restructured by someone else. Saving keeps your version."
+              : "This rule was deleted by someone else. Saving re-adds it."
           }
-        >
-          <Flex align="center" gap="3" width="100%">
-            <Flex
-              align="center"
-              gap="2"
-              style={{ minWidth: 0, flex: "1 1 auto" }}
-            >
-              <PiGitMerge size={13} style={{ flexShrink: 0 }} />
-              <Text>
-                {conflict.current
-                  ? "Their version can't be merged with yours automatically. Saving replaces it with this form."
-                  : "Saving will re-add this rule with what's in this form."}
-              </Text>
-            </Flex>
-            <Flex style={{ flexShrink: 0 }}>
-              {conflictResolutions.has("__rule__") ? (
-                <Text weight="semibold">✓ acknowledged</Text>
-              ) : (
-                <Button
-                  size="sm"
-                  onClick={() =>
-                    setConflictResolutions(
-                      (m) => new Map([...m, ["__rule__", "mine" as const]]),
-                    )
-                  }
-                >
-                  {conflict.current ? "Replace their version" : "Re-add it"}
-                </Button>
-              )}
-            </Flex>
-          </Flex>
-        </Callout>
+        />
       )}
     </>
   ) : null;
