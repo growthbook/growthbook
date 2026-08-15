@@ -2213,8 +2213,6 @@ export default function RuleModal({
               Next: Ramp-up{" "}
               <PiCaretRight className="position-relative" style={{ top: -1 }} />
             </>
-          ) : conflict && draftMode !== "new" ? (
-            "Save my version"
           ) : (
             "Save to Draft"
           )
