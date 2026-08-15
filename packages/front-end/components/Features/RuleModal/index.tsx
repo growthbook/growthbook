@@ -1871,7 +1871,9 @@ export default function RuleModal({
         ? "This rule was removed while you had it open. Saving re-adds it."
         : draftMode === "new"
           ? "This rule was modified while you were editing. Saving to a new draft keeps both versions."
-          : "This rule was modified while you were editing. Resolve the conflicts below, or save to a new draft."}
+          : conflictResolved
+            ? "This rule was modified while you were editing."
+            : "This rule was modified while you were editing. Resolve the conflicts below, or save to a new draft."}
     </HelperText>
   ) : undefined;
 
@@ -2272,7 +2274,7 @@ export default function RuleModal({
               canAutoPublish={false}
               gatedEnvSet={gatedEnvSet}
               alert={conflictAlert}
-              alertActive={draftMode !== "new"}
+              alertActive={!conflictResolved}
             />
             {draftMode !== "new" && conflictDetails}
             {draftMode !== "new" && conflictCallouts}
