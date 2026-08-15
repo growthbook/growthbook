@@ -1,11 +1,12 @@
+import isEqual from "lodash/isEqual";
 import { DraftConflict } from "shared/types/draft-conflict";
 import { threeWayMerge, ThreeWayMergeConfig } from "./threeWayMerge";
 
 // One arrived as JSON, the other from Mongo.
 function matchesBaseline<T extends object>(baseline: T, current: T): boolean {
-  return (
-    JSON.stringify(JSON.parse(JSON.stringify(baseline))) ===
-    JSON.stringify(JSON.parse(JSON.stringify(current)))
+  return isEqual(
+    JSON.parse(JSON.stringify(baseline)),
+    JSON.parse(JSON.stringify(current)),
   );
 }
 
@@ -13,11 +14,7 @@ export type DraftEditResolution<T> =
   | { ok: true; merged: T; theirFields: string[] }
   | { ok: false; conflict: DraftConflict<T> };
 
-/**
- * The optimistic-concurrency step every draft edit shares: unchanged since the
- * client loaded it, or a clean field merge, or a conflict for the user.
- * A missing baseline skips the guard, for callers that don't send one.
- */
+// A missing baseline skips the guard, for callers that don't send one.
 export function resolveDraftEdit<T extends object>({
   entityId,
   baseline,
@@ -42,7 +39,7 @@ export function resolveDraftEdit<T extends object>({
   const merge = current
     ? threeWayMerge<T>(baseline, current, incoming, config)
     : null;
-  if (merge?.merged && !merge.wholeRule && merge.contested.length === 0) {
+  if (merge?.merged && !merge.wholeEntity && merge.contested.length === 0) {
     return { ok: true, merged: merge.merged, theirFields: merge.theirFields };
   }
 
@@ -59,7 +56,7 @@ export function resolveDraftEdit<T extends object>({
               contested: merge.contested,
               theirFields: merge.theirFields,
               yourFields: merge.yourFields,
-              ...(merge.wholeRule ? { wholeEntity: true } : {}),
+              ...(merge.wholeEntity ? { wholeEntity: true } : {}),
             },
           }
         : {}),

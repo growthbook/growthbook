@@ -32,7 +32,7 @@ export default forwardRef<
     children: ReactNode;
     status: Status;
     size?: Size;
-    transparent?: boolean;
+    style?: React.CSSProperties;
     icon?: ReactNode | null;
     action?: ReactNode;
     role?: string;
@@ -43,7 +43,7 @@ export default forwardRef<
     children,
     status,
     size = "md",
-    transparent = false,
+    style,
     icon,
     action,
     dismissible = false,
@@ -92,7 +92,7 @@ export default forwardRef<
           display: "flex",
           position: "relative",
           "--callout-line-height": lineHeight,
-          ...(transparent ? { backgroundColor: "transparent" } : {}),
+          ...style,
         } as React.CSSProperties
       }
       variant="soft"

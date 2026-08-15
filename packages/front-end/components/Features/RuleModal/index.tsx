@@ -575,6 +575,24 @@ export default function RuleModal({
       rule.allEnvironments !== true &&
       existingRuleEnvList === undefined);
 
+  // react-hook-form can't type a dynamic field name against the rule union,
+  // so the cast lives here rather than at every call site.
+  const formValues = useCallback(
+    () => form.getValues() as unknown as Record<string, unknown>,
+    [form],
+  );
+  const setFormField = useCallback(
+    (field: string, value: unknown) =>
+      (
+        form.setValue as unknown as (
+          name: string,
+          value: unknown,
+          options: { shouldDirty: boolean },
+        ) => void
+      )(field, value, { shouldDirty: true }),
+    [form],
+  );
+
   const [scopeAllEnvs, setScopeAllEnvs] = useState<boolean>(() => {
     if (mode === "edit" || mode === "duplicate") return existingRuleScopeIsAll;
     // New rules: default to "All environments" only when no active env tab.
@@ -1667,10 +1685,7 @@ export default function RuleModal({
                     unknown
                   >;
                   for (const f of payload.merge.theirFields) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    form.setValue(f as any, cur[f] as any, {
-                      shouldDirty: true,
-                    });
+                    setFormField(f, cur[f]);
                   }
                 }
                 setBaselineRule(
@@ -1833,10 +1848,10 @@ export default function RuleModal({
               a={stringifyForRawDiff(normalizeFeatureRules([conflict.current]))}
               b={stringifyForRawDiff(
                 normalizeFeatureRules([
-                  projectFormValues(
-                    form.getValues() as unknown as Record<string, unknown>,
-                    [conflict.current, conflict.baseAtConflict],
-                  ) as unknown as FeatureRule,
+                  projectFormValues(formValues(), [
+                    conflict.current,
+                    conflict.baseAtConflict,
+                  ]) as unknown as FeatureRule,
                 ]),
               )}
               leftTitle="Modified version"
@@ -1854,7 +1869,8 @@ export default function RuleModal({
 
   const resolveConflict = useCallback(
     (chunk: ContestedChunk, choice: ConflictResolution) => {
-      const values = form.getValues() as unknown as Record<string, unknown>;
+      if (!conflict) return;
+      const values = formValues();
       const stash = myConflictValuesRef.current;
       if (choice === "theirs" && !stash.has(chunk.key)) {
         stash.set(
@@ -1864,17 +1880,15 @@ export default function RuleModal({
       }
       const source =
         choice === "theirs"
-          ? ((conflict?.current ?? {}) as unknown as Record<string, unknown>)
+          ? (conflict.current as unknown as Record<string, unknown> | null)
           : stash.get(chunk.key);
-      if (source) {
-        for (const f of chunk.fields) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          form.setValue(f as any, source[f] as any, { shouldDirty: true });
-        }
+      if (!source) return;
+      for (const f of chunk.fields) {
+        setFormField(f, source[f]);
       }
       setConflictResolutions((m) => new Map([...m, [chunk.key, choice]]));
     },
-    [conflict, form],
+    [conflict, formValues, setFormField],
   );
 
   const formatConflictValue = useCallback(
@@ -1907,7 +1921,11 @@ export default function RuleModal({
           size="sm"
           icon={null}
           mb="3"
-          transparent={conflictResolutions.has("__rule__")}
+          style={
+            conflictResolutions.has("__rule__")
+              ? { backgroundColor: "transparent" }
+              : undefined
+          }
         >
           <Flex align="center" gap="3" width="100%">
             <Flex

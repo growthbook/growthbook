@@ -5,7 +5,7 @@ export type ThreeWayMergeResult<T> = {
   contested: ContestedChunk[];
   theirFields: string[];
   yourFields: string[];
-  wholeRule: boolean;
+  wholeEntity: boolean;
 };
 
 export type ThreeWayMergeConfig<T> = {
@@ -30,10 +30,10 @@ export function threeWayMerge<T extends object>(
     contested: [],
     theirFields: [],
     yourFields: [],
-    wholeRule: false,
+    wholeEntity: false,
   };
   if (config.family && config.family(theirs) !== config.family(yours)) {
-    return { ...empty, wholeRule: true };
+    return { ...empty, wholeEntity: true };
   }
 
   const b = base as unknown as Record<string, unknown>;

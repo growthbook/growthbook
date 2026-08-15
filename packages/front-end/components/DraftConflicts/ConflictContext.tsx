@@ -137,7 +137,7 @@ export function ConflictCalloutRow({
       size="sm"
       icon={null}
       mb="3"
-      transparent={resolved}
+      style={resolved ? { backgroundColor: "transparent" } : undefined}
     >
       <Flex align="center" gap="3" width="100%">
         <Flex align="center" gap="2" style={{ minWidth: 0, flex: "1 1 auto" }}>
