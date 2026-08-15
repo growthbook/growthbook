@@ -4400,9 +4400,7 @@ export async function putSafeRolloutStatus(
   });
 }
 
-// The baseline arrived via JSON and the current rule came from Mongo, so
-// normalize both through a JSON round-trip (drops undefined keys, stringifies
-// dates) before comparing.
+// JSON round-trip both sides: one arrived as JSON, the other from Mongo.
 function rulesMatchBaseline(
   baselineRule: FeatureRule,
   currentRule: FeatureRule | null,
@@ -4498,12 +4496,9 @@ export async function putFeatureRule(
     }
   }
 
-  // Resolve the target revision. The URL version is pinned by the client when
-  // the editor opens, so it may no longer be live (someone published) or the
-  // draft it named may have been published/discarded. With a baseline present
-  // we can handle that safely: conflict-check the rule and, if it hasn't
-  // actually changed, re-anchor to the current live. Without a baseline
-  // (legacy clients), keep the old behavior exactly.
+  // The client pins the version when the editor opens, so it may no longer be
+  // live. With a baseline we can re-anchor safely; without one (legacy
+  // clients), behavior is unchanged.
   const requestedVersion = parseInt(version);
   let revision: FeatureRevisionInterface | null = null;
   if (requestedVersion !== feature.version) {
@@ -4522,26 +4517,16 @@ export async function putFeatureRule(
     } else if (!baseline) {
       revision = await getDraftRevision(context, feature, requestedVersion);
     }
-    // else: stale pin — fall through; the baseline check below runs against
-    // live, and on a match we fork off the current live version.
   }
 
-  // The rule that will be applied. Starts as the submitted edit; a clean
-  // three-way merge below may fold in the other person's disjoint changes.
   let effectiveRule = rule;
   let autoMergedTheirFields: string[] = [];
   if (baseline) {
-    // The authoritative current copy of the rule: the target draft's (falling
-    // back to live for the stale-draft pull-from-live case below), or live's
-    // when this save is forking a new draft.
     const liveRule = (feature.rules ?? []).find((r) => r.id === ruleId) ?? null;
     const currentRule = revision
       ? ((revision.rules ?? []).find((r) => r.id === ruleId) ?? liveRule)
       : liveRule;
     if (!rulesMatchBaseline(baseline.rule, currentRule)) {
-      // Field-level three-way merge: edits to disjoint fields resolve
-      // automatically; only chunks both sides changed differently (or a
-      // structural type change) come back as a conflict.
       const merge = currentRule
         ? threeWayMergeRule(baseline.rule, currentRule, rule as FeatureRule)
         : null;
@@ -4580,8 +4565,7 @@ export async function putFeatureRule(
   }
 
   if (!revision) {
-    // Targeting live (or a pinned version that is no longer live but whose
-    // rule is unchanged): fork a draft off the CURRENT live version.
+    // Fork off the CURRENT live version, not the pinned one.
     revision = await getDraftRevision(context, feature, feature.version);
   }
 

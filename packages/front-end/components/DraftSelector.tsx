@@ -66,9 +66,7 @@ export default function DraftSelector({
   newDraftDisabledReason?: ReactNode;
   /** Flag "add to existing draft" as the recommended choice (soft cap reached). */
   recommendExisting?: boolean;
-  /** Single-line warning rendered in the trigger, under the target summary —
-   *  the conflict is a property of the save target as a whole, and switching
-   *  targets is itself a remedy. Its presence also recolors the control amber. */
+  /** Single-line warning shown in the trigger; also recolors the control. */
   alert?: ReactNode;
 }) {
   const [isOpen, setIsOpen] = useState(defaultExpanded ?? false);
@@ -171,9 +169,6 @@ export default function DraftSelector({
 
   const trigger = (
     <Flex
-      // With a warning line the row is two lines tall, so the chevron aligns
-      // to the top (next to the summary it acts on) rather than floating in
-      // the middle of the block.
       align={hasAlert ? "start" : "center"}
       justify="between"
       gap="3"
@@ -186,8 +181,6 @@ export default function DraftSelector({
       className={`draft-selector-collapsible-trigger${singleOption ? " no-hover" : ""}${hasAlert ? " has-conflict" : ""}`}
     >
       <Box style={{ flex: 1, minWidth: 0 }}>
-        {/* One icon for the whole widget: in a warning state the summary line
-            carries it, and the alert below renders icon-less. */}
         <HelperText status={hasAlert ? "warning" : "info"}>
           <div
             className="ml-1"

@@ -76,19 +76,13 @@ export type PostFeatureRuleBody = {
   rampSchedule?: InlineRampScheduleCreate | InlineRampScheduleDetach;
 };
 
-// Returned with a 409 when a baseline check fails, so the client can show the
-// conflicting version and offer overwrite/discard.
+// Returned with a 409 when the baseline check fails.
 export type PutFeatureRuleConflict = {
   ruleId: string;
-  // The rule as it exists right now in the target draft (or on live when the
-  // save was forking a new draft). Null when the rule was deleted.
   currentRule: FeatureRule | null;
   liveVersion: number;
   // Set when the conflict is against a draft rather than live.
   draftVersion?: number;
-  // Field-level three-way merge outcome (absent when the rule was deleted).
-  // Disjoint edits never 409 — they auto-merge server-side — so when this is
-  // present, `contested` is non-empty or `wholeRule` is true.
   merge?: {
     contested: Array<{ key: string; fields: string[] }>;
     theirFields: string[];
@@ -102,10 +96,7 @@ export type PutFeatureRuleBody = {
   // Stable rule locator. Every rule in v2 has an id (assigned at creation
   // or via JIT migration on read), so app callers always send this.
   ruleId: string;
-  // Optimistic-concurrency baseline: the rule as the client loaded it when the
-  // editor opened. When present, the save is rejected (409 + PutFeatureRuleConflict)
-  // if the rule has since changed in the target draft or on live. Omitted by
-  // legacy clients and by explicit "overwrite" resubmits.
+  // The rule as the client loaded it; a save is rejected if it has since changed.
   baseline?: {
     rule: FeatureRule;
   };

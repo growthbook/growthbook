@@ -1,19 +1,11 @@
 import { FeatureRule } from "shared/types/feature";
 import { PutFeatureRuleConflict } from "shared/types/feature-rule";
 
-/**
- * TEMPORARY DEV HARNESS — delete before merging.
- *
- * Flip to true to make every rule editor open in a conflicted state with one
- * contested chunk per field a rule can carry, so the conflict UI can be
- * iterated on without staging real concurrent edits. No request is made and
- * nothing is saved; the modal is simply seeded as if a 409 had come back.
- */
+// TEMPORARY DEV HARNESS — delete before merging. Opens every rule editor in a
+// conflicted state contesting one chunk per rule field. Nothing is saved.
 export const DEV_FAKE_CONFLICT = true;
 
-// Every field across the FeatureRule union (see shared/validators/features.ts),
-// minus `id` (never contested) and the two exclusion pairs, which are declared
-// as chunks below.
+// Every field across the FeatureRule union, minus `id` and the chunked pairs.
 const SINGLE_FIELDS: Array<[string, unknown]> = [
   ["description", "their description"],
   ["condition", '{"country":"CA"}'],
@@ -80,7 +72,6 @@ const SINGLE_FIELDS: Array<[string, unknown]> = [
   ["status", "stopped"],
 ];
 
-// The mutually-exclusive pairs, which merge (and so surface) as one unit.
 const CHUNKS: Array<{ key: string; fields: string[]; values: unknown[] }> = [
   {
     key: "environments",
@@ -94,7 +85,6 @@ const CHUNKS: Array<{ key: string; fields: string[]; values: unknown[] }> = [
   },
 ];
 
-/** A 409 payload contesting every field a rule can carry. */
 export function buildFakeConflict(
   ruleId: string,
   liveVersion: number,

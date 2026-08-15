@@ -566,9 +566,7 @@ function DiffCommentCell({
   );
 }
 
-// Chrome-free compact JSON diff for embedding inside a callout or card that
-// already provides its own framing (ExpandableDiff's header box reads as a
-// separate, disconnected element there). Renders nothing when the sides match.
+// Chrome-free compact JSON diff, for embedding in a card that has its own framing.
 export function CompactInlineDiff({
   a,
   b,

@@ -223,11 +223,8 @@ function fmtTheirValue(v: unknown): string {
   return s;
 }
 
-// The form carries editor-only fields (safeRolloutFields, sameSeed, …) that
-// never reach the stored rule, so project its values onto the keys the stored
-// rule actually has before diffing — otherwise the diff fills with noise.
-// Key order follows `reference`, so a projection against the other side of the
-// diff doesn't read as a reordering.
+// Projects form values onto the stored rule's keys (and key order), so
+// editor-only fields don't show up as diff noise.
 function formRuleForDiff(
   values: Record<string, unknown>,
   reference: Array<FeatureRule | null | undefined>,
@@ -243,8 +240,6 @@ function formRuleForDiff(
   return out as unknown as FeatureRule;
 }
 
-// Renders a contested chunk's their-side value: the bare value for a single
-// field, or a small keyed object for exclusion chunks (env/project scope).
 function fmtChunkValue(rule: FeatureRule | null, fields: string[]): string {
   if (!rule) return "(removed)";
   const rec = rule as unknown as Record<string, unknown>;
@@ -301,15 +296,10 @@ export default function RuleModal({
   // without an extra round-trip. The back-end preserves a truthy id sent by the client.
   const [pregenRuleId] = useState(() => uniqId("fr_"));
 
-  // Optimistic-concurrency pins, captured once at modal open. `feature` is
-  // reactive (a publish elsewhere revalidates it and advances feature.version
-  // under the open modal), so saves must target what the user actually loaded.
-  // The baseline rides the PUT; the server 409s if the rule changed since.
+  // Pinned at open: `feature` is reactive, so a publish elsewhere would
+  // otherwise retarget the save under the user.
   const [pinnedFeatureVersion] = useState(() => feature.version);
-  // Mutable on purpose: after a conflict is surfaced, the baseline is rebased
-  // to the other person's version. The user has seen their changes, so the
-  // form becomes the resolution — the next save passes the guard (while still
-  // catching any third change that lands during resolution).
+  // Rebased once a conflict is surfaced, so the next save is an informed one.
   const [baselineRule, setBaselineRule] = useState<FeatureRule | undefined>(
     () => (rule ? cloneDeep(rule) : undefined),
   );
@@ -319,16 +309,10 @@ export default function RuleModal({
   >(null);
   const [showConflictDetails, setShowConflictDetails] = useState(false);
   // Fields from the conflict the user pulled into the form via "Use theirs".
-  // Per-contested-chunk acknowledgment: "mine" (keep the form's value) or
-  // "theirs" (their value was applied into the form). Saving into the
-  // conflicted target is blocked until every contested chunk is acked — or
-  // the user switches to a new draft, which can't overwrite anyone.
   const [conflictResolutions, setConflictResolutions] = useState<
     Map<string, "mine" | "theirs">
   >(new Map());
-  // TEMPORARY DEV HARNESS — see devFakeConflict.ts. Seeds a conflict covering
-  // every rule field on open, for iterating on the conflict UI. Delete with
-  // the module.
+  // TEMPORARY DEV HARNESS — see devFakeConflict.ts.
   useEffect(() => {
     if (!DEV_FAKE_CONFLICT || !ruleId || !rule) return;
     setConflict({
@@ -342,17 +326,14 @@ export default function RuleModal({
       ),
       baseAtConflict: rule,
     });
-    // Seed once per open; the modal is remounted per edit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Your pre-resolution values per contested chunk, so "Keep mine" can undo a
-  // "Use theirs" that overwrote the form.
+  // Lets "Keep mine" undo a "Use theirs" that already overwrote the form.
   const myConflictValuesRef = useRef<Map<string, Record<string, unknown>>>(
     new Map(),
   );
-  // Chunks a form field is rendering inline; the rest fall back to callouts
-  // above the form. Registered by RuleConflictCallout during layout.
+  // Chunks a field is rendering inline; the rest fall back to callouts above.
   const [claimedConflictKeys, setClaimedConflictKeys] = useState<Set<string>>(
     new Set(),
   );
@@ -367,8 +348,7 @@ export default function RuleModal({
       return next;
     });
   }, []);
-  // Set when the save's error handler saw a 409, so the submit catch can
-  // suppress the Modal's own error text — the banner is the single message.
+  // Lets the submit catch suppress the Modal's own error text on a 409.
   const conflictSignaledRef = useRef(false);
 
   // Find any existing ramp schedule that already targets this specific rule.
@@ -485,8 +465,6 @@ export default function RuleModal({
     defaultDraft,
   );
 
-  // Determines which draft/revision to target in the API call. Uses the
-  // pinned version, not the reactive feature.version — see pin above.
   const targetVersion =
     draftMode === "existing" && selectedDraft !== null
       ? selectedDraft
@@ -808,10 +786,8 @@ export default function RuleModal({
     return !isCyclic && !prerequisiteTargetingSdkIssues && !monitoringError;
   }, [isCyclic, prerequisiteTargetingSdkIssues, monitoringError]);
 
-  // Contested chunks the user must ack before saving into the conflicted
-  // target. Non-mergeable conflicts (restructured/removed) use one synthetic
-  // key. Switching to a new draft is a compatible strategy — nothing gets
-  // overwritten — so it unblocks the save without acks.
+  // Saving into the conflicted target is blocked until every chunk is acked;
+  // switching to a new draft can't overwrite anyone, so it needs no acks.
   const contestedKeys: string[] = conflict
     ? conflict.merge && !conflict.merge.wholeRule && conflict.currentRule
       ? conflict.merge.contested.map((c) => c.key)
@@ -1734,9 +1710,8 @@ export default function RuleModal({
                 setConflict({ ...payload, baseAtConflict: baselineRule });
                 setConflictResolutions(new Map());
                 myConflictValuesRef.current = new Map();
-                // The form is the merge preview: fields only THEY changed are
-                // applied into the form so what the user sees is what a save
-                // would keep. Contested fields stay as the user's version.
+                // The form is the merge preview: their non-conflicting
+                // changes land in it, contested fields keep yours.
                 if (
                   payload.merge &&
                   !payload.merge.wholeRule &&
@@ -1753,8 +1728,6 @@ export default function RuleModal({
                     });
                   }
                 }
-                // Rebase: the user has now seen their version, so the next
-                // save is an informed decision, not a silent overwrite.
                 setBaselineRule(
                   payload.currentRule
                     ? cloneDeep(payload.currentRule)
@@ -1882,12 +1855,7 @@ export default function RuleModal({
     }
   });
 
-  // Just the one-line warning; it rides the draft selector's trigger, which is
-  // a compact summary row — the drill-down lives below the selector instead
-  // (see conflictDetails).
   const conflictAlert = conflict ? (
-    // Icon-less: the selector's summary line switches to the warning icon, so
-    // a second one here would just stack.
     <HelperText status="warning" icon={null}>
       {!conflict.currentRule
         ? "This rule was removed while you had it open. Saving re-adds it."
@@ -1897,11 +1865,9 @@ export default function RuleModal({
     </HelperText>
   ) : undefined;
 
-  // The raw diff, opened from below the selector.
   const conflictDetails =
     conflict && conflict.currentRule ? (
-      // Pulled up under the selector, which carries a large bottom margin of
-      // its own — this belongs to the widget above it, not to the form below.
+      // Pulled up through the selector's own bottom margin.
       <Box mt="-4" mb="3">
         <Button
           variant="ghost"
@@ -1920,8 +1886,6 @@ export default function RuleModal({
               overflow: "hidden",
             }}
           >
-            {/* Theirs on the left, yours on the right: your edit is the change
-                being applied on top of what moved underneath you. */}
             <CompactInlineDiff
               a={stringifyForRawDiff(
                 normalizeFeatureRules([conflict.currentRule]),
@@ -1942,9 +1906,6 @@ export default function RuleModal({
       </Box>
     ) : null;
 
-  // Resolution plumbing shared with the inline per-field callouts. A field
-  // that renders <RuleConflictCallout field="..."/> claims its chunk; whatever
-  // stays unclaimed falls back to the callouts above the form below.
   const contestedChunks: ContestedChunk[] =
     conflict?.merge && !conflict.merge.wholeRule && conflict.currentRule
       ? conflict.merge.contested
@@ -1954,8 +1915,6 @@ export default function RuleModal({
     (chunk: ContestedChunk, choice: ConflictResolution) => {
       const values = form.getValues() as unknown as Record<string, unknown>;
       const stash = myConflictValuesRef.current;
-      // Stash your values the first time a chunk goes to "theirs", so choosing
-      // "Keep mine" afterwards restores them instead of leaving theirs behind.
       if (choice === "theirs" && !stash.has(chunk.key)) {
         stash.set(
           chunk.key,
@@ -1991,7 +1950,6 @@ export default function RuleModal({
     [conflict, form],
   );
 
-  // Chunks no field rendered inline, plus the non-mergeable single-ack case.
   const conflictCallouts = conflict ? (
     <>
       {contestedChunks.length ? (
@@ -2224,7 +2182,7 @@ export default function RuleModal({
     ? environments.map((e) => e.id)
     : selectedEnvironments;
 
-  // Held in a variable so the provider wrapper doesn't reindent the tree.
+  // In a variable so the provider wrapper doesn't reindent the whole tree.
   const modalContent = (
     <FormProvider {...form}>
       <PagedModal

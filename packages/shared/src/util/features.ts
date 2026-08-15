@@ -1771,10 +1771,8 @@ export function threeWayMergeRule(
     const theirsChanged = tv !== bv;
     const yoursChanged = yv !== bv;
 
-    // A field your side simply omits (as opposed to clearing to ""/[]) can't be
-    // expressed on the wire — undefined doesn't survive JSON, and the write
-    // path merges over the stored rule, so their value would persist whatever
-    // you chose. Take theirs rather than offering a choice that does nothing.
+    // An omitted field can't be expressed on the wire, so a choice would be a
+    // no-op — their value survives the write either way.
     const yoursOmitted = unit.fields.every((f) => y[f] === undefined);
 
     if (theirsChanged && yoursChanged && tv !== yv && !yoursOmitted) {

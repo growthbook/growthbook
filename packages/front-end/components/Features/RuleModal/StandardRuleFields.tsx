@@ -529,9 +529,7 @@ export default function StandardRuleFields({
                 advancedOpen={advancedOptionsOpen}
                 setAdvancedOpen={setadvancedOptionsOpen}
               />
-              {/* Inside the branch on purpose: when the ramp controls coverage
-                  this input is gone, and an unclaimed chunk falls back to the
-                  callouts above the form rather than pointing at nothing. */}
+              {/* Inside the branch on purpose: no input, no inline callout. */}
               <RuleConflictCallout field="coverage" />
               <RuleConflictCallout field="hashAttribute" />
             </>

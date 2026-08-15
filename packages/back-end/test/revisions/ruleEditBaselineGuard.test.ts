@@ -5,19 +5,6 @@ import type { FeatureRule } from "shared/types/feature";
 import { putFeatureRule } from "back-end/src/controllers/features";
 import { setupApp } from "../api/api.setup";
 
-/**
- * Optimistic-concurrency guard on the draft rule-edit path (putFeatureRule).
- *
- * The editor pins the rule it loaded and sends it as `baseline` with the PUT.
- * The server must:
- *  - reject (409 + conflict payload) when the rule changed in the target draft,
- *  - reject when the pinned live version was published over AND the rule changed,
- *  - re-anchor to the current live (trivial rebase) when the pinned live version
- *    moved but the rule itself did not,
- *  - never create a draft as a side effect of a rejected save,
- *  - preserve legacy behavior exactly when no baseline is sent.
- */
-
 const ORG_ID = "org_rule_baseline_guard";
 const FEATURE_ID = "baseline-guarded-flag";
 
@@ -140,7 +127,6 @@ describe("putFeatureRule baseline guard", () => {
     await mongoose.connection
       .collection("features")
       .insertOne(featureDoc(opts.liveRules, opts.liveVersion));
-    // Published history for every version up to live, so fork-from-live has a base.
     for (let v = 1; v <= opts.liveVersion; v++) {
       await mongoose.connection
         .collection("featurerevisions")
@@ -302,8 +288,6 @@ describe("putFeatureRule baseline guard", () => {
   });
 
   it("derives force/rollout type from the merged coverage instead of contesting it", async () => {
-    // They converted the force rule to a rollout; you edited the value. `type`
-    // must not surface as a conflict — it follows from coverage.
     const theirEdit = {
       ...baseRule,
       type: "rollout",
@@ -338,7 +322,6 @@ describe("putFeatureRule baseline guard", () => {
       coverage: 0.5,
       hashAttribute: "id",
     } as unknown as FeatureRule;
-    // They took it to full coverage; you edited the description.
     const theirEdit = { ...rolloutBase, coverage: 1 } as FeatureRule;
     const myEdit = {
       ...rolloutBase,
@@ -365,8 +348,6 @@ describe("putFeatureRule baseline guard", () => {
   });
 
   it("takes theirs without contesting when your side omits the field", async () => {
-    // Your side can't express "unset" on the wire, so offering a choice here
-    // would be a no-op button. base has sparse, they change it, you omit it.
     const sparseBase = { ...baseRule, sparse: true } as unknown as FeatureRule;
     const theirEdit = { ...sparseBase, sparse: false } as FeatureRule;
     const myEdit = { ...baseRule, value: "false" } as FeatureRule; // no `sparse`
@@ -447,7 +428,6 @@ describe("putFeatureRule baseline guard", () => {
   });
 
   it("re-anchors to the current live when the pinned live moved but the rule did not", async () => {
-    // Editor opened against live v1; someone published v2 (rule untouched).
     await seed({ liveRules: [baseRule], liveVersion: 2 });
     const { res, captured } = resSpy();
     await putFeatureRule(
@@ -462,7 +442,6 @@ describe("putFeatureRule baseline guard", () => {
     const version = (captured.body as { version: number }).version;
     const draft = await storedRevision(version);
     expect(draft?.status).toBe("draft");
-    // Born from the CURRENT live, so publish-time divergence checks stay honest.
     expect(draft?.baseVersion).toBe(2);
     expect(draft?.rules?.[0]?.value).toBe("false");
   });
