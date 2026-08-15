@@ -33,8 +33,6 @@ type RuleConflictContextValue = {
   claimed: Set<string>;
   claim: (key: string) => void;
   release: (key: string) => void;
-  // Resolved chunks the user has since hand-edited; their callouts are done.
-  dismissed: Set<string>;
 };
 
 const RuleConflictContext = createContext<RuleConflictContextValue | null>(
@@ -49,7 +47,6 @@ export function RuleConflictProvider({
   claimed,
   claim,
   release,
-  dismissed,
   children,
 }: RuleConflictContextValue & { children: ReactNode }) {
   const value = useMemo(
@@ -61,18 +58,8 @@ export function RuleConflictProvider({
       claimed,
       claim,
       release,
-      dismissed,
     }),
-    [
-      contested,
-      resolutions,
-      resolve,
-      format,
-      claimed,
-      claim,
-      release,
-      dismissed,
-    ],
+    [contested, resolutions, resolve, format, claimed, claim, release],
   );
 
   return (
@@ -148,13 +135,18 @@ export function ConflictMessage({
 export function ConflictCalloutRow({
   chunk,
   showMine = false,
+  stateful = false,
 }: {
   chunk: ContestedChunk;
   showMine?: boolean;
+  // Keeps the row on screen after a choice, as a toggle that can be switched.
+  // Inline rows instead apply the value and disappear — the field itself now
+  // shows the outcome.
+  stateful?: boolean;
 }) {
   const ctx = useRuleConflict();
   const resolved = !!ctx?.resolutions.get(chunk.key);
-  if (ctx?.dismissed.has(chunk.key)) return null;
+  if (resolved && !stateful) return null;
   return (
     <Callout
       status="warning"
