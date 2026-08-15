@@ -14,10 +14,15 @@ import Text from "@/ui/Text";
 export type ContestedChunk = { key: string; fields: string[] };
 export type ConflictResolution = "mine" | "theirs";
 
+// Values are shown in full, so long ones (JSON blobs, conditions) have to wrap
+// rather than overflow the callout.
 const CONFLICT_VALUE_STYLE = {
   background: "var(--color-surface)",
   borderRadius: "var(--radius-1)",
   padding: "1px 6px",
+  whiteSpace: "pre-wrap" as const,
+  overflowWrap: "anywhere" as const,
+  minWidth: 0,
 };
 
 type RuleConflictContextValue = {

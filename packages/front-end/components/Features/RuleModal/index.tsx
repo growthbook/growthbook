@@ -215,7 +215,7 @@ function fmtTheirValue(v: unknown): string {
   if (v === undefined) return "(removed)";
   const s = typeof v === "string" ? v : JSON.stringify(v);
   if (!s) return '""';
-  return s.length > 60 ? s.slice(0, 57) + "…" : s;
+  return s;
 }
 
 // The form carries editor-only fields (safeRolloutFields, sameSeed, …) that
