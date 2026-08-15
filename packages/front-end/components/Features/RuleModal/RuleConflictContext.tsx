@@ -139,8 +139,16 @@ export function ConflictCalloutRow({
   chunk: ContestedChunk;
   showMine?: boolean;
 }) {
+  const ctx = useRuleConflict();
+  const resolved = !!ctx?.resolutions.get(chunk.key);
   return (
-    <Callout status="warning" size="sm" icon={null} mb="3">
+    <Callout
+      status="warning"
+      size="sm"
+      icon={null}
+      mb="3"
+      transparent={resolved}
+    >
       <Flex align="center" justify="between" gap="3" wrap="wrap" width="100%">
         <Flex align="center" gap="2" style={{ minWidth: 0 }}>
           <PiGitMerge size={13} style={{ flexShrink: 0 }} />

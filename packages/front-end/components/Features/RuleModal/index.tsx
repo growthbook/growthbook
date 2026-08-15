@@ -1959,7 +1959,13 @@ export default function RuleModal({
             <ConflictCalloutRow chunk={chunk} showMine key={chunk.key} />
           ))
       ) : (
-        <Callout status="warning" size="sm" icon={null} mb="3">
+        <Callout
+          status="warning"
+          size="sm"
+          icon={null}
+          mb="3"
+          transparent={conflictResolutions.has("__rule__")}
+        >
           <Flex
             align="center"
             justify="between"

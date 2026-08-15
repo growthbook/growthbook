@@ -32,6 +32,8 @@ export default forwardRef<
     children: ReactNode;
     status: Status;
     size?: Size;
+    /** Drops the tinted fill (keeping the layout), for resolved or de-emphasized states. */
+    transparent?: boolean;
     icon?: ReactNode | null;
     action?: ReactNode;
     role?: string;
@@ -42,6 +44,7 @@ export default forwardRef<
     children,
     status,
     size = "md",
+    transparent = false,
     icon,
     action,
     dismissible = false,
@@ -90,6 +93,7 @@ export default forwardRef<
           display: "flex",
           position: "relative",
           "--callout-line-height": lineHeight,
+          ...(transparent ? { backgroundColor: "transparent" } : {}),
         } as React.CSSProperties
       }
       variant="soft"
