@@ -79,6 +79,11 @@ import {
   ContestedChunk,
   RuleConflictProvider,
 } from "@/components/Features/RuleModal/RuleConflictContext";
+// TEMPORARY DEV HARNESS — delete with the module.
+import {
+  DEV_FAKE_CONFLICT,
+  buildFakeConflict,
+} from "@/components/Features/RuleModal/devFakeConflict";
 import StandardRuleFields, {
   type ScheduleType,
   deriveScheduleType,
@@ -321,6 +326,26 @@ export default function RuleModal({
   const [conflictResolutions, setConflictResolutions] = useState<
     Map<string, "mine" | "theirs">
   >(new Map());
+  // TEMPORARY DEV HARNESS — see devFakeConflict.ts. Seeds a conflict covering
+  // every rule field on open, for iterating on the conflict UI. Delete with
+  // the module.
+  useEffect(() => {
+    if (!DEV_FAKE_CONFLICT || !ruleId || !rule) return;
+    setConflict({
+      ...buildFakeConflict(
+        ruleId,
+        feature.version,
+        draftMode === "existing" && selectedDraft !== null
+          ? selectedDraft
+          : undefined,
+        rule,
+      ),
+      baseAtConflict: rule,
+    });
+    // Seed once per open; the modal is remounted per edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Your pre-resolution values per contested chunk, so "Keep mine" can undo a
   // "Use theirs" that overwrote the form.
   const myConflictValuesRef = useRef<Map<string, Record<string, unknown>>>(
