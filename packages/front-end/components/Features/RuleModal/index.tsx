@@ -212,6 +212,26 @@ function fmtTheirValue(v: unknown): string {
   return s.length > 60 ? s.slice(0, 57) + "…" : s;
 }
 
+// The form carries editor-only fields (safeRolloutFields, sameSeed, …) that
+// never reach the stored rule, so project its values onto the keys the stored
+// rule actually has before diffing — otherwise the diff fills with noise.
+// Key order follows `reference`, so a projection against the other side of the
+// diff doesn't read as a reordering.
+function formRuleForDiff(
+  values: Record<string, unknown>,
+  reference: Array<FeatureRule | null | undefined>,
+): FeatureRule {
+  const keys = new Set<string>();
+  for (const r of reference) {
+    if (r) Object.keys(r).forEach((k) => keys.add(k));
+  }
+  const out: Record<string, unknown> = {};
+  for (const k of keys) {
+    if (values[k] !== undefined) out[k] = values[k];
+  }
+  return out as unknown as FeatureRule;
+}
+
 // Renders a contested chunk's their-side value: the bare value for a single
 // field, or a small keyed object for exclusion chunks (env/project scope).
 function fmtChunkValue(rule: FeatureRule | null, fields: string[]): string {
@@ -1845,15 +1865,18 @@ export default function RuleModal({
         >
           <CompactInlineDiff
             a={stringifyForRawDiff(
-              conflict.baseAtConflict
-                ? normalizeFeatureRules([conflict.baseAtConflict])
-                : [],
+              normalizeFeatureRules([
+                formRuleForDiff(
+                  form.getValues() as unknown as Record<string, unknown>,
+                  [conflict.currentRule, conflict.baseAtConflict],
+                ),
+              ]),
             )}
             b={stringifyForRawDiff(
               normalizeFeatureRules([conflict.currentRule]),
             )}
-            leftTitle="When you opened this editor"
-            rightTitle="Their version"
+            leftTitle="Your version (what you'd save)"
+            rightTitle="Their version (saved)"
           />
         </Box>
       )}
