@@ -171,11 +171,14 @@ export default function DraftSelector({
 
   const trigger = (
     <Flex
-      align="center"
+      // With a warning line the row is two lines tall, so the chevron aligns
+      // to the top (next to the summary it acts on) rather than floating in
+      // the middle of the block.
+      align={hasAlert ? "start" : "center"}
       justify="between"
       gap="3"
       px="3"
-      py="4"
+      py={hasAlert ? "3" : "4"}
       style={{
         cursor: singleOption ? "default" : "pointer",
         userSelect: "none",
@@ -198,7 +201,7 @@ export default function DraftSelector({
         </HelperText>
         {alert && (
           // Interactive bits inside the alert must not toggle the collapse.
-          <Box mt="1" onClick={(e) => e.stopPropagation()}>
+          <Box mt="1" className="ml-1" onClick={(e) => e.stopPropagation()}>
             {alert}
           </Box>
         )}

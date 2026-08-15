@@ -1857,61 +1857,62 @@ export default function RuleModal({
     }
   });
 
-  // One-line conflict warning inside the draft selector's selected option;
-  // "View details" reveals only the raw diff. Per-field resolution callouts
-  // (with their own CTAs) render below the selector — see conflictCallouts.
+  // Just the one-line warning; it rides the draft selector's trigger, which is
+  // a compact summary row — the drill-down lives below the selector instead
+  // (see conflictDetails).
   const conflictAlert = conflict ? (
-    <Box style={{ width: "100%" }}>
-      <Flex align="center" gap="3" wrap="wrap">
-        <HelperText status="warning">
-          {!conflict.currentRule
-            ? "This rule was removed while you had it open. Saving re-adds it."
-            : draftMode === "new"
-              ? "This rule was modified while you were editing. Saving to a new draft keeps both versions."
-              : "This rule was modified while you were editing. Resolve the conflicting edits below, or save to a new draft."}
-        </HelperText>
-        {conflict.currentRule && (
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setShowConflictDetails((s) => !s);
-            }}
-          >
-            {showConflictDetails ? "Hide details" : "View details"}
-          </a>
-        )}
-      </Flex>
-      {showConflictDetails && conflict.currentRule && (
-        <Box
-          mt="2"
-          style={{
-            background: "var(--color-surface)",
-            borderRadius: "var(--radius-2)",
-            overflow: "hidden",
+    <HelperText status="warning">
+      {!conflict.currentRule
+        ? "This rule was removed while you had it open. Saving re-adds it."
+        : draftMode === "new"
+          ? "This rule was modified while you were editing. Saving to a new draft keeps both versions."
+          : "This rule was modified while you were editing. Resolve the conflicting edits below, or save to a new draft."}
+    </HelperText>
+  ) : undefined;
+
+  // The raw diff, opened from below the selector.
+  const conflictDetails =
+    conflict && conflict.currentRule ? (
+      <Box mb="3">
+        <a
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            setShowConflictDetails((s) => !s);
           }}
         >
-          {/* Theirs on the left, yours on the right: your edit is the change
-              being applied on top of what moved underneath you. */}
-          <CompactInlineDiff
-            a={stringifyForRawDiff(
-              normalizeFeatureRules([conflict.currentRule]),
-            )}
-            b={stringifyForRawDiff(
-              normalizeFeatureRules([
-                formRuleForDiff(
-                  form.getValues() as unknown as Record<string, unknown>,
-                  [conflict.currentRule, conflict.baseAtConflict],
-                ),
-              ]),
-            )}
-            leftTitle="Modified version"
-            rightTitle="My version"
-          />
-        </Box>
-      )}
-    </Box>
-  ) : undefined;
+          {showConflictDetails ? "Hide details" : "View details"}
+        </a>
+        {showConflictDetails && (
+          <Box
+            mt="2"
+            style={{
+              background: "var(--color-surface)",
+              borderRadius: "var(--radius-2)",
+              overflow: "hidden",
+            }}
+          >
+            {/* Theirs on the left, yours on the right: your edit is the change
+                being applied on top of what moved underneath you. */}
+            <CompactInlineDiff
+              a={stringifyForRawDiff(
+                normalizeFeatureRules([conflict.currentRule]),
+              )}
+              b={stringifyForRawDiff(
+                normalizeFeatureRules([
+                  formRuleForDiff(
+                    form.getValues() as unknown as Record<string, unknown>,
+                    [conflict.currentRule, conflict.baseAtConflict],
+                  ),
+                ]),
+              )}
+              leftTitle="Modified version"
+              rightTitle="My version"
+            />
+          </Box>
+        )}
+      </Box>
+    ) : null;
 
   // Resolution plumbing shared with the inline per-field callouts. A field
   // that renders <RuleConflictCallout field="..."/> claims its chunk; whatever
@@ -2261,6 +2262,7 @@ export default function RuleModal({
               alert={conflictAlert}
             />
             {draftMode !== "new" && conflictCallouts}
+            {draftMode !== "new" && conflictDetails}
           </>
         }
       >
