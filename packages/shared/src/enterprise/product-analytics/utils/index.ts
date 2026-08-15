@@ -396,7 +396,9 @@ export function buildExplorationColumns(
   // dimension columns so the shared schema doesn't claim a value layout
   // that doesn't exist on the row.
   const values =
-    config?.dataset?.type === "funnel" ? [] : (config?.dataset?.values ?? []);
+    config?.dataset?.type === "funnel" || config?.dataset?.type === "journey"
+      ? []
+      : (config?.dataset?.values ?? []);
   if (values.length === 0) return cols;
 
   const isRatio = getIsRatioByIndex(config, getFactMetricById);

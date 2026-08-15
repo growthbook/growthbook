@@ -20,6 +20,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import GraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GraphTypeSelector";
 import FunnelGraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/FunnelGraphTypeSelector";
+import JourneyGraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/JourneyGraphTypeSelector";
 import DateRangeCompareDropdown from "@/enterprise/components/ProductAnalytics/DateRangeCompareDropdown";
 import type { DateRangeCompareValue } from "@/enterprise/components/ProductAnalytics/DateRangeComparePanel";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -40,6 +41,7 @@ import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
 import DatasourceTabContent from "./DatasourceTabContent";
 import FunnelTabContent from "./FunnelTabContent";
+import JourneyTabContent from "./JourneyTabContent";
 import GroupBySection from "./GroupBySection";
 import ShowAsSection from "./ShowAsSection";
 import DatasourceConfigurator from "./DatasourceConfigurator";
@@ -90,6 +92,7 @@ export default function ExplorerSideBar({
   const hasDashboardsFeature = hasCommercialFeature(
     "product-analytics-dashboards",
   );
+  const dataset = draftExploreState.dataset;
   const saveToDashboardDisabledReason =
     !canEditDashboards && !canCreateDashboards
       ? "You do not have permission to create or edit dashboards in this project."
@@ -99,7 +102,6 @@ export default function ExplorerSideBar({
           ? "Run the updated exploration before saving to a dashboard."
           : undefined;
 
-  const dataset = draftExploreState.dataset;
   const activeType: DatasetType = dataset?.type ?? "metric";
   const factTableDataset =
     activeType === "fact_table" && dataset?.type === "fact_table"
@@ -107,10 +109,13 @@ export default function ExplorerSideBar({
       : null;
   const hasFunnelInputs =
     dataset?.type === "funnel" && !!dataset.steps?.some((s) => !!s.factTableId);
+  const hasJourneyInputs = dataset?.type === "journey" && !!dataset.factTableId;
   const hasInputs =
     dataset?.type === "funnel"
       ? hasFunnelInputs
-      : (dataset?.values?.length ?? 0) > 0;
+      : dataset?.type === "journey"
+        ? hasJourneyInputs
+        : (dataset?.values?.length ?? 0) > 0;
   const dateRangeValue: DateRangeCompareValue = {
     dateRange: draftExploreState.dateRange,
     comparison: compareEnabled
@@ -208,31 +213,33 @@ export default function ExplorerSideBar({
       <Flex justify="end" align="center" height="32px" py="2" gap="2">
         {!renderingInDashboardSidebar ? (
           <>
-            <Tooltip
-              body={saveToDashboardDisabledReason || ""}
-              shouldDisplay={!!saveToDashboardDisabledReason}
-            >
-              <Button
-                size="md"
-                disabled={!!saveToDashboardDisabledReason}
-                onClick={() => {
-                  if (!hasDashboardsFeature) {
-                    setShowUpgradeModal(true);
-                  } else {
-                    setShowSaveToDashboardModal(true);
-                  }
-                }}
+            {dataset?.type !== "journey" && (
+              <Tooltip
+                body={saveToDashboardDisabledReason || ""}
+                shouldDisplay={!!saveToDashboardDisabledReason}
               >
-                <Flex align="center" justify="center" gap="2">
-                  <PaidFeatureBadge
-                    commercialFeature="product-analytics-dashboards"
-                    useTip={false}
-                    inheritColor
-                  />
-                  Save to Dashboard
-                </Flex>
-              </Button>
-            </Tooltip>
+                <Button
+                  size="md"
+                  disabled={!!saveToDashboardDisabledReason}
+                  onClick={() => {
+                    if (!hasDashboardsFeature) {
+                      setShowUpgradeModal(true);
+                    } else {
+                      setShowSaveToDashboardModal(true);
+                    }
+                  }}
+                >
+                  <Flex align="center" justify="center" gap="2">
+                    <PaidFeatureBadge
+                      commercialFeature="product-analytics-dashboards"
+                      useTip={false}
+                      inheritColor
+                    />
+                    Save to Dashboard
+                  </Flex>
+                </Button>
+              </Tooltip>
+            )}
             <ShareUrlPopover
               title="Share this exploration"
               description="Anyone in your organization with read access to the Data Source this exploration uses, can open this exploration."
@@ -317,6 +324,8 @@ export default function ExplorerSideBar({
             <Text weight="medium">Chart Type</Text>
             {activeType === "funnel" ? (
               <FunnelGraphTypeSelector />
+            ) : activeType === "journey" ? (
+              <JourneyGraphTypeSelector />
             ) : (
               <GraphTypeSelector />
             )}
@@ -364,7 +373,7 @@ export default function ExplorerSideBar({
             ) : (
               <DateRangeCompareDropdown
                 fullWidth
-                showCompare
+                showCompare={activeType !== "journey"}
                 showGranularity={isTimeSeriesChart}
                 value={dateRangeValue}
                 onChange={applyDateRange}
@@ -462,9 +471,11 @@ export default function ExplorerSideBar({
         {activeType === "fact_table" && <FactTableTabContent />}
         {activeType === "data_source" && <DatasourceTabContent />}
         {activeType === "funnel" && <FunnelTabContent />}
+        {activeType === "journey" && <JourneyTabContent />}
       </Box>
 
       {activeType !== "funnel" &&
+        activeType !== "journey" &&
         showAsAppliesTo(draftExploreState, getFactMetricById) && (
           <ShowAsSection />
         )}

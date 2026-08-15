@@ -371,6 +371,75 @@ function buildFunnelTableData(
   };
 }
 
+function formatJourneyPct(value: number, total: number): string {
+  if (total <= 0) return "—";
+  const p = (100 * value) / total;
+  return `${p.toFixed(p >= 10 ? 0 : 1)}%`;
+}
+
+function buildJourneyTableData(
+  exploration: ProductAnalyticsExploration | null,
+  submittedExploreState: ExplorationConfig,
+): ExplorationTableData {
+  if (submittedExploreState.dataset.type !== "journey") {
+    return {
+      rowData: [],
+      orderedColumnKeys: [],
+      columnLabels: [],
+      headerStructure: null,
+      explorationReturnedNoData: true,
+      tableCompareActive: false,
+    };
+  }
+  const fetchDepth = submittedExploreState.dataset.depth;
+  const hasDimension = (submittedExploreState.dimensions?.length ?? 0) > 0;
+  const rows = exploration?.result?.rows ?? [];
+  const pathRows = rows.filter((r) => r.journey?.kind === "path");
+  const progressRows = rows.filter((r) => r.journey?.kind === "progress");
+  const anchorTotal = progressRows.length
+    ? progressRows.reduce((a, r) => a + (r.journey?.count ?? 0), 0)
+    : pathRows.reduce((a, r) => a + (r.journey?.count ?? 0), 0);
+
+  const orderedColumnKeys = [
+    ...Array.from({ length: fetchDepth }, (_, i) => `lvl_${i + 1}`),
+    ...(hasDimension ? ["dim_1"] : []),
+    "journeys",
+    "pctStart",
+  ];
+  const columnLabels = [
+    ...Array.from({ length: fetchDepth }, (_, i) => `Step ${i + 1}`),
+    ...(hasDimension ? ["Dimension"] : []),
+    "Journeys",
+    "% of start",
+  ];
+
+  const rowData = pathRows.map((row) => {
+    const j = row.journey;
+    const count = j && j.kind === "path" ? j.count : 0;
+    const levels = j && j.kind === "path" ? j.levels : [];
+    const out: Record<string, unknown> = {
+      journeys: count,
+      pctStart: formatJourneyPct(count, anchorTotal),
+    };
+    for (let i = 0; i < fetchDepth; i++) {
+      out[`lvl_${i + 1}`] = levels[i] ?? "";
+    }
+    if (hasDimension) {
+      out["dim_1"] = row.dimensions[0] ?? "";
+    }
+    return out;
+  });
+
+  return {
+    rowData,
+    orderedColumnKeys,
+    columnLabels,
+    headerStructure: null,
+    explorationReturnedNoData: pathRows.length === 0,
+    tableCompareActive: false,
+  };
+}
+
 export default function useExplorationTableData(
   exploration: ProductAnalyticsExploration | null,
   submittedExploreState: ExplorationConfig | null,
@@ -410,6 +479,11 @@ export default function useExplorationTableData(
     comparisonExploration,
     comparisonAlignment,
   ]);
+
+  const journeyTableData = useMemo(() => {
+    if (submittedExploreState?.dataset?.type !== "journey") return null;
+    return buildJourneyTableData(exploration, submittedExploreState);
+  }, [exploration, submittedExploreState]);
 
   const renderOpts: RenderOpts = useMemo(
     () => ({
@@ -501,7 +575,8 @@ export default function useExplorationTableData(
           labels.push(col.label);
         } else if (col.sub === "single") {
           const metricName =
-            (submittedExploreState.dataset?.type !== "funnel"
+            (submittedExploreState.dataset?.type !== "funnel" &&
+            submittedExploreState.dataset?.type !== "journey"
               ? submittedExploreState.dataset?.values?.[col.metricIndex]?.name
               : undefined) ?? col.label;
           labels.push(
@@ -540,7 +615,8 @@ export default function useExplorationTableData(
           row1.push({ label: col.label, rowSpan: 2 });
         } else if (col.sub === "single") {
           const metricName =
-            (submittedExploreState.dataset?.type !== "funnel"
+            (submittedExploreState.dataset?.type !== "funnel" &&
+            submittedExploreState.dataset?.type !== "journey"
               ? submittedExploreState.dataset?.values?.[col.metricIndex]?.name
               : undefined) ?? col.label;
           row1.push({ label: metricName, colSpan: 2 });
@@ -568,7 +644,7 @@ export default function useExplorationTableData(
       }
       const ds = submittedExploreState?.dataset;
       const metricName =
-        (ds && ds.type !== "funnel"
+        (ds && ds.type !== "funnel" && ds.type !== "journey"
           ? ds.values?.[col.metricIndex]?.name
           : undefined) ?? col.label;
       if (col.sub === "numerator") {
@@ -713,11 +789,12 @@ export default function useExplorationTableData(
   const explorationReturnedNoData = useMemo(() => {
     if (!exploration?.result?.rows?.length) return true;
     return exploration.result.rows.every(
-      (r) => !(r.values?.length || r.steps?.length),
+      (r) => !(r.values?.length || r.steps?.length || r.journey),
     );
   }, [exploration?.result?.rows]);
 
   if (funnelTableData) return funnelTableData;
+  if (journeyTableData) return journeyTableData;
 
   return {
     rowData,

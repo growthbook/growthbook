@@ -58,6 +58,7 @@ import {
   getChartThemeColors,
 } from "@/enterprise/components/ProductAnalytics/chart-theme";
 import FunnelChart from "./FunnelChart";
+import JourneyChart from "./JourneyChart";
 
 const CHART_ID = "explorer-chart";
 
@@ -229,6 +230,7 @@ export default function ExplorerChart({
     }
     const row = exploration.result.rows[0];
     if (submittedExploreState.dataset?.type === "funnel") return null;
+    if (submittedExploreState.dataset?.type === "journey") return null;
     const valuesMeta = submittedExploreState.dataset?.values ?? [];
     return valuesMeta.map((v, metricIndex) => {
       const cell = row?.values?.[metricIndex];
@@ -273,7 +275,8 @@ export default function ExplorerChart({
       ) ||
       // Funnels render through FunnelChart (early-returned below); this
       // ECharts config builder doesn't know how to read `row.steps`.
-      submittedExploreState.dataset?.type === "funnel"
+      submittedExploreState.dataset?.type === "funnel" ||
+      submittedExploreState.dataset?.type === "journey"
     )
       return null;
     const rows = exploration.result.rows;
@@ -799,6 +802,7 @@ export default function ExplorerChart({
   }, [exploration?.result?.rows]);
 
   if (
+    submittedExploreState?.dataset?.type !== "journey" &&
     !shouldChartSectionShow({
       loading,
       error,
@@ -845,6 +849,37 @@ export default function ExplorerChart({
           </Box>
         ) : (
           <FunnelChart
+            exploration={exploration}
+            submittedExploreState={submittedExploreState}
+            animate={animate}
+          />
+        )}
+      </Flex>
+    );
+  }
+
+  if (submittedExploreState?.dataset?.type === "journey") {
+    return (
+      <Flex
+        direction="column"
+        position="relative"
+        style={{
+          border: "1px solid var(--gray-a3)",
+          borderRadius: "var(--radius-4)",
+          flex: 1,
+          minHeight: 0,
+        }}
+      >
+        {error && !exploration?.result?.rows?.length ? (
+          <Box p="4">
+            {isManagedWarehousePendingQueryError(error) ? (
+              <ManagedWarehouseNoEventsCallout />
+            ) : (
+              <Callout status="error">{error}</Callout>
+            )}
+          </Box>
+        ) : (
+          <JourneyChart
             exploration={exploration}
             submittedExploreState={submittedExploreState}
             animate={animate}

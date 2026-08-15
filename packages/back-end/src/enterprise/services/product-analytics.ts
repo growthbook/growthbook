@@ -8,7 +8,13 @@ import {
   calculateProductAnalyticsDateRange,
   encodeExplorationConfig,
   isFunnelSupportedDatasourceType,
+  isJourneySupportedDatasourceType,
 } from "shared/enterprise";
+import {
+  journeyConfigExceedsRowCap,
+  journeyDimValueCount,
+  MAX_JOURNEY_RESULT_ROWS,
+} from "shared/journeys";
 import {
   FactMetricInterface,
   FactTableInterface,
@@ -187,6 +193,69 @@ export async function runProductAnalyticsExploration(
         );
       }
     }
+  } else if (dataset.type === "journey") {
+    if (!dataset.factTableId) {
+      throw new BadRequestError("Fact Table is required");
+    }
+    if (!dataset.unit) {
+      throw new BadRequestError("Journey unit is required");
+    }
+    if (!dataset.stepColumns.length) {
+      throw new BadRequestError("Journey step columns are required");
+    }
+    if (
+      !dataset.anchorStepValues ||
+      dataset.anchorStepValues.length !== dataset.stepColumns.length ||
+      dataset.anchorStepValues.some((v) => !v)
+    ) {
+      throw new BadRequestError("Journey starting step is required");
+    }
+    for (const group of dataset.stepGroups ?? []) {
+      if (!group.pattern) {
+        throw new BadRequestError("Journey grouping rule pattern is required");
+      }
+      if (!dataset.stepColumns.includes(group.column)) {
+        throw new BadRequestError(
+          `Journey grouping rule references column "${group.column}", which is not a step column`,
+        );
+      }
+    }
+    if (dataset.path.some((step) => step.mode === "other")) {
+      throw new BadRequestError("Drilling into (other) is not supported yet");
+    }
+    if (!isJourneySupportedDatasourceType(datasource.type)) {
+      throw new BadRequestError(
+        "User Journey explorations aren't supported for this Data Source yet. Supported warehouses will expand as each is validated.",
+      );
+    }
+    const factTable = await getFactTable(context, dataset.factTableId);
+    if (!factTable) {
+      throw new NotFoundError("Fact table not found");
+    }
+    factTableMap.set(factTable.id, factTable);
+    if (factTable.datasource !== datasource.id) {
+      throw new BadRequestError(
+        "Fact Table must belong to the same Data Source as the exploration",
+      );
+    }
+    if (!factTable.userIdTypes.includes(dataset.unit)) {
+      throw new BadRequestError(
+        `Journey unit "${dataset.unit}" is not a userIdType on the Fact Table`,
+      );
+    }
+    const dimValues = journeyDimValueCount(config.dimensions[0]);
+    if (
+      journeyConfigExceedsRowCap({
+        optionsPerStep: dataset.optionsPerStep,
+        depth: dataset.depth,
+        pathLength: dataset.path.length,
+        dimValues,
+      })
+    ) {
+      throw new BadRequestError(
+        `Journey result would exceed ${MAX_JOURNEY_RESULT_ROWS} rows. Lower options per step, steps to show, or dimension values.`,
+      );
+    }
   } else {
     throw new BadRequestError("Invalid dataset type");
   }
@@ -268,6 +337,7 @@ const DATASET_TYPE_PATH: Record<ExplorationConfig["dataset"]["type"], string> =
     fact_table: "fact-table",
     data_source: "data-source",
     funnel: "funnel",
+    journey: "journey",
   };
 
 export function getProductAnalyticsExplorationUrl(config: ExplorationConfig) {

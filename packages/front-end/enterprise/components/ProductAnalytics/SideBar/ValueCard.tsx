@@ -40,13 +40,15 @@ export default function ValueCard({
   // ValueCard is only mounted from metric/fact_table/data_source tabs —
   // funnels manage their own step UI. The hooks below must run unconditionally,
   // so we narrow defensively but defer the early return until after them.
-  const isFunnel = draftExploreState.dataset.type === "funnel";
-  const dataset = isFunnel
-    ? null
-    : (draftExploreState.dataset as Exclude<
+  const isValuesDataset =
+    draftExploreState.dataset.type !== "funnel" &&
+    draftExploreState.dataset.type !== "journey";
+  const dataset = isValuesDataset
+    ? (draftExploreState.dataset as Exclude<
         typeof draftExploreState.dataset,
-        { type: "funnel" }
-      >);
+        { type: "funnel" } | { type: "journey" }
+      >)
+    : null;
   const value = dataset?.values[index];
   const name = value?.name ?? "";
   const filters = value?.rowFilters ?? [];

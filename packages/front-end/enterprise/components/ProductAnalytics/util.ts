@@ -14,8 +14,18 @@ import type {
   ExplorationConfig,
   FunnelStep,
   FunnelDataset,
+  JourneyDataset,
+  JourneyStepGroup,
   ExplorationDateRange,
   ComparisonMode,
+} from "shared/validators";
+import { applyStepGroups, stepGroupsForColumn } from "shared/journeys";
+import {
+  MAX_JOURNEY_STEP_COLUMNS,
+  dateGranularity,
+  explorationConfigValidator,
+  explorationDateRangeValidator,
+  comparisonModeValidator,
 } from "shared/validators";
 import { isEqual } from "lodash";
 import { createParser } from "nuqs";
@@ -58,12 +68,6 @@ export function stripExplorerDraftFields(
   const { previousTimeFrame: _, comparisonMode: __, ...rest } = config;
   return rest;
 }
-import {
-  dateGranularity,
-  explorationConfigValidator,
-  explorationDateRangeValidator,
-  comparisonModeValidator,
-} from "shared/validators";
 import {
   operatorLabelMap,
   getColumnInfo,
@@ -116,28 +120,87 @@ export function getValueTypeLabel(
   );
 }
 
-/** Returns rowFilters with empty placeholder entries appended for every
- *  fact-table column that has `alwaysInlineFilter` enabled and isn't already
- *  represented in the existing filters. Mirrors the behavior used when
- *  authoring fact metrics — keeps the explorer consistent with metrics UX. */
-export function getInitialInlineFilters(
+export function getAlwaysInlineFilterColumns(
   factTable: FactTableDefinition,
-  existingRowFilters: RowFilter[] = [],
-): RowFilter[] {
-  const rowFilters = [...existingRowFilters];
-  factTable.columns
+): string[] {
+  return factTable.columns
     .filter(
       (c) => c.alwaysInlineFilter && canInlineFilterColumn(factTable, c.column),
     )
-    .forEach((c) => {
-      if (!rowFilters.some((rf) => rf.column === c.column)) {
-        rowFilters.push({
-          column: c.column,
-          operator: "=",
-          values: [""],
-        });
-      }
-    });
+    .map((c) => c.column);
+}
+
+/** Always-filter string columns (event_name, path, …) are the step identity. */
+export function getDefaultJourneyStepColumns(
+  factTable: FactTableDefinition,
+): string[] {
+  const userIdTypes = new Set(factTable.userIdTypes ?? []);
+  const byName = new Map(factTable.columns.map((c) => [c.column, c]));
+  return getAlwaysInlineFilterColumns(factTable)
+    .filter((column) => {
+      const col = byName.get(column);
+      return col?.datatype === "string" && !userIdTypes.has(column);
+    })
+    .slice(0, MAX_JOURNEY_STEP_COLUMNS);
+}
+
+/** Re-point the anchor and exclusions at grouped labels so they still match. */
+export function withStepGroupsApplied(
+  current: JourneyDataset,
+  stepGroups: JourneyStepGroup[],
+): JourneyDataset {
+  const anchorStepValues =
+    current.anchorStepValues?.map((value, i) => {
+      const column = current.stepColumns[i];
+      if (!column || !value) return value;
+      return applyStepGroups(value, stepGroupsForColumn(stepGroups, column));
+    }) ?? null;
+
+  const firstColumn = current.stepColumns[0];
+  const excludedSteps = firstColumn
+    ? Array.from(
+        new Set(
+          current.excludedSteps.map((value) =>
+            applyStepGroups(
+              value,
+              stepGroupsForColumn(stepGroups, firstColumn),
+            ),
+          ),
+        ),
+      )
+    : current.excludedSteps;
+
+  return {
+    ...current,
+    stepGroups,
+    anchorStepValues,
+    excludedSteps,
+    path: [],
+  };
+}
+
+/** Returns rowFilters with empty placeholder entries appended for every
+ *  fact-table column that has `alwaysInlineFilter` enabled and isn't already
+ *  represented in the existing filters. Mirrors the behavior used when
+ *  authoring fact metrics — keeps the explorer consistent with metrics UX.
+ *  `excludeColumns` skips journey step columns. */
+export function getInitialInlineFilters(
+  factTable: FactTableDefinition,
+  existingRowFilters: RowFilter[] = [],
+  excludeColumns: string[] = [],
+): RowFilter[] {
+  const rowFilters = [...existingRowFilters];
+  const excluded = new Set(excludeColumns.filter(Boolean));
+  getAlwaysInlineFilterColumns(factTable).forEach((column) => {
+    if (excluded.has(column)) return;
+    if (!rowFilters.some((rf) => rf.column === column)) {
+      rowFilters.push({
+        column,
+        operator: "=",
+        values: [""],
+      });
+    }
+  });
   return rowFilters;
 }
 
@@ -361,6 +424,8 @@ export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
       // The funnel sidebar manages steps directly; nothing in the codebase
       // should ask for a "value" on a funnel dataset.
       throw new Error("Funnels do not use values");
+    case "journey":
+      throw new Error("User Journeys do not use values");
     default:
       throw new Error(`Invalid dataset type: ${type}`);
   }
@@ -453,6 +518,25 @@ export function createEmptyDataset(type: DatasetType): ExplorationDataset {
       unit: null,
       steps: [createEmptyFunnelStep({ name: "Step 1" })],
     };
+  } else if (type === "journey") {
+    return {
+      type,
+      factTableId: null,
+      unit: null,
+      dailyJourneys: false,
+      stepColumns: [],
+      anchorStepValues: null,
+      direction: "forward",
+      excludedSteps: [],
+      rowFilters: [],
+      collapseRepeats: true,
+      path: [],
+      depth: 3,
+      optionsPerStep: [],
+      renderDepth: 2,
+      scaleMode: "perStep",
+      dimEncoding: "ribbons",
+    };
   } else {
     throw new Error(`Invalid dataset type: ${type}`);
   }
@@ -467,10 +551,12 @@ export function getCommonColumns(
   // Funnels use first-touch dimensions on the initial step's fact table,
   // so the candidate columns come from that one fact table — even when
   // later steps reference different fact tables.
-  if (dataset.type !== "funnel") {
+  if (dataset.type !== "funnel" && dataset.type !== "journey") {
     if (!dataset.values || dataset.values.length === 0) return [];
-  } else {
+  } else if (dataset.type === "funnel") {
     if (!dataset.steps || dataset.steps.length === 0) return [];
+  } else if (!dataset.factTableId) {
+    return [];
   }
 
   type SimpleColumn = Pick<
@@ -533,6 +619,11 @@ export function getCommonColumns(
     const initialStep = dataset.steps[0];
     const ft = initialStep?.factTableId
       ? getFactTableById(initialStep.factTableId)
+      : null;
+    columns = ft?.columns || [];
+  } else if (dataset.type === "journey") {
+    const ft = dataset.factTableId
+      ? getFactTableById(dataset.factTableId)
       : null;
     columns = ft?.columns || [];
   }
@@ -600,13 +691,19 @@ export function getColumnTopValues(
       : null;
     return ft ? getColumnInfo(ft, column).topValues : [];
   }
+  if (dataset.type === "journey") {
+    const ft = dataset.factTableId
+      ? getFactTableById(dataset.factTableId)
+      : null;
+    return ft ? getColumnInfo(ft, column).topValues : [];
+  }
 
   return [];
 }
 
 export function getMaxDimensions(dataset: ExplorationDataset): number {
-  // Phase 1 funnels are capped at a single dimension.
-  if (dataset.type === "funnel") return 1;
+  // Phase 1 funnels and journeys are capped at a single dimension.
+  if (dataset.type === "funnel" || dataset.type === "journey") return 1;
   let maxDimensions = 2;
   if (dataset.values.length > 1) {
     maxDimensions -= 1;
@@ -733,6 +830,18 @@ export function fillMissingUnits(
     } as ExplorationConfig;
   }
 
+  if (config.dataset.type === "journey") {
+    if (config.dataset.unit) return config;
+    if (!config.dataset.factTableId) return config;
+    const ft = getFactTableById(config.dataset.factTableId);
+    const defaultUnit = ft?.userIdTypes?.[0];
+    if (!defaultUnit) return config;
+    return {
+      ...config,
+      dataset: { ...config.dataset, unit: defaultUnit },
+    } as ExplorationConfig;
+  }
+
   if (config.dataset.type !== "metric") return config;
 
   let changed = false;
@@ -817,6 +926,11 @@ export function removeIncompleteInputs(
       ...dataset,
       steps: dataset.steps.filter((s) => !!s.factTableId).map(cleanRowFilters),
     };
+  } else if (dataset.type === "journey") {
+    return {
+      ...dataset,
+      ...cleanRowFilters(dataset),
+    };
   }
   return dataset;
 }
@@ -886,6 +1000,17 @@ export function toFetchKey(
       },
     };
   }
+  if (base.dataset.type === "journey") {
+    // renderDepth / scaleMode / dimEncoding are display-only.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { renderDepth, scaleMode, dimEncoding, ...journeyFetchDataset } =
+      base.dataset;
+    return {
+      ...rest,
+      chartType: getChartCategory(base.chartType),
+      dataset: journeyFetchDataset,
+    };
+  }
   return {
     ...rest,
     chartType: getChartCategory(base.chartType),
@@ -911,16 +1036,14 @@ export function hasUnsatisfiedInlineFilters(
   const stepHasUnsatisfied = (
     factTableId: string | null,
     rowFilters: RowFilter[],
+    excludeColumns: string[] = [],
   ): boolean => {
     if (!factTableId) return false;
     const ft = getFactTableById(factTableId);
     if (!ft) return false;
+    const excluded = new Set(excludeColumns.filter(Boolean));
     const inlineColumns = new Set(
-      ft.columns
-        .filter(
-          (c) => c.alwaysInlineFilter && canInlineFilterColumn(ft, c.column),
-        )
-        .map((c) => c.column),
+      getAlwaysInlineFilterColumns(ft).filter((c) => !excluded.has(c)),
     );
     if (inlineColumns.size === 0) return false;
     return rowFilters.some(
@@ -937,6 +1060,13 @@ export function hasUnsatisfiedInlineFilters(
   if (dataset.type === "funnel") {
     return dataset.steps.some((s) =>
       stepHasUnsatisfied(s.factTableId || null, s.rowFilters),
+    );
+  }
+  if (dataset.type === "journey") {
+    return stepHasUnsatisfied(
+      dataset.factTableId,
+      dataset.rowFilters,
+      dataset.stepColumns,
     );
   }
   return false;
@@ -969,6 +1099,23 @@ export function isSubmittableConfig(
         if (!ft) return false;
         if (!ft.userIdTypes?.includes(unit)) return false;
       }
+    }
+  } else if (cleanedConfig.dataset.type === "journey") {
+    const { unit, factTableId, stepColumns, anchorStepValues } =
+      cleanedConfig.dataset;
+    if (!unit || !factTableId) return false;
+    if (!stepColumns.length) return false;
+    if (
+      !anchorStepValues ||
+      anchorStepValues.length !== stepColumns.length ||
+      anchorStepValues.some((v) => !v)
+    ) {
+      return false;
+    }
+    if (getFactTableById) {
+      const ft = getFactTableById(factTableId);
+      if (!ft) return false;
+      if (!ft.userIdTypes?.includes(unit)) return false;
     }
   } else {
     if (!Array.isArray(cleanedConfig.dataset.values)) return false;
@@ -1026,7 +1173,9 @@ export function compareConfig(
     const hasInputs =
       newConfig.dataset.type === "funnel"
         ? newConfig.dataset.steps.length > 0
-        : newConfig.dataset.values.length > 0;
+        : newConfig.dataset.type === "journey"
+          ? !!newConfig.dataset.factTableId
+          : newConfig.dataset.values.length > 0;
     return { needsFetch: hasInputs, needsUpdate: hasInputs };
   }
 
@@ -1128,6 +1277,17 @@ export function hasSubmittablePayload(
   if (config.dataset.type === "funnel") {
     return (config.dataset.steps?.length ?? 0) >= 2;
   }
+  if (config.dataset.type === "journey") {
+    const { unit, factTableId, stepColumns, anchorStepValues } = config.dataset;
+    return (
+      !!unit &&
+      !!factTableId &&
+      stepColumns.length > 0 &&
+      !!anchorStepValues &&
+      anchorStepValues.length === stepColumns.length &&
+      anchorStepValues.every((v) => !!v)
+    );
+  }
   return (config.dataset.values?.length ?? 0) > 0;
 }
 
@@ -1152,6 +1312,22 @@ export function shouldChartSectionShow(params: {
   }
 
   return true;
+}
+
+/** Which journey pane to show. Empty+error always opens Results / SQL;
+ *  empty without an error always stays on the visualization empty state. */
+export function journeyPreferredView({
+  chartType,
+  hasData,
+  hasError,
+}: {
+  chartType: string;
+  hasData: boolean;
+  hasError: boolean;
+}): "bar" | "table" {
+  if (!hasData && hasError) return "table";
+  if (!hasData && !hasError) return "bar";
+  return chartType === "table" ? "table" : "bar";
 }
 
 /**

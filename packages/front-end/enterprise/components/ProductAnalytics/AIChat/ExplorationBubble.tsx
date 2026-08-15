@@ -26,6 +26,7 @@ const EXPLORER_PATHS: Record<ExplorationConfig["type"], string> = {
   fact_table: "/product-analytics/explore/fact-table",
   data_source: "/product-analytics/explore/data-source",
   funnel: "/product-analytics/explore/funnel",
+  journey: "/product-analytics/explore/journey",
 };
 
 export function chartDataFromToolResult(result: unknown): ChartData | null {

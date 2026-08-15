@@ -26,7 +26,8 @@ export class ProductAnalyticsExplorationQueryRunner extends QueryRunner<
     if (
       datasetType === "metric" ||
       datasetType === "fact_table" ||
-      datasetType === "funnel"
+      datasetType === "funnel" ||
+      datasetType === "journey"
     ) {
       return this.context.permissions.canRunMetricAnalysisQueries(
         this.integration.datasource,

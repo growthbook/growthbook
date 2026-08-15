@@ -10,6 +10,7 @@ import type { DateRangeCompareValue } from "@/enterprise/components/ProductAnaly
 import GraphTypeSelector from "./GraphTypeSelector";
 import FunnelGraphTypeSelector from "./FunnelGraphTypeSelector";
 import FunnelYAxisSelector from "./FunnelYAxisSelector";
+import JourneyGraphTypeSelector from "./JourneyGraphTypeSelector";
 import LastRefreshedIndicator from "./LastRefreshedIndicator";
 import DataSourceDropdown from "./DataSourceDropdown";
 
@@ -23,10 +24,12 @@ export default function Toolbar() {
     managedWarehouseUnavailable,
   } = useExplorerContext();
   const isFunnel = draftExploreState.dataset?.type === "funnel";
+  const isJourney = draftExploreState.dataset?.type === "journey";
   // Bucketing only applies to a date dimension, so a chart without one has no
   // granularity to show.
   const showGranularity =
     !isFunnel &&
+    !isJourney &&
     ["line", "area", "timeseries-table"].includes(draftExploreState.chartType);
 
   const dateRangeValue: DateRangeCompareValue = {
@@ -107,7 +110,13 @@ export default function Toolbar() {
       <Flex align="start" gap="3" style={{ minHeight: "32px" }}>
         {/* Left Side */}
         <Flex align="center" gap="3" style={{ flexShrink: 0, height: "32px" }}>
-          {isFunnel ? <FunnelGraphTypeSelector /> : <GraphTypeSelector />}
+          {isFunnel ? (
+            <FunnelGraphTypeSelector />
+          ) : isJourney ? (
+            <JourneyGraphTypeSelector />
+          ) : (
+            <GraphTypeSelector />
+          )}
           {isFunnel && draftExploreState.chartType !== "table" && (
             <FunnelYAxisSelector />
           )}
@@ -122,7 +131,7 @@ export default function Toolbar() {
           style={{ flexGrow: 1, minWidth: 0 }}
         >
           <DateRangeCompareDropdown
-            showCompare
+            showCompare={!isJourney}
             showGranularity={showGranularity}
             value={dateRangeValue}
             onChange={applyDateRange}

@@ -124,7 +124,11 @@ export default function SaveToDashboardModal({
   }));
 
   const handleSubmit = async () => {
-    const blockType = datasetTypeToBlockType(config.dataset.type);
+    const datasetType = config.dataset.type;
+    if (datasetType === "journey") {
+      throw new Error("User Journeys can't be saved to dashboards yet.");
+    }
+    const blockType = datasetTypeToBlockType(datasetType);
     // Persist the comparison so dashboards can show it and roll it on refresh.
     // Only `custom` needs its window stored; every other mode re-derives it each
     // refresh so it rolls with the primary range.

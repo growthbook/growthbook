@@ -16,6 +16,7 @@ import {
   FactTableExplorationConfig,
   DataSourceExplorationConfig,
   FunnelExplorationConfig,
+  JourneyExplorationConfig,
   ExplorationDateRange,
   dateGranularity,
 } from "shared/validators";
@@ -215,7 +216,8 @@ type DashboardGlobalControlSupportedConfig =
   | MetricExplorationConfig
   | FactTableExplorationConfig
   | DataSourceExplorationConfig
-  | FunnelExplorationConfig;
+  | FunnelExplorationConfig
+  | JourneyExplorationConfig;
 
 function applyDateGranularity<T extends DashboardGlobalControlSupportedBlock>(
   config: T["config"],

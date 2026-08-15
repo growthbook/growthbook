@@ -1,8 +1,24 @@
 import { format as sqlFormat } from "sql-formatter";
 import { SqlResultChunkInterface } from "../types/query";
-import { FormatDialect, SqlDialect, StringMatchFn } from "../types/sql";
+import {
+  FormatDialect,
+  GlobMatchFn,
+  SqlDialect,
+  StringMatchFn,
+} from "../types/sql";
 import { FormatError } from "../types/error";
 import { parseEnvInt } from "./util/numbers";
+
+/** Escaping and LIKE-clause behavior for one dialect. Shared by the string-match
+ *  and glob-match builders so a dialect configures both from one place. */
+type LikeMatchOptions = {
+  escapeStringLiteral: (s: string) => string;
+  escapeWildcards?: (s: string) => string;
+  emitEscapeClause: boolean;
+};
+
+const defaultEscapeWildcards = (value: string) =>
+  value.replace(/([%_\\])/g, "\\$1");
 
 /**
  * Creates a function that builds a string-match condition (LIKE or a warehouse-native equivalent).
@@ -12,13 +28,9 @@ import { parseEnvInt } from "./util/numbers";
  */
 export function createLikeStringMatchFn({
   escapeStringLiteral,
-  escapeWildcards = (value: string) => value.replace(/([%_\\])/g, "\\$1"),
+  escapeWildcards = defaultEscapeWildcards,
   emitEscapeClause,
-}: {
-  escapeStringLiteral: (s: string) => string;
-  escapeWildcards?: (s: string) => string;
-  emitEscapeClause: boolean;
-}): StringMatchFn {
+}: LikeMatchOptions): StringMatchFn {
   return (columnExpr, operator, value) => {
     const pattern = escapeStringLiteral(escapeWildcards(value));
     const escapeClause = emitEscapeClause
@@ -34,6 +46,60 @@ export function createLikeStringMatchFn({
       case "not_contains":
         return `${columnExpr} NOT LIKE '%${pattern}%'${escapeClause}`;
     }
+  };
+}
+
+/**
+ * Translates a user-facing wildcard pattern into a LIKE pattern. `*` matches any
+ * run of characters and `?` matches exactly one; everything else is literal.
+ *
+ * LIKE's own metacharacters are escaped in the literal chunks *before* the
+ * wildcards are substituted, so a pattern like `/reports/50%_*` matches a
+ * literal "50%_" followed by anything, rather than treating the `%` and `_` as
+ * wildcards of their own.
+ */
+export function globToLikePattern(
+  glob: string,
+  escapeWildcards: (s: string) => string = defaultEscapeWildcards,
+): string {
+  return glob
+    .split(/([*?])/)
+    .map((chunk) => {
+      if (chunk === "*") return "%";
+      if (chunk === "?") return "_";
+      return escapeWildcards(chunk);
+    })
+    .join("");
+}
+
+/**
+ * Creates a function that matches a column against a user-facing wildcard
+ * pattern (`*` any run, `?` one character).
+ */
+export function createGlobMatchFn({
+  escapeStringLiteral,
+  escapeWildcards = defaultEscapeWildcards,
+  emitEscapeClause,
+}: LikeMatchOptions): GlobMatchFn {
+  return (columnExpr, glob) => {
+    const pattern = escapeStringLiteral(
+      globToLikePattern(glob, escapeWildcards),
+    );
+    const escapeClause = emitEscapeClause
+      ? ` ESCAPE '${escapeStringLiteral("\\")}'`
+      : "";
+    return `${columnExpr} LIKE '${pattern}'${escapeClause}`;
+  };
+}
+
+/** Both LIKE matchers from one options object so escaping cannot drift. */
+export function createLikeMatchFns(options: LikeMatchOptions): {
+  stringMatch: StringMatchFn;
+  globMatch: GlobMatchFn;
+} {
+  return {
+    stringMatch: createLikeStringMatchFn(options),
+    globMatch: createGlobMatchFn(options),
   };
 }
 

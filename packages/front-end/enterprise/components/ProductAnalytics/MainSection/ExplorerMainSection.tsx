@@ -6,6 +6,7 @@ import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import {
   hasSubmittablePayload,
+  journeyPreferredView,
   shouldChartSectionShow,
 } from "@/enterprise/components/ProductAnalytics/util";
 import Callout from "@/ui/Callout";
@@ -34,18 +35,36 @@ export default function ExplorerMainSection() {
     submittedComparisonMode,
   } = useExplorerContext();
 
-  const showChartSection = shouldChartSectionShow({
-    loading,
-    error,
-    submittedExploreState,
-  });
+  const isJourney = draftExploreState.type === "journey";
+  const journeyHasData = (exploration?.result?.rows?.length ?? 0) > 0;
+  const journeyHasError = !!error && !loading;
+  const journeyView = isJourney
+    ? journeyPreferredView({
+        chartType: draftExploreState.chartType,
+        hasData: journeyHasData,
+        hasError: journeyHasError,
+      })
+    : null;
+  const showChartSection = journeyView
+    ? journeyView === "bar"
+    : shouldChartSectionShow({
+        loading,
+        error,
+        submittedExploreState,
+      });
 
   const funnelMainEmpty =
     draftExploreState.type === "funnel" &&
     draftExploreState.dataset?.type === "funnel" &&
     !hasSubmittablePayload(submittedExploreState);
+  const journeyMainEmpty =
+    draftExploreState.type === "journey" &&
+    draftExploreState.dataset?.type === "journey" &&
+    !hasSubmittablePayload(submittedExploreState);
 
-  const suppressStaleFloatingCallout = funnelMainEmpty && isStale && !loading;
+  const suppressStaleFloatingCallout =
+    (funnelMainEmpty || journeyMainEmpty) && isStale && !loading;
+  const showTableSection = journeyView ? journeyView === "table" : true;
 
   return (
     <Flex
@@ -76,7 +95,7 @@ export default function ExplorerMainSection() {
                 <Panel
                   id="chart"
                   order={1}
-                  defaultSize={60}
+                  defaultSize={showTableSection ? 60 : 100}
                   minSize={20}
                   style={{
                     display: "flex",
@@ -98,50 +117,60 @@ export default function ExplorerMainSection() {
                     }
                   />
                 </Panel>
-                <PanelResizeHandle
-                  style={{
-                    height: "20px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Box
-                    flexGrow="1"
-                    mx="3"
-                    style={{ backgroundColor: "var(--gray-a3)", height: "1px" }}
-                  ></Box>
-                  <PiDotsSix size={16} />
-                  <Box
-                    flexGrow="1"
-                    mx="3"
-                    style={{ backgroundColor: "var(--gray-a3)", height: "1px" }}
-                  ></Box>
-                </PanelResizeHandle>
+                {showTableSection && (
+                  <PanelResizeHandle
+                    style={{
+                      height: "20px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Box
+                      flexGrow="1"
+                      mx="3"
+                      style={{
+                        backgroundColor: "var(--gray-a3)",
+                        height: "1px",
+                      }}
+                    ></Box>
+                    <PiDotsSix size={16} />
+                    <Box
+                      flexGrow="1"
+                      mx="3"
+                      style={{
+                        backgroundColor: "var(--gray-a3)",
+                        height: "1px",
+                      }}
+                    ></Box>
+                  </PanelResizeHandle>
+                )}
               </>
             )}
-            <Panel
-              id="table"
-              order={2}
-              defaultSize={showChartSection ? 40 : 100}
-              minSize={20}
-            >
-              <ExplorerDataTable
-                exploration={exploration}
-                error={error}
-                submittedExploreState={submittedExploreState}
-                loading={loading}
-                hasChart={showChartSection}
-                isStale={isStale}
-                query={query}
-                compareEnabled={compareEnabled}
-                comparisonExploration={comparisonExploration}
-                comparisonMode={submittedComparisonMode}
-                serverTableTrendsByRow={
-                  comparisonComputed?.tableTrendsByRow ?? null
-                }
-              />
-            </Panel>
+            {showTableSection && (
+              <Panel
+                id="table"
+                order={2}
+                defaultSize={showChartSection ? 40 : 100}
+                minSize={20}
+              >
+                <ExplorerDataTable
+                  exploration={exploration}
+                  error={error}
+                  submittedExploreState={submittedExploreState}
+                  loading={loading}
+                  hasChart={showChartSection}
+                  isStale={isStale}
+                  query={query}
+                  compareEnabled={compareEnabled}
+                  comparisonExploration={comparisonExploration}
+                  comparisonMode={submittedComparisonMode}
+                  serverTableTrendsByRow={
+                    comparisonComputed?.tableTrendsByRow ?? null
+                  }
+                />
+              </Panel>
+            )}
           </PanelGroup>
         ) : (
           <Flex
@@ -178,6 +207,29 @@ export default function ExplorerMainSection() {
                   <Flex align="center" gap="2">
                     <PiArrowsClockwise />
                     Analyze Funnel
+                  </Flex>
+                </Button>
+              </>
+            ) : journeyMainEmpty ? (
+              <>
+                <Text size="lg" weight="medium">
+                  Done configuring this journey?
+                </Text>
+                <Button
+                  size="xl"
+                  variant="solid"
+                  disabled={
+                    loading ||
+                    !hasSubmittablePayload(draftExploreState) ||
+                    !isSubmittable
+                  }
+                  onClick={async () => {
+                    await handleSubmit();
+                  }}
+                >
+                  <Flex align="center" gap="2">
+                    <PiArrowsClockwise />
+                    Analyze user journey
                   </Flex>
                 </Button>
               </>

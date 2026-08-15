@@ -1,6 +1,6 @@
 import type { DataType } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
-import { createLikeStringMatchFn } from "shared/sql";
+import { createLikeMatchFns } from "shared/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 import { indicesTableUnpivot } from "back-end/src/integrations/sql/clauses/indices-table-unpivot";
 import {
@@ -14,9 +14,10 @@ const snowflakeEscapeStringLiteral = (value: string) =>
 
 export const snowflakeDialect: SqlDialect = {
   ...baseDialect,
+  concatStrings: (parts: string[]) => parts.join(" || "),
   formatDialect: "snowflake",
   escapeStringLiteral: snowflakeEscapeStringLiteral,
-  stringMatch: createLikeStringMatchFn({
+  ...createLikeMatchFns({
     escapeStringLiteral: snowflakeEscapeStringLiteral,
     emitEscapeClause: true,
   }),

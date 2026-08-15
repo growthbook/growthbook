@@ -40,6 +40,7 @@ const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
   fact_table: "Fact Table",
   data_source: "Data Source",
   funnel: "Funnel",
+  journey: "User Journey",
 };
 
 const explorationQueryParser = explorationConfigParser.withOptions({
@@ -237,22 +238,22 @@ function ExplorerInner({ type }: { type: DatasetType }) {
     () => configError,
   );
 
-  // Funnels manage their initial state via createEmptyDataset (which seeds
-  // one empty step); the other dataset types still seed an empty value here
-  // so the sidebar opens with one ready-to-edit row.
+  // Funnels and journeys manage their initial state via createEmptyDataset;
+  // the other dataset types still seed an empty value here so the sidebar
+  // opens with one ready-to-edit row.
   const defaultDataset = createEmptyDataset(type);
   const defaultDraftState = {
     ...DEFAULT_EXPLORE_STATE,
     type,
     datasource: defaultDataSourceId,
     dataset:
-      type === "funnel"
+      type === "funnel" || type === "journey"
         ? defaultDataset
         : { ...defaultDataset, values: [createEmptyValue(type)] },
-    // Funnels don't render time-series charts, so the default date dimension
-    // from DEFAULT_EXPLORE_STATE doesn't apply — start with no dimensions and
-    // let the user add one explicitly via "Group By".
-    ...(type === "funnel" ? { dimensions: [] } : {}),
+    // Funnels and journeys don't render time-series charts, so the default
+    // date dimension from DEFAULT_EXPLORE_STATE doesn't apply.
+    ...(type === "funnel" || type === "journey" ? { dimensions: [] } : {}),
+    ...(type === "journey" ? { chartType: "bar" as const } : {}),
   } as ExplorerDraftConfig;
 
   let seedError: string | null = null;

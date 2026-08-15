@@ -44340,6 +44340,57 @@ paths:
                                           - timeFromPrevSumHrs
                                           - timeFromPrevSumSquaresHrs
                                         additionalProperties: false
+                                    journey:
+                                      anyOf:
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: path
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            levels:
+                                              type: array
+                                              items:
+                                                type: string
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - levels
+                                            - count
+                                          additionalProperties: false
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: progress
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            depthReached:
+                                              type: number
+                                            outcome:
+                                              type: string
+                                              enum:
+                                                - taken
+                                                - other
+                                                - exit
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - depthReached
+                                            - outcome
+                                            - count
+                                          additionalProperties: false
                                   required:
                                     - dimensions
                                   additionalProperties: false
@@ -45022,6 +45073,57 @@ paths:
                                           - timeFromPrevSumHrs
                                           - timeFromPrevSumSquaresHrs
                                         additionalProperties: false
+                                    journey:
+                                      anyOf:
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: path
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            levels:
+                                              type: array
+                                              items:
+                                                type: string
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - levels
+                                            - count
+                                          additionalProperties: false
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: progress
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            depthReached:
+                                              type: number
+                                            outcome:
+                                              type: string
+                                              enum:
+                                                - taken
+                                                - other
+                                                - exit
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - depthReached
+                                            - outcome
+                                            - count
+                                          additionalProperties: false
                                   required:
                                     - dimensions
                                   additionalProperties: false
@@ -45730,6 +45832,57 @@ paths:
                                           - timeFromPrevSumHrs
                                           - timeFromPrevSumSquaresHrs
                                         additionalProperties: false
+                                    journey:
+                                      anyOf:
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: path
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            levels:
+                                              type: array
+                                              items:
+                                                type: string
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - levels
+                                            - count
+                                          additionalProperties: false
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: progress
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            depthReached:
+                                              type: number
+                                            outcome:
+                                              type: string
+                                              enum:
+                                                - taken
+                                                - other
+                                                - exit
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - depthReached
+                                            - outcome
+                                            - count
+                                          additionalProperties: false
                                   required:
                                     - dimensions
                                   additionalProperties: false
@@ -46450,6 +46603,57 @@ paths:
                                           - timeFromPrevSumHrs
                                           - timeFromPrevSumSquaresHrs
                                         additionalProperties: false
+                                    journey:
+                                      anyOf:
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: path
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            levels:
+                                              type: array
+                                              items:
+                                                type: string
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - levels
+                                            - count
+                                          additionalProperties: false
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: progress
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            depthReached:
+                                              type: number
+                                            outcome:
+                                              type: string
+                                              enum:
+                                                - taken
+                                                - other
+                                                - exit
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - depthReached
+                                            - outcome
+                                            - count
+                                          additionalProperties: false
                                   required:
                                     - dimensions
                                   additionalProperties: false
@@ -46776,6 +46980,894 @@ paths:
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/product-analytics/funnel-exploration'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/product-analytics/journey-exploration:
+    post:
+      operationId: postJourneyExploration
+      summary: Run a User Journey based visualization
+      tags:
+        - AnalyticsExplorations
+      parameters:
+        - $ref: '#/components/parameters/cache'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                datasource:
+                  description: ID of the datasource to query
+                  type: string
+                dimensions:
+                  type: array
+                  items:
+                    anyOf:
+                      - type: object
+                        properties:
+                          dimensionType:
+                            type: string
+                            const: date
+                          column:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          dateGranularity:
+                            type: string
+                            enum:
+                              - auto
+                              - hour
+                              - day
+                              - week
+                              - month
+                              - year
+                        required:
+                          - dimensionType
+                          - column
+                          - dateGranularity
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          dimensionType:
+                            type: string
+                            const: dynamic
+                          column:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          maxValues:
+                            type: number
+                        required:
+                          - dimensionType
+                          - column
+                          - maxValues
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          dimensionType:
+                            type: string
+                            const: static
+                          column:
+                            type: string
+                          values:
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - dimensionType
+                          - column
+                          - values
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          dimensionType:
+                            type: string
+                            const: slice
+                          slices:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                filters:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      operator:
+                                        type: string
+                                        enum:
+                                          - '='
+                                          - '!='
+                                          - <
+                                          - <=
+                                          - '>'
+                                          - '>='
+                                          - between
+                                          - not_between
+                                          - in
+                                          - not_in
+                                          - contains
+                                          - not_contains
+                                          - starts_with
+                                          - ends_with
+                                          - is_null
+                                          - not_null
+                                          - is_true
+                                          - is_false
+                                          - sql_expr
+                                          - saved_filter
+                                      column:
+                                        type: string
+                                      values:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - operator
+                                    additionalProperties: false
+                              required:
+                                - name
+                                - filters
+                              additionalProperties: false
+                        required:
+                          - dimensionType
+                          - slices
+                        additionalProperties: false
+                chartType:
+                  type: string
+                  enum:
+                    - line
+                    - area
+                    - timeseries-table
+                    - table
+                    - bar
+                    - stackedBar
+                    - horizontalBar
+                    - stackedHorizontalBar
+                    - bigNumber
+                dateRange:
+                  type: object
+                  properties:
+                    predefined:
+                      type: string
+                      enum:
+                        - today
+                        - yesterday
+                        - last7Days
+                        - last30Days
+                        - last90Days
+                        - last12Months
+                        - lastCalendarYear
+                        - customLookback
+                        - customDateRange
+                    lookbackValue:
+                      anyOf:
+                        - type: number
+                        - type: 'null'
+                    lookbackUnit:
+                      anyOf:
+                        - type: string
+                          enum:
+                            - hour
+                            - day
+                            - week
+                            - month
+                        - type: 'null'
+                    startDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    endDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                  required:
+                    - predefined
+                  additionalProperties: false
+                showAs:
+                  type: string
+                  enum:
+                    - total
+                    - per_unit
+                type:
+                  type: string
+                  const: journey
+                dataset:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      const: journey
+                    factTableId:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    unit:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    dailyJourneys:
+                      type: boolean
+                    stepColumns:
+                      maxItems: 3
+                      type: array
+                      items:
+                        type: string
+                    stepGroups:
+                      maxItems: 25
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          column:
+                            type: string
+                          pattern:
+                            type: string
+                        required:
+                          - column
+                          - pattern
+                        additionalProperties: false
+                    anchorStepValues:
+                      anyOf:
+                        - type: array
+                          items:
+                            type: string
+                        - type: 'null'
+                    direction:
+                      type: string
+                      enum:
+                        - forward
+                        - backward
+                    excludedSteps:
+                      type: array
+                      items:
+                        type: string
+                    rowFilters:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          operator:
+                            type: string
+                            enum:
+                              - '='
+                              - '!='
+                              - <
+                              - <=
+                              - '>'
+                              - '>='
+                              - between
+                              - not_between
+                              - in
+                              - not_in
+                              - contains
+                              - not_contains
+                              - starts_with
+                              - ends_with
+                              - is_null
+                              - not_null
+                              - is_true
+                              - is_false
+                              - sql_expr
+                              - saved_filter
+                          column:
+                            type: string
+                          values:
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - operator
+                        additionalProperties: false
+                    collapseRepeats:
+                      type: boolean
+                    path:
+                      type: array
+                      items:
+                        anyOf:
+                          - type: object
+                            properties:
+                              mode:
+                                type: string
+                                const: value
+                              value:
+                                type: string
+                            required:
+                              - mode
+                              - value
+                            additionalProperties: false
+                          - type: object
+                            properties:
+                              mode:
+                                type: string
+                                const: other
+                              excludes:
+                                type: array
+                                items:
+                                  type: string
+                            required:
+                              - mode
+                              - excludes
+                            additionalProperties: false
+                    depth:
+                      type: integer
+                      minimum: 1
+                      maximum: 4
+                    optionsPerStep:
+                      type: array
+                      items:
+                        type: integer
+                        minimum: 2
+                        maximum: 50
+                    renderDepth:
+                      type: integer
+                      minimum: 1
+                      maximum: 3
+                    scaleMode:
+                      type: string
+                      enum:
+                        - perStep
+                        - funnel
+                    dimEncoding:
+                      type: string
+                      enum:
+                        - tooltip
+                        - ribbons
+                        - facet
+                  required:
+                    - type
+                    - factTableId
+                    - unit
+                    - dailyJourneys
+                    - stepColumns
+                    - anchorStepValues
+                    - direction
+                    - excludedSteps
+                    - rowFilters
+                    - collapseRepeats
+                    - path
+                    - depth
+                    - optionsPerStep
+                  additionalProperties: false
+              required:
+                - datasource
+                - dimensions
+                - chartType
+                - dateRange
+                - type
+                - dataset
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  exploration:
+                    anyOf:
+                      - type: object
+                        properties:
+                          id:
+                            type: string
+                          dateCreated:
+                            type: string
+                            format: date-time
+                          dateUpdated:
+                            type: string
+                            format: date-time
+                          datasource:
+                            type: string
+                          status:
+                            type: string
+                            enum:
+                              - running
+                              - success
+                              - error
+                          dateStart:
+                            type: string
+                          dateEnd:
+                            type: string
+                          error:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          result:
+                            type: object
+                            properties:
+                              rows:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    dimensions:
+                                      type: array
+                                      items:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                    values:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          metricId:
+                                            type: string
+                                          numerator:
+                                            anyOf:
+                                              - type: number
+                                              - type: 'null'
+                                          denominator:
+                                            anyOf:
+                                              - type: number
+                                              - type: 'null'
+                                        required:
+                                          - metricId
+                                          - numerator
+                                          - denominator
+                                        additionalProperties: false
+                                    steps:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          count:
+                                            type: number
+                                          timeFromPrevSumHrs:
+                                            anyOf:
+                                              - type: number
+                                              - type: 'null'
+                                          timeFromPrevSumSquaresHrs:
+                                            anyOf:
+                                              - type: number
+                                              - type: 'null'
+                                        required:
+                                          - count
+                                          - timeFromPrevSumHrs
+                                          - timeFromPrevSumSquaresHrs
+                                        additionalProperties: false
+                                    journey:
+                                      anyOf:
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: path
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            levels:
+                                              type: array
+                                              items:
+                                                type: string
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - levels
+                                            - count
+                                          additionalProperties: false
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: progress
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            depthReached:
+                                              type: number
+                                            outcome:
+                                              type: string
+                                              enum:
+                                                - taken
+                                                - other
+                                                - exit
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - depthReached
+                                            - outcome
+                                            - count
+                                          additionalProperties: false
+                                  required:
+                                    - dimensions
+                                  additionalProperties: false
+                            required:
+                              - rows
+                            additionalProperties: false
+                          config:
+                            type: object
+                            properties:
+                              datasource:
+                                description: ID of the datasource to query
+                                type: string
+                              dimensions:
+                                type: array
+                                items:
+                                  anyOf:
+                                    - type: object
+                                      properties:
+                                        dimensionType:
+                                          type: string
+                                          const: date
+                                        column:
+                                          anyOf:
+                                            - type: string
+                                            - type: 'null'
+                                        dateGranularity:
+                                          type: string
+                                          enum:
+                                            - auto
+                                            - hour
+                                            - day
+                                            - week
+                                            - month
+                                            - year
+                                      required:
+                                        - dimensionType
+                                        - column
+                                        - dateGranularity
+                                      additionalProperties: false
+                                    - type: object
+                                      properties:
+                                        dimensionType:
+                                          type: string
+                                          const: dynamic
+                                        column:
+                                          anyOf:
+                                            - type: string
+                                            - type: 'null'
+                                        maxValues:
+                                          type: number
+                                      required:
+                                        - dimensionType
+                                        - column
+                                        - maxValues
+                                      additionalProperties: false
+                                    - type: object
+                                      properties:
+                                        dimensionType:
+                                          type: string
+                                          const: static
+                                        column:
+                                          type: string
+                                        values:
+                                          type: array
+                                          items:
+                                            type: string
+                                      required:
+                                        - dimensionType
+                                        - column
+                                        - values
+                                      additionalProperties: false
+                                    - type: object
+                                      properties:
+                                        dimensionType:
+                                          type: string
+                                          const: slice
+                                        slices:
+                                          type: array
+                                          items:
+                                            type: object
+                                            properties:
+                                              name:
+                                                type: string
+                                              filters:
+                                                type: array
+                                                items:
+                                                  type: object
+                                                  properties:
+                                                    operator:
+                                                      type: string
+                                                      enum:
+                                                        - '='
+                                                        - '!='
+                                                        - <
+                                                        - <=
+                                                        - '>'
+                                                        - '>='
+                                                        - between
+                                                        - not_between
+                                                        - in
+                                                        - not_in
+                                                        - contains
+                                                        - not_contains
+                                                        - starts_with
+                                                        - ends_with
+                                                        - is_null
+                                                        - not_null
+                                                        - is_true
+                                                        - is_false
+                                                        - sql_expr
+                                                        - saved_filter
+                                                    column:
+                                                      type: string
+                                                    values:
+                                                      type: array
+                                                      items:
+                                                        type: string
+                                                  required:
+                                                    - operator
+                                                  additionalProperties: false
+                                            required:
+                                              - name
+                                              - filters
+                                            additionalProperties: false
+                                      required:
+                                        - dimensionType
+                                        - slices
+                                      additionalProperties: false
+                              chartType:
+                                type: string
+                                enum:
+                                  - line
+                                  - area
+                                  - timeseries-table
+                                  - table
+                                  - bar
+                                  - stackedBar
+                                  - horizontalBar
+                                  - stackedHorizontalBar
+                                  - bigNumber
+                              dateRange:
+                                type: object
+                                properties:
+                                  predefined:
+                                    type: string
+                                    enum:
+                                      - today
+                                      - yesterday
+                                      - last7Days
+                                      - last30Days
+                                      - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
+                                      - customLookback
+                                      - customDateRange
+                                  lookbackValue:
+                                    anyOf:
+                                      - type: number
+                                      - type: 'null'
+                                  lookbackUnit:
+                                    anyOf:
+                                      - type: string
+                                        enum:
+                                          - hour
+                                          - day
+                                          - week
+                                          - month
+                                      - type: 'null'
+                                  startDate:
+                                    anyOf:
+                                      - type: string
+                                      - type: 'null'
+                                  endDate:
+                                    anyOf:
+                                      - type: string
+                                      - type: 'null'
+                                required:
+                                  - predefined
+                                additionalProperties: false
+                              showAs:
+                                type: string
+                                enum:
+                                  - total
+                                  - per_unit
+                              type:
+                                type: string
+                                const: journey
+                              dataset:
+                                type: object
+                                properties:
+                                  type:
+                                    type: string
+                                    const: journey
+                                  factTableId:
+                                    anyOf:
+                                      - type: string
+                                      - type: 'null'
+                                  unit:
+                                    anyOf:
+                                      - type: string
+                                      - type: 'null'
+                                  dailyJourneys:
+                                    type: boolean
+                                  stepColumns:
+                                    maxItems: 3
+                                    type: array
+                                    items:
+                                      type: string
+                                  stepGroups:
+                                    maxItems: 25
+                                    type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        column:
+                                          type: string
+                                        pattern:
+                                          type: string
+                                      required:
+                                        - column
+                                        - pattern
+                                      additionalProperties: false
+                                  anchorStepValues:
+                                    anyOf:
+                                      - type: array
+                                        items:
+                                          type: string
+                                      - type: 'null'
+                                  direction:
+                                    type: string
+                                    enum:
+                                      - forward
+                                      - backward
+                                  excludedSteps:
+                                    type: array
+                                    items:
+                                      type: string
+                                  rowFilters:
+                                    type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        operator:
+                                          type: string
+                                          enum:
+                                            - '='
+                                            - '!='
+                                            - <
+                                            - <=
+                                            - '>'
+                                            - '>='
+                                            - between
+                                            - not_between
+                                            - in
+                                            - not_in
+                                            - contains
+                                            - not_contains
+                                            - starts_with
+                                            - ends_with
+                                            - is_null
+                                            - not_null
+                                            - is_true
+                                            - is_false
+                                            - sql_expr
+                                            - saved_filter
+                                        column:
+                                          type: string
+                                        values:
+                                          type: array
+                                          items:
+                                            type: string
+                                      required:
+                                        - operator
+                                      additionalProperties: false
+                                  collapseRepeats:
+                                    type: boolean
+                                  path:
+                                    type: array
+                                    items:
+                                      anyOf:
+                                        - type: object
+                                          properties:
+                                            mode:
+                                              type: string
+                                              const: value
+                                            value:
+                                              type: string
+                                          required:
+                                            - mode
+                                            - value
+                                          additionalProperties: false
+                                        - type: object
+                                          properties:
+                                            mode:
+                                              type: string
+                                              const: other
+                                            excludes:
+                                              type: array
+                                              items:
+                                                type: string
+                                          required:
+                                            - mode
+                                            - excludes
+                                          additionalProperties: false
+                                  depth:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 4
+                                  optionsPerStep:
+                                    type: array
+                                    items:
+                                      type: integer
+                                      minimum: 2
+                                      maximum: 50
+                                  renderDepth:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 3
+                                  scaleMode:
+                                    type: string
+                                    enum:
+                                      - perStep
+                                      - funnel
+                                  dimEncoding:
+                                    type: string
+                                    enum:
+                                      - tooltip
+                                      - ribbons
+                                      - facet
+                                required:
+                                  - type
+                                  - factTableId
+                                  - unit
+                                  - dailyJourneys
+                                  - stepColumns
+                                  - anchorStepValues
+                                  - direction
+                                  - excludedSteps
+                                  - rowFilters
+                                  - collapseRepeats
+                                  - path
+                                  - depth
+                                  - optionsPerStep
+                                additionalProperties: false
+                            required:
+                              - datasource
+                              - dimensions
+                              - chartType
+                              - dateRange
+                              - type
+                              - dataset
+                            additionalProperties: false
+                        required:
+                          - id
+                          - dateCreated
+                          - dateUpdated
+                          - datasource
+                          - status
+                          - dateStart
+                          - dateEnd
+                          - result
+                          - config
+                        additionalProperties: false
+                      - type: 'null'
+                  query:
+                    anyOf:
+                      - $ref: '#/components/schemas/Query'
+                      - type: 'null'
+                  explorationUrl:
+                    description: >-
+                      A direct link to view this exploration in the GrowthBook
+                      Application.
+                    type: string
+                  message:
+                    description: >-
+                      Present when `exploration` is null, explaining why no
+                      result was returned.
+                    type: string
+                required:
+                  - exploration
+                  - query
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/product-analytics/journey-exploration'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/ramp-schedule-templates/{id}:
@@ -64450,6 +65542,57 @@ components:
                         - timeFromPrevSumHrs
                         - timeFromPrevSumSquaresHrs
                       additionalProperties: false
+                  journey:
+                    anyOf:
+                      - type: object
+                        properties:
+                          kind:
+                            type: string
+                            const: path
+                          direction:
+                            type: string
+                            enum:
+                              - forward
+                              - backward
+                          levels:
+                            type: array
+                            items:
+                              type: string
+                          count:
+                            type: number
+                        required:
+                          - kind
+                          - direction
+                          - levels
+                          - count
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          kind:
+                            type: string
+                            const: progress
+                          direction:
+                            type: string
+                            enum:
+                              - forward
+                              - backward
+                          depthReached:
+                            type: number
+                          outcome:
+                            type: string
+                            enum:
+                              - taken
+                              - other
+                              - exit
+                          count:
+                            type: number
+                        required:
+                          - kind
+                          - direction
+                          - depthReached
+                          - outcome
+                          - count
+                        additionalProperties: false
                 required:
                   - dimensions
                 additionalProperties: false
@@ -65558,6 +66701,351 @@ components:
                     - type
                     - unit
                     - steps
+                  additionalProperties: false
+              required:
+                - datasource
+                - dimensions
+                - chartType
+                - dateRange
+                - type
+                - dataset
+              additionalProperties: false
+            - type: object
+              properties:
+                datasource:
+                  description: ID of the datasource to query
+                  type: string
+                dimensions:
+                  type: array
+                  items:
+                    anyOf:
+                      - type: object
+                        properties:
+                          dimensionType:
+                            type: string
+                            const: date
+                          column:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          dateGranularity:
+                            type: string
+                            enum:
+                              - auto
+                              - hour
+                              - day
+                              - week
+                              - month
+                              - year
+                        required:
+                          - dimensionType
+                          - column
+                          - dateGranularity
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          dimensionType:
+                            type: string
+                            const: dynamic
+                          column:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          maxValues:
+                            type: number
+                        required:
+                          - dimensionType
+                          - column
+                          - maxValues
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          dimensionType:
+                            type: string
+                            const: static
+                          column:
+                            type: string
+                          values:
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - dimensionType
+                          - column
+                          - values
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          dimensionType:
+                            type: string
+                            const: slice
+                          slices:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                filters:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      operator:
+                                        type: string
+                                        enum:
+                                          - '='
+                                          - '!='
+                                          - <
+                                          - <=
+                                          - '>'
+                                          - '>='
+                                          - between
+                                          - not_between
+                                          - in
+                                          - not_in
+                                          - contains
+                                          - not_contains
+                                          - starts_with
+                                          - ends_with
+                                          - is_null
+                                          - not_null
+                                          - is_true
+                                          - is_false
+                                          - sql_expr
+                                          - saved_filter
+                                      column:
+                                        type: string
+                                      values:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - operator
+                                    additionalProperties: false
+                              required:
+                                - name
+                                - filters
+                              additionalProperties: false
+                        required:
+                          - dimensionType
+                          - slices
+                        additionalProperties: false
+                chartType:
+                  type: string
+                  enum:
+                    - line
+                    - area
+                    - timeseries-table
+                    - table
+                    - bar
+                    - stackedBar
+                    - horizontalBar
+                    - stackedHorizontalBar
+                    - bigNumber
+                dateRange:
+                  type: object
+                  properties:
+                    predefined:
+                      type: string
+                      enum:
+                        - today
+                        - yesterday
+                        - last7Days
+                        - last30Days
+                        - last90Days
+                        - last12Months
+                        - lastCalendarYear
+                        - customLookback
+                        - customDateRange
+                    lookbackValue:
+                      anyOf:
+                        - type: number
+                        - type: 'null'
+                    lookbackUnit:
+                      anyOf:
+                        - type: string
+                          enum:
+                            - hour
+                            - day
+                            - week
+                            - month
+                        - type: 'null'
+                    startDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    endDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                  required:
+                    - predefined
+                  additionalProperties: false
+                showAs:
+                  type: string
+                  enum:
+                    - total
+                    - per_unit
+                type:
+                  type: string
+                  const: journey
+                dataset:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      const: journey
+                    factTableId:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    unit:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    dailyJourneys:
+                      type: boolean
+                    stepColumns:
+                      maxItems: 3
+                      type: array
+                      items:
+                        type: string
+                    stepGroups:
+                      maxItems: 25
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          column:
+                            type: string
+                          pattern:
+                            type: string
+                        required:
+                          - column
+                          - pattern
+                        additionalProperties: false
+                    anchorStepValues:
+                      anyOf:
+                        - type: array
+                          items:
+                            type: string
+                        - type: 'null'
+                    direction:
+                      type: string
+                      enum:
+                        - forward
+                        - backward
+                    excludedSteps:
+                      type: array
+                      items:
+                        type: string
+                    rowFilters:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          operator:
+                            type: string
+                            enum:
+                              - '='
+                              - '!='
+                              - <
+                              - <=
+                              - '>'
+                              - '>='
+                              - between
+                              - not_between
+                              - in
+                              - not_in
+                              - contains
+                              - not_contains
+                              - starts_with
+                              - ends_with
+                              - is_null
+                              - not_null
+                              - is_true
+                              - is_false
+                              - sql_expr
+                              - saved_filter
+                          column:
+                            type: string
+                          values:
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - operator
+                        additionalProperties: false
+                    collapseRepeats:
+                      type: boolean
+                    path:
+                      type: array
+                      items:
+                        anyOf:
+                          - type: object
+                            properties:
+                              mode:
+                                type: string
+                                const: value
+                              value:
+                                type: string
+                            required:
+                              - mode
+                              - value
+                            additionalProperties: false
+                          - type: object
+                            properties:
+                              mode:
+                                type: string
+                                const: other
+                              excludes:
+                                type: array
+                                items:
+                                  type: string
+                            required:
+                              - mode
+                              - excludes
+                            additionalProperties: false
+                    depth:
+                      type: integer
+                      minimum: 1
+                      maximum: 4
+                    optionsPerStep:
+                      type: array
+                      items:
+                        type: integer
+                        minimum: 2
+                        maximum: 50
+                    renderDepth:
+                      type: integer
+                      minimum: 1
+                      maximum: 3
+                    scaleMode:
+                      type: string
+                      enum:
+                        - perStep
+                        - funnel
+                    dimEncoding:
+                      type: string
+                      enum:
+                        - tooltip
+                        - ribbons
+                        - facet
+                  required:
+                    - type
+                    - factTableId
+                    - unit
+                    - dailyJourneys
+                    - stepColumns
+                    - anchorStepValues
+                    - direction
+                    - excludedSteps
+                    - rowFilters
+                    - collapseRepeats
+                    - path
+                    - depth
+                    - optionsPerStep
                   additionalProperties: false
               required:
                 - datasource

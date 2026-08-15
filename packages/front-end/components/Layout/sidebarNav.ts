@@ -104,12 +104,18 @@ export const navlinks: SidebarLinkProps[] = [
       {
         name: "Explore",
         href: "/product-analytics/explore",
-        path: /^product-analytics\/explore(\/(?!funnel).*)?$/,
+        path: /^product-analytics\/explore(\/(?!funnel|journey).*)?$/,
       },
       {
         name: "Funnel Builder",
         href: "/product-analytics/explore/funnel",
         path: /^product-analytics\/explore\/funnel/,
+      },
+      {
+        name: "User Journeys",
+        href: "/product-analytics/explore/journey",
+        path: /^product-analytics\/explore\/journey/,
+        filter: ({ gb }) => !!gb?.isOn("product-analytics-journeys"),
       },
       {
         name: "SQL Reports",

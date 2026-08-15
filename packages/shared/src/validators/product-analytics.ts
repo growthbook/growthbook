@@ -19,7 +19,12 @@ const metricValueValidator = baseValueValidator.extend({
 });
 export type MetricValue = z.infer<typeof metricValueValidator>;
 
-export type DatasetType = "metric" | "fact_table" | "data_source" | "funnel";
+export type DatasetType =
+  | "metric"
+  | "fact_table"
+  | "data_source"
+  | "funnel"
+  | "journey";
 
 const metricDatasetValidator = z
   .object({
@@ -95,11 +100,70 @@ const funnelDatasetValidator = z
   .strict();
 export type FunnelDataset = z.infer<typeof funnelDatasetValidator>;
 
+export const journeyDirectionValidator = z.enum(["forward", "backward"]);
+export type JourneyDirection = z.infer<typeof journeyDirectionValidator>;
+
+/** One committed step. `mode: "other"` is modeled but rejected in validation —
+ *  same "model it, lock it" shape as funnelOrderingValidator. */
+export const journeyPathStepValidator = z.discriminatedUnion("mode", [
+  z.object({ mode: z.literal("value"), value: z.string() }),
+  z.object({ mode: z.literal("other"), excludes: z.array(z.string()) }),
+]);
+export type JourneyPathStep = z.infer<typeof journeyPathStepValidator>;
+
+export const MAX_JOURNEY_STEP_COLUMNS = 3;
+export const MAX_JOURNEY_STEP_GROUPS = 25;
+
+/** First match wins. The pattern is also the emitted label (`/article/*`), so
+ *  anchor / path / exclusions compare by exact string equality with no second field. */
+export const journeyStepGroupValidator = z
+  .object({
+    column: z.string(),
+    pattern: z.string(),
+  })
+  .strict();
+export type JourneyStepGroup = z.infer<typeof journeyStepGroupValidator>;
+
+const journeyDatasetValidator = z
+  .object({
+    type: z.literal("journey"),
+    factTableId: z.string().nullable(),
+    unit: z.string().nullable(),
+    dailyJourneys: z.boolean(),
+    stepColumns: z.array(z.string()).max(MAX_JOURNEY_STEP_COLUMNS),
+    // Optional so older saved / URL-encoded configs still parse.
+    stepGroups: z
+      .array(journeyStepGroupValidator)
+      .max(MAX_JOURNEY_STEP_GROUPS)
+      .optional(),
+    anchorStepValues: z.array(z.string()).nullable(),
+    direction: journeyDirectionValidator,
+    excludedSteps: z.array(z.string()),
+    rowFilters: z.array(rowFilterValidator),
+    collapseRepeats: z.boolean(),
+    path: z.array(journeyPathStepValidator),
+    // Fetch depth; renderDepth of these levels are drawn.
+    depth: z.number().int().min(1).max(4),
+    // Per frontier level from the anchor; missing entries default to 5.
+    // A bare number is accepted so older URL-encoded configs still parse.
+    optionsPerStep: z.preprocess(
+      (v) => (typeof v === "number" ? [v] : v),
+      z.array(z.number().int().min(2).max(50)),
+    ),
+    // Display-only; stripped from the fetch identity in toFetchKey.
+    renderDepth: z.number().int().min(1).max(3).optional(),
+    scaleMode: z.enum(["perStep", "funnel"]).optional(),
+    dimEncoding: z.enum(["tooltip", "ribbons", "facet"]).optional(),
+  })
+  .strict();
+export type JourneyDataset = z.infer<typeof journeyDatasetValidator>;
+
 export const explorationDatasetValidator = z.discriminatedUnion("type", [
   metricDatasetValidator,
   factTableDatasetValidator,
   dataSourceDatasetValidator,
   funnelDatasetValidator,
+  journeyDatasetValidator,
 ]);
 
 const _valueValidator = z.discriminatedUnion("type", [
@@ -245,6 +309,12 @@ export const funnelExplorationConfigValidator =
     dataset: funnelDatasetValidator,
   });
 
+export const journeyExplorationConfigValidator =
+  baseExplorationConfigValidator.extend({
+    type: z.literal("journey"),
+    dataset: journeyDatasetValidator,
+  });
+
 // For SQL datasets, we need to know the column types
 // This is the shape of the response from the warehouse / API
 const columnType = ["string", "number", "date", "boolean", "other"] as const;
@@ -268,6 +338,30 @@ export const productAnalyticsFunnelStepResultValidator = z.object({
   timeFromPrevSumSquaresHrs: z.number().nullable(),
 });
 
+export const productAnalyticsJourneyRowValidator = z.discriminatedUnion(
+  "kind",
+  [
+    z.object({
+      kind: z.literal("path"),
+      direction: journeyDirectionValidator,
+      levels: z.array(z.string()),
+      count: z.number(),
+    }),
+    // On-path at depth d = sum of rows with depthReached >= d;
+    // leaks at step d are depthReached === d split by outcome.
+    z.object({
+      kind: z.literal("progress"),
+      direction: journeyDirectionValidator,
+      depthReached: z.number(),
+      outcome: z.enum(["taken", "other", "exit"]),
+      count: z.number(),
+    }),
+  ],
+);
+export type ProductAnalyticsJourneyRow = z.infer<
+  typeof productAnalyticsJourneyRowValidator
+>;
+
 // The shape of the final result data from the warehouse / API
 export const productAnalyticsResultRowValidator = z.object({
   dimensions: z.array(z.string().nullable()),
@@ -281,6 +375,7 @@ export const productAnalyticsResultRowValidator = z.object({
     )
     .optional(),
   steps: z.array(productAnalyticsFunnelStepResultValidator).optional(),
+  journey: productAnalyticsJourneyRowValidator.optional(),
 });
 export const productAnalyticsResultValidator = z.object({
   rows: z.array(productAnalyticsResultRowValidator),
@@ -299,6 +394,7 @@ export const productAnalyticsExplorationValidator = z.object({
     factTableExplorationConfigValidator,
     dataSourceExplorationConfigValidator,
     funnelExplorationConfigValidator,
+    journeyExplorationConfigValidator,
   ]),
   result: productAnalyticsResultValidator,
   dateStart: z.string(),
@@ -332,6 +428,7 @@ export const explorationConfigValidator = z.discriminatedUnion("type", [
   factTableExplorationConfigValidator,
   dataSourceExplorationConfigValidator,
   funnelExplorationConfigValidator,
+  journeyExplorationConfigValidator,
 ]);
 export type ExplorationConfig = z.infer<typeof explorationConfigValidator>;
 
@@ -346,6 +443,9 @@ export type DataSourceExplorationConfig = z.infer<
 >;
 export type FunnelExplorationConfig = z.infer<
   typeof funnelExplorationConfigValidator
+>;
+export type JourneyExplorationConfig = z.infer<
+  typeof journeyExplorationConfigValidator
 >;
 
 export type MetricDataset = z.infer<typeof metricDatasetValidator>;
@@ -439,6 +539,11 @@ export const apiDataSourceExplorationValidator =
 export const apiFunnelExplorationValidator =
   apiExplorationBaseValidator.safeExtend({
     config: funnelExplorationConfigValidator,
+  });
+
+export const apiJourneyExplorationValidator =
+  apiExplorationBaseValidator.safeExtend({
+    config: journeyExplorationConfigValidator,
   });
 
 export const apiAnalyticsExplorationValidator = namedSchema(

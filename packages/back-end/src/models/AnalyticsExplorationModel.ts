@@ -26,6 +26,7 @@ import analyticsExplorationApiSpec, {
   postFactTableExplorationEndpoint,
   postDataSourceExplorationEndpoint,
   postFunnelExplorationEndpoint,
+  postJourneyExplorationEndpoint,
 } from "back-end/src/api/specs/analytics-exploration.spec";
 import { MakeModelClass } from "./BaseModel";
 
@@ -97,6 +98,7 @@ const BaseClass = MakeModelClass({
       makeExplorationHandler(postFactTableExplorationEndpoint),
       makeExplorationHandler(postDataSourceExplorationEndpoint),
       makeExplorationHandler(postFunnelExplorationEndpoint),
+      makeExplorationHandler(postJourneyExplorationEndpoint),
     ],
   },
 });
@@ -152,6 +154,28 @@ export class AnalyticsExplorationModel extends BaseClass {
           dataset.type === "funnel"
             ? (dataset.concurrencyWindowSeconds ?? 0)
             : null,
+        journeyUnit: dataset.type === "journey" ? dataset.unit : null,
+        journeyFactTableId:
+          dataset.type === "journey" ? dataset.factTableId : null,
+        journeyDailyJourneys:
+          dataset.type === "journey" ? dataset.dailyJourneys : null,
+        journeyStepColumns:
+          dataset.type === "journey" ? dataset.stepColumns : null,
+        journeyStepGroups:
+          dataset.type === "journey" ? (dataset.stepGroups ?? []) : null,
+        journeyAnchorStepValues:
+          dataset.type === "journey" ? dataset.anchorStepValues : null,
+        journeyDirection: dataset.type === "journey" ? dataset.direction : null,
+        journeyExcludedSteps:
+          dataset.type === "journey" ? dataset.excludedSteps : null,
+        journeyCollapseRepeats:
+          dataset.type === "journey" ? dataset.collapseRepeats : null,
+        journeyPath: dataset.type === "journey" ? dataset.path : null,
+        journeyDepth: dataset.type === "journey" ? dataset.depth : null,
+        journeyOptionsPerStep:
+          dataset.type === "journey" ? dataset.optionsPerStep : null,
+        journeyRowFilters:
+          dataset.type === "journey" ? dataset.rowFilters : null,
       }),
     );
 
@@ -162,7 +186,27 @@ export class AnalyticsExplorationModel extends BaseClass {
     const valueHashes =
       dataset.type === "funnel"
         ? [md5(JSON.stringify(dataset.steps))]
-        : dataset.values.map((value) => md5(JSON.stringify(value)));
+        : dataset.type === "journey"
+          ? [
+              md5(
+                JSON.stringify({
+                  path: dataset.path,
+                  rowFilters: dataset.rowFilters,
+                  excludedSteps: dataset.excludedSteps,
+                  collapseRepeats: dataset.collapseRepeats,
+                  dailyJourneys: dataset.dailyJourneys,
+                  stepColumns: dataset.stepColumns,
+                  stepGroups: dataset.stepGroups ?? [],
+                  anchorStepValues: dataset.anchorStepValues,
+                  direction: dataset.direction,
+                  depth: dataset.depth,
+                  optionsPerStep: dataset.optionsPerStep,
+                  unit: dataset.unit,
+                  factTableId: dataset.factTableId,
+                }),
+              ),
+            ]
+          : dataset.values.map((value) => md5(JSON.stringify(value)));
 
     return {
       generalSettingsHash,
