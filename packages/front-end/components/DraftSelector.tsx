@@ -32,6 +32,7 @@ export default function DraftSelector({
   newDraftDisabledReason,
   recommendExisting = false,
   alert,
+  alertActive = true,
 }: {
   hasActiveDrafts: boolean;
   mode: DraftMode;
@@ -66,12 +67,17 @@ export default function DraftSelector({
   newDraftDisabledReason?: ReactNode;
   /** Flag "add to existing draft" as the recommended choice (soft cap reached). */
   recommendExisting?: boolean;
-  /** Single-line warning shown in the trigger; also recolors the control. */
+  /** Single-line warning shown in the trigger. */
   alert?: ReactNode;
+  /** Whether that warning still applies to the selected target. When false the
+   *  control keeps its normal styling and only the warning line reads amber. */
+  alertActive?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(defaultExpanded ?? false);
 
   const hasAlert = !!alert;
+  // Recolor only while the warning applies to the chosen target.
+  const showsConflict = hasAlert && alertActive;
 
   const newOptionLabel = metadataOnly
     ? "Add to a new revision"
@@ -178,10 +184,10 @@ export default function DraftSelector({
         cursor: singleOption ? "default" : "pointer",
         userSelect: "none",
       }}
-      className={`draft-selector-collapsible-trigger${singleOption ? " no-hover" : ""}${hasAlert ? " has-conflict" : ""}`}
+      className={`draft-selector-collapsible-trigger${singleOption ? " no-hover" : ""}${showsConflict ? " has-conflict" : ""}`}
     >
       <Box style={{ flex: 1, minWidth: 0 }}>
-        <HelperText status={hasAlert ? "warning" : "info"}>
+        <HelperText status={showsConflict ? "warning" : "info"}>
           <div
             className="ml-1"
             style={{
@@ -239,7 +245,9 @@ export default function DraftSelector({
           px="3"
           py="3"
           style={{
-            backgroundColor: hasAlert ? "var(--amber-a3)" : "var(--violet-a3)",
+            backgroundColor: showsConflict
+              ? "var(--amber-a3)"
+              : "var(--violet-a3)",
           }}
         >
           <RadioGroup

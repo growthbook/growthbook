@@ -43,6 +43,7 @@ export default function DraftSelectorForChanges({
   allowNewDraftAtCap = false,
   canWriteIntoDraft,
   alert,
+  alertActive,
 }: {
   feature: FeatureInterface;
   // Un-merged live feature doc; fallback for env state on old sparse live revisions.
@@ -66,6 +67,7 @@ export default function DraftSelectorForChanges({
   canWriteIntoDraft?: (revision: MinimalFeatureRevisionInterface) => boolean;
   /** Conflict/alert banner rendered inside the selector (see DraftSelector). */
   alert?: React.ReactNode;
+  alertActive?: boolean;
 }) {
   const permissionsUtil = usePermissionsUtil();
   const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(
@@ -231,6 +233,7 @@ export default function DraftSelectorForChanges({
       hideExisting={hideExisting}
       triggerPrefix={triggerPrefix}
       alert={alert}
+      alertActive={alertActive}
       maxDrafts={maxDrafts}
       isAdmin={isAdmin}
       allowNewDraftAtCap={allowNewDraftAtCap}

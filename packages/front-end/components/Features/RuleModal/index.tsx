@@ -2272,6 +2272,7 @@ export default function RuleModal({
               canAutoPublish={false}
               gatedEnvSet={gatedEnvSet}
               alert={conflictAlert}
+              alertActive={draftMode !== "new"}
             />
             {draftMode !== "new" && conflictDetails}
             {draftMode !== "new" && conflictCallouts}

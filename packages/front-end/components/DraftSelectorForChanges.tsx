@@ -24,6 +24,7 @@ export default function DraftSelectorForChanges<K>({
   allowNewDraftAtCap = false,
   capNoun = "This",
   alert,
+  alertActive,
 }: {
   activeDraftKeys: K[];
   selectedDraft: K | null;
@@ -50,6 +51,7 @@ export default function DraftSelectorForChanges<K>({
   writableDraftKeys?: K[];
   /** Conflict/alert banner rendered inside the selector (see DraftSelector). */
   alert?: ReactNode;
+  alertActive?: boolean;
 }) {
   const activeDraftKeys = writableDraftKeys ?? allActiveDraftKeys;
   const singleOption =
@@ -115,6 +117,7 @@ export default function DraftSelectorForChanges<K>({
       singleOption={singleOption}
       recommendExisting={atDraftCap}
       alert={alert}
+      alertActive={alertActive}
       newDraftDisabled={newDraftBlocked}
       newDraftDisabledReason={
         newDraftBlocked
