@@ -68,7 +68,6 @@ export default function DraftSelector({
   /** Flag "add to existing draft" as the recommended choice (soft cap reached). */
   recommendExisting?: boolean;
   alert?: ReactNode;
-  /** When false, the warning shows but the control keeps its normal styling. */
   alertActive?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(defaultExpanded ?? false);

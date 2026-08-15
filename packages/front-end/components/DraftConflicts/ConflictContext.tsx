@@ -10,20 +10,12 @@ import { PiCheck, PiGitMerge } from "react-icons/pi";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import { CONFLICT_VALUE_STYLE } from "@/components/DraftConflicts/conflictStyles";
 
 export type ContestedChunk = { key: string; fields: string[] };
 export type ConflictResolution = "mine" | "theirs";
 
-const CONFLICT_VALUE_STYLE = {
-  background: "var(--color-surface)",
-  borderRadius: "var(--radius-1)",
-  padding: "1px 6px",
-  whiteSpace: "pre-wrap" as const,
-  overflowWrap: "anywhere" as const,
-  minWidth: 0,
-};
-
-type RuleConflictContextValue = {
+type ConflictContextValue = {
   contested: ContestedChunk[];
   resolutions: Map<string, ConflictResolution>;
   resolve: (chunk: ContestedChunk, choice: ConflictResolution) => void;
@@ -34,11 +26,9 @@ type RuleConflictContextValue = {
   release: (key: string) => void;
 };
 
-const RuleConflictContext = createContext<RuleConflictContextValue | null>(
-  null,
-);
+const ConflictContext = createContext<ConflictContextValue | null>(null);
 
-export function RuleConflictProvider({
+export function ConflictProvider({
   contested,
   resolutions,
   resolve,
@@ -47,7 +37,7 @@ export function RuleConflictProvider({
   claim,
   release,
   children,
-}: RuleConflictContextValue & { children: ReactNode }) {
+}: ConflictContextValue & { children: ReactNode }) {
   const value = useMemo(
     () => ({
       contested,
@@ -62,23 +52,23 @@ export function RuleConflictProvider({
   );
 
   return (
-    <RuleConflictContext.Provider value={value}>
+    <ConflictContext.Provider value={value}>
       {children}
-    </RuleConflictContext.Provider>
+    </ConflictContext.Provider>
   );
 }
 
-export function useRuleConflict() {
-  return useContext(RuleConflictContext);
+export function useConflict() {
+  return useContext(ConflictContext);
 }
 
 export function useContestedChunk(field: string): ContestedChunk | undefined {
-  const ctx = useRuleConflict();
+  const ctx = useConflict();
   return ctx?.contested.find((c) => c.fields.includes(field));
 }
 
 function ConflictButtons({ chunk }: { chunk: ContestedChunk }) {
-  const ctx = useRuleConflict();
+  const ctx = useConflict();
   if (!ctx) return null;
   const resolution = ctx.resolutions.get(chunk.key);
   const choice = (side: ConflictResolution, label: string) => {
@@ -109,7 +99,7 @@ export function ConflictMessage({
   chunk: ContestedChunk;
   showMine?: boolean;
 }) {
-  const ctx = useRuleConflict();
+  const ctx = useConflict();
   if (!ctx) return null;
   return (
     <Text>
@@ -138,7 +128,7 @@ export function ConflictCalloutRow({
   // Keeps the row after a choice; inline rows apply the value and disappear.
   stateful?: boolean;
 }) {
-  const ctx = useRuleConflict();
+  const ctx = useConflict();
   const resolved = !!ctx?.resolutions.get(chunk.key);
   if (resolved && !stateful) return null;
   return (
@@ -163,8 +153,8 @@ export function ConflictCalloutRow({
 }
 
 // Drop under a form control to render that field's conflict in place.
-export default function RuleConflictCallout({ field }: { field: string }) {
-  const ctx = useRuleConflict();
+export default function ConflictCallout({ field }: { field: string }) {
+  const ctx = useConflict();
   const chunk = useContestedChunk(field);
   const key = chunk?.key;
   const claim = ctx?.claim;

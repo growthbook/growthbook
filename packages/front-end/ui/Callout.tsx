@@ -32,7 +32,6 @@ export default forwardRef<
     children: ReactNode;
     status: Status;
     size?: Size;
-    /** Drops the tinted fill, keeping the layout. */
     transparent?: boolean;
     icon?: ReactNode | null;
     action?: ReactNode;

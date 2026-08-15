@@ -75,10 +75,14 @@ import HelperText from "@/ui/HelperText";
 import PagedModal from "@/components/Modal/PagedModal";
 import {
   ConflictCalloutRow,
+  ConflictProvider,
   ConflictResolution,
   ContestedChunk,
-  RuleConflictProvider,
-} from "@/components/Features/RuleModal/RuleConflictContext";
+} from "@/components/DraftConflicts/ConflictContext";
+import {
+  formatChunkValue,
+  projectFormValues,
+} from "@/components/DraftConflicts/conflictValues";
 import StandardRuleFields, {
   type ScheduleType,
   deriveScheduleType,
@@ -211,40 +215,6 @@ export type SafeRolloutRuleCreateFields = SafeRolloutRule & {
   sameSeed?: boolean;
 };
 
-function fmtTheirValue(v: unknown): string {
-  if (v === undefined) return "(removed)";
-  const s = typeof v === "string" ? v : JSON.stringify(v);
-  if (!s) return '""';
-  return s;
-}
-
-// Drops editor-only form fields, which would otherwise be diff noise.
-function formRuleForDiff(
-  values: Record<string, unknown>,
-  reference: Array<FeatureRule | null | undefined>,
-): FeatureRule {
-  const keys = new Set<string>();
-  for (const r of reference) {
-    if (r) Object.keys(r).forEach((k) => keys.add(k));
-  }
-  const out: Record<string, unknown> = {};
-  for (const k of keys) {
-    if (values[k] !== undefined) out[k] = values[k];
-  }
-  return out as unknown as FeatureRule;
-}
-
-function fmtChunkValue(rule: FeatureRule | null, fields: string[]): string {
-  if (!rule) return "(removed)";
-  const rec = rule as unknown as Record<string, unknown>;
-  if (fields.length === 1) return fmtTheirValue(rec[fields[0]]);
-  return fmtTheirValue(
-    Object.fromEntries(
-      fields.filter((f) => rec[f] !== undefined).map((f) => [f, rec[f]]),
-    ),
-  );
-}
-
 export default function RuleModal({
   close,
   feature,
@@ -307,7 +277,6 @@ export default function RuleModal({
   const [conflictResolutions, setConflictResolutions] = useState<
     Map<string, "mine" | "theirs">
   >(new Map());
-  // Lets "Keep mine" undo a "Use theirs" that overwrote the form.
   const myConflictValuesRef = useRef<Map<string, Record<string, unknown>>>(
     new Map(),
   );
@@ -763,7 +732,7 @@ export default function RuleModal({
   }, [isCyclic, prerequisiteTargetingSdkIssues, monitoringError]);
 
   const contestedKeys: string[] = conflict
-    ? conflict.merge && !conflict.merge.wholeRule && conflict.currentRule
+    ? conflict.merge && !conflict.merge.wholeEntity && conflict.current
       ? conflict.merge.contested.map((c) => c.key)
       : ["__rule__"]
     : [];
@@ -1688,13 +1657,12 @@ export default function RuleModal({
                 });
                 setConflictResolutions(new Map());
                 myConflictValuesRef.current = new Map();
-                // The form is the merge preview.
                 if (
                   payload.merge &&
-                  !payload.merge.wholeRule &&
-                  payload.currentRule
+                  !payload.merge.wholeEntity &&
+                  payload.current
                 ) {
-                  const cur = payload.currentRule as unknown as Record<
+                  const cur = payload.current as unknown as Record<
                     string,
                     unknown
                   >;
@@ -1706,9 +1674,7 @@ export default function RuleModal({
                   }
                 }
                 setBaselineRule(
-                  payload.currentRule
-                    ? cloneDeep(payload.currentRule)
-                    : undefined,
+                  payload.current ? cloneDeep(payload.current) : undefined,
                 );
               }
             },
@@ -1833,7 +1799,7 @@ export default function RuleModal({
 
   const conflictAlert = conflict ? (
     <HelperText status="warning" icon={null}>
-      {!conflict.currentRule
+      {!conflict.current
         ? "This rule was removed while you had it open. Saving re-adds it."
         : draftMode === "new"
           ? "This rule was modified while you were editing. Saving to a new draft keeps both versions."
@@ -1844,7 +1810,7 @@ export default function RuleModal({
   ) : undefined;
 
   const conflictDetails =
-    conflict && conflict.currentRule ? (
+    conflict && conflict.current ? (
       <Box mt="-4" mb="3">
         <Button
           variant="ghost"
@@ -1864,15 +1830,13 @@ export default function RuleModal({
             }}
           >
             <CompactInlineDiff
-              a={stringifyForRawDiff(
-                normalizeFeatureRules([conflict.currentRule]),
-              )}
+              a={stringifyForRawDiff(normalizeFeatureRules([conflict.current]))}
               b={stringifyForRawDiff(
                 normalizeFeatureRules([
-                  formRuleForDiff(
+                  projectFormValues(
                     form.getValues() as unknown as Record<string, unknown>,
-                    [conflict.currentRule, conflict.baseAtConflict],
-                  ),
+                    [conflict.current, conflict.baseAtConflict],
+                  ) as unknown as FeatureRule,
                 ]),
               )}
               leftTitle="Modified version"
@@ -1884,7 +1848,7 @@ export default function RuleModal({
     ) : null;
 
   const contestedChunks: ContestedChunk[] =
-    conflict?.merge && !conflict.merge.wholeRule && conflict.currentRule
+    conflict?.merge && !conflict.merge.wholeEntity && conflict.current
       ? conflict.merge.contested
       : [];
 
@@ -1900,10 +1864,7 @@ export default function RuleModal({
       }
       const source =
         choice === "theirs"
-          ? ((conflict?.currentRule ?? {}) as unknown as Record<
-              string,
-              unknown
-            >)
+          ? ((conflict?.current ?? {}) as unknown as Record<string, unknown>)
           : stash.get(chunk.key);
       if (source) {
         for (const f of chunk.fields) {
@@ -1918,9 +1879,9 @@ export default function RuleModal({
 
   const formatConflictValue = useCallback(
     (chunk: ContestedChunk, side: ConflictResolution) =>
-      fmtChunkValue(
+      formatChunkValue(
         side === "theirs"
-          ? (conflict?.currentRule ?? null)
+          ? (conflict?.current ?? null)
           : (conflict?.attempted ?? null),
         chunk.fields,
       ),
@@ -1956,7 +1917,7 @@ export default function RuleModal({
             >
               <PiGitMerge size={13} style={{ flexShrink: 0 }} />
               <Text>
-                {conflict.currentRule
+                {conflict.current
                   ? "Their version can't be merged with yours automatically. Saving replaces it with this form."
                   : "Saving will re-add this rule with what's in this form."}
               </Text>
@@ -1973,7 +1934,7 @@ export default function RuleModal({
                     )
                   }
                 >
-                  {conflict.currentRule ? "Replace their version" : "Re-add it"}
+                  {conflict.current ? "Replace their version" : "Re-add it"}
                 </Button>
               )}
             </Flex>
@@ -2482,8 +2443,7 @@ export default function RuleModal({
   );
 
   return (
-    <RuleConflictProvider
-      // A new draft can't overwrite anyone, so nothing needs resolving.
+    <ConflictProvider
       contested={draftMode === "new" ? [] : contestedChunks}
       resolutions={conflictResolutions}
       resolve={resolveConflict}
@@ -2493,6 +2453,6 @@ export default function RuleModal({
       release={releaseConflictKey}
     >
       {modalContent}
-    </RuleConflictProvider>
+    </ConflictProvider>
   );
 }

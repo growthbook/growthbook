@@ -32,7 +32,7 @@ import Callout from "@/ui/Callout";
 import MonitoredIcon from "@/components/Features/RuleModal/MonitoredIcon";
 import RampScheduleBadge from "@/components/RampSchedule/RampScheduleBadge";
 import ScheduleInputs from "@/components/Features/RuleModal/ScheduleInputs";
-import RuleConflictCallout from "@/components/Features/RuleModal/RuleConflictContext";
+import ConflictCallout from "@/components/DraftConflicts/ConflictContext";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
@@ -279,12 +279,12 @@ export default function StandardRuleFields({
         {...form.register("description")}
         placeholder="Short human-readable description of the rule"
       />
-      <RuleConflictCallout field="description" />
+      <ConflictCallout field="description" />
 
       <RuleEnvironmentScopeField {...envScope} my="5" />
-      <RuleConflictCallout field="environments" />
+      <ConflictCallout field="environments" />
       <RuleProjectScopeField {...projectScope} mb="5" />
-      <RuleConflictCallout field="projects" />
+      <ConflictCallout field="projects" />
 
       <Box mb="5">
         <FeatureValueField
@@ -308,7 +308,7 @@ export default function StandardRuleFields({
           configBackingShowPatch={isConfigBacked}
           lockConfigBacking={isConfigBacked}
         />
-        <RuleConflictCallout field="value" />
+        <ConflictCallout field="value" />
       </Box>
 
       <div className="mb-3">
@@ -530,8 +530,8 @@ export default function StandardRuleFields({
                 setAdvancedOpen={setadvancedOptionsOpen}
               />
               {/* Inside the branch on purpose: no input, no inline callout. */}
-              <RuleConflictCallout field="coverage" />
-              <RuleConflictCallout field="hashAttribute" />
+              <ConflictCallout field="coverage" />
+              <ConflictCallout field="hashAttribute" />
             </>
           )}
 
@@ -543,7 +543,7 @@ export default function StandardRuleFields({
             project={feature.project || ""}
             label="Saved Groups"
           />
-          <RuleConflictCallout field="savedGroups" />
+          <ConflictCallout field="savedGroups" />
 
           <ConditionInput
             defaultValue={form.watch("condition") || ""}
@@ -552,7 +552,7 @@ export default function StandardRuleFields({
             project={feature.project || ""}
             label="Attributes"
           />
-          <RuleConflictCallout field="condition" />
+          <ConflictCallout field="condition" />
 
           <PrerequisiteInput
             value={form.watch("prerequisites") || []}
@@ -567,7 +567,7 @@ export default function StandardRuleFields({
             label="Prerequisite Features"
             onRuleCyclicChange={onRuleCyclicChange}
           />
-          <RuleConflictCallout field="prerequisites" />
+          <ConflictCallout field="prerequisites" />
         </Flex>
       )}
       {isCyclic && (

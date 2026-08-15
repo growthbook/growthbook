@@ -4495,7 +4495,6 @@ export async function putFeatureRule(
     }
   }
 
-  // The pinned version may no longer be live; a baseline lets us re-anchor.
   const requestedVersion = parseInt(version);
   let revision: FeatureRevisionInterface | null = null;
   if (requestedVersion !== feature.version) {
@@ -4541,8 +4540,8 @@ export async function putFeatureRule(
           message:
             "This rule was changed by someone else after you loaded it. Review their version before saving.",
           conflict: {
-            ruleId,
-            currentRule,
+            entityId: ruleId,
+            current: currentRule,
             liveVersion: feature.version,
             ...(revision ? { draftVersion: revision.version } : {}),
             ...(merge
@@ -4551,7 +4550,7 @@ export async function putFeatureRule(
                     contested: merge.contested,
                     theirFields: merge.theirFields,
                     yourFields: merge.yourFields,
-                    ...(merge.wholeRule ? { wholeRule: true } : {}),
+                    ...(merge.wholeRule ? { wholeEntity: true } : {}),
                   },
                 }
               : {}),

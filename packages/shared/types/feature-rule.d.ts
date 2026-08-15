@@ -7,6 +7,7 @@ import {
   RampStep,
   RampStepAction,
 } from "shared/validators";
+import { DraftConflict } from "shared/types/draft-conflict";
 
 // Inline ramp schedule to create atomically with the rule.
 export type InlineRampScheduleCreate = {
@@ -76,25 +77,13 @@ export type PostFeatureRuleBody = {
   rampSchedule?: InlineRampScheduleCreate | InlineRampScheduleDetach;
 };
 
-export type PutFeatureRuleConflict = {
-  ruleId: string;
-  currentRule: FeatureRule | null;
-  liveVersion: number;
-  draftVersion?: number;
-  merge?: {
-    contested: Array<{ key: string; fields: string[] }>;
-    theirFields: string[];
-    yourFields: string[];
-    wholeRule?: boolean;
-  };
-};
+export type PutFeatureRuleConflict = DraftConflict<FeatureRule>;
 
 export type PutFeatureRuleBody = {
   rule: Partial<FeatureRule>;
   // Stable rule locator. Every rule in v2 has an id (assigned at creation
   // or via JIT migration on read), so app callers always send this.
   ruleId: string;
-  // Rejects the save if the rule changed since the client loaded it.
   baseline?: {
     rule: FeatureRule;
   };

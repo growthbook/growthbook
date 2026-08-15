@@ -566,7 +566,6 @@ function DiffCommentCell({
   );
 }
 
-// Compact JSON diff with no chrome, for cards that frame it themselves.
 export function CompactInlineDiff({
   a,
   b,

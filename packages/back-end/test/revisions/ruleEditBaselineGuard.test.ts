@@ -207,8 +207,8 @@ describe("putFeatureRule baseline guard", () => {
     expect(captured.body).toMatchObject({
       status: 409,
       conflict: {
-        ruleId: baseRule.id,
-        currentRule: { value: "someone-elses" },
+        entityId: baseRule.id,
+        current: { value: "someone-elses" },
         liveVersion: 1,
         draftVersion: 2,
         merge: {
@@ -395,7 +395,7 @@ describe("putFeatureRule baseline guard", () => {
     expect(captured.status).toBe(409);
     expect(captured.body).toMatchObject({
       status: 409,
-      conflict: { merge: { wholeRule: true } },
+      conflict: { merge: { wholeEntity: true } },
     });
   });
 
@@ -462,8 +462,8 @@ describe("putFeatureRule baseline guard", () => {
     expect(captured.body).toMatchObject({
       status: 409,
       conflict: {
-        ruleId: baseRule.id,
-        currentRule: { value: "published-v2" },
+        entityId: baseRule.id,
+        current: { value: "published-v2" },
         liveVersion: 2,
       },
     });
