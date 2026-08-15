@@ -1863,8 +1863,13 @@ export default function RuleModal({
             overflow: "hidden",
           }}
         >
+          {/* Theirs on the left, yours on the right: your edit is the change
+              being applied on top of what moved underneath you. */}
           <CompactInlineDiff
             a={stringifyForRawDiff(
+              normalizeFeatureRules([conflict.currentRule]),
+            )}
+            b={stringifyForRawDiff(
               normalizeFeatureRules([
                 formRuleForDiff(
                   form.getValues() as unknown as Record<string, unknown>,
@@ -1872,11 +1877,8 @@ export default function RuleModal({
                 ),
               ]),
             )}
-            b={stringifyForRawDiff(
-              normalizeFeatureRules([conflict.currentRule]),
-            )}
-            leftTitle="Your version (what you'd save)"
-            rightTitle="Their version (saved)"
+            leftTitle="Their version (saved)"
+            rightTitle="Your version (what you'd save)"
           />
         </Box>
       )}
