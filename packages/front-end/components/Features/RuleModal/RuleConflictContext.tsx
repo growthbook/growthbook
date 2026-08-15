@@ -33,6 +33,8 @@ type RuleConflictContextValue = {
   claimed: Set<string>;
   claim: (key: string) => void;
   release: (key: string) => void;
+  // Resolved chunks the user has since hand-edited; their callouts are done.
+  dismissed: Set<string>;
 };
 
 const RuleConflictContext = createContext<RuleConflictContextValue | null>(
@@ -47,6 +49,7 @@ export function RuleConflictProvider({
   claimed,
   claim,
   release,
+  dismissed,
   children,
 }: RuleConflictContextValue & { children: ReactNode }) {
   const value = useMemo(
@@ -58,8 +61,18 @@ export function RuleConflictProvider({
       claimed,
       claim,
       release,
+      dismissed,
     }),
-    [contested, resolutions, resolve, format, claimed, claim, release],
+    [
+      contested,
+      resolutions,
+      resolve,
+      format,
+      claimed,
+      claim,
+      release,
+      dismissed,
+    ],
   );
 
   return (
@@ -141,6 +154,7 @@ export function ConflictCalloutRow({
 }) {
   const ctx = useRuleConflict();
   const resolved = !!ctx?.resolutions.get(chunk.key);
+  if (ctx?.dismissed.has(chunk.key)) return null;
   return (
     <Callout
       status="warning"
@@ -149,12 +163,14 @@ export function ConflictCalloutRow({
       mb="3"
       transparent={resolved}
     >
-      <Flex align="center" justify="between" gap="3" wrap="wrap" width="100%">
-        <Flex align="center" gap="2" style={{ minWidth: 0 }}>
+      <Flex align="center" gap="3" width="100%">
+        <Flex align="center" gap="2" style={{ minWidth: 0, flex: "1 1 auto" }}>
           <PiGitMerge size={13} style={{ flexShrink: 0 }} />
           <ConflictMessage chunk={chunk} showMine={showMine} />
         </Flex>
-        <ConflictButtons chunk={chunk} />
+        <Flex style={{ flexShrink: 0 }}>
+          <ConflictButtons chunk={chunk} />
+        </Flex>
       </Flex>
     </Callout>
   );

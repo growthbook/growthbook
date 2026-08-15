@@ -1,4 +1,4 @@
-import { FormProvider, useForm } from "react-hook-form";
+import { FormProvider, useForm, useWatch } from "react-hook-form";
 import {
   ExperimentValue,
   FeatureInterface,
@@ -329,6 +329,8 @@ export default function RuleModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // The value each resolution applied, for detecting a later hand-edit.
+  const resolvedSnapshotsRef = useRef<Map<string, string>>(new Map());
   // Lets "Keep mine" undo a "Use theirs" that already overwrote the form.
   const myConflictValuesRef = useRef<Map<string, Record<string, unknown>>>(
     new Map(),
@@ -1710,6 +1712,7 @@ export default function RuleModal({
                 setConflict({ ...payload, baseAtConflict: baselineRule });
                 setConflictResolutions(new Map());
                 myConflictValuesRef.current = new Map();
+                resolvedSnapshotsRef.current = new Map();
                 // The form is the merge preview: their non-conflicting
                 // changes land in it, contested fields keep yours.
                 if (
@@ -1911,6 +1914,28 @@ export default function RuleModal({
       ? conflict.merge.contested
       : [];
 
+  // Editing a field after resolving it dismisses its callout — the value is
+  // now one the user chose deliberately, conflict acknowledged.
+  const watchedContestedValues = useWatch({
+    control: form.control,
+    // Field names are dynamic (server-supplied chunks), so they can't be typed
+    // against the form shape.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    name: contestedChunks.flatMap((c) => c.fields) as any,
+  });
+  const dismissedConflictKeys = useMemo(() => {
+    const out = new Set<string>();
+    const current = form.getValues() as unknown as Record<string, unknown>;
+    for (const chunk of contestedChunks) {
+      const snapshot = resolvedSnapshotsRef.current.get(chunk.key);
+      if (!snapshot) continue;
+      const now = JSON.stringify(chunk.fields.map((f) => current[f] ?? null));
+      if (now !== snapshot) out.add(chunk.key);
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contestedChunks, watchedContestedValues, form]);
+
   const resolveConflict = useCallback(
     (chunk: ContestedChunk, choice: ConflictResolution) => {
       const values = form.getValues() as unknown as Record<string, unknown>;
@@ -1934,6 +1959,14 @@ export default function RuleModal({
           form.setValue(f as any, source[f] as any, { shouldDirty: true });
         }
       }
+      // Snapshot what was applied, so a later hand-edit of the field reads as
+      // the user moving on from the conflict rather than a fresh one.
+      const applied =
+        source ?? Object.fromEntries(chunk.fields.map((f) => [f, values[f]]));
+      resolvedSnapshotsRef.current.set(
+        chunk.key,
+        JSON.stringify(chunk.fields.map((f) => applied[f] ?? null)),
+      );
       setConflictResolutions((m) => new Map([...m, [chunk.key, choice]]));
     },
     [conflict, form],
@@ -1954,7 +1987,11 @@ export default function RuleModal({
     <>
       {contestedChunks.length ? (
         contestedChunks
-          .filter((c) => !claimedConflictKeys.has(c.key))
+          .filter(
+            (c) =>
+              !claimedConflictKeys.has(c.key) &&
+              !dismissedConflictKeys.has(c.key),
+          )
           .map((chunk) => (
             <ConflictCalloutRow chunk={chunk} showMine key={chunk.key} />
           ))
@@ -1966,14 +2003,12 @@ export default function RuleModal({
           mb="3"
           transparent={conflictResolutions.has("__rule__")}
         >
-          <Flex
-            align="center"
-            justify="between"
-            gap="3"
-            wrap="wrap"
-            width="100%"
-          >
-            <Flex align="center" gap="2" style={{ minWidth: 0 }}>
+          <Flex align="center" gap="3" width="100%">
+            <Flex
+              align="center"
+              gap="2"
+              style={{ minWidth: 0, flex: "1 1 auto" }}
+            >
               <PiGitMerge size={13} style={{ flexShrink: 0 }} />
               <Text>
                 {conflict.currentRule
@@ -1981,20 +2016,22 @@ export default function RuleModal({
                   : "Saving will re-add this rule with what's in this form."}
               </Text>
             </Flex>
-            {conflictResolutions.has("__rule__") ? (
-              <Text weight="semibold">✓ acknowledged</Text>
-            ) : (
-              <Button
-                size="sm"
-                onClick={() =>
-                  setConflictResolutions(
-                    (m) => new Map([...m, ["__rule__", "mine" as const]]),
-                  )
-                }
-              >
-                {conflict.currentRule ? "Replace their version" : "Re-add it"}
-              </Button>
-            )}
+            <Flex style={{ flexShrink: 0 }}>
+              {conflictResolutions.has("__rule__") ? (
+                <Text weight="semibold">✓ acknowledged</Text>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    setConflictResolutions(
+                      (m) => new Map([...m, ["__rule__", "mine" as const]]),
+                    )
+                  }
+                >
+                  {conflict.currentRule ? "Replace their version" : "Re-add it"}
+                </Button>
+              )}
+            </Flex>
           </Flex>
         </Callout>
       )}
@@ -2508,6 +2545,7 @@ export default function RuleModal({
       resolve={resolveConflict}
       format={formatConflictValue}
       claimed={claimedConflictKeys}
+      dismissed={dismissedConflictKeys}
       claim={claimConflictKey}
       release={releaseConflictKey}
     >
