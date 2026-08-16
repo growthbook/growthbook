@@ -13,14 +13,17 @@ import {
   getMaxDimensions,
   hasSubmittablePayload,
   hasUnsatisfiedInlineFilters,
+  compareConfig,
   isSubmittableConfig,
-  journeyDiffersOnlyByPath,
-  journeyPrefetchExhausted,
   journeyPreferredView,
-  journeyShouldPrefetchMore,
   toFetchKey,
   withStepGroupsApplied,
 } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  journeyDiffersOnlyByPath,
+  journeyPrefetchExhausted,
+  journeyShouldPrefetchMore,
+} from "@/enterprise/components/ProductAnalytics/journey-policy";
 import {
   buildJourneyViewModel,
   buildJourneyViewState,
@@ -222,7 +225,7 @@ describe("journey util branches", () => {
     expect(key.dataset).not.toHaveProperty("dimEncoding");
     expect(key.dataset.type).toBe("journey");
     expect(key.dataset.depth).toBe(3);
-    expect(key.dataset.path).toEqual([]);
+    expect(key.dataset).not.toHaveProperty("path");
   });
 
   it("journeyShouldPrefetchMore starts one step before the prefetch runs out", () => {
@@ -299,6 +302,53 @@ describe("journey util branches", () => {
     // result that produced the rows, not the submitted config.
     expect(journeyShouldPrefetchMore(submitted, oneBefore)).toBe(true);
     expect(journeyShouldPrefetchMore(oneBefore, oneBefore)).toBe(false);
+  });
+
+  it("compareConfig treats a serveable path change as a local update", () => {
+    const submitted: ExplorationConfig = {
+      type: "journey",
+      datasource: "ds_1",
+      chartType: "bar",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [],
+      dataset: journeyDataset({ path: [], depth: 3 }),
+    };
+    const draft: ExplorationConfig = {
+      ...submitted,
+      dataset: journeyDataset({
+        path: [{ mode: "value", value: "home" }],
+        depth: 3,
+      }),
+    };
+    const rows: ProductAnalyticsResultRow[] = [
+      {
+        dimensions: [],
+        journey: {
+          kind: "path",
+          direction: "forward",
+          levels: ["home", "search", "checkout"],
+          count: 10,
+        },
+      },
+    ];
+    expect(
+      compareConfig(submitted, draft, undefined, {
+        rowSource: submitted,
+        rows,
+      }),
+    ).toEqual({ needsFetch: false, needsUpdate: true });
+    expect(
+      compareConfig(submitted, draft, undefined, {
+        rowSource: submitted,
+        rows: [],
+      }),
+    ).toEqual({ needsFetch: true, needsUpdate: true });
   });
 
   it("toFetchKey keeps stepGroups, which change the generated SQL", () => {
@@ -505,7 +555,6 @@ describe("buildJourneyViewModel", () => {
     const model = buildJourneyViewModel({
       rows: heldRows,
       dataset: journeyDataset(),
-      submittedPathLength: 0,
       hasDimension: false,
     });
     expect(model.violations).toEqual([]);
@@ -522,7 +571,7 @@ describe("buildJourneyViewModel", () => {
       dataset: journeyDataset({
         path: [{ mode: "value", value: "home" }],
       }),
-      submittedPathLength: 0,
+      rowPath: [],
       hasDimension: false,
     });
     expect(client.violations).toEqual([]);
@@ -557,7 +606,7 @@ describe("buildJourneyViewModel", () => {
       dataset: journeyDataset({
         path: [{ mode: "value", value: "home" }],
       }),
-      submittedPathLength: 1,
+      rowPath: [{ mode: "value", value: "home" }],
       hasDimension: false,
     });
     expect(fresh.violations).toEqual([]);
@@ -594,7 +643,7 @@ describe("buildJourneyViewModel", () => {
         ],
         depth: 3,
       }),
-      submittedPathLength: 1,
+      rowPath: [{ mode: "value", value: "home" }],
       hasDimension: false,
     });
     expect(model.prefixCount[0]).toBe(50);
@@ -778,7 +827,7 @@ describe("buildJourneyViewModel", () => {
         ],
         depth: 3,
       }),
-      submittedPathLength: 0,
+      rowPath: [],
       hasDimension: false,
     });
     const committed = model.columns.filter((c) => c.committed && !c.anchor);

@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import type {
   JourneyDataset,
   JourneyDirection,
@@ -19,6 +18,7 @@ import {
 const ANCHOR_SRC = "\u0002anchor";
 const LEAK_OTHER = "\u0002other";
 const LEAK_EXIT = "\u0002exit";
+export const LOADING_NODE_KEY = "\u0002loading";
 
 export type JourneyNode = {
   key: string;
@@ -573,16 +573,101 @@ function verifyModel(
   return bad;
 }
 
+function appendLoadingFrontier(
+  model: JourneyViewModel,
+  depth: number,
+): JourneyViewModel {
+  const side = model.direction === "forward" ? "f" : "b";
+  const value = model.prefixCount[depth] || model.anchorTotal;
+  if (value <= 0) return model;
+  const loadingCol: JourneyColumn = {
+    side,
+    committed: false,
+    frontier: true,
+    loading: true,
+    fi: 0,
+    label: "Next steps",
+    offset: (model.direction === "forward" ? 1 : -1) * (depth + 1),
+    nodes: [
+      {
+        key: LOADING_NODE_KEY,
+        label: "Loading next steps…",
+        value,
+        dimParts: null,
+      },
+    ],
+    x: 0,
+    total: 0,
+    scale: 0,
+  };
+  if (model.direction === "backward") {
+    const first = model.columns[0];
+    const toKey = first?.nodes[0]?.key;
+    if (!first || !toKey) return model;
+    return {
+      ...model,
+      columns: [loadingCol, ...model.columns],
+      edges: [
+        {
+          ci: 0,
+          from: LOADING_NODE_KEY,
+          to: toKey,
+          value,
+          dims: null,
+          committedEdge: false,
+          srcKey: LOADING_NODE_KEY,
+          tgtKey: toKey,
+          side,
+          fi: 0,
+          h0: 0,
+          h1: 0,
+          y0: 0,
+          y1: 0,
+        },
+        ...model.edges.map((e) => ({ ...e, ci: e.ci + 1 })),
+      ],
+    };
+  }
+  const last = model.columns[model.columns.length - 1];
+  const fromKey = last?.nodes[0]?.key;
+  if (!last || !fromKey) return model;
+  return {
+    ...model,
+    columns: [...model.columns, loadingCol],
+    edges: [
+      ...model.edges,
+      {
+        ci: model.columns.length - 1,
+        from: fromKey,
+        to: LOADING_NODE_KEY,
+        value,
+        dims: null,
+        committedEdge: false,
+        srcKey: fromKey,
+        tgtKey: LOADING_NODE_KEY,
+        side,
+        fi: 0,
+        h0: 0,
+        h1: 0,
+        y0: 0,
+        y1: 0,
+      },
+    ],
+  };
+}
+
 function materializeJourneyViewModel({
   dataset,
   history,
   rowPathLength,
   hasDimension,
+  frontierLoading,
 }: {
   dataset: JourneyDataset;
   history: JourneyHistory;
   rowPathLength: number;
   hasDimension: boolean;
+  frontierLoading: boolean;
 }): JourneyViewModel {
   const direction = dataset.direction;
   const side = direction === "forward" ? "f" : "b";
@@ -787,6 +872,9 @@ function materializeJourneyViewModel({
     waitingForFrontier,
   };
   model.violations = verifyModel(model, depth);
+  if (frontierLoading && waitingForFrontier) {
+    return appendLoadingFrontier(model, depth);
+  }
   return model;
 }
 
@@ -796,12 +884,14 @@ export function buildJourneyViewState({
   rowPath = [],
   hasDimension,
   previousHistory = null,
+  frontierLoading = false,
 }: {
   rows: ProductAnalyticsResultRow[];
   dataset: JourneyDataset;
   rowPath?: PathStep[];
   hasDimension: boolean;
   previousHistory?: JourneyHistory | null;
+  frontierLoading?: boolean;
 }): { model: JourneyViewModel; history: JourneyHistory } {
   const history = reduceJourneyHistory({
     previous: previousHistory,
@@ -816,6 +906,7 @@ export function buildJourneyViewState({
       history,
       rowPathLength: rowPath.length,
       hasDimension,
+      frontierLoading,
     }),
     history,
   };
@@ -827,77 +918,20 @@ export function buildJourneyViewModel({
   rowPath = [],
   hasDimension,
   previousHistory = null,
-  submittedPathLength,
 }: {
   rows: ProductAnalyticsResultRow[];
   dataset: JourneyDataset;
   rowPath?: PathStep[];
   hasDimension: boolean;
   previousHistory?: JourneyHistory | null;
-  /** @deprecated use rowPath */
-  submittedPathLength?: number;
 }): JourneyViewModel {
-  const resolvedRowPath =
-    rowPath.length > 0
-      ? rowPath
-      : dataset.path.slice(0, submittedPathLength ?? 0);
   return buildJourneyViewState({
     rows,
     dataset,
-    rowPath: resolvedRowPath,
+    rowPath,
     hasDimension,
     previousHistory,
   }).model;
-}
-
-export function facetJourneyModel(
-  m: JourneyViewModel,
-  dimValue: string,
-): JourneyViewModel {
-  const total = m.anchorDims.get(dimValue) || 0;
-  const nodeValue = (n: JourneyNode) =>
-    n.dimParts ? n.dimParts.get(dimValue) || 0 : total;
-  return {
-    ...m,
-    columns: m.columns.map((c) => ({
-      ...c,
-      nodes: c.nodes
-        .map((n) => ({ ...n, value: nodeValue(n) }))
-        .filter((n) => n.value > 0),
-    })),
-    edges: m.edges
-      .map((e) => ({
-        ...e,
-        value: e.dims ? e.dims.get(dimValue) || 0 : total,
-      }))
-      .filter((e) => e.value > 0),
-    anchorTotal: total,
-  };
-}
-
-export function useJourneyModel({
-  rows,
-  dataset,
-  rowPath = [],
-  hasDimension,
-  previousHistory = null,
-}: {
-  rows: ProductAnalyticsResultRow[] | undefined;
-  dataset: JourneyDataset | null;
-  rowPath?: PathStep[];
-  hasDimension: boolean;
-  previousHistory?: JourneyHistory | null;
-}): JourneyViewModel | null {
-  return useMemo(() => {
-    if (!dataset) return null;
-    return buildJourneyViewModel({
-      rows: rows ?? [],
-      dataset,
-      rowPath,
-      hasDimension,
-      previousHistory,
-    });
-  }, [rows, dataset, rowPath, hasDimension, previousHistory]);
 }
 
 export { LEAK_OTHER, LEAK_EXIT, ANCHOR_SRC, isJourneyTerminal, JOURNEY_OTHER };

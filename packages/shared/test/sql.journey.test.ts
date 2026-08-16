@@ -6,6 +6,7 @@ import {
 } from "shared/enterprise";
 import {
   canIncreaseJourneyOptions,
+  journeyMinUnusedLookahead,
   journeyResultCanServe,
   maxJourneyPathRows,
   maxJourneyResultRows,
@@ -531,6 +532,13 @@ describe("journey datasource allowlist", () => {
     expect(isJourneySupportedDatasourceType("mysql" as DataSourceType)).toBe(
       false,
     );
+  });
+});
+
+describe("journeyMinUnusedLookahead", () => {
+  it("maps one vs full to leftover levels", () => {
+    expect(journeyMinUnusedLookahead(3, "one")).toBe(1);
+    expect(journeyMinUnusedLookahead(3, "full")).toBe(3);
   });
 });
 

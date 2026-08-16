@@ -25,6 +25,40 @@ export const MAX_JOURNEY_OPTIONS_PER_STEP = 50;
 export const DEFAULT_JOURNEY_OPTIONS_PER_STEP = 5;
 export const JOURNEY_OPTIONS_PER_STEP_INCREMENT = 3;
 export const DEFAULT_JOURNEY_RENDER_DEPTH = 2;
+export const JOURNEY_CACHE_CANDIDATE_LIMIT = 40;
+
+export type JourneyLookaheadNeed = "one" | "full";
+
+export function journeyMinUnusedLookahead(
+  requestedDepth: number,
+  need: JourneyLookaheadNeed,
+): number {
+  switch (need) {
+    case "one":
+      return 1;
+    case "full":
+      return requestedDepth;
+    default: {
+      const _exhaustive: never = need;
+      return _exhaustive;
+    }
+  }
+}
+
+export function journeyFamilyIdentity(dataset: JourneyDataset) {
+  return {
+    factTableId: dataset.factTableId,
+    unit: dataset.unit,
+    dailyJourneys: dataset.dailyJourneys,
+    collapseRepeats: dataset.collapseRepeats,
+    direction: dataset.direction,
+    stepColumns: dataset.stepColumns,
+    stepGroups: dataset.stepGroups ?? [],
+    anchorStepValues: dataset.anchorStepValues,
+    excludedSteps: dataset.excludedSteps,
+    rowFilters: dataset.rowFilters,
+  };
+}
 
 export function journeyOptionsAt(
   optionsPerStep: number[] | number | undefined,
@@ -342,20 +376,8 @@ function journeyFamilyEquals(
   requested: JourneyDataset,
 ): boolean {
   return (
-    cached.factTableId === requested.factTableId &&
-    cached.unit === requested.unit &&
-    cached.dailyJourneys === requested.dailyJourneys &&
-    cached.collapseRepeats === requested.collapseRepeats &&
-    cached.direction === requested.direction &&
-    JSON.stringify(cached.stepColumns) ===
-      JSON.stringify(requested.stepColumns) &&
-    JSON.stringify(cached.stepGroups ?? []) ===
-      JSON.stringify(requested.stepGroups ?? []) &&
-    JSON.stringify(cached.anchorStepValues) ===
-      JSON.stringify(requested.anchorStepValues) &&
-    JSON.stringify(cached.excludedSteps) ===
-      JSON.stringify(requested.excludedSteps) &&
-    JSON.stringify(cached.rowFilters) === JSON.stringify(requested.rowFilters)
+    JSON.stringify(journeyFamilyIdentity(cached)) ===
+    JSON.stringify(journeyFamilyIdentity(requested))
   );
 }
 

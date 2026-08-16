@@ -27,7 +27,6 @@ import {
 } from "shared/enterprise";
 import { isEqual } from "lodash";
 import { isManagedWarehouseUnavailable } from "shared/util";
-import { journeyResultCanServe } from "shared/journeys";
 import {
   cleanConfigForSubmission,
   clearInapplicableShowAs,
@@ -42,13 +41,14 @@ import {
   getInitialInlineFilters,
   hasUnsatisfiedInlineFilters,
   isSubmittableConfig,
-  journeyDiffersOnlyByPath,
-  journeyShouldPrefetchMore,
   stripExplorerDraftFields,
   toFetchKey,
   validateDimensions,
 } from "@/enterprise/components/ProductAnalytics/util";
-import type { JourneyHistory } from "@/enterprise/components/ProductAnalytics/MainSection/useJourneyModel";
+import {
+  journeyFetchCache,
+  journeyShouldPrefetchMore,
+} from "@/enterprise/components/ProductAnalytics/journey-policy";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -110,8 +110,6 @@ export interface ExplorerContextValue {
   collapseFunnelStepsForAnalyze: () => void;
   commitJourneyStep: (value: string) => void;
   popJourneyPath: (index: number) => void;
-  journeyHistory: JourneyHistory | null;
-  setJourneyHistory: (history: JourneyHistory | null) => void;
 }
 const ExplorerContext = createContext<ExplorerContextValue | null>(null);
 
@@ -221,10 +219,6 @@ export function ExplorerProvider({
   const [comparisonComputed, setComparisonComputed] =
     useState<ExplorerContextValue["comparisonComputed"]>(null);
   const [comparisonError, setComparisonError] = useState<string | null>(null);
-  const [journeyHistory, setJourneyHistory] = useState<JourneyHistory | null>(
-    null,
-  );
-
   const hasEverFetchedRef = useRef(hasExistingResults);
   const skipNextAutoSubmitRef = useRef(false);
   const submitRequestIdRef = useRef(0);
@@ -407,12 +401,23 @@ export function ExplorerProvider({
 
   const baselineConfig = submittedExploreState ?? null;
   const { needsFetch, needsUpdate } = useMemo(() => {
-    return compareConfig(baselineConfig, cleanedDraftExploreState, {
-      lastPreviousTimeFrame: submittedPreviousTimeFrame,
-      newPreviousTimeFrame: draftExploreState.previousTimeFrame ?? null,
-      lastComparisonMode: submittedComparisonMode,
-      newComparisonMode: compareEnabled ? comparisonMode : null,
-    });
+    return compareConfig(
+      baselineConfig,
+      cleanedDraftExploreState,
+      {
+        lastPreviousTimeFrame: submittedPreviousTimeFrame,
+        newPreviousTimeFrame: draftExploreState.previousTimeFrame ?? null,
+        lastComparisonMode: submittedComparisonMode,
+        newComparisonMode: compareEnabled ? comparisonMode : null,
+      },
+      {
+        rowSource:
+          data?.config.dataset.type === "journey"
+            ? data.config
+            : baselineConfig,
+        rows: data?.result?.rows ?? [],
+      },
+    );
   }, [
     baselineConfig,
     cleanedDraftExploreState,
@@ -421,6 +426,7 @@ export function ExplorerProvider({
     submittedComparisonMode,
     compareEnabled,
     comparisonMode,
+    data,
   ]);
 
   const isSubmittable = useMemo(() => {
@@ -607,14 +613,16 @@ export function ExplorerProvider({
       // exceeds the backend's sync budget, poll both running ids until each is
       // terminal, then rebuild the shared comparison payload from final rows.
       if (primaryIsRunning || comparisonIsRunning) {
-        if (configToSubmit.dataset.type !== "journey") {
+        const preserveVisibleResultWhileRunning =
+          configToSubmit.dataset.type === "journey";
+        if (!preserveVisibleResultWhileRunning) {
           setSubmittedExploreState(submittedConfig);
           setIsStale(false);
         }
         setExplorerState((prev) => ({
           ...prev,
           exploration: primaryIsRunning
-            ? configToSubmit.dataset.type === "journey"
+            ? preserveVisibleResultWhileRunning
               ? prev.exploration
               : null
             : fetchResult,
@@ -790,10 +798,8 @@ export function ExplorerProvider({
       return;
     }
     const draftIsFunnel = cleanedDraftExploreState.dataset.type === "funnel";
-    const draftIsJourney = cleanedDraftExploreState.dataset.type === "journey";
     // Funnels on customer warehouses wait for a manual refresh instead of
     // auto-running an expensive query. Managed Warehouse stays auto-run.
-    // Journeys always try cache first; a miss shows the refresh toast.
     const onlyComparisonChanged =
       baselineConfig !== null &&
       isEqual(
@@ -807,47 +813,14 @@ export function ExplorerProvider({
       !onlyComparisonChanged;
     const rowSourceConfig =
       data?.config.dataset.type === "journey" ? data.config : baselineConfig;
-    const pathOnly =
-      draftIsJourney &&
-      !!rowSourceConfig &&
-      journeyDiffersOnlyByPath(rowSourceConfig, cleanedDraftExploreState);
-    const shouldPrefetchPath =
-      pathOnly &&
-      journeyShouldPrefetchMore(rowSourceConfig, cleanedDraftExploreState);
-    const currentServes =
-      draftIsJourney &&
-      cleanedDraftExploreState.dataset.type === "journey" &&
-      !!data &&
-      data.config.dataset.type === "journey" &&
-      journeyResultCanServe({
-        cachedDataset: data.config.dataset,
-        cachedRows: data.result?.rows ?? [],
-        requestedDataset: cleanedDraftExploreState.dataset,
-      });
+    const journeyCache = journeyFetchCache(
+      rowSourceConfig,
+      cleanedDraftExploreState,
+    );
 
     if (needsFetch) {
-      if (draftIsJourney && currentServes) {
-        setIsStale(false);
-        const submittedConfig: ExplorerDraftConfig =
-          draftExploreState.previousTimeFrame
-            ? {
-                ...cleanedDraftExploreState,
-                previousTimeFrame: draftExploreState.previousTimeFrame,
-                comparisonMode,
-              }
-            : cleanedDraftExploreState;
-        setSubmittedExploreState(submittedConfig);
-        if (shouldPrefetchPath) {
-          doSubmit({ cache: "preferred" });
-        }
-      } else if (draftIsJourney && shouldPrefetchPath) {
-        setIsStale(false);
-        doSubmit({ cache: "preferred" });
-      } else if (draftIsJourney && !baselineConfig) {
-        setIsStale(false);
-        doSubmit({ cache: "preferred" });
-      } else if (draftIsJourney) {
-        doSubmit({ cache: "required" });
+      if (journeyCache) {
+        doSubmit({ cache: journeyCache });
       } else if (deferUntilManualRefresh) {
         setIsStale(true);
       } else {
@@ -877,6 +850,27 @@ export function ExplorerProvider({
     managedWarehouseUnavailable,
     isManagedWarehouse,
     data,
+  ]);
+
+  useEffect(() => {
+    if (managedWarehouseUnavailable || !isSubmittable) return;
+    if (loading || polling) return;
+    if (needsFetch) return;
+    const rowSource =
+      data?.config.dataset.type === "journey" ? data.config : null;
+    if (!journeyShouldPrefetchMore(rowSource, cleanedDraftExploreState)) {
+      return;
+    }
+    doSubmit({ cache: "preferred" });
+  }, [
+    managedWarehouseUnavailable,
+    isSubmittable,
+    loading,
+    polling,
+    needsFetch,
+    data,
+    cleanedDraftExploreState,
+    doSubmit,
   ]);
 
   /** Clear staleness when draft matches submitted (known state) */
@@ -1100,7 +1094,6 @@ export function ExplorerProvider({
       setComparisonQuery(null);
       setComparisonComputed(null);
       setComparisonError(null);
-      setJourneyHistory(null);
       const datasourceId: string = newDatasourceId ?? datasources[0]?.id ?? "";
       setIsStale(false);
       if (datasourceId) {
@@ -1186,8 +1179,6 @@ export function ExplorerProvider({
       collapseFunnelStepsForAnalyze,
       commitJourneyStep,
       popJourneyPath,
-      journeyHistory,
-      setJourneyHistory,
       compareEnabled,
       comparisonMode,
       submittedComparisonMode,
@@ -1234,8 +1225,6 @@ export function ExplorerProvider({
       collapseFunnelStepsForAnalyze,
       commitJourneyStep,
       popJourneyPath,
-      journeyHistory,
-      setJourneyHistory,
       updateTimestampColumn,
       updateValueInDataset,
     ],

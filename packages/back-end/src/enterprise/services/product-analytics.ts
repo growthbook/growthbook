@@ -13,6 +13,7 @@ import {
 import {
   journeyConfigExceedsRowCap,
   journeyDimValueCount,
+  journeyMinUnusedLookahead,
   MAX_JOURNEY_RESULT_ROWS,
 } from "shared/journeys";
 import {
@@ -68,8 +69,11 @@ export async function runProductAnalyticsExploration(
     const existing =
       await context.models.analyticsExplorations.findLatestByConfig(config, {
         minUnusedLookahead:
-          options.cache !== "required" && config.dataset.type === "journey"
-            ? config.dataset.depth
+          config.dataset.type === "journey"
+            ? journeyMinUnusedLookahead(
+                config.dataset.depth,
+                options.cache === "required" ? "one" : "full",
+              )
             : undefined,
       });
     if (existing) {

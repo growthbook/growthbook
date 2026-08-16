@@ -5,11 +5,12 @@ import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/Exp
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import {
+  explorerMainPresentation,
   hasSubmittablePayload,
-  journeyDiffersOnlyByPath,
-  journeyPreferredView,
-  shouldChartSectionShow,
+  type ExplorerDraftConfig,
+  type ExplorerEmptyState,
 } from "@/enterprise/components/ProductAnalytics/util";
+import { journeyDiffersOnlyByPath } from "@/enterprise/components/ProductAnalytics/journey-policy";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ExplorerChart from "./ExplorerChart";
@@ -36,43 +37,20 @@ export default function ExplorerMainSection() {
     submittedComparisonMode,
   } = useExplorerContext();
 
-  const isJourney = draftExploreState.type === "journey";
-  const journeyHasData = (exploration?.result?.rows?.length ?? 0) > 0;
-  const journeyHasError = !!error && !loading;
-  const journeyView = isJourney
-    ? journeyPreferredView({
-        chartType: draftExploreState.chartType,
-        hasData: journeyHasData,
-        hasError: journeyHasError,
-      })
-    : null;
-  const showChartSection = journeyView
-    ? journeyView === "bar"
-    : shouldChartSectionShow({
-        loading,
-        error,
-        submittedExploreState,
-      });
-
-  const funnelMainEmpty =
-    draftExploreState.type === "funnel" &&
-    draftExploreState.dataset?.type === "funnel" &&
-    !hasSubmittablePayload(submittedExploreState);
-  const journeyMainEmpty =
-    draftExploreState.type === "journey" &&
-    draftExploreState.dataset?.type === "journey" &&
-    !hasSubmittablePayload(submittedExploreState);
-
-  const suppressStaleFloatingCallout =
-    (funnelMainEmpty || journeyMainEmpty) && isStale && !loading;
-  const suppressJourneyPathFetchOverlay =
-    !!submittedExploreState &&
-    journeyDiffersOnlyByPath(submittedExploreState, draftExploreState);
-  const showStaleToast =
-    (isStale || loading) &&
-    !suppressStaleFloatingCallout &&
-    !suppressJourneyPathFetchOverlay;
-  const showTableSection = journeyView ? journeyView === "table" : true;
+  const { showChart, showTable, showStaleToast, emptyState } =
+    explorerMainPresentation({
+      draftType: draftExploreState.type,
+      chartType: draftExploreState.chartType,
+      submitted: submittedExploreState,
+      hasChartData: (exploration?.result?.rows?.length ?? 0) > 0,
+      loading,
+      error,
+      isStale,
+      isSubmittable,
+      pathOnlyChange:
+        !!submittedExploreState &&
+        journeyDiffersOnlyByPath(submittedExploreState, draftExploreState),
+    });
 
   return (
     <Flex
@@ -96,14 +74,37 @@ export default function ExplorerMainSection() {
         style={{ flex: "1", minHeight: 0, position: "relative" }}
         id="main-section-visuals"
       >
-        {hasSubmittablePayload(submittedExploreState) ? (
+        {emptyState != null ? (
+          <Flex
+            align="center"
+            justify="center"
+            direction="column"
+            gap="3"
+            style={{
+              flex: 1,
+              minHeight: "400px",
+              color: "var(--color-text-mid)",
+              border: "2px dashed var(--gray-a3)",
+              borderRadius: "var(--radius-4)",
+            }}
+          >
+            <EmptyState
+              emptyState={emptyState}
+              loading={loading}
+              draftExploreState={draftExploreState}
+              isSubmittable={isSubmittable}
+              collapseFunnelStepsForAnalyze={collapseFunnelStepsForAnalyze}
+              handleSubmit={handleSubmit}
+            />
+          </Flex>
+        ) : submittedExploreState ? (
           <PanelGroup direction="vertical" id="visualization-group">
-            {showChartSection && (
+            {showChart && (
               <>
                 <Panel
                   id="chart"
                   order={1}
-                  defaultSize={showTableSection ? 60 : 100}
+                  defaultSize={showTable ? 60 : 100}
                   minSize={20}
                   style={{
                     display: "flex",
@@ -125,7 +126,7 @@ export default function ExplorerMainSection() {
                     }
                   />
                 </Panel>
-                {showTableSection && (
+                {showTable && (
                   <PanelResizeHandle
                     style={{
                       height: "20px",
@@ -155,11 +156,11 @@ export default function ExplorerMainSection() {
                 )}
               </>
             )}
-            {showTableSection && (
+            {showTable && (
               <Panel
                 id="table"
                 order={2}
-                defaultSize={showChartSection ? 40 : 100}
+                defaultSize={showChart ? 40 : 100}
                 minSize={20}
               >
                 <ExplorerDataTable
@@ -167,7 +168,7 @@ export default function ExplorerMainSection() {
                   error={error}
                   submittedExploreState={submittedExploreState}
                   loading={loading}
-                  hasChart={showChartSection}
+                  hasChart={showChart}
                   isStale={isStale}
                   query={query}
                   compareEnabled={compareEnabled}
@@ -180,69 +181,7 @@ export default function ExplorerMainSection() {
               </Panel>
             )}
           </PanelGroup>
-        ) : (
-          <Flex
-            align="center"
-            justify="center"
-            direction="column"
-            gap="3"
-            style={{
-              flex: 1,
-              minHeight: "400px",
-              color: "var(--color-text-mid)",
-              border: "2px dashed var(--gray-a3)",
-              borderRadius: "var(--radius-4)",
-            }}
-          >
-            {funnelMainEmpty ? (
-              <>
-                <Text size="lg" weight="medium">
-                  Done configuring steps?
-                </Text>
-                <Button
-                  size="xl"
-                  variant="solid"
-                  disabled={
-                    loading ||
-                    !hasSubmittablePayload(draftExploreState) ||
-                    !isSubmittable
-                  }
-                  onClick={async () => {
-                    collapseFunnelStepsForAnalyze();
-                    await handleSubmit();
-                  }}
-                >
-                  <Flex align="center" gap="2">
-                    <PiArrowsClockwise />
-                    Analyze Funnel
-                  </Flex>
-                </Button>
-              </>
-            ) : journeyMainEmpty && (loading || isSubmittable) ? (
-              <>
-                <LoadingSpinner />
-                <Text size="lg" weight="medium">
-                  Loading journey…
-                </Text>
-              </>
-            ) : journeyMainEmpty ? (
-              <>
-                <PiChartLineUp size={48} style={{ color: "var(--gray-a9)" }} />
-                <Text size="lg" weight="medium">
-                  Configure this journey to visualize data
-                </Text>
-              </>
-            ) : (
-              <>
-                <PiChartLineUp size={48} style={{ color: "var(--gray-a9)" }} />
-
-                <Text size="lg" weight="medium">
-                  Configure your explorer to visualize data
-                </Text>
-              </>
-            )}
-          </Flex>
-        )}
+        ) : null}
 
         {showStaleToast && (
           <Box
@@ -301,4 +240,80 @@ export default function ExplorerMainSection() {
       </Flex>
     </Flex>
   );
+}
+
+function EmptyState({
+  emptyState,
+  loading,
+  draftExploreState,
+  isSubmittable,
+  collapseFunnelStepsForAnalyze,
+  handleSubmit,
+}: {
+  emptyState: ExplorerEmptyState;
+  loading: boolean;
+  draftExploreState: ExplorerDraftConfig;
+  isSubmittable: boolean;
+  collapseFunnelStepsForAnalyze: () => void;
+  handleSubmit: () => Promise<void>;
+}) {
+  switch (emptyState) {
+    case "funnel-cta":
+      return (
+        <>
+          <Text size="lg" weight="medium">
+            Done configuring steps?
+          </Text>
+          <Button
+            size="xl"
+            variant="solid"
+            disabled={
+              loading ||
+              !hasSubmittablePayload(draftExploreState) ||
+              !isSubmittable
+            }
+            onClick={async () => {
+              collapseFunnelStepsForAnalyze();
+              await handleSubmit();
+            }}
+          >
+            <Flex align="center" gap="2">
+              <PiArrowsClockwise />
+              Analyze Funnel
+            </Flex>
+          </Button>
+        </>
+      );
+    case "journey-loading":
+      return (
+        <>
+          <LoadingSpinner />
+          <Text size="lg" weight="medium">
+            Loading journey…
+          </Text>
+        </>
+      );
+    case "journey-configure":
+      return (
+        <>
+          <PiChartLineUp size={48} style={{ color: "var(--gray-a9)" }} />
+          <Text size="lg" weight="medium">
+            Configure this journey to visualize data
+          </Text>
+        </>
+      );
+    case "configure":
+      return (
+        <>
+          <PiChartLineUp size={48} style={{ color: "var(--gray-a9)" }} />
+          <Text size="lg" weight="medium">
+            Configure your explorer to visualize data
+          </Text>
+        </>
+      );
+    default: {
+      const _exhaustive: never = emptyState;
+      return _exhaustive;
+    }
+  }
 }

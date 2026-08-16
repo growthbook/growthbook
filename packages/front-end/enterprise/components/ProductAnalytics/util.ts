@@ -18,8 +18,14 @@ import type {
   JourneyStepGroup,
   ExplorationDateRange,
   ComparisonMode,
+  ProductAnalyticsResultRow,
 } from "shared/validators";
-import { applyStepGroups, stepGroupsForColumn } from "shared/journeys";
+import {
+  applyStepGroups,
+  journeyMinUnusedLookahead,
+  journeyResultCanServe,
+  stepGroupsForColumn,
+} from "shared/journeys";
 import {
   MAX_JOURNEY_STEP_COLUMNS,
   dateGranularity,
@@ -1016,10 +1022,15 @@ export function toFetchKey(
     };
   }
   if (base.dataset.type === "journey") {
+    // path is applied client-side when the current result can serve it.
     // renderDepth / scaleMode / dimEncoding are display-only.
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { renderDepth, scaleMode, dimEncoding, ...journeyFetchDataset } =
-      base.dataset;
+    const {
+      renderDepth: _renderDepth,
+      scaleMode: _scaleMode,
+      dimEncoding: _dimEncoding,
+      path: _path,
+      ...journeyFetchDataset
+    } = base.dataset;
     return {
       ...rest,
       chartType: getChartCategory(base.chartType),
@@ -1175,6 +1186,10 @@ export function compareConfig(
     lastComparisonMode?: ComparisonMode | null;
     newComparisonMode?: ComparisonMode | null;
   },
+  journeyServe?: {
+    rowSource: ExplorationConfig | null;
+    rows: ProductAnalyticsResultRow[];
+  },
 ): { needsFetch: boolean; needsUpdate: boolean } {
   const lastPrev = previousWindows?.lastPreviousTimeFrame ?? null;
   const newPrev = previousWindows?.newPreviousTimeFrame ?? null;
@@ -1204,77 +1219,31 @@ export function compareConfig(
     return { needsFetch: false, needsUpdate: false };
   }
 
-  const needsFetch =
+  const fetchKeyChanged =
     !isEqual(toFetchKey(lastComparable), toFetchKey(newConfig)) ||
     !isEqual(lastPrev, newPrev) ||
     lastMode !== newMode;
-  return { needsFetch, needsUpdate: true };
-}
-
-/** True when the only fetch-key difference is the committed journey path. */
-export function journeyDiffersOnlyByPath(
-  submitted: ExplorationConfig,
-  draft: ExplorationConfig,
-): boolean {
-  if (
-    submitted.dataset.type !== "journey" ||
-    draft.dataset.type !== "journey"
-  ) {
-    return false;
-  }
-  if (isEqual(submitted.dataset.path, draft.dataset.path)) return false;
-  const submittedKey = toFetchKey(submitted) as {
-    dataset: Record<string, unknown>;
-  };
-  const draftKey = toFetchKey(draft) as { dataset: Record<string, unknown> };
-  return isEqual(
-    { ...submittedKey, dataset: { ...submittedKey.dataset, path: null } },
-    { ...draftKey, dataset: { ...draftKey.dataset, path: null } },
-  );
-}
-
-/** Fetched levels still available after applying the draft path as a prefix. */
-export function journeyRemainingPrefetch(
-  submitted: JourneyDataset,
-  draft: JourneyDataset,
-): number {
-  const extra = Math.max(0, draft.path.length - submitted.path.length);
-  return submitted.depth - extra;
-}
-
-/** Draft has committed every prefetched frontier level, so no next step remains. */
-export function journeyPrefetchExhausted(
-  submitted: JourneyDataset,
-  draft: JourneyDataset,
-): boolean {
-  return journeyRemainingPrefetch(submitted, draft) <= 0;
-}
-
-/** Fetch identity that should reset observed journey history when it changes. */
-export function journeyHistoryKey(config: ExplorationConfig): unknown {
-  const key = toFetchKey(config) as { dataset: Record<string, unknown> };
-  if (config.dataset.type !== "journey") return key;
-  return {
-    ...key,
-    dataset: { ...key.dataset, path: null, optionsPerStep: null },
-  };
-}
-
-/** Start the next fetch when the current result has only one unused level left. */
-export function journeyShouldPrefetchMore(
-  rowSource: ExplorationConfig | null,
-  draft: ExplorationConfig,
-): boolean {
-  if (!rowSource) return false;
-  if (
-    rowSource.dataset.type !== "journey" ||
-    draft.dataset.type !== "journey"
-  ) {
-    return false;
-  }
-  if (!journeyDiffersOnlyByPath(rowSource, draft)) return false;
-  if (draft.dataset.path.length <= rowSource.dataset.path.length) return false;
-  return journeyRemainingPrefetch(rowSource.dataset, draft.dataset) <= 1;
+  const cachedJourney =
+    journeyServe?.rowSource?.dataset.type === "journey"
+      ? journeyServe.rowSource.dataset
+      : lastComparable.dataset.type === "journey"
+        ? lastComparable.dataset
+        : null;
+  const pathUnserved =
+    lastComparable.dataset.type === "journey" &&
+    newConfig.dataset.type === "journey" &&
+    !isEqual(lastComparable.dataset.path, newConfig.dataset.path) &&
+    (cachedJourney == null ||
+      !journeyResultCanServe({
+        cachedDataset: cachedJourney,
+        cachedRows: journeyServe?.rows ?? [],
+        requestedDataset: newConfig.dataset,
+        minUnusedLookahead: journeyMinUnusedLookahead(
+          newConfig.dataset.depth,
+          "one",
+        ),
+      }));
+  return { needsFetch: fetchKeyChanged || pathUnserved, needsUpdate: true };
 }
 
 export type ResolvedGranularity = "hour" | "day" | "week" | "month" | "year";
@@ -1409,6 +1378,79 @@ export function journeyPreferredView({
   if (!hasData && hasError) return "table";
   if (!hasData && !hasError) return "bar";
   return chartType === "table" ? "table" : "bar";
+}
+
+export type ExplorerEmptyState =
+  | "funnel-cta"
+  | "journey-loading"
+  | "journey-configure"
+  | "configure";
+
+export function explorerMainPresentation({
+  draftType,
+  chartType,
+  submitted,
+  hasChartData,
+  loading,
+  error,
+  isStale,
+  isSubmittable,
+  pathOnlyChange,
+}: {
+  draftType: ExplorationConfig["type"];
+  chartType: string;
+  submitted: ExplorerDraftConfig | null;
+  hasChartData: boolean;
+  loading: boolean;
+  error: string | null;
+  isStale: boolean;
+  isSubmittable: boolean;
+  pathOnlyChange: boolean;
+}): {
+  showChart: boolean;
+  showTable: boolean;
+  showStaleToast: boolean;
+  emptyState: ExplorerEmptyState | null;
+} {
+  const submittedEmpty = !hasSubmittablePayload(submitted);
+  if (submittedEmpty) {
+    const emptyState: ExplorerEmptyState =
+      draftType === "funnel"
+        ? "funnel-cta"
+        : draftType === "journey" && (loading || isSubmittable)
+          ? "journey-loading"
+          : draftType === "journey"
+            ? "journey-configure"
+            : "configure";
+    return {
+      showChart: false,
+      showTable: false,
+      showStaleToast: false,
+      emptyState,
+    };
+  }
+
+  const journeyView =
+    draftType === "journey"
+      ? journeyPreferredView({
+          chartType,
+          hasData: hasChartData,
+          hasError: !!error && !loading,
+        })
+      : null;
+  const showChart = journeyView
+    ? journeyView === "bar"
+    : shouldChartSectionShow({
+        loading,
+        error,
+        submittedExploreState: submitted,
+      });
+  const showTable = journeyView ? journeyView === "table" : true;
+  const showStaleToast =
+    (isStale || loading) &&
+    !(draftType === "journey" && loading && (hasChartData || pathOnlyChange));
+
+  return { showChart, showTable, showStaleToast, emptyState: null };
 }
 
 /**

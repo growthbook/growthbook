@@ -11,7 +11,11 @@ import {
   getDateGranularity,
 } from "shared/enterprise";
 import { getValidDate } from "shared/dates";
-import { journeyResultCanServe } from "shared/journeys";
+import {
+  JOURNEY_CACHE_CANDIDATE_LIMIT,
+  journeyFamilyIdentity,
+  journeyResultCanServe,
+} from "shared/journeys";
 import {
   getQueryById,
   toQueryApiInterface,
@@ -155,24 +159,8 @@ export class AnalyticsExplorationModel extends BaseClass {
           dataset.type === "funnel"
             ? (dataset.concurrencyWindowSeconds ?? 0)
             : null,
-        journeyUnit: dataset.type === "journey" ? dataset.unit : null,
-        journeyFactTableId:
-          dataset.type === "journey" ? dataset.factTableId : null,
-        journeyDailyJourneys:
-          dataset.type === "journey" ? dataset.dailyJourneys : null,
-        journeyStepColumns:
-          dataset.type === "journey" ? dataset.stepColumns : null,
-        journeyStepGroups:
-          dataset.type === "journey" ? (dataset.stepGroups ?? []) : null,
-        journeyAnchorStepValues:
-          dataset.type === "journey" ? dataset.anchorStepValues : null,
-        journeyDirection: dataset.type === "journey" ? dataset.direction : null,
-        journeyExcludedSteps:
-          dataset.type === "journey" ? dataset.excludedSteps : null,
-        journeyCollapseRepeats:
-          dataset.type === "journey" ? dataset.collapseRepeats : null,
-        journeyRowFilters:
-          dataset.type === "journey" ? dataset.rowFilters : null,
+        journeyFamily:
+          dataset.type === "journey" ? journeyFamilyIdentity(dataset) : null,
       }),
     );
 
@@ -184,22 +172,7 @@ export class AnalyticsExplorationModel extends BaseClass {
       dataset.type === "funnel"
         ? [md5(JSON.stringify(dataset.steps))]
         : dataset.type === "journey"
-          ? [
-              md5(
-                JSON.stringify({
-                  rowFilters: dataset.rowFilters,
-                  excludedSteps: dataset.excludedSteps,
-                  collapseRepeats: dataset.collapseRepeats,
-                  dailyJourneys: dataset.dailyJourneys,
-                  stepColumns: dataset.stepColumns,
-                  stepGroups: dataset.stepGroups ?? [],
-                  anchorStepValues: dataset.anchorStepValues,
-                  direction: dataset.direction,
-                  unit: dataset.unit,
-                  factTableId: dataset.factTableId,
-                }),
-              ),
-            ]
+          ? [md5("journey")]
           : dataset.values.map((value) => md5(JSON.stringify(value)));
 
     return {
@@ -271,7 +244,8 @@ export class AnalyticsExplorationModel extends BaseClass {
       },
       {
         sort: { dateCreated: -1 },
-        limit: config.dataset.type === "journey" ? 40 : 5,
+        limit:
+          config.dataset.type === "journey" ? JOURNEY_CACHE_CANDIDATE_LIMIT : 5,
       },
     );
 
