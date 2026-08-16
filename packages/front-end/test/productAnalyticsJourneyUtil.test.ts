@@ -7,17 +7,24 @@ import type {
 } from "shared/validators";
 import {
   createEmptyDataset,
+  fillMissingUnits,
   getDefaultJourneyStepColumns,
   getInitialInlineFilters,
   getMaxDimensions,
   hasSubmittablePayload,
   hasUnsatisfiedInlineFilters,
   isSubmittableConfig,
+  journeyDiffersOnlyByPath,
+  journeyPrefetchExhausted,
   journeyPreferredView,
+  journeyShouldPrefetchMore,
   toFetchKey,
   withStepGroupsApplied,
 } from "@/enterprise/components/ProductAnalytics/util";
-import { buildJourneyViewModel } from "@/enterprise/components/ProductAnalytics/MainSection/useJourneyModel";
+import {
+  buildJourneyViewModel,
+  buildJourneyViewState,
+} from "@/enterprise/components/ProductAnalytics/MainSection/useJourneyModel";
 
 function journeyDataset(
   overrides: Partial<JourneyDataset> = {},
@@ -90,9 +97,42 @@ describe("journey util branches", () => {
     expect(dataset).not.toHaveProperty("values");
     if (dataset.type !== "journey") throw new Error("expected journey");
     expect(dataset.depth).toBe(3);
-    expect(dataset.renderDepth).toBe(2);
+    expect(dataset.renderDepth).toBe(1);
     expect(dataset.optionsPerStep).toEqual([]);
+    expect(dataset.dailyJourneys).toBe(true);
     expect(dataset.collapseRepeats).toBe(true);
+    expect(dataset.excludedSteps).toEqual([]);
+  });
+
+  it("fillMissingUnits forces daily journeys, collapse repeats, and no exclusions", () => {
+    const config: ExplorationConfig = {
+      type: "journey",
+      datasource: "ds_1",
+      chartType: "bar",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [],
+      dataset: journeyDataset({
+        dailyJourneys: false,
+        collapseRepeats: false,
+        excludedSteps: ["heartbeat"],
+      }),
+    };
+    const next = fillMissingUnits(
+      config,
+      () => null,
+      () => null,
+    );
+    if (next.dataset.type !== "journey") throw new Error("expected journey");
+    expect(next.dataset.dailyJourneys).toBe(true);
+    expect(next.dataset.collapseRepeats).toBe(true);
+    expect(next.dataset.excludedSteps).toEqual([]);
+    expect(next.dataset.unit).toBe("user_id");
   });
 
   it("caps journeys at one dimension", () => {
@@ -183,6 +223,82 @@ describe("journey util branches", () => {
     expect(key.dataset.type).toBe("journey");
     expect(key.dataset.depth).toBe(3);
     expect(key.dataset.path).toEqual([]);
+  });
+
+  it("journeyShouldPrefetchMore starts one step before the prefetch runs out", () => {
+    const submitted: ExplorationConfig = {
+      type: "journey",
+      datasource: "ds_1",
+      chartType: "bar",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [],
+      dataset: journeyDataset({ path: [], depth: 3 }),
+    };
+    const withinPrefetch: ExplorationConfig = {
+      ...submitted,
+      dataset: journeyDataset({
+        path: [{ mode: "value", value: "home" }],
+        depth: 3,
+      }),
+    };
+    const exhausted: ExplorationConfig = {
+      ...submitted,
+      dataset: journeyDataset({
+        path: [
+          { mode: "value", value: "home" },
+          { mode: "value", value: "search" },
+          { mode: "value", value: "checkout" },
+        ],
+        depth: 3,
+      }),
+    };
+    const otherChange: ExplorationConfig = {
+      ...exhausted,
+      dataset: journeyDataset({
+        path: [
+          { mode: "value", value: "home" },
+          { mode: "value", value: "search" },
+          { mode: "value", value: "checkout" },
+        ],
+        depth: 3,
+        unit: "anonymous_id",
+      }),
+    };
+    const oneBefore: ExplorationConfig = {
+      ...submitted,
+      dataset: journeyDataset({
+        path: [
+          { mode: "value", value: "home" },
+          { mode: "value", value: "search" },
+        ],
+        depth: 3,
+      }),
+    };
+    expect(journeyDiffersOnlyByPath(submitted, withinPrefetch)).toBe(true);
+    expect(journeyShouldPrefetchMore(submitted, withinPrefetch)).toBe(false);
+    expect(
+      journeyPrefetchExhausted(submitted.dataset, withinPrefetch.dataset),
+    ).toBe(false);
+    expect(journeyShouldPrefetchMore(submitted, oneBefore)).toBe(true);
+    expect(journeyPrefetchExhausted(submitted.dataset, oneBefore.dataset)).toBe(
+      false,
+    );
+    expect(journeyShouldPrefetchMore(submitted, exhausted)).toBe(true);
+    expect(journeyPrefetchExhausted(submitted.dataset, exhausted.dataset)).toBe(
+      true,
+    );
+    expect(journeyShouldPrefetchMore(submitted, otherChange)).toBe(false);
+    expect(journeyShouldPrefetchMore(submitted, submitted)).toBe(false);
+    // Display path may already equal the draft; leftover levels are on the
+    // result that produced the rows, not the submitted config.
+    expect(journeyShouldPrefetchMore(submitted, oneBefore)).toBe(true);
+    expect(journeyShouldPrefetchMore(oneBefore, oneBefore)).toBe(false);
   });
 
   it("toFetchKey keeps stepGroups, which change the generated SQL", () => {
@@ -396,12 +512,8 @@ describe("buildJourneyViewModel", () => {
     expect(model.matchedTotal).toBe(100);
     expect(model.anchorTotal).toBe(100);
     const frontier = model.columns.filter((c) => c.frontier);
+    expect(frontier).toHaveLength(1);
     expect(frontier[0].nodes.reduce((a, n) => a + n.value, 0)).toBe(100);
-    const home = frontier[0].nodes.find((n) => n.key === "home");
-    const homeChildren = model.edges
-      .filter((e) => e.srcKey === "home" && e.fi === 1)
-      .reduce((a, e) => a + e.value, 0);
-    expect(homeChildren).toBe(home?.value);
   });
 
   it("splits a client-side commit three ways and matches a fresh query", () => {
@@ -459,5 +571,219 @@ describe("buildJourneyViewModel", () => {
     );
     expect(clientNodes).toEqual(freshNodes);
     expect(client.matchedTotal).toBe(fresh.matchedTotal);
+  });
+
+  it("keeps submitted steps aligned when committing one more from the same rows", () => {
+    const homeRows = heldRows
+      .filter(
+        (r) => r.journey?.kind === "path" && r.journey.levels[0] === "home",
+      )
+      .map((r) => {
+        if (r.journey?.kind !== "path") return r;
+        return {
+          ...r,
+          journey: { ...r.journey, levels: r.journey.levels.slice(1) },
+        };
+      });
+    const model = buildJourneyViewModel({
+      rows: homeRows,
+      dataset: journeyDataset({
+        path: [
+          { mode: "value", value: "home" },
+          { mode: "value", value: "search" },
+        ],
+        depth: 3,
+      }),
+      submittedPathLength: 1,
+      hasDimension: false,
+    });
+    expect(model.prefixCount[0]).toBe(50);
+    expect(model.prefixCount[1]).toBe(50);
+    expect(model.prefixCount[2]).toBe(40);
+    const committed = model.columns.filter((c) => c.committed && !c.anchor);
+    expect(committed).toHaveLength(2);
+    expect(committed[0].nodes[0].value).toBe(50);
+    expect(committed[1].nodes[0].value).toBe(40);
+    expect(model.columns.filter((c) => c.frontier)).toHaveLength(1);
+  });
+
+  it("keeps earlier exits after a filtered prefetch replaces the rows", () => {
+    const path = [
+      { mode: "value" as const, value: "home" },
+      { mode: "value" as const, value: "search" },
+    ];
+    const observed = buildJourneyViewState({
+      rows: heldRows,
+      dataset: journeyDataset({ path, depth: 3 }),
+      rowPath: [],
+      hasDimension: false,
+    });
+    expect(observed.model.leak[0].exit).toBe(30);
+    expect(observed.model.prefixCount[0]).toBe(100);
+
+    const prefetchRows = heldRows
+      .filter(
+        (r) =>
+          r.journey?.kind === "path" &&
+          r.journey.levels[0] === "home" &&
+          r.journey.levels[1] === "search",
+      )
+      .map((r) => {
+        if (r.journey?.kind !== "path") return r;
+        return {
+          ...r,
+          journey: { ...r.journey, levels: r.journey.levels.slice(2) },
+        };
+      });
+    const afterPrefetch = buildJourneyViewState({
+      rows: prefetchRows,
+      dataset: journeyDataset({ path, depth: 3 }),
+      rowPath: path,
+      hasDimension: false,
+      previousHistory: observed.history,
+    });
+    expect(afterPrefetch.model.violations).toEqual([]);
+    expect(afterPrefetch.model.prefixCount[0]).toBe(100);
+    expect(afterPrefetch.model.prefixCount[1]).toBe(50);
+    expect(afterPrefetch.model.leak[0].exit).toBe(30);
+    expect(afterPrefetch.model.leak[0].other).toBe(20);
+    const committed = afterPrefetch.model.columns.filter(
+      (c) => c.committed && !c.anchor,
+    );
+    expect(committed[0].nodes[0].value).toBe(50);
+  });
+
+  it("restores the observed frontier when the path is popped", () => {
+    const committed = buildJourneyViewState({
+      rows: heldRows,
+      dataset: journeyDataset({
+        path: [{ mode: "value", value: "home" }],
+      }),
+      rowPath: [],
+      hasDimension: false,
+    });
+    const filteredToHome = heldRows
+      .filter(
+        (r) => r.journey?.kind === "path" && r.journey.levels[0] === "home",
+      )
+      .map((r) => {
+        if (r.journey?.kind !== "path") return r;
+        return {
+          ...r,
+          journey: { ...r.journey, levels: r.journey.levels.slice(1) },
+        };
+      });
+    const popped = buildJourneyViewState({
+      rows: filteredToHome,
+      dataset: journeyDataset({ path: [] }),
+      rowPath: [{ mode: "value", value: "home" }],
+      hasDimension: false,
+      previousHistory: committed.history,
+    });
+    const frontier = popped.model.columns.find((c) => c.frontier);
+    const nodes = Object.fromEntries(
+      (frontier?.nodes ?? []).map((n) => [n.key, n.value]),
+    );
+    expect(nodes.home).toBe(50);
+    expect(nodes.search).toBe(20);
+    expect(nodes["(exit)"]).toBe(30);
+    expect(
+      popped.model.columns.filter((c) => c.committed && !c.anchor),
+    ).toHaveLength(0);
+  });
+
+  it("renders committed drop-off from warehouse rows without interaction history", () => {
+    const model = buildJourneyViewModel({
+      rows: [
+        pathRow(["thanks"], 40),
+        {
+          dimensions: [],
+          journey: {
+            kind: "committed",
+            direction: "forward",
+            stepIndex: 0,
+            value: "home",
+            count: 50,
+          },
+        },
+        {
+          dimensions: [],
+          journey: {
+            kind: "committed",
+            direction: "forward",
+            stepIndex: 0,
+            value: "(other)",
+            count: 20,
+          },
+        },
+        {
+          dimensions: [],
+          journey: {
+            kind: "committed",
+            direction: "forward",
+            stepIndex: 0,
+            value: "(exit)",
+            count: 30,
+          },
+        },
+        {
+          dimensions: [],
+          journey: {
+            kind: "committed",
+            direction: "forward",
+            stepIndex: 1,
+            value: "search",
+            count: 40,
+          },
+        },
+        {
+          dimensions: [],
+          journey: {
+            kind: "committed",
+            direction: "forward",
+            stepIndex: 1,
+            value: "(exit)",
+            count: 10,
+          },
+        },
+      ],
+      dataset: journeyDataset({
+        path: [
+          { mode: "value", value: "home" },
+          { mode: "value", value: "search" },
+        ],
+      }),
+      rowPath: [
+        { mode: "value", value: "home" },
+        { mode: "value", value: "search" },
+      ],
+      hasDimension: false,
+    });
+    expect(model.prefixCount[0]).toBe(100);
+    expect(model.prefixCount[1]).toBe(50);
+    expect(model.leak[0].exit).toBe(30);
+    expect(model.leak[0].other).toBe(20);
+    expect(model.prefixCount[2]).toBe(40);
+  });
+
+  it("does not draw columns past the fetched levels", () => {
+    const model = buildJourneyViewModel({
+      rows: heldRows,
+      dataset: journeyDataset({
+        path: [
+          { mode: "value", value: "home" },
+          { mode: "value", value: "search" },
+          { mode: "value", value: "checkout" },
+          { mode: "value", value: "thanks" },
+        ],
+        depth: 3,
+      }),
+      submittedPathLength: 0,
+      hasDimension: false,
+    });
+    const committed = model.columns.filter((c) => c.committed && !c.anchor);
+    expect(committed).toHaveLength(3);
+    expect(model.columns.filter((c) => c.frontier)).toHaveLength(0);
+    expect(committed[0].nodes[0].value).toBe(50);
   });
 });

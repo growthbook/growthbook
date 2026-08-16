@@ -12,9 +12,10 @@ import {
   JOURNEY_TERMINALS,
   composeStepLabel,
   isJourneyTerminal,
+  journeyLevelMatchesStep,
+  journeyPathIsPrefix,
 } from "shared/journeys";
 
-const SEP = "\u0001";
 const ANCHOR_SRC = "\u0002anchor";
 const LEAK_OTHER = "\u0002other";
 const LEAK_EXIT = "\u0002exit";
@@ -32,6 +33,7 @@ export type JourneyColumn = {
   side: "a" | "f" | "b";
   committed: boolean;
   frontier: boolean;
+  loading?: boolean;
   anchor?: boolean;
   fi?: number;
   optionsLevel?: number;
@@ -62,6 +64,17 @@ export type JourneyEdge = {
   y1: number;
 };
 
+export type JourneyHistoryLevel = {
+  nodes: JourneyNode[];
+};
+
+export type JourneyHistory = {
+  anchorTotal: number;
+  anchorDims: Map<string, number>;
+  /** Next-step distribution after path[0..i-1]. Null until observed. */
+  levels: Array<JourneyHistoryLevel | null>;
+};
+
 export type JourneyViewModel = {
   columns: JourneyColumn[];
   edges: JourneyEdge[];
@@ -82,6 +95,7 @@ export type JourneyViewModel = {
   direction: JourneyDirection;
   violations: string[];
   emptyReason: "none" | "no-anchor" | "no-match";
+  waitingForFrontier: boolean;
 };
 
 type PathRow = {
@@ -90,54 +104,410 @@ type PathRow = {
   n: number;
 };
 
-type ProgressRow = {
-  depthReached: number;
-  outcome: "taken" | "other" | "exit";
-  dim: string | null;
-  n: number;
-};
+type PathStep = JourneyDataset["path"][number];
 
 function addDim(map: Map<string, number>, dim: string | null, n: number) {
   if (!dim) return;
   map.set(dim, (map.get(dim) || 0) + n);
 }
 
-function committedLabel(step: JourneyDataset["path"][number]): string {
+function committedLabel(step: PathStep): string {
   if (step.mode === "other") return JOURNEY_OTHER;
   return step.value;
 }
 
-function levelMatchesStep(
-  value: string | undefined,
-  step: JourneyDataset["path"][number],
-): boolean {
-  if (value == null || value === JOURNEY_NONE) return false;
-  if (step.mode === "other") return value === JOURNEY_OTHER;
-  return value === step.value;
-}
-
-function parseRows(rows: ProductAnalyticsResultRow[]): {
-  pathRows: PathRow[];
-  progressRows: ProgressRow[];
-} {
+function parsePathRows(rows: ProductAnalyticsResultRow[]): PathRow[] {
   const pathRows: PathRow[] = [];
-  const progressRows: ProgressRow[] = [];
   for (const row of rows) {
     const j = row.journey;
-    if (!j) continue;
-    const dim = row.dimensions[0] ?? null;
-    if (j.kind === "progress") {
-      progressRows.push({
-        depthReached: j.depthReached,
-        outcome: j.outcome,
-        dim,
-        n: j.count,
+    if (!j || j.kind !== "path") continue;
+    pathRows.push({
+      levels: j.levels,
+      dim: row.dimensions[0] ?? null,
+      n: j.count,
+    });
+  }
+  return pathRows;
+}
+
+function rankNode(k: string): number {
+  return k === JOURNEY_OTHER ? 2 : JOURNEY_TERMINALS.has(k) ? 3 : 1;
+}
+
+function cloneNodes(nodes: JourneyNode[]): JourneyNode[] {
+  return nodes.map((n) => ({
+    ...n,
+    dimParts: n.dimParts ? new Map(n.dimParts) : null,
+  }));
+}
+
+function cloneHistory(history: JourneyHistory): JourneyHistory {
+  return {
+    anchorTotal: history.anchorTotal,
+    anchorDims: new Map(history.anchorDims),
+    levels: history.levels.map((level) =>
+      level ? { nodes: cloneNodes(level.nodes) } : null,
+    ),
+  };
+}
+
+function historiesEqual(a: JourneyHistory | null, b: JourneyHistory): boolean {
+  if (!a) return false;
+  if (a.anchorTotal !== b.anchorTotal) return false;
+  if (a.levels.length !== b.levels.length) return false;
+  if (a.anchorDims.size !== b.anchorDims.size) return false;
+  for (const [k, v] of a.anchorDims) {
+    if (b.anchorDims.get(k) !== v) return false;
+  }
+  for (let i = 0; i < a.levels.length; i++) {
+    const la = a.levels[i];
+    const lb = b.levels[i];
+    if ((la == null) !== (lb == null)) return false;
+    if (!la || !lb) continue;
+    if (la.nodes.length !== lb.nodes.length) return false;
+    for (let n = 0; n < la.nodes.length; n++) {
+      if (
+        la.nodes[n].key !== lb.nodes[n].key ||
+        la.nodes[n].value !== lb.nodes[n].value
+      ) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+/** These rows can describe the next-step distribution after `draftPath[0..i-1]`. */
+export function journeyCanObserveLevel({
+  rowPath,
+  draftPath,
+  fetchDepth,
+  levelIndex,
+}: {
+  rowPath: PathStep[];
+  draftPath: PathStep[];
+  fetchDepth: number;
+  levelIndex: number;
+}): boolean {
+  if (!journeyPathIsPrefix(rowPath, draftPath)) return false;
+  const extra = levelIndex - rowPath.length;
+  return extra >= 0 && extra < fetchDepth;
+}
+
+function computeLevelFromRows({
+  pathRows,
+  pathPrefix,
+  rowPathLength,
+  hasDimension,
+}: {
+  pathRows: PathRow[];
+  pathPrefix: PathStep[];
+  rowPathLength: number;
+  hasDimension: boolean;
+}): JourneyHistoryLevel {
+  const extra = pathPrefix.length - rowPathLength;
+  const committedExtra = pathPrefix.slice(rowPathLength);
+  const filtered =
+    extra === 0
+      ? pathRows
+      : pathRows.filter((r) =>
+          committedExtra.every((step, i) =>
+            journeyLevelMatchesStep(r.levels[i], step),
+          ),
+        );
+  const nodeAgg = new Map<
+    string,
+    { value: number; dims: Map<string, number> }
+  >();
+  for (const r of filtered) {
+    const v = r.levels[extra];
+    if (v === JOURNEY_NONE || v == null) continue;
+    let na = nodeAgg.get(v);
+    if (!na) {
+      na = { value: 0, dims: new Map() };
+      nodeAgg.set(v, na);
+    }
+    na.value += r.n;
+    addDim(na.dims, r.dim, r.n);
+  }
+  const nodes: JourneyNode[] = [];
+  for (const [key, agg] of nodeAgg) {
+    nodes.push({
+      key,
+      label: key,
+      value: agg.value,
+      dimParts: hasDimension ? agg.dims : null,
+    });
+  }
+  nodes.sort(
+    (a, b) =>
+      rankNode(a.key) - rankNode(b.key) ||
+      b.value - a.value ||
+      (a.key < b.key ? -1 : 1),
+  );
+  return { nodes };
+}
+
+function isExitNode(n: JourneyNode, term: string): boolean {
+  return (
+    n.terminal === true ||
+    JOURNEY_TERMINALS.has(n.key) ||
+    n.key === term ||
+    n.key === LEAK_EXIT
+  );
+}
+
+function nodeMatchesStep(n: JourneyNode, step: PathStep): boolean {
+  if (step.mode === "other") {
+    return n.key === JOURNEY_OTHER || n.key === LEAK_OTHER;
+  }
+  return n.key === step.value;
+}
+
+function splitFromLevel(
+  level: JourneyHistoryLevel,
+  step: PathStep,
+  term: string,
+): {
+  taken: number;
+  other: number;
+  exit: number;
+  takenDims: Map<string, number>;
+  otherDims: Map<string, number>;
+  exitDims: Map<string, number>;
+} {
+  let taken = 0;
+  let other = 0;
+  let exit = 0;
+  const takenDims = new Map<string, number>();
+  const otherDims = new Map<string, number>();
+  const exitDims = new Map<string, number>();
+  for (const n of level.nodes) {
+    const dims = n.dimParts;
+    if (nodeMatchesStep(n, step)) {
+      taken += n.value;
+      if (dims)
+        for (const [k, v] of dims)
+          takenDims.set(k, (takenDims.get(k) || 0) + v);
+    } else if (isExitNode(n, term)) {
+      exit += n.value;
+      if (dims)
+        for (const [k, v] of dims) exitDims.set(k, (exitDims.get(k) || 0) + v);
+    } else {
+      other += n.value;
+      if (dims)
+        for (const [k, v] of dims)
+          otherDims.set(k, (otherDims.get(k) || 0) + v);
+    }
+  }
+  return { taken, other, exit, takenDims, otherDims, exitDims };
+}
+
+function levelFromAgg(
+  agg: Map<string, { value: number; dims: Map<string, number> }>,
+  hasDimension: boolean,
+): JourneyHistoryLevel {
+  const nodes: JourneyNode[] = [];
+  for (const [key, a] of agg) {
+    nodes.push({
+      key,
+      label: key,
+      value: a.value,
+      dimParts: hasDimension ? a.dims : null,
+    });
+  }
+  nodes.sort(
+    (a, b) =>
+      rankNode(a.key) - rankNode(b.key) ||
+      b.value - a.value ||
+      (a.key < b.key ? -1 : 1),
+  );
+  return { nodes };
+}
+
+function parseCommittedLevels(
+  rows: ProductAnalyticsResultRow[],
+  hasDimension: boolean,
+): Map<number, JourneyHistoryLevel> {
+  const byStep = new Map<
+    number,
+    Map<string, { value: number; dims: Map<string, number> }>
+  >();
+  for (const row of rows) {
+    const j = row.journey;
+    if (!j || j.kind !== "committed") continue;
+    let agg = byStep.get(j.stepIndex);
+    if (!agg) {
+      agg = new Map();
+      byStep.set(j.stepIndex, agg);
+    }
+    let na = agg.get(j.value);
+    if (!na) {
+      na = { value: 0, dims: new Map() };
+      agg.set(j.value, na);
+    }
+    na.value += j.count;
+    addDim(na.dims, row.dimensions[0] ?? null, j.count);
+  }
+  const levels = new Map<number, JourneyHistoryLevel>();
+  for (const [stepIndex, agg] of byStep) {
+    levels.set(stepIndex, levelFromAgg(agg, hasDimension));
+  }
+  return levels;
+}
+
+function applyProgressLevels(
+  rows: ProductAnalyticsResultRow[],
+  path: PathStep[],
+  term: string,
+  hasDimension: boolean,
+  levels: Array<JourneyHistoryLevel | null>,
+) {
+  const progress: {
+    depthReached: number;
+    outcome: "taken" | "other" | "exit";
+    dim: string | null;
+    n: number;
+  }[] = [];
+  for (const row of rows) {
+    const j = row.journey;
+    if (!j || j.kind !== "progress") continue;
+    progress.push({
+      depthReached: j.depthReached,
+      outcome: j.outcome,
+      dim: row.dimensions[0] ?? null,
+      n: j.count,
+    });
+  }
+  if (!progress.length) return;
+  for (let k = 0; k < path.length; k++) {
+    if (levels[k]) continue;
+    const step = path[k];
+    const chosen = committedLabel(step);
+    let taken = 0;
+    let other = 0;
+    let exit = 0;
+    const takenD = new Map<string, number>();
+    const otherD = new Map<string, number>();
+    const exitD = new Map<string, number>();
+    for (const r of progress) {
+      if (r.depthReached > k) {
+        taken += r.n;
+        addDim(takenD, r.dim, r.n);
+      } else if (r.depthReached === k && r.outcome === "taken") {
+        taken += r.n;
+        addDim(takenD, r.dim, r.n);
+      } else if (r.depthReached === k && r.outcome === "other") {
+        other += r.n;
+        addDim(otherD, r.dim, r.n);
+      } else if (r.depthReached === k && r.outcome === "exit") {
+        exit += r.n;
+        addDim(exitD, r.dim, r.n);
+      }
+    }
+    const nodes: JourneyNode[] = [];
+    if (taken > 0) {
+      nodes.push({
+        key: chosen,
+        label: chosen,
+        value: taken,
+        dimParts: hasDimension ? takenD : null,
       });
+    }
+    if (other > 0) {
+      nodes.push({
+        key: JOURNEY_OTHER,
+        label: JOURNEY_OTHER,
+        value: other,
+        dimParts: hasDimension ? otherD : null,
+      });
+    }
+    if (exit > 0) {
+      nodes.push({
+        key: term,
+        label: term,
+        value: exit,
+        dimParts: hasDimension ? exitD : null,
+      });
+    }
+    if (nodes.length) levels[k] = { nodes };
+  }
+}
+
+export function reduceJourneyHistory({
+  previous,
+  rows,
+  dataset,
+  rowPath,
+  hasDimension,
+}: {
+  previous: JourneyHistory | null;
+  rows: ProductAnalyticsResultRow[];
+  dataset: JourneyDataset;
+  rowPath: PathStep[];
+  hasDimension: boolean;
+}): JourneyHistory {
+  const pathRows = parsePathRows(rows);
+  const committedLevels = parseCommittedLevels(rows, hasDimension);
+  const term = dataset.direction === "forward" ? JOURNEY_EXIT : JOURNEY_ENTRY;
+
+  const next: JourneyHistory = previous
+    ? cloneHistory(previous)
+    : { anchorTotal: 0, anchorDims: new Map(), levels: [] };
+
+  const needed = dataset.path.length + 1;
+  if (next.levels.length > needed) next.levels.length = needed;
+  while (next.levels.length < needed) next.levels.push(null);
+
+  for (const [stepIndex, level] of committedLevels) {
+    if (stepIndex <= dataset.path.length) {
+      next.levels[stepIndex] = level;
+    }
+  }
+
+  applyProgressLevels(rows, dataset.path, term, hasDimension, next.levels);
+
+  for (let i = 0; i <= dataset.path.length; i++) {
+    const frozen = i < dataset.path.length && next.levels[i] != null;
+    if (frozen) continue;
+    if (
+      !journeyCanObserveLevel({
+        rowPath,
+        draftPath: dataset.path,
+        fetchDepth: dataset.depth,
+        levelIndex: i,
+      })
+    ) {
       continue;
     }
-    pathRows.push({ levels: j.levels, dim, n: j.count });
+    next.levels[i] = computeLevelFromRows({
+      pathRows,
+      pathPrefix: dataset.path.slice(0, i),
+      rowPathLength: rowPath.length,
+      hasDimension,
+    });
   }
-  return { pathRows, progressRows };
+
+  const firstLevel = next.levels[0];
+  if (firstLevel) {
+    next.anchorTotal = firstLevel.nodes.reduce((a, n) => a + n.value, 0);
+    if (hasDimension) {
+      const dims = new Map<string, number>();
+      for (const n of firstLevel.nodes) {
+        if (!n.dimParts) continue;
+        for (const [k, v] of n.dimParts) dims.set(k, (dims.get(k) || 0) + v);
+      }
+      if (dims.size) next.anchorDims = dims;
+    }
+  } else if (next.anchorTotal === 0) {
+    next.anchorTotal = pathRows.reduce((a, r) => a + r.n, 0);
+    if (hasDimension) {
+      for (const r of pathRows) addDim(next.anchorDims, r.dim, r.n);
+    }
+  }
+
+  if (previous && historiesEqual(previous, next)) return previous;
+  return next;
 }
 
 function verifyModel(
@@ -189,21 +559,6 @@ function verifyModel(
         bad.push(`${side} chain widens at step ${i}: ${chain.join(" → ")}`);
       }
     }
-    for (let i = 1; i < cols.length; i++) {
-      for (const n of cols[i - 1].nodes) {
-        if (JOURNEY_TERMINALS.has(n.key)) continue;
-        const kids = m.edges
-          .filter(
-            (e) => e.side === side && e.fi === cols[i].fi && e.srcKey === n.key,
-          )
-          .reduce((a, e) => a + e.value, 0);
-        if (kids !== n.value) {
-          bad.push(
-            `${side} lvl${i + 1} ${n.key}: children ${kids} ≠ parent ${n.value}`,
-          );
-        }
-      }
-    }
   }
   if (m.dimTop.length) {
     const dimSum = m.dimTop
@@ -218,24 +573,20 @@ function verifyModel(
   return bad;
 }
 
-export function buildJourneyViewModel({
-  rows,
+function materializeJourneyViewModel({
   dataset,
-  submittedPathLength,
+  history,
+  rowPathLength,
   hasDimension,
 }: {
-  rows: ProductAnalyticsResultRow[];
   dataset: JourneyDataset;
-  submittedPathLength: number;
+  history: JourneyHistory;
+  rowPathLength: number;
   hasDimension: boolean;
 }): JourneyViewModel {
   const direction = dataset.direction;
   const side = direction === "forward" ? "f" : "b";
   const fetchDepth = dataset.depth;
-  const renderDepth = Math.min(2, fetchDepth);
-  const extra = Math.max(0, dataset.path.length - submittedPathLength);
-  const viewPath = dataset.path;
-  const depth = viewPath.length;
   const term = direction === "forward" ? JOURNEY_EXIT : JOURNEY_ENTRY;
   const anchorLabel = dataset.anchorStepValues
     ? composeStepLabel(dataset.anchorStepValues)
@@ -243,153 +594,56 @@ export function buildJourneyViewModel({
       ? "ending step"
       : "starting step";
 
-  const { pathRows: allPathRows, progressRows } = parseRows(rows);
+  const prefixCount: number[] = [history.anchorTotal];
+  const prefixDims: Map<string, number>[] = [new Map(history.anchorDims)];
+  const leak: JourneyViewModel["leak"] = [];
+  const viewPath: PathStep[] = [];
 
-  let pathRows = allPathRows;
-  const rawPathRows = allPathRows;
-  if (extra > 0) {
-    const committedExtra = viewPath.slice(submittedPathLength);
-    pathRows = allPathRows
-      .filter((r) =>
-        committedExtra.every((step, i) => levelMatchesStep(r.levels[i], step)),
-      )
-      .map((r) => ({ ...r, levels: r.levels.slice(extra) }));
-  }
-
-  const matchedTotal = pathRows.reduce((a, r) => a + r.n, 0);
-
-  const dimTotals = new Map<string, number>();
-  if (hasDimension) {
-    for (const r of pathRows) {
-      if (r.dim) dimTotals.set(r.dim, (dimTotals.get(r.dim) || 0) + r.n);
+  for (let k = 0; k < dataset.path.length; k++) {
+    const step = dataset.path[k];
+    const level = history.levels[k];
+    if (level) {
+      const split = splitFromLevel(level, step, term);
+      leak.push({
+        other: split.other,
+        exit: split.exit,
+        otherDims: split.otherDims,
+        exitDims: split.exitDims,
+      });
+      prefixCount.push(split.taken);
+      prefixDims.push(split.takenDims);
+      viewPath.push(step);
+      continue;
     }
+    if (k < rowPathLength) {
+      const total = prefixCount[prefixCount.length - 1] ?? history.anchorTotal;
+      leak.push({
+        other: 0,
+        exit: 0,
+        otherDims: new Map(),
+        exitDims: new Map(),
+      });
+      prefixCount.push(total);
+      prefixDims.push(new Map(prefixDims[prefixDims.length - 1] ?? new Map()));
+      viewPath.push(step);
+      continue;
+    }
+    break;
   }
+
+  const depth = viewPath.length;
+  const frontier = history.levels[depth] ?? null;
+  const matchedTotal = frontier
+    ? frontier.nodes.reduce((a, n) => a + n.value, 0)
+    : (prefixCount[depth] ?? history.anchorTotal);
+  const waitingForFrontier = frontier == null && history.anchorTotal > 0;
+
+  const dimTotals = new Map(history.anchorDims);
   const dimTop = Array.from(dimTotals.entries())
     .filter(([k]) => k !== JOURNEY_OTHER && k !== "other")
     .sort((a, b) => b[1] - a[1])
     .map(([k]) => k);
-
-  const nodeAgg = new Map<
-    string,
-    { value: number; dims: Map<string, number> }
-  >();
-  const edgeAgg = new Map<
-    string,
-    { value: number; dims: Map<string, number> }
-  >();
-  const rk = renderDepth;
-  for (const r of pathRows) {
-    for (let fi = 0; fi < rk; fi++) {
-      const v = r.levels[fi];
-      if (v === JOURNEY_NONE || v == null) continue;
-      const nk = `${side}${SEP}${fi}${SEP}${v}`;
-      let na = nodeAgg.get(nk);
-      if (!na) {
-        na = { value: 0, dims: new Map() };
-        nodeAgg.set(nk, na);
-      }
-      na.value += r.n;
-      addDim(na.dims, r.dim, r.n);
-      const src = fi === 0 ? ANCHOR_SRC : r.levels[fi - 1];
-      if (src === JOURNEY_NONE) continue;
-      const ek = `${side}${SEP}${fi}${SEP}${src}${SEP}${v}`;
-      let ea = edgeAgg.get(ek);
-      if (!ea) {
-        ea = { value: 0, dims: new Map() };
-        edgeAgg.set(ek, ea);
-      }
-      ea.value += r.n;
-      addDim(ea.dims, r.dim, r.n);
-    }
-  }
-
-  const prefixCount: number[] = [];
-  const prefixDims: Map<string, number>[] = [];
-  const leak: JourneyViewModel["leak"] = [];
-
-  const useProgress = extra === 0 && progressRows.length > 0 && depth > 0;
-  if (useProgress) {
-    for (let d = 0; d <= depth; d++) {
-      let c = 0;
-      const dm = new Map<string, number>();
-      for (const r of progressRows) {
-        if (r.depthReached >= d) {
-          c += r.n;
-          addDim(dm, r.dim, r.n);
-        }
-      }
-      prefixCount.push(c);
-      prefixDims.push(dm);
-    }
-    for (let k = 0; k < depth; k++) {
-      let ot = 0;
-      let ex = 0;
-      const otD = new Map<string, number>();
-      const exD = new Map<string, number>();
-      for (const r of progressRows) {
-        if (r.depthReached !== k) continue;
-        if (r.outcome === "exit") {
-          ex += r.n;
-          addDim(exD, r.dim, r.n);
-        } else {
-          ot += r.n;
-          addDim(otD, r.dim, r.n);
-        }
-      }
-      leak.push({ other: ot, exit: ex, otherDims: otD, exitDims: exD });
-    }
-  } else {
-    if (extra > 0) {
-      prefixCount.length = 0;
-      prefixDims.length = 0;
-      prefixCount.push(rawPathRows.reduce((a, r) => a + r.n, 0));
-      const aDims = new Map<string, number>();
-      for (const r of rawPathRows) addDim(aDims, r.dim, r.n);
-      prefixDims.push(aDims);
-      const committedExtra = viewPath.slice(submittedPathLength);
-      for (let k = 0; k < extra; k++) {
-        const step = viewPath[submittedPathLength + k];
-        let taken = 0;
-        let ot = 0;
-        let ex = 0;
-        const takenD = new Map<string, number>();
-        const otD = new Map<string, number>();
-        const exD = new Map<string, number>();
-        for (const r of rawPathRows) {
-          const prefixOk = committedExtra
-            .slice(0, k)
-            .every((s, i) => levelMatchesStep(r.levels[i], s));
-          if (!prefixOk) continue;
-          const v = r.levels[k];
-          if (levelMatchesStep(v, step)) {
-            taken += r.n;
-            addDim(takenD, r.dim, r.n);
-          } else if (v === term || v == null || v === JOURNEY_NONE) {
-            ex += r.n;
-            addDim(exD, r.dim, r.n);
-          } else {
-            ot += r.n;
-            addDim(otD, r.dim, r.n);
-          }
-        }
-        leak.push({ other: ot, exit: ex, otherDims: otD, exitDims: exD });
-        prefixCount.push(taken);
-        prefixDims.push(takenD);
-      }
-    } else {
-      prefixCount.push(matchedTotal);
-      const aDims = new Map<string, number>();
-      for (const r of pathRows) addDim(aDims, r.dim, r.n);
-      prefixDims.push(aDims);
-    }
-  }
-
-  const anchorDims = prefixDims[0] ? new Map(prefixDims[0]) : new Map();
-  if (hasDimension && anchorDims.size === 0) {
-    for (const r of extra > 0 ? rawPathRows : pathRows) {
-      addDim(anchorDims, r.dim, r.n);
-    }
-  }
+  const anchorDims = new Map(history.anchorDims);
 
   const sideColumns: JourneyColumn[] = [];
   for (let k = 0; k < depth; k++) {
@@ -435,16 +689,16 @@ export function buildJourneyViewModel({
       scale: 0,
     });
   }
-  for (let fi = 0; fi < rk; fi++) {
+  if (frontier) {
     sideColumns.push({
       side,
       committed: false,
       frontier: true,
-      fi,
-      optionsLevel: depth + fi,
-      label: `Step ${depth + fi + 1}`,
-      offset: (direction === "forward" ? 1 : -1) * (depth + fi + 1),
-      nodes: [],
+      fi: 0,
+      optionsLevel: depth,
+      label: `Step ${depth + 1}`,
+      offset: (direction === "forward" ? 1 : -1) * (depth + 1),
+      nodes: cloneNodes(frontier.nodes),
       x: 0,
       total: 0,
       scale: 0,
@@ -476,78 +730,29 @@ export function buildJourneyViewModel({
       ? [...sideColumns].reverse().concat([anchorCol])
       : [anchorCol, ...sideColumns];
 
-  const rank = (k: string) =>
-    k === JOURNEY_OTHER ? 2 : JOURNEY_TERMINALS.has(k) ? 3 : 1;
-  for (const col of columns) {
-    if (!col.frontier) continue;
-    const prefix = `${col.side}${SEP}${col.fi}${SEP}`;
-    const nodes: JourneyNode[] = [];
-    for (const [key, agg] of nodeAgg) {
-      if (!key.startsWith(prefix)) continue;
-      const nk = key.slice(prefix.length);
-      nodes.push({
-        key: nk,
-        label: nk,
-        value: agg.value,
-        dimParts: hasDimension ? agg.dims : null,
-      });
-    }
-    nodes.sort(
-      (a, b) =>
-        rank(a.key) - rank(b.key) ||
-        b.value - a.value ||
-        (a.key < b.key ? -1 : 1),
-    );
-    col.nodes = nodes;
-  }
-
   const edges: JourneyEdge[] = [];
   for (let ci = 0; ci < columns.length - 1; ci++) {
     const A = columns[ci];
     const B = columns[ci + 1];
     const target = A.side === "b" ? A : B;
-    const flowsRight = target === B;
-    if (!target.frontier) {
-      const upstream = target === B ? A : B;
-      const up = upstream.nodes[0];
-      if (!up) continue;
-      for (const n of target.nodes) {
-        edges.push({
-          ci,
-          value: n.value,
-          dims: n.dimParts,
-          committedEdge: true,
-          leak: n.terminal === true,
-          from: target === B ? up.key : n.key,
-          to: target === B ? n.key : up.key,
-          h0: 0,
-          h1: 0,
-          y0: 0,
-          y1: 0,
-        });
-      }
-      continue;
-    }
-    const prefix = `${target.side}${SEP}${target.fi}${SEP}`;
-    for (const [key, agg] of edgeAgg) {
-      if (!key.startsWith(prefix)) continue;
-      const rest = key.slice(prefix.length).split(SEP);
-      let src = rest[0];
-      const tgt = rest[1];
-      if (tgt === JOURNEY_NONE) continue;
-      const upstreamCol = flowsRight ? A : B;
-      if (src === ANCHOR_SRC) src = upstreamCol.nodes[0]?.key ?? src;
-      else if (src === JOURNEY_NONE) continue;
+    const upstream = target === B ? A : B;
+    const up = upstream.nodes[0];
+    if (!up) continue;
+    for (const n of target.nodes) {
+      const from = target === B ? up.key : n.key;
+      const to = target === B ? n.key : up.key;
       edges.push({
         ci,
-        from: flowsRight ? src : tgt,
-        to: flowsRight ? tgt : src,
-        value: agg.value,
-        dims: hasDimension ? agg.dims : null,
-        side: target.side === "a" ? undefined : target.side,
-        fi: target.fi,
-        srcKey: src,
-        tgtKey: tgt,
+        value: n.value,
+        dims: n.dimParts,
+        committedEdge: !target.frontier,
+        leak: n.terminal === true,
+        from,
+        to,
+        side: target.frontier ? side : undefined,
+        fi: target.frontier ? target.fi : undefined,
+        srcKey: target === B ? up.key : n.key,
+        tgtKey: target === B ? n.key : up.key,
         h0: 0,
         h1: 0,
         y0: 0,
@@ -560,7 +765,7 @@ export function buildJourneyViewModel({
   const emptyReason: JourneyViewModel["emptyReason"] =
     resolvedAnchor === 0
       ? "no-anchor"
-      : matchedTotal === 0
+      : matchedTotal === 0 && !waitingForFrontier
         ? "no-match"
         : "none";
 
@@ -569,7 +774,7 @@ export function buildJourneyViewModel({
     edges,
     anchorTotal: resolvedAnchor,
     matchedTotal,
-    renderDepth: rk,
+    renderDepth: frontier ? 1 : 0,
     fetchDepth,
     dimTop,
     dimTotals,
@@ -579,9 +784,70 @@ export function buildJourneyViewModel({
     direction,
     violations: [],
     emptyReason,
+    waitingForFrontier,
   };
   model.violations = verifyModel(model, depth);
   return model;
+}
+
+export function buildJourneyViewState({
+  rows,
+  dataset,
+  rowPath = [],
+  hasDimension,
+  previousHistory = null,
+}: {
+  rows: ProductAnalyticsResultRow[];
+  dataset: JourneyDataset;
+  rowPath?: PathStep[];
+  hasDimension: boolean;
+  previousHistory?: JourneyHistory | null;
+}): { model: JourneyViewModel; history: JourneyHistory } {
+  const history = reduceJourneyHistory({
+    previous: previousHistory,
+    rows,
+    dataset,
+    rowPath,
+    hasDimension,
+  });
+  return {
+    model: materializeJourneyViewModel({
+      dataset,
+      history,
+      rowPathLength: rowPath.length,
+      hasDimension,
+    }),
+    history,
+  };
+}
+
+export function buildJourneyViewModel({
+  rows,
+  dataset,
+  rowPath = [],
+  hasDimension,
+  previousHistory = null,
+  submittedPathLength,
+}: {
+  rows: ProductAnalyticsResultRow[];
+  dataset: JourneyDataset;
+  rowPath?: PathStep[];
+  hasDimension: boolean;
+  previousHistory?: JourneyHistory | null;
+  /** @deprecated use rowPath */
+  submittedPathLength?: number;
+}): JourneyViewModel {
+  const resolvedRowPath =
+    rowPath.length > 0
+      ? rowPath
+      : dataset.path.slice(0, submittedPathLength ?? 0);
+  return buildJourneyViewState({
+    rows,
+    dataset,
+    rowPath: resolvedRowPath,
+    hasDimension,
+    previousHistory,
+  }).model;
 }
 
 export function facetJourneyModel(
@@ -612,23 +878,26 @@ export function facetJourneyModel(
 export function useJourneyModel({
   rows,
   dataset,
-  submittedPathLength,
+  rowPath = [],
   hasDimension,
+  previousHistory = null,
 }: {
   rows: ProductAnalyticsResultRow[] | undefined;
   dataset: JourneyDataset | null;
-  submittedPathLength: number;
+  rowPath?: PathStep[];
   hasDimension: boolean;
+  previousHistory?: JourneyHistory | null;
 }): JourneyViewModel | null {
   return useMemo(() => {
     if (!dataset) return null;
     return buildJourneyViewModel({
       rows: rows ?? [],
       dataset,
-      submittedPathLength,
+      rowPath,
       hasDimension,
+      previousHistory,
     });
-  }, [rows, dataset, submittedPathLength, hasDimension]);
+  }, [rows, dataset, rowPath, hasDimension, previousHistory]);
 }
 
 export { LEAK_OTHER, LEAK_EXIT, ANCHOR_SRC, isJourneyTerminal, JOURNEY_OTHER };

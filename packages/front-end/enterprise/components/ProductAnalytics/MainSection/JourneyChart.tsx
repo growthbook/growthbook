@@ -19,10 +19,12 @@ import {
   withJourneyOptionsAt,
 } from "shared/journeys";
 import TextUI from "@/ui/Text";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { CHART_COLORS } from "@/enterprise/components/ProductAnalytics/chart-theme";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import { journeyHistoryKey } from "@/enterprise/components/ProductAnalytics/util";
 import {
-  buildJourneyViewModel,
+  buildJourneyViewState,
   type JourneyColumn,
   type JourneyEdge,
   type JourneyNode,
@@ -35,9 +37,95 @@ const PAD_T = 34;
 const PAD_B = 12;
 const ANIM_MS = 320;
 const VIEW_MORE_GAP = 18;
+const LOADING_NODE_KEY = "\u0002loading";
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
+
+function withFrontierLoadingColumn(model: JourneyViewModel): JourneyViewModel {
+  if (model.columns.some((c) => c.loading)) return model;
+  const side = model.direction === "forward" ? "f" : "b";
+  const depth = Math.max(0, model.prefixCount.length - 1);
+  const value = model.prefixCount[depth] || model.anchorTotal;
+  if (value <= 0) return model;
+
+  const loadingCol: JourneyColumn = {
+    side,
+    committed: false,
+    frontier: true,
+    loading: true,
+    fi: 0,
+    label: "Next steps",
+    offset: (model.direction === "forward" ? 1 : -1) * (depth + 1),
+    nodes: [
+      {
+        key: LOADING_NODE_KEY,
+        label: "Loading next steps…",
+        value,
+        dimParts: null,
+      },
+    ],
+    x: 0,
+    total: 0,
+    scale: 0,
+  };
+
+  if (model.direction === "backward") {
+    const first = model.columns[0];
+    const toKey = first?.nodes[0]?.key;
+    if (!first || !toKey) return model;
+    return {
+      ...model,
+      columns: [loadingCol, ...model.columns],
+      edges: [
+        {
+          ci: 0,
+          from: LOADING_NODE_KEY,
+          to: toKey,
+          value,
+          dims: null,
+          committedEdge: false,
+          srcKey: LOADING_NODE_KEY,
+          tgtKey: toKey,
+          side,
+          fi: 0,
+          h0: 0,
+          h1: 0,
+          y0: 0,
+          y1: 0,
+        },
+        ...model.edges.map((e) => ({ ...e, ci: e.ci + 1 })),
+      ],
+    };
+  }
+
+  const last = model.columns[model.columns.length - 1];
+  const fromKey = last?.nodes[0]?.key;
+  if (!last || !fromKey) return model;
+  return {
+    ...model,
+    columns: [...model.columns, loadingCol],
+    edges: [
+      ...model.edges,
+      {
+        ci: model.columns.length - 1,
+        from: fromKey,
+        to: LOADING_NODE_KEY,
+        value,
+        dims: null,
+        committedEdge: false,
+        srcKey: fromKey,
+        tgtKey: LOADING_NODE_KEY,
+        side,
+        fi: 0,
+        h0: 0,
+        h1: 0,
+        y0: 0,
+        y1: 0,
+      },
+    ],
+  };
+}
 
 function fmt(n: number): string {
   return Math.round(n).toLocaleString("en-US");
@@ -380,6 +468,9 @@ function SankeySvg({
 }) {
   const w = Math.floor(width);
   const h = Math.floor(height);
+  const reduceMotion =
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const target = useMemo(
     () => layout(model, w, h, scaleMode),
     [model, w, h, scaleMode],
@@ -473,20 +564,6 @@ function SankeySvg({
                   ? "End"
                   : "Start"
                 : c.label}
-              {c.committed && !c.anchor && c.commitIndex != null ? (
-                <tspan
-                  dx={5}
-                  fill="var(--gray-11)"
-                  fontWeight={500}
-                  style={{ cursor: "pointer" }}
-                  onClick={(ev) => {
-                    ev.stopPropagation();
-                    onPop(c.commitIndex as number);
-                  }}
-                >
-                  ×
-                </tspan>
-              ) : null}
             </text>
           ))}
           {L.edges.map((e, ei) => {
@@ -495,7 +572,13 @@ function SankeySvg({
             if (!A || !B) return null;
             const x0 = A.x + NODE_W;
             const x1 = B.x;
-            const op = e.leak ? 0.28 : e.committedEdge ? 0.45 : 0.62;
+            const op = e.leak
+              ? 0.28
+              : A.loading || B.loading
+                ? 0.18
+                : e.committedEdge
+                  ? 0.45
+                  : 0.62;
             const parts: {
               y0: number;
               y1: number;
@@ -536,7 +619,19 @@ function SankeySvg({
                       fill: "var(--accent-a8)",
                     },
                   ];
+            const targetCol = A.side === "b" ? A : B;
+            const loadingEdge = !!(A.loading || B.loading);
+            const popIndex =
+              !loadingEdge &&
+              e.committedEdge &&
+              !e.leak &&
+              targetCol.committed &&
+              !targetCol.anchor &&
+              targetCol.commitIndex != null
+                ? targetCol.commitIndex
+                : null;
             const commitKeys =
+              loadingEdge ||
               e.committedEdge ||
               e.leak ||
               (e.tgtKey && JOURNEY_TERMINALS.has(e.tgtKey))
@@ -548,13 +643,15 @@ function SankeySvg({
                   : e.srcKey && !JOURNEY_TERMINALS.has(e.srcKey) && e.tgtKey
                     ? [e.srcKey, e.tgtKey]
                     : null;
+            const clickable = !!commitKeys || popIndex != null;
             return (
               <g
                 key={ei}
-                role={commitKeys ? "button" : "img"}
-                tabIndex={commitKeys ? 0 : undefined}
-                style={{ cursor: commitKeys ? "pointer" : "default" }}
-                onPointerEnter={(ev) =>
+                role={clickable ? "button" : "img"}
+                tabIndex={clickable ? 0 : undefined}
+                style={{ cursor: clickable ? "pointer" : "default" }}
+                onPointerEnter={(ev) => {
+                  if (loadingEdge) return;
                   showTip(ev, {
                     title: `${e.from} → ${e.to}`,
                     lines: [
@@ -573,16 +670,19 @@ function SankeySvg({
                         color: dimColor(model.dimTop, d),
                       })),
                     total: e.value,
-                  })
-                }
+                  });
+                }}
                 onPointerLeave={hideTooltip}
-                onClick={() => commitKeys && onCommit(commitKeys)}
+                onClick={() => {
+                  if (commitKeys) onCommit(commitKeys);
+                  else if (popIndex != null) onPop(popIndex);
+                }}
                 onKeyDown={(ev) => {
-                  if (!commitKeys) return;
-                  if (ev.key === "Enter" || ev.key === " ") {
-                    ev.preventDefault();
-                    onCommit(commitKeys);
-                  }
+                  if (!clickable) return;
+                  if (ev.key !== "Enter" && ev.key !== " ") return;
+                  ev.preventDefault();
+                  if (commitKeys) onCommit(commitKeys);
+                  else if (popIndex != null) onPop(popIndex);
                 }}
               >
                 {parts.map((p, pi) => (
@@ -601,16 +701,18 @@ function SankeySvg({
             return c.nodes.map((n) => {
               const ln = n as LaidNode;
               const term = JOURNEY_TERMINALS.has(n.key) || n.terminal === true;
-              const fill = c.anchor
-                ? "var(--accent-9)"
-                : term
-                  ? "var(--gray-8)"
-                  : c.frontier
-                    ? "var(--accent-7)"
-                    : "var(--accent-9)";
+              const fill = c.loading
+                ? "var(--accent-a4)"
+                : c.anchor
+                  ? "var(--accent-9)"
+                  : term
+                    ? "var(--gray-8)"
+                    : c.frontier
+                      ? "var(--accent-7)"
+                      : "var(--accent-9)";
               const hitH = Math.max(24, ln.h + 4);
-              const canCommit = !!c.frontier && !term && c.fi === 0;
-              const canPop = !!c.committed && !c.anchor && n.chain === true;
+              const canCommit =
+                !!c.frontier && !c.loading && !term && c.fi === 0;
               const lx = lastCol ? c.x - 7 : c.x + NODE_W + 7;
               const anch = lastCol ? "end" : "start";
               return (
@@ -622,19 +724,32 @@ function SankeySvg({
                     height={ln.h}
                     rx={3}
                     fill={fill}
-                  />
+                    stroke={c.loading ? "var(--accent-a8)" : undefined}
+                    strokeWidth={c.loading ? 1.5 : undefined}
+                    strokeDasharray={c.loading ? "3 3" : undefined}
+                  >
+                    {c.loading && !reduceMotion ? (
+                      <animate
+                        attributeName="opacity"
+                        values="0.45;0.9;0.45"
+                        dur="1.4s"
+                        repeatCount="indefinite"
+                      />
+                    ) : null}
+                  </rect>
                   <rect
                     x={c.x - 5}
                     y={ln.y + ln.h / 2 - hitH / 2}
                     width={NODE_W + 10}
                     height={hitH}
                     fill="transparent"
-                    role={canCommit || canPop ? "button" : "img"}
-                    tabIndex={0}
+                    role={canCommit ? "button" : "img"}
+                    tabIndex={canCommit ? 0 : undefined}
                     style={{
-                      cursor: canCommit || canPop ? "pointer" : "default",
+                      cursor: canCommit ? "pointer" : "default",
                     }}
-                    onPointerEnter={(ev) =>
+                    onPointerEnter={(ev) => {
+                      if (c.loading) return;
                       showTip(ev, {
                         title: n.label,
                         lines: [
@@ -658,23 +773,19 @@ function SankeySvg({
                             color: dimColor(model.dimTop, d),
                           })),
                         total: n.value,
-                      })
-                    }
+                      });
+                    }}
                     onPointerLeave={hideTooltip}
                     onClick={() => {
                       if (canCommit) onCommit([n.key]);
-                      else if (canPop && c.commitIndex != null)
-                        onPop(c.commitIndex);
                     }}
                     onKeyDown={(ev) => {
                       if (ev.key !== "Enter" && ev.key !== " ") return;
                       ev.preventDefault();
                       if (canCommit) onCommit([n.key]);
-                      else if (canPop && c.commitIndex != null)
-                        onPop(c.commitIndex);
                     }}
                   />
-                  {ln.h >= 13 && (
+                  {ln.h >= 13 && !c.loading && (
                     <text
                       x={lx}
                       y={
@@ -689,7 +800,7 @@ function SankeySvg({
                       {truncateLabel(n.label, L.pitch)}
                     </text>
                   )}
-                  {ln.h >= 27 && (
+                  {ln.h >= 27 && !c.loading && (
                     <text
                       x={lx}
                       y={ln.y + ln.h / 2 + 11}
@@ -738,6 +849,44 @@ function SankeySvg({
           })}
         </Group>
       </svg>
+      {L.cols
+        .filter((c) => c.loading)
+        .map((c) => (
+          <Flex
+            key={`load-${c.offset}`}
+            direction="column"
+            align="center"
+            justify="center"
+            gap="2"
+            style={{
+              position: "absolute",
+              top: PAD_T,
+              bottom: PAD_B,
+              width: 160,
+              pointerEvents: "none",
+              ...(model.direction === "backward" ? { left: 8 } : { right: 8 }),
+            }}
+          >
+            <Flex
+              direction="column"
+              align="center"
+              gap="2"
+              px="3"
+              py="2"
+              style={{
+                background: "var(--color-panel-solid)",
+                border: "1px solid var(--gray-a5)",
+                borderRadius: "var(--radius-3)",
+                boxShadow: "var(--shadow-2)",
+              }}
+            >
+              <LoadingSpinner />
+              <TextUI size="sm" color="text-mid" align="center">
+                Loading next steps…
+              </TextUI>
+            </Flex>
+          </Flex>
+        ))}
       <JourneyTooltip apiRef={tipApi} />
     </Box>
   );
@@ -756,6 +905,11 @@ export default function JourneyChart({
     setDraftExploreState,
     commitJourneyStep,
     popJourneyPath,
+    loading,
+    needsFetch,
+    isStale,
+    journeyHistory,
+    setJourneyHistory,
   } = useExplorerContext();
   const dataset: JourneyDataset | null =
     draftExploreState.dataset?.type === "journey"
@@ -763,32 +917,52 @@ export default function JourneyChart({
       : submittedExploreState.dataset.type === "journey"
         ? submittedExploreState.dataset
         : null;
-  const submittedPathLength =
-    submittedExploreState.dataset.type === "journey"
-      ? submittedExploreState.dataset.path.length
-      : 0;
-  const modelDataset: JourneyDataset | null =
-    dataset &&
-    submittedExploreState.dataset.type === "journey" &&
-    dataset.path.length < submittedPathLength
-      ? submittedExploreState.dataset
-      : dataset;
+  const historyKey = JSON.stringify(journeyHistoryKey(submittedExploreState));
+  const historyKeyRef = useRef(historyKey);
+  const previousHistory =
+    historyKeyRef.current === historyKey ? journeyHistory : null;
+  if (historyKeyRef.current !== historyKey) {
+    historyKeyRef.current = historyKey;
+  }
   const hasDimension = submittedExploreState.dimensions.length > 0;
   const scaleMode = "perStep";
 
-  const model = useMemo(() => {
-    if (!modelDataset) return null;
-    const m = buildJourneyViewModel({
+  const viewState = useMemo(() => {
+    if (!dataset) return null;
+    const rowPath =
+      exploration?.config.dataset.type === "journey"
+        ? exploration.config.dataset.path
+        : submittedExploreState.dataset.type === "journey"
+          ? submittedExploreState.dataset.path
+          : [];
+    const state = buildJourneyViewState({
       rows: exploration?.result?.rows ?? [],
-      dataset: modelDataset,
-      submittedPathLength,
+      dataset,
+      rowPath,
       hasDimension,
+      previousHistory,
     });
-    if (process.env.NODE_ENV !== "production" && m.violations.length) {
-      console.warn("[journeys] INVARIANT VIOLATIONS:", m.violations);
+    if (
+      process.env.NODE_ENV !== "production" &&
+      state.model.violations.length
+    ) {
+      console.warn("[journeys] INVARIANT VIOLATIONS:", state.model.violations);
     }
-    return m;
-  }, [modelDataset, exploration, submittedPathLength, hasDimension]);
+    return state;
+  }, [
+    dataset,
+    exploration,
+    submittedExploreState.dataset,
+    hasDimension,
+    previousHistory,
+  ]);
+
+  useLayoutEffect(() => {
+    if (!viewState) return;
+    setJourneyHistory(viewState.history);
+  }, [viewState, setJourneyHistory]);
+
+  const model = viewState?.model ?? null;
 
   const onCommit = useCallback(
     (keys: string[]) => {
@@ -845,6 +1019,12 @@ export default function JourneyChart({
 
   if (!dataset || !model) return null;
 
+  const waitingForFrontier =
+    model.waitingForFrontier && (loading || (needsFetch && !isStale));
+  const displayModel = waitingForFrontier
+    ? withFrontierLoadingColumn(model)
+    : model;
+
   if (model.emptyReason === "no-anchor") {
     return (
       <Flex p="4">
@@ -856,7 +1036,7 @@ export default function JourneyChart({
       </Flex>
     );
   }
-  if (model.emptyReason === "no-match") {
+  if (model.emptyReason === "no-match" && !waitingForFrontier) {
     return (
       <Flex p="4">
         <TextUI color="text-mid">No matching journeys.</TextUI>
@@ -872,7 +1052,7 @@ export default function JourneyChart({
             if (width < 10 || height < 10) return null;
             return (
               <SankeySvg
-                model={model}
+                model={displayModel}
                 width={width}
                 height={Math.max(280, height)}
                 scaleMode={scaleMode}

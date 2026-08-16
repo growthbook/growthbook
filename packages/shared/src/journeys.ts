@@ -1,6 +1,9 @@
 import type {
+  JourneyDataset,
+  JourneyPathStep,
   JourneyStepGroup,
   ProductAnalyticsDimension,
+  ProductAnalyticsResultRow,
 } from "./validators/product-analytics";
 
 export const JOURNEY_OTHER = "(other)";
@@ -275,6 +278,19 @@ export function maxJourneyProgressRows(
   return (pathLength + 1) * 3 * (dimValues + 1);
 }
 
+export function maxJourneyCommittedRows(
+  optionsPerStep: number | number[],
+  pathLength: number,
+  dimValues: number,
+): number {
+  if (pathLength <= 0) return 0;
+  let n = 0;
+  for (let k = 0; k < pathLength; k++) {
+    n += (journeyOptionsAt(optionsPerStep, k) + 2) * (dimValues + 1);
+  }
+  return n;
+}
+
 export function maxJourneyResultRows({
   optionsPerStep,
   depth,
@@ -288,8 +304,124 @@ export function maxJourneyResultRows({
 }): number {
   return (
     maxJourneyPathRows(optionsPerStep, depth, dimValues, pathLength) +
-    maxJourneyProgressRows(pathLength, dimValues)
+    maxJourneyProgressRows(pathLength, dimValues) +
+    maxJourneyCommittedRows(optionsPerStep, pathLength, dimValues)
   );
+}
+
+export function journeyStepEquals(
+  a: JourneyPathStep,
+  b: JourneyPathStep,
+): boolean {
+  if (a.mode !== b.mode) return false;
+  if (a.mode === "other" || b.mode === "other") return true;
+  return a.value === b.value;
+}
+
+export function journeyPathIsPrefix(
+  prefix: JourneyPathStep[],
+  full: JourneyPathStep[],
+): boolean {
+  return (
+    prefix.length <= full.length &&
+    prefix.every((step, i) => journeyStepEquals(step, full[i]))
+  );
+}
+
+export function journeyLevelMatchesStep(
+  value: string | undefined,
+  step: JourneyPathStep,
+): boolean {
+  if (value == null || value === JOURNEY_NONE) return false;
+  if (step.mode === "other") return value === JOURNEY_OTHER;
+  return value === step.value;
+}
+
+function journeyFamilyEquals(
+  cached: JourneyDataset,
+  requested: JourneyDataset,
+): boolean {
+  return (
+    cached.factTableId === requested.factTableId &&
+    cached.unit === requested.unit &&
+    cached.dailyJourneys === requested.dailyJourneys &&
+    cached.collapseRepeats === requested.collapseRepeats &&
+    cached.direction === requested.direction &&
+    JSON.stringify(cached.stepColumns) ===
+      JSON.stringify(requested.stepColumns) &&
+    JSON.stringify(cached.stepGroups ?? []) ===
+      JSON.stringify(requested.stepGroups ?? []) &&
+    JSON.stringify(cached.anchorStepValues) ===
+      JSON.stringify(requested.anchorStepValues) &&
+    JSON.stringify(cached.excludedSteps) ===
+      JSON.stringify(requested.excludedSteps) &&
+    JSON.stringify(cached.rowFilters) === JSON.stringify(requested.rowFilters)
+  );
+}
+
+function pathRowsContainStep(
+  pathRows: { levels: string[] }[],
+  extraPrefix: JourneyPathStep[],
+  next: JourneyPathStep,
+): boolean {
+  return pathRows.some(
+    (row) =>
+      extraPrefix.every((step, i) =>
+        journeyLevelMatchesStep(row.levels[i], step),
+      ) && journeyLevelMatchesStep(row.levels[extraPrefix.length], next),
+  );
+}
+
+/** Cached result can draw the requested path plus `minUnusedLookahead` leftover levels. */
+export function journeyResultCanServe({
+  cachedDataset,
+  cachedRows,
+  requestedDataset,
+  minUnusedLookahead = 1,
+}: {
+  cachedDataset: JourneyDataset;
+  cachedRows: ProductAnalyticsResultRow[];
+  requestedDataset: JourneyDataset;
+  minUnusedLookahead?: number;
+}): boolean {
+  if (!journeyFamilyEquals(cachedDataset, requestedDataset)) return false;
+
+  const cachedPath = cachedDataset.path;
+  const requestedPath = requestedDataset.path;
+  const frontierOptionsOk =
+    journeyOptionsAt(cachedDataset.optionsPerStep, requestedPath.length) >=
+    journeyOptionsAt(requestedDataset.optionsPerStep, requestedPath.length);
+
+  if (journeyPathIsPrefix(requestedPath, cachedPath)) {
+    if (requestedPath.length === cachedPath.length) {
+      return cachedDataset.depth >= minUnusedLookahead && frontierOptionsOk;
+    }
+    // Pop can reuse one stored frontier; that is not a full lookahead.
+    if (minUnusedLookahead > 1) return false;
+    return cachedRows.some(
+      (row) =>
+        row.journey?.kind === "committed" &&
+        row.journey.stepIndex === requestedPath.length,
+    );
+  }
+
+  if (!journeyPathIsPrefix(cachedPath, requestedPath)) return false;
+  const extra = requestedPath.slice(cachedPath.length);
+  if (cachedDataset.depth - extra.length < minUnusedLookahead) return false;
+  if (!frontierOptionsOk) return false;
+
+  const pathRows = cachedRows
+    .map((row) => row.journey)
+    .filter(
+      (j): j is Extract<NonNullable<typeof j>, { kind: "path" }> =>
+        j != null && j.kind === "path",
+    );
+  const extraPrefix: JourneyPathStep[] = [];
+  for (const step of extra) {
+    if (!pathRowsContainStep(pathRows, extraPrefix, step)) return false;
+    extraPrefix.push(step);
+  }
+  return true;
 }
 
 export function journeyDimValueCount(

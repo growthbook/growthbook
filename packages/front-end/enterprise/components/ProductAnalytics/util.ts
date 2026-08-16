@@ -523,7 +523,7 @@ export function createEmptyDataset(type: DatasetType): ExplorationDataset {
       type,
       factTableId: null,
       unit: null,
-      dailyJourneys: false,
+      dailyJourneys: true,
       stepColumns: [],
       anchorStepValues: null,
       direction: "forward",
@@ -533,7 +533,7 @@ export function createEmptyDataset(type: DatasetType): ExplorationDataset {
       path: [],
       depth: 3,
       optionsPerStep: [],
-      renderDepth: 2,
+      renderDepth: 1,
       scaleMode: "perStep",
       dimEncoding: "ribbons",
     };
@@ -831,14 +831,29 @@ export function fillMissingUnits(
   }
 
   if (config.dataset.type === "journey") {
-    if (config.dataset.unit) return config;
-    if (!config.dataset.factTableId) return config;
-    const ft = getFactTableById(config.dataset.factTableId);
-    const defaultUnit = ft?.userIdTypes?.[0];
-    if (!defaultUnit) return config;
+    const current = config.dataset;
+    let unit = current.unit;
+    if (!unit && current.factTableId) {
+      const ft = getFactTableById(current.factTableId);
+      unit = ft?.userIdTypes?.[0] ?? null;
+    }
+    if (
+      unit === current.unit &&
+      current.dailyJourneys &&
+      current.collapseRepeats &&
+      current.excludedSteps.length === 0
+    ) {
+      return config;
+    }
     return {
       ...config,
-      dataset: { ...config.dataset, unit: defaultUnit },
+      dataset: {
+        ...current,
+        unit,
+        dailyJourneys: true,
+        collapseRepeats: true,
+        excludedSteps: [],
+      },
     } as ExplorationConfig;
   }
 
@@ -1194,6 +1209,72 @@ export function compareConfig(
     !isEqual(lastPrev, newPrev) ||
     lastMode !== newMode;
   return { needsFetch, needsUpdate: true };
+}
+
+/** True when the only fetch-key difference is the committed journey path. */
+export function journeyDiffersOnlyByPath(
+  submitted: ExplorationConfig,
+  draft: ExplorationConfig,
+): boolean {
+  if (
+    submitted.dataset.type !== "journey" ||
+    draft.dataset.type !== "journey"
+  ) {
+    return false;
+  }
+  if (isEqual(submitted.dataset.path, draft.dataset.path)) return false;
+  const submittedKey = toFetchKey(submitted) as {
+    dataset: Record<string, unknown>;
+  };
+  const draftKey = toFetchKey(draft) as { dataset: Record<string, unknown> };
+  return isEqual(
+    { ...submittedKey, dataset: { ...submittedKey.dataset, path: null } },
+    { ...draftKey, dataset: { ...draftKey.dataset, path: null } },
+  );
+}
+
+/** Fetched levels still available after applying the draft path as a prefix. */
+export function journeyRemainingPrefetch(
+  submitted: JourneyDataset,
+  draft: JourneyDataset,
+): number {
+  const extra = Math.max(0, draft.path.length - submitted.path.length);
+  return submitted.depth - extra;
+}
+
+/** Draft has committed every prefetched frontier level, so no next step remains. */
+export function journeyPrefetchExhausted(
+  submitted: JourneyDataset,
+  draft: JourneyDataset,
+): boolean {
+  return journeyRemainingPrefetch(submitted, draft) <= 0;
+}
+
+/** Fetch identity that should reset observed journey history when it changes. */
+export function journeyHistoryKey(config: ExplorationConfig): unknown {
+  const key = toFetchKey(config) as { dataset: Record<string, unknown> };
+  if (config.dataset.type !== "journey") return key;
+  return {
+    ...key,
+    dataset: { ...key.dataset, path: null, optionsPerStep: null },
+  };
+}
+
+/** Start the next fetch when the current result has only one unused level left. */
+export function journeyShouldPrefetchMore(
+  rowSource: ExplorationConfig | null,
+  draft: ExplorationConfig,
+): boolean {
+  if (!rowSource) return false;
+  if (
+    rowSource.dataset.type !== "journey" ||
+    draft.dataset.type !== "journey"
+  ) {
+    return false;
+  }
+  if (!journeyDiffersOnlyByPath(rowSource, draft)) return false;
+  if (draft.dataset.path.length <= rowSource.dataset.path.length) return false;
+  return journeyRemainingPrefetch(rowSource.dataset, draft.dataset) <= 1;
 }
 
 export type ResolvedGranularity = "hour" | "day" | "week" | "month" | "year";

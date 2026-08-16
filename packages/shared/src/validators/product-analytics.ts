@@ -356,6 +356,16 @@ export const productAnalyticsJourneyRowValidator = z.discriminatedUnion(
       outcome: z.enum(["taken", "other", "exit"]),
       count: z.number(),
     }),
+    // Next-step options at a committed prefix. stepIndex 0 is the first
+    // step after the anchor; stepIndex === path.length is not emitted
+    // (that frontier comes from path rows).
+    z.object({
+      kind: z.literal("committed"),
+      direction: journeyDirectionValidator,
+      stepIndex: z.number(),
+      value: z.string(),
+      count: z.number(),
+    }),
   ],
 );
 export type ProductAnalyticsJourneyRow = z.infer<

@@ -27,6 +27,7 @@ import {
 } from "shared/enterprise";
 import { isEqual } from "lodash";
 import { isManagedWarehouseUnavailable } from "shared/util";
+import { journeyResultCanServe } from "shared/journeys";
 import {
   cleanConfigForSubmission,
   clearInapplicableShowAs,
@@ -41,10 +42,13 @@ import {
   getInitialInlineFilters,
   hasUnsatisfiedInlineFilters,
   isSubmittableConfig,
+  journeyDiffersOnlyByPath,
+  journeyShouldPrefetchMore,
   stripExplorerDraftFields,
   toFetchKey,
   validateDimensions,
 } from "@/enterprise/components/ProductAnalytics/util";
+import type { JourneyHistory } from "@/enterprise/components/ProductAnalytics/MainSection/useJourneyModel";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -106,6 +110,8 @@ export interface ExplorerContextValue {
   collapseFunnelStepsForAnalyze: () => void;
   commitJourneyStep: (value: string) => void;
   popJourneyPath: (index: number) => void;
+  journeyHistory: JourneyHistory | null;
+  setJourneyHistory: (history: JourneyHistory | null) => void;
 }
 const ExplorerContext = createContext<ExplorerContextValue | null>(null);
 
@@ -215,6 +221,9 @@ export function ExplorerProvider({
   const [comparisonComputed, setComparisonComputed] =
     useState<ExplorerContextValue["comparisonComputed"]>(null);
   const [comparisonError, setComparisonError] = useState<string | null>(null);
+  const [journeyHistory, setJourneyHistory] = useState<JourneyHistory | null>(
+    null,
+  );
 
   const hasEverFetchedRef = useRef(hasExistingResults);
   const skipNextAutoSubmitRef = useRef(false);
@@ -782,11 +791,9 @@ export function ExplorerProvider({
     }
     const draftIsFunnel = cleanedDraftExploreState.dataset.type === "funnel";
     const draftIsJourney = cleanedDraftExploreState.dataset.type === "journey";
-    // Funnels and journeys on customer warehouses wait for a manual refresh
-    // instead of auto-running an expensive query. Managed Warehouse stays
-    // auto-run — queries are cheap there.
-    // Exception: toggling Compare on/off only changes previousTimeFrame — the
-    // primary result is already cached, so don't defer.
+    // Funnels on customer warehouses wait for a manual refresh instead of
+    // auto-running an expensive query. Managed Warehouse stays auto-run.
+    // Journeys always try cache first; a miss shows the refresh toast.
     const onlyComparisonChanged =
       baselineConfig !== null &&
       isEqual(
@@ -794,16 +801,55 @@ export function ExplorerProvider({
         toFetchKey(cleanedDraftExploreState),
       );
     const deferUntilManualRefresh =
-      (draftIsFunnel || draftIsJourney) &&
+      draftIsFunnel &&
       !isManagedWarehouse &&
       needsFetch &&
       !onlyComparisonChanged;
+    const rowSourceConfig =
+      data?.config.dataset.type === "journey" ? data.config : baselineConfig;
+    const pathOnly =
+      draftIsJourney &&
+      !!rowSourceConfig &&
+      journeyDiffersOnlyByPath(rowSourceConfig, cleanedDraftExploreState);
+    const shouldPrefetchPath =
+      pathOnly &&
+      journeyShouldPrefetchMore(rowSourceConfig, cleanedDraftExploreState);
+    const currentServes =
+      draftIsJourney &&
+      cleanedDraftExploreState.dataset.type === "journey" &&
+      !!data &&
+      data.config.dataset.type === "journey" &&
+      journeyResultCanServe({
+        cachedDataset: data.config.dataset,
+        cachedRows: data.result?.rows ?? [],
+        requestedDataset: cleanedDraftExploreState.dataset,
+      });
 
     if (needsFetch) {
-      if (deferUntilManualRefresh) {
-        setIsStale(true);
-      } else if (draftIsJourney) {
+      if (draftIsJourney && currentServes) {
+        setIsStale(false);
+        const submittedConfig: ExplorerDraftConfig =
+          draftExploreState.previousTimeFrame
+            ? {
+                ...cleanedDraftExploreState,
+                previousTimeFrame: draftExploreState.previousTimeFrame,
+                comparisonMode,
+              }
+            : cleanedDraftExploreState;
+        setSubmittedExploreState(submittedConfig);
+        if (shouldPrefetchPath) {
+          doSubmit({ cache: "preferred" });
+        }
+      } else if (draftIsJourney && shouldPrefetchPath) {
+        setIsStale(false);
         doSubmit({ cache: "preferred" });
+      } else if (draftIsJourney && !baselineConfig) {
+        setIsStale(false);
+        doSubmit({ cache: "preferred" });
+      } else if (draftIsJourney) {
+        doSubmit({ cache: "required" });
+      } else if (deferUntilManualRefresh) {
+        setIsStale(true);
       } else {
         doSubmit();
       }
@@ -830,6 +876,7 @@ export function ExplorerProvider({
     isSubmittable,
     managedWarehouseUnavailable,
     isManagedWarehouse,
+    data,
   ]);
 
   /** Clear staleness when draft matches submitted (known state) */
@@ -1053,6 +1100,7 @@ export function ExplorerProvider({
       setComparisonQuery(null);
       setComparisonComputed(null);
       setComparisonError(null);
+      setJourneyHistory(null);
       const datasourceId: string = newDatasourceId ?? datasources[0]?.id ?? "";
       setIsStale(false);
       if (datasourceId) {
@@ -1138,6 +1186,8 @@ export function ExplorerProvider({
       collapseFunnelStepsForAnalyze,
       commitJourneyStep,
       popJourneyPath,
+      journeyHistory,
+      setJourneyHistory,
       compareEnabled,
       comparisonMode,
       submittedComparisonMode,
@@ -1184,6 +1234,8 @@ export function ExplorerProvider({
       collapseFunnelStepsForAnalyze,
       commitJourneyStep,
       popJourneyPath,
+      journeyHistory,
+      setJourneyHistory,
       updateTimestampColumn,
       updateValueInDataset,
     ],

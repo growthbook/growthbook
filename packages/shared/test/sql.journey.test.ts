@@ -6,6 +6,7 @@ import {
 } from "shared/enterprise";
 import {
   canIncreaseJourneyOptions,
+  journeyResultCanServe,
   maxJourneyPathRows,
   maxJourneyResultRows,
   withJourneyOptionsAt,
@@ -251,6 +252,8 @@ describe("buildJourneySql", () => {
     const { sql } = buildJourneySql(config, factTableMap, helpers);
     expect(sql).toContain("__journey_matched");
     expect(sql).toContain("__journey_progress");
+    expect(sql).toContain("__journey_commit_0");
+    expect(sql).toContain("'committed'");
     expect(sql).toContain("UNION ALL");
     expect(sql).toContain("depth_reached");
     expect(sql).toContain("add_to_cart");
@@ -383,6 +386,25 @@ describe("transformJourneyRowsToResult", () => {
     });
   });
 
+  it("maps committed option rows", () => {
+    const result = transformJourneyRowsToResult(config, [
+      {
+        kind: "committed",
+        direction: "forward",
+        lvl_1: 0,
+        lvl_2: "add_to_cart",
+        journeys: 9,
+      },
+    ]);
+    expect(result.rows[0].journey).toEqual({
+      kind: "committed",
+      direction: "forward",
+      stepIndex: 0,
+      value: "add_to_cart",
+      count: 9,
+    });
+  });
+
   it("never exceeds the config row bound", () => {
     const rows = Array.from({ length: 40 }, (_, i) => ({
       kind: "path",
@@ -509,5 +531,238 @@ describe("journey datasource allowlist", () => {
     expect(isJourneySupportedDatasourceType("mysql" as DataSourceType)).toBe(
       false,
     );
+  });
+});
+
+describe("journeyResultCanServe", () => {
+  function dataset(
+    path: { mode: "value"; value: string }[],
+    depth = 3,
+  ): ExplorationConfig["dataset"] {
+    const config = baseJourneyConfig();
+    if (config.dataset.type !== "journey") throw new Error("expected journey");
+    return { ...config.dataset, path, depth };
+  }
+
+  it("reuses a shorter cached path when lookahead covers the extra step", () => {
+    const cached = dataset([{ mode: "value", value: "home" }], 3);
+    const requested = dataset(
+      [
+        { mode: "value", value: "home" },
+        { mode: "value", value: "search" },
+      ],
+      3,
+    );
+    if (cached.type !== "journey" || requested.type !== "journey") {
+      throw new Error("expected journey");
+    }
+    expect(
+      journeyResultCanServe({
+        cachedDataset: cached,
+        cachedRows: [
+          {
+            dimensions: [],
+            journey: {
+              kind: "path",
+              direction: "forward",
+              levels: ["search", "checkout", "(exit)"],
+              count: 10,
+            },
+          },
+        ],
+        requestedDataset: requested,
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects a shorter cache when the extra step was not in the frontier", () => {
+    const cached = dataset([{ mode: "value", value: "home" }], 3);
+    const requested = dataset(
+      [
+        { mode: "value", value: "home" },
+        { mode: "value", value: "checkout" },
+      ],
+      3,
+    );
+    if (cached.type !== "journey" || requested.type !== "journey") {
+      throw new Error("expected journey");
+    }
+    expect(
+      journeyResultCanServe({
+        cachedDataset: cached,
+        cachedRows: [
+          {
+            dimensions: [],
+            journey: {
+              kind: "path",
+              direction: "forward",
+              levels: ["search", "item", "(exit)"],
+              count: 10,
+            },
+          },
+        ],
+        requestedDataset: requested,
+      }),
+    ).toBe(false);
+  });
+
+  it("reuses a longer cache to pop when committed options exist at that step", () => {
+    const cached = dataset(
+      [
+        { mode: "value", value: "home" },
+        { mode: "value", value: "search" },
+      ],
+      3,
+    );
+    const requested = dataset([{ mode: "value", value: "home" }], 3);
+    if (cached.type !== "journey" || requested.type !== "journey") {
+      throw new Error("expected journey");
+    }
+    expect(
+      journeyResultCanServe({
+        cachedDataset: cached,
+        cachedRows: [
+          {
+            dimensions: [],
+            journey: {
+              kind: "committed",
+              direction: "forward",
+              stepIndex: 1,
+              value: "search",
+              count: 8,
+            },
+          },
+        ],
+        requestedDataset: requested,
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects a 3-step cache when the requested path uses every fetched level", () => {
+    const cached = dataset([], 3);
+    const requested = dataset(
+      [
+        { mode: "value", value: "home" },
+        { mode: "value", value: "search" },
+        { mode: "value", value: "checkout" },
+      ],
+      3,
+    );
+    if (cached.type !== "journey" || requested.type !== "journey") {
+      throw new Error("expected journey");
+    }
+    expect(
+      journeyResultCanServe({
+        cachedDataset: cached,
+        cachedRows: [
+          {
+            dimensions: [],
+            journey: {
+              kind: "path",
+              direction: "forward",
+              levels: ["home", "search", "checkout"],
+              count: 10,
+            },
+          },
+        ],
+        requestedDataset: requested,
+      }),
+    ).toBe(false);
+  });
+
+  it("reuses a 3-step cache for a shorter path that still has a leftover frontier", () => {
+    const cached = dataset([], 3);
+    const requested = dataset(
+      [
+        { mode: "value", value: "home" },
+        { mode: "value", value: "search" },
+      ],
+      3,
+    );
+    if (cached.type !== "journey" || requested.type !== "journey") {
+      throw new Error("expected journey");
+    }
+    expect(
+      journeyResultCanServe({
+        cachedDataset: cached,
+        cachedRows: [
+          {
+            dimensions: [],
+            journey: {
+              kind: "path",
+              direction: "forward",
+              levels: ["home", "search", "checkout"],
+              count: 10,
+            },
+          },
+        ],
+        requestedDataset: requested,
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects a leftover-1 cache when the request needs a full lookahead", () => {
+    const cached = dataset([], 3);
+    const requested = dataset(
+      [
+        { mode: "value", value: "home" },
+        { mode: "value", value: "search" },
+      ],
+      3,
+    );
+    if (cached.type !== "journey" || requested.type !== "journey") {
+      throw new Error("expected journey");
+    }
+    expect(
+      journeyResultCanServe({
+        cachedDataset: cached,
+        cachedRows: [
+          {
+            dimensions: [],
+            journey: {
+              kind: "path",
+              direction: "forward",
+              levels: ["home", "search", "checkout"],
+              count: 10,
+            },
+          },
+        ],
+        requestedDataset: requested,
+        minUnusedLookahead: requested.depth,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not treat a pop as a full-lookahead hit", () => {
+    const cached = dataset(
+      [
+        { mode: "value", value: "home" },
+        { mode: "value", value: "search" },
+      ],
+      3,
+    );
+    const requested = dataset([{ mode: "value", value: "home" }], 3);
+    if (cached.type !== "journey" || requested.type !== "journey") {
+      throw new Error("expected journey");
+    }
+    expect(
+      journeyResultCanServe({
+        cachedDataset: cached,
+        cachedRows: [
+          {
+            dimensions: [],
+            journey: {
+              kind: "committed",
+              direction: "forward",
+              stepIndex: 1,
+              value: "search",
+              count: 8,
+            },
+          },
+        ],
+        requestedDataset: requested,
+        minUnusedLookahead: requested.depth,
+      }),
+    ).toBe(false);
   });
 });

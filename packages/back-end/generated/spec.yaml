@@ -44391,6 +44391,29 @@ paths:
                                             - outcome
                                             - count
                                           additionalProperties: false
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: committed
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            stepIndex:
+                                              type: number
+                                            value:
+                                              type: string
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - stepIndex
+                                            - value
+                                            - count
+                                          additionalProperties: false
                                   required:
                                     - dimensions
                                   additionalProperties: false
@@ -45122,6 +45145,29 @@ paths:
                                             - direction
                                             - depthReached
                                             - outcome
+                                            - count
+                                          additionalProperties: false
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: committed
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            stepIndex:
+                                              type: number
+                                            value:
+                                              type: string
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - stepIndex
+                                            - value
                                             - count
                                           additionalProperties: false
                                   required:
@@ -45881,6 +45927,29 @@ paths:
                                             - direction
                                             - depthReached
                                             - outcome
+                                            - count
+                                          additionalProperties: false
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: committed
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            stepIndex:
+                                              type: number
+                                            value:
+                                              type: string
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - stepIndex
+                                            - value
                                             - count
                                           additionalProperties: false
                                   required:
@@ -46652,6 +46721,29 @@ paths:
                                             - direction
                                             - depthReached
                                             - outcome
+                                            - count
+                                          additionalProperties: false
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: committed
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            stepIndex:
+                                              type: number
+                                            value:
+                                              type: string
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - stepIndex
+                                            - value
                                             - count
                                           additionalProperties: false
                                   required:
@@ -47479,6 +47571,29 @@ paths:
                                             - direction
                                             - depthReached
                                             - outcome
+                                            - count
+                                          additionalProperties: false
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: committed
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            stepIndex:
+                                              type: number
+                                            value:
+                                              type: string
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - stepIndex
+                                            - value
                                             - count
                                           additionalProperties: false
                                   required:
@@ -65591,6 +65706,29 @@ components:
                           - direction
                           - depthReached
                           - outcome
+                          - count
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          kind:
+                            type: string
+                            const: committed
+                          direction:
+                            type: string
+                            enum:
+                              - forward
+                              - backward
+                          stepIndex:
+                            type: number
+                          value:
+                            type: string
+                          count:
+                            type: number
+                        required:
+                          - kind
+                          - direction
+                          - stepIndex
+                          - value
                           - count
                         additionalProperties: false
                 required:

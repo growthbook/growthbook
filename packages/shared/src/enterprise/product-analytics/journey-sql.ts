@@ -303,6 +303,60 @@ function bucketChain(
   return { ctes, last: prev };
 }
 
+function committedOptionCtes(
+  dialect: SqlDialect,
+  dataset: JourneyDataset,
+): CTE[] {
+  const termLit = lit(dialect, journeyTerminal(dataset.direction));
+  const other = lit(dialect, JOURNEY_OTHER);
+  const ctes: CTE[] = [];
+  for (let k = 0; k < dataset.path.length; k++) {
+    const n = journeyOptionsAt(dataset.optionsPerStep, k);
+    const col = `nb_${k + 1}`;
+    const preds = dataset.path
+      .slice(0, k)
+      .map((step, i) => committedPredicate(dialect, `nb_${i + 1}`, step, i));
+    const eligible = `__journey_commit_${k}_eligible`;
+    const top = `__journey_commit_${k}_top`;
+    const bucketed = `__journey_commit_${k}`;
+    ctes.push({
+      name: eligible,
+      sql: `
+        SELECT * FROM __journey_anchored
+        ${preds.length ? `WHERE ${preds.join("\n          AND ")}` : ""}
+      `,
+    });
+    ctes.push({
+      name: top,
+      sql: `
+        SELECT value FROM (
+          SELECT ${col} AS value,
+            ROW_NUMBER() OVER (ORDER BY c DESC) AS rn
+          FROM (
+            SELECT ${col}, COUNT(*) AS c
+            FROM ${eligible}
+            WHERE ${col} IS NOT NULL
+            GROUP BY ${col}
+          ) agg
+        ) r
+        WHERE rn <= ${n}
+      `,
+    });
+    ctes.push({
+      name: bucketed,
+      sql: `
+        SELECT
+          CASE WHEN ${col} IS NULL THEN ${termLit}
+               WHEN ${col} IN (SELECT value FROM ${top}) THEN ${col}
+               ELSE ${other} END AS value,
+          dim_1
+        FROM ${eligible}
+      `,
+    });
+  }
+  return ctes;
+}
+
 function progressCte(dialect: SqlDialect, dataset: JourneyDataset): CTE {
   const path = dataset.path;
   const depthCases = path.map(
@@ -543,6 +597,7 @@ export function buildJourneySql(
 
   if (pathLen > 0) {
     ctes.push(progressCte(dialect, dataset));
+    ctes.push(...committedOptionCtes(dialect, dataset));
   }
 
   if (hasDimension) {
@@ -609,6 +664,32 @@ export function buildJourneySql(
     FROM __journey_progress
     GROUP BY ${progressGroup}
     `);
+    for (let k = 0; k < pathLen; k++) {
+      const commitLvls = [
+        `${dialect.castToString(String(k))} AS lvl_1`,
+        `value AS lvl_2`,
+        ...Array.from(
+          { length: Math.max(0, fetchDepth - 2) },
+          (_, i) => `${dialect.castToString("NULL")} AS lvl_${i + 3}`,
+        ),
+      ];
+      const commitDim = hasDimension
+        ? `CASE WHEN dim_1 IN (SELECT value FROM __journey_top_dim) THEN dim_1 ELSE ${lit(dialect, JOURNEY_OTHER)} END AS dim_1`
+        : `${dialect.castToString("NULL")} AS dim_1`;
+      const commitGroup = hasDimension
+        ? "kind, direction, value, dim_1"
+        : "kind, direction, value";
+      branches.push(`
+    SELECT
+      ${lit(dialect, "committed")} AS kind,
+      ${lit(dialect, dataset.direction)} AS direction,
+      ${commitLvls.join(",\n      ")},
+      ${commitDim},
+      COUNT(*) AS journeys
+    FROM __journey_commit_${k}
+    GROUP BY ${commitGroup}
+      `);
+    }
   }
 
   const sql = format(
@@ -661,6 +742,20 @@ export function transformJourneyRowsToResult(
         direction,
         depthReached,
         outcome,
+        count,
+      };
+    } else if (kind === "committed") {
+      resultRow.journey = {
+        kind: "committed",
+        direction,
+        stepIndex:
+          parseNumberValue(rowValue(row, "lvl_1")) ??
+          parseNumberValue(rowValue(row, "step_index")) ??
+          0,
+        value:
+          parseStringValue(rowValue(row, "lvl_2")) ??
+          parseStringValue(rowValue(row, "value")) ??
+          JOURNEY_NONE,
         count,
       };
     } else {

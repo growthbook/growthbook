@@ -6,6 +6,7 @@ import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import {
   hasSubmittablePayload,
+  journeyDiffersOnlyByPath,
   journeyPreferredView,
   shouldChartSectionShow,
 } from "@/enterprise/components/ProductAnalytics/util";
@@ -64,6 +65,13 @@ export default function ExplorerMainSection() {
 
   const suppressStaleFloatingCallout =
     (funnelMainEmpty || journeyMainEmpty) && isStale && !loading;
+  const suppressJourneyPathFetchOverlay =
+    !!submittedExploreState &&
+    journeyDiffersOnlyByPath(submittedExploreState, draftExploreState);
+  const showStaleToast =
+    (isStale || loading) &&
+    !suppressStaleFloatingCallout &&
+    !suppressJourneyPathFetchOverlay;
   const showTableSection = journeyView ? journeyView === "table" : true;
 
   return (
@@ -210,28 +218,19 @@ export default function ExplorerMainSection() {
                   </Flex>
                 </Button>
               </>
+            ) : journeyMainEmpty && (loading || isSubmittable) ? (
+              <>
+                <LoadingSpinner />
+                <Text size="lg" weight="medium">
+                  Loading journey…
+                </Text>
+              </>
             ) : journeyMainEmpty ? (
               <>
+                <PiChartLineUp size={48} style={{ color: "var(--gray-a9)" }} />
                 <Text size="lg" weight="medium">
-                  Done configuring this journey?
+                  Configure this journey to visualize data
                 </Text>
-                <Button
-                  size="xl"
-                  variant="solid"
-                  disabled={
-                    loading ||
-                    !hasSubmittablePayload(draftExploreState) ||
-                    !isSubmittable
-                  }
-                  onClick={async () => {
-                    await handleSubmit();
-                  }}
-                >
-                  <Flex align="center" gap="2">
-                    <PiArrowsClockwise />
-                    Analyze user journey
-                  </Flex>
-                </Button>
               </>
             ) : (
               <>
@@ -245,14 +244,15 @@ export default function ExplorerMainSection() {
           </Flex>
         )}
 
-        {(isStale || loading) && !suppressStaleFloatingCallout && (
+        {showStaleToast && (
           <Box
             style={{
               position: "absolute",
               zIndex: 1000,
               top: 15,
               right: 15,
-              width: "auto",
+              width: "max-content",
+              maxWidth: "calc(100% - 30px)",
               backgroundColor: "var(--color-panel-solid)",
               borderRadius: "var(--radius-3)",
             }}
@@ -265,8 +265,19 @@ export default function ExplorerMainSection() {
                   <LoadingSpinner style={{ width: "12px", height: "12px" }} />
                 ) : undefined
               }
-              action={
-                loading ? undefined : (
+            >
+              {loading ? (
+                <Text whiteSpace="nowrap">Loading...</Text>
+              ) : (
+                <Flex
+                  align="center"
+                  gap="3"
+                  wrap="nowrap"
+                  style={{ whiteSpace: "nowrap" }}
+                >
+                  <Text title="Some configuration changes require running a new SQL query against your data source">
+                    Latest changes not applied
+                  </Text>
                   <Button
                     color="inherit"
                     size="sm"
@@ -282,15 +293,7 @@ export default function ExplorerMainSection() {
                       Refresh
                     </Flex>
                   </Button>
-                )
-              }
-            >
-              {loading ? (
-                "Loading..."
-              ) : (
-                <Text title="Some configuration changes require running a new SQL query against your data source">
-                  Latest changes not applied
-                </Text>
+                </Flex>
               )}
             </Callout>
           </Box>

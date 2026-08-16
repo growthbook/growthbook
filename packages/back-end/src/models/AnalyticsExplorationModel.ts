@@ -11,6 +11,7 @@ import {
   getDateGranularity,
 } from "shared/enterprise";
 import { getValidDate } from "shared/dates";
+import { journeyResultCanServe } from "shared/journeys";
 import {
   getQueryById,
   toQueryApiInterface,
@@ -170,10 +171,6 @@ export class AnalyticsExplorationModel extends BaseClass {
           dataset.type === "journey" ? dataset.excludedSteps : null,
         journeyCollapseRepeats:
           dataset.type === "journey" ? dataset.collapseRepeats : null,
-        journeyPath: dataset.type === "journey" ? dataset.path : null,
-        journeyDepth: dataset.type === "journey" ? dataset.depth : null,
-        journeyOptionsPerStep:
-          dataset.type === "journey" ? dataset.optionsPerStep : null,
         journeyRowFilters:
           dataset.type === "journey" ? dataset.rowFilters : null,
       }),
@@ -190,7 +187,6 @@ export class AnalyticsExplorationModel extends BaseClass {
           ? [
               md5(
                 JSON.stringify({
-                  path: dataset.path,
                   rowFilters: dataset.rowFilters,
                   excludedSteps: dataset.excludedSteps,
                   collapseRepeats: dataset.collapseRepeats,
@@ -199,8 +195,6 @@ export class AnalyticsExplorationModel extends BaseClass {
                   stepGroups: dataset.stepGroups ?? [],
                   anchorStepValues: dataset.anchorStepValues,
                   direction: dataset.direction,
-                  depth: dataset.depth,
-                  optionsPerStep: dataset.optionsPerStep,
                   unit: dataset.unit,
                   factTableId: dataset.factTableId,
                 }),
@@ -257,7 +251,10 @@ export class AnalyticsExplorationModel extends BaseClass {
     return this.canCreate(doc);
   }
 
-  public async findLatestByConfig(config: ExplorationConfig) {
+  public async findLatestByConfig(
+    config: ExplorationConfig,
+    options?: { minUnusedLookahead?: number },
+  ) {
     const { dataset } = config;
     if (!dataset) return null;
 
@@ -272,13 +269,30 @@ export class AnalyticsExplorationModel extends BaseClass {
         configHash: configHashes.generalSettingsHash,
         valueHashes: { $eq: configHashes.valueHashes },
       },
-      { sort: { dateCreated: -1 }, limit: 5 },
+      {
+        sort: { dateCreated: -1 },
+        limit: config.dataset.type === "journey" ? 40 : 5,
+      },
     );
+
+    const requestedJourney =
+      config.dataset.type === "journey" ? config.dataset : null;
+    const compatible = requestedJourney
+      ? matches.filter((match) => {
+          if (match.config.dataset.type !== "journey") return false;
+          return journeyResultCanServe({
+            cachedDataset: match.config.dataset,
+            cachedRows: match.result?.rows ?? [],
+            requestedDataset: requestedJourney,
+            minUnusedLookahead: options?.minUnusedLookahead,
+          });
+        })
+      : matches;
 
     const requestedDates = calculateProductAnalyticsDateRange(config.dateRange);
 
     // 2. Find the analysis that best matches the requested date range
-    const bestMatch = matches.reduce(
+    const bestMatch = compatible.reduce(
       (max, current) => {
         const requestedRange =
           requestedDates.endDate.getTime() - requestedDates.startDate.getTime();

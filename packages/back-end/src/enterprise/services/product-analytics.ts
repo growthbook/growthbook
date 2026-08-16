@@ -66,7 +66,12 @@ export async function runProductAnalyticsExploration(
 
   if (options.cache !== "never") {
     const existing =
-      await context.models.analyticsExplorations.findLatestByConfig(config);
+      await context.models.analyticsExplorations.findLatestByConfig(config, {
+        minUnusedLookahead:
+          options.cache !== "required" && config.dataset.type === "journey"
+            ? config.dataset.depth
+            : undefined,
+      });
     if (existing) {
       return withRequestedDisplayConfig(existing, config);
     }
