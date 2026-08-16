@@ -5,13 +5,14 @@ import {
   envScopedPermissionsForRole,
   getRoleDisplayName,
 } from "shared/permissions";
-import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
 import { useEnvironments } from "@/services/features";
 import { useUser } from "@/services/UserContext";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
+
+const ALL_ENVIRONMENTS = "__all_environments__";
 
 const ACTION_LABELS: Record<string, string> = {
   createFeatures: "create",
@@ -75,7 +76,7 @@ export default function EnvironmentCell({
 
   if (!editing) {
     const label = !limitAccessByEnvironment ? (
-      <Text>All environments</Text>
+      <Text>All Environments</Text>
     ) : environments.length ? (
       <Text>{environments.join(", ")}</Text>
     ) : (
@@ -94,10 +95,7 @@ export default function EnvironmentCell({
             variant="ghost"
             radius="full"
             size="1"
-            onClick={() => {
-              setEditing(true);
-              onChange({ environments, limitAccessByEnvironment: true });
-            }}
+            onClick={() => setEditing(true)}
             aria-label="Edit environments"
           >
             <PiPencilSimple />
@@ -108,32 +106,38 @@ export default function EnvironmentCell({
   }
 
   return (
-    <Flex align="center" gap="2" minHeight="32px">
-      <Box flexGrow="1">
-        <MultiSelectField
-          containerClassName="mb-0"
-          showCopyButton={false}
-          value={environments}
-          options={envOptions}
-          onChange={(next) =>
-            onChange({ environments: next, limitAccessByEnvironment: true })
-          }
-          placeholder="No environments"
-          autoFocus
-        />
-      </Box>
-      <Tooltip body="Apply this role in every environment, with no restriction.">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            onChange({ environments: [], limitAccessByEnvironment: false });
-            setEditing(false);
-          }}
-        >
-          All
-        </Button>
-      </Tooltip>
-    </Flex>
+    <Box>
+      <MultiSelectField
+        containerClassName="mb-0"
+        showCopyButton={false}
+        value={limitAccessByEnvironment ? environments : [ALL_ENVIRONMENTS]}
+        options={[
+          { label: "All Environments", value: ALL_ENVIRONMENTS },
+          ...envOptions,
+        ]}
+        onChange={(next) => {
+          const pickedAll =
+            next.includes(ALL_ENVIRONMENTS) && limitAccessByEnvironment;
+          onChange(
+            pickedAll
+              ? { environments: [], limitAccessByEnvironment: false }
+              : {
+                  environments: next.filter((e) => e !== ALL_ENVIRONMENTS),
+                  limitAccessByEnvironment: true,
+                },
+          );
+        }}
+        sort={false}
+        formatOptionLabel={(option) =>
+          option.value === ALL_ENVIRONMENTS ? (
+            <em>{option.label}</em>
+          ) : (
+            option.label
+          )
+        }
+        placeholder="No environments"
+        autoFocus
+      />
+    </Box>
   );
 }

@@ -46,7 +46,7 @@ const ChangeProjectRoleModal: FC<{
           {getProjectById(value.project)?.name ?? value.project}
         </Text>
         <Text size="sm" color="text-low">
-          replaces the All projects rules inside it
+          replaces the All Projects rules inside it
         </Text>
       </Flex>
       <Table variant="surface" layout="fixed">

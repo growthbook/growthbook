@@ -58,7 +58,7 @@ export default function RoleRulesTable({
   );
 
   // One group per scope. Rules inside a group add together; a project group
-  // replaces the All projects group inside that project.
+  // replaces the All Projects group inside that project.
   const groups = useMemo(() => {
     const scopes = [...new Set(rules.map((r) => r.project))].sort((a, b) =>
       a === ALL_PROJECTS ? -1 : b === ALL_PROJECTS ? 1 : 0,
@@ -221,7 +221,7 @@ export default function RoleRulesTable({
         <Flex align="center" gap="2" mb="2" minHeight="32px">
           {isAllProjects || !editable ? (
             <Text weight="medium">
-              {isAllProjects ? "All projects" : projectLabel(scope)}
+              {isAllProjects ? "All Projects" : projectLabel(scope)}
             </Text>
           ) : (
             <Box width="200px">
@@ -242,7 +242,7 @@ export default function RoleRulesTable({
           )}
           {!isAllProjects && (
             <Text size="sm" color="text-low">
-              replaces the All projects rules inside it
+              replaces the All Projects rules inside it
             </Text>
           )}
         </Flex>
