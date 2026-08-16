@@ -11,6 +11,7 @@ import {
   _dangerousUpdateSSOConnection,
   _dangerousGetAllSSOConnections,
   _dangerousGetSSOConnectionById,
+  redactSSOConnectionClientSecret,
 } from "back-end/src/models/SSOConnectionModel";
 import {
   getAllUsersFiltered,
@@ -497,7 +498,10 @@ export async function _dangerousAdminUpsertSSOConnection(
         object: "ssoConnection",
         id: id || "",
       },
-      details: auditDetailsUpdate(existing, updates),
+      details: auditDetailsUpdate(
+        redactSSOConnectionClientSecret(existing),
+        redactSSOConnectionClientSecret(updates),
+      ),
     });
   } else {
     // Create new SSO Connection
@@ -521,7 +525,9 @@ export async function _dangerousAdminUpsertSSOConnection(
         object: "ssoConnection",
         id: ssoConnection.id || "",
       },
-      details: auditDetailsCreate(ssoConnection),
+      details: auditDetailsCreate(
+        redactSSOConnectionClientSecret(ssoConnection),
+      ),
     });
   }
 

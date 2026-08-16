@@ -3,7 +3,6 @@ import { useRouter } from "next/router";
 import InviteList from "@/components/Settings/Team/InviteList";
 import MemberList from "@/components/Settings/Team/MemberList";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
-import SSOSettings from "@/components/Settings/SSOSettings";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -21,13 +20,8 @@ import PremiumCallout from "@/ui/PremiumCallout";
 import Callout from "@/ui/Callout";
 
 export const MembersTabView: FC = () => {
-  const {
-    refreshOrganization,
-    enterpriseSSO,
-    organization,
-    hasCommercialFeature,
-    teams,
-  } = useUser();
+  const { refreshOrganization, organization, hasCommercialFeature, teams } =
+    useUser();
 
   const { project, projects } = useDefinitions();
 
@@ -65,8 +59,6 @@ export const MembersTabView: FC = () => {
         console.error(e);
       });
   }, [apiCall, checkoutSessionId, refreshOrganization, router]);
-
-  const ssoConnection = enterpriseSSO;
 
   if (!permissions.manageTeam) {
     return (
@@ -115,7 +107,6 @@ export const MembersTabView: FC = () => {
           isTrial={license?.isTrial}
         />
       )}
-      <SSOSettings ssoConnection={ssoConnection || null} />
       <h1>Team Members</h1>
       {projects.length > 0 && (
         <div className="row align-items-center">

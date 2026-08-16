@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
-import { IS_CLOUD } from "back-end/src/util/secrets";
 
 const ssoConnectionSchema = new mongoose.Schema({
   id: {
@@ -16,6 +15,7 @@ const ssoConnectionSchema = new mongoose.Schema({
     unique: true,
   },
   dateCreated: Date,
+  dateUpdated: Date,
   idpType: String,
   clientId: String,
   clientSecret: String,
@@ -25,6 +25,7 @@ const ssoConnectionSchema = new mongoose.Schema({
   baseURL: String,
   tenantId: String,
   audience: String,
+  selfServeManaged: Boolean,
 });
 
 type SSOConnectionDocument = mongoose.Document & SSOConnectionInterface;
@@ -65,6 +66,15 @@ export async function _dangerousGetSSOConnectionByEmailDomain(
   return doc ? toInterface(doc) : null;
 }
 
+export async function getSSOConnectionByOrganization(
+  organization: string,
+): Promise<null | SSOConnectionInterface> {
+  if (!organization) return null;
+  const doc = await SSOConnectionModel.findOne({ organization });
+
+  return doc ? toInterface(doc) : null;
+}
+
 export async function _dangerousCreateSSOConnection(
   data: SSOConnectionInterface,
 ) {
@@ -74,15 +84,11 @@ export async function _dangerousCreateSSOConnection(
   if (!data.organization) {
     throw new Error("SSO Connection must have an organization");
   }
-  if (!IS_CLOUD) {
-    throw new Error(
-      "SSO Connections can only be created via UI in GrowthBook Cloud",
-    );
-  }
 
   const doc = await SSOConnectionModel.create({
     ...data,
     dateCreated: new Date(),
+    dateUpdated: new Date(),
   });
   return toInterface(doc);
 }
@@ -103,13 +109,8 @@ export async function _dangerousUpdateSSOConnection(
   if (!existing.id) {
     throw new Error("Existing SSO Connection must have an id");
   }
-  if (!IS_CLOUD) {
-    throw new Error(
-      "SSO Connections can only be updated via UI in GrowthBook Cloud",
-    );
-  }
 
-  const updates = { ...data };
+  const updates = { ...data, dateUpdated: new Date() };
   // Leave the client secret unchanged if an empty string is passed
   // We don't pass clientSecret to the front-end, so this is how we indicate no change
   if (data.clientSecret === "") {
@@ -117,6 +118,27 @@ export async function _dangerousUpdateSSOConnection(
   }
 
   await SSOConnectionModel.updateOne({ id: existing.id }, { $set: updates });
+}
+
+export async function _dangerousDeleteSSOConnection(
+  existing: SSOConnectionInterface,
+) {
+  if (!existing.id) {
+    throw new Error("Existing SSO Connection must have an id");
+  }
+
+  await SSOConnectionModel.deleteOne({ id: existing.id });
+}
+
+// Mask the client secret before the connection is written anywhere it can be
+// read back (audit log details, API responses)
+export function redactSSOConnectionClientSecret(
+  data: Partial<SSOConnectionInterface>,
+): Partial<SSOConnectionInterface> {
+  return {
+    ...data,
+    clientSecret: data.clientSecret ? "********" : "",
+  };
 }
 
 export function getSSOConnectionSummary(
