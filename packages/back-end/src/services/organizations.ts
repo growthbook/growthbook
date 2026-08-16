@@ -880,6 +880,7 @@ export async function inviteUser({
   limitAccessByEnvironment,
   environments,
   projectRoles,
+  additionalRoles,
   invitedBy,
 }: {
   organization: OrganizationInterface;
@@ -931,6 +932,7 @@ export async function inviteUser({
     limitAccessByEnvironment,
     environments,
     projectRoles,
+    additionalRoles,
     invitedBy,
   };
   const updatedOrganization = await addOrganizationInviteIfSeatAvailable(

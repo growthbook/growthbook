@@ -5,7 +5,9 @@ import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
-import RoleSelector from "./RoleSelector";
+import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
+import useOrgLimits from "@/hooks/useOrgLimits";
+import RoleRulesTable from "./RoleRulesTable";
 
 const AddOrphanedUserModal: FC<{
   mutate: () => void;
@@ -18,9 +20,11 @@ const AddOrphanedUserModal: FC<{
 
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
+  const { orgSupportsRoles } = useOrgLimits();
   const [value, setValue] = useState<MemberRoleWithProjects>({
     projectRoles: [],
     ...getDefaultRole(organization),
+    ...(orgSupportsRoles() ? {} : { role: "admin" }),
   });
 
   const { apiCall } = useAuth();
@@ -70,6 +74,7 @@ const AddOrphanedUserModal: FC<{
       close={close}
       header="Add User"
       open={true}
+      size="xl"
       cta="Add"
       closeCta={"Cancel"}
       submit={async () => {
@@ -88,11 +93,12 @@ const AddOrphanedUserModal: FC<{
       <div className="mb-3">
         <strong>{name}</strong> ({email})
       </div>
-      <RoleSelector
-        value={value}
-        setValue={setValue}
+      <RoleRulesTable value={value} setValue={setValue} />
+      <UpgradeMessage
+        className="mt-3"
         showUpgradeModal={() => setShowUpgradeModal(true)}
-        isNewAssignment
+        commercialFeature="advanced-permissions"
+        upgradeMessage="enable per-environment and per-project permissions"
       />
     </Modal>
   );

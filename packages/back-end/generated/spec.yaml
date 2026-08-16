@@ -43066,6 +43066,24 @@ paths:
                         type: array
                         items:
                           type: string
+                      additionalRoles:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            role:
+                              type: string
+                            limitAccessByEnvironment:
+                              type: boolean
+                            environments:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - role
+                            - limitAccessByEnvironment
+                            - environments
+                          additionalProperties: false
                       project:
                         type: string
                     required:
@@ -43185,6 +43203,24 @@ paths:
                         type: array
                         items:
                           type: string
+                      additionalRoles:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            role:
+                              type: string
+                            limitAccessByEnvironment:
+                              type: boolean
+                            environments:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - role
+                            - limitAccessByEnvironment
+                            - environments
+                          additionalProperties: false
                       project:
                         type: string
                     required:
@@ -63215,6 +63251,24 @@ components:
                 type: array
                 items:
                   type: string
+              additionalRoles:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    role:
+                      type: string
+                    limitAccessByEnvironment:
+                      type: boolean
+                    environments:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - role
+                    - limitAccessByEnvironment
+                    - environments
+                  additionalProperties: false
               project:
                 type: string
             required:

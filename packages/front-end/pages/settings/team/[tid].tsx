@@ -141,7 +141,7 @@ const TeamPage: FC = () => {
               >
                 <DropdownMenuGroup>
                   <DropdownMenuItem onClick={() => setTeamModalOpen(true)}>
-                    Edit team
+                    Edit team settings
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
               </DropdownMenu>

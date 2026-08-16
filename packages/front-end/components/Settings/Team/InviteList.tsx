@@ -1,13 +1,16 @@
 import React, { FC, useState, ReactElement } from "react";
 import { Invite, MemberRoleInfo } from "shared/types/organization";
-import { PiCheckBold, PiX, PiXBold } from "react-icons/pi";
+import { PiX } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { date, datetime } from "shared/dates";
 import { getRoleDisplayName } from "shared/permissions";
 import { Box, IconButton } from "@radix-ui/themes";
-import { memberEnvAccess, useAuth } from "@/services/auth";
+import { useAuth } from "@/services/auth";
+import EnvironmentAccessCell from "@/components/Settings/EnvironmentAccessCell";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useEnvironments } from "@/services/features";
+import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -48,7 +51,6 @@ const InviteList: FC<{
 
   const { projects } = useDefinitions();
   const environments = useEnvironments();
-  const forceScroll = environments.length > 3;
 
   const onResend = async (key: string, email: string) => {
     if (resending) return;
@@ -134,22 +136,30 @@ const InviteList: FC<{
       )}
       {resending && <LoadingOverlay />}
       {resendMessage}
-      <Table
-        variant="surface"
-        style={forceScroll ? { whiteSpace: "nowrap" } : undefined}
-      >
+      <Table variant="surface" layout="fixed">
         <TableHeader>
           <TableRow>
-            <TableColumnHeader>Email</TableColumnHeader>
-            <TableColumnHeader>Date Invited</TableColumnHeader>
-            <TableColumnHeader>
-              {project ? "Project Role" : "Global Role"}
+            <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.emailNoName}>
+              Email
             </TableColumnHeader>
-            {!project && <TableColumnHeader>Project Roles</TableColumnHeader>}
-            {environments.map((env) => (
-              <TableColumnHeader key={env.id}>{env.id}</TableColumnHeader>
-            ))}
-            <TableColumnHeader style={{ width: 50 }} />
+            <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.dateOnly}>
+              Date Invited
+            </TableColumnHeader>
+            <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.role}>
+              {project ? "Project Role" : "Role"}
+            </TableColumnHeader>
+            {!project && (
+              <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.projectRoles}>
+                Project Roles
+              </TableColumnHeader>
+            )}
+            <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.environments}>
+              <Tooltip body="Environments this member can publish, create, delete and revert in. Hover a value for the full breakdown.">
+                Environments
+              </Tooltip>
+            </TableColumnHeader>
+            <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.teams} />
+            <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.actions} />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -186,25 +196,15 @@ const InviteList: FC<{
                     })}
                   </TableCell>
                 )}
-                {environments.map((env) => {
-                  const access = memberEnvAccess(
-                    member,
-                    env,
-                    organization,
-                    project,
-                  );
-                  return (
-                    <TableCell key={env.id}>
-                      {access === "N/A" ? (
-                        <Text color="text-low">N/A</Text>
-                      ) : access === "yes" ? (
-                        <PiCheckBold color="var(--green-11)" />
-                      ) : (
-                        <PiXBold color="var(--red-11)" />
-                      )}
-                    </TableCell>
-                  );
-                })}
+                <TableCell>
+                  <EnvironmentAccessCell
+                    principal={member}
+                    environments={environments}
+                    organization={organization}
+                    project={project}
+                  />
+                </TableCell>
+                <TableCell />
                 <TableCell>
                   <DropdownMenu
                     trigger={

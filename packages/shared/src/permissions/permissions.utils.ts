@@ -6,6 +6,7 @@ import {
   Role,
   ProjectMemberRole,
   MemberRoleInfo,
+  MemberRoleWithProjects,
   UserPermission,
 } from "shared/types/organization";
 import {
@@ -112,7 +113,7 @@ export function areProjectRolesValid(
 
 export function getDefaultRole(
   org: Partial<OrganizationInterface>,
-): MemberRoleInfo {
+): MemberRoleWithProjects {
   // First try the explicitly provided default role
   if (
     org.settings?.defaultRole?.role &&
@@ -205,16 +206,24 @@ export const userHasPermission = (
   }
 };
 
+export function envScopedPermissionsForRole(
+  roleId: string,
+  org: Partial<OrganizationInterface>,
+): (typeof ENV_SCOPED_PERMISSIONS)[number][] {
+  if (["admin", "gbDefault_projectAdmin"].includes(roleId)) return [];
+
+  const role = getRoleById(roleId, org);
+  if (!role) return [];
+
+  const permissions = permissionsFromRole(role);
+  return ENV_SCOPED_PERMISSIONS.filter((p) => permissions[p]);
+}
+
 export function roleSupportsEnvLimit(
   roleId: string,
   org: Partial<OrganizationInterface>,
 ): boolean {
-  if (["admin", "gbDefault_projectAdmin"].includes(roleId)) return false;
-
-  const role = getRoleById(roleId, org);
-  if (!role) return false;
-
-  return roleSupportsEnvLimitFromRole(role);
+  return envScopedPermissionsForRole(roleId, org).length > 0;
 }
 
 export function roleToPermissionMap(

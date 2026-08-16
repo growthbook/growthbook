@@ -1,7 +1,6 @@
-import React, { FC } from "react";
+import React, { FC, useState } from "react";
 import { useRouter } from "next/router";
 import { date } from "shared/dates";
-import { PiCheckBold, PiXBold } from "react-icons/pi";
 import { RxIdCard } from "react-icons/rx";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, IconButton } from "@radix-ui/themes";
@@ -10,11 +9,13 @@ import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useEnvironments } from "@/services/features";
-import { memberEnvAccess, useAuth } from "@/services/auth";
+import { useAuth } from "@/services/auth";
+import EnvironmentAccessCell from "@/components/Settings/EnvironmentAccessCell";
+import { PermissionsModal } from "@/components/Settings/Teams/PermissionModal";
+import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
-import Text from "@/ui/Text";
 import { capitalizeFirstLetter } from "@/services/utils";
 import Table, {
   TableHeader,
@@ -31,33 +32,53 @@ import {
 
 const TeamsList: FC = () => {
   const { teams, refreshOrganization, organization } = useUser();
+  const [permissionsTeamId, setPermissionsTeamId] = useState<string | null>(
+    null,
+  );
   const { projects } = useDefinitions();
   const router = useRouter();
   const environments = useEnvironments();
-  const forceScroll = environments.length > 3;
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const canManageTeam = permissionsUtil.canManageTeam();
 
+  const permissionsTeam = teams?.find((t) => t.id === permissionsTeamId);
+
   return (
     <Box mb="4">
+      {permissionsTeam && (
+        <PermissionsModal
+          team={permissionsTeam}
+          open={true}
+          onClose={() => setPermissionsTeamId(null)}
+          onSuccess={async () => {
+            refreshOrganization();
+            setPermissionsTeamId(null);
+          }}
+        />
+      )}
       {teams && teams.length > 0 ? (
-        <Table
-          variant="surface"
-          style={forceScroll ? { whiteSpace: "nowrap" } : undefined}
-        >
+        <Table variant="surface" layout="fixed">
           <TableHeader>
             <TableRow>
               <TableColumnHeader>Team Name</TableColumnHeader>
               <TableColumnHeader>Description</TableColumnHeader>
               <TableColumnHeader>Date Updated</TableColumnHeader>
-              <TableColumnHeader>Global Role</TableColumnHeader>
-              <TableColumnHeader>Project Roles</TableColumnHeader>
-              {environments.map((env) => (
-                <TableColumnHeader key={env.id}>{env.id}</TableColumnHeader>
-              ))}
-              <TableColumnHeader>Members</TableColumnHeader>
-              <TableColumnHeader style={{ width: 50 }} />
+              <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.role}>
+                Role
+              </TableColumnHeader>
+              <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.projectRoles}>
+                Project Roles
+              </TableColumnHeader>
+              <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.environments}>
+                <Tooltip body="Environments this team can publish, create, delete and revert in. Hover a value for the full breakdown.">
+                  Environments
+                </Tooltip>
+              </TableColumnHeader>
+              <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.teams}>
+                Members
+              </TableColumnHeader>
+              <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.actions} />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -106,20 +127,14 @@ const TeamsList: FC = () => {
                       return null;
                     })}
                   </TableCell>
-                  {environments.map((env) => {
-                    const access = memberEnvAccess(t, env, organization, "");
-                    return (
-                      <TableCell key={env.id}>
-                        {access === "N/A" ? (
-                          <Text color="text-low">N/A</Text>
-                        ) : access === "yes" ? (
-                          <PiCheckBold color="var(--green-11)" />
-                        ) : (
-                          <PiXBold color="var(--red-11)" />
-                        )}
-                      </TableCell>
-                    );
-                  })}
+                  <TableCell>
+                    <EnvironmentAccessCell
+                      principal={t}
+                      environments={environments}
+                      organization={organization}
+                      project=""
+                    />
+                  </TableCell>
                   <TableCell>{t.members?.length ?? 0}</TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     {canManageTeam && !teamIsExternallyManaged ? (
@@ -139,6 +154,11 @@ const TeamsList: FC = () => {
                         variant="soft"
                       >
                         <DropdownMenuGroup>
+                          <DropdownMenuItem
+                            onClick={() => setPermissionsTeamId(t.id)}
+                          >
+                            Edit permissions
+                          </DropdownMenuItem>
                           <DropdownMenuItem
                             color="red"
                             confirmation={{

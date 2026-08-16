@@ -1,17 +1,16 @@
 import React, { FC, useEffect, useState } from "react";
 import router from "next/router";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import NextLink from "next/link";
 import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
 import { ProjectInterface, ProjectSettings } from "shared/types/project";
 import { getScopedSettings } from "shared/settings";
 import { DEFAULT_CONFIDENCE_LEVEL } from "shared/constants";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
-import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { GBCircleArrowLeft } from "@/components/Icons";
 import Button from "@/components/Button";
 import RadixButton from "@/ui/Button";
 import TempMessage from "@/components/TempMessage";
@@ -27,7 +26,12 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+} from "@/ui/DropdownMenu";
+import PageHead from "@/components/Layout/PageHead";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import useApi from "@/hooks/useApi";
@@ -162,13 +166,13 @@ const ProjectPage: FC = () => {
           projectParams={{ projectId: pid, projectName: p.name }}
         />
       )}
-      <Box className="container-fluid contents pagecontents mt-2">
-        <Box mb="5">
-          <Link href="/projects">
-            <GBCircleArrowLeft className="mr-1" />
-            Back to all projects
-          </Link>
-        </Box>
+      <PageHead
+        breadcrumb={[
+          { display: "Projects", href: "/projects" },
+          { display: p.name },
+        ]}
+      />
+      <Box className="container-fluid contents pagecontents">
         {p.managedBy?.type ? (
           <Box mb="2">
             <Badge
@@ -192,18 +196,27 @@ const ProjectPage: FC = () => {
               />
             </Flex>
           </Flex>
-          <MoreMenu>
-            <a
-              href="#"
-              className="dropdown-item"
-              onClick={(e) => {
-                e.preventDefault();
-                setModalOpen(p);
-              }}
-            >
-              Edit Project Info
-            </a>
-          </MoreMenu>
+          <DropdownMenu
+            trigger={
+              <IconButton
+                variant="ghost"
+                color="gray"
+                radius="full"
+                size="3"
+                highContrast
+              >
+                <BsThreeDotsVertical size={18} />
+              </IconButton>
+            }
+            menuPlacement="end"
+            variant="soft"
+          >
+            <DropdownMenuGroup>
+              <DropdownMenuItem onClick={() => setModalOpen(p)}>
+                Edit project settings
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenu>
         </Flex>
         {p.description ? (
           <Box>

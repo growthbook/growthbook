@@ -218,6 +218,26 @@ function getUserPermission(
     environments?: string[];
     limitAccessByEnvironment?: boolean;
     role: string;
+    additionalRoles?: {
+      role: string;
+      limitAccessByEnvironment: boolean;
+      environments: string[];
+    }[];
+  },
+  org: OrganizationInterface,
+): UserPermission {
+  return (info.additionalRoles ?? []).reduce(
+    (acc, rule) =>
+      mergeUserPermissionObj(acc, getSingleRolePermission(rule, org), org),
+    getSingleRolePermission(info, org),
+  );
+}
+
+function getSingleRolePermission(
+  info: {
+    environments?: string[];
+    limitAccessByEnvironment?: boolean;
+    role: string;
   },
   org: OrganizationInterface,
 ): UserPermission {
@@ -275,7 +295,11 @@ export function getRolePermissions(
 
   if (roleInfo.projectRoles) {
     for (const pr of roleInfo.projectRoles) {
-      permissions.projects[pr.project] = getUserPermission(pr, org);
+      const existing = permissions.projects[pr.project];
+      const next = getUserPermission(pr, org);
+      permissions.projects[pr.project] = existing
+        ? mergeUserPermissionObj(existing, next, org)
+        : next;
     }
   }
 
@@ -289,7 +313,11 @@ export function getRolePermissions(
         };
         if (teamData.projectRoles) {
           for (const tp of teamData.projectRoles) {
-            teamPermissions.projects[tp.project] = getUserPermission(tp, org);
+            const existing = teamPermissions.projects[tp.project];
+            const next = getUserPermission(tp, org);
+            teamPermissions.projects[tp.project] = existing
+              ? mergeUserPermissionObj(existing, next, org)
+              : next;
           }
         }
         mergeUserAndTeamPermissions(permissions, teamPermissions, org);

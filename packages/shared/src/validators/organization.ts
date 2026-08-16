@@ -3,11 +3,18 @@ import { paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
 
+export const roleRule = z.strictObject({
+  role: z.string(),
+  limitAccessByEnvironment: z.boolean(),
+  environments: z.array(z.string()),
+});
+
 export const memberRoleInfo = z.strictObject({
   role: z.string(),
   limitAccessByEnvironment: z.boolean(),
   environments: z.array(z.string()),
   teams: z.array(z.string()).optional(),
+  additionalRoles: z.array(roleRule).optional(),
 });
 
 export const projectMemberRole = memberRoleInfo.safeExtend({

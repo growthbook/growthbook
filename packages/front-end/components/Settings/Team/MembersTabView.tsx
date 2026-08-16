@@ -7,12 +7,17 @@ import SSOSettings from "@/components/Settings/SSOSettings";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import SelectField from "@/components/Forms/SelectField";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+} from "@/ui/DropdownMenu";
+import { FilterHeading, FilterItem } from "@/components/Search/SearchFilters";
 import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
 import PendingMemberList from "@/components/Settings/Team/PendingMemberList";
 import { isCloud, isMultiOrg } from "@/services/env";
 import AutoApproveMembersToggle from "@/components/Settings/Team/AutoApproveMembersToggle";
-import UpdateDefaultRoleForm from "@/components/Settings/Team/UpdateDefaultRoleForm";
+import DefaultRoleCard from "@/components/Settings/Team/DefaultRoleCard";
 import VerifyingEmailModal from "@/components/Settings/UpgradeModal/VerifyingEmailModal";
 import PleaseVerifyEmailModal from "@/components/Settings/UpgradeModal/PleaseVerifyEmailModal";
 import LicenseSuccessModal from "@/components/Settings/UpgradeModal/LicenseSuccessModal";
@@ -32,6 +37,7 @@ export const MembersTabView: FC = () => {
   const { project, projects } = useDefinitions();
 
   const [currentProject, setCurrentProject] = useState(project || "");
+  const [projectFilterOpen, setProjectFilterOpen] = useState(false);
   const [error, setError] = useState("");
 
   const permissions = usePermissions();
@@ -117,32 +123,44 @@ export const MembersTabView: FC = () => {
       )}
       <SSOSettings ssoConnection={ssoConnection || null} />
       <h1>Team Members</h1>
-      {projects.length > 0 && (
-        <div className="row align-items-center">
-          <div className="col-auto">View roles and permissions for</div>
-          <div className="col-auto">
-            <SelectField
-              size="legacy"
-              value={currentProject}
-              onChange={(value) => setCurrentProject(value)}
-              options={projects.map((p) => ({
-                label: p.name,
-                value: p.id,
-              }))}
-              initialOption="All Projects"
-            />
-          </div>
-        </div>
-      )}
       {isMultiOrg() && (
         <AutoApproveMembersToggle mutate={refreshOrganization} />
       )}
+      {hasCommercialFeature("sso") ? <DefaultRoleCard /> : null}
       <MemberList
         mutate={refreshOrganization}
         project={currentProject}
         canEditRoles={true}
         canDeleteMembers={true}
         canInviteMembers={true}
+        filters={
+          projects.length > 0 ? (
+            <DropdownMenu
+              trigger={FilterHeading({
+                heading:
+                  projects.find((p) => p.id === currentProject)?.name ??
+                  "All Projects",
+                open: projectFilterOpen,
+              })}
+              variant="soft"
+              open={projectFilterOpen}
+              onOpenChange={setProjectFilterOpen}
+            >
+              <DropdownMenuLabel>Show roles for</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => setCurrentProject("")}>
+                <FilterItem item="All Projects" exists={!currentProject} />
+              </DropdownMenuItem>
+              {projects.map((p) => (
+                <DropdownMenuItem
+                  key={p.id}
+                  onClick={() => setCurrentProject(p.id)}
+                >
+                  <FilterItem item={p.name} exists={currentProject === p.id} />
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenu>
+          ) : null
+        }
       />
       {!teams?.length || !organization.customRoles?.length ? (
         <PremiumCallout
@@ -180,7 +198,6 @@ export const MembersTabView: FC = () => {
           numUsersInAccount={organization.members?.length || 0}
         />
       )}
-      {hasCommercialFeature("sso") ? <UpdateDefaultRoleForm /> : null}
     </div>
   );
 };

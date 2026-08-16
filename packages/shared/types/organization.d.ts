@@ -257,7 +257,7 @@ export interface OrganizationSettings {
   sdkInstructionsViewed?: boolean;
   videoInstructionsViewed?: boolean;
   multipleExposureMinPercent?: number;
-  defaultRole?: MemberRoleInfo;
+  defaultRole?: MemberRoleWithProjects;
   statsEngine?: StatsEngine;
   pValueThreshold?: number;
   pValueCorrection?: PValueCorrection;

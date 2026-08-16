@@ -1,13 +1,16 @@
 import { FC, useState } from "react";
-import { PiCheckBold, PiUserCheck, PiXBold } from "react-icons/pi";
+import { PiUserCheck } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PendingMember } from "shared/types/organization";
 import { date, datetime } from "shared/dates";
 import { getRoleDisplayName } from "shared/permissions";
 import { Box, IconButton } from "@radix-ui/themes";
-import { memberEnvAccess, useAuth } from "@/services/auth";
+import { useAuth } from "@/services/auth";
+import EnvironmentAccessCell from "@/components/Settings/EnvironmentAccessCell";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useEnvironments } from "@/services/features";
+import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ChangeRoleModal from "@/components/Settings/Team/ChangeRoleModal";
 import { useUser } from "@/services/UserContext";
@@ -37,7 +40,6 @@ const PendingMemberList: FC<{
   );
   const { projects } = useDefinitions();
   const environments = useEnvironments();
-  const forceScroll = environments.length > 3;
   const { organization } = useUser();
 
   return (
@@ -55,6 +57,7 @@ const PendingMemberList: FC<{
             limitAccessByEnvironment: !!roleModalUser.limitAccessByEnvironment,
             role: roleModalUser.role,
             projectRoles: roleModalUser.projectRoles,
+            additionalRoles: roleModalUser.additionalRoles,
           }}
           close={() => setRoleModalUser(null)}
           onConfirm={async (value) => {
@@ -66,24 +69,33 @@ const PendingMemberList: FC<{
           }}
         />
       )}
-      <Table
-        variant="surface"
-        style={forceScroll ? { whiteSpace: "nowrap" } : undefined}
-      >
+      <Table variant="surface" layout="fixed">
         <TableHeader>
           <TableRow>
-            <TableColumnHeader>Name</TableColumnHeader>
-            <TableColumnHeader>Email</TableColumnHeader>
-            <TableColumnHeader>Date Joined</TableColumnHeader>
-            <TableColumnHeader>
-              {project ? "Project Role" : "Global Role"}
+            <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.name}>
+              Name
             </TableColumnHeader>
-            {!project && <TableColumnHeader>Project Roles</TableColumnHeader>}
-            {environments.map((env) => (
-              <TableColumnHeader key={env.id}>{env.id}</TableColumnHeader>
-            ))}
-            <TableColumnHeader />
-            <TableColumnHeader style={{ width: 50 }} />
+            <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.email}>
+              Email
+            </TableColumnHeader>
+            <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.dateOnly}>
+              Date Joined
+            </TableColumnHeader>
+            <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.role}>
+              {project ? "Project Role" : "Role"}
+            </TableColumnHeader>
+            {!project && (
+              <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.projectRoles}>
+                Project Roles
+              </TableColumnHeader>
+            )}
+            <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.environments}>
+              <Tooltip body="Environments this member can publish, create, delete and revert in. Hover a value for the full breakdown.">
+                Environments
+              </Tooltip>
+            </TableColumnHeader>
+            <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.teams} />
+            <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.actions} />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -128,25 +140,14 @@ const PendingMemberList: FC<{
                     })}
                   </TableCell>
                 )}
-                {environments.map((env) => {
-                  const access = memberEnvAccess(
-                    member,
-                    env,
-                    organization,
-                    project,
-                  );
-                  return (
-                    <TableCell key={env.id}>
-                      {access === "N/A" ? (
-                        <Text color="text-low">N/A</Text>
-                      ) : access === "yes" ? (
-                        <PiCheckBold color="var(--green-11)" />
-                      ) : (
-                        <PiXBold color="var(--red-11)" />
-                      )}
-                    </TableCell>
-                  );
-                })}
+                <TableCell>
+                  <EnvironmentAccessCell
+                    principal={member}
+                    environments={environments}
+                    organization={organization}
+                    project={project}
+                  />
+                </TableCell>
                 <TableCell>
                   <Button
                     variant="outline"
