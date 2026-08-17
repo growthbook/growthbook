@@ -207,3 +207,51 @@ describe("expressing judge-everywhere, operate-in-dev with two rules", () => {
     ).toBe(true);
   });
 });
+
+const viaStaffEngineersTeam = () => {
+  const o = org(true, "collaborator", []);
+  o.members[0].teams = ["team_staff"];
+  const teams = [
+    {
+      id: "team_staff",
+      name: "Staff Engineers",
+      role: "engineer",
+      limitAccessByEnvironment: true,
+      environments: ["development"],
+      additionalRoles: [
+        { role: "reviewer", limitAccessByEnvironment: false, environments: [] },
+      ],
+      projectRoles: [],
+    },
+  ];
+  return new Permissions(
+    getUserPermissions(
+      { id: "u_1" },
+      o,
+      teams as unknown as Parameters<typeof getUserPermissions>[2],
+    ),
+    { envScopedReview: true },
+  );
+};
+
+describe("the same two rules applied once via a team", () => {
+  it("gives every member review everywhere but publish only in dev", () => {
+    const p = viaStaffEngineersTeam();
+    expect(
+      p.canReviewFeatureDrafts(feature, {
+        scope: "environments",
+        environments: ["production"],
+      }),
+    ).toBe(true);
+    expect(p.canPublishFeature(feature, ["production"])).toBe(false);
+    expect(p.canPublishFeature(feature, ["development"])).toBe(true);
+  });
+
+  it("carries the unrestricted review rule through to unbound changes", () => {
+    expect(
+      viaStaffEngineersTeam().canReviewFeatureDrafts(feature, {
+        scope: "unbound",
+      }),
+    ).toBe(true);
+  });
+});
