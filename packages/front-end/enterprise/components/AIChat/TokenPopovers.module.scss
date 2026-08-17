@@ -3,16 +3,28 @@
 // ordinary theme colours apply and nothing has to be pinned to a step that
 // survives inversion.
 //
-// Narrow and quiet: it annotates a word in a sentence, so it should read at a
-// glance rather than be a panel in its own right.
+// The popover contributes vertical padding only. Inline padding belongs to the
+// rows, so the description's scroll area can run the full width of the card and
+// put its scrollbar against the right edge.
 .card {
+  --token-popover-inline-padding: 12px;
+
   display: flex;
   flex-direction: column;
   gap: 6px;
   max-width: 280px;
+  // A metric description can run to several paragraphs. Cap the card and let
+  // only the description scroll, so the name, the type and the link stay put
+  // instead of being scrolled out of a card the user is reading.
+  max-height: 400px;
   font-size: var(--font-size-1);
   line-height: 1.5;
   color: var(--gray-12);
+}
+
+// Prose needs a longer measure than a name and a badge do.
+.cardWide {
+  max-width: 380px;
 }
 
 // Name and type badge, the same pairing the `@` menu shows for the same metric.
@@ -20,6 +32,12 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+.header,
+.warning,
+.empty {
+  padding-inline: var(--token-popover-inline-padding);
 }
 
 .name {
@@ -32,8 +50,36 @@
   font-weight: 500;
 }
 
+// Edge to edge, so the scrollbar sits against the card's right edge rather than
+// floating inside it. `min-height: 0` is what lets it shrink below its content
+// in the flex column — without it the card just grows past its cap.
+.scroll {
+  min-height: 0;
+}
+
+// Rendered as markdown, since that is how descriptions are authored and how the
+// metric page shows them. The extra right padding is the gap between the text
+// and the scrollbar overlaying the edge.
 .description {
+  padding-left: var(--token-popover-inline-padding);
+  padding-right: 20px;
+  overflow-wrap: break-word;
   color: var(--gray-11);
+
+  // Descriptions are written for the metric page, where a heading has a full
+  // column to sit in. In a card an `# H1` would dwarf the metric's own name
+  // directly above it, so headings keep their weight and drop to body size.
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    margin: 0 0 2px;
+    font-size: var(--font-size-2);
+    font-weight: 600;
+    color: var(--gray-12);
+  }
 }
 
 .empty {
@@ -47,9 +93,11 @@
   font-weight: 500;
 }
 
-// Sits on its own line under the description rather than beside the name: it
-// is the one thing here you can act on, and the card is too narrow to hold a
-// name, a badge and an action on one row without them colliding.
+// Sits on its own line under the description rather than beside the name: it is
+// the one thing here you can act on, and the card is too narrow to hold a name,
+// a badge and an action on one row without them colliding. Margin rather than
+// padding so the hit area stays tight to the text.
 .action {
   align-self: flex-start;
+  margin-left: var(--token-popover-inline-padding);
 }

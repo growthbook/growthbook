@@ -1,8 +1,10 @@
 import type { ReactElement } from "react";
+import { ScrollArea } from "@radix-ui/themes";
 import type { AIChatMention } from "shared/ai-chat";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import { Popover } from "@/ui/Popover";
+import Markdown from "@/components/Markdown/Markdown";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useSkillCommandItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
 import { metricTypeLabel } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
@@ -25,8 +27,14 @@ import styles from "./TokenPopovers.module.scss";
  * used to be.
  */
 
-/** Shared padding, so the editor's own card matches a real popover exactly. */
-export const TOKEN_POPOVER_PADDING = "10px 12px";
+/**
+ * Shared padding, so the editor's own card matches a real popover exactly.
+ *
+ * Vertical only — each row owns its inline padding instead, which lets the
+ * description's scroll area run to the card's edges so its scrollbar sits at
+ * the far right rather than floating 12px inside it.
+ */
+export const TOKEN_POPOVER_PADDING = "10px 0";
 
 /** Branches on the mention's own type rather than guessing from the id shape. */
 function metricHref({ type, id }: AIChatMention): string {
@@ -68,7 +76,7 @@ export function MentionPopoverContent({
   }
 
   return (
-    <div className={styles.card}>
+    <div className={cardClass(description)}>
       {/* Name and type read as one unit, the same pairing the `@` menu uses. */}
       <div className={styles.header}>
         <span className={styles.name}>{mention.name}</span>
@@ -84,7 +92,7 @@ export function MentionPopoverContent({
         </div>
       )}
       {description ? (
-        <div className={styles.description}>{description}</div>
+        <Description>{description}</Description>
       ) : (
         <div className={styles.empty}>No description</div>
       )}
@@ -92,6 +100,29 @@ export function MentionPopoverContent({
         {openLabel(mention.type)}
       </Link>
     </div>
+  );
+}
+
+/** Roomier once there is prose to read; a bare name doesn't need the width. */
+function cardClass(description?: string): string {
+  return description ? `${styles.card} ${styles.cardWide}` : styles.card;
+}
+
+/**
+ * The scrolling half of the card.
+ *
+ * The scroll area spans the card edge to edge so its scrollbar lands against
+ * the right edge, and the padding that keeps text clear of it lives on the
+ * content inside — the same arrangement `@/ui/Modal` uses for its body.
+ *
+ * Descriptions are authored as markdown (the metric page edits them with
+ * `MarkdownInlineEdit`), so they render the same way here.
+ */
+function Description({ children }: { children: string }) {
+  return (
+    <ScrollArea type="auto" scrollbars="vertical" className={styles.scroll}>
+      <Markdown className={styles.description}>{children}</Markdown>
+    </ScrollArea>
   );
 }
 
@@ -106,11 +137,11 @@ export function SkillPopoverContent({
   if (!description) return null;
 
   return (
-    <div className={styles.card}>
+    <div className={cardClass(description)}>
       <div className={styles.header}>
         <span className={styles.command}>{text}</span>
       </div>
-      <div className={styles.description}>{description}</div>
+      <Description>{description}</Description>
     </div>
   );
 }
