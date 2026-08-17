@@ -328,10 +328,8 @@ function stripDefaultedFromRequired(node: unknown): void {
   }
 }
 
-// Remove properties marked `x-undocumented`. These are inputs the API still
-// accepts — usually a response-shaped key posted back to a write endpoint — that
-// we don't want to advertise as part of the contract. Applied to request
-// schemas only, so responses continue to describe what is actually returned.
+// Drop properties marked `x-undocumented`: inputs we still accept but don't
+// advertise. Request schemas only, so responses keep describing what we return.
 function stripUndocumentedProperties(node: unknown): void {
   if (Array.isArray(node)) {
     node.forEach(stripUndocumentedProperties);

@@ -62,7 +62,7 @@ export type BackEndApiEndpointSpec<
   possibleErrors?: readonly ApiErrorCode[];
 };
 
-/** Request fields accepted under a different name, mapped to the documented one. */
+// Fields accepted under an older name, mapped to the documented one.
 const ALTERNATE_FIELD_NAMES: Record<string, string> = {
   savedGroupTargeting: "savedGroups",
 };
@@ -73,7 +73,7 @@ type IssueLike = {
   errors?: readonly (readonly IssueLike[])[];
 };
 
-/** Unrecognized keys, including those nested inside union branch failures. */
+// Includes keys nested inside union branch failures.
 function collectUnrecognizedKeys(issues: readonly IssueLike[]): string[] {
   const keys: string[] = [];
   for (const issue of issues) {
@@ -162,7 +162,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** Keys the caller sent that Zod stripped, as dotted paths. */
+// Keys the caller sent that Zod stripped, as dotted paths.
 function collectStrippedKeys(
   raw: unknown,
   parsed: unknown,
@@ -183,7 +183,7 @@ function collectStrippedKeys(
   return dropped;
 }
 
-/** Alternate-named fields present in the body, with the name to use instead. */
+// Alternate-named fields in the body, with the name to use instead.
 function collectAlternateKeys(
   value: unknown,
   path = "",
@@ -204,11 +204,8 @@ function collectAlternateKeys(
   return found;
 }
 
-/**
- * Advisories about how a request body was interpreted. Non-fatal by
- * construction: they ride along with a 2xx and are never gated behind
- * `ignoreWarnings`, so an automation that ignores them behaves as before.
- */
+// Advisories about how a request body was read. Always ride along with a 2xx
+// and are never gated behind `ignoreWarnings`.
 export function buildInputWarnings(raw: unknown, parsed: unknown): string[] {
   return [
     ...collectStrippedKeys(raw, parsed).map(

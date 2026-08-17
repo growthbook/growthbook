@@ -43,7 +43,7 @@ export const savedGroupTargeting = z
   .strict();
 export type SavedGroupTargeting = z.infer<typeof savedGroupTargeting>;
 
-/** Advisories returned alongside a 2xx describing how a request was interpreted. */
+// Advisories returned alongside a 2xx describing how a request was read.
 export const inputWarningsField = z
   .array(z.string())
   .optional()

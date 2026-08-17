@@ -496,8 +496,7 @@ const postFeatureSavedGroupTargeting = z.object({
   savedGroups: z.array(z.string()),
 });
 
-// `savedGroupTargeting` is the response spelling, accepted so a GET can be
-// posted back unchanged but left out of the docs. `savedGroups` wins.
+// `savedGroupTargeting` is the response spelling: accepted, undocumented, loses.
 const v2RuleSavedGroupInput = {
   savedGroups: z.array(savedGroupTargeting).optional(),
   savedGroupTargeting: z
