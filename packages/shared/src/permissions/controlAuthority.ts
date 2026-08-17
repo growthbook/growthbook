@@ -31,7 +31,7 @@ export function canCommentOnRevisionEntity(
   return (
     permissionsUtil.canAddComment(projects) ||
     permissionsUtil.canRevisionAction(model, "draft", basis) ||
-    permissionsUtil.canRevisionAction(model, "review", basis)
+    permissionsUtil.canRevisionAction(model, "review", basis, null)
   );
 }
 

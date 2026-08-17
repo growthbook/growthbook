@@ -16,7 +16,9 @@ export const postFeatureRevisionUndoReviewV2 = createApiRequestHandler(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (!req.context.permissions.canReviewFeatureDrafts(feature)) {
+  if (
+    !req.context.permissions.canReviewFeatureDrafts(feature, { scope: "any" })
+  ) {
     req.context.permissions.throwPermissionError();
   }
 

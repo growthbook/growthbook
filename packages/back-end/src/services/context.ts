@@ -462,9 +462,7 @@ export class ReqContextClass {
       );
     }
 
-    this.permissions = new Permissions(this.userPermissions, {
-      envScopedReview: org.settings?.envScopedReview,
-    });
+    this.permissions = new Permissions(this.userPermissions);
 
     this.initModels();
   }

@@ -1,7 +1,7 @@
 import { cloneDeep } from "lodash";
 import {
   ALL_PERMISSIONS,
-  envScopedPermissions,
+  ENV_SCOPED_PERMISSIONS,
   roleSupportsEnvLimit,
   roleToPermissionMap,
 } from "shared/permissions";
@@ -16,12 +16,8 @@ import {
 import { TeamInterface } from "shared/types/team";
 import { SUPERADMIN_DEFAULT_ROLE } from "./secrets";
 
-function hasEnvScopedPermissions(
-  userPermission: PermissionsObject,
-  org: OrganizationInterface,
-): boolean {
-  const envLimitedPermissions: readonly Permission[] =
-    envScopedPermissions(org);
+function hasEnvScopedPermissions(userPermission: PermissionsObject): boolean {
+  const envLimitedPermissions: readonly Permission[] = ENV_SCOPED_PERMISSIONS;
 
   for (const permission of envLimitedPermissions) {
     if (userPermission[permission]) {
@@ -79,11 +75,9 @@ function mergeEnvironmentLimits(
 ): UserPermission {
   const existingRoleSupportsEnvLimits = hasEnvScopedPermissions(
     existingPermissions.permissions,
-    org,
   );
   const newRoleSupportsEnvLimits = hasEnvScopedPermissions(
     newPermissions.permissions,
-    org,
   );
 
   if (!existingRoleSupportsEnvLimits && !newRoleSupportsEnvLimits) {
@@ -260,7 +254,7 @@ function getSingleRolePermission(
     limitAccessByEnvironment,
     org,
   );
-  const envScoped = envScopedPermissions(org).filter((p) => permissions[p]);
+  const envScoped = ENV_SCOPED_PERMISSIONS.filter((p) => permissions[p]);
   return {
     environments,
     limitAccessByEnvironment: effectiveLimit,

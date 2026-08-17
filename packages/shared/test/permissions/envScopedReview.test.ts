@@ -35,12 +35,8 @@ const unrestrictedReviewer: UserPermissions = {
   projects: {},
 };
 
-const review = (
-  perms: UserPermissions,
-  envScopedReview: boolean,
-  environments: string[],
-) =>
-  new Permissions(perms, { envScopedReview }).canRevisionAction(
+const review = (perms: UserPermissions, environments: string[]) =>
+  new Permissions(perms).canRevisionAction(
     "feature",
     "review",
     { project: "prj_1" },
@@ -48,57 +44,42 @@ const review = (
   );
 
 describe("environment-scoped review", () => {
-  describe("off (default)", () => {
-    it("lets a dev-limited reviewer review a production draft", () => {
-      expect(review(devOnlyReviewer, false, ["production"])).toBe(true);
-    });
-
-    it("lets a dev-limited reviewer review an unbound change", () => {
-      expect(review(devOnlyReviewer, false, [])).toBe(true);
-    });
+  it("refuses a production draft to a dev-limited reviewer", () => {
+    expect(review(devOnlyReviewer, ["production"])).toBe(false);
   });
 
-  describe("on", () => {
-    it("refuses a production draft to a dev-limited reviewer", () => {
-      expect(review(devOnlyReviewer, true, ["production"])).toBe(false);
-    });
+  it("allows the environments the reviewer does hold", () => {
+    expect(review(devOnlyReviewer, ["dev"])).toBe(true);
+  });
 
-    it("allows the environments the reviewer does hold", () => {
-      expect(review(devOnlyReviewer, true, ["dev"])).toBe(true);
-    });
+  it("refuses a draft spanning held and unheld environments", () => {
+    expect(review(devOnlyReviewer, ["dev", "production"])).toBe(false);
+  });
 
-    it("refuses a draft spanning held and unheld environments", () => {
-      expect(review(devOnlyReviewer, true, ["dev", "production"])).toBe(false);
-    });
+  it("allows an unrestricted reviewer anywhere", () => {
+    expect(review(unrestrictedReviewer, ["production"])).toBe(true);
+  });
 
-    it("allows an unrestricted reviewer anywhere", () => {
-      expect(review(unrestrictedReviewer, true, ["production"])).toBe(true);
-    });
+  it("fails closed on an unbound change for a limited reviewer", () => {
+    expect(review(devOnlyReviewer, [])).toBe(false);
+  });
 
-    it("fails closed on an unbound change for a limited reviewer", () => {
-      expect(review(devOnlyReviewer, true, [])).toBe(false);
-    });
+  it("allows an unbound change for an unrestricted reviewer", () => {
+    expect(review(unrestrictedReviewer, [])).toBe(true);
+  });
 
-    it("allows an unbound change for an unrestricted reviewer", () => {
-      expect(review(unrestrictedReviewer, true, [])).toBe(true);
-    });
+  it("leaves saved groups project-scoped", () => {
+    const canReview = new Permissions({
+      global: {
+        environments: ["dev"],
+        limitAccessByEnvironment: true,
+        permissions: { reviewSavedGroups: true },
+      },
+      projects: {},
+    }).canRevisionAction("saved-group", "review", { project: "prj_1" }, [
+      "production",
+    ]);
 
-    it("leaves saved groups project-scoped", () => {
-      const canReview = new Permissions(
-        {
-          global: {
-            environments: ["dev"],
-            limitAccessByEnvironment: true,
-            permissions: { reviewSavedGroups: true },
-          },
-          projects: {},
-        },
-        { envScopedReview: true },
-      ).canRevisionAction("saved-group", "review", { project: "prj_1" }, [
-        "production",
-      ]);
-
-      expect(canReview).toBe(true);
-    });
+    expect(canReview).toBe(true);
   });
 });

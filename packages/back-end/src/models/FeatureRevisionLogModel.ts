@@ -69,7 +69,7 @@ export class FeatureRevisionLogModel extends BaseClass {
     return (
       permissions.canCreateFeature(feature, NO_ENVIRONMENT_BINDING) ||
       permissions.canEditFeatureDrafts(feature) ||
-      permissions.canReviewFeatureDrafts(feature) ||
+      permissions.canReviewFeatureDrafts(feature, { scope: "any" }) ||
       permissions.canPublishFeature(feature, NO_ENVIRONMENT_BINDING) ||
       permissions.canRevertFeature(feature, NO_ENVIRONMENT_BINDING) ||
       permissions.canDeleteFeature(feature, NO_ENVIRONMENT_BINDING) ||

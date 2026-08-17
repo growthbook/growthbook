@@ -752,7 +752,7 @@ export default function ReviewAndPublish({
   const canReview =
     !!isPendingReview &&
     createdBy?.id !== user?.id &&
-    permissionsUtil.canReviewFeatureDrafts(feature);
+    permissionsUtil.canReviewFeatureDrafts(feature, { scope: "any" });
   // Advancing a draft takes draft authority, or revert/delete authority over a
   // draft that only does what they cover (or one the caller authored). The
   // client goes on provenance alone; the server re-verifies purity.
@@ -1742,7 +1742,9 @@ export default function ReviewAndPublish({
     status: revision.status,
     mergeSuccess: mergeResult.success,
     hasChanges: hasChanges || isStranded,
-    hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(feature),
+    hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(feature, {
+      scope: "any",
+    }),
     // Recall is derived from this in the state machine, and revert/delete
     // authority may recall a review request on a draft they authored — so pass
     // the widened predicate rather than the bare draft atom.

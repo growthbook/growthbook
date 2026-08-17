@@ -4273,6 +4273,9 @@ export function computeContextualBanditLinkageDelta({
 export type ReviewAuthorityFootprint =
   | { scope: "environments"; environments: string[] }
   | { scope: "everywhere" }
+  // Not sanctioning anything — reads, comments, withdrawing an approval. Asks
+  // only whether the person holds review here at all.
+  | { scope: "any" }
   // Metadata with no environment binding. Requires authority no environment
   // limit restricts, since an empty environment list would pass vacuously.
   | { scope: "unbound" };

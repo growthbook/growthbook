@@ -107,7 +107,9 @@ describe("Role permissions", () => {
     expect(p.canManageOrgSettings()).toBe(false);
     expect(p.canManageTeam()).toBe(false);
     expect(p.canPublishFeature(projectResource, envs)).toBe(false);
-    expect(p.canReviewFeatureDrafts(projectResource)).toBe(false);
+    expect(p.canReviewFeatureDrafts(projectResource, { scope: "any" })).toBe(
+      false,
+    );
     expect(p.canRunExperiment(projectResource, envs)).toBe(false);
     expect(p.canRunExperimentQueries(projectsResource)).toBe(false);
     expect(p.canRunFactQueries(projectsResource)).toBe(false);
@@ -241,7 +243,9 @@ describe("Role permissions", () => {
     expect(p.canManageOrgSettings()).toBe(false);
     expect(p.canManageTeam()).toBe(false);
     expect(p.canPublishFeature(projectResource, envs)).toBe(false);
-    expect(p.canReviewFeatureDrafts(projectResource)).toBe(false);
+    expect(p.canReviewFeatureDrafts(projectResource, { scope: "any" })).toBe(
+      false,
+    );
     expect(p.canRunExperiment(projectResource, envs)).toBe(false);
     expect(p.canRunExperimentQueries(projectsResource)).toBe(false);
     expect(p.canRunFactQueries(projectsResource)).toBe(false);
@@ -376,7 +380,9 @@ describe("Role permissions", () => {
     expect(p.canManageOrgSettings()).toBe(false);
     expect(p.canManageTeam()).toBe(false);
     expect(p.canPublishFeature(projectResource, envs)).toBe(false);
-    expect(p.canReviewFeatureDrafts(projectResource)).toBe(false);
+    expect(p.canReviewFeatureDrafts(projectResource, { scope: "any" })).toBe(
+      false,
+    );
     expect(p.canRunExperiment(projectResource, envs)).toBe(false);
     expect(p.canRunExperimentQueries(projectsResource)).toBe(false);
     expect(p.canRunFactQueries(projectsResource)).toBe(false);
@@ -511,7 +517,9 @@ describe("Role permissions", () => {
     expect(p.canManageOrgSettings()).toBe(false);
     expect(p.canManageTeam()).toBe(false);
     expect(p.canPublishFeature(projectResource, envs)).toBe(false);
-    expect(p.canReviewFeatureDrafts(projectResource)).toBe(false);
+    expect(p.canReviewFeatureDrafts(projectResource, { scope: "any" })).toBe(
+      false,
+    );
     expect(p.canRunExperiment(projectResource, envs)).toBe(false);
     expect(p.canRunExperimentQueries(projectsResource)).toBe(false);
     expect(p.canRunFactQueries(projectsResource)).toBe(false);
@@ -646,7 +654,9 @@ describe("Role permissions", () => {
     expect(p.canManageOrgSettings()).toBe(false);
     expect(p.canManageTeam()).toBe(false);
     expect(p.canPublishFeature(projectResource, envs)).toBe(true);
-    expect(p.canReviewFeatureDrafts(projectResource)).toBe(true);
+    expect(p.canReviewFeatureDrafts(projectResource, { scope: "any" })).toBe(
+      true,
+    );
     expect(p.canRunExperiment(projectResource, envs)).toBe(true);
     expect(p.canRunExperimentQueries(projectsResource)).toBe(false);
     expect(p.canRunFactQueries(projectsResource)).toBe(false);
@@ -781,7 +791,9 @@ describe("Role permissions", () => {
     expect(p.canManageOrgSettings()).toBe(false);
     expect(p.canManageTeam()).toBe(false);
     expect(p.canPublishFeature(projectResource, envs)).toBe(false);
-    expect(p.canReviewFeatureDrafts(projectResource)).toBe(false);
+    expect(p.canReviewFeatureDrafts(projectResource, { scope: "any" })).toBe(
+      false,
+    );
     expect(p.canRunExperiment(projectResource, envs)).toBe(false);
     expect(p.canRunExperimentQueries(projectsResource)).toBe(true);
     expect(p.canRunFactQueries(projectsResource)).toBe(true);
@@ -916,7 +928,9 @@ describe("Role permissions", () => {
     expect(p.canManageOrgSettings()).toBe(false);
     expect(p.canManageTeam()).toBe(false);
     expect(p.canPublishFeature(projectResource, envs)).toBe(true);
-    expect(p.canReviewFeatureDrafts(projectResource)).toBe(true);
+    expect(p.canReviewFeatureDrafts(projectResource, { scope: "any" })).toBe(
+      true,
+    );
     expect(p.canRunExperiment(projectResource, envs)).toBe(true);
     expect(p.canRunExperimentQueries(projectsResource)).toBe(true);
     expect(p.canRunFactQueries(projectsResource)).toBe(true);
@@ -1051,7 +1065,9 @@ describe("Role permissions", () => {
     expect(p.canManageOrgSettings()).toBe(true);
     expect(p.canManageTeam()).toBe(true);
     expect(p.canPublishFeature(projectResource, envs)).toBe(true);
-    expect(p.canReviewFeatureDrafts(projectResource)).toBe(true);
+    expect(p.canReviewFeatureDrafts(projectResource, { scope: "any" })).toBe(
+      true,
+    );
     expect(p.canRunExperiment(projectResource, envs)).toBe(true);
     expect(p.canRunExperimentQueries(projectsResource)).toBe(true);
     expect(p.canRunFactQueries(projectsResource)).toBe(true);

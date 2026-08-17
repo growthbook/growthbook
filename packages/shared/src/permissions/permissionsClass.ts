@@ -77,13 +77,8 @@ function isEventForwarderManagedFactTable(
 
 export class Permissions {
   private userPermissions: UserPermissions;
-  private envScopedReview: boolean;
-  constructor(
-    permissions: UserPermissions,
-    options: { envScopedReview?: boolean } = {},
-  ) {
+  constructor(permissions: UserPermissions) {
     this.userPermissions = permissions;
-    this.envScopedReview = !!options.envScopedReview;
   }
 
   //Global Permissions
@@ -378,15 +373,19 @@ export class Permissions {
     model: RevisionModel,
     action: RevisionAction,
     obj: { project?: string; projects?: string[] },
-    environments: string[] = [],
+    // `null` means no environment constraint — the caller is not sanctioning a
+    // change. `[]` still means an unbound change, which fails closed.
+    environments: string[] | null = [],
   ): boolean => {
     const projects = obj.projects ?? (obj.project ? [obj.project] : []);
-    const { permission, scope } = revisionActionPermission(
-      model,
-      action,
-      this.envScopedReview,
-    );
+    const { permission, scope } = revisionActionPermission(model, action);
     if (scope === "environment") {
+      if (environments === null) {
+        return this.checkProjectFilterPermission(
+          { projects },
+          permission as ProjectScopedPermission,
+        );
+      }
       // An unbound change (metadata, a base Config value) has no environment to
       // check, so reviewing one takes authority no environment limit restricts.
       if (action === "review" && !environments.length) {
@@ -1061,9 +1060,12 @@ export class Permissions {
     });
   };
 
+  // The footprint is required: a caller that does not say what the draft
+  // changes cannot be given a safe default. Use `{ scope: "any" }` when not
+  // sanctioning a change.
   public canReviewFeatureDrafts = (
     feature: Pick<FeatureInterface, "project">,
-    footprint: ReviewAuthorityFootprint = { scope: "everywhere" },
+    footprint: ReviewAuthorityFootprint,
   ): boolean => {
     // Reviewer eligibility follows the primary project only. Targeting projects
     // affect whether a review is required, never who may approve.
@@ -1072,7 +1074,11 @@ export class Permissions {
     // fail-closed: authority no environment limit restricts. Holding every
     // environment already normalizes to exactly that.
     const environments =
-      footprint.scope === "environments" ? footprint.environments : [];
+      footprint.scope === "environments"
+        ? footprint.environments
+        : footprint.scope === "any"
+          ? null
+          : [];
     return this.canRevisionAction("feature", "review", obj, environments);
   };
 
@@ -1308,7 +1314,7 @@ export class Permissions {
     return (
       this.canEditFeatureDrafts(feature) ||
       this.canPublishFeature(feature, NO_ENVIRONMENT_BINDING) ||
-      this.canReviewFeatureDrafts(feature) ||
+      this.canReviewFeatureDrafts(feature, { scope: "any" }) ||
       (!!datasource &&
         this.checkProjectFilterPermission(datasource, "runQueries"))
     );

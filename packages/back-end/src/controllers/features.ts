@@ -1520,7 +1520,9 @@ export async function postFeatureApproveAndPublish(
   const feature = await getFeature(context, id);
   if (!feature) throw new Error("Could not find feature");
 
-  if (!context.permissions.canReviewFeatureDrafts(feature)) {
+  // Coarse refusal first, so someone with no review rights still gets a 403
+  // rather than a 404 for a bad version.
+  if (!context.permissions.canReviewFeatureDrafts(feature, { scope: "any" })) {
     context.permissions.throwPermissionError();
   }
 
@@ -1532,6 +1534,16 @@ export async function postFeatureApproveAndPublish(
     version: parseInt(version),
   });
   if (!revision) throw new Error("Could not find feature revision");
+
+  // Granting the approval, so judge it against what the draft would change.
+  const approveFootprint = await getFeatureReviewFootprint({
+    context,
+    feature,
+    revision,
+  });
+  if (!context.permissions.canReviewFeatureDrafts(feature, approveFootprint)) {
+    context.permissions.throwPermissionError();
+  }
 
   const createdByUser = revision.createdBy as EventUserLoggedIn;
   if (createdByUser?.id === context.userId) {
@@ -1868,7 +1880,7 @@ export async function postFeatureUndoReview(
   const { id, version } = req.params;
   const feature = await getFeature(context, id);
   if (!feature) throw new Error("Could not find feature");
-  if (!context.permissions.canReviewFeatureDrafts(feature)) {
+  if (!context.permissions.canReviewFeatureDrafts(feature, { scope: "any" })) {
     context.permissions.throwPermissionError();
   }
   const revision = await getRevision({

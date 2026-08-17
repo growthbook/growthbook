@@ -372,9 +372,10 @@ const ApprovalRequests: FC = () => {
   const canReviewRow = useCallback(
     (row: ApprovalRow): boolean => {
       if (row.entityType === "feature") {
-        return permissionsUtil.canReviewFeatureDrafts({
-          project: row.projects[0] ?? "",
-        });
+        return permissionsUtil.canReviewFeatureDrafts(
+          { project: row.projects[0] ?? "" },
+          { scope: "any" },
+        );
       }
       if (
         row.entityType === "saved-group" ||

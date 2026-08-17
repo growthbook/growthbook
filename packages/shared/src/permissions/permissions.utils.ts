@@ -17,23 +17,9 @@ import {
   READ_ONLY_PERMISSIONS,
   RESERVED_ROLE_IDS,
 } from "./permissions.constants";
-import { ENV_SCOPED_REVIEW_PERMISSIONS } from "./revisionPermissions";
 
-// An org that opted into env-scoped review adds the review atoms to the set, so
-// per-role envGrants carry them and a reviewer's environments actually bind.
-export function envScopedPermissions(
-  org: Partial<OrganizationInterface>,
-): readonly Permission[] {
-  return org.settings?.envScopedReview
-    ? [...ENV_SCOPED_PERMISSIONS, ...ENV_SCOPED_REVIEW_PERMISSIONS]
-    : ENV_SCOPED_PERMISSIONS;
-}
-
-export function policiesSupportEnvLimit(
-  policies: Policy[],
-  org: Partial<OrganizationInterface> = {},
-): boolean {
-  const scoped = envScopedPermissions(org) as readonly string[];
+export function policiesSupportEnvLimit(policies: Policy[]): boolean {
+  const scoped = ENV_SCOPED_PERMISSIONS as readonly string[];
   return policies.some((policy) =>
     POLICY_PERMISSION_MAP[policy]?.some((permission) =>
       scoped.includes(permission),
@@ -235,7 +221,7 @@ export function envScopedPermissionsForRole(
   if (!role) return [];
 
   const permissions = permissionsFromRole(role);
-  return envScopedPermissions(org).filter((p) => permissions[p]);
+  return ENV_SCOPED_PERMISSIONS.filter((p) => permissions[p]);
 }
 
 export function roleSupportsEnvLimit(
@@ -327,11 +313,9 @@ export function getEffectiveRolesForProject(
 }
 
 // Whether a role can be limited by environment: true if any of its policies
-// carries an environment-scoped atom. Pass the org so an opted-in org counts
-// the review atoms too.
+// carries an environment-scoped atom.
 export function roleSupportsEnvLimitFromRole(
   role: Pick<Role, "policies">,
-  org: Partial<OrganizationInterface> = {},
 ): boolean {
-  return policiesSupportEnvLimit(role.policies || [], org);
+  return policiesSupportEnvLimit(role.policies || []);
 }
