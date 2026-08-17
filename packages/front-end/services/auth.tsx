@@ -723,6 +723,10 @@ export function roleHasAccessToEnv(
   env: string,
   org: Partial<OrganizationInterface>,
 ): "yes" | "no" | "N/A" {
+  if (role.role === "admin" || role.role === "gbDefault_projectAdmin") {
+    return "yes";
+  }
+
   if (!roleSupportsEnvLimit(role.role, org)) return "N/A";
 
   if (!role.limitAccessByEnvironment) return "yes";
@@ -730,4 +734,41 @@ export function roleHasAccessToEnv(
   if (role.environments.includes(env)) return "yes";
 
   return "no";
+}
+
+type EnvAccessPrincipal = MemberRoleInfo & {
+  projectRoles?: (MemberRoleInfo & { project: string })[];
+};
+
+/** Resolves effective environment access for one project or across all projects. */
+export function memberEnvAccess(
+  principal: EnvAccessPrincipal,
+  environment: { id: string; projects?: string[] },
+  org: Partial<OrganizationInterface>,
+  project: string,
+): "yes" | "no" | "N/A" {
+  const envProjects = environment.projects?.length
+    ? environment.projects
+    : null;
+
+  if (project) {
+    if (envProjects && !envProjects.includes(project)) return "N/A";
+    const projectRole = principal.projectRoles?.find(
+      (r) => r.project === project,
+    );
+    return roleHasAccessToEnv(projectRole ?? principal, environment.id, org);
+  }
+
+  const results: ("yes" | "no" | "N/A")[] = [
+    roleHasAccessToEnv(principal, environment.id, org),
+  ];
+  (principal.projectRoles ?? []).forEach((pr) => {
+    if (!envProjects || envProjects.includes(pr.project)) {
+      results.push(roleHasAccessToEnv(pr, environment.id, org));
+    }
+  });
+
+  if (results.includes("yes")) return "yes";
+  if (results.includes("no")) return "no";
+  return "N/A";
 }

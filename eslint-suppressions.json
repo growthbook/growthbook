@@ -4,11 +4,6 @@
       "count": 1
     }
   },
-  "packages/back-end/src/services/features.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Admin/EditOrganization.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -868,9 +863,6 @@
   "packages/front-end/components/GeneralSettings/AISettings.tsx": {
     "no-restricted-imports": {
       "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 4
     }
   },
   "packages/front-end/components/GeneralSettings/BanditSettings.tsx": {
@@ -1821,11 +1813,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Teams/Roles/RoleForm.tsx": {
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
   "packages/front-end/components/Teams/TeamModal.tsx": {
     "no-restricted-syntax": {
       "count": 3
@@ -1842,11 +1829,6 @@
     }
   },
   "packages/front-end/enterprise/components/AIChat/AIChatModelSelect.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/enterprise/components/AIChat/ChatInputBar.tsx": {
     "no-restricted-syntax": {
       "count": 1
     }
@@ -2010,11 +1992,6 @@
       "count": 2
     }
   },
-  "packages/front-end/enterprise/components/ProductAnalytics/SideBar/GroupBySection.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "packages/front-end/enterprise/components/ProductAnalytics/SideBar/MetricTabContent.tsx": {
     "no-restricted-syntax": {
       "count": 1
@@ -2121,14 +2098,6 @@
       "count": 1
     }
   },
-  "packages/front-end/pages/learnings/index.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/pages/metric-effects.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -2207,11 +2176,6 @@
   },
   "packages/front-end/services/auth.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/shared/src/util/features.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
       "count": 1
     }
   },

@@ -92,7 +92,7 @@ const ConfigSearchFilters: FC<
           }}
         >
           <FilterItem
-            item="Archived configs"
+            item="Archived Configs"
             exists={doesFilterExist("is", "archived", "")}
           />
         </DropdownMenuItem>

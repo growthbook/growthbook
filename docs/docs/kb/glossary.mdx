@@ -106,7 +106,7 @@ hide_table_of_contents: true
 
 [Global SDK Webhooks](/app/webhooks/global-sdk-webhooks): Global SDK Webhooks in GrowthBook are notifications that fire for all SDK Connection changes, not limited to a single SDK Connection, and are particularly useful for larger organizations with multi-org installations of GrowthBook.
 
-[GrowthBook DevTools Browser Extension](/tools/chrome-extension): The GrowthBook DevTools Browser Extension (Chrome and Firefox) integrates with the JavaScript SDKs, allowing you to QA and debug feature flags and experiments from GrowthBook's JavaScript SDKs directly in your browser. The extension also includes the Visual Editor, our no-code experiment designer.
+[GrowthBook DevTools Browser Extension](/tools/chrome-extension): The GrowthBook DevTools Browser Extension (Chrome and Firefox) integrates with the JavaScript SDKs, allowing you to QA and debug feature flags and experiments from GrowthBook's JavaScript SDKs directly in your browser.
 
 [GrowthBook Proxy](/self-host/proxy): The GrowthBook Proxy is a server that sits between your application and GrowthBook, providing speed, scalability, security, and real-time feature rollouts by caching feature lookups and streaming updates in real-time.
 
@@ -212,7 +212,7 @@ hide_table_of_contents: true
 
 [Secure Attributes](/lib/js#secure-attributes): Mark specific targeting attributes (e.g. email address) as "secure" and they will be hashed before being sent to client-side SDKs
 
-[Segment](/using/experimenting#digging-deeper): A Segment in GrowthBook is a subset of users that match a particular attribute, allowing you to filter experiment results to only show users that match the segment, and can be created with SQL from the "Data and Metrics → Segments" page.
+[Segment](/using/experimenting#digging-deeper) (deprecated): A Segment in GrowthBook was a subset of users that match a particular attribute, allowing you to filter experiment results to only show users that match the segment, created with SQL from the "Data and Metrics → Segments" page. Segments have been deprecated and are being phased out; if you don't already have one, use a [Dimension](/app/dimensions) or a custom SQL filter in the experiment's analysis settings instead.
 
 [Self-Hosted](/self-host): Self-Hosted in GrowthBook refers to the option of hosting the GrowthBook platform on your own infrastructure, giving you full control over your data and allowing you to customize the platform to suit your specific needs.
 
@@ -250,4 +250,4 @@ hide_table_of_contents: true
 
 [Variation](/using/fundamentals#variations): A Variation in GrowthBook is a version of a feature or product that is being tested in an experiment, with users being assigned to different variations to compare their performance and impact on key metrics.
 
-[Visual Editor](/app/visual): The Visual Editor in GrowthBook is a tool that allows you to design A/B tests directly in your browser without writing a single line of code, enabling you to run experiments on your site and analyze results in real-time.
+[Visual Editor](/app/visual): The GrowthBook Visual Editor is a Chrome side-panel extension for designing A/B tests without writing code. Install it from the [Chrome Web Store](https://chromewebstore.google.com/detail/growthbook-visual-editor/nbomejknbpkcpjdagefhichaajpoempk).

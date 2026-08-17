@@ -1,5 +1,6 @@
 import { FC, ChangeEventHandler } from "react";
 import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
+import { KEEP_EXISTING_PLACEHOLDER } from "@/components/Forms/secretInput";
 import HostWarning from "./HostWarning";
 
 const ClickHouseForm: FC<{
@@ -70,7 +71,7 @@ const ClickHouseForm: FC<{
             name="password"
             value={params.password || ""}
             onChange={onParamChange}
-            placeholder={existing ? "(Keep existing)" : ""}
+            placeholder={existing ? KEEP_EXISTING_PLACEHOLDER : ""}
           />
         </div>
         <div className="form-group col-md-12">

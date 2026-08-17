@@ -234,6 +234,25 @@ export default function RuleList(props: RuleListProps) {
   // Ramp schedules: in single-env mode filter to that env so only rules
   // visible in this projection get pending-publish badges. In all-envs mode
   // we want every pending schedule, regardless of env.
+  // The PERSISTED schedules and the LIVE rules, for the runtime-control authority
+  // check only. `rampSchedulesMap` merges draft steps and `feature` is the draft
+  // projection, so measuring runtime controls against either diverged from the gate,
+  // which reads both from live state.
+  const liveRampSchedulesMap = useMemo(() => {
+    const map = new Map<string, RampScheduleInterface>();
+    for (const schedule of rampSchedules ?? []) {
+      for (const target of schedule.targets ?? []) {
+        if (target.ruleId) map.set(target.ruleId, schedule);
+      }
+    }
+    return map;
+  }, [rampSchedules]);
+
+  const liveRulesById = useMemo(
+    () => new Map((baseFeature.rules ?? []).map((r) => [r.id ?? "", r])),
+    [baseFeature],
+  );
+
   const rampSchedulesMap = buildRuleRampScheduleMap({
     rampSchedules,
     draftRevision,
@@ -378,9 +397,7 @@ export default function RuleList(props: RuleListProps) {
 
   const activeRule = activeId ? items[getRuleIndex(activeId)] : null;
 
-  const canEdit =
-    permissionsUtil.canViewFeatureModal(feature.project) &&
-    permissionsUtil.canManageFeatureDrafts(feature);
+  const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
 
   // Optimistic reorder + flat-index API call. Used by both DnD onDragEnd and
   // the per-rule "Move up/down" menu items, so they share the same translation
@@ -511,6 +528,8 @@ export default function RuleList(props: RuleListProps) {
                 holdout={holdout}
                 revisionList={revisionList}
                 rampSchedule={rampSchedulesMap.get(rule.id ?? "")}
+                liveRampSchedule={liveRampSchedulesMap.get(rule.id ?? "")}
+                liveRule={liveRulesById.get(rule.id ?? "")}
                 draftRevision={draftRevision}
                 isAllEnvsView={allEnvsView}
                 willRevertScheduleEnable={willRevertScheduleEnable}
@@ -564,6 +583,8 @@ export default function RuleList(props: RuleListProps) {
               holdout={holdout}
               revisionList={revisionList}
               rampSchedule={rampSchedulesMap.get(activeRule.id ?? "")}
+              liveRampSchedule={liveRampSchedulesMap.get(activeRule.id ?? "")}
+              liveRule={liveRulesById.get(activeRule.id ?? "")}
               draftRevision={draftRevision}
               isAllEnvsView={allEnvsView}
             />

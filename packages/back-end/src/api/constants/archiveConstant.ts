@@ -4,6 +4,7 @@ import {
   unarchiveConstantValidator,
 } from "shared/validators";
 import { ConstantInterface } from "shared/types/constant";
+import { archiveServeFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { ApiReqContext, ApiRequestLocals } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -20,7 +21,10 @@ import {
   buildPatchOps,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { landDirectChange } from "back-end/src/revisions/revertActions";
+import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import { collectArchiveApprovalGate } from "back-end/src/revisions/governanceGates";
+import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 
 async function buildResponse(
@@ -45,10 +49,26 @@ async function setArchivedState(
   const { context } = req;
   const constant = await context.models.constants.getByKey(key);
   if (!constant) {
-    throw new NotFoundError(`Unable to locate the constant: ${key}`);
+    throw new NotFoundError(`Unable to locate the Constant: ${key}`);
   }
 
-  if (!context.permissions.canUpdateConstant(constant, constant)) {
+  // Archiving is delete-class; unarchiving returns the Constant to service and
+  // is an ordinary publish.
+  if (
+    !canLandArchivedState({
+      permissions: context.permissions,
+      model: "constant",
+      entity: constant,
+      archived,
+      // The serve footprint: archiving takes the base value out of EVERY
+      // environment, so the delete atom must hold in all of them — the unbound
+      // sentinel made this check vacuous for env-limited deleters.
+      // Serve footprint, narrowed to the constant's projects — the raw org env
+      // list OVER-demanded here, so a deleteConstants role limited to one
+      // environment was refused via REST while the dashboard PUT allowed it.
+      environments: archiveServeFootprint(context, constant),
+    })
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -80,8 +100,9 @@ async function setArchivedState(
   const gates: PublishGate[] = collectArchiveApprovalGate({
     approvalRequired,
     archived,
-    noun: "constant",
+    noun: "Constant",
     createDraftPath: `/constants-revisions/${constant.key}`,
+    model: "constant",
   });
   // Soft guards (experiment / locked-dependent / schema-break / archive-dependents)
   // for the archived flip. Archived refs are scrubbed at resolution, so the
@@ -100,8 +121,8 @@ async function setArchivedState(
 
   const { blocking, bypassed } = evaluatePublishGates(gates, {
     ignoreWarnings: context.ignoreWarnings,
-    skipSchemaValidation: context.skipSchemaValidation,
-    skipHooks: context.skipHooks,
+    skipSchemaValidation: context.canSkipSchemaValidationFor("constant"),
+    skipHooks: context.canSkipHooksFor("constant"),
     bypassApprovalPermission: adapter.canBypassApproval(
       context,
       constant as Record<string, unknown>,
@@ -116,48 +137,43 @@ async function setArchivedState(
   // Approval backstop behind the gate above.
   if (approvalRequired && !canBypass) {
     throw new BadRequestError(
-      "This organization requires approvals for this constant. " +
+      "This organization requires approvals for this Constant. " +
         `Use \`POST /constants-revisions/${constant.key}\` to ${
           archived ? "archive" : "unarchive"
         } it through a draft, or use a role/token with the bypass permission.`,
     );
   }
 
-  if (approvalRequired) {
-    // Record the merged revision FIRST, then apply; roll it back if the apply
-    // fails, so a merged record never lacks a live change.
-    await ensureLiveRevisionExists(
-      context,
-      "constant",
-      constant as unknown as Record<string, unknown> & {
-        id: string;
-        owner?: string;
-        dateCreated?: Date;
-      },
-    );
-    const merged = await context.models.revisions.createMerged({
-      type: "constant",
-      id: constant.id,
-      snapshot: constant as unknown as Record<string, unknown>,
-      proposedChanges: patchOps,
-      bypass: true,
-    });
-    let updated: Partial<ConstantInterface>;
-    try {
-      updated = await context.models.constants.update(constant, { archived });
-    } catch (e) {
-      try {
-        await context.models.revisions.deleteById(merged.id);
-      } catch {
-        // ignore — surface the original update error
-      }
-      throw e;
-    }
-    await dispatchConstantRevisionEvent(context, merged, { type: "published" });
-    return buildResponse(context, { ...constant, ...updated }, bypassed);
-  }
-
-  const updated = await context.models.constants.update(constant, { archived });
+  // One recorded, guarded landing whether or not approval was bypassed.
+  await ensureLiveRevisionExists(
+    context,
+    "constant",
+    constant as unknown as Record<string, unknown> & {
+      id: string;
+      owner?: string;
+      dateCreated?: Date;
+    },
+  );
+  const { merged, result: updated } = await landDirectChange({
+    context,
+    entityType: "constant",
+    entity: constant as unknown as Record<string, unknown> & { id: string },
+    patchOps,
+    bypass: approvalRequired,
+    changes: { archived },
+    // Reports what it persisted from inside the write, so compensation can
+    // tell "never wrote" from "wrote, then a post-write hook threw".
+    write: (report) =>
+      runGuardedWrite("constant", constant.id, () =>
+        context.models.constants.updateIfUnchanged(
+          constant,
+          { archived },
+          undefined,
+          { onWritten: (doc) => report(doc as Record<string, unknown>) },
+        ),
+      ),
+  });
+  await dispatchConstantRevisionEvent(context, merged, { type: "published" });
   return buildResponse(context, { ...constant, ...updated }, bypassed);
 }
 

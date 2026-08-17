@@ -1,4 +1,5 @@
 import { Response } from "express";
+import uniqid from "uniqid";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
@@ -12,7 +13,7 @@ import {
   includeExperimentInPayload,
 } from "shared/util";
 import {
-  expandAllSliceMetricsInMap,
+  expandDerivedMetricsInMap,
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
   getAllVariations,
@@ -135,6 +136,7 @@ import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
+import { legacyDocDescribesPhase } from "back-end/src/enterprise/services/data-pipeline";
 import {
   getFeature,
   getFeaturesByIds,
@@ -146,7 +148,8 @@ import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 import {
   cosineSimilarity,
   generateEmbeddings,
-  secondsUntilAICanBeUsedAgain,
+  secondsUntilAICanBeUsedAgainForEmbeddings,
+  secondsUntilAICanBeUsedAgainForPrompt,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
 import {
@@ -247,7 +250,7 @@ export async function postAIExperimentAnalysis(
       message: "Experiment not found",
     });
   }
-  const { aiEnabled } = getAISettingsForOrg(context);
+  const { aiEnabled } = await getAISettingsForOrg(context);
 
   if (!aiEnabled) {
     return res.status(404).json({
@@ -256,7 +259,10 @@ export async function postAIExperimentAnalysis(
     });
   }
 
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgainForPrompt(
+    context,
+    "experiment-analysis",
+  );
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,
@@ -441,7 +447,7 @@ export async function postSimilarExperiments(
 ) {
   const context = getContextFromReq(req);
   const { hypothesis, name, description, project, full } = req.body;
-  const { aiEnabled } = getAISettingsForOrg(context);
+  const { aiEnabled } = await getAISettingsForOrg(context);
 
   if (!aiEnabled) {
     return res.status(404).json({
@@ -449,7 +455,8 @@ export async function postSimilarExperiments(
       message: "AI configuration not set or enabled",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  const secondsUntilReset =
+    await secondsUntilAICanBeUsedAgainForEmbeddings(context);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,
@@ -581,7 +588,7 @@ export async function postRegenerateEmbeddings(
   const context = getContextFromReq(req);
   const project =
     typeof req.query?.project === "string" ? req.query.project : "";
-  const { aiEnabled } = getAISettingsForOrg(context);
+  const { aiEnabled } = await getAISettingsForOrg(context);
 
   if (!aiEnabled) {
     return res.status(404).json({
@@ -589,7 +596,8 @@ export async function postRegenerateEmbeddings(
       message: "AI configuration not set or enabled",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  const secondsUntilReset =
+    await secondsUntilAICanBeUsedAgainForEmbeddings(context);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,
@@ -821,8 +829,38 @@ export async function getExperimentIncrementalRefresh(
     });
   }
 
-  const incrementalRefresh =
-    await context.models.incrementalRefresh.getByExperimentId(id);
+  const phase = experiment.phases.length - 1;
+  let incrementalRefresh =
+    await context.models.incrementalRefresh.getByExperimentIdAndPhase(
+      id,
+      phase,
+    );
+
+  if (!incrementalRefresh) {
+    const legacyDoc =
+      await context.models.incrementalRefresh.getLegacyByExperimentIdWithoutPhase(
+        id,
+      );
+    const snapshot = legacyDoc
+      ? await getLatestSuccessfulSnapshot({
+          context,
+          experiment: id,
+          phase,
+          type: "standard",
+        })
+      : null;
+
+    if (
+      legacyDoc &&
+      snapshot &&
+      legacyDocDescribesPhase({
+        legacyDoc,
+        snapshotSettings: snapshot.settings,
+      })
+    ) {
+      incrementalRefresh = legacyDoc;
+    }
+  }
 
   return res.status(200).json({
     status: 200,
@@ -1481,7 +1519,7 @@ export async function postExperiment(
   } = req.body;
 
   const experiment = await getExperimentById(context, id);
-  const aiSettings = getAISettingsForOrg(context);
+  const aiSettings = await getAISettingsForOrg(context);
 
   if (!experiment) {
     res.status(403).json({
@@ -2372,7 +2410,7 @@ export async function postExperimentStatus(
   ) {
     const adminBypass =
       !!bypassLockdown &&
-      context.permissions.canBypassApprovalChecks(experiment);
+      context.permissions.canBypassFlagApprovalChecks(experiment, "feature");
 
     await validateExperimentChange({
       context,
@@ -2682,24 +2720,63 @@ export async function deleteExperimentPhase(
       changes.banditStage = "paused";
     }
   }
+
   await validateExperimentChange({ context, experiment, changes });
-  const updated = await updateExperiment({
-    context,
-    experiment,
-    changes,
-  });
 
-  await updateSnapshotsOnPhaseDelete(context, id, phaseIndex);
+  const mutationToken = uniqid("irdel_");
+  const claimed =
+    await context.models.incrementalRefresh.acquirePhaseSlotForMutation(
+      id,
+      phaseIndex,
+      mutationToken,
+    );
+  if (!claimed) {
+    res.status(409).json({
+      status: 409,
+      message:
+        "An incremental refresh is running for this phase. Wait for it to finish before deleting the phase.",
+    });
+    return;
+  }
 
-  // Add audit entry
-  await req.audit({
-    event: "experiment.phase.delete",
-    entity: {
-      object: "experiment",
-      id: experiment.id,
-    },
-    details: auditDetailsUpdate(experiment, updated),
-  });
+  try {
+    const updated = await updateExperiment({
+      context,
+      experiment,
+      changes,
+    });
+
+    await updateSnapshotsOnPhaseDelete(context, id, phaseIndex);
+
+    await context.models.incrementalRefresh.deleteByExperimentIdAndPhase(
+      id,
+      phaseIndex,
+    );
+    await context.models.incrementalRefresh.shiftPhasesDownAfterDelete(
+      id,
+      phaseIndex,
+    );
+
+    // Add audit entry
+    await req.audit({
+      event: "experiment.phase.delete",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetailsUpdate(experiment, updated),
+    });
+  } finally {
+    // The delete removes a successful claim; otherwise release it.
+    await context.models.incrementalRefresh
+      .releaseLock(id, mutationToken)
+      .catch((e) =>
+        logger.warn(
+          e,
+          "Failed to release the incremental refresh phase mutation claim",
+        ),
+      );
+  }
 
   res.status(200).json({
     status: 200,
@@ -3407,9 +3484,9 @@ export async function postSnapshotAnalysis(
   const factTableMap = await getFactTableMap(context);
   const metricGroups = await context.models.metricGroups.getAll();
 
-  // Expand all slice metrics (auto and custom) and add them to the metricMap
-  // This ensures slice metrics are available when passed to the stats engine
-  expandAllSliceMetricsInMap({
+  // Expand all derived metrics (slices and funnel steps) into the metricMap
+  // This ensures they are available when passed to the stats engine
+  expandDerivedMetricsInMap({
     metricMap,
     factTableMap,
     experiment: experiment,
@@ -4267,12 +4344,14 @@ export async function postExperimentFeatureValues(
     context.permissions.throwPermissionError();
   }
 
-  // Check for permission to update each feature
+  // Authoring authority for each feature. Landing authority is checked by
+  // `validateExperimentFeatureUpdates` below, per feature that actually sets
+  // `autoPublish`, and scoped to the environments its matching rules serve.
+  // Requiring publish here as well — across every org environment, whether or
+  // not the caller is publishing — blocked an author from editing values into a
+  // draft.
   for (const feature of featureObjects) {
-    if (
-      !context.permissions.canUpdateFeature(feature, {}) ||
-      !context.permissions.canManageFeatureDrafts(feature)
-    ) {
+    if (!context.permissions.canEditFeatureDrafts(feature)) {
       context.permissions.throwPermissionError();
     }
   }
@@ -4359,7 +4438,10 @@ export async function postExperimentFeatureValues(
         revision: updatedRevision,
         result: mergeResult.result,
         comment: "auto-publish experiment variation values change",
-        bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+        bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
+          feature,
+          "feature",
+        ),
       });
 
       await req.audit({
@@ -4400,9 +4482,11 @@ export async function deleteExperimentLinkedFeature(
   }
 
   // Also require feature-side edit rights — unlinking cancels a queued
-  // autopublish that the feature team may be managing.
+  // autopublish that the feature team may be managing. Edit-class, not publish:
+  // nothing reaches the payload. Same as the contextual-bandit twin, which
+  // performs the same $pull.
   const feature = await getFeature(context, featureId);
-  if (feature && !context.permissions.canUpdateFeature(feature, {})) {
+  if (feature && !context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 

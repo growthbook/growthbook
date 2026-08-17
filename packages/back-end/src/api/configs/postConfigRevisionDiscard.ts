@@ -1,8 +1,7 @@
 import { postConfigRevisionDiscardValidator } from "shared/validators";
+import { discardEntityRevision } from "back-end/src/revisions/revisionActions";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import { getAdapter } from "back-end/src/revisions";
-import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
+import { NotFoundError } from "back-end/src/util/errors";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
 
@@ -11,7 +10,7 @@ export const postConfigRevisionDiscard = createApiRequestHandler(
 )(async (req) => {
   const config = await req.context.models.configs.getByKey(req.params.key);
   if (!config) {
-    throw new NotFoundError("Could not find config");
+    throw new NotFoundError("Could not find Config");
   }
 
   const revision = await loadRevisionByVersion(
@@ -20,32 +19,11 @@ export const postConfigRevisionDiscard = createApiRequestHandler(
     req.params.version,
   );
 
-  if (revision.status === "merged" || revision.status === "discarded") {
-    throw new BadRequestError(
-      `Cannot discard a revision with status "${revision.status}"`,
-    );
-  }
-
-  // Authors can always discard their own drafts; otherwise require edit perm.
-  if (revision.authorId !== req.context.userId) {
-    if (
-      !getAdapter("config").canUpdate(
-        req.context,
-        config as unknown as Record<string, unknown>,
-      )
-    ) {
-      req.context.permissions.throwPermissionError();
-    }
-  }
-
-  const closed = await req.context.models.revisions.close(
-    revision.id,
-    req.context.userId,
-    req.body.reason,
-  );
-
-  await dispatchConfigRevisionEvent(req.context, closed, {
-    type: "discarded",
+  const closed = await discardEntityRevision({
+    context: req.context,
+    entityType: "config",
+    revision,
+    reason: req.body.reason,
   });
 
   return { revision: await toApiConfigRevision(closed, req.context) };

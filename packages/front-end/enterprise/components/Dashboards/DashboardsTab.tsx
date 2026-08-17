@@ -151,6 +151,7 @@ function DashboardsTab({
     (update: {
       blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
       globalControls?: DashboardInterface["globalControls"];
+      comparison?: DashboardInterface["comparison"];
     }) => {
       setTemporaryDashboard((prev) => {
         if (!prev) return prev;
@@ -160,6 +161,7 @@ function DashboardsTab({
           ...(update.globalControls !== undefined
             ? { globalControls: update.globalControls }
             : {}),
+          ...("comparison" in update ? { comparison: update.comparison } : {}),
         } as DashboardInterface;
       });
     },
@@ -217,7 +219,10 @@ function DashboardsTab({
                 shareLevel: data.shareLevel,
                 userId: data.userId,
                 globalControls: data.globalControls,
-                comparison: data.comparison ?? undefined,
+                // Undefined drops out of the body and reads as "leave alone".
+                ...("comparison" in data
+                  ? { comparison: data.comparison ?? { enabled: false } }
+                  : {}),
               }
             : {
                 blocks: data.blocks ?? [],

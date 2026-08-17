@@ -2,6 +2,7 @@ import { FC, ReactNode, useCallback, useMemo, useState } from "react";
 import { isProjectListValidForProject } from "shared/util";
 import {
   ExperimentMetricDefinition,
+  getFactMetricPrimaryFactTableId,
   isFactMetric,
   isMetricGroupId,
   isMetricJoinable,
@@ -42,12 +43,14 @@ type MetricOption = {
 type MetricsSelectorTooltipProps = {
   onlyBinomial?: boolean;
   noQuantileGoalMetrics?: boolean;
+  noFactFunnelMetrics?: boolean;
   isSingular?: boolean;
 };
 
 export const MetricsSelectorTooltip = ({
   onlyBinomial = false,
   noQuantileGoalMetrics = false,
+  noFactFunnelMetrics = false,
   isSingular = false,
 }: MetricsSelectorTooltipProps) => {
   return (
@@ -75,6 +78,13 @@ export const MetricsSelectorTooltip = ({
                 {isSingular
                   ? "is not a quantile metric"
                   : "are not quantile metrics"}
+              </li>
+            ) : null}
+            {noFactFunnelMetrics ? (
+              <li>
+                {isSingular
+                  ? "is not a funnel metric"
+                  : "are not funnel metrics"}
               </li>
             ) : null}
           </ul>
@@ -216,15 +226,16 @@ const MetricsSelector: FC<{
                 projects: m.projects || [],
                 managedBy: m.managedBy,
                 factTables: [
-                  m.numerator.factTableId,
+                  getFactMetricPrimaryFactTableId(m),
                   (m.metricType === "ratio" && m.denominator
                     ? m.denominator.factTableId
                     : "") || "",
                 ],
                 // only focus on numerator user id types
                 userIdTypes:
-                  factTables.find((f) => f.id === m.numerator.factTableId)
-                    ?.userIdTypes || [],
+                  factTables.find(
+                    (f) => f.id === getFactMetricPrimaryFactTableId(m),
+                  )?.userIdTypes || [],
                 isGroup: false,
                 disabled: disabledInfo.disabled,
                 disabledReason: disabledInfo.reason,
@@ -342,8 +353,9 @@ const MetricsSelector: FC<{
           const metric = getExperimentMetricById(m);
           if (!metric) return { metric, joinable: false };
           const userIdTypes = isFactMetric(metric)
-            ? factTables.find((f) => f.id === metric.numerator.factTableId)
-                ?.userIdTypes || []
+            ? factTables.find(
+                (f) => f.id === getFactMetricPrimaryFactTableId(metric),
+              )?.userIdTypes || []
             : metric.userIdTypes || [];
           return {
             metric,

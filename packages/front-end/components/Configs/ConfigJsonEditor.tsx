@@ -864,7 +864,7 @@ export default function ConfigJsonEditor({
         <span>
           Editing <code>{projectionSource}</code>
           {
-            " updates the config’s schema and recaptures this projection’s named types."
+            " updates the Config’s schema and recaptures this projection’s named types."
           }
         </span>
       </HelperText>

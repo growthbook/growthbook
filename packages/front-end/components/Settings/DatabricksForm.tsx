@@ -1,7 +1,11 @@
-import { FC, ChangeEventHandler, useState } from "react";
+import { FC, ChangeEventHandler } from "react";
 import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import TextField from "@/ui/TextField";
 import { Select, SelectItem } from "@/ui/Select";
+import {
+  KEEP_EXISTING_PLACEHOLDER,
+  useCanKeepExistingCredentials,
+} from "@/components/Forms/secretInput";
 import HostWarning from "./HostWarning";
 
 const DatabricksForm: FC<{
@@ -10,11 +14,11 @@ const DatabricksForm: FC<{
   onParamChange: ChangeEventHandler<HTMLInputElement>;
   setParams: (params: { [key: string]: string | boolean }) => void;
 }> = ({ params, existing, onParamChange, setParams }) => {
-  const [originalAuthType] = useState(params.authType);
   const authType = params.authType ?? "pat";
-  const secretRequired = !existing || authType !== originalAuthType;
-  const keepExistingPlaceholder =
-    existing && authType === originalAuthType ? "(Keep existing)" : "";
+  const canKeepExistingCredentials = useCanKeepExistingCredentials(
+    existing,
+    authType,
+  );
 
   return (
     <div className="row">
@@ -84,10 +88,12 @@ const DatabricksForm: FC<{
               type="password"
               autoComplete="off"
               name="oauthClientSecret"
-              required={secretRequired}
+              required={!canKeepExistingCredentials}
               value={params.oauthClientSecret || ""}
               onChange={onParamChange}
-              placeholder={keepExistingPlaceholder}
+              placeholder={
+                canKeepExistingCredentials ? KEEP_EXISTING_PLACEHOLDER : ""
+              }
             />
           </div>
         </>
@@ -98,10 +104,12 @@ const DatabricksForm: FC<{
             type="password"
             autoComplete="off"
             name="token"
-            required={secretRequired}
+            required={!canKeepExistingCredentials}
             value={params.token || ""}
             onChange={onParamChange}
-            placeholder={keepExistingPlaceholder}
+            placeholder={
+              canKeepExistingCredentials ? KEEP_EXISTING_PLACEHOLDER : ""
+            }
           />
         </div>
       )}

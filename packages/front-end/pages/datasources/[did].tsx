@@ -7,13 +7,16 @@ import {
 } from "shared/util";
 import { isSampleDatasource } from "shared/demo-datasource";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiLinkBold } from "react-icons/pi";
+import { PiDotsThreeVertical, PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
 import { useFeatureIsOn, useFeatureValue } from "@growthbook/growthbook-react";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
+import {
+  getDataRegionLabel,
+  DEFAULT_DATA_REGION,
+} from "@/services/dataRegions";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
 import { DocLink, DocSection } from "@/components/DocLink";
@@ -218,7 +221,7 @@ const DataSourcePage: FC = () => {
       )}
       <Flex align="center" justify="between">
         <Flex align="center" gap="3">
-          <Heading as="h1" size="xl" mb="0">
+          <Heading as="h1" size="xl" overflowWrap="anywhere" mb="0">
             {d.name}
           </Heading>
           <Badge
@@ -252,8 +255,9 @@ const DataSourcePage: FC = () => {
                   radius="full"
                   size="2"
                   highContrast
+                  aria-label="Data source actions"
                 >
-                  <BsThreeDotsVertical size={16} />
+                  <PiDotsThreeVertical size={18} />
                 </IconButton>
               }
               menuPlacement="end"
@@ -364,6 +368,12 @@ const DataSourcePage: FC = () => {
           <Text weight="medium">Type:</Text>{" "}
           {d.type === "growthbook_clickhouse" ? "managed" : d.type}
         </Text>
+        {d.type === "growthbook_clickhouse" && (
+          <Text color="text-mid">
+            <Text weight="medium">Region:</Text>{" "}
+            {getDataRegionLabel(d.settings.region ?? DEFAULT_DATA_REGION)}
+          </Text>
+        )}
         <Box>
           <Text color="text-mid" weight="medium">
             Fact Tables:
@@ -417,14 +427,14 @@ const DataSourcePage: FC = () => {
       <Box mt="4" mb="4">
         {supportsEvents && (
           <>
-            <div className="my-5">
+            <Box my="5">
               <DataSourceViewEditExperimentProperties
                 dataSource={d}
                 onSave={updateDataSourceSettings}
                 onCancel={() => undefined}
                 canEdit={canUpdateDataSourceSettings}
               />
-            </div>
+            </Box>
 
             {d.type === "mixpanel" && (
               <div>
@@ -608,10 +618,6 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           </>
         )}
       </Box>
-      <div className="row">
-        <div className="col-md-12"></div>
-      </div>
-
       {editConn && (
         <DataSourceForm
           existing={true}

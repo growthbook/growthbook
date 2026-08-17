@@ -11,15 +11,16 @@ import {
   isAwaitingStartApproval,
 } from "shared/validators";
 import type { FeatureInterface } from "shared/types/feature";
-import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getFeature } from "back-end/src/models/FeatureModel";
-import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 import {
+  assertCanControlRampSchedule,
   dispatchRampEvent,
   dispatchAwaitingStartApproval,
   getStartActionsFromRules,
   remapTemplateActions,
 } from "back-end/src/services/rampSchedule";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { getFeature } from "back-end/src/models/FeatureModel";
+import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 import { resolveRampTargets } from "back-end/src/util/flattenRules";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 
@@ -334,6 +335,31 @@ export const postRampSchedule = createApiRequestHandler(
     "en-US",
     { month: "short", year: "numeric" },
   )}`;
+
+  // Arming a dated start IS scheduling the live transition: the poller fires it
+  // under an admin context, so it takes the same per-target publish authority the
+  // fire would. The model's create gate is draft-class and cannot see the
+  // targets. Mirrors the internal controller. An approval-gated schedule never
+  // auto-arms (nextProcessAt stays null), and a dateless one is draft-class.
+  if (startDate && !body.requiresStartApproval) {
+    await assertCanControlRampSchedule(req.context, {
+      entityType: "feature",
+      entityId: body.featureId ?? "",
+      targets: hasTarget
+        ? [
+            {
+              id: targetId!,
+              entityType: "feature",
+              entityId: body.featureId ?? "",
+              ruleId: body.ruleId,
+            },
+          ]
+        : [],
+      steps: resolvedSteps,
+      startActions: resolvedStartActions,
+      endActions: resolvedEndActions,
+    } as unknown as RampScheduleInterface);
+  }
 
   const schedule = await req.context.models.rampSchedules.create({
     name: body.name ?? defaultName,

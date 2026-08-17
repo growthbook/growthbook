@@ -9,6 +9,10 @@ export default {
     plan: "pro",
     displayName: "Advanced Permissions",
   },
+  "ai-byok": {
+    plan: "enterprise",
+    displayName: "Ai Byok",
+  },
   "ai-suggestions": {
     plan: "enterprise",
     displayName: "AI Suggestions",
@@ -81,6 +85,10 @@ export default {
     plan: "enterprise",
     displayName: "Feature Configs",
   },
+  "funnel-metrics": {
+    plan: "pro",
+    displayName: "Funnel Metrics",
+  },
   "hash-secure-attributes": {
     plan: "pro",
     displayName: "Hash Secure Attributes",
@@ -104,6 +112,10 @@ export default {
   "large-saved-groups": {
     plan: "enterprise",
     displayName: "Large Saved Groups",
+  },
+  learnings: {
+    plan: "enterprise",
+    displayName: "Learnings",
   },
   livechat: {
     plan: "pro",

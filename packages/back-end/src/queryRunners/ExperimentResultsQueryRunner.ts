@@ -46,7 +46,10 @@ import {
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
 import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
-import { getFactMetricGroups } from "back-end/src/services/experimentQueries/experimentQueries";
+import {
+  getFactMetricGroups,
+  getQueryableMetricsFromSnapshotSettings,
+} from "back-end/src/services/experimentQueries/experimentQueries";
 import { parseDimension } from "back-end/src/services/experiments";
 import {
   analyzeExperimentResults,
@@ -109,9 +112,10 @@ export const startExperimentResultQueries = async (
     : null;
 
   // Only include metrics tied to this experiment (both goal and guardrail metrics)
-  const selectedMetrics = snapshotSettings.metricSettings
-    .map((m) => metricMap.get(m.id))
-    .filter((m) => m) as ExperimentMetricInterface[];
+  const selectedMetrics = getQueryableMetricsFromSnapshotSettings(
+    snapshotSettings,
+    metricMap,
+  );
   if (!selectedMetrics.length) {
     throw new UnrecoverableSnapshotError(
       "Experiment must have at least 1 metric selected.",

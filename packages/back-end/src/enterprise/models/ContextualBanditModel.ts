@@ -1,5 +1,7 @@
 import { z } from "zod";
+import isEqual from "lodash/isEqual";
 import {
+  apiContextualBanditCancelReturn,
   apiContextualBanditLifecycleReturn,
   apiContextualBanditRefreshReturn,
   apiCreateContextualBanditBody,
@@ -20,6 +22,7 @@ import {
 import { isFactMetricId } from "shared/experiments";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
+  cancelContextualBanditEndpoint,
   contextualBanditApiSpec,
   refreshContextualBanditEndpoint,
   startContextualBanditEndpoint,
@@ -31,10 +34,14 @@ import {
   executeContextualBanditStop,
 } from "back-end/src/services/contextualBanditChanges";
 import {
+  cancelContextualBanditLatestRunningSnapshot,
   getContextualBanditLinkedFeatureInfo,
   runContextualBanditSnapshot,
 } from "back-end/src/enterprise/services/contextualBandits";
-import { MakeModelClass } from "back-end/src/models/BaseModel";
+import {
+  CasConflictError,
+  MakeModelClass,
+} from "back-end/src/models/BaseModel";
 import { getCollection } from "back-end/src/util/mongo.util";
 
 const COLLECTION = "contextualbandits";
@@ -154,6 +161,26 @@ const BaseClass = MakeModelClass({
           });
         },
       }),
+      defineCustomApiHandler({
+        ...cancelContextualBanditEndpoint,
+        reqHandler: async (
+          req,
+        ): Promise<z.infer<typeof apiContextualBanditCancelReturn>> => {
+          const cb = await req.context.models.contextualBandits.getById(
+            req.params.id,
+          );
+          if (!cb) {
+            return req.context.throwNotFoundError();
+          }
+          const envs =
+            req.context.org.settings?.environments?.map((e) => e.id) ?? [];
+          if (!req.context.permissions.canRunContextualBandit(cb, envs)) {
+            req.context.permissions.throwPermissionError();
+          }
+          await cancelContextualBanditLatestRunningSnapshot(req.context, cb);
+          return { status: 200 };
+        },
+      }),
     ],
   },
 });
@@ -207,6 +234,8 @@ export function toApiContextualBandit(
     stage: doc.stage,
     stageDateStarted: doc.stageDateStarted?.toISOString(),
     analysisSummary: doc.analysisSummary,
+    autoSnapshots: doc.autoSnapshots,
+    nextSnapshotAttempt: doc.nextSnapshotAttempt?.toISOString(),
   };
 }
 
@@ -443,7 +472,7 @@ export class ContextualBanditModel extends BaseClass {
     if (!cb) return;
     const drafts = cb.pendingFeatureDrafts ?? [];
     const remaining = drafts.filter((d) =>
-      revisionVersion != null
+      (revisionVersion ?? null) !== null
         ? !(d.featureId === featureId && d.revisionVersion === revisionVersion)
         : d.featureId !== featureId,
     );
@@ -474,9 +503,25 @@ export class ContextualBanditModel extends BaseClass {
   public async applyLinkageDelta(
     featureId: string,
     delta: ContextualBanditLinkageDelta,
+    // The slice this delta was PLANNED against. A landing that lost the feature
+    // document to a newer publish would otherwise apply its stale delta on top of the
+    // winner's linkage — the forward twin of the ownership check `setLinkageState`
+    // already makes on the way back, and a conflict rather than a skip because going
+    // forward a lost race must stop the landing.
+    expectedFeatureSlice?: ContextualBanditLinkageState,
   ): Promise<void> {
     const cb = await this.getById(delta.contextualBanditId);
     if (!cb) return;
+
+    if (
+      expectedFeatureSlice &&
+      !isEqual(
+        this.featureLinkageSlice(cb, featureId),
+        this.featureLinkageSlice(expectedFeatureSlice, featureId),
+      )
+    ) {
+      throw new CasConflictError();
+    }
 
     const changes: LinkageChanges = {};
 
@@ -506,7 +551,31 @@ export class ContextualBanditModel extends BaseClass {
     }
 
     if (!Object.keys(changes).length) return;
-    await this.update(cb, changes);
+    // GUARDED on the document the slice decision was read from. Checking the expected
+    // slice and then issuing a plain update is check-then-act: a concurrent linkage
+    // write landing in between is derived away by `changes`, which was computed from
+    // the stale document. A lost race means someone else moved this bandit's linkage,
+    // and theirs is the state to keep.
+    await this.updateIfUnchanged(cb, changes, undefined, {
+      dangerouslyBypassCanUpdate: true,
+    });
+  }
+
+  /** Just this feature's part of a bandit's linkage — what a rollback owns. */
+  private featureLinkageSlice(
+    cb: {
+      linkedFeatures?: string[];
+      pendingFeatureDrafts?: { featureId: string; revisionVersion: number }[];
+    },
+    featureId: string,
+  ): { linked: boolean; drafts: number[] } {
+    return {
+      linked: (cb.linkedFeatures ?? []).includes(featureId),
+      drafts: (cb.pendingFeatureDrafts ?? [])
+        .filter((d) => d.featureId === featureId)
+        .map((d) => d.revisionVersion)
+        .sort((a, b) => a - b),
+    };
   }
 
   /**
@@ -518,42 +587,85 @@ export class ContextualBanditModel extends BaseClass {
     cbId: string,
     featureId: string,
     state: ContextualBanditLinkageState,
+    // Compensation only: converge to `state` while this feature's slice still
+    // holds what the forward pass wrote. Writes here are already scoped to the one
+    // feature, so a concurrent change to ANOTHER feature's linkage is unaffected —
+    // this covers the remaining case, a second writer moving THIS feature's
+    // linkage before our rollback runs, which the pre-image would otherwise undo.
+    expectedFeatureSlice?: ContextualBanditLinkageState,
   ): Promise<void> {
-    const cb = await this.getById(cbId);
-    if (!cb) return;
+    // Recomputed from the document each attempt: the arrays this write sets are
+    // DERIVED from the document it read, so retrying with the fresh CAS token but the
+    // old arrays would write back a snapshot that predates another feature's
+    // concurrent linkage change and erase it.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const cb = await this.getById(cbId);
+      if (!cb) return;
 
-    const shouldBeLinked = state.linkedFeatures.includes(featureId);
-    const linked = cb.linkedFeatures ?? [];
-    const isLinked = linked.includes(featureId);
+      if (
+        expectedFeatureSlice &&
+        !isEqual(
+          this.featureLinkageSlice(cb, featureId),
+          this.featureLinkageSlice(expectedFeatureSlice, featureId),
+        )
+      ) {
+        // Their slice now, not ours to take back.
+        return;
+      }
 
-    const changes: LinkageChanges = {};
-    if (shouldBeLinked && !isLinked) {
-      changes.linkedFeatures = [...linked, featureId];
-    } else if (!shouldBeLinked && isLinked) {
-      changes.linkedFeatures = linked.filter((f) => f !== featureId);
-    }
+      const shouldBeLinked = state.linkedFeatures.includes(featureId);
+      const linked = cb.linkedFeatures ?? [];
+      const isLinked = linked.includes(featureId);
 
-    const otherDrafts = (cb.pendingFeatureDrafts ?? []).filter(
-      (d) => d.featureId !== featureId,
-    );
-    const restored = [
-      ...otherDrafts,
-      ...state.pendingFeatureDrafts.filter((d) => d.featureId === featureId),
-    ];
-    const current = cb.pendingFeatureDrafts ?? [];
-    const changed =
-      restored.length !== current.length ||
-      restored.some(
-        (d, i) =>
-          d.featureId !== current[i]?.featureId ||
-          d.revisionVersion !== current[i]?.revisionVersion,
+      const changes: LinkageChanges = {};
+      if (shouldBeLinked && !isLinked) {
+        changes.linkedFeatures = [...linked, featureId];
+      } else if (!shouldBeLinked && isLinked) {
+        changes.linkedFeatures = linked.filter((f) => f !== featureId);
+      }
+
+      const otherDrafts = (cb.pendingFeatureDrafts ?? []).filter(
+        (d) => d.featureId !== featureId,
       );
-    if (changed) {
-      changes.pendingFeatureDrafts = restored;
-    }
+      const restored = [
+        ...otherDrafts,
+        ...state.pendingFeatureDrafts.filter((d) => d.featureId === featureId),
+      ];
+      const current = cb.pendingFeatureDrafts ?? [];
+      const changed =
+        restored.length !== current.length ||
+        restored.some(
+          (d, i) =>
+            d.featureId !== current[i]?.featureId ||
+            d.revisionVersion !== current[i]?.revisionVersion,
+        );
+      if (changed) {
+        changes.pendingFeatureDrafts = restored;
+      }
 
-    if (!Object.keys(changes).length) return;
-    await this.update(cb, changes);
+      if (!Object.keys(changes).length) return;
+      try {
+        // GUARDED on the document these changes were derived from — checking the
+        // slice and then issuing a plain update is check-then-act. A lost race means
+        // SOMETHING moved; the loop re-derives and the slice check above decides
+        // whether it was this feature's linkage (theirs now) or an unrelated field
+        // (ours still to take back).
+        await this.updateIfUnchanged(cb, changes, undefined, {
+          dangerouslyBypassCanUpdate: true,
+        });
+        return;
+      } catch (e) {
+        if (!(e instanceof CasConflictError)) throw e;
+      }
+    }
+    // Exhausted: this feature's slice never moved, so the rollback was still ours to
+    // make and the failed publish's linkage is still live. Returning quietly recorded
+    // compensation as clean over it.
+    throw new Error(
+      `contextual bandit ${cbId}: linkage rollback for feature ${featureId} ` +
+        `could not be applied after repeated conflicts; its linkage still carries ` +
+        `the failed publish`,
+    );
   }
 
   /** All contextual bandits that reference a given contextual bandit query. */

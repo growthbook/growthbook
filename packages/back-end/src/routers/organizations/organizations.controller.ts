@@ -17,6 +17,7 @@ import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
 import { entityTypes } from "shared/constants";
+import { AI_PROVIDERS } from "shared/ai";
 import { UpdateSdkWebhookProps } from "shared/types/webhook";
 import { ApiKeyInterface } from "shared/types/apikey";
 import {
@@ -48,6 +49,7 @@ import {
   assertRoleChangeAllowed,
   expandOrgMembers,
   findVerifiedOrgsForNewUser,
+  getAISettingsForOrg,
   getContextFromReq,
   getInviteUrl,
   getMembersOfTeam,
@@ -861,7 +863,7 @@ export async function putInviteRole(
 }
 
 export async function getOrganization(
-  req: AuthRequest,
+  req: AuthRequest<unknown, unknown, { forceLicenseRefresh?: string }>,
   res: Response<GetOrganizationResponse | { status: 200; organization: null }>,
 ) {
   if (!req.organization) {
@@ -873,6 +875,8 @@ export async function getOrganization(
 
   const context = getContextFromReq(req);
   const { org, userId } = context;
+  const forceLicenseRefresh = req.query.forceLicenseRefresh !== undefined;
+
   const {
     invites,
     members,
@@ -898,15 +902,23 @@ export async function getOrganization(
       let license: Partial<LicenseInterface> | null =
         getLicense(licenseKey || process.env.LICENSE_KEY) || null;
       if (
+        forceLicenseRefresh ||
         !license ||
         (license.organizationId && license.organizationId !== id)
       ) {
         try {
           license =
-            (await licenseInit(org, getUserCodesForOrg, getLicenseMetaData)) ||
-            null;
+            (await licenseInit(
+              org,
+              getUserCodesForOrg,
+              getLicenseMetaData,
+              forceLicenseRefresh,
+            )) || null;
         } catch (e) {
           logger.error(e, "setting license failed");
+          if (forceLicenseRefresh) {
+            throw e;
+          }
         }
       }
       return license;
@@ -941,6 +953,11 @@ export async function getOrganization(
   const enterpriseSSO = isEnterpriseSSO(req.loginMethod)
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
+
+  // Returned here so every page can gate AI affordances off the org's real key
+  // state without a second request. The keys never leave the back end.
+  const { keySource } = await getAISettingsForOrg(context);
+  const aiKeyProviders = AI_PROVIDERS.filter((p) => keySource[p] !== "none");
 
   // Teams were already loaded (unfiltered) by the auth middleware
   const teams = context.teams;
@@ -982,6 +999,7 @@ export async function getOrganization(
     installationName: installationName || null,
     subscription: license ? getSubscriptionFromLicense(license) : null,
     agreements: agreementsAgreed || [],
+    aiKeyProviders,
     watching: {
       experiments: watch?.experiments || [],
       features: watch?.features || [],
@@ -1526,6 +1544,14 @@ export async function signup(
       throw Error("Company length must be at least 3 characters");
     }
     if (IS_CLOUD && PROHIBITED_ORGANIZATION_NAME_REGEX?.test(company)) {
+      req.log.warn(
+        {
+          event: "signup_blocked_prohibited_organization_name",
+          company,
+          userId: req.userId,
+        },
+        "Blocked signup with prohibited organization name",
+      );
       throw Error(
         "Unable to create organization. Please contact support@growthbook.io",
       );

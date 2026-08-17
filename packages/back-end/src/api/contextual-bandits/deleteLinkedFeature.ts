@@ -22,8 +22,10 @@ export const deleteContextualBanditLinkedFeature = createApiRequestHandler(
 
   // Also require feature-side edit rights — unlinking strips the rule off the
   // feature and cancels a queued autopublish the feature team may be managing.
+  // Edit-class at this gate; when the unlink also lands, the helper gates that
+  // on publish authority over the environments the rule reached.
   const feature = await getFeature(req.context, req.params.featureId);
-  if (feature && !req.context.permissions.canUpdateFeature(feature, {})) {
+  if (feature && !req.context.permissions.canEditFeatureDrafts(feature)) {
     req.context.permissions.throwPermissionError();
   }
   if (!feature) {

@@ -61,14 +61,9 @@ export function useContextualBandits(
 export function useContextualBandit(cbId: string | undefined) {
   const { data, error, mutate } = useApi<{
     contextualBandit: ApiContextualBanditInterface;
-  }>(
-    cbId
-      ? `/api/v1/contextual-bandits/${cbId}`
-      : "/api/v1/contextual-bandits/__missing__",
-    {
-      shouldRun: () => !!cbId,
-    },
-  );
+  }>(cbId ? `/api/v1/contextual-bandits/${cbId}` : "", {
+    shouldRun: () => !!cbId,
+  });
 
   return {
     loading: !!cbId && !error && !data,
@@ -105,12 +100,11 @@ export function useContextualBanditResults(cbId: string | undefined) {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState("");
 
-  const { data, error, mutate } = useApi<ContextualBanditResultsResponse>(
-    cbId
-      ? `/api/v1/contextual-bandits/${cbId}/results`
-      : "/api/v1/contextual-bandits/__missing__/results",
-    { shouldRun: () => !!cbId },
-  );
+  const { data, error, mutate, isValidating } =
+    useApi<ContextualBanditResultsResponse>(
+      cbId ? `/api/v1/contextual-bandits/${cbId}/results` : "",
+      { shouldRun: () => !!cbId },
+    );
 
   const latest = data?.latest ?? null;
   const isRunning = latest?.status === "running";
@@ -142,6 +136,7 @@ export function useContextualBanditResults(cbId: string | undefined) {
 
   return {
     loading: !!cbId && !error && !data,
+    isValidating,
     contextualBanditSnapshot: data?.contextualBanditSnapshot ?? null,
     results: data?.results ?? null,
     latest,
@@ -163,9 +158,7 @@ export type ContextualBanditLinkedFeaturesResponse = {
 export function useContextualBanditLinkedFeatures(cbId: string | undefined) {
   const { data, error, mutate } =
     useApi<ContextualBanditLinkedFeaturesResponse>(
-      cbId
-        ? `/api/v1/contextual-bandits/${cbId}/linked-features`
-        : "/api/v1/contextual-bandits/__missing__/linked-features",
+      cbId ? `/api/v1/contextual-bandits/${cbId}/linked-features` : "",
       { shouldRun: () => !!cbId },
     );
 

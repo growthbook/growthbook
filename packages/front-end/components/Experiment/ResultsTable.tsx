@@ -33,6 +33,7 @@ import {
   ExperimentMetricDefinition,
   ExperimentSortBy,
   SetExperimentSortBy,
+  funnelStepMetricId,
   isFactMetric,
 } from "shared/experiments";
 import { PiPencilSimpleFill } from "react-icons/pi";
@@ -779,6 +780,12 @@ export default function ResultsTable({
                     ? `${id}-${row.metric.id}-${row.sliceId}`
                     : `${id}-${row.metric.id}-${i}`;
 
+                  const funnelStepId =
+                    row.childRowType === "funnelStep" &&
+                    row.funnelStepIndex !== undefined
+                      ? funnelStepMetricId(row.metric.id, row.funnelStepIndex)
+                      : undefined;
+
                   const timeSeriesButton = showTimeSeriesButton ? (
                     <TimeSeriesButton
                       onClick={() => toggleVisibleTimeSeriesRowId(rowId)}
@@ -803,7 +810,7 @@ export default function ResultsTable({
                           {/* Render the main results tbody */}
                           <tbody
                             className={clsx("results-group-row", {
-                              "slice-row": row.isSliceRow,
+                              "child-row": row.isChildRow,
                               [styles.clickableRow]: !!effectiveOnRowClick,
                             })}
                             key={`${rowId}-tbody`}
@@ -1017,7 +1024,7 @@ export default function ResultsTable({
                                         {!compactResults ? (
                                           <div
                                             className={`d-flex align-items-center ml-2 ${
-                                              row.isSliceRow
+                                              row.isChildRow
                                                 ? "pl-4"
                                                 : dimension
                                                   ? "pl-2" // less padding because no expansion buttons
@@ -1320,6 +1327,7 @@ export default function ResultsTable({
                                             startDate,
                                           )}
                                           sliceId={row.sliceId}
+                                          funnelStepId={funnelStepId}
                                           baselineRow={baselineRow}
                                           unavailableMessage={timeSeriesMessage}
                                           preloadedTimeSeries={
