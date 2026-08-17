@@ -15,6 +15,7 @@ import {
   maxJourneyPathRows,
   maxJourneyResultRows,
   validateJourneyDataset,
+  validateJourneyStepColumns,
   withJourneyOptionsAt,
   MAX_JOURNEY_RESULT_ROWS,
 } from "shared/journeys";
@@ -876,6 +877,24 @@ describe("validateJourneyDataset", () => {
     big.optionsPerStep = [50, 50, 50];
     big.lookaheadDepth = 4;
     expect(validateJourneyDataset(big).join(" ")).toMatch(/exceed/);
+  });
+
+  it("rejects paths that would generate too many window expressions", () => {
+    const dataset = journeyDataset();
+    dataset.path = Array.from({ length: 16 }, (_, i) => ({
+      value: `step-${i}`,
+    }));
+    expect(validateJourneyDataset(dataset)).toContain(
+      "Journey paths cannot contain more than 15 steps.",
+    );
+  });
+
+  it("rejects step columns that are not on the Fact Table", () => {
+    const dataset = journeyDataset();
+    dataset.stepColumns = ["event_name", "event_name); SELECT secret FROM x"];
+    expect(validateJourneyStepColumns(dataset, eventsFactTable)).toEqual([
+      'Journey step column "event_name); SELECT secret FROM x" does not exist on the Fact Table.',
+    ]);
   });
 });
 

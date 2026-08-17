@@ -19,6 +19,7 @@ import {
   journeyTerminal,
   stepGroupsForColumn,
   validateJourneyDataset,
+  validateJourneyStepColumns,
 } from "../../journeys";
 import {
   calculateProductAnalyticsDateRange,
@@ -138,6 +139,10 @@ function assertJourneyConfig(
   }
   if (!factTable) {
     throw new Error(`Fact table ${dataset.factTableId} not found`);
+  }
+  const columnErrors = validateJourneyStepColumns(dataset, factTable);
+  if (columnErrors.length) {
+    throw new Error(columnErrors[0]);
   }
   if (dataset.unit && !factTable.userIdTypes.includes(dataset.unit)) {
     throw new Error(

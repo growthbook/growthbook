@@ -111,6 +111,7 @@ export type JourneyPathStep = z.infer<typeof journeyPathStepValidator>;
 
 export const MAX_JOURNEY_STEP_COLUMNS = 3;
 export const MAX_JOURNEY_STEP_GROUPS = 25;
+export const MAX_JOURNEY_PATH_LENGTH = 15;
 /** Frontier levels fetched per query. One is drawn; the rest are lookahead
  *  that lets a drill-down redraw from the cached result with no round trip. */
 export const MAX_JOURNEY_LOOKAHEAD_DEPTH = 4;
@@ -141,7 +142,7 @@ const journeyDatasetValidator = z
     anchorStepValues: z.array(z.string()).nullable(),
     direction: journeyDirectionValidator,
     rowFilters: z.array(rowFilterValidator),
-    path: z.array(journeyPathStepValidator),
+    path: z.array(journeyPathStepValidator).max(MAX_JOURNEY_PATH_LENGTH),
     // Frontier levels to fetch. The chart draws one; the rest are lookahead.
     lookaheadDepth: z.number().int().min(1).max(MAX_JOURNEY_LOOKAHEAD_DEPTH),
     // Per frontier level from the anchor; missing entries default to

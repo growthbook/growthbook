@@ -17,6 +17,7 @@ import {
   datasetTypeHasValues,
   ProductAnalyticsExploration,
   ExplorationDateRange,
+  MAX_JOURNEY_PATH_LENGTH,
   type ComparisonMode,
   type ProductAnalyticsRunComparisonPayload,
 } from "shared/validators";
@@ -547,8 +548,8 @@ export function ExplorerProvider({
         const nextError = resultError || result?.error || null;
         const failedWithoutRows =
           !!nextError && (result?.result?.rows?.length ?? 0) === 0;
-        if (result || resultError) {
-          setSubmittedExploreState(submittedConfig);
+        const hasTerminalResult = !!result || !!resultError;
+        if (hasTerminalResult) {
           setIsStale(false);
         }
         setExplorerState((prev) => {
@@ -557,6 +558,10 @@ export function ExplorerProvider({
             (prev.exploration?.result?.rows?.length ?? 0) > 0;
           return {
             ...prev,
+            submittedState:
+              hasTerminalResult && !keepPrevious
+                ? submittedConfig
+                : prev.submittedState,
             exploration: keepPrevious ? prev.exploration : result,
             query: keepPrevious ? prev.query : resultQuery,
             error: nextError,
@@ -1077,6 +1082,7 @@ export function ExplorerProvider({
     (value: string) => {
       setDraftExploreState((prev) => {
         if (prev.dataset.type !== "journey") return prev;
+        if (prev.dataset.path.length >= MAX_JOURNEY_PATH_LENGTH) return prev;
         return {
           ...prev,
           dataset: {

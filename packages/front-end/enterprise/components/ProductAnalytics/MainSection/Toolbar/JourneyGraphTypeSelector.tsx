@@ -27,7 +27,7 @@ export default function JourneyGraphTypeSelector() {
     <ExplorerViewSelector
       items={JOURNEY_GRAPH_ITEMS}
       value={activeValue}
-      disabled={!hasData}
+      disabled={!exploration}
       onChange={changeChartType}
       trailing={
         showQueryError ? (

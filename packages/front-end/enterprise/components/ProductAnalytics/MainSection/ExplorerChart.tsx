@@ -879,12 +879,10 @@ export default function ExplorerChart({
             )}
           </Box>
         ) : null}
-        {(exploration?.result?.rows?.length ?? 0) > 0 ? (
-          <JourneyChart
-            exploration={exploration}
-            submittedExploreState={submittedExploreState}
-          />
-        ) : null}
+        <JourneyChart
+          exploration={exploration}
+          submittedExploreState={submittedExploreState}
+        />
       </Flex>
     );
   }

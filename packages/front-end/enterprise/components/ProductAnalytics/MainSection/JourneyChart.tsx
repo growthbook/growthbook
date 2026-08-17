@@ -6,6 +6,7 @@ import type {
   ProductAnalyticsExploration,
   ProductAnalyticsResultRow,
 } from "shared/validators";
+import { MAX_JOURNEY_PATH_LENGTH } from "shared/validators";
 import {
   JOURNEY_NONE,
   JOURNEY_OTHER,
@@ -38,12 +39,14 @@ export default function JourneyChart({
     loading,
     handleSubmit,
   } = useExplorerContext();
-  const dataset: JourneyDataset | null =
+  const draftDataset =
     draftExploreState.dataset?.type === "journey"
       ? draftExploreState.dataset
-      : submittedExploreState.dataset.type === "journey"
-        ? submittedExploreState.dataset
-        : null;
+      : null;
+  const dataset: JourneyDataset | null =
+    submittedExploreState.dataset.type === "journey"
+      ? submittedExploreState.dataset
+      : null;
   const rowPath = useMemo(() => {
     if (exploration?.config.dataset.type === "journey") {
       return exploration.config.dataset.path;
@@ -84,16 +87,16 @@ export default function JourneyChart({
   const dimValues = journeyDimValueCount(submittedExploreState.dimensions[0]);
   const canViewMore = useCallback(
     (levelIndex: number) => {
-      if (!dataset) return false;
+      if (!draftDataset) return false;
       return canIncreaseJourneyOptions({
-        optionsPerStep: dataset.optionsPerStep,
+        optionsPerStep: draftDataset.optionsPerStep,
         levelIndex,
-        lookaheadDepth: dataset.lookaheadDepth,
-        pathLength: dataset.path.length,
+        lookaheadDepth: draftDataset.lookaheadDepth,
+        pathLength: draftDataset.path.length,
         dimValues,
       });
     },
-    [dataset, dimValues],
+    [draftDataset, dimValues],
   );
   const onViewMore = useCallback(
     (levelIndex: number) => {
@@ -121,7 +124,7 @@ export default function JourneyChart({
   );
   const viewMoreLoading = useCallback(
     (levelIndex: number) => {
-      if (!loading || !dataset) return false;
+      if (!loading || !draftDataset) return false;
       const rowDataset =
         exploration?.config.dataset.type === "journey"
           ? exploration.config.dataset
@@ -130,11 +133,11 @@ export default function JourneyChart({
             : null;
       if (!rowDataset) return true;
       return (
-        journeyOptionsAt(dataset.optionsPerStep, levelIndex) >
+        journeyOptionsAt(draftDataset.optionsPerStep, levelIndex) >
         journeyOptionsAt(rowDataset.optionsPerStep, levelIndex)
       );
     },
-    [dataset, exploration, loading, submittedExploreState.dataset],
+    [draftDataset, exploration, loading, submittedExploreState.dataset],
   );
 
   if (!dataset || !model) return null;
@@ -172,6 +175,10 @@ export default function JourneyChart({
           onViewMore={onViewMore}
           canViewMore={canViewMore}
           viewMoreLoading={viewMoreLoading}
+          canCommitStep={
+            (draftDataset?.path.length ?? dataset.path.length) <
+            MAX_JOURNEY_PATH_LENGTH
+          }
         />
       </Box>
       {hasDimension && (

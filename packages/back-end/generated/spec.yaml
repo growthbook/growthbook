@@ -47241,6 +47241,7 @@ paths:
                           - operator
                         additionalProperties: false
                     path:
+                      maxItems: 15
                       type: array
                       items:
                         type: object
@@ -47686,6 +47687,7 @@ paths:
                                         - operator
                                       additionalProperties: false
                                   path:
+                                    maxItems: 15
                                     type: array
                                     items:
                                       type: object
@@ -66860,6 +66862,7 @@ components:
                           - operator
                         additionalProperties: false
                     path:
+                      maxItems: 15
                       type: array
                       items:
                         type: object

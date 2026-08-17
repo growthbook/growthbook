@@ -22,7 +22,7 @@ import {
 } from "@/enterprise/components/ProductAnalytics/util";
 import {
   journeyDiffersOnlyByPath,
-  journeyPrefetchExhausted,
+  journeyFetchCache,
   journeyShouldPrefetchMore,
 } from "@/enterprise/components/ProductAnalytics/journey-policy";
 import { buildJourneyViewState } from "@/enterprise/components/ProductAnalytics/MainSection/useJourneyModel";
@@ -244,23 +244,38 @@ describe("journey util branches", () => {
     };
     expect(journeyDiffersOnlyByPath(submitted, withinPrefetch)).toBe(true);
     expect(journeyShouldPrefetchMore(submitted, withinPrefetch)).toBe(false);
-    expect(
-      journeyPrefetchExhausted(submitted.dataset, withinPrefetch.dataset),
-    ).toBe(false);
     expect(journeyShouldPrefetchMore(submitted, oneBefore)).toBe(true);
-    expect(journeyPrefetchExhausted(submitted.dataset, oneBefore.dataset)).toBe(
-      false,
-    );
     expect(journeyShouldPrefetchMore(submitted, exhausted)).toBe(true);
-    expect(journeyPrefetchExhausted(submitted.dataset, exhausted.dataset)).toBe(
-      true,
-    );
     expect(journeyShouldPrefetchMore(submitted, otherChange)).toBe(false);
     expect(journeyShouldPrefetchMore(submitted, submitted)).toBe(false);
     // Display path may already equal the draft; leftover levels are on the
     // result that produced the rows, not the submitted config.
     expect(journeyShouldPrefetchMore(submitted, oneBefore)).toBe(true);
     expect(journeyShouldPrefetchMore(oneBefore, oneBefore)).toBe(false);
+  });
+
+  it("allows a query when a path-only cache lookup misses", () => {
+    const rowSource: ExplorationConfig = {
+      type: "journey",
+      datasource: "ds_1",
+      chartType: "bar",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [],
+      dataset: journeyDataset({
+        path: [{ value: "home" }, { value: "search" }],
+      }),
+    };
+    const redrilled: ExplorationConfig = {
+      ...rowSource,
+      dataset: journeyDataset({ path: [{ value: "pricing" }] }),
+    };
+    expect(journeyFetchCache(rowSource, redrilled)).toBe("preferred");
   });
 
   it("compareConfig treats a serveable path change as a local update", () => {

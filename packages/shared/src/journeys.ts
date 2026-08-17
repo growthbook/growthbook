@@ -1,4 +1,5 @@
 import { isEqual } from "lodash";
+import type { FactTableInterface } from "shared/types/fact-table";
 import type {
   JourneyDataset,
   JourneyPathStep,
@@ -11,6 +12,7 @@ import {
   DEFAULT_JOURNEY_OPTIONS_PER_STEP,
   MAX_JOURNEY_LOOKAHEAD_DEPTH,
   MAX_JOURNEY_OPTIONS_PER_STEP,
+  MAX_JOURNEY_PATH_LENGTH,
 } from "./validators/product-analytics";
 
 export const JOURNEY_OTHER = "(other)";
@@ -603,6 +605,11 @@ export function validateJourneyDataset(
       `Journey lookahead depth must be between 1 and ${MAX_JOURNEY_LOOKAHEAD_DEPTH}`,
     );
   }
+  if (dataset.path.length > MAX_JOURNEY_PATH_LENGTH) {
+    errors.push(
+      `Journey paths cannot contain more than ${MAX_JOURNEY_PATH_LENGTH} steps.`,
+    );
+  }
   if (
     journeyConfigExceedsRowCap({
       optionsPerStep: dataset.optionsPerStep,
@@ -617,6 +624,23 @@ export function validateJourneyDataset(
   }
 
   return errors;
+}
+
+export function validateJourneyStepColumns(
+  dataset: JourneyDataset,
+  factTable: Pick<FactTableInterface, "columns">,
+): string[] {
+  const availableColumns = new Set(
+    factTable.columns
+      .filter((column) => !column.deleted)
+      .map((column) => column.column),
+  );
+  return Array.from(new Set(dataset.stepColumns))
+    .filter((column) => !availableColumns.has(column))
+    .map(
+      (column) =>
+        `Journey step column "${column}" does not exist on the Fact Table.`,
+    );
 }
 
 /** True when `dataset` is complete enough to run. */

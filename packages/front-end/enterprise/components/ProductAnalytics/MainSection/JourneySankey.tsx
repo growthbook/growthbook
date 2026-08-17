@@ -19,7 +19,6 @@ const NODE_GAP = 7;
 const PAD_T = 34;
 const PAD_B = 12;
 const ANIM_MS = 320;
-const VIEW_MORE_GAP = 18;
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
@@ -161,11 +160,7 @@ function layout(m: JourneyViewModel, width: number, height: number): Layout {
   cols.forEach((c) => {
     c.total = c.nodes.reduce((a, n) => a + n.value, 0);
     const gaps = Math.max(0, c.nodes.length - 1) * NODE_GAP;
-    const viewMoreGap =
-      c.frontier && c.nodes.some((n) => n.key === JOURNEY_OTHER)
-        ? VIEW_MORE_GAP
-        : 0;
-    const availC = height - PAD_T - PAD_B - gaps - viewMoreGap;
+    const availC = height - PAD_T - PAD_B - gaps;
     c.scale = c.total > 0 ? availC / c.total : 0;
     let y = PAD_T;
     for (const n of c.nodes) {
@@ -173,7 +168,6 @@ function layout(m: JourneyViewModel, width: number, height: number): Layout {
       ln.h = Math.max(1.5, n.value * c.scale);
       ln.y = y;
       y += ln.h + NODE_GAP;
-      if (n.key === JOURNEY_OTHER && c.frontier) y += VIEW_MORE_GAP;
       ln._out = 0;
       ln._in = 0;
     }
@@ -333,6 +327,7 @@ function SankeySvg({
   onViewMore,
   canViewMore,
   viewMoreLoading,
+  canCommitStep,
 }: {
   model: JourneyViewModel;
   width: number;
@@ -342,6 +337,7 @@ function SankeySvg({
   onViewMore: (levelIndex: number) => void;
   canViewMore: (levelIndex: number) => boolean;
   viewMoreLoading: (levelIndex: number) => boolean;
+  canCommitStep: boolean;
 }) {
   const w = Math.floor(width);
   const h = Math.floor(height);
@@ -504,25 +500,40 @@ function SankeySvg({
               targetCol.commitIndex != null
                 ? targetCol.commitIndex
                 : null;
+            const frontierKey = targetCol === B ? e.tgtKey : e.srcKey;
+            const optionsLevel = targetCol.optionsLevel;
+            const expandsOther =
+              !loadingEdge &&
+              targetCol.frontier &&
+              frontierKey === JOURNEY_OTHER &&
+              optionsLevel != null &&
+              canViewMore(optionsLevel) &&
+              !viewMoreLoading(optionsLevel);
             const commitKeys =
               loadingEdge ||
               e.committedEdge ||
               e.leak ||
-              (e.tgtKey && JOURNEY_TERMINALS.has(e.tgtKey))
+              !canCommitStep ||
+              !frontierKey ||
+              frontierKey === JOURNEY_OTHER ||
+              JOURNEY_TERMINALS.has(frontierKey)
                 ? null
-                : e.fi === 0
-                  ? e.tgtKey
-                    ? [e.tgtKey]
-                    : null
-                  : e.srcKey && !JOURNEY_TERMINALS.has(e.srcKey) && e.tgtKey
-                    ? [e.srcKey, e.tgtKey]
-                    : null;
-            const clickable = !!commitKeys || popIndex != null;
+                : [frontierKey];
+            const clickable = expandsOther || !!commitKeys || popIndex != null;
             return (
               <g
                 key={ei}
                 role={clickable ? "button" : "img"}
                 tabIndex={clickable ? 0 : undefined}
+                aria-label={
+                  expandsOther
+                    ? "Show more paths"
+                    : commitKeys
+                      ? `Drill into ${frontierKey}`
+                      : popIndex != null
+                        ? `Return to ${targetCol.label}`
+                        : undefined
+                }
                 style={{ cursor: clickable ? "pointer" : "default" }}
                 onPointerEnter={(ev) => {
                   if (loadingEdge) return;
@@ -548,14 +559,18 @@ function SankeySvg({
                 }}
                 onPointerLeave={hideTooltip}
                 onClick={() => {
-                  if (commitKeys) onCommit(commitKeys);
+                  if (expandsOther && optionsLevel != null) {
+                    onViewMore(optionsLevel);
+                  } else if (commitKeys) onCommit(commitKeys);
                   else if (popIndex != null) onPop(popIndex);
                 }}
                 onKeyDown={(ev) => {
                   if (!clickable) return;
                   if (ev.key !== "Enter" && ev.key !== " ") return;
                   ev.preventDefault();
-                  if (commitKeys) onCommit(commitKeys);
+                  if (expandsOther && optionsLevel != null) {
+                    onViewMore(optionsLevel);
+                  } else if (commitKeys) onCommit(commitKeys);
                   else if (popIndex != null) onPop(popIndex);
                 }}
               >
@@ -585,17 +600,24 @@ function SankeySvg({
                       ? "var(--accent-7)"
                       : "var(--accent-9)";
               const hitH = Math.max(24, ln.h + 4);
-              const canCommit =
-                !!c.frontier && !c.loading && !term && c.fi === 0;
               const lx = lastCol ? c.x - 7 : c.x + NODE_W + 7;
               const anch = lastCol ? "end" : "start";
               const moreLoading =
                 c.optionsLevel != null && viewMoreLoading(c.optionsLevel);
-              const showViewMore =
+              const canExpandOther =
                 n.key === JOURNEY_OTHER &&
                 !!c.frontier &&
                 c.optionsLevel != null &&
-                (moreLoading || canViewMore(c.optionsLevel));
+                canViewMore(c.optionsLevel) &&
+                !moreLoading;
+              const canCommit =
+                canCommitStep &&
+                !!c.frontier &&
+                !c.loading &&
+                !term &&
+                n.key !== JOURNEY_OTHER &&
+                c.fi === 0;
+              const clickable = canCommit || canExpandOther;
               return (
                 <g key={`${c.offset}-${n.key}`}>
                   <rect
@@ -609,7 +631,8 @@ function SankeySvg({
                     strokeWidth={c.loading ? 1.5 : undefined}
                     strokeDasharray={c.loading ? "3 3" : undefined}
                   >
-                    {c.loading && !reduceMotion ? (
+                    {(c.loading || (n.key === JOURNEY_OTHER && moreLoading)) &&
+                    !reduceMotion ? (
                       <animate
                         attributeName="opacity"
                         values="0.45;0.9;0.45"
@@ -624,10 +647,20 @@ function SankeySvg({
                     width={NODE_W + 10}
                     height={hitH}
                     fill="transparent"
-                    role={canCommit ? "button" : "img"}
-                    tabIndex={canCommit ? 0 : undefined}
+                    role={clickable ? "button" : "img"}
+                    tabIndex={clickable ? 0 : undefined}
+                    aria-label={
+                      canExpandOther
+                        ? "Show more paths"
+                        : canCommit
+                          ? `Drill into ${n.label}`
+                          : undefined
+                    }
+                    aria-busy={
+                      n.key === JOURNEY_OTHER ? moreLoading : undefined
+                    }
                     style={{
-                      cursor: canCommit ? "pointer" : "default",
+                      cursor: clickable ? "pointer" : "default",
                     }}
                     onPointerEnter={(ev) => {
                       if (c.loading) return;
@@ -658,12 +691,20 @@ function SankeySvg({
                     }}
                     onPointerLeave={hideTooltip}
                     onClick={() => {
-                      if (canCommit) onCommit([n.key]);
+                      if (canExpandOther && c.optionsLevel != null) {
+                        onViewMore(c.optionsLevel);
+                      } else if (canCommit) {
+                        onCommit([n.key]);
+                      }
                     }}
                     onKeyDown={(ev) => {
                       if (ev.key !== "Enter" && ev.key !== " ") return;
                       ev.preventDefault();
-                      if (canCommit) onCommit([n.key]);
+                      if (canExpandOther && c.optionsLevel != null) {
+                        onViewMore(c.optionsLevel);
+                      } else if (canCommit) {
+                        onCommit([n.key]);
+                      }
                     }}
                   />
                   {ln.h >= 13 && !c.loading && (
@@ -690,36 +731,6 @@ function SankeySvg({
                       textAnchor={anch}
                     >
                       {`${fmt(n.value)}  (${pct(n.value, model.anchorTotal)})`}
-                    </text>
-                  )}
-                  {showViewMore && c.optionsLevel != null && (
-                    <text
-                      x={lx}
-                      y={ln.y + ln.h + 13}
-                      fontSize={11}
-                      fill="var(--accent-11)"
-                      textAnchor={anch}
-                      role="button"
-                      tabIndex={moreLoading ? -1 : 0}
-                      aria-busy={moreLoading}
-                      style={{
-                        cursor: moreLoading ? "default" : "pointer",
-                        textDecoration: moreLoading ? "none" : "underline",
-                      }}
-                      onClick={(ev) => {
-                        ev.stopPropagation();
-                        if (moreLoading || c.optionsLevel == null) return;
-                        onViewMore(c.optionsLevel);
-                      }}
-                      onKeyDown={(ev) => {
-                        if (ev.key !== "Enter" && ev.key !== " ") return;
-                        ev.preventDefault();
-                        ev.stopPropagation();
-                        if (moreLoading || c.optionsLevel == null) return;
-                        onViewMore(c.optionsLevel);
-                      }}
-                    >
-                      {moreLoading ? "Loading…" : "View more"}
                     </text>
                   )}
                 </g>
@@ -778,6 +789,7 @@ export default function JourneySankey({
   onViewMore,
   canViewMore,
   viewMoreLoading,
+  canCommitStep,
 }: {
   model: JourneyViewModel;
   onCommit: (keys: string[]) => void;
@@ -785,6 +797,7 @@ export default function JourneySankey({
   onViewMore: (levelIndex: number) => void;
   canViewMore: (levelIndex: number) => boolean;
   viewMoreLoading: (levelIndex: number) => boolean;
+  canCommitStep: boolean;
 }) {
   return (
     <ParentSizeModern>
@@ -800,6 +813,7 @@ export default function JourneySankey({
             onViewMore={onViewMore}
             canViewMore={canViewMore}
             viewMoreLoading={viewMoreLoading}
+            canCommitStep={canCommitStep}
           />
         );
       }}

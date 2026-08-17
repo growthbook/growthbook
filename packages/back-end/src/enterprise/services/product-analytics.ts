@@ -13,6 +13,7 @@ import {
 import {
   journeyMinUnusedLookahead,
   validateJourneyDataset,
+  validateJourneyStepColumns,
 } from "shared/journeys";
 import {
   FactMetricInterface,
@@ -225,6 +226,10 @@ export async function runProductAnalyticsExploration(
       throw new BadRequestError(
         "Fact Table must belong to the same Data Source as the exploration",
       );
+    }
+    const columnErrors = validateJourneyStepColumns(dataset, factTable);
+    if (columnErrors.length) {
+      throw new BadRequestError(columnErrors.join(" "));
     }
     if (dataset.unit && !factTable.userIdTypes.includes(dataset.unit)) {
       throw new BadRequestError(
