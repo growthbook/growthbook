@@ -385,6 +385,366 @@ const SavedGroupForm: FC<{
     [savedGroups],
   );
 
+  // In a variable so the provider wrapper doesn't reindent the tree.
+  const modalContent = (
+    <Modal
+      trackingEventModalType="saved-group-form"
+      close={close}
+      open={true}
+      size="lg"
+      header={
+        editInfoOnly
+          ? "Edit Information"
+          : editConditionOnly
+            ? "Edit Condition"
+            : `${current.id ? "Edit" : "Add"} ${
+                type === "condition" ? "Condition Group" : "ID List"
+              }`
+      }
+      cta={
+        !current.id
+          ? "Submit"
+          : draftMode === "publish"
+            ? isApprovalFlowRequired && !autoBypassApproval
+              ? "Publish"
+              : "Save"
+            : isMetadataOnlyRevisionFlow
+              ? draftMode === "existing"
+                ? "Update revision"
+                : "Add to a new revision"
+              : "Save to draft"
+      }
+      submitColor={
+        current.id &&
+        draftMode === "publish" &&
+        isApprovalFlowRequired &&
+        !autoBypassApproval
+          ? "danger"
+          : "primary"
+      }
+      ctaEnabled={
+        isValid &&
+        (editConditionOnly || hasProjectPermission) &&
+        !isEditBlocked &&
+        conflict.resolved
+      }
+      disabledMessage={ctaDisabledMessage}
+      submit={form.handleSubmit(async (value) => {
+        if (!editInfoOnly && type === "condition") {
+          const conditionRes = validateAndFixCondition(
+            value.condition,
+            (c) => {
+              form.setValue("condition", c);
+              forceConditionRender();
+            },
+            true,
+            groupMap,
+            // Avoid false unknown-group errors while the group map is loading.
+            !savedGroupsLoaded,
+          );
+          if (conditionRes.empty) {
+            throw new Error("Condition cannot be empty");
+          }
+        }
+
+        // Update existing saved group.
+        //
+        // Only include fields whose submitted value actually differs from
+        // the baseline (`current` — the live group, or for an open draft
+        // the patched snapshot the parent computes). The backend would drop
+        // no-op writes anyway, but omitting them up front prevents a stale
+        // form-default-vs-current mismatch (e.g. an array field whose
+        // default initialised to `[]` before the sync `useEffect` ran)
+        // silently turning untouched fields into real changes in the
+        // produced revision.
+        if (current.id) {
+          const baseline = (k: keyof SavedGroupInterface) =>
+            (current as Partial<SavedGroupInterface>)[k];
+          const fieldChanged = (k: keyof SavedGroupFormValues) =>
+            !isEqual(value[k] ?? null, baseline(k) ?? null);
+          let payload: UpdateSavedGroupProps;
+          if (editInfoOnly) {
+            payload = {
+              ...(fieldChanged("groupName")
+                ? { groupName: value.groupName }
+                : {}),
+              ...(fieldChanged("owner") ? { owner: value.owner } : {}),
+              ...(fieldChanged("description")
+                ? { description: value.description }
+                : {}),
+              ...(fieldChanged("projects") ? { projects: value.projects } : {}),
+            };
+          } else if (editConditionOnly) {
+            payload = fieldChanged("condition")
+              ? { condition: value.condition }
+              : {};
+          } else {
+            payload = {
+              ...(fieldChanged("condition")
+                ? { condition: value.condition }
+                : {}),
+              ...(fieldChanged("groupName")
+                ? { groupName: value.groupName }
+                : {}),
+              ...(fieldChanged("owner") ? { owner: value.owner } : {}),
+              ...(fieldChanged("values") ? { values: value.values } : {}),
+              ...(fieldChanged("description")
+                ? { description: value.description }
+                : {}),
+              ...(fieldChanged("projects") ? { projects: value.projects } : {}),
+            };
+          }
+
+          // Build URL with query params based on the user's selector choice.
+          // `autoBypassApproval` (the metadata-only shortcut) routes "publish"
+          // through `autoPublish` rather than `bypassApproval` so non-admins
+          // can still save metadata changes — matching the server-side rule
+          // that honours `autoPublish` even when approval is otherwise
+          // required.
+          const params = new URLSearchParams();
+
+          if (draftMode === "publish") {
+            if (isApprovalFlowRequired && !autoBypassApproval) {
+              params.set("bypassApproval", "1");
+            } else {
+              params.set("autoPublish", "1");
+            }
+          } else if (draftMode === "existing" && draftSelectedId) {
+            params.set("revisionId", draftSelectedId);
+          } else {
+            params.set("forceCreateRevision", "1");
+          }
+          const queryString = params.toString();
+          const url = `/saved-groups/${current.id}${queryString ? `?${queryString}` : ""}`;
+
+          const guard = conflict.guard(
+            payload as unknown as Record<string, unknown>,
+          );
+          const res = await apiCall<{
+            status: number;
+            requiresApproval?: boolean;
+            revision?: Revision;
+          }>(
+            url,
+            {
+              method: "PUT",
+              body: JSON.stringify({ ...payload, baseline: guard.baseline }),
+            },
+            guard.onError,
+          );
+          conflict.clear();
+
+          // If a revision was created or updated, handle it
+          if (res?.revision) {
+            mutateDefinitions({});
+            // Only call onRevisionCreated if the revision is still a draft
+            // (when auto-published, the revision is already merged)
+            if (res.revision.status !== "merged") {
+              onRevisionCreated?.(res.revision);
+            } else {
+              // When auto-published, the merged revision is the new live
+              // version. Refresh both SWR caches first so liveVersion reflects
+              // the merge, then send the user to "live" (null) so the page
+              // renders the live entity rather than the merged revision's
+              // pre-edit snapshot.
+              await mutate?.();
+              onSelectRevision?.(null);
+            }
+            close();
+            return;
+          }
+        }
+        // Create new saved group
+        else {
+          const payload: CreateSavedGroupProps = {
+            ...value,
+          };
+          setErrorMessage("");
+          await apiCall(
+            `/saved-groups`,
+            {
+              method: "POST",
+              body: JSON.stringify(payload),
+            },
+            (responseData) => {
+              if (responseData.status === 413) {
+                setErrorMessage(
+                  "Cannot import such a large CSV. Try again with a smaller payload",
+                );
+              }
+            },
+          );
+        }
+        mutateDefinitions({});
+        await mutate?.();
+      })}
+      error={errorMessage}
+    >
+      {current.id && (
+        <SavedGroupDraftSelectorForChanges
+          savedGroup={current as SavedGroupInterface}
+          openRevisions={openRevisions}
+          allRevisions={allRevisionsForLabel}
+          mode={draftMode}
+          setMode={setDraftMode}
+          selectedDraftId={draftSelectedId}
+          setSelectedDraftId={setDraftSelectedId}
+          canAutoPublish={canAutoPublish}
+          approvalRequired={isApprovalFlowRequired && !autoBypassApproval}
+          metadataOnly={isMetadataOnlyRevisionFlow}
+          alert={conflict.alert}
+          alertActive={conflict.alertActive}
+        />
+      )}
+      {conflict.callouts}
+      {isEditBlocked && currentRevision && (
+        <Callout status="warning" mb="4">
+          <Text size="2">
+            {`This revision is ${currentRevision.status} and cannot be edited. You can view it here in read-only mode.`}
+          </Text>
+        </Callout>
+      )}
+      {!editInfoOnly && !editConditionOnly && current.type === "condition" && (
+        <div className="form-group">
+          Updating this group will automatically update any associated Features
+          and Experiments.
+        </div>
+      )}
+      {!editConditionOnly && (
+        <>
+          <Field
+            size="legacy"
+            label={`${type === "list" ? "List" : "Group"} Name`}
+            labelClassName="font-weight-bold"
+            required
+            {...form.register("groupName")}
+            placeholder="e.g. beta-users or internal-team-members"
+          />
+          {showDescription ? (
+            <Field
+              size="legacy"
+              label="Description"
+              labelClassName="font-weight-bold"
+              required={false}
+              textarea
+              maxLength={100}
+              value={form.watch("description")}
+              onChange={(e) => {
+                form.setValue("description", e.target.value);
+              }}
+            />
+          ) : (
+            <Link
+              onClick={(e) => {
+                e.preventDefault();
+                setShowDescription(true);
+              }}
+              mb="5"
+            >
+              <Flex align="center" gap="1">
+                <PiPlus />
+                <Text weight="medium">Add a description</Text>
+              </Flex>
+            </Link>
+          )}
+          <MultiSelectField
+            legacyHeight
+            label="Projects"
+            labelClassName="font-weight-bold"
+            placeholder={
+              canCreateWithoutProject ? "All Projects" : "Select projects..."
+            }
+            value={selectedProjects}
+            onChange={(projects) => form.setValue("projects", projects)}
+            options={projectsOptions}
+            sort={false}
+            closeMenuOnSelect={true}
+          />
+          {current.id && (
+            <SelectOwner
+              placeholder="Optional"
+              value={form.watch("owner")}
+              onChange={(v) => form.setValue("owner", v)}
+            />
+          )}
+        </>
+      )}
+
+      {!editInfoOnly &&
+        (type === "condition" ? (
+          <ConditionInput
+            defaultValue={form.watch("condition") || ""}
+            onChange={(v) => {
+              form.setValue("condition", v);
+            }}
+            project={selectedProjects[0] || ""}
+            key={conditionKey}
+          />
+        ) : (
+          <>
+            <SelectField
+              size="legacy"
+              label="Attribute Key"
+              labelClassName="font-weight-bold"
+              required
+              value={form.watch("attributeKey") || ""}
+              disabled={!!current.attributeKey}
+              onChange={(v) => form.setValue("attributeKey", v)}
+              placeholder="Choose one..."
+              options={attributeSchema.map((a) => ({
+                value: a.property,
+                label: a.property,
+              }))}
+              isOptionDisabled={({ label }) => {
+                const attr = attributeSchema.find(
+                  (attr) => attr.property === label,
+                );
+                if (!attr) return false;
+                return !isIdListSupportedAttribute(attr);
+              }}
+              sort={false}
+              formatOptionLabel={({ label }) => {
+                const attr = attributeSchema.find(
+                  (attr) => attr.property === label,
+                );
+                if (!attr) return label;
+                const unsupported = !isIdListSupportedAttribute(attr);
+                return (
+                  <div className={clsx(unsupported ? "disabled" : "")}>
+                    {label}
+                    {unsupported && (
+                      <span className="float-right">
+                        <Tooltip
+                          body="The datatype for this attribute key isn't valid for ID Lists. Try using a Condition Group instead"
+                          tipPosition="top"
+                        >
+                          unsupported datatype
+                        </Tooltip>
+                      </span>
+                    )}
+                  </div>
+                );
+              }}
+              helpText={current.attributeKey && "This field cannot be edited."}
+            />
+            {!current.id && (
+              <IdListItemInput
+                values={form.watch("values") || []}
+                setValues={(newValues) => {
+                  form.setValue("values", newValues);
+                }}
+                openUpgradeModal={() => setUpgradeModal(true)}
+                listAboveSizeLimit={listAboveSizeLimit}
+                bypassSizeLimit={adminBypassSizeLimit}
+                setBypassSizeLimit={setAdminBypassSizeLimit}
+                projects={form.watch("projects")}
+              />
+            )}
+          </>
+        ))}
+    </Modal>
+  );
+
   return upgradeModal ? (
     <UpgradeModal
       close={() => setUpgradeModal(false)}
@@ -393,370 +753,7 @@ const SavedGroupForm: FC<{
     />
   ) : (
     <ConflictProvider {...conflict.providerProps}>
-      <Modal
-        trackingEventModalType="saved-group-form"
-        close={close}
-        open={true}
-        size="lg"
-        header={
-          editInfoOnly
-            ? "Edit Information"
-            : editConditionOnly
-              ? "Edit Condition"
-              : `${current.id ? "Edit" : "Add"} ${
-                  type === "condition" ? "Condition Group" : "ID List"
-                }`
-        }
-        cta={
-          !current.id
-            ? "Submit"
-            : draftMode === "publish"
-              ? isApprovalFlowRequired && !autoBypassApproval
-                ? "Publish"
-                : "Save"
-              : isMetadataOnlyRevisionFlow
-                ? draftMode === "existing"
-                  ? "Update revision"
-                  : "Add to a new revision"
-                : "Save to draft"
-        }
-        submitColor={
-          current.id &&
-          draftMode === "publish" &&
-          isApprovalFlowRequired &&
-          !autoBypassApproval
-            ? "danger"
-            : "primary"
-        }
-        ctaEnabled={
-          isValid &&
-          (editConditionOnly || hasProjectPermission) &&
-          !isEditBlocked &&
-          conflict.resolved
-        }
-        disabledMessage={ctaDisabledMessage}
-        submit={form.handleSubmit(async (value) => {
-          if (!editInfoOnly && type === "condition") {
-            const conditionRes = validateAndFixCondition(
-              value.condition,
-              (c) => {
-                form.setValue("condition", c);
-                forceConditionRender();
-              },
-              true,
-              groupMap,
-              // Avoid false unknown-group errors while the group map is loading.
-              !savedGroupsLoaded,
-            );
-            if (conditionRes.empty) {
-              throw new Error("Condition cannot be empty");
-            }
-          }
-
-          // Update existing saved group.
-          //
-          // Only include fields whose submitted value actually differs from
-          // the baseline (`current` — the live group, or for an open draft
-          // the patched snapshot the parent computes). The backend would drop
-          // no-op writes anyway, but omitting them up front prevents a stale
-          // form-default-vs-current mismatch (e.g. an array field whose
-          // default initialised to `[]` before the sync `useEffect` ran)
-          // silently turning untouched fields into real changes in the
-          // produced revision.
-          if (current.id) {
-            const baseline = (k: keyof SavedGroupInterface) =>
-              (current as Partial<SavedGroupInterface>)[k];
-            const fieldChanged = (k: keyof SavedGroupFormValues) =>
-              !isEqual(value[k] ?? null, baseline(k) ?? null);
-            let payload: UpdateSavedGroupProps;
-            if (editInfoOnly) {
-              payload = {
-                ...(fieldChanged("groupName")
-                  ? { groupName: value.groupName }
-                  : {}),
-                ...(fieldChanged("owner") ? { owner: value.owner } : {}),
-                ...(fieldChanged("description")
-                  ? { description: value.description }
-                  : {}),
-                ...(fieldChanged("projects")
-                  ? { projects: value.projects }
-                  : {}),
-              };
-            } else if (editConditionOnly) {
-              payload = fieldChanged("condition")
-                ? { condition: value.condition }
-                : {};
-            } else {
-              payload = {
-                ...(fieldChanged("condition")
-                  ? { condition: value.condition }
-                  : {}),
-                ...(fieldChanged("groupName")
-                  ? { groupName: value.groupName }
-                  : {}),
-                ...(fieldChanged("owner") ? { owner: value.owner } : {}),
-                ...(fieldChanged("values") ? { values: value.values } : {}),
-                ...(fieldChanged("description")
-                  ? { description: value.description }
-                  : {}),
-                ...(fieldChanged("projects")
-                  ? { projects: value.projects }
-                  : {}),
-              };
-            }
-
-            // Build URL with query params based on the user's selector choice.
-            // `autoBypassApproval` (the metadata-only shortcut) routes "publish"
-            // through `autoPublish` rather than `bypassApproval` so non-admins
-            // can still save metadata changes — matching the server-side rule
-            // that honours `autoPublish` even when approval is otherwise
-            // required.
-            const params = new URLSearchParams();
-
-            if (draftMode === "publish") {
-              if (isApprovalFlowRequired && !autoBypassApproval) {
-                params.set("bypassApproval", "1");
-              } else {
-                params.set("autoPublish", "1");
-              }
-            } else if (draftMode === "existing" && draftSelectedId) {
-              params.set("revisionId", draftSelectedId);
-            } else {
-              params.set("forceCreateRevision", "1");
-            }
-            const queryString = params.toString();
-            const url = `/saved-groups/${current.id}${queryString ? `?${queryString}` : ""}`;
-
-            const guard = conflict.guard(
-              payload as unknown as Record<string, unknown>,
-            );
-            const res = await apiCall<{
-              status: number;
-              requiresApproval?: boolean;
-              revision?: Revision;
-            }>(
-              url,
-              {
-                method: "PUT",
-                body: JSON.stringify({ ...payload, baseline: guard.baseline }),
-              },
-              guard.onError,
-            );
-            conflict.clear();
-
-            // If a revision was created or updated, handle it
-            if (res?.revision) {
-              mutateDefinitions({});
-              // Only call onRevisionCreated if the revision is still a draft
-              // (when auto-published, the revision is already merged)
-              if (res.revision.status !== "merged") {
-                onRevisionCreated?.(res.revision);
-              } else {
-                // When auto-published, the merged revision is the new live
-                // version. Refresh both SWR caches first so liveVersion reflects
-                // the merge, then send the user to "live" (null) so the page
-                // renders the live entity rather than the merged revision's
-                // pre-edit snapshot.
-                await mutate?.();
-                onSelectRevision?.(null);
-              }
-              close();
-              return;
-            }
-          }
-          // Create new saved group
-          else {
-            const payload: CreateSavedGroupProps = {
-              ...value,
-            };
-            setErrorMessage("");
-            await apiCall(
-              `/saved-groups`,
-              {
-                method: "POST",
-                body: JSON.stringify(payload),
-              },
-              (responseData) => {
-                if (responseData.status === 413) {
-                  setErrorMessage(
-                    "Cannot import such a large CSV. Try again with a smaller payload",
-                  );
-                }
-              },
-            );
-          }
-          mutateDefinitions({});
-          await mutate?.();
-        })}
-        error={errorMessage}
-      >
-        {current.id && (
-          <SavedGroupDraftSelectorForChanges
-            savedGroup={current as SavedGroupInterface}
-            openRevisions={openRevisions}
-            allRevisions={allRevisionsForLabel}
-            mode={draftMode}
-            setMode={setDraftMode}
-            selectedDraftId={draftSelectedId}
-            setSelectedDraftId={setDraftSelectedId}
-            canAutoPublish={canAutoPublish}
-            approvalRequired={isApprovalFlowRequired && !autoBypassApproval}
-            metadataOnly={isMetadataOnlyRevisionFlow}
-            alert={conflict.alert}
-            alertActive={conflict.alertActive}
-          />
-        )}
-        {conflict.callouts}
-        {isEditBlocked && currentRevision && (
-          <Callout status="warning" mb="4">
-            <Text size="2">
-              {`This revision is ${currentRevision.status} and cannot be edited. You can view it here in read-only mode.`}
-            </Text>
-          </Callout>
-        )}
-        {!editInfoOnly &&
-          !editConditionOnly &&
-          current.type === "condition" && (
-            <div className="form-group">
-              Updating this group will automatically update any associated
-              Features and Experiments.
-            </div>
-          )}
-        {!editConditionOnly && (
-          <>
-            <Field
-              size="legacy"
-              label={`${type === "list" ? "List" : "Group"} Name`}
-              labelClassName="font-weight-bold"
-              required
-              {...form.register("groupName")}
-              placeholder="e.g. beta-users or internal-team-members"
-            />
-            {showDescription ? (
-              <Field
-                size="legacy"
-                label="Description"
-                labelClassName="font-weight-bold"
-                required={false}
-                textarea
-                maxLength={100}
-                value={form.watch("description")}
-                onChange={(e) => {
-                  form.setValue("description", e.target.value);
-                }}
-              />
-            ) : (
-              <Link
-                onClick={(e) => {
-                  e.preventDefault();
-                  setShowDescription(true);
-                }}
-                mb="5"
-              >
-                <Flex align="center" gap="1">
-                  <PiPlus />
-                  <Text weight="medium">Add a description</Text>
-                </Flex>
-              </Link>
-            )}
-            <MultiSelectField
-              legacyHeight
-              label="Projects"
-              labelClassName="font-weight-bold"
-              placeholder={
-                canCreateWithoutProject ? "All Projects" : "Select projects..."
-              }
-              value={selectedProjects}
-              onChange={(projects) => form.setValue("projects", projects)}
-              options={projectsOptions}
-              sort={false}
-              closeMenuOnSelect={true}
-            />
-            {current.id && (
-              <SelectOwner
-                placeholder="Optional"
-                value={form.watch("owner")}
-                onChange={(v) => form.setValue("owner", v)}
-              />
-            )}
-          </>
-        )}
-
-        {!editInfoOnly &&
-          (type === "condition" ? (
-            <ConditionInput
-              defaultValue={form.watch("condition") || ""}
-              onChange={(v) => {
-                form.setValue("condition", v);
-              }}
-              project={selectedProjects[0] || ""}
-              key={conditionKey}
-            />
-          ) : (
-            <>
-              <SelectField
-                size="legacy"
-                label="Attribute Key"
-                labelClassName="font-weight-bold"
-                required
-                value={form.watch("attributeKey") || ""}
-                disabled={!!current.attributeKey}
-                onChange={(v) => form.setValue("attributeKey", v)}
-                placeholder="Choose one..."
-                options={attributeSchema.map((a) => ({
-                  value: a.property,
-                  label: a.property,
-                }))}
-                isOptionDisabled={({ label }) => {
-                  const attr = attributeSchema.find(
-                    (attr) => attr.property === label,
-                  );
-                  if (!attr) return false;
-                  return !isIdListSupportedAttribute(attr);
-                }}
-                sort={false}
-                formatOptionLabel={({ label }) => {
-                  const attr = attributeSchema.find(
-                    (attr) => attr.property === label,
-                  );
-                  if (!attr) return label;
-                  const unsupported = !isIdListSupportedAttribute(attr);
-                  return (
-                    <div className={clsx(unsupported ? "disabled" : "")}>
-                      {label}
-                      {unsupported && (
-                        <span className="float-right">
-                          <Tooltip
-                            body="The datatype for this attribute key isn't valid for ID Lists. Try using a Condition Group instead"
-                            tipPosition="top"
-                          >
-                            unsupported datatype
-                          </Tooltip>
-                        </span>
-                      )}
-                    </div>
-                  );
-                }}
-                helpText={
-                  current.attributeKey && "This field cannot be edited."
-                }
-              />
-              {!current.id && (
-                <IdListItemInput
-                  values={form.watch("values") || []}
-                  setValues={(newValues) => {
-                    form.setValue("values", newValues);
-                  }}
-                  openUpgradeModal={() => setUpgradeModal(true)}
-                  listAboveSizeLimit={listAboveSizeLimit}
-                  bypassSizeLimit={adminBypassSizeLimit}
-                  setBypassSizeLimit={setAdminBypassSizeLimit}
-                  projects={form.watch("projects")}
-                />
-              )}
-            </>
-          ))}
-      </Modal>
+      {modalContent}
     </ConflictProvider>
   );
 };
