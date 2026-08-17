@@ -5296,11 +5296,17 @@ export async function putFeature(
       targetDraftVersion?: number;
       autoPublish?: boolean;
       forceNewDraft?: boolean;
+      baseline?: Record<string, unknown>;
     },
     { id: string }
   >,
   res: Response<
-    { status: 200; feature: FeatureInterface; draftVersion?: number },
+    | { status: 200; feature: FeatureInterface; draftVersion?: number }
+    | {
+        status: 409;
+        message: string;
+        conflict: DraftConflict<Record<string, unknown>>;
+      },
     EventUserForResponseLocals
   >,
 ) {
@@ -5313,8 +5319,13 @@ export async function putFeature(
     throw new Error("Could not find feature");
   }
 
-  const { targetDraftVersion, autoPublish, forceNewDraft, ...updates } =
-    req.body;
+  const {
+    targetDraftVersion,
+    autoPublish,
+    forceNewDraft,
+    baseline,
+    ...updates
+  } = req.body;
   if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
@@ -5400,6 +5411,47 @@ export async function putFeature(
       section: "feature",
       project: "project" in updates ? updates.project : feature.project,
     });
+  }
+
+  // The metadata envelope lives on the draft, so a concurrent edit to the same
+  // field is the conflict; disjoint fields already survive the diff below.
+  if (baseline) {
+    const guardedKeys = Object.keys(baseline);
+    const targetDraft =
+      autoPublish || forceNewDraft
+        ? null
+        : targetDraftVersion
+          ? await getRevision({
+              context,
+              organization: feature.organization,
+              featureId: feature.id,
+              feature,
+              version: targetDraftVersion,
+            })
+          : await getActiveDraft(context, feature);
+    const effective = (key: string) =>
+      (targetDraft?.metadata as Record<string, unknown> | undefined)?.[key] ??
+      (feature as unknown as Record<string, unknown>)[key];
+    const pick = (source: (key: string) => unknown) =>
+      Object.fromEntries(guardedKeys.map((k) => [k, source(k)]));
+
+    const resolution = resolveDraftEdit<Record<string, unknown>>({
+      entityId: feature.id,
+      baseline,
+      current: pick(effective),
+      incoming: pick((k) => (updates as unknown as Record<string, unknown>)[k]),
+      liveVersion: feature.version,
+      ...(targetDraft ? { draftVersion: targetDraft.version } : {}),
+    });
+    if (!resolution.ok) {
+      return res.status(409).json({
+        status: 409,
+        message:
+          "This feature was changed by someone else after you loaded it. Review their version before saving.",
+        conflict: resolution.conflict,
+      });
+    }
+    Object.assign(updates, resolution.merged);
   }
 
   const metadataKeys: (keyof FeatureInterface)[] = [

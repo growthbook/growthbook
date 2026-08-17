@@ -12,6 +12,8 @@ import Link from "@/ui/Link";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { ConflictProvider } from "@/components/DraftConflicts/ConflictContext";
+import { useDraftConflict } from "@/components/DraftConflicts/useDraftConflict";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
@@ -73,69 +75,87 @@ export default function EditFeatureDescriptionModal({
     },
   });
 
+  const conflict = useDraftConflict<{ description: string }>({
+    initial: { description: feature.description || "" },
+    labels: { description: "Description" },
+    form,
+    isNewDraft: mode !== "existing",
+    entityNoun: "description",
+  });
+
   return (
-    <ModalStandard
-      trackingEventModalType="edit-feature-description-modal"
-      header="Edit Description"
-      open={true}
-      size="lg"
-      close={close}
-      submit={form.handleSubmit(async ({ description }) => {
-        const res = await apiCall<{ draftVersion?: number }>(
-          `/feature/${feature.id}`,
-          {
-            method: "PUT",
-            body: JSON.stringify({
-              description,
-              ...(mode === "publish"
-                ? { autoPublish: true }
-                : mode === "existing"
-                  ? { targetDraftVersion: selectedDraft }
-                  : { forceNewDraft: true }),
-            }),
-          },
-        );
-        mutate();
-        const resolvedVersion =
-          res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
-        if (resolvedVersion !== null && setVersion) setVersion(resolvedVersion);
-      })}
-      cta={mode === "publish" ? "Save" : "Save to draft"}
-      ctaEnabled={form.formState.isDirty}
-    >
-      <DraftSelectorForChanges
-        feature={feature}
-        revisionList={revisionList}
-        mode={mode}
-        setMode={setMode}
-        selectedDraft={selectedDraft}
-        setSelectedDraft={setSelectedDraft}
-        canAutoPublish={canAutoPublish}
-        gatedEnvSet={metadataGated ? "all" : "none"}
-      />
-      <Flex align="center" wrap="wrap" width="auto" mb="2">
-        <Box as="div">
-          <span className="pr-1">
-            <Text as="span">Use markdown to format your content.</Text>
-          </span>
-          <Link
-            rel="noreferrer"
-            target="_blank"
-            weight="bold"
-            href="https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax"
-          >
-            Learn More
-            <PiArrowSquareOutFill className="ml-1" />
-          </Link>
-        </Box>
-      </Flex>
-      <MarkdownInput
-        value={form.watch("description")}
-        setValue={(value) =>
-          form.setValue("description", value, { shouldDirty: true })
-        }
-        placeholder="Add context about this feature for your team"
-      />
-    </ModalStandard>
+    <ConflictProvider {...conflict.providerProps}>
+      <ModalStandard
+        trackingEventModalType="edit-feature-description-modal"
+        header="Edit Description"
+        open={true}
+        size="lg"
+        close={close}
+        submit={form.handleSubmit(async ({ description }) => {
+          const guard = conflict.guard({ description });
+          const res = await apiCall<{ draftVersion?: number }>(
+            `/feature/${feature.id}`,
+            {
+              method: "PUT",
+              body: JSON.stringify({
+                description,
+                baseline: guard.baseline,
+                ...(mode === "publish"
+                  ? { autoPublish: true }
+                  : mode === "existing"
+                    ? { targetDraftVersion: selectedDraft }
+                    : { forceNewDraft: true }),
+              }),
+            },
+            guard.onError,
+          );
+          conflict.clear();
+          mutate();
+          const resolvedVersion =
+            res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
+          if (resolvedVersion !== null && setVersion)
+            setVersion(resolvedVersion);
+        })}
+        cta={mode === "publish" ? "Save" : "Save to draft"}
+        ctaEnabled={form.formState.isDirty && conflict.resolved}
+      >
+        <DraftSelectorForChanges
+          feature={feature}
+          revisionList={revisionList}
+          mode={mode}
+          setMode={setMode}
+          selectedDraft={selectedDraft}
+          setSelectedDraft={setSelectedDraft}
+          canAutoPublish={canAutoPublish}
+          gatedEnvSet={metadataGated ? "all" : "none"}
+          alert={conflict.alert}
+          alertActive={conflict.alertActive}
+        />
+        {conflict.callouts}
+        <Flex align="center" wrap="wrap" width="auto" mb="2">
+          <Box as="div">
+            <span className="pr-1">
+              <Text as="span">Use markdown to format your content.</Text>
+            </span>
+            <Link
+              rel="noreferrer"
+              target="_blank"
+              weight="bold"
+              href="https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax"
+            >
+              Learn More
+              <PiArrowSquareOutFill className="ml-1" />
+            </Link>
+          </Box>
+        </Flex>
+        <MarkdownInput
+          value={form.watch("description")}
+          setValue={(value) =>
+            form.setValue("description", value, { shouldDirty: true })
+          }
+          placeholder="Add context about this feature for your team"
+        />
+      </ModalStandard>
+    </ConflictProvider>
   );
 }
