@@ -35,6 +35,21 @@ export const isApiKeyForUserInOrganization = (
   return !!organization.members.find((m) => m.id === userId);
 };
 
+// Keys GrowthBook issues to itself on the user's behalf, rather than tokens a
+// person deliberately minted. Their role survives `migrateApiKey` so they can
+// be told apart from PATs after a read.
+export const APP_ISSUED_KEY_ROLES = ["visualEditor"];
+
+/**
+ * A token that acts as a specific user and was minted on purpose — a Personal
+ * Access Token or an OAuth-issued access token. Excludes app-issued keys (the
+ * Visual Editor), which users don't create and can't manage.
+ */
+export const isUserAccessToken = (
+  apiKey: Pick<ApiKeyInterface, "userId" | "role">,
+): boolean =>
+  !!apiKey.userId && !APP_ISSUED_KEY_ROLES.includes(apiKey.role || "");
+
 export const roleForApiKey = (
   apiKey: Pick<ApiKeyInterface, "role" | "userId" | "secret">,
 ): string | null => {
@@ -75,7 +90,12 @@ export function migrateApiKey(legacyDoc: unknown) {
   const obj = legacyDoc as ApiKeyInterface;
   return {
     ...obj,
-    role: roleForApiKey(obj) || undefined,
+    // `roleForApiKey` nulls the role on user-attributed keys because their
+    // permissions come from the member, not the key. App-issued roles keep
+    // theirs so callers can still identify the key's origin.
+    role: APP_ISSUED_KEY_ROLES.includes(obj.role || "")
+      ? obj.role
+      : roleForApiKey(obj) || undefined,
     dateUpdated: obj.dateUpdated ?? obj.dateCreated,
     limitAccessByEnvironment: obj.limitAccessByEnvironment ?? false,
     environments: obj.environments ?? [],

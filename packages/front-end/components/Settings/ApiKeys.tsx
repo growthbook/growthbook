@@ -5,6 +5,7 @@ import Callout from "@/ui/Callout";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import SecretApiKeys from "./SecretApiKeys";
+import PersonalAccessTokenSettings from "./PersonalAccessTokenSettings";
 
 const ApiKeys: FC = () => {
   const { data, error, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
@@ -19,6 +20,8 @@ const ApiKeys: FC = () => {
   return (
     <>
       <SecretApiKeys keys={data.keys} mutate={mutate} />
+
+      <PersonalAccessTokenSettings />
 
       <Callout status="info" mb="4">
         You can also create{" "}
