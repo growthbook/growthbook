@@ -263,10 +263,12 @@ export function mapV2ApiRuleToFeatureRule(
     description: ruleInput.description ?? "",
     enabled: ruleInput.enabled ?? true,
     condition: ruleInput.condition ?? "",
-    savedGroups: ruleInput.savedGroupTargeting?.map((s) => ({
-      match: s.matchType,
-      ids: s.savedGroups,
-    })),
+    savedGroups:
+      ruleInput.savedGroups ??
+      ruleInput.savedGroupTargeting?.map((s) => ({
+        match: s.matchType,
+        ids: s.savedGroups,
+      })),
     allEnvironments: resolvedAllEnvs,
     environments: resolvedEnvs,
     allProjects: resolvedAllProjects,

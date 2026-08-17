@@ -4239,10 +4239,12 @@ export function postExperimentApiPayloadToInterface(
       coverage: p.coverage != null ? p.coverage : 1,
       condition,
       prerequisites: p.prerequisites || [],
-      savedGroups: (p.savedGroupTargeting || []).map((s) => ({
-        match: s.matchType,
-        ids: s.savedGroups,
-      })),
+      savedGroups:
+        p.savedGroups ??
+        (p.savedGroupTargeting || []).map((s) => ({
+          match: s.matchType,
+          ids: s.savedGroups,
+        })),
       namespace: toPhaseNamespaceValue(
         p.namespace,
         organization.settings?.namespaces,
@@ -4508,10 +4510,12 @@ function resolveExperimentUpdateVariationsAndPhases(
         coverage: p.coverage != null ? p.coverage : 1,
         condition,
         prerequisites: p.prerequisites || [],
-        savedGroups: (p.savedGroupTargeting || []).map((s) => ({
-          match: s.matchType,
-          ids: s.savedGroups,
-        })),
+        savedGroups:
+          p.savedGroups ??
+          (p.savedGroupTargeting || []).map((s) => ({
+            match: s.matchType,
+            ids: s.savedGroups,
+          })),
         namespace: toPhaseNamespaceValue(p.namespace, orgNamespaces),
         variationWeights,
         variations: phaseVariations,

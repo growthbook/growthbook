@@ -747,6 +747,27 @@ const apiExperimentVariation = z.object({
   screenshots: z.array(z.string()),
 });
 
+const apiPhaseSavedGroupTargeting = z
+  .array(
+    z.object({
+      matchType: z.enum(["all", "any", "none"]),
+      savedGroups: z.array(z.string()),
+    }),
+  )
+  .optional();
+
+// Write-side only: the internal `savedGroups` spelling is rejected rather than
+// silently dropped. Responses carry the canonical field alone.
+// Saved-group targeting in the storage shape used by the feature revision rule
+// endpoints, or the spelling the API response uses. `savedGroups` wins when
+// both are supplied.
+const phaseSavedGroupInput = {
+  savedGroups: z.array(savedGroupTargeting).optional(),
+  savedGroupTargeting: apiPhaseSavedGroupTargeting.describe(
+    "Alternate spelling, matching the shape returned by GET. `savedGroups` takes precedence if both are sent.",
+  ),
+};
+
 // Phase sub-schema for API responses
 const apiExperimentPhase = z.object({
   name: z.string(),
@@ -779,14 +800,7 @@ const apiExperimentPhase = z.object({
       }),
     )
     .optional(),
-  savedGroupTargeting: z
-    .array(
-      z.object({
-        matchType: z.enum(["all", "any", "none"]),
-        savedGroups: z.array(z.string()),
-      }),
-    )
-    .optional(),
+  savedGroupTargeting: apiPhaseSavedGroupTargeting,
 });
 
 // Result summary sub-schema
@@ -1331,14 +1345,7 @@ const apiPhaseInput = z.object({
     .string()
     .describe("Targeting condition as a JSON string. Mirrors the GET response.")
     .optional(),
-  savedGroupTargeting: z
-    .array(
-      z.object({
-        matchType: z.enum(["all", "any", "none"]),
-        savedGroups: z.array(z.string()),
-      }),
-    )
-    .optional(),
+  ...phaseSavedGroupInput,
   variationWeights: z
     .array(z.number())
     .describe("Deprecated: use `trafficSplit`. Takes precedence if set.")
@@ -1618,14 +1625,7 @@ const updateExperimentBody = z
               "Targeting condition as a JSON string. Mirrors the GET response.",
             )
             .optional(),
-          savedGroupTargeting: z
-            .array(
-              z.object({
-                matchType: z.enum(["all", "any", "none"]),
-                savedGroups: z.array(z.string()),
-              }),
-            )
-            .optional(),
+          ...phaseSavedGroupInput,
           variationWeights: z
             .array(z.number())
             .describe(

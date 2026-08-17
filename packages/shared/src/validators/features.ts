@@ -1407,11 +1407,24 @@ const postFeatureRuleProjectScopeShape = {
     .optional(),
 };
 
+// Saved-group targeting in the storage shape used by the revision rule
+// endpoints, or the spelling the API response uses. `savedGroups` wins when
+// both are supplied.
+const v1RuleSavedGroupInput = {
+  savedGroups: z.array(savedGroupTargeting).optional(),
+  savedGroupTargeting: z
+    .array(postFeatureSavedGroupTargeting)
+    .optional()
+    .describe(
+      "Alternate spelling, matching the shape returned by GET. `savedGroups` takes precedence if both are sent.",
+    ),
+};
+
 const postFeatureForceRule = z.object({
   ...postFeatureRuleProjectScopeShape,
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().describe("Applied to everyone by default.").optional(),
-  savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
+  ...v1RuleSavedGroupInput,
   prerequisites: z.array(apiRevisionPrerequisite).optional(),
   scheduleRules: z.array(apiScheduleRuleValidator).optional(),
   id: z.string().optional(),
@@ -1425,7 +1438,7 @@ const postFeatureRolloutRule = z.object({
   ...postFeatureRuleProjectScopeShape,
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().describe("Applied to everyone by default.").optional(),
-  savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
+  ...v1RuleSavedGroupInput,
   prerequisites: z.array(postFeaturePrerequisite).optional(),
   scheduleRules: z.array(apiScheduleRuleValidator).optional(),
   id: z.string().optional(),
@@ -1455,7 +1468,7 @@ const postFeatureExperimentRefRule = z.object({
   enabled: z.boolean().describe("Enabled by default").optional(),
   type: z.literal("experiment-ref"),
   condition: z.string().optional(),
-  savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
+  ...v1RuleSavedGroupInput,
   prerequisites: z.array(postFeaturePrerequisite).optional(),
   scheduleRules: z.array(apiScheduleRuleValidator).optional(),
   variations: z.array(

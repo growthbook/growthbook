@@ -62,6 +62,36 @@ export type BackEndApiEndpointSpec<
   possibleErrors?: readonly ApiErrorCode[];
 };
 
+/**
+ * Fields a caller may be sending under a name this endpoint doesn't take — for
+ * example a response-shaped key posted back to a write endpoint. The hint fires
+ * only where the key is genuinely unrecognized, so endpoints that do accept the
+ * other spelling are unaffected.
+ */
+const RENAMED_REQUEST_FIELDS: Record<string, string> = {
+  savedGroupTargeting: "savedGroups: [{ match, ids }]",
+};
+
+type IssueLike = {
+  code?: string;
+  keys?: readonly string[];
+  errors?: readonly (readonly IssueLike[])[];
+};
+
+/** Unrecognized keys, including those nested inside union branch failures. */
+function collectUnrecognizedKeys(issues: readonly IssueLike[]): string[] {
+  const keys: string[] = [];
+  for (const issue of issues) {
+    if (issue.code === "unrecognized_keys" && issue.keys) {
+      keys.push(...issue.keys);
+    }
+    for (const branch of issue.errors ?? []) {
+      keys.push(...collectUnrecognizedKeys(branch));
+    }
+  }
+  return keys;
+}
+
 function validate<T extends ZodType>(
   schema: T,
   value: unknown,
@@ -76,11 +106,20 @@ function validate<T extends ZodType>(
     } {
   const result = schema.safeParse(value);
   if (!result.success) {
+    const hints = [...new Set(collectUnrecognizedKeys(result.error.issues))]
+      .filter((key) => key in RENAMED_REQUEST_FIELDS)
+      .map(
+        (key) =>
+          `[${key}] Unsupported field. Use ${RENAMED_REQUEST_FIELDS[key]}.`,
+      );
     return {
       success: false,
-      errors: result.error.issues.map((i) => {
-        return "[" + i.path.join(".") + "] " + i.message;
-      }),
+      errors: [
+        ...hints,
+        ...result.error.issues.map((i) => {
+          return "[" + i.path.join(".") + "] " + i.message;
+        }),
+      ],
     };
   }
 

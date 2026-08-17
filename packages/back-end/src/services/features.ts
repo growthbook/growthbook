@@ -3311,10 +3311,12 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           description: r.description ?? "",
           value: validateFeatureValue(valFeature, r.value),
           condition: r.condition,
-          savedGroups: (r.savedGroupTargeting || []).map((s) => ({
-            ids: s.savedGroups,
-            match: s.matchType,
-          })),
+          savedGroups:
+            r.savedGroups ??
+            (r.savedGroupTargeting || []).map((s) => ({
+              ids: s.savedGroups,
+              match: s.matchType,
+            })),
           enabled: r.enabled != null ? r.enabled : true,
           ...(r.sparse !== undefined && { sparse: r.sparse }),
           ...(r.prerequisites && { prerequisites: r.prerequisites }),
@@ -3334,10 +3336,12 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           hashAttribute: r.hashAttribute,
           value: validateFeatureValue(valFeature, r.value),
           condition: r.condition,
-          savedGroups: (r.savedGroupTargeting || []).map((s) => ({
-            ids: s.savedGroups,
-            match: s.matchType,
-          })),
+          savedGroups:
+            r.savedGroups ??
+            (r.savedGroupTargeting || []).map((s) => ({
+              ids: s.savedGroups,
+              match: s.matchType,
+            })),
           enabled: r.enabled != null ? r.enabled : true,
           // Preserve on round-trips — dropping seed/hashVersion re-buckets the rollout.
           ...(r.seed !== undefined && { seed: r.seed }),
