@@ -116,6 +116,11 @@ export const MetricMention = Mention.extend<
               decorations.push(
                 Decoration.node(pos, pos + node.nodeSize, {
                   "data-stale": "true",
+                  // The red "!" is a CSS pseudo-element and the explanation is
+                  // in a hover card, so neither reaches assistive tech. The
+                  // label carries the name too, since it replaces the node's
+                  // own "@Name" text rather than adding to it.
+                  "aria-label": `@${node.attrs.label}, not available in the selected Data Source`,
                 }),
               );
             });

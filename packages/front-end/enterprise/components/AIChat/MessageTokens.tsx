@@ -1,5 +1,6 @@
 import type { AIChatMention } from "shared/ai-chat";
-import { MentionPopover, SkillPopover } from "./TokenPopovers";
+import Link from "@/ui/Link";
+import { MentionPopover, SkillPopover, metricHref } from "./TokenPopovers";
 import styles from "./MessageTokens.module.scss";
 
 export type MessageTokenKind = "mention" | "command";
@@ -84,28 +85,28 @@ export default function MessageTokens({
       {parts.map((part, i) => {
         if (!part.kind) return part.text;
 
-        // `tabIndex` so the card is reachable without a pointer — it holds a
-        // link, which is the only way to open the metric from here.
-        const token = (
-          <span className={styles.token} tabIndex={0}>
-            {part.text}
-          </span>
-        );
-
         if (part.kind === "mention") {
           const mention = mentionByToken.get(part.text);
           if (!mention) return part.text;
+          // The token is the link, rather than the card's "Open metric" being
+          // the only way through. The card opens on hover, so an action living
+          // only inside it is unreachable by keyboard or touch; a real link is
+          // focusable, tappable and openable in a new tab, and the card stays
+          // a description sitting on top of it.
           return (
             <MentionPopover key={i} mention={mention}>
-              {token}
+              <Link href={metricHref(mention)} className={styles.token}>
+                {part.text}
+              </Link>
             </MentionPopover>
           );
         }
 
-        // `text` is "/name"; the skill is keyed by the bare name.
+        // `text` is "/name"; the skill is keyed by the bare name. Not a link —
+        // a skill has no page to open, so this stays a hover description.
         return (
           <SkillPopover key={i} skill={part.text.slice(1)} text={part.text}>
-            {token}
+            <span className={styles.token}>{part.text}</span>
           </SkillPopover>
         );
       })}

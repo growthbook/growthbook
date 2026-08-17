@@ -180,6 +180,11 @@ describe("chat composer serialization", () => {
       // Nothing is judged before the definitions load, however empty the list.
       expect(sync([], false)).toEqual([]);
       expect(sync([revenue], true)).toEqual(["met_2"]);
+      // The red "!" is a pseudo-element, so the reason has to be spelled out
+      // for assistive tech — including the name it replaces.
+      expect(
+        element.querySelector("[data-stale]")?.getAttribute("aria-label"),
+      ).toBe("@Signups, not available in the selected Data Source");
       // A loaded-but-empty list is a Data Source with no metrics of its own,
       // which strands every mention rather than none.
       expect(sync([], true)).toEqual(["met_1", "met_2"]);

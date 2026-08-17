@@ -37,7 +37,7 @@ import styles from "./TokenPopovers.module.scss";
 export const TOKEN_POPOVER_PADDING = "10px 0";
 
 /** Branches on the mention's own type rather than guessing from the id shape. */
-function metricHref({ type, id }: AIChatMention): string {
+export function metricHref({ type, id }: AIChatMention): string {
   if (type === "metricGroup") return `/metric-groups/${id}`;
   if (type === "factMetric") return `/fact-metrics/${id}`;
   return `/metric/${id}`;

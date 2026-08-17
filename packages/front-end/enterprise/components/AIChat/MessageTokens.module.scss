@@ -18,7 +18,21 @@
   white-space: nowrap;
   transition: background-color 120ms ease;
 
-  &:hover {
+  &:hover,
+  &:focus-visible {
     background: rgba(255, 255, 255, 0.22);
+  }
+}
+
+// A mention is a link to its metric, but it should read as part of the
+// sentence, not as a link in it — the fill on hover/focus is the affordance.
+// Element + class outranks Radix's own single class.
+a.token {
+  color: inherit;
+  text-decoration: none;
+
+  &:hover {
+    color: inherit;
+    text-decoration: none;
   }
 }
