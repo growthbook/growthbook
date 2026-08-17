@@ -63,6 +63,11 @@ function buildSnowflakeConnection(
     // Authenticates with the ambient cloud identity of the GrowthBook server
     // (e.g. its AWS IAM role) — no stored credential. Requires a Snowflake
     // service user with a matching WORKLOAD_IDENTITY binding.
+    if (!conn.workloadIdentityProvider) {
+      throw new Error(
+        "Workload Identity authentication requires a cloud provider (AWS, AZURE, or GCP)",
+      );
+    }
     authenticationDetails = {
       authenticator: "WORKLOAD_IDENTITY",
       workloadIdentityProvider: conn.workloadIdentityProvider,

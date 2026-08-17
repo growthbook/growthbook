@@ -15,7 +15,8 @@ const SnowflakeForm: FC<{
   existing: boolean;
   onParamChange: ChangeEventHandler<HTMLInputElement>;
   onManualParamChange: (name: string, value: string) => void;
-}> = ({ params, existing, onParamChange, onManualParamChange }) => {
+  setParams: (params: { [key: string]: string }) => void;
+}> = ({ params, existing, onParamChange, onManualParamChange, setParams }) => {
   const [useAccessUrl, setUseAccessUrl] = useState(!!params.accessUrl);
   // Convenience variable for the auth method to handle undefined
   const authMethod = params.authMethod ?? "password";
@@ -57,7 +58,24 @@ const SnowflakeForm: FC<{
           autoComplete="off"
           name="authMethod"
           value={params.authMethod ?? "password"}
-          onChange={(e) => onManualParamChange("authMethod", e.target.value)}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value === "workload-identity") {
+              // Workload identity is secretless — clear any stored credentials
+              // from a previously configured auth method
+              setParams({
+                authMethod: value,
+                password: "",
+                privateKey: "",
+                privateKeyPassword: "",
+              });
+            } else {
+              setParams({
+                authMethod: value,
+                workloadIdentityProvider: "",
+              });
+            }
+          }}
         >
           <option value="password">Password</option>
           <option value="key-pair">Key Pair</option>

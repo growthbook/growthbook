@@ -171,6 +171,7 @@ export default function ConnectionSettings({
           existing={storedCredentials}
           onParamChange={onParamChange}
           onManualParamChange={onManualParamChange}
+          setParams={setParams}
           params={datasource?.params || {}}
         />
       );
