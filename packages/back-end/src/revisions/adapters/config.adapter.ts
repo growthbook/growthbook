@@ -1,3 +1,7 @@
+import {
+  NO_ENVIRONMENT_BINDING,
+  bypassApprovalPermission,
+} from "shared/permissions";
 import { ConfigInterface } from "shared/types/config";
 import {
   Revision,
@@ -8,16 +12,21 @@ import {
   configRequiresReview,
   configResetReviewOnChange,
   constantAutopublishOnApproval,
+  flipsArchivedState,
   formatAncestorFieldConflictMessage,
+  proposedArchivedValue,
 } from "shared/util";
 import {
   configValidator,
   configUpdatableFieldsSchema,
 } from "shared/validators";
+import type { PublishFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
+  ApplyChangesResult,
   EntityRevisionAdapter,
   filterUpdatableChanges,
+  revisionActionHooks,
 } from "back-end/src/revisions/EntityRevisionAdapter";
 import {
   reconcileConfigDescendants,
@@ -63,6 +72,7 @@ import {
   schemaFailureGateOverride,
 } from "back-end/src/revisions/publishGates";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
+import { configPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
 import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { normalizeConfigChangesAgainstAncestors } from "./configSchemaNormalize";
@@ -90,13 +100,27 @@ function canBypassApprovalForConfig(
   context: Context,
   snapshot: ConfigInterface,
 ): boolean {
-  return context.permissions.canBypassApprovalChecks({
-    project: snapshot.project || "",
-  });
+  return context.permissions.canBypassFlagApprovalChecks(
+    {
+      project: snapshot.project || "",
+    },
+    "config",
+  );
 }
 
+// Every remaining consumer of canCreate/canUpdate lands a change on the live
+// entity, so both are publish-class.
 function canEditConfig(context: Context, snapshot: ConfigInterface): boolean {
-  return context.permissions.canUpdateConfig(snapshot, {});
+  return context.permissions.canRevisionAction(
+    "config",
+    "publish",
+    { projects: configProjects(snapshot) },
+    configPublishEnvironments(context, snapshot),
+  );
+}
+
+function configProjects(snapshot: ConfigInterface): string[] {
+  return snapshot.project ? [snapshot.project] : [];
 }
 
 function configApprovalConfigured(context: Context): boolean {
@@ -113,6 +137,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
   getModel(context: Context) {
     return context.models.configs as {
       getById(id: string): Promise<ConfigInterface | null>;
+      getReadScopesByIds(ids: string[]): Promise<ConfigInterface[]>;
     };
   },
 
@@ -135,6 +160,27 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     return UPDATABLE_FIELDS;
   },
 
+  // A Config binds to the environments its scoped overrides name — the same
+  // list the controllers gate on. An empty footprint would pass every
+  // environment check vacuously, so never report one for a scoped Config.
+  publishFootprint(
+    context: Context,
+    snapshot: ConfigInterface,
+    proposedChanges: unknown,
+  ): PublishFootprint {
+    const environments = configPublishEnvironments(context, snapshot);
+    if (environments.length) return { scope: "environments", environments };
+    // A BASE Config binds to no environment. An archive flip on one still takes it
+    // out of service everywhere it serves; any other change to it has no
+    // environment dimension. Same split the Constant adapter makes.
+    return flipsArchivedState({
+      proposed: proposedArchivedValue(proposedChanges),
+      current: snapshot.archived,
+    })
+      ? { scope: "everywhere" }
+      : { scope: "unscoped" };
+  },
+
   canRead(context: Context, snapshot: ConfigInterface): boolean {
     return context.permissions.canReadSingleProjectResource(snapshot.project);
   },
@@ -149,6 +195,25 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
 
   canDelete(context: Context, snapshot: ConfigInterface): boolean {
     return canBypassApprovalForConfig(context, snapshot);
+  },
+
+  ...revisionActionHooks<ConfigInterface>({
+    model: "config",
+    projectsOf: configProjects,
+    envsOf: (context, snapshot) => configPublishEnvironments(context, snapshot),
+  }),
+
+  // Overrides the factory's env scoping (same as the Constant twin). This only
+  // gates SUBMITTING a pure-archive draft (via canAdvanceRevision), which
+  // changes nothing live, so it is project-scoped; the landing stays
+  // env-scoped — `publishFootprint` reports `everywhere` for an archive flip.
+  canDeleteEntity(context: Context, snapshot: ConfigInterface): boolean {
+    return context.permissions.canRevisionAction(
+      "config",
+      "delete",
+      { projects: configProjects(snapshot) },
+      NO_ENVIRONMENT_BINDING,
+    );
   },
 
   isApprovalRequired(context: Context): boolean {
@@ -209,8 +274,12 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     context: Context,
     entity: ConfigInterface,
     changes: Record<string, unknown>,
-    options?: { isRevert?: boolean },
-  ): Promise<string[]> {
+    options?: {
+      isRevert?: boolean;
+      guarded?: boolean;
+      onPersisted?: (result: ApplyChangesResult) => void;
+    },
+  ): Promise<ApplyChangesResult> {
     // Guard asserts are skipped when (a) restoring a pre-image (isRevert — a
     // revert to known-good published state must not be vetoed by guards
     // judging mid-restore state) or (b) a bulk-publish commit is applying
@@ -225,7 +294,13 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       UPDATABLE_FIELDS,
     );
 
-    if (Object.keys(filteredChanges).length === 0) return [];
+    if (Object.keys(filteredChanges).length === 0) {
+      // Report even the no-op: `written: null` means "ran and wrote nothing",
+      // which compensation must distinguish from "never reported".
+      const nothing = { persistedKeys: [] as string[], written: null };
+      options?.onPersisted?.(nothing);
+      return nothing;
+    }
 
     // Publish-time "base wins" reconciliation: strip any contract-identical
     // field this config declares whose key a published ancestor now owns
@@ -315,19 +390,65 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       );
     }
 
-    await context.models.configs.update(
+    const writeEntity = options?.guarded
+      ? context.models.configs.updateIfUnchanged.bind(context.models.configs)
+      : context.models.configs.update.bind(context.models.configs);
+    // One mutable result object, reported from INSIDE the write — before audit
+    // logging and the afterUpdate hooks, where a throw is already a persisted
+    // change. The caller holds this exact reference, so cascade entries
+    // recorded after the report still reach compensation when a later step
+    // throws and the return value never arrives.
+    //
+    // persistedKeys is the normalized set: a field stripped as ancestor-owned
+    // was never written, so it must not be rolled back.
+    const applied: ApplyChangesResult = {
+      persistedKeys: Object.keys(normalizedChanges),
+      written: null,
+      cascade: [],
+    };
+    const written = await writeEntity(
       entity,
       normalizedChanges as Parameters<typeof context.models.configs.update>[1],
+      undefined,
+      {
+        onWritten: (doc: unknown) => {
+          applied.written = doc as Record<string, unknown>;
+          options?.onPersisted?.(applied);
+        },
+      },
     );
+    // The re-read the write returns, for callers that use the result directly.
+    applied.written = written as Record<string, unknown>;
 
-    // Cascade the change down to descendants when the schema or lineage changed.
+    // Cascade the change down to descendants when the schema or lineage
+    // changed. Each write is recorded on the already-reported object, so a
+    // cascade failure is still compensable.
     if (touchesLineageOrSchema) {
-      await reconcileConfigDescendants(context, entity.key);
+      await reconcileConfigDescendants(context, entity.key, (w) =>
+        applied.cascade?.push({
+          before: w.before as unknown as Record<string, unknown> & {
+            id: string;
+          },
+          written: w.written,
+          stamp: w.stamp,
+        }),
+      );
     }
 
-    // Only the normalized set was persisted on THIS config — a field stripped
-    // as ancestor-owned was never written, so it must not be rolled back.
-    return Object.keys(normalizedChanges);
+    return applied;
+  },
+
+  async afterRestorePreImage(context, entity, restoredKeys) {
+    // A restore that put back schema or lineage must re-reconcile descendants —
+    // the failed cascade may have normalized them against the rolled-back
+    // value. Idempotent, so re-running is safe.
+    if (
+      restoredKeys.some(
+        (k) => k === "schema" || k === "parent" || k === "extends",
+      )
+    ) {
+      await reconcileConfigDescendants(context, entity.key);
+    }
   },
 
   // Self-heal path: a retry after applyChanges wrote the root but failed before
@@ -473,7 +594,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         type: "experiment-guard",
         severity: "warning",
         messages: [
-          `Publishing this config rewrites the live value served to a running experiment (${describeConfigConflictKeys(
+          `Publishing this Config rewrites the live value served to a running experiment (${describeConfigConflictKeys(
             experimentConflicts,
           )}).`,
         ],
@@ -506,7 +627,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         type: "dependent-config-locked",
         severity: "warning",
         messages: [
-          `Publishing this config changes the resolved value of locked config(s): ${lockConflicts.join(
+          `Publishing this Config changes the resolved value of locked Config(s): ${lockConflicts.join(
             ", ",
           )}.`,
         ],
@@ -552,9 +673,10 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       gates.push({
         type: "schema-validation",
         severity: "warning",
-        messages: ["Invalid config value:", ...schemaBreaks],
+        messages: ["Invalid Config value:", ...schemaBreaks],
         ...schemaFailureGateOverride(
           context.org.settings?.blockPublishOnSchemaError !== false,
+          bypassApprovalPermission("config"),
         ),
         resolution: null,
       });
@@ -634,7 +756,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
           makeBlockingGate({
             type: "reference-cycle",
             messages: [
-              `This config references ${cyclic.join(
+              `This Config references ${cyclic.join(
                 ", ",
               )}, which would create a reference cycle.`,
             ],
@@ -677,11 +799,12 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
           messages: [
             `${
               proposedArchived ? "Archiving" : "Unarchiving"
-            } this config breaks a dependent config or feature value:`,
+            } this Config breaks a dependent Config or feature value:`,
             ...archiveBreaks,
           ],
           ...schemaFailureGateOverride(
             context.org.settings?.blockPublishOnSchemaError !== false,
+            bypassApprovalPermission("config"),
           ),
           resolution: null,
         });
@@ -748,7 +871,11 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     entity: ConfigInterface,
     desiredState: Record<string, unknown>,
     revision: Revision,
-    options?: { isRevert?: boolean; deferred?: boolean },
+    options?: {
+      isRevert?: boolean;
+      deferred?: boolean;
+      hooksAlreadyRan?: boolean;
+    },
   ): Promise<void> {
     // Pre-merge lock gate for the shared publishRevision action (auto-publish on
     // approval, scheduled-publish poller). Throwing here — before the merge is
@@ -868,7 +995,11 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       },
       { value: postValue },
       revision,
-      { deferred: !!options?.deferred },
+      {
+        deferred: !!options?.deferred,
+        // Don't re-execute hooks the caller already evaluated as gates.
+        skipHooks: !!options?.hooksAlreadyRan,
+      },
     );
   },
 };

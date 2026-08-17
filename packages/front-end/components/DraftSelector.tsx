@@ -27,6 +27,7 @@ export default function DraftSelector({
   revisionDropdown,
   metadataOnly = false,
   singleOption = false,
+  canDraft = true,
   newDraftDisabled = false,
   newDraftDisabledReason,
   recommendExisting = false,
@@ -55,6 +56,9 @@ export default function DraftSelector({
    *  are suppressed entirely. The caller is responsible for ensuring `mode` is
    *  already set to the correct value. */
   singleOption?: boolean;
+  /** Whether the user may author drafts at all. Without it the draft options are
+   *  not offered — publishing is the only way their change can land. */
+  canDraft?: boolean;
   /** Disable the "create a new draft" option — e.g. the org's soft draft cap is
    *  reached and the caller may not exceed it. */
   newDraftDisabled?: boolean;
@@ -113,7 +117,7 @@ export default function DraftSelector({
   ) : null;
 
   const options = [
-    ...(hasActiveDrafts
+    ...(hasActiveDrafts && canDraft
       ? [
           {
             value: "existing",
@@ -130,12 +134,18 @@ export default function DraftSelector({
           },
         ]
       : []),
-    {
-      value: "new",
-      label: newOptionLabel,
-      disabled: newDraftDisabled,
-      disabledReason: newDraftDisabled ? newDraftDisabledReason : undefined,
-    },
+    ...(canDraft
+      ? [
+          {
+            value: "new",
+            label: newOptionLabel,
+            disabled: newDraftDisabled,
+            disabledReason: newDraftDisabled
+              ? newDraftDisabledReason
+              : undefined,
+          },
+        ]
+      : []),
     ...(canAutoPublish
       ? [
           {

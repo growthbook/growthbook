@@ -7,6 +7,7 @@ import {
   FactMetricInterface,
 } from "shared/types/fact-table";
 import { isEventForwarderEventsFactTable } from "shared/util";
+import { getFactMetricPrimaryFactTableId } from "shared/experiments";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
@@ -56,7 +57,7 @@ export function getMetricsForFactTable(
 ) {
   return factMetrics.filter(
     (m) =>
-      m.numerator.factTableId === factTable ||
+      getFactMetricPrimaryFactTableId(m) === factTable ||
       (m.denominator && m.denominator.factTableId === factTable),
   );
 }

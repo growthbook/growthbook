@@ -1,7 +1,5 @@
 import { parseOptionalInt } from "./util/numbers";
 
-// A const tuple, not a bare union, so it feeds z.enum() and can be iterated in
-// the UI without a second hand-maintained list.
 export const AI_PROVIDERS = [
   "openai",
   "anthropic",
@@ -11,20 +9,13 @@ export const AI_PROVIDERS = [
 ] as const;
 export type AIProvider = (typeof AI_PROVIDERS)[number];
 
-// Per-provider display and config metadata, shared by the settings UI and the
-// back end's error messages. Replaces duplicated local maps in AISettings.tsx.
 export const AI_PROVIDER_META: Record<
   AIProvider,
   {
     label: string;
-    // Env var read as the fallback when the org has no key stored in the DB.
     envVar: string;
-    // Any additional env vars accepted for backwards compatibility.
     legacyEnvVars?: string[];
-    // Placeholder only. Not validated against: a stale regex would lock users
-    // out of a valid key.
     keyPlaceholder: string;
-    // Where a user goes to create a key for this provider.
     consoleUrl: string;
   }
 > = {
@@ -61,7 +52,6 @@ export const AI_PROVIDER_META: Record<
   },
 };
 
-// Available text generation models for each provider
 export const AI_PROVIDER_MODEL_MAP = {
   openai: [
     // GPT-5 series
@@ -130,19 +120,14 @@ export const AI_PROVIDER_MODEL_MAP = {
   ],
 } as const;
 
-// Derive AIModel type from the models defined in AI_PROVIDER_MODEL_MAP
 export type AIModel = (typeof AI_PROVIDER_MODEL_MAP)[AIProvider][number];
 
-// Models GrowthBook pays for on Cloud when an org brings no key of its own.
-// Shared so the settings pickers can name them.
 export const CLOUD_MANAGED_AI_MODEL: AIModel = "claude-haiku-4-5-20251001";
 export const CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL: AIModel =
   "claude-sonnet-4-5-20250929";
 export const CLOUD_MANAGED_IMAGE_MODEL = "gemini-3-pro-image-preview";
-// Not Cloud-specific: the fallback on every deployment.
 export const DEFAULT_EMBEDDING_MODEL = "text-embedding-ada-002";
 
-// Helper to determine which provider a model belongs to
 export function getProviderFromModel(model: AIModel): AIProvider {
   for (const [provider, models] of Object.entries(AI_PROVIDER_MODEL_MAP)) {
     if (models.includes(model as never)) {

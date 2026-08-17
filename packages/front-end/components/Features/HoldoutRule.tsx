@@ -94,9 +94,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
 
     const hasCondition = hasTargetingConfigured(holdoutExperiment.phases[0]);
 
-    const canEdit =
-      permissionsUtil.canViewFeatureModal(feature.project) &&
-      permissionsUtil.canManageFeatureDrafts(feature);
+    const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
 
     const isInactive =
       !isDeleted &&

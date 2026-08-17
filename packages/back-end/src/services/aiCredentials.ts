@@ -17,8 +17,6 @@ import { logger } from "back-end/src/util/logger";
 
 type Context = ReqContext | ApiReqContext;
 
-// Where the key came from. Shown in settings, and used on Cloud to decide
-// whether the org is spending its own money (so shouldn't be capped).
 export type AIKeySource = "organization" | "env" | "none";
 
 export type ResolvedAIKey = {
@@ -28,15 +26,11 @@ export type ResolvedAIKey = {
 
 export type ResolvedAIKeys = Record<AIProvider, ResolvedAIKey>;
 
-// Same scheme as Data Source params: AES with the install's ENCRYPTION_KEY.
-// Rotation is handled by scripts/migrate-encryption-key.ts.
 export function encryptAIKey(plaintext: string): string {
   return AES.encrypt(plaintext, ENCRYPTION_KEY).toString();
 }
 
-// Returns "" when the ciphertext can't be decrypted with the current key.
-// crypto-js has no "wrong key" signal: it returns "" or throws on malformed
-// UTF-8 depending on the garbage bytes, so collapse both into "".
+// crypto-js may return "" or throw when given the wrong key.
 export function decryptAIKey(ciphertext: string): string {
   try {
     return AES.decrypt(ciphertext, ENCRYPTION_KEY).toString(enc.Utf8);
@@ -45,12 +39,10 @@ export function decryptAIKey(ciphertext: string): string {
   }
 }
 
-// Masked display. Short keys get no mask rather than leaking most of themselves.
 export function getKeyLast4(plaintext: string): string {
   return plaintext.length >= 8 ? plaintext.slice(-4) : "";
 }
 
-// Env fallbacks, read via secrets.ts so process.env stays confined there.
 function getEnvKey(provider: AIProvider): string {
   switch (provider) {
     case "openai":
@@ -73,16 +65,12 @@ const emptyResolvedKeys = (): ResolvedAIKeys =>
     return acc;
   }, {} as ResolvedAIKeys);
 
-// Per-request memoization, keyed on the context object so it expires with the
-// request — no TTL, no cross-instance invalidation. One AI request calls
-// getAISettingsForOrg several times; this collapses those into one query.
+// Share credential resolution across calls in the same request.
 const requestCache = new WeakMap<object, Promise<ResolvedAIKeys>>();
 
 async function loadResolvedAIKeys(context: Context): Promise<ResolvedAIKeys> {
   const resolved = emptyResolvedKeys();
 
-  // Fill in env fallbacks first so a failed DB read degrades to the previous
-  // behaviour instead of disabling AI outright.
   for (const provider of AI_PROVIDERS) {
     const envKey = getEnvKey(provider);
     if (envKey) {
@@ -90,8 +78,6 @@ async function loadResolvedAIKeys(context: Context): Promise<ResolvedAIKeys> {
     }
   }
 
-  // Gating here, not just on write, is what makes a downgrade take effect: the
-  // rows stay in Mongo but stop resolving until the plan allows BYOK again.
   if (!context.hasPremiumFeature("ai-byok")) {
     return resolved;
   }
@@ -110,27 +96,14 @@ async function loadResolvedAIKeys(context: Context): Promise<ResolvedAIKeys> {
   }
 
   for (const credential of credentials) {
-    let key = "";
-    try {
-      key = decryptAIKey(credential.encryptedKey);
-    } catch (e) {
-      logger.error(
-        e,
-        `aiCredentials: could not decrypt the ${credential.provider} key for organization ${credential.organization}`,
-      );
-      continue;
-    }
-    // Unusable, so keep the env fallback rather than send an empty key to the
-    // provider. Means ENCRYPTION_KEY changed without running the migration.
+    const key = decryptAIKey(credential.encryptedKey);
     if (!key || getKeyLast4(key) !== credential.last4) {
       logger.error(
         `aiCredentials: the stored ${credential.provider} key for organization ${credential.organization} could not be decrypted with the current ENCRYPTION_KEY`,
       );
       continue;
     }
-    // Self-hosted, the env var is the deployment's own config and wins, so a
-    // stored key here is a leftover. Cloud must invert this: its managed keys
-    // are env vars too, so env-wins would mean BYOK never takes effect.
+    // Stored keys override managed Cloud keys, but not self-hosted env keys.
     if (!IS_CLOUD && resolved[credential.provider].source === "env") {
       continue;
     }
@@ -141,14 +114,11 @@ async function loadResolvedAIKeys(context: Context): Promise<ResolvedAIKeys> {
   return resolved;
 }
 
-// Cloud: a stored key wins over the env var. Self-hosted: the env var wins.
 export function getResolvedAIKeys(context: Context): Promise<ResolvedAIKeys> {
   const cached = requestCache.get(context);
   if (cached) return cached;
 
-  // Cache the promise, not the result, so concurrent callers share one query.
   const promise = loadResolvedAIKeys(context).catch((e) => {
-    // Don't let a rejected promise stay cached for the rest of the request.
     requestCache.delete(context);
     throw e;
   });
@@ -156,14 +126,10 @@ export function getResolvedAIKeys(context: Context): Promise<ResolvedAIKeys> {
   return promise;
 }
 
-// Call after a write so a later read in the same request sees the new value.
 export function clearResolvedAIKeysCache(context: Context): void {
   requestCache.delete(context);
 }
 
-// Per provider, not per org: accepting an `env` source on Cloud would let one
-// BYOK Anthropic key unlock the OpenAI and Google lists, billed to GrowthBook.
-// Self-hosted the env keys are the host's own, so nothing needs authorizing.
 export function canOrgChooseProviderModels(
   keySource: Record<AIProvider, AIKeySource>,
   provider: AIProvider,
@@ -172,13 +138,11 @@ export function canOrgChooseProviderModels(
   return keySource[provider] === "organization";
 }
 
-// Error message for a provider with no usable key.
 export function missingAIKeyMessage(provider: AIProvider): string {
   const { label, envVar } = AI_PROVIDER_META[provider];
   return `No ${label} API key is configured. Add one under Settings → AI & Prompts, or set the ${envVar} environment variable.`;
 }
 
-// Cheapest "is this key valid" probe: list models. Generates no tokens.
 const VERIFY_ENDPOINTS: Record<
   AIProvider,
   { url: string; headers: (key: string) => Record<string, string> }
@@ -210,9 +174,7 @@ const VERIFY_ENDPOINTS: Record<
   },
 };
 
-// Check a key before storing it so a typo surfaces now, not days later.
-// Network or provider-side failures resolve to valid-with-a-warning: we must
-// not block a save on a key we can't prove is bad.
+// Only proven authentication failures reject a key.
 export async function verifyAIKey(
   provider: AIProvider,
   key: string,

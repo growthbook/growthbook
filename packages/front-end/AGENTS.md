@@ -10,3 +10,11 @@ Before changing front-end code, read the relevant detailed guide:
 - Copy and casing for labels, headings, buttons, and body copy: `../../.agents/guides/ui-copy-style.md`
 
 Use the design-system components in `@/ui/` before Radix Themes or custom UI. Do not introduce new Bootstrap usage.
+
+Permission controls must:
+
+- Share server authority rules where possible; otherwise put predictions in a pure helper such as `shared/permissions/controlAuthority`.
+- Cover both the permission atom in `back-end/test/api/permission-prediction-parity.test.ts` and its environment footprint in `front-end/test/footprintParity.test.ts`.
+- Use independent, discriminating fixtures rather than deriving expected values through the implementation under test.
+
+See `.agents/guides/flag-family-authority.md` for the authority rules.

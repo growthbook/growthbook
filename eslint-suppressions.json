@@ -1813,11 +1813,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Teams/Roles/RoleForm.tsx": {
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
   "packages/front-end/components/Teams/TeamModal.tsx": {
     "no-restricted-syntax": {
       "count": 3
@@ -1834,11 +1829,6 @@
     }
   },
   "packages/front-end/enterprise/components/AIChat/AIChatModelSelect.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/enterprise/components/AIChat/ChatInputBar.tsx": {
     "no-restricted-syntax": {
       "count": 1
     }

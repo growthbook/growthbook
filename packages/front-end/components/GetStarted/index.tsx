@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { useState, useEffect, useMemo } from "react";
 import {
   Box,
@@ -146,9 +147,10 @@ const GetStartedAndHomePage = ({
       projects: [project],
       id: "production",
     });
-  const canCreateFeature = permissionsUtils.canCreateFeature({
-    project,
-  });
+  const canCreateFeature = permissionsUtils.canCreateFeature(
+    { project },
+    NO_ENVIRONMENT_BINDING,
+  );
   const canCreateExperiment = permissionsUtils.canCreateExperiment({
     project,
   });

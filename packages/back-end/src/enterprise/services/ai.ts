@@ -28,6 +28,7 @@ import {
   AIProvider,
   getProviderFromModel,
   getProviderFromEmbeddingModel,
+  getProviderForAIModel,
   isReasoningModel,
 } from "shared/ai";
 import { z, ZodObject, ZodRawShape } from "zod";
@@ -51,26 +52,15 @@ import { logCloudAIUsage } from "back-end/src/services/licenseServerManagedClick
 import { AIUsageOutcome, trackAIUsage } from "back-end/src/services/growthbook";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
-// Whether the org is spending its own budget for `model`. Cloud's daily cap
-// exists because GrowthBook pays for the managed keys, so BYOK requests are
-// exempt — still reported for analytics, just not rate limited.
 const usesOwnAIKey = (
   keySource: Record<AIProvider, AIKeySource>,
   model: AIModel,
 ): boolean => {
-  // Self-hosted keys are the customer's whatever the source, so `env` counts.
   if (!IS_CLOUD) return true;
-  try {
-    return keySource[getProviderFromModel(model)] === "organization";
-  } catch {
-    // Unknown model — fall back to metering it.
-    return false;
-  }
+  const provider = getProviderForAIModel("text", model);
+  return provider !== null && keySource[provider] === "organization";
 };
 
-// One resolution rule for text models, shared by the usage gate and the call
-// itself. They must agree: gating a model the call would reject can 429 a
-// request that was going to run on the org's own key.
 export const resolveTextAIModel = (
   overrideModel: AIModel | undefined,
   defaultAIModel: AIModel,
@@ -211,25 +201,16 @@ export const secondsUntilAICanBeUsedAgain = async (
     : 0;
 };
 
-// Provider-exact form of secondsUntilAICanBeUsedAgain, and what gates should
-// use. Skipped only for the provider *this* call will hit: "owns any key at all"
-// would let an Anthropic key buy uncapped managed OpenAI access, and would cap a
-// BYOK org on the provider it pays for. `undefined` meters the request.
 export const secondsUntilAICanBeUsedAgainForProvider = async (
   context: ReqContext | ApiReqContext,
   provider: AIProvider | undefined,
 ): Promise<number> => {
-  // Self-hosted has no managed key to ration.
   if (!IS_CLOUD) return 0;
   const { keySource } = await getAISettingsForOrg(context);
   if (provider && keySource[provider] === "organization") return 0;
   return secondsUntilAICanBeUsedAgain(context.org);
 };
 
-// Pass the request's override, not the model it settles on: an override whose
-// provider the org no longer keys is dropped at call time in favour of the
-// default, and gating the stale one can 429 a request that would have run
-// uncapped. Omit to check the org's default model.
 export const secondsUntilAICanBeUsedAgainForModel = async (
   context: ReqContext | ApiReqContext,
   overrideModel?: AIModel,
@@ -237,17 +218,10 @@ export const secondsUntilAICanBeUsedAgainForModel = async (
   if (!IS_CLOUD) return 0;
   const { defaultAIModel, keySource } = await getAISettingsForOrg(context);
   const model = resolveTextAIModel(overrideModel, defaultAIModel, keySource);
-  let provider: AIProvider | undefined;
-  try {
-    provider = getProviderFromModel(model);
-  } catch {
-    // Unknown model — leave the provider unset so the request is metered.
-  }
+  const provider = getProviderForAIModel("text", model) ?? undefined;
   return secondsUntilAICanBeUsedAgainForProvider(context, provider);
 };
 
-// Resolves the prompt's model override the same way simpleCompletion does, so
-// the gate and the call agree on which provider is about to be billed.
 export const secondsUntilAICanBeUsedAgainForPrompt = async (
   context: ReqContext | ApiReqContext,
   type: AIPromptType,
@@ -257,18 +231,13 @@ export const secondsUntilAICanBeUsedAgainForPrompt = async (
   return secondsUntilAICanBeUsedAgainForModel(context, overrideModel);
 };
 
-// Embedding models live in their own registry, so they need their own lookup.
 export const secondsUntilAICanBeUsedAgainForEmbeddings = async (
   context: ReqContext | ApiReqContext,
 ): Promise<number> => {
   if (!IS_CLOUD) return 0;
   const { embeddingModel } = await getAISettingsForOrg(context);
-  let provider: AIProvider | undefined;
-  try {
-    provider = getProviderFromEmbeddingModel(embeddingModel);
-  } catch {
-    // Unknown model — leave the provider unset so the request is metered.
-  }
+  const provider =
+    getProviderForAIModel("embedding", embeddingModel) ?? undefined;
   return secondsUntilAICanBeUsedAgainForProvider(context, provider);
 };
 
@@ -388,7 +357,6 @@ export const simpleCompletion = async ({
   }
 
   if (IS_CLOUD) {
-    // Only meter usage against the daily cap when GrowthBook is paying.
     if (!ownKey) {
       if (!numTokensUsed) {
         numTokensUsed = numTokensFromMessages(messages, model);
@@ -396,7 +364,6 @@ export const simpleCompletion = async ({
       await updateTokenUsage({ numTokensUsed, organization: context.org });
     }
 
-    // Fire and forget
     logCloudAIUsage({
       organization: context.org.id,
       type,
@@ -490,7 +457,6 @@ export const streamingChatCompletion = async ({
 
     if (!IS_CLOUD) return;
 
-    // Only meter usage against the daily cap when GrowthBook is paying.
     const numTokensUsed = totalTokens ?? 0;
     if (numTokensUsed && !ownKey) {
       try {

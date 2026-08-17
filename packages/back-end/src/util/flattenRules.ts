@@ -1,12 +1,14 @@
+// `resolveRampTargets` moved to `shared/util` so the Publish control resolves ramp
+// targets the same way the gate and the executor do; re-exported here because every
+// caller looks for it in this module.
+export { resolveRampTargets } from "shared/util";
+export type { RampTargetQuery } from "shared/util";
+
+import { resolveRampTargets, type RampTargetQuery } from "shared/util";
 import isEqual from "lodash/isEqual";
 import { FeatureRule, V1FeatureRule } from "shared/validators";
 import { Environment } from "shared/types/organization";
-import {
-  isMigrationSuffixedRuleId,
-  parseRuleId,
-  stemRuleId,
-  suffixRuleId,
-} from "shared/util";
+import { parseRuleId, stemRuleId, suffixRuleId } from "shared/util";
 
 // Re-exported for back-end callers; new code should import from shared/validators.
 export type { V1FeatureRule };
@@ -206,45 +208,6 @@ export function narrowRuleForEnvRemoval(
       environments: newFootprint,
     } as FeatureRule,
   };
-}
-
-export interface RampTargetQuery {
-  ruleId?: string | null;
-  environment?: string | null;
-}
-
-// Resolve a ramp target to every matching unified rule. Semantics by
-// (ruleId shape, environment?):
-//   (bare, env)      → match stem or stem__env, filtered by rule scope
-//   (suffixed, env)  → stemmed; falls through to (bare, env)
-//   (bare, no env)   → stem fan-out across all env siblings
-//   (suffixed, no env) → exact id match
-// `target.environment` is retained for pre-migration stored ramps.
-export function resolveRampTargets(
-  target: RampTargetQuery,
-  unifiedRules: FeatureRule[],
-): FeatureRule[] {
-  if (!target.ruleId) return [];
-  const stem = stemRuleId(target.ruleId);
-
-  if (target.environment) {
-    const env = target.environment;
-    const suffixed = suffixRuleId(stem, env);
-    return unifiedRules.filter((r) => {
-      if (r.id !== stem && r.id !== suffixed) return false;
-      if (r.allEnvironments) return true;
-      return r.environments?.includes(env) ?? false;
-    });
-  }
-
-  // No env supplied.
-  if (isMigrationSuffixedRuleId(target.ruleId)) {
-    // Caller explicitly disambiguated with a suffix — exact match only.
-    const exact = target.ruleId;
-    return unifiedRules.filter((r) => r.id === exact);
-  }
-  // Bare id, no env — stem fan-out.
-  return unifiedRules.filter((r) => stemRuleId(r.id) === stem);
 }
 
 // First (or only) match. Execution paths (e.g. the ramp poller applying

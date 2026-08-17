@@ -252,7 +252,11 @@ const EditMetricsForm: FC<{
               <span className="font-italic">
                 Users must convert on this metric before being included.{" "}
               </span>
-              <MetricsSelectorTooltip onlyBinomial={true} isSingular={true} />
+              <MetricsSelectorTooltip
+                onlyBinomial={true}
+                noFactFunnelMetrics={true}
+                isSingular={true}
+              />
             </div>
             <MetricSelector
               initialOption="None"
@@ -262,6 +266,7 @@ const EditMetricsForm: FC<{
               datasource={experiment.datasource}
               project={experiment.project}
               onlyBinomial
+              filterFactFunnelMetrics
               includeFacts={true}
             />
           </div>

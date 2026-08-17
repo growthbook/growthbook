@@ -1,8 +1,7 @@
 import { postConfigRevisionRecallReviewValidator } from "shared/validators";
+import { recallRevisionReview } from "back-end/src/revisions/revisionLifecycle";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import { getAdapter } from "back-end/src/revisions";
-import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
+import { NotFoundError } from "back-end/src/util/errors";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
 
@@ -11,7 +10,7 @@ export const postConfigRevisionRecallReview = createApiRequestHandler(
 )(async (req) => {
   const config = await req.context.models.configs.getByKey(req.params.key);
   if (!config) {
-    throw new NotFoundError("Could not find config");
+    throw new NotFoundError("Could not find Config");
   }
 
   const revision = await loadRevisionByVersion(
@@ -20,35 +19,10 @@ export const postConfigRevisionRecallReview = createApiRequestHandler(
     req.params.version,
   );
 
-  if (
-    !["pending-review", "changes-requested", "approved"].includes(
-      revision.status,
-    )
-  ) {
-    throw new BadRequestError(
-      "Only a revision in review can be returned to draft",
-    );
-  }
-
-  // Author can always recall; otherwise require permission to edit the config.
-  if (revision.authorId !== req.context.userId) {
-    if (
-      !getAdapter("config").canUpdate(
-        req.context,
-        config as Record<string, unknown>,
-      )
-    ) {
-      req.context.permissions.throwPermissionError();
-    }
-  }
-
-  const recalled = await req.context.models.revisions.recallReview(
-    revision.id,
-    req.context.userId,
-  );
-
-  await dispatchConfigRevisionEvent(req.context, recalled, {
-    type: "reopened",
+  const recalled = await recallRevisionReview({
+    context: req.context,
+    type: "config",
+    revision,
   });
 
   return { revision: await toApiConfigRevision(recalled, req.context) };

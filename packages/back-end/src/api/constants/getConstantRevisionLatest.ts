@@ -10,7 +10,7 @@ export const getConstantRevisionLatest = createApiRequestHandler(
 )(async (req) => {
   const constant = await req.context.models.constants.getByKey(req.params.key);
   if (!constant) {
-    throw new NotFoundError("Could not find constant");
+    throw new NotFoundError("Could not find Constant");
   }
 
   const mine = stringToBoolean(req.query.mine?.toString());
@@ -24,8 +24,8 @@ export const getConstantRevisionLatest = createApiRequestHandler(
   if (!revision) {
     throw new NotFoundError(
       mine
-        ? "No active draft revision found for this constant where you are the author"
-        : "No active draft revision found for this constant",
+        ? "No active draft revision found for this Constant where you are the author"
+        : "No active draft revision found for this Constant",
     );
   }
 
