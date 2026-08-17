@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { statsEngines, MAX_DESCRIPTION_LENGTH } from "shared/constants";
-import { holdoutStage, MAX_HOLDOUT_SIZE } from "shared/util";
+import { MAX_HOLDOUT_SIZE, holdoutStage } from "../util/holdouts";
 import { apiBaseSchema } from "./base-model";
 import { featureEnvironment } from "./features";
 import { namedSchema } from "./openapi-helpers";
