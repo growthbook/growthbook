@@ -8,6 +8,7 @@ import {
   KEEP_EXISTING_PLACEHOLDER,
   useCanKeepExistingCredentials,
 } from "@/components/Forms/secretInput";
+import { isCloud } from "@/services/env";
 
 const SnowflakeForm: FC<{
   params: Partial<SnowflakeConnectionParams>;
@@ -60,6 +61,11 @@ const SnowflakeForm: FC<{
         >
           <option value="password">Password</option>
           <option value="key-pair">Key Pair</option>
+          {(!isCloud() || authMethod === "workload-identity") && (
+            <option value="workload-identity">
+              Workload Identity Federation
+            </option>
+          )}
         </select>
       </div>
 
@@ -126,6 +132,35 @@ const SnowflakeForm: FC<{
             />
           </div>
         </>
+      )}
+
+      {authMethod === "workload-identity" && (
+        <div className="form-group col-md-12">
+          <label>Cloud Provider</label>
+          <select
+            className="form-control"
+            name="workloadIdentityProvider"
+            required
+            value={params.workloadIdentityProvider || ""}
+            onChange={(e) =>
+              onManualParamChange("workloadIdentityProvider", e.target.value)
+            }
+          >
+            <option value="" disabled>
+              Select the cloud GrowthBook runs on…
+            </option>
+            <option value="AWS">AWS</option>
+            <option value="AZURE">Azure</option>
+            <option value="GCP">Google Cloud</option>
+          </select>
+          <small className="form-text text-muted">
+            Authenticates with the ambient cloud identity of the GrowthBook
+            server (for example, its AWS IAM role) — no stored credential. The
+            Snowflake user must be configured with a matching{" "}
+            <code>WORKLOAD_IDENTITY</code> binding. Self-hosted deployments
+            only.
+          </small>
+        </div>
       )}
 
       <div className="form-group col-md-12">

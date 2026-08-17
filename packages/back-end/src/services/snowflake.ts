@@ -59,6 +59,14 @@ function buildSnowflakeConnection(
     } catch (e) {
       throw new Error("Invalid private key or private key password");
     }
+  } else if (conn.authMethod === "workload-identity") {
+    // Authenticates with the ambient cloud identity of the GrowthBook server
+    // (e.g. its AWS IAM role) — no stored credential. Requires a Snowflake
+    // service user with a matching WORKLOAD_IDENTITY binding.
+    authenticationDetails = {
+      authenticator: "WORKLOAD_IDENTITY",
+      workloadIdentityProvider: conn.workloadIdentityProvider,
+    };
   } else {
     authenticationDetails = {
       password: conn.password,
