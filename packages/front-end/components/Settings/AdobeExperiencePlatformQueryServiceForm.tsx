@@ -43,7 +43,6 @@ const AdobeExperiencePlatformQueryServiceForm: FC<{
           label="Database"
           name="database"
           required
-          helpText="Copy the Database value from Adobe's Credentials tab."
           value={params.database || ""}
           onChange={onParamChange}
         />
@@ -53,7 +52,6 @@ const AdobeExperiencePlatformQueryServiceForm: FC<{
           label="Username"
           name="username"
           required
-          helpText="Copy the Username value from Adobe's Credentials tab."
           value={params.username || ""}
           onChange={onParamChange}
         />

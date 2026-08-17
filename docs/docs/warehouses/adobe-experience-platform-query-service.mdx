@@ -46,7 +46,7 @@ Query Service enforces limits that shape how GrowthBook queries it.
 - **10-minute interactive query timeout.** Interactive queries that run longer than 10 minutes are cancelled and return SQLSTATE `53400`. Keep experiment queries within this window.
 - **50,000-row client result cap.** A single interactive query returns at most 50,000 rows to the client. Experiment-results queries return aggregated rows, so they stay well under this in normal use.
 - **100,000 `LIMIT` ceiling.** Query Service rejects a `LIMIT` above 100,000.
-- **Per-license session and concurrency limits.** Your Adobe license caps how many sessions and concurrent queries you can run. GrowthBook defaults `maxConcurrentQueries` to 1, which matches the standard Query Service entitlement. Raise it in the connection settings only if your Adobe license allows more concurrent queries.
+- **Per-license session and concurrency limits.** Your Adobe license caps how many sessions and concurrent queries you can run. GrowthBook defaults `maxConcurrentQueries` to 1, which matches the standard Query Service entitlement. Raise it in the connection Advanced Settings if your Adobe license allows more concurrent queries.
 
 ## 5. Current limitations
 
