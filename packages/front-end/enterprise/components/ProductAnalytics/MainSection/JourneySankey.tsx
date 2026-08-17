@@ -87,22 +87,48 @@ function laid(n: JourneyNode): LaidNode {
   return n as LaidNode;
 }
 
-function layoutSignature(L: Layout): string {
-  return L.cols
-    .map(
-      (c) =>
-        `${colKey(c)}@${c.x.toFixed(1)}:` +
-        c.nodes
-          .map((n) => {
-            const ln = laid(n);
-            return `${animKey(n)}:${ln.y.toFixed(1)}:${ln.h.toFixed(1)}`;
-          })
-          .join(","),
-    )
-    .join("|");
+function dimSig(dims: Map<string, number> | null): string {
+  if (!dims?.size) return "";
+  return Array.from(dims, ([k, v]) => `${k}:${v.toFixed(1)}`).join(",");
 }
 
-/** Interpolate geometry only. Labels, values, and topology come from `to`. */
+function layoutSignature(L: Layout): string {
+  return (
+    L.cols
+      .map(
+        (c) =>
+          `${colKey(c)}@${c.x.toFixed(1)}:` +
+          c.nodes
+            .map((n) => {
+              const ln = laid(n);
+              return `${animKey(n)}:${ln.y.toFixed(1)}:${ln.h.toFixed(1)}`;
+            })
+            .join(","),
+      )
+      .join("|") +
+    "#" +
+    L.edges.map((e) => `${edgeKey(e, L.cols)}:${dimSig(e.dims)}`).join(";")
+  );
+}
+
+function lerpDimMap(
+  from: Map<string, number> | null,
+  to: Map<string, number> | null,
+  t: number,
+): Map<string, number> | null {
+  if (!from && !to) return null;
+  const keys = new Set<string>();
+  if (from) for (const k of from.keys()) keys.add(k);
+  if (to) for (const k of to.keys()) keys.add(k);
+  const next = new Map<string, number>();
+  for (const k of keys) {
+    const v = lerp(from?.get(k) ?? 0, to?.get(k) ?? 0, t);
+    if (v > 0) next.set(k, v);
+  }
+  return next.size ? next : null;
+}
+
+/** Interpolate geometry and dimension shares. Labels and topology come from `to`. */
 function lerpLayout(from: Layout, to: Layout, t: number): Layout {
   const fromCols = new Map(from.cols.map((c) => [colKey(c), c]));
   const fromEdges = new Map(from.edges.map((e) => [edgeKey(e, from.cols), e]));
@@ -136,6 +162,8 @@ function lerpLayout(from: Layout, to: Layout, t: number): Layout {
     }
     return {
       ...toE,
+      value: lerp(fe.value, toE.value, t),
+      dims: lerpDimMap(fe.dims, toE.dims, t),
       h0: lerp(fe.h0, toE.h0, t),
       h1: lerp(fe.h1, toE.h1, t),
       y0: lerp(fe.y0, toE.y0, t),

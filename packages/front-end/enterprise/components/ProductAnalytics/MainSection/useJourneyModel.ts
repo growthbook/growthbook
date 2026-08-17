@@ -779,6 +779,53 @@ function materializeJourneyViewModel({
   return model;
 }
 
+function withoutHiddenDims(
+  dims: Map<string, number> | null,
+  hidden: ReadonlySet<string>,
+): { dims: Map<string, number> | null; value: number } {
+  if (!dims) return { dims, value: 0 };
+  const next = new Map<string, number>();
+  let value = 0;
+  for (const [k, v] of dims) {
+    if (hidden.has(k)) continue;
+    next.set(k, v);
+    value += v;
+  }
+  return { dims: next, value };
+}
+
+/** `dimTop` is left intact so legend colors stay stable while values are hidden. */
+export function withHiddenJourneyDims(
+  model: JourneyViewModel,
+  hidden: ReadonlySet<string>,
+): JourneyViewModel {
+  if (hidden.size === 0) return model;
+
+  const columns = model.columns.map((c) => ({
+    ...c,
+    nodes: c.nodes
+      .map((n) => {
+        if (!n.dimParts) return n;
+        const { dims, value } = withoutHiddenDims(n.dimParts, hidden);
+        return { ...n, dimParts: dims, value };
+      })
+      .filter((n) => n.value > 0 || !!c.loading),
+  }));
+  const edges = model.edges
+    .map((e) => {
+      if (!e.dims) return e;
+      const { dims, value } = withoutHiddenDims(e.dims, hidden);
+      return { ...e, dims, value };
+    })
+    .filter((e) => e.value > 0);
+  return {
+    ...model,
+    columns,
+    edges,
+    anchorTotal: columns.find((c) => c.anchor)?.nodes[0]?.value ?? 0,
+  };
+}
+
 export function buildJourneyViewState({
   rows,
   dataset,

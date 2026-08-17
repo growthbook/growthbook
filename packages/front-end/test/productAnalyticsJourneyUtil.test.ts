@@ -25,7 +25,10 @@ import {
   journeyFetchCache,
   journeyShouldPrefetchMore,
 } from "@/enterprise/components/ProductAnalytics/journey-policy";
-import { buildJourneyViewState } from "@/enterprise/components/ProductAnalytics/MainSection/useJourneyModel";
+import {
+  buildJourneyViewState,
+  withHiddenJourneyDims,
+} from "@/enterprise/components/ProductAnalytics/MainSection/useJourneyModel";
 import { buildJourneyTableData } from "@/enterprise/components/ProductAnalytics/MainSection/useExplorationTableData";
 
 /** These assertions only care about the view model half of the state. */
@@ -813,6 +816,47 @@ describe("buildJourneyViewState", () => {
     expect(committed).toHaveLength(3);
     expect(model.columns.filter((c) => c.frontier)).toHaveLength(0);
     expect(committed[0].nodes[0].value).toBe(50);
+  });
+});
+
+describe("withHiddenJourneyDims", () => {
+  const dimRows: ProductAnalyticsResultRow[] = [
+    pathRow(["home", "search", "(exit)"], 40, "US"),
+    pathRow(["home", "(exit)", "(none)"], 10, "US"),
+    pathRow(["search", "(exit)", "(none)"], 20, "UK"),
+    pathRow(["(exit)", "(none)", "(none)"], 30, "UK"),
+  ];
+
+  it("returns the same model when nothing is hidden", () => {
+    const model = buildJourneyViewStateModel({
+      rows: dimRows,
+      dataset: journeyDataset(),
+      hasDimension: true,
+    });
+    expect(withHiddenJourneyDims(model, new Set())).toBe(model);
+  });
+
+  it("drops a hidden dimension from totals, nodes, and edges", () => {
+    const model = buildJourneyViewStateModel({
+      rows: dimRows,
+      dataset: journeyDataset(),
+      hasDimension: true,
+    });
+    expect(model.anchorTotal).toBe(100);
+    expect(model.dimTop).toEqual(["US", "UK"]);
+
+    const filtered = withHiddenJourneyDims(model, new Set(["US"]));
+    expect(filtered.dimTop).toEqual(["US", "UK"]);
+    expect(filtered.anchorTotal).toBe(50);
+
+    const frontier = filtered.columns.find((c) => c.frontier);
+    const nodes = Object.fromEntries(
+      (frontier?.nodes ?? []).map((n) => [n.key, n.value]),
+    );
+    expect(nodes.home).toBeUndefined();
+    expect(nodes.search).toBe(20);
+    expect(nodes["(exit)"]).toBe(30);
+    expect(filtered.edges.every((e) => !e.dims?.has("US"))).toBe(true);
   });
 });
 

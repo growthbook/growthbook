@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import type {
   ExplorationConfig,
@@ -21,6 +21,7 @@ import TextUI from "@/ui/Text";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { journeyHistoryKey } from "@/enterprise/components/ProductAnalytics/journey-policy";
 import JourneySankey, { dimColor } from "./JourneySankey";
+import { withHiddenJourneyDims } from "./useJourneyModel";
 import { useJourneyViewState } from "./useJourneyViewState";
 
 const EMPTY_ROWS: ProductAnalyticsResultRow[] = [];
@@ -67,6 +68,11 @@ export default function JourneyChart({
     frontierLoading: loading,
   });
   const model = viewState?.model ?? null;
+  const [hiddenDims, setHiddenDims] = useState<Set<string>>(() => new Set());
+  const visibleModel = useMemo(
+    () => (model ? withHiddenJourneyDims(model, hiddenDims) : null),
+    [model, hiddenDims],
+  );
 
   const onCommit = useCallback(
     (keys: string[]) => {
@@ -169,7 +175,7 @@ export default function JourneyChart({
     <Flex direction="column" style={{ flex: 1, minHeight: 0 }}>
       <Box style={{ flex: 1, minHeight: 220, position: "relative" }}>
         <JourneySankey
-          model={model}
+          model={visibleModel ?? model}
           onCommit={onCommit}
           onPop={popJourneyPath}
           onViewMore={onViewMore}
@@ -183,19 +189,47 @@ export default function JourneyChart({
       </Box>
       {hasDimension && (
         <Flex gap="4" px="3" pb="2" wrap="wrap">
-          {model.dimTop.concat([JOURNEY_OTHER]).map((d) => (
-            <Flex key={d} align="center" gap="2">
-              <Box
-                style={{
-                  width: 11,
-                  height: 11,
-                  borderRadius: 3,
-                  background: dimColor(model.dimTop, d),
+          {model.dimTop.concat([JOURNEY_OTHER]).map((d) => {
+            const hidden = hiddenDims.has(d);
+            return (
+              <button
+                key={d}
+                type="button"
+                onClick={() => {
+                  setHiddenDims((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(d)) next.delete(d);
+                    else next.add(d);
+                    return next;
+                  });
                 }}
-              />
-              <TextUI size="sm">{d}</TextUI>
-            </Flex>
-          ))}
+                aria-pressed={!hidden}
+                aria-label={hidden ? `Show ${d}` : `Hide ${d}`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: 0,
+                  border: "none",
+                  background: "none",
+                  cursor: "pointer",
+                  opacity: hidden ? 0.45 : 1,
+                }}
+              >
+                <Box
+                  style={{
+                    width: 11,
+                    height: 11,
+                    borderRadius: 3,
+                    background: hidden
+                      ? "var(--gray-a6)"
+                      : dimColor(model.dimTop, d),
+                  }}
+                />
+                <TextUI size="sm">{d}</TextUI>
+              </button>
+            );
+          })}
         </Flex>
       )}
     </Flex>
