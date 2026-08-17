@@ -6,7 +6,7 @@ import {
   FunnelSettings,
   FunnelStep,
 } from "shared/types/fact-table";
-import { MAX_FACT_METRIC_FUNNEL_STEPS } from "shared/validators";
+import { MAX_FUNNEL_STEPS } from "shared/funnels";
 import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useFullFactTable from "@/hooks/useFullFactTable";
@@ -257,7 +257,7 @@ export default function FunnelStepsInput({
       <Box>
         <Button
           variant="ghost"
-          disabled={value.steps.length >= MAX_FACT_METRIC_FUNNEL_STEPS}
+          disabled={value.steps.length >= MAX_FUNNEL_STEPS}
           onClick={() =>
             setValue({
               ...value,
