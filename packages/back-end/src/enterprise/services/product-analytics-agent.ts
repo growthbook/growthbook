@@ -839,22 +839,38 @@ async function normalizeConfigForExplorer(
   };
 }
 
+// Max wait time for the warehouse query to complete.
+const RUN_EXPLORATION_WAIT_MS = 10 * 60 * 1000;
+
 async function executeRunExploration(
   ctx: ReqContext,
   buffer: ConversationBuffer,
   rawConfig: ExplorationConfig,
+  abortSignal?: AbortSignal,
 ): Promise<RunExplorationToolResult> {
   try {
     const { config, warnings, getFactMetricById } =
       await normalizeConfigForExplorer(ctx, rawConfig);
-    const exploration = await runProductAnalyticsExploration(ctx, config, {
-      cache: "preferred",
-    });
+
+    const exploration = await runProductAnalyticsExploration(
+      ctx,
+      config,
+      { cache: "preferred" },
+      { waitMs: RUN_EXPLORATION_WAIT_MS, abortSignal },
+    );
 
     if (exploration?.status === "error") {
       return {
         status: "error",
         message: exploration.error ?? "The query failed with an unknown error",
+      };
+    }
+
+    if (exploration?.status === "running") {
+      return {
+        status: "error",
+        message:
+          "The warehouse query is still running after waiting. Do NOT assume there is no data or that the fact table, filters, or date range are wrong. Tell the user the query is taking longer than expected and they can retry shortly.",
       };
     }
 
@@ -1271,6 +1287,7 @@ const GET_COLUMN_VALUES_DESCRIPTION =
 const RUN_EXPLORATION_DESCRIPTION =
   "Execute a product analytics exploration with the given config. " +
   "Use this when the user asks to build, change, or rerun a chart. " +
+  "Waits for the warehouse query to finish before returning. " +
   "The chart will be automatically displayed to the user after execution. " +
   "Returns config (the normalized config used), resultCsv (CSV of the results for analysis), rowCount, snapshotId, and summary. " +
   "Use config and resultCsv for analysis and follow-up modifications. Ignore the exploration field (internal use). " +
@@ -1338,7 +1355,8 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
       runExploration: aiTool({
         description: RUN_EXPLORATION_DESCRIPTION,
         inputSchema: runExplorationInputSchema,
-        execute: ({ config }) => executeRunExploration(ctx, buffer, config),
+        execute: ({ config }, { abortSignal }) =>
+          executeRunExploration(ctx, buffer, config, abortSignal),
       }),
 
       getSnapshot: aiTool({

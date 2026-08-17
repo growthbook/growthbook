@@ -1,3 +1,4 @@
+import { setTimeout as delay } from "timers/promises";
 import {
   ExplorationConfig,
   explorationConfigValidator,
@@ -45,7 +46,7 @@ function withRequestedDisplayConfig(
   };
 }
 
-// Max time to wait synchronously for an exploration's queries before
+// Default time to wait synchronously for an exploration's queries before
 // returning the in-progress model and letting the frontend poll for the
 // result. Bounds request latency for heavy funnel/metric queries over large
 // event tables.
@@ -55,6 +56,7 @@ export async function runProductAnalyticsExploration(
   context: ReqContext | ApiReqContext,
   config: ExplorationConfig,
   options: ExplorationCacheQuery,
+  waitOptions?: { waitMs: number; abortSignal?: AbortSignal },
 ): Promise<ProductAnalyticsExploration | null> {
   config = explorationConfigValidator.parse(config);
 
@@ -230,33 +232,35 @@ export async function runProductAnalyticsExploration(
     true,
   );
 
-  let syncTimer: ReturnType<typeof setTimeout> | undefined;
+  const waitMs = waitOptions?.waitMs ?? PRODUCT_ANALYTICS_SYNC_TIMEOUT_MS;
+  const waitController = new AbortController();
+  const abortWait = (): void => waitController.abort();
+  if (waitOptions?.abortSignal?.aborted) {
+    abortWait();
+  } else {
+    waitOptions?.abortSignal?.addEventListener("abort", abortWait, {
+      once: true,
+    });
+  }
+
   try {
     await queryRunner.startAnalysis({
       factTableMap,
       factMetricMap: metricMap,
     });
-    // If results aren't ready within the sync budget, return the in-progress
-    // exploration (status "running") instead of blocking the request. The
-    // warehouse query is NOT cancelled — the QueryRunner keeps driving it and
-    // persists status updates via its own background timers, so the frontend
-    // shows a loading state and polls getExplorationById for the result.
-    // This bounds request latency (no UI hang) without re-running the query.
-    const timeout = new Promise<void>((resolve) => {
-      syncTimer = setTimeout(resolve, PRODUCT_ANALYTICS_SYNC_TIMEOUT_MS);
-    });
+    // The query continues in the background when the wait ends.
     await Promise.race([
-      // Swallow a late resolve/reject so it can't surface as an unhandled
-      // rejection after the timeout wins; errors are persisted to the model
-      // and surfaced to the client via polling.
       queryRunner.waitForResults().catch(() => {}),
-      timeout,
+      delay(waitMs, undefined, {
+        signal: waitController.signal,
+        ref: false,
+      }).catch(() => {}),
     ]);
   } catch (e) {
     // Ignore errors here, still return the model
   } finally {
-    // Clear the timer so the fast path doesn't leave a dangling timeout.
-    if (syncTimer) clearTimeout(syncTimer);
+    waitController.abort();
+    waitOptions?.abortSignal?.removeEventListener("abort", abortWait);
   }
 
   return queryRunner.model;
