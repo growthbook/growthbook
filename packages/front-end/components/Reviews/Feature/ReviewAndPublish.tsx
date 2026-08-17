@@ -2,7 +2,9 @@ import {
   NO_ENVIRONMENT_BINDING,
   canCommentOnRevisionEntity,
   holdsFeatureMoveDestination,
+  assessApprovalCoverage,
 } from "shared/permissions";
+import type { OrganizationInterface } from "shared/types/organization";
 import { FeatureInterface } from "shared/types/feature";
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import {
@@ -204,6 +206,8 @@ export default function ReviewAndPublish({
   const user = getCurrentUser();
   const {
     users,
+    teams,
+    organization,
     hasCommercialFeature,
     userId,
     name: userName,
@@ -693,6 +697,73 @@ export default function ReviewAndPublish({
       settings,
     });
   }, [revision, baseRevision, liveRevision, feature, envIds, settings]);
+
+  // Approvals whose approver no longer covers what the draft changes. Resolved
+  // client-side from the members map with the same function the server uses, so
+  // the panel and the refusal cannot disagree.
+  const uncoveredApprovers = useMemo(() => {
+    const approved = reviewers.filter((r) => r.status === "approved");
+    if (!approved.length) return new Set<string>();
+    return new Set(
+      assessApprovalCoverage({
+        org: organization as OrganizationInterface,
+        teams: teams ?? [],
+        feature,
+        footprint: reviewFootprint,
+        approvers: approved.map((r) => ({
+          id: r.id,
+          roleInfo: users.get(r.id) ?? null,
+        })),
+      }).uncoveredApprovers,
+    );
+  }, [reviewers, organization, teams, feature, reviewFootprint, users]);
+
+  const uncoveredReason = (approverId: string): string => {
+    const roleInfo = users.get(approverId);
+    const who = roleInfo?.name || roleInfo?.email || "this reviewer";
+    if (!roleInfo) return `${who} is no longer a member of this organization`;
+    const held = roleInfo.limitAccessByEnvironment
+      ? (roleInfo.environments ?? [])
+      : envIds;
+    const missing =
+      reviewFootprint.scope === "environments"
+        ? reviewFootprint.environments.filter((e) => !held.includes(e))
+        : envIds.filter((e) => !held.includes(e));
+    return missing.length
+      ? `cannot approve changes in ${missing.join(", ")}`
+      : `cannot approve this change`;
+  };
+
+  const uncoveredApproverReasons = useMemo(
+    () =>
+      new Map(
+        [...uncoveredApprovers].map((id) => [id, uncoveredReason(id)] as const),
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [uncoveredApprovers, users, reviewFootprint, envIds],
+  );
+
+  // Environments in the footprint that no standing approver covers — what the
+  // draft is actually waiting on.
+  const uncoveredFootprintEnvs = useMemo(() => {
+    if (reviewFootprint.scope !== "environments") return [];
+    const covered = new Set<string>();
+    reviewers
+      .filter((r) => r.status === "approved")
+      .forEach((r) => {
+        const roleInfo = users.get(r.id);
+        if (!roleInfo) return;
+        (roleInfo.limitAccessByEnvironment
+          ? (roleInfo.environments ?? [])
+          : envIds
+        ).forEach((e) => covered.add(e));
+      });
+    return reviewFootprint.environments.filter((e) => !covered.has(e));
+  }, [reviewFootprint, reviewers, users, envIds]);
+
+  const approvalsCoverFootprint = reviewers.some(
+    (r) => r.status === "approved" && !uncoveredApprovers.has(r.id),
+  );
 
   // Fall back to all applicable environments until the merge footprint is known.
   const affectedRevisionEnvs = useMemo(() => {
@@ -1276,6 +1347,7 @@ export default function ReviewAndPublish({
           onRevisionMutate={mutate}
           // Same gate the generic timeline passes.
           canRetractVerdict={canRetractVerdict}
+          uncoveredApproverReasons={uncoveredApproverReasons}
           // Overview foregrounds the conversation: comments, verdicts, and
           // lifecycle events. Granular content-edit entries collapse into
           // per-run "N other events" toggles.
@@ -1536,6 +1608,11 @@ export default function ReviewAndPublish({
                           name={name || email}
                           timestamp={timestamp}
                           stale={stale}
+                          uncoveredReason={
+                            uncoveredApprovers.has(id)
+                              ? uncoveredReason(id)
+                              : undefined
+                          }
                         />
                       }
                     />
@@ -2231,7 +2308,10 @@ export default function ReviewAndPublish({
     ) : null;
 
   const canDoPrimary =
-    state.submitAction === "publish" ? hasPublishPermission : true;
+    state.submitAction === "publish"
+      ? hasPublishPermission &&
+        (adminPublish || !requireReviews || approvalsCoverFootprint)
+      : true;
 
   // Shared by the no-changes empty state and the actions column kebab — the
   // only two places an active draft can be discarded from.
@@ -2287,6 +2367,11 @@ export default function ReviewAndPublish({
       !adminPublish &&
       ["draft", "pending-review", "changes-requested"].includes(revision.status)
     )
+      return { overridable: true };
+    // Approved, but no approver covers what the draft now changes. Overridable
+    // so the bypass affordance stays reachable — this is the state that most
+    // needs it.
+    if (requireReviews && !adminPublish && !approvalsCoverFootprint)
       return { overridable: true };
     if (!adminPublish && !governance?.canPublish) return { overridable: true };
     if (!adminPublish && featureLockedByRamp) return { overridable: true };
@@ -2554,6 +2639,11 @@ export default function ReviewAndPublish({
                           name={name || email}
                           timestamp={timestamp}
                           stale={stale}
+                          uncoveredReason={
+                            uncoveredApprovers.has(id)
+                              ? uncoveredReason(id)
+                              : undefined
+                          }
                         />
                       }
                     />
@@ -2900,6 +2990,18 @@ export default function ReviewAndPublish({
                     pt="4"
                     style={{ borderTop: "1px solid var(--gray-a5)" }}
                   >
+                    {/* The verdict stands, so the status stays "Approved" — this
+                    says why it is not enough to publish. */}
+                    {requireReviews && !approvalsCoverFootprint && (
+                      <Box mb="3">
+                        <Callout status="warning" size="sm">
+                          {uncoveredFootprintEnvs.length
+                            ? `Approved, but no reviewer has approval rights in ${uncoveredFootprintEnvs.join(", ")}. This draft needs approval from someone who does.`
+                            : `Approved, but no reviewer has approval rights across everything this draft changes.`}
+                        </Callout>
+                      </Box>
+                    )}
+
                     {/* Divergence/rebase notice renders above the publish button
                     so users consider rebasing before reaching for Publish. */}
                     {governance && (

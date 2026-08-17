@@ -1,6 +1,6 @@
+import { assessApprovalCoverage } from "shared/permissions";
 import { OrganizationInterface } from "shared/types/organization";
 import { TeamInterface } from "shared/types/team";
-import { assessApprovalCoverage } from "back-end/src/util/organization.util";
 
 const feature = { project: "" };
 
@@ -39,7 +39,11 @@ const assess = (
     teams,
     feature,
     footprint: { scope: "environments", environments },
-    approverIds,
+    // Callers resolve the approver's rules; the server maps from org.members.
+    approvers: approverIds.map((id) => ({
+      id,
+      roleInfo: o.members.find((m) => m.id === id) ?? null,
+    })),
   });
 
 describe("approval coverage", () => {

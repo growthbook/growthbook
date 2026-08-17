@@ -5,6 +5,7 @@ import {
   holdsMoveDestination,
   projectScopeChanged,
   NO_ENVIRONMENT_BINDING,
+  assessApprovalCoverage,
 } from "shared/permissions";
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
@@ -107,7 +108,6 @@ import {
   canReopenFeatureDraft,
   revertFootprint,
 } from "back-end/src/revisions/featureDraftAuthority";
-import { assessApprovalCoverage } from "back-end/src/util/organization.util";
 import { assertCanRevertRevision } from "back-end/src/revisions/revertActions";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -2192,10 +2192,14 @@ export async function postFeaturePublish(
       settings: org.settings,
       liveRampScheduleEnvs,
     }),
-    approverIds: (revision.reviews ?? [])
+    approvers: (revision.reviews ?? [])
       .filter((r) => r.status === "approved")
       .map((r) => r.userId)
-      .filter((id): id is string => !!id),
+      .filter((id): id is string => !!id)
+      .map((id) => ({
+        id,
+        roleInfo: org.members.find((m) => m.id === id) ?? null,
+      })),
   });
   if (!adminOverride && requiresReview && !hasCoveringApproval) {
     throw new Error(

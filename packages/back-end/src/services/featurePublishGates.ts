@@ -12,13 +12,13 @@ import {
   getReviewAuthorityFootprint,
 } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
-import { bypassApprovalPermission } from "shared/permissions";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import type { EventUser } from "shared/types/events/event-types";
 import {
   assessApprovalCoverage,
-  getEnvironments,
-} from "back-end/src/util/organization.util";
+  bypassApprovalPermission,
+} from "shared/permissions";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { EventUser } from "shared/types/events/event-types";
+import { getEnvironments } from "back-end/src/util/organization.util";
 import type { ApiReqContext } from "back-end/types/api";
 import type { ReqContext } from "back-end/types/request";
 import {
@@ -188,10 +188,14 @@ export async function planFeatureRevisionMerge({
     teams: context.teams,
     feature,
     footprint: reviewFootprint,
-    approverIds: (revision.reviews ?? [])
+    approvers: (revision.reviews ?? [])
       .filter((r) => r.status === "approved")
       .map((r) => r.userId)
-      .filter((id): id is string => !!id),
+      .filter((id): id is string => !!id)
+      .map((id) => ({
+        id,
+        roleInfo: context.org.members.find((m) => m.id === id) ?? null,
+      })),
   });
 
   const hasLinkedPendingRamp =
