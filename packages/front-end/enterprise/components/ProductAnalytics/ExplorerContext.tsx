@@ -89,8 +89,6 @@ export interface ExplorerContextValue {
   /** Comparison leg failed but the primary succeeded. Kept off `error`, which
    * would hide the results the user did get. */
   comparisonError: string | null;
-  setCompareEnabled: (value: boolean) => void;
-  setComparisonMode: (mode: ComparisonMode) => void;
 
   // ─── Modifiers ─────────────────────────────────────────────────────────
   setDraftExploreState: (action: SetDraftStateAction) => void;
@@ -350,44 +348,6 @@ export function ExplorerProvider({
     comparisonMode,
     setDraftExploreState,
   ]);
-
-  const setCompareEnabled = useCallback(
-    (value: boolean) => {
-      if (value) {
-        setDraftExploreState((prev) => {
-          if (isTimelessSqlExploration(prev)) return prev;
-          return {
-            ...prev,
-            comparisonMode: "previousPeriod",
-            previousTimeFrame: buildComparisonDateRangeForMode(
-              prev.dateRange,
-              "previousPeriod",
-            ),
-          };
-        });
-      } else {
-        // Keep the existing else body
-      }
-    },
-    [setDraftExploreState],
-  );
-
-  const setComparisonMode = useCallback(
-    (mode: ComparisonMode) => {
-      setDraftExploreState((prev) => ({
-        ...prev,
-        comparisonMode: mode,
-        // Seeding `custom` from the window already on screen keeps the manual
-        // field from jumping the moment it becomes editable.
-        previousTimeFrame: buildComparisonDateRangeForMode(
-          prev.dateRange,
-          mode,
-          prev.previousTimeFrame ?? null,
-        ),
-      }));
-    },
-    [setDraftExploreState],
-  );
 
   const commonColumns = useMemo(() => {
     return getCommonColumns(
@@ -1131,8 +1091,6 @@ export function ExplorerProvider({
       comparisonQuery,
       comparisonComputed,
       comparisonError,
-      setCompareEnabled,
-      setComparisonMode,
     }),
     [
       addValueToDataset,
@@ -1142,7 +1100,6 @@ export function ExplorerProvider({
       compareEnabled,
       comparisonMode,
       submittedComparisonMode,
-      setComparisonMode,
       comparisonComputed,
       comparisonError,
       comparisonExploration,
@@ -1160,7 +1117,6 @@ export function ExplorerProvider({
       needsFetch,
       needsUpdate,
       query,
-      setCompareEnabled,
       setDraftExploreState,
       submittedExploreState,
       submittedPreviousTimeFrame,
