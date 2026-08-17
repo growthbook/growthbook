@@ -175,3 +175,35 @@ describe("environment-scoped review", () => {
     });
   });
 });
+
+const twoRuleSeniorEngineer = () => {
+  const o = org(true, "engineer", ["development"]);
+  o.members[0].additionalRoles = [
+    { role: "reviewer", limitAccessByEnvironment: false, environments: [] },
+  ];
+  return new Permissions(getUserPermissions({ id: "u_1" }, o, []), {
+    envScopedReview: true,
+  });
+};
+
+describe("expressing judge-everywhere, operate-in-dev with two rules", () => {
+  it("reviews production even though publish is limited to dev", () => {
+    const p = twoRuleSeniorEngineer();
+    expect(
+      p.canReviewFeatureDrafts(feature, {
+        scope: "environments",
+        environments: ["production"],
+      }),
+    ).toBe(true);
+    expect(p.canPublishFeature(feature, ["production"])).toBe(false);
+    expect(p.canPublishFeature(feature, ["development"])).toBe(true);
+  });
+
+  it("reviews an unbound change, since the review rule is unrestricted", () => {
+    expect(
+      twoRuleSeniorEngineer().canReviewFeatureDrafts(feature, {
+        scope: "unbound",
+      }),
+    ).toBe(true);
+  });
+});
