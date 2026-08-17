@@ -349,6 +349,7 @@ export function getTablePath(
     case "databricks":
     case "mixpanel":
     case "vertica":
+    case "adobe_ep_query_service":
     default:
       return returnValue;
   }
@@ -387,6 +388,7 @@ export function getSchemaPath(
     case "databricks":
     case "mixpanel":
     case "vertica":
+    case "adobe_ep_query_service":
     default:
       return returnValue;
   }
@@ -422,6 +424,7 @@ export function getDatabasePath(
     case "databricks":
     case "mixpanel":
     case "vertica":
+    case "adobe_ep_query_service":
     default:
       return catalog;
   }

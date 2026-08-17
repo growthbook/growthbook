@@ -75,6 +75,7 @@ export function getEventForwarderSinkTypeForDatasource(datasource: {
     case "databricks":
     case "mixpanel":
     case "vertica":
+    case "adobe_ep_query_service":
     default:
       return null;
   }
@@ -108,6 +109,7 @@ export function getEventForwarderDatasourceParams(
     case "databricks":
     case "mixpanel":
     case "vertica":
+    case "adobe_ep_query_service":
     default:
       return undefined;
   }
