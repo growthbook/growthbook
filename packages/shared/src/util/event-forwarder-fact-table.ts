@@ -19,6 +19,9 @@ export const EVENT_FORWARDER_AVRO_PARTITION_FIELD = "received_at" as const;
 /** Map field holding org targeting attributes in the forwarder Avro schema. */
 export const EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD = "attributes" as const;
 
+/** Map field holding event properties in the forwarder Avro schema. */
+export const EVENT_FORWARDER_AVRO_PROPERTIES_FIELD = "properties" as const;
+
 /**
  * Sanitizes a string for use as an Avro/BigQuery/Snowflake field name.
  *
@@ -127,6 +130,19 @@ export function quoteBigQueryIdentifier(identifier: string): string {
   return `\`${identifier}\``;
 }
 
+/**
+ * Escapes a JSON key for embedding inside a BigQuery JSONPath quoted member that
+ * is itself wrapped in a single-quoted SQL string literal: `'$."<key>"'`.
+ *
+ * Two nested contexts must be escaped, in order:
+ *  1. JSONPath quoted member (`$."<key>"`): escape `\` then `"`.
+ *  2. Single-quoted SQL string literal: escape `\` then `'`.
+ */
+function escapeBigQueryJsonPathKey(key: string): string {
+  const jsonPathEscaped = key.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  return jsonPathEscaped.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
 function quoteSnowflakeVariantFieldName(fieldName: string): string {
   return `"${fieldName.replace(/"/g, '""')}"`;
 }
@@ -150,6 +166,10 @@ function sdkAttributeTypeToValueDatatype(
     case "number[]":
     case "secureString[]":
       return "json";
+    case undefined:
+    case "string":
+    case "enum":
+    case "secureString":
     default:
       return "string";
   }
@@ -162,7 +182,7 @@ function buildBigQueryFlatMapAttributeValueSql(
   const quotedAttributes = quoteBigQueryIdentifier(
     EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD,
   );
-  const jsonPath = `'$."${fieldName}"'`;
+  const jsonPath = `'$."${escapeBigQueryJsonPathKey(fieldName)}"'`;
 
   switch (valueDatatype) {
     case "number":
@@ -173,6 +193,7 @@ function buildBigQueryFlatMapAttributeValueSql(
       // JSON_QUERY on a native BigQuery JSON column returns JSON type (not STRING),
       // so the fact table column refresh job will correctly infer the type as "json".
       return `JSON_QUERY(${quotedAttributes}, ${jsonPath})`;
+    case "string":
     default:
       return `JSON_VALUE(${quotedAttributes}, ${jsonPath})`;
   }
@@ -194,6 +215,7 @@ function buildSnowflakeFlatMapAttributeValueSql(
       return `TRY_TO_BOOLEAN(${rawString})`;
     case "json":
       return `TRY_PARSE_JSON(${rawString})`;
+    case "string":
     default:
       // Map values are strings in Avro; cast so Snowflake reports VARCHAR not VARIANT.
       return rawString;
@@ -274,6 +296,32 @@ export function buildEventForwarderNestedAttributeValueSql({
       }),
     ),
   );
+}
+
+/**
+ * Extracts a single key out of the forwarder `properties` map as a string.
+ * BigQuery stores `properties` as a native JSON column; Snowflake as a
+ * schematized VARIANT object. Property keys are the raw SDK names (e.g.
+ * "ruleId", "variationId").
+ */
+export function buildEventForwarderPropertyValueSql({
+  sinkType,
+  propertyKey,
+}: {
+  sinkType: "bigquery" | "snowflake";
+  propertyKey: string;
+}): string {
+  if (sinkType === "bigquery") {
+    const propertiesCol = quoteBigQueryIdentifier(
+      EVENT_FORWARDER_AVRO_PROPERTIES_FIELD,
+    );
+    return `JSON_VALUE(${propertiesCol}, '$."${escapeBigQueryJsonPathKey(
+      propertyKey,
+    )}"')`;
+  }
+
+  const propertiesCol = EVENT_FORWARDER_AVRO_PROPERTIES_FIELD.toUpperCase();
+  return `${propertiesCol}:${quoteSnowflakeVariantFieldName(propertyKey)}::STRING`;
 }
 
 function getEventForwarderEventsFactTableAttributes(

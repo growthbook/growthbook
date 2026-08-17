@@ -1,12 +1,17 @@
+import {
+  NO_ENVIRONMENT_BINDING,
+  canCreateInSelectedScope,
+} from "shared/permissions";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import { useFeature } from "@growthbook/growthbook-react";
+import { useFeature, useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
 import { FeatureInterface, FeatureMetaInfo } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
 import { featureHasEnvironment } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { AppFeatures } from "shared/types/app-features";
 import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -146,6 +151,9 @@ export default function FeaturesPage() {
         : (items: FeatureInterface[]) => items.filter((f) => !f.archived),
     [showArchived],
   );
+
+  const gb = useGrowthBook<AppFeatures>();
+  gb?.isOn("teresa-cb-feature");
 
   const {
     searchInputProps,
@@ -608,28 +616,17 @@ export default function FeaturesPage() {
     projects,
   );
 
-  const canCreateFeatures = useMemo(() => {
-    // If a specific project is selected, check permissions for that project
-    if (project) {
-      return permissionsUtil.canManageFeatureDrafts({ project });
-    }
-    // "All Projects" selected. Check the global (no-project) permission first so
-    // a user who can create features at the org level (e.g. an admin) isn't
-    // blocked by a non-creatable project. Otherwise the read-only sample-data
-    // project would disable the button whenever it's the only project.
-    if (
-      permissionsUtil.canCreateFeature({ project: "" }) &&
-      permissionsUtil.canManageFeatureDrafts({ project: "" })
-    ) {
-      return true;
-    }
-    // Otherwise, allow if they can create in at least one specific project.
-    return (projects ?? []).some(
-      (p) =>
-        permissionsUtil.canCreateFeature({ project: p.id }) &&
-        permissionsUtil.canManageFeatureDrafts({ project: p.id }),
-    );
-  }, [project, projects, permissionsUtil]);
+  // Create authority alone, matching the endpoint: a create-only role can create a
+  // flag even though it can't draft changes to one afterwards.
+  const canCreateFeatures = canCreateInSelectedScope({
+    project,
+    projectIds: (projects ?? []).map((p) => p.id),
+    canCreateIn: (p) =>
+      permissionsUtil.canCreateFeature(
+        { project: p ?? "" },
+        NO_ENVIRONMENT_BINDING,
+      ),
+  });
 
   if (error) {
     return <Callout status="error">An error occurred: {error.message}</Callout>;

@@ -1,7 +1,11 @@
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { z } from "zod";
-import { MakeModelClass, waitForIndexes } from "back-end/src/models/BaseModel";
+import {
+  CasConflictError,
+  MakeModelClass,
+  waitForIndexes,
+} from "back-end/src/models/BaseModel";
 import type { Context } from "back-end/src/models/BaseModel";
 
 // Minimal BaseModel-derived model used purely to exercise updateWithCas. It has
@@ -43,6 +47,27 @@ class CasTestModel extends BaseClass {
   }
   protected async afterUpdate(): Promise<void> {
     afterUpdateCalls++;
+  }
+}
+
+// A model whose READ migration rewrites a guarded field. The guard has to describe
+// the stored document, so building it from the migrated snapshot can never match.
+class MigratingCasModel extends BaseClass {
+  protected canCreate(): boolean {
+    return true;
+  }
+  protected canRead(): boolean {
+    return true;
+  }
+  protected canUpdate(): boolean {
+    return true;
+  }
+  protected canDelete(): boolean {
+    return true;
+  }
+  protected migrate(legacyDoc: unknown): never {
+    const doc = legacyDoc as { counter?: number };
+    return { ...doc, counter: (doc.counter ?? 0) + 1000 } as never;
   }
 }
 
@@ -254,5 +279,95 @@ describe("BaseModel.updateWithCas", () => {
 
     expect(computeCalls).toBe(1);
     expect(afterUpdateCalls).toBe(0);
+  });
+  // A guard on a field that is ABSENT has to condition on its absence. Spelling it
+  // as the raw `undefined` reads correct and is vacuous: the driver strips an
+  // undefined filter value, so the write lands unconditionally and a concurrent
+  // first-writer is clobbered. This is the legacy self-heal shape — a field only
+  // older documents lack — so nothing else in the suite exercises it.
+  it("guards a field's ABSENCE, so a concurrent first write is not clobbered", async () => {
+    const created = await model.create({ counter: 0, reviews: [] });
+    await rawCollection().updateOne(
+      { id: created.id },
+      { $unset: { reviews: "" } },
+    );
+
+    let computeCalls = 0;
+    const updated = await model.updateWithCas(
+      created.id,
+      ["reviews"],
+      async (existing) => {
+        computeCalls++;
+        // A rival seeds the field between our read and our write, once.
+        if (computeCalls === 1) {
+          await rawCollection().updateOne(
+            { id: created.id },
+            { $set: { reviews: [{ userId: "rival", decision: "approve" }] } },
+          );
+        }
+        return {
+          reviews: [
+            ...(existing.reviews ?? []),
+            { userId: "ours", decision: "approve" },
+          ],
+        };
+      },
+    );
+
+    // Two attempts: the first missed on absence, the second read the rival's entry.
+    expect(computeCalls).toBe(2);
+    expect(updated?.reviews.map((r) => r.userId).sort()).toEqual([
+      "ours",
+      "rival",
+    ]);
+  });
+
+  // `onWritten` is the ownership token compensation rolls back against, so it must
+  // mean "this landed" and never "this was attempted". Firing it before the CAS
+  // verdict hands a LOSER the winner's document to roll back.
+  it("does not report a write that lost the CAS race", async () => {
+    const created = await model.create({ counter: 0, reviews: [] });
+    // The rival's write moves the token the guard is anchored on — a raw `counter`
+    // change alone leaves `dateUpdated` intact, and the guard then legitimately
+    // matches.
+    await rawCollection().updateOne(
+      { id: created.id },
+      { $set: { counter: 42, dateUpdated: new Date(Date.now() + 1000) } },
+    );
+
+    const onWritten = jest.fn();
+    await expect(
+      // `created` carries the pre-race stamp, so the guard cannot match.
+      model.updateIfUnchanged(created, { counter: 1 }, undefined, {
+        onWritten,
+      }),
+    ).rejects.toBeInstanceOf(CasConflictError);
+
+    expect(onWritten).not.toHaveBeenCalled();
+    expect(afterUpdateCalls).toBe(0);
+    const fresh = await model.getById(created.id);
+    expect(fresh?.counter).toBe(42);
+  });
+  // The guard describes the STORED document, not the one `compute` sees. A read-time
+  // migration that rewrites a guarded field makes the two differ, and a guard built
+  // from the migrated value matches nothing — the write silently stops happening and
+  // the loop exhausts. Every other model in this suite migrates to itself, so nothing
+  // else can tell the two apart.
+  it("guards on the stored value, not the migrated one", async () => {
+    const migrating = new MigratingCasModel(context);
+    const created = await migrating.create({ counter: 0, reviews: [] });
+
+    const updated = await migrating.updateWithCas(
+      created.id,
+      ["counter"],
+      (existing) => {
+        // Read through the migration: 0 stored becomes 1000.
+        expect(existing.counter).toBe(1000);
+        return { reviews: [{ userId: "u1", decision: "approve" }] };
+      },
+    );
+
+    expect(updated).not.toBeNull();
+    expect(updated?.reviews).toHaveLength(1);
   });
 });

@@ -27,8 +27,10 @@ import {
   stripConfigExtends,
   deepMergePatch,
   getTargetingProjectIds,
+  filterEnvironmentsByFeature,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
+import { resolveScheduleStopAfter } from "shared/dates";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
 import { cloneDeep, isNil, pick } from "lodash";
 import md5 from "md5";
@@ -65,13 +67,14 @@ import {
 } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
+import { getEnvironments } from "back-end/src/util/organization.util";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
 import { logger } from "back-end/src/util/logger";
 import { getApplicableEnvIds } from "./flattenRules";
 import { getCurrentEnabledState } from "./scheduleRules";
 
-function pairedWeightsToPositional(
+export function pairedWeightsToPositional(
   paired: VariationWeightPair[],
   variations: { id: string }[],
 ): number[] {
@@ -113,6 +116,7 @@ export type MetadataOptions = {
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
+  includeExperimentScheduleInMetadata?: boolean;
 };
 
 function toProjectPublicIds(
@@ -156,6 +160,11 @@ export function buildPayloadMetadata<
     targetingAllProjects?: boolean;
     customFields?: Record<string, unknown>;
     tags?: string[];
+    statusUpdateSchedule?: {
+      startAt?: Date | string;
+      stopAt?: Date | string;
+      stopAfter?: { value: number; unit: "hours" | "days" } | null;
+    } | null;
   },
   opts: MetadataOptions,
   projectsMap: Map<string, ProjectInterface> | undefined,
@@ -194,6 +203,34 @@ export function buildPayloadMetadata<
 
   if (opts.includeTagsInMetadata && entity.tags?.length) {
     metadata.tags = entity.tags;
+  }
+
+  // Schedule dates are experiment-only (features have no statusUpdateSchedule).
+  // Note on drafts: a scheduled draft only reaches here when it's already being
+  // included in the payload (the experiment-ref path bails on drafts unless the
+  // SDK Connection opts into draft refs), so emitting a future startDate here is
+  // intentional and gated upstream — not an unconditional leak.
+  if (opts.includeExperimentScheduleInMetadata && entity.statusUpdateSchedule) {
+    const { startAt, stopAt, stopAfter } = entity.statusUpdateSchedule;
+    const expMetadata = metadata as ExperimentMetadata;
+    if (startAt) expMetadata.startDate = new Date(startAt).toISOString();
+    if (stopAt) {
+      expMetadata.endDate = new Date(stopAt).toISOString();
+    } else if (stopAfter) {
+      // A relative end that hasn't resolved yet (scheduled draft). Emit the
+      // offset so it's consumable without a discrete date, plus a concrete
+      // endDate when we already know the start to anchor it to.
+      expMetadata.endAfterStart = {
+        value: stopAfter.value,
+        unit: stopAfter.unit,
+      };
+      if (startAt) {
+        expMetadata.endDate = resolveScheduleStopAfter(
+          new Date(startAt),
+          stopAfter,
+        ).toISOString();
+      }
+    }
   }
 
   return Object.keys(metadata).length > 0 ? metadata : undefined;
@@ -331,6 +368,40 @@ export function isRuleEnabled(
   return true;
 }
 
+// Environments an archive takes the flag out of service in: the ones it both
+// applies to and is enabled in. A disabled environment already omits the feature
+// from its payload, so archiving changes nothing there — the same reason the
+// review gate scopes an archive to its enabled environments. Shared by every
+// path that can land an archive so they demand identical authority.
+// The environments a REST create will actually switch on. An omitted
+// environment still lands enabled when its `defaultState` says so — mirroring
+// `createInterfaceEnvSettingsFromApiEnvSettings` — so a footprint built only
+// from explicit `enabled: true` entries under-counts, and a caller with Create
+// in dev could omit environments entirely and produce a production-enabled flag.
+export function getApiCreateEnabledEnvironments(
+  baseEnvs: Environment[],
+  // Only `enabled` is read, so both the v1 and v2 request bodies fit.
+  incomingEnvs?: Record<string, { enabled?: boolean } | undefined>,
+): string[] {
+  return baseEnvs
+    .filter((e) => incomingEnvs?.[e.id]?.enabled ?? !!e.defaultState)
+    .map((e) => e.id);
+}
+
+export function getArchiveFootprint(
+  feature: FeatureInterface,
+  org: OrganizationInterface,
+): string[] {
+  return Array.from(
+    getEnabledEnvironments(
+      feature,
+      filterEnvironmentsByFeature(getEnvironments(org), feature).map(
+        (e) => e.id,
+      ),
+    ),
+  );
+}
+
 export function getEnabledEnvironments(
   features: FeatureInterface | FeatureInterface[],
   allowedEnvs: string[],
@@ -360,6 +431,33 @@ export function getEnabledEnvironments(
   });
 
   return environments;
+}
+
+// The environment footprint a project-delete cascade must hold delete + publish
+// authority over: the union of enabled environments across the project's OWNED
+// (project === id) features. Deleting a live feature drops it from the SDK
+// payload in the envs it is enabled in — the same footprint the single-feature
+// delete demands, applied to exactly the features the cascade deletes (features
+// merely TARGETING the project are owned elsewhere and are not deleted here).
+// Callers pass already-non-archived features (archived contribute no footprint).
+export function projectFeatureDeleteFootprint(
+  features: FeatureInterface[],
+  projectId: string,
+  orgEnvs: Environment[],
+): string[] {
+  const owned = features.filter((feature) => feature.project === projectId);
+  return Array.from(
+    new Set(
+      owned.flatMap((feature) =>
+        Array.from(
+          getEnabledEnvironments(
+            feature,
+            filterEnvironmentsByFeature(orgEnvs, feature).map((e) => e.id),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 export function getSDKPayloadKeys(
@@ -1020,6 +1118,7 @@ export function getFeatureDefinition({
                 // rule's own scope below, not the experiment's project.
                 customFields: exp.customFields,
                 tags: exp.tags,
+                statusUpdateSchedule: exp.statusUpdateSchedule,
               },
               metadataOptions,
               projectsMap,
@@ -1067,12 +1166,19 @@ export function getFeatureDefinition({
             rule.seed = cb.seed;
           }
           rule.hashVersion = 2;
+          // contextual bandits do not currently use sticky bucketing
+          rule.disableStickyBucketing = true;
 
           if (cb.status === "stopped") {
             return null;
           }
 
-          rule.variations = cb.variations.map((v) => {
+          // Store variations under `contextualVariations` (a CB-capability
+          // gated key) rather than `variations`. Older SDKs drop this key and,
+          // finding no `variations`, skip the rule instead of bucketing users
+          // into a plain experiment split. CB-capable SDKs read it back into
+          // the experiment during evaluation.
+          rule.contextualVariations = cb.variations.map((v) => {
             const variation = r.variations?.find(
               (rv) => rv.variationId === v.id,
             );
@@ -1094,13 +1200,8 @@ export function getFeatureDefinition({
             capabilities === undefined ||
             capabilities.includes("contextualBandits");
           if (cbCapable) {
-            rule.isContextualBandit = true;
-            rule.attributesRequired = cb.contextualAttributes;
-            rule.contexts = (cb.currentLeafWeights ?? []).map((lw) => ({
-              leafId: lw.leafId,
-              condition: lw.condition,
-              weights: pairedWeightsToPositional(lw.weights, cb.variations),
-            }));
+            // Presence of contextualBanditRef is what marks this as a CB rule.
+            rule.contextualBanditRef = cb.id;
           }
 
           rule.key = cb.trackingKey;
@@ -1426,12 +1527,10 @@ export function getFeatureDefinition({
   return def;
 }
 
-/**
- * Populate `environmentRecord` values for env keys whose `Environment.parent`
- * chain has a defined ancestor. Only used for non-rule env fields (`enabled`,
- * `prerequisites`); rules declare their own scope on the unified array.
- * Pure.
- */
+// Populate `environmentRecord` values for env keys whose `Environment.parent`
+// chain has a defined ancestor. Only used for non-rule env fields (`enabled`,
+// `prerequisites`); rules declare their own scope on the unified array.
+// Pure.
 export function applyEnvironmentInheritance<T>(
   environments: Environment[],
   environmentRecord: Record<string, T>,

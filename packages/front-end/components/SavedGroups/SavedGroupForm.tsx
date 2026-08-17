@@ -1,9 +1,11 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { FC, useEffect, useMemo, useState } from "react";
 import {
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
   SavedGroupInterface,
   SavedGroupType,
+  SavedGroupWithoutValues,
 } from "shared/types/saved-group";
 import {
   Revision,
@@ -21,6 +23,7 @@ import { PiPlus } from "react-icons/pi";
 import clsx from "clsx";
 import { Flex, Text } from "@radix-ui/themes";
 import { useIncrementer } from "@/hooks/useIncrementer";
+import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -61,7 +64,7 @@ const SavedGroupForm: FC<{
   editInfoOnly?: boolean;
   editConditionOnly?: boolean;
   autoBypassApproval?: boolean;
-  mutate?: () => void;
+  mutate?: () => void | Promise<void>;
 }> = ({
   close,
   current,
@@ -104,11 +107,11 @@ const SavedGroupForm: FC<{
     (user?.role === "admin" ||
       (current.projects?.length
         ? current.projects.every((project) =>
-            permissionsUtil.canBypassApprovalChecks({ project: project || "" }),
+            permissionsUtil.canBypassSavedGroupApprovalChecks({
+              project: project || "",
+            }),
           )
-        : permissionsUtil.canBypassApprovalChecks({ project: "" })));
-
-  const canAutoPublish = !isApprovalFlowRequired || canAdminPublish;
+        : permissionsUtil.canBypassSavedGroupApprovalChecks({ project: "" })));
 
   // Metadata-only edit when the org's saved-group approval flow is on but
   // metadata review is off: skip the publish-now affordance in this form
@@ -150,8 +153,9 @@ const SavedGroupForm: FC<{
   const allRevisionsForLabel = allRevisions ?? openRevisions;
 
   const [conditionKey, forceConditionRender] = useIncrementer();
-  const [internalSelectedRevision, _setInternalSelectedRevision] =
-    useState<Revision | null>(selectedRevision ?? null);
+  const [internalSelectedRevision] = useState<Revision | null>(
+    selectedRevision ?? null,
+  );
 
   const attributeSchema = useAttributeSchema();
 
@@ -172,7 +176,16 @@ const SavedGroupForm: FC<{
     (currentRevision?.status === "discarded" ||
       currentRevision?.status === "merged");
 
-  const { mutateDefinitions, savedGroups, project } = useDefinitions();
+  const { mutateDefinitions, project } = useDefinitions();
+
+  const { data: savedGroupsData } = useApi<{
+    savedGroups: SavedGroupWithoutValues[];
+  }>("/saved-groups");
+  const savedGroups = useMemo(
+    () => (savedGroupsData?.savedGroups ?? []).filter((sg) => !sg.archived),
+    [savedGroupsData],
+  );
+  const savedGroupsLoaded = savedGroupsData !== undefined;
 
   const [errorMessage, setErrorMessage] = useState("");
   const [showDescription, setShowDescription] = useState(false);
@@ -249,26 +262,49 @@ const SavedGroupForm: FC<{
   }, [currentRevision, liveVersion, type, project, orgId, form, current]);
 
   const selectedProjects = form.watch("projects") || [];
+
+  // Publishing is its own authority: an author without it edits through drafts and is
+  // never offered "publish now" — the server refuses that write. Only applies to
+  // edits; creating a group isn't a publish.
+  //
+  // BOTH sides of a move, like the endpoint's `holdsMoveDestination`: publishing a
+  // group whose projects changed lands it in the destination, so authority there is
+  // required too. Judging `current` alone offered publish-now for a move into a
+  // project the caller cannot publish in.
+  const canAutoPublish =
+    (!current.id ||
+      (permissionsUtil.canRevisionAction("saved-group", "publish", current) &&
+        permissionsUtil.canRevisionAction("saved-group", "publish", {
+          ...current,
+          projects: selectedProjects,
+        }))) &&
+    (!isApprovalFlowRequired || canAdminPublish);
   const projectsOptions = useProjectOptions(
     (p) =>
       current.id
-        ? permissionsUtil.canUpdateSavedGroup(
-            { projects: current.projects || [] },
+        ? permissionsUtil.canRevisionAction(
+            "saved-group",
+            "draft",
             { projects: [p] },
+            NO_ENVIRONMENT_BINDING,
           )
         : permissionsUtil.canCreateSavedGroup({ projects: [p] }),
     selectedProjects,
   );
   const canCreateWithoutProject = current.id
-    ? permissionsUtil.canUpdateSavedGroup(
-        { projects: current.projects || [] },
+    ? permissionsUtil.canRevisionAction(
+        "saved-group",
+        "draft",
         { projects: [] },
+        NO_ENVIRONMENT_BINDING,
       )
     : permissionsUtil.canCreateSavedGroup({ projects: [] });
   const hasProjectPermission = current.id
-    ? permissionsUtil.canUpdateSavedGroup(
-        { projects: current.projects || [] },
+    ? permissionsUtil.canRevisionAction(
+        "saved-group",
+        "draft",
         { projects: selectedProjects },
+        NO_ENVIRONMENT_BINDING,
       )
     : permissionsUtil.canCreateSavedGroup({ projects: selectedProjects });
   const listAboveSizeLimit = savedGroupSizeLimit
@@ -284,31 +320,35 @@ const SavedGroupForm: FC<{
             (!listAboveSizeLimit || adminBypassSizeLimit)
           : !!form.watch("condition"));
 
-  const ctaDisabledMessage = isEditBlocked
-    ? "This revision is discarded and cannot be edited."
-    : !hasProjectPermission && !editConditionOnly
-      ? !selectedProjects.length && projectsOptions.length > 0
-        ? "Select a project to continue."
-        : `You don't have permission to ${current.id ? "update" : "create"} saved groups.`
-      : !isValid
-        ? editConditionOnly
-          ? !form.watch("condition")
-            ? "Add a condition to continue."
-            : undefined
-          : !form.watch("groupName")
-            ? "Enter a name to continue."
-            : editInfoOnly
-              ? undefined
-              : type === "list"
-                ? !form.watch("attributeKey")
-                  ? "Select an attribute key to continue."
-                  : listAboveSizeLimit && !adminBypassSizeLimit
-                    ? "List size exceeds limit. Enable bypass or reduce size."
-                    : undefined
-                : !form.watch("condition")
-                  ? "Add a condition to continue."
-                  : undefined
+  const getCtaDisabledMessage = (): string | undefined => {
+    if (isEditBlocked) {
+      return "This revision is discarded and cannot be edited.";
+    }
+    if (!hasProjectPermission && !editConditionOnly) {
+      if (!selectedProjects.length && projectsOptions.length > 0) {
+        return "Select a project to continue.";
+      }
+      return `You don't have permission to ${current.id ? "update" : "create"} Saved Groups.`;
+    }
+    if (isValid) return undefined;
+    if (editConditionOnly) {
+      return form.watch("condition")
+        ? undefined
+        : "Add a condition to continue.";
+    }
+    if (!form.watch("groupName")) return "Enter a name to continue.";
+    if (editInfoOnly) return undefined;
+    if (type === "list") {
+      if (!form.watch("attributeKey")) {
+        return "Select an attribute key to continue.";
+      }
+      return listAboveSizeLimit && !adminBypassSizeLimit
+        ? "List size exceeds limit. Enable bypass or reduce size."
         : undefined;
+    }
+    return form.watch("condition") ? undefined : "Add a condition to continue.";
+  };
+  const ctaDisabledMessage = getCtaDisabledMessage();
 
   // Create a Map from saved groups for cycle detection
   const groupMap = useMemo(
@@ -372,6 +412,8 @@ const SavedGroupForm: FC<{
             },
             true,
             groupMap,
+            // Avoid false unknown-group errors while the group map is loading.
+            !savedGroupsLoaded,
           );
           if (conditionRes.empty) {
             throw new Error("Condition cannot be empty");
@@ -393,39 +435,38 @@ const SavedGroupForm: FC<{
             (current as Partial<SavedGroupInterface>)[k];
           const fieldChanged = (k: keyof SavedGroupFormValues) =>
             !isEqual(value[k] ?? null, baseline(k) ?? null);
-          const payload: UpdateSavedGroupProps = editInfoOnly
-            ? {
-                ...(fieldChanged("groupName")
-                  ? { groupName: value.groupName }
-                  : {}),
-                ...(fieldChanged("owner") ? { owner: value.owner } : {}),
-                ...(fieldChanged("description")
-                  ? { description: value.description }
-                  : {}),
-                ...(fieldChanged("projects")
-                  ? { projects: value.projects }
-                  : {}),
-              }
-            : editConditionOnly
-              ? fieldChanged("condition")
+          let payload: UpdateSavedGroupProps;
+          if (editInfoOnly) {
+            payload = {
+              ...(fieldChanged("groupName")
+                ? { groupName: value.groupName }
+                : {}),
+              ...(fieldChanged("owner") ? { owner: value.owner } : {}),
+              ...(fieldChanged("description")
+                ? { description: value.description }
+                : {}),
+              ...(fieldChanged("projects") ? { projects: value.projects } : {}),
+            };
+          } else if (editConditionOnly) {
+            payload = fieldChanged("condition")
+              ? { condition: value.condition }
+              : {};
+          } else {
+            payload = {
+              ...(fieldChanged("condition")
                 ? { condition: value.condition }
-                : {}
-              : {
-                  ...(fieldChanged("condition")
-                    ? { condition: value.condition }
-                    : {}),
-                  ...(fieldChanged("groupName")
-                    ? { groupName: value.groupName }
-                    : {}),
-                  ...(fieldChanged("owner") ? { owner: value.owner } : {}),
-                  ...(fieldChanged("values") ? { values: value.values } : {}),
-                  ...(fieldChanged("description")
-                    ? { description: value.description }
-                    : {}),
-                  ...(fieldChanged("projects")
-                    ? { projects: value.projects }
-                    : {}),
-                };
+                : {}),
+              ...(fieldChanged("groupName")
+                ? { groupName: value.groupName }
+                : {}),
+              ...(fieldChanged("owner") ? { owner: value.owner } : {}),
+              ...(fieldChanged("values") ? { values: value.values } : {}),
+              ...(fieldChanged("description")
+                ? { description: value.description }
+                : {}),
+              ...(fieldChanged("projects") ? { projects: value.projects } : {}),
+            };
+          }
 
           // Build URL with query params based on the user's selector choice.
           // `autoBypassApproval` (the metadata-only shortcut) routes "publish"
@@ -500,6 +541,7 @@ const SavedGroupForm: FC<{
           );
         }
         mutateDefinitions({});
+        await mutate?.();
       })}
       error={errorMessage}
     >
@@ -568,7 +610,7 @@ const SavedGroupForm: FC<{
             </Link>
           )}
           <MultiSelectField
-            size="legacy"
+            legacyHeight
             label="Projects"
             labelClassName="font-weight-bold"
             placeholder={

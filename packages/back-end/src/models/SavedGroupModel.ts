@@ -1,21 +1,29 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { isEqual, omit } from "lodash";
 import {
   SavedGroupInterface,
   LegacySavedGroupInterface,
   SavedGroupWithoutValues,
+  SavedGroupForDefinitions,
 } from "shared/types/saved-group";
 import { savedGroupValidator, ApiSavedGroup } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { UpdateFilter } from "mongodb";
 import { savedGroupUpdated } from "back-end/src/services/savedGroups";
-import { emitOrDeferBulkPublishEvent } from "back-end/src/events/bulkPublishCorrelation";
+import {
+  captureEventBuffer,
+  emitOrDeferBulkPublishEvent,
+  entityKey,
+} from "back-end/src/events/bulkPublishCorrelation";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
+import { canLandEntityUpdate } from "back-end/src/revisions/archiveTransition";
 import {
   logSavedGroupCreatedEvent,
   logSavedGroupUpdatedEvent,
   logSavedGroupDeletedEvent,
 } from "back-end/src/services/savedGroupEvents";
+import { touchDefinitionsVersion } from "./DefinitionsVersionModel";
 import { MakeModelClass } from "./BaseModel";
 
 // `skipAttributeValidation` lets revert flows write a previously-published
@@ -28,6 +36,11 @@ type WriteOptions = {
 const BaseClass = MakeModelClass({
   schema: savedGroupValidator,
   collectionName: "savedgroups",
+  affectsDefinitionsVersion: true,
+  definitionsVersionProjectField: "projects",
+  // `values`/`condition` are projected out of the definitions response
+  // (getAllForDefinitions).
+  definitionsVersionExcludedFields: ["values", "condition"],
   idPrefix: "grp_",
   auditLog: {
     entity: "savedGroup",
@@ -72,7 +85,13 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     _updates: UpdateProps<SavedGroupInterface>,
     newDoc: SavedGroupInterface,
   ): boolean {
-    return this.context.permissions.canUpdateSavedGroup(existing, newDoc);
+    return canLandEntityUpdate({
+      permissions: this.context.permissions,
+      model: "saved-group",
+      existing,
+      newDoc,
+      environments: NO_ENVIRONMENT_BINDING,
+    });
   }
 
   protected canDelete(doc: SavedGroupInterface): boolean {
@@ -81,6 +100,7 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
 
   public static migrateSavedGroup(
     legacyDoc: LegacySavedGroupInterface,
+    { conditionOmitted = false }: { conditionOmitted?: boolean } = {},
   ): SavedGroupInterface {
     // Add `type` field to legacy groups
     const { source, type, ...otherFields } = legacyDoc;
@@ -89,10 +109,12 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
       type: type || (source === "runtime" ? "condition" : "list"),
     };
 
-    // Migrate legacy runtime groups to use a condition
+    // Migrate legacy runtime groups to use a condition.
+    // Do not synthesize a condition when it was excluded from the read.
     if (
       group.type === "condition" &&
       !group.condition &&
+      !conditionOmitted &&
       source === "runtime" &&
       group.attributeKey
     ) {
@@ -108,8 +130,13 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     return group;
   }
 
-  protected migrate(legacyDoc: LegacySavedGroupInterface): SavedGroupInterface {
-    return SavedGroupModel.migrateSavedGroup(legacyDoc);
+  protected migrate(
+    legacyDoc: LegacySavedGroupInterface,
+    omittedFields?: ReadonlySet<string>,
+  ): SavedGroupInterface {
+    return SavedGroupModel.migrateSavedGroup(legacyDoc, {
+      conditionOmitted: omittedFields?.has("condition") ?? false,
+    });
   }
 
   protected async customValidation(
@@ -170,8 +197,10 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     if (
       !isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
     ) {
-      await emitOrDeferBulkPublishEvent(this.context, () =>
-        logSavedGroupUpdatedEvent(this.context, previous, current),
+      await emitOrDeferBulkPublishEvent(
+        () => logSavedGroupUpdatedEvent(this.context, previous, current),
+        entityKey("saved-group", newDoc.id),
+        captureEventBuffer(this.context),
       );
     }
   }
@@ -188,11 +217,24 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
       { organization: this.context.org.id, projects: projectId },
       { $pull: pullOperation },
     );
+    // Raw write bypasses the BaseModel affectsDefinitionsVersion hook.
+    await touchDefinitionsVersion(this.context.org.id);
   }
 
   public async getAllWithoutValues(): Promise<SavedGroupWithoutValues[]> {
     const groups = await this._find({}, { projection: { values: 0 } });
     return groups as SavedGroupWithoutValues[];
+  }
+
+  /**
+   * Returns saved-group metadata without the payload-heavy values and condition.
+   */
+  public async getAllForDefinitions(): Promise<SavedGroupForDefinitions[]> {
+    const groups = await this._find(
+      {},
+      { projection: { values: 0, condition: 0 } },
+    );
+    return groups as SavedGroupForDefinitions[];
   }
 
   public toApiInterface(savedGroup: SavedGroupInterface): ApiSavedGroup {
@@ -211,5 +253,18 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
       archived: !!savedGroup.archived,
       useEmptyListGroup: savedGroup.useEmptyListGroup,
     };
+  }
+  /**
+   * Project scope only, for the given ids — what a read check consults.
+   * Revision listings ask this for every target in a filtered scan, so the
+   * heavy value fields are projected out (`values` can be enormous).
+   * Read-filtered like any other find, so what comes back is what may be read.
+   */
+  public async getReadScopesByIds(ids: string[]) {
+    if (!ids.length) return [];
+    return this._find(
+      { id: { $in: ids } } as Parameters<typeof this._find>[0],
+      { projection: { values: 0, condition: 0 } },
+    );
   }
 }

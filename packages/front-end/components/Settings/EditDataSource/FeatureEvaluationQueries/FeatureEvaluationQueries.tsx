@@ -4,19 +4,15 @@ import {
   FeatureUsageQuery,
 } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
-import { FaPlus } from "react-icons/fa";
-import {
-  getActiveFeatureUsageQuery,
-  isEventForwarderManagedFeatureUsageQuery,
-} from "shared/util";
-import { Box, Flex, Heading } from "@radix-ui/themes";
+import { PiDotsThreeVertical, PiPlus } from "react-icons/pi";
+import { getActiveFeatureUsageQuery } from "shared/util";
+import { Box, Flex, Heading, IconButton } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { FeatureEvaluationQueryModal } from "./FeatureEvaluationQueryModal";
 
 type FeatureEvaluationQueriesProps = Omit<
@@ -42,13 +38,11 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
     [dataSource.settings?.queries?.featureUsage],
   );
 
-  const isManagedQuery = useMemo(
-    () =>
-      featureUsageQuery
-        ? isEventForwarderManagedFeatureUsageQuery(featureUsageQuery)
-        : false,
-    [featureUsageQuery],
-  );
+  // The Event Forwarder managed feature usage query is intentionally editable
+  // and deletable for now. Restore
+  // `isEventForwarderManagedFeatureUsageQuery(featureUsageQuery)` to lock it
+  // again.
+  const isManagedQuery = false;
 
   const handleActionDeleteClicked = useCallback(
     () => async () => {
@@ -123,38 +117,46 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
         {canEdit && (
           <Flex gap="2">
             {!featureUsageQuery && (
-              <Button onClick={() => setUiMode("add")}>
-                <FaPlus className="mr-1" /> Add
+              <Button onClick={() => setUiMode("add")} icon={<PiPlus />}>
+                Add
               </Button>
             )}
             {featureUsageQuery && (
-              <MoreMenu useRadix={false}>
-                <button
-                  className="dropdown-item py-2"
-                  onClick={() => setUiMode("edit")}
-                >
+              <DropdownMenu
+                trigger={
+                  <IconButton
+                    variant="ghost"
+                    color="gray"
+                    radius="full"
+                    size="2"
+                    highContrast
+                    aria-label="Feature usage query actions"
+                  >
+                    <PiDotsThreeVertical size={18} />
+                  </IconButton>
+                }
+                menuPlacement="end"
+                variant="soft"
+              >
+                <DropdownMenuItem onClick={() => setUiMode("edit")}>
                   Edit Query
-                </button>
+                </DropdownMenuItem>
 
                 {!isManagedQuery && (
-                  <>
-                    <hr className="dropdown-divider" />
-                    <DeleteButton
-                      useRadix={false}
-                      onClick={handleActionDeleteClicked()}
-                      className="dropdown-item text-danger py-2"
-                      iconClassName="mr-2"
-                      style={{ borderRadius: 0 }}
-                      useIcon={false}
-                      displayName={"Feature Usage Query"}
-                      deleteMessage={`Are you sure you want to delete this feature usage query?`}
-                      title="Delete"
-                      text="Delete"
-                      outline={false}
-                    />
-                  </>
+                  <DropdownMenuItem
+                    color="red"
+                    confirmation={{
+                      submit: handleActionDeleteClicked(),
+                      confirmationTitle: "Delete Feature Usage Query",
+                      cta: "Delete",
+                      getConfirmationContent: async () =>
+                        "Are you sure you want to delete this feature usage query?",
+                    }}
+                  >
+                    Delete
+                  </DropdownMenuItem>
                 )}
-              </MoreMenu>
+              </DropdownMenu>
             )}
           </Flex>
         )}

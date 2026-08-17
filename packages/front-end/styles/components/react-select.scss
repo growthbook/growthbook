@@ -16,7 +16,7 @@
   font-size: var(--font-size-2) !important;
 }
 
-.gb-multi-select--small {
+.gb-multi-select--md {
   .gb-multi-select__control {
     min-height: 32px !important;
     border-radius: var(--radius-2) !important;
@@ -38,7 +38,7 @@
   }
 }
 
-.gb-multi-select--medium {
+.gb-multi-select--lg {
   .gb-multi-select__control {
     min-height: 40px !important;
     border-radius: var(--radius-3) !important;
@@ -100,7 +100,8 @@
   }
 }
 
-.gb-select-wrapper--small {
+.gb-select-wrapper--small,
+.gb-select-wrapper--md {
   .gb-select__control {
     min-height: 32px !important;
     border-radius: var(--radius-2) !important;
@@ -114,7 +115,8 @@
   }
 }
 
-.gb-select-wrapper--medium {
+.gb-select-wrapper--medium,
+.gb-select-wrapper--lg {
   .gb-select__control {
     min-height: 40px !important;
     border-radius: var(--radius-3) !important;
@@ -234,7 +236,7 @@
   // This one is dynamic. Style it in JS.
 }
 
-.gb-multi-select--small .gb-multi-select__multi-value {
+.gb-multi-select--md .gb-multi-select__multi-value {
   height: 22px;
   border-radius: var(--radius-1);
 }
@@ -243,7 +245,7 @@
   height: 24px;
   border-radius: var(--radius-1);
 }
-.gb-multi-select--medium .gb-multi-select__multi-value {
+.gb-multi-select--lg .gb-multi-select__multi-value {
   height: 26px;
   border-radius: var(--radius-2);
 }
@@ -270,11 +272,13 @@
   height: 24px;
   border-radius: var(--radius-1);
 }
-.gb-select-wrapper--small .gb-select__multi-value {
+.gb-select-wrapper--small .gb-select__multi-value,
+.gb-select-wrapper--md .gb-select__multi-value {
   height: 22px;
   border-radius: var(--radius-1);
 }
-.gb-select-wrapper--medium .gb-select__multi-value {
+.gb-select-wrapper--medium .gb-select__multi-value,
+.gb-select-wrapper--lg .gb-select__multi-value {
   height: 26px;
   border-radius: var(--radius-2);
 }
@@ -284,7 +288,8 @@
   font-weight: 500;
   font-size: var(--font-size-1) !important;
 }
-.gb-select-wrapper--medium .gb-select__multi-value__label {
+.gb-select-wrapper--medium .gb-select__multi-value__label,
+.gb-select-wrapper--lg .gb-select__multi-value__label {
   font-size: var(--font-size-2) !important;
 }
 

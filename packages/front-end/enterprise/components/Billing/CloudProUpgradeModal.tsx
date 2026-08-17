@@ -10,6 +10,7 @@ import { useForm } from "react-hook-form";
 import { TaxIdType, StripeAddress } from "shared/types/subscriptions";
 import { PiCaretRight } from "react-icons/pi";
 import { useStripeContext } from "@/hooks/useStripeContext";
+import { useForceLicenseRefresh } from "@/hooks/useForceLicenseRefresh";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -19,6 +20,8 @@ import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
 import Checkbox from "@/ui/Checkbox";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import Modal from "@/components/Modal";
 
 export const taxIdTypeOptions: { label: string; value: TaxIdType }[] = [
@@ -135,7 +138,13 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
   const [loading, setLoading] = useState(false);
   const [showAddress, setShowAddress] = useState(false);
   const { clientSecret } = useStripeContext();
-  const { refreshOrganization, organization, email } = useUser();
+  const { organization, email } = useUser();
+  const {
+    status: organizationRefreshStatus,
+    refresh: refreshOrganizationAfterUpgrade,
+    retry: retryOrganizationRefresh,
+  } = useForceLicenseRefresh();
+  const showOrganizationRefreshFailure = organizationRefreshStatus !== "idle";
   const { apiCall } = useAuth();
   const elements = useElements();
   const stripe = useStripe();
@@ -219,13 +228,15 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
               : undefined,
         }),
       });
-      refreshOrganization();
-      setLoading(false);
-      setSuccess(true);
     } catch (e) {
       setLoading(false);
       throw new Error(e.message);
     }
+
+    await refreshOrganizationAfterUpgrade();
+
+    setLoading(false);
+    setSuccess(true);
   };
 
   if (success) {
@@ -245,11 +256,36 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
         showHeaderCloseButton={false}
       >
         <div className="container-fluid dashboard p-3 ">
-          <h3>Welcome to GrowthBook Pro!</h3>
-          <span>
-            You&apos;re all set! Your organization now has access to all
-            GrowthBook Pro features.
-          </span>
+          <h3>
+            {showOrganizationRefreshFailure
+              ? "GrowthBook Pro Subscription Created"
+              : "Welcome to GrowthBook Pro!"}
+          </h3>
+          {!showOrganizationRefreshFailure ? (
+            <span>
+              You&apos;re all set! Your organization now has access to all
+              GrowthBook Pro features.
+            </span>
+          ) : null}
+          {showOrganizationRefreshFailure ? (
+            <Callout
+              status="warning"
+              mt="3"
+              action={
+                <Button
+                  size="sm"
+                  color="inherit"
+                  loading={organizationRefreshStatus === "loading"}
+                  onClick={retryOrganizationRefresh}
+                >
+                  Try again
+                </Button>
+              }
+            >
+              We couldn&apos;t refresh your organization details. Try again to
+              see your updated plan.
+            </Callout>
+          ) : null}
         </div>
       </Modal>
     );

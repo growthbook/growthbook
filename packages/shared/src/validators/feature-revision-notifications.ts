@@ -100,6 +100,24 @@ export type FeatureRevisionReopenedPayload = z.infer<
   typeof featureRevisionReopenedPayload
 >;
 
+export const featureRevisionRecalledPayload =
+  featureRevisionWebhookPayload.strict();
+export type FeatureRevisionRecalledPayload = z.infer<
+  typeof featureRevisionRecalledPayload
+>;
+
+export const featureRevisionReviewRetractedPayload =
+  featureRevisionWebhookPayload.strict();
+export type FeatureRevisionReviewRetractedPayload = z.infer<
+  typeof featureRevisionReviewRetractedPayload
+>;
+
+export const featureRevisionPublishScheduleChangedPayload =
+  featureRevisionWebhookPayload.strict();
+export type FeatureRevisionPublishScheduleChangedPayload = z.infer<
+  typeof featureRevisionPublishScheduleChangedPayload
+>;
+
 export const featureRevisionRebasedPayload =
   featureRevisionWebhookPayload.strict();
 export type FeatureRevisionRebasedPayload = z.infer<

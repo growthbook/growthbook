@@ -18,7 +18,8 @@
         "stickyBucketing",
         "savedGroupReferences",
         "caseInsensitiveRegex",
-        "caseInsensitiveMembership"
+        "caseInsensitiveMembership",
+        "contextualBandits"
       ]
     }
   ]

@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import isEqual from "lodash/isEqual";
 import { getValidDate } from "shared/dates";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { v4 as uuidv4 } from "uuid";
@@ -22,7 +23,10 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getContextFromReq,
   getEnvironmentIdsFromOrg,
+  getEnvironments,
 } from "back-end/src/services/organizations";
+import { getEnabledEnvironments } from "back-end/src/util/features";
+import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import {
   createExperiment,
   getAllExperiments,
@@ -31,7 +35,10 @@ import {
   hasArchivedExperiments,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { deleteHoldoutAndExperiment } from "back-end/src/services/holdouts";
+import {
+  assertHoldoutScopeCoversLinked,
+  deleteHoldoutAndExperiment,
+} from "back-end/src/services/holdouts";
 import {
   assertNoLinkedHoldoutExperiments,
   getFeature,
@@ -46,7 +53,11 @@ import {
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import { auditDetailsCreate } from "back-end/src/services/audit";
-import { SoftWarningError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  InternalServerError,
+  SoftWarningError,
+} from "back-end/src/util/errors";
 import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
@@ -258,7 +269,7 @@ export const createHoldout = async (
     });
 
     if (!holdout) {
-      throw new Error("Failed to create holdout");
+      throw new InternalServerError("Failed to create holdout");
     }
 
     if (datasource && req.query.autoRefreshResults && metricIds.length > 0) {
@@ -459,6 +470,12 @@ export const updateHoldout = async (
     }
   }
 
+  // Only when the scope actually changes — a Holdout already holding a stranded
+  // link (created before this guard existed) must stay editable so it can be fixed.
+  if (updates.projects && !isEqual(updates.projects, holdout.projects)) {
+    await assertHoldoutScopeCoversLinked(context, holdout, updates.projects);
+  }
+
   const updatedHoldout = await context.models.holdout.update(holdout, updates);
   return res.status(200).json({ status: 200, holdout: updatedHoldout });
 };
@@ -573,7 +590,7 @@ export const editStatus = async (
   } else if (req.body.status === "running") {
     // check to see if already in analysis phase
     if (!phases[0]) {
-      throw new Error("Holdout does not have a phase");
+      throw new BadRequestError("Holdout does not have a phase");
     }
     if (
       !phases[1] ||
@@ -732,8 +749,21 @@ export const deleteHoldoutFeature = async (
     });
   }
 
+  // Stripping the holdout changes what the live flag serves, so it takes
+  // publish authority over the environments it serves in — not draft authority.
   if (
-    !context.permissions.canUpdateFeature(feature, omit(feature, "holdout"))
+    !context.permissions.canPublishFeature(
+      feature,
+      Array.from(
+        getEnabledEnvironments(
+          feature,
+          // The flag's APPLICABLE environments, not every org environment: an
+          // org environment excluded from the flag's project isn't one this
+          // change serves, and demanding authority there produced false 403s.
+          getApplicableEnvIds(getEnvironments(context.org), feature),
+        ),
+      ),
+    )
   ) {
     context.permissions.throwPermissionError();
   }

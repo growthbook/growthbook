@@ -1,4 +1,6 @@
 import { postFeatureRevisionPublishValidator } from "shared/validators";
+import { draftRevertedFromVersion, isStrandedLiveRevision } from "shared/util";
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { ApiRequestLocals } from "back-end/types/api";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -28,6 +30,7 @@ import {
   evaluatePublishGates,
   PublishBlockedError,
 } from "back-end/src/revisions/publishGates";
+import { assertCanPublishFeatureRevision } from "back-end/src/revisions/featureDraftAuthority";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 export async function publishFeatureRevision(
@@ -39,18 +42,24 @@ export async function publishFeatureRevision(
     };
   },
   canUseRestApiBypass: boolean,
-  // Interactive REST publishes surface publish-time value + custom-hook failures
-  // as structured publish gates (and skip the throwing re-run inside
-  // publishRevision). Armed/scheduled publishes (no interactive request
-  // disposition) leave this false and keep the original throwing checks so their
-  // block-vs-suppress behavior — which relies on the background context's
-  // always-true ignoreWarnings — is preserved exactly.
+  // Interactive publishes return validation failures as structured gates.
   inlineValidationGates: boolean = false,
 ) {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (!req.context.permissions.canUpdateFeature(feature, {})) {
+  // Fail closed before exposing gates or running hooks; precise checks follow planning.
+  if (
+    !req.context.permissions.canPublishFeature(
+      feature,
+      NO_ENVIRONMENT_BINDING,
+    ) &&
+    !req.context.permissions.canRevertFeature(
+      feature,
+      NO_ENVIRONMENT_BINDING,
+    ) &&
+    !req.context.permissions.canDeleteFeature(feature, NO_ENVIRONMENT_BINDING)
+  ) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -77,7 +86,13 @@ export async function publishFeatureRevision(
     revision,
   });
   const { environmentIds, mergeResult: mergeChanges } = plan;
-  if (!plan.hasChanges) {
+  const isStranded = isStrandedLiveRevision({
+    featureVersion: feature.version,
+    revisionVersion: revision.version,
+    revisionStatus: revision.status,
+    hasChanges: plan.hasChanges,
+  });
+  if (!plan.hasChanges && !isStranded) {
     throw new BadRequestError(
       "Cannot publish: no changes detected in this revision",
     );
@@ -93,14 +108,24 @@ export async function publishFeatureRevision(
   // ignoreWarnings is always true, and force-merge for those must stay gated on
   // the schedule's persisted bypass intent (passed as body ignoreWarnings).
   const canBypassGovernance =
-    req.context.permissions.canBypassApprovalChecks(feature);
+    req.context.permissions.canBypassFlagApprovalChecks(feature, "feature");
   const forceMergeRequested = req.body.ignoreWarnings === true;
 
   // Bypass via restApiBypassesReviews (API keys/PATs only — JWT-backed REST
-  // calls should behave like dashboard actions) or bypassApprovalChecks.
+  // calls should behave like dashboard actions) or FlagsBypassApprovals. On the
+  // armed/scheduled path (!inlineValidationGates) the role counts only when the
+  // schedule carries PERSISTED bypass intent — deriving from role alone
+  // force-published an admin's ordinary non-bypass schedule unapproved, and
+  // overrode ramp lockdown the same way (bypassLockdown mirrors this term).
+  const roleBypass = req.context.permissions.canBypassFlagApprovalChecks(
+    feature,
+    "feature",
+  );
   const canBypass =
     canUseRestApiBypass ||
-    req.context.permissions.canBypassApprovalChecks(feature);
+    (inlineValidationGates
+      ? roleBypass
+      : !!revision.scheduledPublishBypassApproval && roleBypass);
 
   // Aggregate every publish gate up front so a blocked publish returns ONE
   // structured 422 naming each gate, the flag that clears it, and a callable
@@ -135,10 +160,13 @@ export async function publishFeatureRevision(
     ignoreWarnings:
       forceMergeRequested ||
       (inlineValidationGates && req.context.ignoreWarnings),
-    skipSchemaValidation: req.context.skipSchemaValidation,
-    skipHooks: req.context.skipHooks,
-    bypassApprovalPermission:
-      req.context.permissions.canBypassApprovalChecks(feature),
+    skipSchemaValidation: req.context.canSkipSchemaValidationFor("feature"),
+    skipHooks: req.context.canSkipHooksFor("feature"),
+    // Same armed-intent rule as `canBypass`, so the gate model and the
+    // sequential backstop below cannot disagree about approval.
+    bypassApprovalPermission: inlineValidationGates
+      ? roleBypass
+      : !!revision.scheduledPublishBypassApproval && roleBypass,
     restApiBypassesReviews: canUseRestApiBypass,
     canForceMergeStaleBase: canBypassGovernance,
   });
@@ -161,7 +189,7 @@ export async function publishFeatureRevision(
     throw new BadRequestError(
       `This revision requires approval before publishing (status: "${revision.status}"). ` +
         "Enable 'REST API always bypasses approval requirements' in organization settings, " +
-        "or use a role/token that grants bypassApprovalChecks on this project.",
+        "or use a role/token that grants FlagsBypassApprovals on this project.",
     );
   }
 
@@ -171,10 +199,16 @@ export async function publishFeatureRevision(
     filledLiveRules: plan.filledLiveRules,
     result: mergeChanges,
     environmentIds,
+    // The draft's ramp actions reach environments no rule diff mentions.
+    rampActions: revision.rampActions,
   });
-  if (!req.context.permissions.canPublishFeature(feature, envsToCheck)) {
-    req.context.permissions.throwPermissionError();
-  }
+  await assertCanPublishFeatureRevision({
+    context: req.context,
+    feature,
+    revision,
+    environments: envsToCheck,
+    mergeChanges,
+  });
 
   // Armed/scheduled path only: the feature's own-schema value net still throws
   // here (interactive publishes ran it above as a gate). The config-backed net +
@@ -257,6 +291,18 @@ export async function publishFeatureRevision(
     "revision.published",
     {},
   );
+  // A revert that lands is ALSO a publish, so it owes both events — same rule
+  // as the generic engine and the direct revert doors.
+  const restRevertedTo = draftRevertedFromVersion(finalRevision);
+  if (restRevertedTo !== undefined) {
+    await dispatchFeatureRevisionEvent(
+      req.context,
+      updatedFeature,
+      finalRevision,
+      "revision.reverted",
+      { revertedToVersion: restRevertedTo },
+    );
+  }
 
   return {
     feature,

@@ -1,5 +1,6 @@
 import { Permissions, userHasPermission } from "shared/permissions";
 import { uniq } from "lodash";
+import md5 from "md5";
 import type pino from "pino";
 import type { Request } from "express";
 import { ExperimentMetricInterface } from "shared/experiments";
@@ -84,12 +85,18 @@ import { ContextualBanditEventModel } from "back-end/src/enterprise/models/Conte
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { RevisionModel } from "back-end/src/models/RevisionModel";
 import { AIConversationModel } from "back-end/src/models/AIConversationModel";
+import { LearningModel } from "back-end/src/models/LearningModel";
 import { EventForwarderConfigModel } from "back-end/src/models/EventForwarderConfigModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { FigmaConnectionModel } from "back-end/src/models/FigmaConnectionModel";
+import { AICredentialModel } from "back-end/src/models/AICredentialModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
+import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
+import { OAuthGrantModel } from "back-end/src/models/OAuthGrantModel";
+import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
 import { getUserByEmail, getUsersByIds } from "back-end/src/models/UserModel";
+import type { DeferredEventBuffer } from "back-end/src/events/bulkPublishCorrelation";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -139,19 +146,25 @@ export type ModelName =
   | "watch"
   | "figmaConnections"
   | "apiKeys"
+  | "oauthAuthCodes"
+  | "oauthGrants"
+  | "oauthRefreshTokens"
   | "rampSchedules"
   | "rampScheduleTemplates"
   | "aiConversations"
+  | "learnings"
   | "contextualBandits"
   | "contextualBanditQueries"
   | "contextualBanditSnapshots"
   | "contextualBanditEvents"
   | "sessionReplays"
-  | "eventForwarderConfigs";
+  | "eventForwarderConfigs"
+  | "aiCredentials";
 
 export const modelClasses = {
   agreements: AgreementModel,
   aiPrompts: AiPromptModel,
+  aiCredentials: AICredentialModel,
   customFields: CustomFieldModel,
   factMetrics: FactMetricModel,
   featureRevisionLogs: FeatureRevisionLogModel,
@@ -189,9 +202,13 @@ export const modelClasses = {
   watch: WatchModel,
   figmaConnections: FigmaConnectionModel,
   apiKeys: ApiKeyModel,
+  oauthAuthCodes: OAuthAuthCodeModel,
+  oauthGrants: OAuthGrantModel,
+  oauthRefreshTokens: OAuthRefreshTokenModel,
   rampSchedules: RampScheduleModel,
   rampScheduleTemplates: RampScheduleTemplateModel,
   aiConversations: AIConversationModel,
+  learnings: LearningModel,
   contextualBandits: ContextualBanditModel,
   contextualBanditQueries: ContextualBanditQueryModel,
   contextualBanditSnapshots: ContextualBanditSnapshotModel,
@@ -213,76 +230,90 @@ type ModelInstances = {
 };
 
 export class ReqContextClass {
-  /**
-   * When set, guard evaluators use this as their org-wide scan context instead
-   * of minting a fresh one per evaluation. Sharing one context makes the
-   * model-instance snapshot memos (e.g. ConfigModel.getAllForReconcile) span all
-   * guards in the operation, and lets the bulk publisher substitute an overlay
-   * whose reads reflect a hypothetical multi-entity end-state. Set
-   * self-referentially so nested evaluations inherit it. Request-scoped only —
-   * never cache one across requests.
-   */
+  // When set, guard evaluators use this as their org-wide scan context instead
+  // of minting a fresh one per evaluation. Sharing one context makes the
+  // model-instance snapshot memos (e.g. ConfigModel.getAllForReconcile) span all
+  // guards in the operation, and lets the bulk publisher substitute an overlay
+  // whose reads reflect a hypothetical multi-entity end-state. Set
+  // self-referentially so nested evaluations inherit it. Request-scoped only —
+  // never cache one across requests.
   public scanContextOverride?: ReqContextClass;
 
-  /**
-   * Proposed feature states for the bulk publisher's overlay scan context,
-   * keyed by feature id. Honored by getAllFeaturesWithoutEditorFields (the
-   * single funnel every cross-entity validator reads features through), so
-   * guards evaluating a config/constant publish see the batch's proposed
-   * feature values instead of live ones. Only ever set on a dedicated
-   * plan-scoped scan context — never on a context that performs writes.
-   */
+  // Proposed feature states for the bulk publisher's overlay scan context,
+  // keyed by feature id. Honored by getAllFeaturesWithoutEditorFields (the
+  // single funnel every cross-entity validator reads features through), so
+  // guards evaluating a config/constant publish see the batch's proposed
+  // feature values instead of live ones. Only ever set on a dedicated
+  // plan-scoped scan context — never on a context that performs writes.
   public featureScanOverlay?: Map<string, FeatureInterface> | null;
 
-  /**
-   * When set, queueSDKPayloadRefresh appends payload keys here instead of
-   * refreshing — the bulk publisher's side-effect buffer, so a multi-entity
-   * commit produces ONE deduped refresh (at most one rebuild per SDK
-   * connection) after every write lands, and none at all if the commit
-   * compensates. `treatEmptyProjectAsGlobal` ORs across buffered calls so the
-   * flush matches connections at least as widely as the suppressed refreshes
-   * would have. Cleared before the flush itself refreshes.
-   */
+  // When set, queueSDKPayloadRefresh appends payload keys here instead of
+  // refreshing — the bulk publisher's side-effect buffer, so a multi-entity
+  // commit produces ONE deduped refresh (at most one rebuild per SDK
+  // connection) after every write lands, and none at all if the commit
+  // compensates. `treatEmptyProjectAsGlobal` ORs across buffered calls so the
+  // flush matches connections at least as widely as the suppressed refreshes
+  // would have. Cleared before the flush itself refreshes.
   public sdkPayloadRefreshBuffer?: {
     keys: SDKPayloadKey[];
     treatEmptyProjectAsGlobal: boolean;
-    /**
-     * Set when the flush drains the buffer. Fire-and-forget producers that
-     * captured the buffer reference before the flush (e.g. a model
-     * afterUpdate's async resolvable scan) fall through to a live refresh
-     * instead of pushing into a drained array nobody will read.
-     */
+    // Set when the flush drains the buffer. Fire-and-forget producers that
+    // captured the buffer reference before the flush (e.g. a model
+    // afterUpdate's async resolvable scan) fall through to a live refresh
+    // instead of pushing into a drained array nobody will read.
     closed?: boolean;
   } | null;
 
+  // `*.updated` events held for the duration of a release: the bulk publisher
+  // flushes them after the commit lands and drops them on compensation, so a
+  // rolled-back release emits none. Audit entries are NOT deferred — they record
+  // writes that genuinely happened, compensation included.
+  //
+  // Entries are tagged with the release item whose apply produced them: compensation
+  // drops the events of items it rolled back, and must still emit those of an item
+  // whose restore FAILED — that entity is durably changed, so silence would leave
+  // consumers permanently behind live state.
+  //
+  // `closed` is the terminal disposition for a producer that arrives after the release
+  // has been decided. Some producers await mid-way and are invoked fire-and-forget
+  // (`onFeatureUpdate`), so read-and-push atomicity does not keep them inside the
+  // window — they carry a reference to THIS buffer instead of consulting the field.
+  public bulkPublishDeferredEvents?: DeferredEventBuffer | null;
   /**
-   * When set, apply-path `*.updated` webhook-event emissions enqueue here
-   * instead of firing — the bulk publisher flushes them per entity after the
-   * whole commit lands, and drops them on compensation so a rolled-back
-   * release emits no update events. Audit-log entries are NOT deferred: they
-   * record writes that genuinely happened, compensation included.
+   * Where a restore reports the document it put back. Points at the live buffer's
+   * `restored` set for the duration of a landing, so the in-window flush and any late
+   * producer read the same answer.
    */
-  public bulkPublishDeferredEvents?: Array<() => Promise<unknown>> | null;
+  public bulkPublishRestoredEntities?: Set<string> | null;
 
-  /**
-   * Correlation token for the multi-entity publish ATTEMPT currently
-   * committing (`pub_…`, minted per commit). Distinct from the future
-   * Release id: a Release may publish over several attempts, each minting
-   * its own token. Revision lifecycle events emitted while set carry it as
-   * `bulkPublishId`. Absent on single-entity publishes.
-   */
+  // Set by compensation that could NOT put live state back. The deferred events
+  // above are dropped on a failed landing because a rolled-back change never
+  // happened — but when the rollback itself failed, part of the change IS live,
+  // and staying silent leaves consumers describing state that exists.
+  //
+  // Only CONSUMED inside `withBufferedPayloadRefreshes`. The five landings that set
+  // it through `compensateFailedLanding` are not wrapped in it, so on those paths this
+  // is currently inert — harmless because they rethrow immediately and the request
+  // ends. That stops being true the moment one of them is wrapped: the flag would then
+  // be live and would need clearing, or a buffered landing later in the same request
+  // would fire deferred events for a change that was cleanly rolled back.
+  public landingLeftPartialState?: boolean;
+
+  // Correlation token for the multi-entity publish ATTEMPT currently
+  // committing (`pub_…`, minted per commit). Distinct from the future
+  // Release id: a Release may publish over several attempts, each minting
+  // its own token. Revision lifecycle events emitted while set carry it as
+  // `bulkPublishId`. Absent on single-entity publishes.
   public bulkPublishId?: string | null;
 
-  /**
-   * True ONLY while a bulk-publish commit is writing entities (the claim →
-   * apply → compensation window). Write-path guards that already ran as plan
-   * gates against the combined end-state stand down while it's set, since
-   * re-running them against the mid-commit mix would spuriously fail a
-   * plan-clean release. Distinct from `bulkPublishId` (the event-correlation
-   * token, which stays set through post-commit emission): post-commit side
-   * effects (e.g. ramp activation) are genuine writes NOT covered by the plan
-   * gates, so they must run with guards active — hence a separate flag.
-   */
+  // True ONLY while a bulk-publish commit is writing entities (the claim →
+  // apply → compensation window). Write-path guards that already ran as plan
+  // gates against the combined end-state stand down while it's set, since
+  // re-running them against the mid-commit mix would spuriously fail a
+  // plan-clean release. Distinct from `bulkPublishId` (the event-correlation
+  // token, which stays set through post-commit emission): post-commit side
+  // effects (e.g. ramp activation) are genuine writes NOT covered by the plan
+  // gates, so they must run with guards active — hence a separate flag.
   public bulkPublishApplying?: boolean;
 
   // Models
@@ -291,6 +322,7 @@ export class ReqContextClass {
     this.models = {
       agreements: new AgreementModel(this),
       aiPrompts: new AiPromptModel(this),
+      aiCredentials: new AICredentialModel(this),
       customFields: new CustomFieldModel(this),
       factMetrics: new FactMetricModel(this),
       featureRevisionLogs: new FeatureRevisionLogModel(this),
@@ -329,9 +361,13 @@ export class ReqContextClass {
       watch: new WatchModel(this),
       figmaConnections: new FigmaConnectionModel(this),
       apiKeys: new ApiKeyModel(this),
+      oauthAuthCodes: new OAuthAuthCodeModel(this),
+      oauthGrants: new OAuthGrantModel(this),
+      oauthRefreshTokens: new OAuthRefreshTokenModel(this),
       rampSchedules: new RampScheduleModel(this),
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
       aiConversations: new AIConversationModel(this),
+      learnings: new LearningModel(this),
       contextualBandits: new ContextualBanditModel(this),
       contextualBanditQueries: new ContextualBanditQueryModel(this),
       contextualBanditSnapshots: new ContextualBanditSnapshotModel(this),
@@ -462,32 +498,58 @@ export class ReqContextClass {
   // (no req) never skip — they must produce conforming data.
   //
   // Gated: turning off hard validation is only honored for callers with org-wide
-  // bypass authority (`bypassApprovalChecks` on all projects). A project-scoped
+  // bypass authority (`FlagsBypassApprovals` on all projects). A project-scoped
   // writer can't silently ship non-conforming data — the flag is ignored and
   // validation still runs (a 4xx, the secure default). Schema validation is new,
   // so nothing depends on an ungated bypass.
-  public get skipSchemaValidation(): boolean {
+  // These request flags are entity-agnostic; the publish gates re-check the
+  // specific entity's bypass atom per gate (requiresPermission).
+  // Bypass is per FAMILY now, so the authority behind a privileged skip is
+  // resolved for the entity being written — ORing across the three models let
+  // an org-wide Constants bypass clear Config and Feature schema validation.
+  // Bulk publish already resolves per item; these keep single-entity paths on
+  // the same rule.
+  private hasFlagBypassAuthorityFor(
+    model: "feature" | "config" | "constant" | "saved-group",
+  ): boolean {
+    if (model === "saved-group") {
+      return this.permissions.canRevisionAction("saved-group", "bypass", {
+        projects: [],
+      });
+    }
+    return this.permissions.canBypassFlagApprovalChecks(
+      { project: undefined },
+      model,
+    );
+  }
+
+  private skipRequested(flag: "skipSchemaValidation" | "skipHooks"): boolean {
     if (!this.req) return false;
-    const queryValue = this.req.query?.skipSchemaValidation;
-    const requested =
-      this.bodyFlag("skipSchemaValidation") ||
-      (typeof queryValue === "string" && stringToBoolean(queryValue));
-    if (!requested) return false;
-    return this.permissions.canBypassApprovalChecks({ project: undefined });
+    const queryValue = this.req.query?.[flag];
+    return (
+      this.bodyFlag(flag) ||
+      (typeof queryValue === "string" && stringToBoolean(queryValue))
+    );
+  }
+
+  public canSkipSchemaValidationFor(
+    model: "feature" | "config" | "constant" | "saved-group",
+  ): boolean {
+    return (
+      this.skipRequested("skipSchemaValidation") &&
+      this.hasFlagBypassAuthorityFor(model)
+    );
   }
 
   // Force past a custom validation hook that rejected the change. Its own flag
   // (not skipSchemaValidation — a hook failure isn't a schema error), honored
-  // only for callers with org-wide bypass authority (the bypassApprovalChecks
-  // permission on all projects); ignored otherwise.
-  public get skipHooks(): boolean {
-    if (!this.req) return false;
-    const queryValue = this.req.query?.skipHooks;
-    const requested =
-      this.bodyFlag("skipHooks") ||
-      (typeof queryValue === "string" && stringToBoolean(queryValue));
-    if (!requested) return false;
-    return this.permissions.canBypassApprovalChecks({ project: undefined });
+  // only for callers with org-wide bypass authority on the entity's own family.
+  public canSkipHooksFor(
+    model: "feature" | "config" | "constant" | "saved-group",
+  ): boolean {
+    return (
+      this.skipRequested("skipHooks") && this.hasFlagBypassAuthorityFor(model)
+    );
   }
 
   public throwBadRequestError(message: string): never {
@@ -541,6 +603,18 @@ export class ReqContextClass {
 
   public hasPremiumFeature(feature: CommercialFeature) {
     return orgHasPremiumFeature(this.org, feature);
+  }
+
+  // Stable hash of this user's resolved permissions. Used to vary the
+  // `/organization/definitions` ETag, since that response is permission
+  // filtered per user. Over-invalidation on any perm change is fine (extra
+  // 200, never stale).
+  private _permissionsFingerprint?: string;
+  public getPermissionsFingerprint(): string {
+    if (this._permissionsFingerprint === undefined) {
+      this._permissionsFingerprint = md5(JSON.stringify(this.userPermissions));
+    }
+    return this._permissionsFingerprint;
   }
 
   private _limits: OrgLimitsAccessor | null = null;

@@ -11,11 +11,15 @@ import {
   MergeResultChanges,
 } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
+import { bypassApprovalPermission } from "shared/permissions";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { EventUser } from "shared/types/events/event-types";
 import type { ApiReqContext } from "back-end/types/api";
 import type { ReqContext } from "back-end/types/request";
-import { computeProposedFeatureForValidation } from "back-end/src/models/FeatureModel";
+import {
+  collectHoldoutChangeGates,
+  computeProposedFeatureForValidation,
+} from "back-end/src/models/FeatureModel";
 import { computeRevisionPublishChanges } from "back-end/src/models/FeatureRevisionModel";
 import {
   collectFeatureValueErrorsForPublish,
@@ -181,13 +185,12 @@ export async function planFeatureRevisionMerge({
   };
 }
 
-/**
- * The interactive publish handler's gate set: stale-base, approval-required,
- * and (when `includeValidationGates`) publish-time value validation, custom
- * hooks, and archive-dependents. Throws on a config-backed default carrying
- * its own override patch — a structural payload error no override clears
- * (the bulk adapter catches it and reports it as a no-override gate).
- */
+// The interactive publish handler's gate set: stale-base, approval-required,
+// holdout transition, and (when `includeValidationGates`) publish-time value
+// validation, custom hooks, and archive-dependents. Throws on a config-backed
+// default carrying its own override patch — a structural payload error no
+// override clears (the bulk adapter catches it and reports it as a no-override
+// gate).
 export async function collectFeaturePublishGates({
   context,
   feature,
@@ -213,12 +216,10 @@ export async function collectFeaturePublishGates({
    * is an identity-less scan context).
    */
   publisher?: EventUser;
-  /**
-   * Interactive publishes surface value + hook failures as gates (and skip
-   * the throwing re-run in publishRevision). Armed/scheduled publishes leave
-   * this false and keep the original throwing checks, whose block-vs-suppress
-   * behavior relies on the background context's always-true ignoreWarnings.
-   */
+  // Interactive publishes surface value + hook failures as gates (and skip
+  // the throwing re-run in publishRevision). Armed/scheduled publishes leave
+  // this false and keep the original throwing checks, whose block-vs-suppress
+  // behavior relies on the background context's always-true ignoreWarnings.
   includeValidationGates: boolean;
 }): Promise<PublishGate[]> {
   const gates: PublishGate[] = [];
@@ -230,7 +231,7 @@ export async function collectFeaturePublishGates({
         type: "stale-base",
         messages: ["This revision was created against an older version."],
         override: "ignoreWarnings",
-        requiresPermission: "bypassApprovalChecks",
+        requiresPermission: bypassApprovalPermission("feature"),
         resolution: {
           action: "rebase",
           method: "POST",
@@ -246,7 +247,7 @@ export async function collectFeaturePublishGates({
         messages: [
           `Requires approval before publishing (status: "${revision.status}").`,
         ],
-        requiresPermission: "bypassApprovalChecks",
+        requiresPermission: bypassApprovalPermission("feature"),
         resolution: {
           action: "request-review",
           method: "POST",
@@ -255,6 +256,17 @@ export async function collectFeaturePublishGates({
       }),
     );
   }
+
+  // Above the validation-gate cutoff on purpose: surfaces that skip validation
+  // gates still must not reach the linkage writes with a bad holdout transition.
+  gates.push(
+    ...(await collectHoldoutChangeGates({
+      context,
+      feature,
+      mergeResult: plan.mergeResult,
+      isRevert: !!revision.revertedFrom,
+    })),
+  );
 
   if (!includeValidationGates) return gates;
 
@@ -296,6 +308,7 @@ export async function collectFeaturePublishGates({
       messages: ["Invalid feature value:", ...schemaErrors],
       ...schemaFailureGateOverride(
         context.org.settings?.blockPublishOnSchemaError !== false,
+        bypassApprovalPermission("feature"),
       ),
       resolution: null,
     });
@@ -333,10 +346,13 @@ export async function collectFeaturePublishGates({
     ...revisionHookResults.warnings,
   ];
   gates.push(
-    ...hookResultsToGates({
-      hardErrors: hookHardErrors,
-      warnings: hookWarnings,
-    }),
+    ...hookResultsToGates(
+      {
+        hardErrors: hookHardErrors,
+        warnings: hookWarnings,
+      },
+      bypassApprovalPermission("feature"),
+    ),
   );
 
   // Archiving a feature that live features/experiments still reference as a

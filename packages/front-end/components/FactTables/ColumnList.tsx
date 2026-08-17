@@ -58,6 +58,8 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
     const out: (ColumnInterface & { jsonFieldParent?: string })[] = [];
     for (const col of factTable.columns || []) {
       if (col.deleted) continue;
+      // Virtual columns are managed in their own tab, not the Columns list.
+      if (col.isVirtual) continue;
       out.push(col);
       if (col.datatype === "json" && col.jsonFields) {
         for (const [field, data] of Object.entries(col.jsonFields)) {
@@ -138,7 +140,7 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
         {canEdit && (
           <div className="col-auto">
             <Button
-              size="xs"
+              size="sm"
               variant="outline"
               loading={refreshing || !!factTable.columnRefreshPending}
               onClick={async () => {

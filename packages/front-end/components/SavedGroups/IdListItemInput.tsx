@@ -79,7 +79,7 @@ export const IdListItemInput: FC<{
         <Container mb="2">
           <Checkbox
             disabled={!canBypassSavedGroupSizeLimit(projects)}
-            disabledMessage="You don't have permission to bypass the size limit for this saved group"
+            disabledMessage="You don't have permission to bypass the size limit for this Saved Group"
             description={`Bypass the size limit of ${savedGroupSizeLimit} items`}
             value={bypassSizeLimit}
             setValue={setBypassSizeLimit}
@@ -184,7 +184,7 @@ export const IdListItemInput: FC<{
       )}
       {importMethod === "values" && (
         <StringArrayField
-          size="legacy"
+          legacyHeight
           containerClassName="mb-0"
           label="List Values to Include"
           labelClassName="font-weight-bold"

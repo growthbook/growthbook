@@ -17,7 +17,7 @@ export const getConfigLineage = createApiRequestHandler(
 )(async (req) => {
   const config = await req.context.models.configs.getByKey(req.params.key);
   if (!config) {
-    throw new NotFoundError("Could not find config with that key");
+    throw new NotFoundError("Could not find Config with that key");
   }
 
   // Build the family from the unfiltered set since lineage can span projects the

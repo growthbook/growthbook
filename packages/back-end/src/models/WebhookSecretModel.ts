@@ -9,6 +9,10 @@ import { MakeModelClass } from "./BaseModel";
 const BaseClass = MakeModelClass({
   schema: webhookSecretSchema,
   collectionName: "webhooksecrets",
+  affectsDefinitionsVersion: true,
+  // Org-wide (no project field) → bumps globally. `value` is omitted from the
+  // definitions response (getAllForFrontEnd), so rotation shouldn't invalidate.
+  definitionsVersionExcludedFields: ["value"],
   idPrefix: "secret_",
   // If true, `id` is globally unique across all orgs
   // If false (default), the `organization`/`id` combo is unique.

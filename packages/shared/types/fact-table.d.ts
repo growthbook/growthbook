@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   createFactFilterPropsValidator,
   createColumnPropsValidator,
+  createVirtualColumnPropsValidator,
   createFactTablePropsValidator,
   numberFormatValidator,
   updateFactFilterPropsValidator,
@@ -11,11 +12,11 @@ import {
   metricTypeValidator,
   factTableColumnTypeValidator,
   testFactFilterPropsValidator,
+  testVirtualColumnPropsValidator,
   conversionWindowUnitValidator,
   cappingSettingsValidator,
   windowSettingsValidator,
   cappingTypeValidator,
-  factMetricValidator,
   quantileSettingsValidator,
   priorSettingsValidator,
   columnAggregationValidator,
@@ -23,11 +24,23 @@ import {
   jsonColumnFieldsValidator,
   rowFilterValidator,
   aggregatedFactTableSettingsValidator,
+  StandardFactMetric,
+  FunnelFactMetric,
+  conversionWindowValidator,
+  funnelStepValidator,
+  funnelOrderingValidator,
+  funnelSettingsValidator,
 } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { TestQueryRow } from "shared/types/integrations";
 
 export type FactTableColumnType = z.infer<typeof factTableColumnTypeValidator>;
+
+// Funnel step / settings types (validators live in validators/fact-table).
+export type ConversionWindow = z.infer<typeof conversionWindowValidator>;
+export type FunnelStep = z.infer<typeof funnelStepValidator>;
+export type FunnelOrdering = z.infer<typeof funnelOrderingValidator>;
+export type FunnelSettings = z.infer<typeof funnelSettingsValidator>;
 export type NumberFormat = z.infer<typeof numberFormatValidator>;
 
 export type JSONColumnFields = z.infer<typeof jsonColumnFieldsValidator>;
@@ -39,6 +52,7 @@ export interface ColumnInterface {
   description: string;
   column: string;
   datatype: FactTableColumnType;
+  dataTypeFromWarehouse?: FactTableColumnType;
   numberFormat: NumberFormat;
   alwaysInlineFilter?: boolean;
   topValues?: string[];
@@ -48,6 +62,12 @@ export interface ColumnInterface {
   isAutoSliceColumn?: boolean;
   autoSlices?: string[];
   lockedAutoSlices?: string[];
+  // Virtual (computed) columns are user-defined SQL expressions over other
+  // columns in the fact table, rather than columns detected from the SQL.
+  isVirtual?: boolean;
+  // The raw SQL expression for a virtual column, e.g. "price * quantity".
+  // Inlined into generated SQL by getColumnExpression.
+  sql?: string;
 }
 
 export interface FactFilterInterface {
@@ -133,7 +153,12 @@ export type LegacyMetricWindowSettings = z.infer<
 >;
 export type MetricPriorSettings = z.infer<typeof priorSettingsValidator>;
 
-export type FactMetricInterface = z.infer<typeof factMetricValidator>;
+export type StandardFactMetricInterface = StandardFactMetric;
+export type FunnelFactMetricInterface = FunnelFactMetric;
+
+export type FactMetricInterface =
+  | StandardFactMetricInterface
+  | FunnelFactMetricInterface;
 
 export type LegacyColumnRef = ColumnRef & {
   filters?: string[];
@@ -172,9 +197,15 @@ export type UpdateFactFilterProps = z.infer<
   typeof updateFactFilterPropsValidator
 >;
 export type TestFactFilterProps = z.infer<typeof testFactFilterPropsValidator>;
+export type TestVirtualColumnProps = z.infer<
+  typeof testVirtualColumnPropsValidator
+>;
 
 export type UpdateColumnProps = z.infer<typeof updateColumnPropsValidator>;
 export type CreateColumnProps = z.infer<typeof createColumnPropsValidator>;
+export type CreateVirtualColumnProps = z.infer<
+  typeof createVirtualColumnPropsValidator
+>;
 
 export type CreateFactMetricProps = CreateProps<FactMetricInterface>;
 export type UpdateFactMetricProps = UpdateProps<FactMetricInterface>;

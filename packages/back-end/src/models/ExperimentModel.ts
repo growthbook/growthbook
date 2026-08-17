@@ -12,6 +12,10 @@ import { VisualChange } from "shared/types/visual-changeset";
 import {
   ExperimentInterfaceExcludingHoldouts,
   ExperimentStatus,
+  SCHEDULE_STOP_AFTER_UNITS,
+  SCHEDULED_STATUS_UPDATE_TYPES,
+  SCHEDULED_STOP_MODES,
+  SCHEDULED_STOP_FALLBACKS,
 } from "shared/validators";
 import {
   Changeset,
@@ -60,6 +64,7 @@ import {
 } from "back-end/src/enterprise/licenseUtil";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { runValidateExperimentHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import { CasConflictError } from "./BaseModel";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -194,10 +199,22 @@ const experimentSchema = new mongoose.Schema({
     _id: false,
     startAt: Date,
     stopAt: Date,
+    stopAfter: {
+      _id: false,
+      value: Number,
+      unit: { type: String, enum: [...SCHEDULE_STOP_AFTER_UNITS] },
+    },
+    scheduledStopPlan: {
+      _id: false,
+      mode: { type: String, enum: [...SCHEDULED_STOP_MODES] },
+      tiebreakerMetricId: String,
+      fallback: { type: String, enum: [...SCHEDULED_STOP_FALLBACKS] },
+      fallbackVariationId: String,
+    },
   },
   nextScheduledStatusUpdate: {
     _id: false,
-    type: { type: String },
+    type: { type: String, enum: [...SCHEDULED_STATUS_UPDATE_TYPES] },
     date: Date,
     failedAttempts: Number,
   },
@@ -483,6 +500,7 @@ export async function getAllExperiments(
   {
     project,
     includeArchived = false,
+    archived,
     type,
     datasourceId,
     trackingKey,
@@ -492,6 +510,9 @@ export async function getAllExperiments(
   }: {
     project?: string;
     includeArchived?: boolean;
+    // Tri-state archived filter: true = archived only, false = exclude
+    // archived, undefined = fall back to `includeArchived`.
+    archived?: boolean;
     type?: ExperimentType;
     datasourceId?: string;
     trackingKey?: string;
@@ -519,7 +540,9 @@ export async function getAllExperiments(
     query.trackingKey = trackingKey;
   }
 
-  if (!includeArchived) {
+  if (archived !== undefined) {
+    query.archived = archived ? true : { $ne: true };
+  } else if (!includeArchived) {
     query.archived = { $ne: true };
   }
 
@@ -766,11 +789,17 @@ export async function updateExperiment({
   experiment,
   changes,
   bypassWebhooks = false,
+  guard,
 }: {
   context: ReqContext | ApiReqContext;
   experiment: ExperimentInterface;
   changes: Changeset;
   bypassWebhooks?: boolean;
+  // Compare-and-swap clause folded into the write filter, so the decision and the
+  // write are one operation. `updateFeature`'s `ifUnchangedSince` is the same shape.
+  // A non-match throws `CasConflictError`: the caller computed from a value that is
+  // no longer there.
+  guard?: Record<string, unknown>;
 }): Promise<ExperimentInterface> {
   // If no actual changes, return the experiment as-is
   if (!hasActualChanges(experiment, changes)) {
@@ -786,15 +815,19 @@ export async function updateExperiment({
 
   validateMetricOverrides(allChanges.metricOverrides);
 
-  await ExperimentModel.updateOne(
+  const writeResult = await ExperimentModel.updateOne(
     {
       id: experiment.id,
       organization: context.org.id,
+      ...(guard ?? {}),
     },
     {
       $set: allChanges,
     },
   );
+  if (guard && writeResult.matchedCount === 0) {
+    throw new CasConflictError();
+  }
 
   const updated = { ...experiment, ...allChanges };
 
@@ -2106,6 +2139,9 @@ const getExperimentChanges = (
     "excludeFromPayload",
     "autoAssign",
     "phases",
+    // Schedule dates are emitted into experiment metadata (opt-in per SDK
+    // connection), so a schedule-only edit must invalidate the SDK payload.
+    "statusUpdateSchedule",
   ];
 
   return {

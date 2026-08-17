@@ -15,6 +15,7 @@ import {
 } from "shared/constants";
 import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import { expandMetricGroups } from "shared/experiments";
+import { isRampScheduleServing } from "shared/util";
 import Badge from "@/ui/Badge";
 import Button, { Size as ButtonSize } from "@/ui/Button";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
@@ -254,7 +255,7 @@ function computeSignals(
   const mc = rampSchedule.monitoringConfig;
 
   const isMonitored = rampSchedule.steps.some((s) => s.monitored);
-  if (!isMonitored || !["running", "paused"].includes(rampSchedule.status)) {
+  if (!isMonitored || !isRampScheduleServing(rampSchedule)) {
     return { signals, actions, details };
   }
 
@@ -589,7 +590,7 @@ export interface RampHealthOverview {
 export function isOnMonitoredStep(
   rampSchedule: RampScheduleInterface,
 ): boolean {
-  if (!["running", "paused"].includes(rampSchedule.status)) return false;
+  if (!isRampScheduleServing(rampSchedule)) return false;
   const step = rampSchedule.steps[rampSchedule.currentStepIndex];
   return !!step?.monitored;
 }
@@ -929,7 +930,7 @@ export function RampMonitoringCTAs({
   onResume,
   onApproveStep,
   onAdvance,
-  size = "xs",
+  size = "sm",
   signalResult,
 }: {
   rampSchedule: RampScheduleInterface;

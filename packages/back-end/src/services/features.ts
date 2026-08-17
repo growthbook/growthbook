@@ -15,7 +15,6 @@ import {
   evaluatePrerequisiteState,
   filterProjectsByEnvironmentWithNull,
   getDependentFeatures,
-  getRulesForEnvironment,
   isDefined,
   MergeResultChanges,
   PrerequisiteStateResult,
@@ -27,6 +26,7 @@ import {
   NodeHandler,
   recursiveWalk,
   checkIfRevisionNeedsReview,
+  fillRevisionFromFeature,
   ruleAppliesToEnv,
   namespacesToMap,
   stemRuleId,
@@ -34,6 +34,7 @@ import {
   getConfigBackingPatch,
   stripConfigExtends,
   entityTargetsProject,
+  filterEnvironmentsByFeature,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -44,6 +45,11 @@ import {
   ConstantValueMap,
 } from "shared/sdk-versioning";
 import { ConstantInterface } from "shared/types/constant";
+import {
+  rampActionFootprint,
+  featurePublishFootprint,
+  holdoutEnvsForChange,
+} from "shared/permissions";
 import { getLatestPhaseVariations } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import pickBy from "lodash/pickBy";
@@ -57,11 +63,13 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { ArchetypeAttributeValues } from "shared/types/archetype";
 import {
   AutoExperimentWithMetadata,
+  ContextualBanditDefinitions,
   ExperimentMetadata,
   FeatureDefinition,
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
 import {
+  RevisionRampAction,
   HoldoutInterface,
   ContextualBanditInterface,
   SdkConnectionCacheAuditContext,
@@ -101,6 +109,12 @@ import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { ApiReqContext } from "back-end/types/api";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import {
+  CB_PAYLOAD_WARN_BYTES,
+  CB_PAYLOAD_WARN_FRACTION,
+  measureContextualBanditPayload,
+  recordContextualBanditPayloadMetrics,
+} from "back-end/src/services/contextualBanditPayload";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import {
   getAllFeatures,
@@ -114,12 +128,11 @@ import {
 import {
   applyNamespaceToPayload,
   buildPayloadMetadata,
-  getEnabledEnvironments,
   getFeatureDefinition,
   getHoldoutFeatureDefId,
   getParsedCondition,
+  pairedWeightsToPositional,
 } from "back-end/src/util/features";
-import { getEnabledEnvironments as getEnabledHoldoutEnvironments } from "back-end/src/util/holdouts";
 import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
 import { ReqContext } from "back-end/types/request";
@@ -162,6 +175,7 @@ export function generateFeaturesPayload({
   includeCustomFieldsInMetadata,
   allowedCustomFieldsInMetadata,
   includeTagsInMetadata,
+  includeExperimentScheduleInMetadata,
   projectsMap,
   capabilities,
   savedGroupReferencesEnabled,
@@ -192,6 +206,7 @@ export function generateFeaturesPayload({
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
+  includeExperimentScheduleInMetadata?: boolean;
   projectsMap?: Map<string, ProjectInterface>;
   capabilities?: SDKCapability[];
   savedGroupReferencesEnabled?: boolean;
@@ -244,6 +259,7 @@ export function generateFeaturesPayload({
         includeCustomFieldsInMetadata,
         allowedCustomFieldsInMetadata,
         includeTagsInMetadata,
+        includeExperimentScheduleInMetadata,
       },
       projectsMap,
       payloadProjects,
@@ -355,6 +371,7 @@ export function generateAutoExperimentsPayload({
   includeCustomFieldsInMetadata,
   allowedCustomFieldsInMetadata,
   includeTagsInMetadata,
+  includeExperimentScheduleInMetadata,
   projectsMap,
   capabilities,
   savedGroupReferencesEnabled,
@@ -372,6 +389,7 @@ export function generateAutoExperimentsPayload({
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
+  includeExperimentScheduleInMetadata?: boolean;
   projectsMap?: Map<string, ProjectInterface>;
   capabilities?: SDKCapability[];
   savedGroupReferencesEnabled?: boolean;
@@ -528,12 +546,18 @@ export function generateAutoExperimentsPayload({
       }
 
       const metadata = buildPayloadMetadata<ExperimentMetadata>(
-        { project: e.project, customFields: e.customFields, tags: e.tags },
+        {
+          project: e.project,
+          customFields: e.customFields,
+          tags: e.tags,
+          statusUpdateSchedule: e.statusUpdateSchedule,
+        },
         {
           includeProjectIdInMetadata,
           includeCustomFieldsInMetadata,
           allowedCustomFieldsInMetadata,
           includeTagsInMetadata,
+          includeExperimentScheduleInMetadata,
         },
         projectsMap,
       );
@@ -641,6 +665,38 @@ export function filterUsedSavedGroups(
   return pickBy(savedGroups, (_values, savedGroupId) =>
     usedGroupIds.has(savedGroupId),
   );
+}
+
+export function filterUsedContextualBandits(
+  cbMap: Map<string, ContextualBanditInterface> | undefined,
+  features: Record<string, FeatureDefinition>,
+): ContextualBanditDefinitions | undefined {
+  if (!cbMap || cbMap.size === 0) return undefined;
+
+  const usedIds = new Set<string>();
+  Object.values(features).forEach((feature) => {
+    feature.rules?.forEach((rule) => {
+      if (rule.contextualBanditRef) {
+        usedIds.add(rule.contextualBanditRef);
+      }
+    });
+  });
+
+  const map: ContextualBanditDefinitions = {};
+  usedIds.forEach((id) => {
+    const cb = cbMap.get(id);
+    if (!cb) return;
+    map[id] = {
+      banditVersion: cb.banditVersion,
+      contexts: (cb.currentLeafWeights ?? []).map((lw) => ({
+        leafId: lw.leafId,
+        condition: lw.condition,
+        weights: pairedWeightsToPositional(lw.weights, cb.variations),
+      })),
+    };
+  });
+
+  return Object.keys(map).length > 0 ? map : undefined;
 }
 
 export function isSDKConnectionAffectedByPayloadKey(
@@ -959,6 +1015,8 @@ export async function refreshSDKPayloadCache({
             allowedCustomFieldsInMetadata:
               connection.allowedCustomFieldsInMetadata,
             includeTagsInMetadata: connection.includeTagsInMetadata,
+            includeExperimentScheduleInMetadata:
+              connection.includeExperimentScheduleInMetadata,
           },
           data: { ...rawData, holdoutsMap, constantMap: constantMapByEnv[env] },
         });
@@ -1043,6 +1101,7 @@ export type FeatureDefinitionsResponseArgs = {
   capabilities: SDKCapability[];
   usedSavedGroups: SavedGroupInterface[];
   savedGroupReferencesEnabled?: boolean;
+  contextualBandits?: ContextualBanditDefinitions;
   organization: OrganizationInterface;
 };
 export async function getFeatureDefinitionsResponse({
@@ -1056,6 +1115,7 @@ export async function getFeatureDefinitionsResponse({
   secureAttributeSalt,
   capabilities,
   usedSavedGroups,
+  contextualBandits,
   savedGroupReferencesEnabled,
   organization,
 }: FeatureDefinitionsResponseArgs): Promise<{
@@ -1066,6 +1126,8 @@ export async function getFeatureDefinitionsResponse({
   encryptedExperiments?: string;
   savedGroups?: SavedGroupsValues;
   encryptedSavedGroups?: string;
+  contextualBandits?: ContextualBanditDefinitions;
+  encryptedContextualBandits?: string;
 }> {
   features = cloneDeep(features);
   let processedExperiments: AutoExperiment[] =
@@ -1140,12 +1202,55 @@ export async function getFeatureDefinitionsResponse({
       ? savedGroupsValues
       : undefined;
 
+  const contextualBanditsForPayload = capabilities.includes("contextualBandits")
+    ? contextualBandits
+    : undefined;
+
+  if (
+    contextualBanditsForPayload &&
+    Object.keys(contextualBanditsForPayload).length > 0
+  ) {
+    const cbStats = measureContextualBanditPayload(
+      contextualBanditsForPayload,
+      features,
+    );
+    const totalBytes = Buffer.byteLength(
+      JSON.stringify({
+        features,
+        experiments: processedExperiments,
+        savedGroups: savedGroupsForPayload,
+        contextualBandits: contextualBanditsForPayload,
+      }),
+    );
+    recordContextualBanditPayloadMetrics(cbStats, totalBytes);
+    const logData = {
+      orgId: organization?.id,
+      ...cbStats,
+      totalBytes,
+    };
+    if (
+      cbStats.cbBytes > CB_PAYLOAD_WARN_BYTES ||
+      (totalBytes > 0 &&
+        cbStats.cbBytes / totalBytes > CB_PAYLOAD_WARN_FRACTION)
+    ) {
+      logger.warn(
+        logData,
+        "[sdk-payload] contextual bandit payload size above threshold",
+      );
+    } else {
+      logger.debug(logData, "[sdk-payload] contextual bandit payload size");
+    }
+  }
+
   if (!encryptPayload || !encryptionKey) {
     return {
       features,
       ...(experiments !== undefined && { experiments: processedExperiments }),
       dateUpdated,
       savedGroups: savedGroupsForPayload,
+      ...(contextualBanditsForPayload !== undefined && {
+        contextualBandits: contextualBanditsForPayload,
+      }),
     };
   }
 
@@ -1162,6 +1267,10 @@ export async function getFeatureDefinitionsResponse({
     ? await encrypt(JSON.stringify(savedGroupsForPayload), encryptionKey)
     : undefined;
 
+  const encryptedContextualBandits = contextualBanditsForPayload
+    ? await encrypt(JSON.stringify(contextualBanditsForPayload), encryptionKey)
+    : undefined;
+
   return {
     features: {},
     ...(experiments !== undefined && { experiments: [] }),
@@ -1169,6 +1278,9 @@ export async function getFeatureDefinitionsResponse({
     encryptedFeatures,
     ...(encryptedExperiments !== undefined && { encryptedExperiments }),
     encryptedSavedGroups: encryptedSavedGroups,
+    ...(encryptedContextualBandits !== undefined && {
+      encryptedContextualBandits,
+    }),
   };
 }
 
@@ -1189,6 +1301,7 @@ export type FeatureDefinitionArgs = {
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
+  includeExperimentScheduleInMetadata?: boolean;
   hashSecureAttributes?: boolean;
   savedGroupReferencesEnabled?: boolean;
 };
@@ -1235,6 +1348,7 @@ export type ConnectionPayloadOptions = {
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
+  includeExperimentScheduleInMetadata?: boolean;
 };
 
 // Full input for building one connection's SDK payload
@@ -1282,6 +1396,7 @@ export async function buildSDKPayloadForConnection(
     includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata,
     includeTagsInMetadata,
+    includeExperimentScheduleInMetadata,
   } = connection;
 
   if (projects === null) {
@@ -1386,6 +1501,7 @@ export async function buildSDKPayloadForConnection(
     includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata,
     includeTagsInMetadata,
+    includeExperimentScheduleInMetadata,
     projectsMap,
     payloadProjects: projectList,
     cbMap,
@@ -1416,6 +1532,7 @@ export async function buildSDKPayloadForConnection(
     includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata,
     includeTagsInMetadata,
+    includeExperimentScheduleInMetadata,
     projectsMap,
   });
 
@@ -1437,6 +1554,11 @@ export async function buildSDKPayloadForConnection(
     ...featureDefinitions,
     ...holdoutsInUse,
   };
+
+  const contextualBanditsInUse = filterUsedContextualBandits(
+    cbMap,
+    featuresWithHoldouts,
+  );
 
   let attributes: SDKAttributeSchema | undefined = undefined;
   let secureAttributeSalt: string | undefined = undefined;
@@ -1462,6 +1584,7 @@ export async function buildSDKPayloadForConnection(
     savedGroupReferencesEnabled:
       !!savedGroupReferencesEnabled &&
       capabilities.includes("savedGroupReferences"),
+    contextualBandits: contextualBanditsInUse,
     organization: context.org,
   });
 }
@@ -1474,6 +1597,8 @@ export type FeatureDefinitionSDKPayload = {
   encryptedExperiments?: string;
   savedGroups?: SavedGroupsValues;
   encryptedSavedGroups?: string;
+  contextualBandits?: ContextualBanditDefinitions;
+  encryptedContextualBandits?: string;
 };
 
 export async function getFeatureDefinitions(
@@ -1513,6 +1638,8 @@ export async function getFeatureDefinitions(
       includeCustomFieldsInMetadata: args.includeCustomFieldsInMetadata,
       allowedCustomFieldsInMetadata: args.allowedCustomFieldsInMetadata,
       includeTagsInMetadata: args.includeTagsInMetadata,
+      includeExperimentScheduleInMetadata:
+        args.includeExperimentScheduleInMetadata,
     },
     data: {
       features: allFeatures,
@@ -1698,7 +1825,7 @@ export async function evaluateAllFeatures({
       allFeatures[f.id] = {
         ...f,
         project: f.project,
-      } as FeatureDefinition;
+      } as unknown as FeatureDefinition;
     });
   }
   // get all features definitions
@@ -2336,6 +2463,21 @@ export function revisionToApiInterfaceV2(
     ...(rev.scheduledPublishLastError !== undefined && {
       scheduledPublishLastError: rev.scheduledPublishLastError,
     }),
+    // The three that were missing. Without `attempts` and `gaveUpAt` a REST
+    // watcher can't tell a schedule that is still retrying from one the poller has
+    // parked — the difference between "wait" and "re-arm it yourself" — and without
+    // `autoPublishEnabledBy` it can't tell whose authority the publish will use.
+    ...(rev.autoPublishEnabledBy !== undefined && {
+      autoPublishEnabledBy: rev.autoPublishEnabledBy,
+    }),
+    ...(rev.scheduledPublishAttempts !== undefined && {
+      scheduledPublishAttempts: rev.scheduledPublishAttempts,
+    }),
+    ...((rev.scheduledPublishGaveUpAt ?? null) !== null && {
+      scheduledPublishGaveUpAt: new Date(
+        rev.scheduledPublishGaveUpAt as Date,
+      ).toISOString(),
+    }),
     ...(rev.reviews !== undefined && {
       reviews: rev.reviews.map((r) => {
         const user = eventUserToApiEventUser(r.user);
@@ -2960,6 +3102,7 @@ export function validateFeatureRuleValues(
       );
       break;
     case "experiment-ref":
+    case "contextual-bandit-ref":
       (rule.variations ?? []).forEach((v, i) =>
         validateFeatureValue(feature, v.value, `Variation ${i + 1}`),
       );
@@ -2973,7 +3116,7 @@ export function validateFeatureRuleValues(
 
 // Enforce JSON-schema validation for a feature's default value and/or rule
 // values. Validation is on by default; an explicit `?skipSchemaValidation=true`
-// opts out (see context.skipSchemaValidation). Pass the EFFECTIVE feature —
+// opts out (see context.canSkipSchemaValidationFor("feature")). Pass the EFFECTIVE feature —
 // i.e. one already carrying the inbound/draft `jsonSchema`, `valueType`, so a
 // request that changes the schema validates against the new schema.
 export function assertFeatureValuesValid(
@@ -2981,7 +3124,7 @@ export function assertFeatureValuesValid(
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   values: { defaultValue?: string; rules?: FeatureRule[] },
 ): void {
-  if (context.skipSchemaValidation) return;
+  if (context.canSkipSchemaValidationFor("feature")) return;
   if (values.defaultValue !== undefined) {
     validateFeatureValue(feature, values.defaultValue, "Default value");
   }
@@ -3028,7 +3171,7 @@ export function assertFeatureValuesValidForPublish(
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   values: { defaultValue?: string; rules?: FeatureRule[] },
 ): void {
-  if (context.skipSchemaValidation) return;
+  if (context.canSkipSchemaValidationFor("feature")) return;
 
   const errors = collectFeatureValueErrorsForPublish(feature, values);
   if (!errors.length) return;
@@ -3055,7 +3198,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
 ): FeatureRule[] => {
   // Honor the opt-in `?skipSchemaValidation=true` escape hatch: drop the schema
   // so values are still normalized (parse / dirty-json) but not schema-checked.
-  const valFeature = context.skipSchemaValidation
+  const valFeature = context.canSkipSchemaValidationFor("feature")
     ? { ...feature, jsonSchema: undefined }
     : feature;
   return rules.map((r) => {
@@ -3604,62 +3747,87 @@ export async function getLiveAndBaseRevisionsForFeature({
   return { live, base };
 }
 
-/**
- * Returns the env list to permission-check publish against. Global field
- * changes (defaultValue, prerequisites, archived, metadata) widen to all
- * enabled envs; holdout assignment widens to each transitioning holdout's
- * enabled envs; per-env rule/toggle changes contribute only their envs.
- * Empty contributors fall back to all enabled envs (defensive).
- *
- * Ramp actions intentionally not included — rule diffs cover them, and
- * rule-less ramp-only drafts hit the all-enabled fallback.
- */
+// Returns the env list to permission-check publish against. Global field
+// changes (defaultValue, prerequisites, archived, metadata) widen to all
+// enabled envs; holdout assignment widens to each transitioning holdout's
+// enabled envs; per-env rule/toggle changes contribute only their envs.
+// Empty contributors fall back to all enabled envs (defensive).
+//
+// Ramp actions ARE included. The old note said rule diffs cover them; they don't —
+// a draft that also edits a dev-only rule makes the env-scoped set non-empty, so
+// the all-enabled fallback never fires and the ramp actions' reach was never in the
+// footprint at all. `assertCanControlRampSchedule` is called only from the three
+// ramp surfaces, never from a revision publish, so arming a schedule through a
+// revision consulted no ramp footprint whatsoever: stage a step patch scoping a
+// production rule to dev, edit any dev-only rule in the same draft, publish with a
+// ["dev"] footprint, and the poller applies it under an admin context.
 export async function getMergeResultPublishEnvs({
   context,
   feature,
   filledLiveRules,
   result,
   environmentIds,
+  rampActions,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
   filledLiveRules: FeatureRule[];
   result: MergeResultChanges;
   environmentIds: string[];
+  /** The revision's ramp actions, whose reach the publish must answer for. */
+  rampActions?: RevisionRampAction[];
 }): Promise<string[]> {
-  const allEnabledEnvs = Array.from(
-    getEnabledEnvironments(feature, environmentIds),
-  );
+  // A project/targeting move makes environments applicable that the pre-move
+  // feature excluded, so `environmentIds` (computed against the OLD project)
+  // omits them. An env the feature is already enabled in but that only its
+  // DESTINATION project serves would then activate on the move with no publish
+  // check — the footprint must answer for it too. Widen to the union of pre-move
+  // and destination applicability; `servingEnvironments` still narrows to the
+  // ones actually enabled, so this cannot over-demand.
+  const m = result.metadata;
+  const moves =
+    m?.project !== undefined ||
+    m?.targetingProjects !== undefined ||
+    m?.targetingAllProjects !== undefined;
+  const effectiveEnvironmentIds = moves
+    ? [
+        ...new Set([
+          ...environmentIds,
+          ...filterEnvironmentsByFeature(getEnvironments(context.org), {
+            ...feature,
+            ...(m?.project !== undefined ? { project: m.project } : {}),
+            ...(m?.targetingProjects !== undefined
+              ? { targetingProjects: m.targetingProjects }
+              : {}),
+            ...(m?.targetingAllProjects !== undefined
+              ? { targetingAllProjects: m.targetingAllProjects }
+              : {}),
+          }).map((e) => e.id),
+        ]),
+      ]
+    : environmentIds;
 
-  const hasGlobalChange =
-    result.defaultValue !== undefined ||
-    !!result.prerequisites ||
-    result.archived !== undefined ||
-    !!result.metadata;
-  if (hasGlobalChange) return allEnabledEnvs;
-
-  const changedRuleEnvs =
-    result.rules === undefined
-      ? []
-      : environmentIds.filter(
-          (env) =>
-            !isEqual(
-              getRulesForEnvironment(filledLiveRules, env),
-              getRulesForEnvironment(result.rules!, env),
-            ),
-        );
-  const changedToggleEnvs = Object.keys(result.environmentsEnabled || {});
-  const holdoutEnvs = await collectHoldoutAffectedEnvs(
-    context,
+  const base = await featurePublishFootprint({
     feature,
-    environmentIds,
-    result.holdout,
-  );
+    liveRules: filledLiveRules,
+    changes: result,
+    environmentIds: effectiveEnvironmentIds,
+    holdoutEnvs: await collectHoldoutAffectedEnvs(
+      context,
+      feature,
+      effectiveEnvironmentIds,
+      result.holdout,
+    ),
+  });
 
-  const envScoped = Array.from(
-    new Set([...changedRuleEnvs, ...changedToggleEnvs, ...holdoutEnvs]),
-  );
-  return envScoped.length > 0 ? envScoped : allEnabledEnvs;
+  const rampEnvs = rampActionFootprint({
+    rampActions,
+    liveRules: filledLiveRules,
+    environmentIds: effectiveEnvironmentIds,
+  });
+  return rampEnvs === "all"
+    ? [...effectiveEnvironmentIds]
+    : [...new Set([...base, ...rampEnvs])];
 }
 
 // `undefined` = merge didn't touch holdout. Otherwise unions the active
@@ -3672,25 +3840,28 @@ async function collectHoldoutAffectedEnvs(
 ): Promise<string[]> {
   if (newHoldout === undefined) return [];
 
-  const envs = new Set<string>();
-  const prevId = feature.holdout?.id;
-  if (prevId && prevId !== newHoldout?.id) {
-    const prev = await context.models.holdout.getById(prevId);
-    if (prev) {
-      getEnabledHoldoutEnvironments(prev, environmentIds).forEach((e) =>
-        envs.add(e),
-      );
-    }
-  }
-  if (newHoldout?.id) {
-    const next = await context.models.holdout.getById(newHoldout.id);
-    if (next) {
-      getEnabledHoldoutEnvironments(next, environmentIds).forEach((e) =>
-        envs.add(e),
-      );
-    }
-  }
-  return [...envs];
+  // Pre-resolve so the composition itself can be the shared, synchronous rule the
+  // Publish control also runs. An id that doesn't resolve is a holdout that no
+  // longer exists and contributes no environments — the front end treats its own
+  // unresolved ids differently, which is why the shared helper reports them
+  // instead of deciding.
+  const candidateIds = [feature.holdout?.id, newHoldout?.id].filter(
+    (id): id is string => !!id,
+  );
+  const resolved = new Map(
+    await Promise.all(
+      Array.from(new Set(candidateIds)).map(
+        async (id) => [id, await context.models.holdout.getById(id)] as const,
+      ),
+    ),
+  );
+
+  return holdoutEnvsForChange({
+    currentHoldoutId: feature.holdout?.id,
+    newHoldout,
+    environmentIds,
+    resolve: (id) => resolved.get(id),
+  }).envs;
 }
 
 // Whether a draft requires approval before publishing (org review settings, env
@@ -3719,7 +3890,14 @@ export async function revisionRequiresReview(
 
   return checkIfRevisionNeedsReview({
     feature,
-    baseRevision,
+    // The draft is a complete snapshot; a legacy base may not be. Diffed raw,
+    // every field the base omits reads as a change — and a field it omits that
+    // the draft really does change reads as none. `createAndPublishRevision`
+    // and `postFeaturePublish` both backfill their baseline; so must this.
+    baseRevision: {
+      ...baseRevision,
+      ...fillRevisionFromFeature(baseRevision, feature),
+    },
     revision: draft,
     allEnvironments,
     settings: context.org.settings,
@@ -3735,7 +3913,10 @@ export async function assertCanAutoPublish(
 ): Promise<void> {
   const requiresReview = await revisionRequiresReview(context, feature, draft);
 
-  if (requiresReview && !context.permissions.canBypassApprovalChecks(feature)) {
+  if (
+    requiresReview &&
+    !context.permissions.canBypassFlagApprovalChecks(feature, "feature")
+  ) {
     context.permissions.throwPermissionError();
   }
 }

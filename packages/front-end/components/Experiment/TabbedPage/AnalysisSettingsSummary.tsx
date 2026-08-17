@@ -15,9 +15,10 @@ import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
+  getFactMetricPrimaryFactTableId,
   isFactMetric,
   isMetricJoinable,
-  expandAllSliceMetricsInMap,
+  expandDerivedMetricsInMap,
   ExperimentMetricDefinition,
   getLatestPhaseVariations,
   isDimensionPrecomputed,
@@ -438,8 +439,9 @@ export default function AnalysisSettingsSummary({
       const metric = getExperimentMetricById(m);
       if (!metric) return;
       const userIdTypes = isFactMetric(metric)
-        ? factTables.find((f) => f.id === metric.numerator.factTableId)
-            ?.userIdTypes || []
+        ? factTables.find(
+            (f) => f.id === getFactMetricPrimaryFactTableId(metric),
+          )?.userIdTypes || []
         : metric.userIdTypes || [];
       const isJoinable =
         userIdType && datasourceSettings
@@ -984,8 +986,8 @@ export default function AnalysisSettingsSummary({
                   factTables.map((table) => [table.id, table]),
                 );
 
-                // Expand slice metrics and add them to the map
-                expandAllSliceMetricsInMap({
+                // Expand derived metrics and add them to the map
+                expandDerivedMetricsInMap({
                   metricMap,
                   factTableMap,
                   experiment,
@@ -1063,9 +1065,12 @@ export default function AnalysisSettingsSummary({
         </Box>
       )}
 
-      {incrementalUpdatesUnavailable && (
+      {/* Gate on metrics so this warning only shows alongside the refresh
+          button (same `allMetrics.length > 0` gate). With no metrics there is
+          nothing to rescan, and Results already shows "Add at least 1 metric". */}
+      {incrementalUpdatesUnavailable && allMetrics.length > 0 && (
         <Callout status="warning" mt="2">
-          <Text weight="semibold" size="medium">
+          <Text weight="semibold" size="md">
             Updates will rescan full experiment data.
           </Text>{" "}
           {incrementalPipelineUnsupportedReason}
@@ -1088,7 +1093,7 @@ export default function AnalysisSettingsSummary({
         <Callout status="warning" mt="2">
           {overallNeedsFullRefresh ? (
             <>
-              <Text weight="semibold" size="medium">
+              <Text weight="semibold" size="md">
                 Overall Results require a Full Refresh.
               </Text>{" "}
               Dimension Results are computed from Overall Results and would be
@@ -1099,7 +1104,7 @@ export default function AnalysisSettingsSummary({
             </>
           ) : (
             <>
-              <Text weight="semibold" size="medium">
+              <Text weight="semibold" size="md">
                 Overall Results need to be run first.
               </Text>{" "}
               Dimension Results are computed from Overall Results.{" "}
@@ -1127,7 +1132,7 @@ export default function AnalysisSettingsSummary({
           </Callout>
           {isExperimentIncludedInIncrementalRefresh && (
             <Box mt="2" mb="2">
-              <Text size="small" color="text-low">
+              <Text size="sm" color="text-low">
                 If this error persists, you can try disabling Incremental
                 Refresh for this experiment by{" "}
                 <Link onClick={handleDisableIncrementalRefresh}>

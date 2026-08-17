@@ -37,7 +37,7 @@ import SavedGroupDeleteModal from "./SavedGroupDeleteModal";
 
 export interface Props {
   groups: SavedGroupWithoutValues[];
-  mutate: () => void;
+  mutate: () => void | Promise<void>;
 }
 
 export default function ConditionGroups({ groups, mutate }: Props) {
@@ -171,15 +171,19 @@ export default function ConditionGroups({ groups, mutate }: Props) {
             current={savedGroupForm}
             type="condition"
             approvalFlowRequired={approvalFlowRequired}
+            mutate={mutate}
           />
         )}
         <Flex align="center" justify="between" mb="1">
           <h2 style={{ margin: 0 }}>Condition Groups</h2>
-          {canCreate ? (
-            <Button onClick={() => setSavedGroupForm({})}>
+          <Tooltip
+            body="You do not have permission to create Saved Groups."
+            shouldDisplay={!canCreate}
+          >
+            <Button disabled={!canCreate} onClick={() => setSavedGroupForm({})}>
               Add Condition Group
             </Button>
-          ) : null}
+          </Tooltip>
         </Flex>
         <p className="text-gray mb-1">
           Set up advanced targeting rules based on user attributes.

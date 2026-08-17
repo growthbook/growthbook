@@ -4,10 +4,12 @@ import { OrganizationSettings, RequireReview } from "shared/types/organization";
 import {
   autoMerge,
   checkIfRevisionNeedsReview,
+  featureMetadataEnvelope,
   fillRevisionFromFeature,
   getDraftAffectedEnvironments,
   getEffectiveRevisionHoldout,
   getReviewSetting,
+  isStrandedLiveRevision,
   getFeatureAutopublishOnApproval,
   mergeResultHasChanges,
   mergeRevision,
@@ -522,6 +524,37 @@ describe("autoMerge with new envelopes", () => {
       }
     });
 
+    // Same drift, on holdout: membership lives on the feature document, so a
+    // base snapshot predating an attach made outside a publish would otherwise
+    // equal the draft's removal and drop it.
+    it("detects a holdout removal even when the base snapshot drifted to match it", () => {
+      const holdout = { id: "hld_1", value: "false" };
+      const driftedBase: RevisionFields = {
+        version: 2,
+        defaultValue: "OFF",
+        rules: {},
+        holdout: null, // stale snapshot, predates the attach
+      };
+      const liveFeatureModel: RevisionFields = {
+        version: 2,
+        defaultValue: "OFF",
+        rules: {},
+        holdout, // what's actually live
+      };
+      const revision: RevisionFields = {
+        version: 4,
+        defaultValue: "OFF",
+        rules: {},
+        holdout: null, // draft removes it
+      };
+      const result = autoMerge(liveFeatureModel, driftedBase, revision, [], {});
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.result.holdout).toBeNull();
+        expect(mergeResultHasChanges(result)).toBe(true);
+      }
+    });
+
     it("includes metadata changes", () => {
       const revision: RevisionFields = {
         version: 4,
@@ -963,6 +996,42 @@ describe("reconcileMergeBaselines", () => {
   });
 });
 
+// Baselines seed from this and snapshots write it, so a key it omits is a key
+// a draft can record and then diff against nothing. The `Required` return type
+// is the real guard; this pins the same contract at runtime.
+describe("featureMetadataEnvelope", () => {
+  it("covers every key the revision metadata schema defines", () => {
+    const schemaKeys = [
+      "description",
+      "owner",
+      "project",
+      "targetingAllProjects",
+      "targetingProjects",
+      "tags",
+      "neverStale",
+      "customFields",
+      "jsonSchema",
+      "valueType",
+      "baseConfig",
+    ].sort();
+
+    expect(Object.keys(featureMetadataEnvelope(baseFeature)).sort()).toEqual(
+      schemaKeys,
+    );
+  });
+
+  it("carries the feature's targeting scope, which drafts record", () => {
+    const envelope = featureMetadataEnvelope({
+      ...baseFeature,
+      targetingAllProjects: true,
+      targetingProjects: ["p1"],
+    } as FeatureInterface);
+
+    expect(envelope.targetingAllProjects).toBe(true);
+    expect(envelope.targetingProjects).toEqual(["p1"]);
+  });
+});
+
 describe("fillRevisionFromFeature", () => {
   it("backfills environmentsEnabled for environments not present in revision", () => {
     const feature: FeatureInterface = {
@@ -1382,7 +1451,9 @@ describe("getDraftAffectedEnvironments", () => {
     ).toBe("all");
   });
 
-  it('returns "all" for archived change', () => {
+  // Archiving only reaches the environments the flag serves in — unlike the
+  // other global changes, which reach every environment.
+  it("returns the serving environments for an archived change", () => {
     const revision: RevisionFields = {
       ...base,
       version: 4,
@@ -1390,7 +1461,25 @@ describe("getDraftAffectedEnvironments", () => {
     };
     expect(
       getDraftAffectedEnvironments(revision, base, ["production", "staging"]),
-    ).toBe("all");
+    ).toEqual(["production"]);
+  });
+
+  it("returns no environments when archiving a flag that serves nowhere", () => {
+    const servesNowhere: RevisionFields = {
+      ...base,
+      environmentsEnabled: { production: false, staging: false },
+    };
+    const revision: RevisionFields = {
+      ...servesNowhere,
+      version: 4,
+      archived: true,
+    };
+    expect(
+      getDraftAffectedEnvironments(revision, servesNowhere, [
+        "production",
+        "staging",
+      ]),
+    ).toEqual([]);
   });
 
   it('returns "all" for holdout add', () => {
@@ -1842,9 +1931,17 @@ describe("checkIfRevisionNeedsReview — archived changes", () => {
   const allEnvironments = ["production"];
   const settings = makeSettings(makeReviewSetting());
 
-  it("requires review when feature is archived", () => {
-    const base = makeRevision({ version: 3, archived: false });
-    const revision = makeRevision({ archived: true });
+  it("requires review when archiving a flag that is serving", () => {
+    const serving = { production: true };
+    const base = makeRevision({
+      version: 3,
+      archived: false,
+      environmentsEnabled: serving,
+    });
+    const revision = makeRevision({
+      archived: true,
+      environmentsEnabled: serving,
+    });
     expect(
       checkIfRevisionNeedsReview({
         feature: baseFeature,
@@ -1854,6 +1951,56 @@ describe("checkIfRevisionNeedsReview — archived changes", () => {
         settings,
       }),
     ).toBe(true);
+  });
+
+  // Archiving a flag that serves nowhere removes it from no payload, so there
+  // is nothing for a reviewer to weigh.
+  it("does NOT require review when archiving a flag that serves nowhere", () => {
+    const dormant = { production: false };
+    const base = makeRevision({
+      version: 3,
+      archived: false,
+      environmentsEnabled: dormant,
+    });
+    const revision = makeRevision({
+      archived: true,
+      environmentsEnabled: dormant,
+    });
+    expect(
+      checkIfRevisionNeedsReview({
+        feature: baseFeature,
+        baseRevision: base,
+        revision,
+        allEnvironments,
+        settings,
+      }),
+    ).toBe(false);
+  });
+
+  // Serving only outside the rule's protected environments is equally
+  // inconsequential to that rule.
+  it("does NOT require review when the served environments are unprotected", () => {
+    const serving = { production: false, dev: true };
+    const base = makeRevision({
+      version: 3,
+      archived: false,
+      environmentsEnabled: serving,
+    });
+    const revision = makeRevision({
+      archived: true,
+      environmentsEnabled: serving,
+    });
+    expect(
+      checkIfRevisionNeedsReview({
+        feature: baseFeature,
+        baseRevision: base,
+        revision,
+        allEnvironments: ["production", "dev"],
+        settings: makeSettings(
+          makeReviewSetting({ environments: ["production"] }),
+        ),
+      }),
+    ).toBe(false);
   });
 
   it("does NOT require review when archived is unchanged", () => {
@@ -2244,4 +2391,41 @@ describe("getFeatureAutopublishOnApproval", () => {
       ).toBe(false);
     },
   );
+});
+
+describe("isStrandedLiveRevision", () => {
+  const stranded = {
+    featureVersion: 13,
+    revisionVersion: 13,
+    revisionStatus: "draft",
+    hasChanges: false,
+  };
+
+  it("detects an open draft that is already the live version", () => {
+    expect(isStrandedLiveRevision(stranded)).toBe(true);
+    expect(
+      isStrandedLiveRevision({ ...stranded, revisionStatus: "approved" }),
+    ).toBe(true);
+  });
+
+  it("is false when the revision still has changes to publish", () => {
+    expect(isStrandedLiveRevision({ ...stranded, hasChanges: true })).toBe(
+      false,
+    );
+  });
+
+  it("is false for an ordinary no-op draft ahead of the live version", () => {
+    expect(isStrandedLiveRevision({ ...stranded, revisionVersion: 14 })).toBe(
+      false,
+    );
+  });
+
+  it("is false for revisions already published or discarded", () => {
+    expect(
+      isStrandedLiveRevision({ ...stranded, revisionStatus: "published" }),
+    ).toBe(false);
+    expect(
+      isStrandedLiveRevision({ ...stranded, revisionStatus: "discarded" }),
+    ).toBe(false);
+  });
 });

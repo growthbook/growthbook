@@ -554,7 +554,7 @@ export default function ConfigJsonEditor({
   };
 
   const columnHeader = (text: string) => (
-    <Text weight="semibold" size="medium" as="div" mb="1">
+    <Text weight="semibold" size="md" as="div" mb="1">
       {text}
     </Text>
   );
@@ -595,7 +595,7 @@ export default function ConfigJsonEditor({
   // the bare "No schema defined."
   const ownSchemaEmptyState: ReactNode =
     parentKey && parentName ? (
-      <Text size="medium" color="text-low" as="div">
+      <Text size="md" color="text-low" as="div">
         No additional schema defined — inherits the base schema from{" "}
         <Link href={`/configs/${parentKey}`}>{parentName}</Link>.
       </Text>
@@ -655,7 +655,7 @@ export default function ConfigJsonEditor({
                       <Tooltip
                         flipTheme={false}
                         body={
-                          <Text size="small" color="text-high">
+                          <Text size="sm" color="text-high">
                             Differs from the published version
                           </Text>
                         }
@@ -722,7 +722,7 @@ export default function ConfigJsonEditor({
   ): ReactNode => (
     <>
       <Flex justify="between" align="center" mb="1" gap="3">
-        <Text weight="semibold" size="medium" as="div">
+        <Text weight="semibold" size="md" as="div">
           {heading}
         </Text>
         {schemaFields.length > 0 &&
@@ -730,7 +730,7 @@ export default function ConfigJsonEditor({
       </Flex>
       {schemaFields.length === 0 || jsonString === null
         ? (opts?.emptyState ?? (
-            <Text size="medium" color="text-low" as="div">
+            <Text size="md" color="text-low" as="div">
               No schema defined.
             </Text>
           ))
@@ -803,7 +803,7 @@ export default function ConfigJsonEditor({
       // Fixed label-row height so it lines up with the value editor's.
       style={{ minHeight: 40 }}
     >
-      <Text weight="semibold" size="medium" as="div">
+      <Text weight="semibold" size="md" as="div">
         Schema
       </Text>
       <Flex align="center" gap="1">
@@ -864,7 +864,7 @@ export default function ConfigJsonEditor({
         <span>
           Editing <code>{projectionSource}</code>
           {
-            " updates the config’s schema and recaptures this projection’s named types."
+            " updates the Config’s schema and recaptures this projection’s named types."
           }
         </span>
       </HelperText>
@@ -1051,7 +1051,7 @@ export default function ConfigJsonEditor({
     <Box mt="3">
       <Flex justify="end" gap="2" mb="3">
         <Button
-          size="sm"
+          size="md"
           onClick={handleSave}
           disabled={!canSave}
           loading={saving}
@@ -1059,7 +1059,7 @@ export default function ConfigJsonEditor({
           Save
         </Button>
         <Button
-          size="sm"
+          size="md"
           variant="ghost"
           onClick={handleCancel}
           disabled={!dirty || saving}
