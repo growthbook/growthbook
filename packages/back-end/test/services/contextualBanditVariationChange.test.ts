@@ -923,6 +923,97 @@ describe("executeContextualBanditVariationChange", () => {
     expect(publishRevisionMock).not.toHaveBeenCalled();
   });
 
+  it("accumulates arms in the existing staged draft on a running bandit instead of branching a new draft off live", async () => {
+    const feature = makeFeature();
+    const stagedRules = [
+      cbRefRule({
+        variations: [
+          { variationId: "v0", value: "control" },
+          { variationId: "v1", value: "treatment" },
+          { variationId: "v2", value: "extra" },
+        ],
+      }),
+    ];
+    getRefLinkedFeatureInfoMock.mockResolvedValue([
+      linkedInfo(feature, {
+        state: "live",
+        stagedDraft: {
+          version: 7,
+          status: "draft",
+          values: (stagedRules[0] as ContextualBanditRefRule).variations,
+        },
+        stagedDrafts: [
+          {
+            version: 7,
+            status: "draft",
+            values: (stagedRules[0] as ContextualBanditRefRule).variations,
+          },
+        ],
+      }),
+    ]);
+    getRevisionMock.mockResolvedValue(
+      makeRevision({ version: 7, rules: stagedRules }),
+    );
+    getDraftRevisionMock.mockResolvedValue(
+      makeRevision({ version: 7, rules: stagedRules }),
+    );
+    const cb = makeCb({
+      status: "running",
+      linkedFeatures: ["feature"],
+      variations: [v("v0", "0"), v("v1", "1"), v("v2", "2")],
+      variationWeights: [
+        { variationId: "v0", weight: 1 / 3 },
+        { variationId: "v1", weight: 1 / 3 },
+        { variationId: "v2", weight: 1 / 3 },
+      ],
+    } as Partial<ContextualBanditInterface>);
+    const { context } = makeContext(cb);
+
+    await executeContextualBanditVariationChange(context, cb, [
+      v("v0", "0"),
+      v("v1", "1"),
+      v("v2", "2"),
+      v("v3", "3"),
+    ]);
+
+    expect(getDraftRevisionMock).toHaveBeenCalledWith(context, feature, 7);
+    const variations = cbRefVariationsFromUpdateRevision();
+    expect(variations.map((x) => x.variationId)).toEqual([
+      "v0",
+      "v1",
+      "v2",
+      "v3",
+    ]);
+  });
+
+  it("branches off live rather than reusing a staged draft that carries unrelated changes", async () => {
+    const feature = makeFeature();
+    getRefLinkedFeatureInfoMock.mockResolvedValue([
+      linkedInfo(feature, {
+        state: "live",
+        stagedDraft: {
+          version: 7,
+          status: "draft",
+          values: [
+            { variationId: "v0", value: "control" },
+            { variationId: "v1", value: "treatment" },
+          ],
+          hasUnrelatedDraftChanges: true,
+        },
+      }),
+    ]);
+    const cb = makeCb({ status: "running", linkedFeatures: ["feature"] });
+    const { context } = makeContext(cb);
+
+    await executeContextualBanditVariationChange(context, cb, [
+      v("v0", "0"),
+      v("v1", "1"),
+      v("v2", "2"),
+    ]);
+
+    expect(getDraftRevisionMock).toHaveBeenCalledWith(context, feature, 3);
+  });
+
   it("refreshes the SDK payload even on a metadata-only edit (keys/names change the payload)", async () => {
     const cb = makeCb();
     const { context } = makeContext(cb);

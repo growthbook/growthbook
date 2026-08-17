@@ -11,6 +11,7 @@ import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import FeatureValueField from "@/components/Features/FeatureValueField";
+import { isUnsetFeatureValue } from "@/components/Features/EmptyStringConfirm";
 
 type EditableVariation = {
   id: string;
@@ -25,6 +26,7 @@ type FormValues = {
 };
 
 type NewVariationValues = Record<string, Record<string, string>>;
+type EmptyStringConfirmations = Record<string, Record<string, boolean>>;
 
 /**
  */
@@ -63,6 +65,8 @@ export default function ContextualBanditVariationsModal({
   const [newVariationValues, setNewVariationValues] =
     useState<NewVariationValues>({});
   const [showValueErrors, setShowValueErrors] = useState(false);
+  const [emptyStringConfirmed, setEmptyStringConfirmed] =
+    useState<EmptyStringConfirmations>({});
 
   const watchedVariations = form.watch("variations") ?? [];
   const addedVariations = watchedVariations
@@ -74,8 +78,25 @@ export default function ContextualBanditVariationsModal({
   const valueFor = (lf: LinkedFeatureInfo, variationId: string) =>
     newVariationValues[lf.feature.id]?.[variationId] ?? "";
 
+  const isEmptyConfirmed = (lf: LinkedFeatureInfo, variationId: string) =>
+    !!emptyStringConfirmed[lf.feature.id]?.[variationId];
+
+  const setEmptyConfirmed = (
+    featureId: string,
+    variationId: string,
+    confirmed: boolean,
+  ) =>
+    setEmptyStringConfirmed((prev) => ({
+      ...prev,
+      [featureId]: { ...(prev[featureId] ?? {}), [variationId]: confirmed },
+    }));
+
   const isMissingValue = (lf: LinkedFeatureInfo, variationId: string) =>
-    valueFor(lf, variationId).trim() === "";
+    isUnsetFeatureValue({
+      valueType: lf.feature.valueType,
+      value: valueFor(lf, variationId),
+      emptyStringConfirmed: isEmptyConfirmed(lf, variationId),
+    });
 
   const setValueFor = (featureId: string, variationId: string, value: string) =>
     setNewVariationValues((prev) => ({
@@ -204,7 +225,9 @@ export default function ContextualBanditVariationsModal({
                   <Box key={`${lf.feature.id}:${v.id}`} mb="2">
                     {showValueErrors && isMissingValue(lf, v.id) && (
                       <HelperText status="error">
-                        Set a value for this variation
+                        {lf.feature.valueType === "string"
+                          ? "Set a value, or confirm you want an empty string"
+                          : "Set a value for this variation"}
                       </HelperText>
                     )}
                     <FeatureValueField
@@ -222,6 +245,11 @@ export default function ContextualBanditVariationsModal({
                       value={valueFor(lf, v.id)}
                       setValue={(value) =>
                         setValueFor(lf.feature.id, v.id, value)
+                      }
+                      confirmEmptyString
+                      emptyStringConfirmed={isEmptyConfirmed(lf, v.id)}
+                      setEmptyStringConfirmed={(checked) =>
+                        setEmptyConfirmed(lf.feature.id, v.id, checked)
                       }
                     />
                   </Box>

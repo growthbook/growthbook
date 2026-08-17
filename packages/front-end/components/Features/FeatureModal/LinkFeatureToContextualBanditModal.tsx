@@ -37,6 +37,7 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import SelectField from "@/components/Forms/SelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
+import { isUnsetFeatureValue } from "@/components/Features/EmptyStringConfirm";
 import RuleEnvironmentScopeField from "@/components/Features/RuleModal/EnvironmentScopeField";
 import {
   filterCustomFieldsForSectionAndProject,
@@ -180,6 +181,10 @@ export default function LinkFeatureToContextualBanditModal({
     !!cb.description && cb.description.length > 0,
   );
 
+  const [emptyStringConfirmed, setEmptyStringConfirmed] = useState<
+    Record<string, boolean>
+  >({});
+
   const [ruleAllEnvironments, setRuleAllEnvironments] = useState<boolean>(true);
   const [ruleSelectedEnvironments, setRuleSelectedEnvironments] = useState<
     string[]
@@ -302,6 +307,17 @@ export default function LinkFeatureToContextualBanditModal({
           contextualBanditId: cb.id,
           variations,
         };
+
+        const unsetVariation = variations.find((v) =>
+          isUnsetFeatureValue({
+            valueType,
+            value: v.value ?? "",
+            emptyStringConfirmed: !!emptyStringConfirmed[v.variationId],
+          }),
+        );
+        if (unsetVariation) {
+          throw new Error("Set a value for every variation before saving");
+        }
 
         const newRule = validateFeatureRule(
           rule,
@@ -515,6 +531,14 @@ export default function LinkFeatureToContextualBanditModal({
               configBackingOptionKeys={configBackingOptionKeys}
               configBackingShowPatch={isConfigBacked}
               lockConfigBacking={isConfigBacked}
+              confirmEmptyString
+              emptyStringConfirmed={!!emptyStringConfirmed[v.id]}
+              setEmptyStringConfirmed={(checked) =>
+                setEmptyStringConfirmed((prev) => ({
+                  ...prev,
+                  [v.id]: checked,
+                }))
+              }
             />
             {i < variations.length - 1 && <Separator size="4" my="4" />}
           </Box>

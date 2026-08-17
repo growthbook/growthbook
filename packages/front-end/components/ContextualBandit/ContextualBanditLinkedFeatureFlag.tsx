@@ -94,17 +94,22 @@ export default function ContextualBanditLinkedFeatureFlag({
     return match?.weight ?? fallback;
   };
 
-  const stagedValues = info.stagedDraft?.values ?? [];
+  const stagedDrafts =
+    info.stagedDrafts ?? (info.stagedDraft ? [info.stagedDraft] : []);
   const variationValueStates = cb.variations.map((v) => {
     const liveValue = info.values.find((v2) => v2.variationId === v.id)?.value;
-    const stagedValue = stagedValues.find(
-      (v2) => v2.variationId === v.id,
-    )?.value;
+    const staged = stagedDrafts
+      .map((d) => ({
+        version: d.version,
+        value: d.values.find((v2) => v2.variationId === v.id)?.value,
+      }))
+      .find((s) => s.value !== undefined && s.value !== liveValue);
     return {
       liveValue,
-      stagedValue,
+      stagedValue: staged?.value,
+      stagedVersion: staged?.version,
       hasLiveValue: liveValue !== undefined,
-      hasStagedChange: stagedValue !== undefined && stagedValue !== liveValue,
+      hasStagedChange: staged !== undefined,
     };
   });
 
@@ -235,14 +240,8 @@ export default function ContextualBanditLinkedFeatureFlag({
       >
         {stagedValuesVersion != null && (
           <Callout status="info" my="4">
-            Values are staged in revision #{stagedValuesVersion}. This Bandit
-            keeps serving the current values until that revision is published.{" "}
-            <Link
-              href={`/features/${info.feature?.id}?v=${stagedValuesVersion}`}
-              target="_blank"
-            >
-              View revision <PiArrowSquareOut className="ml-1" />
-            </Link>
+            There is a new revision with changes to variation values. The values
+            below are live until the changes are published.
           </Callout>
         )}
         {info.state === "archived" && (
@@ -358,20 +357,11 @@ export default function ContextualBanditLinkedFeatureFlag({
                               />
                             )}
                             {variationValueStates[j].hasStagedChange && (
-                              <Flex direction="row" gap="1" align="center">
-                                <ForceSummary
-                                  value={
-                                    variationValueStates[j].stagedValue ?? ""
-                                  }
-                                  feature={info.feature}
-                                  sparse={info.sparse}
-                                  maxHeight={60}
-                                />
-                                <Callout status="warning" size="sm">
-                                  Staged in revision #
-                                  {info.stagedDraft?.version} — not serving yet
-                                </Callout>
-                              </Flex>
+                              <HelperText status="info">
+                                Staged in revision #
+                                {variationValueStates[j].stagedVersion} — not
+                                serving yet
+                              </HelperText>
                             )}
                           </Flex>
                         )}

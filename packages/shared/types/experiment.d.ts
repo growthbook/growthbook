@@ -273,6 +273,14 @@ export type LinkedFeatureEnvState =
   | "disabled-rule"
   | "active";
 
+export interface StagedRefDraft {
+  version: number;
+  status: RevisionStatus;
+  values: ExperimentRefVariation[];
+  hasMergeConflict?: boolean;
+  hasUnrelatedDraftChanges?: boolean;
+}
+
 export interface LinkedFeatureInfo {
   feature: FeatureInterface;
   state: LinkedFeatureState;
@@ -303,11 +311,8 @@ export interface LinkedFeatureInfo {
    * one (`state` stays "live", `values` shows what is serving). Lets the UI
    * show staged values instead of reporting them missing.
    */
-  stagedDraft?: {
-    version: number;
-    status: RevisionStatus;
-    values: ExperimentRefVariation[];
-  };
+  stagedDraft?: StagedRefDraft;
+  stagedDrafts?: StagedRefDraft[];
   /** True when the draft cannot be auto-merged into live due to conflicting changes. */
   hasMergeConflict?: boolean;
   /**

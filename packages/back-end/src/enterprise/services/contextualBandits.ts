@@ -1276,8 +1276,17 @@ export async function reconcileLinkedFeatureVariations(
   for (const info of infos) {
     if (info.state !== "live" && info.state !== "draft") continue;
     const feature = info.feature;
+    const stagedDraft = info.stagedDraft;
+    const reusableStagedVersion =
+      stagedDraft &&
+      !stagedDraft.hasUnrelatedDraftChanges &&
+      !stagedDraft.hasMergeConflict
+        ? stagedDraft.version
+        : undefined;
     const draftVersion =
-      info.state === "draft" ? info.draftRevisionVersion : undefined;
+      info.state === "draft"
+        ? info.draftRevisionVersion
+        : reusableStagedVersion;
 
     const baseRules = await getRulesForTargetVersion(
       context,
