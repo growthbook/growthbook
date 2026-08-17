@@ -13,3 +13,6 @@ packages/back-end/src/templates/javascript.js
 packages/shared/types/*.js
 docs/static/scripts/reo.js
 eslint-suppressions.json
+
+# Assembled from canonical and in-app-only skills.
+packages/back-end/generated/agent-skills/

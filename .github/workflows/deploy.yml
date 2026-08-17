@@ -31,6 +31,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
+      # The in-app assistant's canonical skills are assembled from
+      # growthbook/skills rather than checked in. Bundling here (the script is
+      # dependency-free) puts them in the build context; the image build itself
+      # never needs the skills repo. Skills-only commits don't trigger this
+      # workflow — they ship with the next deploy.
+      - name: Checkout GrowthBook skills
+        uses: actions/checkout@v5
+        with:
+          repository: growthbook/skills
+          path: skills-src
+
+      - name: Bundle agent skills
+        run: node packages/back-end/scripts/bundle-agent-skills.mjs
+        env:
+          SKILLS_SRC: ${{ github.workspace }}/skills-src
+
       - name: Login to Docker Hub
         uses: docker/login-action@v4
         with:

@@ -114,7 +114,14 @@ RUN pnpm postinstall
 COPY packages ./packages
 RUN \
   pnpm build \
-  && test -f packages/back-end/dist/server.js || (echo "ERROR: packages/back-end/dist/server.js is missing after build!" && exit 1) \
+  && test -f packages/back-end/dist/server.js \
+  && test -f packages/back-end/dist/agent/skills/feature-flags/SKILL.md \
+  && test -f packages/back-end/dist/agent/skills/feature-flags/references/flag-create.md \
+  && test -f packages/back-end/dist/agent/skills/experiments/SKILL.md \
+  && test -f packages/back-end/dist/agent/skills/experiments/references/experiment-design.md \
+  && test -f packages/back-end/dist/agent/skills/analytics/SKILL.md \
+  && test -f packages/back-end/dist/agent/skills/analytics/references/analytics-explore.md \
+  || (echo "ERROR: back-end build output or canonical agent skills are missing!" && exit 1) \
   && rm -rf node_modules \
   && rm -rf packages/back-end/node_modules \
   && rm -rf packages/front-end/node_modules \

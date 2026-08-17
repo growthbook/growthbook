@@ -22,9 +22,19 @@ jobs:
   # Linting, type-checking, and tests
   ci:
     runs-on: ubuntu-latest
+    env:
+      SKILLS_SRC: ${{ github.workspace }}/skills-src
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+
+      # The in-app assistant's canonical skills are assembled rather than
+      # checked in. CI fails if this checkout or assembly is unavailable.
+      - name: Checkout GrowthBook skills
+        uses: actions/checkout@v5
+        with:
+          repository: growthbook/skills
+          path: skills-src
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -34,6 +44,9 @@ jobs:
         with:
           node-version: "24"
           cache: "pnpm"
+
+      - name: Bundle agent skills
+        run: node packages/back-end/scripts/bundle-agent-skills.mjs
 
       # No eslint cache here on purpose. ESLint keys its cache on file content
       # plus the serialized config, neither of which changes when a type in

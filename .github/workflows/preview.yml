@@ -35,6 +35,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      # Assembles the in-app assistant's canonical skills into the build
+      # context; see deploy.yml.
+      - name: Checkout GrowthBook skills
+        if: ${{ github.event.action != 'closed' }}
+        uses: actions/checkout@v5
+        with:
+          repository: growthbook/skills
+          path: skills-src
+
+      - name: Bundle agent skills
+        if: ${{ github.event.action != 'closed' }}
+        run: node packages/back-end/scripts/bundle-agent-skills.mjs
+        env:
+          SKILLS_SRC: ${{ github.workspace }}/skills-src
+
       - name: Generate Fly Dockerfile
         run: cat Dockerfile preview/Dockerfile.append > preview/Dockerfile.generated
 

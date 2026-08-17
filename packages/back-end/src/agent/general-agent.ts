@@ -60,14 +60,15 @@ How to end a turn:
 
 How to use skills:
 - The "Available skills" section lists **domain routers** only (\`feature-flags\`,
-  \`experiments\`, \`product-analytics\`, \`growthbook-docs\`). Full instructions
+  \`experiments\`, \`analytics\`, \`growthbook-docs\`). Full instructions
   are NOT inlined — load them with \`loadSkill\`.
 - **Two-step workflow** for domain routers that have sub-skills:
-  1. \`loadSkill('<domain>')\` — read orientation, page-context mapping, shared
-     guardrails, and the **Sub-skills** table (leaf names + when to use each).
-  2. \`loadSkill('<leaf>')\` — follow that leaf's detailed \`callApi\` workflow.
-- **Standalone domains** (\`product-analytics\`, \`growthbook-docs\`) have no
-  children — one \`loadSkill\` is enough.
+  1. \`loadSkill('<domain>')\` — read orientation, shared guardrails, and the
+     workflow table (leaf names + when to use each).
+  2. \`loadSkill('<domain>/references/<leaf>')\` — follow that leaf's detailed
+     \`callApi\` workflow.
+- **Standalone domains** such as \`growthbook-docs\` have no children — one
+  \`loadSkill\` is enough.
 - Pick the narrowest leaf that matches; only load multiple leaves if the
   request genuinely spans workflows (e.g. create flag then target it).
 - If no domain fits, ask the user to clarify. Do not invent endpoints.
@@ -82,18 +83,23 @@ This is automatically injected by the chat UI and indicates the page the
 user was viewing in the GrowthBook app when they sent the message. It is
 NOT something the user typed — do not echo it back. Treat it as a hint
 about what entity the user is referring to when they say "this experiment",
-"this feature", "the metric on this page", etc. The relevant skills
-document the URL → entity mapping (e.g. \`/experiment/<id>\` →
-\`GET /api/v1/experiments/<id>\`); load the matching skill before acting on
-page context. If the page context is irrelevant to the user's request,
-ignore it.
+"this feature", "the metric on this page", etc. Map \`/features/<key>\` to that
+feature, \`/experiment/<id>\` to that experiment, \`/metric/<id>\` or
+\`/fact-metrics/<id>\` to that metric, and collection pages to browsing that
+resource. Load the matching skill before acting. If page context is irrelevant
+to the request, ignore it.
 
 A user message may carry other auto-injected lines of the same
 \`[Label: value]\` shape — e.g. \`[Active product-analytics datasource: <id>]\`,
 a soft hint about the datasource the user currently has selected. These are
 also injected by the UI (not typed by the user); follow the same rules — do
-not echo them, and treat them as hints. The product-analytics skill documents
-how to use the datasource hint.
+not echo them, and treat them as hints. For analytics, use the active datasource
+without listing or asking unless the user names a different one.
+
+For analytics, produce at most one successful chart per turn. Failed or empty
+runs may be corrected, but stop after the first successful exploration. The UI
+renders the chart automatically from the full response; the tool result omits
+raw rows, so do not invent a numeric summary when no numbers are visible.
 
 # Linking to pages
 
@@ -200,12 +206,6 @@ function buildGeneralAgentSystemPrompt(): string {
 const EXPLORATION_PATH_RE =
   /^\/api\/v[12]\/product-analytics\/(metric|fact-table|data-source)-exploration\/?$/;
 
-/** Read-only POST that looks up distinct column values for a fact table. The
- * product-analytics skill mandates calling this during normal chart building,
- * so it must be exempt from the mutation-confirmation gate. */
-const COLUMN_VALUES_PATH_RE =
-  /^\/api\/v[12]\/product-analytics\/column-values\/?$/;
-
 function isExplorationPath(path: string): boolean {
   // Normalize first so we match the canonical `/api/v1/...` form the
   // dispatcher routes to, regardless of the prefix shape the LLM sent
@@ -216,9 +216,8 @@ function isExplorationPath(path: string): boolean {
 /**
  * Deterministic mutation gate. Any non-GET call mutates configuration and is
  * parked for explicit user confirmation, except a small allowlist of
- * read-only POSTs (experiment snapshot refreshes, product-analytics
- * explorations, and column-value lookups) that compute or read data without
- * changing configuration.
+ * read-only POSTs (experiment snapshot refreshes and product-analytics
+ * explorations) that compute data without changing configuration.
  *
  * The path is normalized first (via the dispatcher's `normalizePath`) so the
  * allowlist matches regardless of whether the LLM sends `/api/v1/...`,
@@ -231,9 +230,6 @@ function requiresMutationConfirmation(input: DispatchInput): boolean {
     return false;
   }
   if (isExplorationPath(path)) {
-    return false;
-  }
-  if (COLUMN_VALUES_PATH_RE.test(path)) {
     return false;
   }
   return true;
@@ -375,13 +371,13 @@ const loadSkillInputSchema = z.object({
     .string()
     .min(1)
     .describe(
-      "Name of the skill to load (must match one of the names in the 'Available skills' list in the system prompt).",
+      "Top-level skill name from 'Available skills', or a qualified <domain>/references/<workflow> path from a loaded domain router.",
     ),
 });
 
 const LOAD_SKILL_DESCRIPTION =
-  "Load the full instructions for a named skill. Call this when you've " +
-  "decided which skill applies to the user's request — its return value " +
+  "Load a top-level skill or qualified workflow reference. Call this when " +
+  "you've decided which skill applies to the user's request — its return value " +
   "contains the detailed REST API workflow (endpoints, request bodies, " +
   "examples) for that capability area. Returns { status, name, description, " +
   "body } on a hit, or { status: 'not_found', availableSkills } if the " +

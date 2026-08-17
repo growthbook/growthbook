@@ -1,6 +1,9 @@
 # Build and test artifacts
 .git
 .github
+# CI vendors the growthbook/skills checkout here and bundles before the image
+# build, so the source tree itself never needs to enter the build context.
+skills-src
 .gitignore
 Dockerfile
 docker-compose.yml
@@ -9,6 +12,8 @@ docker-compose.yml
 .prettier*
 .husky
 *.md
+!packages/back-end/generated/agent-skills/**/*.md
+!packages/back-end/src/agent/skills-local/**/*.md
 **/node_modules
 **/coverage
 **/.next

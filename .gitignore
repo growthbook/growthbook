@@ -57,3 +57,6 @@ next-env.d.ts
 
 # Agent scratch space
 .context/
+
+# Canonical and in-app-only skills assembled for the back-end build.
+packages/back-end/generated/agent-skills/
