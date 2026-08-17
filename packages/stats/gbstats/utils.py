@@ -23,12 +23,6 @@ def frequentist_diff(mean_a, mean_b, relative, mean_a_unadjusted=None) -> float:
     if not mean_a_unadjusted:
         mean_a_unadjusted = mean_a
     if relative:
-        # Scale by the magnitude of the baseline so the sign of the relative
-        # difference always matches the sign of the absolute difference. Dividing
-        # by a negative baseline would flip it, so an improvement on a metric
-        # with a negative control mean would show as a loss (and vice versa).
-        # Matches the abs() scaling already used for the relative variance and
-        # prior conversions elsewhere in the engine.
         return (mean_b - mean_a) / abs(mean_a_unadjusted)
     else:
         return mean_b - mean_a
