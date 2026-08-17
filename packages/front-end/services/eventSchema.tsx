@@ -8,6 +8,7 @@ import { ReactElement } from "react";
 import { BsDatabase } from "react-icons/bs";
 import { GrBarChart } from "react-icons/gr";
 import {
+  SiAdobe,
   SiAmazonredshift,
   SiClickhouse,
   SiDatabricks,
@@ -20,7 +21,6 @@ import {
   SiPresto,
   SiSnowflake,
 } from "react-icons/si";
-import { BiLogoAdobe } from "react-icons/bi";
 import { DocSection } from "@/components/DocLink";
 
 export type eventSchema = {
@@ -494,7 +494,7 @@ export const dataSourceConnections: {
   {
     type: "adobe_ep_query_service",
     display: "Adobe Experience Platform",
-    icon: <BiLogoAdobe />,
+    icon: <SiAdobe />,
     docs: "adobe_ep_query_service",
     default: {
       host: "",

@@ -1,7 +1,7 @@
 import { FC, ChangeEventHandler } from "react";
 import { AdobeEpConnectionParams } from "shared/types/integrations/adobe-ep";
 import TextField from "@/ui/TextField";
-import Switch from "@/ui/Switch";
+import Checkbox from "@/ui/Checkbox";
 import {
   KEEP_EXISTING_PLACEHOLDER,
   useCanKeepExistingCredentials,
@@ -70,11 +70,11 @@ const AdobeEpForm: FC<{
         />
       </div>
       <div className="form-group col-md-12">
-        <Switch
+        <Checkbox
           label="Flatten"
           description="Flatten XDM structs to dot notation."
           value={params.flatten ?? false}
-          onChange={(checked) => setParams({ flatten: checked })}
+          setValue={(checked) => setParams({ flatten: checked })}
         />
       </div>
       <div className="form-group col-md-12">
