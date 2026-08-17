@@ -250,10 +250,10 @@ export default function StaleFeatureIcon({
             </span>
           ) : hasTempRollout ? (
             <span style={{ color: "var(--orange-11)" }}>
-              <Text size="large" weight="semibold">
+              <Text size="lg" weight="semibold">
                 Temp Rollout
               </Text>
-              <Text as="div" size="medium" color="text-low" mt="1">
+              <Text as="div" size="md" color="text-low" mt="1">
                 Cleanup candidate — a stopped experiment is still serving its
                 released variation.
               </Text>

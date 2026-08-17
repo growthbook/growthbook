@@ -258,7 +258,7 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                   ) : e.hasTempRollout ? (
                     <Tooltip
                       flipTheme={false}
-                      body="A stopped experiment is still serving its released variation. Ready for cleanup."
+                      body="This stopped experiment still has its temporary rollout enabled. Ready for cleanup."
                     >
                       <span
                         style={{

@@ -419,11 +419,21 @@ export function applyMetricOverrides<T extends ExperimentMetricDefinition>(
 }
 
 /**
- * True when a stopped experiment is still serving its released variation —
- * i.e. a temporary rollout. Delegates to `includeExperimentInPayload` so the
- * predicate stays aligned with what the SDK actually emits (archived
- * experiments, missing released variation, no linked changes, etc. all
- * correctly exclude themselves).
+ * True when a stopped experiment still has its temporary rollout turned on.
+ *
+ * Delegates to `includeExperimentInPayload` for the experiment-level guards —
+ * archived, missing released variation, no phases, no linked changes all
+ * correctly exclude themselves.
+ *
+ * Deliberately called without linked feature documents, which the experiment
+ * list does not load. That skips the published-rule check inside
+ * `includeExperimentInPayload`, so an experiment whose experiment-ref rules are
+ * all disabled, in a disabled environment, or present only in an unpublished
+ * draft still reports true. That is the intent here: the rollout setting is
+ * still on and wants turning off, which is precisely the cleanup signal the
+ * "State" column exists to surface. It does mean this is NOT a guarantee that a
+ * live rule is currently serving the released variation — use
+ * `includeExperimentInPayload` with the linked features for that.
  */
 export function hasTempRollout(
   exp: Pick<
