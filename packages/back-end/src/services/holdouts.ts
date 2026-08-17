@@ -430,13 +430,13 @@ export async function setHoldoutStage(
       }
       Object.assign(changes, { phases, status: "stopped" });
       await updateExperiment({ context, experiment, changes });
+      refreshPayload("Status changed to stopped");
       await context.models.holdout.update(holdout, {
         nextScheduledStatusUpdate: getNextScheduledStatusUpdateForStage(
           holdout.statusUpdateSchedule,
           "stopped",
         ),
       });
-      refreshPayload("Status changed to stopped");
       return;
     }
 
@@ -447,10 +447,10 @@ export async function setHoldoutStage(
       phases[0].dateEnded = undefined;
       Object.assign(changes, { phases: [phases[0]], status: "draft" });
       await updateExperiment({ context, experiment, changes });
+      refreshPayload("Status changed to draft");
       await context.models.holdout.update(holdout, {
         analysisStartDate: undefined,
       });
-      refreshPayload("Status changed to draft");
       return;
     }
 
@@ -465,6 +465,7 @@ export async function setHoldoutStage(
           await getChangesToStartExperiment(context, experiment),
         );
         await updateExperiment({ context, experiment, changes });
+        refreshPayload("Status changed to running");
         await context.models.holdout.update(holdout, {
           analysisStartDate: undefined,
           nextScheduledStatusUpdate: getNextScheduledStatusUpdateForStage(
@@ -472,7 +473,6 @@ export async function setHoldoutStage(
             "running",
           ),
         });
-        refreshPayload("Status changed to running");
         return;
       }
 
@@ -482,10 +482,10 @@ export async function setHoldoutStage(
       }
       Object.assign(changes, { phases, status: "running" });
       await updateExperiment({ context, experiment, changes });
+      refreshPayload("Status changed to running");
       await context.models.holdout.update(holdout, {
         analysisStartDate: undefined,
       });
-      refreshPayload("Status changed to running");
       return;
     }
 
@@ -507,6 +507,7 @@ export async function setHoldoutStage(
       };
       Object.assign(changes, { phases, status: "running" });
       await updateExperiment({ context, experiment, changes });
+      refreshPayload("Status changed to analysis period");
       await context.models.holdout.update(holdout, {
         analysisStartDate,
         nextScheduledStatusUpdate: getNextScheduledStatusUpdateForStage(
@@ -514,7 +515,6 @@ export async function setHoldoutStage(
           "analysis-period",
         ),
       });
-      refreshPayload("Status changed to analysis period");
       return;
     }
     default: {
