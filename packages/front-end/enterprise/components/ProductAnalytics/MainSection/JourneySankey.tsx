@@ -150,25 +150,14 @@ function lerpLayout(from: Layout, to: Layout, t: number): Layout {
   };
 }
 
-function layout(
-  m: JourneyViewModel,
-  width: number,
-  height: number,
-  scaleMode: "perStep" | "funnel",
-): Layout {
-  const perStep = scaleMode === "perStep";
+/** Each column is scaled to its own total, so every step fills the height and
+ *  within-step proportions stay readable however far the journey has narrowed. */
+function layout(m: JourneyViewModel, width: number, height: number): Layout {
   const cols = m.columns.map((c) => ({
     ...c,
     nodes: c.nodes.map((n) => ({ ...n })),
   }));
   const pitch = cols.length > 1 ? (width - NODE_W) / (cols.length - 1) : 0;
-  const maxGaps = Math.max(
-    0,
-    ...cols.map((c) => Math.max(0, c.nodes.length - 1) * NODE_GAP),
-  );
-  const availGlobal = height - PAD_T - PAD_B - maxGaps;
-  const globalScale = m.anchorTotal > 0 ? availGlobal / m.anchorTotal : 0;
-
   cols.forEach((c) => {
     c.total = c.nodes.reduce((a, n) => a + n.value, 0);
     const gaps = Math.max(0, c.nodes.length - 1) * NODE_GAP;
@@ -176,18 +165,9 @@ function layout(
       c.frontier && c.nodes.some((n) => n.key === JOURNEY_OTHER)
         ? VIEW_MORE_GAP
         : 0;
-    let y: number;
-    if (perStep) {
-      const availC = height - PAD_T - PAD_B - gaps - viewMoreGap;
-      c.scale = c.total > 0 ? availC / c.total : 0;
-      y = PAD_T;
-    } else {
-      c.scale = globalScale;
-      y =
-        PAD_T +
-        (availGlobal - c.total * globalScale) / 2 +
-        (maxGaps - gaps) / 2;
-    }
+    const availC = height - PAD_T - PAD_B - gaps - viewMoreGap;
+    c.scale = c.total > 0 ? availC / c.total : 0;
+    let y = PAD_T;
     for (const n of c.nodes) {
       const ln = n as LaidNode;
       ln.h = Math.max(1.5, n.value * c.scale);
@@ -348,7 +328,6 @@ function SankeySvg({
   model,
   width,
   height,
-  scaleMode,
   onCommit,
   onPop,
   onViewMore,
@@ -358,7 +337,6 @@ function SankeySvg({
   model: JourneyViewModel;
   width: number;
   height: number;
-  scaleMode: "perStep" | "funnel";
   onCommit: (keys: string[]) => void;
   onPop: (index: number) => void;
   onViewMore: (levelIndex: number) => void;
@@ -370,10 +348,7 @@ function SankeySvg({
   const reduceMotion =
     typeof window !== "undefined" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const target = useMemo(
-    () => layout(model, w, h, scaleMode),
-    [model, w, h, scaleMode],
-  );
+  const target = useMemo(() => layout(model, w, h), [model, w, h]);
   const [drawn, setDrawn] = useState(target);
   const visualRef = useRef(target);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -664,7 +639,7 @@ function SankeySvg({
                               ? "ending step"
                               : "starting step"
                           }`,
-                          ...(scaleMode === "perStep" && c.total
+                          ...(c.total
                             ? [
                                 `${pct(n.value, c.total)} of this step — what the height shows`,
                               ]
@@ -798,7 +773,6 @@ function SankeySvg({
 
 export default function JourneySankey({
   model,
-  scaleMode,
   onCommit,
   onPop,
   onViewMore,
@@ -806,7 +780,6 @@ export default function JourneySankey({
   viewMoreLoading,
 }: {
   model: JourneyViewModel;
-  scaleMode: "perStep" | "funnel";
   onCommit: (keys: string[]) => void;
   onPop: (index: number) => void;
   onViewMore: (levelIndex: number) => void;
@@ -822,7 +795,6 @@ export default function JourneySankey({
             model={model}
             width={width}
             height={Math.max(280, height)}
-            scaleMode={scaleMode}
             onCommit={onCommit}
             onPop={onPop}
             onViewMore={onViewMore}

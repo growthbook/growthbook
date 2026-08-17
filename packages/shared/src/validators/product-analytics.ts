@@ -103,16 +103,20 @@ export type FunnelDataset = z.infer<typeof funnelDatasetValidator>;
 export const journeyDirectionValidator = z.enum(["forward", "backward"]);
 export type JourneyDirection = z.infer<typeof journeyDirectionValidator>;
 
-/** One committed step. `mode: "other"` is modeled but rejected in validation —
- *  same "model it, lock it" shape as funnelOrderingValidator. */
-export const journeyPathStepValidator = z.discriminatedUnion("mode", [
-  z.object({ mode: z.literal("value"), value: z.string() }),
-  z.object({ mode: z.literal("other"), excludes: z.array(z.string()) }),
-]);
+/** One committed step of the drilled path. */
+export const journeyPathStepValidator = z
+  .object({ value: z.string() })
+  .strict();
 export type JourneyPathStep = z.infer<typeof journeyPathStepValidator>;
 
 export const MAX_JOURNEY_STEP_COLUMNS = 3;
 export const MAX_JOURNEY_STEP_GROUPS = 25;
+/** Frontier levels fetched per query. One is drawn; the rest are lookahead
+ *  that lets a drill-down redraw from the cached result with no round trip. */
+export const MAX_JOURNEY_LOOKAHEAD_DEPTH = 4;
+export const MIN_JOURNEY_OPTIONS_PER_STEP = 2;
+export const MAX_JOURNEY_OPTIONS_PER_STEP = 50;
+export const DEFAULT_JOURNEY_OPTIONS_PER_STEP = 5;
 
 /** First match wins. The pattern is also the emitted label (`/article/*`), so
  *  anchor / path / exclusions compare by exact string equality with no second field. */
@@ -129,31 +133,30 @@ const journeyDatasetValidator = z
     type: z.literal("journey"),
     factTableId: z.string().nullable(),
     unit: z.string().nullable(),
-    dailyJourneys: z.boolean(),
     stepColumns: z.array(z.string()).max(MAX_JOURNEY_STEP_COLUMNS),
-    // Optional so older saved / URL-encoded configs still parse.
     stepGroups: z
       .array(journeyStepGroupValidator)
       .max(MAX_JOURNEY_STEP_GROUPS)
       .optional(),
     anchorStepValues: z.array(z.string()).nullable(),
     direction: journeyDirectionValidator,
-    excludedSteps: z.array(z.string()),
     rowFilters: z.array(rowFilterValidator),
-    collapseRepeats: z.boolean(),
     path: z.array(journeyPathStepValidator),
-    // Fetch depth; renderDepth of these levels are drawn.
-    depth: z.number().int().min(1).max(4),
-    // Per frontier level from the anchor; missing entries default to 5.
-    // A bare number is accepted so older URL-encoded configs still parse.
+    // Frontier levels to fetch. The chart draws one; the rest are lookahead.
+    lookaheadDepth: z.number().int().min(1).max(MAX_JOURNEY_LOOKAHEAD_DEPTH),
+    // Per frontier level from the anchor; missing entries default to
+    // DEFAULT_JOURNEY_OPTIONS_PER_STEP. A bare number is accepted so older
+    // URL-encoded configs still parse.
     optionsPerStep: z.preprocess(
       (v) => (typeof v === "number" ? [v] : v),
-      z.array(z.number().int().min(2).max(50)),
+      z.array(
+        z
+          .number()
+          .int()
+          .min(MIN_JOURNEY_OPTIONS_PER_STEP)
+          .max(MAX_JOURNEY_OPTIONS_PER_STEP),
+      ),
     ),
-    // Display-only; stripped from the fetch identity in toFetchKey.
-    renderDepth: z.number().int().min(1).max(3).optional(),
-    scaleMode: z.enum(["perStep", "funnel"]).optional(),
-    dimEncoding: z.enum(["tooltip", "ribbons", "facet"]).optional(),
   })
   .strict();
 export type JourneyDataset = z.infer<typeof journeyDatasetValidator>;
@@ -347,15 +350,6 @@ export const productAnalyticsJourneyRowValidator = z.discriminatedUnion(
       levels: z.array(z.string()),
       count: z.number(),
     }),
-    // On-path at depth d = sum of rows with depthReached >= d;
-    // leaks at step d are depthReached === d split by outcome.
-    z.object({
-      kind: z.literal("progress"),
-      direction: journeyDirectionValidator,
-      depthReached: z.number(),
-      outcome: z.enum(["taken", "other", "exit"]),
-      count: z.number(),
-    }),
     // Next-step options at a committed prefix. stepIndex 0 is the first
     // step after the anchor; stepIndex === path.length is not emitted
     // (that frontier comes from path rows).
@@ -462,6 +456,46 @@ export type MetricDataset = z.infer<typeof metricDatasetValidator>;
 export type FactTableDataset = z.infer<typeof factTableDatasetValidator>;
 export type DataSourceDataset = z.infer<typeof dataSourceDatasetValidator>;
 export type ExplorationDataset = z.infer<typeof explorationDatasetValidator>;
+
+/** Datasets built from a list of values, as opposed to the ones that describe
+ *  their own shape (funnels carry `steps`, journeys carry step columns). Prefer
+ *  this over listing dataset types, so a new type is a compile error here
+ *  rather than a silent miss at every call site. */
+export type ValuesDataset =
+  | MetricDataset
+  | FactTableDataset
+  | DataSourceDataset;
+
+export function datasetHasValues(
+  dataset: ExplorationDataset,
+): dataset is ValuesDataset;
+export function datasetHasValues(
+  dataset: ExplorationDataset | null | undefined,
+): dataset is ValuesDataset;
+export function datasetHasValues(
+  dataset: ExplorationDataset | null | undefined,
+): boolean {
+  if (!dataset) return false;
+  switch (dataset.type) {
+    case "funnel":
+    case "journey":
+      return false;
+    case "metric":
+    case "fact_table":
+    case "data_source":
+      return true;
+    default: {
+      const exhaustive: never = dataset;
+      return exhaustive;
+    }
+  }
+}
+
+export function datasetTypeHasValues(
+  type: DatasetType,
+): type is ValuesDataset["type"] {
+  return type !== "funnel" && type !== "journey";
+}
 export type ProductAnalyticsFunnelStepResult = z.infer<
   typeof productAnalyticsFunnelStepResultValidator
 >;

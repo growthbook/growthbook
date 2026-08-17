@@ -5,6 +5,7 @@ import {
   type AIChatToolResultPart,
 } from "shared/ai-chat";
 import {
+  datasetHasValues,
   dateRangePredefined,
   ExplorationConfig,
   explorationConfigValidator,
@@ -251,13 +252,9 @@ function buildSnapshotSummary(
       if (stepNames?.length) {
         parts.push(`steps: ${stepNames.join(", ")}`);
       }
-    } else if (
-      curr.dataset?.type !== "journey" &&
-      curr.dataset &&
-      "values" in curr.dataset
-    ) {
+    } else if (datasetHasValues(curr.dataset)) {
       const valueNames = curr.dataset.values.map((v) => v.name).filter(Boolean);
-      if (valueNames?.length) {
+      if (valueNames.length) {
         parts.push(`values: ${valueNames.join(", ")}`);
       }
     }
@@ -284,16 +281,7 @@ function buildSnapshotSummary(
     const removed = prevSteps.filter((n) => !currSteps.includes(n));
     if (added.length) parts.push(`added steps: ${added.join(", ")}`);
     if (removed.length) parts.push(`removed steps: ${removed.join(", ")}`);
-  } else if (
-    prev.dataset?.type !== "funnel" &&
-    curr.dataset?.type !== "funnel" &&
-    prev.dataset?.type !== "journey" &&
-    curr.dataset?.type !== "journey" &&
-    prev.dataset &&
-    curr.dataset &&
-    "values" in prev.dataset &&
-    "values" in curr.dataset
-  ) {
+  } else if (datasetHasValues(prev.dataset) && datasetHasValues(curr.dataset)) {
     const prevNames = prev.dataset.values.map((v) => v.name);
     const currNames = curr.dataset.values.map((v) => v.name);
     const added = currNames.filter((n) => !prevNames.includes(n));
@@ -719,9 +707,8 @@ async function normalizeConfigForExplorer(
     );
   }
 
-  // Funnels and journeys have no `values` array; skip the bigNumber / value
-  // count constraints below.
-  if (dataset.type !== "funnel" && dataset.type !== "journey") {
+  // The bigNumber / value count constraints below assume a `values` array.
+  if (datasetHasValues(dataset)) {
     // bigNumber: no dimensions, single value
     if (config.chartType === "bigNumber") {
       if (dims.length > 0) {

@@ -13,6 +13,7 @@ import {
   getBlockData,
 } from "shared/enterprise";
 import {
+  DatasetType,
   ExplorationConfig,
   ComparisonMode,
   ExplorationDateRange,
@@ -38,13 +39,16 @@ import { useCronValidation } from "@/enterprise/components/Dashboards/useCronVal
 import DashboardUpdateScheduleSelector from "@/enterprise/components/Dashboards/DashboardUpdateScheduleSelector";
 import track from "@/services/track";
 
+/** Null for dataset types dashboards can't hold a block for yet. Callers gate
+ *  on this rather than assuming — see DASHBOARD_UNSUPPORTED_DATASET. */
 function datasetTypeToBlockType(
-  type: "metric" | "fact_table" | "data_source" | "funnel",
+  type: DatasetType,
 ):
   | "metric-exploration"
   | "fact-table-exploration"
   | "data-source-exploration"
-  | "funnel-exploration" {
+  | "funnel-exploration"
+  | null {
   switch (type) {
     case "metric":
       return "metric-exploration";
@@ -54,7 +58,22 @@ function datasetTypeToBlockType(
       return "data-source-exploration";
     case "funnel":
       return "funnel-exploration";
+    case "journey":
+      return null;
+    default: {
+      const exhaustive: never = type;
+      return exhaustive;
+    }
   }
+}
+
+const DASHBOARD_UNSUPPORTED_DATASET =
+  "This exploration type can't be saved to a dashboard yet.";
+
+/** Gate the Save to Dashboard control on this so the modal is never opened for
+ *  a dataset type that has no block to save into. */
+export function canSaveToDashboard(type: DatasetType): boolean {
+  return datasetTypeToBlockType(type) !== null;
 }
 
 interface Props {
@@ -124,11 +143,10 @@ export default function SaveToDashboardModal({
   }));
 
   const handleSubmit = async () => {
-    const datasetType = config.dataset.type;
-    if (datasetType === "journey") {
-      throw new Error("User Journeys can't be saved to dashboards yet.");
-    }
-    const blockType = datasetTypeToBlockType(datasetType);
+    const blockType = datasetTypeToBlockType(config.dataset.type);
+    // The Save to Dashboard control is hidden for these, so this is a
+    // belt-and-braces guard rather than a path users can reach.
+    if (!blockType) throw new Error(DASHBOARD_UNSUPPORTED_DATASET);
     // Persist the comparison so dashboards can show it and roll it on refresh.
     // Only `custom` needs its window stored; every other mode re-derives it each
     // refresh so it rolls with the primary range.

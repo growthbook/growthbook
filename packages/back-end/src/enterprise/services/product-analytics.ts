@@ -11,10 +11,8 @@ import {
   isJourneySupportedDatasourceType,
 } from "shared/enterprise";
 import {
-  journeyConfigExceedsRowCap,
-  journeyDimValueCount,
   journeyMinUnusedLookahead,
-  MAX_JOURNEY_RESULT_ROWS,
+  validateJourneyDataset,
 } from "shared/journeys";
 import {
   FactMetricInterface,
@@ -68,10 +66,14 @@ export async function runProductAnalyticsExploration(
   if (options.cache !== "never") {
     const existing =
       await context.models.analyticsExplorations.findLatestByConfig(config, {
+        // `required` is the drill-down path: the user already has a result on
+        // screen and we only need one unused frontier level to redraw it, so
+        // accept a weaker cache match. `preferred` may still run the query, so
+        // hold out for a result with full lookahead left.
         minUnusedLookahead:
           config.dataset.type === "journey"
             ? journeyMinUnusedLookahead(
-                config.dataset.depth,
+                config.dataset.lookaheadDepth,
                 options.cache === "required" ? "one" : "full",
               )
             : undefined,
@@ -203,41 +205,18 @@ export async function runProductAnalyticsExploration(
       }
     }
   } else if (dataset.type === "journey") {
-    if (!dataset.factTableId) {
-      throw new BadRequestError("Fact Table is required");
-    }
-    if (!dataset.unit) {
-      throw new BadRequestError("Journey unit is required");
-    }
-    if (!dataset.stepColumns.length) {
-      throw new BadRequestError("Journey step columns are required");
-    }
-    if (
-      !dataset.anchorStepValues ||
-      dataset.anchorStepValues.length !== dataset.stepColumns.length ||
-      dataset.anchorStepValues.some((v) => !v)
-    ) {
-      throw new BadRequestError("Journey starting step is required");
-    }
-    for (const group of dataset.stepGroups ?? []) {
-      if (!group.pattern) {
-        throw new BadRequestError("Journey grouping rule pattern is required");
-      }
-      if (!dataset.stepColumns.includes(group.column)) {
-        throw new BadRequestError(
-          `Journey grouping rule references column "${group.column}", which is not a step column`,
-        );
-      }
-    }
-    if (dataset.path.some((step) => step.mode === "other")) {
-      throw new BadRequestError("Drilling into (other) is not supported yet");
+    // Every dataset-shape rule lives in validateJourneyDataset so the SQL
+    // builder and the explorer's Run button can't drift from this endpoint.
+    const errors = validateJourneyDataset(dataset, config.dimensions[0]);
+    if (errors.length) {
+      throw new BadRequestError(errors.join(" "));
     }
     if (!isJourneySupportedDatasourceType(datasource.type)) {
       throw new BadRequestError(
         "User Journey explorations aren't supported for this Data Source yet. Supported warehouses will expand as each is validated.",
       );
     }
-    const factTable = await getFactTable(context, dataset.factTableId);
+    const factTable = await getFactTable(context, dataset.factTableId ?? "");
     if (!factTable) {
       throw new NotFoundError("Fact table not found");
     }
@@ -247,22 +226,9 @@ export async function runProductAnalyticsExploration(
         "Fact Table must belong to the same Data Source as the exploration",
       );
     }
-    if (!factTable.userIdTypes.includes(dataset.unit)) {
+    if (dataset.unit && !factTable.userIdTypes.includes(dataset.unit)) {
       throw new BadRequestError(
         `Journey unit "${dataset.unit}" is not a userIdType on the Fact Table`,
-      );
-    }
-    const dimValues = journeyDimValueCount(config.dimensions[0]);
-    if (
-      journeyConfigExceedsRowCap({
-        optionsPerStep: dataset.optionsPerStep,
-        depth: dataset.depth,
-        pathLength: dataset.path.length,
-        dimValues,
-      })
-    ) {
-      throw new BadRequestError(
-        `Journey result would exceed ${MAX_JOURNEY_RESULT_ROWS} rows. Lower options per step, steps to show, or dimension values.`,
       );
     }
   } else {

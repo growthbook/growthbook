@@ -34,7 +34,9 @@ import {
   showAsAppliesTo,
   stripExplorerDraftFields,
 } from "@/enterprise/components/ProductAnalytics/util";
-import SaveToDashboardModal from "@/enterprise/components/ProductAnalytics/SaveToDashboardModal";
+import SaveToDashboardModal, {
+  canSaveToDashboard,
+} from "@/enterprise/components/ProductAnalytics/SaveToDashboardModal";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import track from "@/services/track";
 import MetricTabContent from "./MetricTabContent";
@@ -213,7 +215,7 @@ export default function ExplorerSideBar({
       <Flex justify="end" align="center" height="32px" py="2" gap="2">
         {!renderingInDashboardSidebar ? (
           <>
-            {dataset?.type !== "journey" && (
+            {dataset && canSaveToDashboard(dataset.type) && (
               <Tooltip
                 body={saveToDashboardDisabledReason || ""}
                 shouldDisplay={!!saveToDashboardDisabledReason}

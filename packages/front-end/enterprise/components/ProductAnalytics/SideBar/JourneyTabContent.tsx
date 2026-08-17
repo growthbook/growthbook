@@ -58,26 +58,31 @@ function suggestedGroupsForColumns(
   );
 }
 
+/** Narrows on `prev.type` rather than `prev.dataset.type` so the spread below
+ *  type-checks without an `as ExplorationConfig`. */
 function patchJourney(
   prev: ExplorationConfig,
   patch:
     | Partial<JourneyDataset>
     | ((dataset: JourneyDataset) => JourneyDataset),
 ): ExplorationConfig {
-  if (prev.dataset.type !== "journey") return prev;
-  const nextDataset =
+  if (prev.type !== "journey") return prev;
+  const dataset =
     typeof patch === "function"
       ? patch(prev.dataset)
       : { ...prev.dataset, ...patch };
-  return {
-    ...prev,
-    dataset: {
-      ...nextDataset,
-      dailyJourneys: true,
-      collapseRepeats: true,
-      excludedSteps: [],
-    },
-  } as ExplorationConfig;
+  return { ...prev, dataset };
+}
+
+/** Anchor values are positional against `stepColumns`; keep the two the same
+ *  length so every consumer can index one with the other. */
+function alignAnchorValues(
+  anchorStepValues: string[] | null,
+  stepColumns: string[],
+): string[] | null {
+  if (!anchorStepValues) return null;
+  const next = stepColumns.map((_, i) => anchorStepValues[i] ?? "");
+  return next.some(Boolean) ? next : null;
 }
 
 export default function JourneyTabContent() {
@@ -182,14 +187,14 @@ export default function JourneyTabContent() {
         );
         const samples = samplesForColumns(added, current.factTableId);
         const additions = suggestedGroupsForColumns(added, samples);
-        const anchors = nextAnchor?.length
-          ? nextAnchor.slice(0, stored.length)
-          : null;
         return withStepGroupsApplied(
           {
             ...current,
             stepColumns: stored,
-            anchorStepValues: anchors?.some(Boolean) ? anchors : null,
+            anchorStepValues: alignAnchorValues(
+              nextAnchor?.length ? nextAnchor : null,
+              stored,
+            ),
             path: [],
             rowFilters: withoutStepColumnFilters(current.rowFilters, stored),
           },
@@ -439,12 +444,11 @@ export default function JourneyTabContent() {
                       onChange={(value) => {
                         setDraftExploreState((prev) =>
                           patchJourney(prev, (current) => {
-                            const next = current.anchorStepValues
-                              ? [...current.anchorStepValues]
-                              : current.stepColumns.map(() => "");
-                            while (next.length < current.stepColumns.length) {
-                              next.push("");
-                            }
+                            const next =
+                              alignAnchorValues(
+                                current.anchorStepValues,
+                                current.stepColumns,
+                              ) ?? current.stepColumns.map(() => "");
                             next[i] = value;
                             return {
                               ...current,

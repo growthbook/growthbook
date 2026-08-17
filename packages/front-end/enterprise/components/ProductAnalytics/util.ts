@@ -22,12 +22,14 @@ import type {
 } from "shared/validators";
 import {
   applyStepGroups,
+  isJourneyDatasetRunnable,
   journeyMinUnusedLookahead,
   journeyResultCanServe,
   stepGroupsForColumn,
 } from "shared/journeys";
 import {
   MAX_JOURNEY_STEP_COLUMNS,
+  datasetHasValues,
   dateGranularity,
   explorationConfigValidator,
   explorationDateRangeValidator,
@@ -150,37 +152,21 @@ export function getDefaultJourneyStepColumns(
     .slice(0, MAX_JOURNEY_STEP_COLUMNS);
 }
 
-/** Re-point the anchor and exclusions at grouped labels so they still match. */
+/** Re-point the anchor at grouped labels so it still matches after a rule
+ *  change; the drilled path can't survive a regrouping, so it resets. */
 export function withStepGroupsApplied(
   current: JourneyDataset,
   stepGroups: JourneyStepGroup[],
 ): JourneyDataset {
-  const anchorStepValues =
-    current.anchorStepValues?.map((value, i) => {
-      const column = current.stepColumns[i];
-      if (!column || !value) return value;
-      return applyStepGroups(value, stepGroupsForColumn(stepGroups, column));
-    }) ?? null;
-
-  const firstColumn = current.stepColumns[0];
-  const excludedSteps = firstColumn
-    ? Array.from(
-        new Set(
-          current.excludedSteps.map((value) =>
-            applyStepGroups(
-              value,
-              stepGroupsForColumn(stepGroups, firstColumn),
-            ),
-          ),
-        ),
-      )
-    : current.excludedSteps;
-
   return {
     ...current,
     stepGroups,
-    anchorStepValues,
-    excludedSteps,
+    anchorStepValues:
+      current.anchorStepValues?.map((value, i) => {
+        const column = current.stepColumns[i];
+        if (!column || !value) return value;
+        return applyStepGroups(value, stepGroupsForColumn(stepGroups, column));
+      }) ?? null,
     path: [],
   };
 }
@@ -529,19 +515,15 @@ export function createEmptyDataset(type: DatasetType): ExplorationDataset {
       type,
       factTableId: null,
       unit: null,
-      dailyJourneys: true,
       stepColumns: [],
       anchorStepValues: null,
       direction: "forward",
-      excludedSteps: [],
       rowFilters: [],
-      collapseRepeats: true,
       path: [],
-      depth: 3,
+      // Draw one frontier level, keep two more in hand so the first two
+      // drill-downs redraw from the cached result instead of re-querying.
+      lookaheadDepth: 3,
       optionsPerStep: [],
-      renderDepth: 1,
-      scaleMode: "perStep",
-      dimEncoding: "ribbons",
     };
   } else {
     throw new Error(`Invalid dataset type: ${type}`);
@@ -557,7 +539,7 @@ export function getCommonColumns(
   // Funnels use first-touch dimensions on the initial step's fact table,
   // so the candidate columns come from that one fact table — even when
   // later steps reference different fact tables.
-  if (dataset.type !== "funnel" && dataset.type !== "journey") {
+  if (datasetHasValues(dataset)) {
     if (!dataset.values || dataset.values.length === 0) return [];
   } else if (dataset.type === "funnel") {
     if (!dataset.steps || dataset.steps.length === 0) return [];
@@ -709,7 +691,7 @@ export function getColumnTopValues(
 
 export function getMaxDimensions(dataset: ExplorationDataset): number {
   // Phase 1 funnels and journeys are capped at a single dimension.
-  if (dataset.type === "funnel" || dataset.type === "journey") return 1;
+  if (!datasetHasValues(dataset)) return 1;
   let maxDimensions = 2;
   if (dataset.values.length > 1) {
     maxDimensions -= 1;
@@ -836,31 +818,16 @@ export function fillMissingUnits(
     } as ExplorationConfig;
   }
 
-  if (config.dataset.type === "journey") {
+  // Narrow on config.type, not config.dataset.type — only the former
+  // discriminates ExplorationConfig, so the spread below stays type-safe
+  // instead of needing an `as ExplorationConfig`.
+  if (config.type === "journey") {
     const current = config.dataset;
-    let unit = current.unit;
-    if (!unit && current.factTableId) {
-      const ft = getFactTableById(current.factTableId);
-      unit = ft?.userIdTypes?.[0] ?? null;
-    }
-    if (
-      unit === current.unit &&
-      current.dailyJourneys &&
-      current.collapseRepeats &&
-      current.excludedSteps.length === 0
-    ) {
-      return config;
-    }
-    return {
-      ...config,
-      dataset: {
-        ...current,
-        unit,
-        dailyJourneys: true,
-        collapseRepeats: true,
-        excludedSteps: [],
-      },
-    } as ExplorationConfig;
+    if (current.unit || !current.factTableId) return config;
+    const unit =
+      getFactTableById(current.factTableId)?.userIdTypes?.[0] ?? null;
+    if (unit === current.unit) return config;
+    return { ...config, dataset: { ...current, unit } };
   }
 
   if (config.dataset.type !== "metric") return config;
@@ -1023,14 +990,7 @@ export function toFetchKey(
   }
   if (base.dataset.type === "journey") {
     // path is applied client-side when the current result can serve it.
-    // renderDepth / scaleMode / dimEncoding are display-only.
-    const {
-      renderDepth: _renderDepth,
-      scaleMode: _scaleMode,
-      dimEncoding: _dimEncoding,
-      path: _path,
-      ...journeyFetchDataset
-    } = base.dataset;
+    const { path: _path, ...journeyFetchDataset } = base.dataset;
     return {
       ...rest,
       chartType: getChartCategory(base.chartType),
@@ -1127,21 +1087,14 @@ export function isSubmittableConfig(
       }
     }
   } else if (cleanedConfig.dataset.type === "journey") {
-    const { unit, factTableId, stepColumns, anchorStepValues } =
-      cleanedConfig.dataset;
-    if (!unit || !factTableId) return false;
-    if (!stepColumns.length) return false;
-    if (
-      !anchorStepValues ||
-      anchorStepValues.length !== stepColumns.length ||
-      anchorStepValues.some((v) => !v)
-    ) {
+    const dataset = cleanedConfig.dataset;
+    if (!isJourneyDatasetRunnable(dataset, cleanedConfig.dimensions[0])) {
       return false;
     }
-    if (getFactTableById) {
-      const ft = getFactTableById(factTableId);
+    if (getFactTableById && dataset.factTableId && dataset.unit) {
+      const ft = getFactTableById(dataset.factTableId);
       if (!ft) return false;
-      if (!ft.userIdTypes?.includes(unit)) return false;
+      if (!ft.userIdTypes?.includes(dataset.unit)) return false;
     }
   } else {
     if (!Array.isArray(cleanedConfig.dataset.values)) return false;
@@ -1239,7 +1192,7 @@ export function compareConfig(
         cachedRows: journeyServe?.rows ?? [],
         requestedDataset: newConfig.dataset,
         minUnusedLookahead: journeyMinUnusedLookahead(
-          newConfig.dataset.depth,
+          newConfig.dataset.lookaheadDepth,
           "one",
         ),
       }));
@@ -1328,15 +1281,7 @@ export function hasSubmittablePayload(
     return (config.dataset.steps?.length ?? 0) >= 2;
   }
   if (config.dataset.type === "journey") {
-    const { unit, factTableId, stepColumns, anchorStepValues } = config.dataset;
-    return (
-      !!unit &&
-      !!factTableId &&
-      stepColumns.length > 0 &&
-      !!anchorStepValues &&
-      anchorStepValues.length === stepColumns.length &&
-      anchorStepValues.every((v) => !!v)
-    );
+    return isJourneyDatasetRunnable(config.dataset, config.dimensions[0]);
   }
   return (config.dataset.values?.length ?? 0) > 0;
 }

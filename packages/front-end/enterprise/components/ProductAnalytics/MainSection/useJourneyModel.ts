@@ -10,15 +10,13 @@ import {
   JOURNEY_OTHER,
   JOURNEY_TERMINALS,
   composeStepLabel,
-  isJourneyTerminal,
   journeyLevelMatchesStep,
   journeyPathIsPrefix,
 } from "shared/journeys";
 
-const ANCHOR_SRC = "\u0002anchor";
 const LEAK_OTHER = "\u0002other";
 const LEAK_EXIT = "\u0002exit";
-export const LOADING_NODE_KEY = "\u0002loading";
+const LOADING_NODE_KEY = "\u0002loading";
 
 export type JourneyNode = {
   key: string;
@@ -64,7 +62,7 @@ export type JourneyEdge = {
   y1: number;
 };
 
-export type JourneyHistoryLevel = {
+type JourneyHistoryLevel = {
   nodes: JourneyNode[];
 };
 
@@ -80,10 +78,7 @@ export type JourneyViewModel = {
   edges: JourneyEdge[];
   anchorTotal: number;
   matchedTotal: number;
-  renderDepth: number;
-  fetchDepth: number;
   dimTop: string[];
-  dimTotals: Map<string, number>;
   anchorDims: Map<string, number>;
   prefixCount: number[];
   leak: {
@@ -109,11 +104,6 @@ type PathStep = JourneyDataset["path"][number];
 function addDim(map: Map<string, number>, dim: string | null, n: number) {
   if (!dim) return;
   map.set(dim, (map.get(dim) || 0) + n);
-}
-
-function committedLabel(step: PathStep): string {
-  if (step.mode === "other") return JOURNEY_OTHER;
-  return step.value;
 }
 
 function parsePathRows(rows: ProductAnalyticsResultRow[]): PathRow[] {
@@ -178,20 +168,20 @@ function historiesEqual(a: JourneyHistory | null, b: JourneyHistory): boolean {
 }
 
 /** These rows can describe the next-step distribution after `draftPath[0..i-1]`. */
-export function journeyCanObserveLevel({
+function journeyCanObserveLevel({
   rowPath,
   draftPath,
-  fetchDepth,
+  lookaheadDepth,
   levelIndex,
 }: {
   rowPath: PathStep[];
   draftPath: PathStep[];
-  fetchDepth: number;
+  lookaheadDepth: number;
   levelIndex: number;
 }): boolean {
   if (!journeyPathIsPrefix(rowPath, draftPath)) return false;
   const extra = levelIndex - rowPath.length;
-  return extra >= 0 && extra < fetchDepth;
+  return extra >= 0 && extra < lookaheadDepth;
 }
 
 function computeLevelFromRows({
@@ -258,9 +248,6 @@ function isExitNode(n: JourneyNode, term: string): boolean {
 }
 
 function nodeMatchesStep(n: JourneyNode, step: PathStep): boolean {
-  if (step.mode === "other") {
-    return n.key === JOURNEY_OTHER || n.key === LEAK_OTHER;
-  }
   return n.key === step.value;
 }
 
@@ -356,85 +343,7 @@ function parseCommittedLevels(
   return levels;
 }
 
-function applyProgressLevels(
-  rows: ProductAnalyticsResultRow[],
-  path: PathStep[],
-  term: string,
-  hasDimension: boolean,
-  levels: Array<JourneyHistoryLevel | null>,
-) {
-  const progress: {
-    depthReached: number;
-    outcome: "taken" | "other" | "exit";
-    dim: string | null;
-    n: number;
-  }[] = [];
-  for (const row of rows) {
-    const j = row.journey;
-    if (!j || j.kind !== "progress") continue;
-    progress.push({
-      depthReached: j.depthReached,
-      outcome: j.outcome,
-      dim: row.dimensions[0] ?? null,
-      n: j.count,
-    });
-  }
-  if (!progress.length) return;
-  for (let k = 0; k < path.length; k++) {
-    if (levels[k]) continue;
-    const step = path[k];
-    const chosen = committedLabel(step);
-    let taken = 0;
-    let other = 0;
-    let exit = 0;
-    const takenD = new Map<string, number>();
-    const otherD = new Map<string, number>();
-    const exitD = new Map<string, number>();
-    for (const r of progress) {
-      if (r.depthReached > k) {
-        taken += r.n;
-        addDim(takenD, r.dim, r.n);
-      } else if (r.depthReached === k && r.outcome === "taken") {
-        taken += r.n;
-        addDim(takenD, r.dim, r.n);
-      } else if (r.depthReached === k && r.outcome === "other") {
-        other += r.n;
-        addDim(otherD, r.dim, r.n);
-      } else if (r.depthReached === k && r.outcome === "exit") {
-        exit += r.n;
-        addDim(exitD, r.dim, r.n);
-      }
-    }
-    const nodes: JourneyNode[] = [];
-    if (taken > 0) {
-      nodes.push({
-        key: chosen,
-        label: chosen,
-        value: taken,
-        dimParts: hasDimension ? takenD : null,
-      });
-    }
-    if (other > 0) {
-      nodes.push({
-        key: JOURNEY_OTHER,
-        label: JOURNEY_OTHER,
-        value: other,
-        dimParts: hasDimension ? otherD : null,
-      });
-    }
-    if (exit > 0) {
-      nodes.push({
-        key: term,
-        label: term,
-        value: exit,
-        dimParts: hasDimension ? exitD : null,
-      });
-    }
-    if (nodes.length) levels[k] = { nodes };
-  }
-}
-
-export function reduceJourneyHistory({
+function reduceJourneyHistory({
   previous,
   rows,
   dataset,
@@ -449,7 +358,6 @@ export function reduceJourneyHistory({
 }): JourneyHistory {
   const pathRows = parsePathRows(rows);
   const committedLevels = parseCommittedLevels(rows, hasDimension);
-  const term = dataset.direction === "forward" ? JOURNEY_EXIT : JOURNEY_ENTRY;
 
   const next: JourneyHistory = previous
     ? cloneHistory(previous)
@@ -465,8 +373,6 @@ export function reduceJourneyHistory({
     }
   }
 
-  applyProgressLevels(rows, dataset.path, term, hasDimension, next.levels);
-
   for (let i = 0; i <= dataset.path.length; i++) {
     const frozen = i < dataset.path.length && next.levels[i] != null;
     if (frozen) continue;
@@ -474,7 +380,7 @@ export function reduceJourneyHistory({
       !journeyCanObserveLevel({
         rowPath,
         draftPath: dataset.path,
-        fetchDepth: dataset.depth,
+        lookaheadDepth: dataset.lookaheadDepth,
         levelIndex: i,
       })
     ) {
@@ -671,7 +577,6 @@ function materializeJourneyViewModel({
 }): JourneyViewModel {
   const direction = dataset.direction;
   const side = direction === "forward" ? "f" : "b";
-  const fetchDepth = dataset.depth;
   const term = direction === "forward" ? JOURNEY_EXIT : JOURNEY_ENTRY;
   const anchorLabel = dataset.anchorStepValues
     ? composeStepLabel(dataset.anchorStepValues)
@@ -723,16 +628,15 @@ function materializeJourneyViewModel({
     : (prefixCount[depth] ?? history.anchorTotal);
   const waitingForFrontier = frontier == null && history.anchorTotal > 0;
 
-  const dimTotals = new Map(history.anchorDims);
-  const dimTop = Array.from(dimTotals.entries())
+  const anchorDims = new Map(history.anchorDims);
+  const dimTop = Array.from(anchorDims.entries())
     .filter(([k]) => k !== JOURNEY_OTHER && k !== "other")
     .sort((a, b) => b[1] - a[1])
     .map(([k]) => k);
-  const anchorDims = new Map(history.anchorDims);
 
   const sideColumns: JourneyColumn[] = [];
   for (let k = 0; k < depth; k++) {
-    const lab = committedLabel(viewPath[k]);
+    const lab = viewPath[k].value;
     const nodes: JourneyNode[] = [
       {
         key: lab,
@@ -859,10 +763,7 @@ function materializeJourneyViewModel({
     edges,
     anchorTotal: resolvedAnchor,
     matchedTotal,
-    renderDepth: frontier ? 1 : 0,
-    fetchDepth,
     dimTop,
-    dimTotals,
     anchorDims,
     prefixCount,
     leak,
@@ -912,26 +813,4 @@ export function buildJourneyViewState({
   };
 }
 
-export function buildJourneyViewModel({
-  rows,
-  dataset,
-  rowPath = [],
-  hasDimension,
-  previousHistory = null,
-}: {
-  rows: ProductAnalyticsResultRow[];
-  dataset: JourneyDataset;
-  rowPath?: PathStep[];
-  hasDimension: boolean;
-  previousHistory?: JourneyHistory | null;
-}): JourneyViewModel {
-  return buildJourneyViewState({
-    rows,
-    dataset,
-    rowPath,
-    hasDimension,
-    previousHistory,
-  }).model;
-}
-
-export { LEAK_OTHER, LEAK_EXIT, ANCHOR_SRC, isJourneyTerminal, JOURNEY_OTHER };
+export { LEAK_OTHER, LEAK_EXIT };

@@ -392,18 +392,17 @@ function tableRowSteps(
 function journeyResultRowToSqlTableRow(
   row: ProductAnalyticsResultRow,
   path: JourneyPathStep[],
-  depth: number,
+  lookaheadDepth: number,
   hasDimension: boolean,
-  direction: "forward" | "backward",
 ): Record<string, unknown> {
   const journey = row.journey;
   const steps = journey
-    ? journeyResultToStepValues(journey, path, depth, direction)
+    ? journeyResultToStepValues(journey, path, lookaheadDepth)
     : [];
   const out: Record<string, unknown> = {
     journeys: journey?.count ?? 0,
   };
-  for (let i = 0; i < path.length + depth; i++) {
+  for (let i = 0; i < path.length + lookaheadDepth; i++) {
     out[`step_${i + 1}`] = steps[i] ?? null;
   }
   if (hasDimension) {
@@ -430,12 +429,11 @@ export function buildJourneyTableData(
     exploration?.config.dataset.type === "journey"
       ? exploration.config
       : submittedExploreState;
-  const depth = source.dataset.type === "journey" ? source.dataset.depth : 0;
+  const lookaheadDepth =
+    source.dataset.type === "journey" ? source.dataset.lookaheadDepth : 0;
   const path = source.dataset.type === "journey" ? source.dataset.path : [];
-  const direction =
-    source.dataset.type === "journey" ? source.dataset.direction : "forward";
   const hasDimension = source.dimensions.length > 0;
-  const stepCount = path.length + depth;
+  const stepCount = path.length + lookaheadDepth;
   const rows = exploration?.result?.rows ?? [];
 
   const orderedColumnKeys = [
@@ -446,9 +444,8 @@ export function buildJourneyTableData(
   const columnLabels = [...orderedColumnKeys];
 
   const rowData = rows
-    .filter((row) => row.journey?.kind !== "progress")
     .map((row) =>
-      journeyResultRowToSqlTableRow(row, path, depth, hasDimension, direction),
+      journeyResultRowToSqlTableRow(row, path, lookaheadDepth, hasDimension),
     )
     .sort((a, b) => {
       const byPath = compareJourneyStepValues(

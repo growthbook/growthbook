@@ -6,19 +6,20 @@ import {
 } from "shared/enterprise";
 import {
   canIncreaseJourneyOptions,
+  isJourneyDatasetRunnable,
+  journeyCacheCandidateVerdict,
   journeyMinUnusedLookahead,
   compareJourneyStepValues,
-  journeyOutcomeSqlValue,
   journeyResultCanServe,
   journeyResultToStepValues,
   maxJourneyPathRows,
   maxJourneyResultRows,
-  parseJourneyOutcome,
+  validateJourneyDataset,
   withJourneyOptionsAt,
   MAX_JOURNEY_RESULT_ROWS,
 } from "shared/journeys";
 import { createLikeMatchFns } from "shared/sql";
-import { ExplorationConfig } from "shared/validators";
+import { ExplorationConfig, JourneyPathStep } from "shared/validators";
 import { DataSourceType } from "shared/types/datasource";
 import { SqlDialect } from "shared/types/sql";
 import { FactTableInterface } from "shared/types/fact-table";
@@ -141,15 +142,12 @@ function baseJourneyConfig(
       type: "journey",
       factTableId: "events",
       unit: "user_id",
-      dailyJourneys: false,
       stepColumns: ["event_name"],
       anchorStepValues: ["view"],
       direction: "forward",
-      excludedSteps: [],
       rowFilters: [],
-      collapseRepeats: true,
       path: [],
-      depth: 3,
+      lookaheadDepth: 3,
       optionsPerStep: [],
     },
     ...overrides,
@@ -172,7 +170,7 @@ describe("journey row bound", () => {
       canIncreaseJourneyOptions({
         optionsPerStep: [],
         levelIndex: 0,
-        depth: 3,
+        lookaheadDepth: 3,
         pathLength: 0,
         dimValues: 0,
       }),
@@ -185,7 +183,7 @@ describe("journey row bound", () => {
     expect(
       maxJourneyResultRows({
         optionsPerStep: [],
-        depth: 3,
+        lookaheadDepth: 3,
         pathLength: 0,
         dimValues: 0,
       }),
@@ -195,12 +193,12 @@ describe("journey row bound", () => {
 
 describe("buildJourneySql", () => {
   it("emits the CTE chain and LEAD neighbourhood with no QUALIFY", () => {
-    const { sql, fetchDepth } = buildJourneySql(
+    const { sql, lookaheadDepth } = buildJourneySql(
       baseJourneyConfig(),
       factTableMap,
       helpers,
     );
-    expect(fetchDepth).toBe(3);
+    expect(lookaheadDepth).toBe(3);
     expect(sql).toContain("__journey_raw");
     expect(sql).toContain("__journey_events");
     expect(sql).toContain("__journey_deduped");
@@ -258,7 +256,7 @@ describe("buildJourneySql", () => {
   it("emits committed prefix rows as trailing-null step columns", () => {
     const config = baseJourneyConfig();
     if (config.dataset.type !== "journey") throw new Error("expected journey");
-    config.dataset.path = [{ mode: "value", value: "add_to_cart" }];
+    config.dataset.path = [{ value: "add_to_cart" }];
     const { sql } = buildJourneySql(config, factTableMap, helpers);
     expect(sql).toContain("__journey_matched");
     expect(sql).toContain("__journey_commit_0");
@@ -292,25 +290,6 @@ describe("buildJourneySql", () => {
     expect(sql).toContain("journey_day");
   });
 
-  it("skips the dedupe CTE when collapseRepeats is false", () => {
-    const config = baseJourneyConfig();
-    if (config.dataset.type !== "journey") throw new Error("expected journey");
-    config.dataset.collapseRepeats = false;
-    const { sql } = buildJourneySql(config, factTableMap, helpers);
-    expect(sql).not.toContain("__journey_deduped");
-    expect(sql).toContain("__journey_neighbourhood");
-  });
-
-  it("excludes steps with NOT IN on the first step column", () => {
-    const config = baseJourneyConfig();
-    if (config.dataset.type !== "journey") throw new Error("expected journey");
-    config.dataset.excludedSteps = ["heartbeat", "page_ping"];
-    const { sql } = buildJourneySql(config, factTableMap, helpers);
-    expect(sql).toContain("NOT IN");
-    expect(sql).toContain("heartbeat");
-    expect(sql).toContain("page_ping");
-  });
-
   it("emits a dynamic-dimension top-N CTE", () => {
     const config = baseJourneyConfig({
       dimensions: [
@@ -320,6 +299,50 @@ describe("buildJourneySql", () => {
     const { sql } = buildJourneySql(config, factTableMap, helpers);
     expect(sql).toContain("__journey_top_dim");
     expect(sql).toContain("dim_1");
+  });
+
+  it("buckets the dimension before aggregating, not in the outer SELECT", () => {
+    const config = baseJourneyConfig({
+      dimensions: [
+        { dimensionType: "dynamic", column: "country", maxValues: 3 },
+      ],
+    });
+    if (config.dataset.type !== "journey") throw new Error("expected journey");
+    config.dataset.path = [{ value: "add_to_cart" }];
+    const { sql } = buildJourneySql(config, factTableMap, helpers);
+
+    // Grouping on the raw column and bucketing afterwards emits one row per
+    // distinct value — all labeled (other) — which breaks the row-count bound.
+    // So the aggregating branches must select a plain, already-bucketed dim_1.
+    const aggregatingSelects =
+      sql.match(/SELECT((?:(?!SELECT)[\s\S])*?)COUNT\(\*\) AS journeys/g) ?? [];
+    expect(aggregatingSelects).toHaveLength(2); // path + one committed step
+    for (const branch of aggregatingSelects) {
+      expect(branch).not.toContain("__journey_top_dim");
+      expect(branch).not.toContain("CASE");
+    }
+
+    // The CASE lives upstream instead, once per aggregation source.
+    expect(sql).toContain("__journey_path_bucketed");
+    expect(sql.slice(0, sql.indexOf("__journey_path_bucketed AS"))).toContain(
+      "__journey_top_dim",
+    );
+  });
+
+  it("breaks top-N ties deterministically so cached frontiers are stable", () => {
+    const config = baseJourneyConfig({
+      dimensions: [
+        { dimensionType: "dynamic", column: "country", maxValues: 3 },
+      ],
+    });
+    const { sql } = buildJourneySql(config, factTableMap, helpers);
+    // Every ROW_NUMBER that picks a top-N set needs a tie-break column.
+    const rowNumbers = sql.match(/ROW_NUMBER\(\) OVER \([\s\S]*?\)/g) ?? [];
+    expect(rowNumbers.length).toBeGreaterThan(0);
+    for (const expr of rowNumbers) {
+      if (!expr.includes("c DESC")) continue;
+      expect(expr).toMatch(/c DESC,/);
+    }
   });
 
   it("throws when the starting step is missing", () => {
@@ -340,20 +363,11 @@ describe("buildJourneySql", () => {
     );
   });
 
-  it("throws on a mode: other path step", () => {
-    const config = baseJourneyConfig();
-    if (config.dataset.type !== "journey") throw new Error("expected journey");
-    config.dataset.path = [{ mode: "other", excludes: ["a", "b"] }];
-    expect(() => buildJourneySql(config, factTableMap, helpers)).toThrow(
-      /other/,
-    );
-  });
-
   it("throws when the projected row count exceeds the cap", () => {
     const config = baseJourneyConfig();
     if (config.dataset.type !== "journey") throw new Error("expected journey");
     config.dataset.optionsPerStep = [12, 12, 12, 12];
-    config.dataset.depth = 4;
+    config.dataset.lookaheadDepth = 4;
     config.dimensions = [
       { dimensionType: "dynamic", column: "country", maxValues: 12 },
     ];
@@ -387,7 +401,7 @@ describe("transformJourneyRowsToResult", () => {
     const withPath = baseJourneyConfig();
     if (withPath.dataset.type !== "journey")
       throw new Error("expected journey");
-    withPath.dataset.path = [{ mode: "value", value: "add_to_cart" }];
+    withPath.dataset.path = [{ value: "add_to_cart" }];
     const result = transformJourneyRowsToResult(withPath, [
       {
         step_1: "add_to_cart",
@@ -419,70 +433,26 @@ describe("transformJourneyRowsToResult", () => {
     });
   });
 
-  it("maps path and progress rows, including (none)", () => {
-    const result = transformJourneyRowsToResult(config, [
+  it("reads the committed step index from the last filled step column", () => {
+    const withPath = baseJourneyConfig();
+    if (withPath.dataset.type !== "journey")
+      throw new Error("expected journey");
+    withPath.dataset.path = [{ value: "add_to_cart" }, { value: "checkout" }];
+    const result = transformJourneyRowsToResult(withPath, [
       {
-        kind: "path",
-        direction: "forward",
-        lvl_1: "add_to_cart",
-        lvl_2: "(none)",
-        lvl_3: "(none)",
-        journeys: 12,
-      },
-      {
-        kind: "progress",
-        direction: "forward",
-        lvl_1: 1,
-        lvl_2: "(exit)",
-        journeys: 4,
-      },
-    ]);
-    expect(result.rows).toHaveLength(2);
-    expect(result.rows[0].journey).toEqual({
-      kind: "path",
-      direction: "forward",
-      levels: ["add_to_cart", "(none)", "(none)"],
-      count: 12,
-    });
-    expect(result.rows[1].journey).toEqual({
-      kind: "progress",
-      direction: "forward",
-      depthReached: 1,
-      outcome: "exit",
-      count: 4,
-    });
-  });
-
-  it("maps bare progress outcomes from older result sets", () => {
-    const result = transformJourneyRowsToResult(config, [
-      {
-        kind: "progress",
-        lvl_1: 0,
-        lvl_2: "exit",
-        journeys: 2,
-      },
-    ]);
-    expect(result.rows[0].journey).toMatchObject({
-      kind: "progress",
-      outcome: "exit",
-    });
-  });
-
-  it("maps committed option rows", () => {
-    const result = transformJourneyRowsToResult(config, [
-      {
-        kind: "committed",
-        direction: "forward",
-        lvl_1: 0,
-        lvl_2: "add_to_cart",
+        step_1: "add_to_cart",
+        step_2: "upsell",
+        step_3: null,
+        step_4: null,
+        step_5: null,
         journeys: 9,
       },
     ]);
     expect(result.rows[0].journey).toEqual({
       kind: "committed",
       direction: "forward",
-      stepIndex: 0,
-      value: "add_to_cart",
+      stepIndex: 1,
+      value: "upsell",
       count: 9,
     });
   });
@@ -499,7 +469,7 @@ describe("transformJourneyRowsToResult", () => {
     const result = transformJourneyRowsToResult(config, rows);
     const bound = maxJourneyResultRows({
       optionsPerStep: [],
-      depth: 3,
+      lookaheadDepth: 3,
       pathLength: 0,
       dimValues: 0,
     });
@@ -507,27 +477,9 @@ describe("transformJourneyRowsToResult", () => {
   });
 });
 
-describe("journey progress sentinels", () => {
-  it("parses parenthesized and bare outcome labels", () => {
-    expect(parseJourneyOutcome("(taken)")).toBe("taken");
-    expect(parseJourneyOutcome("taken")).toBe("taken");
-    expect(parseJourneyOutcome("(other)")).toBe("other");
-    expect(parseJourneyOutcome("other")).toBe("other");
-    expect(parseJourneyOutcome("(exit)")).toBe("exit");
-    expect(parseJourneyOutcome("exit")).toBe("exit");
-    expect(parseJourneyOutcome("(entry)")).toBe("exit");
-    expect(parseJourneyOutcome(null)).toBe("taken");
-  });
-
-  it("writes parenthesized SQL values, using (entry) when backward", () => {
-    expect(journeyOutcomeSqlValue("taken", "forward")).toBe("(taken)");
-    expect(journeyOutcomeSqlValue("other", "forward")).toBe("(other)");
-    expect(journeyOutcomeSqlValue("exit", "forward")).toBe("(exit)");
-    expect(journeyOutcomeSqlValue("exit", "backward")).toBe("(entry)");
-  });
-
+describe("journey step columns", () => {
   it("rebuilds SQL step columns from typed rows", () => {
-    const path = [{ mode: "value" as const, value: "add_to_cart" }];
+    const path = [{ value: "add_to_cart" }];
     expect(
       journeyResultToStepValues(
         {
@@ -538,7 +490,6 @@ describe("journey progress sentinels", () => {
         },
         path,
         3,
-        "forward",
       ),
     ).toEqual(["add_to_cart", "checkout", "(exit)", "(none)"]);
     expect(
@@ -552,21 +503,6 @@ describe("journey progress sentinels", () => {
         },
         path,
         3,
-        "forward",
-      ),
-    ).toEqual(["(exit)", null, null, null]);
-    expect(
-      journeyResultToStepValues(
-        {
-          kind: "progress",
-          direction: "forward",
-          depthReached: 0,
-          outcome: "exit",
-          count: 4,
-        },
-        path,
-        3,
-        "forward",
       ),
     ).toEqual(["(exit)", null, null, null]);
   });
@@ -666,14 +602,6 @@ describe("journey step grouping", () => {
     );
   });
 
-  it("matches excluded steps against the grouped value", () => {
-    const sql = grouped([{ column: "event_name", pattern: "/article/*" }], {
-      excludedSteps: ["/article/*"],
-    });
-    // Excluding the group drops the whole group, not one raw value.
-    expect(sql).toContain("END NOT IN ('/article/*')");
-  });
-
   it("throws when a rule names a column that is not a step column", () => {
     expect(() =>
       grouped([{ column: "country", pattern: "/article/*" }]),
@@ -709,22 +637,16 @@ describe("journeyMinUnusedLookahead", () => {
 describe("journeyResultCanServe", () => {
   function dataset(
     path: { mode: "value"; value: string }[],
-    depth = 3,
+    lookaheadDepth = 3,
   ): ExplorationConfig["dataset"] {
     const config = baseJourneyConfig();
     if (config.dataset.type !== "journey") throw new Error("expected journey");
-    return { ...config.dataset, path, depth };
+    return { ...config.dataset, path, lookaheadDepth };
   }
 
   it("reuses a shorter cached path when lookahead covers the extra step", () => {
-    const cached = dataset([{ mode: "value", value: "home" }], 3);
-    const requested = dataset(
-      [
-        { mode: "value", value: "home" },
-        { mode: "value", value: "search" },
-      ],
-      3,
-    );
+    const cached = dataset([{ value: "home" }], 3);
+    const requested = dataset([{ value: "home" }, { value: "search" }], 3);
     if (cached.type !== "journey" || requested.type !== "journey") {
       throw new Error("expected journey");
     }
@@ -748,14 +670,8 @@ describe("journeyResultCanServe", () => {
   });
 
   it("rejects a shorter cache when the extra step was not in the frontier", () => {
-    const cached = dataset([{ mode: "value", value: "home" }], 3);
-    const requested = dataset(
-      [
-        { mode: "value", value: "home" },
-        { mode: "value", value: "checkout" },
-      ],
-      3,
-    );
+    const cached = dataset([{ value: "home" }], 3);
+    const requested = dataset([{ value: "home" }, { value: "checkout" }], 3);
     if (cached.type !== "journey" || requested.type !== "journey") {
       throw new Error("expected journey");
     }
@@ -779,14 +695,8 @@ describe("journeyResultCanServe", () => {
   });
 
   it("reuses a longer cache to pop when committed options exist at that step", () => {
-    const cached = dataset(
-      [
-        { mode: "value", value: "home" },
-        { mode: "value", value: "search" },
-      ],
-      3,
-    );
-    const requested = dataset([{ mode: "value", value: "home" }], 3);
+    const cached = dataset([{ value: "home" }, { value: "search" }], 3);
+    const requested = dataset([{ value: "home" }], 3);
     if (cached.type !== "journey" || requested.type !== "journey") {
       throw new Error("expected journey");
     }
@@ -813,11 +723,7 @@ describe("journeyResultCanServe", () => {
   it("rejects a 3-step cache when the requested path uses every fetched level", () => {
     const cached = dataset([], 3);
     const requested = dataset(
-      [
-        { mode: "value", value: "home" },
-        { mode: "value", value: "search" },
-        { mode: "value", value: "checkout" },
-      ],
+      [{ value: "home" }, { value: "search" }, { value: "checkout" }],
       3,
     );
     if (cached.type !== "journey" || requested.type !== "journey") {
@@ -844,13 +750,7 @@ describe("journeyResultCanServe", () => {
 
   it("reuses a 3-step cache for a shorter path that still has a leftover frontier", () => {
     const cached = dataset([], 3);
-    const requested = dataset(
-      [
-        { mode: "value", value: "home" },
-        { mode: "value", value: "search" },
-      ],
-      3,
-    );
+    const requested = dataset([{ value: "home" }, { value: "search" }], 3);
     if (cached.type !== "journey" || requested.type !== "journey") {
       throw new Error("expected journey");
     }
@@ -875,13 +775,7 @@ describe("journeyResultCanServe", () => {
 
   it("rejects a leftover-1 cache when the request needs a full lookahead", () => {
     const cached = dataset([], 3);
-    const requested = dataset(
-      [
-        { mode: "value", value: "home" },
-        { mode: "value", value: "search" },
-      ],
-      3,
-    );
+    const requested = dataset([{ value: "home" }, { value: "search" }], 3);
     if (cached.type !== "journey" || requested.type !== "journey") {
       throw new Error("expected journey");
     }
@@ -900,20 +794,14 @@ describe("journeyResultCanServe", () => {
           },
         ],
         requestedDataset: requested,
-        minUnusedLookahead: requested.depth,
+        minUnusedLookahead: requested.lookaheadDepth,
       }),
     ).toBe(false);
   });
 
   it("does not treat a pop as a full-lookahead hit", () => {
-    const cached = dataset(
-      [
-        { mode: "value", value: "home" },
-        { mode: "value", value: "search" },
-      ],
-      3,
-    );
-    const requested = dataset([{ mode: "value", value: "home" }], 3);
+    const cached = dataset([{ value: "home" }, { value: "search" }], 3);
+    const requested = dataset([{ value: "home" }], 3);
     if (cached.type !== "journey" || requested.type !== "journey") {
       throw new Error("expected journey");
     }
@@ -933,8 +821,140 @@ describe("journeyResultCanServe", () => {
           },
         ],
         requestedDataset: requested,
-        minUnusedLookahead: requested.depth,
+        minUnusedLookahead: requested.lookaheadDepth,
       }),
     ).toBe(false);
+  });
+});
+
+describe("validateJourneyDataset", () => {
+  function journeyDataset() {
+    const config = baseJourneyConfig();
+    if (config.dataset.type !== "journey") throw new Error("expected journey");
+    return config.dataset;
+  }
+
+  it("accepts a fully configured dataset", () => {
+    expect(validateJourneyDataset(journeyDataset())).toEqual([]);
+    expect(isJourneyDatasetRunnable(journeyDataset())).toBe(true);
+  });
+
+  it("reports each missing requirement", () => {
+    const dataset = journeyDataset();
+    dataset.factTableId = null;
+    dataset.unit = null;
+    dataset.stepColumns = [];
+    dataset.anchorStepValues = null;
+    expect(validateJourneyDataset(dataset)).toEqual([
+      "Fact Table is required",
+      "Journey unit is required",
+      "Journey step columns are required",
+      "Journey starting step is required",
+    ]);
+    expect(isJourneyDatasetRunnable(dataset)).toBe(false);
+  });
+
+  it("rejects an anchor whose length does not match the step columns", () => {
+    const dataset = journeyDataset();
+    dataset.stepColumns = ["event_name", "category"];
+    dataset.anchorStepValues = ["view"];
+    expect(validateJourneyDataset(dataset)).toContain(
+      "Journey starting step is required",
+    );
+  });
+
+  it("rejects a grouping rule that names a non-step column", () => {
+    const dataset = journeyDataset();
+    dataset.stepGroups = [{ column: "not_a_step", pattern: "/a/*" }];
+    expect(validateJourneyDataset(dataset)).toEqual([
+      'Journey grouping rule references column "not_a_step", which is not a step column',
+    ]);
+  });
+
+  it("rejects an oversized result", () => {
+    const big = journeyDataset();
+    big.optionsPerStep = [50, 50, 50];
+    big.lookaheadDepth = 4;
+    expect(validateJourneyDataset(big).join(" ")).toMatch(/exceed/);
+  });
+});
+
+describe("journeyCacheCandidateVerdict", () => {
+  function dataset(path: JourneyPathStep[], lookaheadDepth: number) {
+    const config = baseJourneyConfig();
+    if (config.dataset.type !== "journey") throw new Error("expected journey");
+    return { ...config.dataset, path, lookaheadDepth };
+  }
+
+  it("decides same-path reuse without needing result rows", () => {
+    expect(
+      journeyCacheCandidateVerdict({
+        cachedDataset: dataset([], 3),
+        requestedDataset: dataset([], 3),
+        minUnusedLookahead: 3,
+      }),
+    ).toBe("yes");
+  });
+
+  it("rejects a different family without needing result rows", () => {
+    const other = { ...dataset([], 3), unit: "anonymous_id" };
+    expect(
+      journeyCacheCandidateVerdict({
+        cachedDataset: other,
+        requestedDataset: dataset([], 3),
+      }),
+    ).toBe("no");
+  });
+
+  it("defers to the rows only when the path actually extends", () => {
+    expect(
+      journeyCacheCandidateVerdict({
+        cachedDataset: dataset([], 3),
+        requestedDataset: dataset([{ value: "home" }], 3),
+        minUnusedLookahead: 1,
+      }),
+    ).toBe("needs-rows");
+  });
+
+  it("agrees with journeyResultCanServe on the rows-free answers", () => {
+    const cached = dataset([], 3);
+    const requested = dataset([], 3);
+    for (const minUnusedLookahead of [1, 3]) {
+      const verdict = journeyCacheCandidateVerdict({
+        cachedDataset: cached,
+        requestedDataset: requested,
+        minUnusedLookahead,
+      });
+      expect(verdict).not.toBe("needs-rows");
+      expect(
+        journeyResultCanServe({
+          cachedDataset: cached,
+          cachedRows: [],
+          requestedDataset: requested,
+          minUnusedLookahead,
+        }),
+      ).toBe(verdict === "yes");
+    }
+  });
+});
+
+describe("journey lookahead depth guard", () => {
+  it("rejects a missing or out-of-range depth instead of emitting broken SQL", () => {
+    for (const bad of [undefined, 0, 1.5, 5]) {
+      const config = baseJourneyConfig();
+      if (config.dataset.type !== "journey") {
+        throw new Error("expected journey");
+      }
+      // Configs reach the builder from URLs and the REST API, where a cast can
+      // let a malformed value through Zod.
+      (config.dataset as { lookaheadDepth?: number }).lookaheadDepth =
+        bad as number;
+      expect(validateJourneyDataset(config.dataset).join(" ")).toMatch(
+        /lookahead depth must be between/,
+      );
+      expect(() => buildJourneySql(config, factTableMap, helpers)).toThrow(
+        /lookahead depth/,
+      );
+    }
   });
 });

@@ -8,22 +8,17 @@ import {
   JourneyDataset,
   JourneyStepGroup,
   ProductAnalyticsDimension,
-  ProductAnalyticsDynamicDimension,
   ProductAnalyticsResult,
-  ProductAnalyticsResultRow,
 } from "../../validators/product-analytics";
 import {
   JOURNEY_NONE,
   JOURNEY_OTHER,
   composeStepLabel,
-  parseJourneyOutcome,
-  journeyConfigExceedsRowCap,
   journeyDimValueCount,
   journeyOptionsAt,
-  journeyPathStepLabel,
   journeyTerminal,
   stepGroupsForColumn,
-  MAX_JOURNEY_RESULT_ROWS,
+  validateJourneyDataset,
 } from "../../journeys";
 import {
   calculateProductAnalyticsDateRange,
@@ -124,64 +119,29 @@ function stepExpression(
   return dialect.concatStrings(concatParts);
 }
 
-function windowSpec(dailyJourneys: boolean): string {
-  return dailyJourneys
-    ? "(PARTITION BY journey_unit, journey_day ORDER BY ts)"
-    : "(PARTITION BY journey_unit ORDER BY ts)";
-}
+// Journeys are scoped to one unit-day: a session boundary the warehouse can
+// derive without a sessionization step.
+const JOURNEY_PARTITION = "journey_unit, journey_day";
+const JOURNEY_WINDOW = `(PARTITION BY ${JOURNEY_PARTITION} ORDER BY ts)`;
+const JOURNEY_CARRY = `${JOURNEY_PARTITION}, ts, step, dim_1`;
 
+/** Shares every rule with the API layer via `validateJourneyDataset`, and adds
+ *  the two that need the resolved Fact Table. */
 function assertJourneyConfig(
   dataset: JourneyDataset,
   factTable: FactTableInterface | undefined,
-  dimValues: number,
+  dimension: ProductAnalyticsDimension | undefined,
 ): asserts factTable is FactTableInterface {
-  if (!dataset.factTableId) {
-    throw new Error("Journey Fact Table is required");
+  const errors = validateJourneyDataset(dataset, dimension);
+  if (errors.length) {
+    throw new Error(errors[0]);
   }
   if (!factTable) {
     throw new Error(`Fact table ${dataset.factTableId} not found`);
   }
-  if (!dataset.unit) {
-    throw new Error("Journey unit is required");
-  }
-  if (!factTable.userIdTypes.includes(dataset.unit)) {
+  if (dataset.unit && !factTable.userIdTypes.includes(dataset.unit)) {
     throw new Error(
       `Journey unit "${dataset.unit}" is not a userIdType on the Fact Table`,
-    );
-  }
-  if (!dataset.stepColumns.length) {
-    throw new Error("Journey step columns are required");
-  }
-  if (
-    !dataset.anchorStepValues ||
-    dataset.anchorStepValues.length !== dataset.stepColumns.length ||
-    dataset.anchorStepValues.some((v) => !v)
-  ) {
-    throw new Error("Journey starting step is required");
-  }
-  for (const group of dataset.stepGroups ?? []) {
-    if (!group.pattern) {
-      throw new Error("Journey grouping rule pattern is required");
-    }
-    if (!dataset.stepColumns.includes(group.column)) {
-      throw new Error(
-        `Journey grouping rule references column "${group.column}", which is not a step column`,
-      );
-    }
-  }
-  if (dataset.path.some((step) => step.mode === "other")) {
-    throw new Error("Drilling into (other) is not supported yet");
-  }
-  if (
-    journeyConfigExceedsRowCap({
-      optionsPerStep: dataset.optionsPerStep,
-      depth: dataset.depth,
-      pathLength: dataset.path.length,
-      dimValues,
-    })
-  ) {
-    throw new Error(
-      `Journey result would exceed ${MAX_JOURNEY_RESULT_ROWS} rows. Lower options per step, steps to show, or dimension values.`,
     );
   }
 }
@@ -190,17 +150,26 @@ function committedPredicate(
   dialect: SqlDialect,
   col: string,
   step: JourneyDataset["path"][number],
-  index: number,
 ): string {
-  if (step.mode === "other") {
-    const excludes = step.excludes.map((v) => lit(dialect, v)).join(", ");
-    return `(${col} IS NOT NULL AND ${col} NOT IN (${excludes}))   -- committed (other) at step ${index + 1}`;
-  }
-  return `${col} = ${lit(dialect, step.value)}   -- committed step ${index + 1}`;
+  return `${col} = ${lit(dialect, step.value)}`;
 }
 
 function dimMaxValues(dimension: ProductAnalyticsDimension | null): number {
   return journeyDimValueCount(dimension ?? undefined) || 3;
+}
+
+/**
+ * Collapses `dim_1` to the top-N values plus a single `(other)`.
+ *
+ * This has to be applied *before* the final GROUP BY. Grouping on the raw
+ * column and bucketing in the SELECT emits one row per distinct value, all
+ * labeled `(other)` — which fragments the bucket and, worse, makes the real
+ * row count scale with dimension cardinality instead of the `dimValues + 1`
+ * that `maxJourneyResultRows` budgets for.
+ */
+function dimBucketSql(dialect: SqlDialect, hasDimension: boolean): string {
+  if (!hasDimension) return dialect.castToString("NULL");
+  return `CASE WHEN dim_1 IN (SELECT value FROM __journey_top_dim) THEN dim_1 ELSE ${lit(dialect, JOURNEY_OTHER)} END`;
 }
 
 function bucketChain(
@@ -211,7 +180,7 @@ function bucketChain(
   const ctes: CTE[] = [];
   const term = journeyTerminal(dataset.direction);
   const pathLen = dataset.path.length;
-  const k = dataset.depth;
+  const k = dataset.lookaheadDepth;
   let prev = srcCte;
 
   for (let fi = 0; fi < k; fi++) {
@@ -230,7 +199,7 @@ function bucketChain(
         sql: `
           SELECT value FROM (
             SELECT ${col} AS value,
-              ROW_NUMBER() OVER (ORDER BY c DESC) AS rn
+              ROW_NUMBER() OVER (ORDER BY c DESC, ${col}) AS rn
             FROM (
               SELECT ${col}, COUNT(*) AS c
               FROM ${prev}
@@ -261,7 +230,7 @@ function bucketChain(
         sql: `
           SELECT ${prefix.map((_, q) => `p${q + 1}`).join(", ")}, value FROM (
             SELECT ${prefix.map((_, q) => `p${q + 1}`).join(", ")}, value,
-              ROW_NUMBER() OVER (PARTITION BY ${prefix.map((_, q) => `p${q + 1}`).join(", ")} ORDER BY c DESC) AS rn
+              ROW_NUMBER() OVER (PARTITION BY ${prefix.map((_, q) => `p${q + 1}`).join(", ")} ORDER BY c DESC, value) AS rn
             FROM (
               SELECT ${pcols.join(", ")}, ${col} AS value, COUNT(*) AS c
               FROM ${prev}
@@ -296,16 +265,18 @@ function bucketChain(
 function committedOptionCtes(
   dialect: SqlDialect,
   dataset: JourneyDataset,
+  hasDimension: boolean,
 ): CTE[] {
   const termLit = lit(dialect, journeyTerminal(dataset.direction));
   const other = lit(dialect, JOURNEY_OTHER);
+  const dimBucket = dimBucketSql(dialect, hasDimension);
   const ctes: CTE[] = [];
   for (let k = 0; k < dataset.path.length; k++) {
     const n = journeyOptionsAt(dataset.optionsPerStep, k);
     const col = `nb_${k + 1}`;
     const preds = dataset.path
       .slice(0, k)
-      .map((step, i) => committedPredicate(dialect, `nb_${i + 1}`, step, i));
+      .map((step, i) => committedPredicate(dialect, `nb_${i + 1}`, step));
     const eligible = `__journey_commit_${k}_eligible`;
     const top = `__journey_commit_${k}_top`;
     const bucketed = `__journey_commit_${k}`;
@@ -321,7 +292,7 @@ function committedOptionCtes(
       sql: `
         SELECT value FROM (
           SELECT ${col} AS value,
-            ROW_NUMBER() OVER (ORDER BY c DESC) AS rn
+            ROW_NUMBER() OVER (ORDER BY c DESC, ${col}) AS rn
           FROM (
             SELECT ${col}, COUNT(*) AS c
             FROM ${eligible}
@@ -339,7 +310,7 @@ function committedOptionCtes(
           CASE WHEN ${col} IS NULL THEN ${termLit}
                WHEN ${col} IN (SELECT value FROM ${top}) THEN ${col}
                ELSE ${other} END AS value,
-          dim_1
+          ${dimBucket} AS dim_1
         FROM ${eligible}
       `,
     });
@@ -373,7 +344,7 @@ export function buildJourneySql(
   config: ExplorationConfig,
   factTableMap: FactTableMap,
   dialect: SqlDialect,
-): { sql: string; fetchDepth: number } {
+): { sql: string; lookaheadDepth: number } {
   if (config.dataset.type !== "journey") {
     throw new Error("buildJourneySql called with a non-journey dataset");
   }
@@ -382,9 +353,9 @@ export function buildJourneySql(
     ? factTableMap.get(dataset.factTableId)
     : undefined;
   const dimension = config.dimensions[0] ?? null;
-  const dimValues = journeyDimValueCount(dimension ?? undefined);
-  assertJourneyConfig(dataset, factTable, dimValues);
+  assertJourneyConfig(dataset, factTable, dimension ?? undefined);
 
+  // validateJourneyDataset has already rejected a null unit / anchor.
   const unit = dataset.unit as string;
   const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
   const timestampColumn = factTable.timestampColumn || "timestamp";
@@ -395,20 +366,11 @@ export function buildJourneySql(
     factTable,
     dialect,
   );
-  // Exclusions are matched against the grouped value so that excluding
-  // "/article/*" drops the whole group, matching what the user sees.
-  const firstStepColExpr = groupedColumnExpr(
-    dataset.stepColumns[0],
-    dataset.stepGroups,
-    factTable,
-    dialect,
-  );
   const anchor = composeStepLabel(dataset.anchorStepValues as string[]);
-  const fetchDepth = dataset.depth;
+  const lookaheadDepth = dataset.lookaheadDepth;
   const pathLen = dataset.path.length;
-  const neighbourhoodCount = pathLen + fetchDepth;
+  const neighbourhoodCount = pathLen + lookaheadDepth;
   const leadOrLag = dataset.direction === "forward" ? "LEAD" : "LAG";
-  const over = windowSpec(dataset.dailyJourneys);
   const hasDimension = dimension !== null;
 
   const factTableGroup: FactTableGroup = {
@@ -430,7 +392,7 @@ export function buildJourneySql(
   const ctes: CTE[] = [];
 
   const dateFilter = `${timestampColumn} >= ${dialect.toTimestamp(dateRange.startDate)} AND ${timestampColumn} <= ${dialect.toTimestamp(dateRange.endDate)}`;
-  ctes.push({
+  const rawCte: CTE = {
     name: "__journey_raw",
     sql: `
       SELECT * FROM (
@@ -438,15 +400,16 @@ export function buildJourneySql(
       ) t
       WHERE ${dateFilter}
     `,
-  });
+  };
+  ctes.push(rawCte);
 
   if (dimension?.dimensionType === "dynamic") {
     ctes.push(
       generateDynamicDimensionCTE(
         factTableGroup,
-        dimension as ProductAnalyticsDynamicDimension,
+        dimension,
         0,
-        ctes[0],
+        rawCte,
         dialect,
       ),
     );
@@ -457,11 +420,6 @@ export function buildJourneySql(
     factTable,
     dialect,
   );
-  if (dataset.excludedSteps.length) {
-    filterParts.push(
-      `${firstStepColExpr} NOT IN (${dataset.excludedSteps.map((v) => lit(dialect, v)).join(", ")})`,
-    );
-  }
   if (dimension?.dimensionType === "static" && dimension.values.length > 0) {
     const dimCol = columnExpr(dimension.column, factTable, dialect);
     filterParts.push(
@@ -471,9 +429,7 @@ export function buildJourneySql(
 
   const eventSelects = [
     `${unitExpr} AS journey_unit`,
-    ...(dataset.dailyJourneys
-      ? [`${dialect.dateTrunc(timestampColumn, "day")} AS journey_day`]
-      : []),
+    `${dialect.dateTrunc(timestampColumn, "day")} AS journey_day`,
     `${timestampColumn} AS ts`,
     `${stepExpr} AS step`,
     hasDimension && dimensionExpr
@@ -491,50 +447,40 @@ export function buildJourneySql(
     `,
   });
 
-  let headTable = "__journey_events";
-  if (dataset.collapseRepeats) {
-    const carry = dataset.dailyJourneys
-      ? "journey_unit, journey_day, ts, step, dim_1"
-      : "journey_unit, ts, step, dim_1";
-    ctes.push({
-      name: "__journey_deduped",
-      sql: `
-        SELECT ${carry}
-        FROM (
-          SELECT ${carry},
-            LAG(step) OVER ${over} AS prev_step
-          FROM __journey_events
-        ) d
-        WHERE prev_step IS NULL OR prev_step <> step
-      `,
-    });
-    headTable = "__journey_deduped";
-  }
-
-  const nbCols = Array.from(
-    { length: neighbourhoodCount },
-    (_, i) => `${leadOrLag}(step, ${i + 1}) OVER ${over} AS nb_${i + 1}`,
-  );
-  const nbCarry = dataset.dailyJourneys
-    ? "journey_unit, journey_day, ts, step, dim_1"
-    : "journey_unit, ts, step, dim_1";
+  // Consecutive repeats of the same step are noise in a path view (a refresh,
+  // a re-render), so they always collapse.
   ctes.push({
-    name: "__journey_neighbourhood",
+    name: "__journey_deduped",
     sql: `
-      SELECT ${nbCarry},
-        ${nbCols.join(",\n        ")}
-      FROM ${headTable}
+      SELECT ${JOURNEY_CARRY}
+      FROM (
+        SELECT ${JOURNEY_CARRY},
+          LAG(step) OVER ${JOURNEY_WINDOW} AS prev_step
+        FROM __journey_events
+      ) d
+      WHERE prev_step IS NULL OR prev_step <> step
     `,
   });
 
-  const anchorPartition = dataset.dailyJourneys
-    ? "journey_unit, journey_day"
-    : "journey_unit";
+  const nbCols = Array.from(
+    { length: neighbourhoodCount },
+    (_, i) =>
+      `${leadOrLag}(step, ${i + 1}) OVER ${JOURNEY_WINDOW} AS nb_${i + 1}`,
+  );
+  ctes.push({
+    name: "__journey_neighbourhood",
+    sql: `
+      SELECT ${JOURNEY_CARRY},
+        ${nbCols.join(",\n        ")}
+      FROM __journey_deduped
+    `,
+  });
+
   ctes.push({
     name: "__journey_anchored",
     sql: `
       SELECT * FROM (
-        SELECT *, ROW_NUMBER() OVER (PARTITION BY ${anchorPartition} ORDER BY ts) AS rn
+        SELECT *, ROW_NUMBER() OVER (PARTITION BY ${JOURNEY_PARTITION} ORDER BY ts) AS rn
         FROM __journey_neighbourhood
         WHERE step = ${lit(dialect, anchor)}
       ) a
@@ -545,7 +491,7 @@ export function buildJourneySql(
   let src = "__journey_anchored";
   if (pathLen > 0) {
     const preds = dataset.path.map((step, i) =>
-      committedPredicate(dialect, `nb_${i + 1}`, step, i),
+      committedPredicate(dialect, `nb_${i + 1}`, step),
     );
     ctes.push({
       name: "__journey_matched",
@@ -557,13 +503,8 @@ export function buildJourneySql(
     src = "__journey_matched";
   }
 
-  const chain = bucketChain(dialect, dataset, src);
-  ctes.push(...chain.ctes);
-
-  if (pathLen > 0) {
-    ctes.push(...committedOptionCtes(dialect, dataset));
-  }
-
+  // Must precede every CTE that buckets dim_1 — Postgres and friends only let
+  // a CTE reference siblings declared before it.
   if (hasDimension) {
     const n = dimMaxValues(dimension);
     ctes.push({
@@ -571,7 +512,7 @@ export function buildJourneySql(
       sql: `
         SELECT value FROM (
           SELECT dim_1 AS value,
-            ROW_NUMBER() OVER (ORDER BY c DESC) AS rn
+            ROW_NUMBER() OVER (ORDER BY c DESC, dim_1) AS rn
           FROM (
             SELECT dim_1, COUNT(*) AS c
             FROM ${src}
@@ -584,28 +525,44 @@ export function buildJourneySql(
     });
   }
 
-  const dimSelect = hasDimension
-    ? `CASE WHEN dim_1 IN (SELECT value FROM __journey_top_dim) THEN dim_1 ELSE ${lit(dialect, JOURNEY_OTHER)} END AS dim_1`
-    : `${dialect.castToString("NULL")} AS dim_1`;
+  const chain = bucketChain(dialect, dataset, src);
+  ctes.push(...chain.ctes);
 
-  const stepCount = pathLen + fetchDepth;
-  const lvlCols = Array.from({ length: fetchDepth }, (_, i) => `lvl_${i + 1}`);
-  const prefixExprs = dataset.path.map((step) =>
-    lit(dialect, journeyPathStepLabel(step)),
+  if (pathLen > 0) {
+    ctes.push(...committedOptionCtes(dialect, dataset, hasDimension));
+  }
+
+  const stepCount = pathLen + lookaheadDepth;
+  const lvlCols = Array.from(
+    { length: lookaheadDepth },
+    (_, i) => `lvl_${i + 1}`,
   );
+  const prefixExprs = dataset.path.map((step) => lit(dialect, step.value));
   const pathStepSelects = [
     ...prefixExprs.map((expr, i) => `${expr} AS step_${i + 1}`),
     ...lvlCols.map((col, i) => `${col} AS step_${pathLen + i + 1}`),
   ];
+
+  // Bucket the dimension before aggregating so `(other)` collapses to one row
+  // per step combination. See dimBucketSql.
+  ctes.push({
+    name: "__journey_path_bucketed",
+    sql: `
+      SELECT ${lvlCols.join(", ")},
+        ${dimBucketSql(dialect, hasDimension)} AS dim_1
+      FROM ${chain.last}
+    `,
+  });
+
   // Postgres/Redshift reject string literals in GROUP BY.
   const pathGroup = [...lvlCols, "dim_1"];
 
   const pathBranch = `
     SELECT
       ${pathStepSelects.join(",\n      ")},
-      ${dimSelect},
+      dim_1,
       COUNT(*) AS journeys
-    FROM ${chain.last}
+    FROM __journey_path_bucketed
     GROUP BY ${pathGroup.join(", ")}
   `;
 
@@ -619,14 +576,13 @@ export function buildJourneySql(
           nullStepSql(dialect, k + 2 + i),
         ),
       ];
-      const commitGroup = hasDimension ? ["value", "dim_1"] : ["value"];
       branches.push(`
     SELECT
       ${commitSteps.join(",\n      ")},
-      ${dimSelect},
+      dim_1,
       COUNT(*) AS journeys
     FROM __journey_commit_${k}
-    GROUP BY ${commitGroup.join(", ")}
+    GROUP BY value, dim_1
       `);
     }
   }
@@ -641,7 +597,7 @@ export function buildJourneySql(
     dialect.formatDialect,
   );
 
-  return { sql, fetchDepth };
+  return { sql, lookaheadDepth };
 }
 
 export function transformJourneyRowsToResult(
@@ -653,9 +609,8 @@ export function transformJourneyRowsToResult(
       "transformJourneyRowsToResult called with non-journey config",
     );
   }
-  const fetchDepth = config.dataset.depth;
   const pathLen = config.dataset.path.length;
-  const stepCount = pathLen + fetchDepth;
+  const stepCount = pathLen + config.dataset.lookaheadDepth;
   const hasDimension = config.dimensions.length > 0;
   const direction = config.dataset.direction;
   const result: ProductAnalyticsResult = { rows: [] };
@@ -663,47 +618,34 @@ export function transformJourneyRowsToResult(
   for (const row of rows) {
     const count = parseNumberValue(rowValue(row, "journeys")) ?? 0;
     const dim = parseStringValue(rowValue(row, "dim_1"));
-    const resultRow: ProductAnalyticsResultRow = {
-      dimensions: hasDimension ? [dim] : [],
-    };
     const steps = readStepValues(row, stepCount);
-    if (steps) {
-      // Trailing SQL NULL marks a prefix rollup; (none) pads a finished path.
-      let lastFilled = -1;
-      for (let i = steps.length - 1; i >= 0; i--) {
-        if ((steps[i] ?? null) !== null) {
-          lastFilled = i;
-          break;
-        }
+    // Trailing SQL NULL marks a prefix rollup; (none) pads a finished path.
+    let lastFilled = -1;
+    for (let i = steps.length - 1; i >= 0; i--) {
+      if ((steps[i] ?? null) !== null) {
+        lastFilled = i;
+        break;
       }
-      const isPathRow =
-        lastFilled < 0 || steps.every((step) => (step ?? null) !== null);
-      if (isPathRow) {
-        const lookahead = steps.slice(pathLen);
-        resultRow.journey = {
-          kind: "path",
-          direction,
-          levels: lookahead.map((step) => step ?? JOURNEY_NONE),
-          count,
-        };
-      } else {
-        resultRow.journey = {
-          kind: "committed",
-          direction,
-          stepIndex: lastFilled,
-          value: steps[lastFilled] ?? JOURNEY_NONE,
-          count,
-        };
-      }
-    } else {
-      resultRow.journey = legacyJourneyFromRow(
-        row,
-        fetchDepth,
-        direction,
-        count,
-      );
     }
-    result.rows.push(resultRow);
+    const isPathRow =
+      lastFilled < 0 || steps.every((step) => (step ?? null) !== null);
+    result.rows.push({
+      dimensions: hasDimension ? [dim] : [],
+      journey: isPathRow
+        ? {
+            kind: "path",
+            direction,
+            levels: steps.slice(pathLen).map((step) => step ?? JOURNEY_NONE),
+            count,
+          }
+        : {
+            kind: "committed",
+            direction,
+            stepIndex: lastFilled,
+            value: steps[lastFilled] ?? JOURNEY_NONE,
+            count,
+          },
+    });
   }
 
   return result;
@@ -712,50 +654,10 @@ export function transformJourneyRowsToResult(
 function readStepValues(
   row: Record<string, unknown>,
   stepCount: number,
-): (string | null)[] | null {
-  if (rowValue(row, "step_1") === undefined) return null;
+): (string | null)[] {
   const steps: (string | null)[] = [];
   for (let i = 0; i < stepCount; i++) {
     steps.push(parseStringValue(rowValue(row, `step_${i + 1}`)));
   }
   return steps;
-}
-
-function legacyJourneyFromRow(
-  row: Record<string, unknown>,
-  fetchDepth: number,
-  direction: "forward" | "backward",
-  count: number,
-): NonNullable<ProductAnalyticsResultRow["journey"]> {
-  const kind = parseStringValue(rowValue(row, "kind"));
-  if (kind === "progress") {
-    return {
-      kind: "progress",
-      direction,
-      depthReached: parseNumberValue(rowValue(row, "lvl_1")) ?? 0,
-      outcome: parseJourneyOutcome(parseStringValue(rowValue(row, "lvl_2"))),
-      count,
-    };
-  }
-  if (kind === "committed") {
-    return {
-      kind: "committed",
-      direction,
-      stepIndex: parseNumberValue(rowValue(row, "lvl_1")) ?? 0,
-      value: parseStringValue(rowValue(row, "lvl_2")) ?? JOURNEY_NONE,
-      count,
-    };
-  }
-  const levels: string[] = [];
-  for (let i = 0; i < fetchDepth; i++) {
-    levels.push(
-      parseStringValue(rowValue(row, `lvl_${i + 1}`)) ?? JOURNEY_NONE,
-    );
-  }
-  return {
-    kind: "path",
-    direction,
-    levels,
-    count,
-  };
 }

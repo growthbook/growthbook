@@ -25,11 +25,13 @@ import {
   journeyPrefetchExhausted,
   journeyShouldPrefetchMore,
 } from "@/enterprise/components/ProductAnalytics/journey-policy";
-import {
-  buildJourneyViewModel,
-  buildJourneyViewState,
-} from "@/enterprise/components/ProductAnalytics/MainSection/useJourneyModel";
+import { buildJourneyViewState } from "@/enterprise/components/ProductAnalytics/MainSection/useJourneyModel";
 import { buildJourneyTableData } from "@/enterprise/components/ProductAnalytics/MainSection/useExplorationTableData";
+
+/** These assertions only care about the view model half of the state. */
+const buildJourneyViewStateModel = (
+  args: Parameters<typeof buildJourneyViewState>[0],
+) => buildJourneyViewState(args).model;
 
 function journeyDataset(
   overrides: Partial<JourneyDataset> = {},
@@ -38,19 +40,13 @@ function journeyDataset(
     type: "journey",
     factTableId: "ft_events",
     unit: "user_id",
-    dailyJourneys: false,
     stepColumns: ["event_name"],
     anchorStepValues: ["view"],
     direction: "forward",
-    excludedSteps: [],
     rowFilters: [],
-    collapseRepeats: true,
     path: [],
-    depth: 3,
+    lookaheadDepth: 3,
     optionsPerStep: [],
-    renderDepth: 2,
-    scaleMode: "perStep",
-    dimEncoding: "tooltip",
     ...overrides,
   };
 }
@@ -71,23 +67,6 @@ function pathRow(
   };
 }
 
-function progressRow(
-  depthReached: number,
-  outcome: "taken" | "other" | "exit",
-  count: number,
-): ProductAnalyticsResultRow {
-  return {
-    dimensions: [],
-    journey: {
-      kind: "progress",
-      direction: "forward",
-      depthReached,
-      outcome,
-      count,
-    },
-  };
-}
-
 const heldRows: ProductAnalyticsResultRow[] = [
   pathRow(["home", "search", "(exit)"], 40),
   pathRow(["home", "(exit)", "(none)"], 10),
@@ -101,15 +80,11 @@ describe("journey util branches", () => {
     expect(dataset.type).toBe("journey");
     expect(dataset).not.toHaveProperty("values");
     if (dataset.type !== "journey") throw new Error("expected journey");
-    expect(dataset.depth).toBe(3);
-    expect(dataset.renderDepth).toBe(1);
+    expect(dataset.lookaheadDepth).toBe(3);
     expect(dataset.optionsPerStep).toEqual([]);
-    expect(dataset.dailyJourneys).toBe(true);
-    expect(dataset.collapseRepeats).toBe(true);
-    expect(dataset.excludedSteps).toEqual([]);
   });
 
-  it("fillMissingUnits forces daily journeys, collapse repeats, and no exclusions", () => {
+  it("fillMissingUnits defaults the unit from the fact table", () => {
     const config: ExplorationConfig = {
       type: "journey",
       datasource: "ds_1",
@@ -122,21 +97,19 @@ describe("journey util branches", () => {
         lookbackUnit: null,
       },
       dimensions: [],
-      dataset: journeyDataset({
-        dailyJourneys: false,
-        collapseRepeats: false,
-        excludedSteps: ["heartbeat"],
-      }),
+      dataset: journeyDataset({ unit: null }),
     };
     const next = fillMissingUnits(
       config,
-      () => null,
+      () =>
+        ({
+          id: "ft_events",
+          userIdTypes: ["user_id"],
+          columns: [],
+        }) as unknown as FactTableInterface,
       () => null,
     );
     if (next.dataset.type !== "journey") throw new Error("expected journey");
-    expect(next.dataset.dailyJourneys).toBe(true);
-    expect(next.dataset.collapseRepeats).toBe(true);
-    expect(next.dataset.excludedSteps).toEqual([]);
     expect(next.dataset.unit).toBe("user_id");
   });
 
@@ -200,7 +173,7 @@ describe("journey util branches", () => {
     expect(isSubmittableConfig(missingAnchor)).toBe(false);
   });
 
-  it("toFetchKey strips display-only journey fields", () => {
+  it("toFetchKey keeps the fetch identity but drops the client-applied path", () => {
     const config = {
       type: "journey" as const,
       datasource: "ds_1",
@@ -214,19 +187,14 @@ describe("journey util branches", () => {
       },
       dimensions: [],
       dataset: journeyDataset({
-        renderDepth: 2,
-        scaleMode: "funnel",
-        dimEncoding: "ribbons",
+        path: [{ value: "search" }],
       }),
     };
     const key = toFetchKey(config) as {
-      dataset: { type: string; depth?: number; path?: unknown };
+      dataset: { type: string; lookaheadDepth?: number; path?: unknown };
     };
-    expect(key.dataset).not.toHaveProperty("renderDepth");
-    expect(key.dataset).not.toHaveProperty("scaleMode");
-    expect(key.dataset).not.toHaveProperty("dimEncoding");
     expect(key.dataset.type).toBe("journey");
-    expect(key.dataset.depth).toBe(3);
+    expect(key.dataset.lookaheadDepth).toBe(3);
     expect(key.dataset).not.toHaveProperty("path");
   });
 
@@ -243,46 +211,35 @@ describe("journey util branches", () => {
         lookbackUnit: null,
       },
       dimensions: [],
-      dataset: journeyDataset({ path: [], depth: 3 }),
+      dataset: journeyDataset({ path: [], lookaheadDepth: 3 }),
     };
     const withinPrefetch: ExplorationConfig = {
       ...submitted,
       dataset: journeyDataset({
-        path: [{ mode: "value", value: "home" }],
-        depth: 3,
+        path: [{ value: "home" }],
+        lookaheadDepth: 3,
       }),
     };
     const exhausted: ExplorationConfig = {
       ...submitted,
       dataset: journeyDataset({
-        path: [
-          { mode: "value", value: "home" },
-          { mode: "value", value: "search" },
-          { mode: "value", value: "checkout" },
-        ],
-        depth: 3,
+        path: [{ value: "home" }, { value: "search" }, { value: "checkout" }],
+        lookaheadDepth: 3,
       }),
     };
     const otherChange: ExplorationConfig = {
       ...exhausted,
       dataset: journeyDataset({
-        path: [
-          { mode: "value", value: "home" },
-          { mode: "value", value: "search" },
-          { mode: "value", value: "checkout" },
-        ],
-        depth: 3,
+        path: [{ value: "home" }, { value: "search" }, { value: "checkout" }],
+        lookaheadDepth: 3,
         unit: "anonymous_id",
       }),
     };
     const oneBefore: ExplorationConfig = {
       ...submitted,
       dataset: journeyDataset({
-        path: [
-          { mode: "value", value: "home" },
-          { mode: "value", value: "search" },
-        ],
-        depth: 3,
+        path: [{ value: "home" }, { value: "search" }],
+        lookaheadDepth: 3,
       }),
     };
     expect(journeyDiffersOnlyByPath(submitted, withinPrefetch)).toBe(true);
@@ -319,13 +276,13 @@ describe("journey util branches", () => {
         lookbackUnit: null,
       },
       dimensions: [],
-      dataset: journeyDataset({ path: [], depth: 3 }),
+      dataset: journeyDataset({ path: [], lookaheadDepth: 3 }),
     };
     const draft: ExplorationConfig = {
       ...submitted,
       dataset: journeyDataset({
-        path: [{ mode: "value", value: "home" }],
-        depth: 3,
+        path: [{ value: "home" }],
+        lookaheadDepth: 3,
       }),
     };
     const rows: ProductAnalyticsResultRow[] = [
@@ -413,19 +370,9 @@ describe("withStepGroupsApplied", () => {
     expect(next.anchorStepValues).toEqual(["/article/*", "/article/1"]);
   });
 
-  it("rewrites and dedupes excluded steps", () => {
-    const next = withStepGroupsApplied(
-      journeyDataset({
-        excludedSteps: ["/article/1", "/article/2", "/ping"],
-      }),
-      rules,
-    );
-    expect(next.excludedSteps).toEqual(["/article/*", "/ping"]);
-  });
-
   it("resets the drilled-down path", () => {
     const next = withStepGroupsApplied(
-      journeyDataset({ path: [{ mode: "value", value: "/article/1" }] }),
+      journeyDataset({ path: [{ value: "/article/1" }] }),
       rules,
     );
     expect(next.path).toEqual([]);
@@ -552,9 +499,9 @@ describe("journey alwaysInlineFilter columns", () => {
   });
 });
 
-describe("buildJourneyViewModel", () => {
+describe("buildJourneyViewState", () => {
   it("keeps the four count invariants on an empty path", () => {
-    const model = buildJourneyViewModel({
+    const model = buildJourneyViewStateModel({
       rows: heldRows,
       dataset: journeyDataset(),
       hasDimension: false,
@@ -568,10 +515,10 @@ describe("buildJourneyViewModel", () => {
   });
 
   it("splits a client-side commit three ways and matches a fresh query", () => {
-    const client = buildJourneyViewModel({
+    const client = buildJourneyViewStateModel({
       rows: heldRows,
       dataset: journeyDataset({
-        path: [{ mode: "value", value: "home" }],
+        path: [{ value: "home" }],
       }),
       rowPath: [],
       hasDimension: false,
@@ -598,17 +545,44 @@ describe("buildJourneyViewModel", () => {
           },
         };
       });
-    const fresh = buildJourneyViewModel({
+    const fresh = buildJourneyViewStateModel({
       rows: [
         ...freshRows,
-        progressRow(0, "other", 20),
-        progressRow(0, "exit", 30),
-        progressRow(1, "taken", 50),
+        {
+          dimensions: [],
+          journey: {
+            kind: "committed" as const,
+            direction: "forward" as const,
+            stepIndex: 0,
+            value: "(other)",
+            count: 20,
+          },
+        },
+        {
+          dimensions: [],
+          journey: {
+            kind: "committed" as const,
+            direction: "forward" as const,
+            stepIndex: 0,
+            value: "(exit)",
+            count: 30,
+          },
+        },
+        {
+          dimensions: [],
+          journey: {
+            kind: "committed" as const,
+            direction: "forward" as const,
+            stepIndex: 0,
+            value: "home",
+            count: 50,
+          },
+        },
       ],
       dataset: journeyDataset({
-        path: [{ mode: "value", value: "home" }],
+        path: [{ value: "home" }],
       }),
-      rowPath: [{ mode: "value", value: "home" }],
+      rowPath: [{ value: "home" }],
       hasDimension: false,
     });
     expect(fresh.violations).toEqual([]);
@@ -636,16 +610,13 @@ describe("buildJourneyViewModel", () => {
           journey: { ...r.journey, levels: r.journey.levels.slice(1) },
         };
       });
-    const model = buildJourneyViewModel({
+    const model = buildJourneyViewStateModel({
       rows: homeRows,
       dataset: journeyDataset({
-        path: [
-          { mode: "value", value: "home" },
-          { mode: "value", value: "search" },
-        ],
-        depth: 3,
+        path: [{ value: "home" }, { value: "search" }],
+        lookaheadDepth: 3,
       }),
-      rowPath: [{ mode: "value", value: "home" }],
+      rowPath: [{ value: "home" }],
       hasDimension: false,
     });
     expect(model.prefixCount[0]).toBe(50);
@@ -659,13 +630,10 @@ describe("buildJourneyViewModel", () => {
   });
 
   it("keeps earlier exits after a filtered prefetch replaces the rows", () => {
-    const path = [
-      { mode: "value" as const, value: "home" },
-      { mode: "value" as const, value: "search" },
-    ];
+    const path = [{ value: "home" }, { value: "search" }];
     const observed = buildJourneyViewState({
       rows: heldRows,
-      dataset: journeyDataset({ path, depth: 3 }),
+      dataset: journeyDataset({ path, lookaheadDepth: 3 }),
       rowPath: [],
       hasDimension: false,
     });
@@ -688,7 +656,7 @@ describe("buildJourneyViewModel", () => {
       });
     const afterPrefetch = buildJourneyViewState({
       rows: prefetchRows,
-      dataset: journeyDataset({ path, depth: 3 }),
+      dataset: journeyDataset({ path, lookaheadDepth: 3 }),
       rowPath: path,
       hasDimension: false,
       previousHistory: observed.history,
@@ -708,7 +676,7 @@ describe("buildJourneyViewModel", () => {
     const committed = buildJourneyViewState({
       rows: heldRows,
       dataset: journeyDataset({
-        path: [{ mode: "value", value: "home" }],
+        path: [{ value: "home" }],
       }),
       rowPath: [],
       hasDimension: false,
@@ -727,7 +695,7 @@ describe("buildJourneyViewModel", () => {
     const popped = buildJourneyViewState({
       rows: filteredToHome,
       dataset: journeyDataset({ path: [] }),
-      rowPath: [{ mode: "value", value: "home" }],
+      rowPath: [{ value: "home" }],
       hasDimension: false,
       previousHistory: committed.history,
     });
@@ -744,7 +712,7 @@ describe("buildJourneyViewModel", () => {
   });
 
   it("renders committed drop-off from warehouse rows without interaction history", () => {
-    const model = buildJourneyViewModel({
+    const model = buildJourneyViewStateModel({
       rows: [
         pathRow(["thanks"], 40),
         {
@@ -799,15 +767,9 @@ describe("buildJourneyViewModel", () => {
         },
       ],
       dataset: journeyDataset({
-        path: [
-          { mode: "value", value: "home" },
-          { mode: "value", value: "search" },
-        ],
+        path: [{ value: "home" }, { value: "search" }],
       }),
-      rowPath: [
-        { mode: "value", value: "home" },
-        { mode: "value", value: "search" },
-      ],
+      rowPath: [{ value: "home" }, { value: "search" }],
       hasDimension: false,
     });
     expect(model.prefixCount[0]).toBe(100);
@@ -818,16 +780,16 @@ describe("buildJourneyViewModel", () => {
   });
 
   it("does not draw columns past the fetched levels", () => {
-    const model = buildJourneyViewModel({
+    const model = buildJourneyViewStateModel({
       rows: heldRows,
       dataset: journeyDataset({
         path: [
-          { mode: "value", value: "home" },
-          { mode: "value", value: "search" },
-          { mode: "value", value: "checkout" },
-          { mode: "value", value: "thanks" },
+          { value: "home" },
+          { value: "search" },
+          { value: "checkout" },
+          { value: "thanks" },
         ],
-        depth: 3,
+        lookaheadDepth: 3,
       }),
       rowPath: [],
       hasDimension: false,
@@ -852,15 +814,15 @@ describe("buildJourneyTableData", () => {
       lookbackUnit: null,
     },
     dimensions: [],
-    dataset: journeyDataset({ depth: 3 }),
+    dataset: journeyDataset({ lookaheadDepth: 3 }),
   };
 
   it("mirrors SQL step columns, using nulls for prefix rollups", () => {
     const withPath: ExplorationConfig = {
       ...submitted,
       dataset: journeyDataset({
-        depth: 3,
-        path: [{ mode: "value", value: "home" }],
+        lookaheadDepth: 3,
+        path: [{ value: "home" }],
       }),
     };
     const exploration = {
@@ -888,8 +850,6 @@ describe("buildJourneyTableData", () => {
               count: 30,
             },
           },
-          // Same grain as the (exit) committed row; must not appear twice.
-          progressRow(0, "exit", 30),
         ],
       },
     } as ProductAnalyticsExploration;

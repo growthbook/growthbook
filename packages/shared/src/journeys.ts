@@ -1,3 +1,4 @@
+import { isEqual } from "lodash";
 import type {
   JourneyDataset,
   JourneyPathStep,
@@ -6,58 +7,31 @@ import type {
   ProductAnalyticsJourneyRow,
   ProductAnalyticsResultRow,
 } from "./validators/product-analytics";
+import {
+  DEFAULT_JOURNEY_OPTIONS_PER_STEP,
+  MAX_JOURNEY_LOOKAHEAD_DEPTH,
+  MAX_JOURNEY_OPTIONS_PER_STEP,
+} from "./validators/product-analytics";
 
 export const JOURNEY_OTHER = "(other)";
 export const JOURNEY_EXIT = "(exit)";
 export const JOURNEY_ENTRY = "(entry)";
 export const JOURNEY_NONE = "(none)";
-export const JOURNEY_TAKEN = "(taken)";
-
-export type JourneyProgressOutcome = "taken" | "other" | "exit";
-
-export function parseJourneyOutcome(
-  raw: string | null,
-): JourneyProgressOutcome {
-  if (raw === "other" || raw === JOURNEY_OTHER) return "other";
-  if (raw === "exit" || raw === JOURNEY_EXIT || raw === JOURNEY_ENTRY) {
-    return "exit";
-  }
-  return "taken";
-}
-
-export function journeyOutcomeSqlValue(
-  outcome: JourneyProgressOutcome,
-  direction: "forward" | "backward",
-): string {
-  switch (outcome) {
-    case "taken":
-      return JOURNEY_TAKEN;
-    case "other":
-      return JOURNEY_OTHER;
-    case "exit":
-      return journeyTerminal(direction);
-    default: {
-      const exhaustive: never = outcome;
-      return exhaustive;
-    }
-  }
-}
 
 export function journeyResultToStepValues(
   journey: ProductAnalyticsJourneyRow,
   path: JourneyPathStep[],
-  depth: number,
-  direction: "forward" | "backward",
+  lookaheadDepth: number,
 ): (string | null)[] {
-  const n = path.length + depth;
-  const prefix = path.map(journeyPathStepLabel);
+  const n = path.length + lookaheadDepth;
+  const prefix = path.map((step) => step.value);
   const steps: (string | null)[] = Array.from({ length: n }, () => null);
   switch (journey.kind) {
     case "path":
       for (let i = 0; i < prefix.length; i++) {
         steps[i] = prefix[i];
       }
-      for (let i = 0; i < depth; i++) {
+      for (let i = 0; i < lookaheadDepth; i++) {
         steps[prefix.length + i] = journey.levels[i] ?? JOURNEY_NONE;
       }
       return steps;
@@ -69,16 +43,6 @@ export function journeyResultToStepValues(
         steps[journey.stepIndex] = journey.value;
       }
       return steps;
-    case "progress": {
-      const at = journey.depthReached;
-      for (let i = 0; i < at && i < n; i++) {
-        steps[i] = prefix[i] ?? null;
-      }
-      if (journey.outcome !== "taken" && at < n) {
-        steps[at] = journeyOutcomeSqlValue(journey.outcome, direction);
-      }
-      return steps;
-    }
     default: {
       const exhaustive: never = journey;
       return exhaustive;
@@ -112,26 +76,20 @@ export const JOURNEY_TERMINALS = new Set<string>([
 ]);
 
 export const MAX_JOURNEY_RESULT_ROWS = 5000;
-export const MAX_JOURNEY_FETCH_DEPTH = 4;
-export const MAX_JOURNEY_RENDER_DEPTH = 3;
-export const MIN_JOURNEY_OPTIONS_PER_STEP = 2;
-export const MAX_JOURNEY_OPTIONS_PER_STEP = 50;
-export const DEFAULT_JOURNEY_OPTIONS_PER_STEP = 5;
 export const JOURNEY_OPTIONS_PER_STEP_INCREMENT = 3;
-export const DEFAULT_JOURNEY_RENDER_DEPTH = 2;
 export const JOURNEY_CACHE_CANDIDATE_LIMIT = 40;
 
-export type JourneyLookaheadNeed = "one" | "full";
+type JourneyLookaheadNeed = "one" | "full";
 
 export function journeyMinUnusedLookahead(
-  requestedDepth: number,
+  requestedLookaheadDepth: number,
   need: JourneyLookaheadNeed,
 ): number {
   switch (need) {
     case "one":
       return 1;
     case "full":
-      return requestedDepth;
+      return requestedLookaheadDepth;
     default: {
       const _exhaustive: never = need;
       return _exhaustive;
@@ -143,13 +101,10 @@ export function journeyFamilyIdentity(dataset: JourneyDataset) {
   return {
     factTableId: dataset.factTableId,
     unit: dataset.unit,
-    dailyJourneys: dataset.dailyJourneys,
-    collapseRepeats: dataset.collapseRepeats,
     direction: dataset.direction,
     stepColumns: dataset.stepColumns,
     stepGroups: dataset.stepGroups ?? [],
     anchorStepValues: dataset.anchorStepValues,
-    excludedSteps: dataset.excludedSteps,
     rowFilters: dataset.rowFilters,
   };
 }
@@ -179,27 +134,10 @@ export function composeStepLabel(values: string[]): string {
   return values.join(" / ");
 }
 
-export function journeyPathStepLabel(step: JourneyPathStep): string {
-  switch (step.mode) {
-    case "value":
-      return step.value;
-    case "other":
-      return JOURNEY_OTHER;
-    default: {
-      const exhaustive: never = step;
-      return exhaustive;
-    }
-  }
-}
-
 export function journeyTerminal(
   direction: "forward" | "backward",
 ): typeof JOURNEY_EXIT | typeof JOURNEY_ENTRY {
   return direction === "forward" ? JOURNEY_EXIT : JOURNEY_ENTRY;
-}
-
-export function isJourneyTerminal(value: string): boolean {
-  return JOURNEY_TERMINALS.has(value);
 }
 
 const globRegExpCache = new Map<string, RegExp>();
@@ -265,12 +203,12 @@ export function stepGroupMatchCounts(
 }
 
 // Permissive: topValues is ~100 rows, so a real pattern may only show 2–3 times.
-export const MIN_JOURNEY_GROUP_SIZE = 2;
-export const MIN_JOURNEY_GROUP_DISTINCT_CHILDREN = 2;
-export const MAX_JOURNEY_GROUP_SUGGESTIONS = 5;
-export const MAX_JOURNEY_GROUP_PREFIX_SEGMENTS = 4;
+const MIN_JOURNEY_GROUP_SIZE = 2;
+const MIN_JOURNEY_GROUP_DISTINCT_CHILDREN = 2;
+const MAX_JOURNEY_GROUP_SUGGESTIONS = 5;
+const MAX_JOURNEY_GROUP_PREFIX_SEGMENTS = 4;
 
-export type JourneyStepGroupSuggestion = {
+type JourneyStepGroupSuggestion = {
   pattern: string;
   matchedValues: string[];
   coverage: number;
@@ -376,11 +314,6 @@ export function suggestJourneyStepGroups(
     .slice(0, MAX_JOURNEY_GROUP_SUGGESTIONS);
 }
 
-/** Fetch one extra frontier level beyond what is drawn, capped at 4. */
-export function fetchDepthFromRenderDepth(renderDepth: number): number {
-  return Math.min(MAX_JOURNEY_FETCH_DEPTH, Math.max(1, renderDepth) + 1);
-}
-
 /**
  * Upper bound on path-branch rows for one direction.
  *
@@ -395,11 +328,11 @@ export function fetchDepthFromRenderDepth(renderDepth: number): number {
  */
 export function maxJourneyPathRows(
   optionsPerStep: number | number[],
-  depth: number,
+  lookaheadDepth: number,
   dimValues: number,
   pathLength = 0,
 ): number {
-  const d = Math.max(1, depth);
+  const d = Math.max(1, lookaheadDepth);
   const nAt = (frontierIndex: number) =>
     Math.max(0, journeyOptionsAt(optionsPerStep, pathLength + frontierIndex));
   let continuing = nAt(0) + 1;
@@ -411,15 +344,7 @@ export function maxJourneyPathRows(
   return (continuing + terminating) * (dimValues + 1);
 }
 
-export function maxJourneyProgressRows(
-  pathLength: number,
-  dimValues: number,
-): number {
-  if (pathLength <= 0) return 0;
-  return (pathLength + 1) * 3 * (dimValues + 1);
-}
-
-export function maxJourneyCommittedRows(
+function maxJourneyCommittedRows(
   optionsPerStep: number | number[],
   pathLength: number,
   dimValues: number,
@@ -434,29 +359,19 @@ export function maxJourneyCommittedRows(
 
 export function maxJourneyResultRows({
   optionsPerStep,
-  depth,
+  lookaheadDepth,
   pathLength,
   dimValues,
 }: {
   optionsPerStep: number | number[];
-  depth: number;
+  lookaheadDepth: number;
   pathLength: number;
   dimValues: number;
 }): number {
   return (
-    maxJourneyPathRows(optionsPerStep, depth, dimValues, pathLength) +
-    maxJourneyProgressRows(pathLength, dimValues) +
+    maxJourneyPathRows(optionsPerStep, lookaheadDepth, dimValues, pathLength) +
     maxJourneyCommittedRows(optionsPerStep, pathLength, dimValues)
   );
-}
-
-export function journeyStepEquals(
-  a: JourneyPathStep,
-  b: JourneyPathStep,
-): boolean {
-  if (a.mode !== b.mode) return false;
-  if (a.mode === "other" || b.mode === "other") return true;
-  return a.value === b.value;
 }
 
 export function journeyPathIsPrefix(
@@ -465,7 +380,7 @@ export function journeyPathIsPrefix(
 ): boolean {
   return (
     prefix.length <= full.length &&
-    prefix.every((step, i) => journeyStepEquals(step, full[i]))
+    prefix.every((step, i) => step.value === full[i]?.value)
   );
 }
 
@@ -474,7 +389,6 @@ export function journeyLevelMatchesStep(
   step: JourneyPathStep,
 ): boolean {
   if (value == null || value === JOURNEY_NONE) return false;
-  if (step.mode === "other") return value === JOURNEY_OTHER;
   return value === step.value;
 }
 
@@ -482,9 +396,9 @@ function journeyFamilyEquals(
   cached: JourneyDataset,
   requested: JourneyDataset,
 ): boolean {
-  return (
-    JSON.stringify(journeyFamilyIdentity(cached)) ===
-    JSON.stringify(journeyFamilyIdentity(requested))
+  return isEqual(
+    journeyFamilyIdentity(cached),
+    journeyFamilyIdentity(requested),
   );
 }
 
@@ -501,6 +415,51 @@ function pathRowsContainStep(
   );
 }
 
+/**
+ * The part of `journeyResultCanServe` that only needs the two configs.
+ *
+ * Callers holding many candidates (the Mongo cache probe) run this first so
+ * they only have to load result rows — up to MAX_JOURNEY_RESULT_ROWS each — for
+ * the handful that could still qualify.
+ */
+export function journeyCacheCandidateVerdict({
+  cachedDataset,
+  requestedDataset,
+  minUnusedLookahead = 1,
+}: {
+  cachedDataset: JourneyDataset;
+  requestedDataset: JourneyDataset;
+  minUnusedLookahead?: number;
+}): "no" | "yes" | "needs-rows" {
+  if (!journeyFamilyEquals(cachedDataset, requestedDataset)) return "no";
+
+  const cachedPath = cachedDataset.path;
+  const requestedPath = requestedDataset.path;
+  const frontierOptionsOk =
+    journeyOptionsAt(cachedDataset.optionsPerStep, requestedPath.length) >=
+    journeyOptionsAt(requestedDataset.optionsPerStep, requestedPath.length);
+
+  if (journeyPathIsPrefix(requestedPath, cachedPath)) {
+    if (requestedPath.length === cachedPath.length) {
+      return cachedDataset.lookaheadDepth >= minUnusedLookahead &&
+        frontierOptionsOk
+        ? "yes"
+        : "no";
+    }
+    // Pop can reuse one stored frontier; that is not a full lookahead.
+    if (minUnusedLookahead > 1) return "no";
+    return "needs-rows";
+  }
+
+  if (!journeyPathIsPrefix(cachedPath, requestedPath)) return "no";
+  const extra = requestedPath.slice(cachedPath.length);
+  if (cachedDataset.lookaheadDepth - extra.length < minUnusedLookahead) {
+    return "no";
+  }
+  if (!frontierOptionsOk) return "no";
+  return "needs-rows";
+}
+
 /** Cached result can draw the requested path plus `minUnusedLookahead` leftover levels. */
 export function journeyResultCanServe({
   cachedDataset,
@@ -513,31 +472,23 @@ export function journeyResultCanServe({
   requestedDataset: JourneyDataset;
   minUnusedLookahead?: number;
 }): boolean {
-  if (!journeyFamilyEquals(cachedDataset, requestedDataset)) return false;
+  const verdict = journeyCacheCandidateVerdict({
+    cachedDataset,
+    requestedDataset,
+    minUnusedLookahead,
+  });
+  if (verdict !== "needs-rows") return verdict === "yes";
 
   const cachedPath = cachedDataset.path;
   const requestedPath = requestedDataset.path;
-  const frontierOptionsOk =
-    journeyOptionsAt(cachedDataset.optionsPerStep, requestedPath.length) >=
-    journeyOptionsAt(requestedDataset.optionsPerStep, requestedPath.length);
 
   if (journeyPathIsPrefix(requestedPath, cachedPath)) {
-    if (requestedPath.length === cachedPath.length) {
-      return cachedDataset.depth >= minUnusedLookahead && frontierOptionsOk;
-    }
-    // Pop can reuse one stored frontier; that is not a full lookahead.
-    if (minUnusedLookahead > 1) return false;
     return cachedRows.some(
       (row) =>
         row.journey?.kind === "committed" &&
         row.journey.stepIndex === requestedPath.length,
     );
   }
-
-  if (!journeyPathIsPrefix(cachedPath, requestedPath)) return false;
-  const extra = requestedPath.slice(cachedPath.length);
-  if (cachedDataset.depth - extra.length < minUnusedLookahead) return false;
-  if (!frontierOptionsOk) return false;
 
   const pathRows = cachedRows
     .map((row) => row.journey)
@@ -546,7 +497,7 @@ export function journeyResultCanServe({
         j != null && j.kind === "path",
     );
   const extraPrefix: JourneyPathStep[] = [];
-  for (const step of extra) {
+  for (const step of requestedPath.slice(cachedPath.length)) {
     if (!pathRowsContainStep(pathRows, extraPrefix, step)) return false;
     extraPrefix.push(step);
   }
@@ -573,9 +524,9 @@ export function journeyDimValueCount(
   }
 }
 
-export function journeyConfigExceedsRowCap(params: {
+function journeyConfigExceedsRowCap(params: {
   optionsPerStep: number | number[];
-  depth: number;
+  lookaheadDepth: number;
   pathLength: number;
   dimValues: number;
 }): boolean {
@@ -585,7 +536,7 @@ export function journeyConfigExceedsRowCap(params: {
 export function canIncreaseJourneyOptions(params: {
   optionsPerStep: number[];
   levelIndex: number;
-  depth: number;
+  lookaheadDepth: number;
   pathLength: number;
   dimValues: number;
 }): boolean {
@@ -598,8 +549,80 @@ export function canIncreaseJourneyOptions(params: {
       params.levelIndex,
       nextValue,
     ),
-    depth: params.depth,
+    lookaheadDepth: params.lookaheadDepth,
     pathLength: params.pathLength,
     dimValues: params.dimValues,
   });
+}
+
+/**
+ * Every semantic rule a journey dataset must satisfy before it can be turned
+ * into SQL, in one place. Returns user-facing messages rather than throwing so
+ * each caller can surface them its own way: the API throws BadRequestError, the
+ * SQL builder throws, and the explorer uses `isEmpty` to enable/disable Run.
+ *
+ * Zod stays purely structural — a half-configured draft in the sidebar must
+ * still parse and round-trip through the URL.
+ */
+export function validateJourneyDataset(
+  dataset: JourneyDataset,
+  dimension?: ProductAnalyticsDimension,
+): string[] {
+  const errors: string[] = [];
+
+  if (!dataset.factTableId) errors.push("Fact Table is required");
+  if (!dataset.unit) errors.push("Journey unit is required");
+  if (!dataset.stepColumns.length) {
+    errors.push("Journey step columns are required");
+  }
+  if (
+    !dataset.anchorStepValues ||
+    dataset.anchorStepValues.length !== dataset.stepColumns.length ||
+    dataset.anchorStepValues.some((v) => !v)
+  ) {
+    errors.push("Journey starting step is required");
+  }
+  for (const group of dataset.stepGroups ?? []) {
+    if (!group.pattern) {
+      errors.push("Journey grouping rule pattern is required");
+    } else if (!dataset.stepColumns.includes(group.column)) {
+      errors.push(
+        `Journey grouping rule references column "${group.column}", which is not a step column`,
+      );
+    }
+  }
+  // Zod already enforces the range on anything parsed, but the SQL builder
+  // silently emits a broken query for a missing depth, so check it here too:
+  // this is the one rule whose violation isn't self-evident downstream.
+  if (
+    !Number.isInteger(dataset.lookaheadDepth) ||
+    dataset.lookaheadDepth < 1 ||
+    dataset.lookaheadDepth > MAX_JOURNEY_LOOKAHEAD_DEPTH
+  ) {
+    errors.push(
+      `Journey lookahead depth must be between 1 and ${MAX_JOURNEY_LOOKAHEAD_DEPTH}`,
+    );
+  }
+  if (
+    journeyConfigExceedsRowCap({
+      optionsPerStep: dataset.optionsPerStep,
+      lookaheadDepth: dataset.lookaheadDepth,
+      pathLength: dataset.path.length,
+      dimValues: journeyDimValueCount(dimension),
+    })
+  ) {
+    errors.push(
+      `Journey result would exceed ${MAX_JOURNEY_RESULT_ROWS} rows. Lower options per step, steps to show, or dimension values.`,
+    );
+  }
+
+  return errors;
+}
+
+/** True when `dataset` is complete enough to run. */
+export function isJourneyDatasetRunnable(
+  dataset: JourneyDataset,
+  dimension?: ProductAnalyticsDimension,
+): boolean {
+  return validateJourneyDataset(dataset, dimension).length === 0;
 }

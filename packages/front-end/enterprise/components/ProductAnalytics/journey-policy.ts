@@ -2,7 +2,7 @@ import { isEqual } from "lodash";
 import type { ExplorationConfig, JourneyDataset } from "shared/validators";
 import { toFetchKey } from "@/enterprise/components/ProductAnalytics/util";
 
-export type JourneyFetchCache = "preferred" | "required";
+type JourneyFetchCache = "preferred" | "required";
 
 export function journeyDiffersOnlyByPath(
   submitted: ExplorationConfig,
@@ -18,12 +18,12 @@ export function journeyDiffersOnlyByPath(
   return isEqual(toFetchKey(submitted), toFetchKey(draft));
 }
 
-export function journeyRemainingPrefetch(
+function journeyRemainingPrefetch(
   submitted: JourneyDataset,
   draft: JourneyDataset,
 ): number {
   const extra = Math.max(0, draft.path.length - submitted.path.length);
-  return submitted.depth - extra;
+  return submitted.lookaheadDepth - extra;
 }
 
 export function journeyPrefetchExhausted(

@@ -44368,33 +44368,6 @@ paths:
                                           properties:
                                             kind:
                                               type: string
-                                              const: progress
-                                            direction:
-                                              type: string
-                                              enum:
-                                                - forward
-                                                - backward
-                                            depthReached:
-                                              type: number
-                                            outcome:
-                                              type: string
-                                              enum:
-                                                - taken
-                                                - other
-                                                - exit
-                                            count:
-                                              type: number
-                                          required:
-                                            - kind
-                                            - direction
-                                            - depthReached
-                                            - outcome
-                                            - count
-                                          additionalProperties: false
-                                        - type: object
-                                          properties:
-                                            kind:
-                                              type: string
                                               const: committed
                                             direction:
                                               type: string
@@ -45118,33 +45091,6 @@ paths:
                                             - kind
                                             - direction
                                             - levels
-                                            - count
-                                          additionalProperties: false
-                                        - type: object
-                                          properties:
-                                            kind:
-                                              type: string
-                                              const: progress
-                                            direction:
-                                              type: string
-                                              enum:
-                                                - forward
-                                                - backward
-                                            depthReached:
-                                              type: number
-                                            outcome:
-                                              type: string
-                                              enum:
-                                                - taken
-                                                - other
-                                                - exit
-                                            count:
-                                              type: number
-                                          required:
-                                            - kind
-                                            - direction
-                                            - depthReached
-                                            - outcome
                                             - count
                                           additionalProperties: false
                                         - type: object
@@ -45900,33 +45846,6 @@ paths:
                                             - kind
                                             - direction
                                             - levels
-                                            - count
-                                          additionalProperties: false
-                                        - type: object
-                                          properties:
-                                            kind:
-                                              type: string
-                                              const: progress
-                                            direction:
-                                              type: string
-                                              enum:
-                                                - forward
-                                                - backward
-                                            depthReached:
-                                              type: number
-                                            outcome:
-                                              type: string
-                                              enum:
-                                                - taken
-                                                - other
-                                                - exit
-                                            count:
-                                              type: number
-                                          required:
-                                            - kind
-                                            - direction
-                                            - depthReached
-                                            - outcome
                                             - count
                                           additionalProperties: false
                                         - type: object
@@ -46700,33 +46619,6 @@ paths:
                                           properties:
                                             kind:
                                               type: string
-                                              const: progress
-                                            direction:
-                                              type: string
-                                              enum:
-                                                - forward
-                                                - backward
-                                            depthReached:
-                                              type: number
-                                            outcome:
-                                              type: string
-                                              enum:
-                                                - taken
-                                                - other
-                                                - exit
-                                            count:
-                                              type: number
-                                          required:
-                                            - kind
-                                            - direction
-                                            - depthReached
-                                            - outcome
-                                            - count
-                                          additionalProperties: false
-                                        - type: object
-                                          properties:
-                                            kind:
-                                              type: string
                                               const: committed
                                             direction:
                                               type: string
@@ -47281,8 +47173,6 @@ paths:
                       anyOf:
                         - type: string
                         - type: 'null'
-                    dailyJourneys:
-                      type: boolean
                     stepColumns:
                       maxItems: 3
                       type: array
@@ -47313,10 +47203,6 @@ paths:
                       enum:
                         - forward
                         - backward
-                    excludedSteps:
-                      type: array
-                      items:
-                        type: string
                     rowFilters:
                       type: array
                       items:
@@ -47354,37 +47240,17 @@ paths:
                         required:
                           - operator
                         additionalProperties: false
-                    collapseRepeats:
-                      type: boolean
                     path:
                       type: array
                       items:
-                        anyOf:
-                          - type: object
-                            properties:
-                              mode:
-                                type: string
-                                const: value
-                              value:
-                                type: string
-                            required:
-                              - mode
-                              - value
-                            additionalProperties: false
-                          - type: object
-                            properties:
-                              mode:
-                                type: string
-                                const: other
-                              excludes:
-                                type: array
-                                items:
-                                  type: string
-                            required:
-                              - mode
-                              - excludes
-                            additionalProperties: false
-                    depth:
+                        type: object
+                        properties:
+                          value:
+                            type: string
+                        required:
+                          - value
+                        additionalProperties: false
+                    lookaheadDepth:
                       type: integer
                       minimum: 1
                       maximum: 4
@@ -47394,34 +47260,16 @@ paths:
                         type: integer
                         minimum: 2
                         maximum: 50
-                    renderDepth:
-                      type: integer
-                      minimum: 1
-                      maximum: 3
-                    scaleMode:
-                      type: string
-                      enum:
-                        - perStep
-                        - funnel
-                    dimEncoding:
-                      type: string
-                      enum:
-                        - tooltip
-                        - ribbons
-                        - facet
                   required:
                     - type
                     - factTableId
                     - unit
-                    - dailyJourneys
                     - stepColumns
                     - anchorStepValues
                     - direction
-                    - excludedSteps
                     - rowFilters
-                    - collapseRepeats
                     - path
-                    - depth
+                    - lookaheadDepth
                     - optionsPerStep
                   additionalProperties: false
               required:
@@ -47544,33 +47392,6 @@ paths:
                                             - kind
                                             - direction
                                             - levels
-                                            - count
-                                          additionalProperties: false
-                                        - type: object
-                                          properties:
-                                            kind:
-                                              type: string
-                                              const: progress
-                                            direction:
-                                              type: string
-                                              enum:
-                                                - forward
-                                                - backward
-                                            depthReached:
-                                              type: number
-                                            outcome:
-                                              type: string
-                                              enum:
-                                                - taken
-                                                - other
-                                                - exit
-                                            count:
-                                              type: number
-                                          required:
-                                            - kind
-                                            - direction
-                                            - depthReached
-                                            - outcome
                                             - count
                                           additionalProperties: false
                                         - type: object
@@ -47797,8 +47618,6 @@ paths:
                                     anyOf:
                                       - type: string
                                       - type: 'null'
-                                  dailyJourneys:
-                                    type: boolean
                                   stepColumns:
                                     maxItems: 3
                                     type: array
@@ -47829,10 +47648,6 @@ paths:
                                     enum:
                                       - forward
                                       - backward
-                                  excludedSteps:
-                                    type: array
-                                    items:
-                                      type: string
                                   rowFilters:
                                     type: array
                                     items:
@@ -47870,37 +47685,17 @@ paths:
                                       required:
                                         - operator
                                       additionalProperties: false
-                                  collapseRepeats:
-                                    type: boolean
                                   path:
                                     type: array
                                     items:
-                                      anyOf:
-                                        - type: object
-                                          properties:
-                                            mode:
-                                              type: string
-                                              const: value
-                                            value:
-                                              type: string
-                                          required:
-                                            - mode
-                                            - value
-                                          additionalProperties: false
-                                        - type: object
-                                          properties:
-                                            mode:
-                                              type: string
-                                              const: other
-                                            excludes:
-                                              type: array
-                                              items:
-                                                type: string
-                                          required:
-                                            - mode
-                                            - excludes
-                                          additionalProperties: false
-                                  depth:
+                                      type: object
+                                      properties:
+                                        value:
+                                          type: string
+                                      required:
+                                        - value
+                                      additionalProperties: false
+                                  lookaheadDepth:
                                     type: integer
                                     minimum: 1
                                     maximum: 4
@@ -47910,34 +47705,16 @@ paths:
                                       type: integer
                                       minimum: 2
                                       maximum: 50
-                                  renderDepth:
-                                    type: integer
-                                    minimum: 1
-                                    maximum: 3
-                                  scaleMode:
-                                    type: string
-                                    enum:
-                                      - perStep
-                                      - funnel
-                                  dimEncoding:
-                                    type: string
-                                    enum:
-                                      - tooltip
-                                      - ribbons
-                                      - facet
                                 required:
                                   - type
                                   - factTableId
                                   - unit
-                                  - dailyJourneys
                                   - stepColumns
                                   - anchorStepValues
                                   - direction
-                                  - excludedSteps
                                   - rowFilters
-                                  - collapseRepeats
                                   - path
-                                  - depth
+                                  - lookaheadDepth
                                   - optionsPerStep
                                 additionalProperties: false
                             required:
@@ -65685,33 +65462,6 @@ components:
                         properties:
                           kind:
                             type: string
-                            const: progress
-                          direction:
-                            type: string
-                            enum:
-                              - forward
-                              - backward
-                          depthReached:
-                            type: number
-                          outcome:
-                            type: string
-                            enum:
-                              - taken
-                              - other
-                              - exit
-                          count:
-                            type: number
-                        required:
-                          - kind
-                          - direction
-                          - depthReached
-                          - outcome
-                          - count
-                        additionalProperties: false
-                      - type: object
-                        properties:
-                          kind:
-                            type: string
                             const: committed
                           direction:
                             type: string
@@ -67042,8 +66792,6 @@ components:
                       anyOf:
                         - type: string
                         - type: 'null'
-                    dailyJourneys:
-                      type: boolean
                     stepColumns:
                       maxItems: 3
                       type: array
@@ -67074,10 +66822,6 @@ components:
                       enum:
                         - forward
                         - backward
-                    excludedSteps:
-                      type: array
-                      items:
-                        type: string
                     rowFilters:
                       type: array
                       items:
@@ -67115,37 +66859,17 @@ components:
                         required:
                           - operator
                         additionalProperties: false
-                    collapseRepeats:
-                      type: boolean
                     path:
                       type: array
                       items:
-                        anyOf:
-                          - type: object
-                            properties:
-                              mode:
-                                type: string
-                                const: value
-                              value:
-                                type: string
-                            required:
-                              - mode
-                              - value
-                            additionalProperties: false
-                          - type: object
-                            properties:
-                              mode:
-                                type: string
-                                const: other
-                              excludes:
-                                type: array
-                                items:
-                                  type: string
-                            required:
-                              - mode
-                              - excludes
-                            additionalProperties: false
-                    depth:
+                        type: object
+                        properties:
+                          value:
+                            type: string
+                        required:
+                          - value
+                        additionalProperties: false
+                    lookaheadDepth:
                       type: integer
                       minimum: 1
                       maximum: 4
@@ -67155,34 +66879,16 @@ components:
                         type: integer
                         minimum: 2
                         maximum: 50
-                    renderDepth:
-                      type: integer
-                      minimum: 1
-                      maximum: 3
-                    scaleMode:
-                      type: string
-                      enum:
-                        - perStep
-                        - funnel
-                    dimEncoding:
-                      type: string
-                      enum:
-                        - tooltip
-                        - ribbons
-                        - facet
                   required:
                     - type
                     - factTableId
                     - unit
-                    - dailyJourneys
                     - stepColumns
                     - anchorStepValues
                     - direction
-                    - excludedSteps
                     - rowFilters
-                    - collapseRepeats
                     - path
-                    - depth
+                    - lookaheadDepth
                     - optionsPerStep
                   additionalProperties: false
               required:

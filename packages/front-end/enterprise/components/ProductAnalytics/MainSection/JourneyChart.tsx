@@ -88,7 +88,7 @@ export default function JourneyChart({
       return canIncreaseJourneyOptions({
         optionsPerStep: dataset.optionsPerStep,
         levelIndex,
-        depth: dataset.depth,
+        lookaheadDepth: dataset.lookaheadDepth,
         pathLength: dataset.path.length,
         dimValues,
       });
@@ -167,7 +167,6 @@ export default function JourneyChart({
       <Box style={{ flex: 1, minHeight: 220, position: "relative" }}>
         <JourneySankey
           model={model}
-          scaleMode="perStep"
           onCommit={onCommit}
           onPop={popJourneyPath}
           onViewMore={onViewMore}

@@ -14,6 +14,7 @@ import { getValidDate } from "shared/dates";
 import {
   JOURNEY_CACHE_CANDIDATE_LIMIT,
   journeyFamilyIdentity,
+  journeyCacheCandidateVerdict,
   journeyResultCanServe,
 } from "shared/journeys";
 import {
@@ -234,35 +235,74 @@ export class AnalyticsExplorationModel extends BaseClass {
     const configHashes = this.getConfigHashes(config);
     if (!configHashes) return null;
 
-    // 1. Get all possible matches (ignoring date ranges for now)
-    const matches = await this._find(
-      {
-        datasource: config.datasource,
-        status: "success",
-        configHash: configHashes.generalSettingsHash,
-        valueHashes: { $eq: configHashes.valueHashes },
-      },
-      {
-        sort: { dateCreated: -1 },
-        limit:
-          config.dataset.type === "journey" ? JOURNEY_CACHE_CANDIDATE_LIMIT : 5,
-      },
-    );
-
+    const query = {
+      datasource: config.datasource,
+      status: "success" as const,
+      configHash: configHashes.generalSettingsHash,
+      valueHashes: { $eq: configHashes.valueHashes },
+    };
     const requestedJourney =
       config.dataset.type === "journey" ? config.dataset : null;
-    const compatible = requestedJourney
-      ? matches.filter((match) => {
-          if (match.config.dataset.type !== "journey") return false;
-          return journeyResultCanServe({
+
+    // 1. Get all possible matches (ignoring date ranges for now)
+    if (!requestedJourney) {
+      const matches = await this._find(query, {
+        sort: { dateCreated: -1 },
+        limit: 5,
+      });
+      return this.pickBestDateRangeMatch(config, matches);
+    }
+
+    // Journeys look at many more candidates because a single result can serve a
+    // whole family of paths. Decide from the configs alone first — result rows
+    // run to MAX_JOURNEY_RESULT_ROWS each, so loading 40 of them to reject 39 on
+    // a config mismatch is the expensive way to do it.
+    const candidates = await this._find(query, {
+      sort: { dateCreated: -1 },
+      limit: JOURNEY_CACHE_CANDIDATE_LIMIT,
+      projection: { result: 0 },
+    });
+
+    const needRows: string[] = [];
+    const servable: typeof candidates = [];
+    for (const candidate of candidates) {
+      if (candidate.config.dataset.type !== "journey") continue;
+      const verdict = journeyCacheCandidateVerdict({
+        cachedDataset: candidate.config.dataset,
+        requestedDataset: requestedJourney,
+        minUnusedLookahead: options?.minUnusedLookahead,
+      });
+      if (verdict === "yes") servable.push(candidate);
+      else if (verdict === "needs-rows") needRows.push(candidate.id);
+    }
+
+    if (needRows.length) {
+      const withRows = await this._find({ id: { $in: needRows } });
+      for (const match of withRows) {
+        if (match.config.dataset.type !== "journey") continue;
+        if (
+          journeyResultCanServe({
             cachedDataset: match.config.dataset,
             cachedRows: match.result?.rows ?? [],
             requestedDataset: requestedJourney,
             minUnusedLookahead: options?.minUnusedLookahead,
-          });
-        })
-      : matches;
+          })
+        ) {
+          servable.push(match);
+        }
+      }
+    }
 
+    const best = this.pickBestDateRangeMatch(config, servable);
+    // `servable` mixes rows-free candidates with fully loaded ones; re-read the
+    // winner so the caller always gets a complete document.
+    return best && !best.result ? await this.getById(best.id) : best;
+  }
+
+  private pickBestDateRangeMatch(
+    config: ExplorationConfig,
+    compatible: ProductAnalyticsExploration[],
+  ) {
     const requestedDates = calculateProductAnalyticsDateRange(config.dateRange);
 
     // 2. Find the analysis that best matches the requested date range

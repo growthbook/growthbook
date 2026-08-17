@@ -13,6 +13,8 @@ import {
   ExplorationConfig,
   ProductAnalyticsValue,
   DatasetType,
+  datasetHasValues,
+  datasetTypeHasValues,
   ProductAnalyticsExploration,
   ExplorationDateRange,
   type ComparisonMode,
@@ -860,15 +862,33 @@ export function ExplorerProvider({
     data,
   ]);
 
+  // Journey lookahead top-up: the drawn frontier is served from the current
+  // result, but the stored lookahead is nearly spent, so fetch deeper in the
+  // background before the next drill-down has to block on a query.
+  //
+  // This effect can re-arm on any `data` change, so it needs an explicit stop:
+  // without one, a prefetch that fails (or returns a cached result whose path
+  // still trails the draft) leaves every condition true and the effect fires
+  // again on each render. Keying on fetch identity + the drilled path gives one
+  // attempt per distinct target; drilling further or editing re-opens it.
+  const prefetchAttemptedForRef = useRef<string | null>(null);
   useEffect(() => {
     if (managedWarehouseUnavailable || !isSubmittable) return;
     if (loading || polling) return;
     if (needsFetch) return;
+    if (error) return;
+    if (cleanedDraftExploreState.dataset.type !== "journey") return;
     const rowSource =
       data?.config.dataset.type === "journey" ? data.config : null;
     if (!journeyShouldPrefetchMore(rowSource, cleanedDraftExploreState)) {
       return;
     }
+    const target = JSON.stringify([
+      toFetchKey(cleanedDraftExploreState),
+      cleanedDraftExploreState.dataset.path,
+    ]);
+    if (prefetchAttemptedForRef.current === target) return;
+    prefetchAttemptedForRef.current = target;
     doSubmit({ cache: "preferred" });
   }, [
     managedWarehouseUnavailable,
@@ -876,6 +896,7 @@ export function ExplorerProvider({
     loading,
     polling,
     needsFetch,
+    error,
     data,
     cleanedDraftExploreState,
     doSubmit,
@@ -897,13 +918,10 @@ export function ExplorerProvider({
 
   const addValueToDataset = useCallback(
     (datasetType: DatasetType) => {
-      // Funnels and journeys don't carry "values".
-      if (datasetType === "funnel" || datasetType === "journey") return;
+      if (!datasetTypeHasValues(datasetType)) return;
       setDraftExploreState((prev) => {
         if (
-          !prev.dataset ||
-          prev.dataset.type === "funnel" ||
-          prev.dataset.type === "journey" ||
+          !datasetHasValues(prev.dataset) ||
           prev.dataset.type !== datasetType
         ) {
           return prev;
@@ -940,9 +958,7 @@ export function ExplorerProvider({
     (index: number, value: ProductAnalyticsValue) => {
       setDraftExploreState((prev) => {
         if (
-          !prev.dataset ||
-          prev.dataset.type === "funnel" ||
-          prev.dataset.type === "journey" ||
+          !datasetHasValues(prev.dataset) ||
           prev.dataset.type !== value.type
         ) {
           return prev;
@@ -966,11 +982,7 @@ export function ExplorerProvider({
   const deleteValueFromDataset = useCallback(
     (index: number) => {
       setDraftExploreState((prev) => {
-        if (
-          !prev.dataset ||
-          prev.dataset.type === "funnel" ||
-          prev.dataset.type === "journey"
-        ) {
+        if (!datasetHasValues(prev.dataset)) {
           return prev;
         }
         const newValues = [
@@ -1021,11 +1033,8 @@ export function ExplorerProvider({
           // Funnels don't carry `values` and the bigNumber chart doesn't
           // apply to them anyway; the FunnelGraphTypeSelector doesn't
           // expose bigNumber, but guard defensively in case it slips in.
-          if (
-            prev.dataset?.type !== "funnel" &&
-            prev.dataset?.type !== "journey"
-          ) {
-            const values = prev.dataset?.values ?? [];
+          if (datasetHasValues(prev.dataset)) {
+            const values = prev.dataset.values;
             if (values.length > 1) {
               dataset = {
                 ...prev.dataset,
@@ -1072,7 +1081,7 @@ export function ExplorerProvider({
           ...prev,
           dataset: {
             ...prev.dataset,
-            path: [...prev.dataset.path, { mode: "value" as const, value }],
+            path: [...prev.dataset.path, { value }],
           },
         } as ExplorationConfig;
       });
@@ -1126,15 +1135,12 @@ export function ExplorerProvider({
       setExplorerState((prev) => {
         const type = prev.draftState.dataset.type;
         const emptyDataset = createEmptyDataset(type);
-        // Funnels and journeys manage their own initial state in
-        // createEmptyDataset and have no `values`.
-        const dataset =
-          type === "funnel" || type === "journey"
-            ? emptyDataset
-            : ({
-                ...emptyDataset,
-                values: [createDefaultValue(type)],
-              } as ExplorationConfig["dataset"]);
+        const dataset = !datasetTypeHasValues(type)
+          ? emptyDataset
+          : ({
+              ...emptyDataset,
+              values: [createDefaultValue(type)],
+            } as ExplorationConfig["dataset"]);
         return {
           draftState: {
             ...stripExplorerDraftFields(initialConfig),
