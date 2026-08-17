@@ -1412,12 +1412,12 @@ const postFeatureRuleProjectScopeShape = {
 // both are supplied.
 const v1RuleSavedGroupInput = {
   savedGroups: z.array(savedGroupTargeting).optional(),
+  // Accepted so a GET response can be posted back unchanged, but kept out of
+  // the docs so `savedGroups` is the only spelling callers are told about.
   savedGroupTargeting: z
     .array(postFeatureSavedGroupTargeting)
     .optional()
-    .describe(
-      "Alternate spelling, matching the shape returned by GET. `savedGroups` takes precedence if both are sent.",
-    ),
+    .meta({ "x-undocumented": true }),
 };
 
 const postFeatureForceRule = z.object({
@@ -1566,6 +1566,13 @@ const idParams = z
     id: z.string().describe("The id of the requested resource"),
   })
   .strict();
+
+const inputWarningsField = z
+  .array(z.string())
+  .optional()
+  .describe(
+    "Non-fatal advisories about how the request was interpreted — request fields that were ignored, or accepted under an undocumented name.",
+  );
 
 const featureResponseSchema = z
   .object({ feature: apiFeatureValidator })
@@ -1756,7 +1763,9 @@ export const postFeatureValidator = {
   bodySchema: postFeatureBody,
   querySchema: z.never(),
   paramsSchema: z.never(),
-  responseSchema: featureResponseSchema,
+  responseSchema: featureResponseSchema.extend({
+    warnings: inputWarningsField,
+  }),
   summary: "Create a single feature",
   description:
     "**Deprecated.** Use [POST /v2/features](#operation/postFeatureV2) instead.",
@@ -1802,7 +1811,9 @@ export const updateFeatureValidator = {
   bodySchema: updateFeatureBody,
   querySchema: z.never(),
   paramsSchema: idParams,
-  responseSchema: featureUpdateResponseSchema,
+  responseSchema: featureUpdateResponseSchema.extend({
+    warnings: inputWarningsField,
+  }),
   summary: "Partially update a feature",
   description:
     "**Deprecated.** Use [POST /v2/features/:id](#operation/updateFeatureV2) instead.\n\nUpdates the Feature Flag and immediately publishes a new revision. The caller needs Edit access in the Feature Flag's Project and Publish access for every affected environment. When approval is required, use the revision endpoints instead, unless the caller can bypass draft approvals.",

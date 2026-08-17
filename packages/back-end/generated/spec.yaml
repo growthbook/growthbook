@@ -943,29 +943,6 @@ paths:
                                       - match
                                       - ids
                                     additionalProperties: false
-                                savedGroupTargeting:
-                                  description: >-
-                                    Alternate spelling, matching the shape
-                                    returned by GET. `savedGroups` takes
-                                    precedence if both are sent.
-                                  type: array
-                                  items:
-                                    type: object
-                                    properties:
-                                      matchType:
-                                        type: string
-                                        enum:
-                                          - all
-                                          - any
-                                          - none
-                                      savedGroups:
-                                        type: array
-                                        items:
-                                          type: string
-                                    required:
-                                      - matchType
-                                      - savedGroups
-                                    additionalProperties: false
                                 prerequisites:
                                   type: array
                                   items:
@@ -1045,29 +1022,6 @@ paths:
                                     required:
                                       - match
                                       - ids
-                                    additionalProperties: false
-                                savedGroupTargeting:
-                                  description: >-
-                                    Alternate spelling, matching the shape
-                                    returned by GET. `savedGroups` takes
-                                    precedence if both are sent.
-                                  type: array
-                                  items:
-                                    type: object
-                                    properties:
-                                      matchType:
-                                        type: string
-                                        enum:
-                                          - all
-                                          - any
-                                          - none
-                                      savedGroups:
-                                        type: array
-                                        items:
-                                          type: string
-                                    required:
-                                      - matchType
-                                      - savedGroups
                                     additionalProperties: false
                                 prerequisites:
                                   type: array
@@ -1177,29 +1131,6 @@ paths:
                                     required:
                                       - match
                                       - ids
-                                    additionalProperties: false
-                                savedGroupTargeting:
-                                  description: >-
-                                    Alternate spelling, matching the shape
-                                    returned by GET. `savedGroups` takes
-                                    precedence if both are sent.
-                                  type: array
-                                  items:
-                                    type: object
-                                    properties:
-                                      matchType:
-                                        type: string
-                                        enum:
-                                          - all
-                                          - any
-                                          - none
-                                      savedGroups:
-                                        type: array
-                                        items:
-                                          type: string
-                                    required:
-                                      - matchType
-                                      - savedGroups
                                     additionalProperties: false
                                 prerequisites:
                                   type: array
@@ -1420,29 +1351,6 @@ paths:
                                           - match
                                           - ids
                                         additionalProperties: false
-                                    savedGroupTargeting:
-                                      description: >-
-                                        Alternate spelling, matching the shape
-                                        returned by GET. `savedGroups` takes
-                                        precedence if both are sent.
-                                      type: array
-                                      items:
-                                        type: object
-                                        properties:
-                                          matchType:
-                                            type: string
-                                            enum:
-                                              - all
-                                              - any
-                                              - none
-                                          savedGroups:
-                                            type: array
-                                            items:
-                                              type: string
-                                        required:
-                                          - matchType
-                                          - savedGroups
-                                        additionalProperties: false
                                     prerequisites:
                                       type: array
                                       items:
@@ -1522,29 +1430,6 @@ paths:
                                         required:
                                           - match
                                           - ids
-                                        additionalProperties: false
-                                    savedGroupTargeting:
-                                      description: >-
-                                        Alternate spelling, matching the shape
-                                        returned by GET. `savedGroups` takes
-                                        precedence if both are sent.
-                                      type: array
-                                      items:
-                                        type: object
-                                        properties:
-                                          matchType:
-                                            type: string
-                                            enum:
-                                              - all
-                                              - any
-                                              - none
-                                          savedGroups:
-                                            type: array
-                                            items:
-                                              type: string
-                                        required:
-                                          - matchType
-                                          - savedGroups
                                         additionalProperties: false
                                     prerequisites:
                                       type: array
@@ -1654,29 +1539,6 @@ paths:
                                         required:
                                           - match
                                           - ids
-                                        additionalProperties: false
-                                    savedGroupTargeting:
-                                      description: >-
-                                        Alternate spelling, matching the shape
-                                        returned by GET. `savedGroups` takes
-                                        precedence if both are sent.
-                                      type: array
-                                      items:
-                                        type: object
-                                        properties:
-                                          matchType:
-                                            type: string
-                                            enum:
-                                              - all
-                                              - any
-                                              - none
-                                          savedGroups:
-                                            type: array
-                                            items:
-                                              type: string
-                                        required:
-                                          - matchType
-                                          - savedGroups
                                         additionalProperties: false
                                     prerequisites:
                                       type: array
@@ -1914,6 +1776,14 @@ paths:
                 properties:
                   feature:
                     $ref: '#/components/schemas/FeatureV1'
+                  warnings:
+                    description: >-
+                      Non-fatal advisories about how the request was interpreted
+                      — request fields that were ignored, or accepted under an
+                      undocumented name.
+                    type: array
+                    items:
+                      type: string
                 required:
                   - feature
                 additionalProperties: false
@@ -2080,29 +1950,6 @@ paths:
                                       - match
                                       - ids
                                     additionalProperties: false
-                                savedGroupTargeting:
-                                  description: >-
-                                    Alternate spelling, matching the shape
-                                    returned by GET. `savedGroups` takes
-                                    precedence if both are sent.
-                                  type: array
-                                  items:
-                                    type: object
-                                    properties:
-                                      matchType:
-                                        type: string
-                                        enum:
-                                          - all
-                                          - any
-                                          - none
-                                      savedGroups:
-                                        type: array
-                                        items:
-                                          type: string
-                                    required:
-                                      - matchType
-                                      - savedGroups
-                                    additionalProperties: false
                                 prerequisites:
                                   type: array
                                   items:
@@ -2182,29 +2029,6 @@ paths:
                                     required:
                                       - match
                                       - ids
-                                    additionalProperties: false
-                                savedGroupTargeting:
-                                  description: >-
-                                    Alternate spelling, matching the shape
-                                    returned by GET. `savedGroups` takes
-                                    precedence if both are sent.
-                                  type: array
-                                  items:
-                                    type: object
-                                    properties:
-                                      matchType:
-                                        type: string
-                                        enum:
-                                          - all
-                                          - any
-                                          - none
-                                      savedGroups:
-                                        type: array
-                                        items:
-                                          type: string
-                                    required:
-                                      - matchType
-                                      - savedGroups
                                     additionalProperties: false
                                 prerequisites:
                                   type: array
@@ -2314,29 +2138,6 @@ paths:
                                     required:
                                       - match
                                       - ids
-                                    additionalProperties: false
-                                savedGroupTargeting:
-                                  description: >-
-                                    Alternate spelling, matching the shape
-                                    returned by GET. `savedGroups` takes
-                                    precedence if both are sent.
-                                  type: array
-                                  items:
-                                    type: object
-                                    properties:
-                                      matchType:
-                                        type: string
-                                        enum:
-                                          - all
-                                          - any
-                                          - none
-                                      savedGroups:
-                                        type: array
-                                        items:
-                                          type: string
-                                    required:
-                                      - matchType
-                                      - savedGroups
                                     additionalProperties: false
                                 prerequisites:
                                   type: array
@@ -2557,29 +2358,6 @@ paths:
                                           - match
                                           - ids
                                         additionalProperties: false
-                                    savedGroupTargeting:
-                                      description: >-
-                                        Alternate spelling, matching the shape
-                                        returned by GET. `savedGroups` takes
-                                        precedence if both are sent.
-                                      type: array
-                                      items:
-                                        type: object
-                                        properties:
-                                          matchType:
-                                            type: string
-                                            enum:
-                                              - all
-                                              - any
-                                              - none
-                                          savedGroups:
-                                            type: array
-                                            items:
-                                              type: string
-                                        required:
-                                          - matchType
-                                          - savedGroups
-                                        additionalProperties: false
                                     prerequisites:
                                       type: array
                                       items:
@@ -2659,29 +2437,6 @@ paths:
                                         required:
                                           - match
                                           - ids
-                                        additionalProperties: false
-                                    savedGroupTargeting:
-                                      description: >-
-                                        Alternate spelling, matching the shape
-                                        returned by GET. `savedGroups` takes
-                                        precedence if both are sent.
-                                      type: array
-                                      items:
-                                        type: object
-                                        properties:
-                                          matchType:
-                                            type: string
-                                            enum:
-                                              - all
-                                              - any
-                                              - none
-                                          savedGroups:
-                                            type: array
-                                            items:
-                                              type: string
-                                        required:
-                                          - matchType
-                                          - savedGroups
                                         additionalProperties: false
                                     prerequisites:
                                       type: array
@@ -2791,29 +2546,6 @@ paths:
                                         required:
                                           - match
                                           - ids
-                                        additionalProperties: false
-                                    savedGroupTargeting:
-                                      description: >-
-                                        Alternate spelling, matching the shape
-                                        returned by GET. `savedGroups` takes
-                                        precedence if both are sent.
-                                      type: array
-                                      items:
-                                        type: object
-                                        properties:
-                                          matchType:
-                                            type: string
-                                            enum:
-                                              - all
-                                              - any
-                                              - none
-                                          savedGroups:
-                                            type: array
-                                            items:
-                                              type: string
-                                        required:
-                                          - matchType
-                                          - savedGroups
                                         additionalProperties: false
                                     prerequisites:
                                       type: array
@@ -3076,6 +2808,14 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/bypassedGates'
+                  warnings:
+                    description: >-
+                      Non-fatal advisories about how the request was interpreted
+                      — request fields that were ignored, or accepted under an
+                      undocumented name.
+                    type: array
+                    items:
+                      type: string
                 required:
                   - feature
                 additionalProperties: false
@@ -7231,29 +6971,6 @@ paths:
                                 - match
                                 - ids
                               additionalProperties: false
-                          savedGroupTargeting:
-                            description: >-
-                              Alternate spelling, matching the shape returned by
-                              GET. `savedGroups` takes precedence if both are
-                              sent.
-                            type: array
-                            items:
-                              type: object
-                              properties:
-                                matchType:
-                                  type: string
-                                  enum:
-                                    - all
-                                    - any
-                                    - none
-                                savedGroups:
-                                  type: array
-                                  items:
-                                    type: string
-                              required:
-                                - matchType
-                                - savedGroups
-                              additionalProperties: false
                           prerequisites:
                             type: array
                             items:
@@ -7365,29 +7082,6 @@ paths:
                               required:
                                 - match
                                 - ids
-                              additionalProperties: false
-                          savedGroupTargeting:
-                            description: >-
-                              Alternate spelling, matching the shape returned by
-                              GET. `savedGroups` takes precedence if both are
-                              sent.
-                            type: array
-                            items:
-                              type: object
-                              properties:
-                                matchType:
-                                  type: string
-                                  enum:
-                                    - all
-                                    - any
-                                    - none
-                                savedGroups:
-                                  type: array
-                                  items:
-                                    type: string
-                              required:
-                                - matchType
-                                - savedGroups
                               additionalProperties: false
                           prerequisites:
                             type: array
@@ -7525,29 +7219,6 @@ paths:
                                 - match
                                 - ids
                               additionalProperties: false
-                          savedGroupTargeting:
-                            description: >-
-                              Alternate spelling, matching the shape returned by
-                              GET. `savedGroups` takes precedence if both are
-                              sent.
-                            type: array
-                            items:
-                              type: object
-                              properties:
-                                matchType:
-                                  type: string
-                                  enum:
-                                    - all
-                                    - any
-                                    - none
-                                savedGroups:
-                                  type: array
-                                  items:
-                                    type: string
-                              required:
-                                - matchType
-                                - savedGroups
-                              additionalProperties: false
                           prerequisites:
                             type: array
                             items:
@@ -7674,29 +7345,6 @@ paths:
                               required:
                                 - match
                                 - ids
-                              additionalProperties: false
-                          savedGroupTargeting:
-                            description: >-
-                              Alternate spelling, matching the shape returned by
-                              GET. `savedGroups` takes precedence if both are
-                              sent.
-                            type: array
-                            items:
-                              type: object
-                              properties:
-                                matchType:
-                                  type: string
-                                  enum:
-                                    - all
-                                    - any
-                                    - none
-                                savedGroups:
-                                  type: array
-                                  items:
-                                    type: string
-                              required:
-                                - matchType
-                                - savedGroups
                               additionalProperties: false
                           prerequisites:
                             type: array
@@ -7862,6 +7510,14 @@ paths:
                 properties:
                   feature:
                     $ref: '#/components/schemas/FeatureV2'
+                  warnings:
+                    description: >-
+                      Non-fatal advisories about how the request was interpreted
+                      — request fields that were ignored, or accepted under an
+                      undocumented name.
+                    type: array
+                    items:
+                      type: string
                 required:
                   - feature
                 additionalProperties: false
@@ -8023,29 +7679,6 @@ paths:
                                 - match
                                 - ids
                               additionalProperties: false
-                          savedGroupTargeting:
-                            description: >-
-                              Alternate spelling, matching the shape returned by
-                              GET. `savedGroups` takes precedence if both are
-                              sent.
-                            type: array
-                            items:
-                              type: object
-                              properties:
-                                matchType:
-                                  type: string
-                                  enum:
-                                    - all
-                                    - any
-                                    - none
-                                savedGroups:
-                                  type: array
-                                  items:
-                                    type: string
-                              required:
-                                - matchType
-                                - savedGroups
-                              additionalProperties: false
                           prerequisites:
                             type: array
                             items:
@@ -8157,29 +7790,6 @@ paths:
                               required:
                                 - match
                                 - ids
-                              additionalProperties: false
-                          savedGroupTargeting:
-                            description: >-
-                              Alternate spelling, matching the shape returned by
-                              GET. `savedGroups` takes precedence if both are
-                              sent.
-                            type: array
-                            items:
-                              type: object
-                              properties:
-                                matchType:
-                                  type: string
-                                  enum:
-                                    - all
-                                    - any
-                                    - none
-                                savedGroups:
-                                  type: array
-                                  items:
-                                    type: string
-                              required:
-                                - matchType
-                                - savedGroups
                               additionalProperties: false
                           prerequisites:
                             type: array
@@ -8317,29 +7927,6 @@ paths:
                                 - match
                                 - ids
                               additionalProperties: false
-                          savedGroupTargeting:
-                            description: >-
-                              Alternate spelling, matching the shape returned by
-                              GET. `savedGroups` takes precedence if both are
-                              sent.
-                            type: array
-                            items:
-                              type: object
-                              properties:
-                                matchType:
-                                  type: string
-                                  enum:
-                                    - all
-                                    - any
-                                    - none
-                                savedGroups:
-                                  type: array
-                                  items:
-                                    type: string
-                              required:
-                                - matchType
-                                - savedGroups
-                              additionalProperties: false
                           prerequisites:
                             type: array
                             items:
@@ -8466,29 +8053,6 @@ paths:
                               required:
                                 - match
                                 - ids
-                              additionalProperties: false
-                          savedGroupTargeting:
-                            description: >-
-                              Alternate spelling, matching the shape returned by
-                              GET. `savedGroups` takes precedence if both are
-                              sent.
-                            type: array
-                            items:
-                              type: object
-                              properties:
-                                matchType:
-                                  type: string
-                                  enum:
-                                    - all
-                                    - any
-                                    - none
-                                savedGroups:
-                                  type: array
-                                  items:
-                                    type: string
-                              required:
-                                - matchType
-                                - savedGroups
                               additionalProperties: false
                           prerequisites:
                             type: array
@@ -8679,6 +8243,14 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/bypassedGates'
+                  warnings:
+                    description: >-
+                      Non-fatal advisories about how the request was interpreted
+                      — request fields that were ignored, or accepted under an
+                      undocumented name.
+                    type: array
+                    items:
+                      type: string
                 required:
                   - feature
                 additionalProperties: false
@@ -13852,28 +13424,6 @@ paths:
                             - match
                             - ids
                           additionalProperties: false
-                      savedGroupTargeting:
-                        description: >-
-                          Alternate spelling, matching the shape returned by
-                          GET. `savedGroups` takes precedence if both are sent.
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            matchType:
-                              type: string
-                              enum:
-                                - all
-                                - any
-                                - none
-                            savedGroups:
-                              type: array
-                              items:
-                                type: string
-                          required:
-                            - matchType
-                            - savedGroups
-                          additionalProperties: false
                       variationWeights:
                         description: >-
                           Deprecated: use `trafficSplit`. Takes precedence if
@@ -14127,6 +13677,14 @@ paths:
                 properties:
                   experiment:
                     $ref: '#/components/schemas/Experiment'
+                  warnings:
+                    description: >-
+                      Non-fatal advisories about how the request was interpreted
+                      — request fields that were ignored, or accepted under an
+                      undocumented name.
+                    type: array
+                    items:
+                      type: string
                 required:
                   - experiment
                 additionalProperties: false
@@ -14549,28 +14107,6 @@ paths:
                             - match
                             - ids
                           additionalProperties: false
-                      savedGroupTargeting:
-                        description: >-
-                          Alternate spelling, matching the shape returned by
-                          GET. `savedGroups` takes precedence if both are sent.
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            matchType:
-                              type: string
-                              enum:
-                                - all
-                                - any
-                                - none
-                            savedGroups:
-                              type: array
-                              items:
-                                type: string
-                          required:
-                            - matchType
-                            - savedGroups
-                          additionalProperties: false
                       variationWeights:
                         description: >-
                           Deprecated: use `trafficSplit`. Takes precedence if
@@ -14830,6 +14366,14 @@ paths:
                 properties:
                   experiment:
                     $ref: '#/components/schemas/Experiment'
+                  warnings:
+                    description: >-
+                      Non-fatal advisories about how the request was interpreted
+                      — request fields that were ignored, or accepted under an
+                      undocumented name.
+                    type: array
+                    items:
+                      type: string
                 required:
                   - experiment
                 additionalProperties: false

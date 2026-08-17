@@ -71,9 +71,10 @@ import {
   mapV2ApiRuleToFeatureRule,
 } from "./v2Shared";
 
-export const updateFeatureV2 = createApiRequestHandler(
-  updateFeatureV2Validator,
-)(async (req) => {
+export const updateFeatureV2 = createApiRequestHandler({
+  ...updateFeatureV2Validator,
+  surfaceInputWarnings: true,
+})(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) {
     throw new Error(`Feature id '${req.params.id}' not found.`);

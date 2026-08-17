@@ -758,14 +758,23 @@ const apiPhaseSavedGroupTargeting = z
 
 // Write-side only: the internal `savedGroups` spelling is rejected rather than
 // silently dropped. Responses carry the canonical field alone.
+const inputWarningsField = z
+  .array(z.string())
+  .optional()
+  .describe(
+    "Non-fatal advisories about how the request was interpreted — request fields that were ignored, or accepted under an undocumented name.",
+  );
+
 // Saved-group targeting in the storage shape used by the feature revision rule
 // endpoints, or the spelling the API response uses. `savedGroups` wins when
 // both are supplied.
 const phaseSavedGroupInput = {
   savedGroups: z.array(savedGroupTargeting).optional(),
-  savedGroupTargeting: apiPhaseSavedGroupTargeting.describe(
-    "Alternate spelling, matching the shape returned by GET. `savedGroups` takes precedence if both are sent.",
-  ),
+  // Accepted so a GET response can be posted back unchanged, but kept out of
+  // the docs so `savedGroups` is the only spelling callers are told about.
+  savedGroupTargeting: apiPhaseSavedGroupTargeting.meta({
+    "x-undocumented": true,
+  }),
 };
 
 // Phase sub-schema for API responses
@@ -1899,6 +1908,7 @@ export const postExperimentValidator = {
   responseSchema: z
     .object({
       experiment: apiExperimentValidator,
+      warnings: inputWarningsField,
     })
     .strict(),
   summary: "Create a single experiment",
@@ -2006,6 +2016,7 @@ export const updateExperimentValidator = {
   responseSchema: z
     .object({
       experiment: apiExperimentValidator,
+      warnings: inputWarningsField,
     })
     .strict(),
   summary: "Update a single experiment",

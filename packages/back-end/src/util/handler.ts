@@ -60,6 +60,12 @@ export type BackEndApiEndpointSpec<
   deprecationDate?: string;
   /** Error codes this endpoint may throw, used to generate OpenAPI error response schemas. */
   possibleErrors?: readonly ApiErrorCode[];
+  /**
+   * Append advisory `warnings` to a successful response naming request fields
+   * that were ignored or are undocumented. Only meaningful where nested objects
+   * are non-strict, since that is where such fields are dropped silently.
+   */
+  surfaceInputWarnings?: boolean;
 };
 
 /**
@@ -163,6 +169,75 @@ export type RawApiRequestHandler<
   >,
 ) => Promise<z.infer<ResponseSchema>>;
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Keys the caller sent that Zod removed, as dotted paths. Endpoints whose
+ * nested objects are non-strict drop unrecognized keys instead of rejecting
+ * them, which is silent from the caller's side — these become advisories.
+ */
+function collectStrippedKeys(
+  raw: unknown,
+  parsed: unknown,
+  path = "",
+): string[] {
+  if (Array.isArray(raw) && Array.isArray(parsed)) {
+    return raw.flatMap((item, i) =>
+      collectStrippedKeys(item, parsed[i], `${path}[${i}]`),
+    );
+  }
+  if (!isPlainObject(raw) || !isPlainObject(parsed)) return [];
+  const dropped: string[] = [];
+  for (const key of Object.keys(raw)) {
+    const child = path ? `${path}.${key}` : key;
+    if (!(key in parsed)) dropped.push(child);
+    else dropped.push(...collectStrippedKeys(raw[key], parsed[key], child));
+  }
+  return dropped;
+}
+
+/** Undocumented-but-accepted inputs, warned about so callers migrate off them. */
+const UNDOCUMENTED_REQUEST_FIELDS: Record<string, string> = {
+  savedGroupTargeting: "savedGroups",
+};
+
+function collectUndocumentedKeys(value: unknown, path = ""): string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((item, i) =>
+      collectUndocumentedKeys(item, `${path}[${i}]`),
+    );
+  }
+  if (!isPlainObject(value)) return [];
+  const found: string[] = [];
+  for (const key of Object.keys(value)) {
+    const child = path ? `${path}.${key}` : key;
+    if (key in UNDOCUMENTED_REQUEST_FIELDS) found.push(child);
+    found.push(...collectUndocumentedKeys(value[key], child));
+  }
+  return found;
+}
+
+/**
+ * Advisories about how a request body was interpreted. Non-fatal by
+ * construction: they ride along with a 2xx response and are never gated behind
+ * `ignoreWarnings`, so an automation that ignores them behaves exactly as before.
+ */
+export function buildInputWarnings(raw: unknown, parsed: unknown): string[] {
+  const warnings = collectStrippedKeys(raw, parsed).map(
+    (key) => `Unrecognized field \`${key}\` was ignored.`,
+  );
+  for (const key of collectUndocumentedKeys(raw)) {
+    const replacement =
+      UNDOCUMENTED_REQUEST_FIELDS[key.split(".").pop() as string];
+    warnings.push(
+      `\`${key}\` is accepted for compatibility but is not part of the documented contract. Use \`${replacement}\` instead.`,
+    );
+  }
+  return warnings;
+}
+
 /**
  * The single source of truth for "validate the three inputs, run the business
  * handler, shape success/error into `{status, body}`". Both the Express wrapper
@@ -185,8 +260,10 @@ export async function runApiHandler(
     query?: ZodType;
   },
   handler: (req: never) => Promise<unknown>,
+  options?: { surfaceInputWarnings?: boolean },
 ): Promise<{ status: number; body: unknown }> {
   const allErrors: string[] = [];
+  const rawBody = options?.surfaceInputWarnings ? req.body : undefined;
   if (schemas.params && !(schemas.params instanceof ZodNever)) {
     const validated = validate(schemas.params, req.params);
     if (!validated.success) {
@@ -217,6 +294,14 @@ export async function runApiHandler(
 
   try {
     const result = await handler(req as never);
+    // Advisory only: appended to a successful response so a caller can see what
+    // was ignored. Never blocks, never consults `ignoreWarnings`.
+    if (options?.surfaceInputWarnings && isPlainObject(result)) {
+      const warnings = buildInputWarnings(rawBody, req.body);
+      if (warnings.length) {
+        return { status: 200, body: { ...result, warnings } };
+      }
+    }
     return { status: 200, body: result };
   } catch (e) {
     const body: ApiErrorResponse = { message: e.message };
@@ -344,6 +429,7 @@ export function createApiRequestHandler<
     deprecated,
     deprecationDate,
     possibleErrors,
+    surfaceInputWarnings,
   } = data;
 
   return (
@@ -371,6 +457,7 @@ export function createApiRequestHandler<
             query: querySchema,
           },
           handler,
+          { surfaceInputWarnings },
         );
         return res
           .status(status)

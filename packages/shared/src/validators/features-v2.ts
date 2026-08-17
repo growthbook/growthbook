@@ -437,6 +437,13 @@ export type ApiFeatureWithRevisionsV2 = z.infer<
 
 // ---- Shared response schemas ----
 
+const inputWarningsField = z
+  .array(z.string())
+  .optional()
+  .describe(
+    "Non-fatal advisories about how the request was interpreted — request fields that were ignored, or accepted under an undocumented name.",
+  );
+
 const featureV2ResponseSchema = z
   .object({ feature: apiFeatureV2Validator })
   .strict();
@@ -500,12 +507,12 @@ const postFeatureSavedGroupTargeting = z.object({
 // both are supplied.
 const v2RuleSavedGroupInput = {
   savedGroups: z.array(savedGroupTargeting).optional(),
+  // Accepted so a GET response can be posted back unchanged, but kept out of
+  // the docs so `savedGroups` is the only spelling callers are told about.
   savedGroupTargeting: z
     .array(postFeatureSavedGroupTargeting)
     .optional()
-    .describe(
-      "Alternate spelling, matching the shape returned by GET. `savedGroups` takes precedence if both are sent.",
-    ),
+    .meta({ "x-undocumented": true }),
 };
 
 const postFeaturePrerequisite = z.object({
@@ -815,7 +822,9 @@ export const postFeatureV2Validator = {
   bodySchema: postFeatureBodyV2,
   querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   paramsSchema: z.never(),
-  responseSchema: featureV2ResponseSchema,
+  responseSchema: featureV2ResponseSchema.extend({
+    warnings: inputWarningsField,
+  }),
   summary: "Create a single feature",
   description:
     "Creates a new Feature Flag. The caller needs Create access in its Project, plus Publish access for any environment the Feature Flag starts enabled in — one that starts disabled everywhere needs Create alone. Rules are supplied as a top-level `rules` array; each rule includes `allEnvironments` / `environments` scope fields.\n\n" +
@@ -872,7 +881,9 @@ export const updateFeatureV2Validator = {
   bodySchema: updateFeatureBodyV2,
   querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   paramsSchema: idParams,
-  responseSchema: featureV2UpdateResponseSchema,
+  responseSchema: featureV2UpdateResponseSchema.extend({
+    warnings: inputWarningsField,
+  }),
   summary: "Partially update a feature",
   description:
     "Updates the Feature Flag and immediately publishes a new revision. The caller needs Edit access in the Feature Flag's Project and Publish access for every affected environment. When approval is required, use the revision endpoints instead, unless the caller can bypass draft approvals.\n\nOther top-level fields are patch-merged: omit a field to leave it unchanged. The `rules` field, when supplied, replaces the entire `rules` array in one operation. To preserve existing rules, fetch the Feature Flag, update the returned `rules` array, and send the complete array back. Safe-rollout rules round-trip through `safeRolloutId`; use `POST /v2/features/:id/revisions/:version/rules` to create new ones.",

@@ -83,271 +83,270 @@ function templateToPostExperimentDefaults(
   };
 }
 
-export const postExperiment = createApiRequestHandler(postExperimentValidator)(
-  async (req) => {
-    const { owner: ownerEmail, templateId } = req.body;
-    let payload = req.body;
+export const postExperiment = createApiRequestHandler({
+  ...postExperimentValidator,
+  surfaceInputWarnings: true,
+})(async (req) => {
+  const { owner: ownerEmail, templateId } = req.body;
+  let payload = req.body;
 
-    // Apply template defaults if a templateId is provided
-    if (templateId) {
-      const template =
-        await req.context.models.experimentTemplates.getById(templateId);
-      if (!template) {
-        throw new Error(`Invalid template: ${templateId}`);
-      }
-
-      if (req.body.datasourceId !== undefined) {
-        throw new Error(
-          "datasourceId cannot be set when templateId is provided",
-        );
-      }
-
-      if (req.body.assignmentQueryId !== undefined) {
-        throw new Error(
-          "assignmentQueryId cannot be set when templateId is provided",
-        );
-      }
-
-      payload = {
-        ...templateToPostExperimentDefaults(template),
-        ...req.body,
-      };
+  // Apply template defaults if a templateId is provided
+  if (templateId) {
+    const template =
+      await req.context.models.experimentTemplates.getById(templateId);
+    if (!template) {
+      throw new Error(`Invalid template: ${templateId}`);
     }
 
-    if (payload.assignmentQueryId === undefined) {
+    if (req.body.datasourceId !== undefined) {
+      throw new Error("datasourceId cannot be set when templateId is provided");
+    }
+
+    if (req.body.assignmentQueryId !== undefined) {
       throw new Error(
-        "assignmentQueryId is required unless provided by the template",
+        "assignmentQueryId cannot be set when templateId is provided",
       );
     }
 
-    // Validate projects - We can remove this validation when ExperimentModel is migrated to BaseModel
-    if (payload.project) {
-      await req.context.models.projects.ensureProjectsExist([payload.project]);
-    }
+    payload = {
+      ...templateToPostExperimentDefaults(template),
+      ...req.body,
+    };
+  }
 
-    if (!req.context.permissions.canCreateExperiment(payload)) {
-      req.context.permissions.throwPermissionError();
-    }
+  if (payload.assignmentQueryId === undefined) {
+    throw new Error(
+      "assignmentQueryId is required unless provided by the template",
+    );
+  }
 
-    assertExperimentPayloadCommercialFeatures(req.context, {
-      postStratificationEnabled: payload.postStratificationEnabled,
-      decisionFrameworkSettings: payload.decisionFrameworkSettings,
-      metricOverrides: payload.metricOverrides,
-      defaultDashboardId: payload.defaultDashboardId,
-    });
+  // Validate projects - We can remove this validation when ExperimentModel is migrated to BaseModel
+  if (payload.project) {
+    await req.context.models.projects.ensureProjectsExist([payload.project]);
+  }
 
-    const datasource = payload.datasourceId
-      ? await getDataSourceById(req.context, payload.datasourceId)
-      : null;
-    if (payload.datasourceId && !datasource) {
-      throw new Error(`Invalid data source: ${payload.datasourceId}`);
-    }
+  if (!req.context.permissions.canCreateExperiment(payload)) {
+    req.context.permissions.throwPermissionError();
+  }
 
-    // check for associated assignment query id
-    if (
-      datasource &&
-      !datasource.settings.queries?.exposure?.some(
-        (q) => q.id === payload.assignmentQueryId,
-      )
-    ) {
-      throw new Error(
-        `Unrecognized assignment query ID: ${payload.assignmentQueryId}`,
-      );
-    }
+  assertExperimentPayloadCommercialFeatures(req.context, {
+    postStratificationEnabled: payload.postStratificationEnabled,
+    decisionFrameworkSettings: payload.decisionFrameworkSettings,
+    metricOverrides: payload.metricOverrides,
+    defaultDashboardId: payload.defaultDashboardId,
+  });
 
-    // check if tracking key is unique (skip the lookup entirely if the caller
-    // is bypassing the duplicate check and the org doesn't require uniqueness)
-    const requireUniqueTrackingKeys =
-      !!req.organization.settings?.requireUniqueExperimentTrackingKeys;
-    if (requireUniqueTrackingKeys || !payload.bypassDuplicateKeyCheck) {
-      const existingByTrackingKey = await getExperimentByTrackingKey(
-        req.context,
-        payload.trackingKey,
-      );
-      if (existingByTrackingKey) {
-        if (requireUniqueTrackingKeys) {
-          throw new Error(
-            `Experiment with tracking key already exists: ${payload.trackingKey}. Your organization requires unique experiment tracking keys and bypassDuplicateKeyCheck is ignored.`,
-          );
-        }
-        if (!payload.bypassDuplicateKeyCheck) {
-          throw new Error(
-            `Experiment with tracking key already exists: ${payload.trackingKey}.`,
-          );
-        }
-      }
-    }
+  const datasource = payload.datasourceId
+    ? await getDataSourceById(req.context, payload.datasourceId)
+    : null;
+  if (payload.datasourceId && !datasource) {
+    throw new Error(`Invalid data source: ${payload.datasourceId}`);
+  }
 
-    await validateCustomFields(
-      payload.customFields,
+  // check for associated assignment query id
+  if (
+    datasource &&
+    !datasource.settings.queries?.exposure?.some(
+      (q) => q.id === payload.assignmentQueryId,
+    )
+  ) {
+    throw new Error(
+      `Unrecognized assignment query ID: ${payload.assignmentQueryId}`,
+    );
+  }
+
+  // check if tracking key is unique (skip the lookup entirely if the caller
+  // is bypassing the duplicate check and the org doesn't require uniqueness)
+  const requireUniqueTrackingKeys =
+    !!req.organization.settings?.requireUniqueExperimentTrackingKeys;
+  if (requireUniqueTrackingKeys || !payload.bypassDuplicateKeyCheck) {
+    const existingByTrackingKey = await getExperimentByTrackingKey(
       req.context,
-      payload.project,
+      payload.trackingKey,
     );
-
-    if (payload.defaultDashboardId) {
-      const dashboard = await req.context.models.dashboards.getById(
-        payload.defaultDashboardId,
-      );
-      if (!dashboard) {
-        throw new Error(`Invalid dashboard: ${payload.defaultDashboardId}`);
+    if (existingByTrackingKey) {
+      if (requireUniqueTrackingKeys) {
+        throw new Error(
+          `Experiment with tracking key already exists: ${payload.trackingKey}. Your organization requires unique experiment tracking keys and bypassDuplicateKeyCheck is ignored.`,
+        );
+      }
+      if (!payload.bypassDuplicateKeyCheck) {
+        throw new Error(
+          `Experiment with tracking key already exists: ${payload.trackingKey}.`,
+        );
       }
     }
-    const ownerId =
-      (await resolveOwnerToUserId(ownerEmail, req.context, { strict: true })) ??
-      req.context.userId;
+  }
 
-    // Validate that specified metrics exist and belong to the organization
-    const metricGroups = await req.context.models.metricGroups.getAll();
-    const metricIds = getAllMetricIdsFromExperiment(
-      {
-        goalMetrics: payload.metrics,
-        secondaryMetrics: payload.secondaryMetrics,
-        guardrailMetrics: payload.guardrailMetrics,
-        activationMetric: payload.activationMetric,
-      },
-      true,
-      metricGroups,
+  await validateCustomFields(
+    payload.customFields,
+    req.context,
+    payload.project,
+  );
+
+  if (payload.defaultDashboardId) {
+    const dashboard = await req.context.models.dashboards.getById(
+      payload.defaultDashboardId,
     );
-    if (metricIds.length) {
-      if (!datasource) {
-        throw new Error("Must provide a datasource when including metrics");
-      }
-      const map = await getMetricMap(req.context);
-      for (let i = 0; i < metricIds.length; i++) {
-        const metric = map.get(metricIds[i]);
-        if (metric) {
+    if (!dashboard) {
+      throw new Error(`Invalid dashboard: ${payload.defaultDashboardId}`);
+    }
+  }
+  const ownerId =
+    (await resolveOwnerToUserId(ownerEmail, req.context, { strict: true })) ??
+    req.context.userId;
+
+  // Validate that specified metrics exist and belong to the organization
+  const metricGroups = await req.context.models.metricGroups.getAll();
+  const metricIds = getAllMetricIdsFromExperiment(
+    {
+      goalMetrics: payload.metrics,
+      secondaryMetrics: payload.secondaryMetrics,
+      guardrailMetrics: payload.guardrailMetrics,
+      activationMetric: payload.activationMetric,
+    },
+    true,
+    metricGroups,
+  );
+  if (metricIds.length) {
+    if (!datasource) {
+      throw new Error("Must provide a datasource when including metrics");
+    }
+    const map = await getMetricMap(req.context);
+    for (let i = 0; i < metricIds.length; i++) {
+      const metric = map.get(metricIds[i]);
+      if (metric) {
+        // Make sure it is tied to the same datasource as the experiment
+        if (datasource.id && metric.datasource !== datasource.id) {
+          throw new Error(
+            "Metrics must be tied to the same datasource as the experiment: " +
+              metricIds[i],
+          );
+        }
+      } else {
+        // check to see if this metric is actually a metric group
+        const metricGroup = await req.context.models.metricGroups.getById(
+          metricIds[i],
+        );
+        if (metricGroup) {
           // Make sure it is tied to the same datasource as the experiment
-          if (datasource.id && metric.datasource !== datasource.id) {
+          if (datasource.id && metricGroup.datasource !== datasource.id) {
             throw new Error(
               "Metrics must be tied to the same datasource as the experiment: " +
                 metricIds[i],
             );
           }
         } else {
-          // check to see if this metric is actually a metric group
-          const metricGroup = await req.context.models.metricGroups.getById(
-            metricIds[i],
-          );
-          if (metricGroup) {
-            // Make sure it is tied to the same datasource as the experiment
-            if (datasource.id && metricGroup.datasource !== datasource.id) {
-              throw new Error(
-                "Metrics must be tied to the same datasource as the experiment: " +
-                  metricIds[i],
-              );
-            }
-          } else {
-            // new metric that's not recognized...
-            throw new Error("Unknown metric: " + metricIds[i]);
-          }
+          // new metric that's not recognized...
+          throw new Error("Unknown metric: " + metricIds[i]);
         }
       }
     }
-    if (payload.variations) {
-      validateVariationIds(payload.variations);
-    }
+  }
+  if (payload.variations) {
+    validateVariationIds(payload.variations);
+  }
 
-    if (payload.precomputedUnitDimensionIds !== undefined) {
-      await assertExperimentPrecomputedUnitDimensionIdsAreValid({
-        context: req.context,
-        datasource,
-        exposureQueryId: payload.assignmentQueryId,
-        dimensionIds: payload.precomputedUnitDimensionIds,
-      });
-    }
+  if (payload.precomputedUnitDimensionIds !== undefined) {
+    await assertExperimentPrecomputedUnitDimensionIdsAreValid({
+      context: req.context,
+      datasource,
+      exposureQueryId: payload.assignmentQueryId,
+      dimensionIds: payload.precomputedUnitDimensionIds,
+    });
+  }
 
-    // Validate attributionModel + lookbackOverride consistency
-    if (
-      payload.attributionModel === "lookbackOverride" &&
-      !payload.lookbackOverride
-    ) {
-      throw new Error(
-        "lookbackOverride is required when attributionModel is 'lookbackOverride'",
-      );
-    }
+  // Validate attributionModel + lookbackOverride consistency
+  if (
+    payload.attributionModel === "lookbackOverride" &&
+    !payload.lookbackOverride
+  ) {
+    throw new Error(
+      "lookbackOverride is required when attributionModel is 'lookbackOverride'",
+    );
+  }
 
-    // If lookbackOverride is provided in the payload, it must have the right
-    // attribution model
-    if (
-      (payload.attributionModel ?? "firstExposure") !== "lookbackOverride" &&
-      payload.lookbackOverride !== undefined
-    ) {
-      throw new Error(
-        "lookbackOverride is only allowed when attributionModel is 'lookbackOverride'",
-      );
-    }
+  // If lookbackOverride is provided in the payload, it must have the right
+  // attribution model
+  if (
+    (payload.attributionModel ?? "firstExposure") !== "lookbackOverride" &&
+    payload.lookbackOverride !== undefined
+  ) {
+    throw new Error(
+      "lookbackOverride is only allowed when attributionModel is 'lookbackOverride'",
+    );
+  }
 
-    // Opt-in attribute registration check (org-level setting). Applies to the
-    // experiment's hashAttribute/fallbackAttribute and every phase's condition.
+  // Opt-in attribute registration check (org-level setting). Applies to the
+  // experiment's hashAttribute/fallbackAttribute and every phase's condition.
+  assertRegisteredAttributes(
+    req.context,
+    {
+      hashAttribute: payload.hashAttribute,
+      fallbackAttribute: payload.fallbackAttribute,
+    },
+    "experiment",
+    undefined,
+    payload.project,
+  );
+  for (const phase of payload.phases ?? []) {
     assertRegisteredAttributes(
       req.context,
-      {
-        hashAttribute: payload.hashAttribute,
-        fallbackAttribute: payload.fallbackAttribute,
-      },
-      "experiment",
+      { condition: phase.condition },
+      "experiment phase",
       undefined,
       payload.project,
     );
-    for (const phase of payload.phases ?? []) {
-      assertRegisteredAttributes(
-        req.context,
-        { condition: phase.condition },
-        "experiment phase",
-        undefined,
-        payload.project,
-      );
-    }
+  }
 
-    // transform into exp interface; set sane defaults
-    const newExperiment = postExperimentApiPayloadToInterface(
-      {
-        ...payload,
-        ...(ownerId ? { owner: ownerId } : {}),
-      },
-      req.organization,
-      datasource,
-    );
+  // transform into exp interface; set sane defaults
+  const newExperiment = postExperimentApiPayloadToInterface(
+    {
+      ...payload,
+      ...(ownerId ? { owner: ownerId } : {}),
+    },
+    req.organization,
+    datasource,
+  );
 
-    // Same validation as PUT /schedule; existingSchedule is null on create.
-    if (payload.statusUpdateSchedule) {
-      validateScheduleUpdate({
-        context: req.context,
-        experimentType: payload.type ?? "standard",
-        status: newExperiment.status,
-        archived: !!newExperiment.archived,
-        phaseStart:
-          newExperiment.phases[newExperiment.phases.length - 1]?.dateStarted,
-        existingSchedule: null,
-        variations: newExperiment.variations,
-        goalMetrics: newExperiment.goalMetrics,
-        incoming: payload.statusUpdateSchedule,
-      });
-    }
-
-    const experiment = await createExperiment({
-      data: newExperiment,
+  // Same validation as PUT /schedule; existingSchedule is null on create.
+  if (payload.statusUpdateSchedule) {
+    validateScheduleUpdate({
       context: req.context,
+      experimentType: payload.type ?? "standard",
+      status: newExperiment.status,
+      archived: !!newExperiment.archived,
+      phaseStart:
+        newExperiment.phases[newExperiment.phases.length - 1]?.dateStarted,
+      existingSchedule: null,
+      variations: newExperiment.variations,
+      goalMetrics: newExperiment.goalMetrics,
+      incoming: payload.statusUpdateSchedule,
     });
+  }
 
-    if (ownerId) {
-      // add owner as watcher
-      await req.context.models.watch.upsertWatch({
-        userId: ownerId,
-        item: experiment.id,
-        type: "experiments",
-      });
-    }
+  const experiment = await createExperiment({
+    data: newExperiment,
+    context: req.context,
+  });
 
-    const apiExperiment = await resolveOwnerEmail(
-      await toExperimentApiInterface(
-        req.context,
-        experiment as ExperimentInterfaceExcludingHoldouts,
-      ),
+  if (ownerId) {
+    // add owner as watcher
+    await req.context.models.watch.upsertWatch({
+      userId: ownerId,
+      item: experiment.id,
+      type: "experiments",
+    });
+  }
+
+  const apiExperiment = await resolveOwnerEmail(
+    await toExperimentApiInterface(
       req.context,
-    );
-    return {
-      experiment: apiExperiment,
-    };
-  },
-);
+      experiment as ExperimentInterfaceExcludingHoldouts,
+    ),
+    req.context,
+  );
+  return {
+    experiment: apiExperiment,
+  };
+});
