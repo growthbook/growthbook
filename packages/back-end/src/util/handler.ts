@@ -60,8 +60,6 @@ export type BackEndApiEndpointSpec<
   deprecationDate?: string;
   /** Error codes this endpoint may throw, used to generate OpenAPI error response schemas. */
   possibleErrors?: readonly ApiErrorCode[];
-  /** Append advisory `warnings` naming request fields that were ignored or renamed. */
-  surfaceInputWarnings?: boolean;
 };
 
 /** Request fields accepted under a different name, mapped to the documented one. */

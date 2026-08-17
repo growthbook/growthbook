@@ -41,243 +41,238 @@ import {
   mapV2ApiRuleToFeatureRule,
 } from "./v2Shared";
 
-const postFeatureV2Spec = {
-  ...postFeatureV2Validator,
-  surfaceInputWarnings: true,
-};
+export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
+  async (req) => {
+    if (
+      !req.context.permissions.canCreateFeature(
+        req.body,
+        // The API body carries `environments`, not the stored
+        // `environmentSettings` shape getEnabledEnvironments reads. Resolved the
+        // same way the create itself resolves it, so an environment left out of
+        // the body but enabled by its `defaultState` still counts.
+        getApiCreateEnabledEnvironments(
+          getEnvironments(req.context.org),
+          req.body.environments,
+        ),
+      )
+    ) {
+      req.context.permissions.throwPermissionError();
+    }
 
-export const postFeatureV2 = createApiRequestHandler(postFeatureV2Spec)(async (
-  req,
-) => {
-  if (
-    !req.context.permissions.canCreateFeature(
-      req.body,
-      // The API body carries `environments`, not the stored
-      // `environmentSettings` shape getEnabledEnvironments reads. Resolved the
-      // same way the create itself resolves it, so an environment left out of
-      // the body but enabled by its `defaultState` still counts.
-      getApiCreateEnabledEnvironments(
-        getEnvironments(req.context.org),
-        req.body.environments,
-      ),
-    )
-  ) {
-    req.context.permissions.throwPermissionError();
-  }
+    const existing = await getFeature(req.context, req.body.id);
+    if (existing) {
+      throw new Error(`Feature id '${req.body.id}' already exists.`);
+    }
 
-  const existing = await getFeature(req.context, req.body.id);
-  if (existing) {
-    throw new Error(`Feature id '${req.body.id}' already exists.`);
-  }
+    if (!req.body.id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
+      throw new Error(
+        "Feature keys can only include letters, numbers, hyphens, and underscores.",
+      );
+    }
 
-  if (!req.body.id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
-    throw new Error(
-      "Feature keys can only include letters, numbers, hyphens, and underscores.",
+    const orgEnvs = getEnvironments(req.context.org);
+
+    validateEnvKeys(
+      orgEnvs.map((e) => e.id),
+      Object.keys(req.body.environments ?? {}),
     );
-  }
 
-  const orgEnvs = getEnvironments(req.context.org);
+    if (
+      req.context.org.settings?.requireProjectForFeatures &&
+      !req.body.project
+    ) {
+      throw new Error("Must specify a project for new features");
+    }
 
-  validateEnvKeys(
-    orgEnvs.map((e) => e.id),
-    Object.keys(req.body.environments ?? {}),
-  );
+    await assertValidProjectId(req.body.project, req.context);
+    await assertValidProjectIds(req.body.targetingProjects, req.context);
 
-  if (
-    req.context.org.settings?.requireProjectForFeatures &&
-    !req.body.project
-  ) {
-    throw new Error("Must specify a project for new features");
-  }
-
-  await assertValidProjectId(req.body.project, req.context);
-  await assertValidProjectIds(req.body.targetingProjects, req.context);
-
-  await validateCustomFields(
-    req.body.customFields,
-    req.context,
-    req.body.project,
-  );
-
-  const tags = req.body.tags || [];
-
-  const feature: FeatureInterface = {
-    defaultValue: req.body.defaultValue ?? "",
-    valueType: req.body.valueType,
-    baseConfig: req.body.baseConfig ?? undefined,
-    owner: await resolveOwnerForCreate(req.body.owner, req.context),
-    description: req.body.description || "",
-    project: req.body.project || "",
-    ...normalizeTargetingProjects({
-      project: req.body.project || "",
-      targetingAllProjects: req.body.targetingAllProjects,
-      targetingProjects: req.body.targetingProjects,
-    }),
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    organization: req.context.org.id,
-    id: req.body.id,
-    archived: !!req.body.archived,
-    version: 1,
-    environmentSettings: {},
-    rules: [],
-    prerequisites: (req.body?.prerequisites || []).map((p) => ({
-      id: p,
-      condition: `{"value": true}`,
-    })),
-    tags,
-    customFields: req.body.customFields,
-  };
-
-  feature.environmentSettings = createInterfaceEnvSettingsFromApiEnvSettings(
-    feature,
-    orgEnvs,
-    (req.body.environments ?? {}) as ApiFeatureEnvSettings,
-  );
-
-  // Opt-in registered-attribute check before any DB writes. The env-rules
-  // path runs the same check inside `fromApiEnvSettingsRulesToFeatureEnvSettingsRules`,
-  // but flat v2 rules go through `mapV2ApiRuleToFeatureRule` which doesn't
-  // validate, so we cover them explicitly here.
-  for (const rule of req.body.rules ?? []) {
-    validateRuleAttributes(
-      rule as Parameters<typeof validateRuleAttributes>[0],
+    await validateCustomFields(
+      req.body.customFields,
       req.context,
       req.body.project,
     );
-  }
 
-  feature.rules = (req.body.rules ?? []).map((rule) =>
-    mapV2ApiRuleToFeatureRule(rule),
-  );
-  await assertValidRuleProjectIds(feature.rules, req.context);
+    const tags = req.body.tags || [];
 
-  // Config backing comes through dedicated fields — reject a raw `@config:`
-  // in the default value, validate the fields, then compose the stored value
-  // (a `defaultValueConfig` descendant becomes the value's own `$extends`; a
-  // bare `baseConfig` leaves the default a pure patch the compiler resolves).
-  assertNoRawConfigExtends(feature.defaultValue, "defaultValue");
-  await assertValidBaseConfig(
-    req.context,
-    feature.baseConfig,
-    feature.valueType,
-    feature.project,
-  );
-  await assertValidDefaultValueConfig(
-    req.context,
-    feature.baseConfig,
-    req.body.defaultValueConfig,
-    feature.project,
-  );
-  if ((req.body.defaultValueConfig ?? null) !== null) {
-    feature.defaultValue = composeConfigBacking(
-      req.body.defaultValueConfig as string,
+    const feature: FeatureInterface = {
+      defaultValue: req.body.defaultValue ?? "",
+      valueType: req.body.valueType,
+      baseConfig: req.body.baseConfig ?? undefined,
+      owner: await resolveOwnerForCreate(req.body.owner, req.context),
+      description: req.body.description || "",
+      project: req.body.project || "",
+      ...normalizeTargetingProjects({
+        project: req.body.project || "",
+        targetingAllProjects: req.body.targetingAllProjects,
+        targetingProjects: req.body.targetingProjects,
+      }),
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      organization: req.context.org.id,
+      id: req.body.id,
+      archived: !!req.body.archived,
+      version: 1,
+      environmentSettings: {},
+      rules: [],
+      prerequisites: (req.body?.prerequisites || []).map((p) => ({
+        id: p,
+        condition: `{"value": true}`,
+      })),
+      tags,
+      customFields: req.body.customFields,
+    };
+
+    feature.environmentSettings = createInterfaceEnvSettingsFromApiEnvSettings(
+      feature,
+      orgEnvs,
+      (req.body.environments ?? {}) as ApiFeatureEnvSettings,
+    );
+
+    // Opt-in registered-attribute check before any DB writes. The env-rules
+    // path runs the same check inside `fromApiEnvSettingsRulesToFeatureEnvSettingsRules`,
+    // but flat v2 rules go through `mapV2ApiRuleToFeatureRule` which doesn't
+    // validate, so we cover them explicitly here.
+    for (const rule of req.body.rules ?? []) {
+      validateRuleAttributes(
+        rule as Parameters<typeof validateRuleAttributes>[0],
+        req.context,
+        req.body.project,
+      );
+    }
+
+    feature.rules = (req.body.rules ?? []).map((rule) =>
+      mapV2ApiRuleToFeatureRule(rule),
+    );
+    await assertValidRuleProjectIds(feature.rules, req.context);
+
+    // Config backing comes through dedicated fields — reject a raw `@config:`
+    // in the default value, validate the fields, then compose the stored value
+    // (a `defaultValueConfig` descendant becomes the value's own `$extends`; a
+    // bare `baseConfig` leaves the default a pure patch the compiler resolves).
+    assertNoRawConfigExtends(feature.defaultValue, "defaultValue");
+    await assertValidBaseConfig(
+      req.context,
+      feature.baseConfig,
+      feature.valueType,
+      feature.project,
+    );
+    await assertValidDefaultValueConfig(
+      req.context,
+      feature.baseConfig,
+      req.body.defaultValueConfig,
+      feature.project,
+    );
+    if ((req.body.defaultValueConfig ?? null) !== null) {
+      feature.defaultValue = composeConfigBacking(
+        req.body.defaultValueConfig as string,
+        feature.defaultValue,
+        "Default value",
+      );
+    }
+
+    // Request-supplied config keys must exist, be live, and belong to the
+    // feature's config family — same gate as the revision rule endpoints.
+    await assertValidRuleConfigKeys(
+      req.context,
+      (req.body.rules ?? []).flatMap((rule) => [
+        "config" in rule ? (rule as { config?: string | null }).config : null,
+        ...(rule.type === "experiment-ref"
+          ? rule.variations.map((v) => v.config)
+          : []),
+      ]),
+      feature.defaultValue,
+      feature.baseConfig,
+      feature.project,
+    );
+
+    const jsonSchema = parseApiJsonSchema(
+      req.context.org,
+      req.body.jsonSchema,
+      feature.valueType,
+    );
+    feature.jsonSchema = jsonSchema;
+    // Always normalize; enforce the schema unless explicitly skipped.
+    feature.defaultValue = validateFeatureValue(
+      req.context.canSkipSchemaValidationFor("feature")
+        ? { ...feature, jsonSchema: undefined }
+        : feature,
       feature.defaultValue,
       "Default value",
     );
-  }
+    // `mapV2ApiRuleToFeatureRule` doesn't validate rule values — enforce here.
+    assertFeatureValuesValid(req.context, feature, { rules: feature.rules });
+    await assertConfigBackedFeatureValuesValid(req.context, feature, {
+      defaultValue: feature.defaultValue,
+      rules: feature.rules,
+    });
 
-  // Request-supplied config keys must exist, be live, and belong to the
-  // feature's config family — same gate as the revision rule endpoints.
-  await assertValidRuleConfigKeys(
-    req.context,
-    (req.body.rules ?? []).flatMap((rule) => [
-      "config" in rule ? (rule as { config?: string | null }).config : null,
-      ...(rule.type === "experiment-ref"
-        ? rule.variations.map((v) => v.config)
-        : []),
-    ]),
-    feature.defaultValue,
-    feature.baseConfig,
-    feature.project,
-  );
+    assertConfigSchemaCompat({
+      jsonSchemaEnabled: feature.jsonSchema?.enabled,
+      baseConfig: feature.baseConfig,
+    });
 
-  const jsonSchema = parseApiJsonSchema(
-    req.context.org,
-    req.body.jsonSchema,
-    feature.valueType,
-  );
-  feature.jsonSchema = jsonSchema;
-  // Always normalize; enforce the schema unless explicitly skipped.
-  feature.defaultValue = validateFeatureValue(
-    req.context.canSkipSchemaValidationFor("feature")
-      ? { ...feature, jsonSchema: undefined }
-      : feature,
-    feature.defaultValue,
-    "Default value",
-  );
-  // `mapV2ApiRuleToFeatureRule` doesn't validate rule values — enforce here.
-  assertFeatureValuesValid(req.context, feature, { rules: feature.rules });
-  await assertConfigBackedFeatureValuesValid(req.context, feature, {
-    defaultValue: feature.defaultValue,
-    rules: feature.rules,
-  });
-
-  assertConfigSchemaCompat({
-    jsonSchemaEnabled: feature.jsonSchema?.enabled,
-    baseConfig: feature.baseConfig,
-  });
-
-  const enabledOnCreate = Array.from(
-    getEnabledEnvironments(
-      feature,
-      orgEnvs.map((e) => e.id),
-    ),
-  );
-  // The environments a new flag starts enabled in are its whole live footprint,
-  // so gating those on publish is the only control needed — and a flag enabling
-  // none is in no payload at all, leaving create authority sufficient. Approval
-  // doesn't apply: there's no prior state to review a new flag against.
-  if (
-    enabledOnCreate.length &&
-    !req.context.permissions.canPublishFeature(feature, enabledOnCreate)
-  ) {
-    req.context.permissions.throwPermissionError();
-  }
-
-  // AFTER every authorization: tags are a persistent org-level side effect, and
-  // writing them first meant a request that then 403'd had already mutated tag
-  // state — a rejected call must leave nothing behind.
-  if (tags.length > 0) {
-    await addTags(req.context.org.id, tags);
-  }
-
-  addIdsToFlatRules(feature.rules, feature.id);
-
-  await createFeature(req.context, feature);
-
-  await req.audit({
-    event: "feature.create",
-    entity: { object: "feature", id: feature.id },
-    details: auditDetailsCreate(feature),
-  });
-
-  const groupMap = await getSavedGroupMap(req.context);
-  const experimentMap = await getExperimentMapForFeature(
-    req.context,
-    feature.id,
-  );
-  const safeRolloutMap =
-    await req.context.models.safeRollout.getAllPayloadSafeRollouts();
-  const revision = await getRevision({
-    context: req.context,
-    organization: feature.organization,
-    featureId: feature.id,
-    feature,
-    version: feature.version,
-  });
-
-  return {
-    feature: await resolveOwnerEmail(
-      getApiFeatureObjV2({
+    const enabledOnCreate = Array.from(
+      getEnabledEnvironments(
         feature,
-        organization: req.organization,
-        groupMap,
-        experimentMap,
-        revision,
-        safeRolloutMap,
-      }),
+        orgEnvs.map((e) => e.id),
+      ),
+    );
+    // The environments a new flag starts enabled in are its whole live footprint,
+    // so gating those on publish is the only control needed — and a flag enabling
+    // none is in no payload at all, leaving create authority sufficient. Approval
+    // doesn't apply: there's no prior state to review a new flag against.
+    if (
+      enabledOnCreate.length &&
+      !req.context.permissions.canPublishFeature(feature, enabledOnCreate)
+    ) {
+      req.context.permissions.throwPermissionError();
+    }
+
+    // AFTER every authorization: tags are a persistent org-level side effect, and
+    // writing them first meant a request that then 403'd had already mutated tag
+    // state — a rejected call must leave nothing behind.
+    if (tags.length > 0) {
+      await addTags(req.context.org.id, tags);
+    }
+
+    addIdsToFlatRules(feature.rules, feature.id);
+
+    await createFeature(req.context, feature);
+
+    await req.audit({
+      event: "feature.create",
+      entity: { object: "feature", id: feature.id },
+      details: auditDetailsCreate(feature),
+    });
+
+    const groupMap = await getSavedGroupMap(req.context);
+    const experimentMap = await getExperimentMapForFeature(
       req.context,
-    ),
-  };
-});
+      feature.id,
+    );
+    const safeRolloutMap =
+      await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+    const revision = await getRevision({
+      context: req.context,
+      organization: feature.organization,
+      featureId: feature.id,
+      feature,
+      version: feature.version,
+    });
+
+    return {
+      feature: await resolveOwnerEmail(
+        getApiFeatureObjV2({
+          feature,
+          organization: req.organization,
+          groupMap,
+          experimentMap,
+          revision,
+          safeRolloutMap,
+        }),
+        req.context,
+      ),
+    };
+  },
+);

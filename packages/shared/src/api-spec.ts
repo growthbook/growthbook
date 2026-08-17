@@ -41,4 +41,6 @@ export type ApiEndpointSpec<
     z.infer<ResponseSchema>
   >;
   excludeFromSpec?: boolean;
+  /** Append advisory `warnings` naming request fields that were ignored or renamed. */
+  surfaceInputWarnings?: boolean;
 };

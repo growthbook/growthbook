@@ -56,12 +56,7 @@ export const validateEnvKeys = (
   }
 };
 
-const postFeatureSpec = {
-  ...postFeatureValidator,
-  surfaceInputWarnings: true,
-};
-
-export const postFeature = createApiRequestHandler(postFeatureSpec)(async (
+export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   req,
 ) => {
   if (

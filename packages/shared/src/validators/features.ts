@@ -1757,6 +1757,7 @@ export const postFeatureValidator = {
   responseSchema: featureResponseSchema.extend({
     warnings: inputWarningsField,
   }),
+  surfaceInputWarnings: true,
   summary: "Create a single feature",
   description:
     "**Deprecated.** Use [POST /v2/features](#operation/postFeatureV2) instead.",
@@ -1805,6 +1806,7 @@ export const updateFeatureValidator = {
   responseSchema: featureUpdateResponseSchema.extend({
     warnings: inputWarningsField,
   }),
+  surfaceInputWarnings: true,
   summary: "Partially update a feature",
   description:
     "**Deprecated.** Use [POST /v2/features/:id](#operation/updateFeatureV2) instead.\n\nUpdates the Feature Flag and immediately publishes a new revision. The caller needs Edit access in the Feature Flag's Project and Publish access for every affected environment. When approval is required, use the revision endpoints instead, unless the caller can bypass draft approvals.",

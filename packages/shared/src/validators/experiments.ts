@@ -1900,6 +1900,7 @@ export const postExperimentValidator = {
       warnings: inputWarningsField,
     })
     .strict(),
+  surfaceInputWarnings: true,
   summary: "Create a single experiment",
   operationId: "postExperiment",
   tags: ["experiments"],
@@ -2008,6 +2009,7 @@ export const updateExperimentValidator = {
       warnings: inputWarningsField,
     })
     .strict(),
+  surfaceInputWarnings: true,
   summary: "Update a single experiment",
   operationId: "updateExperiment",
   tags: ["experiments"],

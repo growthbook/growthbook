@@ -83,12 +83,7 @@ function templateToPostExperimentDefaults(
   };
 }
 
-const postExperimentSpec = {
-  ...postExperimentValidator,
-  surfaceInputWarnings: true,
-};
-
-export const postExperiment = createApiRequestHandler(postExperimentSpec)(
+export const postExperiment = createApiRequestHandler(postExperimentValidator)(
   async (req) => {
     const { owner: ownerEmail, templateId } = req.body;
     let payload = req.body;
