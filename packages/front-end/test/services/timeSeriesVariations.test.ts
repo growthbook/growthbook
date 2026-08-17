@@ -3,8 +3,8 @@ import type { MetricTimeSeriesVariation } from "shared/validators";
 import {
   findTimeSeriesVariation,
   getTimeSeriesGraphVariations,
-} from "@/components/Experiment/timeSeriesVariations";
-import type { GraphVariation } from "@/components/Experiment/ExperimentDateGraph";
+  type TimeSeriesGraphVariation,
+} from "@/services/timeSeriesVariations";
 
 const storedVariations: MetricTimeSeriesVariation[] = [
   { id: "variation-a", name: "Original name" },
@@ -20,7 +20,7 @@ function graphVariation({
   id: string;
   name: string;
   index?: number;
-}): GraphVariation {
+}): TimeSeriesGraphVariation {
   return {
     name,
     index,

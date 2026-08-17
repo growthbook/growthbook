@@ -1,9 +1,14 @@
+import type { ExperimentReportVariation } from "shared/types/report";
 import type { MetricTimeSeriesVariation } from "shared/validators";
-import type { GraphVariation } from "./ExperimentDateGraph";
+
+export type TimeSeriesGraphVariation = Pick<
+  ExperimentReportVariation,
+  "name" | "index" | "experimentVariationId"
+>;
 
 export function getTimeSeriesGraphVariations(
-  variations: GraphVariation[],
-): GraphVariation[] {
+  variations: TimeSeriesGraphVariation[],
+): TimeSeriesGraphVariation[] {
   return variations.map((variation) => ({
     name: variation.name,
     index: variation.index,
@@ -13,7 +18,7 @@ export function getTimeSeriesGraphVariations(
 
 export function findTimeSeriesVariation(
   storedVariations: MetricTimeSeriesVariation[],
-  graphVariation: GraphVariation,
+  graphVariation: TimeSeriesGraphVariation,
 ): MetricTimeSeriesVariation | undefined {
   if (graphVariation.experimentVariationId !== undefined) {
     return storedVariations.find(

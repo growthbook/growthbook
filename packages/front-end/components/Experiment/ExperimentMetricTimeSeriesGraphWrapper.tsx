@@ -17,8 +17,8 @@ import {
   getExperimentMetricFormatter,
   formatPercent,
 } from "@/services/metrics";
+import { findTimeSeriesVariation } from "@/services/timeSeriesVariations";
 import { useCurrency } from "@/hooks/useCurrency";
-import { findTimeSeriesVariation } from "./timeSeriesVariations";
 import type { GraphVariation } from "./ExperimentDateGraph";
 import ExperimentTimeSeriesGraph, {
   DataPointVariation,
