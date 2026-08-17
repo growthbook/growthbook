@@ -254,10 +254,27 @@ like the mechanism, and it needs a test pinning it before this ships. If it does
 not, a dev-only approval could silently become "sufficient" for a draft that
 later added production.
 
-**Open fork — does partial coverage sum?** Two approvers each covering half the
-footprint: one sanctioned approval, or none? Default should be none, since an
-approval is an attestation about the whole change rather than a per-environment
-vote. Worth confirming before building, because the counting logic differs.
+**Resolved — partial coverage does not sum.** One approver must cover the whole
+footprint; two half-covering approvals do not combine. An approval is an
+attestation about the whole change, not a per-environment vote, and requiring
+summed approvals across environments is rare enough not to justify tracking
+coverage sets in the counting logic and explaining partially-covered drafts in
+the UI.
+
+**Where the stale-approval hole actually is.** Two mechanisms already demote an
+approval when a draft changes, and neither closes this:
+
+- `resetReviewOnChange` flips a revision from `approved` back to `pending-review`
+  when the edit touches a gated environment or the default value — but only when
+  the org enabled that setting, and only from `approved`.
+- `clearReviews` stales recorded verdicts, but only on a _status transition_ into
+  `pending-review`, not on an edit made while already there.
+
+So a draft sitting in `pending-review` with one recorded approval, which then
+grows to touch production, keeps that approval — regardless of any setting. The
+approver could not have given it against the current draft. Section 3 has to
+re-derive the footprint at publish and re-check each recorded approver against
+it; demoting status is not sufficient.
 
 ## Settings audit: which org settings actually apply to which entity
 
