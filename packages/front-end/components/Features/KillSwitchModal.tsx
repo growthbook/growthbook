@@ -429,8 +429,11 @@ export default function KillSwitchModal({
   const conflict = useDraftConflict<Record<string, boolean>>({
     initial: baseEnvEnabled,
     labels: Object.fromEntries(visibleEnvs.map((e) => [e.id, e.id])),
-    applyField: (field, value) =>
-      setEnvOverrides((o) => ({ ...o, [field]: !!value })),
+    applyField: (field, value) => {
+      // Overrides are pruned to touched envs when the draft target changes.
+      setTouchedEnvs((prev) => new Set([...prev, field]));
+      setEnvOverrides((o) => ({ ...o, [field]: !!value }));
+    },
     isNewDraft: mode !== "existing",
     entityNoun: "feature",
   });
