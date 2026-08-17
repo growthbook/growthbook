@@ -52,8 +52,84 @@ export function dimColor(dimTop: string[], v: string): string {
 }
 
 function truncateLabel(label: string, pitch: number): string {
-  const maxCh = Math.max(6, Math.floor((pitch - NODE_W - 18) / 6.2));
+  const maxCh = Math.max(6, Math.floor((pitch - NODE_W - 40) / 9.2));
   return label.length > maxCh ? `${label.slice(0, maxCh - 1)}…` : label;
+}
+
+function NodeLabel({
+  x,
+  y,
+  h,
+  align,
+  name,
+  count,
+  percent,
+  pitch,
+}: {
+  x: number;
+  y: number;
+  h: number;
+  align: "start" | "end";
+  name: string;
+  count: string;
+  percent: string;
+  pitch: number;
+}) {
+  const showStats = h >= 36;
+  if (h < 18) return null;
+  const label = truncateLabel(name, pitch);
+  const stats = `${count}  (${percent})`;
+  const contentW = Math.max(
+    label.length * 9.2,
+    showStats ? stats.length * 6.4 : 0,
+  );
+  const padX = 8;
+  const padY = 5;
+  const line2 = 16;
+  const contentH = showStats ? 16 + line2 : 16;
+  const plateW = contentW + padX * 2;
+  const plateH = contentH + padY * 2;
+  const plateX = align === "end" ? x - plateW + padX : x - padX;
+  const plateY = y + h / 2 - plateH / 2;
+  const nameBaseline = plateY + padY + 13;
+  return (
+    <g pointerEvents="none">
+      <rect
+        x={plateX}
+        y={plateY}
+        width={plateW}
+        height={plateH}
+        rx={3}
+        fill="var(--color-panel-solid)"
+        fillOpacity={0.4}
+        stroke="var(--gray-a4)"
+        strokeWidth={1}
+      />
+      <text
+        x={x}
+        y={nameBaseline}
+        fontSize={16}
+        fontWeight={600}
+        fill="var(--gray-12)"
+        textAnchor={align}
+      >
+        {label}
+      </text>
+      {showStats ? (
+        <text
+          x={x}
+          y={nameBaseline + line2}
+          fontSize={11}
+          fill="var(--gray-11)"
+          textAnchor={align}
+          style={{ fontVariantNumeric: "tabular-nums" }}
+        >
+          <tspan>{count}</tspan>
+          <tspan fill="var(--gray-10)">{`  (${percent})`}</tspan>
+        </text>
+      ) : null}
+    </g>
+  );
 }
 
 type LaidNode = JourneyNode & {
@@ -447,23 +523,45 @@ function SankeySvg({
         aria-label="Sankey of user journeys"
       >
         <Group>
-          {L.cols.map((c, ci) => (
-            <text
-              key={`h-${ci}`}
-              x={c.x}
-              y={16}
-              fontSize={13}
-              fontWeight={600}
-              fill="var(--gray-12)"
-              textAnchor={ci === L.cols.length - 1 ? "end" : "start"}
-            >
-              {c.anchor
-                ? model.direction === "backward"
-                  ? "End"
-                  : "Start"
-                : c.label}
-            </text>
-          ))}
+          {L.cols.map((c, ci) => {
+            const canPop =
+              c.committed && !c.anchor && !c.loading && c.commitIndex != null;
+            return (
+              <text
+                key={`h-${ci}`}
+                x={c.x}
+                y={16}
+                fontSize={13}
+                fontWeight={600}
+                fill="var(--gray-12)"
+                textAnchor={ci === L.cols.length - 1 ? "end" : "start"}
+                role={canPop ? "button" : undefined}
+                tabIndex={canPop ? 0 : undefined}
+                aria-label={canPop ? `Return to ${c.label}` : undefined}
+                style={{ cursor: canPop ? "pointer" : "default" }}
+                onClick={
+                  canPop && c.commitIndex != null
+                    ? () => onPop(c.commitIndex)
+                    : undefined
+                }
+                onKeyDown={
+                  canPop && c.commitIndex != null
+                    ? (ev) => {
+                        if (ev.key !== "Enter" && ev.key !== " ") return;
+                        ev.preventDefault();
+                        onPop(c.commitIndex);
+                      }
+                    : undefined
+                }
+              >
+                {c.anchor
+                  ? model.direction === "backward"
+                    ? "End"
+                    : "Start"
+                  : c.label}
+              </text>
+            );
+          })}
           {L.edges.map((e, ei) => {
             const A = L.cols[e.ci];
             const B = L.cols[e.ci + 1];
@@ -645,7 +743,13 @@ function SankeySvg({
                 !term &&
                 n.key !== JOURNEY_OTHER &&
                 c.fi === 0;
-              const clickable = canCommit || canExpandOther;
+              const canPop =
+                n.chain === true &&
+                c.committed &&
+                !c.anchor &&
+                !c.loading &&
+                c.commitIndex != null;
+              const clickable = canCommit || canExpandOther || canPop;
               return (
                 <g key={`${c.offset}-${n.key}`}>
                   <rect
@@ -682,7 +786,9 @@ function SankeySvg({
                         ? "Show more paths"
                         : canCommit
                           ? `Drill into ${n.label}`
-                          : undefined
+                          : canPop
+                            ? `Return to ${n.label}`
+                            : undefined
                     }
                     aria-busy={
                       n.key === JOURNEY_OTHER ? moreLoading : undefined
@@ -723,6 +829,8 @@ function SankeySvg({
                         onViewMore(c.optionsLevel);
                       } else if (canCommit) {
                         onCommit([n.key]);
+                      } else if (canPop && c.commitIndex != null) {
+                        onPop(c.commitIndex);
                       }
                     }}
                     onKeyDown={(ev) => {
@@ -732,34 +840,22 @@ function SankeySvg({
                         onViewMore(c.optionsLevel);
                       } else if (canCommit) {
                         onCommit([n.key]);
+                      } else if (canPop && c.commitIndex != null) {
+                        onPop(c.commitIndex);
                       }
                     }}
                   />
-                  {ln.h >= 13 && !c.loading && (
-                    <text
+                  {!c.loading && (
+                    <NodeLabel
                       x={lx}
-                      y={
-                        ln.h >= 27
-                          ? ln.y + ln.h / 2 - 1
-                          : ln.y + Math.min(ln.h / 2 + 3.5, ln.h - 2)
-                      }
-                      fontSize={11}
-                      fill="var(--gray-12)"
-                      textAnchor={anch}
-                    >
-                      {truncateLabel(n.label, L.pitch)}
-                    </text>
-                  )}
-                  {ln.h >= 27 && !c.loading && (
-                    <text
-                      x={lx}
-                      y={ln.y + ln.h / 2 + 11}
-                      fontSize={10.5}
-                      fill="var(--gray-11)"
-                      textAnchor={anch}
-                    >
-                      {`${fmt(n.value)}  (${pct(n.value, model.anchorTotal)})`}
-                    </text>
+                      y={ln.y}
+                      h={ln.h}
+                      align={anch}
+                      name={n.label}
+                      count={fmt(n.value)}
+                      percent={pct(n.value, model.anchorTotal)}
+                      pitch={L.pitch}
+                    />
                   )}
                 </g>
               );

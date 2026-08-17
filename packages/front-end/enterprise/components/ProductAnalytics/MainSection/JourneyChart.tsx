@@ -20,6 +20,7 @@ import {
 import TextUI from "@/ui/Text";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { journeyHistoryKey } from "@/enterprise/components/ProductAnalytics/journey-policy";
+import LegendSwatchButton from "@/enterprise/components/ProductAnalytics/LegendSwatchButton";
 import JourneySankey, { dimColor } from "./JourneySankey";
 import { withHiddenJourneyDims } from "./useJourneyModel";
 import { useJourneyViewState } from "./useJourneyViewState";
@@ -159,14 +160,6 @@ export default function JourneyChart({
       </Flex>
     );
   }
-  if (model.emptyReason === "no-match") {
-    return (
-      <Flex p="4">
-        <TextUI color="text-mid">No matching journeys.</TextUI>
-      </Flex>
-    );
-  }
-
   if (process.env.NODE_ENV !== "production" && model.violations.length) {
     console.warn("[journeys] INVARIANT VIOLATIONS:", model.violations);
   }
@@ -189,47 +182,22 @@ export default function JourneyChart({
       </Box>
       {hasDimension && (
         <Flex gap="4" px="3" pb="2" wrap="wrap">
-          {model.dimTop.concat([JOURNEY_OTHER]).map((d) => {
-            const hidden = hiddenDims.has(d);
-            return (
-              <button
-                key={d}
-                type="button"
-                onClick={() => {
-                  setHiddenDims((prev) => {
-                    const next = new Set(prev);
-                    if (next.has(d)) next.delete(d);
-                    else next.add(d);
-                    return next;
-                  });
-                }}
-                aria-pressed={!hidden}
-                aria-label={hidden ? `Show ${d}` : `Hide ${d}`}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: 0,
-                  border: "none",
-                  background: "none",
-                  cursor: "pointer",
-                  opacity: hidden ? 0.45 : 1,
-                }}
-              >
-                <Box
-                  style={{
-                    width: 11,
-                    height: 11,
-                    borderRadius: 3,
-                    background: hidden
-                      ? "var(--gray-a6)"
-                      : dimColor(model.dimTop, d),
-                  }}
-                />
-                <TextUI size="sm">{d}</TextUI>
-              </button>
-            );
-          })}
+          {model.dimTop.concat([JOURNEY_OTHER]).map((d) => (
+            <LegendSwatchButton
+              key={d}
+              color={dimColor(model.dimTop, d)}
+              name={d}
+              hidden={hiddenDims.has(d)}
+              onClick={() => {
+                setHiddenDims((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(d)) next.delete(d);
+                  else next.add(d);
+                  return next;
+                });
+              }}
+            />
+          ))}
         </Flex>
       )}
     </Flex>
