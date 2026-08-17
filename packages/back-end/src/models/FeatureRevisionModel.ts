@@ -2946,6 +2946,8 @@ export async function discardRevision(
   );
 }
 
+const MAX_OPEN_DRAFTS_PER_FEATURE = 25;
+
 export async function getFeatureRevisionsByFeatureIds(
   context: ReqContext | ApiReqContext,
   organization: string,
@@ -2957,23 +2959,22 @@ export async function getFeatureRevisionsByFeatureIds(
 ): Promise<Record<string, FeatureRevisionInterface[]>> {
   const revisionsByFeatureId: Record<string, FeatureRevisionInterface[]> = {};
 
-  if (featureIds.length) {
-    const revisions = await FeatureRevisionModel.find({
-      organization,
-      status: { $in: ACTIVE_DRAFT_STATUSES },
-      featureId: { $in: featureIds },
-    })
-      .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
-      .sort({ version: -1 })
-      .limit(10);
-    revisions.forEach((revision) => {
-      const featureId = revision.featureId;
-      revisionsByFeatureId[featureId] = revisionsByFeatureId[featureId] || [];
-      revisionsByFeatureId[featureId].push(
+  await Promise.all(
+    Array.from(new Set(featureIds)).map(async (featureId) => {
+      const revisions = await FeatureRevisionModel.find({
+        organization,
+        status: { $in: ACTIVE_DRAFT_STATUSES },
+        featureId,
+      })
+        .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
+        .sort({ version: -1 })
+        .limit(MAX_OPEN_DRAFTS_PER_FEATURE);
+      if (!revisions.length) return;
+      revisionsByFeatureId[featureId] = revisions.map((revision) =>
         toInterface(revision, context, featuresByFeatureId[featureId]),
       );
-    });
-  }
+    }),
+  );
 
   return revisionsByFeatureId;
 }

@@ -136,7 +136,11 @@ import {
 import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
 import { ReqContext } from "back-end/types/request";
-import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
+import {
+  ApprovalRequiredError,
+  BadRequestError,
+  SoftWarningError,
+} from "back-end/src/util/errors";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { logger } from "back-end/src/util/logger";
 import { Counter, Histogram, metrics } from "back-end/src/util/metrics";
@@ -3905,18 +3909,32 @@ export async function revisionRequiresReview(
   });
 }
 
-// Throws if the draft requires approval and the caller cannot bypass.
 export async function assertCanAutoPublish(
   context: ReqContext,
   feature: FeatureInterface,
   draft: FeatureRevisionInterface,
+  { respectApprovalFlow = false }: { respectApprovalFlow?: boolean } = {},
 ): Promise<void> {
-  const requiresReview = await revisionRequiresReview(context, feature, draft);
+  const requireReviews = context.org.settings?.requireReviews;
+  const reviewsConfigured =
+    context.hasPremiumFeature("require-approvals") &&
+    (requireReviews === true ||
+      (Array.isArray(requireReviews) &&
+        requireReviews.some((r) => r?.requireReviewOn)));
 
-  if (
-    requiresReview &&
-    !context.permissions.canBypassFlagApprovalChecks(feature, "feature")
-  ) {
+  const requiresReview = await revisionRequiresReview(context, feature, draft, {
+    treatUnresolvedBaseAsReview: reviewsConfigured,
+  });
+  if (!requiresReview) return;
+
+  if (respectApprovalFlow) {
+    if (draft.status === "approved") return;
+    throw new ApprovalRequiredError(
+      `Draft #${draft.version} of ${feature.id} requires approval before it can be published.`,
+    );
+  }
+
+  if (!context.permissions.canBypassFlagApprovalChecks(feature, "feature")) {
     context.permissions.throwPermissionError();
   }
 }
