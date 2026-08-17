@@ -149,6 +149,7 @@ import {
   getMergeResultPublishEnvs,
   getSavedGroupMap,
   getLiveAndBaseRevisionsForFeature,
+  getFeatureReviewFootprint,
   getLiveRevisionForFeature,
   getDraftRevision,
   assertCanAutoPublish,
@@ -1380,11 +1381,7 @@ export async function postFeatureReviewOrComment(
     null,
     { project: feature.project },
   );
-  if (
-    review === "Comment"
-      ? !canCommentHere
-      : !context.permissions.canReviewFeatureDrafts(feature)
-  ) {
+  if (review === "Comment" && !canCommentHere) {
     context.permissions.throwPermissionError();
   }
 
@@ -1397,6 +1394,19 @@ export async function postFeatureReviewOrComment(
   });
   if (!revision) {
     throw new Error("Could not find feature revision");
+  }
+
+  // A verdict is judged against what the draft would actually change, so this
+  // waits on the revision. Comments keep their pre-fetch refusal.
+  if (review !== "Comment") {
+    const footprint = await getFeatureReviewFootprint({
+      context,
+      feature,
+      revision,
+    });
+    if (!context.permissions.canReviewFeatureDrafts(feature, footprint)) {
+      context.permissions.throwPermissionError();
+    }
   }
   const createdByUser = revision.createdBy as EventUserLoggedIn;
 

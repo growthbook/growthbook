@@ -41,10 +41,12 @@ import {
   getTargetingProjectIds,
   TargetingScopedEntity,
 } from "../util/features";
+import type { ReviewAuthorityFootprint } from "../util/reviewAuthorityFootprint";
 import {
   envsAllowedBy,
   hasUnrestrictedEnvAuthority,
 } from "./permissions.utils";
+// Type-only: erased at runtime, so no cycle back through the util barrel.
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 import {
   NO_ENVIRONMENT_BINDING,
@@ -1061,12 +1063,17 @@ export class Permissions {
 
   public canReviewFeatureDrafts = (
     feature: Pick<FeatureInterface, "project">,
+    footprint: ReviewAuthorityFootprint = { scope: "everywhere" },
   ): boolean => {
     // Reviewer eligibility follows the primary project only. Targeting projects
     // affect whether a review is required, never who may approve.
-    return this.canRevisionAction("feature", "review", {
-      projects: feature.project ? [feature.project] : [],
-    });
+    const obj = { projects: feature.project ? [feature.project] : [] };
+    // "everywhere" and "unbound" both resolve to the empty list, which reads as
+    // fail-closed: authority no environment limit restricts. Holding every
+    // environment already normalizes to exactly that.
+    const environments =
+      footprint.scope === "environments" ? footprint.environments : [];
+    return this.canRevisionAction("feature", "review", obj, environments);
   };
 
   /**

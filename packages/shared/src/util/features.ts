@@ -1631,7 +1631,7 @@ function revisionHasGlobalChange(
 
 // Returns true if the revision has a metadata-only global change (no
 // prerequisites, archived, holdout, or defaultValue changes).
-function revisionHasMetadataOnlyGlobalChange(
+export function revisionHasMetadataOnlyGlobalChange(
   revision: RevisionFields,
   base: RevisionFields,
 ): boolean {

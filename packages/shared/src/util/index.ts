@@ -751,3 +751,8 @@ export {
   NON_PRODUCTION_ENV_PATTERNS,
   isEnvironmentDevLike,
 } from "./environments";
+
+export {
+  getReviewAuthorityFootprint,
+  type ReviewAuthorityFootprint,
+} from "./reviewAuthorityFootprint";

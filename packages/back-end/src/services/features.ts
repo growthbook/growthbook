@@ -107,6 +107,10 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import {
+  getReviewAuthorityFootprint,
+  type ReviewAuthorityFootprint,
+} from "shared/util";
 import { ApiReqContext } from "back-end/types/api";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
@@ -3714,6 +3718,35 @@ export async function getLiveRevisionForFeature(
     throw new Error(`Could not find live revision for feature ${feature.id}`);
   }
   return live;
+}
+
+/**
+ * The environments a reviewer must hold authority in to approve this revision.
+ *
+ * Measured against the live revision AND the draft's base: those two can drift,
+ * and unioning them means drift only ever demands more authority.
+ */
+export async function getFeatureReviewFootprint({
+  context,
+  feature,
+  revision,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+}): Promise<ReviewAuthorityFootprint> {
+  const { live, base } = await getLiveAndBaseRevisionsForFeature({
+    context,
+    feature,
+    revision,
+  });
+
+  return getReviewAuthorityFootprint({
+    revision,
+    bases: [live, base],
+    allEnvironments: getEnvironmentIdsFromOrg(context.org),
+    settings: context.org.settings,
+  });
 }
 
 export async function getLiveAndBaseRevisionsForFeature({
