@@ -60,22 +60,13 @@ export type BackEndApiEndpointSpec<
   deprecationDate?: string;
   /** Error codes this endpoint may throw, used to generate OpenAPI error response schemas. */
   possibleErrors?: readonly ApiErrorCode[];
-  /**
-   * Append advisory `warnings` to a successful response naming request fields
-   * that were ignored or are undocumented. Only meaningful where nested objects
-   * are non-strict, since that is where such fields are dropped silently.
-   */
+  /** Append advisory `warnings` naming request fields that were ignored or renamed. */
   surfaceInputWarnings?: boolean;
 };
 
-/**
- * Fields a caller may be sending under a name this endpoint doesn't take — for
- * example a response-shaped key posted back to a write endpoint. The hint fires
- * only where the key is genuinely unrecognized, so endpoints that do accept the
- * other spelling are unaffected.
- */
-const RENAMED_REQUEST_FIELDS: Record<string, string> = {
-  savedGroupTargeting: "savedGroups: [{ match, ids }]",
+/** Request fields accepted under a different name, mapped to the documented one. */
+const ALTERNATE_FIELD_NAMES: Record<string, string> = {
+  savedGroupTargeting: "savedGroups",
 };
 
 type IssueLike = {
@@ -113,10 +104,10 @@ function validate<T extends ZodType>(
   const result = schema.safeParse(value);
   if (!result.success) {
     const hints = [...new Set(collectUnrecognizedKeys(result.error.issues))]
-      .filter((key) => key in RENAMED_REQUEST_FIELDS)
+      .filter((key) => key in ALTERNATE_FIELD_NAMES)
       .map(
         (key) =>
-          `[${key}] Unsupported field. Use ${RENAMED_REQUEST_FIELDS[key]}.`,
+          `[${key}] Unsupported field. Use \`${ALTERNATE_FIELD_NAMES[key]}\` instead.`,
       );
     return {
       success: false,
@@ -173,11 +164,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/**
- * Keys the caller sent that Zod removed, as dotted paths. Endpoints whose
- * nested objects are non-strict drop unrecognized keys instead of rejecting
- * them, which is silent from the caller's side — these become advisories.
- */
+/** Keys the caller sent that Zod stripped, as dotted paths. */
 function collectStrippedKeys(
   raw: unknown,
   parsed: unknown,
@@ -198,44 +185,42 @@ function collectStrippedKeys(
   return dropped;
 }
 
-/** Undocumented-but-accepted inputs, warned about so callers migrate off them. */
-const UNDOCUMENTED_REQUEST_FIELDS: Record<string, string> = {
-  savedGroupTargeting: "savedGroups",
-};
-
-function collectUndocumentedKeys(value: unknown, path = ""): string[] {
+/** Alternate-named fields present in the body, with the name to use instead. */
+function collectAlternateKeys(
+  value: unknown,
+  path = "",
+): { path: string; use: string }[] {
   if (Array.isArray(value)) {
     return value.flatMap((item, i) =>
-      collectUndocumentedKeys(item, `${path}[${i}]`),
+      collectAlternateKeys(item, `${path}[${i}]`),
     );
   }
   if (!isPlainObject(value)) return [];
-  const found: string[] = [];
+  const found: { path: string; use: string }[] = [];
   for (const key of Object.keys(value)) {
     const child = path ? `${path}.${key}` : key;
-    if (key in UNDOCUMENTED_REQUEST_FIELDS) found.push(child);
-    found.push(...collectUndocumentedKeys(value[key], child));
+    const use = ALTERNATE_FIELD_NAMES[key];
+    if (use) found.push({ path: child, use });
+    found.push(...collectAlternateKeys(value[key], child));
   }
   return found;
 }
 
 /**
  * Advisories about how a request body was interpreted. Non-fatal by
- * construction: they ride along with a 2xx response and are never gated behind
- * `ignoreWarnings`, so an automation that ignores them behaves exactly as before.
+ * construction: they ride along with a 2xx and are never gated behind
+ * `ignoreWarnings`, so an automation that ignores them behaves as before.
  */
 export function buildInputWarnings(raw: unknown, parsed: unknown): string[] {
-  const warnings = collectStrippedKeys(raw, parsed).map(
-    (key) => `Unrecognized field \`${key}\` was ignored.`,
-  );
-  for (const key of collectUndocumentedKeys(raw)) {
-    const replacement =
-      UNDOCUMENTED_REQUEST_FIELDS[key.split(".").pop() as string];
-    warnings.push(
-      `\`${key}\` is accepted for compatibility but is not part of the documented contract. Use \`${replacement}\` instead.`,
-    );
-  }
-  return warnings;
+  return [
+    ...collectStrippedKeys(raw, parsed).map(
+      (key) => `Unrecognized field \`${key}\` was ignored.`,
+    ),
+    ...collectAlternateKeys(raw).map(
+      ({ path, use }) =>
+        `\`${path}\` is accepted for compatibility but is not part of the documented contract. Use \`${use}\` instead.`,
+    ),
+  ];
 }
 
 /**
@@ -294,8 +279,6 @@ export async function runApiHandler(
 
   try {
     const result = await handler(req as never);
-    // Advisory only: appended to a successful response so a caller can see what
-    // was ignored. Never blocks, never consults `ignoreWarnings`.
     if (options?.surfaceInputWarnings && isPlainObject(result)) {
       const warnings = buildInputWarnings(rawBody, req.body);
       if (warnings.length) {

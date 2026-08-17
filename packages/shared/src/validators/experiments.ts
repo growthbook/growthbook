@@ -8,6 +8,7 @@ import {
   namespaceValue,
   featurePrerequisite,
   savedGroupTargeting,
+  inputWarningsField,
   paginationQueryFields,
   apiPaginationFieldsValidator,
   ignoreWarningsBodyField,
@@ -756,22 +757,10 @@ const apiPhaseSavedGroupTargeting = z
   )
   .optional();
 
-// Write-side only: the internal `savedGroups` spelling is rejected rather than
-// silently dropped. Responses carry the canonical field alone.
-const inputWarningsField = z
-  .array(z.string())
-  .optional()
-  .describe(
-    "Non-fatal advisories about how the request was interpreted — request fields that were ignored, or accepted under an undocumented name.",
-  );
-
-// Saved-group targeting in the storage shape used by the feature revision rule
-// endpoints, or the spelling the API response uses. `savedGroups` wins when
-// both are supplied.
+// `savedGroupTargeting` is the response spelling, accepted so a GET can be
+// posted back unchanged but left out of the docs. `savedGroups` wins.
 const phaseSavedGroupInput = {
   savedGroups: z.array(savedGroupTargeting).optional(),
-  // Accepted so a GET response can be posted back unchanged, but kept out of
-  // the docs so `savedGroups` is the only spelling callers are told about.
   savedGroupTargeting: apiPhaseSavedGroupTargeting.meta({
     "x-undocumented": true,
   }),

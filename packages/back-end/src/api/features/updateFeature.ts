@@ -71,10 +71,14 @@ import {
   validateEnvRulesScheduleRules,
 } from "./v2Shared";
 
-export const updateFeature = createApiRequestHandler({
+const updateFeatureSpec = {
   ...updateFeatureValidator,
   surfaceInputWarnings: true,
-})(async (req) => {
+};
+
+export const updateFeature = createApiRequestHandler(updateFeatureSpec)(async (
+  req,
+) => {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) {
     throw new Error(`Feature id '${req.params.id}' not found.`);

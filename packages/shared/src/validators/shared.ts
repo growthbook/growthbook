@@ -43,6 +43,14 @@ export const savedGroupTargeting = z
   .strict();
 export type SavedGroupTargeting = z.infer<typeof savedGroupTargeting>;
 
+/** Advisories returned alongside a 2xx describing how a request was interpreted. */
+export const inputWarningsField = z
+  .array(z.string())
+  .optional()
+  .describe(
+    "Non-fatal advisories about how the request was interpreted — request fields that were ignored, or accepted under an undocumented name.",
+  );
+
 /** Response-side pagination fields returned by list endpoints. */
 export const apiPaginationFieldsValidator = namedSchema(
   "PaginationFields",

@@ -3,6 +3,7 @@ import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   apiPaginationFieldsValidator,
   savedGroupTargeting,
+  inputWarningsField,
   booleanQueryField,
   paginationQueryFields,
   publishOverrideBodyFields,
@@ -437,13 +438,6 @@ export type ApiFeatureWithRevisionsV2 = z.infer<
 
 // ---- Shared response schemas ----
 
-const inputWarningsField = z
-  .array(z.string())
-  .optional()
-  .describe(
-    "Non-fatal advisories about how the request was interpreted — request fields that were ignored, or accepted under an undocumented name.",
-  );
-
 const featureV2ResponseSchema = z
   .object({ feature: apiFeatureV2Validator })
   .strict();
@@ -502,13 +496,10 @@ const postFeatureSavedGroupTargeting = z.object({
   savedGroups: z.array(z.string()),
 });
 
-// Saved-group targeting in the storage shape used by the revision rule
-// endpoints, or the spelling the API response uses. `savedGroups` wins when
-// both are supplied.
+// `savedGroupTargeting` is the response spelling, accepted so a GET can be
+// posted back unchanged but left out of the docs. `savedGroups` wins.
 const v2RuleSavedGroupInput = {
   savedGroups: z.array(savedGroupTargeting).optional(),
-  // Accepted so a GET response can be posted back unchanged, but kept out of
-  // the docs so `savedGroups` is the only spelling callers are told about.
   savedGroupTargeting: z
     .array(postFeatureSavedGroupTargeting)
     .optional()

@@ -5,6 +5,7 @@ import {
   featurePrerequisite,
   namespaceValue,
   savedGroupTargeting,
+  inputWarningsField,
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
@@ -1407,13 +1408,10 @@ const postFeatureRuleProjectScopeShape = {
     .optional(),
 };
 
-// Saved-group targeting in the storage shape used by the revision rule
-// endpoints, or the spelling the API response uses. `savedGroups` wins when
-// both are supplied.
+// `savedGroupTargeting` is the response spelling, accepted so a GET can be
+// posted back unchanged but left out of the docs. `savedGroups` wins.
 const v1RuleSavedGroupInput = {
   savedGroups: z.array(savedGroupTargeting).optional(),
-  // Accepted so a GET response can be posted back unchanged, but kept out of
-  // the docs so `savedGroups` is the only spelling callers are told about.
   savedGroupTargeting: z
     .array(postFeatureSavedGroupTargeting)
     .optional()
@@ -1566,13 +1564,6 @@ const idParams = z
     id: z.string().describe("The id of the requested resource"),
   })
   .strict();
-
-const inputWarningsField = z
-  .array(z.string())
-  .optional()
-  .describe(
-    "Non-fatal advisories about how the request was interpreted — request fields that were ignored, or accepted under an undocumented name.",
-  );
 
 const featureResponseSchema = z
   .object({ feature: apiFeatureValidator })

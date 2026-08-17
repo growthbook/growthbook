@@ -41,10 +41,14 @@ import {
   mapV2ApiRuleToFeatureRule,
 } from "./v2Shared";
 
-export const postFeatureV2 = createApiRequestHandler({
+const postFeatureV2Spec = {
   ...postFeatureV2Validator,
   surfaceInputWarnings: true,
-})(async (req) => {
+};
+
+export const postFeatureV2 = createApiRequestHandler(postFeatureV2Spec)(async (
+  req,
+) => {
   if (
     !req.context.permissions.canCreateFeature(
       req.body,
