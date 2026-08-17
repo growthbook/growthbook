@@ -14,7 +14,7 @@ import { redshiftDialect } from "back-end/src/integrations/dialects/redshift";
 import { baseDialect } from "back-end/src/integrations/dialects/base";
 import { mssqlDialect } from "back-end/src/integrations/dialects/mssql";
 import { verticaDialect } from "back-end/src/integrations/dialects/vertica";
-import { adobeEpDialect } from "back-end/src/integrations/dialects/adobeEp";
+import { adobeExperiencePlatformQueryServiceDialect } from "back-end/src/integrations/dialects/adobeExperiencePlatformQueryService";
 
 // The funnel SQL depends on two dialect helpers beyond the array helpers:
 // `dateDiffMs` (emitted on every 2+ step funnel for time-from-previous stats)
@@ -51,7 +51,11 @@ describe("SqlDialect funnel time helpers", () => {
       "(unix_millis(b) - unix_millis(a))",
     ],
     ["mysql", mysqlDialect, "(TIMESTAMPDIFF(MICROSECOND, a, b) / 1000)"],
-    ["adobe (spark)", adobeEpDialect, "(unix_millis(b) - unix_millis(a))"],
+    [
+      "Adobe Experience Platform Query Service (Spark)",
+      adobeExperiencePlatformQueryServiceDialect,
+      "(unix_millis(b) - unix_millis(a))",
+    ],
   ];
   it.each(dateDiffMsCases)("dateDiffMs — %s", (_name, dialect, expected) => {
     expect(dialect.dateDiffMs("a", "b")).toBe(expected);
@@ -125,8 +129,8 @@ describe("SqlDialect funnel time helpers", () => {
       "DATE_SUB(c, INTERVAL 5 SECOND)",
     ],
     [
-      "adobe (spark)",
-      adobeEpDialect,
+      "Adobe Experience Platform Query Service (Spark)",
+      adobeExperiencePlatformQueryServiceDialect,
       "timestampadd(SECOND, 30, c)",
       "timestampadd(SECOND, -5, c)",
     ],

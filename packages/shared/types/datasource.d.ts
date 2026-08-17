@@ -452,7 +452,7 @@ interface VerticaDataSource extends DataSourceBase {
   type: "vertica";
 }
 
-interface AdobeEpQueryServiceDataSource extends DataSourceBase {
+interface AdobeExperiencePlatformQueryServiceDataSource extends DataSourceBase {
   type: "adobe_experience_platform_query_service";
 }
 
@@ -504,10 +504,11 @@ export type VerticaDataSourceWithParams = WithParams<
   VerticaDataSource,
   PostgresConnectionParams
 >;
-export type AdobeEpQueryServiceDataSourceWithParams = WithParams<
-  AdobeEpQueryServiceDataSource,
-  AdobeExperiencePlatformQueryServiceConnectionParams
->;
+export type AdobeExperiencePlatformQueryServiceDataSourceWithParams =
+  WithParams<
+    AdobeExperiencePlatformQueryServiceDataSource,
+    AdobeExperiencePlatformQueryServiceConnectionParams
+  >;
 export type MysqlDataSourceWithParams = WithParams<
   MysqlDataSource,
   MysqlConnectionParams
@@ -544,7 +545,7 @@ export type DataSourceInterface =
   | BigQueryDataSource
   | ClickHouseDataSource
   | MixpanelDataSource
-  | AdobeEpQueryServiceDataSource;
+  | AdobeExperiencePlatformQueryServiceDataSource;
 
 export type DataSourceInterfaceWithParams =
   | GrowthbookClickhouseDataSourceWithParams
@@ -561,4 +562,4 @@ export type DataSourceInterfaceWithParams =
   | BigQueryDataSourceWithParams
   | ClickHouseDataSourceWithParams
   | MixpanelDataSourceWithParams
-  | AdobeEpQueryServiceDataSourceWithParams;
+  | AdobeExperiencePlatformQueryServiceDataSourceWithParams;

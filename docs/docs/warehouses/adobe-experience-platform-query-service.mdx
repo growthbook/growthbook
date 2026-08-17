@@ -1,11 +1,11 @@
 ---
-title: Setting up Adobe Experience Platform as a data source
+title: Setting up Adobe Experience Platform Query Service as a data source
 description: This document outlines the steps needed to configure Adobe Experience Platform Query Service as a data source in GrowthBook.
-slug: adobe-experience-platform
+slug: adobe-experience-platform-query-service
 unlisted: true
 ---
 
-GrowthBook connects to Adobe Experience Platform through Query Service, which speaks the PostgreSQL wire protocol. GrowthBook runs read-only queries against your XDM datasets to build experiment results.
+GrowthBook connects to Adobe Experience Platform Query Service, which speaks the PostgreSQL wire protocol. GrowthBook runs read-only queries against your XDM datasets to build experiment results.
 
 ## 1. Generate a non-expiring Query Service credential
 
@@ -24,7 +24,7 @@ Keep the Credentials tab and downloaded configuration JSON available. You will m
 
 Navigate to _Metrics and Data → Data Sources_ and add a new Data Source. You can pick your event tracker under "Guided Setup" or choose "Manual Set Up". Query Service has no built-in tracker schema, so most setups use the manual path and define the queries by hand.
 
-Select "Adobe Experience Platform" as the warehouse type.
+Select "Adobe Experience Platform Query Service" as the warehouse type.
 
 ## 3. Enter your connection details
 
@@ -50,7 +50,7 @@ Query Service enforces limits that shape how GrowthBook queries it.
 
 ## 5. Current limitations
 
-A few capabilities are off for Adobe Experience Platform at this moment. Please reach out to support if any of these are a blocker for you and your team.
+A few Query Service capabilities are off at this moment. Please reach out to support if any of these are a blocker for you and your team.
 
 - **Schema browsing.** The schema browser that suggests tables and columns while you write queries is disabled.
 - **Funnels.** Funnel metrics and funnel explorations are not available at the moment.

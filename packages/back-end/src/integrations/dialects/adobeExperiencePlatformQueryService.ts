@@ -3,15 +3,15 @@ import type { SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 import { baseDialect } from "./base";
 
-const adobeEpEscapeStringLiteral = (value: string) =>
+const escapeStringLiteral = (value: string) =>
   value.replace(/(['\\])/g, "\\$1");
 
-export const adobeEpDialect: SqlDialect = {
+export const adobeExperiencePlatformQueryServiceDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "spark",
-  escapeStringLiteral: adobeEpEscapeStringLiteral,
+  escapeStringLiteral,
   stringMatch: createLikeStringMatchFn({
-    escapeStringLiteral: adobeEpEscapeStringLiteral,
+    escapeStringLiteral,
     emitEscapeClause: false,
   }),
   toTimestamp: (date: Date) => `to_timestamp(${baseDialect.toTimestamp(date)})`,
@@ -24,7 +24,9 @@ export const adobeEpDialect: SqlDialect = {
     `percentile_approx(${col}, ${percentile})`,
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
     const raw = `get_json_object(${jsonCol}, '$.${path}')`;
-    return isNumeric ? adobeEpDialect.castToFloat(raw) : raw;
+    return isNumeric
+      ? adobeExperiencePlatformQueryServiceDialect.castToFloat(raw)
+      : raw;
   },
   dateDiff: (startCol: string, endCol: string) =>
     `datediff(${endCol}, ${startCol})`,
@@ -33,7 +35,7 @@ export const adobeEpDialect: SqlDialect = {
 
   percentileCapSelectClause: (values, metricTable, where = "") =>
     defaultPercentileCapSelectClause(
-      adobeEpDialect,
+      adobeExperiencePlatformQueryServiceDialect,
       values,
       metricTable,
       where,

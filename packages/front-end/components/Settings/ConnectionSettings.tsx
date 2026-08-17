@@ -11,7 +11,7 @@ import PrestoForm from "./PrestoForm";
 import SnowflakeForm from "./SnowflakeForm";
 import MssqlForm from "./MssqlForm";
 import DatabricksForm from "./DatabricksForm";
-import AdobeEpForm from "./AdobeEpForm";
+import AdobeExperiencePlatformQueryServiceForm from "./AdobeExperiencePlatformQueryServiceForm";
 import SharedConnectionSettings from "./SharedConnectionSettings";
 
 export interface Props {
@@ -209,7 +209,7 @@ export default function ConnectionSettings({
       break;
     case "adobe_experience_platform_query_service":
       datasourceComponent = (
-        <AdobeEpForm
+        <AdobeExperiencePlatformQueryServiceForm
           existing={storedCredentials}
           onParamChange={onParamChange}
           params={datasource?.params || {}}

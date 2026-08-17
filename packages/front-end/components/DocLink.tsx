@@ -63,7 +63,7 @@ const docSections = {
   snowflake: "/warehouses/snowflake",
   vertica: "/warehouses/vertica",
   adobe_experience_platform_query_service:
-    "/warehouses/adobe-experience-platform",
+    "/warehouses/adobe-experience-platform-query-service",
   databricks: "/warehouses/databricks",
   clickhouse: "/warehouses/clickhouse",
   postgres: "/warehouses/postgres",

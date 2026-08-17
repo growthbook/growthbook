@@ -22,7 +22,7 @@ import { databricksDialect } from "back-end/src/integrations/dialects/databricks
 import { mssqlDialect } from "back-end/src/integrations/dialects/mssql";
 import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
 import { verticaDialect } from "back-end/src/integrations/dialects/vertica";
-import { adobeEpDialect } from "back-end/src/integrations/dialects/adobeEp";
+import { adobeExperiencePlatformQueryServiceDialect } from "back-end/src/integrations/dialects/adobeExperiencePlatformQueryService";
 import { addCaseWhenTimeFilter } from "back-end/src/integrations/sql/clauses/add-case-when-time-filter";
 import { getAggregateMetricColumnLegacyMetrics } from "back-end/src/integrations/sql/columns/aggregate-metric-column-legacy-metrics";
 import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
@@ -397,10 +397,10 @@ describe("bigquery integration", () => {
       );
     });
 
-    it("emits a valid Adobe Experience Platform pattern with no ESCAPE clause", () => {
-      expect(likeSQL(adobeEpDialect, "foo_bar")).toEqual(
-        String.raw`(event_name LIKE 'foo\\_bar%')`,
-      );
+    it("emits a valid Adobe Experience Platform Query Service pattern with no ESCAPE clause", () => {
+      expect(
+        likeSQL(adobeExperiencePlatformQueryServiceDialect, "foo_bar"),
+      ).toEqual(String.raw`(event_name LIKE 'foo\\_bar%')`);
     });
 
     it("emits a valid Postgres pattern with no ESCAPE clause", () => {

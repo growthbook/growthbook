@@ -5,9 +5,9 @@ import { AdobeExperiencePlatformQueryServiceConnectionParams } from "shared/type
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { runPostgresQuery } from "back-end/src/services/postgres";
 import SqlIntegration from "./SqlIntegration";
-import { adobeEpDialect } from "./dialects/adobeEp";
+import { adobeExperiencePlatformQueryServiceDialect } from "./dialects/adobeExperiencePlatformQueryService";
 
-export function toPostgresConnection(
+export function toPostgresConnectionParams(
   p: AdobeExperiencePlatformQueryServiceConnectionParams,
 ): PostgresConnectionParams {
   return {
@@ -22,7 +22,7 @@ export function toPostgresConnection(
   };
 }
 
-export default class AdobeEpQueryService extends SqlIntegration {
+export default class AdobeExperiencePlatformQueryService extends SqlIntegration {
   params!: AdobeExperiencePlatformQueryServiceConnectionParams;
   requiresDatabase = false;
   requiresSchema = false;
@@ -33,10 +33,10 @@ export default class AdobeEpQueryService extends SqlIntegration {
       );
   }
   getSqlDialect(): SqlDialect {
-    return adobeEpDialect;
+    return adobeExperiencePlatformQueryServiceDialect;
   }
   runQuery(sql: string): Promise<QueryResponse> {
-    return runPostgresQuery(toPostgresConnection(this.params), sql);
+    return runPostgresQuery(toPostgresConnectionParams(this.params), sql);
   }
   // Query Service documents SHOW TABLES / psql metacommands, not information_schema.
   supportsInformationSchema(): boolean {

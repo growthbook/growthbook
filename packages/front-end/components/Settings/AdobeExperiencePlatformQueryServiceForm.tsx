@@ -6,7 +6,7 @@ import {
   useCanKeepExistingCredentials,
 } from "@/components/Forms/secretInput";
 
-const AdobeEpForm: FC<{
+const AdobeExperiencePlatformQueryServiceForm: FC<{
   params: Partial<AdobeExperiencePlatformQueryServiceConnectionParams>;
   existing: boolean;
   onParamChange: ChangeEventHandler<HTMLInputElement>;
@@ -85,4 +85,4 @@ const AdobeEpForm: FC<{
   );
 };
 
-export default AdobeEpForm;
+export default AdobeExperiencePlatformQueryServiceForm;
