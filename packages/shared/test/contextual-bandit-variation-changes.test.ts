@@ -1,5 +1,6 @@
 import {
   assertAtLeastTwoVariations,
+  assertUniqueVariationIds,
   diffVariations,
   getActiveVariations,
   getVisibleVariations,
@@ -35,6 +36,26 @@ describe("diffVariations", () => {
     expect(diff.keptIds).toEqual(["b", "a"]);
     expect(diff.addedIds).toEqual(["c"]);
     expect(diff.removedIds).toEqual(["x"]);
+  });
+});
+
+describe("assertUniqueVariationIds", () => {
+  it("passes on a unique set", () => {
+    expect(() =>
+      assertUniqueVariationIds([{ id: "a" }, { id: "b" }]),
+    ).not.toThrow();
+  });
+
+  it("throws and names every repeated id", () => {
+    expect(() =>
+      assertUniqueVariationIds([
+        { id: "a" },
+        { id: "b" },
+        { id: "a" },
+        { id: "b" },
+        { id: "c" },
+      ]),
+    ).toThrow(/duplicate variation ids: a, b/i);
   });
 });
 

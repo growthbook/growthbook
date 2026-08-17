@@ -632,6 +632,21 @@ describe("executeContextualBanditVariationChange", () => {
     ).rejects.toThrow(/stopped/i);
   });
 
+  it("rejects a duplicated variation id", async () => {
+    const cb = makeCb();
+    const { context, updateMock } = makeContext(cb);
+
+    await expect(
+      executeContextualBanditVariationChange(context, cb, [
+        v("v0", "0"),
+        v("v1", "1"),
+        v("v1", "1"),
+      ]),
+    ).rejects.toThrow(/duplicate variation ids: v1/i);
+
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
   it("rejects dropping below two variations", async () => {
     const cb = makeCb();
     const { context } = makeContext(cb);

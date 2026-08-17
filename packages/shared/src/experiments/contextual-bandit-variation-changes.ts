@@ -65,6 +65,24 @@ export function diffVariations(
   };
 }
 
+export function assertUniqueVariationIds(
+  variations: VariationIdentity[],
+): void {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const v of variations) {
+    if (seen.has(v.id)) duplicates.add(v.id);
+    seen.add(v.id);
+  }
+  if (duplicates.size > 0) {
+    throw new Error(
+      `A contextual bandit cannot have duplicate variation ids: ${[
+        ...duplicates,
+      ].join(", ")}`,
+    );
+  }
+}
+
 export function assertAtLeastTwoVariations(
   variations: VariationIdentity[],
 ): void {

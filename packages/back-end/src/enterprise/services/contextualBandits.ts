@@ -32,6 +32,7 @@ import {
 } from "shared/util";
 import {
   assertAtLeastTwoVariations,
+  assertUniqueVariationIds,
   conditionFromLeafClauses,
   diffVariations,
   getActiveVariations,
@@ -1055,6 +1056,7 @@ export async function executeContextualBanditVariationChange(
     }
   }
 
+  assertUniqueVariationIds(newVariations);
   assertAtLeastTwoVariations(newVariations);
 
   const diff = diffVariations(previousVisible, newVariations);
