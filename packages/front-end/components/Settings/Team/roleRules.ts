@@ -148,17 +148,8 @@ export function fromRules(
   };
 }
 
-/** Projects whose own rules shadow the All-projects rules. */
-export function shadowedProjects(rules: RoleRule[]): string[] {
-  return [
-    ...new Set(
-      rules.filter((r) => r.project !== ALL_PROJECTS).map((r) => r.project),
-    ),
-  ];
-}
-
-// What a rule actually grants: permission -> the environments it applies in,
-// or "all" when the permission is not environment-scoped.
+// Permission -> the environments it applies in, or "all" when the permission
+// is not environment-scoped.
 type Coverage = Map<string, Set<string> | "all">;
 
 function coverageOf(
@@ -204,10 +195,8 @@ function covers(outer: Coverage, inner: Coverage): boolean {
   });
 }
 
-/**
- * Rules that change nothing, and why: they grant nothing at all, or everything
- * they grant is already granted at the same scope by another rule or a team's.
- */
+// Rules that change nothing, and why: they grant nothing, or another rule at
+// the same scope already grants everything they do.
 export function inertRules(
   rules: RoleRule[],
   org: Partial<OrganizationInterface>,

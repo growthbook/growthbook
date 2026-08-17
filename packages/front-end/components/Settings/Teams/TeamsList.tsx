@@ -5,7 +5,7 @@ import { RxIdCard } from "react-icons/rx";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, IconButton } from "@radix-ui/themes";
 import Link from "@/ui/Link";
-import { useUser } from "@/services/UserContext";
+import { Team, useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useEnvironments } from "@/services/features";
@@ -30,7 +30,9 @@ import {
   DropdownMenuItem,
 } from "@/ui/DropdownMenu";
 
-const TeamsList: FC = () => {
+const TeamsList: FC<{ onDuplicate?: (team: Team) => void }> = ({
+  onDuplicate,
+}) => {
   const { teams, refreshOrganization, organization } = useUser();
   const [permissionsTeamId, setPermissionsTeamId] = useState<string | null>(
     null,
@@ -159,6 +161,11 @@ const TeamsList: FC = () => {
                           >
                             Edit permissions
                           </DropdownMenuItem>
+                          {onDuplicate && (
+                            <DropdownMenuItem onClick={() => onDuplicate(t)}>
+                              Duplicate
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem
                             color="red"
                             confirmation={{

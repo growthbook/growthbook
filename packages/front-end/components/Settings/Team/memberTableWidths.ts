@@ -1,8 +1,5 @@
-/**
- * Shared widths so these member tables line up column-for-column. A table with
- * no Name column gives that space to Email, and one with a single date column
- * gives it the space Last Login would have taken.
- */
+// These line the member tables up column-for-column, so a table missing Name
+// or Last Login hands that width to Email or its single date column instead.
 export const MEMBER_COLUMN_WIDTHS = {
   name: "8%",
   email: "19%",

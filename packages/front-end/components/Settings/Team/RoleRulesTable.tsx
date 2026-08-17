@@ -57,8 +57,7 @@ export default function RoleRulesTable({
     [rules, organization],
   );
 
-  // One group per scope. Rules inside a group add together; a project group
-  // replaces the All Projects group inside that project.
+  // Rules in a group add together; a project group replaces the All Projects one.
   const groups = useMemo(() => {
     const scopes = [...new Set(rules.map((r) => r.project))].sort((a, b) =>
       a === ALL_PROJECTS ? -1 : b === ALL_PROJECTS ? 1 : 0,
