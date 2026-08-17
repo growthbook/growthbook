@@ -455,6 +455,10 @@ export async function setHoldoutStage(
     }
 
     case "running": {
+      if (!phases[0]) {
+        throw new BadRequestError("Holdout does not have a phase");
+      }
+
       if (experiment.status === "draft") {
         Object.assign(
           changes,
@@ -472,9 +476,6 @@ export async function setHoldoutStage(
         return;
       }
 
-      if (!phases[0]) {
-        throw new BadRequestError("Holdout does not have a phase");
-      }
       phases[0] = { ...phases[0], dateEnded: undefined };
       if (phases[1]) {
         phases = [phases[0]];
