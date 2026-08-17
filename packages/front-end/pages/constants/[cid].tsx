@@ -703,6 +703,7 @@ export default function ConstantDetailPage(): React.ReactElement {
               "constant",
               selectedRevision ?? displayRevision ?? null,
               constant,
+              publishEnvironments,
             )}
             canManageDraftsEntity={permissionsUtil.canRevisionAction(
               "constant",

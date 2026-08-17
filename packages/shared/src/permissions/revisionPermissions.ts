@@ -87,6 +87,30 @@ export const REVISION_PERMISSIONS: Record<
   },
 };
 
+// Review atoms that become environment-scoped when an org turns on envScopedReview.
+// Saved groups are absent on purpose: review is env-scoped only where publish is,
+// and no saved-group atom has an environment dimension.
+export const ENV_SCOPED_REVIEW_PERMISSIONS = [
+  "reviewFeatures",
+  "reviewConfigs",
+  "reviewConstants",
+] as const;
+
+// The atom and scope for one revision action. Review answers "environment" only
+// when the org opted in; every other action is fixed by REVISION_PERMISSIONS.
+export function revisionActionPermission(
+  model: RevisionModel,
+  action: RevisionAction,
+  envScopedReview = false,
+): ActionPermission {
+  const base = REVISION_PERMISSIONS[model][action];
+  if (action !== "review" || !envScopedReview) return base;
+  const envScoped = (
+    ENV_SCOPED_REVIEW_PERMISSIONS as readonly string[]
+  ).includes(base.permission);
+  return envScoped ? { ...base, scope: "environment" } : base;
+}
+
 /** The bypass-approval atom for an entity, named as data (gate metadata). */
 export function bypassApprovalPermission(model: RevisionModel): Permission {
   return REVISION_PERMISSIONS[model].bypass.permission;

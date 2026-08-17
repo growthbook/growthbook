@@ -476,8 +476,13 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         projects: {},
       };
 
-    return new Permissions(basePermissions);
-  }, [currentOrg?.currentUserPermissions]);
+    return new Permissions(basePermissions, {
+      envScopedReview: currentOrg?.organization?.settings?.envScopedReview,
+    });
+  }, [
+    currentOrg?.currentUserPermissions,
+    currentOrg?.organization?.settings?.envScopedReview,
+  ]);
 
   const getUserDisplay = useCallback(
     (id: string, fallback = true) => {

@@ -41,11 +41,14 @@ import {
   getTargetingProjectIds,
   TargetingScopedEntity,
 } from "../util/features";
-import { envsAllowedBy } from "./permissions.utils";
+import {
+  envsAllowedBy,
+  hasUnrestrictedEnvAuthority,
+} from "./permissions.utils";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 import {
   NO_ENVIRONMENT_BINDING,
-  REVISION_PERMISSIONS,
+  revisionActionPermission,
   RevisionAction,
   RevisionModel,
 } from "./revisionPermissions";
@@ -72,8 +75,13 @@ function isEventForwarderManagedFactTable(
 
 export class Permissions {
   private userPermissions: UserPermissions;
-  constructor(permissions: UserPermissions) {
+  private envScopedReview: boolean;
+  constructor(
+    permissions: UserPermissions,
+    options: { envScopedReview?: boolean } = {},
+  ) {
     this.userPermissions = permissions;
+    this.envScopedReview = !!options.envScopedReview;
   }
 
   //Global Permissions
@@ -371,8 +379,17 @@ export class Permissions {
     environments: string[] = [],
   ): boolean => {
     const projects = obj.projects ?? (obj.project ? [obj.project] : []);
-    const { permission, scope } = REVISION_PERMISSIONS[model][action];
+    const { permission, scope } = revisionActionPermission(
+      model,
+      action,
+      this.envScopedReview,
+    );
     if (scope === "environment") {
+      // An unbound change (metadata, a base Config value) has no environment to
+      // check, so reviewing one takes authority no environment limit restricts.
+      if (action === "review" && !environments.length) {
+        return this.checkUnrestrictedEnvAuthority({ projects }, permission);
+      }
       return this.checkEnvFilterPermission(
         { projects },
         environments,
@@ -1817,6 +1834,20 @@ export class Permissions {
       return false;
     }
     return true;
+  }
+
+  private checkUnrestrictedEnvAuthority(
+    obj: { projects?: string[] },
+    permission: Permission,
+  ): boolean {
+    const projects = obj.projects?.length ? obj.projects : [""];
+
+    return projects.every((project) => {
+      const scoped =
+        this.userPermissions.projects[project] || this.userPermissions.global;
+      if (!scoped?.permissions[permission]) return false;
+      return hasUnrestrictedEnvAuthority(scoped, permission);
+    });
   }
 
   public checkEnvFilterPermission(

@@ -40,10 +40,16 @@ export function canReviewRevisionEntity(
   model: RevisionModel,
   revision: { target?: { snapshot?: unknown } } | null | undefined,
   liveEntity: ProjectScoped,
+  environments: string[] = NO_ENVIRONMENT_BINDING,
 ): boolean {
   const basis =
     (revision?.target?.snapshot as ProjectScoped | undefined) ?? liveEntity;
-  return permissionsUtil.canRevisionAction(model, "review", basis);
+  return permissionsUtil.canRevisionAction(
+    model,
+    "review",
+    basis,
+    environments,
+  );
 }
 
 // Landing a move requires authority in both source and destination.

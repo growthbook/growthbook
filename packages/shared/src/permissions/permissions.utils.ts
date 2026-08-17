@@ -17,6 +17,17 @@ import {
   READ_ONLY_PERMISSIONS,
   RESERVED_ROLE_IDS,
 } from "./permissions.constants";
+import { ENV_SCOPED_REVIEW_PERMISSIONS } from "./revisionPermissions";
+
+// An org that opted into env-scoped review adds the review atoms to the set, so
+// per-role envGrants carry them and a reviewer's environments actually bind.
+export function envScopedPermissions(
+  org: Partial<OrganizationInterface>,
+): readonly Permission[] {
+  return org.settings?.envScopedReview
+    ? [...ENV_SCOPED_PERMISSIONS, ...ENV_SCOPED_REVIEW_PERMISSIONS]
+    : ENV_SCOPED_PERMISSIONS;
+}
 
 export function policiesSupportEnvLimit(policies: Policy[]): boolean {
   // If any policies have a permission that is env scoped, return true
@@ -172,6 +183,21 @@ export function envsAllowedBy(
   return envs.every((env) => userPermission.environments.includes(env));
 }
 
+// Authority not limited by environment at all. A change with no environment
+// binding needs this, since an empty footprint would otherwise pass vacuously.
+export function hasUnrestrictedEnvAuthority(
+  userPermission: UserPermission,
+  permissionToCheck: Permission,
+): boolean {
+  const relevantGrants = (userPermission.envGrants ?? []).filter((g) =>
+    g.permissions.includes(permissionToCheck),
+  );
+  if (relevantGrants.length) {
+    return relevantGrants.some((g) => !g.limitAccessByEnvironment);
+  }
+  return !userPermission.limitAccessByEnvironment;
+}
+
 export const userHasPermission = (
   userPermissions: UserPermissions,
   permission: Permission,
@@ -209,14 +235,14 @@ export const userHasPermission = (
 export function envScopedPermissionsForRole(
   roleId: string,
   org: Partial<OrganizationInterface>,
-): (typeof ENV_SCOPED_PERMISSIONS)[number][] {
+): Permission[] {
   if (["admin", "gbDefault_projectAdmin"].includes(roleId)) return [];
 
   const role = getRoleById(roleId, org);
   if (!role) return [];
 
   const permissions = permissionsFromRole(role);
-  return ENV_SCOPED_PERMISSIONS.filter((p) => permissions[p]);
+  return envScopedPermissions(org).filter((p) => permissions[p]);
 }
 
 export function roleSupportsEnvLimit(

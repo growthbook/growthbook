@@ -2250,6 +2250,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                   "config",
                   selectedRevision ?? displayRevision ?? null,
                   config,
+                  revisionPublishEnvironments,
                 )}
                 canManageDraftsEntity={permissionsUtil.canRevisionAction(
                   "config",

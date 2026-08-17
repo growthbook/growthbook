@@ -69,10 +69,7 @@ export function revisionActionHooks<TSnapshot extends Record<string, unknown>>({
       context.permissions.canRevisionAction(model, "draft", {
         projects: projectsOf(snapshot),
       }),
-    canReview: (context, snapshot) =>
-      context.permissions.canRevisionAction(model, "review", {
-        projects: projectsOf(snapshot),
-      }),
+    canReview: (context, snapshot) => scoped("review", context, snapshot),
     canPublishRevision: (context, snapshot) =>
       scoped("publish", context, snapshot),
     canRevert: (context, snapshot) => scoped("revert", context, snapshot),

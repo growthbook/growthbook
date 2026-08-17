@@ -1140,6 +1140,7 @@ export default function EditSavedGroupPage() {
               "saved-group",
               selectedRevision ?? displayRevision ?? null,
               savedGroup,
+              NO_ENVIRONMENT_BINDING,
             )}
             canManageDraftsEntity={permissionsUtil.canRevisionAction(
               "saved-group",

@@ -287,6 +287,8 @@ export interface OrganizationSettings {
   /** @deprecated */
   killswitchConfirmation?: boolean;
   requireReviews?: boolean | RequireReview[];
+  // Reviewers must hold review rights in every environment a draft touches.
+  envScopedReview?: boolean;
   // Project-scoped rules; absent/no-match = strict.
   targetingReviewMode?: TargetingReviewRule[];
   // Default extensibility for newly authored configs. When true (default),
