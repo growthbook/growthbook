@@ -1,3 +1,4 @@
+import { setTimeout as delay } from "timers/promises";
 import { z } from "zod";
 import {
   tryParseToolResultJson,
@@ -8,6 +9,7 @@ import {
   dateRangePredefined,
   ExplorationConfig,
   explorationConfigValidator,
+  ProductAnalyticsExploration,
   ProductAnalyticsResultRow,
 } from "shared/validators";
 import {
@@ -839,8 +841,40 @@ async function normalizeConfigForExplorer(
   };
 }
 
-// Max wait time for the warehouse query to complete.
-const RUN_EXPLORATION_WAIT_MS = 10 * 60 * 1000;
+// Match the frontend's polling cadence and ~10-minute cutoff.
+function explorationPollDelayMs(elapsedMs: number): number {
+  if (elapsedMs < 10_000) return 2_000;
+  if (elapsedMs < 30_000) return 3_000;
+  if (elapsedMs < 60_000) return 5_000;
+  if (elapsedMs < 300_000) return 10_000;
+  if (elapsedMs < 600_000) return 20_000;
+  return 0;
+}
+
+async function pollExplorationUntilFinished(
+  ctx: ReqContext,
+  exploration: ProductAnalyticsExploration,
+  startedAt: number,
+  abortSignal?: AbortSignal,
+): Promise<ProductAnalyticsExploration> {
+  let latest = exploration;
+  while (latest.status === "running") {
+    const pollDelay = explorationPollDelayMs(Date.now() - startedAt);
+    if (pollDelay === 0) break;
+
+    await delay(pollDelay, undefined, {
+      signal: abortSignal,
+      ref: false,
+    });
+
+    const polled = await ctx.models.analyticsExplorations.getById(latest.id);
+    if (!polled) {
+      throw new Error("Product analytics exploration not found");
+    }
+    latest = polled;
+  }
+  return latest;
+}
 
 async function executeRunExploration(
   ctx: ReqContext,
@@ -852,12 +886,23 @@ async function executeRunExploration(
     const { config, warnings, getFactMetricById } =
       await normalizeConfigForExplorer(ctx, rawConfig);
 
-    const exploration = await runProductAnalyticsExploration(
+    const startedAt = Date.now();
+    const initialExploration = await runProductAnalyticsExploration(
       ctx,
       config,
-      { cache: "preferred" },
-      { waitMs: RUN_EXPLORATION_WAIT_MS, abortSignal },
+      {
+        cache: "preferred",
+      },
     );
+    const exploration =
+      initialExploration?.status === "running"
+        ? await pollExplorationUntilFinished(
+            ctx,
+            initialExploration,
+            startedAt,
+            abortSignal,
+          )
+        : initialExploration;
 
     if (exploration?.status === "error") {
       return {
