@@ -33,6 +33,7 @@ import {
   ExperimentMetricDefinition,
   ExperimentSortBy,
   SetExperimentSortBy,
+  funnelStepMetricId,
   isFactMetric,
 } from "shared/experiments";
 import { PiPencilSimpleFill } from "react-icons/pi";
@@ -779,6 +780,12 @@ export default function ResultsTable({
                     ? `${id}-${row.metric.id}-${row.sliceId}`
                     : `${id}-${row.metric.id}-${i}`;
 
+                  const funnelStepId =
+                    row.childRowType === "funnelStep" &&
+                    row.funnelStepIndex !== undefined
+                      ? funnelStepMetricId(row.metric.id, row.funnelStepIndex)
+                      : undefined;
+
                   const timeSeriesButton = showTimeSeriesButton ? (
                     <TimeSeriesButton
                       onClick={() => toggleVisibleTimeSeriesRowId(rowId)}
@@ -1320,6 +1327,7 @@ export default function ResultsTable({
                                             startDate,
                                           )}
                                           sliceId={row.sliceId}
+                                          funnelStepId={funnelStepId}
                                           baselineRow={baselineRow}
                                           unavailableMessage={timeSeriesMessage}
                                           preloadedTimeSeries={

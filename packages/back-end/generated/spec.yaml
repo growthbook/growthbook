@@ -65826,6 +65826,8 @@ components:
                 type: boolean
               reason:
                 type: string
+              hardBlock:
+                type: boolean
             required:
               - key
               - required
@@ -66895,6 +66897,11 @@ components:
           type: boolean
         reason:
           type: string
+        hardBlock:
+          description: >-
+            When true, this item cannot be bypassed with `skipChecklist` — the
+            experiment cannot be started until it is resolved.
+          type: boolean
       required:
         - key
         - required
