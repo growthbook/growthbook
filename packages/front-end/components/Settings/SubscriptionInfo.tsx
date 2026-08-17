@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
+import { date } from "shared/dates";
+import type { ExpandedMember } from "shared/types/organization";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
 import { isCloud } from "@/services/env";
-import { useUser } from "@/services/UserContext";
+import { type Team, useUser } from "@/services/UserContext";
 import { planNameFromAccountPlan } from "@/services/utils";
 import { useForceLicenseRefresh } from "@/hooks/useForceLicenseRefresh";
 import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
@@ -14,6 +16,46 @@ import UpdateOrbSubscriptionModal from "./UpdateOrbSubscriptionModal";
 
 const CANCELLATION_SURVEY_URL = "https://form.typeform.com/to/kL75SA6F";
 
+function isReadOnlySeatRole(role: string): boolean {
+  return role === "readonly" || role === "noaccess";
+}
+
+function getSeatBreakdown(
+  users: Map<string, ExpandedMember>,
+  teams: Team[] | undefined,
+): { fullMemberSeats: number; readOnlySeats: number } {
+  const teamById = new Map((teams ?? []).map((team) => [team.id, team]));
+  let fullMemberSeats = 0;
+  let readOnlySeats = 0;
+
+  users.forEach((member) => {
+    const roles = [member.role];
+    member.projectRoles?.forEach((projectRole) => {
+      roles.push(projectRole.role);
+    });
+    member.teams?.forEach((teamId) => {
+      const team = teamById.get(teamId);
+      if (!team) return;
+      roles.push(team.role);
+      team.projectRoles?.forEach((projectRole) => {
+        roles.push(projectRole.role);
+      });
+    });
+
+    if (roles.every(isReadOnlySeatRole)) {
+      readOnlySeats += 1;
+    } else {
+      fullMemberSeats += 1;
+    }
+  });
+
+  return { fullMemberSeats, readOnlySeats };
+}
+
+function seatLabel(count: number): string {
+  return count === 1 ? "seat" : "seats";
+}
+
 export default function SubscriptionInfo() {
   const { apiCall } = useAuth();
   const {
@@ -23,6 +65,8 @@ export default function SubscriptionInfo() {
     accountPlan,
     users,
     organization,
+    license,
+    teams,
   } = useUser();
   const {
     status: organizationRefreshStatus,
@@ -40,6 +84,10 @@ export default function SubscriptionInfo() {
   // Orb subscriptions only count members, not members + invites like Stripe Subscriptions
   const subscriptionSeats =
     subscription?.billingPlatform === "orb" ? users.size : seatsInUse;
+  const { fullMemberSeats, readOnlySeats } = useMemo(
+    () => getSeatBreakdown(users, teams),
+    [users, teams],
+  );
 
   const hasActiveOrbSubscription =
     subscription?.billingPlatform === "orb" &&
@@ -58,8 +106,10 @@ export default function SubscriptionInfo() {
     subscription?.status === "active" &&
     !!subscription?.stripeCustomerId;
   const showRenewButton = subscription?.status === "canceled" && canSubscribe;
-  const showCancelButton =
-    hasActiveOrbSubscription && accountPlan !== "enterprise";
+  const isEnterprise = accountPlan === "enterprise";
+  const showCancelButton = hasActiveOrbSubscription && !isEnterprise;
+  const contractExpirationDate =
+    date(license?.dateExpires || "") || subscription?.dateToBeCanceled;
   const showActionButtons =
     showStripeManageButton ||
     showUpdateInvoiceButton ||
@@ -177,7 +227,18 @@ export default function SubscriptionInfo() {
       </div>
       <div className="col-md-12 mb-3">
         <strong>Number Of Seats:</strong> {subscriptionSeats || 0}
+        {readOnlySeats > 0 ? (
+          <div className="text-muted">
+            This includes {readOnlySeats} read-only {seatLabel(readOnlySeats)}{" "}
+            and {fullMemberSeats} full-member {seatLabel(fullMemberSeats)}.
+          </div>
+        ) : null}
       </div>
+      {isEnterprise && contractExpirationDate ? (
+        <div className="col-md-12 mb-3">
+          <strong>Contract Expiration:</strong> {contractExpirationDate}
+        </div>
+      ) : null}
       {subscription?.status !== "canceled" &&
         !subscription?.pendingCancelation && (
           <div className="col-md-12 mb-3">
@@ -210,13 +271,15 @@ export default function SubscriptionInfo() {
             ) : null}
           </div>
         )}
-      {subscription?.pendingCancelation && subscription?.dateToBeCanceled && (
-        <Callout status="error" mb="3">
-          Your plan will be canceled, but is still available until the end of
-          your billing period on
-          {` ${subscription?.dateToBeCanceled}.`}
-        </Callout>
-      )}
+      {subscription?.pendingCancelation &&
+        subscription?.dateToBeCanceled &&
+        !isEnterprise && (
+          <Callout status="error" mb="3">
+            Your plan will be canceled, but is still available until the end of
+            your billing period on
+            {` ${subscription?.dateToBeCanceled}.`}
+          </Callout>
+        )}
       {subscription?.status === "canceled" && (
         <Callout status="error" mb="3">
           Your plan was canceled on {` ${subscription?.cancelationDate}.`}
