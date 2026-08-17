@@ -29,13 +29,14 @@ export function envScopedPermissions(
     : ENV_SCOPED_PERMISSIONS;
 }
 
-export function policiesSupportEnvLimit(policies: Policy[]): boolean {
-  // If any policies have a permission that is env scoped, return true
+export function policiesSupportEnvLimit(
+  policies: Policy[],
+  org: Partial<OrganizationInterface> = {},
+): boolean {
+  const scoped = envScopedPermissions(org) as readonly string[];
   return policies.some((policy) =>
     POLICY_PERMISSION_MAP[policy]?.some((permission) =>
-      ENV_SCOPED_PERMISSIONS.includes(
-        permission as (typeof ENV_SCOPED_PERMISSIONS)[number],
-      ),
+      scoped.includes(permission),
     ),
   );
 }
@@ -60,14 +61,6 @@ export function permissionsFromRole(
   role: Pick<Role, "policies">,
 ): PermissionsObject {
   return getPermissionsObjectByPolicies(role.policies || []);
-}
-
-// Whether a role can be limited by environment: true if any of its policies
-// carries an environment-scoped atom.
-export function roleSupportsEnvLimitFromRole(
-  role: Pick<Role, "policies">,
-): boolean {
-  return policiesSupportEnvLimit(role.policies || []);
 }
 
 export function getRoleById(
@@ -331,4 +324,14 @@ export function getEffectiveRolesForProject(
   // An explicit project role takes precedence over global roles, so only fall
   // back to global roles when no explicit project role applies.
   return explicit.length ? explicit : globals;
+}
+
+// Whether a role can be limited by environment: true if any of its policies
+// carries an environment-scoped atom. Pass the org so an opted-in org counts
+// the review atoms too.
+export function roleSupportsEnvLimitFromRole(
+  role: Pick<Role, "policies">,
+  org: Partial<OrganizationInterface> = {},
+): boolean {
+  return policiesSupportEnvLimit(role.policies || [], org);
 }

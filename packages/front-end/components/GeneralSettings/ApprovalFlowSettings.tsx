@@ -116,6 +116,18 @@ export default function ApprovalFlowSettings() {
 
             {hasRequireApprovals && (
               <>
+                <Box mb="4">
+                  <Checkbox
+                    id="toggle-env-scoped-review"
+                    label="Reviewers must have approval rights in the environments a change affects"
+                    description="A reviewer limited to dev can approve dev-only changes, but not a draft that also changes production. Changes with no environment — metadata, a base value — need rights unrestricted by environment."
+                    value={!!form.watch("envScopedReview")}
+                    setValue={(value) =>
+                      form.setValue("envScopedReview", value)
+                    }
+                  />
+                </Box>
+
                 {featureRequireReviews.map((_, i) => (
                   <Box key={`approval-flow-${i}`}>
                     <Checkbox

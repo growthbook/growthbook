@@ -41,7 +41,7 @@ import {
   getTargetingProjectIds,
   TargetingScopedEntity,
 } from "../util/features";
-import type { ReviewAuthorityFootprint } from "../util/reviewAuthorityFootprint";
+import type { ReviewAuthorityFootprint } from "../util/features";
 import {
   envsAllowedBy,
   hasUnrestrictedEnvAuthority,
