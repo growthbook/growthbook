@@ -370,7 +370,7 @@ describe("reconcileLinkedFeatureVariations", () => {
     });
   });
 
-  it("throws on a value that fails the feature's type validation", async () => {
+  it("records a failure (not a throw) on a value that fails the feature's type validation", async () => {
     const feature = makeFeature({
       valueType: "number",
       defaultValue: "1",
@@ -386,14 +386,18 @@ describe("reconcileLinkedFeatureVariations", () => {
     const cb = makeCb();
     const { context } = makeContext();
 
-    await expect(
-      reconcileLinkedFeatureVariations(context, cb, {
-        addedIds: ["v2"],
-        removedIds: [],
-        providedValues: { feature: { v2: "not-a-number" } },
-        linkedInfo: [linkedInfo(feature)],
+    const { failures } = await reconcileLinkedFeatureVariations(context, cb, {
+      addedIds: ["v2"],
+      removedIds: [],
+      providedValues: { feature: { v2: "not-a-number" } },
+      linkedInfo: [linkedInfo(feature)],
+    });
+    expect(failures).toEqual([
+      expect.objectContaining({
+        featureId: "feature",
+        reason: "publish-error",
       }),
-    ).rejects.toThrow();
+    ]);
     expect(updateRevisionMock).not.toHaveBeenCalled();
   });
 

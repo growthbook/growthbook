@@ -439,11 +439,15 @@ export class ContextualBanditModel extends BaseClass {
     leafWeights: LeafWeight[],
     options?: {
       bumpVersion?: boolean;
+      expectedBanditVersion?: number;
+      bypassPermissionCheck?: boolean;
     },
   ): Promise<ContextualBanditInterface> {
     return this.applyWeightEpochUpdate(cbId, {
       currentLeafWeights: leafWeights,
       bumpVersion: options?.bumpVersion ?? false,
+      expectedBanditVersion: options?.expectedBanditVersion,
+      bypassPermissionCheck: options?.bypassPermissionCheck,
     });
   }
 
@@ -458,13 +462,15 @@ export class ContextualBanditModel extends BaseClass {
     changes: {
       currentLeafWeights?: LeafWeight[];
       bumpVersion: boolean;
+      expectedBanditVersion?: number;
+      bypassPermissionCheck?: boolean;
     },
   ): Promise<ContextualBanditInterface> {
     const existingCB = await this.getById(cbId);
     if (!existingCB) {
       throw new Error(`ContextualBandit not found: ${cbId}`);
     }
-    if (!this.canUpdate(existingCB)) {
+    if (!changes.bypassPermissionCheck && !this.canUpdate(existingCB)) {
       this.context.permissions.throwPermissionError();
     }
 
@@ -478,6 +484,9 @@ export class ContextualBanditModel extends BaseClass {
       {
         organization: this.context.org.id,
         id: cbId,
+        ...(changes.expectedBanditVersion !== undefined
+          ? { banditVersion: changes.expectedBanditVersion }
+          : {}),
       },
       {
         $set: set,
@@ -485,6 +494,10 @@ export class ContextualBanditModel extends BaseClass {
       },
     );
     if (res.matchedCount === 0) {
+      if (changes.expectedBanditVersion !== undefined) {
+        const still = await this.getById(cbId);
+        if (still) throw new CasConflictError();
+      }
       throw new Error(
         `ContextualBandit ${cbId} weight epoch could not be updated`,
       );
@@ -506,7 +519,9 @@ export class ContextualBanditModel extends BaseClass {
         const cb = await this.getById(cbId);
         if (!cb) continue;
         if (!cb.variations.some((v) => v.status === "pending")) continue;
-        await activatePendingContextualBanditVariations(this.context, cb);
+        await activatePendingContextualBanditVariations(this.context, cb, {
+          bypassPermissionChecks: true,
+        });
       }
     } catch (e) {
       this.context.logger.error(

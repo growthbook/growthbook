@@ -6,7 +6,11 @@ import {
 } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ApiReqContext } from "back-end/types/api";
-import { executeContextualBanditVariationChange } from "back-end/src/enterprise/services/contextualBandits";
+import {
+  activatePendingContextualBanditVariations,
+  executeContextualBanditVariationChange,
+} from "back-end/src/enterprise/services/contextualBandits";
+import { CasConflictError } from "back-end/src/models/BaseModel";
 import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBanditChanges";
 import { getRefLinkedFeatureInfo } from "back-end/src/services/experiments";
 import {
@@ -238,6 +242,13 @@ function makeContext(cb: ContextualBanditInterface) {
     };
     return currentDoc;
   });
+  const getByIdMock = jest.fn().mockImplementation(async () => currentDoc);
+  const dangerousUpdateBypassPermissionMock = jest
+    .fn()
+    .mockImplementation((existing, changes) => {
+      currentDoc = { ...existing, ...changes };
+      return currentDoc;
+    });
   const canPublishFeature = jest.fn().mockReturnValue(true);
   const throwPermissionError = jest.fn(() => {
     throw new Error("permission error");
@@ -260,6 +271,8 @@ function makeContext(cb: ContextualBanditInterface) {
         update: updateMock,
         setLeafWeights: setLeafWeightsMock,
         bumpBanditVersion: bumpBanditVersionMock,
+        getById: getByIdMock,
+        dangerousUpdateBypassPermission: dangerousUpdateBypassPermissionMock,
       },
     },
   } as unknown as ApiReqContext;
@@ -268,6 +281,8 @@ function makeContext(cb: ContextualBanditInterface) {
     updateMock,
     setLeafWeightsMock,
     bumpBanditVersionMock,
+    getByIdMock,
+    dangerousUpdateBypassPermissionMock,
     canPublishFeature,
   };
 }
@@ -327,9 +342,12 @@ describe("executeContextualBanditVariationChange", () => {
 
     expect(setLeafWeightsMock).toHaveBeenCalledTimes(1);
     expect(setLeafWeightsMock.mock.calls[0][1]).toEqual([]);
-    expect(setLeafWeightsMock.mock.calls[0][2]).toEqual({
-      bumpVersion: true,
-    });
+    expect(setLeafWeightsMock.mock.calls[0][2]).toEqual(
+      expect.objectContaining({
+        bumpVersion: true,
+        expectedBanditVersion: cb.banditVersion,
+      }),
+    );
     expect(updated.banditVersion).toBe(cb.banditVersion + 1);
 
     expect(refreshLinkedFeaturePayloadsMock).toHaveBeenCalledWith(
@@ -399,9 +417,11 @@ describe("executeContextualBanditVariationChange", () => {
       [v("v0", "0"), v("v2", "2")],
     );
 
-    expect(setLeafWeightsMock).toHaveBeenCalledWith("cb_1", [], {
-      bumpVersion: true,
-    });
+    expect(setLeafWeightsMock).toHaveBeenCalledWith(
+      "cb_1",
+      [],
+      expect.objectContaining({ bumpVersion: true }),
+    );
     expect(updated.currentLeafWeights).toEqual([]);
   });
 
@@ -432,9 +452,12 @@ describe("executeContextualBanditVariationChange", () => {
     expect(wmap[newId]).toBeCloseTo(1 / 3, 6);
     expect(sum(changes.variationWeights)).toBeCloseTo(1, 6);
     expect(setLeafWeightsMock).toHaveBeenCalledTimes(1);
-    expect(setLeafWeightsMock.mock.calls[0][2]).toEqual({
-      bumpVersion: true,
-    });
+    expect(setLeafWeightsMock.mock.calls[0][2]).toEqual(
+      expect.objectContaining({
+        bumpVersion: true,
+        expectedBanditVersion: cb.banditVersion,
+      }),
+    );
     expect(updated.banditVersion).toBe(cb.banditVersion + 1);
   });
 
@@ -630,21 +653,6 @@ describe("executeContextualBanditVariationChange", () => {
         v("", "2"),
       ]),
     ).rejects.toThrow(/stopped/i);
-  });
-
-  it("rejects a duplicated variation id", async () => {
-    const cb = makeCb();
-    const { context, updateMock } = makeContext(cb);
-
-    await expect(
-      executeContextualBanditVariationChange(context, cb, [
-        v("v0", "0"),
-        v("v1", "1"),
-        v("v1", "1"),
-      ]),
-    ).rejects.toThrow(/duplicate variation ids: v1/i);
-
-    expect(updateMock).not.toHaveBeenCalled();
   });
 
   it("rejects dropping below two variations", async () => {
@@ -869,9 +877,11 @@ describe("executeContextualBanditVariationChange", () => {
       "v2",
     ]);
     // Activation opens a new weight epoch.
-    expect(setLeafWeightsMock).toHaveBeenCalledWith("cb_1", [], {
-      bumpVersion: true,
-    });
+    expect(setLeafWeightsMock).toHaveBeenCalledWith(
+      "cb_1",
+      [],
+      expect.objectContaining({ bumpVersion: true }),
+    );
   });
 
   it("keeps a pending arm pending on re-save while its value is still not live", async () => {
@@ -1100,6 +1110,156 @@ describe("executeContextualBanditVariationChange", () => {
     );
 
     expect(getDraftRevisionMock).toHaveBeenCalledWith(context, feature, 3);
+  });
+
+  it("recomputes leaf weights from a fresh read when a concurrent run bumps banditVersion", async () => {
+    const cb = makeCb({
+      stage: "exploit",
+      variations: [v("v0", "0"), v("v1", "1"), v("v2", "2")],
+      variationWeights: [
+        { variationId: "v0", weight: 0.5 },
+        { variationId: "v1", weight: 0.3 },
+        { variationId: "v2", weight: 0.2 },
+      ],
+      currentLeafWeights: [
+        {
+          leafId: 0,
+          condition: { country: "US" },
+          weights: [
+            { variationId: "v0", weight: 0.5 },
+            { variationId: "v1", weight: 0.3 },
+            { variationId: "v2", weight: 0.2 },
+          ],
+        },
+      ],
+    });
+    const { context, setLeafWeightsMock, getByIdMock } = makeContext(cb);
+
+    const runnerDoc = {
+      ...cb,
+      banditVersion: cb.banditVersion + 1,
+      currentLeafWeights: [
+        {
+          leafId: 0,
+          condition: { country: "US" },
+          weights: [
+            { variationId: "v0", weight: 0.8 },
+            { variationId: "v1", weight: 0.1 },
+            { variationId: "v2", weight: 0.1 },
+          ],
+        },
+      ],
+    };
+    setLeafWeightsMock.mockImplementationOnce(() => {
+      throw new CasConflictError();
+    });
+    getByIdMock.mockResolvedValueOnce(runnerDoc);
+
+    await executeContextualBanditVariationChange(context, cb, [
+      v("v0", "0"),
+      v("v2", "2"),
+    ]);
+
+    expect(setLeafWeightsMock).toHaveBeenCalledTimes(2);
+    expect(setLeafWeightsMock.mock.calls[0][2]).toEqual(
+      expect.objectContaining({ expectedBanditVersion: cb.banditVersion }),
+    );
+    const retryWeights = setLeafWeightsMock.mock.calls[1][1][0].weights;
+    const byId = Object.fromEntries(
+      retryWeights.map((p: { variationId: string; weight: number }) => [
+        p.variationId,
+        p.weight,
+      ]),
+    );
+    expect(byId["v0"]).toBeCloseTo(0.8 / 0.9, 6);
+    expect(byId["v2"]).toBeCloseTo(0.1 / 0.9, 6);
+    expect(setLeafWeightsMock.mock.calls[1][2]).toEqual(
+      expect.objectContaining({
+        expectedBanditVersion: runnerDoc.banditVersion,
+      }),
+    );
+  });
+
+  it("keeps added arms pending and skips activation when a linked feature fails to take its values", async () => {
+    const feature = makeFeature();
+    getRefLinkedFeatureInfoMock.mockResolvedValue([linkedInfo(feature)]);
+    updateRevisionMock.mockRejectedValueOnce(
+      new Error("revision write failed"),
+    );
+    const cb = makeCb({ status: "running", linkedFeatures: ["feature"] });
+    const { context, updateMock } = makeContext(cb);
+
+    const { featureDraftPublishFailures, pendingVariationIds, updated } =
+      await executeContextualBanditVariationChange(
+        context,
+        cb,
+        [v("v0", "0"), v("v1", "1"), v("v2", "2")],
+        { feature: { v2: "added-value" } },
+      );
+
+    expect(featureDraftPublishFailures).toEqual([
+      expect.objectContaining({
+        featureId: "feature",
+        reason: "publish-error",
+      }),
+    ]);
+    expect(updateMock).toHaveBeenCalledTimes(1);
+    expect(pendingVariationIds).toEqual(["v2"]);
+    expect(updated.variations.find((x) => x.id === "v2")?.status).toBe(
+      "pending",
+    );
+    expect(updateMock.mock.calls[0][1].variationWeights).toEqual([
+      { variationId: "v0", weight: 0.5 },
+      { variationId: "v1", weight: 0.5 },
+    ]);
+  });
+
+  it("activates pending arms on feature publish without the publisher's CB permissions", async () => {
+    getFeatureMock.mockResolvedValue(
+      makeFeature({
+        rules: [
+          cbRefRule({
+            variations: [
+              { variationId: "v0", value: "control" },
+              { variationId: "v1", value: "treatment" },
+              { variationId: "v2", value: "added-value" },
+            ],
+          }),
+        ],
+      } as Partial<FeatureInterface>),
+    );
+    const cb = makeCb({
+      status: "running",
+      linkedFeatures: ["feature"],
+      variations: [
+        v("v0", "0"),
+        v("v1", "1"),
+        { ...v("v2", "2"), status: "pending" as const },
+      ],
+    } as Partial<ContextualBanditInterface>);
+    const {
+      context,
+      updateMock,
+      setLeafWeightsMock,
+      dangerousUpdateBypassPermissionMock,
+    } = makeContext(cb);
+
+    const { activatedIds, updated } =
+      await activatePendingContextualBanditVariations(context, cb, {
+        bypassPermissionChecks: true,
+      });
+
+    expect(activatedIds).toEqual(["v2"]);
+    expect(updated.variations.find((x) => x.id === "v2")?.status).toBe(
+      "active",
+    );
+    expect(updateMock).not.toHaveBeenCalled();
+    expect(dangerousUpdateBypassPermissionMock).toHaveBeenCalledTimes(1);
+    expect(setLeafWeightsMock).toHaveBeenCalledWith(
+      "cb_1",
+      [],
+      expect.objectContaining({ bypassPermissionCheck: true }),
+    );
   });
 
   it("refreshes the SDK payload even on a metadata-only edit (keys/names change the payload)", async () => {

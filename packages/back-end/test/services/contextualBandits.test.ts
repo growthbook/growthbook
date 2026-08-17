@@ -408,7 +408,10 @@ describe("persistContextualBanditEvent", () => {
     expect(cbIdArg).toBe(cb.id);
     expect(leafWeightsArg).toHaveLength(2);
     // Weights changed → the version bumps alongside the payload refresh
-    expect(patchOptions).toEqual({ bumpVersion: true });
+    expect(patchOptions).toEqual({
+      bumpVersion: true,
+      expectedBanditVersion: cb.banditVersion,
+    });
     const expectedLeafWeights = leafWeightsFromContextualBanditResult(
       result,
       cb.variations,
@@ -570,6 +573,7 @@ describe("persistContextualBanditEvent", () => {
     expect(setLeafWeightsMock).toHaveBeenCalledTimes(1);
     expect(setLeafWeightsMock.mock.calls[0][2]).toEqual({
       bumpVersion: false,
+      expectedBanditVersion: cb.banditVersion,
     });
     expect(refreshLinkedFeaturePayloadsMock).not.toHaveBeenCalled();
   });

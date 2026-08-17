@@ -47,6 +47,7 @@ import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { discardIfJustCreated } from "back-end/src/api/features/validations";
+import { CasConflictError } from "back-end/src/models/BaseModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
 import {
@@ -960,9 +961,54 @@ function computePendingVariationIds(
   );
 }
 
+async function setReconciledLeafWeightsGuarded(
+  context: ReqContext | ApiReqContext,
+  seed: ContextualBanditInterface,
+  activeIds: string[],
+  mode: WeightReconcileMode,
+  opts?: { bypassPermissionChecks?: boolean },
+): Promise<ContextualBanditInterface> {
+  const maxAttempts = 3;
+  let base = seed;
+  for (let attempt = 1; ; attempt++) {
+    const leafWeights: LeafWeight[] =
+      mode === "uniform"
+        ? []
+        : (base.currentLeafWeights ?? []).map((lw) => ({
+            ...lw,
+            weights: reconcileVariationWeights(lw.weights, activeIds, mode),
+          }));
+    try {
+      return await context.models.contextualBandits.setLeafWeights(
+        seed.id,
+        leafWeights,
+        {
+          bumpVersion: true,
+          expectedBanditVersion: base.banditVersion,
+          bypassPermissionCheck: opts?.bypassPermissionChecks,
+        },
+      );
+    } catch (err) {
+      if (!(err instanceof CasConflictError) || attempt >= maxAttempts) {
+        throw err;
+      }
+      const fresh = await context.models.contextualBandits.getById(seed.id);
+      if (!fresh) throw err;
+      context.logger.warn(
+        { contextualBanditId: seed.id, attempt },
+        "banditVersion moved while reconciling leaf weights (concurrent snapshot run or arm change); recomputing from fresh weights",
+      );
+      base = fresh;
+    }
+  }
+}
+
 export async function activatePendingContextualBanditVariations(
   context: ReqContext | ApiReqContext,
   cb: ContextualBanditInterface,
+  opts?: {
+    bypassPermissionChecks?: boolean;
+  },
 ): Promise<{
   activatedIds: string[];
   updated: ContextualBanditInterface;
@@ -990,22 +1036,24 @@ export async function activatePendingContextualBanditVariations(
     activeIds,
     mode,
   );
-  const leafWeights: LeafWeight[] =
-    mode === "uniform"
-      ? []
-      : (cb.currentLeafWeights ?? []).map((lw) => ({
-          ...lw,
-          weights: reconcileVariationWeights(lw.weights, activeIds, mode),
-        }));
 
-  await context.models.contextualBandits.update(cb, {
-    variations: newVariations,
-    variationWeights,
-  });
-  const updated = await context.models.contextualBandits.setLeafWeights(
-    cb.id,
-    leafWeights,
-    { bumpVersion: true },
+  if (opts?.bypassPermissionChecks) {
+    await context.models.contextualBandits.dangerousUpdateBypassPermission(cb, {
+      variations: newVariations,
+      variationWeights,
+    });
+  } else {
+    await context.models.contextualBandits.update(cb, {
+      variations: newVariations,
+      variationWeights,
+    });
+  }
+  const updated = await setReconciledLeafWeightsGuarded(
+    context,
+    cb,
+    activeIds,
+    mode,
+    opts,
   );
 
   await refreshLinkedFeaturePayloads(
@@ -1089,9 +1137,10 @@ export async function executeContextualBanditVariationChange(
     // feature; otherwise it stays pending rather than trusting the publish
     // failure list alone.
     const liveArmInfo = await getLiveArmIdsByLinkedFeature(context, cb);
-    const pendingAdded = new Set(
-      computePendingVariationIds(diff.addedIds, liveArmInfo),
-    );
+    const pendingAdded = new Set([
+      ...computePendingVariationIds(diff.addedIds, liveArmInfo),
+      ...(featureDraftPublishFailures.length > 0 ? diff.addedIds : []),
+    ]);
 
     const finalVariations: ContextualBanditVariation[] = [
       ...newVariations.map((v) => {
@@ -1119,23 +1168,16 @@ export async function executeContextualBanditVariationChange(
       mode,
     );
 
-    const newLeafWeights: LeafWeight[] =
-      mode === "uniform"
-        ? []
-        : (cb.currentLeafWeights ?? []).map((lw) => ({
-            ...lw,
-            weights: reconcileVariationWeights(lw.weights, activeIds, mode),
-          }));
-
     await context.models.contextualBandits.update(cb, {
       variations: finalVariations,
       variationWeights: newVariationWeights,
     });
 
-    updated = await context.models.contextualBandits.setLeafWeights(
-      cb.id,
-      newLeafWeights,
-      { bumpVersion: true },
+    updated = await setReconciledLeafWeightsGuarded(
+      context,
+      cb,
+      activeIds,
+      mode,
     );
   } else {
     // Same visible arm set: weights stay valid. A reorder still shifts the
@@ -1177,10 +1219,12 @@ export async function executeContextualBanditVariationChange(
   }
 
   // No-op if nothing is pending.
-  ({ updated } = await activatePendingContextualBanditVariations(
-    context,
-    updated,
-  ));
+  if (featureDraftPublishFailures.length === 0) {
+    ({ updated } = await activatePendingContextualBanditVariations(
+      context,
+      updated,
+    ));
+  }
 
   await refreshLinkedFeaturePayloads(
     context,
@@ -1300,6 +1344,15 @@ export async function reconcileLinkedFeatureVariations(
   const failures: PendingDraftFailure[] = [];
   const removedSet = new Set(removedIds);
 
+  const reasonFromError = (err: unknown): PendingDraftFailureReason => {
+    const message = err instanceof Error ? err.message : String(err);
+    return /resolve conflicts/i.test(message)
+      ? "merge-conflict"
+      : /permission/i.test(message)
+        ? "needs-approval"
+        : "publish-error";
+  };
+
   for (const info of infos) {
     if (info.state !== "live" && info.state !== "draft") continue;
     const feature = info.feature;
@@ -1315,95 +1368,99 @@ export async function reconcileLinkedFeatureVariations(
         ? info.draftRevisionVersion
         : reusableStagedVersion;
 
-    const baseRules = await getRulesForTargetVersion(
-      context,
-      feature,
-      draftVersion ?? feature.version,
-    );
-    const baselineRule = baseRules.find((r) =>
-      isRuleForContextualBandit(r, cb.id),
-    ) as ContextualBanditRefRule | undefined;
-    if (!baselineRule) continue;
-
-    const currentVariations = baselineRule.variations ?? [];
-    const nextVariations = currentVariations.filter(
-      (v) => !removedSet.has(v.variationId),
-    );
-    const existingIds = new Set(nextVariations.map((v) => v.variationId));
-    for (const addedId of addedIds) {
-      if (existingIds.has(addedId)) continue;
-      const provided = providedValues?.[feature.id]?.[addedId];
-      // No value: leave the arm off this rule so it stays pending, rather
-      // than cloning control. Only reachable on the re-save path.
-      if (provided === undefined) continue;
-      const value = validateFeatureValue(
-        feature,
-        provided,
-        `Variation ${addedId}`,
-      );
-      nextVariations.push({ variationId: addedId, value });
-    }
-
-    if (isEqual(nextVariations, currentVariations)) continue;
-
-    const rule = {
-      ...cloneDeep(baselineRule),
-      variations: nextVariations,
-    } as ContextualBanditRefRule;
-
-    const applyRule = (autoPublish: boolean) =>
-      updateContextualBanditFeatureRule({
-        context,
-        contextualBandit: cb,
-        feature,
-        rule,
-        eventAudit: context.auditUser,
-        audit: async (input) => {
-          await context.auditLog(input);
-        },
-        autoPublish,
-        draftVersion,
-        // A variation change is not a publish request: if the flag requires
-        // review, stage the draft and let the arm stay pending.
-        respectApprovalFlow: true,
-      });
-
-    const autoPublish = cb.status === "running";
     try {
-      const applied = await applyRule(autoPublish);
-      if (applied.pendingApproval) {
+      const baseRules = await getRulesForTargetVersion(
+        context,
+        feature,
+        draftVersion ?? feature.version,
+      );
+      const baselineRule = baseRules.find((r) =>
+        isRuleForContextualBandit(r, cb.id),
+      ) as ContextualBanditRefRule | undefined;
+      if (!baselineRule) continue;
+
+      const currentVariations = baselineRule.variations ?? [];
+      const nextVariations = currentVariations.filter(
+        (v) => !removedSet.has(v.variationId),
+      );
+      const existingIds = new Set(nextVariations.map((v) => v.variationId));
+      for (const addedId of addedIds) {
+        if (existingIds.has(addedId)) continue;
+        const provided = providedValues?.[feature.id]?.[addedId];
+        // No value: leave the arm off this rule so it stays pending, rather
+        // than cloning control. Only reachable on the re-save path.
+        if (provided === undefined) continue;
+        const value = validateFeatureValue(
+          feature,
+          provided,
+          `Variation ${addedId}`,
+        );
+        nextVariations.push({ variationId: addedId, value });
+      }
+
+      if (isEqual(nextVariations, currentVariations)) continue;
+
+      const rule = {
+        ...cloneDeep(baselineRule),
+        variations: nextVariations,
+      } as ContextualBanditRefRule;
+
+      const applyRule = (autoPublish: boolean) =>
+        updateContextualBanditFeatureRule({
+          context,
+          contextualBandit: cb,
+          feature,
+          rule,
+          eventAudit: context.auditUser,
+          audit: async (input) => {
+            await context.auditLog(input);
+          },
+          autoPublish,
+          draftVersion,
+          // A variation change is not a publish request: if the flag requires
+          // review, stage the draft and let the arm stay pending.
+          respectApprovalFlow: true,
+        });
+
+      const autoPublish = cb.status === "running";
+      try {
+        const applied = await applyRule(autoPublish);
+        if (applied.pendingApproval) {
+          failures.push({
+            featureId: feature.id,
+            revisionVersion: applied.version,
+            reason: "needs-approval",
+          });
+        }
+      } catch (err) {
+        if (!autoPublish) throw err;
+        // The publish failed after staging (merge conflict, permissions, …) and
+        // took its just-created draft with it — re-stage so the edit isn't lost.
+        let staged: { version: number };
+        try {
+          staged = await applyRule(false);
+        } catch {
+          throw err;
+        }
+        context.logger.warn(
+          { contextualBanditId: cb.id, featureId: feature.id, err },
+          "Linked-feature rule update for a contextual bandit variation change could not be auto-published; staged as a draft instead",
+        );
         failures.push({
           featureId: feature.id,
-          revisionVersion: applied.version,
-          reason: "needs-approval",
+          revisionVersion: staged.version,
+          reason: reasonFromError(err),
         });
       }
     } catch (err) {
-      if (!autoPublish) throw err;
-      // The publish failed after staging (merge conflict, permissions, …) and
-      // took its just-created draft with it — re-stage so the edit isn't lost.
-      let staged: { version: number };
-      try {
-        staged = await applyRule(false);
-      } catch {
-        throw err;
-      }
-      const message = err instanceof Error ? err.message : String(err);
-      const reason: PendingDraftFailureReason = /resolve conflicts/i.test(
-        message,
-      )
-        ? "merge-conflict"
-        : /permission/i.test(message)
-          ? "needs-approval"
-          : "publish-error";
       context.logger.warn(
         { contextualBanditId: cb.id, featureId: feature.id, err },
-        "Linked-feature rule update for a contextual bandit variation change could not be auto-published; staged as a draft instead",
+        "Linked-feature rule update for a contextual bandit variation change failed; the arm change proceeds and this feature is retried on the next save",
       );
       failures.push({
         featureId: feature.id,
-        revisionVersion: staged.version,
-        reason,
+        revisionVersion: draftVersion ?? feature.version,
+        reason: reasonFromError(err),
       });
     }
   }
@@ -1732,9 +1789,24 @@ export async function persistContextualBanditEvent(
   });
 
   if (leafWeights.length > 0) {
-    await context.models.contextualBandits.setLeafWeights(cb.id, leafWeights, {
-      bumpVersion: weightsWereUpdated,
-    });
+    try {
+      await context.models.contextualBandits.setLeafWeights(
+        cb.id,
+        leafWeights,
+        {
+          bumpVersion: weightsWereUpdated,
+          expectedBanditVersion: cb.banditVersion,
+        },
+      );
+    } catch (err) {
+      if (!(err instanceof CasConflictError)) throw err;
+      context.logger.warn(
+        `Contextual bandit ${cb.id} snapshot ${cbs.id}: banditVersion moved ` +
+          `while persisting run weights (arm set changed mid-persist); ` +
+          `discarding this run's weights.`,
+      );
+      return cbe;
+    }
   }
 
   if (weightsWereUpdated) {
