@@ -154,6 +154,16 @@ export function toV2FeatureSnapshot<T extends Partial<FeatureInterface>>(
   } as T;
 }
 
+// A revision's `metadata` envelope is sparse — a key is present only when this
+// revision changed it — so an absent `tags` means "unchanged", not "cleared".
+// Shared so the hook runtime and the hook Test panel derive it identically.
+export function getEffectiveRevisionTags(
+  feature: Pick<FeatureInterface, "tags">,
+  revision: Pick<FeatureRevisionInterface, "metadata">,
+): string[] {
+  return revision.metadata?.tags ?? feature.tags ?? [];
+}
+
 export function mergeRevision(
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,

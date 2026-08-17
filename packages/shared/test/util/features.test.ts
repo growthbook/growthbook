@@ -10,6 +10,7 @@ import {
   validateFeatureValue,
   assertSchemaMatchesValueType,
   getValidation,
+  getEffectiveRevisionTags,
   validateJSONFeatureValue,
   autoMerge,
   getLiveChangesSinceBase,
@@ -4741,5 +4742,49 @@ describe("draftHasChangesOutsideTargetRef", () => {
       prerequisites: [{ id: "feat_x", condition: '{"value": true}' }],
     });
     expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(true);
+  });
+});
+
+describe("getEffectiveRevisionTags", () => {
+  const feature = (tags?: string[]) =>
+    ({ ...(tags === undefined ? {} : { tags }) }) as Pick<
+      FeatureInterface,
+      "tags"
+    >;
+  const revision = (metadata?: { tags?: string[]; description?: string }) =>
+    ({ ...(metadata === undefined ? {} : { metadata }) }) as Pick<
+      FeatureRevisionInterface,
+      "metadata"
+    >;
+
+  it("uses the staged tags when the revision changes them", () => {
+    expect(
+      getEffectiveRevisionTags(feature(["old"]), revision({ tags: ["new"] })),
+    ).toEqual(["new"]);
+  });
+
+  it("falls back to the feature's tags when the revision leaves them untouched", () => {
+    expect(getEffectiveRevisionTags(feature(["live"]), revision())).toEqual([
+      "live",
+    ]);
+  });
+
+  it("falls back when metadata exists but does not touch tags", () => {
+    expect(
+      getEffectiveRevisionTags(
+        feature(["live"]),
+        revision({ description: "changed" }),
+      ),
+    ).toEqual(["live"]);
+  });
+
+  it("treats tags cleared to an empty list as distinct from untouched", () => {
+    expect(
+      getEffectiveRevisionTags(feature(["live"]), revision({ tags: [] })),
+    ).toEqual([]);
+  });
+
+  it("defaults to an empty array when neither side has tags", () => {
+    expect(getEffectiveRevisionTags(feature(), revision())).toEqual([]);
   });
 });

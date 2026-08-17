@@ -14,6 +14,8 @@ import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
+import { getEffectiveRevisionTags } from "shared/util";
+import { buildHookTestFunctionArgs } from "@/components/CustomHooks/customHookTestArgs";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -59,7 +61,7 @@ const dummyFeature: FeatureInterface = {
   prerequisites: [],
   customFields: {},
 };
-const dummyRevision: FeatureRevisionInterface = {
+const dummyRevision: FeatureRevisionInterface & { tags: string[] } = {
   organization: "org_abc123",
   featureId: "new-feature",
   dateCreated: new Date(),
@@ -97,6 +99,9 @@ const dummyRevision: FeatureRevisionInterface = {
       timestamp: new Date(),
     },
   ],
+  metadata: { tags: ["checkout"] },
+  // Derived by the server from metadata; not part of the stored document.
+  tags: ["checkout"],
 };
 const dummyExperiment: ExperimentInterface = {
   id: "exp_abc123",
@@ -277,11 +282,12 @@ export const hookTypes: Record<
         testValue: stringify(dummyFeature),
       },
       revision: {
-        description: "The feature revision being validated",
+        description:
+          "The feature revision being validated. `revision.tags` is the effective tag list this revision will publish (staged value, or the feature's current tags when untouched); `feature.tags` is still the live value, so compare the two to detect added or removed tags.",
         testValue: stringify(dummyRevision),
       },
     },
-    example: `\n// Block the save (hard error):\nif (!revision.rules.production || revision.rules.production.length === 0) {\n  throw new Error("At least one production rule is required");\n}\n\n// Or raise a soft warning the user can acknowledge:\nif (!revision.comment) {\n  addWarning("Consider adding a comment describing this change");\n}`,
+    example: `\n// Block the save (hard error):\nif (!revision.rules.production || revision.rules.production.length === 0) {\n  throw new Error("At least one production rule is required");\n}\n\n// Gate on tags being added:\nconst added = revision.tags.filter(t => !(feature.tags || []).includes(t));\nif (added.includes("pii")) {\n  throw new Error("The 'pii' tag must be applied by a data steward");\n}\n\n// Or raise a soft warning the user can acknowledge:\nif (!revision.comment) {\n  addWarning("Consider adding a comment describing this change");\n}`,
   },
   validateExperiment: {
     label: "Validate Experiment",
@@ -382,7 +388,12 @@ export default function CustomHookModal({
           : experiment && k === "experiment"
             ? stringify(experiment)
             : revision && k === "revision"
-              ? stringify(revision)
+              ? // Mirror the runtime shape: `tags` is derived from the sparse
+                // metadata envelope, so the stored doc lacks it.
+                stringify({
+                  ...revision,
+                  tags: getEffectiveRevisionTags(feature ?? {}, revision),
+                })
               : config && k === "config"
                 ? // Mirror the runtime shape: parsed value + this config as the
                   // hook's pinned target (a hook created here scopes to it).
@@ -419,14 +430,10 @@ export default function CustomHookModal({
         method: "POST",
         body: JSON.stringify({
           functionBody: form.getValues("code"),
-          functionArgs: Object.fromEntries(
-            Object.entries(testValues).map(([k, v]) => {
-              try {
-                return [k, JSON.parse(v)];
-              } catch (e) {
-                return [k, v];
-              }
-            }),
+          functionArgs: buildHookTestFunctionArgs(
+            testValues,
+            hookType,
+            feature,
           ),
           ...(feature
             ? { entityType: "feature" as const, entityId: feature.id }

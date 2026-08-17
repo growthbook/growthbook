@@ -7,6 +7,7 @@ import {
   getConfigAncestorKeys,
   getConfigBaseKeys,
   getConfigSubtree,
+  getEffectiveRevisionTags,
   withConfigExtends,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
@@ -54,6 +55,24 @@ export async function runValidateFeatureHooks({
   );
 }
 
+// The revision as hooks see it: the stored doc plus fields derived from the
+// staged metadata envelope. `feature` is the pre-merge live feature, so these
+// are the only way a hook can read what the revision will actually publish.
+type FeatureRevisionHookInput = FeatureRevisionInterface & {
+  tags: string[];
+};
+
+// `metadata` is sparse — an absent key means "unchanged", so fall back to live.
+function toFeatureRevisionHookInput(
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+): FeatureRevisionHookInput {
+  return {
+    ...revision,
+    tags: getEffectiveRevisionTags(feature, revision),
+  };
+}
+
 export async function runValidateFeatureRevisionHooks({
   context,
   feature,
@@ -68,12 +87,12 @@ export async function runValidateFeatureRevisionHooks({
   return _runCustomHooks(
     context,
     "validateFeatureRevision",
-    { feature, revision },
+    { feature, revision: toFeatureRevisionHookInput(feature, revision) },
     feature.project,
     feature.id,
     {
       feature,
-      revision: original,
+      revision: toFeatureRevisionHookInput(feature, original),
     },
   );
 }
@@ -115,12 +134,12 @@ export async function collectValidateFeatureRevisionHookResults({
   return collectCustomHookResults(
     context,
     "validateFeatureRevision",
-    { feature, revision },
+    { feature, revision: toFeatureRevisionHookInput(feature, revision) },
     feature.project,
     feature.id,
     {
       feature,
-      revision: original,
+      revision: toFeatureRevisionHookInput(feature, original),
     },
   );
 }

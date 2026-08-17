@@ -140,7 +140,34 @@ if (feature.valueType === "json" && feature.defaultValue === "{}") {
 
 ### validateFeatureRevision
 
-Called whenever a feature revision is about to be created or updated. Receives the full feature and the revision as inputs.
+Called whenever a feature revision is about to be created or updated. Receives:
+
+- `feature` — the **live** feature, i.e. the state before this revision publishes. Use it as the "before" side when checking what a revision changes.
+- `revision` — the revision being validated: `version`, `baseVersion`, `status`, `comment`, `title`, `defaultValue`, `rules`, `createdBy`, `contributors`, and `reviews`. Metadata staged by the revision lives on `revision.metadata` (`tags`, `description`, `owner`, `project`, `customFields`, `jsonSchema`, and more), which is **sparse** — a key is present only when this revision changed it, so an absent key means "unchanged" rather than "cleared". `revision.tags` is derived from that envelope and is always present: it holds the effective tag list this revision will publish (the staged value when tags were changed, otherwise the feature's current tags). Compare it against `feature.tags` to detect additions and removals.
+
+Example: Restrict who can add a sensitive tag. `createdBy` is a union — check `type` before reading `email`, since API key and system actors may not have one.
+
+```js
+const added = revision.tags.filter(
+  (t) => !(feature.tags || []).includes(t)
+);
+if (added.includes("pii")) {
+  const actor = revision.createdBy;
+  const isSteward =
+    actor?.type === "dashboard" && actor.email === "steward@example.com";
+  if (!isSteward) {
+    throw new Error("The 'pii' tag must be applied by a data steward.");
+  }
+}
+```
+
+Example: Require at least one tag before publishing.
+
+```js
+if (revision.status === "published" && revision.tags.length === 0) {
+  addWarning("This feature has no tags.");
+}
+```
 
 Example: Require a comment before publishing a draft.
 
