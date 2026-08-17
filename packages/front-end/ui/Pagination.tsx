@@ -5,7 +5,7 @@ import styles from "./Pagination.module.scss";
 
 export type PaginationItem =
   | { type: "page"; page: number }
-  | { type: "ellipsis"; side: "start" | "end" };
+  | { type: "ellipsis"; side: "start" | "end"; jumpTo: number };
 
 export type PaginationModel = {
   pageCount: number;
@@ -24,7 +24,11 @@ function getPageItems(start: number, end: number): PaginationItem[] {
   }));
 }
 
-/** A 1-page gap renders that page so the slot count stays constant. */
+/**
+ * A 1-page gap renders that page so the slot count stays constant. A wider gap
+ * becomes an ellipsis that jumps to the midpoint of the pages it hides, so
+ * repeated clicks bisect toward that end of the range.
+ */
 function getGapItems(
   side: "start" | "end",
   from: number,
@@ -33,7 +37,7 @@ function getGapItems(
   const hiddenCount = to - from + 1;
   if (hiddenCount <= 0) return [];
   if (hiddenCount === 1) return getPageItems(from, to);
-  return [{ type: "ellipsis", side }];
+  return [{ type: "ellipsis", side, jumpTo: Math.floor((from + to) / 2) }];
 }
 
 export function getPaginationModel({
@@ -157,13 +161,15 @@ const Pagination: FC<PaginationProps> = ({
             }
             case "ellipsis":
               return (
-                <li
-                  key={item.side}
-                  className={styles.break}
-                  style={slotStyle}
-                  aria-hidden="true"
-                >
-                  …
+                <li key={item.side} style={slotStyle}>
+                  <button
+                    type="button"
+                    className={styles.break}
+                    aria-label={`Jump to page ${item.jumpTo}`}
+                    onClick={() => onPageChange(item.jumpTo)}
+                  >
+                    …
+                  </button>
                 </li>
               );
             default: {

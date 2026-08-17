@@ -51,7 +51,7 @@ describe("getPaginationModel", () => {
             { type: "page", page: 3 },
             { type: "page", page: 4 },
             { type: "page", page: 5 },
-            { type: "ellipsis", side: "end" },
+            { type: "ellipsis", side: "end", jumpTo: 6 },
             { type: "page", page: 8 },
           ],
         );
@@ -61,7 +61,7 @@ describe("getPaginationModel", () => {
         expect(getPaginationModel({ pageCount: 8, currentPage }).items).toEqual(
           [
             { type: "page", page: 1 },
-            { type: "ellipsis", side: "start" },
+            { type: "ellipsis", side: "start", jumpTo: 2 },
             { type: "page", page: 4 },
             { type: "page", page: 5 },
             { type: "page", page: 6 },
@@ -82,7 +82,7 @@ describe("getPaginationModel", () => {
           { type: "page", page: 3 },
           { type: "page", page: 4 },
           { type: "page", page: 5 },
-          { type: "ellipsis", side: "end" },
+          { type: "ellipsis", side: "end", jumpTo: 7 },
           { type: "page", page: 10 },
         ]);
       }
@@ -91,22 +91,22 @@ describe("getPaginationModel", () => {
         getPaginationModel({ pageCount: 10, currentPage: 5 }).items,
       ).toEqual([
         { type: "page", page: 1 },
-        { type: "ellipsis", side: "start" },
+        { type: "ellipsis", side: "start", jumpTo: 2 },
         { type: "page", page: 4 },
         { type: "page", page: 5 },
         { type: "page", page: 6 },
-        { type: "ellipsis", side: "end" },
+        { type: "ellipsis", side: "end", jumpTo: 8 },
         { type: "page", page: 10 },
       ]);
       expect(
         getPaginationModel({ pageCount: 10, currentPage: 6 }).items,
       ).toEqual([
         { type: "page", page: 1 },
-        { type: "ellipsis", side: "start" },
+        { type: "ellipsis", side: "start", jumpTo: 3 },
         { type: "page", page: 5 },
         { type: "page", page: 6 },
         { type: "page", page: 7 },
-        { type: "ellipsis", side: "end" },
+        { type: "ellipsis", side: "end", jumpTo: 8 },
         { type: "page", page: 10 },
       ]);
 
@@ -115,7 +115,7 @@ describe("getPaginationModel", () => {
           getPaginationModel({ pageCount: 10, currentPage }).items,
         ).toEqual([
           { type: "page", page: 1 },
-          { type: "ellipsis", side: "start" },
+          { type: "ellipsis", side: "start", jumpTo: 3 },
           { type: "page", page: 6 },
           { type: "page", page: 7 },
           { type: "page", page: 8 },
@@ -134,31 +134,85 @@ describe("getPaginationModel", () => {
         { type: "page", page: 3 },
         { type: "page", page: 4 },
         { type: "page", page: 5 },
-        { type: "ellipsis", side: "end" },
+        { type: "ellipsis", side: "end", jumpTo: 52 },
         { type: "page", page: 100 },
       ]);
       expect(
         getPaginationModel({ pageCount: 100, currentPage: 50 }).items,
       ).toEqual([
         { type: "page", page: 1 },
-        { type: "ellipsis", side: "start" },
+        { type: "ellipsis", side: "start", jumpTo: 25 },
         { type: "page", page: 49 },
         { type: "page", page: 50 },
         { type: "page", page: 51 },
-        { type: "ellipsis", side: "end" },
+        { type: "ellipsis", side: "end", jumpTo: 75 },
         { type: "page", page: 100 },
       ]);
       expect(
         getPaginationModel({ pageCount: 100, currentPage: 99 }).items,
       ).toEqual([
         { type: "page", page: 1 },
-        { type: "ellipsis", side: "start" },
+        { type: "ellipsis", side: "start", jumpTo: 48 },
         { type: "page", page: 96 },
         { type: "page", page: 97 },
         { type: "page", page: 98 },
         { type: "page", page: 99 },
         { type: "page", page: 100 },
       ]);
+    });
+  });
+
+  describe("ellipsis jump target", () => {
+    it("jumps to the midpoint of the pages the ellipsis hides", () => {
+      // 100 pages on page 1: trailing ellipsis hides 6..99, midpoint 52.
+      const fromFirst = getPaginationModel({ pageCount: 100, currentPage: 1 });
+      expect(fromFirst.items).toContainEqual({
+        type: "ellipsis",
+        side: "end",
+        jumpTo: 52,
+      });
+
+      // On page 50 both gaps are symmetric: start hides 2..48 (25), end hides
+      // 52..99 (75).
+      const fromMiddle = getPaginationModel({
+        pageCount: 100,
+        currentPage: 50,
+      });
+      expect(fromMiddle.items).toContainEqual({
+        type: "ellipsis",
+        side: "start",
+        jumpTo: 25,
+      });
+      expect(fromMiddle.items).toContainEqual({
+        type: "ellipsis",
+        side: "end",
+        jumpTo: 75,
+      });
+    });
+
+    it("keeps every jump target strictly inside its own gap", () => {
+      for (let pageCount = 8; pageCount <= 200; pageCount++) {
+        for (let currentPage = 1; currentPage <= pageCount; currentPage++) {
+          const { items } = getPaginationModel({ pageCount, currentPage });
+
+          items.forEach((item, index) => {
+            if (item.type !== "ellipsis") return;
+
+            const previousItem = items[index - 1];
+            const nextItem = items[index + 1];
+            expect(previousItem.type).toBe("page");
+            expect(nextItem.type).toBe("page");
+
+            if (previousItem.type === "page" && nextItem.type === "page") {
+              // The jump lands on a hidden page, so it always moves the view
+              // and never targets an already-visible page.
+              expect(item.jumpTo).toBeGreaterThan(previousItem.page);
+              expect(item.jumpTo).toBeLessThan(nextItem.page);
+              expect(item.jumpTo).not.toBe(currentPage);
+            }
+          });
+        }
+      }
     });
   });
 

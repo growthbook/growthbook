@@ -78,10 +78,16 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    width: 100%;
     height: var(--space-6);
+    padding: 0;
+    border: none;
+    background: none;
     color: var(--gray-9);
+    font-family: inherit;
     font-size: var(--font-size-1);
     line-height: var(--line-height-1);
     font-variant-numeric: tabular-nums;
+    cursor: pointer;
   }
 }
