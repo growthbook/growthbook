@@ -1,14 +1,21 @@
 import {
   ExperimentMetricInterface,
+  expandDerivedMetricsInMap,
   getMetricSnapshotSettings,
 } from "shared/experiments";
 import { ExperimentInterface } from "shared/types/experiment";
 import { DataSourceInterface } from "shared/types/datasource";
 import {
   ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotSettings,
   MetricForSnapshot,
 } from "shared/types/experiment-snapshot";
-import { MetricSnapshotSettings } from "shared/types/report";
+import {
+  ExperimentSnapshotReportInterface,
+  LegacyExperimentReportArgs,
+  MetricSnapshotSettings,
+} from "shared/types/report";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ApiReqContext } from "back-end/types/api";
 import {
   assertIncrementalRefreshPrerequisites,
@@ -25,6 +32,11 @@ import {
   planSnapshot,
 } from "back-end/src/services/experiments";
 import { planMetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
+import { getQueryableMetricsFromSnapshotSettings } from "back-end/src/services/experimentQueries/experimentQueries";
+import {
+  getReportSnapshotSettings,
+  getSnapshotSettingsFromReportArgs,
+} from "back-end/src/services/reports";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
@@ -329,6 +341,256 @@ describe("snapshot planning", () => {
     expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
     expect(updateExperimentMock).not.toHaveBeenCalled();
     expect(updateExperimentDashboardsMock).not.toHaveBeenCalled();
+  });
+
+  // Exposure query identifies units by user_id; ft_joinable shares that id
+  // type, ft_orphan does not and the datasource has no identity join for it.
+  // Both metrics carry auto slices, so each expands into derived metrics.
+  function makeJoinabilityFixture() {
+    const datasource = makeDatasource({
+      settings: {
+        queries: {
+          exposure: [
+            {
+              id: "exposure_user",
+              name: "Users",
+              userIdType: "user_id",
+              query: "SELECT * FROM exposures",
+              dimensions: [],
+            },
+          ],
+        },
+      } as unknown as DataSourceInterface["settings"],
+    });
+    const sliceColumn = {
+      column: "country",
+      datatype: "string" as const,
+      name: "country",
+      description: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      numberFormat: "" as const,
+      deleted: false,
+      isAutoSliceColumn: true,
+      autoSlices: ["us", "ca"],
+    };
+    const joinableTable = factTableFactory.build({
+      id: "ft_joinable",
+      userIdTypes: ["user_id"],
+      columns: [sliceColumn],
+    });
+    const orphanTable = factTableFactory.build({
+      id: "ft_orphan",
+      userIdTypes: ["device_id"],
+      columns: [sliceColumn],
+    });
+    const factTableMap = new Map([
+      [joinableTable.id, joinableTable],
+      [orphanTable.id, orphanTable],
+    ]) as FactTableMap;
+    const joinableMetric = factMetricFactory.build({
+      id: "m_joinable",
+      numerator: { factTableId: "ft_joinable", column: "$$count" },
+      metricAutoSlices: ["country"],
+    });
+    const orphanMetric = factMetricFactory.build({
+      id: "m_orphan",
+      numerator: { factTableId: "ft_orphan", column: "$$count" },
+      metricAutoSlices: ["country"],
+    });
+    const metricMap = new Map<string, ExperimentMetricInterface>([
+      [joinableMetric.id, joinableMetric],
+      [orphanMetric.id, orphanMetric],
+    ]);
+    const settingsForSnapshotMetrics = [joinableMetric, orphanMetric].map(
+      (metric) =>
+        getMetricSnapshotSettings({
+          metric,
+          denominatorMetrics: [],
+          experimentRegressionAdjustmentEnabled: false,
+        }).metricSnapshotSettings,
+    );
+    return { datasource, factTableMap, metricMap, settingsForSnapshotMetrics };
+  }
+
+  function expectOnlyJoinableMetricsAnalyzed(
+    snapshotSettings: ExperimentSnapshotSettings,
+    metricMap: Map<string, ExperimentMetricInterface>,
+  ) {
+    const analyzedIds = snapshotSettings.metricSettings.map((m) => m.id);
+    expect(snapshotSettings.goalMetrics).toEqual(["m_joinable"]);
+    expect(analyzedIds).toContain("m_joinable");
+    expect(analyzedIds.some((id) => id.startsWith("m_joinable?dim:"))).toBe(
+      true,
+    );
+    expect(analyzedIds.filter((id) => id.startsWith("m_orphan"))).toEqual([]);
+
+    // The query runner selects metrics to query from these settings; the
+    // orphan's slices would otherwise reach the SQL builder, which has no way
+    // to join ft_orphan to the exposure units and fails the whole snapshot.
+    const queried = getQueryableMetricsFromSnapshotSettings(
+      snapshotSettings,
+      metricMap,
+    ).map((m) => m.id);
+    expect(queried.some((id) => id.startsWith("m_joinable?dim:"))).toBe(true);
+    expect(queried.filter((id) => id.startsWith("m_orphan"))).toEqual([]);
+  }
+
+  // Callers reach getSnapshotSettings both with a fresh metricMap and with one
+  // that was already expanded from the full experiment (e.g. the map built in
+  // createExperimentSnapshotFromPlan is reused for dashboard snapshots), so
+  // scrubbing must hold either way.
+  describe.each([
+    ["a fresh metricMap", false],
+    ["a metricMap already expanded from the unscrubbed experiment", true],
+  ])("snapshot settings with %s", (_label, preExpand) => {
+    it("do not analyze unjoinable metrics or their slices", () => {
+      const {
+        datasource,
+        factTableMap,
+        metricMap,
+        settingsForSnapshotMetrics,
+      } = makeJoinabilityFixture();
+      const experiment = makeExperiment({
+        exposureQueryId: "exposure_user",
+        goalMetrics: ["m_joinable", "m_orphan"],
+        metricOverrides: [],
+      });
+      if (preExpand) {
+        expandDerivedMetricsInMap({
+          metricMap,
+          factTableMap,
+          experiment,
+          metricGroups: [],
+        });
+      }
+
+      const snapshotSettings = getSnapshotSettings({
+        experiment,
+        phaseIndex: 0,
+        snapshotType: "standard",
+        dimension: null,
+        regressionAdjustmentEnabled: false,
+        orgPriorSettings: undefined,
+        orgDisabledPrecomputedDimensions: true,
+        settingsForSnapshotMetrics,
+        metricMap,
+        factTableMap,
+        metricGroups: [],
+        incrementalRefreshModel: null,
+        datasource,
+      });
+
+      expectOnlyJoinableMetricsAnalyzed(snapshotSettings, metricMap);
+    });
+  });
+
+  it("report settings drop unjoinable metrics and their slices", () => {
+    const { datasource, factTableMap, metricMap, settingsForSnapshotMetrics } =
+      makeJoinabilityFixture();
+    const experimentAnalysisSettings = {
+      exposureQueryId: "exposure_user",
+      goalMetrics: ["m_joinable", "m_orphan"],
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+      metricOverrides: [],
+    };
+    // Report generation expands derived metrics from the unscrubbed report
+    // settings before building the snapshot settings.
+    expandDerivedMetricsInMap({
+      metricMap,
+      factTableMap,
+      experiment: experimentAnalysisSettings,
+      metricGroups: [],
+    });
+
+    const snapshotSettings = getReportSnapshotSettings({
+      report: {
+        experimentAnalysisSettings,
+        experimentMetadata: {
+          phases: [{ variationWeights: [0.5, 0.5] }],
+          variations: [{ key: "0" }, { key: "1" }],
+        },
+      } as unknown as ExperimentSnapshotReportInterface,
+      analysisSettings: makeAnalysisSettings(),
+      phaseIndex: 0,
+      orgPriorSettings: undefined,
+      settingsForSnapshotMetrics,
+      metricMap,
+      factTableMap,
+      metricGroups: [],
+      datasource,
+    });
+
+    expectOnlyJoinableMetricsAnalyzed(snapshotSettings, metricMap);
+  });
+
+  it("expands legacy report metric groups consistently", () => {
+    const metricGroups = [
+      { id: "mg_goal", metrics: ["m_goal_a", "m_goal_b"] },
+      { id: "mg_secondary", metrics: ["m_secondary"] },
+      { id: "mg_guardrail", metrics: ["m_guardrail_a", "m_guardrail_b"] },
+    ].map(
+      ({ id, metrics }): MetricGroupInterface => ({
+        id,
+        organization: "org_123",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        owner: "",
+        name: id,
+        description: "",
+        tags: [],
+        projects: [],
+        metrics,
+        datasource: "ds_123",
+        archived: false,
+      }),
+    );
+    const metrics = metricGroups
+      .flatMap((group) => group.metrics)
+      .map((id) => factMetricFactory.build({ id }));
+    const metricMap = new Map<string, ExperimentMetricInterface>(
+      metrics.map((metric) => [metric.id, metric]),
+    );
+    const args: LegacyExperimentReportArgs = {
+      trackingKey: "experiment",
+      datasource: "ds_123",
+      exposureQueryId: "exposure",
+      startDate: new Date(),
+      variations: [
+        { id: "0", index: 0, name: "Control", weight: 0.5 },
+        { id: "1", index: 1, name: "Treatment", weight: 0.5 },
+      ],
+      goalMetrics: ["mg_goal"],
+      secondaryMetrics: ["mg_secondary"],
+      guardrailMetrics: ["mg_guardrail"],
+      decisionFrameworkSettings: {},
+    };
+
+    const { snapshotSettings, analysisSettings } =
+      getSnapshotSettingsFromReportArgs(
+        args,
+        metricMap,
+        undefined,
+        undefined,
+        metricGroups,
+      );
+
+    expect(snapshotSettings.metricSettings.map((metric) => metric.id)).toEqual([
+      "m_goal_a",
+      "m_goal_b",
+      "m_secondary",
+      "m_guardrail_a",
+      "m_guardrail_b",
+    ]);
+    expect(snapshotSettings.goalMetrics).toEqual(["m_goal_a", "m_goal_b"]);
+    expect(snapshotSettings.secondaryMetrics).toEqual(["m_secondary"]);
+    expect(snapshotSettings.guardrailMetrics).toEqual([
+      "m_guardrail_a",
+      "m_guardrail_b",
+    ]);
+    expect(analysisSettings.numGoalMetrics).toBe(2);
+    expect(analysisSettings.numGuardrailMetrics).toBe(2);
   });
 
   it("rejects a snapshot for an experiment with no metrics without persisting a record", async () => {
