@@ -9,10 +9,8 @@ import {
   AIPromptInterface,
   AIModel,
   AIProvider,
-  EmbeddingModel,
   formatAIRateLimitRetryMessage,
-  getProviderFromModel,
-  getProviderFromEmbeddingModel,
+  getProviderForAIModel,
 } from "shared/ai";
 import {
   EMBEDDING_MODEL_OPTIONS,
@@ -144,20 +142,14 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
   ];
 }
 
-// Warns when the selected model's provider has no key, stored or inherited.
-// `hasKey` comes from useAIProviderKeys so org-stored keys count.
 const ApiKeyWarning: React.FC<{
   model?: string;
   hasKey: (model: AIModel | string) => boolean;
 }> = ({ model, hasKey }) => {
   if (!model) return null;
   if (hasKey(model)) return null;
-  let provider: AIProvider;
-  try {
-    provider = getProviderFromModel(model as AIModel);
-  } catch {
-    return null;
-  }
+  const provider = getProviderForAIModel("text", model);
+  if (provider === null) return null;
   return (
     <Box mt="2">
       <Callout status="warning">
@@ -168,17 +160,12 @@ const ApiKeyWarning: React.FC<{
   );
 };
 
-// ApiKeyWarning for embedding models, which live in their own registry.
 const EmbeddingKeyWarning: React.FC<{
   embeddingModel: string;
   hasKey: (provider: AIProvider) => boolean;
 }> = ({ embeddingModel, hasKey }) => {
-  let provider: AIProvider;
-  try {
-    provider = getProviderFromEmbeddingModel(embeddingModel as EmbeddingModel);
-  } catch {
-    return null;
-  }
+  const provider = getProviderForAIModel("embedding", embeddingModel);
+  if (provider === null) return null;
   if (hasKey(provider)) return null;
   return (
     <Box mt="2">
@@ -190,9 +177,6 @@ const EmbeddingKeyWarning: React.FC<{
   );
 };
 
-// Adds a muted second line to the row a picker falls back to, so "what happens
-// if I leave this alone" is visible in the list. Menu only — the closed control
-// shows the label alone.
 const modelOptionLabel = (
   option: { value: string; label: string },
   context: string,
@@ -233,8 +217,6 @@ export default function AISettings({
     selectableProviders: availableProviders,
   } = aiProviderAccess;
 
-  // Cloud names the model each "use the default" row resolves to. Self-hosted
-  // has no managed model, so its rows stay unannotated.
   const managedDefaultNote = isCloud()
     ? { value: "", note: getModelDisplayLabel(CLOUD_MANAGED_AI_MODEL) }
     : null;
@@ -242,19 +224,18 @@ export default function AISettings({
     ? { value: "", note: getModelDisplayLabel(defaultAIModel) }
     : null;
 
-  // Removing a key clears these server-side. The form holds its own copy and
-  // would write the stale model back on the next save, so clear that too. Any
-  // prompt override the server dropped comes back on the prompts refetch.
   const clearModelSettings = (keys: AIModelSettingKey[]) => {
     keys.forEach((key) => form.setValue(key, ""));
     mutatePrompts();
   };
 
-  // Every field here writes org settings, which the back end gates on
-  // canManageOrgSettings. Without this the controls look editable to a non-admin
-  // and only fail on save.
   const permissionsUtil = usePermissionsUtil();
   const canEdit = permissionsUtil.canManageOrgSettings();
+  const embeddingModel =
+    form.watch("embeddingModel") || "text-embedding-ada-002";
+  const embeddingProvider = getProviderForAIModel("embedding", embeddingModel);
+  const hasEmbeddingKey =
+    embeddingProvider === null || hasKeyForProvider(embeddingProvider);
 
   // Subscribe to formState.isDirty by reading it during render.
   // This is required for react-hook-form to properly track dirty state
@@ -330,10 +311,6 @@ export default function AISettings({
               <Box mb="6">
                 <span className="text-muted">View AI Settings</span>
               </Box>
-              {/* Recovery only: a downgrade shouldn't strand a stored key, and
-                  a failed load shouldn't hide one. Without a key to remove
-                  there is nothing to recover, and rendering the section anyway
-                  would pitch BYOK under a section this plan has locked. */}
               {(aiProviderAccess.error ||
                 aiProviderAccess.credentials.length > 0) && (
                 <AIProviderKeys access={aiProviderAccess} />
@@ -374,8 +351,6 @@ export default function AISettings({
                   </Callout>
                 </Box>
               )}
-              {/* Rendered even when AI is disabled or the plan was downgraded,
-                  so stored credentials and load errors stay reachable. */}
               <AIProviderKeys
                 access={aiProviderAccess}
                 showPermissionCallout={false}
@@ -401,7 +376,6 @@ export default function AISettings({
                       helpText="Used by every AI feature that doesn't override it."
                       value={form.watch("defaultAIModel") || ""}
                       onChange={(v) => form.setValue("defaultAIModel", v)}
-                      // Keep the registry's newest-first model order.
                       sort={false}
                       options={[
                         ...(isCloud() ? [GROWTHBOOK_DEFAULT_MODEL_OPTION] : []),
@@ -415,9 +389,6 @@ export default function AISettings({
                       }
                     />
                     <ApiKeyWarning
-                      // On Cloud an empty value means the managed model, which
-                      // needs no key of the org's — don't warn about the
-                      // self-hosted fallback it isn't using.
                       model={
                         form.watch("defaultAIModel") ||
                         (isCloud() ? "" : "gpt-4o-mini")
@@ -439,8 +410,6 @@ export default function AISettings({
                       id="embeddingModel"
                       disabled={!canEdit}
                       helpText="Used for semantic search across experiments. Supports OpenAI, Mistral, and Google. Default is text-embedding-ada-002."
-                      // Self-hosted keeps the pre-BYOK picker: all models, no
-                      // "use default" entry.
                       value={
                         isCloud()
                           ? form.watch("embeddingModel") || ""
@@ -458,9 +427,6 @@ export default function AISettings({
                       }
                     />
                     <EmbeddingKeyWarning
-                      // Warn against the model the default resolves to, not the
-                      // empty value: self-hosted still needs an OpenAI key for
-                      // it, and that is worth saying before the first query.
                       embeddingModel={
                         form.watch("embeddingModel") || "text-embedding-ada-002"
                       }
@@ -537,7 +503,6 @@ export default function AISettings({
                                     { shouldDirty: true },
                                   )
                                 }
-                                // Keep the registry's newest-first model order.
                                 sort={false}
                                 options={getAvailablePromptModelOptions(
                                   availableProviders,
@@ -698,7 +663,6 @@ export default function AISettings({
                           onChange={(v) =>
                             form.setValue("visualEditorAIModel", v)
                           }
-                          // Keep the registry's newest-first model order.
                           sort={false}
                           options={[
                             USE_DEFAULT_MODEL_OPTION,
@@ -734,7 +698,6 @@ export default function AISettings({
                             form.setValue("visualEditorImageModel", v)
                           }
                           sort={false}
-                          // Unfiltered on self-hosted, as before BYOK.
                           options={getAvailableImageModelOptions(
                             isCloud() ? availableProviders : undefined,
                             form.watch("visualEditorImageModel") || "",
@@ -756,59 +719,34 @@ export default function AISettings({
               </Box>
 
               <Flex align="start" direction="column" flexGrow="1" pt="6">
-                <>
-                  <Box mb="6" width="100%">
-                    <>
-                      <p>
-                        GrowthBook can use AI to analyze your experiments for
-                        semantic meaning. This is used to help you find related
-                        experiments, and to generate summaries of your
-                        experiments.
-                      </p>
-                      <p>
-                        These similarity scores are automatically updated, but
-                        if the results seem off, you can regenerate them here.
-                      </p>
-                      {(() => {
-                        const embeddingModel =
-                          form.watch("embeddingModel") ||
-                          "text-embedding-ada-002";
-                        // Assume a key until proven otherwise, so an unknown
-                        // model doesn't disable the button.
-                        let hasKey = true;
-                        try {
-                          hasKey = hasKeyForProvider(
-                            getProviderFromEmbeddingModel(embeddingModel),
-                          );
-                        } catch {
-                          // Unknown embedding model — leave the button enabled.
-                        }
-
-                        return (
-                          <>
-                            <Button
-                              onClick={handleRegenerate}
-                              disabled={loading || !hasKey || !canEdit}
-                              variant="solid"
-                            >
-                              {loading ? "Regenerating..." : "Regenerate all"}
-                            </Button>
-                            <EmbeddingKeyWarning
-                              embeddingModel={embeddingModel}
-                              hasKey={hasKeyForProvider}
-                            />
-                          </>
-                        );
-                      })()}
-                      {error && (
-                        <Box className="col-auto pt-3">
-                          <Callout status="error">{error}</Callout>
-                        </Box>
-                      )}
-                    </>
-                    <Box mt="3">{embeddingMsg}</Box>
-                  </Box>
-                </>
+                <Box mb="6" width="100%">
+                  <p>
+                    GrowthBook can use AI to analyze your experiments for
+                    semantic meaning. This is used to help you find related
+                    experiments, and to generate summaries of your experiments.
+                  </p>
+                  <p>
+                    These similarity scores are automatically updated, but if
+                    the results seem off, you can regenerate them here.
+                  </p>
+                  <Button
+                    onClick={handleRegenerate}
+                    disabled={loading || !hasEmbeddingKey || !canEdit}
+                    variant="solid"
+                  >
+                    {loading ? "Regenerating..." : "Regenerate all"}
+                  </Button>
+                  <EmbeddingKeyWarning
+                    embeddingModel={embeddingModel}
+                    hasKey={hasKeyForProvider}
+                  />
+                  {error && (
+                    <Box className="col-auto pt-3">
+                      <Callout status="error">{error}</Callout>
+                    </Box>
+                  )}
+                  <Box mt="3">{embeddingMsg}</Box>
+                </Box>
               </Flex>
             </Flex>
           </Frame>

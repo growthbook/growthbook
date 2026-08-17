@@ -62,7 +62,7 @@ The default display currency is USD, but you can change it under **Settings** â†
 
 ## Metric Types
 
-There are 6 types of metrics you can create within GrowthBook - Proportion, Retention, Daily Participation, Mean, Ratio, and Quantile.
+There are 7 types of metrics you can create within GrowthBook - Proportion, Retention, Daily Participation, Mean, Ratio, Quantile, and Funnel.
 
 ### Proportion Metrics
 
@@ -158,6 +158,16 @@ You have the option to `Ignore Zeros`.
 For event-level analysis, ignoring zeros entails removing all events from the analysis with value equal to 0. Similarly, for a user-level analysis, removing zeros entails removing all rows corresponding to user-level aggregations that have value 0.
 
 When picking `Quantile` you have several default options or can select `Custom`. If you select `Custom` you must input a number between 0 and 1. For example, inputting 0.75 will compare the $75^{\text{th}}$ percentiles across variations.
+
+### Funnel Metrics
+
+<CommercialFeature feature="funnel-metrics" />
+
+Funnel Metrics measure the share of exposed units who complete a series of steps in order, such as viewing a product, adding it to a cart, and then purchasing. Instead of a numerator, you define an ordered list of steps, each with its own row filters and conversion window.
+
+Each step is measured against all exposed units, not just the units who completed the previous step, which keeps every step directly comparable to your other metrics. The metric's own value is the share of units who reach the last step.
+
+See [Funnel Metrics](/app/metrics/funnel) for step settings, conversion windows, optional steps, and the API.
 
 ## Filters
 

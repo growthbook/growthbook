@@ -30,8 +30,8 @@ export function assertConfigSchemaCompat({
 }): void {
   if (jsonSchemaEnabled && (baseConfig ?? null) !== null) {
     throw new BadRequestError(
-      "A flag cannot define its own JSON schema while it is backed by a config (`baseConfig`). " +
-        "The config's schema is authoritative — remove `baseConfig` or the flag's jsonSchema.",
+      "A flag cannot define its own JSON schema while it is backed by a Config (`baseConfig`). " +
+        "The Config's schema is authoritative — remove `baseConfig` or the flag's jsonSchema.",
     );
   }
 }
@@ -46,7 +46,7 @@ async function requireLiveConfig(
 ): Promise<void> {
   if (!CONFIG_KEY_RE.test(key)) {
     throw new BadRequestError(
-      `Invalid config key "${key}". Keys must be lowercase alphanumeric with hyphens/underscores.`,
+      `Invalid Config key "${key}". Keys must be lowercase alphanumeric with hyphens/underscores.`,
     );
   }
   const config = await context.models.configs.getByKey(key);
@@ -64,7 +64,7 @@ async function requireLiveConfig(
   // configs (no project) are usable everywhere. Matches the UI's config picker.
   if (config.project && config.project !== (featureProject || "")) {
     throw new BadRequestError(
-      `Config "${key}" is scoped to a different project than this feature and cannot back its values. Use a global config or one in the feature's project.`,
+      `Config "${key}" is scoped to a different project than this Feature Flag and cannot back its values. Use a global Config or one in the Feature Flag's project.`,
     );
   }
   // Flavors are selected implicitly per environment via the base's
@@ -72,7 +72,7 @@ async function requireLiveConfig(
   // environment and dodge its env-scoped review.
   if (isScopedConfig(config)) {
     throw new BadRequestError(
-      `Config "${key}" is an environment/project override of "${config.scopedConfig?.parent}" and can't back a feature value directly — reference its base config instead.`,
+      `Config "${key}" is an environment/project override of "${config.scopedConfig?.parent}" and can't back a feature value directly — reference its base Config instead.`,
     );
   }
 }
@@ -86,7 +86,7 @@ export function assertNoRawConfigExtends(
 ): void {
   if (valueHasConfigExtends(value)) {
     throw new BadRequestError(
-      `${label} must not embed a config via a raw "$extends" "@config:" directive. Use the config field instead (baseConfig / defaultValueConfig / a rule's config).`,
+      `${label} must not embed a Config via a raw "$extends" "@config:" directive. Use the config field instead (baseConfig / defaultValueConfig / a rule's config).`,
     );
   }
 }
@@ -108,7 +108,7 @@ export function composeConfigBacking(
     !parsePlainJSONObject(value ?? "")
   ) {
     throw new BadRequestError(
-      `${label} must be a JSON object when backed by a config — a scalar or array value can't extend a config.`,
+      `${label} must be a JSON object when backed by a Config — a scalar or array value can't extend a Config.`,
     );
   }
   return setConfigBacking(configKey ?? null, value);
@@ -182,7 +182,7 @@ export async function assertValidRuleConfigKeys(
       : getConfigBackingKey(effectiveDefaultValue);
   if (defaultConfigKey === null) {
     throw new BadRequestError(
-      "Rule values can only reference a config when the feature's default value is config-backed.",
+      "Rule values can only reference a Config when the feature's default value is config-backed.",
     );
   }
   const allConfigs = await context.models.configs.getAll();
@@ -190,7 +190,7 @@ export async function assertValidRuleConfigKeys(
   for (const key of keys) {
     if (!family.has(key)) {
       throw new BadRequestError(
-        `Config "${key}" is not the feature's default config "${defaultConfigKey}" or one of its descendants.`,
+        `Config "${key}" is not the Feature Flag's default Config "${defaultConfigKey}" or one of its descendants.`,
       );
     }
   }

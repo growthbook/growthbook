@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex, TextField } from "@radix-ui/themes";
 import { useRouter } from "next/router";
@@ -161,10 +162,18 @@ function revisionToRow(revision: Revision): ApprovalRow {
       ? revision.target.snapshot?.groupName || revision.target.id
       : revision.target.id;
 
+  // Saved Groups carry `projects[]`; Configs and Constants a scalar `project`.
+  // Reading only the array left the scalar entities with no project, so a
+  // project-filtered "needs my review" view dropped them entirely.
+  const snapshot = revision.target.snapshot as
+    | { projects?: string[]; project?: string }
+    | undefined;
   const projects =
     revision.target.type === "saved-group"
-      ? (revision.target.snapshot?.projects ?? [])
-      : [];
+      ? (snapshot?.projects ?? [])
+      : snapshot?.project
+        ? [snapshot.project]
+        : [];
 
   return {
     id: revision.id,
@@ -356,11 +365,10 @@ const ApprovalRequests: FC = () => {
     return items.filter((item) => allowed.has(item.status));
   }, [items, hasExplicitStatusFilter]);
 
-  // Per-row "can I act on this as a reviewer?" check. Mirrors the rules used
-  // elsewhere: `canReview` permission on the feature's project for feature
-  // revisions, and "can edit = can review" (canUpdateSavedGroup) for
-  // saved-group revisions — matching canUserReviewEntity in
-  // shared/src/revisions/helpers.ts.
+  // Per-row "can I act on this as a reviewer?" check. Reviewing is its own
+  // authority for every model, so each row asks the same question of its own
+  // family's review atom. Constants and Configs previously fell through to
+  // `false`, hiding their rows from every reviewer.
   const canReviewRow = useCallback(
     (row: ApprovalRow): boolean => {
       if (row.entityType === "feature") {
@@ -368,10 +376,16 @@ const ApprovalRequests: FC = () => {
           project: row.projects[0] ?? "",
         });
       }
-      if (row.entityType === "saved-group") {
-        return permissionsUtil.canUpdateSavedGroup(
+      if (
+        row.entityType === "saved-group" ||
+        row.entityType === "constant" ||
+        row.entityType === "config"
+      ) {
+        return permissionsUtil.canRevisionAction(
+          row.entityType,
+          "review",
           { projects: row.projects },
-          { projects: row.projects },
+          NO_ENVIRONMENT_BINDING,
         );
       }
       return false;

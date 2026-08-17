@@ -28,6 +28,7 @@ import { useAISettings } from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import { PA_AI_CHAT_INITIAL_MESSAGE_KEY } from "./util";
 import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
+import styles from "./EmptyState.module.scss";
 
 export default function EmptyState() {
   const router = useRouter();
@@ -212,9 +213,12 @@ export default function EmptyState() {
                   }}
                 >
                   <Button
+                    className={styles.sendButton}
                     onClick={handleSubmit}
                     disabled={chatDisabled || isDataSourceEmpty}
                     size="md"
+                    title="Send message"
+                    aria-label="Send message"
                   >
                     <PiArrowRightBold size={16} />
                   </Button>

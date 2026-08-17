@@ -10,11 +10,10 @@ export const aiPromptTypeValidator = z.enum(AI_PROMPT_TYPES);
 
 export const aiProviderValidator = z.enum(AI_PROVIDERS);
 
-// Create a tuple of all valid AI models from all providers
 const allAIModels = Object.values(AI_PROVIDER_MODEL_MAP).flat() as [
-  string,
-  ...string[],
-] as AIModel[];
+  AIModel,
+  ...AIModel[],
+];
 
 export const aiModelValidator = z.enum(allAIModels);
 

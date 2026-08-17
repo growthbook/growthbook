@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
 import {
   FeatureRevisionLogInterface,
@@ -58,9 +59,21 @@ export class FeatureRevisionLogModel extends BaseClass {
     if (!feature) {
       throw new Error("Feature not found for FeatureRevisionLog");
     }
+    // An entry is the RECORD of an already-gated action, and every writer is
+    // fire-and-forget — a per-action-class check asks for rights the actor never
+    // needed, then drops the entry silently when they differ (a reviewer's
+    // changes-requested cancels a pending schedule, which is publish-class). Any
+    // authority over the flag suffices; environments are unbound because the
+    // record isn't environment-specific.
+    const permissions = this.context.permissions;
     return (
-      this.context.permissions.canCreateFeature(feature) ||
-      this.context.permissions.canManageFeatureDrafts(feature)
+      permissions.canCreateFeature(feature, NO_ENVIRONMENT_BINDING) ||
+      permissions.canEditFeatureDrafts(feature) ||
+      permissions.canReviewFeatureDrafts(feature) ||
+      permissions.canPublishFeature(feature, NO_ENVIRONMENT_BINDING) ||
+      permissions.canRevertFeature(feature, NO_ENVIRONMENT_BINDING) ||
+      permissions.canDeleteFeature(feature, NO_ENVIRONMENT_BINDING) ||
+      permissions.canAddComment(feature.project ? [feature.project] : [])
     );
   }
 
@@ -151,13 +164,34 @@ export class FeatureRevisionLogModel extends BaseClass {
 
   public async deleteAllByFeature(feature: FeatureInterface) {
     // We should keep the log unless the feature itself is deleted.
-    if (!this.context.permissions.canDeleteFeature(feature)) {
+    if (
+      !this.context.permissions.canDeleteFeature(
+        feature,
+        NO_ENVIRONMENT_BINDING,
+      )
+    ) {
       throw new Error("You do not have access to delete this resource");
     }
 
     return await this._dangerousGetCollection().deleteMany({
       organization: this.context.org.id,
       featureId: feature.id,
+    });
+  }
+
+  // Compensation for a landing that recorded a revision and then never wrote:
+  // the revision doc is deleted by its creator, and its log rows must not
+  // survive to be adopted by a later revision that reuses the version number.
+  // No permission gate — the caller was authorized for the landing itself, and
+  // this only ever removes rows for a revision that no longer exists.
+  public async deleteAllByFeatureIdAndVersion(
+    featureId: string,
+    version: number,
+  ) {
+    return await this._dangerousGetCollection().deleteMany({
+      organization: this.context.org.id,
+      featureId,
+      version,
     });
   }
 }

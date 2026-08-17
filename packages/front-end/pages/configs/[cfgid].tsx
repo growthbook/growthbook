@@ -1,3 +1,16 @@
+import {
+  archiveFootprintForControl,
+  NO_ENVIRONMENT_BINDING,
+  canCommentOnRevisionEntity,
+  canDeleteArchivedEntity,
+  canLandArchiveToggle,
+  canLandRevertToTarget,
+  canPublishRevisionEntity,
+  canReviewRevisionEntity,
+  holdsRevisionDestination,
+  revisionPublishFootprint,
+  serveFootprint,
+} from "shared/permissions";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { ConstantInterface } from "shared/types/constant";
@@ -9,23 +22,26 @@ import {
   getConstantRevisionChange,
 } from "shared/enterprise";
 import {
-  constantRequiresReview,
-  getReviewSetting,
-  parsePlainJSONObject,
-  resolveConfigChain,
+  proposedArchivedValue,
   ConfigChainNode,
-  simpleToJSONSchema,
-  fieldsToTsType,
-  fieldsToProto,
-  fieldsToGolang,
-  fieldsToRust,
-  fieldsToPython,
-  getConfigSubtree,
+  SchemaProjection,
   computeConfigReconciliationPreview,
+  configPublishEnvironments,
+  constantRequiresReview,
   evaluateInvariants,
+  fieldsToGolang,
+  fieldsToProto,
+  fieldsToPython,
+  fieldsToRust,
+  fieldsToTsType,
+  getConfigSubtree,
+  getReviewSetting,
   invariantRuleFields,
   isScopedConfig,
-  SchemaProjection,
+  parsePlainJSONObject,
+  resolveConfigChain,
+  restoredProjectScope,
+  simpleToJSONSchema,
 } from "shared/util";
 import {
   buildConstantValueMap,
@@ -51,6 +67,7 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useEnvironments } from "@/services/features";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import Owner from "@/components/Avatar/Owner";
@@ -226,10 +243,10 @@ function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
       }
     >
       <DropdownMenuGroup label="Value">
-        {item("Config", "This config's own value", payloads.ownValue)}
+        {item("Config", "This Config's own value", payloads.ownValue)}
         {item(
-          "Resolved config",
-          "Inheritance + constants resolved",
+          "Resolved Config",
+          "Inheritance + Constants resolved",
           payloads.resolvedValue,
         )}
       </DropdownMenuGroup>
@@ -278,6 +295,7 @@ export default function ConfigDetailPage(): React.ReactElement {
   } = useDefinitions();
   const { organization, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
+  const environments = useEnvironments();
 
   const [editInfoOpen, setEditInfoOpen] = useState(false);
   const [confirmRevert, setConfirmRevert] = useState(false);
@@ -800,6 +818,29 @@ export default function ConfigDetailPage(): React.ReactElement {
     squashConstants,
   ]);
 
+  // Above the early returns: hooks must run in the same order every render, so
+  // this cannot sit below the loading guard. `config` is not proven present yet,
+  // hence the null-safe body.
+  //
+  // The footprint the publish endpoint will derive for the selected revision: the
+  // Config's scoped environments, widened to everywhere it serves when the
+  // revision flips `archived` either way. A base Config scopes to none, and an
+  // empty footprint SKIPS the environment check rather than narrowing it.
+  const revisionPublishEnvironments = useMemo(() => {
+    if (!config) return [];
+    const pending = selectedRevision ?? displayRevision;
+    const scoped = configPublishEnvironments(config);
+    if (!pending) return scoped;
+    return revisionPublishFootprint({
+      proposedChanges: {
+        archived: proposedArchivedValue(pending.target.proposedChanges),
+      },
+      currentArchived: config.archived,
+      scoped,
+      serving: serveFootprint(environments, config),
+    });
+  }, [selectedRevision, displayRevision, config, environments]);
+
   if (error) {
     return (
       <div className="container-fluid pagecontents">
@@ -846,7 +887,44 @@ export default function ConfigDetailPage(): React.ReactElement {
     mutateDefinitions();
   };
 
-  const canUpdate = permissionsUtil.canUpdateConfig(config, config);
+  const canDraft = permissionsUtil.canRevisionAction(
+    "config",
+    "draft",
+    config,
+    NO_ENVIRONMENT_BINDING,
+  );
+  // Reverting is its own authority — a revert-only role holds no draft or
+  // publish rights, and revert alone is enough to both propose and land one.
+  // Proposing a revert publishes nothing, so it is project-scoped; landing one
+  // answers for the environments the restore reaches. Footprinting both left an
+  // environment-limited reverter unable to even stage a revert for a publisher.
+  const canRevertEntity = permissionsUtil.canRevisionAction(
+    "config",
+    "revert",
+    config,
+    NO_ENVIRONMENT_BINDING,
+  );
+  const canRevertLandingEntity = permissionsUtil.canRevisionAction(
+    "config",
+    "revert",
+    config,
+    // The SELECTED revision's footprint, not the Config's bare scope: restoring a
+    // revision that flips `archived` takes the Config out of service, or returns it,
+    // everywhere it serves — which is exactly the widening `revisionPublishEnvironments`
+    // above already computes for the publish control. The scoped list under-scopes it,
+    // and for a base Config it is empty, which skips the environment check entirely.
+    revisionPublishEnvironments,
+  );
+  // Lock and the experiment guard are written straight to the live Config, never
+  // staged in a revision, so they take the publish atom — matching lockConfig and
+  // setConfigExperimentGuard on the server. Gating them on the draft atom offered
+  // a control that then 403'd.
+  const canPublishNow = permissionsUtil.canRevisionAction(
+    "config",
+    "publish",
+    config,
+    configPublishEnvironments(config),
+  );
   // Delete leaf-up: a config that others still derive from (parent-spine
   // children, composition mixins, or env/project overrides) can't be deleted
   // until those are gone. Mirrors the server's assertConfigDeletable so the UI
@@ -858,23 +936,52 @@ export default function ConfigDetailPage(): React.ReactElement {
       (n.parentKey === config.key ||
         (n.extendsKeys ?? []).includes(config.key)),
   );
+  // Delete requires the Config to be archived first, and an archived Config is
+  // serving nothing anywhere — so the server takes no environment for it. Pass
+  // the same, or an env-limited deleter would be shown no Delete control for a
+  // Config they are in fact allowed to remove.
+  // Structural precondition stays here; the authority rule does not.
   const canDeleteNow =
-    permissionsUtil.canDeleteConfig(config) &&
-    !!config.archived &&
+    canDeleteArchivedEntity(permissionsUtil, "config", config) &&
     !hasDescendants;
   // A locked config is frozen — no edit controls at all (unlock is a separate,
   // bypass-gated control). Editing is otherwise allowed both in a draft and in
   // the live view; a selected merged/discarded revision is a read-only history
   // view (selectedRevision set + not a draft), so it stays non-editable.
   const isLocked = !!config.lock;
-  const canEditNow = canUpdate && !isLocked && (!selectedRevision || isDraft);
+  const canEditNow = canDraft && !isLocked && (!selectedRevision || isDraft);
+  // Archiving is delete-class server-side — it takes the Config out of service,
+  // and being archived is what allows deleting it. Unarchiving returns it to
+  // service, so it's an ordinary publish.
+  // Either authority is enough: the landing atom stands on its own for a pure
+  // archive, and an editor without it can still stage the flip as a draft.
+  const canLandArchive = canLandArchiveToggle(
+    permissionsUtil,
+    "config",
+    config,
+    // Flipping `archived` reaches everywhere the Config serves; a base Config
+    // names no scoped environments, and an empty footprint SKIPS the environment
+    // check instead of narrowing it.
+    archiveFootprintForControl({
+      environments,
+      entity: config,
+      scoped: configPublishEnvironments(config),
+    }),
+  );
+  const canArchiveNow =
+    (canLandArchive || canEditNow) &&
+    !isLocked &&
+    (!selectedRevision || isDraft);
   // Inline editing works in a live context too — saving auto-creates a draft
   // (saveValue's writeQuery falls back to ?forceCreateRevision=1). Kept in lockstep
   // with canEditNow so locked/discarded contexts expose no edit controls.
   const canEditInline = canEditNow;
-  const canBypassApproval = permissionsUtil.canBypassApprovalChecks({
-    project: config.project || "",
-  });
+  const canBypassApproval = permissionsUtil.canBypassFlagApprovalChecks(
+    {
+      project: config.project || "",
+    },
+    "config",
+  );
 
   const revisionCtx: ConstantRevisionContext = {
     allRevisions,
@@ -883,6 +990,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     approvalRequired,
     metadataReviewRequired,
     canBypassApproval,
+    canPublish: canPublishNow,
   };
 
   const projectName = displayedConfig.project
@@ -1280,8 +1388,8 @@ export default function ConfigDetailPage(): React.ReactElement {
               value=""
               placeholder={
                 composeOptions.length
-                  ? "Select a config to extend with…"
-                  : "No other configs available"
+                  ? "Select a Config to extend with…"
+                  : "No other Configs available"
               }
               options={composeOptions}
               autoFocus
@@ -1305,7 +1413,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       <Box mt="2" py="1">
         <Link size="md" weight="medium" onClick={() => setComposeAdding(true)}>
           <PiPlusBold style={{ marginRight: 3, verticalAlign: "middle" }} />
-          Add config mixin
+          Add Config mixin
         </Link>
         {composeError && (
           <HelperText status="error" size="sm" mt="1">
@@ -1389,7 +1497,12 @@ export default function ConfigDetailPage(): React.ReactElement {
                     extensible={effectiveExtensible}
                   />
                 </Box>
-                {canUpdate && (
+                {/* Creating an override Config is a create, not an edit of the
+                    parent — gating it on the parent's draft rights both offered
+                    an action that fails and hid one create-only users hold. */}
+                {permissionsUtil.canCreateConfig({
+                  project: config.project || "",
+                }) && (
                   <Box mt="3" pl="1">
                     {hasConfigsFeature ? (
                       <Link
@@ -1400,7 +1513,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                         <PiPlusBold
                           style={{ marginRight: 3, verticalAlign: "middle" }}
                         />
-                        Add override config
+                        Add override Config
                       </Link>
                     ) : (
                       <PremiumTooltip commercialFeature="feature-configs">
@@ -1408,7 +1521,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                           <PiPlusBold
                             style={{ marginRight: 3, verticalAlign: "middle" }}
                           />
-                          Add override config
+                          Add override Config
                         </Link>
                       </PremiumTooltip>
                     )}
@@ -1541,7 +1654,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                       Audit history
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
-                  {((!config.lock && canUpdate) || !!config.lock) && (
+                  {((!config.lock && canPublishNow) || !!config.lock) && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuGroup>
@@ -1561,7 +1674,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                             disabled={!canBypassApproval}
                             tooltip={
                               !canBypassApproval
-                                ? "You don't have permission to unlock this config."
+                                ? "You don't have permission to unlock this Config."
                                 : undefined
                             }
                             onClick={() => {
@@ -1575,7 +1688,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                       </DropdownMenuGroup>
                     </>
                   )}
-                  {((!config.experimentGuard && canUpdate) ||
+                  {((!config.experimentGuard && canPublishNow) ||
                     !!config.experimentGuard) && (
                     <>
                       <DropdownMenuSeparator />
@@ -1611,18 +1724,20 @@ export default function ConfigDetailPage(): React.ReactElement {
                       </DropdownMenuGroup>
                     </>
                   )}
-                  {(canEditNow || canDeleteNow) && (
+                  {(canEditNow || canArchiveNow || canDeleteNow) && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuGroup>
-                        {canEditNow && (
+                        {canArchiveNow && (
                           <DropdownMenuItem
                             onClick={() => {
                               setMenuOpen(false);
                               setShowArchiveModal(true);
                             }}
                           >
-                            {displayedConfig.archived ? "Unarchive" : "Archive"}
+                            {/* LIVE state: the endpoint flips against live, so the
+                                projected state labels the opposite action. */}
+                            {config.archived ? "Unarchive" : "Archive"}
                           </DropdownMenuItem>
                         )}
                         {canDeleteNow && (
@@ -1692,10 +1807,10 @@ export default function ConfigDetailPage(): React.ReactElement {
                 <RevisionSummaryCard
                   allRevisions={allRevisions}
                   selectedRevision={selectedRevision}
-                  entityNoun="config"
+                  entityNoun="Config"
                   hasRevisions={allRevisions.length > 0}
-                  canEditTitle={canUpdate && !isLocked}
-                  canEditDescription={canUpdate && !isLocked}
+                  canEditTitle={canDraft && !isLocked}
+                  canEditDescription={canDraft && !isLocked}
                   fallbackOwnerId={config.owner}
                   fallbackDateCreated={config.dateCreated}
                   onSelectRevision={selectRevision}
@@ -1707,11 +1822,11 @@ export default function ConfigDetailPage(): React.ReactElement {
                     await mutateRevisions();
                   }}
                   onNewDraft={
-                    canUpdate && !isLocked ? handleNewDraft : undefined
+                    canDraft && !isLocked ? handleNewDraft : undefined
                   }
                   onReviewPublish={() => setTabAndScroll("review")}
                   onEditDescription={
-                    canUpdate && !isLocked
+                    canDraft && !isLocked
                       ? () => setEditDescriptionModal(true)
                       : undefined
                   }
@@ -1802,8 +1917,8 @@ export default function ConfigDetailPage(): React.ReactElement {
                           <Callout status="warning" mt="3">
                             These staged changes leave{" "}
                             {draftDescendantImpact.length === 1
-                              ? "a descendant config"
-                              : `${draftDescendantImpact.length} descendant configs`}{" "}
+                              ? "a descendant Config"
+                              : `${draftDescendantImpact.length} descendant Configs`}{" "}
                             with overrides of removed or retyped fields:{" "}
                             {draftDescendantImpact
                               .map((n) => {
@@ -1824,8 +1939,8 @@ export default function ConfigDetailPage(): React.ReactElement {
                         {familyInvariantViolations.length > 0 && (
                           <Callout status="warning" mt="3">
                             {familyInvariantViolations.length === 1
-                              ? "A config in this family violates its validation rules"
-                              : `${familyInvariantViolations.length} configs in this family violate their validation rules`}{" "}
+                              ? "A Config in this family violates its validation rules"
+                              : `${familyInvariantViolations.length} Configs in this family violate their validation rules`}{" "}
                             against the values shown here:{" "}
                             {familyInvariantViolations
                               .map(
@@ -2070,7 +2185,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                 />
                 <ConfigCustomHooksSection
                   config={config}
-                  canManage={canUpdate}
+                  canManage={canDraft}
                   lineage={[
                     ...data.lineage,
                     ...(data.composerFamilies ?? []).flatMap((f) => f.lineage),
@@ -2086,9 +2201,81 @@ export default function ConfigDetailPage(): React.ReactElement {
                 currentState={config}
                 diffConfig={REVISION_CONFIG_DIFF_CONFIG}
                 entityName={config.name}
-                entityNoun="config"
+                entityNoun="Config"
                 requiresApproval={selectedRevisionRequiresApproval}
-                canEditEntity={canUpdate}
+                canEditEntity={canDraft}
+                canRevertEntity={canRevertEntity}
+                canLandRevertEntity={canRevertLandingEntity}
+                // Project-scoped, matching the adapter's `canDeleteEntity` and the
+                // Constant page: this gates whether a narrow atom may SUBMIT a
+                // pure-archive draft, which changes nothing live. Scoped to serving
+                // environments it hid the control from a role that could propose the
+                // archive perfectly well. Landing it is the env-scoped question, and
+                // `canLandArchiveEntity` below is what asks it.
+                canDeleteEntity={permissionsUtil.canRevisionAction(
+                  "config",
+                  "delete",
+                  config,
+                  NO_ENVIRONMENT_BINDING,
+                )}
+                // A base Config names no environments, so its scoped footprint is
+                // empty and SKIPS the environment check — but archiving one takes
+                // it out of service everywhere, which is what the endpoint asks.
+                canLandArchiveEntity={canLandArchiveToggle(
+                  permissionsUtil,
+                  "config",
+                  config,
+                  archiveFootprintForControl({
+                    environments,
+                    entity: config,
+                    scoped: configPublishEnvironments(config),
+                  }),
+                )}
+                holdsLandingDestination={holdsRevisionDestination(
+                  permissionsUtil,
+                  "config",
+                  "publish",
+                  selectedRevision ?? displayRevision ?? null,
+                  config,
+                  configPublishEnvironments(config),
+                )}
+                canCommentOnEntity={canCommentOnRevisionEntity(
+                  permissionsUtil,
+                  "config",
+                  selectedRevision ?? displayRevision ?? null,
+                  config,
+                )}
+                canReviewEntity={canReviewRevisionEntity(
+                  permissionsUtil,
+                  "config",
+                  selectedRevision ?? displayRevision ?? null,
+                  config,
+                )}
+                canManageDraftsEntity={permissionsUtil.canRevisionAction(
+                  "config",
+                  "draft",
+                  config,
+                )}
+                canPublishEntity={canPublishRevisionEntity(
+                  permissionsUtil,
+                  "config",
+                  selectedRevision ?? displayRevision ?? null,
+                  config,
+                  revisionPublishEnvironments,
+                )}
+                // The basis the CANCEL arm actually uses: the adapter's
+                // `canPublishRevision(snapshot)` = the entity's OWN scoped
+                // environments, with no destination term and no archive-flip
+                // widening. Passing the revision-derived footprint dropped the
+                // destination term but kept the widening, so an env-limited
+                // publisher on an archive-flipping revision still lost the Cancel
+                // button for a schedule the endpoint would let them withdraw.
+                canPublishEntityCoarse={permissionsUtil.canRevisionAction(
+                  "config",
+                  "publish",
+                  config,
+                  configPublishEnvironments(config),
+                )}
                 canBypassApproval={canBypassApproval}
                 publishBlockedReason={
                   config.lock
@@ -2130,7 +2317,12 @@ export default function ConfigDetailPage(): React.ReactElement {
 
       {showArchiveModal && (
         <ConfigArchiveModal
-          config={displayedConfig}
+          // LIVE state, like the feature page does: the endpoint flips against
+          // live, so handing the revision-PROJECTED Config here inverted the
+          // action whenever the viewed draft staged the opposite archive state —
+          // the modal predicted one atom and submitted the other, and the endpoint
+          // saw no transition at all and wrote nothing.
+          config={config}
           revisionCtx={revisionCtx}
           onSaved={onRevisionCreated}
           selectFlow={selectRevision}
@@ -2196,6 +2388,45 @@ export default function ConfigDetailPage(): React.ReactElement {
 
       {confirmRevert && revisionToRevert && (
         <ConfigRevertModal
+          canRevert={canRevertEntity}
+          canLandRevert={canRevertLandingEntity}
+          // Recomputed per target: restoring an older snapshot can relocate the
+          // entity, and the destination is judged on the state being restored.
+          canLandRevertForTarget={(t) => {
+            // A revert that flips `archived` takes the Config out of service, or
+            // returns it, EVERYWHERE it serves — the footprint the endpoint now
+            // requires. The Config's own scope is empty for a base Config, so
+            // predicting with it offered "Publish now" for an archive restore the
+            // server then refused.
+            // The COMPLETE state being restored — snapshot plus its patches — not
+            // just this revision's `/archived` patch. A snapshot already archived
+            // without the revision touching `/archived` restores an archived Config
+            // with no patch to read, and the footprint was missed. Same derivation
+            // RevertModal uses.
+            const restoredState = applyTopLevelPatchOps(
+              t.target.snapshot as Record<string, unknown>,
+              t.target.proposedChanges,
+            ) as { archived?: boolean };
+            const flipsArchive =
+              !!restoredState.archived !== !!config?.archived;
+            return canLandRevertToTarget(
+              permissionsUtil,
+              "config",
+              config,
+              restoredProjectScope(t),
+              flipsArchive
+                ? archiveFootprintForControl({
+                    environments,
+                    entity: config ?? {},
+                    // A scoped Config binds to its own environments; widening it to
+                    // everything it could serve over-demands.
+                    scoped: configPublishEnvironments(config),
+                  })
+                : configPublishEnvironments(config),
+            );
+          }}
+          canLandArchive={canLandArchive}
+          canDraft={canDraft}
           config={config}
           revision={revisionToRevert}
           allRevisions={allRevisions}
@@ -2252,7 +2483,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       {confirmDelete && (
         <ConfirmDialog
           title={`Delete "${config.name}"?`}
-          content="This permanently deletes the config. This cannot be undone."
+          content="This permanently deletes the Config. This cannot be undone."
           yesText="Delete"
           onConfirm={async () => {
             // After deleting, land on the nearest config still in this lineage

@@ -3338,6 +3338,10 @@ describe("buildFeatureRulesFromApiEnvSettings", () => {
   // registered-attribute check so these tests focus on rule-shape concerns.
   const mockContext = {
     org: { settings: {} },
+    // Privileged skips are resolved per entity family now, so the validators ask
+    // the method rather than reading a boolean getter.
+    canSkipSchemaValidationFor: () => false,
+    canSkipHooksFor: () => false,
   } as unknown as Parameters<typeof buildFeatureRulesFromApiEnvSettings>[0];
 
   it("preserves rule-level prerequisites across rule types", () => {
