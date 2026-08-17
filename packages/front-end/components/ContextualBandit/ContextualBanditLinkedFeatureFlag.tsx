@@ -35,11 +35,6 @@ export default function ContextualBanditLinkedFeatureFlag({
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const [removing, setRemoving] = useState(false);
-  // Value edits land on a feature draft, so nothing visible changes until it
-  // publishes — track where the last save went so the card can say so.
-  const [stagedValuesVersion, setStagedValuesVersion] = useState<number | null>(
-    null,
-  );
   const [editModalOpen, setEditModalOpen] = useState(false);
 
   const canEditCb =
@@ -112,6 +107,15 @@ export default function ContextualBanditLinkedFeatureFlag({
       hasStagedChange: staged !== undefined,
     };
   });
+
+  const stagedChangeVersions = [
+    ...new Set(
+      variationValueStates
+        .filter((s) => s.hasStagedChange && s.stagedVersion != null)
+        .map((s) => s.stagedVersion as number),
+    ),
+  ].sort((a, b) => b - a);
+  const stagedChangeVersion = stagedChangeVersions[0];
 
   const environmentStates = Object.entries(info.environmentStates || {}).map(
     ([env, state]) => ({
@@ -205,7 +209,6 @@ export default function ContextualBanditLinkedFeatureFlag({
           linkedFeatureInfo={info}
           close={() => setEditModalOpen(false)}
           mutate={() => mutate?.()}
-          onSaved={(version) => setStagedValuesVersion(version)}
         />
       )}
       <LinkedChange
@@ -238,10 +241,19 @@ export default function ContextualBanditLinkedFeatureFlag({
           );
         })()}
       >
-        {stagedValuesVersion != null && (
+        {stagedChangeVersion != null && (
           <Callout status="info" my="4">
             There is a new revision with changes to variation values. The values
             below are live until the changes are published.
+            <Box mt="1">
+              <Link
+                href={`/features/${info.feature?.id}?v=${stagedChangeVersion}`}
+                target="_blank"
+              >
+                Review draft
+                <PiArrowSquareOut className="ml-1" />
+              </Link>
+            </Box>
           </Callout>
         )}
         {info.state === "archived" && (
@@ -357,7 +369,7 @@ export default function ContextualBanditLinkedFeatureFlag({
                               />
                             )}
                             {variationValueStates[j].hasStagedChange && (
-                              <HelperText status="info">
+                              <HelperText status="warning">
                                 Staged in revision #
                                 {variationValueStates[j].stagedVersion} — not
                                 serving yet
