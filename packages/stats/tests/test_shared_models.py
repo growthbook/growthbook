@@ -6,6 +6,8 @@ from unittest import TestCase, main as unittest_main
 import copy
 import numpy as np
 from dataclasses import asdict
+from typing import Literal
+
 from gbstats.messages import ZERO_NEGATIVE_VARIANCE_MESSAGE
 from gbstats.models.statistics import (
     ProportionStatistic,
@@ -332,6 +334,44 @@ class TestEffectMomentsResult(TestCase):
         self.assertEqual(
             moments.compute_result().error_message, ZERO_NEGATIVE_VARIANCE_MESSAGE
         )
+
+
+class TestEffectMomentsNegativeBaseline(TestCase):
+    def _moments(
+        self,
+        mean_a: float,
+        mean_b: float,
+        difference_type: Literal["relative", "absolute"],
+    ):
+        n = 1000
+        # Same spread either side so the only thing that differs is the mean.
+        stat_a = SampleMeanStatistic(
+            n=n, sum=mean_a * n, sum_squares=(mean_a**2 + 4) * n
+        )
+        stat_b = SampleMeanStatistic(
+            n=n, sum=mean_b * n, sum_squares=(mean_b**2 + 4) * n
+        )
+        return EffectMoments(
+            [(stat_a, stat_b)],
+            config=EffectMomentsConfig(difference_type=difference_type),
+        ).compute_result()
+
+    def test_relative_sign_matches_absolute_sign(self):
+        for mean_a, mean_b in [(-10, -5), (-10, -15), (-2, 3), (10, 15), (10, 5)]:
+            absolute = self._moments(mean_a, mean_b, "absolute")
+            relative = self._moments(mean_a, mean_b, "relative")
+            self.assertIsNone(absolute.error_message)
+            self.assertIsNone(relative.error_message)
+            self.assertEqual(
+                np.sign(relative.point_estimate),
+                np.sign(absolute.point_estimate),
+                msg=f"sign mismatch for baseline {mean_a} -> {mean_b}",
+            )
+
+    def test_relative_magnitude_scaled_by_baseline_magnitude(self):
+        relative = self._moments(-10, -5, "relative")
+        self.assertAlmostEqual(relative.point_estimate, 0.5)
+        self.assertGreater(relative.standard_error, 0)
 
 
 if __name__ == "__main__":
