@@ -59,7 +59,13 @@ function makeRoute(
   method: "get" | "post" | "put" | "patch" | "delete",
   path: string,
   rawHandler: (req: FakeReq) => unknown | Promise<unknown>,
-  schemas: { params?: ZodType; body?: ZodType; query?: ZodType } = {},
+  schemas: {
+    params?: ZodType;
+    body?: ZodType;
+    query?: ZodType;
+    response?: ZodType;
+  } = {},
+  surfaceInputWarnings?: boolean,
 ): OpenApiRoute {
   return {
     method,
@@ -67,6 +73,7 @@ function makeRoute(
     operationId: `op_${method}_${path}`,
     schemas,
     rawHandler,
+    surfaceInputWarnings,
   } as unknown as OpenApiRoute;
 }
 
@@ -448,5 +455,45 @@ describe("dispatchInternal", () => {
     });
 
     expect(result).toEqual({ status: 200, body: { q: { sort: "name" } } });
+  });
+});
+
+describe("input warnings", () => {
+  // The dispatcher must return the same body as the HTTP path, warnings
+  // included — otherwise the in-process caller silently loses them.
+  const body = z.object({ id: z.string() });
+  const response = z.object({ ok: z.boolean() });
+
+  it("returns warnings for an opted-in route", async () => {
+    _setRoutesForTests([
+      makeRoute(
+        "post",
+        "/things",
+        () => ({ ok: true }),
+        { body, response },
+        true,
+      ),
+    ]);
+    const res = await dispatchInternal(makeCtx(), {
+      method: "POST",
+      path: "/api/v1/things",
+      body: { id: "a", bogus: 1 },
+    });
+    expect(res.status).toBe(200);
+    expect((res.body as { warnings?: string[] }).warnings).toEqual([
+      "Unrecognized field `bogus` was ignored.",
+    ]);
+  });
+
+  it("returns none for a route that has not opted in", async () => {
+    _setRoutesForTests([
+      makeRoute("post", "/things", () => ({ ok: true }), { body, response }),
+    ]);
+    const res = await dispatchInternal(makeCtx(), {
+      method: "POST",
+      path: "/api/v1/things",
+      body: { id: "a", bogus: 1 },
+    });
+    expect(res.body).not.toHaveProperty("warnings");
   });
 });

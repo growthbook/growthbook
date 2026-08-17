@@ -1,4 +1,7 @@
-import { postFeatureV2Validator } from "shared/validators";
+import {
+  postFeatureV2Validator,
+  updateFeatureV2Validator,
+} from "shared/validators";
 import { buildInputWarnings, runApiHandler } from "back-end/src/util/handler";
 
 // The bulk write endpoints have non-strict nested objects, so an unrecognized
@@ -59,6 +62,54 @@ describe("buildInputWarnings", () => {
 
   it("does not treat a missing nested object as a stripped key", () => {
     expect(buildInputWarnings({ a: { b: 1 } }, { a: "replaced" })).toEqual([]);
+  });
+});
+
+describe("round-trip echoes", () => {
+  // A caller following the documented GET -> edit -> PUT flow sends back the
+  // response-only fields a GET returned. Those are echoes, not mistakes, and
+  // are suppressed by matching the endpoint's own response schema — so fields
+  // added to a response later are covered without changing this logic.
+  const ruleFromGet = {
+    id: "fr_1",
+    type: "force",
+    value: "true",
+    condition: "",
+    enabled: true,
+    prerequisites: [],
+    allEnvironments: true,
+    allProjects: true,
+    scheduleType: "none",
+    bucketVersion: 0,
+    minBucketVersion: 0,
+    fallbackAttribute: "id",
+    disableStickyBucketing: false,
+    pendingRamp: "create",
+    rampScheduleId: "rs_1",
+  };
+
+  const put = async (rule: Record<string, unknown>) => {
+    const body = { rules: [rule] };
+    const res = await runApiHandler(
+      { params: {}, query: {}, body: JSON.parse(JSON.stringify(body)) },
+      {
+        body: updateFeatureV2Validator.bodySchema,
+        response: updateFeatureV2Validator.responseSchema,
+      },
+      async () => ({ feature: { id: "f" } }),
+      { surfaceInputWarnings: true },
+    );
+    return (res.body as { warnings?: string[] }).warnings ?? [];
+  };
+
+  it("stays silent when a GET response is posted straight back", async () => {
+    expect(await put(ruleFromGet)).toEqual([]);
+  });
+
+  it("still flags a genuine typo sent alongside the echoed fields", async () => {
+    expect(await put({ ...ruleFromGet, conditon: "{}" })).toEqual([
+      "Unrecognized field `rules[0].conditon` was ignored.",
+    ]);
   });
 });
 

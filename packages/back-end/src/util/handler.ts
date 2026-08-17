@@ -204,13 +204,49 @@ function collectAlternateKeys(
   return found;
 }
 
+const responseKeyCache = new WeakMap<ZodType, ReadonlySet<string>>();
+
+// Every property name the endpoint can return, at any depth. Anything a caller
+// echoes back from a GET is a round-trip artifact rather than a mistake, so it
+// must not be warned about. Derived from the schema, so response-only fields
+// added later are covered without touching this file.
+function responseKeyNames(schema: ZodType): ReadonlySet<string> {
+  const cached = responseKeyCache.get(schema);
+  if (cached) return cached;
+
+  const names = new Set<string>();
+  const collect = (node: unknown): void => {
+    if (Array.isArray(node)) return node.forEach(collect);
+    if (!isPlainObject(node)) return;
+    const props = node.properties;
+    if (isPlainObject(props)) Object.keys(props).forEach((k) => names.add(k));
+    Object.values(node).forEach(collect);
+  };
+  // Converting to JSON Schema keeps this off Zod's internals, which shift
+  // between major versions. A schema that can't convert simply suppresses
+  // nothing, which is the pre-existing behaviour.
+  try {
+    collect(z.toJSONSchema(schema, { unrepresentable: "any", io: "output" }));
+  } catch {
+    // fall through with whatever was collected
+  }
+
+  responseKeyCache.set(schema, names);
+  return names;
+}
+
 // Advisories about how a request body was read. Always ride along with a 2xx
 // and are never gated behind `ignoreWarnings`.
-export function buildInputWarnings(raw: unknown, parsed: unknown): string[] {
+export function buildInputWarnings(
+  raw: unknown,
+  parsed: unknown,
+  echoedKeys: ReadonlySet<string> = new Set(),
+): string[] {
+  const stripped = collectStrippedKeys(raw, parsed).filter(
+    (key) => !echoedKeys.has(key.split(".").pop() ?? key),
+  );
   return [
-    ...collectStrippedKeys(raw, parsed).map(
-      (key) => `Unrecognized field \`${key}\` was ignored.`,
-    ),
+    ...stripped.map((key) => `Unrecognized field \`${key}\` was ignored.`),
     ...collectAlternateKeys(raw).map(
       ({ path, use }) =>
         `\`${path}\` is accepted for compatibility but is not part of the documented contract. Use \`${use}\` instead.`,
@@ -238,6 +274,7 @@ export async function runApiHandler(
     params?: ZodType;
     body?: ZodType;
     query?: ZodType;
+    response?: ZodType;
   },
   handler: (req: never) => Promise<unknown>,
   options?: { surfaceInputWarnings?: boolean },
@@ -275,7 +312,11 @@ export async function runApiHandler(
   try {
     const result = await handler(req as never);
     if (options?.surfaceInputWarnings && isPlainObject(result)) {
-      const warnings = buildInputWarnings(rawBody, req.body);
+      const warnings = buildInputWarnings(
+        rawBody,
+        req.body,
+        schemas.response ? responseKeyNames(schemas.response) : undefined,
+      );
       if (warnings.length) {
         return { status: 200, body: { ...result, warnings } };
       }
@@ -374,6 +415,7 @@ export type OpenApiRoute<
   excludeFromSpec?: boolean;
   /** Error codes this endpoint may throw, used to generate OpenAPI error response schemas. */
   possibleErrors?: readonly ApiErrorCode[];
+  surfaceInputWarnings?: boolean;
 };
 
 export function createApiRequestHandler<
@@ -433,6 +475,7 @@ export function createApiRequestHandler<
             params: paramsSchema,
             body: bodySchema,
             query: querySchema,
+            response: responseSchema,
           },
           handler,
           { surfaceInputWarnings },
@@ -472,6 +515,7 @@ export function createApiRequestHandler<
       rawHandler: handler,
       excludeFromSpec,
       possibleErrors,
+      surfaceInputWarnings,
     };
 
     return route;
