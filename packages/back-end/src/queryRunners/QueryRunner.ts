@@ -80,6 +80,40 @@ const FINISH_EVENT = "finish";
 const INITIAL_CONCURRENCY_TIMEOUT = 250;
 const MAX_CONCURRENCY_TIMEOUT = 4000;
 
+// How often the refresh watchdog re-arms the debounced refresh while the
+// runner is active. Query completions normally drive the refresh, but every
+// trigger is a single-shot in-memory hand-off: a transient error, a stale
+// status read, or a lost concurrency-backoff timer can silently strand the
+// model in "running" until the stalled-snapshot reaper errors it an hour
+// later. The watchdog turns any such dropped trigger into a bounded delay.
+// It exists for lost-trigger recovery, not latency, so the interval is
+// deliberately long to keep the steady-state read load negligible.
+const REFRESH_WATCHDOG_INTERVAL_MS = 5 * 60 * 1000;
+// If a single refresh pass has been in flight for this long, assume one of
+// its awaits will never settle: fence the stuck pass off (it abandons at its
+// next checkpoint instead of publishing stale state) and start a fresh one.
+// The clock restarts at every pass checkpoint, so this bounds one SEGMENT
+// between checkpoints (model read / analysis / publish), not the whole pass.
+// The fence exists because Mongo awaits are unbounded (no socketTimeout is
+// configured), so a wedged connection would otherwise hang a pass forever.
+// Stats-engine calls are bounded per call (local pool: 5 min acquire + 5 min
+// call by default; external server: 10 min), but runSnapshotAnalyses runs
+// its chunks sequentially, so a multi-chunk analysis on a slow engine can
+// legitimately exceed this and be fenced while still progressing. That
+// costs a duplicate (convergent) analysis on the replacement pass — an
+// accepted trade-off; raise this if a deployment sees it regularly.
+const REFRESH_STUCK_RETRIGGER_MS = 15 * 60 * 1000;
+// After this many consecutive failed refresh passes, stop retrying and fail
+// the run so the user sees a real error instead of an eternal "running".
+// The counter is shared across model re-fetch failures, status-refresh
+// failures and watchdog fences; when the pass that reaches the limit is a
+// re-fetch failure the runner stands down (the model itself is gone —
+// almost always a cancel) rather than failing the run.
+const MAX_CONSECUTIVE_REFRESH_FAILURES = 5;
+// How many missing/result-less query names to spell out in the
+// assertQueryMapComplete error before eliding the rest.
+const MAX_NAMES_IN_ERROR = 5;
+
 const GENERIC_QUERY_FAILURE_ERROR =
   "Failed to run a majority of the database queries";
 
@@ -96,6 +130,54 @@ export function getQueryFailureError(queryMap: QueryMap): string {
     (q) => !q.error?.startsWith("Dependencies failed"),
   );
   return (rootCause ?? failed[0])?.error || GENERIC_QUERY_FAILURE_ERROR;
+}
+
+// Overall status rollup for a set of query pointers: failed if at least
+// half the queries failed, running while any are queued or running,
+// partially-succeeded if a minority failed, succeeded otherwise.
+export function rollupQueryStatus(queries: Queries): QueryStatus {
+  const failedQueries = queries.filter((q) => q.status === "failed");
+  const runningQueries = queries.filter((q) => q.status === "running");
+  const queuedQueries = queries.filter((q) => q.status === "queued");
+
+  const totalQueries = queries.length;
+
+  if (failedQueries.length >= totalQueries / 2) return "failed";
+
+  if (queuedQueries.length + runningQueries.length > 0) return "running";
+
+  if (failedQueries.length > 0) return "partially-succeeded";
+
+  return "succeeded";
+}
+
+// A partial query-doc read must never reach the analysis step: metrics whose
+// query docs are missing from the map get silently zero-filled into the
+// published result, which the UI then renders as a complete snapshot with
+// "no difference" rows. Throwing turns a partial read into a retryable
+// error instead of silently-wrong published data.
+// Exported for tests.
+export function assertQueryMapComplete(
+  queries: Queries,
+  queryMap: QueryMap,
+): void {
+  const missing = queries.filter((pointer) => {
+    const doc = queryMap.get(pointer.name);
+    if (doc === undefined) return true;
+    return (
+      doc.status === "succeeded" &&
+      (doc.result === undefined || doc.result === null)
+    );
+  });
+  if (missing.length > 0) {
+    const names = missing
+      .slice(0, MAX_NAMES_IN_ERROR)
+      .map((q) => q.name)
+      .join(", ");
+    throw new Error(
+      `Refusing to run analysis with incomplete query results: ${missing.length} of ${queries.length} query docs are missing or have no stored result (${names}${missing.length > MAX_NAMES_IN_ERROR ? ", ..." : ""})`,
+    );
+  }
 }
 
 export async function getQueryMap(
@@ -119,7 +201,15 @@ export async function getQueryMap(
       // If the query succeeded, add it to the cache
       // We could do this for failed queries too, but we may want to do retries in the future
       // Also, failed queries are tiny since they don't have result rows, so caching doesn't help much
-      if (query.status === "succeeded" && cache) {
+      // Only cache docs that carry their stored result, so a partial read
+      // (see assertQueryMapComplete) is re-read on the next pass instead of
+      // being pinned in the cache.
+      if (
+        query.status === "succeeded" &&
+        query.result !== undefined &&
+        query.result !== null &&
+        cache
+      ) {
         cache.set(pointer.name, query);
       }
     }
@@ -158,6 +248,18 @@ export abstract class QueryRunner<
   private useCache: boolean;
   private pendingTimers: Record<string, NodeJS.Timeout> = {};
   private lockHeartbeatTimer: null | NodeJS.Timeout = null;
+  private refreshWatchdogTimer: null | NodeJS.Timeout = null;
+  // Epoch ms when the currently-running refresh pass started, or null when
+  // no pass is in flight. Used by the watchdog to detect a stuck pass.
+  private refreshStartedAt: number | null = null;
+  private consecutiveRefreshFailures = 0;
+  // Refresh passes are strictly serialized on this chain so two passes can
+  // never mutate this.model or run duplicate analyses concurrently. The
+  // generation is a fence: the watchdog bumps it when it abandons a stuck
+  // pass, and a fenced-off pass stops at its next checkpoint instead of
+  // publishing stale state.
+  private refreshChain: Promise<void> = Promise.resolve();
+  private refreshGeneration = 0;
   private finishedQueryMapCache: QueryMap = new Map();
   protected experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null =
     null;
@@ -235,7 +337,72 @@ export abstract class QueryRunner<
     }
   }
 
+  private startRefreshWatchdog(): void {
+    if (this.refreshWatchdogTimer) return;
+    this.refreshWatchdogTimer = setInterval(() => {
+      this.runRefreshWatchdogCheck();
+    }, REFRESH_WATCHDOG_INTERVAL_MS);
+  }
+
+  private stopRefreshWatchdog(): void {
+    if (this.refreshWatchdogTimer) {
+      clearInterval(this.refreshWatchdogTimer);
+      this.refreshWatchdogTimer = null;
+    }
+  }
+
+  // Re-arm the debounced refresh if nothing else is going to. See the
+  // comment on REFRESH_WATCHDOG_INTERVAL_MS for why this exists.
+  private runRefreshWatchdogCheck(): void {
+    if (this.status !== "running") return;
+    // A refresh is already scheduled
+    if (this.timer) return;
+    if (this.refreshStartedAt !== null) {
+      const inFlightMs = Date.now() - this.refreshStartedAt;
+      // A refresh pass is running normally
+      if (inFlightMs < REFRESH_STUCK_RETRIGGER_MS) return;
+      // A stuck pass counts as a failure: a permanently-hanging runner
+      // (e.g. a wedged stats engine) must eventually fail loudly rather
+      // than fence-and-restart forever.
+      this.consecutiveRefreshFailures++;
+      if (this.consecutiveRefreshFailures >= MAX_CONSECUTIVE_REFRESH_FAILURES) {
+        logger.error(
+          `Giving up on runner of ${this.model.id}: ${this.consecutiveRefreshFailures} consecutive refresh passes failed or hung`,
+        );
+        this.shutDownWithError(
+          "Refresh repeatedly hung; results were not finalized",
+        );
+        return;
+      }
+      // Fence the stuck pass off and start over on a fresh chain. The stuck
+      // pass (if one of its awaits ever settles) abandons at its next
+      // checkpoint. Checkpoints bracket the analysis and the publish, but
+      // the interiors of individual awaits (notably updateModel) are not
+      // checkpoints — a write already in flight cannot be recalled; it is
+      // convergent with the replacement's (same terminal query docs).
+      logger.warn(
+        `Refresh pass for ${this.model.id} has been in flight for ${inFlightMs}ms; abandoning it and starting a fresh pass`,
+      );
+      this.refreshGeneration++;
+      this.refreshChain = Promise.resolve();
+      this.refreshStartedAt = null;
+    } else {
+      logger.debug(
+        `Refresh watchdog for ${this.model.id}: re-arming the debounced refresh`,
+      );
+    }
+    this.onQueryFinish();
+  }
+
   async onQueryFinish() {
+    // A late query completion must not restart a runner that already
+    // concluded (e.g. shut down after repeated refresh failures).
+    if (this.status === "finished") {
+      logger.debug(
+        "Query finished for " + this.model.id + " after the runner concluded",
+      );
+      return;
+    }
     // Dependency-free queries can finish while startAnalysis() is still
     // persisting the query DAG. Wait until the DAG is durable so the debounced
     // refresh cannot read an empty query list and swallow the real refresh.
@@ -253,56 +420,9 @@ export abstract class QueryRunner<
           this.model.id +
           " runner, refreshing in 1 second",
       );
-      this.timer = setTimeout(async () => {
+      this.timer = setTimeout(() => {
         this.timer = null;
-        // Fetch the latest model in its own try so we can distinguish
-        // "model is gone or unreadable" from a genuine refresh failure.
-        // The most common cause of getLatestModel throwing here is a
-        // concurrent cancel: cancelSnapshot constructs its own runner
-        // instance to call cancelQueries() and then deletes the snapshot,
-        // so this (separate) instance never sees the status flip and only
-        // learns about the cancellation when getLatestModel returns null.
-        // There's nothing useful to refresh in that case; if instead this
-        // was a transient DB error, one of the other onQueryFinish call
-        // sites will retry on the next query state change.
-        let latest: Model;
-        try {
-          logger.debug("Getting latest model for " + this.model.id);
-          latest = await this.getLatestModel();
-        } catch (e) {
-          logger.debug(
-            `Skipping refresh for ${this.model.id}: ${
-              e instanceof Error ? e.message : String(e)
-            }`,
-          );
-          return;
-        }
-        this.model = latest;
-        try {
-          const queryMap = await this.refreshQueryStatuses();
-          await this.startReadyQueries(queryMap);
-        } catch (e) {
-          logger.error(
-            e,
-            "Error refreshing query statuses for runner of " + this.model.id,
-          );
-          if (this.status !== "finished") {
-            const error = "Error finalizing query results: " + e.message;
-            try {
-              this.model = await this.updateModel({
-                status: "failed",
-                queries: this.model.queries,
-                error,
-              });
-            } catch (writeErr) {
-              logger.error(
-                writeErr,
-                "Failed to persist error status for runner of " + this.model.id,
-              );
-            }
-            this.setStatus("finished", error);
-          }
-        }
+        this.queueRefreshPass();
       }, 1000);
     } else {
       logger.debug(
@@ -310,6 +430,216 @@ export abstract class QueryRunner<
           this.model.id +
           " runner, timer already started",
       );
+    }
+  }
+
+  // Terminal error write used by shutDownWithError. Overridable so models
+  // with a status field can make the write conditional on the run still
+  // being active — a shutdown must never clobber a conclusion that another
+  // finalizer (e.g. the stalled-snapshot reaper erroring it, or a cancel)
+  // already published.
+  protected async writeErrorIfStillActive(error: string): Promise<void> {
+    this.model = await this.updateModel({
+      status: "failed",
+      queries: this.model.queries,
+      error,
+    });
+  }
+
+  // Terminal shutdown for a runner that cannot make progress: fences off
+  // any queued or late refresh passes, clears every timer this runner owns
+  // (debounce, queued-query backoff, watchdog and heartbeat via setStatus)
+  // and finishes loudly. Best-effort persists the error; if that write
+  // fails, the stalled-snapshot reaper backstops experiment snapshots
+  // (within its 24-hour scan window) while model types without a reaper
+  // keep their database status until a user retries — same as before, but
+  // now with error logs.
+  private shutDownWithError(error: string): void {
+    this.refreshGeneration++;
+    this.refreshChain = Promise.resolve();
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+    this.clearAllTimers();
+    const fullError = "Error finalizing query results: " + error;
+    this.writeErrorIfStillActive(fullError).catch((writeErr) => {
+      logger.error(
+        writeErr,
+        "Failed to persist error status for runner of " + this.model.id,
+      );
+    });
+    this.setStatus("finished", fullError);
+  }
+
+  // Enqueue one refresh pass on the serialized chain. Passes run strictly
+  // one after another; see the refreshChain field comment.
+  private queueRefreshPass(): void {
+    const gen = this.refreshGeneration;
+    this.refreshChain = this.refreshChain
+      .then(() => this.runRefreshPass(gen))
+      .catch((e) => {
+        // runRefreshPass catches errors from the model re-fetch and the
+        // status refresh itself; this catches any rejection from the parts
+        // outside those inner try/catches (isModelTerminal, setStatus and
+        // its finish listeners, clearAllTimers) so later passes still run.
+        // It counts as a failed pass and gives up after
+        // MAX_CONSECUTIVE_REFRESH_FAILURES like any other.
+        this.consecutiveRefreshFailures++;
+        logger.error(
+          e,
+          "Unexpected error in refresh pass chain for " + this.model.id,
+        );
+        if (
+          this.consecutiveRefreshFailures >= MAX_CONSECUTIVE_REFRESH_FAILURES &&
+          this.status !== "finished"
+        ) {
+          this.shutDownWithError(e instanceof Error ? e.message : String(e));
+        }
+      });
+  }
+
+  // Checkpoint for a refresh pass. True when the watchdog fenced this pass
+  // off as stuck (or the runner shut down or stood down); the pass must not
+  // publish or swap this.model (an await already in flight may still land
+  // its convergent pointer-status update). A pass that is NOT superseded
+  // marks progress: the stuck clock restarts, so REFRESH_STUCK_RETRIGGER_MS
+  // applies per segment between checkpoints rather than to the pass as a
+  // whole, and a pass that keeps reaching checkpoints on a huge snapshot is
+  // never fenced mid-work. (The awaits inside a segment are not all bounded
+  // — Mongo has no socket timeout — which is what the fence is for; see
+  // REFRESH_STUCK_RETRIGGER_MS.)
+  private passSuperseded(gen: number): boolean {
+    if (gen !== this.refreshGeneration) {
+      logger.debug(
+        `Abandoning superseded refresh pass for ${this.model.id} without publishing`,
+      );
+      return true;
+    }
+    this.refreshStartedAt = Date.now();
+    return false;
+  }
+
+  // Conclude this runner without publishing or writing an error: the run
+  // was concluded elsewhere (cancelled, or errored by the stalled-snapshot
+  // reaper) and the database record is authoritative. Fences off queued or
+  // late refresh passes, clears every timer this runner owns, and resolves
+  // in-process waiters without an error — readers consult the database
+  // record for the outcome. Deliberately NOT a rejection: rejecting
+  // waitForResults makes the scheduled refresh job disable auto-updates
+  // for the experiment, which a user cancel must never do.
+  private standDown(reason: string): void {
+    logger.warn(`Runner of ${this.model.id} standing down: ${reason}`);
+    this.refreshGeneration++;
+    this.refreshChain = Promise.resolve();
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+    this.clearAllTimers();
+    this.setStatus("finished", "");
+  }
+
+  // Override point: report whether the persisted model says this run is
+  // already terminal (concluded elsewhere — e.g. the stalled-snapshot reaper
+  // errored it while this runner was struggling, or it was cancelled). The
+  // base model shape has no status field, so the default is "unknown" (false);
+  // subclasses with a status override this.
+  protected isModelTerminal(_model: Model): boolean {
+    return false;
+  }
+
+  // One debounced refresh pass: re-fetch the model, reconcile query
+  // statuses, start any newly-ready queries, and finalize when everything
+  // is done. Failures are retried by the refresh watchdog a bounded number
+  // of times before the run is failed loudly (or stood down, when the model
+  // itself is gone — see standDown) — a dropped pass must never silently
+  // strand the model in "running".
+  private async runRefreshPass(gen: number): Promise<void> {
+    if (this.passSuperseded(gen)) return;
+    try {
+      // Fetch the latest model in its own try so we can distinguish
+      // "model is gone or unreadable" from a genuine refresh failure.
+      // The most common cause of getLatestModel throwing here is a
+      // concurrent cancel: cancelSnapshot constructs its own runner
+      // instance to call cancelQueries() and then deletes the snapshot,
+      // so this (separate) instance never sees the status flip and only
+      // learns about the cancellation when findSnapshotById returns null and
+      // getLatestModel throws.
+      let latest: Model;
+      try {
+        logger.debug("Getting latest model for " + this.model.id);
+        latest = await this.getLatestModel();
+      } catch (e) {
+        this.consecutiveRefreshFailures++;
+        if (
+          this.consecutiveRefreshFailures >= MAX_CONSECUTIVE_REFRESH_FAILURES
+        ) {
+          // The model was unreadable across N attempts — almost always a
+          // concurrent cancel that deleted it; the DB record is
+          // authoritative and for experiment snapshots the stalled-snapshot
+          // reaper backstops the error write. Stand down rather than fail:
+          // an error write would target the same unreadable document, and
+          // rejecting waitForResults would make the scheduled refresh job
+          // disable auto-updates for the experiment after a user cancel.
+          this.standDown(
+            `could not re-fetch the model in ${this.consecutiveRefreshFailures} consecutive attempts (${
+              e instanceof Error ? e.message : String(e)
+            })`,
+          );
+          return;
+        }
+        logger.warn(
+          e,
+          `Could not re-fetch model for runner of ${this.model.id} (attempt ${this.consecutiveRefreshFailures} of ${MAX_CONSECUTIVE_REFRESH_FAILURES}); the refresh watchdog will retry`,
+        );
+        return;
+      }
+      if (this.passSuperseded(gen)) return;
+      this.model = latest;
+      if (this.isModelTerminal(latest)) {
+        // Someone else concluded this run (reap-to-error or cancel). Stand
+        // down without publishing over it.
+        this.standDown("model is already terminal in the database");
+        return;
+      }
+      if (this.status === "running" && latest.queries.length === 0) {
+        // startAnalysis never sets "running" with an empty DAG, so an empty
+        // query list on a running runner can only mean cancelQueries() (on
+        // a separate instance) wrote queries: [] — the run was cancelled.
+        this.standDown("query list was emptied by a cancel");
+        return;
+      }
+      try {
+        const queryMap = await this.refreshQueryStatuses(() =>
+          this.passSuperseded(gen),
+        );
+        if (this.passSuperseded(gen)) return;
+        await this.startReadyQueries(queryMap);
+        this.consecutiveRefreshFailures = 0;
+      } catch (e) {
+        this.consecutiveRefreshFailures++;
+        if (
+          this.consecutiveRefreshFailures < MAX_CONSECUTIVE_REFRESH_FAILURES
+        ) {
+          logger.warn(
+            e,
+            `Error refreshing query statuses for runner of ${this.model.id} (attempt ${this.consecutiveRefreshFailures} of ${MAX_CONSECUTIVE_REFRESH_FAILURES}); the refresh watchdog will retry`,
+          );
+          return;
+        }
+        logger.error(
+          e,
+          "Error refreshing query statuses for runner of " + this.model.id,
+        );
+        if (this.status !== "finished") {
+          this.shutDownWithError(e instanceof Error ? e.message : String(e));
+        }
+      }
+    } finally {
+      if (gen === this.refreshGeneration) {
+        this.refreshStartedAt = null;
+      }
     }
   }
 
@@ -365,6 +695,10 @@ export abstract class QueryRunner<
       logger.debug(this.model.id + " runner: Query already succeeded (cached)");
       const queryMap = await this.getQueryMap(queries);
       try {
+        // No refresh loop exists yet at this point to retry an incomplete
+        // read, so a cached copy that lost its stored result fails the run
+        // immediately rather than being analyzed with zero-filled metrics.
+        assertQueryMapComplete(queries, queryMap);
         this.experimentUpdateExecutionLogger?.endPhase("runQueries");
         result = await this.withExperimentUpdateTiming("analyze", () =>
           this.runAnalysis(queryMap),
@@ -415,10 +749,12 @@ export abstract class QueryRunner<
 
     if (this.status === "running") {
       this.startLockHeartbeat();
+      this.startRefreshWatchdog();
     }
 
     if (this.status === "finished") {
       this.stopLockHeartbeat();
+      this.stopRefreshWatchdog();
       this.emitter.emit(FINISH_EVENT);
     }
   }
@@ -539,32 +875,59 @@ export abstract class QueryRunner<
     }
   }
 
-  public async refreshQueryStatuses(): Promise<QueryMap> {
+  // shouldAbandon is the checkpoint used by serialized refresh passes: when
+  // it returns true the pass has been fenced off as stuck and must not
+  // publish. External callers (e.g. the metric-analysis status endpoint)
+  // omit it.
+  public async refreshQueryStatuses(
+    shouldAbandon?: () => boolean,
+  ): Promise<QueryMap> {
     const oldStatus = this.getOverallQueryStatus();
     logger.debug("Refreshing query statuses for " + this.model.id);
 
-    // If there are no running or queued queries, return immediately
+    // If there are no running or queued queries, there is usually nothing
+    // to do — unless this runner is still mid-run and every pointer is already
+    // terminal, i.e. another writer (the stale-query fan-out, or a fresh runner
+    // instance behind a status endpoint) persisted the terminal statuses
+    // without concluding the run. In that case fall through and finalize
+    // from the persisted query results.
     if (
       !this.model.queries.some(
         (q) => q.status === "running" || q.status === "queued",
       )
     ) {
-      if (this.status !== "finished") {
-        logger.warn(
-          `No running or queued queries for ${this.model.id} but runner status is "${this.status}". ` +
-            `The persisted query DAG is empty or fully terminal; nothing to refresh.`,
-        );
-      } else {
+      if (this.status !== "running") {
         logger.debug(
           "No running or queued queries for " + this.model.id + ", return",
         );
+        return new Map();
       }
-      return new Map();
+      if (this.model.queries.length === 0) {
+        // Defensive: refresh passes stand down on an empty DAG before reaching
+        // here (see runRefreshPass) and external callers are never "running", so
+        // this should be unreachable; guard anyway so an empty DAG can never
+        // roll up to "failed" and publish.
+        logger.debug(
+          `No queries for ${this.model.id} but runner status is "${this.status}". ` +
+            `The persisted query DAG is empty; nothing to refresh.`,
+        );
+        return new Map();
+      }
+      logger.warn(
+        `All queries for ${this.model.id} are terminal but runner status is "${this.status}"; finalizing from persisted results`,
+      );
     }
 
     const { hasChanges, queryMap } = await this.updateQueryPointers();
 
     const newStatus = this.getOverallQueryStatus();
+
+    // The pointers can already be terminal when this pass starts (see above),
+    // so a read that reports no changes must still finalize when the overall
+    // status is terminal and this runner is mid-run. Scoped to status "running"
+    // so fresh runner instances (e.g. the status-polling endpoints) keep their
+    // no-change fast path.
+    const needsFinalize = this.status === "running" && newStatus !== "running";
 
     logger.debug(
       this.model.id +
@@ -574,7 +937,7 @@ export abstract class QueryRunner<
         newStatus,
     );
 
-    if (!hasChanges) return queryMap;
+    if (!hasChanges && !needsFinalize) return queryMap;
 
     let error: string | undefined = undefined;
     let result: Result | undefined = undefined;
@@ -593,9 +956,16 @@ export abstract class QueryRunner<
       }
     }
     if (
-      oldStatus === "running" &&
+      (oldStatus === "running" || needsFinalize) &&
       (newStatus === "succeeded" || newStatus === "partially-succeeded")
     ) {
+      if (shouldAbandon?.()) return queryMap;
+      // Throws before the analysis try/catch: an incomplete read should be
+      // retried by the refresh watchdog, not recorded as a failed run.
+      assertQueryMapComplete(this.model.queries, queryMap);
+      logger.info(
+        `Running analysis for ${this.model.id} (${this.model.queries.length} queries, status ${newStatus})`,
+      );
       try {
         this.experimentUpdateExecutionLogger?.endPhase("runQueries");
         result = await this.withExperimentUpdateTiming("analyze", () =>
@@ -608,12 +978,21 @@ export abstract class QueryRunner<
       }
     }
 
+    if (shouldAbandon?.()) return queryMap;
+
     const newModel = await this.updateModel({
       status: error ? "failed" : newStatus,
       queries: this.model.queries,
       result,
-      error,
+      // An empty string (not undefined) so a successful finalize clears any
+      // stale error text on the model — mongoose strips undefined from $set.
+      error: error ?? "",
     });
+    // Re-check after the write: if this pass was fenced while updateModel
+    // was in flight (its interior is not a checkpoint and the write cannot
+    // be recalled), at least do not swap the replacement pass's model or
+    // flip the runner state from under it.
+    if (shouldAbandon?.()) return queryMap;
     this.model = newModel;
 
     if (error || result) {
@@ -639,7 +1018,7 @@ export abstract class QueryRunner<
       .map((q) => q.query);
 
     // Mark failed BEFORE issuing warehouse cancels. The original runner is
-    // still alive with pending timers; paired with updateQueryIfQueued in
+    // still alive with pending timers; paired with updateQueryIfPending in
     // executeQuery, this stops a queued query from being promoted (and
     // firing a fresh external job) while parallel cancel calls are in
     // flight. Also reflects the cancel in the queries-log UI immediately.
@@ -752,7 +1131,24 @@ export abstract class QueryRunner<
     this.setTimer(
       query.id,
       setTimeout(() => {
-        this.executeQueryWhenReady(query, timeout);
+        this.executeQueryWhenReady(query, timeout).catch((e) => {
+          // A thrown concurrency check used to strand the query forever:
+          // the rejection was unhandled, and the stale pendingTimers entry
+          // made startReadyQueries skip this query on every later pass.
+          // Clear the entry and retry with backoff instead.
+          this.clearTimer(query.id);
+          // Stop retrying once the run is over (e.g. failed loudly after
+          // repeated refresh errors) so the retry chain can't outlive it.
+          if (this.status === "finished") return;
+          logger.warn(
+            e,
+            `${query.id}: Error while retrying queued query; re-queueing`,
+          );
+          this.queueQueryExecution(
+            query,
+            Math.min(timeout * 2, MAX_CONCURRENCY_TIMEOUT),
+          );
+        });
       }, timeout + jitter),
     );
   }
@@ -1036,25 +1432,7 @@ export abstract class QueryRunner<
   }
 
   protected getOverallQueryStatus(): QueryStatus {
-    const failedQueries = this.model.queries.filter(
-      (q) => q.status === "failed",
-    );
-    const runningQueries = this.model.queries.filter(
-      (q) => q.status === "running",
-    );
-    const queuedQueries = this.model.queries.filter(
-      (q) => q.status === "queued",
-    );
-
-    const totalQueries = this.model.queries.length;
-
-    if (failedQueries.length >= totalQueries / 2) return "failed";
-
-    if (queuedQueries.length + runningQueries.length > 0) return "running";
-
-    if (failedQueries.length > 0) return "partially-succeeded";
-
-    return "succeeded";
+    return rollupQueryStatus(this.model.queries);
   }
 
   private async updateQueryPointers(): Promise<{
@@ -1086,7 +1464,14 @@ export abstract class QueryRunner<
       // If the query succeeded, add it to the cache
       // We could do this for failed queries too, but we may want to do retries in the future
       // Also, failed queries are tiny since they don't have result rows, so caching doesn't help much
-      if (query.status === "succeeded") {
+      // Only cache docs that carry their stored result, so a partial read
+      // (see assertQueryMapComplete) is re-read on the next pass instead of
+      // being pinned in the cache.
+      if (
+        query.status === "succeeded" &&
+        query.result !== undefined &&
+        query.result !== null
+      ) {
         this.finishedQueryMapCache.set(pointer.name, query);
       }
     });

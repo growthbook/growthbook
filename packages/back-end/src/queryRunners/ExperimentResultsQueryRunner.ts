@@ -41,6 +41,7 @@ import { UnrecoverableSnapshotError } from "back-end/src/util/errors";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
 import {
+  errorSnapshotIfStillRunning,
   findSnapshotById,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
@@ -631,6 +632,32 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     if (!obj)
       throw new Error("Could not load snapshot model: " + this.model.id);
     return obj;
+  }
+
+  // Refresh passes use this to stand down when another finalizer
+  // (e.g. the stalled-snapshot reaper erroring it, or a cancel) already
+  // concluded this snapshot — a late pass must not publish over that
+  // conclusion.
+  protected override isModelTerminal(
+    model: ExperimentSnapshotInterface,
+  ): boolean {
+    return model.status !== "running";
+  }
+
+  // Shutdown error writes are conditional on the snapshot still running so
+  // a struggling runner's give-up can never clobber a conclusion another
+  // finalizer (e.g. the stalled-snapshot reaper erroring it, or a cancel)
+  // already published.
+  protected override async writeErrorIfStillActive(
+    error: string,
+  ): Promise<void> {
+    // this.model is deliberately left untouched here: the database record is
+    // authoritative and the finished-status guard prevents this runner from
+    // being reused after shutdown.
+    await errorSnapshotIfStillRunning(this.context, this.model.id, {
+      queries: this.model.queries,
+      error,
+    });
   }
 
   async updateModel({
