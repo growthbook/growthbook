@@ -33,7 +33,6 @@ import {
 import {
   assertAtLeastTwoVariations,
   conditionFromLeafClauses,
-  defaultAddedVariationValue,
   diffVariations,
   getActiveVariations,
   getVisibleVariations,
@@ -1038,12 +1037,13 @@ export async function executeContextualBanditVariationChange(
   const tombstoneIds = new Set(tombstones.map((v) => v.id));
   const previousById = new Map(previousVisible.map((v) => [v.id, v]));
 
+  const generatedIds = new Set<string>();
   const newVariations: ContextualBanditVariation[] = requestedVariations.map(
-    (v) => ({
-      ...v,
-      id: v.id || generateVariationId(),
-      screenshots: v.screenshots ?? [],
-    }),
+    (v) => {
+      const id = v.id || generateVariationId();
+      if (!v.id) generatedIds.add(id);
+      return { ...v, id, screenshots: v.screenshots ?? [] };
+    },
   );
 
   // Never resurrect a deactivated id
@@ -1072,6 +1072,7 @@ export async function executeContextualBanditVariationChange(
       diff,
       newVariationValues,
       linkedInfo,
+      generatedIds,
     );
 
     ({ failures: featureDraftPublishFailures } =
@@ -1214,27 +1215,51 @@ function validateAndAuthorizeVariationChange(
   diff: { addedIds: string[]; removedIds: string[] },
   providedValues: Record<string, Record<string, string>> | undefined,
   linkedInfo: LinkedFeatureInfo[],
+  generatedIds: Set<string>,
 ): void {
-  for (const info of linkedInfo) {
-    if (info.state !== "live" && info.state !== "draft") continue;
+  const editable = linkedInfo.filter(
+    (info) => info.state === "live" || info.state === "draft",
+  );
+  if (editable.length === 0) return;
+
+  // A server-generated id can't be keyed in `newVariationValues`.
+  const blankId = diff.addedIds.find((id) => generatedIds.has(id));
+  if (blankId) {
+    throw new BadRequestError(
+      "New variations must include an `id` when the contextual bandit has linked Feature Flags, so their values can be supplied in `newVariationValues`.",
+    );
+  }
+
+  const missingValues: string[] = [];
+  for (const info of editable) {
+    const existing = new Set(info.values.map((v) => v.variationId));
+    for (const addedId of diff.addedIds) {
+      if (existing.has(addedId)) continue;
+      if (providedValues?.[info.feature.id]?.[addedId] === undefined) {
+        missingValues.push(`${info.feature.id} \u2192 ${addedId}`);
+      }
+    }
+  }
+  if (missingValues.length > 0) {
+    throw new BadRequestError(
+      `Set a Feature Flag value for every new variation: ${missingValues.join(
+        ", ",
+      )}`,
+    );
+  }
+
+  for (const info of editable) {
     const feature = info.feature;
     const existing = new Set(info.values.map((v) => v.variationId));
-    const controlValue = info.values[0]?.value;
 
     let ruleWillChange = diff.removedIds.some((id) => existing.has(id));
     for (const addedId of diff.addedIds) {
       if (existing.has(addedId)) continue;
       ruleWillChange = true;
+      const value = providedValues?.[feature.id]?.[addedId];
+      if (value === undefined) continue;
       // Throws on a type mismatch (e.g. non-numeric value on a number feature).
-      validateFeatureValue(
-        feature,
-        defaultAddedVariationValue(
-          providedValues?.[feature.id]?.[addedId],
-          controlValue,
-          feature.defaultValue,
-        ),
-        `Variation ${addedId}`,
-      );
+      validateFeatureValue(feature, value, `Variation ${addedId}`);
     }
 
     if (!ruleWillChange) continue;
@@ -1303,18 +1328,15 @@ export async function reconcileLinkedFeatureVariations(
       (v) => !removedSet.has(v.variationId),
     );
     const existingIds = new Set(nextVariations.map((v) => v.variationId));
-    // Must come from a surviving arm — index 0 may be one being removed.
-    const controlValue =
-      nextVariations[0]?.value ?? currentVariations[0]?.value;
     for (const addedId of addedIds) {
       if (existingIds.has(addedId)) continue;
+      const provided = providedValues?.[feature.id]?.[addedId];
+      // No value: leave the arm off this rule so it stays pending, rather
+      // than cloning control. Only reachable on the re-save path.
+      if (provided === undefined) continue;
       const value = validateFeatureValue(
         feature,
-        defaultAddedVariationValue(
-          providedValues?.[feature.id]?.[addedId],
-          controlValue,
-          feature.defaultValue,
-        ),
+        provided,
         `Variation ${addedId}`,
       );
       nextVariations.push({ variationId: addedId, value });

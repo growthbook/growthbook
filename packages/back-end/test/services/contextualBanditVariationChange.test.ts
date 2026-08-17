@@ -531,11 +531,11 @@ describe("executeContextualBanditVariationChange", () => {
     expect(updateRevisionMock).not.toHaveBeenCalled();
   });
 
-  it("rejects when a running-CB editor lacks publish permission on a linked feature (#4)", async () => {
-    getRefLinkedFeatureInfoMock.mockResolvedValue([linkedInfo(makeFeature())]);
-    const cb = makeCb({ status: "running", linkedFeatures: ["feature"] });
-    const { context, updateMock, canPublishFeature } = makeContext(cb);
-    canPublishFeature.mockReturnValue(false);
+  it("rejects an added arm with no value for a linked feature instead of cloning the control value", async () => {
+    const feature = makeFeature();
+    getRefLinkedFeatureInfoMock.mockResolvedValue([linkedInfo(feature)]);
+    const cb = makeCb({ linkedFeatures: ["feature"] });
+    const { context, updateMock, setLeafWeightsMock } = makeContext(cb);
 
     await expect(
       executeContextualBanditVariationChange(context, cb, [
@@ -543,6 +543,75 @@ describe("executeContextualBanditVariationChange", () => {
         v("v1", "1"),
         v("v2", "2"),
       ]),
+    ).rejects.toThrow(/Set a Feature Flag value for every new variation/);
+
+    expect(updateMock).not.toHaveBeenCalled();
+    expect(setLeafWeightsMock).not.toHaveBeenCalled();
+    expect(updateRevisionMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a new variation sent without an id when linked features exist", async () => {
+    getRefLinkedFeatureInfoMock.mockResolvedValue([linkedInfo(makeFeature())]);
+    const cb = makeCb({ linkedFeatures: ["feature"] });
+    const { context, updateMock } = makeContext(cb);
+
+    await expect(
+      executeContextualBanditVariationChange(context, cb, [
+        v("v0", "0"),
+        v("v1", "1"),
+        v("", "2"),
+      ]),
+    ).rejects.toThrow(/must include an `id`/);
+
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  it("requires a value per linked feature, naming every missing pair", async () => {
+    const a = makeFeature({ id: "feature_a" } as Partial<FeatureInterface>);
+    const b = makeFeature({ id: "feature_b" } as Partial<FeatureInterface>);
+    getRefLinkedFeatureInfoMock.mockResolvedValue([
+      linkedInfo(a),
+      linkedInfo(b),
+    ]);
+    const cb = makeCb({ linkedFeatures: ["feature_a", "feature_b"] });
+    const { context } = makeContext(cb);
+
+    await expect(
+      executeContextualBanditVariationChange(
+        context,
+        cb,
+        [v("v0", "0"), v("v1", "1"), v("v2", "2")],
+        { feature_a: { v2: "added-value" } },
+      ),
+    ).rejects.toThrow(/feature_b/);
+  });
+
+  it("does not require values when the bandit has no linked features", async () => {
+    const cb = makeCb();
+    const { context, updateMock } = makeContext(cb);
+
+    await executeContextualBanditVariationChange(context, cb, [
+      v("v0", "0"),
+      v("v1", "1"),
+      v("v2", "2"),
+    ]);
+
+    expect(updateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects when a running-CB editor lacks publish permission on a linked feature (#4)", async () => {
+    getRefLinkedFeatureInfoMock.mockResolvedValue([linkedInfo(makeFeature())]);
+    const cb = makeCb({ status: "running", linkedFeatures: ["feature"] });
+    const { context, updateMock, canPublishFeature } = makeContext(cb);
+    canPublishFeature.mockReturnValue(false);
+
+    await expect(
+      executeContextualBanditVariationChange(
+        context,
+        cb,
+        [v("v0", "0"), v("v1", "1"), v("v2", "2")],
+        { feature: { v2: "added-value" } },
+      ),
     ).rejects.toThrow(/permission/i);
 
     expect(canPublishFeature).toHaveBeenCalled();
@@ -667,11 +736,12 @@ describe("executeContextualBanditVariationChange", () => {
     const { context, updateMock } = makeContext(cb);
 
     const { featureDraftPublishFailures, pendingVariationIds, updated } =
-      await executeContextualBanditVariationChange(context, cb, [
-        v("v0", "0"),
-        v("v1", "1"),
-        v("v2", "2"),
-      ]);
+      await executeContextualBanditVariationChange(
+        context,
+        cb,
+        [v("v0", "0"), v("v1", "1"), v("v2", "2")],
+        { feature: { v2: "added-value" } },
+      );
 
     expect(updateRevisionMock).toHaveBeenCalledTimes(2);
     expect(featureDraftPublishFailures).toEqual([
@@ -703,11 +773,12 @@ describe("executeContextualBanditVariationChange", () => {
     const { context, updateMock } = makeContext(cb);
 
     const { featureDraftPublishFailures, pendingVariationIds, updated } =
-      await executeContextualBanditVariationChange(context, cb, [
-        v("v0", "0"),
-        v("v1", "1"),
-        v("v2", "2"),
-      ]);
+      await executeContextualBanditVariationChange(
+        context,
+        cb,
+        [v("v0", "0"), v("v1", "1"), v("v2", "2")],
+        { feature: { v2: "added-value" } },
+      );
 
     // Asked to respect the approval flow...
     expect(assertCanAutoPublishMock).toHaveBeenCalledWith(
@@ -721,7 +792,7 @@ describe("executeContextualBanditVariationChange", () => {
     expect(updateRevisionMock).toHaveBeenCalledTimes(1);
     expect(cbRefVariationsFromUpdateRevision(0)).toContainEqual({
       variationId: "v2",
-      value: "control",
+      value: "added-value",
     });
     expect(featureDraftPublishFailures).toEqual([
       { featureId: "feature", revisionVersion: 4, reason: "needs-approval" },
@@ -909,16 +980,17 @@ describe("executeContextualBanditVariationChange", () => {
     } as Partial<ContextualBanditInterface>);
     const { context } = makeContext(cb);
 
-    await executeContextualBanditVariationChange(context, cb, [
-      v("v0", "0"),
-      v("v1", "1"),
-      v("v2", "2"),
-    ]);
+    await executeContextualBanditVariationChange(
+      context,
+      cb,
+      [v("v0", "0"), v("v1", "1"), v("v2", "2")],
+      { feature: { v2: "added-value" } },
+    );
 
     expect(getDraftRevisionMock).toHaveBeenCalledWith(context, feature, 6);
     expect(cbRefVariationsFromUpdateRevision()).toContainEqual({
       variationId: "v2",
-      value: "control",
+      value: "added-value",
     });
     expect(publishRevisionMock).not.toHaveBeenCalled();
   });
@@ -969,12 +1041,12 @@ describe("executeContextualBanditVariationChange", () => {
     } as Partial<ContextualBanditInterface>);
     const { context } = makeContext(cb);
 
-    await executeContextualBanditVariationChange(context, cb, [
-      v("v0", "0"),
-      v("v1", "1"),
-      v("v2", "2"),
-      v("v3", "3"),
-    ]);
+    await executeContextualBanditVariationChange(
+      context,
+      cb,
+      [v("v0", "0"), v("v1", "1"), v("v2", "2"), v("v3", "3")],
+      { feature: { v3: "added-value" } },
+    );
 
     expect(getDraftRevisionMock).toHaveBeenCalledWith(context, feature, 7);
     const variations = cbRefVariationsFromUpdateRevision();
@@ -1005,11 +1077,12 @@ describe("executeContextualBanditVariationChange", () => {
     const cb = makeCb({ status: "running", linkedFeatures: ["feature"] });
     const { context } = makeContext(cb);
 
-    await executeContextualBanditVariationChange(context, cb, [
-      v("v0", "0"),
-      v("v1", "1"),
-      v("v2", "2"),
-    ]);
+    await executeContextualBanditVariationChange(
+      context,
+      cb,
+      [v("v0", "0"), v("v1", "1"), v("v2", "2")],
+      { feature: { v2: "added-value" } },
+    );
 
     expect(getDraftRevisionMock).toHaveBeenCalledWith(context, feature, 3);
   });

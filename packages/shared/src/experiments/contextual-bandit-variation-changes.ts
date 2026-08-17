@@ -75,14 +75,6 @@ export function assertAtLeastTwoVariations(
   }
 }
 
-export function defaultAddedVariationValue(
-  provided: string | undefined,
-  controlValue: string | undefined,
-  featureDefaultValue: string,
-): string {
-  return provided ?? controlValue ?? featureDefaultValue;
-}
-
 function uniformWeightPairs(variationIds: string[]): VariationWeightPair[] {
   const weights = getEqualWeights(variationIds.length || 1);
   return variationIds.map((variationId, i) => ({

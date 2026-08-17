@@ -193,7 +193,7 @@ describe("reconcileLinkedFeatureVariations", () => {
     });
   });
 
-  it("defaults a new arm's value to the control value and stages a draft", async () => {
+  it("leaves an arm it has no value for off the rule instead of cloning control", async () => {
     const cb = makeCb();
     const { context } = makeContext();
 
@@ -203,11 +203,36 @@ describe("reconcileLinkedFeatureVariations", () => {
       linkedInfo: [linkedInfo(makeFeature())],
     });
 
-    expect(cbRefVariationsFromUpdateRevision()).toContainEqual({
-      variationId: "v2",
-      value: "control",
-    });
+    expect(updateRevisionMock).not.toHaveBeenCalled();
     expect(publishRevisionMock).not.toHaveBeenCalled();
+  });
+
+  it("still applies a removal when an added arm has no value", async () => {
+    const feature = makeFeature({
+      rules: [
+        cbRefRule({
+          variations: [
+            { variationId: "v0", value: "control" },
+            { variationId: "v1", value: "treatment" },
+          ],
+        }),
+      ],
+    } as Partial<FeatureInterface>);
+    getDraftRevisionMock.mockResolvedValue(
+      makeRevision({ rules: feature.rules as FeatureRule[] }),
+    );
+    const cb = makeCb();
+    const { context } = makeContext();
+
+    await reconcileLinkedFeatureVariations(context, cb, {
+      addedIds: ["v2"],
+      removedIds: ["v1"],
+      linkedInfo: [linkedInfo(feature)],
+    });
+
+    expect(cbRefVariationsFromUpdateRevision()).toEqual([
+      { variationId: "v0", value: "control" },
+    ]);
   });
 
   it("uses a caller-supplied value when provided", async () => {
@@ -263,6 +288,7 @@ describe("reconcileLinkedFeatureVariations", () => {
 
     await reconcileLinkedFeatureVariations(context, cb, {
       addedIds: ["v2"],
+      providedValues: { feature: { v2: "added-value" } },
       removedIds: ["v1"],
       linkedInfo: [linkedInfo(makeFeature())],
     });
@@ -270,7 +296,7 @@ describe("reconcileLinkedFeatureVariations", () => {
     expect(updateRevisionMock).toHaveBeenCalledTimes(1);
     expect(cbRefVariationsFromUpdateRevision()).toEqual([
       { variationId: "v0", value: "control" },
-      { variationId: "v2", value: "control" },
+      { variationId: "v2", value: "added-value" },
     ]);
   });
 
@@ -280,6 +306,7 @@ describe("reconcileLinkedFeatureVariations", () => {
 
     const { failures } = await reconcileLinkedFeatureVariations(context, cb, {
       addedIds: ["v2"],
+      providedValues: { feature: { v2: "added-value" } },
       removedIds: [],
       linkedInfo: [linkedInfo(makeFeature())],
     });
@@ -299,6 +326,7 @@ describe("reconcileLinkedFeatureVariations", () => {
 
     const { failures } = await reconcileLinkedFeatureVariations(context, cb, {
       addedIds: ["v2"],
+      providedValues: { feature: { v2: "added-value" } },
       removedIds: [],
       linkedInfo: [linkedInfo(makeFeature())],
     });
@@ -324,6 +352,7 @@ describe("reconcileLinkedFeatureVariations", () => {
 
     await reconcileLinkedFeatureVariations(context, cb, {
       addedIds: ["v2"],
+      providedValues: { feature: { v2: "added-value" } },
       removedIds: [],
       linkedInfo: [
         linkedInfo(feature, {
@@ -337,7 +366,7 @@ describe("reconcileLinkedFeatureVariations", () => {
     expect(getDraftRevisionMock).toHaveBeenCalledWith(context, feature, 6);
     expect(cbRefVariationsFromUpdateRevision()).toContainEqual({
       variationId: "v2",
-      value: "control",
+      value: "added-value",
     });
   });
 
