@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { ReactElement, useState } from "react";
-import { includeHoldoutInPayload } from "shared/util";
+import { getHoldoutStage, includeHoldoutInPayload } from "shared/util";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import useApi from "@/hooks/useApi";
@@ -67,6 +67,7 @@ const HoldoutPage = (): ReactElement => {
     envs = [],
     linkedExperiments = [],
   } = data;
+  const holdoutStage = getHoldoutStage(holdout, experiment);
 
   const startAnalysis = async () => {
     await apiCall(`/holdout/${hid}/edit-status`, {
@@ -95,7 +96,7 @@ const HoldoutPage = (): ReactElement => {
     : null;
   const editResult = canRunExperiment
     ? () => {
-        if (holdout?.analysisStartDate) {
+        if (holdoutStage === "analysis-period") {
           setStopModalOpen(true);
         } else {
           setStartAnalysisModalOpen(true);

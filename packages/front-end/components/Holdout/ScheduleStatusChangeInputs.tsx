@@ -27,10 +27,7 @@ export default function ScheduleStatusChangeInputs({
   holdout,
   experiment,
 }: Props) {
-  const isRunning = experiment.status === "running";
-  const isStopped = experiment.status === "stopped";
   const isArchived = experiment.archived;
-
   const holdoutStatus = getHoldoutStage(holdout, experiment);
 
   const startDate = form.watch("statusUpdateSchedule.startAt");
@@ -45,7 +42,7 @@ export default function ScheduleStatusChangeInputs({
         <Text weight="medium">Start Holdout</Text>
       </Box>
 
-      {!isRunning && !isStopped && !isArchived ? (
+      {holdoutStatus === "draft" && !isArchived ? (
         <Flex direction="row" gap="2" align="baseline">
           <Box flexGrow="1">
             <DatePicker
@@ -87,7 +84,9 @@ export default function ScheduleStatusChangeInputs({
         <Text weight="medium">Stop Holdout & Start Analysis</Text>
       </Box>
 
-      {!isStopped && holdoutStatus !== "analysis-period" && !isArchived ? (
+      {holdoutStatus !== "stopped" &&
+      holdoutStatus !== "analysis-period" &&
+      !isArchived ? (
         <Flex direction="row" gap="2" align="baseline">
           <Box flexGrow="1">
             <DatePicker
@@ -125,7 +124,7 @@ export default function ScheduleStatusChangeInputs({
       <Box my="2">
         <Text weight="medium">Stop Analysis & Release Holdout</Text>
       </Box>
-      {!isStopped && !isArchived ? (
+      {holdoutStatus !== "stopped" && !isArchived ? (
         <Flex direction="row" gap="2" align="baseline">
           <Box flexGrow="1">
             <DatePicker
