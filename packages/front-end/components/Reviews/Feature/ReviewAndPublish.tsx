@@ -17,7 +17,9 @@ import {
 import {
   autoMerge,
   fillRevisionFromFeature,
+  getReviewAuthorityFootprint,
   liveRevisionFromFeature,
+  type ReviewAuthorityFootprint,
   filterEnvironmentsByFeature,
   getEnvsFromRampSchedule,
   isStrandedLiveRevision,
@@ -675,6 +677,23 @@ export default function ReviewAndPublish({
     );
   }, [revision, baseRevision, liveRevision, envIds, feature]);
 
+  // What a reviewer needs authority over, derived the same way the server does
+  // so the UI agrees with the refusal. "any" while the revisions are still
+  // loading: the server is the authority, so being optimistic here only risks a
+  // late refusal, never an unsanctioned approval.
+  const reviewFootprint: ReviewAuthorityFootprint = useMemo(() => {
+    if (!revision || !baseRevision || !liveRevision) return { scope: "any" };
+    return getReviewAuthorityFootprint({
+      revision,
+      bases: [
+        { ...liveRevision, ...liveRevisionFromFeature(liveRevision, feature) },
+        fillRevisionFromFeature(baseRevision, feature),
+      ],
+      allEnvironments: envIds,
+      settings,
+    });
+  }, [revision, baseRevision, liveRevision, feature, envIds, settings]);
+
   // Fall back to all applicable environments until the merge footprint is known.
   const affectedRevisionEnvs = useMemo(() => {
     if (!mergeResult?.success) return envIds;
@@ -752,7 +771,7 @@ export default function ReviewAndPublish({
   const canReview =
     !!isPendingReview &&
     createdBy?.id !== user?.id &&
-    permissionsUtil.canReviewFeatureDrafts(feature, { scope: "any" });
+    permissionsUtil.canReviewFeatureDrafts(feature, reviewFootprint);
   // Advancing a draft takes draft authority, or revert/delete authority over a
   // draft that only does what they cover (or one the caller authored). The
   // client goes on provenance alone; the server re-verifies purity.
@@ -1742,9 +1761,10 @@ export default function ReviewAndPublish({
     status: revision.status,
     mergeSuccess: mergeResult.success,
     hasChanges: hasChanges || isStranded,
-    hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(feature, {
-      scope: "any",
-    }),
+    hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(
+      feature,
+      reviewFootprint,
+    ),
     // Recall is derived from this in the state machine, and revert/delete
     // authority may recall a review request on a draft they authored — so pass
     // the widened predicate rather than the bare draft atom.

@@ -25,6 +25,7 @@ import {
   checkIfRevisionNeedsReview,
   evaluatePublishGovernance,
   featureMetadataEnvelope,
+  getReviewAuthorityFootprint,
   resetReviewOnChange,
   getAffectedEnvsForExperiment,
   getDependentExperiments,
@@ -106,6 +107,7 @@ import {
   canReopenFeatureDraft,
   revertFootprint,
 } from "back-end/src/revisions/featureDraftAuthority";
+import { assessApprovalCoverage } from "back-end/src/util/organization.util";
 import { assertCanRevertRevision } from "back-end/src/revisions/revertActions";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -2176,8 +2178,31 @@ export async function postFeaturePublish(
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
     liveRampScheduleEnvs,
   });
-  if (!adminOverride && requiresReview && revision.status !== "approved") {
-    throw new Error("needs review before publishing");
+  // "approved" was decided when the approval was given. Re-check that a standing
+  // approver still covers what the draft changes, so a draft approved while
+  // dev-only cannot publish after growing to touch production.
+  const { hasCoveringApproval } = assessApprovalCoverage({
+    org,
+    teams: context.teams,
+    feature,
+    footprint: getReviewAuthorityFootprint({
+      revision: effectiveRevision,
+      bases: [filledLive, base],
+      allEnvironments: environmentIds,
+      settings: org.settings,
+      liveRampScheduleEnvs,
+    }),
+    approverIds: (revision.reviews ?? [])
+      .filter((r) => r.status === "approved")
+      .map((r) => r.userId)
+      .filter((id): id is string => !!id),
+  });
+  if (!adminOverride && requiresReview && !hasCoveringApproval) {
+    throw new Error(
+      revision.status === "approved"
+        ? "This draft now changes environments its approvers cannot approve. It needs approval from someone with review rights across everything it changes."
+        : "needs review before publishing",
+    );
   }
   if (requiresReview && !reviewStatuses.includes(revision.status)) {
     throw new Error("Can only publish Draft revisions");
