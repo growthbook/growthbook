@@ -3,7 +3,6 @@
 2. Demonstrating equivalence to numpy methods that take raw data"""
 
 from unittest import TestCase, main as unittest_main
-import copy
 import numpy as np
 from dataclasses import asdict
 from typing import Literal
@@ -12,6 +11,7 @@ from gbstats.messages import ZERO_NEGATIVE_VARIANCE_MESSAGE
 from gbstats.models.statistics import (
     ProportionStatistic,
     RatioStatistic,
+    RegressionAdjustedRatioStatistic,
     RegressionAdjustedStatistic,
     SampleMeanStatistic,
     QuantileStatistic,
@@ -372,6 +372,84 @@ class TestEffectMomentsNegativeBaseline(TestCase):
         relative = self._moments(-10, -5, "relative")
         self.assertAlmostEqual(relative.point_estimate, 0.5)
         self.assertGreater(relative.standard_error, 0)
+
+
+class TestEffectMomentsCupedRatioNegativeBaseline(TestCase):
+    """Negating the metric negates the relative lift exactly, so the standard
+    error must be identical for the positive- and negative-baseline versions
+    of the same data. The negation pair alone cannot catch a variance error
+    that is itself sign-symmetric, so the golden standard errors (validated
+    against a finite-difference delta-method computation) pin the magnitude."""
+
+    @staticmethod
+    def _stat(
+        m_post: np.ndarray, d_post: np.ndarray, m_pre: np.ndarray, d_pre: np.ndarray
+    ) -> RegressionAdjustedRatioStatistic:
+        n = len(m_post)
+        return RegressionAdjustedRatioStatistic(
+            n=n,
+            m_statistic_post=SampleMeanStatistic(
+                n=n, sum=float(np.sum(m_post)), sum_squares=float(np.sum(m_post**2))
+            ),
+            d_statistic_post=SampleMeanStatistic(
+                n=n, sum=float(np.sum(d_post)), sum_squares=float(np.sum(d_post**2))
+            ),
+            m_statistic_pre=SampleMeanStatistic(
+                n=n, sum=float(np.sum(m_pre)), sum_squares=float(np.sum(m_pre**2))
+            ),
+            d_statistic_pre=SampleMeanStatistic(
+                n=n, sum=float(np.sum(d_pre)), sum_squares=float(np.sum(d_pre**2))
+            ),
+            m_post_m_pre_sum_of_products=float(np.sum(m_post * m_pre)),
+            d_post_d_pre_sum_of_products=float(np.sum(d_post * d_pre)),
+            m_pre_d_pre_sum_of_products=float(np.sum(m_pre * d_pre)),
+            m_post_d_post_sum_of_products=float(np.sum(m_post * d_post)),
+            m_post_d_pre_sum_of_products=float(np.sum(m_post * d_pre)),
+            m_pre_d_post_sum_of_products=float(np.sum(m_pre * d_post)),
+            theta=0.5,
+        )
+
+    # Treatment numerators roughly 11x and 9x the denominators, versus 10x for
+    # control, so the two datasets give an improving and a declining lift. Both
+    # directions matter: they exercise all four sign combinations of the
+    # baseline mean and the mean difference in the variance gradient.
+    M_POST_B_IMPROVING = np.array([17.0, 12.0, 23.0, 28.0, 12.0, 22.0, 29.0, 16.0])
+    M_POST_B_DECLINING = np.array([14.0, 9.0, 17.0, 23.0, 9.0, 18.0, 22.0, 13.0])
+
+    def _moments(self, sign: int, m_post_b: np.ndarray):
+        d_post_a = np.array([1.0, 2.0, 1.5, 2.5, 2.0, 1.0, 1.5, 2.5])
+        d_pre_a = np.array([1.5, 1.0, 2.0, 2.0, 2.5, 1.0, 1.0, 2.0])
+        m_post_a = sign * np.array([12.0, 19.0, 16.0, 24.0, 21.0, 9.0, 14.0, 26.0])
+        m_pre_a = sign * np.array([16.0, 11.0, 21.0, 19.0, 26.0, 11.0, 9.0, 21.0])
+        d_post_b = np.array([1.5, 1.0, 2.0, 2.5, 1.0, 2.0, 2.5, 1.5])
+        d_pre_b = np.array([1.0, 1.5, 2.0, 2.5, 1.0, 2.5, 2.0, 1.5])
+        m_pre_b = sign * np.array([11.0, 17.0, 22.0, 27.0, 10.0, 27.0, 21.0, 16.0])
+        return EffectMoments(
+            [
+                (
+                    self._stat(m_post_a, d_post_a, m_pre_a, d_pre_a),
+                    self._stat(sign * m_post_b, d_post_b, m_pre_b, d_pre_b),
+                )
+            ],
+            config=EffectMomentsConfig(difference_type="relative"),
+        ).compute_result()
+
+    def test_negating_the_metric_negates_lift_and_keeps_standard_error(self):
+        for label, m_post_b, expected_lift, expected_se in [
+            ("improving", self.M_POST_B_IMPROVING, 0.1039280, 0.0286196),
+            ("declining", self.M_POST_B_DECLINING, -0.1372068, 0.0223934),
+        ]:
+            with self.subTest(treatment=label):
+                positive = self._moments(1, m_post_b)
+                negative = self._moments(-1, m_post_b)
+                self.assertIsNone(positive.error_message)
+                self.assertIsNone(negative.error_message)
+                self.assertAlmostEqual(positive.point_estimate, expected_lift)
+                self.assertAlmostEqual(positive.standard_error, expected_se)
+                self.assertAlmostEqual(
+                    negative.point_estimate, -positive.point_estimate
+                )
+                self.assertAlmostEqual(negative.standard_error, positive.standard_error)
 
 
 if __name__ == "__main__":
