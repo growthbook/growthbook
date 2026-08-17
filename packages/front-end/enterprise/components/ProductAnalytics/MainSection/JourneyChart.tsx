@@ -30,14 +30,13 @@ export default function JourneyChart({
 }: {
   exploration: ProductAnalyticsExploration | null;
   submittedExploreState: ExplorationConfig;
-  animate?: boolean;
 }) {
   const {
     draftExploreState,
-    setDraftExploreState,
     commitJourneyStep,
     popJourneyPath,
     loading,
+    handleSubmit,
   } = useExplorerContext();
   const dataset: JourneyDataset | null =
     draftExploreState.dataset?.type === "journey"
@@ -98,25 +97,44 @@ export default function JourneyChart({
   );
   const onViewMore = useCallback(
     (levelIndex: number) => {
-      setDraftExploreState((prev) => {
-        if (prev.dataset.type !== "journey") return prev;
-        const nextValue =
-          journeyOptionsAt(prev.dataset.optionsPerStep, levelIndex) +
-          JOURNEY_OPTIONS_PER_STEP_INCREMENT;
-        return {
-          ...prev,
+      if (loading) return;
+      if (draftExploreState.type !== "journey") return;
+      const nextValue =
+        journeyOptionsAt(draftExploreState.dataset.optionsPerStep, levelIndex) +
+        JOURNEY_OPTIONS_PER_STEP_INCREMENT;
+      void handleSubmit({
+        setDraft: true,
+        config: {
+          ...draftExploreState,
           dataset: {
-            ...prev.dataset,
+            ...draftExploreState.dataset,
             optionsPerStep: withJourneyOptionsAt(
-              prev.dataset.optionsPerStep,
+              draftExploreState.dataset.optionsPerStep,
               levelIndex,
               nextValue,
             ),
           },
-        } as ExplorationConfig;
+        },
       });
     },
-    [setDraftExploreState],
+    [draftExploreState, handleSubmit, loading],
+  );
+  const viewMoreLoading = useCallback(
+    (levelIndex: number) => {
+      if (!loading || !dataset) return false;
+      const rowDataset =
+        exploration?.config.dataset.type === "journey"
+          ? exploration.config.dataset
+          : submittedExploreState.dataset.type === "journey"
+            ? submittedExploreState.dataset
+            : null;
+      if (!rowDataset) return true;
+      return (
+        journeyOptionsAt(dataset.optionsPerStep, levelIndex) >
+        journeyOptionsAt(rowDataset.optionsPerStep, levelIndex)
+      );
+    },
+    [dataset, exploration, loading, submittedExploreState.dataset],
   );
 
   if (!dataset || !model) return null;
@@ -154,6 +172,7 @@ export default function JourneyChart({
           onPop={popJourneyPath}
           onViewMore={onViewMore}
           canViewMore={canViewMore}
+          viewMoreLoading={viewMoreLoading}
         />
       </Box>
       {hasDimension && (

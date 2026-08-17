@@ -870,21 +870,21 @@ export default function ExplorerChart({
           minHeight: 0,
         }}
       >
-        {error && !exploration?.result?.rows?.length ? (
-          <Box p="4">
+        {error ? (
+          <Box p="4" pb={exploration?.result?.rows?.length ? "0" : "4"}>
             {isManagedWarehousePendingQueryError(error) ? (
               <ManagedWarehouseNoEventsCallout />
             ) : (
               <Callout status="error">{error}</Callout>
             )}
           </Box>
-        ) : (
+        ) : null}
+        {(exploration?.result?.rows?.length ?? 0) > 0 ? (
           <JourneyChart
             exploration={exploration}
             submittedExploreState={submittedExploreState}
-            animate={animate}
           />
-        )}
+        ) : null}
       </Flex>
     );
   }

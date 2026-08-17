@@ -7,9 +7,13 @@ import {
 import {
   canIncreaseJourneyOptions,
   journeyMinUnusedLookahead,
+  compareJourneyStepValues,
+  journeyOutcomeSqlValue,
   journeyResultCanServe,
+  journeyResultToStepValues,
   maxJourneyPathRows,
   maxJourneyResultRows,
+  parseJourneyOutcome,
   withJourneyOptionsAt,
   MAX_JOURNEY_RESULT_ROWS,
 } from "shared/journeys";
@@ -209,6 +213,11 @@ describe("buildJourneySql", () => {
     expect(sql).toContain("ROW_NUMBER()");
     expect(sql).not.toMatch(/QUALIFY/i);
     expect(sql).not.toContain("LIMIT");
+    expect(sql).not.toMatch(/\bAS direction\b/);
+    expect(sql).toContain("AS step_1");
+    expect(sql).toContain("AS step_3");
+    expect(sql).not.toMatch(/\bAS kind\b/);
+    expect(sql).not.toContain("UNION ALL");
     const rawAt = sql.indexOf("__journey_raw");
     const eventsAt = sql.indexOf("__journey_events");
     const nbAt = sql.indexOf("__journey_neighbourhood");
@@ -246,18 +255,22 @@ describe("buildJourneySql", () => {
     expect(sql).toContain(" / ");
   });
 
-  it("emits a committed-path match CTE and progress branch", () => {
+  it("emits committed prefix rows as trailing-null step columns", () => {
     const config = baseJourneyConfig();
     if (config.dataset.type !== "journey") throw new Error("expected journey");
     config.dataset.path = [{ mode: "value", value: "add_to_cart" }];
     const { sql } = buildJourneySql(config, factTableMap, helpers);
     expect(sql).toContain("__journey_matched");
-    expect(sql).toContain("__journey_progress");
     expect(sql).toContain("__journey_commit_0");
-    expect(sql).toContain("'committed'");
     expect(sql).toContain("UNION ALL");
-    expect(sql).toContain("depth_reached");
     expect(sql).toContain("add_to_cart");
+    expect(sql).toContain("AS step_1");
+    expect(sql).toContain("AS step_4");
+    expect(sql).toContain("value AS step_1");
+    expect(sql).not.toContain("__journey_progress");
+    expect(sql).not.toMatch(/\bAS kind\b/);
+    expect(sql).not.toContain("depth_reached");
+    expect(sql).not.toMatch(/GROUP BY\s+'/);
   });
 
   it("uses LAG for backward journeys", () => {
@@ -353,6 +366,59 @@ describe("buildJourneySql", () => {
 describe("transformJourneyRowsToResult", () => {
   const config = baseJourneyConfig();
 
+  it("maps full step rows as path lookahead", () => {
+    const result = transformJourneyRowsToResult(config, [
+      {
+        step_1: "add_to_cart",
+        step_2: "(none)",
+        step_3: "(none)",
+        journeys: 12,
+      },
+    ]);
+    expect(result.rows[0].journey).toEqual({
+      kind: "path",
+      direction: "forward",
+      levels: ["add_to_cart", "(none)", "(none)"],
+      count: 12,
+    });
+  });
+
+  it("maps trailing-null rows as committed prefix rollups", () => {
+    const withPath = baseJourneyConfig();
+    if (withPath.dataset.type !== "journey")
+      throw new Error("expected journey");
+    withPath.dataset.path = [{ mode: "value", value: "add_to_cart" }];
+    const result = transformJourneyRowsToResult(withPath, [
+      {
+        step_1: "add_to_cart",
+        step_2: "checkout",
+        step_3: "(exit)",
+        step_4: "(none)",
+        journeys: 8,
+      },
+      {
+        step_1: "(exit)",
+        step_2: null,
+        step_3: null,
+        step_4: null,
+        journeys: 4,
+      },
+    ]);
+    expect(result.rows[0].journey).toEqual({
+      kind: "path",
+      direction: "forward",
+      levels: ["checkout", "(exit)", "(none)"],
+      count: 8,
+    });
+    expect(result.rows[1].journey).toEqual({
+      kind: "committed",
+      direction: "forward",
+      stepIndex: 0,
+      value: "(exit)",
+      count: 4,
+    });
+  });
+
   it("maps path and progress rows, including (none)", () => {
     const result = transformJourneyRowsToResult(config, [
       {
@@ -367,7 +433,7 @@ describe("transformJourneyRowsToResult", () => {
         kind: "progress",
         direction: "forward",
         lvl_1: 1,
-        lvl_2: "exit",
+        lvl_2: "(exit)",
         journeys: 4,
       },
     ]);
@@ -384,6 +450,21 @@ describe("transformJourneyRowsToResult", () => {
       depthReached: 1,
       outcome: "exit",
       count: 4,
+    });
+  });
+
+  it("maps bare progress outcomes from older result sets", () => {
+    const result = transformJourneyRowsToResult(config, [
+      {
+        kind: "progress",
+        lvl_1: 0,
+        lvl_2: "exit",
+        journeys: 2,
+      },
+    ]);
+    expect(result.rows[0].journey).toMatchObject({
+      kind: "progress",
+      outcome: "exit",
     });
   });
 
@@ -423,6 +504,89 @@ describe("transformJourneyRowsToResult", () => {
       dimValues: 0,
     });
     expect(result.rows.length).toBeLessThanOrEqual(bound);
+  });
+});
+
+describe("journey progress sentinels", () => {
+  it("parses parenthesized and bare outcome labels", () => {
+    expect(parseJourneyOutcome("(taken)")).toBe("taken");
+    expect(parseJourneyOutcome("taken")).toBe("taken");
+    expect(parseJourneyOutcome("(other)")).toBe("other");
+    expect(parseJourneyOutcome("other")).toBe("other");
+    expect(parseJourneyOutcome("(exit)")).toBe("exit");
+    expect(parseJourneyOutcome("exit")).toBe("exit");
+    expect(parseJourneyOutcome("(entry)")).toBe("exit");
+    expect(parseJourneyOutcome(null)).toBe("taken");
+  });
+
+  it("writes parenthesized SQL values, using (entry) when backward", () => {
+    expect(journeyOutcomeSqlValue("taken", "forward")).toBe("(taken)");
+    expect(journeyOutcomeSqlValue("other", "forward")).toBe("(other)");
+    expect(journeyOutcomeSqlValue("exit", "forward")).toBe("(exit)");
+    expect(journeyOutcomeSqlValue("exit", "backward")).toBe("(entry)");
+  });
+
+  it("rebuilds SQL step columns from typed rows", () => {
+    const path = [{ mode: "value" as const, value: "add_to_cart" }];
+    expect(
+      journeyResultToStepValues(
+        {
+          kind: "path",
+          direction: "forward",
+          levels: ["checkout", "(exit)", "(none)"],
+          count: 8,
+        },
+        path,
+        3,
+        "forward",
+      ),
+    ).toEqual(["add_to_cart", "checkout", "(exit)", "(none)"]);
+    expect(
+      journeyResultToStepValues(
+        {
+          kind: "committed",
+          direction: "forward",
+          stepIndex: 0,
+          value: "(exit)",
+          count: 4,
+        },
+        path,
+        3,
+        "forward",
+      ),
+    ).toEqual(["(exit)", null, null, null]);
+    expect(
+      journeyResultToStepValues(
+        {
+          kind: "progress",
+          direction: "forward",
+          depthReached: 0,
+          outcome: "exit",
+          count: 4,
+        },
+        path,
+        3,
+        "forward",
+      ),
+    ).toEqual(["(exit)", null, null, null]);
+  });
+
+  it("sorts prefix rollups before their children", () => {
+    const rows = [
+      ["/search", "/item/*", "(exit)", "(none)"],
+      ["/search", "/item/*", "/checkout", "(exit)"],
+      ["(exit)", null, null, null],
+      ["/search", "/item/*", null, null],
+      ["/search", null, null, null],
+    ];
+    const sorted = [...rows].sort(compareJourneyStepValues);
+    expect(sorted).toEqual([
+      ["(exit)", null, null, null],
+      ["/search", null, null, null],
+      ["/search", "/item/*", null, null],
+      ["/search", "/item/*", "(exit)", "(none)"],
+      ["/search", "/item/*", "/checkout", "(exit)"],
+    ]);
   });
 });
 

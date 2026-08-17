@@ -3,6 +3,7 @@ import type {
   JourneyPathStep,
   JourneyStepGroup,
   ProductAnalyticsDimension,
+  ProductAnalyticsJourneyRow,
   ProductAnalyticsResultRow,
 } from "./validators/product-analytics";
 
@@ -10,6 +11,99 @@ export const JOURNEY_OTHER = "(other)";
 export const JOURNEY_EXIT = "(exit)";
 export const JOURNEY_ENTRY = "(entry)";
 export const JOURNEY_NONE = "(none)";
+export const JOURNEY_TAKEN = "(taken)";
+
+export type JourneyProgressOutcome = "taken" | "other" | "exit";
+
+export function parseJourneyOutcome(
+  raw: string | null,
+): JourneyProgressOutcome {
+  if (raw === "other" || raw === JOURNEY_OTHER) return "other";
+  if (raw === "exit" || raw === JOURNEY_EXIT || raw === JOURNEY_ENTRY) {
+    return "exit";
+  }
+  return "taken";
+}
+
+export function journeyOutcomeSqlValue(
+  outcome: JourneyProgressOutcome,
+  direction: "forward" | "backward",
+): string {
+  switch (outcome) {
+    case "taken":
+      return JOURNEY_TAKEN;
+    case "other":
+      return JOURNEY_OTHER;
+    case "exit":
+      return journeyTerminal(direction);
+    default: {
+      const exhaustive: never = outcome;
+      return exhaustive;
+    }
+  }
+}
+
+export function journeyResultToStepValues(
+  journey: ProductAnalyticsJourneyRow,
+  path: JourneyPathStep[],
+  depth: number,
+  direction: "forward" | "backward",
+): (string | null)[] {
+  const n = path.length + depth;
+  const prefix = path.map(journeyPathStepLabel);
+  const steps: (string | null)[] = Array.from({ length: n }, () => null);
+  switch (journey.kind) {
+    case "path":
+      for (let i = 0; i < prefix.length; i++) {
+        steps[i] = prefix[i];
+      }
+      for (let i = 0; i < depth; i++) {
+        steps[prefix.length + i] = journey.levels[i] ?? JOURNEY_NONE;
+      }
+      return steps;
+    case "committed":
+      for (let i = 0; i < journey.stepIndex && i < n; i++) {
+        steps[i] = prefix[i] ?? null;
+      }
+      if (journey.stepIndex < n) {
+        steps[journey.stepIndex] = journey.value;
+      }
+      return steps;
+    case "progress": {
+      const at = journey.depthReached;
+      for (let i = 0; i < at && i < n; i++) {
+        steps[i] = prefix[i] ?? null;
+      }
+      if (journey.outcome !== "taken" && at < n) {
+        steps[at] = journeyOutcomeSqlValue(journey.outcome, direction);
+      }
+      return steps;
+    }
+    default: {
+      const exhaustive: never = journey;
+      return exhaustive;
+    }
+  }
+}
+
+export function compareJourneyStepValues(
+  a: (string | null)[],
+  b: (string | null)[],
+): number {
+  const n = Math.max(a.length, b.length);
+  for (let i = 0; i < n; i++) {
+    const av = a[i];
+    const bv = b[i];
+    const aEmpty = (av ?? "") === "";
+    const bEmpty = (bv ?? "") === "";
+    if (aEmpty && bEmpty) continue;
+    if (aEmpty) return -1;
+    if (bEmpty) return 1;
+    const cmp = (av ?? "").localeCompare(bv ?? "");
+    if (cmp !== 0) return cmp;
+  }
+  return 0;
+}
 
 export const JOURNEY_TERMINALS = new Set<string>([
   JOURNEY_EXIT,
@@ -83,6 +177,19 @@ export function withJourneyOptionsAt(
 
 export function composeStepLabel(values: string[]): string {
   return values.join(" / ");
+}
+
+export function journeyPathStepLabel(step: JourneyPathStep): string {
+  switch (step.mode) {
+    case "value":
+      return step.value;
+    case "other":
+      return JOURNEY_OTHER;
+    default: {
+      const exhaustive: never = step;
+      return exhaustive;
+    }
+  }
 }
 
 export function journeyTerminal(

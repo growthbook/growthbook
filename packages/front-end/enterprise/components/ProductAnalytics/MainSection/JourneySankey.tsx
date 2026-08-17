@@ -353,6 +353,7 @@ function SankeySvg({
   onPop,
   onViewMore,
   canViewMore,
+  viewMoreLoading,
 }: {
   model: JourneyViewModel;
   width: number;
@@ -362,6 +363,7 @@ function SankeySvg({
   onPop: (index: number) => void;
   onViewMore: (levelIndex: number) => void;
   canViewMore: (levelIndex: number) => boolean;
+  viewMoreLoading: (levelIndex: number) => boolean;
 }) {
   const w = Math.floor(width);
   const h = Math.floor(height);
@@ -612,6 +614,13 @@ function SankeySvg({
                 !!c.frontier && !c.loading && !term && c.fi === 0;
               const lx = lastCol ? c.x - 7 : c.x + NODE_W + 7;
               const anch = lastCol ? "end" : "start";
+              const moreLoading =
+                c.optionsLevel != null && viewMoreLoading(c.optionsLevel);
+              const showViewMore =
+                n.key === JOURNEY_OTHER &&
+                !!c.frontier &&
+                c.optionsLevel != null &&
+                (moreLoading || canViewMore(c.optionsLevel));
               return (
                 <g key={`${c.offset}-${n.key}`}>
                   <rect
@@ -708,38 +717,36 @@ function SankeySvg({
                       {`${fmt(n.value)}  (${pct(n.value, model.anchorTotal)})`}
                     </text>
                   )}
-                  {n.key === JOURNEY_OTHER &&
-                    c.frontier &&
-                    c.optionsLevel != null &&
-                    canViewMore(c.optionsLevel) && (
-                      <text
-                        x={lx}
-                        y={ln.y + ln.h + 13}
-                        fontSize={11}
-                        fill="var(--accent-11)"
-                        textAnchor={anch}
-                        role="button"
-                        tabIndex={0}
-                        style={{
-                          cursor: "pointer",
-                          textDecoration: "underline",
-                        }}
-                        onClick={(ev) => {
-                          ev.stopPropagation();
-                          if (c.optionsLevel == null) return;
-                          onViewMore(c.optionsLevel);
-                        }}
-                        onKeyDown={(ev) => {
-                          if (ev.key !== "Enter" && ev.key !== " ") return;
-                          ev.preventDefault();
-                          ev.stopPropagation();
-                          if (c.optionsLevel == null) return;
-                          onViewMore(c.optionsLevel);
-                        }}
-                      >
-                        View more
-                      </text>
-                    )}
+                  {showViewMore && c.optionsLevel != null && (
+                    <text
+                      x={lx}
+                      y={ln.y + ln.h + 13}
+                      fontSize={11}
+                      fill="var(--accent-11)"
+                      textAnchor={anch}
+                      role="button"
+                      tabIndex={moreLoading ? -1 : 0}
+                      aria-busy={moreLoading}
+                      style={{
+                        cursor: moreLoading ? "default" : "pointer",
+                        textDecoration: moreLoading ? "none" : "underline",
+                      }}
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        if (moreLoading || c.optionsLevel == null) return;
+                        onViewMore(c.optionsLevel);
+                      }}
+                      onKeyDown={(ev) => {
+                        if (ev.key !== "Enter" && ev.key !== " ") return;
+                        ev.preventDefault();
+                        ev.stopPropagation();
+                        if (moreLoading || c.optionsLevel == null) return;
+                        onViewMore(c.optionsLevel);
+                      }}
+                    >
+                      {moreLoading ? "Loading…" : "View more"}
+                    </text>
+                  )}
                 </g>
               );
             });
@@ -796,6 +803,7 @@ export default function JourneySankey({
   onPop,
   onViewMore,
   canViewMore,
+  viewMoreLoading,
 }: {
   model: JourneyViewModel;
   scaleMode: "perStep" | "funnel";
@@ -803,6 +811,7 @@ export default function JourneySankey({
   onPop: (index: number) => void;
   onViewMore: (levelIndex: number) => void;
   canViewMore: (levelIndex: number) => boolean;
+  viewMoreLoading: (levelIndex: number) => boolean;
 }) {
   return (
     <ParentSizeModern>
@@ -818,6 +827,7 @@ export default function JourneySankey({
             onPop={onPop}
             onViewMore={onViewMore}
             canViewMore={canViewMore}
+            viewMoreLoading={viewMoreLoading}
           />
         );
       }}

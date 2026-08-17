@@ -3,6 +3,7 @@ import type { FactTableInterface } from "shared/types/fact-table";
 import type {
   ExplorationConfig,
   JourneyDataset,
+  ProductAnalyticsExploration,
   ProductAnalyticsResultRow,
 } from "shared/validators";
 import {
@@ -28,6 +29,7 @@ import {
   buildJourneyViewModel,
   buildJourneyViewState,
 } from "@/enterprise/components/ProductAnalytics/MainSection/useJourneyModel";
+import { buildJourneyTableData } from "@/enterprise/components/ProductAnalytics/MainSection/useExplorationTableData";
 
 function journeyDataset(
   overrides: Partial<JourneyDataset> = {},
@@ -834,5 +836,93 @@ describe("buildJourneyViewModel", () => {
     expect(committed).toHaveLength(3);
     expect(model.columns.filter((c) => c.frontier)).toHaveLength(0);
     expect(committed[0].nodes[0].value).toBe(50);
+  });
+});
+
+describe("buildJourneyTableData", () => {
+  const submitted: ExplorationConfig = {
+    type: "journey",
+    datasource: "ds_1",
+    chartType: "table",
+    dateRange: {
+      predefined: "last7Days",
+      startDate: null,
+      endDate: null,
+      lookbackValue: null,
+      lookbackUnit: null,
+    },
+    dimensions: [],
+    dataset: journeyDataset({ depth: 3 }),
+  };
+
+  it("mirrors SQL step columns, using nulls for prefix rollups", () => {
+    const withPath: ExplorationConfig = {
+      ...submitted,
+      dataset: journeyDataset({
+        depth: 3,
+        path: [{ mode: "value", value: "home" }],
+      }),
+    };
+    const exploration = {
+      config: withPath,
+      result: {
+        rows: [
+          pathRow(["search", "(exit)", "(none)"], 40),
+          {
+            dimensions: [],
+            journey: {
+              kind: "committed",
+              direction: "forward",
+              stepIndex: 0,
+              value: "home",
+              count: 50,
+            },
+          },
+          {
+            dimensions: [],
+            journey: {
+              kind: "committed",
+              direction: "forward",
+              stepIndex: 0,
+              value: "(exit)",
+              count: 30,
+            },
+          },
+          // Same grain as the (exit) committed row; must not appear twice.
+          progressRow(0, "exit", 30),
+        ],
+      },
+    } as ProductAnalyticsExploration;
+    const table = buildJourneyTableData(exploration, withPath);
+    expect(table.orderedColumnKeys).toEqual([
+      "step_1",
+      "step_2",
+      "step_3",
+      "step_4",
+      "journeys",
+    ]);
+    expect(table.rowData).toEqual([
+      {
+        step_1: "(exit)",
+        step_2: null,
+        step_3: null,
+        step_4: null,
+        journeys: 30,
+      },
+      {
+        step_1: "home",
+        step_2: null,
+        step_3: null,
+        step_4: null,
+        journeys: 50,
+      },
+      {
+        step_1: "home",
+        step_2: "search",
+        step_3: "(exit)",
+        step_4: "(none)",
+        journeys: 40,
+      },
+    ]);
   });
 });

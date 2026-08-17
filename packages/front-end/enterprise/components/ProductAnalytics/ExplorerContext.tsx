@@ -542,16 +542,24 @@ export function ExplorerProvider({
       ) => {
         if (requestId !== submitRequestIdRef.current) return;
         setPolling(false);
+        const nextError = resultError || result?.error || null;
+        const failedWithoutRows =
+          !!nextError && (result?.result?.rows?.length ?? 0) === 0;
         if (result || resultError) {
           setSubmittedExploreState(submittedConfig);
           setIsStale(false);
         }
-        setExplorerState((prev) => ({
-          ...prev,
-          exploration: result,
-          query: resultQuery,
-          error: resultError || result?.error || null,
-        }));
+        setExplorerState((prev) => {
+          const keepPrevious =
+            failedWithoutRows &&
+            (prev.exploration?.result?.rows?.length ?? 0) > 0;
+          return {
+            ...prev,
+            exploration: keepPrevious ? prev.exploration : result,
+            query: keepPrevious ? prev.query : resultQuery,
+            error: nextError,
+          };
+        });
         setComparisonExploration(resultComparison);
         setComparisonQuery(resultComparisonQuery);
         setComparisonComputed(resultComparisonComputed);

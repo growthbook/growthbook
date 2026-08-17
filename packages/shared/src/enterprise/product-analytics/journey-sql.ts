@@ -16,9 +16,11 @@ import {
   JOURNEY_NONE,
   JOURNEY_OTHER,
   composeStepLabel,
+  parseJourneyOutcome,
   journeyConfigExceedsRowCap,
   journeyDimValueCount,
   journeyOptionsAt,
+  journeyPathStepLabel,
   journeyTerminal,
   stepGroupsForColumn,
   MAX_JOURNEY_RESULT_ROWS,
@@ -197,18 +199,6 @@ function committedPredicate(
   return `${col} = ${lit(dialect, step.value)}   -- committed step ${index + 1}`;
 }
 
-function unsatisfiedPredicate(
-  dialect: SqlDialect,
-  col: string,
-  step: JourneyDataset["path"][number],
-): string {
-  if (step.mode === "other") {
-    const excludes = step.excludes.map((v) => lit(dialect, v)).join(", ");
-    return `(${col} IS NULL OR ${col} IN (${excludes}))`;
-  }
-  return `(${col} IS NULL OR ${col} <> ${lit(dialect, step.value)})`;
-}
-
 function dimMaxValues(dimension: ProductAnalyticsDimension | null): number {
   return journeyDimValueCount(dimension ?? undefined) || 3;
 }
@@ -357,33 +347,8 @@ function committedOptionCtes(
   return ctes;
 }
 
-function progressCte(dialect: SqlDialect, dataset: JourneyDataset): CTE {
-  const path = dataset.path;
-  const depthCases = path.map(
-    (step, k) =>
-      `WHEN ${unsatisfiedPredicate(dialect, `nb_${k + 1}`, step)} THEN ${k}`,
-  );
-  const outcomeCases: string[] = [];
-  path.forEach((step, k) => {
-    const col = `nb_${k + 1}`;
-    outcomeCases.push(`WHEN ${col} IS NULL THEN ${lit(dialect, "exit")}`);
-    outcomeCases.push(
-      `WHEN ${unsatisfiedPredicate(dialect, col, step)} THEN ${lit(dialect, "other")}`,
-    );
-  });
-  const dimSel = ",\n            dim_1";
-  const hasDim = true;
-  return {
-    name: "__journey_progress",
-    sql: `
-      SELECT
-        CASE ${depthCases.join("\n             ")}
-             ELSE ${path.length} END AS depth_reached,
-        CASE ${outcomeCases.join("\n             ")}
-             ELSE ${lit(dialect, "taken")} END AS outcome${hasDim ? dimSel : ""}
-      FROM __journey_anchored
-    `,
-  };
+function nullStepSql(dialect: SqlDialect, index: number): string {
+  return `${dialect.castToString("NULL")} AS step_${index}`;
 }
 
 export const JOURNEY_SUPPORTED_DATASOURCE_TYPES: readonly DataSourceType[] = [
@@ -596,7 +561,6 @@ export function buildJourneySql(
   ctes.push(...chain.ctes);
 
   if (pathLen > 0) {
-    ctes.push(progressCte(dialect, dataset));
     ctes.push(...committedOptionCtes(dialect, dataset));
   }
 
@@ -624,14 +588,21 @@ export function buildJourneySql(
     ? `CASE WHEN dim_1 IN (SELECT value FROM __journey_top_dim) THEN dim_1 ELSE ${lit(dialect, JOURNEY_OTHER)} END AS dim_1`
     : `${dialect.castToString("NULL")} AS dim_1`;
 
+  const stepCount = pathLen + fetchDepth;
   const lvlCols = Array.from({ length: fetchDepth }, (_, i) => `lvl_${i + 1}`);
-  const pathGroup = ["kind", "direction", ...lvlCols, "dim_1"];
+  const prefixExprs = dataset.path.map((step) =>
+    lit(dialect, journeyPathStepLabel(step)),
+  );
+  const pathStepSelects = [
+    ...prefixExprs.map((expr, i) => `${expr} AS step_${i + 1}`),
+    ...lvlCols.map((col, i) => `${col} AS step_${pathLen + i + 1}`),
+  ];
+  // Postgres/Redshift reject string literals in GROUP BY.
+  const pathGroup = [...lvlCols, "dim_1"];
 
   const pathBranch = `
     SELECT
-      ${lit(dialect, "path")} AS kind,
-      ${lit(dialect, dataset.direction)} AS direction,
-      ${lvlCols.join(",\n      ")},
+      ${pathStepSelects.join(",\n      ")},
       ${dimSelect},
       COUNT(*) AS journeys
     FROM ${chain.last}
@@ -640,54 +611,22 @@ export function buildJourneySql(
 
   const branches = [pathBranch];
   if (pathLen > 0) {
-    const paddedLvls = [
-      `${dialect.castToString("depth_reached")} AS lvl_1`,
-      `outcome AS lvl_2`,
-      ...Array.from(
-        { length: Math.max(0, fetchDepth - 2) },
-        (_, i) => `${dialect.castToString("NULL")} AS lvl_${i + 3}`,
-      ),
-    ];
-    const progressDim = hasDimension
-      ? `CASE WHEN dim_1 IN (SELECT value FROM __journey_top_dim) THEN dim_1 ELSE ${lit(dialect, JOURNEY_OTHER)} END AS dim_1`
-      : `${dialect.castToString("NULL")} AS dim_1`;
-    const progressGroup = hasDimension
-      ? "kind, direction, depth_reached, outcome, dim_1"
-      : "kind, direction, depth_reached, outcome";
-    branches.push(`
-    SELECT
-      ${lit(dialect, "progress")} AS kind,
-      ${lit(dialect, dataset.direction)} AS direction,
-      ${paddedLvls.join(",\n      ")},
-      ${progressDim},
-      COUNT(*) AS journeys
-    FROM __journey_progress
-    GROUP BY ${progressGroup}
-    `);
     for (let k = 0; k < pathLen; k++) {
-      const commitLvls = [
-        `${dialect.castToString(String(k))} AS lvl_1`,
-        `value AS lvl_2`,
-        ...Array.from(
-          { length: Math.max(0, fetchDepth - 2) },
-          (_, i) => `${dialect.castToString("NULL")} AS lvl_${i + 3}`,
+      const commitSteps = [
+        ...prefixExprs.slice(0, k).map((expr, i) => `${expr} AS step_${i + 1}`),
+        `value AS step_${k + 1}`,
+        ...Array.from({ length: stepCount - k - 1 }, (_, i) =>
+          nullStepSql(dialect, k + 2 + i),
         ),
       ];
-      const commitDim = hasDimension
-        ? `CASE WHEN dim_1 IN (SELECT value FROM __journey_top_dim) THEN dim_1 ELSE ${lit(dialect, JOURNEY_OTHER)} END AS dim_1`
-        : `${dialect.castToString("NULL")} AS dim_1`;
-      const commitGroup = hasDimension
-        ? "kind, direction, value, dim_1"
-        : "kind, direction, value";
+      const commitGroup = hasDimension ? ["value", "dim_1"] : ["value"];
       branches.push(`
     SELECT
-      ${lit(dialect, "committed")} AS kind,
-      ${lit(dialect, dataset.direction)} AS direction,
-      ${commitLvls.join(",\n      ")},
-      ${commitDim},
+      ${commitSteps.join(",\n      ")},
+      ${dimSelect},
       COUNT(*) AS journeys
     FROM __journey_commit_${k}
-    GROUP BY ${commitGroup}
+    GROUP BY ${commitGroup.join(", ")}
       `);
     }
   }
@@ -715,65 +654,108 @@ export function transformJourneyRowsToResult(
     );
   }
   const fetchDepth = config.dataset.depth;
+  const pathLen = config.dataset.path.length;
+  const stepCount = pathLen + fetchDepth;
   const hasDimension = config.dimensions.length > 0;
   const direction = config.dataset.direction;
   const result: ProductAnalyticsResult = { rows: [] };
 
   for (const row of rows) {
-    const kind = parseStringValue(rowValue(row, "kind"));
     const count = parseNumberValue(rowValue(row, "journeys")) ?? 0;
     const dim = parseStringValue(rowValue(row, "dim_1"));
     const resultRow: ProductAnalyticsResultRow = {
       dimensions: hasDimension ? [dim] : [],
     };
-    if (kind === "progress") {
-      const depthReached =
-        parseNumberValue(rowValue(row, "lvl_1")) ??
-        parseNumberValue(rowValue(row, "depth_reached")) ??
-        0;
-      const outcomeRaw =
-        parseStringValue(rowValue(row, "lvl_2")) ??
-        parseStringValue(rowValue(row, "outcome")) ??
-        "taken";
-      const outcome =
-        outcomeRaw === "other" || outcomeRaw === "exit" ? outcomeRaw : "taken";
-      resultRow.journey = {
-        kind: "progress",
-        direction,
-        depthReached,
-        outcome,
-        count,
-      };
-    } else if (kind === "committed") {
-      resultRow.journey = {
-        kind: "committed",
-        direction,
-        stepIndex:
-          parseNumberValue(rowValue(row, "lvl_1")) ??
-          parseNumberValue(rowValue(row, "step_index")) ??
-          0,
-        value:
-          parseStringValue(rowValue(row, "lvl_2")) ??
-          parseStringValue(rowValue(row, "value")) ??
-          JOURNEY_NONE,
-        count,
-      };
-    } else {
-      const levels: string[] = [];
-      for (let i = 0; i < fetchDepth; i++) {
-        levels.push(
-          parseStringValue(rowValue(row, `lvl_${i + 1}`)) ?? JOURNEY_NONE,
-        );
+    const steps = readStepValues(row, stepCount);
+    if (steps) {
+      // Trailing SQL NULL marks a prefix rollup; (none) pads a finished path.
+      let lastFilled = -1;
+      for (let i = steps.length - 1; i >= 0; i--) {
+        if ((steps[i] ?? null) !== null) {
+          lastFilled = i;
+          break;
+        }
       }
-      resultRow.journey = {
-        kind: "path",
+      const isPathRow =
+        lastFilled < 0 || steps.every((step) => (step ?? null) !== null);
+      if (isPathRow) {
+        const lookahead = steps.slice(pathLen);
+        resultRow.journey = {
+          kind: "path",
+          direction,
+          levels: lookahead.map((step) => step ?? JOURNEY_NONE),
+          count,
+        };
+      } else {
+        resultRow.journey = {
+          kind: "committed",
+          direction,
+          stepIndex: lastFilled,
+          value: steps[lastFilled] ?? JOURNEY_NONE,
+          count,
+        };
+      }
+    } else {
+      resultRow.journey = legacyJourneyFromRow(
+        row,
+        fetchDepth,
         direction,
-        levels,
         count,
-      };
+      );
     }
     result.rows.push(resultRow);
   }
 
   return result;
+}
+
+function readStepValues(
+  row: Record<string, unknown>,
+  stepCount: number,
+): (string | null)[] | null {
+  if (rowValue(row, "step_1") === undefined) return null;
+  const steps: (string | null)[] = [];
+  for (let i = 0; i < stepCount; i++) {
+    steps.push(parseStringValue(rowValue(row, `step_${i + 1}`)));
+  }
+  return steps;
+}
+
+function legacyJourneyFromRow(
+  row: Record<string, unknown>,
+  fetchDepth: number,
+  direction: "forward" | "backward",
+  count: number,
+): NonNullable<ProductAnalyticsResultRow["journey"]> {
+  const kind = parseStringValue(rowValue(row, "kind"));
+  if (kind === "progress") {
+    return {
+      kind: "progress",
+      direction,
+      depthReached: parseNumberValue(rowValue(row, "lvl_1")) ?? 0,
+      outcome: parseJourneyOutcome(parseStringValue(rowValue(row, "lvl_2"))),
+      count,
+    };
+  }
+  if (kind === "committed") {
+    return {
+      kind: "committed",
+      direction,
+      stepIndex: parseNumberValue(rowValue(row, "lvl_1")) ?? 0,
+      value: parseStringValue(rowValue(row, "lvl_2")) ?? JOURNEY_NONE,
+      count,
+    };
+  }
+  const levels: string[] = [];
+  for (let i = 0; i < fetchDepth; i++) {
+    levels.push(
+      parseStringValue(rowValue(row, `lvl_${i + 1}`)) ?? JOURNEY_NONE,
+    );
+  }
+  return {
+    kind: "path",
+    direction,
+    levels,
+    count,
+  };
 }

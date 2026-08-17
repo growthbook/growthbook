@@ -2,7 +2,9 @@ import { useMemo } from "react";
 import type {
   ComparisonMode,
   ExplorationConfig,
+  JourneyPathStep,
   ProductAnalyticsExploration,
+  ProductAnalyticsResultRow,
 } from "shared/validators";
 import {
   calculateProductAnalyticsDateRange,
@@ -12,6 +14,10 @@ import {
 } from "shared/enterprise";
 import type { ComparisonAlignmentStrategy } from "shared/enterprise";
 import { FactTableDefinition } from "shared/types/fact-table";
+import {
+  compareJourneyStepValues,
+  journeyResultToStepValues,
+} from "shared/journeys";
 import type { HeaderStructure } from "@/components/Settings/DisplayTestQueryResults";
 import {
   sortExplorationRows,
@@ -371,13 +377,42 @@ function buildFunnelTableData(
   };
 }
 
-function formatJourneyPct(value: number, total: number): string {
-  if (total <= 0) return "—";
-  const p = (100 * value) / total;
-  return `${p.toFixed(p >= 10 ? 0 : 1)}%`;
+function tableRowSteps(
+  row: Record<string, unknown>,
+  stepCount: number,
+): (string | null)[] {
+  const steps: (string | null)[] = [];
+  for (let i = 0; i < stepCount; i++) {
+    const v = row[`step_${i + 1}`];
+    steps.push(typeof v === "string" ? v : null);
+  }
+  return steps;
 }
 
-function buildJourneyTableData(
+function journeyResultRowToSqlTableRow(
+  row: ProductAnalyticsResultRow,
+  path: JourneyPathStep[],
+  depth: number,
+  hasDimension: boolean,
+  direction: "forward" | "backward",
+): Record<string, unknown> {
+  const journey = row.journey;
+  const steps = journey
+    ? journeyResultToStepValues(journey, path, depth, direction)
+    : [];
+  const out: Record<string, unknown> = {
+    journeys: journey?.count ?? 0,
+  };
+  for (let i = 0; i < path.length + depth; i++) {
+    out[`step_${i + 1}`] = steps[i] ?? null;
+  }
+  if (hasDimension) {
+    out["dim_1"] = row.dimensions[0] ?? "";
+  }
+  return out;
+}
+
+export function buildJourneyTableData(
   exploration: ProductAnalyticsExploration | null,
   submittedExploreState: ExplorationConfig,
 ): ExplorationTableData {
@@ -391,51 +426,51 @@ function buildJourneyTableData(
       tableCompareActive: false,
     };
   }
-  const fetchDepth = submittedExploreState.dataset.depth;
-  const hasDimension = (submittedExploreState.dimensions?.length ?? 0) > 0;
+  const source =
+    exploration?.config.dataset.type === "journey"
+      ? exploration.config
+      : submittedExploreState;
+  const depth = source.dataset.type === "journey" ? source.dataset.depth : 0;
+  const path = source.dataset.type === "journey" ? source.dataset.path : [];
+  const direction =
+    source.dataset.type === "journey" ? source.dataset.direction : "forward";
+  const hasDimension = source.dimensions.length > 0;
+  const stepCount = path.length + depth;
   const rows = exploration?.result?.rows ?? [];
-  const pathRows = rows.filter((r) => r.journey?.kind === "path");
-  const progressRows = rows.filter((r) => r.journey?.kind === "progress");
-  const anchorTotal = progressRows.length
-    ? progressRows.reduce((a, r) => a + (r.journey?.count ?? 0), 0)
-    : pathRows.reduce((a, r) => a + (r.journey?.count ?? 0), 0);
 
   const orderedColumnKeys = [
-    ...Array.from({ length: fetchDepth }, (_, i) => `lvl_${i + 1}`),
+    ...Array.from({ length: stepCount }, (_, i) => `step_${i + 1}`),
     ...(hasDimension ? ["dim_1"] : []),
     "journeys",
-    "pctStart",
   ];
-  const columnLabels = [
-    ...Array.from({ length: fetchDepth }, (_, i) => `Step ${i + 1}`),
-    ...(hasDimension ? ["Dimension"] : []),
-    "Journeys",
-    "% of start",
-  ];
+  const columnLabels = [...orderedColumnKeys];
 
-  const rowData = pathRows.map((row) => {
-    const j = row.journey;
-    const count = j && j.kind === "path" ? j.count : 0;
-    const levels = j && j.kind === "path" ? j.levels : [];
-    const out: Record<string, unknown> = {
-      journeys: count,
-      pctStart: formatJourneyPct(count, anchorTotal),
-    };
-    for (let i = 0; i < fetchDepth; i++) {
-      out[`lvl_${i + 1}`] = levels[i] ?? "";
-    }
-    if (hasDimension) {
-      out["dim_1"] = row.dimensions[0] ?? "";
-    }
-    return out;
-  });
+  const rowData = rows
+    .filter((row) => row.journey?.kind !== "progress")
+    .map((row) =>
+      journeyResultRowToSqlTableRow(row, path, depth, hasDimension, direction),
+    )
+    .sort((a, b) => {
+      const byPath = compareJourneyStepValues(
+        tableRowSteps(a, stepCount),
+        tableRowSteps(b, stepCount),
+      );
+      if (byPath !== 0) return byPath;
+      if (hasDimension) {
+        const dimCmp = String(a["dim_1"] ?? "").localeCompare(
+          String(b["dim_1"] ?? ""),
+        );
+        if (dimCmp !== 0) return dimCmp;
+      }
+      return Number(b.journeys) - Number(a.journeys);
+    });
 
   return {
     rowData,
     orderedColumnKeys,
     columnLabels,
     headerStructure: null,
-    explorationReturnedNoData: pathRows.length === 0,
+    explorationReturnedNoData: rows.length === 0,
     tableCompareActive: false,
   };
 }
