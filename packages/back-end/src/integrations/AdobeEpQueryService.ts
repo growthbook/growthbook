@@ -1,22 +1,20 @@
 import { SqlDialect } from "shared/types/sql";
 import { QueryResponse } from "shared/types/integrations";
 import { PostgresConnectionParams } from "shared/types/integrations/postgres";
-import { AdobeEpConnectionParams } from "shared/types/integrations/adobe-ep";
+import { AdobeExperiencePlatformQueryServiceConnectionParams } from "shared/types/integrations/adobe-experience-platform-query-service";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { runPostgresQuery } from "back-end/src/services/postgres";
 import SqlIntegration from "./SqlIntegration";
 import { adobeEpDialect } from "./dialects/adobeEp";
 
-// Query Service speaks Postgres; Adobe identity and scope go in user, password, and database.
 export function toPostgresConnection(
-  p: AdobeEpConnectionParams,
+  p: AdobeExperiencePlatformQueryServiceConnectionParams,
 ): PostgresConnectionParams {
-  const orgId = p.orgId.trim().replace(/@AdobeOrg$/i, "");
   return {
     host: p.host,
     port: p.port,
-    database: `${p.sandbox}:${p.container}${p.flatten ? "?FLATTEN" : ""}`,
-    user: `${orgId}@AdobeOrg`,
+    database: p.database,
+    user: p.username,
     password: `${p.technicalAccountId}:${p.credential}`,
     // TLS is required on both port 80 and 5432; sslmode=disable is rejected.
     ssl: true,
@@ -25,12 +23,14 @@ export function toPostgresConnection(
 }
 
 export default class AdobeEpQueryService extends SqlIntegration {
-  params!: AdobeEpConnectionParams;
+  params!: AdobeExperiencePlatformQueryServiceConnectionParams;
   requiresDatabase = false;
   requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params =
-      decryptDataSourceParams<AdobeEpConnectionParams>(encryptedParams);
+      decryptDataSourceParams<AdobeExperiencePlatformQueryServiceConnectionParams>(
+        encryptedParams,
+      );
   }
   getSqlDialect(): SqlDialect {
     return adobeEpDialect;

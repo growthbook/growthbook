@@ -95,7 +95,7 @@ function getIntegrationObj(
       return new Postgres(context, datasource);
     case "vertica":
       return new Vertica(context, datasource);
-    case "adobe_ep_query_service":
+    case "adobe_experience_platform_query_service":
       return new AdobeEpQueryService(context, datasource);
     case "mysql":
       return new Mysql(context, datasource);

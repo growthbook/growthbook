@@ -206,13 +206,11 @@ const DATA_SOURCE_PARAM_SENSITIVITY = {
     delimiter: "public",
   },
 
-  adobe_ep_query_service: {
+  adobe_experience_platform_query_service: {
     host: "public",
     port: "public",
-    orgId: "public",
-    sandbox: "public",
-    container: "public",
-    flatten: "public",
+    database: "public",
+    username: "public",
     technicalAccountId: "public",
     credential: "secret",
   },

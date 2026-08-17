@@ -207,12 +207,11 @@ export default function ConnectionSettings({
         />
       );
       break;
-    case "adobe_ep_query_service":
+    case "adobe_experience_platform_query_service":
       datasourceComponent = (
         <AdobeEpForm
           existing={storedCredentials}
           onParamChange={onParamChange}
-          setParams={setParams}
           params={datasource?.params || {}}
         />
       );

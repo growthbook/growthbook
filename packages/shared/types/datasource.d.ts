@@ -8,7 +8,7 @@ import { PostgresConnectionParams } from "./integrations/postgres";
 import { PrestoConnectionParams } from "./integrations/presto";
 import { SnowflakeConnectionParams } from "./integrations/snowflake";
 import { DatabricksConnectionParams } from "./integrations/databricks";
-import { AdobeEpConnectionParams } from "./integrations/adobe-ep";
+import { AdobeExperiencePlatformQueryServiceConnectionParams } from "./integrations/adobe-experience-platform-query-service";
 import { MetricType } from "./metric";
 import { MssqlConnectionParams } from "./integrations/mssql";
 import { FactTableColumnType } from "./fact-table";
@@ -29,7 +29,7 @@ export type DataSourceType =
   | "databricks"
   | "mixpanel"
   | "vertica"
-  | "adobe_ep_query_service";
+  | "adobe_experience_platform_query_service";
 
 export type DataSourceParams =
   | PostgresConnectionParams
@@ -43,7 +43,7 @@ export type DataSourceParams =
   | BigQueryConnectionParams
   | ClickHouseConnectionParams
   | MixpanelConnectionParams
-  | AdobeEpConnectionParams;
+  | AdobeExperiencePlatformQueryServiceConnectionParams;
 
 export type QueryLanguage = "sql" | "javascript" | "json" | "none";
 
@@ -453,7 +453,7 @@ interface VerticaDataSource extends DataSourceBase {
 }
 
 interface AdobeEpQueryServiceDataSource extends DataSourceBase {
-  type: "adobe_ep_query_service";
+  type: "adobe_experience_platform_query_service";
 }
 
 interface BigQueryDataSource extends DataSourceBase {
@@ -506,7 +506,7 @@ export type VerticaDataSourceWithParams = WithParams<
 >;
 export type AdobeEpQueryServiceDataSourceWithParams = WithParams<
   AdobeEpQueryServiceDataSource,
-  AdobeEpConnectionParams
+  AdobeExperiencePlatformQueryServiceConnectionParams
 >;
 export type MysqlDataSourceWithParams = WithParams<
   MysqlDataSource,

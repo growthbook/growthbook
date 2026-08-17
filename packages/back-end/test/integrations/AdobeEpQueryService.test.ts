@@ -1,51 +1,23 @@
-import { AdobeEpConnectionParams } from "shared/types/integrations/adobe-ep";
+import { AdobeExperiencePlatformQueryServiceConnectionParams } from "shared/types/integrations/adobe-experience-platform-query-service";
 import { toPostgresConnection } from "back-end/src/integrations/AdobeEpQueryService";
 import { adobeEpDialect } from "back-end/src/integrations/dialects/adobeEp";
 
-const baseParams: AdobeEpConnectionParams = {
+const baseParams: AdobeExperiencePlatformQueryServiceConnectionParams = {
   host: "acme.platform.adobe.io",
-  port: 5432,
-  orgId: "ECBB80245ECFC73E8A095EC9",
-  sandbox: "prod",
-  container: "all",
-  flatten: false,
+  port: 80,
+  database: "prod:all",
+  username: "ECBB80245ECFC73E8A095EC9@AdobeOrg",
   technicalAccountId: "tech-account-123",
   credential: "s3cr3t",
 };
 
 describe("toPostgresConnection", () => {
-  it("composes the sandbox:container database string", () => {
-    expect(toPostgresConnection(baseParams).database).toBe("prod:all");
-  });
-
-  it("appends ?FLATTEN when flatten is true", () => {
-    expect(
-      toPostgresConnection({ ...baseParams, flatten: true }).database,
-    ).toBe("prod:all?FLATTEN");
-  });
-
-  it("appends @AdobeOrg to the org id", () => {
-    expect(toPostgresConnection(baseParams).user).toBe(
-      "ECBB80245ECFC73E8A095EC9@AdobeOrg",
-    );
-  });
-
-  it("does not double the suffix when the org id is pasted with @AdobeOrg", () => {
-    expect(
-      toPostgresConnection({
-        ...baseParams,
-        orgId: "ECBB80245ECFC73E8A095EC9@AdobeOrg",
-      }).user,
-    ).toBe("ECBB80245ECFC73E8A095EC9@AdobeOrg");
-  });
-
-  it("strips surrounding whitespace and a case-insensitive suffix", () => {
-    expect(
-      toPostgresConnection({
-        ...baseParams,
-        orgId: " ECBB80245ECFC73E8A095EC9@adobeorg ",
-      }).user,
-    ).toBe("ECBB80245ECFC73E8A095EC9@AdobeOrg");
+  it("passes through Adobe's connection values", () => {
+    const conn = toPostgresConnection(baseParams);
+    expect(conn.host).toBe("acme.platform.adobe.io");
+    expect(conn.port).toBe(80);
+    expect(conn.database).toBe("prod:all");
+    expect(conn.user).toBe("ECBB80245ECFC73E8A095EC9@AdobeOrg");
   });
 
   it("joins technicalAccountId and credential with a colon as the password", () => {
@@ -58,10 +30,8 @@ describe("toPostgresConnection", () => {
     expect(toPostgresConnection(baseParams).ssl).toBe(true);
   });
 
-  it("passes host and port through and leaves defaultSchema empty", () => {
+  it("leaves defaultSchema empty", () => {
     const conn = toPostgresConnection(baseParams);
-    expect(conn.host).toBe("acme.platform.adobe.io");
-    expect(conn.port).toBe(5432);
     expect(conn.defaultSchema).toBe("");
   });
 });

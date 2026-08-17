@@ -62,7 +62,8 @@ const docSections = {
   presto: "/warehouses/prestodb-or-trino",
   snowflake: "/warehouses/snowflake",
   vertica: "/warehouses/vertica",
-  adobe_ep_query_service: "/warehouses/adobe-experience-platform",
+  adobe_experience_platform_query_service:
+    "/warehouses/adobe-experience-platform",
   databricks: "/warehouses/databricks",
   clickhouse: "/warehouses/clickhouse",
   postgres: "/warehouses/postgres",

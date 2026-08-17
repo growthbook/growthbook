@@ -28,7 +28,7 @@ const CREDENTIAL_FIELDS: Record<DataSourceType, string[]> = {
   google_analytics: ["refreshToken"],
   clickhouse: ["password"],
   growthbook_clickhouse: ["password"],
-  adobe_ep_query_service: ["credential"],
+  adobe_experience_platform_query_service: ["credential"],
 };
 
 // A param that must survive redaction, so blanking everything cannot pass.
@@ -47,7 +47,7 @@ const PUBLIC_FIELD: Record<DataSourceType, string> = {
   google_analytics: "viewId",
   clickhouse: "database",
   growthbook_clickhouse: "database",
-  adobe_ep_query_service: "sandbox",
+  adobe_experience_platform_query_service: "database",
 };
 
 const value = (type: DataSourceType, field: string) =>
@@ -187,15 +187,16 @@ const PARAMS: Record<DataSourceType, DataSourceParams> = {
   },
   clickhouse: clickHouseLike("clickhouse"),
   growthbook_clickhouse: clickHouseLike("growthbook_clickhouse"),
-  adobe_ep_query_service: {
-    host: value("adobe_ep_query_service", "host"),
-    port: 5432,
-    orgId: value("adobe_ep_query_service", "orgId"),
-    sandbox: value("adobe_ep_query_service", "sandbox"),
-    container: value("adobe_ep_query_service", "container"),
-    flatten: false,
-    technicalAccountId: value("adobe_ep_query_service", "technicalAccountId"),
-    credential: value("adobe_ep_query_service", "credential"),
+  adobe_experience_platform_query_service: {
+    host: value("adobe_experience_platform_query_service", "host"),
+    port: 80,
+    database: value("adobe_experience_platform_query_service", "database"),
+    username: value("adobe_experience_platform_query_service", "username"),
+    technicalAccountId: value(
+      "adobe_experience_platform_query_service",
+      "technicalAccountId",
+    ),
+    credential: value("adobe_experience_platform_query_service", "credential"),
   },
 };
 

@@ -7,19 +7,18 @@ unlisted: true
 
 GrowthBook connects to Adobe Experience Platform through Query Service, which speaks the PostgreSQL wire protocol. GrowthBook runs read-only queries against your XDM datasets to build experiment results.
 
-## 1. Create OAuth Server-to-Server credentials in Adobe
+## 1. Generate a non-expiring Query Service credential
 
-GrowthBook authenticates with an OAuth Server-to-Server credential from the Adobe Developer Console. Use a non-expiring credential so GrowthBook does not lose access when a token rotates, and scope it to read-only data access.
+GrowthBook authenticates with a non-expiring OAuth Server-to-Server credential generated in Adobe Experience Platform. Before anyone generates the first credential, a System Admin must configure the required sandbox and Query Service permissions in Adobe Admin Console.
 
-1. In the [Adobe Developer Console](https://developer.adobe.com/console), open (or create) a project and add the Adobe Experience Platform Query Service API to it.
-2. Add an OAuth Server-to-Server credential to that project. Configure it as non-expiring so GrowthBook can keep running scheduled queries without manual token refresh.
-3. Assign the credential a product profile that grants SELECT access to the datasets you want GrowthBook to read. Do not grant write or management access. GrowthBook only reads data.
+1. In Adobe Experience Platform, select **Queries** in the left navigation and open the **Credentials** tab.
+2. In the **Non-expiring Credentials** section, select **Generate credentials**.
+3. Enter a name, the user to assign the credential to, and the other requested details.
+4. Generate the credential and store the downloaded configuration JSON securely. Adobe does not keep a copy of the generated credential.
 
-When you finish, the credential page gives you three values you will need in GrowthBook:
+See Adobe's [Query Service credentials guide](https://experienceleague.adobe.com/en/docs/experience-platform/query/ui/credentials) for the required Admin Console setup and credential-generation steps.
 
-- **Organization ID** — your Adobe organization identifier. GrowthBook appends `@AdobeOrg` for you, so enter the raw ID.
-- **Technical Account ID** — the public identity of the Server-to-Server credential.
-- **Credential** — the client secret paired with the technical account. This is the only secret value. Copy it now and store it somewhere safe.
+Keep the Credentials tab and downloaded configuration JSON available. You will map their values to GrowthBook in step 3.
 
 ## 2. Add the Data Source in GrowthBook
 
@@ -31,18 +30,14 @@ Select "Adobe Experience Platform" as the warehouse type.
 
 Map each field to a value from Adobe.
 
-- **Host** — your Query Service host, for example `acme.platform.adobe.io`.
-- **Port** — `5432`. Use `80` if your network blocks outbound `5432`.
-- **Organization ID** — the Organization ID from step 1. GrowthBook appends `@AdobeOrg`, so do not add it yourself.
-- **Sandbox** — the sandbox name, for example `prod`.
-- **Container** — the scope GrowthBook queries within the sandbox. Use `all` to query across the sandbox, or a specific dataset id, view id, or database name to narrow it.
-- **Flatten** — when on, GrowthBook asks Query Service to flatten XDM structs into dot notation, so nested fields read as `a.b.c`. Leave it off to keep the nested structure.
-- **Technical account ID** — the Technical Account ID from step 1.
-- **Credential** — the client secret from step 1.
+- **Host** — the Host value in the **Expiring Credentials** section of Adobe's Credentials tab, for example `acme.platform.adobe.io`. Adobe uses the same host for non-expiring credentials.
+- **Port** — the Port value from Adobe. Port `80` is recommended, and port `5432` is also supported.
+- **Database** — the Database value from Adobe, for example `prod:all`.
+- **Username** — the Username value from Adobe, including the `@AdobeOrg` suffix.
+- **Technical account ID** — the `technicalAccountId` value in the downloaded configuration JSON.
+- **Credential** — the `credential` value in the downloaded configuration JSON.
 
-TLS is always on. Query Service rejects unencrypted connections, so there is no SSL section to configure.
-
-When you save the Data Source, GrowthBook tests the connection with a simple `SELECT 1` query.
+When you save the Data Source, GrowthBook tests the connection works.
 
 ## 4. Guardrails and limits
 
@@ -51,15 +46,15 @@ Query Service enforces limits that shape how GrowthBook queries it.
 - **10-minute interactive query timeout.** Interactive queries that run longer than 10 minutes are cancelled and return SQLSTATE `53400`. Keep experiment queries within this window.
 - **50,000-row client result cap.** A single interactive query returns at most 50,000 rows to the client. Experiment-results queries return aggregated rows, so they stay well under this in normal use.
 - **100,000 `LIMIT` ceiling.** Query Service rejects a `LIMIT` above 100,000.
-- **Per-license session and concurrency limits.** Your Adobe license caps how many sessions and concurrent queries you can run. GrowthBook seeds a conservative `maxConcurrentQueries` of 5 for this Data Source so it does not exhaust a small entitlement. You can change this value in the connection settings if your license allows more.
+- **Per-license session and concurrency limits.** Your Adobe license caps how many sessions and concurrent queries you can run. GrowthBook defaults `maxConcurrentQueries` to 1, which matches the standard Query Service entitlement. Raise it in the connection settings only if your Adobe license allows more concurrent queries.
 
-## 5. Not supported in the first release
+## 5. Current limitations
 
-A few capabilities are off for Adobe Experience Platform in this release.
+A few capabilities are off for Adobe Experience Platform at this moment. Please reach out to support if any of these are a blocker for you and your team.
 
-- **Schema browsing.** The schema browser that suggests tables and columns while you write queries is off. Write queries against your known dataset and column names.
-- **Funnels and Product Analytics.** Funnel metrics and Product Analytics are not available for this Data Source.
-- **Pipeline (incremental refresh) mode.** Every refresh runs as a full query. Incremental refresh is not available.
+- **Schema browsing.** The schema browser that suggests tables and columns while you write queries is disabled.
+- **Funnels.** Funnel metrics and funnel explorations are not available at the moment.
+- **Pipeline (incremental refresh) mode.** Incremental updates are not available at the moment.
 
 ## 6. Set up your experiment assignment queries and metrics
 

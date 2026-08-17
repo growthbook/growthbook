@@ -1,18 +1,16 @@
 import { FC, ChangeEventHandler } from "react";
-import { AdobeEpConnectionParams } from "shared/types/integrations/adobe-ep";
+import { AdobeExperiencePlatformQueryServiceConnectionParams } from "shared/types/integrations/adobe-experience-platform-query-service";
 import TextField from "@/ui/TextField";
-import Checkbox from "@/ui/Checkbox";
 import {
   KEEP_EXISTING_PLACEHOLDER,
   useCanKeepExistingCredentials,
 } from "@/components/Forms/secretInput";
 
 const AdobeEpForm: FC<{
-  params: Partial<AdobeEpConnectionParams>;
+  params: Partial<AdobeExperiencePlatformQueryServiceConnectionParams>;
   existing: boolean;
   onParamChange: ChangeEventHandler<HTMLInputElement>;
-  setParams: (params: { [key: string]: string | boolean }) => void;
-}> = ({ params, existing, onParamChange, setParams }) => {
+}> = ({ params, existing, onParamChange }) => {
   const canKeepExistingCredentials = useCanKeepExistingCredentials(
     existing,
     "credential",
@@ -36,45 +34,28 @@ const AdobeEpForm: FC<{
           type="number"
           name="port"
           required
-          value={params.port || 5432}
+          value={params.port ?? 80}
           onChange={onParamChange}
         />
       </div>
       <div className="form-group col-md-12">
         <TextField
-          label="Organization ID"
-          name="orgId"
+          label="Database"
+          name="database"
           required
-          helpText="From the Adobe Admin Console. GrowthBook appends @AdobeOrg."
-          value={params.orgId || ""}
+          helpText="Copy the Database value from Adobe's Credentials tab."
+          value={params.database || ""}
           onChange={onParamChange}
         />
       </div>
       <div className="form-group col-md-12">
         <TextField
-          label="Sandbox"
-          name="sandbox"
+          label="Username"
+          name="username"
           required
-          value={params.sandbox || ""}
+          helpText="Copy the Username value from Adobe's Credentials tab."
+          value={params.username || ""}
           onChange={onParamChange}
-        />
-      </div>
-      <div className="form-group col-md-12">
-        <TextField
-          label="Container"
-          name="container"
-          required
-          helpText="Use all, a dataset id, a view id, or a database name."
-          value={params.container || ""}
-          onChange={onParamChange}
-        />
-      </div>
-      <div className="form-group col-md-12">
-        <Checkbox
-          label="Flatten"
-          description="Flatten XDM structs to dot notation."
-          value={params.flatten ?? false}
-          setValue={(checked) => setParams({ flatten: checked })}
         />
       </div>
       <div className="form-group col-md-12">
