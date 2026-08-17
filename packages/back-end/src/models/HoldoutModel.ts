@@ -26,7 +26,6 @@ import {
 } from "back-end/src/api/specs/holdout.spec";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import {
-  applyHoldoutTargetingChanges,
   createHoldoutWithExperiment,
   normalizeHoldoutScheduleUpdates,
   setHoldoutStage,
@@ -411,18 +410,33 @@ export class HoldoutModel extends BaseClass {
       }
     }
 
-    // 1. Phase-level targeting and sizing, through the same path the internal
-    //    targeting endpoint uses so phases and the SDK payload stay correct.
+    // 1. Phase-level targeting and sizing.
     if (isTargetingChange) {
-      experiment = await applyHoldoutTargetingChanges(this.context, {
-        experiment,
+      const phases = [...experiment.phases];
+      if (!phases.length) {
+        throw new Error("Holdout does not have a phase to target");
+      }
+
+      const current = phases[phases.length - 1];
+      phases[phases.length - 1] = {
+        ...current,
+        condition: body.targetingCondition ?? current.condition,
+        savedGroups: body.savedGroups ?? current.savedGroups,
         coverage:
           body.holdoutSize === undefined
-            ? undefined
+            ? current.coverage
             : holdoutSizeToCoverage(body.holdoutSize),
-        condition: body.targetingCondition,
-        savedGroups: body.savedGroups,
-        hashAttribute: body.hashAttribute,
+      };
+
+      experiment = await updateExperiment({
+        context: this.context,
+        experiment,
+        changes: {
+          phases,
+          ...(body.hashAttribute !== undefined && {
+            hashAttribute: body.hashAttribute,
+          }),
+        },
       });
     }
 
