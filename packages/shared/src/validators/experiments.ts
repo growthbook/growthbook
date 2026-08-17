@@ -1960,6 +1960,12 @@ const startChecklistItemStatusValidator = z
     status: checklistStatusValidator,
     manual: z.boolean(),
     reason: z.string(),
+    hardBlock: z
+      .boolean()
+      .optional()
+      .describe(
+        "When true, this item cannot be bypassed with `skipChecklist` — the experiment cannot be started until it is resolved.",
+      ),
   })
   .strict();
 
