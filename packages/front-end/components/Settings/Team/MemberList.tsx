@@ -12,6 +12,7 @@ import {
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
+import Link from "@/ui/Link";
 import EnvironmentAccessCell from "@/components/Settings/EnvironmentAccessCell";
 import Callout from "@/ui/Callout";
 import { usingSSO } from "@/services/env";
@@ -389,7 +390,19 @@ const MemberList: FC<{
                     />
                   </TableCell>
 
-                  <TableCell>{member.teams?.length ?? 0}</TableCell>
+                  <TableCell>
+                    {(member.teams ?? []).map((teamId) => {
+                      const team = (teams ?? []).find((t) => t.id === teamId);
+                      if (!team) return null;
+                      return (
+                        <div key={teamId}>
+                          <Link href={`/settings/team/${teamId}`}>
+                            {team.name}
+                          </Link>
+                        </div>
+                      );
+                    })}
+                  </TableCell>
 
                   <TableCell>
                     {member.id !== userId && (
