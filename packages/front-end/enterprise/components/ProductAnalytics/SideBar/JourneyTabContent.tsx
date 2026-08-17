@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Flex, IconButton } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import {
   PiCaretDown,
@@ -316,59 +316,44 @@ export default function JourneyTabContent() {
             {stepColumns.map((col, i) => {
               return (
                 <Flex key={i} align="center" gap="2" width="100%">
-                  <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
-                    <SelectField
-                      containerClassName="mb-0"
-                      value={col}
-                      disabled={!canRun}
-                      onChange={(next) => {
-                        const nextCols = [...stepColumns];
-                        nextCols[i] = next;
-                        const nextAnchor = [
-                          ...(dataset.anchorStepValues ??
-                            stepColumns.map(() => "")),
-                        ];
-                        while (nextAnchor.length < nextCols.length) {
-                          nextAnchor.push("");
-                        }
-                        nextAnchor[i] = "";
-                        commitStepColumns(nextCols, nextAnchor);
-                      }}
-                      options={stepColumnOptions.filter(
-                        (o) =>
-                          o.value === col || !stepColumns.includes(o.value),
-                      )}
-                      placeholder="Select column..."
-                      forceUndefinedValueToNull
-                    />
-                  </div>
+                  <SelectField
+                    containerStyle={{ flex: 1, minWidth: 0, marginBottom: 0 }}
+                    value={col}
+                    disabled={!canRun}
+                    onChange={(next) => {
+                      const nextCols = [...stepColumns];
+                      nextCols[i] = next;
+                      const nextAnchor = [
+                        ...(dataset.anchorStepValues ??
+                          stepColumns.map(() => "")),
+                      ];
+                      while (nextAnchor.length < nextCols.length) {
+                        nextAnchor.push("");
+                      }
+                      nextAnchor[i] = "";
+                      commitStepColumns(nextCols, nextAnchor);
+                    }}
+                    options={stepColumnOptions.filter(
+                      (o) => o.value === col || !stepColumns.includes(o.value),
+                    )}
+                    placeholder="Select column..."
+                    forceUndefinedValueToNull
+                  />
                   {i === 0 && (
                     <DropdownMenu
                       menuPlacement="end"
                       disabled={!canRun}
                       trigger={
-                        <span
+                        <IconButton
+                          variant="ghost"
+                          color="gray"
+                          size="1"
+                          highContrast
                           aria-label="More"
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: 24,
-                            height: 24,
-                            pointerEvents: "auto",
-                            cursor: canRun ? "pointer" : "not-allowed",
-                          }}
                         >
                           <PiDotsThreeVertical size={16} />
-                        </span>
+                        </IconButton>
                       }
-                      triggerStyle={{
-                        padding: 0,
-                        margin: 0,
-                        background: "transparent",
-                        boxShadow: "none",
-                        lineHeight: 0,
-                      }}
                     >
                       <DropdownMenuItem
                         disabled={
@@ -394,6 +379,7 @@ export default function JourneyTabContent() {
                       variant="ghost"
                       size="sm"
                       title="Remove column"
+                      aria-label="Remove column"
                       disabled={!canRun}
                       style={{ padding: 0, minWidth: 20 }}
                       onClick={() => {
@@ -417,71 +403,69 @@ export default function JourneyTabContent() {
             <Flex direction="column" gap="2">
               <Text weight="medium">Show journeys</Text>
               <Flex wrap="wrap" align="center" gap="2">
-                <div style={{ flex: "0 0 154px", width: 154, minWidth: 0 }}>
-                  <SelectField
-                    containerClassName="mb-0"
-                    containerStyle={{ width: "100%" }}
-                    value={dataset.direction}
-                    sort={false}
-                    onChange={(v) =>
-                      setDraftExploreState((prev) =>
-                        patchJourney(prev, {
-                          direction: v as JourneyDataset["direction"],
-                          path: [],
-                        }),
-                      )
-                    }
-                    options={[
-                      { label: "Starting with", value: "forward" },
-                      { label: "Ending with", value: "backward" },
-                    ]}
-                  />
-                </div>
+                <SelectField
+                  containerStyle={{
+                    flex: "0 0 154px",
+                    width: 154,
+                    minWidth: 0,
+                    marginBottom: 0,
+                  }}
+                  value={dataset.direction}
+                  sort={false}
+                  onChange={(v) =>
+                    setDraftExploreState((prev) =>
+                      patchJourney(prev, {
+                        direction: v as JourneyDataset["direction"],
+                        path: [],
+                      }),
+                    )
+                  }
+                  options={[
+                    { label: "Starting with", value: "forward" },
+                    { label: "Ending with", value: "backward" },
+                  ]}
+                />
                 {dataset.stepColumns.filter(Boolean).map((col, i) => {
                   const topValues = groupedOptionValues(col);
                   return (
-                    <div
+                    <SelectField
                       key={`${col}-${i}`}
-                      style={{
+                      containerStyle={{
                         flex: "1 1 0%",
                         minWidth: 120,
+                        marginBottom: 0,
                       }}
-                    >
-                      <SelectField
-                        containerClassName="mb-0"
-                        containerStyle={{ width: "100%" }}
-                        value={dataset.anchorStepValues?.[i] ?? ""}
-                        onChange={(value) => {
-                          setDraftExploreState((prev) =>
-                            patchJourney(prev, (current) => {
-                              const next = current.anchorStepValues
-                                ? [...current.anchorStepValues]
-                                : current.stepColumns.map(() => "");
-                              while (next.length < current.stepColumns.length) {
-                                next.push("");
-                              }
-                              next[i] = value;
-                              return {
-                                ...current,
-                                anchorStepValues: next,
-                                path: [],
-                              };
-                            }),
-                          );
-                        }}
-                        options={topValues.map((v) => ({
-                          label: v,
-                          value: v,
-                        }))}
-                        placeholder={`Choose ${
-                          stepColumnOptions.find((o) => o.value === col)
-                            ?.label ?? col
-                        }...`}
-                        forceUndefinedValueToNull
-                        createable
-                        keepCreatableWhenEmpty
-                      />
-                    </div>
+                      value={dataset.anchorStepValues?.[i] ?? ""}
+                      onChange={(value) => {
+                        setDraftExploreState((prev) =>
+                          patchJourney(prev, (current) => {
+                            const next = current.anchorStepValues
+                              ? [...current.anchorStepValues]
+                              : current.stepColumns.map(() => "");
+                            while (next.length < current.stepColumns.length) {
+                              next.push("");
+                            }
+                            next[i] = value;
+                            return {
+                              ...current,
+                              anchorStepValues: next,
+                              path: [],
+                            };
+                          }),
+                        );
+                      }}
+                      options={topValues.map((v) => ({
+                        label: v,
+                        value: v,
+                      }))}
+                      placeholder={`Choose ${
+                        stepColumnOptions.find((o) => o.value === col)?.label ??
+                        col
+                      }...`}
+                      forceUndefinedValueToNull
+                      createable
+                      keepCreatableWhenEmpty
+                    />
                   );
                 })}
               </Flex>
