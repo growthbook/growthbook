@@ -7,7 +7,8 @@ import {
   getReviewSetting,
 } from "shared/util";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
-import { Box } from "@radix-ui/themes";
+import { PiGitMerge } from "react-icons/pi";
+import { Box, Flex } from "@radix-ui/themes";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import PrerequisiteStatesTable, {
   MinimalFeatureInfo,
@@ -26,6 +27,8 @@ import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
+import Button from "@/ui/Button";
 import {
   PrerequisiteStateResult,
   useBatchPrerequisiteStates,
@@ -77,6 +80,10 @@ export default function PrerequisiteModal({
   }, [settings?.requireReviews, feature]);
 
   const defaultDraft = useDefaultDraft(revisionList);
+
+  // Pinned at open: an index-based edit is only meaningful against this list.
+  const [baselineList] = useState(() => prerequisites);
+  const [staleList, setStaleList] = useState(false);
 
   const [mode, setMode] = useState<DraftMode>(
     defaultDraft !== null ? "existing" : "new",
@@ -259,6 +266,7 @@ export default function PrerequisiteModal({
       ctaEnabled={canSubmit}
       header={prerequisite ? "Edit Prerequisite" : "New Prerequisite"}
       submit={form.handleSubmit(async (values) => {
+        if (staleList) return;
         if (!values.condition) {
           values.condition = getDefaultPrerequisiteCondition(parentFeature);
         }
@@ -277,7 +285,17 @@ export default function PrerequisiteModal({
           `/feature/${feature.id}/prerequisite`,
           {
             method: action === "add" ? "POST" : "PUT",
-            body: JSON.stringify({ prerequisite: values, i, ...draftBody }),
+            body: JSON.stringify({
+              prerequisite: values,
+              i,
+              // An add appends to the current list, so only an edit needs the
+              // guard — its index would otherwise retarget.
+              ...(action === "edit" ? { baseline: baselineList } : {}),
+              ...draftBody,
+            }),
+          },
+          (responseData) => {
+            if (responseData?.status === 409) setStaleList(true);
           },
         );
         await mutate();
@@ -295,7 +313,34 @@ export default function PrerequisiteModal({
         setSelectedDraft={setSelectedDraft}
         canAutoPublish={false}
         gatedEnvSet={gatedEnvSet}
+        alert={
+          staleList ? (
+            <HelperText status="warning" icon={null}>
+              The prerequisites changed while you were editing, so this edit no
+              longer points at the same one.
+            </HelperText>
+          ) : undefined
+        }
       />
+      {staleList && (
+        <Callout status="warning" size="sm" icon={null} mb="3">
+          <Flex align="center" justify="between" gap="3" width="100%">
+            <Flex align="center" gap="2" style={{ minWidth: 0 }}>
+              <PiGitMerge size={13} style={{ flexShrink: 0 }} />
+              <Text>Reload to edit against the current list.</Text>
+            </Flex>
+            <Button
+              size="sm"
+              onClick={async () => {
+                await mutate();
+                close();
+              }}
+            >
+              Reload
+            </Button>
+          </Flex>
+        </Callout>
+      )}
       <Text as="div" mt="2" mb="3">
         Prerequisite features must evaluate to{" "}
         <span className="rounded px-1 bg-light">

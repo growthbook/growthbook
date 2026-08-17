@@ -6611,6 +6611,50 @@ async function resolvePrerequisiteBaseDraft(
   return await getActiveDraft(context, feature);
 }
 
+function assertPrerequisitesUnchanged({
+  baseline,
+  current,
+  feature,
+  draftVersion,
+  res,
+}: {
+  baseline: FeaturePrerequisite[] | undefined;
+  current: FeaturePrerequisite[];
+  feature: FeatureInterface;
+  draftVersion?: number;
+  res: Response<
+    | { status: 200; draftVersion?: number }
+    | {
+        status: 409;
+        message: string;
+        conflict: DraftConflict<{ prerequisites: FeaturePrerequisite[] }>;
+      },
+    EventUserForResponseLocals
+  >;
+}): boolean {
+  if (!baseline || isEqual(baseline, current)) return true;
+  // These operations address a prerequisite by index, so any change to the
+  // list retargets them. No field merge is possible.
+  res.status(409).json({
+    status: 409,
+    message:
+      "The prerequisites changed after you loaded them. Reload to see the current list.",
+    conflict: {
+      entityId: feature.id,
+      current: { prerequisites: current },
+      liveVersion: feature.version,
+      ...(draftVersion !== undefined ? { draftVersion } : {}),
+      merge: {
+        contested: [],
+        theirFields: [],
+        yourFields: [],
+        wholeEntity: true,
+      },
+    },
+  });
+  return false;
+}
+
 export async function postPrerequisite(
   req: AuthRequest<
     {
@@ -6671,17 +6715,24 @@ export async function putPrerequisite(
       i: number;
       targetDraftVersion?: number;
       forceNewDraft?: boolean;
+      baseline?: FeaturePrerequisite[];
     },
     { id: string }
   >,
   res: Response<
-    { status: 200; draftVersion?: number },
+    | { status: 200; draftVersion?: number }
+    | {
+        status: 409;
+        message: string;
+        conflict: DraftConflict<{ prerequisites: FeaturePrerequisite[] }>;
+      },
     EventUserForResponseLocals
   >,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const { prerequisite, i, targetDraftVersion, forceNewDraft } = req.body;
+  const { prerequisite, i, targetDraftVersion, forceNewDraft, baseline } =
+    req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -6700,6 +6751,17 @@ export async function putPrerequisite(
   );
   const basePrerequisites =
     baseDraftPut?.prerequisites ?? feature.prerequisites ?? [];
+  if (
+    !assertPrerequisitesUnchanged({
+      baseline,
+      current: basePrerequisites,
+      feature,
+      draftVersion: baseDraftPut?.version,
+      res,
+    })
+  ) {
+    return;
+  }
   const newPrerequisites = [...basePrerequisites];
   if (!newPrerequisites[i]) {
     throw new Error("Unknown prerequisite");
@@ -6724,17 +6786,27 @@ export async function putPrerequisite(
 
 export async function deletePrerequisite(
   req: AuthRequest<
-    { i: number; targetDraftVersion?: number; forceNewDraft?: boolean },
+    {
+      i: number;
+      targetDraftVersion?: number;
+      forceNewDraft?: boolean;
+      baseline?: FeaturePrerequisite[];
+    },
     { id: string }
   >,
   res: Response<
-    { status: 200; draftVersion?: number },
+    | { status: 200; draftVersion?: number }
+    | {
+        status: 409;
+        message: string;
+        conflict: DraftConflict<{ prerequisites: FeaturePrerequisite[] }>;
+      },
     EventUserForResponseLocals
   >,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const { i, targetDraftVersion, forceNewDraft } = req.body;
+  const { i, targetDraftVersion, forceNewDraft, baseline } = req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -6753,6 +6825,17 @@ export async function deletePrerequisite(
   );
   const basePrerequisites =
     baseDraftDel?.prerequisites ?? feature.prerequisites ?? [];
+  if (
+    !assertPrerequisitesUnchanged({
+      baseline,
+      current: basePrerequisites,
+      feature,
+      draftVersion: baseDraftDel?.version,
+      res,
+    })
+  ) {
+    return;
+  }
   const newPrerequisites = [...basePrerequisites];
   if (!newPrerequisites[i]) {
     throw new Error("Unknown prerequisite");

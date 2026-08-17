@@ -15,6 +15,7 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { useAuth } from "@/services/auth";
+import { getPrerequisites } from "@/services/features";
 import track from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ValueDisplay from "@/components/Features/ValueDisplay";
@@ -125,7 +126,12 @@ export default function PrerequisiteStatusRow({
           `/feature/${feature.id}/prerequisite`,
           {
             method: "DELETE",
-            body: JSON.stringify({ i, ...draftBody }),
+            // Index-addressed, so the list it was read from has to match.
+            body: JSON.stringify({
+              i,
+              baseline: getPrerequisites(feature),
+              ...draftBody,
+            }),
           },
         );
         await mutate();
