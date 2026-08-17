@@ -4919,18 +4919,25 @@ export async function postFeatureToggle(
       autoPublish?: boolean;
       draftVersion?: number;
       forceNewDraft?: boolean;
+      baseline?: Record<string, boolean>;
     },
     { id: string }
   >,
   res: Response<
-    { status: 200; draftVersion?: number },
+    | { status: 200; draftVersion?: number }
+    | {
+        status: 409;
+        message: string;
+        conflict: DraftConflict<Record<string, boolean>>;
+      },
     EventUserForResponseLocals
   >,
 ) {
   const context = getContextFromReq(req);
   const { environments: orgEnvIds } = context;
   const { id } = req.params;
-  const { environments, autoPublish, draftVersion, forceNewDraft } = req.body;
+  const { environments, autoPublish, draftVersion, forceNewDraft, baseline } =
+    req.body;
   const feature = await getFeature(context, id);
 
   if (!feature) {
@@ -4951,6 +4958,52 @@ export async function postFeatureToggle(
   for (const env of envIds) {
     if (!orgEnvIds.includes(env)) {
       throw new Error(`Invalid environment: ${env}`);
+    }
+  }
+
+  if (baseline) {
+    const targetDraft =
+      autoPublish || forceNewDraft
+        ? null
+        : draftVersion
+          ? await getRevision({
+              context,
+              organization: feature.organization,
+              featureId: feature.id,
+              feature,
+              version: draftVersion,
+            })
+          : await getActiveDraft(context, feature);
+    const currentState = (env: string) =>
+      targetDraft?.environmentsEnabled?.[env] ??
+      feature.environmentSettings?.[env]?.enabled ??
+      false;
+    // A toggle someone else already flipped to the state you want has
+    // converged; only the opposite direction is a conflict.
+    const contested = envIds.filter(
+      (env) =>
+        currentState(env) !== (baseline[env] ?? false) &&
+        currentState(env) !== environments[env],
+    );
+    if (contested.length) {
+      return res.status(409).json({
+        status: 409,
+        message:
+          "These environments were changed by someone else after you loaded them. Review their state before saving.",
+        conflict: {
+          entityId: feature.id,
+          current: Object.fromEntries(
+            envIds.map((env) => [env, currentState(env)]),
+          ),
+          liveVersion: feature.version,
+          ...(targetDraft ? { draftVersion: targetDraft.version } : {}),
+          merge: {
+            contested: contested.map((env) => ({ key: env, fields: [env] })),
+            theirFields: [],
+            yourFields: [],
+          },
+        },
+      });
     }
   }
 

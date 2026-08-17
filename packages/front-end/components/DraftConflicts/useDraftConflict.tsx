@@ -26,6 +26,7 @@ export function useDraftConflict<T extends object>({
   initial,
   labels,
   form,
+  applyField,
   isNewDraft,
   entityNoun,
 }: {
@@ -35,6 +36,8 @@ export function useDraftConflict<T extends object>({
   labels?: Record<string, string>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   form?: UseFormReturn<any>;
+  // For editors that aren't react-hook-form backed (e.g. a set of toggles).
+  applyField?: (field: string, value: unknown) => void;
   // A new draft can't overwrite anyone, so nothing needs resolving.
   isNewDraft: boolean;
   entityNoun: string;
@@ -61,6 +64,10 @@ export function useDraftConflict<T extends object>({
 
   const setField = useCallback(
     (field: string, value: unknown) => {
+      if (applyField) {
+        applyField(field, value);
+        return;
+      }
       if (!form) return;
       (
         form.setValue as unknown as (
@@ -70,7 +77,7 @@ export function useDraftConflict<T extends object>({
         ) => void
       )(field, value, { shouldDirty: true });
     },
-    [form],
+    [form, applyField],
   );
 
   const resolve = useCallback(
