@@ -619,3 +619,43 @@ at all.
 
 - [ ] Environment-scope the bypass atoms — all four, not just features
 - [ ] Saved Group migration to governance-primary `project` + `targetingProjects[]`
+
+## Backlog: deny-by-default projects (customer request)
+
+> When a project has explicit project roles assigned to teams, everyone else
+> still falls through to their organization-wide role on that project. To make a
+> project effectively private we have to attach an explicit low-privilege role to
+> everyone who isn't on the owning team — roughly 550 people pushed through SCIM
+> purely to hold Read Only on one project. Is there a way to make a project
+> deny-by-default, so only explicitly granted teams have access and admins retain
+> theirs? A per-project setting would be ideal.
+
+Confirmed behaviour, not a misconfiguration. `permissionsClass` resolves a
+project permission as `projects[project] || global` — an explicit project entry
+_replaces_ global, but its **absence** falls through. There is no way to express
+"absence means no access", so privacy has to be simulated by giving everyone an
+explicit entry. That is why the workaround scales with headcount instead of with
+the number of people who should have access.
+
+The seam is small and sits in code this branch already reworked:
+
+- A per-project flag (`project.settings.denyByDefault`, default off so nothing
+  changes for existing orgs).
+- In resolution, when the project is deny-by-default, absence of a project entry
+  yields **no permissions** rather than the global object. Admins and super
+  admins keep access, matching how `roleSupportsEnvLimit` already exempts them.
+- `mergeUserAndTeamPermissions` already builds a per-project entry whenever any
+  principal — the member or any of their teams — has a project role, so a team
+  grant is enough to produce the entry that grants access.
+
+Two things to get right, both of which the current shape makes easy to miss:
+
+- **Reads.** `userHasPermission` treats `READ_ONLY_PERMISSIONS` as "allowed if
+  allowed in at least one project", and it _adds_ every project the user has an
+  entry for. A private project must not leak through that some-project path, or
+  the flag hides writes but not the data.
+- **Fail closed.** The default must be "no entry means deny" only when the flag
+  is on; the flag itself must never be inferred from absence of configuration.
+
+Worth pairing with the effective-permissions view above: deny-by-default is
+exactly the setting people will want to verify rather than trust.
