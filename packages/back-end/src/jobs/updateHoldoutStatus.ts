@@ -1,5 +1,5 @@
 import Agenda, { Job } from "agenda";
-import { HoldoutStage } from "shared/util";
+import { getHoldoutStage, HoldoutStage } from "shared/util";
 import {
   HoldoutInterface,
   HoldoutNextScheduledStatusUpdate,
@@ -42,13 +42,15 @@ export function isScheduledTransitionApplicable(
   experiment: Pick<ExperimentInterface, "status">,
   holdout: Pick<HoldoutInterface, "analysisStartDate">,
 ): boolean {
+  const currentStage = getHoldoutStage(holdout, experiment);
+
   switch (scheduledType) {
     case "start":
-      return experiment.status === "draft";
+      return currentStage === "draft";
     case "startAnalysisPeriod":
-      return experiment.status === "running" && !holdout.analysisStartDate;
+      return currentStage === "running";
     case "stop":
-      return experiment.status !== "stopped";
+      return currentStage !== "stopped";
     default:
       scheduledType satisfies never;
       return false;

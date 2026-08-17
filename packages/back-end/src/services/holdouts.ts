@@ -321,8 +321,9 @@ export function normalizeHoldoutScheduleUpdates({
     date: Date;
     type: HoldoutNextScheduledStatusUpdate["type"];
   }> = [];
+  const currentStage = getHoldoutStage(holdout, experiment);
 
-  if (statusUpdateSchedule.startAt && experiment.status === "draft") {
+  if (statusUpdateSchedule.startAt && currentStage === "draft") {
     potentialUpdates.push({
       date: statusUpdateSchedule.startAt,
       type: "start",
@@ -330,15 +331,14 @@ export function normalizeHoldoutScheduleUpdates({
   }
   if (
     statusUpdateSchedule.startAnalysisPeriodAt &&
-    experiment.status === "running" &&
-    !holdout.analysisStartDate
+    currentStage === "running"
   ) {
     potentialUpdates.push({
       date: statusUpdateSchedule.startAnalysisPeriodAt,
       type: "startAnalysisPeriod",
     });
   }
-  if (statusUpdateSchedule.stopAt && experiment.status !== "stopped") {
+  if (statusUpdateSchedule.stopAt && currentStage !== "stopped") {
     potentialUpdates.push({
       date: statusUpdateSchedule.stopAt,
       type: "stop",
