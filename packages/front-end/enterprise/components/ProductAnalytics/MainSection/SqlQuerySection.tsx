@@ -80,7 +80,7 @@ function SqlQueryActions({
         onClick={onRun}
         icon={<PiPlay />}
       >
-        Test query
+        Run Query
       </Button>
       {queryHelp}
       <DropdownMenu
