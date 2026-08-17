@@ -11,11 +11,16 @@ import {
   naiveFlattenV1Rules,
   validateFeatureValue,
   ensureConfigBacking,
+  filterEnvironmentsByFeature,
+  getReviewSetting,
   DRAFT_REVISION_STATUSES,
 } from "shared/util";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
+import { useEnvironments } from "@/services/features";
 import useApi from "@/hooks/useApi";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useConfigBacking } from "@/hooks/useConfigBacking";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import FeatureValueField from "@/components/Features/FeatureValueField";
@@ -51,8 +56,7 @@ type FormValues = {
 /**
  * Edits the variation values on a feature's `contextual-bandit-ref` rule. Unlike
  * the experiment editor, CB variations/weights are owned by the bandit itself
- * (edited via the CB form), so this only touches the rule's per-variation values
- * and writes them through the generic feature rule-edit path.
+ * (edited via the CB form), so this only touches the rule's per-variation values.
  */
 export default function EditContextualBanditFeatureValuesModal({
   feature,
@@ -63,6 +67,9 @@ export default function EditContextualBanditFeatureValuesModal({
   onSaved,
 }: Props) {
   const { apiCall } = useAuth();
+  const settings = useOrgSettings();
+  const permissionsUtil = usePermissionsUtil();
+  const allEnvironments = useEnvironments();
   const { defaultConfigKey, isConfigBacked, configBackingOptionKeys } =
     useConfigBacking(feature);
   const { data, error } = useApi<FeatureRevisionResponse>(
@@ -79,9 +86,45 @@ export default function EditContextualBanditFeatureValuesModal({
     [cb.id],
   );
 
+  const liveRule = useMemo(
+    () => cbRuleIn(feature.rules),
+    [feature.rules, cbRuleIn],
+  );
+
+  const ruleEnvironments = useMemo(() => {
+    const envIds = filterEnvironmentsByFeature(allEnvironments, feature).map(
+      (e) => e.id,
+    );
+    if (
+      !liveRule ||
+      liveRule.allEnvironments ||
+      liveRule.environments === undefined
+    ) {
+      return envIds;
+    }
+    return liveRule.environments;
+  }, [allEnvironments, feature, liveRule]);
+
+  const reviewGated = useMemo(() => {
+    const raw = settings?.requireReviews;
+    if (raw === true) return true;
+    if (!Array.isArray(raw)) return false;
+    const reviewSetting = getReviewSetting(raw, feature);
+    if (!reviewSetting?.requireReviewOn) return false;
+    const envs = reviewSetting.environments ?? [];
+    if (!envs.length) return true;
+    return ruleEnvironments.some((e) => envs.includes(e));
+  }, [settings?.requireReviews, feature, ruleEnvironments]);
+
+  const willPublish =
+    cb.status === "running" &&
+    !reviewGated &&
+    permissionsUtil.canPublishFeature(feature, ruleEnvironments);
+
   // Target a draft already carrying staged changes to this rule, so repeated
   // edits accumulate there instead of spawning a new draft per save.
   const targetVersion = useMemo(() => {
+    if (willPublish) return feature.version;
     const openDraft = (data?.revisions ?? [])
       .filter(
         (r) =>
@@ -97,6 +140,7 @@ export default function EditContextualBanditFeatureValuesModal({
       feature.version
     );
   }, [
+    willPublish,
     data?.revisions,
     feature.version,
     cbRuleIn,
@@ -175,8 +219,12 @@ export default function EditContextualBanditFeatureValuesModal({
     <ModalStandard
       trackingEventModalType="edit-contextual-bandit-feature-values"
       header="Edit Feature Flag Values"
-      subheader="Changes made here will be saved to a draft on the linked Feature Flag rule."
-      cta="Save to draft"
+      subheader={
+        willPublish
+          ? "Changes made here go live on the linked Feature Flag as soon as you save."
+          : "Changes made here will be saved to a draft on the linked Feature Flag rule."
+      }
+      cta={willPublish ? "Save" : "Save to draft"}
       // Nothing to submit until the revisions load and there's a rule to patch.
       ctaEnabled={!!data && !!existingRule}
       close={close}
@@ -218,25 +266,37 @@ export default function EditContextualBanditFeatureValuesModal({
           );
         }
 
-        const updatedRule: ContextualBanditRefRule = {
-          ...existingRule,
-          variations: updatedVariations,
-        };
-
-        const res = await apiCall<{ status: number; version: number }>(
-          `/feature/${feature.id}/${targetVersion}/rule`,
-          {
-            method: "PUT",
-            body: JSON.stringify({
-              rule: updatedRule,
-              ruleId: existingRule.id,
-            }),
-          },
-        );
+        const res = await apiCall<{
+          revisionVersion: number;
+          published: boolean;
+        }>(`/api/v1/contextual-bandits/${cb.id}/linked-feature/${feature.id}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            variations: updatedVariations,
+            description: existingRule.description ?? "",
+            enabled: existingRule.enabled ?? true,
+            allEnvironments: !!existingRule.allEnvironments,
+            ...(existingRule.allEnvironments
+              ? {}
+              : { environments: existingRule.environments ?? [] }),
+            ...(existingRule.allProjects === undefined
+              ? {}
+              : { allProjects: existingRule.allProjects }),
+            ...(existingRule.allProjects === false
+              ? { projects: existingRule.projects ?? [] }
+              : {}),
+            autoPublish: willPublish,
+            ...(willPublish || targetVersion === feature.version
+              ? {}
+              : { draftVersion: targetVersion }),
+          }),
+        });
 
         await mutate();
         // The save lands on a draft the card can't show — report where it went.
-        if (res?.version != null) onSaved?.(res.version);
+        if (!res?.published && res?.revisionVersion != null) {
+          onSaved?.(res.revisionVersion);
+        }
       })}
     >
       {error ? (
@@ -254,7 +314,7 @@ export default function EditContextualBanditFeatureValuesModal({
         </Callout>
       ) : (
         <Flex direction="column" gap="3" pt="2">
-          {cb.status === "running" && (
+          {cb.status === "running" && !willPublish && (
             <Callout status="warning" size="sm">
               This Bandit is running. Users in each variation keep seeing the
               current value until you publish the Feature Flag revision this
