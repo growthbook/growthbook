@@ -1,8 +1,12 @@
+// Generous, but bounded: a saved group's id list or a big JSON value would
+// otherwise render in full.
+const MAX_VALUE_CHARS = 400;
+
 export function formatConflictValue(v: unknown): string {
   if (v === undefined) return "(removed)";
   const s = typeof v === "string" ? v : JSON.stringify(v);
   if (!s) return '""';
-  return s;
+  return s.length > MAX_VALUE_CHARS ? `${s.slice(0, MAX_VALUE_CHARS)}…` : s;
 }
 
 export function formatChunkValue(

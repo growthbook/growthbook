@@ -19,6 +19,7 @@ import {
   getApprovalFlowSettings,
   normalizeProposedChanges,
 } from "shared/enterprise";
+import { DraftConflict } from "shared/types/draft-conflict";
 import {
   canStageArchiveDraft,
   canWriteArchiveIntoDraft,
@@ -508,6 +509,11 @@ type PutSavedGroupResponse =
       status: 202;
       requiresApproval: boolean;
       revision: Revision;
+    }
+  | {
+      status: 409;
+      message: string;
+      conflict: DraftConflict<Record<string, unknown>>;
     };
 
 /**
@@ -530,6 +536,7 @@ export const putSavedGroup = async (
     description,
     projects,
     archived,
+    baseline,
   } = req.body;
   const skipCycleCheck = req.query.skipCycleCheck;
   const { id } = req.params;
@@ -621,6 +628,46 @@ export const putSavedGroup = async (
         normalizeProposedChanges(targetRevision.target.proposedChanges),
       );
       comparisonBase = { ...savedGroup, ...patchedSnapshot };
+    }
+  }
+
+  if (baseline) {
+    const incoming: Record<string, unknown> = {
+      groupName,
+      owner,
+      values,
+      condition,
+      description,
+      projects,
+    };
+    const base = comparisonBase as unknown as Record<string, unknown>;
+    const contested = Object.keys(baseline).filter((k) => {
+      const loaded = (baseline as Record<string, unknown>)[k];
+      if (isEqual(loaded ?? null, base[k] ?? null)) return false;
+      // Someone else changed it; only a differing submission is contested.
+      return (
+        incoming[k] !== undefined &&
+        !isEqual(incoming[k] ?? null, base[k] ?? null)
+      );
+    });
+    if (contested.length) {
+      return res.status(409).json({
+        status: 409,
+        message:
+          "This saved group was changed by someone else after you loaded it. Review their version before saving.",
+        conflict: {
+          entityId: savedGroup.id,
+          current: Object.fromEntries(
+            Object.keys(baseline).map((k) => [k, base[k]]),
+          ),
+          liveVersion: 0,
+          merge: {
+            contested: contested.map((k) => ({ key: k, fields: [k] })),
+            theirFields: [],
+            yourFields: [],
+          },
+        },
+      });
     }
   }
 
