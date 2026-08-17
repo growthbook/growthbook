@@ -9,11 +9,16 @@ import {
   getLiveChangesSinceBase,
   liveRevisionFromFeature,
   MergeResultChanges,
+  getReviewAuthorityFootprint,
 } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
 import { bypassApprovalPermission } from "shared/permissions";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { EventUser } from "shared/types/events/event-types";
+import {
+  assessApprovalCoverage,
+  getEnvironments,
+} from "back-end/src/util/organization.util";
 import type { ApiReqContext } from "back-end/types/api";
 import type { ReqContext } from "back-end/types/request";
 import {
@@ -37,7 +42,6 @@ import {
   collectFeatureArchiveDependents,
   archiveDependentsGateMessage,
 } from "back-end/src/services/archiveDependentsGuard";
-import { getEnvironments } from "back-end/src/util/organization.util";
 import { MergeConflictError } from "back-end/src/util/errors";
 import {
   PublishGate,
@@ -63,6 +67,14 @@ export type FeatureMergePlan = {
   /** A ramp schedule is armed to activate when this revision publishes. */
   hasLinkedPendingRamp: boolean;
   requiresReview: boolean;
+  /**
+   * Approvers whose environment authority no longer covers what this draft
+   * changes — for example someone who approved it while it was dev-only, before
+   * a production rule was added. Their approval must not count.
+   */
+  uncoveredApprovers: string[];
+  /** At least one standing approval whose approver covers the footprint. */
+  hasCoveringApproval: boolean;
   rebaseRequired: boolean;
   /** The governance explanation when rebaseRequired (for error copy). */
   rebaseBlockReason: string | null;
@@ -161,6 +173,27 @@ export async function planFeatureRevisionMerge({
     liveRampScheduleEnvs,
   });
 
+  // Re-derive what the draft changes and re-check every standing approval
+  // against it, using each approver's current permissions. Status alone is
+  // materialized at approval time and cannot see the draft growing afterwards.
+  const reviewFootprint = getReviewAuthorityFootprint({
+    revision: effectiveRevision,
+    bases: [filledLive, base],
+    allEnvironments: environmentIds,
+    settings: context.org.settings,
+    liveRampScheduleEnvs,
+  });
+  const { hasCoveringApproval, uncoveredApprovers } = assessApprovalCoverage({
+    org: context.org,
+    teams: context.teams,
+    feature,
+    footprint: reviewFootprint,
+    approverIds: (revision.reviews ?? [])
+      .filter((r) => r.status === "approved")
+      .map((r) => r.userId)
+      .filter((id): id is string => !!id),
+  });
+
   const hasLinkedPendingRamp =
     (
       await context.models.rampSchedules.findByActivatingRevision(
@@ -178,6 +211,8 @@ export async function planFeatureRevisionMerge({
       hasLinkedPendingRamp,
     hasLinkedPendingRamp,
     requiresReview,
+    uncoveredApprovers,
+    hasCoveringApproval,
     rebaseRequired: !!rebaseGovernance?.rebaseRequired,
     rebaseBlockReason: rebaseGovernance?.rebaseRequired
       ? rebaseGovernance.blockReason
@@ -240,12 +275,19 @@ export async function collectFeaturePublishGates({
       }),
     );
   }
-  if (plan.requiresReview && revision.status !== "approved") {
+  // An "approved" status is not sufficient on its own: it was decided when the
+  // approval was given, and the draft may have grown to touch environments the
+  // approver has no authority over since.
+  const approvedAndCovered =
+    revision.status === "approved" && plan.hasCoveringApproval;
+  if (plan.requiresReview && !approvedAndCovered) {
     gates.push(
       makeBlockingGate({
         type: "approval-required",
         messages: [
-          `Requires approval before publishing (status: "${revision.status}").`,
+          revision.status === "approved" && plan.uncoveredApprovers.length
+            ? `This draft now changes environments its approvers cannot approve. Needs approval from someone with review rights across everything it changes.`
+            : `Requires approval before publishing (status: "${revision.status}").`,
         ],
         requiresPermission: bypassApprovalPermission("feature"),
         resolution: {

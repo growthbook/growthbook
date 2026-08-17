@@ -1,6 +1,8 @@
 import { cloneDeep } from "lodash";
+import type { ReviewAuthorityFootprint } from "shared/util";
 import {
   ALL_PERMISSIONS,
+  Permissions,
   ENV_SCOPED_PERMISSIONS,
   roleSupportsEnvLimit,
   roleToPermissionMap,
@@ -346,4 +348,44 @@ export function getUserPermissions(
   }
 
   return getRolePermissions(memberInfo, org, teams);
+}
+
+/**
+ * Which standing approvals still count, judged against what the draft changes.
+ *
+ * Uses each approver's CURRENT permissions — an approval is not a snapshot of
+ * authority. Someone who has left the org, or lost rights in an environment the
+ * draft now touches, stops covering it.
+ */
+export function assessApprovalCoverage({
+  org,
+  teams,
+  feature,
+  footprint,
+  approverIds,
+}: {
+  org: OrganizationInterface;
+  teams: TeamInterface[];
+  feature: { project?: string };
+  footprint: ReviewAuthorityFootprint;
+  approverIds: string[];
+}): { hasCoveringApproval: boolean; uncoveredApprovers: string[] } {
+  const uncoveredApprovers: string[] = [];
+  let hasCoveringApproval = false;
+
+  for (const id of approverIds) {
+    let covers = false;
+    try {
+      covers = new Permissions(
+        getUserPermissions({ id }, org, teams),
+      ).canReviewFeatureDrafts(feature, footprint);
+    } catch {
+      // No longer a member of the org, so they cover nothing.
+      covers = false;
+    }
+    if (covers) hasCoveringApproval = true;
+    else uncoveredApprovers.push(id);
+  }
+
+  return { hasCoveringApproval, uncoveredApprovers };
 }
