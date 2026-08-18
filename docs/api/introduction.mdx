@@ -16,7 +16,7 @@ Endpoints are versioned by path prefix:
 - `/v1/...` — stable, widely-supported endpoints
 - `/v2/...` — updated endpoints with improved shapes (e.g. unified per-rule environment scope for feature flags)
 
-New integrations should prefer v2 where available.
+New integrations should prefer v2 where available. Feature-flag and metric v1 routes are deprecated: they are tagged **Legacy** in the sidebar and collapsed by default. Use the matching v2 group when both exist.
 
 ## Authentication
 

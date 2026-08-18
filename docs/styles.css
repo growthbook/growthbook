@@ -306,3 +306,33 @@ ul.sidebar-group > li[data-title="GrowthBook Guide"] {
 .dark ul.sidebar-group > li[data-title="GrowthBook Guide"] {
   border-top-color: rgb(var(--gray-800));
 }
+
+/* Keep tagged group labels (Product Analytics + New) on one line. */
+#sidebar-content li[data-title] > button > div:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+#sidebar-content li[data-title] > button > div:first-child span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Right-align expand/collapse carets so nested API groups don't jam them
+   against the label. The default layout places the caret immediately after
+   the text, so longer names like "Feature Revisions (legacy)" collide. */
+#sidebar-content li[data-title] > button {
+  justify-content: space-between;
+}
+
+#sidebar-content li[data-title] > button > div:last-child {
+  margin-left: auto;
+}
+
+/* Kapa is the docs AI widget. Hide Mintlify's built-in assistant chrome.
+   Turning the assistant off entirely also requires the dashboard toggle. */
+.chat-assistant-send-button {
+  display: none !important;
+}

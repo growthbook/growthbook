@@ -25,7 +25,14 @@
     "options": [
       "copy",
       "view",
-      "assistant",
+      {
+        "title": "Edit this page",
+        "description": "Propose a change on GitHub",
+        "icon": "pencil",
+        "href": {
+          "base": "https://github.com/growthbook/growthbook/edit/an/mintlify-docs/docs$path.mdx"
+        }
+      },
       "chatgpt",
       "claude",
       "perplexity",
@@ -240,15 +247,16 @@
               },
               {
                 "group": "Integrations",
+                "root": "integrations",
                 "pages": [
                   {
                     "group": "AI Agents",
-                    "root": "integrations/ai-agents/index",
+                    "root": "integrations/ai-agents",
                     "pages": [
                       "integrations/mcp",
                       {
                         "group": "Agent Skills",
-                        "root": "integrations/ai-agents/agent-skills/index",
+                        "root": "integrations/ai-agents/agent-skills",
                         "pages": [
                           "integrations/ai-agents/agent-skills/feature-flags",
                           "integrations/ai-agents/agent-skills/experiments"
@@ -355,7 +363,7 @@
           {
             "group": " ",
             "pages": [
-              "lib/index",
+              "lib",
               "lib/quickstart",
               {
                 "group": "Client",
@@ -433,6 +441,7 @@
               },
               {
                 "group": "Feature Flags",
+                "tag": "v2",
                 "pages": [
                   "api/features-v2/operation/listFeaturesV2",
                   "api/features-v2/operation/postFeatureV2",
@@ -447,6 +456,7 @@
               },
               {
                 "group": "Feature Revisions",
+                "tag": "v2",
                 "pages": [
                   "api/feature-revisions-v2/operation/listRevisionsV2",
                   "api/feature-revisions-v2/operation/getFeatureRevisionsV2",
@@ -485,6 +495,8 @@
               },
               {
                 "group": "Feature Flags (legacy)",
+                "tag": "Legacy",
+                "expanded": false,
                 "pages": [
                   "api/features/operation/listFeatures",
                   "api/features/operation/postFeature",
@@ -499,6 +511,8 @@
               },
               {
                 "group": "Feature Revisions (legacy)",
+                "tag": "Legacy",
+                "expanded": false,
                 "pages": [
                   "api/feature-revisions/operation/listRevisions",
                   "api/feature-revisions/operation/getFeatureRevisions",
@@ -596,6 +610,8 @@
               },
               {
                 "group": "Metrics (legacy)",
+                "tag": "Legacy",
+                "expanded": false,
                 "pages": [
                   "api/metrics/operation/listMetrics",
                   "api/metrics/operation/postMetric",
@@ -949,14 +965,6 @@
   "navbar": {
     "links": [
       {
-        "label": "Join us on Slack",
-        "href": "https://slack.growthbook.io/"
-      },
-      {
-        "label": "Open an Issue",
-        "href": "https://github.com/growthbook/growthbook/issues/new/choose"
-      },
-      {
         "label": "Github",
         "type": "github",
         "href": "https://github.com/growthbook/growthbook"
@@ -972,8 +980,37 @@
     "socials": {
       "x": "https://twitter.com/growth_book",
       "linkedin": "https://www.linkedin.com/company/growthbook/",
+      "github": "https://github.com/growthbook/growthbook",
       "slack": "https://slack.growthbook.io/?ref=footer-icon"
-    }
+    },
+    "links": [
+      {
+        "header": "Community",
+        "items": [
+          {
+            "label": "Join us on Slack",
+            "href": "https://slack.growthbook.io/"
+          },
+          {
+            "label": "Open an Issue",
+            "href": "https://github.com/growthbook/growthbook/issues/new/choose"
+          }
+        ]
+      },
+      {
+        "header": "Company",
+        "items": [
+          {
+            "label": "About",
+            "href": "https://www.growthbook.io/about"
+          },
+          {
+            "label": "Blog",
+            "href": "https://blog.growthbook.io"
+          }
+        ]
+      }
+    ]
   },
   "seo": {
     "metatags": {
