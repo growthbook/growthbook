@@ -166,7 +166,6 @@ const HoldoutPage = (): ReactElement => {
           initialExperiment={experiment}
           source="duplicate-hid"
           duplicate
-          isNewHoldout
         />
       )}
       {tagsModalOpen && (

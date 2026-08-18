@@ -1,5 +1,9 @@
 import { z } from "zod";
+import { statsEngines, MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import { MAX_HOLDOUT_SIZE } from "../util/holdouts";
 import { featureEnvironment } from "./features";
+import { savedGroupTargeting } from "./shared";
+import { optionalOwnerInputField } from "./owner-field";
 
 export const holdoutLinkedItemValidator = z.object({
   dateAdded: z.date(),
@@ -92,3 +96,37 @@ export type HoldoutInterface = z.infer<typeof holdoutValidator>;
 export type HoldoutInterfaceStringDates = z.infer<
   typeof _holdoutStringDatesValidator
 >;
+
+/**
+ * Flattened, user-settable inputs for creating a Holdout.
+ *
+ * `createHoldoutWithExperiment` turns these into the companion experiment, its
+ * single initial phase, and the holdout document. Every value the caller cannot
+ * choose — the fixed two variations, the 50/50 split, the tracking key, the
+ * phase scaffolding — is owned by the service, not accepted here. `holdoutSize`
+ * is the user-facing proportion; the service doubles it into the phase coverage.
+ */
+export const createHoldoutInputValidator = z.object({
+  name: z.string(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+  projects: z.array(z.string()).optional(),
+  owner: optionalOwnerInputField,
+  tags: z.array(z.string()).optional(),
+  skipAsDefaultHoldout: z.boolean().optional(),
+
+  hashAttribute: z.string().optional(),
+  holdoutSize: z.number().min(0).max(MAX_HOLDOUT_SIZE).optional(),
+  targetingCondition: z.string().optional(),
+  savedGroups: z.array(savedGroupTargeting).optional(),
+
+  datasourceId: z.string().optional(),
+  assignmentQueryId: z.string().optional(),
+  goalMetrics: z.array(z.string()).optional(),
+  secondaryMetrics: z.array(z.string()).optional(),
+
+  environmentSettings: z.record(z.string(), featureEnvironment).optional(),
+  statsEngine: z.enum(statsEngines).optional(),
+  customFields: z.record(z.string(), z.any()).optional(),
+});
+
+export type CreateHoldoutInput = z.infer<typeof createHoldoutInputValidator>;
