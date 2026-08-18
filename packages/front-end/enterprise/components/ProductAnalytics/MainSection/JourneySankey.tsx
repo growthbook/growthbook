@@ -1,12 +1,10 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { useTooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
 import { JOURNEY_OTHER, JOURNEY_TERMINALS } from "shared/journeys";
 import type { JourneyHeightScale } from "shared/validators";
-import TextUI from "@/ui/Text";
-import LoadingSpinner from "@/components/LoadingSpinner";
 import { CHART_COLORS } from "@/enterprise/components/ProductAnalytics/chart-theme";
 import {
   type JourneyColumn,
@@ -557,8 +555,7 @@ function SankeySvg({
         <Group>
           {L.cols.map((c, ci) => {
             const commitIndex = c.commitIndex;
-            const canPop =
-              c.committed && !c.anchor && !c.loading && commitIndex != null;
+            const canPop = c.committed && !c.anchor && commitIndex != null;
             return (
               <text
                 key={`h-${ci}`}
@@ -601,13 +598,7 @@ function SankeySvg({
             if (!A || !B) return null;
             const x0 = A.x + NODE_W;
             const x1 = B.x;
-            const op = e.leak
-              ? 0.28
-              : A.loading || B.loading
-                ? 0.18
-                : e.committedEdge
-                  ? 0.45
-                  : 0.62;
+            const op = e.leak ? 0.28 : e.committedEdge ? 0.45 : 0.62;
             const parts: {
               y0: number;
               y1: number;
@@ -649,9 +640,7 @@ function SankeySvg({
                     },
                   ];
             const targetCol = A.side === "b" ? A : B;
-            const loadingEdge = !!(A.loading || B.loading);
             const popIndex =
-              !loadingEdge &&
               e.committedEdge &&
               !e.leak &&
               targetCol.committed &&
@@ -662,14 +651,12 @@ function SankeySvg({
             const frontierKey = targetCol === B ? e.tgtKey : e.srcKey;
             const optionsLevel = targetCol.optionsLevel;
             const expandsOther =
-              !loadingEdge &&
               targetCol.frontier &&
               frontierKey === JOURNEY_OTHER &&
               optionsLevel != null &&
               canViewMore(optionsLevel) &&
               !viewMoreLoading(optionsLevel);
             const commitKeys =
-              loadingEdge ||
               e.committedEdge ||
               e.leak ||
               !canCommitStep ||
@@ -695,7 +682,6 @@ function SankeySvg({
                 }
                 style={{ cursor: clickable ? "pointer" : "default" }}
                 onPointerEnter={(ev) => {
-                  if (loadingEdge) return;
                   showTip(ev, {
                     title: `${e.from} → ${e.to}`,
                     lines: [
@@ -749,15 +735,13 @@ function SankeySvg({
             return c.nodes.map((n) => {
               const ln = n as LaidNode;
               const term = JOURNEY_TERMINALS.has(n.key) || n.terminal === true;
-              const fill = c.loading
-                ? "var(--accent-a4)"
-                : c.anchor
-                  ? "var(--accent-9)"
-                  : term
-                    ? "var(--gray-8)"
-                    : c.frontier
-                      ? "var(--accent-7)"
-                      : "var(--accent-9)";
+              const fill = c.anchor
+                ? "var(--accent-9)"
+                : term
+                  ? "var(--gray-8)"
+                  : c.frontier
+                    ? "var(--accent-7)"
+                    : "var(--accent-9)";
               const hitH = Math.max(24, ln.h + 4);
               const lx = lastCol ? c.x - 7 : c.x + NODE_W + 7;
               const anch = lastCol ? "end" : "start";
@@ -772,7 +756,6 @@ function SankeySvg({
               const canCommit =
                 canCommitStep &&
                 !!c.frontier &&
-                !c.loading &&
                 !term &&
                 n.key !== JOURNEY_OTHER &&
                 c.fi === 0;
@@ -780,7 +763,6 @@ function SankeySvg({
                 n.chain === true &&
                 c.committed &&
                 !c.anchor &&
-                !c.loading &&
                 c.commitIndex != null;
               const clickable = canCommit || canExpandOther || canPop;
               return (
@@ -792,12 +774,8 @@ function SankeySvg({
                     height={ln.h}
                     rx={3}
                     fill={fill}
-                    stroke={c.loading ? "var(--accent-a8)" : undefined}
-                    strokeWidth={c.loading ? 1.5 : undefined}
-                    strokeDasharray={c.loading ? "3 3" : undefined}
                   >
-                    {(c.loading || (n.key === JOURNEY_OTHER && moreLoading)) &&
-                    !reduceMotion ? (
+                    {n.key === JOURNEY_OTHER && moreLoading && !reduceMotion ? (
                       <animate
                         attributeName="opacity"
                         values="0.45;0.9;0.45"
@@ -830,7 +808,6 @@ function SankeySvg({
                       cursor: clickable ? "pointer" : "default",
                     }}
                     onPointerEnter={(ev) => {
-                      if (c.loading) return;
                       showTip(ev, {
                         title: n.label,
                         lines: [
@@ -878,62 +855,22 @@ function SankeySvg({
                       }
                     }}
                   />
-                  {!c.loading && (
-                    <NodeLabel
-                      x={lx}
-                      y={ln.y}
-                      h={ln.h}
-                      align={anch}
-                      name={n.label}
-                      count={fmt(n.value)}
-                      percent={pct(n.value, model.anchorTotal)}
-                      pitch={L.pitch}
-                    />
-                  )}
+                  <NodeLabel
+                    x={lx}
+                    y={ln.y}
+                    h={ln.h}
+                    align={anch}
+                    name={n.label}
+                    count={fmt(n.value)}
+                    percent={pct(n.value, model.anchorTotal)}
+                    pitch={L.pitch}
+                  />
                 </g>
               );
             });
           })}
         </Group>
       </svg>
-      {L.cols
-        .filter((c) => c.loading)
-        .map((c) => (
-          <Flex
-            key={`load-${c.offset}`}
-            direction="column"
-            align="center"
-            justify="center"
-            gap="2"
-            style={{
-              position: "absolute",
-              top: PAD_T,
-              bottom: PAD_B,
-              width: 160,
-              pointerEvents: "none",
-              ...(model.direction === "backward" ? { left: 8 } : { right: 8 }),
-            }}
-          >
-            <Flex
-              direction="column"
-              align="center"
-              gap="2"
-              px="3"
-              py="2"
-              style={{
-                background: "var(--color-panel-solid)",
-                border: "1px solid var(--gray-a5)",
-                borderRadius: "var(--radius-3)",
-                boxShadow: "var(--shadow-2)",
-              }}
-            >
-              <LoadingSpinner />
-              <TextUI size="sm" color="text-mid" align="center">
-                Loading next steps…
-              </TextUI>
-            </Flex>
-          </Flex>
-        ))}
       <JourneyTooltip apiRef={tipApi} />
     </Box>
   );

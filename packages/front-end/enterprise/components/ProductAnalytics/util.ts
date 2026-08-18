@@ -18,13 +18,10 @@ import type {
   JourneyStepGroup,
   ExplorationDateRange,
   ComparisonMode,
-  ProductAnalyticsResultRow,
 } from "shared/validators";
 import {
   applyStepGroups,
   isJourneyDatasetRunnable,
-  journeyMinUnusedLookahead,
-  journeyResultCanServe,
   stepGroupsForColumn,
 } from "shared/journeys";
 import {
@@ -989,13 +986,8 @@ export function toFetchKey(
     };
   }
   if (base.dataset.type === "journey") {
-    // path is applied client-side when the current result can serve it.
     // heightScale only affects how columns are drawn.
-    const {
-      path: _path,
-      heightScale: _heightScale,
-      ...journeyFetchDataset
-    } = base.dataset;
+    const { heightScale: _heightScale, ...journeyFetchDataset } = base.dataset;
     return {
       ...rest,
       chartType: getChartCategory(base.chartType),
@@ -1144,10 +1136,6 @@ export function compareConfig(
     lastComparisonMode?: ComparisonMode | null;
     newComparisonMode?: ComparisonMode | null;
   },
-  journeyServe?: {
-    rowSource: ExplorationConfig | null;
-    rows: ProductAnalyticsResultRow[];
-  },
 ): { needsFetch: boolean; needsUpdate: boolean } {
   const lastPrev = previousWindows?.lastPreviousTimeFrame ?? null;
   const newPrev = previousWindows?.newPreviousTimeFrame ?? null;
@@ -1181,27 +1169,7 @@ export function compareConfig(
     !isEqual(toFetchKey(lastComparable), toFetchKey(newConfig)) ||
     !isEqual(lastPrev, newPrev) ||
     lastMode !== newMode;
-  const cachedJourney =
-    journeyServe?.rowSource?.dataset.type === "journey"
-      ? journeyServe.rowSource.dataset
-      : lastComparable.dataset.type === "journey"
-        ? lastComparable.dataset
-        : null;
-  const pathUnserved =
-    lastComparable.dataset.type === "journey" &&
-    newConfig.dataset.type === "journey" &&
-    !isEqual(lastComparable.dataset.path, newConfig.dataset.path) &&
-    (cachedJourney == null ||
-      !journeyResultCanServe({
-        cachedDataset: cachedJourney,
-        cachedRows: journeyServe?.rows ?? [],
-        requestedDataset: newConfig.dataset,
-        minUnusedLookahead: journeyMinUnusedLookahead(
-          newConfig.dataset.lookaheadDepth,
-          "one",
-        ),
-      }));
-  return { needsFetch: fetchKeyChanged || pathUnserved, needsUpdate: true };
+  return { needsFetch: fetchKeyChanged, needsUpdate: true };
 }
 
 export type ResolvedGranularity = "hour" | "day" | "week" | "month" | "year";
@@ -1345,7 +1313,6 @@ export function explorerMainPresentation({
   error,
   isStale,
   isSubmittable,
-  pathOnlyChange,
 }: {
   draftType: ExplorationConfig["type"];
   chartType: string;
@@ -1355,7 +1322,6 @@ export function explorerMainPresentation({
   error: string | null;
   isStale: boolean;
   isSubmittable: boolean;
-  pathOnlyChange: boolean;
 }): {
   showChart: boolean;
   showTable: boolean;
@@ -1398,7 +1364,7 @@ export function explorerMainPresentation({
   const showTable = journeyView ? journeyView === "table" : true;
   const showStaleToast =
     (isStale || loading) &&
-    !(draftType === "journey" && loading && (hasChartData || pathOnlyChange));
+    !(draftType === "journey" && loading && hasChartData);
 
   return { showChart, showTable, showStaleToast, emptyState: null };
 }

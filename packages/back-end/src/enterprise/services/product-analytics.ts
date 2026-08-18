@@ -12,6 +12,7 @@ import {
 } from "shared/enterprise";
 import {
   journeyMinUnusedLookahead,
+  toClientJourneyExploration,
   validateJourneyDataset,
   validateJourneyStepColumns,
 } from "shared/journeys";
@@ -35,20 +36,14 @@ import { APP_ORIGIN } from "back-end/src/util/secrets";
 /**
  * Cache lookup keys off query-defining fields (see AnalyticsExplorationModel.getConfigHashes)
  * and can reuse compatible date ranges. Reuse the cached rows but surface the
- * client's requested display config.
+ * client's requested display config — journeys also collapse lookahead so the
+ * payload matches the path being viewed.
  */
 function withRequestedDisplayConfig(
   existing: ProductAnalyticsExploration,
   requested: ExplorationConfig,
 ): ProductAnalyticsExploration {
-  return {
-    ...existing,
-    config: {
-      ...existing.config,
-      chartType: requested.chartType,
-      dateRange: requested.dateRange,
-    },
-  };
+  return toClientJourneyExploration(existing, requested);
 }
 
 // Max time to wait synchronously for an exploration's queries before
@@ -67,16 +62,12 @@ export async function runProductAnalyticsExploration(
   if (options.cache !== "never") {
     const existing =
       await context.models.analyticsExplorations.findLatestByConfig(config, {
-        // `required` is the drill-down path: the user already has a result on
-        // screen and we only need one unused frontier level to redraw it, so
-        // accept a weaker cache match. `preferred` may still run the query, so
-        // hold out for a result with full lookahead left.
+        // Every journey request needs one unused frontier level to project a
+        // display payload. Prefix cache hits are reused; a miss runs SQL with
+        // the full lookahead still in the dataset.
         minUnusedLookahead:
           config.dataset.type === "journey"
-            ? journeyMinUnusedLookahead(
-                config.dataset.lookaheadDepth,
-                options.cache === "required" ? "one" : "full",
-              )
+            ? journeyMinUnusedLookahead(config.dataset.lookaheadDepth, "one")
             : undefined,
       });
     if (existing) {
@@ -308,7 +299,7 @@ export async function runProductAnalyticsExploration(
     if (syncTimer) clearTimeout(syncTimer);
   }
 
-  return queryRunner.model;
+  return withRequestedDisplayConfig(queryRunner.model, config);
 }
 
 const DATASET_TYPE_PATH: Record<ExplorationConfig["dataset"]["type"], string> =

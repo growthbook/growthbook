@@ -16,6 +16,7 @@ import type { ComparisonAlignmentStrategy } from "shared/enterprise";
 import { FactTableDefinition } from "shared/types/fact-table";
 import {
   compareJourneyStepValues,
+  journeyDisplayLookaheadDepth,
   journeyResultToStepValues,
 } from "shared/journeys";
 import type { HeaderStructure } from "@/components/Settings/DisplayTestQueryResults";
@@ -429,12 +430,11 @@ export function buildJourneyTableData(
     exploration?.config.dataset.type === "journey"
       ? exploration.config
       : submittedExploreState;
-  const lookaheadDepth =
-    source.dataset.type === "journey" ? source.dataset.lookaheadDepth : 0;
   const path = source.dataset.type === "journey" ? source.dataset.path : [];
   const hasDimension = source.dimensions.length > 0;
-  const stepCount = path.length + lookaheadDepth;
   const rows = exploration?.result?.rows ?? [];
+  const lookaheadDepth = journeyDisplayLookaheadDepth(rows);
+  const stepCount = path.length + lookaheadDepth;
 
   const orderedColumnKeys = [
     ...Array.from({ length: stepCount }, (_, i) => `step_${i + 1}`),

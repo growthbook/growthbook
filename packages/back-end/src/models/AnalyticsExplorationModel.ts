@@ -16,6 +16,7 @@ import {
   journeyFamilyIdentity,
   journeyCacheCandidateVerdict,
   journeyResultCanServe,
+  toClientJourneyExploration,
 } from "shared/journeys";
 import {
   getQueryById,
@@ -39,17 +40,18 @@ import { MakeModelClass } from "./BaseModel";
 function toApiInterface(
   exploration: ProductAnalyticsExploration,
 ): ApiAnalyticsExploration {
+  const client = toClientJourneyExploration(exploration, exploration.config);
   return {
-    id: exploration.id,
-    dateCreated: exploration.dateCreated.toISOString(),
-    dateUpdated: exploration.dateUpdated.toISOString(),
-    datasource: exploration.datasource,
-    status: exploration.status,
-    dateStart: exploration.dateStart,
-    dateEnd: exploration.dateEnd,
-    error: exploration.error ?? null,
-    result: exploration.result,
-    config: exploration.config,
+    id: client.id,
+    dateCreated: client.dateCreated.toISOString(),
+    dateUpdated: client.dateUpdated.toISOString(),
+    datasource: client.datasource,
+    status: client.status,
+    dateStart: client.dateStart,
+    dateEnd: client.dateEnd,
+    error: client.error ?? null,
+    result: client.result,
+    config: client.config,
   };
 }
 

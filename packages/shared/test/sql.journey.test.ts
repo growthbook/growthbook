@@ -11,6 +11,9 @@ import {
   journeyMinUnusedLookahead,
   compareJourneyStepValues,
   journeyResultCanServe,
+  journeyDisplayLookaheadDepth,
+  projectJourneyRows,
+  toClientJourneyExploration,
   journeyResultToStepValues,
   maxJourneyPathRows,
   maxJourneyResultRows,
@@ -825,6 +828,211 @@ describe("journeyResultCanServe", () => {
         minUnusedLookahead: requested.lookaheadDepth,
       }),
     ).toBe(false);
+  });
+});
+
+describe("projectJourneyRows", () => {
+  function dataset(
+    path: { value: string }[],
+    lookaheadDepth = 3,
+  ): ExplorationConfig["dataset"] {
+    const config = baseJourneyConfig();
+    if (config.dataset.type !== "journey") throw new Error("expected journey");
+    return { ...config.dataset, path, lookaheadDepth };
+  }
+
+  function pathRow(levels: string[], count: number, dim?: string) {
+    return {
+      dimensions: dim ? [dim] : [],
+      journey: {
+        kind: "path" as const,
+        direction: "forward" as const,
+        levels,
+        count,
+      },
+    };
+  }
+
+  function committedRow(stepIndex: number, value: string, count: number) {
+    return {
+      dimensions: [],
+      journey: {
+        kind: "committed" as const,
+        direction: "forward" as const,
+        stepIndex,
+        value,
+        count,
+      },
+    };
+  }
+
+  const cachedEmpty = dataset([]);
+  const threeLevelRows = [
+    pathRow(["home", "search", "(exit)"], 40),
+    pathRow(["home", "(exit)", "(none)"], 10),
+    pathRow(["search", "(exit)", "(none)"], 20),
+    pathRow(["(exit)", "(none)", "(none)"], 30),
+  ];
+
+  function countsBy(
+    rows: ReturnType<typeof projectJourneyRows>,
+    pick: (row: (typeof rows)[number]) => string | null,
+  ): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const row of rows) {
+      const key = pick(row);
+      if (key == null || !row.journey) continue;
+      out[key] = (out[key] ?? 0) + row.journey.count;
+    }
+    return out;
+  }
+
+  it("collapses the same path to a single frontier column", () => {
+    if (cachedEmpty.type !== "journey") throw new Error("expected journey");
+    const rows = projectJourneyRows({
+      cachedDataset: cachedEmpty,
+      cachedRows: threeLevelRows,
+      requestedDataset: cachedEmpty,
+    });
+    expect(journeyDisplayLookaheadDepth(rows)).toBe(1);
+    expect(
+      countsBy(rows, (row) =>
+        row.journey?.kind === "path" ? row.journey.levels[0] : null,
+      ),
+    ).toEqual({ home: 50, search: 20, "(exit)": 30 });
+    expect(rows.every((row) => row.journey?.kind === "path")).toBe(true);
+  });
+
+  it("reuses lookahead rows as committed + next frontier after a click", () => {
+    const requested = dataset([{ value: "home" }]);
+    if (cachedEmpty.type !== "journey" || requested.type !== "journey") {
+      throw new Error("expected journey");
+    }
+    const rows = projectJourneyRows({
+      cachedDataset: cachedEmpty,
+      cachedRows: threeLevelRows,
+      requestedDataset: requested,
+    });
+    expect(
+      countsBy(rows, (row) =>
+        row.journey?.kind === "committed" && row.journey.stepIndex === 0
+          ? row.journey.value
+          : null,
+      ),
+    ).toEqual({ home: 50, search: 20, "(exit)": 30 });
+    expect(
+      countsBy(rows, (row) =>
+        row.journey?.kind === "path" ? row.journey.levels[0] : null,
+      ),
+    ).toEqual({ search: 40, "(exit)": 10 });
+  });
+
+  it("keeps one leftover frontier after two clicks on a 3-step cache", () => {
+    const requested = dataset([{ value: "home" }, { value: "search" }]);
+    if (cachedEmpty.type !== "journey" || requested.type !== "journey") {
+      throw new Error("expected journey");
+    }
+    const rows = projectJourneyRows({
+      cachedDataset: cachedEmpty,
+      cachedRows: threeLevelRows,
+      requestedDataset: requested,
+    });
+    expect(
+      countsBy(rows, (row) =>
+        row.journey?.kind === "committed"
+          ? `${row.journey.stepIndex}:${row.journey.value}`
+          : null,
+      ),
+    ).toEqual({
+      "0:home": 50,
+      "0:search": 20,
+      "0:(exit)": 30,
+      "1:search": 40,
+      "1:(exit)": 10,
+    });
+    expect(
+      countsBy(rows, (row) =>
+        row.journey?.kind === "path" ? row.journey.levels[0] : null,
+      ),
+    ).toEqual({ "(exit)": 40 });
+  });
+
+  it("turns a longer cache's next committed step into the popped frontier", () => {
+    const cached = dataset([{ value: "home" }, { value: "search" }]);
+    const requested = dataset([{ value: "home" }]);
+    if (cached.type !== "journey" || requested.type !== "journey") {
+      throw new Error("expected journey");
+    }
+    const rows = projectJourneyRows({
+      cachedDataset: cached,
+      cachedRows: [
+        pathRow(["thanks", "done", "(exit)"], 40),
+        committedRow(0, "home", 50),
+        committedRow(0, "(other)", 20),
+        committedRow(0, "(exit)", 30),
+        committedRow(1, "search", 40),
+        committedRow(1, "(exit)", 10),
+      ],
+      requestedDataset: requested,
+    });
+    expect(
+      countsBy(rows, (row) =>
+        row.journey?.kind === "committed"
+          ? `${row.journey.stepIndex}:${row.journey.value}`
+          : null,
+      ),
+    ).toEqual({ "0:home": 50, "0:(other)": 20, "0:(exit)": 30 });
+    expect(
+      countsBy(rows, (row) =>
+        row.journey?.kind === "path" ? row.journey.levels[0] : null,
+      ),
+    ).toEqual({ search: 40, "(exit)": 10 });
+  });
+
+  it("aggregates dimension splits when collapsing lookahead", () => {
+    if (cachedEmpty.type !== "journey") throw new Error("expected journey");
+    const rows = projectJourneyRows({
+      cachedDataset: cachedEmpty,
+      cachedRows: [
+        pathRow(["home", "search", "(exit)"], 40, "US"),
+        pathRow(["home", "(exit)", "(none)"], 10, "US"),
+        pathRow(["home", "search", "(exit)"], 5, "UK"),
+      ],
+      requestedDataset: cachedEmpty,
+    });
+    expect(
+      countsBy(rows, (row) =>
+        row.journey?.kind === "path"
+          ? `${row.journey.levels[0]}:${row.dimensions[0]}`
+          : null,
+      ),
+    ).toEqual({ "home:US": 50, "home:UK": 5 });
+  });
+
+  it("overlays the requested path on a cached exploration", () => {
+    const cached = baseJourneyConfig();
+    const requested = baseJourneyConfig({
+      dataset: dataset([{ value: "home" }]),
+    });
+    const exploration = {
+      id: "ae_1",
+      config: cached,
+      result: { rows: threeLevelRows },
+      status: "success",
+    } as unknown as import("shared/validators").ProductAnalyticsExploration;
+    const client = toClientJourneyExploration(exploration, requested);
+    if (client.config.dataset.type !== "journey") {
+      throw new Error("expected journey");
+    }
+    expect(client.config.dataset.path).toEqual([{ value: "home" }]);
+    expect(client.config.dataset.lookaheadDepth).toBe(3);
+    expect(
+      client.result.rows.every(
+        (row) =>
+          row.journey?.kind === "committed" ||
+          (row.journey?.kind === "path" && row.journey.levels.length === 1),
+      ),
+    ).toBe(true);
   });
 });
 

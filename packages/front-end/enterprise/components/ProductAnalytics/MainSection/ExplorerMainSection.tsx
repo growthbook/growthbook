@@ -10,7 +10,6 @@ import {
   type ExplorerDraftConfig,
   type ExplorerEmptyState,
 } from "@/enterprise/components/ProductAnalytics/util";
-import { journeyDiffersOnlyByPath } from "@/enterprise/components/ProductAnalytics/journey-policy";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ExplorerChart from "./ExplorerChart";
@@ -47,9 +46,6 @@ export default function ExplorerMainSection() {
       error,
       isStale,
       isSubmittable,
-      pathOnlyChange:
-        !!submittedExploreState &&
-        journeyDiffersOnlyByPath(submittedExploreState, draftExploreState),
     });
 
   return (

@@ -48,10 +48,6 @@ import {
   toFetchKey,
   validateDimensions,
 } from "@/enterprise/components/ProductAnalytics/util";
-import {
-  journeyFetchCache,
-  journeyShouldPrefetchMore,
-} from "@/enterprise/components/ProductAnalytics/journey-policy";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -404,23 +400,12 @@ export function ExplorerProvider({
 
   const baselineConfig = submittedExploreState ?? null;
   const { needsFetch, needsUpdate } = useMemo(() => {
-    return compareConfig(
-      baselineConfig,
-      cleanedDraftExploreState,
-      {
-        lastPreviousTimeFrame: submittedPreviousTimeFrame,
-        newPreviousTimeFrame: draftExploreState.previousTimeFrame ?? null,
-        lastComparisonMode: submittedComparisonMode,
-        newComparisonMode: compareEnabled ? comparisonMode : null,
-      },
-      {
-        rowSource:
-          data?.config.dataset.type === "journey"
-            ? data.config
-            : baselineConfig,
-        rows: data?.result?.rows ?? [],
-      },
-    );
+    return compareConfig(baselineConfig, cleanedDraftExploreState, {
+      lastPreviousTimeFrame: submittedPreviousTimeFrame,
+      newPreviousTimeFrame: draftExploreState.previousTimeFrame ?? null,
+      lastComparisonMode: submittedComparisonMode,
+      newComparisonMode: compareEnabled ? comparisonMode : null,
+    });
   }, [
     baselineConfig,
     cleanedDraftExploreState,
@@ -429,7 +414,6 @@ export function ExplorerProvider({
     submittedComparisonMode,
     compareEnabled,
     comparisonMode,
-    data,
   ]);
 
   const isSubmittable = useMemo(() => {
@@ -469,17 +453,17 @@ export function ExplorerProvider({
 
       let cache: CacheOption;
       if (options?.cache) {
-        // explicitly set the cache option
         cache = options.cache;
       } else if (
+        configToSubmit.dataset.type === "journey" ||
         !hasEverFetchedRef.current ||
         isManagedWarehouse ||
         enablingComparison
       ) {
-        // first load, managed warehouse, or newly-enabled comparison: run if missing
+        // Journeys always run (or reuse a prefix cache). First load, managed
+        // warehouse, and newly-enabled comparison do the same.
         cache = "preferred";
       } else {
-        // otherwise, use required cache
         cache = "required";
       }
       hasEverFetchedRef.current = true;
@@ -826,17 +810,9 @@ export function ExplorerProvider({
       !isManagedWarehouse &&
       needsFetch &&
       !onlyComparisonChanged;
-    const rowSourceConfig =
-      data?.config.dataset.type === "journey" ? data.config : baselineConfig;
-    const journeyCache = journeyFetchCache(
-      rowSourceConfig,
-      cleanedDraftExploreState,
-    );
 
     if (needsFetch) {
-      if (journeyCache) {
-        doSubmit({ cache: journeyCache });
-      } else if (deferUntilManualRefresh) {
+      if (deferUntilManualRefresh) {
         setIsStale(true);
       } else {
         doSubmit();
@@ -864,47 +840,6 @@ export function ExplorerProvider({
     isSubmittable,
     managedWarehouseUnavailable,
     isManagedWarehouse,
-    data,
-  ]);
-
-  // Journey lookahead top-up: the drawn frontier is served from the current
-  // result, but the stored lookahead is nearly spent, so fetch deeper in the
-  // background before the next drill-down has to block on a query.
-  //
-  // This effect can re-arm on any `data` change, so it needs an explicit stop:
-  // without one, a prefetch that fails (or returns a cached result whose path
-  // still trails the draft) leaves every condition true and the effect fires
-  // again on each render. Keying on fetch identity + the drilled path gives one
-  // attempt per distinct target; drilling further or editing re-opens it.
-  const prefetchAttemptedForRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (managedWarehouseUnavailable || !isSubmittable) return;
-    if (loading || polling) return;
-    if (needsFetch) return;
-    if (error) return;
-    if (cleanedDraftExploreState.dataset.type !== "journey") return;
-    const rowSource =
-      data?.config.dataset.type === "journey" ? data.config : null;
-    if (!journeyShouldPrefetchMore(rowSource, cleanedDraftExploreState)) {
-      return;
-    }
-    const target = JSON.stringify([
-      toFetchKey(cleanedDraftExploreState),
-      cleanedDraftExploreState.dataset.path,
-    ]);
-    if (prefetchAttemptedForRef.current === target) return;
-    prefetchAttemptedForRef.current = target;
-    doSubmit({ cache: "preferred" });
-  }, [
-    managedWarehouseUnavailable,
-    isSubmittable,
-    loading,
-    polling,
-    needsFetch,
-    error,
-    data,
-    cleanedDraftExploreState,
-    doSubmit,
   ]);
 
   /** Clear staleness when draft matches submitted (known state) */

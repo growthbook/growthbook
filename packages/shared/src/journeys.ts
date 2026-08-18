@@ -1,10 +1,12 @@
 import { isEqual } from "lodash";
 import type { FactTableInterface } from "shared/types/fact-table";
 import type {
+  ExplorationConfig,
   JourneyDataset,
   JourneyPathStep,
   JourneyStepGroup,
   ProductAnalyticsDimension,
+  ProductAnalyticsExploration,
   ProductAnalyticsJourneyRow,
   ProductAnalyticsResultRow,
 } from "./validators/product-analytics";
@@ -504,6 +506,213 @@ export function journeyResultCanServe({
     extraPrefix.push(step);
   }
   return true;
+}
+
+/**
+ * SQL still fetches `dataset.lookaheadDepth` levels. Responses expose a single
+ * frontier so the client can render the payload as-is.
+ */
+export const JOURNEY_DISPLAY_LOOKAHEAD = 1;
+
+function journeyRowDimKey(dimensions: Array<string | null>): string {
+  return dimensions.map((d) => d ?? "").join("\0");
+}
+
+function cloneJourneyRow(
+  row: ProductAnalyticsResultRow,
+  journey: NonNullable<ProductAnalyticsResultRow["journey"]>,
+): ProductAnalyticsResultRow {
+  return {
+    dimensions: [...row.dimensions],
+    journey:
+      journey.kind === "path"
+        ? { ...journey, levels: [...journey.levels] }
+        : { ...journey },
+  };
+}
+
+function aggregateJourneyRows(
+  rows: ProductAnalyticsResultRow[],
+): ProductAnalyticsResultRow[] {
+  const map = new Map<string, ProductAnalyticsResultRow>();
+  for (const row of rows) {
+    const journey = row.journey;
+    if (!journey) continue;
+    const dimKey = journeyRowDimKey(row.dimensions);
+    const key =
+      journey.kind === "path"
+        ? `p:${journey.levels.join("\0")}:${dimKey}`
+        : `c:${journey.stepIndex}:${journey.value}:${dimKey}`;
+    const existing = map.get(key);
+    if (existing?.journey) {
+      existing.journey = {
+        ...existing.journey,
+        count: existing.journey.count + journey.count,
+      };
+      continue;
+    }
+    map.set(key, cloneJourneyRow(row, journey));
+  }
+  return Array.from(map.values());
+}
+
+function pathRowMatchesPrefix(
+  levels: string[],
+  prefix: JourneyPathStep[],
+): boolean {
+  return prefix.every((step, i) => journeyLevelMatchesStep(levels[i], step));
+}
+
+/**
+ * Collapse a cached lookahead result to the one-frontier view for `requestedDataset.path`.
+ *
+ * Callers must already know the cache can serve the request (`journeyResultCanServe`).
+ */
+export function projectJourneyRows({
+  cachedDataset,
+  cachedRows,
+  requestedDataset,
+}: {
+  cachedDataset: JourneyDataset;
+  cachedRows: ProductAnalyticsResultRow[];
+  requestedDataset: JourneyDataset;
+}): ProductAnalyticsResultRow[] {
+  const cachedPath = cachedDataset.path;
+  const requestedPath = requestedDataset.path;
+  const projected: ProductAnalyticsResultRow[] = [];
+
+  if (
+    requestedPath.length < cachedPath.length &&
+    journeyPathIsPrefix(requestedPath, cachedPath)
+  ) {
+    for (const row of cachedRows) {
+      const journey = row.journey;
+      if (journey?.kind !== "committed") continue;
+      if (journey.stepIndex < requestedPath.length) {
+        projected.push(cloneJourneyRow(row, journey));
+      } else if (journey.stepIndex === requestedPath.length) {
+        if (journey.value === JOURNEY_NONE) continue;
+        projected.push(
+          cloneJourneyRow(row, {
+            kind: "path",
+            direction: journey.direction,
+            levels: [journey.value],
+            count: journey.count,
+          }),
+        );
+      }
+    }
+    return aggregateJourneyRows(projected);
+  }
+
+  const extra = requestedPath.slice(cachedPath.length);
+  for (const row of cachedRows) {
+    const journey = row.journey;
+    if (
+      journey?.kind === "committed" &&
+      journey.stepIndex < cachedPath.length
+    ) {
+      projected.push(cloneJourneyRow(row, journey));
+    }
+  }
+
+  const pathRows = cachedRows.filter(
+    (
+      row,
+    ): row is ProductAnalyticsResultRow & {
+      journey: Extract<
+        NonNullable<ProductAnalyticsResultRow["journey"]>,
+        { kind: "path" }
+      >;
+    } => row.journey?.kind === "path",
+  );
+
+  for (let i = 0; i < extra.length; i++) {
+    const prefix = extra.slice(0, i);
+    for (const row of pathRows) {
+      if (!pathRowMatchesPrefix(row.journey.levels, prefix)) continue;
+      const value = row.journey.levels[i];
+      if (value == null || value === JOURNEY_NONE) continue;
+      projected.push({
+        dimensions: [...row.dimensions],
+        journey: {
+          kind: "committed",
+          direction: row.journey.direction,
+          stepIndex: cachedPath.length + i,
+          value,
+          count: row.journey.count,
+        },
+      });
+    }
+  }
+
+  for (const row of pathRows) {
+    if (!pathRowMatchesPrefix(row.journey.levels, extra)) continue;
+    const levels = row.journey.levels
+      .slice(extra.length, extra.length + JOURNEY_DISPLAY_LOOKAHEAD)
+      .filter((value) => value !== JOURNEY_NONE);
+    if (!levels.length) continue;
+    projected.push({
+      dimensions: [...row.dimensions],
+      journey: {
+        kind: "path",
+        direction: row.journey.direction,
+        levels,
+        count: row.journey.count,
+      },
+    });
+  }
+
+  return aggregateJourneyRows(projected);
+}
+
+export function journeyDisplayLookaheadDepth(
+  rows: ProductAnalyticsResultRow[],
+): number {
+  let depth = 0;
+  for (const row of rows) {
+    if (row.journey?.kind === "path") {
+      depth = Math.max(depth, row.journey.levels.length);
+    }
+  }
+  return depth;
+}
+
+/** Overlay the requested path and collapse cached lookahead to the display frontier. */
+export function toClientJourneyExploration(
+  exploration: ProductAnalyticsExploration,
+  requested: ExplorationConfig,
+): ProductAnalyticsExploration {
+  if (exploration.config.type !== "journey" || requested.type !== "journey") {
+    return {
+      ...exploration,
+      config: {
+        ...exploration.config,
+        chartType: requested.chartType,
+        dateRange: requested.dateRange,
+      },
+    };
+  }
+  const cachedDataset = exploration.config.dataset;
+  const requestedDataset = requested.dataset;
+  const rows = projectJourneyRows({
+    cachedDataset,
+    cachedRows: exploration.result?.rows ?? [],
+    requestedDataset,
+  });
+  return {
+    ...exploration,
+    config: {
+      ...exploration.config,
+      chartType: requested.chartType,
+      dateRange: requested.dateRange,
+      dataset: {
+        ...cachedDataset,
+        path: requestedDataset.path,
+      },
+    },
+    result: { ...(exploration.result ?? { rows: [] }), rows },
+  };
 }
 
 export function journeyDimValueCount(

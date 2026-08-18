@@ -19,11 +19,12 @@ import {
 } from "shared/journeys";
 import TextUI from "@/ui/Text";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
-import { journeyHistoryKey } from "@/enterprise/components/ProductAnalytics/journey-policy";
 import LegendSwatchButton from "@/enterprise/components/ProductAnalytics/LegendSwatchButton";
 import JourneySankey, { dimColor } from "./JourneySankey";
-import { withHiddenJourneyDims } from "./useJourneyModel";
-import { useJourneyViewState } from "./useJourneyViewState";
+import {
+  buildJourneyViewModel,
+  withHiddenJourneyDims,
+} from "./useJourneyModel";
 
 const EMPTY_ROWS: ProductAnalyticsResultRow[] = [];
 
@@ -49,26 +50,15 @@ export default function JourneyChart({
     submittedExploreState.dataset.type === "journey"
       ? submittedExploreState.dataset
       : null;
-  const rowPath = useMemo(() => {
-    if (exploration?.config.dataset.type === "journey") {
-      return exploration.config.dataset.path;
-    }
-    if (submittedExploreState.dataset.type === "journey") {
-      return submittedExploreState.dataset.path;
-    }
-    return [];
-  }, [exploration?.config.dataset, submittedExploreState.dataset]);
-  const familyKey = JSON.stringify(journeyHistoryKey(submittedExploreState));
   const hasDimension = submittedExploreState.dimensions.length > 0;
-  const viewState = useJourneyViewState({
-    familyKey,
-    rows: exploration?.result?.rows ?? EMPTY_ROWS,
-    dataset,
-    rowPath,
-    hasDimension,
-    frontierLoading: loading,
-  });
-  const model = viewState?.model ?? null;
+  const model = useMemo(() => {
+    if (!dataset) return null;
+    return buildJourneyViewModel({
+      rows: exploration?.result?.rows ?? EMPTY_ROWS,
+      dataset,
+      hasDimension,
+    });
+  }, [dataset, exploration?.result?.rows, hasDimension]);
   const [hiddenDims, setHiddenDims] = useState<Set<string>>(() => new Set());
   const visibleModel = useMemo(
     () => (model ? withHiddenJourneyDims(model, hiddenDims) : null),
