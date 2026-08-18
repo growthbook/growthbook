@@ -271,9 +271,11 @@ export type MetricExperimentsBlockInterface = z.infer<
 
 // Shared fields for the "Completed Experiments" block family (Scaled Impact,
 // Win Percentage, Experiment Status). Date range + project scoping mirror the
-// Executive Report controls. Kept per-block for now, but always read through
-// resolveCompletedExperimentsFilters so a future dashboard-wide filter bar can
-// override them (see resolveBlockComparison for the same pattern).
+// Executive Report controls. Stored per-block, but always read through
+// resolveCompletedExperimentsFilters so the dashboard global filter bar can
+// override them per the block's globalControlSettings opt-in (see
+// resolveBlockComparison for the same pattern).
+
 // Period comparison for a dashboard block. `enabled` turns the comparison on;
 // `mode` names how the previous period is derived and `previousTimeFrame` holds
 // the frozen window that only `mode: "custom"` uses — every other mode

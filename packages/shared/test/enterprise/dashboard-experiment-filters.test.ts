@@ -197,22 +197,16 @@ describe("getDashboardExperimentFilterApplicability", () => {
     const applicability = getDashboardExperimentFilterApplicability([
       statusBlock(),
     ]);
-    expect(applicability.hasExperimentBlocks).toBe(true);
-    expect(applicability.showDateRange).toBe(true);
-    expect(applicability.showGranularity).toBe(true);
     expect(applicability.showProjects).toBe(true);
     expect(applicability.showExperimentSearch).toBe(true);
-    expect(applicability.hasDateExcludedBlock).toBe(false);
   });
 
-  it("flags the date-excluded block for Experiments with Lift", () => {
+  it("shows the optional controls for Experiments with Lift", () => {
     const applicability = getDashboardExperimentFilterApplicability([
       metricExperimentsBlock(),
     ]);
     expect(applicability.showProjects).toBe(true);
     expect(applicability.showExperimentSearch).toBe(true);
-    expect(applicability.showDateRange).toBe(false);
-    expect(applicability.hasDateExcludedBlock).toBe(true);
   });
 });
 

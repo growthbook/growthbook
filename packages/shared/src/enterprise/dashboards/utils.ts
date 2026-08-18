@@ -599,21 +599,15 @@ export function getEffectiveExperimentBlock<T extends DashboardExperimentBlock>(
 }
 
 /**
- * Which experiment-block global filter controls are relevant for the given set
- * of blocks. Drives conditional rendering of the dashboard filter bar: a control
- * is shown only when at least one present block supports it.
+ * Which optional experiment-block global filter controls are relevant for the
+ * given set of blocks. Drives conditional rendering of the dashboard filter bar:
+ * a control is shown only when at least one present block supports it.
  */
 export function getDashboardExperimentFilterApplicability(
   blocks: readonly DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
 ): {
-  hasExperimentBlocks: boolean;
-  showDateRange: boolean;
-  showGranularity: boolean;
   showProjects: boolean;
   showExperimentSearch: boolean;
-  // Experiments with Lift ignores the dashboard Date Range filter; the bar
-  // surfaces this caveat when such a block is present.
-  hasDateExcludedBlock: boolean;
 } {
   const experimentBlocks = blocks.filter(isDashboardExperimentBlock);
   const supports = (key: DashboardGlobalFilterKey) =>
@@ -621,16 +615,8 @@ export function getDashboardExperimentFilterApplicability(
       experimentBlockSupportsGlobalFilter(block, key),
     );
   return {
-    hasExperimentBlocks: experimentBlocks.length > 0,
-    showDateRange: supports("dateRange"),
-    showGranularity: experimentBlocks.some(
-      (block) => block.type === "experiments-status",
-    ),
     showProjects: supports("projects"),
     showExperimentSearch: supports("experimentSearchString"),
-    hasDateExcludedBlock: experimentBlocks.some(
-      (block) => block.type === "metric-experiments",
-    ),
   };
 }
 
