@@ -1,7 +1,26 @@
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { HoldoutInterface, ApiUpdateHoldoutBody } from "shared/validators";
+import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import { CasConflictError } from "back-end/src/models/BaseModel";
+import { logger } from "back-end/src/util/logger";
+import type { ReqContext } from "back-end/types/request";
 import {
   getNextScheduledStatusUpdateForStage,
   normalizeHoldoutScheduleUpdates,
+  setHoldoutStage,
+  updateHoldoutWithExperiment,
 } from "back-end/src/services/holdouts";
+
+jest.mock("back-end/src/models/ExperimentModel", () => ({
+  updateExperiment: jest.fn(),
+  createExperiment: jest.fn(),
+  deleteExperimentByIdForOrganization: jest.fn(),
+  getExperimentsByIds: jest.fn(),
+}));
+
+jest.mock("back-end/src/services/features", () => ({
+  queueSDKPayloadRefresh: jest.fn(),
+}));
 
 const NOW = new Date("2026-07-28T12:00:00.000Z");
 const PAST = new Date("2026-07-01T00:00:00.000Z");
@@ -251,5 +270,121 @@ describe("getNextScheduledStatusUpdateForStage", () => {
     expect(
       getNextScheduledStatusUpdateForStage({ startAt: SOON }, "draft"),
     ).toBeNull();
+  });
+});
+
+describe("rollbackExperimentAfterHoldoutFailure guard", () => {
+  const mockUpdateExperiment = updateExperiment as jest.Mock;
+
+  const makeExperiment = (
+    overrides: Partial<ExperimentInterface> = {},
+  ): ExperimentInterface =>
+    ({
+      id: "exp_1",
+      organization: "org",
+      name: "Old",
+      status: "running",
+      phases: [{ dateEnded: undefined }],
+      dateUpdated: new Date("2026-07-28T12:00:00.000Z"),
+      ...overrides,
+    }) as unknown as ExperimentInterface;
+
+  const makeHoldout = (
+    overrides: Partial<HoldoutInterface> = {},
+  ): HoldoutInterface =>
+    ({
+      id: "hld_1",
+      organization: "org",
+      name: "Old",
+      projects: [],
+      environmentSettings: {},
+      statusUpdateSchedule: null,
+      nextScheduledStatusUpdate: null,
+      analysisStartDate: undefined,
+      ...overrides,
+    }) as unknown as HoldoutInterface;
+
+  const makeContext = (holdoutUpdate: jest.Mock): ReqContext =>
+    ({
+      org: { id: "org", settings: {} },
+      models: { holdout: { update: holdoutUpdate } },
+    }) as unknown as ReqContext;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe("metadata updates", () => {
+    it("guards the rollback on the fields the update wrote, not dateUpdated", async () => {
+      const experiment = makeExperiment();
+      mockUpdateExperiment
+        .mockResolvedValueOnce(makeExperiment({ name: "New" }))
+        .mockResolvedValueOnce(makeExperiment({ name: "Old" }));
+      const holdoutUpdate = jest
+        .fn()
+        .mockRejectedValue(new Error("holdout down"));
+
+      await expect(
+        updateHoldoutWithExperiment(makeContext(holdoutUpdate), {
+          holdout: makeHoldout(),
+          experiment,
+          body: { name: "New" } as ApiUpdateHoldoutBody,
+        }),
+      ).rejects.toThrow("holdout down");
+
+      expect(mockUpdateExperiment).toHaveBeenCalledTimes(2);
+      const rollbackCall = mockUpdateExperiment.mock.calls[1][0];
+      expect(rollbackCall.guard).toEqual({ name: "New" });
+      expect(rollbackCall.changes).toEqual({ name: "Old" });
+    });
+
+    it("skips the rollback and warns when a written field changed concurrently", async () => {
+      mockUpdateExperiment
+        .mockResolvedValueOnce(makeExperiment({ name: "New" }))
+        .mockRejectedValueOnce(new CasConflictError());
+      const holdoutUpdate = jest
+        .fn()
+        .mockRejectedValue(new Error("holdout down"));
+      const warn = jest.spyOn(logger, "warn").mockImplementation();
+
+      await expect(
+        updateHoldoutWithExperiment(makeContext(holdoutUpdate), {
+          holdout: makeHoldout(),
+          experiment: makeExperiment(),
+          body: { name: "New" } as ApiUpdateHoldoutBody,
+        }),
+      ).rejects.toThrow("holdout down");
+
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0][0]).toContain("may need reconciling");
+    });
+  });
+
+  describe("lifecycle transitions", () => {
+    it("guards the rollback on the status and phases it wrote", async () => {
+      const experiment = makeExperiment({ status: "running" });
+      mockUpdateExperiment
+        .mockResolvedValueOnce(makeExperiment({ status: "stopped" }))
+        .mockResolvedValueOnce(makeExperiment({ status: "running" }));
+      const holdoutUpdate = jest
+        .fn()
+        .mockRejectedValue(new Error("holdout down"));
+
+      await expect(
+        setHoldoutStage(makeContext(holdoutUpdate), {
+          holdout: makeHoldout(),
+          experiment,
+          stage: "stopped",
+        }),
+      ).rejects.toThrow("holdout down");
+
+      expect(mockUpdateExperiment).toHaveBeenCalledTimes(2);
+      const forwardChanges = mockUpdateExperiment.mock.calls[0][0].changes;
+      const rollbackCall = mockUpdateExperiment.mock.calls[1][0];
+      // The guard is exactly the changeset the forward write applied.
+      expect(rollbackCall.guard).toBe(forwardChanges);
+      expect(rollbackCall.guard.status).toBe("stopped");
+      expect(rollbackCall.changes.status).toBe("running");
+    });
   });
 });

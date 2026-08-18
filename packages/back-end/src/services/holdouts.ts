@@ -311,16 +311,18 @@ export async function createHoldoutWithExperiment(
  * failed (the two documents share no transaction). Returns whether the restore
  * succeeded so callers can gate follow-up work.
  *
- * The restore is guarded on the experiment's `dateUpdated`, which callers pass
- * from the value our own write persisted. If another request has since written
- * the experiment, the guard no longer matches and we intentionally skip the
- * rollback rather than clobbering that request's changes with stale values. On
- * any other failure we log for manual reconciliation rather than masking the
- * caller's original error.
+ * The restore is guarded on the exact field values this operation wrote, not the
+ * whole-document `dateUpdated`. An unrelated edit to some other experiment field
+ * therefore no longer blocks compensation, while a concurrent write to one of the
+ * fields we set fails the guard — in that case we skip the rollback rather than
+ * clobber the newer value with our stale revert, and warn that the pair may need
+ * reconciling. On any other failure we log for manual reconciliation rather than
+ * masking the caller's original error.
  */
 async function rollbackExperimentAfterHoldoutFailure(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
+  writtenChanges: Partial<ExperimentInterface>,
   revertChanges: Partial<ExperimentInterface>,
   logContext: string,
 ): Promise<boolean> {
@@ -329,13 +331,13 @@ async function rollbackExperimentAfterHoldoutFailure(
       context,
       experiment,
       changes: revertChanges,
-      guard: { dateUpdated: experiment.dateUpdated },
+      guard: writtenChanges,
     });
     return true;
   } catch (revertError) {
     if (revertError instanceof CasConflictError) {
       logger.warn(
-        `Skipped rolling back experiment "${experiment.id}" ${logContext}; it was modified concurrently, so the other write is left intact and no reconciliation is needed`,
+        `Skipped rolling back experiment "${experiment.id}" ${logContext}; one of the fields it wrote was modified concurrently, so the other write is left intact and the holdout and experiment may need reconciling by hand`,
       );
       return false;
     }
@@ -511,6 +513,7 @@ export async function updateHoldoutWithExperiment(
       await rollbackExperimentAfterHoldoutFailure(
         context,
         experiment,
+        experimentChanges,
         originalExperimentValues,
         "after holdout update failed",
       );
@@ -701,6 +704,7 @@ export async function setHoldoutStage(
       const reverted = await rollbackExperimentAfterHoldoutFailure(
         context,
         updatedExperiment,
+        changes,
         { status: originalStatus, phases: originalPhases },
         `after holdout update failed during "${event}"`,
       );
