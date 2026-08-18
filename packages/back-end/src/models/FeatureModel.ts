@@ -222,6 +222,10 @@ const featureSchema = new mongoose.Schema({
     id: String,
     value: String,
   },
+  // Mixed, like the other structured fields above: the discriminator key is
+  // literally named `type`, which Mongoose would read as a SchemaType
+  // declaration rather than a path. Validation lives in Zod.
+  managedBy: {},
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
@@ -1241,6 +1245,10 @@ export async function updateFeature(
     // Remove the holdout pointer in the SAME write: splitting into two writes
     // opens a gap where a rival publish can land and be overwritten.
     unsetHoldout?: boolean;
+    // Clear the experiment-ownership marker (ejecting a managed flag). Needs an
+    // explicit $unset for the same reason as holdout: `managedBy: undefined` in
+    // a $set payload is dropped, not applied, so the marker would survive.
+    unsetManagedBy?: boolean;
     // The stamp this write PUTS on the document — fires only after Mongo
     // confirms the write ("this landed", never "this was attempted").
     // Compensation uses it as the ownership token; the returned doc is a
@@ -1263,6 +1271,7 @@ export async function updateFeature(
     ...allUpdates,
   };
   if (options?.unsetHoldout) delete projected.holdout;
+  if (options?.unsetManagedBy) delete projected.managedBy;
 
   // Refresh linkedExperiments if needed
   const linkedExperiments = getLinkedExperiments(projected);
@@ -1333,7 +1342,14 @@ export async function updateFeature(
     },
     {
       $set: normalizedUpdates,
-      ...(options?.unsetHoldout ? { $unset: { holdout: "" } } : {}),
+      ...(options?.unsetHoldout || options?.unsetManagedBy
+        ? {
+            $unset: {
+              ...(options?.unsetHoldout ? { holdout: "" } : {}),
+              ...(options?.unsetManagedBy ? { managedBy: "" } : {}),
+            },
+          }
+        : {}),
     },
   );
   if (options?.casOnDateUpdated && writeResult.matchedCount === 0) {

@@ -18230,8 +18230,8 @@ paths:
                   type: string
                 settings:
                   description: >-
-                    Project stats settings that, when set, override the
-                    organization settings.
+                    Project settings that, when set, override the organization
+                    settings.
                   type: object
                   properties:
                     statsEngine:
@@ -18245,6 +18245,12 @@ paths:
                     pValueThreshold:
                       description: Frequentist p-value threshold (e.g. 0.05).
                       type: number
+                    managedExperimentFlags:
+                      description: >-
+                        Whether new experiments in this project default to
+                        delivering their variations through an
+                        experiment-managed Feature Flag.
+                      type: boolean
                   additionalProperties: false
               required:
                 - name
@@ -18321,8 +18327,8 @@ paths:
                   type: string
                 settings:
                   description: >-
-                    Project stats settings that, when set, override the
-                    organization settings.
+                    Project settings that, when set, override the organization
+                    settings.
                   type: object
                   properties:
                     statsEngine:
@@ -18336,6 +18342,12 @@ paths:
                     pValueThreshold:
                       description: Frequentist p-value threshold (e.g. 0.05).
                       type: number
+                    managedExperimentFlags:
+                      description: >-
+                        Whether new experiments in this project default to
+                        delivering their variations through an
+                        experiment-managed Feature Flag.
+                      type: boolean
                   additionalProperties: false
               additionalProperties: false
       responses:
@@ -55257,6 +55269,8 @@ components:
               type: number
             pValueThreshold:
               type: number
+            managedExperimentFlags:
+              type: boolean
           additionalProperties: false
       required:
         - id

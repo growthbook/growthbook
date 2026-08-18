@@ -98,6 +98,8 @@ const subscriptionController = wrapController(subscriptionControllerRaw);
 import * as featuresControllerRaw from "./controllers/features";
 const featuresController = wrapController(featuresControllerRaw);
 
+import { blockManagedFeatureWrites } from "./services/managedFeatures";
+
 import * as informationSchemasControllerRaw from "./controllers/informationSchemas";
 const informationSchemasController = wrapController(
   informationSchemasControllerRaw,
@@ -161,6 +163,7 @@ import {
 import { templateRouter } from "./routers/experiment-template/template.router";
 import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 import { holdoutRouter } from "./routers/holdout/holdout.router";
+import { managedFlagRouter } from "./routers/managed-flag/managed-flag.router";
 import { rampScheduleRouter } from "./routers/ramp-schedule/ramp-schedule.router";
 import { rampScheduleTemplateRouter } from "./routers/ramp-schedule-template/ramp-schedule-template.router";
 import { runStatsEngine } from "./services/stats";
@@ -907,6 +910,10 @@ app.use("/ramp-schedule-templates", rampScheduleTemplateRouter);
 // Holdouts
 app.use("/holdout", holdoutRouter);
 
+// Experiment-managed Feature Flags. Mounted under /experiment so it sits
+// outside the direct-write lockdown on /feature/*.
+app.use("/experiment/:id/managed-flag", managedFlagRouter);
+
 // Reports
 app.get("/report/:id", reportsController.getReport);
 app.put("/report/:id", reportsController.putReport);
@@ -937,6 +944,12 @@ app.use("/revision", revisionRouter);
 app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 
 // Features
+// Refuse every direct write to a flag an experiment manages, ahead of the
+// route table so routes added later are covered without opting in. Reads pass
+// through; the experiment's own `/experiment/:id/managed-flag/*` routes sit
+// outside this path and are unaffected.
+app.all("/feature/:id", blockManagedFeatureWrites);
+app.all("/feature/:id/*", blockManagedFeatureWrites);
 app.get("/feature", featuresController.getFeatures);
 app.get("/feature/:id", featuresController.getFeatureById);
 app.get("/feature/:id/revisions", featuresController.getFeatureRevisions);

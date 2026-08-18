@@ -217,6 +217,9 @@ export async function createOrganization({
       ],
       killswitchConfirmation: true,
       runHealthTrafficQuery: true,
+      // New orgs start in managed mode; existing orgs read absent as off so
+      // their current flag workflow is untouched until they opt in.
+      managedExperimentFlags: true,
       // Default to the same attributes as the auto-wrapper for the Javascript SDK
       attributeSchema: [
         { property: "id", datatype: "string", hashAttribute: true },

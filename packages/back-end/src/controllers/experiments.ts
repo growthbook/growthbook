@@ -11,6 +11,7 @@ import {
   autoMerge,
   reconcileMergeBaselines,
   includeExperimentInPayload,
+  isManagedByExperiment,
 } from "shared/util";
 import {
   expandDerivedMetricsInMap,
@@ -44,6 +45,11 @@ import {
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
 import isEqual from "lodash/isEqual";
+import {
+  ExperimentRefVariation,
+  FeatureInterface,
+  FeatureValueType,
+} from "shared/validators";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   AuthRequest,
@@ -135,7 +141,11 @@ import { PastExperimentsQueryRunner } from "back-end/src/queryRunners/PastExperi
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
-import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  NotFoundError,
+  SoftWarningError,
+} from "back-end/src/util/errors";
 import { legacyDocDescribesPhase } from "back-end/src/enterprise/services/data-pipeline";
 import {
   getFeature,
@@ -143,6 +153,11 @@ import {
   publishRevision,
 } from "back-end/src/models/FeatureModel";
 import { getLinkageSyncRevisionSummaries } from "back-end/src/models/FeatureRevisionModel";
+import {
+  createManagedFeatureForExperiment,
+  ejectManagedFeature,
+  getManagedFeatureForExperiment,
+} from "back-end/src/services/managedFeatures";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 import {
@@ -4490,7 +4505,100 @@ export async function deleteExperimentLinkedFeature(
     context.permissions.throwPermissionError();
   }
 
+  // A managed flag has no independent existence — unlinking it would leave a
+  // locked-down flag with no experiment to edit it from. Eject first.
+  if (feature && isManagedByExperiment(feature, id)) {
+    throw new Error(
+      "This Feature Flag is managed by the experiment. Eject it first to unlink it.",
+    );
+  }
+
   await unlinkFeatureFromExperiment(context, id, featureId);
 
   res.status(200).json({ status: 200 });
+}
+
+// Create the Feature Flag this experiment manages, with its single
+// experiment-ref rule staged as a draft. Everything else about the flag —
+// values, review, publish — is driven from the experiment page from here on.
+export async function postExperimentManagedFlag(
+  req: AuthRequest<
+    {
+      valueType: FeatureValueType;
+      variations: ExperimentRefVariation[];
+      sparse?: boolean;
+    },
+    { id: string }
+  >,
+  res: Response<
+    { status: 200; feature: FeatureInterface; version: number },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { valueType, variations, sparse } = req.body;
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    throw new NotFoundError("Experiment not found");
+  }
+
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
+
+  const existing = await getManagedFeatureForExperiment(context, experiment);
+  if (existing) {
+    throw new Error(
+      `This experiment already manages Feature Flag "${existing.id}".`,
+    );
+  }
+
+  const { feature, version } = await createManagedFeatureForExperiment({
+    context,
+    experiment,
+    valueType,
+    variations,
+    sparse,
+    eventAudit: res.locals.eventAudit,
+    audit: req.audit,
+  });
+
+  res.status(200).json({ status: 200, feature, version });
+}
+
+// Release the flag from the experiment. Nothing about the flag's content or
+// history changes — only the ownership marker, which reopens direct editing.
+export async function postExperimentManagedFlagEject(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<
+    { status: 200; feature: FeatureInterface },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    throw new NotFoundError("Experiment not found");
+  }
+
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
+
+  const managed = await getManagedFeatureForExperiment(context, experiment);
+  if (!managed) {
+    throw new Error("This experiment does not manage a Feature Flag.");
+  }
+
+  const feature = await ejectManagedFeature({
+    context,
+    feature: managed,
+    experimentId: id,
+  });
+
+  res.status(200).json({ status: 200, feature });
 }

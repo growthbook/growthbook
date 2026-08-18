@@ -34,6 +34,7 @@ export * from "./configs";
 export * from "./deep-merge";
 export * from "./config-schema";
 export * from "./managedWarehouse";
+export * from "./managed-experiments";
 export * from "./saved-groups";
 export * from "./metric-time-series";
 export * from "./ruleId";

@@ -27,6 +27,8 @@ import {
   stepHoldConditions,
 } from "./ramp-schedule";
 
+import { featureManagedByValidator } from "./managed-by";
+
 import { namedSchema } from "./openapi-helpers";
 
 export const simpleSchemaFieldValidator = z.object({
@@ -789,6 +791,10 @@ export const featureInterface = z
         value: z.string(),
       })
       .optional(),
+    // Set when this flag exists only to deliver one experiment and is edited
+    // exclusively from that experiment's page. Every direct write path refuses
+    // while it's set; see `assertFeatureNotManaged`.
+    managedBy: featureManagedByValidator.optional(),
   })
   .strict();
 

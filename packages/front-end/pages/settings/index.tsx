@@ -210,6 +210,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       requireExperimentTemplates: settings.requireExperimentTemplates ?? false,
       requireUniqueExperimentTrackingKeys:
         settings.requireUniqueExperimentTrackingKeys ?? false,
+      managedExperimentFlags: settings.managedExperimentFlags ?? false,
       experimentMinLengthDays:
         settings.experimentMinLengthDays ?? DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
       experimentMaxLengthDays:

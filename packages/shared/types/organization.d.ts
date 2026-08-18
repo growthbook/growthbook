@@ -289,6 +289,12 @@ export interface OrganizationSettings {
   requireReviews?: boolean | RequireReview[];
   // Project-scoped rules; absent/no-match = strict.
   targetingReviewMode?: TargetingReviewRule[];
+  // Default for the experiment creation modal's implementation-mode radio:
+  // whether a new experiment delivers its variations through a Feature Flag
+  // that the experiment page fully manages. Seeded `true` on new orgs; absent
+  // reads as `false` so existing orgs keep the manual flag workflow until they
+  // opt in. Overridable per project via `ProjectSettings.managedExperimentFlags`.
+  managedExperimentFlags?: boolean;
   // Default extensibility for newly authored configs. When true (default),
   // base configs allow child configs / feature rules to add extra keys unless
   // a config explicitly opts out via its own `extensible` flag.
