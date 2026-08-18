@@ -192,7 +192,9 @@ export function onVisible() {
 
 // Private functions
 
-// Streaming stays silent when it can't start, so the SDK looks healthy while serving a frozen payload
+// console.warn rather than the usual env-gated instance.log(): log() is debug-only, so it
+// would hide this misconfiguration from the production users already serving a frozen
+// payload. Deduped per reason. Diagnostics still belong in instance.log().
 function warnStreamingUnavailable(reason: string): void {
   if (streamingWarnings.has(reason)) return;
   streamingWarnings.add(reason);
@@ -525,9 +527,8 @@ function onSSEError(channel: ScopedChannel) {
     setTimeout(
       () => {
         if (["idle", "active"].includes(channel.state)) return;
-        // A channel dropped from the map while backing off (destroy, clearCache) must
-        // not reconnect: it would open an EventSource nothing tracks or can close,
-        // while still pushing payloads to whichever channel replaced it
+        // A channel dropped while backing off (destroy, clearCache) must not reconnect:
+        // it would open an EventSource nothing tracks or can ever close
         if (streams.get(channel.key) !== channel) return;
         enableChannel(channel);
       },
@@ -562,12 +563,9 @@ function enableChannel(channel: ScopedChannel) {
       channel.errors = 0;
     };
   } catch (e) {
-    // An incompatible EventSource must not take the feature payload down with it.
-    // The constructor may have already opened a connection, so close it before
-    // dropping the only reference we have to it.
+    // A half-built connection may already be open, so close it before dropping the ref
     try {
       if (channel.src) {
-        // Close first; detaching handlers is best-effort and may throw again
         channel.src.close();
         channel.src.onerror = null;
         channel.src.onopen = null;
@@ -577,11 +575,8 @@ function enableChannel(channel: ScopedChannel) {
     }
     channel.src = null;
     channel.state = "disabled";
-    // A channel with no EventSource must not sit in the map, where the existing-key
-    // guard would block streaming from ever being retried for this key. Done here so
-    // it also covers the reconnect and visibility paths, which have no other cleanup.
-    // Identity-checked because a pending re-connect can outlive clearAutoRefresh, and
-    // must not evict the healthy channel that replaced it.
+    // Evict so the existing-key guard can't block a later retry, but only if this channel
+    // is still the registered one - a stale re-connect must not evict its replacement
     if (streams.get(channel.key) === channel) streams.delete(channel.key);
     warnStreamingUnavailable(
       `the EventSource implementation threw an error (${
