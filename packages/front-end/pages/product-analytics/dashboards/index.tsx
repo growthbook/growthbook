@@ -386,6 +386,10 @@ export default function DashboardsPage() {
                           const isDefaultForSingleProject =
                             singleEligibleProjectForDefault?.settings
                               ?.defaultDashboardId === d.id;
+                          const isDefaultForAnyEligibleProject =
+                            eligibleProjectsForDefault.some(
+                              (p) => p.settings?.defaultDashboardId === d.id,
+                            );
 
                           // If the dashboard is private, and the currentUser isn't the owner, they don't have edit/delete rights, regardless of their permissions
                           if (
@@ -522,7 +526,13 @@ export default function DashboardsPage() {
                                         </Tooltip>
                                       ) : eligibleProjectsForDefault.length >
                                         1 ? (
-                                        <DropdownSubMenu trigger="Set as Default Dashboard">
+                                        <DropdownSubMenu
+                                          trigger={
+                                            isDefaultForAnyEligibleProject
+                                              ? "Manage Default Dashboard"
+                                              : "Set as Default Dashboard"
+                                          }
+                                        >
                                           {eligibleProjectsForDefault.map(
                                             (p) => {
                                               const isCurrentDefault =
@@ -548,7 +558,7 @@ export default function DashboardsPage() {
                                                     }
                                                   >
                                                     {isCurrentDefault
-                                                      ? `Remove as Default (${p.name})`
+                                                      ? `Remove as Default for ${p.name}`
                                                       : p.name}
                                                   </DropdownMenuItem>
                                                 </Tooltip>
