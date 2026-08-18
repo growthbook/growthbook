@@ -11,7 +11,7 @@ import {
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
 import { teamsForMember } from "shared/permissions";
-import { toHookReviewerVerdicts } from "shared/enterprise";
+import { coauthorIds, toHookReviewerVerdicts } from "shared/enterprise";
 import {
   buildConstantValueMap,
   resolveConstantRefs,
@@ -62,16 +62,84 @@ export async function runValidateFeatureHooks({
 // Reviewer team membership, attached for hooks that gate on team rather than on
 // identity. Copied onto the args, never onto the stored revision — membership is
 // current-state, not something the revision recorded.
-function withReviewerTeams<
-  T extends { reviews?: { userId: string }[] } | null | undefined,
->(context: Context, revision: T): T {
-  if (!revision?.reviews?.length) return revision;
+/**
+ * Resolves a user id to the event user + current teams a hook sees. One member
+ * expansion per hook call, shared by reviewer verdicts and authorship.
+ *
+ * A reviewer or author who is still a member is a dashboard user; anything else
+ * is an API key, whose id is what the revision recorded.
+ */
+async function memberDirectory(context: Context) {
+  const members = await expandOrgMembers(context.org.members ?? []);
+  const byId = new Map(members.map((m) => [m.id, m]));
+  return (userId: string) => {
+    const member = byId.get(userId);
+    return {
+      user: member
+        ? {
+            type: "dashboard" as const,
+            id: member.id,
+            name: member.name || "",
+            email: member.email,
+          }
+        : { type: "api_key" as const, apiKey: userId },
+      teams: teamsForMember(userId, context.org, context.teams ?? []),
+    };
+  };
+}
+
+/**
+ * Who wrote the draft, with their teams — the authorship counterpart to
+ * `reviews`. `coauthors` excludes the primary author, matching how the product
+ * describes them.
+ */
+async function hookAuthorship(
+  context: Context,
+  authorId: string | undefined,
+  contributors: string[] | undefined,
+) {
+  const resolve = await memberDirectory(context);
+  return {
+    author: authorId ? { userId: authorId, ...resolve(authorId) } : null,
+    coauthors: coauthorIds(authorId, contributors).map((id) => ({
+      userId: id,
+      ...resolve(id),
+    })),
+  };
+}
+
+/**
+ * The revision as hooks see it: reviewer teams, plus who wrote it. Copied onto the
+ * args, never onto the stored revision — membership is current state.
+ */
+async function withHookRevisionContext<
+  T extends
+    | {
+        reviews?: { userId: string }[];
+        contributors?: string[];
+        createdBy?: unknown;
+      }
+    | null
+    | undefined,
+>(context: Context, revision: T): Promise<T> {
+  if (!revision) return revision;
+  const authorId = (revision.createdBy as { id?: string } | null)?.id;
+  const authorship = await hookAuthorship(
+    context,
+    authorId,
+    revision.contributors,
+  );
   return {
     ...revision,
-    reviews: revision.reviews.map((r) => ({
-      ...r,
-      teams: teamsForMember(r.userId, context.org, context.teams ?? []),
-    })),
+    ...authorship,
+    ...(revision.reviews?.length
+      ? {
+          reviews: revision.reviews.map((r) => ({
+            ...r,
+            teams: teamsForMember(r.userId, context.org, context.teams ?? []),
+          })),
+        }
+      : {}),
   };
 }
 
@@ -93,22 +161,8 @@ async function hookReviewerVerdicts(
     dateCreated: Date;
   }[],
 ) {
-  const members = await expandOrgMembers(context.org.members ?? []);
-  const byId = new Map(members.map((m) => [m.id, m]));
-  return toHookReviewerVerdicts(reviews, (userId) => {
-    const member = byId.get(userId);
-    return {
-      user: member
-        ? {
-            type: "dashboard" as const,
-            id: member.id,
-            name: member.name || "",
-            email: member.email,
-          }
-        : { type: "api_key" as const, apiKey: userId },
-      teams: teamsForMember(userId, context.org, context.teams ?? []),
-    };
-  });
+  const resolve = await memberDirectory(context);
+  return toHookReviewerVerdicts(reviews, resolve);
 }
 
 export async function runValidateFeatureRevisionHooks({
@@ -125,12 +179,12 @@ export async function runValidateFeatureRevisionHooks({
   return _runCustomHooks(
     context,
     "validateFeatureRevision",
-    { feature, revision: withReviewerTeams(context, revision) },
+    { feature, revision: await withHookRevisionContext(context, revision) },
     feature.project,
     feature.id,
     {
       feature,
-      revision: withReviewerTeams(context, original),
+      revision: await withHookRevisionContext(context, original),
     },
   );
 }
@@ -172,12 +226,12 @@ export async function collectValidateFeatureRevisionHookResults({
   return collectCustomHookResults(
     context,
     "validateFeatureRevision",
-    { feature, revision: withReviewerTeams(context, revision) },
+    { feature, revision: await withHookRevisionContext(context, revision) },
     feature.project,
     feature.id,
     {
       feature,
-      revision: withReviewerTeams(context, original),
+      revision: await withHookRevisionContext(context, original),
     },
   );
 }
@@ -456,6 +510,9 @@ export type ConfigRevisionHookInput = {
   comment?: string;
   authorId: string;
   contributors?: string[];
+  // Attached at call time by hookAuthorship; not stored on the revision.
+  author?: { userId: string } | null;
+  coauthors?: { userId: string }[];
   // Stored verdicts as-is; prepareConfigRevisionHookCall maps them to the
   // feature-shaped `{ userId, user, status, timestamp, teams }` hooks receive.
   reviews: {
@@ -490,6 +547,11 @@ async function prepareConfigRevisionHookCall({
   const revisionArg = revision
     ? {
         ...revision,
+        ...(await hookAuthorship(
+          context,
+          revision.authorId,
+          revision.contributors,
+        )),
         reviews: await hookReviewerVerdicts(context, revision.reviews),
       }
     : null;

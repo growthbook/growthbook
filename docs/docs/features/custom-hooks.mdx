@@ -236,6 +236,35 @@ The hook runs at publish time with `revision.status === "published"` on the prop
 
 `validateConfigRevision` exposes reviewers in this same shape, so one policy can be written against both. Comments are not verdicts and never appear in `reviews`, and each reviewer appears once, with their latest verdict.
 
+Who _wrote_ the draft is exposed the same way, so a policy can reason about authorship as well as approval:
+
+- `revision.author` — `{ userId, user, teams }` for whoever opened the draft, or `null` when it cannot be attributed.
+- `revision.coauthors` — the same shape for everyone else who edited it, excluding the author.
+
+Like reviewer `teams`, both are resolved at publish time from current membership. `revision.contributors` remains the raw list of editor IDs.
+
+Example: Require that a draft touched by someone outside the owning team is approved by that team.
+
+```js
+if (revision.status === "published") {
+  const editors = [revision.author, ...(revision.coauthors || [])].filter(Boolean);
+  const outsider = editors.some(
+    (e) => !(e.teams || []).some((t) => t.name === "Payments")
+  );
+  const approvals = (revision.reviews || []).filter(
+    (r) => r.status === "approved"
+  );
+  const paymentsApproved = approvals.some((r) =>
+    (r.teams || []).some((t) => t.name === "Payments")
+  );
+  if (outsider && !paymentsApproved) {
+    throw new Error(
+      "Drafts edited outside the Payments team need a Payments approval."
+    );
+  }
+}
+```
+
 Disable **Incremental Changes Only** for publish-gating hooks so the policy is enforced on every publish.
 
 Example: Require approval from a specific service account plus at least one human.
@@ -317,7 +346,7 @@ error blocks the publish and leaves the draft editable. Skipping approval does
 not skip the hook. Receives:
 
 - `config` — the config's published content: `key`, `name`, `project`, staged `value` (a parsed JSON object), `schema`, and lineage (`parent`/`extends`, plus a `lineage` object with `ancestors`, `descendants`, `hasParent`, `hasChildren`, `isRoot`, `isLeaf`). Because a config-scoped hook also runs for descendants, `config.isHookTarget` is `true` only when this is the exact config the hook is pinned to (and `false` for a descendant it inherited); `config.hookTargetKey` names that pinned config (`null` for project/global hooks). Use these to enforce a rule only on the target config, or on the whole family. When the config is an [environment/project override](/features/configs#environment-overrides), `config.scopedConfig` is `{ parent, environments, projects }` (its base and the scope it applies to) — absent otherwise — so you can gate environment-specific rules.
-- `revision` — the revision being published (when publishing a reviewed draft): `version`, `status`, `comment`, `authorId`, `contributors`, and `reviews`. Each review is `{ userId, decision, comment, stale, dateCreated }` where `decision` is `"approve"` / `"request-changes"` / `"comment"` and `userId` is the reviewer's user ID (or the API key ID for a service account). `revision` is absent on direct (non-draft) writes.
+- `revision` — the revision being published (when publishing a reviewed draft): `version`, `status`, `comment`, `authorId`, `contributors`, `author`, `coauthors`, and `reviews`. Reviews use the same shape as feature revisions — `{ userId, user, status, timestamp, teams }`, described under [validateFeatureRevision](#validatefeaturerevision) — so one policy can be written against both. `revision` is absent on direct (non-draft) writes.
 
 Example: Block publishing a value that exceeds a limit. `config.value` is already a parsed object.
 

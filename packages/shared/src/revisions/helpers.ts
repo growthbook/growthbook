@@ -695,3 +695,14 @@ export function toHookReviewerVerdicts<U, T>(
     timestamp: v.timestamp,
   }));
 }
+
+/**
+ * Co-authors of a draft: everyone who edited it except the primary author.
+ * `contributors` may include the author, and may carry blanks from older rows.
+ */
+export function coauthorIds(
+  authorId: string | undefined,
+  contributors: string[] | undefined,
+): string[] {
+  return (contributors ?? []).filter((id) => !!id && id !== authorId);
+}
