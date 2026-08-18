@@ -159,10 +159,10 @@ const apiHoldoutLinkedItem = z.object({
  */
 const holdoutSizeField = z
   .number()
-  .min(0)
+  .positive("Holdout size must be greater than 0")
   .max(MAX_HOLDOUT_SIZE)
   .describe(
-    "Proportion of traffic held out, expressed as a decimal (e.g. 0.05 for 5%). An equally-sized control group is bucketed alongside it, so the Holdout occupies twice this share of traffic in total. Maximum 0.5.",
+    "Proportion of traffic held out, expressed as a decimal (e.g. 0.05 for 5%). An equally-sized control group is bucketed alongside it, so the Holdout occupies twice this share of traffic in total. Must be greater than 0 and at most 0.5.",
   );
 
 const apiHoldoutStatusUpdateSchedule = z

@@ -49509,9 +49509,9 @@ paths:
                     Proportion of traffic held out, expressed as a decimal (e.g.
                     0.05 for 5%). An equally-sized control group is bucketed
                     alongside it, so the Holdout occupies twice this share of
-                    traffic in total. Maximum 0.5.
+                    traffic in total. Must be greater than 0 and at most 0.5.
                   type: number
-                  minimum: 0
+                  exclusiveMinimum: 0
                   maximum: 0.5
                 hashAttribute:
                   type: string
@@ -49668,7 +49668,7 @@ paths:
                     0.05 for 5%). An equally-sized control group is bucketed
                     alongside it. Defaults to 0.05. Maximum 0.5.
                   type: number
-                  minimum: 0
+                  exclusiveMinimum: 0
                   maximum: 0.5
                 hashAttribute:
                   type: string
@@ -65775,10 +65775,10 @@ components:
           description: >-
             Proportion of traffic held out, expressed as a decimal (e.g. 0.05
             for 5%). An equally-sized control group is bucketed alongside it, so
-            the Holdout occupies twice this share of traffic in total. Maximum
-            0.5.
+            the Holdout occupies twice this share of traffic in total. Must be
+            greater than 0 and at most 0.5.
           type: number
-          minimum: 0
+          exclusiveMinimum: 0
           maximum: 0.5
         hashAttribute:
           description: Attribute used to assign users to the Holdout.
