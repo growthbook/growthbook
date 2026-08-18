@@ -60,8 +60,5 @@ export function isHoldoutStageTransitionAllowed(
   currentStage: HoldoutStage,
   targetStage: HoldoutStage,
 ): boolean {
-  return (
-    currentStage === targetStage ||
-    getAllowedHoldoutStageSources(targetStage).includes(currentStage)
-  );
+  return getAllowedHoldoutStageSources(targetStage).includes(currentStage);
 }
