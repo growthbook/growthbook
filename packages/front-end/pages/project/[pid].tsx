@@ -416,21 +416,34 @@ const ProjectPage: FC = () => {
                           <Heading as="h5" size="sm">
                             Default Dashboard
                           </Heading>
-                          <p className="pt-2">
+                          <Text as="p" mt="2">
                             Members of this project see this dashboard on their
                             home page by default. They can still pick a
                             different one for themselves.
-                          </p>
-                          <DashboardSelector
-                            dashboards={projectDashboards}
-                            value={form.watch("defaultDashboardId") || ""}
-                            setValue={(v) =>
-                              form.setValue(
-                                "defaultDashboardId",
-                                v || undefined,
-                              )
-                            }
-                          />
+                          </Text>
+                          {projectDashboards.length === 0 ? (
+                            <Callout status="info">
+                              No dashboards are available for this Project yet.{" "}
+                              <Link href="/product-analytics/dashboards/new">
+                                Create a dashboard
+                              </Link>{" "}
+                              scoped to this Project (or with no Project
+                              restriction) to set a default.
+                            </Callout>
+                          ) : (
+                            <DashboardSelector
+                              dashboards={projectDashboards}
+                              value={form.watch("defaultDashboardId") || ""}
+                              setValue={(v) =>
+                                form.setValue(
+                                  "defaultDashboardId",
+                                  v || undefined,
+                                )
+                              }
+                              allowClear
+                              clearLabel="No default"
+                            />
+                          )}
                         </Box>
                       </Flex>
                     </Flex>
