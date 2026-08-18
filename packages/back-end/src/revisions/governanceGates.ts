@@ -6,6 +6,7 @@ import type { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisio
 import type { PublishGate } from "back-end/src/revisions/publishGates";
 import { makeBlockingGate } from "back-end/src/revisions/publishGates";
 import { isRevisionDiverged } from "back-end/src/revisions/util";
+import { revisionApprovalsCoverChange } from "back-end/src/revisions/revisionActions";
 
 // The approval-required and stale-base publish gates for any entity on the
 // generic revision system — the single implementation behind both the
@@ -37,12 +38,20 @@ export function collectRevisionGovernanceGates({
   const approvalRequired = adapter.isApprovalRequiredForRevision
     ? adapter.isApprovalRequiredForRevision(context, revision)
     : adapter.isApprovalRequired(context);
-  if (approvalRequired && revision.status !== "approved") {
+  // Coverage, not just status: an approval given while the change was narrower
+  // does not sanction what it would land now. Same predicate the sequential
+  // publish path uses, so the gate model and the backstop cannot disagree.
+  const coverage = revisionApprovalsCoverChange(context, revision);
+  const approvedAndCovered =
+    revision.status === "approved" && coverage.hasCoveringApproval;
+  if (approvalRequired && !approvedAndCovered) {
     gates.push(
       makeBlockingGate({
         type: "approval-required",
         messages: [
-          `Requires approval before publishing (status: "${revision.status}").`,
+          revision.status === "approved" && coverage.uncoveredApprovers.length
+            ? "This revision now changes environments its approvers cannot approve. Needs approval from someone with review rights across everything it changes."
+            : `Requires approval before publishing (status: "${revision.status}").`,
         ],
         requiresPermission: bypassPermission,
         resolution: {

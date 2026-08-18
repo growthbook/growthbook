@@ -15,6 +15,7 @@ import {
 } from "shared/enterprise";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import uniqid from "uniqid";
+import { assessApprovalCoverage } from "shared/permissions";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
   discardAuthorityOnRow,
@@ -630,6 +631,47 @@ export async function approveRevision(
   return updated;
 }
 
+/**
+ * Does any standing approval still cover what this revision would land?
+ *
+ * `status === "approved"` was decided when the approval was given; a later edit
+ * can widen the change past what its approver may sanction. Uses each approver's
+ * CURRENT rules — an approval is not a snapshot of authority.
+ *
+ * An unbound change resolves to `[]`, which `canReviewFeatureDrafts` reads as
+ * "needs authority no environment limit restricts", so the fail-closed rule for
+ * base values and metadata carries through here unchanged.
+ */
+export function revisionApprovalsCoverChange(
+  context: Context,
+  revision: Revision,
+): { hasCoveringApproval: boolean; uncoveredApprovers: string[] } {
+  const environments = reviewFootprintFor(context, revision);
+  const snapshot = revision.target.snapshot as {
+    project?: string;
+    projects?: string[];
+  };
+  return assessApprovalCoverage({
+    org: context.org,
+    teams: context.teams ?? [],
+    feature: {
+      project: snapshot.project ?? snapshot.projects?.[0] ?? "",
+    },
+    footprint: environments.length
+      ? { scope: "environments", environments }
+      : { scope: "unbound" },
+    approvers: (revision.reviews ?? [])
+      .filter((r) => r.decision === "approve" && !r.stale)
+      .map((r) => ({
+        id: r.userId,
+        // Guarded: this runs inside a publish gate, so a context without a
+        // member list must refuse rather than throw a 500.
+        roleInfo:
+          (context.org.members ?? []).find((m) => m.id === r.userId) ?? null,
+      })),
+  });
+}
+
 export async function publishRevision(
   context: Context,
   revision: Revision,
@@ -687,13 +729,21 @@ async function publishRevisionInner(
   const canBypass =
     bypass || (!deferred && adapter.canBypassApproval(context, entity));
 
-  if (approvalRequired && revision.status !== "approved" && !canBypass) {
+  // Coverage, not just status: an approval given while the change was narrower
+  // does not sanction what it would land now.
+  const coverage = revisionApprovalsCoverChange(context, revision);
+  const approvedAndCovered =
+    revision.status === "approved" && coverage.hasCoveringApproval;
+
+  if (approvalRequired && !approvedAndCovered && !canBypass) {
     throw new BadRequestError(
-      "The revision must be approved before it can be published",
+      revision.status === "approved"
+        ? "This revision now changes environments its approvers cannot approve. It needs approval from someone with review rights across everything it changes."
+        : "The revision must be approved before it can be published",
     );
   }
 
-  const isBypass = approvalRequired && revision.status !== "approved";
+  const isBypass = approvalRequired && !approvedAndCovered;
 
   const conflictResult = checkMergeConflicts(
     revision.target.snapshot as Record<string, unknown>,
