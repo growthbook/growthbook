@@ -157,7 +157,12 @@ export default function ExperimentTimeSeriesBlock({
               const appliedPValueCorrection =
                 resultGroup === "goal" ? (pValueCorrection ?? null) : null;
 
-              const variations = getLatestPhaseVariations(experiment);
+              const variations = getLatestPhaseVariations(experiment).map(
+                (variation) => ({
+                  ...variation,
+                  experimentVariationId: variation.id,
+                }),
+              );
               const showVariations = variations.map(
                 (v) => variationIds.length === 0 || variationIds.includes(v.id),
               );
