@@ -16,6 +16,8 @@ import type {
   RenderFunction,
   Result,
   SubscriptionFunction,
+  FeatureUsageSubCallback,
+  CustomEventSubCallback,
   TrackingCallback,
   TrackingData,
   WidenPrimitives,
@@ -55,6 +57,7 @@ import {
   getApiHosts,
   getExperimentDedupeKey,
   getStickyBucketAttributes,
+  getTrackingUserContext,
 } from "./core";
 import { StickyBucketServiceSync } from "./sticky-bucket-service";
 
@@ -82,6 +85,8 @@ export class GrowthBook<
   private _completedChangeIds: Set<string>;
   private _trackedFeatures: Record<string, string>;
   private _subscriptions: Set<SubscriptionFunction>;
+  private _featureUsageSubs: Set<FeatureUsageSubCallback>;
+  private _customEventSubs: Set<CustomEventSubCallback>;
   private _assigned: Map<
     string,
     {
@@ -121,6 +126,8 @@ export class GrowthBook<
     this._trackedFeatures = {};
     this.debug = !!options.debug;
     this._subscriptions = new Set();
+    this._featureUsageSubs = new Set();
+    this._customEventSubs = new Set();
     this.ready = false;
     this._assigned = new Map();
     this._activeAutoExperiments = new Map();
@@ -528,6 +535,23 @@ export class GrowthBook<
     };
   }
 
+  // Internal — first-party plugin use only.
+  // Currently singleton-only. UserScopedGrowthBook could use the same signatures;
+  // GrowthBookClient would need UserContext in callbacks to identify the user.
+  // Fires on deduped feature value changes (not every evalFeature call). Overrides excluded.
+  // One of three plugin streams: feature usage, experiment assignments (subscribe), custom events.
+  public _subscribeFeatureUsage(cb: FeatureUsageSubCallback): () => void {
+    this._featureUsageSubs.add(cb);
+    return () => this._featureUsageSubs.delete(cb);
+  }
+
+  // Internal — first-party plugin use only.
+  // Fires for explicit logEvent() calls only, not SDK-internal events.
+  public _subscribeCustomEvents(cb: CustomEventSubCallback): () => void {
+    this._customEventSubs.add(cb);
+    return () => this._customEventSubs.delete(cb);
+  }
+
   private async _refreshForRemoteEval() {
     if (!this._options.remoteEval) return;
     if (!this._initialized) return;
@@ -567,6 +591,8 @@ export class GrowthBook<
 
     // Release references to save memory
     this._subscriptions.clear();
+    this._featureUsageSubs.clear();
+    this._customEventSubs.clear();
     this._assigned.clear();
     this._trackedExperiments.clear();
     this._completedChangeIds.clear();
@@ -661,6 +687,7 @@ export class GrowthBook<
       trackingCallback: this._options.trackingCallback,
       onFeatureUsage: this._options.onFeatureUsage,
       devLogs: this.logs,
+      featureUsageSubs: this._featureUsageSubs,
       trackedExperiments: this._trackedExperiments,
       trackedFeatureUsage: this._trackedFeatures,
     };
@@ -988,12 +1015,21 @@ export class GrowthBook<
         logType: "event",
       });
     }
+    if (this._customEventSubs.size) {
+      this._customEventSubs.forEach((cb) => {
+        try {
+          cb(eventName, properties || {});
+        } catch (e) {
+          console.error(e);
+        }
+      });
+    }
     if (this._options.eventLogger) {
       try {
         await this._options.eventLogger(
           eventName,
           properties || {},
-          this._getUserContext(),
+          getTrackingUserContext(this._getUserContext()),
         );
       } catch (e) {
         console.error(e);

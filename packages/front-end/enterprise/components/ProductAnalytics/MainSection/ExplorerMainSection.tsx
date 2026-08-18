@@ -29,7 +29,9 @@ export default function ExplorerMainSection() {
     compareEnabled,
     comparisonExploration,
     comparisonComputed,
+    comparisonError,
     submittedPreviousTimeFrame,
+    submittedComparisonMode,
   } = useExplorerContext();
 
   const showChartSection = shouldChartSectionShow({
@@ -55,6 +57,11 @@ export default function ExplorerMainSection() {
       style={{ flex: "1", minHeight: 0 }}
     >
       <Toolbar />
+      {compareEnabled && comparisonError && !loading && (
+        <Callout status="warning" size="sm">
+          {`The comparison period could not be loaded, so only the current period is shown: ${comparisonError}`}
+        </Callout>
+      )}
 
       <Flex
         direction="column"
@@ -85,6 +92,7 @@ export default function ExplorerMainSection() {
                     compareEnabled={compareEnabled}
                     comparisonExploration={comparisonExploration}
                     submittedPreviousTimeFrame={submittedPreviousTimeFrame}
+                    submittedComparisonMode={submittedComparisonMode}
                     serverBigNumberTrends={
                       comparisonComputed?.bigNumberTrends ?? null
                     }
@@ -128,6 +136,7 @@ export default function ExplorerMainSection() {
                 query={query}
                 compareEnabled={compareEnabled}
                 comparisonExploration={comparisonExploration}
+                comparisonMode={submittedComparisonMode}
                 serverTableTrendsByRow={
                   comparisonComputed?.tableTrendsByRow ?? null
                 }
@@ -150,11 +159,11 @@ export default function ExplorerMainSection() {
           >
             {funnelMainEmpty ? (
               <>
-                <Text size="large" weight="medium">
+                <Text size="lg" weight="medium">
                   Done configuring steps?
                 </Text>
                 <Button
-                  size="lg"
+                  size="xl"
                   variant="solid"
                   disabled={
                     loading ||
@@ -176,7 +185,7 @@ export default function ExplorerMainSection() {
               <>
                 <PiChartLineUp size={48} style={{ color: "var(--gray-a9)" }} />
 
-                <Text size="large" weight="medium">
+                <Text size="lg" weight="medium">
                   Configure your explorer to visualize data
                 </Text>
               </>
@@ -208,7 +217,7 @@ export default function ExplorerMainSection() {
                 loading ? undefined : (
                   <Button
                     color="inherit"
-                    size="xs"
+                    size="sm"
                     variant="solid"
                     disabled={
                       !hasSubmittablePayload(draftExploreState) ||

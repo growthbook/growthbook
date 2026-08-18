@@ -97,7 +97,7 @@ function SummaryRow({
       gap={inline ? "2" : "1"}
       align={inline ? "baseline" : "stretch"}
     >
-      <Text size="medium" weight="semibold" color="text-high">
+      <Text size="md" weight="semibold" color="text-high">
         {label}:
       </Text>
       <Box>{children}</Box>
@@ -207,7 +207,7 @@ export default function StartExperimentModal({
     (item) => item.hardBlock,
   );
   const softBlockerItems = incompleteChecklistItems.filter(
-    (item) => !item.hardBlock,
+    (item) => !item.hardBlock && item.required,
   );
   // Only group when we actually have hard-blocker items in the rendered list,
   // not just a non-zero count from props, so we never render an empty section.
@@ -317,7 +317,7 @@ export default function StartExperimentModal({
                 borderRadius: "var(--radius-3)",
               }}
             >
-              <Text size="small" weight="semibold" color="text-high">
+              <Text size="sm" weight="semibold" color="text-high">
                 Linked feature drafts that could not be published
               </Text>
               <Flex direction="column" gap="2" mt="2">
@@ -335,7 +335,7 @@ export default function StartExperimentModal({
                       <Text weight="semibold">{failure.featureId}</Text>
                       <PiArrowSquareOut className="ml-1" />
                     </Link>
-                    <Text size="small" color="text-mid">
+                    <Text size="sm" color="text-mid">
                       {PENDING_DRAFT_FAILURE_LABELS[failure.reason]}
                     </Text>
                   </Flex>
@@ -371,7 +371,7 @@ export default function StartExperimentModal({
                     aria-label="warning"
                   />
                 )}
-                <Text size="large" weight="semibold" color="text-high">
+                <Text size="lg" weight="semibold" color="text-high">
                   Tasks to Complete
                 </Text>
               </Flex>
@@ -387,7 +387,7 @@ export default function StartExperimentModal({
                   {shouldGroupBlockers ? (
                     <Flex direction="column" gap="4">
                       <Box>
-                        <Text size="small" weight="semibold" color="text-high">
+                        <Text size="sm" weight="semibold" color="text-high">
                           Must resolve before starting
                         </Text>
                         <Box mt="2">
@@ -413,11 +413,7 @@ export default function StartExperimentModal({
                       </Box>
                       {softBlockerItems.length > 0 && (
                         <Box>
-                          <Text
-                            size="small"
-                            weight="semibold"
-                            color="text-high"
-                          >
+                          <Text size="sm" weight="semibold" color="text-high">
                             Recommended
                           </Text>
                           <Box mt="2">
@@ -464,7 +460,7 @@ export default function StartExperimentModal({
             <Box>
               <Flex align="center" gap="1">
                 <PiInfoFill color="var(--indigo-11)" size={15} />
-                <Text size="large" weight="semibold" color="text-high">
+                <Text size="lg" weight="semibold" color="text-high">
                   Summary
                 </Text>
               </Flex>

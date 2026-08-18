@@ -623,7 +623,7 @@ function ColHeader({
 }) {
   return (
     <Box style={{ width, flexShrink: 0, textAlign: align }}>
-      <Text size="small" weight="medium" color="text-low">
+      <Text size="sm" weight="medium" color="text-low">
         {children}
       </Text>
     </Box>
@@ -669,11 +669,11 @@ function ReadOnlyEffectRow({
     typeof children === "string" || typeof children === "number";
   return (
     <Flex direction="column" gap="1">
-      <Text as="div" size="small" weight="medium" color="text-mid">
+      <Text as="div" size="sm" weight="medium" color="text-mid">
         {label}
       </Text>
       <Box style={{ minWidth: 0 }}>
-        {isPlainText ? <Text size="small">{children}</Text> : children}
+        {isPlainText ? <Text size="sm">{children}</Text> : children}
       </Box>
     </Flex>
   );
@@ -691,12 +691,12 @@ function ReadOnlySettingRow({
   return (
     <Flex align="start" gap="3" py="1">
       <Box style={{ width: 120, flexShrink: 0 }}>
-        <Text size="small" weight="medium" color="text-mid">
+        <Text size="sm" weight="medium" color="text-mid">
           {label}
         </Text>
       </Box>
       <Box style={{ minWidth: 0, flex: 1 }}>
-        {isPlainText ? <Text size="small">{children}</Text> : children}
+        {isPlainText ? <Text size="sm">{children}</Text> : children}
       </Box>
     </Flex>
   );
@@ -757,10 +757,10 @@ function NoTrafficGracePopoverContent({
 
   return (
     <Flex direction="column" gap="3" style={{ width: 210 }}>
-      <Text weight="medium" size="medium">
+      <Text weight="medium" size="md">
         No-traffic grace period
       </Text>
-      <Text as="span" size="small" color="text-mid">
+      <Text as="span" size="sm" color="text-mid">
         Wait before checking for no traffic. Empty defaults to{" "}
         {DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS}h.
       </Text>
@@ -781,10 +781,10 @@ function NoTrafficGracePopoverContent({
         }}
       />
       <Flex justify="end" gap="2">
-        <Button variant="ghost" size="sm" onClick={onClose}>
+        <Button variant="ghost" size="md" onClick={onClose}>
           Cancel
         </Button>
-        <Button size="sm" onClick={save}>
+        <Button size="md" onClick={save}>
           Done
         </Button>
       </Flex>
@@ -815,12 +815,12 @@ function MinSampleDialog({
       <AlertDialog.Content maxWidth="320px">
         <Flex direction="column" gap="3">
           <AlertDialog.Title>
-            <Text weight="medium" size="medium">
+            <Text weight="medium" size="md">
               Minimum sample size
             </Text>
           </AlertDialog.Title>
           <AlertDialog.Description>
-            <Text as="span" size="small" color="text-mid">
+            <Text as="span" size="sm" color="text-mid">
               Hold this step until total users reaches this threshold
             </Text>
           </AlertDialog.Description>
@@ -842,12 +842,12 @@ function MinSampleDialog({
           />
           <Flex justify="end" gap="2">
             <AlertDialog.Cancel>
-              <Button variant="ghost" size="sm" onClick={onCancel}>
+              <Button variant="ghost" size="md" onClick={onCancel}>
                 Cancel
               </Button>
             </AlertDialog.Cancel>
             <AlertDialog.Action>
-              <Button size="sm" onClick={save}>
+              <Button size="md" onClick={save}>
                 Done
               </Button>
             </AlertDialog.Action>
@@ -1637,18 +1637,18 @@ export default function RampScheduleSection({
           <Flex direction="column" gap="1">
             {hasHoldConditions && (
               <Flex direction="column" gap="1">
-                <Text as="div" size="small" weight="medium" color="text-low">
+                <Text as="div" size="sm" weight="medium" color="text-low">
                   {step?.triggerType === "approval" ? "Also:" : "Then:"}
                 </Text>
                 <Flex direction="column" gap="1" style={{ paddingLeft: 12 }}>
                   {step?.triggerType !== "approval" &&
                     step?.holdConditions?.requiresApproval && (
                       <Flex wrap="wrap" gap="2" align="baseline">
-                        <Text size="small" weight="medium">
+                        <Text size="sm" weight="medium">
                           Hold for approval
                         </Text>
                         {step?.approvalNotes?.trim() && (
-                          <Text size="small" color="text-low">
+                          <Text size="sm" color="text-low">
                             {step.approvalNotes.trim()}
                           </Text>
                         )}
@@ -1657,10 +1657,10 @@ export default function RampScheduleSection({
                   {step?.monitored &&
                     (step?.holdConditions?.minSampleSize ?? null) !== null && (
                       <Flex wrap="wrap" gap="2" align="baseline">
-                        <Text size="small" weight="medium">
+                        <Text size="sm" weight="medium">
                           Hold for min. sample
                         </Text>
-                        <Text size="small" color="text-low">
+                        <Text size="sm" color="text-low">
                           {step!.holdConditions!.minSampleSize!.toLocaleString()}
                         </Text>
                       </Flex>
@@ -1711,7 +1711,7 @@ export default function RampScheduleSection({
         <Flex direction="column" gap="2" pl="2">
           <Flex align="center" gap="4">
             <Box style={{ width: COL.num, flexShrink: 0, textAlign: "center" }}>
-              <Text size="small" weight="medium" color="text-low">
+              <Text size="sm" weight="medium" color="text-low">
                 end
               </Text>
             </Box>
@@ -1725,7 +1725,7 @@ export default function RampScheduleSection({
                 }}
               >
                 {isReadOnlyView ? (
-                  <Text size="small" color="text-low">
+                  <Text size="sm" color="text-low">
                     {state.endPatch.coverage ?? 100}%
                   </Text>
                 ) : (
@@ -1926,7 +1926,7 @@ export default function RampScheduleSection({
                         </Box>
                       </Tooltip>
                     ) : (
-                      <Text size="small" color="text-low">
+                      <Text size="sm" color="text-low">
                         {i + 1}
                       </Text>
                     )}
@@ -1945,7 +1945,7 @@ export default function RampScheduleSection({
                                 alignItems: "center",
                               }}
                             >
-                              <Text size="small" color="text-low">
+                              <Text size="sm" color="text-low">
                                 {formatReadonlyCoverage(step)}
                               </Text>
                             </Box>
@@ -2001,7 +2001,7 @@ export default function RampScheduleSection({
                     }
                   >
                     {isReadOnlyView ? (
-                      <Text size="small" color="text-low">
+                      <Text size="sm" color="text-low">
                         {formatReadonlyAction(step)}
                       </Text>
                     ) : (
@@ -2129,7 +2129,7 @@ export default function RampScheduleSection({
                             </Box>
                             {!step.holdConditions?.requiresApproval && (
                               <Link
-                                size="1"
+                                size="sm"
                                 color="gray"
                                 style={{ flexShrink: 0, whiteSpace: "nowrap" }}
                                 onClick={() =>
@@ -2161,7 +2161,7 @@ export default function RampScheduleSection({
                           >
                             {!step.notesOpen ? (
                               <Link
-                                size="1"
+                                size="sm"
                                 ml="1"
                                 color="gray"
                                 style={{ flexShrink: 0 }}
@@ -2501,7 +2501,7 @@ export default function RampScheduleSection({
                               </Box>
                               {!step.notesOpen ? (
                                 <Link
-                                  size="1"
+                                  size="sm"
                                   color="gray"
                                   style={{ flexShrink: 0 }}
                                   onClick={() =>
@@ -2571,7 +2571,7 @@ export default function RampScheduleSection({
                               <Text weight="medium">Hold for min. sample</Text>
                             </Box>
                             <Link
-                              size="2"
+                              size="md"
                               color="gray"
                               style={{ flexShrink: 0 }}
                               onClick={() => setMinSamplePopoverIndex(i)}
@@ -2637,7 +2637,7 @@ export default function RampScheduleSection({
 
         {!isReadOnlyView && (
           <Box py="1">
-            <Link size="2" onClick={addStep}>
+            <Link size="md" onClick={addStep}>
               <PiPlusBold style={{ marginRight: 3, verticalAlign: "middle" }} />
               Add step
             </Link>
@@ -2786,7 +2786,7 @@ export default function RampScheduleSection({
         trigger={
           <Button
             variant="outline"
-            size="xs"
+            size="sm"
             disabled={isIdenticalToExistingTemplate}
             title={
               isIdenticalToExistingTemplate
@@ -2838,13 +2838,13 @@ export default function RampScheduleSection({
               <Flex justify="end" gap="2">
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="md"
                   onClick={() => setSaveTemplateOpen(false)}
                 >
                   Cancel
                 </Button>
                 <Button
-                  size="sm"
+                  size="md"
                   loading={savingTemplate}
                   disabled={!templateName.trim()}
                   onClick={doSave}
@@ -3075,7 +3075,7 @@ export default function RampScheduleSection({
           <Text as="label" weight="medium" mb="1">
             Guardrail Metrics
           </Text>
-          <Text as="div" size="small" mb="2">
+          <Text as="div" size="sm" mb="2">
             Automatically roll back and disable the rule if any of these metrics
             show a significant regression.
           </Text>
@@ -3095,7 +3095,7 @@ export default function RampScheduleSection({
           <Text as="label" weight="medium" mb="1">
             Signal Metrics
           </Text>
-          <Text as="div" size="small" mb="2">
+          <Text as="div" size="sm" mb="2">
             Pause at the current step while any of these metrics show a
             significant regression. Can be resumed manually or automatically
             when recovered.
@@ -3510,7 +3510,7 @@ export default function RampScheduleSection({
                       </span>
                     </Flex>
                     <Flex align="center" gap="2" style={{ flexShrink: 0 }}>
-                      <Text as="span" size="small" color="text-low">
+                      <Text as="span" size="sm" color="text-low">
                         {formatRampStepSummary(t.steps)}
                       </Text>
                       {/* Fixed-width slot keeps the icon column aligned across
@@ -3865,7 +3865,7 @@ export default function RampScheduleSection({
 
           return (
             <>
-              <Text size="small" weight="medium" mb="1">
+              <Text size="sm" weight="medium" mb="1">
                 Ramp settings
               </Text>
               <Box
@@ -3918,7 +3918,7 @@ export default function RampScheduleSection({
                 )}
               </Box>
 
-              <Text size="small" weight="medium" mb="1">
+              <Text size="sm" weight="medium" mb="1">
                 Monitoring settings
               </Text>
               <Box
@@ -3970,7 +3970,7 @@ export default function RampScheduleSection({
                       {formatActionLabel(monitoringConfig.noTrafficAction)}
                       {(monitoringConfig.noTrafficGracePeriodHours ?? null) !==
                         null && (
-                        <Text size="small" color="text-low" ml="1">
+                        <Text size="sm" color="text-low" ml="1">
                           ({monitoringConfig.noTrafficGracePeriodHours}h grace)
                         </Text>
                       )}
@@ -4116,7 +4116,7 @@ export default function RampScheduleSection({
       {ruleRampSchedule && !hideNameField && (
         <Box mb="3">
           <Flex align="center" gap="2" mb="2" wrap="nowrap">
-            <Text size="medium" weight="medium">
+            <Text size="md" weight="medium">
               {state.name || ruleRampSchedule.name}
             </Text>
             <Badge
@@ -4132,7 +4132,7 @@ export default function RampScheduleSection({
             />
             {ruleRampSchedule.steps.length > 0 && (
               <span style={{ flexShrink: 0 }}>
-                <Text size="small" color="text-low">
+                <Text size="sm" color="text-low">
                   Step {getRampStepsCompleted(ruleRampSchedule)} of{" "}
                   {ruleRampSchedule.steps.length}
                 </Text>
@@ -4183,10 +4183,10 @@ export default function RampScheduleSection({
       <Separator size="4" mb="4" />
       <Flex align="center" justify="between" mb="3">
         <Flex align="center" gap="2">
-          <Text size="large" weight="medium">
+          <Text size="lg" weight="medium">
             Ramp Schedule
           </Text>
-          <Text size="medium" color="text-low">
+          <Text size="md" color="text-low">
             (optional)
           </Text>
         </Flex>

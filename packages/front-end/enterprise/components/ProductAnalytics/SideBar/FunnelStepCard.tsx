@@ -10,14 +10,13 @@ import {
   PiX,
 } from "react-icons/pi";
 import Collapsible from "react-collapsible";
-import { z } from "zod";
 import {
+  ConversionWindow,
   ExplorationConfig,
   FunnelDataset,
   FunnelStep,
-  conversionWindowValidator,
-  rowFilterValidator,
 } from "shared/validators";
+import { RowFilter } from "shared/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
@@ -34,9 +33,6 @@ import {
 import { factTableToColumnSource } from "./ExplorerFilterRow";
 import { ExplorerRowFilterInput } from "./ExplorerRowFilterInput";
 import styles from "./ValueCard.module.scss";
-
-type RowFilter = z.infer<typeof rowFilterValidator>;
-type ConversionWindow = z.infer<typeof conversionWindowValidator>;
 
 const CONVERSION_WINDOW_UNITS: ConversionWindow["unit"][] = [
   "minutes",
@@ -102,7 +98,7 @@ export default function FunnelStepCard({
   // For follow-on steps: when the step inherits, we hide the picker until the
   // user clicks "Override". Once they're overriding (or the step was loaded
   // with an override already), we show the picker inline.
-  const isInherited = index > 0 && step.factTable === previousFactTable;
+  const isInherited = index > 0 && step.factTableId === previousFactTable;
   const [overrideOpen, setOverrideOpen] = useState(!isInherited);
 
   // Keep the local override state in sync if the step's relationship to its
@@ -111,7 +107,9 @@ export default function FunnelStepCard({
     setOverrideOpen(!isInherited || index === 0);
   }, [isInherited, index]);
 
-  const factTable = step.factTable ? getFactTableById(step.factTable) : null;
+  const factTable = step.factTableId
+    ? getFactTableById(step.factTableId)
+    : null;
   const availableFactTables = useMemo(
     () =>
       factTables.filter((ft) => ft.datasource === draftExploreState.datasource),
@@ -147,7 +145,7 @@ export default function FunnelStepCard({
         const seededFilters = newFt
           ? getInitialInlineFilters(newFt, cleanedFilters)
           : cleanedFilters;
-        return { ...s, factTable: newFactTableId, rowFilters: seededFilters };
+        return { ...s, factTableId: newFactTableId, rowFilters: seededFilters };
       }),
     );
   };
@@ -225,7 +223,7 @@ export default function FunnelStepCard({
           style={{ minWidth: 0, flex: 1 }}
         >
           <Box style={{ flexShrink: 0 }}>
-            <Text size="small" color="text-low">
+            <Text size="sm" color="text-low">
               {index + 1}.
             </Text>
           </Box>
@@ -264,7 +262,7 @@ export default function FunnelStepCard({
               <Button
                 className={styles.editBtn}
                 variant="ghost"
-                size="xs"
+                size="sm"
                 onClick={handleStartNameEdit}
                 title="Edit name"
               >
@@ -276,7 +274,7 @@ export default function FunnelStepCard({
         <Flex align="center" style={{ flexShrink: 0 }}>
           <Button
             variant="ghost"
-            size="xs"
+            size="sm"
             onClick={onToggleCollapsed}
             title={isCollapsed ? "Expand" : "Collapse"}
           >
@@ -284,7 +282,7 @@ export default function FunnelStepCard({
           </Button>
           <Button
             variant="ghost"
-            size="xs"
+            size="sm"
             disabled={steps.length === 1}
             onClick={() => onDelete(index)}
             title="Delete step"
@@ -301,7 +299,7 @@ export default function FunnelStepCard({
           title="Expand step"
         >
           <Text
-            size="small"
+            size="sm"
             color="text-low"
             truncate
             whiteSpace="nowrap"
@@ -325,7 +323,7 @@ export default function FunnelStepCard({
                 Fact Table
               </Text>
               <SelectField
-                value={step.factTable}
+                value={step.factTableId}
                 onChange={handleFactTableChange}
                 options={availableFactTables.map((ft) => ({
                   label: ft.name,
@@ -337,7 +335,7 @@ export default function FunnelStepCard({
               {index > 0 && (
                 <Button
                   variant="ghost"
-                  size="xs"
+                  size="sm"
                   onClick={() => {
                     if (previousFactTable) {
                       handleFactTableChange(previousFactTable);
@@ -354,15 +352,15 @@ export default function FunnelStepCard({
           ) : (
             <Tooltip body="Inherits from the previous step. Click to override.">
               <Flex align="center" gap="2" py="2" style={{ minWidth: 0 }}>
-                <Text size="small" color="text-low">
+                <Text size="sm" color="text-low">
                   Fact table:
                 </Text>
-                <Text size="small" weight="medium" truncate>
-                  {factTable?.name ?? step.factTable ?? "(inherited)"}
+                <Text size="sm" weight="medium" truncate>
+                  {factTable?.name ?? step.factTableId ?? "(inherited)"}
                 </Text>
                 <Button
                   variant="ghost"
-                  size="xs"
+                  size="sm"
                   onClick={() => setOverrideOpen(true)}
                   title="Override fact table"
                 >
@@ -386,7 +384,7 @@ export default function FunnelStepCard({
                 mt="2"
               >
                 <Button
-                  size="xs"
+                  size="sm"
                   variant="ghost"
                   onClick={() => {
                     handleFiltersChange([
@@ -405,7 +403,7 @@ export default function FunnelStepCard({
                     open={unitDropdownOpen}
                     onOpenChange={setUnitDropdownOpen}
                     trigger={
-                      <Button size="xs" variant="ghost">
+                      <Button size="sm" variant="ghost">
                         <Flex align="center" gap="2">
                           <PiUserFill size={14} />
                           {funnelUnit ?? funnelUnitOptions[0]}
@@ -443,7 +441,7 @@ export default function FunnelStepCard({
             <Flex direction="column" gap="2" mt="3">
               <Flex direction="row">
                 <Button
-                  size="xs"
+                  size="sm"
                   variant="ghost"
                   onClick={() => setAdvancedOpen((p) => !p)}
                 >
@@ -453,7 +451,7 @@ export default function FunnelStepCard({
                     ) : (
                       <PiCaretRight size={14} />
                     )}
-                    <Text size="small" weight="medium">
+                    <Text size="sm" weight="medium">
                       Advanced Options
                     </Text>
                   </Flex>
@@ -512,7 +510,7 @@ export default function FunnelStepCard({
                       />
                       <Button
                         variant="ghost"
-                        size="xs"
+                        size="sm"
                         onClick={() => handleConversionWindowChange(null)}
                         title="Remove conversion window"
                       >
@@ -522,7 +520,7 @@ export default function FunnelStepCard({
                   ) : (
                     <Button
                       variant="ghost"
-                      size="xs"
+                      size="sm"
                       onClick={() =>
                         handleConversionWindowChange({
                           value: 1,

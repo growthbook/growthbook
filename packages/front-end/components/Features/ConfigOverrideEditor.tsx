@@ -396,11 +396,11 @@ function OverrideRow({
             )}
             {showMerged && (
               <Box mt="1">
-                <Text as="p" size="small" color="text-low" mb="0">
-                  Nested objects deep-merge onto the config; arrays and scalars
+                <Text as="p" size="sm" color="text-low" mb="0">
+                  Nested objects deep-merge onto the Config; arrays and scalars
                   replace.
                 </Text>
-                <Text size="small" color="text-low">
+                <Text size="sm" color="text-low">
                   Resolved:{" "}
                   <code style={{ overflowWrap: "anywhere" }}>
                     {JSON.stringify(merged)}
@@ -480,7 +480,7 @@ function OverrideRow({
       >
         {overridden ? (
           <Link
-            size="1"
+            size="sm"
             color="red"
             onClick={(e) => {
               e.preventDefault();
@@ -501,7 +501,7 @@ function OverrideRow({
           </Link>
         ) : (
           <Link
-            size="1"
+            size="sm"
             onClick={(e) => {
               e.preventDefault();
               if (!disabled) onStart();
@@ -567,7 +567,7 @@ function ColumnHeaderRow(): React.ReactElement {
       {["Key", "Value", "Type"].map((l) => (
         <Box key={l} style={{ minWidth: 0 }}>
           <Text
-            size="small"
+            size="sm"
             weight="medium"
             color="text-low"
             textTransform="uppercase"
@@ -711,13 +711,13 @@ export default function ConfigOverrideEditor({
 
   return (
     <Tabs defaultValue="form">
-      <TabsList size="1">
+      <TabsList size="sm">
         <TabsTrigger value="form">Form</TabsTrigger>
         <TabsTrigger value="json">JSON</TabsTrigger>
         {data && overrides !== null && rows.length > 0 && (
           <Box style={{ marginLeft: "auto", alignSelf: "center" }}>
             <Switch
-              size="1"
+              size="sm"
               label="Show all fields"
               value={showAll}
               onChange={(c) => setShowAll(c)}
@@ -751,7 +751,7 @@ export default function ConfigOverrideEditor({
               >
                 {visibleRows.length === 0 ? (
                   <Flex align="center" justify="center" py="3">
-                    <Text size="small" color="text-low" fontStyle="italic">
+                    <Text size="sm" color="text-low" fontStyle="italic">
                       No overrides — the config&apos;s values apply as-is. Add a
                       field below to override one.
                     </Text>
@@ -760,7 +760,7 @@ export default function ConfigOverrideEditor({
                   <>
                     {declaredRows.length > 0 && (
                       <>
-                        <Heading as="h4" size="x-small" mb="1">
+                        <Heading as="h4" size="xs" mb="1">
                           Schema Fields
                         </Heading>
                         <ColumnHeaderRow />
@@ -773,10 +773,10 @@ export default function ConfigOverrideEditor({
                           {declaredRows.length > 0 && (
                             <Separator size="4" mb="3" />
                           )}
-                          <Heading as="h4" size="x-small" mb="1">
+                          <Heading as="h4" size="xs" mb="1">
                             Custom Overrides
                           </Heading>
-                          <Text as="div" size="small" color="text-low" mb="2">
+                          <Text as="div" size="sm" color="text-low" mb="2">
                             Not validated
                           </Text>
                         </Box>

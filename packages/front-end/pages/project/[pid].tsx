@@ -178,7 +178,7 @@ const ProjectPage: FC = () => {
         ) : null}
         <Flex align="center" justify="between" width="100%">
           <Flex align="start" direction="column">
-            <Heading size="x-large" as="h1">
+            <Heading size="xl" as="h1" overflowWrap="anywhere">
               {p.name}
             </Heading>
             <Flex gap="6" mb="4">
@@ -234,7 +234,7 @@ const ProjectPage: FC = () => {
                 <Frame>
                   <Flex gap="4">
                     <Box width="220px" flexShrink="0">
-                      <Heading as="h4" size="medium">
+                      <Heading as="h4" size="md">
                         Experiment Analysis
                       </Heading>
                     </Box>
@@ -243,7 +243,7 @@ const ProjectPage: FC = () => {
                         className="form-group align-items-start"
                         width="100%"
                       >
-                        <Heading as="h5" size="small">
+                        <Heading as="h5" size="sm">
                           Stats Engine Settings
                         </Heading>
                         <Box mb="3">
@@ -338,7 +338,7 @@ const ProjectPage: FC = () => {
                 <Frame>
                   <Flex gap="4" mb="4">
                     <Box width="220px" flexShrink="0">
-                      <Heading as="h4" size="medium">
+                      <Heading as="h4" size="md">
                         Experiment Settings
                       </Heading>
                     </Box>
@@ -349,7 +349,7 @@ const ProjectPage: FC = () => {
                             commercialFeature="custom-launch-checklist"
                             premiumText="Custom pre-launch checklists are available to Enterprise customers"
                           >
-                            <Heading as="h5" size="small">
+                            <Heading as="h5" size="sm">
                               Experiment Pre-Launch Checklist
                             </Heading>
                           </PremiumTooltip>

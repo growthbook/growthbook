@@ -30,7 +30,9 @@ import {
 import { useChatFeedback } from "@/enterprise/components/AIChat/useChatFeedback";
 import { findToolCallPart } from "@/enterprise/hooks/useAIChat/pairAIChatToolMessages";
 import aiChatStyles from "@/enterprise/components/AIChat/AIChatPrimitives.module.scss";
-import ChatInputBar from "@/enterprise/components/AIChat/ChatInputBar";
+import ChatComposer, {
+  type ChatComposerHandle,
+} from "@/enterprise/components/AIChat/Composer/ChatComposer";
 import AgentChatHistory from "./AgentChatHistory";
 import {
   type MessageTurn,
@@ -141,7 +143,7 @@ export default function AgentPanel({
   onClose,
   onToggleExpanded,
 }: AgentPanelProps) {
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const composerRef = useRef<ChatComposerHandle>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const askSeqRef = useRef(0);
   // Preserves each tool-detail disclosure's open/closed state across the
@@ -372,22 +374,16 @@ export default function AgentPanel({
     displayedTextMap,
   );
 
-  // Focus the composer after a short delay so any slide-in / layout transition
-  // settles first. Used on open, new chat, conversation select, and turn end.
+  // Focus the composer after a short delay so any layout transition settles
+  // first. Used on new chat, conversation select, and turn end — opening the
+  // panel remounts the composer, so that case is its own `autoFocus`.
   const focusInput = useCallback((delay = 100) => {
-    window.setTimeout(() => inputRef.current?.focus(), delay);
+    window.setTimeout(() => composerRef.current?.focus(), delay);
   }, []);
 
-  useEffect(() => {
-    if (open) {
-      const t = setTimeout(() => inputRef.current?.focus(), 100);
-      return () => clearTimeout(t);
-    }
-  }, [open]);
-
   // Re-focus the input when a turn finishes (loading true → false) so the user
-  // can immediately type a follow-up. The Field is disabled while loading, so
-  // focus only takes once it re-enables.
+  // can immediately type a follow-up. The composer is read-only while loading,
+  // so focus only takes once it re-enables.
   const prevLoadingRef = useRef(false);
   useEffect(() => {
     if (open && prevLoadingRef.current && !loading) {
@@ -448,16 +444,6 @@ export default function AgentPanel({
       });
     },
     [confirmPrompt, sendMessage, loading, trackMessageSent],
-  );
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        handleSend();
-      }
-    },
-    [handleSend],
   );
 
   const resetTransientState = useCallback(() => {
@@ -590,7 +576,7 @@ export default function AgentPanel({
       <Box style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
         <Flex direction="column" gap="3">
           {messages.length === 0 && !loading && (
-            <Text size="small" color="text-low">
+            <Text size="sm" color="text-low">
               Hi! Ask me to find a metric, build a chart, list features, or run
               an experiment query. I&apos;ll use the GrowthBook REST API to do
               the work.
@@ -664,12 +650,12 @@ export default function AgentPanel({
       </Box>
 
       {/* Input */}
-      <ChatInputBar
+      <ChatComposer
         variant="compact"
-        inputRef={inputRef}
-        input={input}
-        onInputChange={setInput}
-        onKeyDown={handleKeyDown}
+        ref={composerRef}
+        autoFocus
+        value={input}
+        onChange={setInput}
         onSend={handleSend}
         onCancel={cancelGeneration}
         loading={loading}
@@ -735,7 +721,7 @@ function ActiveTurnItemRow({
     return (
       <Flex align="center" gap="2">
         <ToolStatusIcon status={item.status} />
-        <Text size="small" color="text-low">
+        <Text size="sm" color="text-low">
           {item.label || CALL_API_LABEL}
         </Text>
       </Flex>
@@ -790,7 +776,7 @@ function PersistedTurn({
     <>
       {turn.user && (
         <UserBubble>
-          <Text size="small">{getUserText(turn.user)}</Text>
+          <Text size="sm">{getUserText(turn.user)}</Text>
         </UserBubble>
       )}
 

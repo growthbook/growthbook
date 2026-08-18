@@ -77,6 +77,7 @@ import Page from "@/components/Modal/Page";
 import BanditRefFields from "@/components/Features/RuleModal/BanditRefFields";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import { useIncrementer } from "@/hooks/useIncrementer";
+import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 
 import DraftSelectorForChanges, {
   DraftMode,
@@ -508,6 +509,14 @@ export default function RuleModal({
   >({
     defaultValues,
   });
+
+  const { availableFields: customFields, value: customFieldValues } =
+    useReconciledCustomFields({
+      section: "experiment",
+      project: feature.project,
+      value: form.watch("customFields"),
+      setValue: (value) => form.setValue("customFields", value),
+    });
 
   // On edit/duplicate, seed scope from the existing rule. Legacy rules with
   // `environments === undefined` are treated as permissive (= all envs). On
@@ -1726,7 +1735,7 @@ export default function RuleModal({
           gatedEnvSet={gatedEnvSet}
         />
         <div className="bg-highlight rounded p-3 mb-3">
-          <Text size="x-large" weight="semibold" as="div" mb="4">
+          <Text size="xl" weight="semibold" as="div" mb="4">
             Rule Type
           </Text>
           <RadioCards
@@ -1780,7 +1789,7 @@ export default function RuleModal({
                 <Text as="div">
                   Looking for <strong>Safe Rollouts</strong>?
                 </Text>
-                <Text as="div" size="small" mt="1">
+                <Text as="div" size="sm" mt="1">
                   Guardrail monitoring can now be added to a Targeting
                   Rule&apos;s <strong>Ramp-up</strong> schedule
                 </Text>
@@ -1789,7 +1798,7 @@ export default function RuleModal({
                 <Button
                   color="inherit"
                   variant="soft"
-                  size="xs"
+                  size="sm"
                   onClick={() => {
                     setOverviewRadioSelectorRuleType("rollout");
                     setOverviewRuleType("rollout");
@@ -1813,7 +1822,7 @@ export default function RuleModal({
                   commercialFeature="safe-rollout"
                   usePortal={true}
                 >
-                  <Button color="inherit" variant="soft" size="xs" disabled>
+                  <Button color="inherit" variant="soft" size="sm" disabled>
                     Show me
                   </Button>
                 </PremiumTooltip>
@@ -2110,8 +2119,10 @@ export default function RuleModal({
                   hideVariationIds={true}
                   startEditingIndexes={true}
                   orgStickyBucketing={orgStickyBucketing}
-                  setCustomFields={(customFields) =>
-                    form.setValue("customFields", customFields)
+                  customFields={customFields}
+                  customFieldValues={customFieldValues}
+                  setCustomFields={(value) =>
+                    form.setValue("customFields", value)
                   }
                   envScope={i === 0 ? envScopeProps : undefined}
                   projectScope={i === 0 ? projectScopeProps : undefined}

@@ -214,6 +214,8 @@ export const rowFilterOperators = [
   "<=",
   ">",
   ">=",
+  "between",
+  "not_between",
   "in",
   "not_in",
   "contains",
@@ -228,11 +230,35 @@ export const rowFilterOperators = [
   "saved_filter",
 ] as const;
 
-export const rowFilterValidator = z.object({
-  operator: z.enum(rowFilterOperators),
-  column: z.string().optional(),
-  values: z.array(z.string()).optional(),
-});
+/**
+ * `between` / `not_between` describe a lower and an upper bound, so a third
+ * value has no meaning — reject it rather than silently ignoring it. Either
+ * bound may be blank, which the query builder reads as an open-ended range
+ * (`["2024-01-01", ""]` becomes `>= 2024-01-01`).
+ */
+export const ROW_FILTER_RANGE_LENGTH_MESSAGE =
+  "between and not_between take at most two values (a lower and an upper bound)";
+
+export function isValidRowFilterRangeLength(filter: {
+  operator: string;
+  values?: string[];
+}): boolean {
+  if (filter.operator !== "between" && filter.operator !== "not_between") {
+    return true;
+  }
+  return (filter.values?.length ?? 0) <= 2;
+}
+
+export const rowFilterValidator = z
+  .object({
+    operator: z.enum(rowFilterOperators),
+    column: z.string().optional(),
+    values: z.array(z.string()).optional(),
+  })
+  .refine(isValidRowFilterRangeLength, {
+    message: ROW_FILTER_RANGE_LENGTH_MESSAGE,
+    path: ["values"],
+  });
 
 export const columnRefValidator = z
   .object({
@@ -298,6 +324,62 @@ export const priorSettingsValidator = z.object({
   stddev: z.number().gt(0),
 });
 
+// ---------------------------------------------------------------------------
+// Funnel step / settings validators
+// ---------------------------------------------------------------------------
+// Defined here (rather than in product-analytics.ts) so factMetricValidator can
+// reference funnelStepValidator without a circular import: funnelStepValidator
+// needs rowFilterValidator (defined above in this file), and factMetricValidator
+// needs funnelStepValidator. product-analytics.ts imports these from here.
+
+export const conversionWindowValidator = z.object({
+  unit: conversionWindowUnitValidator,
+  value: z.number().positive(),
+});
+export type ConversionWindow = z.infer<typeof conversionWindowValidator>;
+
+export const funnelStepValidator = z.object({
+  // Display name shown in the sidebar / chart / table.
+  name: z.string(),
+  factTableId: z.string(),
+  rowFilters: z.array(rowFilterValidator),
+  // When true, the step still resolves for its own conversion but does not
+  // anchor later steps' windows (those use the nearest prior required step,
+  // or exposure for experiment metrics when every prior step is optional).
+  optional: z.boolean(),
+  // Bounds how long after the nearest prior required step (or exposure, for
+  // step 0 / after only-optional priors in experiment funnel metrics) this
+  // step's event can occur.
+  conversionWindow: conversionWindowValidator.nullish(),
+});
+export type FunnelStep = z.infer<typeof funnelStepValidator>;
+
+// Step ordering for funnel metrics. v1 supports "sequential" only; "strict"
+// and "unordered" are modeled now (locked in FactMetricModel.customValidation)
+// so the fast-follows need no schema migration.
+export const funnelOrderingValidator = z.enum([
+  "sequential",
+  "strict",
+  "unordered",
+]);
+export type FunnelOrdering = z.infer<typeof funnelOrderingValidator>;
+
+export const MAX_FACT_METRIC_FUNNEL_STEPS = 20;
+
+// Funnel-as-experiment-metric settings. Mirrors the quantileSettings pattern:
+// a nullable sub-object on the fact metric. Statistically a proportion.
+export const funnelSettingsValidator = z.object({
+  steps: z.array(funnelStepValidator).min(2).max(MAX_FACT_METRIC_FUNNEL_STEPS),
+  ordering: funnelOrderingValidator.optional(),
+  // Out-of-order tolerance between adjacent steps (seconds). Optional; only
+  // meaningful for ordered modes (ignored for "unordered").
+  concurrencyWindowSeconds: z.number().int().min(0).optional(),
+  // Session-scoped funnels: fast-follow, locked to false by
+  // FactMetricModel.customValidation.
+  sessionBased: z.boolean().optional(),
+});
+export type FunnelSettings = z.infer<typeof funnelSettingsValidator>;
+
 export const metricTypeValidator = z.enum([
   "ratio",
   "mean",
@@ -305,9 +387,10 @@ export const metricTypeValidator = z.enum([
   "retention",
   "quantile",
   "dailyParticipation",
+  "funnel",
 ]);
 
-export const factMetricValidator = z
+const factMetricObjectValidator = z
   .object({
     id: z.string(),
     organization: z.string(),
@@ -324,7 +407,10 @@ export const factMetricValidator = z
     archived: z.boolean().optional(),
 
     metricType: metricTypeValidator,
-    numerator: columnRefValidator,
+    // Null only for funnel metrics, which describe their events through
+    // funnelSettings.steps instead. Cross-field rules live in
+    // FactMetricModel.customValidation.
+    numerator: columnRefValidator.nullable(),
     denominator: columnRefValidator.nullable(),
 
     cappingSettings: cappingSettingsValidator,
@@ -347,8 +433,51 @@ export const factMetricValidator = z
     metricAutoSlices: z.array(z.string()).optional(),
 
     quantileSettings: quantileSettingsValidator.nullable(),
+
+    funnelSettings: funnelSettingsValidator.nullable(),
   })
   .strict();
+
+type FactMetricFields = z.infer<typeof factMetricObjectValidator>;
+type FactMetricSharedFields = Omit<
+  FactMetricFields,
+  "metricType" | "numerator" | "funnelSettings"
+>;
+
+/** Every metric type except "funnel": describes its events with a ColumnRef. */
+export type StandardFactMetric = FactMetricSharedFields & {
+  metricType: Exclude<FactMetricFields["metricType"], "funnel">;
+  numerator: z.infer<typeof columnRefValidator>;
+  // Required-null (like quantileSettings) rather than optional: this keeps the
+  // member a subtype of the flat schema output, which MakeModelClass's
+  // BaseSchemaWithPrimaryKey constraint intersects with the union.
+  funnelSettings: null;
+};
+
+/** Describes its events with an ordered list of funnel steps instead. */
+export type FunnelFactMetric = FactMetricSharedFields & {
+  metricType: "funnel";
+  numerator: null;
+  funnelSettings: z.infer<typeof funnelSettingsValidator>;
+};
+
+/**
+ * The runtime schema stays a plain ZodObject so MakeModelClass can call
+ * `.omit()` / `.partial()` / `.shape` on it, but the declared output is
+ * narrowed to a discriminated union. That makes `numerator` non-null wherever
+ * the metric type has been narrowed away from "funnel", instead of forcing
+ * every reader into optional chaining. The `metricType` / `numerator` /
+ * `funnelSettings` combinations are enforced at runtime by
+ * FactMetricModel.customValidation.
+ *
+ * `z.infer` of this intersection is `flatObjectOutput & (Standard | Funnel)`.
+ * Both union members are deliberately kept as subtypes of the flat output
+ * (see StandardFactMetric.funnelSettings), so the intersection distributes to
+ * exactly the union instead of re-widening or over-requiring fields.
+ */
+export const factMetricValidator =
+  factMetricObjectValidator as typeof factMetricObjectValidator &
+    z.ZodType<StandardFactMetric | FunnelFactMetric>;
 
 export const createFactFilterPropsValidator = z
   .object({

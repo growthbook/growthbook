@@ -1,3 +1,4 @@
+import { canCreateInSelectedScope } from "shared/permissions";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { date, datetime } from "shared/dates";
@@ -213,8 +214,10 @@ export default function ConfigsPage(): React.ReactElement {
     return <LoadingOverlay />;
   }
 
-  const canAdd = permissionsUtil.canCreateConfig({
-    project: project || undefined,
+  const canAdd = canCreateInSelectedScope({
+    project,
+    projectIds: projects.map((p) => p.id),
+    canCreateIn: (p) => permissionsUtil.canCreateConfig({ project: p }),
   });
   // Include archived so an org with only archived configs still gets the list
   // (and its `is:archived` facet) rather than the empty state.
@@ -236,13 +239,13 @@ export default function ConfigsPage(): React.ReactElement {
     <>
       <Box className="contents container-fluid pagecontents" mb="3" mt="2">
         <Flex align="center" justify="between" mb="3" mt="2">
-          <Heading as="h1" size="2x-large">
+          <Heading as="h1" size="2xl">
             Configs
           </Heading>
           {hasConfigs && canAdd && addButton}
         </Flex>
         <Text as="p" mb="3" color="text-mid">
-          Strongly-typed configuration objects with a base config and
+          Strongly-typed configuration objects with a base Config and
           field-level overrides, composed and delivered through your feature
           flags.
         </Text>
@@ -250,7 +253,7 @@ export default function ConfigsPage(): React.ReactElement {
         {!hasConfigs ? (
           <EmptyState
             title="Typed, composable configuration"
-            description="Define a base config with a field schema, then create override configs that inherit and override specific fields."
+            description="Define a base Config with a field schema, then create override Configs that inherit and override specific fields."
             leftButton={
               <LinkButton
                 href="https://docs.growthbook.io/features/configs"
@@ -439,8 +442,8 @@ export default function ConfigsPage(): React.ReactElement {
                       <TableRow>
                         <TableCell colSpan={6} style={{ textAlign: "center" }}>
                           {isFiltered
-                            ? "No configs match the current filter."
-                            : "No configs found."}
+                            ? "No Configs match the current filter."
+                            : "No Configs found."}
                         </TableCell>
                       </TableRow>
                     )}

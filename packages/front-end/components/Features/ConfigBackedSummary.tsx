@@ -42,7 +42,7 @@ function ServeConfigHeader({
         <Link href={`/configs/${configKey}`} target="_blank" rel="noreferrer">
           {name}
         </Link>
-        {suffix && <Text size="small">{suffix}</Text>}
+        {suffix && <Text size="sm">{suffix}</Text>}
       </Flex>
     </Flex>
   );
@@ -327,7 +327,7 @@ export default function ConfigBackedSummary({
       )}
       {validationErrors && (
         <Callout status="error" mt="2">
-          Value fails validation with the config&apos;s JSON schema.
+          Value fails validation with the Config&apos;s JSON schema.
           <ul className="mb-0 mt-1">
             {validationErrors.map((msg, i) => (
               <li key={i}>{msg}</li>

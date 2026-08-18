@@ -116,7 +116,7 @@ export default function ConfigCustomHooksSection({
   const disableReason = !hasAccess
     ? "Custom Hooks require an Enterprise plan."
     : !canManage
-      ? "You don't have permission to manage hooks for this config."
+      ? "You don't have permission to manage hooks for this Config."
       : "";
 
   if (isCloud()) return null;
@@ -138,12 +138,12 @@ export default function ConfigCustomHooksSection({
           onSave={() => mutate()}
         />
       )}
-      <Heading as="h3" size="medium" mb="1">
+      <Heading as="h3" size="md" mb="1">
         Custom Hooks
       </Heading>
       <Box mb="3">
-        <Text as="p" size="small" color="text-low" fontStyle="italic">
-          Run sandboxed JavaScript validation before this config is published.
+        <Text as="p" size="sm" color="text-low" fontStyle="italic">
+          Run sandboxed JavaScript validation before this Config is published.
         </Text>
       </Box>
 
@@ -157,7 +157,7 @@ export default function ConfigCustomHooksSection({
       ) : (
         <>
           <Flex align="center" gap="1" mb="3">
-            <Heading as="h4" size="small" mb="0">
+            <Heading as="h4" size="sm" mb="0">
               Config-specific Hooks
             </Heading>
             <Box ml="auto">
@@ -186,13 +186,13 @@ export default function ConfigCustomHooksSection({
           ) && (
             <>
               <Flex align="center" gap="1" mb="1" mt="4">
-                <Heading as="h4" size="small" mb="0">
+                <Heading as="h4" size="sm" mb="0">
                   Parent Config Hooks
                 </Heading>
               </Flex>
-              <Text as="p" size="small" color="text-low" mb="3">
-                Inherited from an ancestor config (scoped to descendants). These
-                run on this config&apos;s changes but are managed from the
+              <Text as="p" size="sm" color="text-low" mb="3">
+                Inherited from an ancestor Config (scoped to descendants). These
+                run on this Config&apos;s changes but are managed from the
                 parent.
               </Text>
               <HooksTable
@@ -209,7 +209,7 @@ export default function ConfigCustomHooksSection({
           )}
 
           <Flex align="center" gap="1" mb="3" mt="5" pt="5">
-            <Heading as="h4" size="small" mb="0">
+            <Heading as="h4" size="sm" mb="0">
               Global/Project Hooks
             </Heading>
             <Box ml="auto">
@@ -266,7 +266,7 @@ function HooksTable({
   canManage: boolean;
   setModalData: (hook: CustomHookInterface) => void;
   mutate: () => void;
-  // Show a linked "Parent config" column instead of "Scope" (for inherited hooks).
+  // Show a linked "Parent Config" column instead of "Scope" (for inherited hooks).
   showSource?: boolean;
 }) {
   const { apiCall } = useAuth();
@@ -316,7 +316,7 @@ function HooksTable({
           <TableRow>
             <TableColumnHeader>Name</TableColumnHeader>
             {showSource && (
-              <TableColumnHeader width="260px">Parent config</TableColumnHeader>
+              <TableColumnHeader width="260px">Parent Config</TableColumnHeader>
             )}
             <TableColumnHeader width="200px">Type</TableColumnHeader>
             {!showSource && (

@@ -107,6 +107,10 @@ For example, if you want to look at what percent of users checkout after viewing
 1. `Viewed Cart` - selects all users who viewed a cart
 2. `Viewed Cart -> Checkout` - selects all users who checked out and picks `Viewed Cart` as the denominator.
 
+:::tip
+Fact Tables have a dedicated [Funnel Metric](/app/metrics/funnel) type for this. One funnel metric defines both steps, reports a conversion rate for each of them, and does not require chaining two metrics together.
+:::
+
 ##### Ratio Metrics
 
 When the denominator is a count metric, then things are a little different. Instead of acting like a filter, we calculate both metrics and treat the value as a ratio.
@@ -382,6 +386,6 @@ There are a lot of changes to how Ratio Metrics are defined and how they behave.
 
 Ratio metrics are now self-contained. Previously, the denominator would just be a pointer to an entirely separate metric. This allowed some weird edge cases like the denominator itself being a ratio metric with it's own denominator. With Fact Tables, you define both the numerator and denominator in one flow and these nested denominator edge cases are no longer supported.
 
-During analysis, Ratio metrics used to behave like a Funnel - the denominator had to happen first before the numerator. This was unintuitive for many people, so With Fact Tables, we changed them to act like true ratios - we calculate the numerator and denominator independently and then divide them. We plan to add a dedicated Funnel metric type in the future to support this use case.
+During analysis, Ratio metrics used to behave like a Funnel - the denominator had to happen first before the numerator. This was unintuitive for many people, so With Fact Tables, we changed them to act like true ratios - we calculate the numerator and denominator independently and then divide them. To measure an ordered sequence of events, use a [Funnel Metric](/app/metrics/funnel) instead.
 
 Lastly, Ratio metrics now have a single metric window and capping behavior. Previously, this would be controlled separately for the numerator and denominator. Because of this change, only "percentile" capping is allowed for ratio metrics.

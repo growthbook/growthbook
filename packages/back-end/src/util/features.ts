@@ -27,6 +27,7 @@ import {
   stripConfigExtends,
   deepMergePatch,
   getTargetingProjectIds,
+  filterEnvironmentsByFeature,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { resolveScheduleStopAfter } from "shared/dates";
@@ -66,6 +67,7 @@ import {
 } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
+import { getEnvironments } from "back-end/src/util/organization.util";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
 import { logger } from "back-end/src/util/logger";
@@ -366,6 +368,40 @@ export function isRuleEnabled(
   return true;
 }
 
+// Environments an archive takes the flag out of service in: the ones it both
+// applies to and is enabled in. A disabled environment already omits the feature
+// from its payload, so archiving changes nothing there — the same reason the
+// review gate scopes an archive to its enabled environments. Shared by every
+// path that can land an archive so they demand identical authority.
+// The environments a REST create will actually switch on. An omitted
+// environment still lands enabled when its `defaultState` says so — mirroring
+// `createInterfaceEnvSettingsFromApiEnvSettings` — so a footprint built only
+// from explicit `enabled: true` entries under-counts, and a caller with Create
+// in dev could omit environments entirely and produce a production-enabled flag.
+export function getApiCreateEnabledEnvironments(
+  baseEnvs: Environment[],
+  // Only `enabled` is read, so both the v1 and v2 request bodies fit.
+  incomingEnvs?: Record<string, { enabled?: boolean } | undefined>,
+): string[] {
+  return baseEnvs
+    .filter((e) => incomingEnvs?.[e.id]?.enabled ?? !!e.defaultState)
+    .map((e) => e.id);
+}
+
+export function getArchiveFootprint(
+  feature: FeatureInterface,
+  org: OrganizationInterface,
+): string[] {
+  return Array.from(
+    getEnabledEnvironments(
+      feature,
+      filterEnvironmentsByFeature(getEnvironments(org), feature).map(
+        (e) => e.id,
+      ),
+    ),
+  );
+}
+
 export function getEnabledEnvironments(
   features: FeatureInterface | FeatureInterface[],
   allowedEnvs: string[],
@@ -395,6 +431,33 @@ export function getEnabledEnvironments(
   });
 
   return environments;
+}
+
+// The environment footprint a project-delete cascade must hold delete + publish
+// authority over: the union of enabled environments across the project's OWNED
+// (project === id) features. Deleting a live feature drops it from the SDK
+// payload in the envs it is enabled in — the same footprint the single-feature
+// delete demands, applied to exactly the features the cascade deletes (features
+// merely TARGETING the project are owned elsewhere and are not deleted here).
+// Callers pass already-non-archived features (archived contribute no footprint).
+export function projectFeatureDeleteFootprint(
+  features: FeatureInterface[],
+  projectId: string,
+  orgEnvs: Environment[],
+): string[] {
+  const owned = features.filter((feature) => feature.project === projectId);
+  return Array.from(
+    new Set(
+      owned.flatMap((feature) =>
+        Array.from(
+          getEnabledEnvironments(
+            feature,
+            filterEnvironmentsByFeature(orgEnvs, feature).map((e) => e.id),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 export function getSDKPayloadKeys(
@@ -1103,10 +1166,7 @@ export function getFeatureDefinition({
             rule.seed = cb.seed;
           }
           rule.hashVersion = 2;
-          // Contextual bandit weights (leaf and aggregate) are retrained each
-          // epoch, so a sticky-bucket assignment would lock users to stale
-          // weights. Disable it for all consumers, not just CB-capable ones —
-          // the aggregate-weight (MAB) fallback reweights over time too.
+          // contextual bandits do not currently use sticky bucketing
           rule.disableStickyBucketing = true;
 
           if (cb.status === "stopped") {
@@ -1467,12 +1527,10 @@ export function getFeatureDefinition({
   return def;
 }
 
-/**
- * Populate `environmentRecord` values for env keys whose `Environment.parent`
- * chain has a defined ancestor. Only used for non-rule env fields (`enabled`,
- * `prerequisites`); rules declare their own scope on the unified array.
- * Pure.
- */
+// Populate `environmentRecord` values for env keys whose `Environment.parent`
+// chain has a defined ancestor. Only used for non-rule env fields (`enabled`,
+// `prerequisites`); rules declare their own scope on the unified array.
+// Pure.
 export function applyEnvironmentInheritance<T>(
   environments: Environment[],
   environmentRecord: Record<string, T>,

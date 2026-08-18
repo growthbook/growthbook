@@ -1,6 +1,7 @@
 import { isProjectListValidForProject } from "shared/util";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { date } from "shared/dates";
+import { getFactMetricPrimaryFactTableId } from "shared/experiments";
 import { FaArrowRight } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { Box, Flex, Separator } from "@radix-ui/themes";
@@ -98,7 +99,7 @@ export default function FactTablesPage() {
 
   const factMetricCounts: Record<string, number> = {};
   factMetrics.forEach((m) => {
-    const key = m.numerator.factTableId;
+    const key = getFactMetricPrimaryFactTableId(m);
     factMetricCounts[key] = factMetricCounts[key] || 0;
     factMetricCounts[key]++;
 
@@ -226,7 +227,7 @@ export default function FactTablesPage() {
       )}
       <PageHead breadcrumb={[{ display: "Fact Tables" }]} />
       <Flex align="center" justify="between" gap="3" mb="4">
-        <Heading as="h1" size="x-large" mb="0">
+        <Heading as="h1" size="xl" mb="0">
           Fact Tables
         </Heading>
         {filteredFactTables.length > 0 && hasDatasource ? (
@@ -295,7 +296,7 @@ export default function FactTablesPage() {
                 <div className="mt-2">
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="md"
                     onClick={() => setCreateFactOpen(true)}
                   >
                     Add Fact Table Manually
@@ -601,7 +602,7 @@ function ExampleMetric({
           {Object.entries(info).map(([key, value]) => (
             <div key={key}>
               <div>
-                <Text size="small" weight="medium" color="text-low">
+                <Text size="sm" weight="medium" color="text-low">
                   {key}:
                 </Text>
               </div>

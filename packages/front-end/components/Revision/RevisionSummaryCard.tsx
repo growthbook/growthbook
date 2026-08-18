@@ -403,7 +403,7 @@ export default function RevisionSummaryCard({
                         flexShrink: 0,
                       }}
                     >
-                      <Text as="span" color="text-mid" size="medium">
+                      <Text as="span" color="text-mid" size="md">
                         {revisionNumber}.
                       </Text>
                     </span>
@@ -440,7 +440,7 @@ export default function RevisionSummaryCard({
                       }}
                     />
                   ) : (
-                    <Text weight="semibold" size="large">
+                    <Text weight="semibold" size="lg">
                       <OverflowText
                         maxWidth={250}
                         title={revisionLabelText(
@@ -483,7 +483,7 @@ export default function RevisionSummaryCard({
               <Button
                 onClick={onNewDraft}
                 setError={setActionError}
-                size="sm"
+                size="md"
                 variant="soft"
               >
                 New Draft

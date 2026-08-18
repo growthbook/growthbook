@@ -17,7 +17,7 @@ export default forwardRef<HTMLDivElement, VariationNumberProps>(
         }`}
       >
         <Box as="span" className={styles.label}>
-          {number}
+          <span className={styles.number}>{number}</span>
         </Box>
       </Box>
     );

@@ -207,7 +207,6 @@ export default abstract class SqlIntegration
     // No-op default; warehouses with remote job control override.
     logger.debug(`Cancel query: ${externalId} - not implemented`);
   }
-  abstract getSensitiveParamKeys(): string[];
 
   abstract getSqlDialect(): SqlDialect;
 
@@ -1984,7 +1983,7 @@ export default abstract class SqlIntegration
     if (
       sortedMetrics.some(
         (m) =>
-          m.numerator.factTableId === params.factTableId &&
+          m.numerator?.factTableId === params.factTableId &&
           quantileMetricType(m) === "event",
       ) &&
       !this.hasQuantileSketch()
@@ -2129,7 +2128,7 @@ export default abstract class SqlIntegration
     // denominator-only cache lives in its denominator FT; same-FT metrics
     // carry both sides in their one cache.
     const includesNumerator = (metric: FactMetricInterface) =>
-      metric.numerator.factTableId === params.factTableId;
+      metric.numerator?.factTableId === params.factTableId;
     const includesDenominator = (metric: FactMetricInterface) =>
       isRatioMetric(metric) &&
       metric.denominator?.factTableId === params.factTableId;
@@ -2206,7 +2205,7 @@ export default abstract class SqlIntegration
                 // this cache holds the numerator side.
                 const nEventsCol =
                   includesNumerator(data.metric) &&
-                  data.metric.numerator.aggregation === "kll merge"
+                  data.metric.numerator?.aggregation === "kll merge"
                     ? `, ${addCaseWhenTimeFilter(this.getSqlDialect(), {
                         col: `m.${data.alias}_n_events`,
                         metric: data.metric,
@@ -2257,7 +2256,7 @@ export default abstract class SqlIntegration
                       // is a pre-aggregated sketch covering many events, so
                       // COUNT(rows) does NOT equal events. SUM the paired
                       // count column instead.
-                      m.metric.numerator.aggregation === "kll merge"
+                      m.metric.numerator?.aggregation === "kll merge"
                       ? `, SUM(COALESCE(${m.alias}_n_events, 0)) AS ${encodeMetricIdForColumnName(m.id)}_n_events`
                       : `, COUNT(${m.alias}_value) AS ${encodeMetricIdForColumnName(m.id)}_n_events`
                     : "";
@@ -2369,7 +2368,7 @@ export default abstract class SqlIntegration
       for (const s of sources) {
         const needsCovariateCache = regressionAdjustedMetrics.some(
           (data) =>
-            data.metric.numerator.factTableId === s.factTable.id ||
+            data.metric.numerator?.factTableId === s.factTable.id ||
             (data.ratioMetric &&
               data.metric.denominator?.factTableId === s.factTable.id),
         );
@@ -2721,7 +2720,7 @@ export default abstract class SqlIntegration
           const localCovariatePairs = regressionAdjustedMetrics
             .map((data) => {
               const numeratorHere =
-                data.metric.numerator.factTableId === sourceFactTableId;
+                data.metric.numerator?.factTableId === sourceFactTableId;
               const denominatorHere =
                 data.ratioMetric &&
                 data.metric.denominator?.factTableId === sourceFactTableId;

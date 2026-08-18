@@ -10,8 +10,9 @@ import { PiCopy, PiRepeatBold, PiXBold } from "react-icons/pi";
 import { Tooltip } from "@radix-ui/themes";
 import Field, { FieldProps } from "@/components/Forms/Field";
 import { ReactSelectProps } from "@/components/Forms/SelectField";
+import { Size } from "@/ui/sizes";
 
-export type StringArrayFieldSize = "small" | "legacy" | "medium";
+export type StringArrayFieldSize = Size<"md" | "lg">;
 
 export type Props = Omit<
   FieldProps,
@@ -24,6 +25,8 @@ export type Props = Omit<
   removeDuplicates?: boolean;
   showCopyButton?: boolean;
   size?: StringArrayFieldSize;
+  /** Preserve the pre-design-system 36px control height. */
+  legacyHeight?: boolean;
 };
 
 const DEFAULT_DELIMITERS = ["Enter", "Tab", " ", ","];
@@ -159,10 +162,14 @@ export default function StringArrayField({
   enableRawTextMode = false,
   removeDuplicates = true,
   showCopyButton = true,
-  size = "legacy",
+  size,
+  legacyHeight,
   helpText,
   ...otherProps
 }: Props) {
+  const resolvedSize = size ?? "md";
+  const usesLegacyHeight = legacyHeight ?? size === undefined;
+  const styleSize = usesLegacyHeight ? "legacy" : resolvedSize;
   const [inputValue, setInputValue] = useState("");
   const [rawTextMode, setRawTextMode] = useState(false);
 
@@ -213,30 +220,28 @@ export default function StringArrayField({
 
   const sizeStyles = useMemo(() => {
     const sizeMinHeight: Record<StringArrayFieldSize, number> = {
-      small: 32,
-      legacy: 36,
-      medium: 40,
+      md: 32,
+      lg: 40,
     };
     const sizeVPadding: Record<StringArrayFieldSize, number> = {
-      small: 0,
-      legacy: 2,
-      medium: 4,
+      md: 0,
+      lg: 4,
     };
     return {
       ...ReactSelectProps.styles,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       control: (base: any, state: any) => ({
         ...ReactSelectProps.styles.control(base, state),
-        minHeight: sizeMinHeight[size],
+        minHeight: usesLegacyHeight ? 36 : sizeMinHeight[resolvedSize],
       }),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       valueContainer: (base: any) => ({
         ...base,
-        paddingTop: sizeVPadding[size],
-        paddingBottom: sizeVPadding[size],
+        paddingTop: usesLegacyHeight ? 2 : sizeVPadding[resolvedSize],
+        paddingBottom: usesLegacyHeight ? 2 : sizeVPadding[resolvedSize],
       }),
     };
-  }, [size]);
+  }, [resolvedSize, usesLegacyHeight]);
 
   // eslint-disable-next-line
   const fieldProps = otherProps as any;
@@ -305,7 +310,7 @@ export default function StringArrayField({
             <div
               className={clsx(
                 "gb-select-wrapper position-relative",
-                `gb-select-wrapper--${size}`,
+                `gb-select-wrapper--${styleSize}`,
               )}
             >
               <div
@@ -341,7 +346,7 @@ export default function StringArrayField({
           <div
             className={clsx(
               "gb-select-wrapper position-relative",
-              `gb-select-wrapper--${size}`,
+              `gb-select-wrapper--${styleSize}`,
             )}
           >
             <CreatableSelect

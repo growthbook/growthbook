@@ -16,7 +16,8 @@ import {
   FeatureApiResponse,
   Options,
   ClientOptions,
-  UserContextAttributes,
+  TrackingUserContext,
+  UserContext,
 } from "./types/growthbook";
 import { evalCondition } from "./mongrule";
 import { ConditionInterface } from "./types/mongrule";
@@ -99,12 +100,14 @@ function onExperimentViewed(
 
   if (ctx.global.trackingCallback) {
     const cb = ctx.global.trackingCallback;
-    calls.push(safeCall(() => cb(experiment, result, ctx.user)));
+    calls.push(
+      safeCall(() => cb(experiment, result, getTrackingUserContext(ctx.user))),
+    );
   }
   if (ctx.user.trackingCallback) {
     const cb = ctx.user.trackingCallback;
     calls.push(
-      safeCall(() => cb(experiment, result, getTrackingUserContext(ctx))),
+      safeCall(() => cb(experiment, result, getTrackingUserContext(ctx.user))),
     );
   }
   if (ctx.global.eventLogger) {
@@ -119,7 +122,7 @@ function onExperimentViewed(
             hashAttribute: result.hashAttribute,
             hashValue: result.hashValue,
           },
-          ctx.user,
+          getTrackingUserContext(ctx.user),
         ),
       ),
     );
@@ -146,11 +149,22 @@ function onFeatureUsage(
         logType: "feature",
       });
     }
+
+    // Deduped by value above — subscribers only fire on value changes, not every eval.
+    if (ctx.user.featureUsageSubs?.size) {
+      ctx.user.featureUsageSubs.forEach((cb) => {
+        try {
+          cb(key, ret);
+        } catch (e) {
+          console.error(e);
+        }
+      });
+    }
   }
 
   if (ctx.global.onFeatureUsage) {
     const cb = ctx.global.onFeatureUsage;
-    safeCall(() => cb(key, ret, ctx.user));
+    safeCall(() => cb(key, ret, getTrackingUserContext(ctx.user)));
   }
   if (ctx.user.onFeatureUsage) {
     const cb = ctx.user.onFeatureUsage;
@@ -168,7 +182,7 @@ function onFeatureUsage(
           ruleId: ret.source === "defaultValue" ? "$default" : ret.ruleId || "",
           variationId: ret.experimentResult ? ret.experimentResult.key : "",
         },
-        ctx.user,
+        getTrackingUserContext(ctx.user),
       ),
     );
   }
@@ -312,7 +326,7 @@ export function evalFeature<V = unknown>(
               ctx.global.saveDeferredTrack({
                 experiment: t.experiment,
                 result: t.result,
-                user: getTrackingUserContext(ctx),
+                user: getTrackingUserContext(ctx.user),
               });
             }
           });
@@ -783,7 +797,7 @@ export function runExperiment<T>(
     ctx.global.saveDeferredTrack({
       experiment,
       result,
-      user: getTrackingUserContext(ctx),
+      user: getTrackingUserContext(ctx.user),
     });
   }
   const trackingCall = !trackingCalls.length
@@ -834,16 +848,17 @@ function getFeatureResult<T>(
   return ret;
 }
 
-function getAttributes(ctx: EvalContext) {
+function getAttributes(user: UserContext) {
   return {
-    ...ctx.user.attributes,
-    ...ctx.user.attributeOverrides,
+    ...user.attributes,
+    ...user.attributeOverrides,
   };
 }
 
-function getTrackingUserContext(ctx: EvalContext): UserContextAttributes {
+export function getTrackingUserContext(user: UserContext): TrackingUserContext {
   return {
-    attributes: { ...getAttributes(ctx) },
+    attributes: getAttributes(user),
+    url: user.url,
   };
 }
 
@@ -919,7 +934,7 @@ function conditionPasses(
   ctx: EvalContext,
 ): boolean {
   return evalCondition(
-    getAttributes(ctx),
+    getAttributes(ctx.user),
     condition,
     ctx.global.savedGroups || {},
   );
@@ -1045,7 +1060,7 @@ export function getHashAttribute(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let hashValue: any = "";
 
-  const attributes = getAttributes(ctx);
+  const attributes = getAttributes(ctx.user);
 
   if (attributes[hashAttribute]) {
     hashValue = attributes[hashAttribute];

@@ -31,10 +31,7 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
-import {
-  filterCustomFieldsForSectionAndProject,
-  useCustomFields,
-} from "@/hooks/useCustomFields";
+import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import {
   generateVariationId,
   useAttributeSchema,
@@ -384,11 +381,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     selectedProject,
   );
 
-  const customFields = filterCustomFieldsForSectionAndProject(
-    useCustomFields(),
-    "experiment",
-    selectedProject,
-  );
+  const { availableFields: customFields, value: customFieldValues } =
+    useReconciledCustomFields({
+      section: "experiment",
+      project: selectedProject,
+      value: form.watch("customFields"),
+      setValue: (value) => form.setValue("customFields", value),
+    });
 
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
@@ -899,7 +898,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       return (
                         <Flex as="div" align="baseline">
                           <Text>{value.label}</Text>
-                          <Text size="small" color="text-mid" ml="auto">
+                          <Text size="sm" color="text-mid" ml="auto">
                             Created {date(t.dateCreated)}
                           </Text>
                         </Flex>
@@ -1157,7 +1156,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                                       </span>
                                     </Flex>
                                     <Flex gap="3" align="center">
-                                      <Text size="small" color="text-mid">
+                                      <Text size="sm" color="text-mid">
                                         {date(s.experiment.dateCreated)}
                                       </Text>
                                       <ExperimentStatusIndicator
@@ -1243,18 +1242,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 )}
               </>
             )}
-            {hasCommercialFeature("custom-metadata") &&
-              !!customFields?.length && (
-                <CustomFieldInput
-                  customFields={customFields}
-                  currentCustomFields={form.watch("customFields") || {}}
-                  setCustomFields={(value) => {
-                    form.setValue("customFields", value);
-                  }}
-                  section={"experiment"}
-                  project={selectedProject}
-                />
-              )}
+            {customFields.length > 0 && (
+              <CustomFieldInput
+                fields={customFields}
+                value={customFieldValues}
+                onChange={(value) => form.setValue("customFields", value)}
+              />
+            )}
           </div>
         </Page>
 

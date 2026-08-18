@@ -28,6 +28,7 @@ import { useAISettings } from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import { PA_AI_CHAT_INITIAL_MESSAGE_KEY } from "./util";
 import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
+import styles from "./EmptyState.module.scss";
 
 export default function EmptyState() {
   const router = useRouter();
@@ -75,7 +76,7 @@ export default function EmptyState() {
   return (
     <Box style={{ display: "flex", flex: 1, flexDirection: "column" }}>
       <Flex align="center">
-        <Heading as="h1" size="x-large" weight="medium">
+        <Heading as="h1" size="xl" weight="medium">
           Product Analytics
         </Heading>
         <Flex align="center" gap="2" ml="3">
@@ -103,7 +104,7 @@ export default function EmptyState() {
             <LinkButton
               href="/product-analytics/explore/ai-chat"
               variant="ghost"
-              size="sm"
+              size="md"
               disabled={chatDisabled}
             >
               View chat history
@@ -124,11 +125,11 @@ export default function EmptyState() {
                 size={20}
                 style={{ color: "var(--violet-a11)", flexShrink: 0 }}
               />
-              <Heading as="h2" size="x-large" weight="medium">
+              <Heading as="h2" size="xl" weight="medium">
                 Ask AI About Your Data
               </Heading>
             </Flex>
-            <Text color="text-low" align="center" size="large" mt="1">
+            <Text color="text-low" align="center" size="lg" mt="1">
               {isDataSourceEmpty
                 ? "Connect to a data source to start exploring your data."
                 : "Ask a question in plain language and easily build charts and other visualizations"}
@@ -212,9 +213,12 @@ export default function EmptyState() {
                   }}
                 >
                   <Button
+                    className={styles.sendButton}
                     onClick={handleSubmit}
                     disabled={chatDisabled || isDataSourceEmpty}
-                    size="sm"
+                    size="md"
+                    title="Send message"
+                    aria-label="Send message"
                   >
                     <PiArrowRightBold size={16} />
                   </Button>
@@ -233,7 +237,7 @@ export default function EmptyState() {
               >
                 <Box width="100%" style={{ maxWidth: 435, textAlign: "left" }}>
                   {chatDisabled ? (
-                    <Text color="text-mid" size="medium">
+                    <Text color="text-mid" size="md">
                       Explore manually
                     </Text>
                   ) : (
@@ -250,7 +254,7 @@ export default function EmptyState() {
                         gap: 4,
                       }}
                     >
-                      <Text color="text-mid" size="medium">
+                      <Text color="text-mid" size="md">
                         Build visualizations manually
                       </Text>
                       {showAdvancedOptions ? (

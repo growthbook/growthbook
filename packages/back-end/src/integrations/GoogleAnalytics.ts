@@ -426,10 +426,6 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
     return true;
   }
 
-  getSensitiveParamKeys(): string[] {
-    return ["refreshToken"];
-  }
-
   getAuth() {
     const client = getOauth2Client();
     client.setCredentials({
