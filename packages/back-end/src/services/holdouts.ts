@@ -411,15 +411,6 @@ export async function updateHoldoutWithExperiment(
     experimentChanges.name = body.name;
   }
 
-  // Single write to the companion experiment.
-  if (Object.keys(experimentChanges).length) {
-    experiment = await updateExperiment({
-      context,
-      experiment,
-      changes: experimentChanges,
-    });
-  }
-
   // 3. Fields on the holdout document itself.
   const holdoutUpdates: UpdateProps<HoldoutInterface> = {};
   for (const field of HOLDOUT_API_UPDATE_FIELDS) {
@@ -449,9 +440,26 @@ export async function updateHoldoutWithExperiment(
     );
   }
 
+  // Persist the holdout document before touching the companion experiment. The
+  // holdout write runs its own validation (`beforeUpdate` rejects bad schedule
+  // dates) but has no side effects, while `updateExperiment` commits and
+  // triggers an SDK payload refresh. Writing the holdout first means a
+  // validation failure aborts the request before any experiment change or
+  // refresh lands, so the two documents can't diverge (e.g. a mirrored `name`)
+  // on rejected input. Experiment-side changes are already fully validated
+  // above, so the trailing write only fails on infrastructure errors.
   const updatedHoldout = Object.keys(holdoutUpdates).length
     ? await context.models.holdout.update(holdout, holdoutUpdates)
     : holdout;
+
+  // Single write to the companion experiment.
+  if (Object.keys(experimentChanges).length) {
+    experiment = await updateExperiment({
+      context,
+      experiment,
+      changes: experimentChanges,
+    });
+  }
 
   return { holdout: updatedHoldout, experiment };
 }
