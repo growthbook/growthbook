@@ -7,7 +7,6 @@ import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { FeatureInterface } from "shared/types/feature";
 import { getLatestSDKVersion } from "shared/sdk-versioning";
 import { PiPackage } from "react-icons/pi";
-import { getEventIngestorRegion } from "@/services/dataRegions";
 import Link from "@/ui/Link";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -107,8 +106,7 @@ export default function CodeSnippetModal({
 
   const settings = useOrgSettings();
   const attributeSchema = useAttributeSchema();
-  const { datasources } = useDefinitions();
-  const eventIngestorRegion = getEventIngestorRegion(datasources);
+  const { ready: definitionsReady, eventIngestorRegion } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
   const canUpdate = currentConnection
@@ -150,7 +148,7 @@ export default function CodeSnippetModal({
     setEventTracker(currentConnection?.eventTracker || "");
   }, [currentConnection]);
 
-  if (!currentConnection) {
+  if (!currentConnection || !definitionsReady) {
     return null;
   }
 
