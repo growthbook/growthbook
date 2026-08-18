@@ -205,7 +205,7 @@ export function ExplorerContent({
                 }}
                 size="lg"
               >
-                <TabsTrigger value="dataset">1. Build Dataset</TabsTrigger>
+                <TabsTrigger value="dataset">Build Dataset</TabsTrigger>
                 <Tooltip
                   body="Write or generate a query to build your dataset. Then you can explore the results and build visualizations with the data."
                   shouldDisplay={!sqlEditorContext.exploreReady}
@@ -216,7 +216,7 @@ export function ExplorerContent({
                       disabled={!sqlEditorContext.exploreReady}
                     >
                       <Flex align="center" gap="2">
-                        2. Explore Dataset
+                        Explore Dataset
                         {sqlEditorContext.exploreReady &&
                         !sqlEditorContext.hasSeenExplore ? (
                           <span
