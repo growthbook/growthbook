@@ -49503,6 +49503,10 @@ paths:
                 archived:
                   type: boolean
                 skipAsDefaultHoldout:
+                  description: >-
+                    When true, this Holdout is not selected automatically when
+                    creating Feature Flags or Experiments in Projects assigned
+                    to the Holdout.
                   type: boolean
                 holdoutSize:
                   description: >-
@@ -49661,6 +49665,10 @@ paths:
                   items:
                     type: string
                 skipAsDefaultHoldout:
+                  description: >-
+                    When true, this Holdout is not selected automatically when
+                    creating Feature Flags or Experiments in Projects assigned
+                    to the Holdout.
                   type: boolean
                 holdoutSize:
                   description: >-
@@ -65768,8 +65776,8 @@ components:
           type: string
         skipAsDefaultHoldout:
           description: >-
-            When true, this Holdout is not pre-selected for new Feature Flags
-            and experiments in its Projects.
+            When true, this Holdout is not selected automatically when creating
+            Feature Flags or experiments in Projects assigned to the Holdout.
           type: boolean
         holdoutSize:
           description: >-
