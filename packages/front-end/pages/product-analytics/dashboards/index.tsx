@@ -559,7 +559,7 @@ export default function DashboardsPage() {
                                                   >
                                                     {isCurrentDefault
                                                       ? `Remove as Default for ${p.name}`
-                                                      : p.name}
+                                                      : `Set as Default for ${p.name}`}
                                                   </DropdownMenuItem>
                                                 </Tooltip>
                                               );
