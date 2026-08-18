@@ -763,6 +763,13 @@ export default function EventForwarder({
                   />
                 </>
               ) : null}
+              {/* Not sink-specific, and fixed at creation. */}
+              <EventForwarderConfigField
+                label="Data region"
+                value={getDataRegionLabel(
+                  eventForwarderConfig.region ?? DEFAULT_DATA_REGION,
+                )}
+              />
             </Flex>
 
             {isProvisioning ? (
