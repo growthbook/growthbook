@@ -396,14 +396,25 @@ export function RevisionLogRow({
           leading={verdictLeading}
           avatarSize="md"
           metadataExtra={
-            retraction ? (
-              <Badge
-                color="gray"
-                variant="solid"
-                label={retraction.label}
-                size="xs"
-              />
-            ) : undefined
+            <>
+              {uncoveredReason && (
+                <Tooltip
+                  body={`This approval does not let the draft publish: ${uncoveredReason}.`}
+                >
+                  <Text size="sm" color="text-low">
+                    — not a qualifying approval
+                  </Text>
+                </Tooltip>
+              )}
+              {retraction && (
+                <Badge
+                  color="gray"
+                  variant="solid"
+                  label={retraction.label}
+                  size="xs"
+                />
+              )}
+            </>
           }
           actions={
             canEdit || canDelete || canRetractVerdict ? (

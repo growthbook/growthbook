@@ -5,6 +5,7 @@ import {
 } from "shared/permissions";
 import {
   Revision,
+  constantPublishFootprint,
   getConstantRevisionChange,
   normalizeProposedChanges,
 } from "shared/enterprise";
@@ -12,8 +13,6 @@ import {
   constantAutopublishOnApproval,
   constantRequiresReview,
   constantResetReviewOnChange,
-  flipsArchivedState,
-  proposedArchivedValue,
 } from "shared/util";
 import {
   constantValidator,
@@ -191,30 +190,11 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
   },
 
   publishFootprint(
-    context: Context,
+    _context: Context,
     snapshot: ConstantInterface,
     proposedChanges: unknown,
   ): PublishFootprint {
-    // An archive flip takes the constant out of service (or returns it)
-    // everywhere it serves, so a dev-limited caller must not be able to land it.
-    if (
-      flipsArchivedState({
-        proposed: proposedArchivedValue(proposedChanges),
-        current: snapshot.archived,
-      })
-    ) {
-      return { scope: "everywhere" };
-    }
-    const environments = constantPublishEnvironments(
-      context,
-      getConstantRevisionChange(snapshot, proposedChanges).changedEnvironments,
-    );
-    // A base-value or metadata change carries no intrinsic environment, so no
-    // environment restriction applies — distinct from the archive flip above,
-    // which reaches everywhere.
-    return environments.length
-      ? { scope: "environments", environments }
-      : { scope: "unscoped" };
+    return constantPublishFootprint(snapshot, proposedChanges);
   },
 
   // Precise, change-aware gate using the feature `requireReviews` model: a

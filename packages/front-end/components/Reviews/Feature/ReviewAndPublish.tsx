@@ -2,9 +2,7 @@ import {
   NO_ENVIRONMENT_BINDING,
   canCommentOnRevisionEntity,
   holdsFeatureMoveDestination,
-  assessApprovalCoverage,
 } from "shared/permissions";
-import type { OrganizationInterface } from "shared/types/organization";
 import { FeatureInterface } from "shared/types/feature";
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import {
@@ -124,6 +122,7 @@ import useURLHash from "@/hooks/useURLHash";
 // (notes, human-readable changes, review activity), "changes" is the diff-first
 // view (JSON diffs, full edit timeline, inline diff comments).
 type ReviewSubTab = "overview" | "changes";
+import { useApprovalCoverage } from "@/components/Reviews/useApprovalCoverage";
 import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
 import NoticeBanner from "@/components/Reviews/NoticeBanner";
 import HelperText from "@/ui/HelperText";
@@ -206,8 +205,6 @@ export default function ReviewAndPublish({
   const user = getCurrentUser();
   const {
     users,
-    teams,
-    organization,
     hasCommercialFeature,
     userId,
     name: userName,
@@ -698,72 +695,18 @@ export default function ReviewAndPublish({
     });
   }, [revision, baseRevision, liveRevision, feature, envIds, settings]);
 
-  // Approvals whose approver no longer covers what the draft changes. Resolved
-  // client-side from the members map with the same function the server uses, so
-  // the panel and the refusal cannot disagree.
-  const uncoveredApprovers = useMemo(() => {
-    const approved = reviewers.filter((r) => r.status === "approved");
-    if (!approved.length) return new Set<string>();
-    return new Set(
-      assessApprovalCoverage({
-        org: organization as OrganizationInterface,
-        teams: teams ?? [],
-        feature,
-        footprint: reviewFootprint,
-        approvers: approved.map((r) => ({
-          id: r.id,
-          roleInfo: users.get(r.id) ?? null,
-        })),
-      }).uncoveredApprovers,
-    );
-  }, [reviewers, organization, teams, feature, reviewFootprint, users]);
-
-  const uncoveredReason = (approverId: string): string => {
-    const roleInfo = users.get(approverId);
-    const who = roleInfo?.name || roleInfo?.email || "this reviewer";
-    if (!roleInfo) return `${who} is no longer a member of this organization`;
-    const held = roleInfo.limitAccessByEnvironment
-      ? (roleInfo.environments ?? [])
-      : envIds;
-    const missing =
-      reviewFootprint.scope === "environments"
-        ? reviewFootprint.environments.filter((e) => !held.includes(e))
-        : envIds.filter((e) => !held.includes(e));
-    return missing.length
-      ? `cannot approve changes in ${missing.join(", ")}`
-      : `cannot approve this change`;
-  };
-
-  const uncoveredApproverReasons = useMemo(
-    () =>
-      new Map(
-        [...uncoveredApprovers].map((id) => [id, uncoveredReason(id)] as const),
-      ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [uncoveredApprovers, users, reviewFootprint, envIds],
-  );
-
-  // Environments in the footprint that no standing approver covers — what the
-  // draft is actually waiting on.
-  const uncoveredFootprintEnvs = useMemo(() => {
-    if (reviewFootprint.scope !== "environments") return [];
-    const covered = new Set<string>();
-    reviewers
-      .filter((r) => r.status === "approved")
-      .forEach((r) => {
-        const roleInfo = users.get(r.id);
-        if (!roleInfo) return;
-        (roleInfo.limitAccessByEnvironment
-          ? (roleInfo.environments ?? [])
-          : envIds
-        ).forEach((e) => covered.add(e));
-      });
-    return reviewFootprint.environments.filter((e) => !covered.has(e));
-  }, [reviewFootprint, reviewers, users, envIds]);
-
-  const approvalsCoverFootprint = reviewers.some(
-    (r) => r.status === "approved" && !uncoveredApprovers.has(r.id),
-  );
+  const {
+    uncoveredApprovers,
+    uncoveredApproverReasons,
+    uncoveredFootprintEnvs,
+    approvalsCoverFootprint,
+    hasUncoveredApproval,
+  } = useApprovalCoverage({
+    reviewers,
+    footprint: reviewFootprint,
+    envIds,
+    project: feature.project,
+  });
 
   // Fall back to all applicable environments until the merge footprint is known.
   const affectedRevisionEnvs = useMemo(() => {
@@ -1610,7 +1553,7 @@ export default function ReviewAndPublish({
                           stale={stale}
                           uncoveredReason={
                             uncoveredApprovers.has(id)
-                              ? uncoveredReason(id)
+                              ? uncoveredApproverReasons.get(id)
                               : undefined
                           }
                         />
@@ -2641,7 +2584,7 @@ export default function ReviewAndPublish({
                           stale={stale}
                           uncoveredReason={
                             uncoveredApprovers.has(id)
-                              ? uncoveredReason(id)
+                              ? uncoveredApproverReasons.get(id)
                               : undefined
                           }
                         />
@@ -2992,7 +2935,7 @@ export default function ReviewAndPublish({
                   >
                     {/* The verdict stands, so the status stays "Approved" — this
                     says why it is not enough to publish. */}
-                    {requireReviews && !approvalsCoverFootprint && (
+                    {requireReviews && hasUncoveredApproval && (
                       <Box mb="3">
                         <Callout status="warning" size="sm">
                           {uncoveredFootprintEnvs.length

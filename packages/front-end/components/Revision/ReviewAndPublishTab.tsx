@@ -17,7 +17,10 @@ import {
   isScheduledPublishPending,
   isScheduledPublishLockActive,
   findPublishLockingScheduledRevision,
+  entityPublishFootprint,
+  entityReviewFootprint,
 } from "shared/enterprise";
+import { serveFootprint } from "shared/permissions";
 import type { RevisionStatus } from "shared/validators";
 import type { PublishGovernanceResult } from "shared/util";
 import {
@@ -29,6 +32,7 @@ import { datetime } from "shared/dates";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiCaretDownBold, PiGitMergeBold, PiLockSimple } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
+import { useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import useURLHash from "@/hooks/useURLHash";
 import Button from "@/ui/Button";
@@ -50,6 +54,7 @@ import CommentComposer from "@/components/Comments/CommentComposer";
 import ReviewCommentPopover from "@/components/Reviews/ReviewCommentPopover";
 import WaitingForReviewCallout from "@/components/Reviews/WaitingForReviewCallout";
 import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
+import { useApprovalCoverage } from "@/components/Reviews/useApprovalCoverage";
 import {
   PersonRow,
   ReviewerVerdictIcon,
@@ -267,6 +272,8 @@ function ReviewAndPublishRevision<T>({
   const { apiCall } = useAuth();
   const { users, userId, getUserDisplay, organization, hasCommercialFeature } =
     useUser();
+  const allEnvironments = useEnvironments();
+  const envIds = allEnvironments.map((e) => e.id);
   // Adapt the generic revision's baked reviews[] + activityLog[] into the
   // shared timeline's RevisionLog shape.
   const timelineLogs = useMemo(
@@ -499,6 +506,44 @@ function ReviewAndPublishRevision<T>({
     }));
   }, [revision.activityLog, revision.reviews]);
   const isReviewer = !!userId && reviewers.some((r) => r.id === userId);
+
+  // What a reviewer needs authority over, derived from the same footprint the
+  // server authorizes publishing with, so the panel and the refusal agree.
+  const entityProject = (revision.target.snapshot as { project?: string })
+    .project;
+  const reviewFootprint = useMemo(
+    () =>
+      entityReviewFootprint(
+        entityPublishFootprint(
+          revision.target.type,
+          revision.target.snapshot,
+          revision.target.proposedChanges,
+        ),
+        serveFootprint(allEnvironments, {
+          project: entityProject,
+        }),
+      ),
+    [
+      revision.target.type,
+      revision.target.snapshot,
+      revision.target.proposedChanges,
+      allEnvironments,
+      entityProject,
+    ],
+  );
+
+  const {
+    uncoveredApprovers,
+    uncoveredApproverReasons,
+    uncoveredFootprintEnvs,
+    approvalsCoverFootprint,
+    hasUncoveredApproval,
+  } = useApprovalCoverage({
+    reviewers,
+    footprint: reviewFootprint,
+    envIds,
+    project: entityProject,
+  });
 
   // For the stale-approval banner: when the surviving approval was given (the
   // latest non-stale "approved" verdict in the current cycle). A revisions-since
@@ -821,7 +866,8 @@ function ReviewAndPublishRevision<T>({
     checklistIncomplete: false,
     checklistBlocked: false,
     checklistAcknowledged: false,
-    governanceCanPublish: !mustRebase,
+    governanceCanPublish:
+      !mustRebase && (!requiresApproval || approvalsCoverFootprint),
   });
 
   // The publish controls (admin-bypass checkbox + Publish button) show only when
@@ -1014,6 +1060,7 @@ function ReviewAndPublishRevision<T>({
       <Box mb="4">
         <RevisionTimeline
           logs={timelineLogs}
+          uncoveredApproverReasons={uncoveredApproverReasons}
           onRetractVerdict={state.canUndoReview ? doUndoReview : undefined}
           collapseFilter={
             subTab === "overview"
@@ -1125,6 +1172,11 @@ function ReviewAndPublishRevision<T>({
                       name={name || email}
                       timestamp={timestamp}
                       stale={stale}
+                      uncoveredReason={
+                        uncoveredApprovers.has(id)
+                          ? uncoveredApproverReasons.get(id)
+                          : undefined
+                      }
                     />
                   }
                 />
@@ -1412,6 +1464,18 @@ function ReviewAndPublishRevision<T>({
               pt="4"
               style={{ borderTop: "1px solid var(--gray-a5)" }}
             >
+              {/* The verdict stands, so the status stays "Approved" — this
+                says why it is not enough to publish. */}
+              {requiresApproval && hasUncoveredApproval && (
+                <Box mb="3">
+                  <Callout status="warning" size="sm">
+                    {uncoveredFootprintEnvs.length
+                      ? `Approved, but no reviewer has approval rights in ${uncoveredFootprintEnvs.join(", ")}. This draft needs approval from someone who does.`
+                      : `Approved, but no reviewer has approval rights across everything this draft changes.`}
+                  </Callout>
+                </Box>
+              )}
+
               {/* Conflict / divergence / stale-approval banners — shared with the
                 feature flow so the revision tab reads identically. */}
               {(governance.divergence !== "current" || staleApproval) && (
