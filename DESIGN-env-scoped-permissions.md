@@ -694,7 +694,8 @@ at all.
       produced it
 - [x] Multiple-rules editor on member, project and team
 - [ ] Footprint-widened warning at the moment of the edit
-- [ ] Per-approval coverage and unmet required-approver rules on the review screen
+- [x] Per-approval coverage and unmet required-approver rules on the review screen
+      — both panels, plus the team and project pages
       — design settled, see "Marking an approval as insufficient"; blocked on 2
 
 ### Parked
