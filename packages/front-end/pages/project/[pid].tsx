@@ -87,12 +87,17 @@ const ProjectPage: FC = () => {
   const checklist = data?.checklist;
 
   const canViewDashboards = hasCommercialFeature("dashboards");
-  const { dashboards } = useDashboards(false, () => canViewDashboards);
+  const { dashboards, loading: dashboardsLoading } = useDashboards(
+    false,
+    () => canViewDashboards,
+  );
   const projectDashboards = useMemo(
     () =>
       dashboards.filter((d) => !d.projects?.length || d.projects.includes(pid)),
     [dashboards, pid],
   );
+  const noProjectDashboards =
+    !dashboardsLoading && projectDashboards.length === 0;
 
   useEffect(() => {
     if (settings) {
@@ -421,7 +426,7 @@ const ProjectPage: FC = () => {
                             home page by default. They can still pick a
                             different one for themselves.
                           </Text>
-                          {projectDashboards.length === 0 ? (
+                          {dashboardsLoading ? null : noProjectDashboards ? (
                             <Callout status="info">
                               No dashboards are available for this Project yet.{" "}
                               <Link href="/product-analytics/dashboards/new">
