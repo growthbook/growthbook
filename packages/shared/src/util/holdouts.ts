@@ -37,3 +37,31 @@ export function getHoldoutStage(
   if (exp.status === "stopped") return "stopped";
   return holdout.analysisStartDate ? "analysis-period" : "running";
 }
+
+export function getAllowedHoldoutStageSources(
+  targetStage: HoldoutStage,
+): HoldoutStage[] {
+  switch (targetStage) {
+    case "draft":
+      return [];
+    case "running":
+      return ["draft"];
+    case "analysis-period":
+      return ["running"];
+    case "stopped":
+      return ["running", "analysis-period"];
+    default:
+      targetStage satisfies never;
+      return [];
+  }
+}
+
+export function isHoldoutStageTransitionAllowed(
+  currentStage: HoldoutStage,
+  targetStage: HoldoutStage,
+): boolean {
+  return (
+    currentStage === targetStage ||
+    getAllowedHoldoutStageSources(targetStage).includes(currentStage)
+  );
+}

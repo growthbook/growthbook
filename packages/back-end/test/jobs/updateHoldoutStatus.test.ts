@@ -52,9 +52,19 @@ describe("isScheduledTransitionApplicable", () => {
     ).toBe(false);
   });
 
-  it("stops any holdout that is not already stopped", () => {
+  it("stops a running holdout before or during analysis", () => {
     expect(isScheduledTransitionApplicable("stop", running, holdout())).toBe(
       true,
+    );
+    expect(
+      isScheduledTransitionApplicable(
+        "stop",
+        running,
+        holdout({ analysisStartDate: PAST }),
+      ),
+    ).toBe(true);
+    expect(isScheduledTransitionApplicable("stop", draft, holdout())).toBe(
+      false,
     );
     expect(isScheduledTransitionApplicable("stop", stopped, holdout())).toBe(
       false,

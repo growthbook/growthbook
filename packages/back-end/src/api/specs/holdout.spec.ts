@@ -1,7 +1,7 @@
 import {
   apiCreateHoldoutBody,
-  apiHoldoutStageReturn,
-  apiHoldoutStageValidator,
+  apiHoldoutActionReturn,
+  apiHoldoutActionValidator,
   apiHoldoutValidator,
   apiListHoldoutsValidator,
   apiUpdateHoldoutBody,
@@ -10,13 +10,34 @@ import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
 
 /** REST API surface for Holdouts under `/api/v1/holdouts/*`. */
 
-export const holdoutStageEndpoint = {
-  pathFragment: "/:id/stage",
+export const holdoutStartEndpoint = {
+  pathFragment: "/:id/start",
   verb: "post" as const,
-  operationId: "setHoldoutStage",
-  validator: apiHoldoutStageValidator,
-  zodReturnObject: apiHoldoutStageReturn,
-  summary: "Move a Holdout to a different stage",
+  operationId: "startHoldout",
+  validator: apiHoldoutActionValidator,
+  zodReturnObject: apiHoldoutActionReturn,
+  summary: "Start a Holdout",
+  possibleErrors: ["invalid_status"] as const,
+};
+
+export const holdoutStartAnalysisEndpoint = {
+  pathFragment: "/:id/start-analysis",
+  verb: "post" as const,
+  operationId: "startHoldoutAnalysis",
+  validator: apiHoldoutActionValidator,
+  zodReturnObject: apiHoldoutActionReturn,
+  summary: "Start a Holdout analysis period",
+  possibleErrors: ["invalid_status"] as const,
+};
+
+export const holdoutStopEndpoint = {
+  pathFragment: "/:id/stop",
+  verb: "post" as const,
+  operationId: "stopHoldout",
+  validator: apiHoldoutActionValidator,
+  zodReturnObject: apiHoldoutActionReturn,
+  summary: "Stop a Holdout",
+  possibleErrors: ["invalid_status"] as const,
 };
 
 export const holdoutApiSpec = {
@@ -32,12 +53,16 @@ export const holdoutApiSpec = {
   crudValidatorOverrides: {
     list: apiListHoldoutsValidator,
   },
-  customEndpoints: [holdoutStageEndpoint],
+  customEndpoints: [
+    holdoutStartEndpoint,
+    holdoutStartAnalysisEndpoint,
+    holdoutStopEndpoint,
+  ],
   crudDescriptions: {
     create:
-      "Creates a Holdout. The Holdout starts in the `draft` stage — use POST /holdouts/{id}/stage to start it.",
+      "Creates a Holdout. The Holdout starts in the `draft` stage. Use POST /holdouts/{id}/start to start it.",
     update:
-      "Updates a Holdout. Use POST /holdouts/{id}/stage to change the stage.",
+      "Updates a Holdout. Use the start, start-analysis, and stop endpoints to move it through its lifecycle.",
   },
   navDescription:
     "Hold a share of traffic out of all experiments to measure their combined effect.",

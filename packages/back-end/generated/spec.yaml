@@ -49460,7 +49460,9 @@ paths:
     put:
       operationId: updateHoldout
       summary: Update a single holdout
-      description: Updates a Holdout. Use POST /holdouts/{id}/stage to change the stage.
+      description: >-
+        Updates a Holdout. Use the start, start-analysis, and stop endpoints to
+        move it through its lifecycle.
       tags:
         - Holdouts
       parameters:
@@ -49622,8 +49624,8 @@ paths:
       operationId: createHoldout
       summary: Create a single holdout
       description: >-
-        Creates a Holdout. The Holdout starts in the `draft` stage — use POST
-        /holdouts/{id}/stage to start it.
+        Creates a Holdout. The Holdout starts in the `draft` stage. Use POST
+        /holdouts/{id}/start to start it.
       tags:
         - Holdouts
       requestBody:
@@ -49830,10 +49832,10 @@ paths:
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/holdouts' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/holdouts/{id}/stage:
+  /v1/holdouts/{id}/start:
     post:
-      operationId: setHoldoutStage
-      summary: Move a Holdout to a different stage
+      operationId: startHoldout
+      summary: Start a Holdout
       tags:
         - Holdouts
       parameters:
@@ -49843,24 +49845,6 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                stage:
-                  description: The stage to move the Holdout to.
-                  type: string
-                  enum:
-                    - draft
-                    - running
-                    - analysis-period
-                    - stopped
-              required:
-                - stage
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -49874,11 +49858,134 @@ paths:
                 required:
                   - holdout
                 additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Resource is not in a valid status for this operation
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - invalid_status
+                  details:
+                    $ref: '#/components/schemas/ApiErrorInvalidStatusDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
-            curl -X POST 'https://api.growthbook.io/api/v1/holdouts/{id}/stage'
+            curl -X POST 'https://api.growthbook.io/api/v1/holdouts/{id}/start'
             \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/holdouts/{id}/start-analysis:
+    post:
+      operationId: startHoldoutAnalysis
+      summary: Start a Holdout analysis period
+      tags:
+        - Holdouts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  holdout:
+                    $ref: '#/components/schemas/Holdout'
+                required:
+                  - holdout
+                additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Resource is not in a valid status for this operation
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - invalid_status
+                  details:
+                    $ref: '#/components/schemas/ApiErrorInvalidStatusDetails'
+                required:
+                  - message
+                  - code
+                  - details
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/holdouts/{id}/start-analysis' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/holdouts/{id}/stop:
+    post:
+      operationId: stopHoldout
+      summary: Stop a Holdout
+      tags:
+        - Holdouts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  holdout:
+                    $ref: '#/components/schemas/Holdout'
+                required:
+                  - holdout
+                additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Resource is not in a valid status for this operation
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - invalid_status
+                  details:
+                    $ref: '#/components/schemas/ApiErrorInvalidStatusDetails'
+                required:
+                  - message
+                  - code
+                  - details
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/holdouts/{id}/stop' \
               -H 'Authorization: Bearer YOUR_API_KEY'
 components:
   parameters:
@@ -65639,8 +65746,8 @@ components:
           type: boolean
         stage:
           description: >-
-            Lifecycle stage of the Holdout. Change it with POST
-            /holdouts/{id}/stage.
+            Lifecycle stage of the Holdout. Use the start, start-analysis, and
+            stop endpoints to move through the lifecycle.
           type: string
           enum:
             - draft

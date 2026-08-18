@@ -1,7 +1,9 @@
 import {
   coverageToHoldoutSize,
+  getAllowedHoldoutStageSources,
   getHoldoutStage,
   holdoutSizeToCoverage,
+  isHoldoutStageTransitionAllowed,
   MAX_HOLDOUT_SIZE,
 } from "../../src/util/holdouts";
 
@@ -77,5 +79,34 @@ describe("getHoldoutStage", () => {
         getHoldoutStage({ analysisStartDate: "" }, { status: "running" }),
       ).toBe("running");
     });
+  });
+});
+
+describe("holdout stage transitions", () => {
+  it("allows forward lifecycle transitions and retries", () => {
+    expect(isHoldoutStageTransitionAllowed("draft", "running")).toBe(true);
+    expect(isHoldoutStageTransitionAllowed("running", "analysis-period")).toBe(
+      true,
+    );
+    expect(isHoldoutStageTransitionAllowed("running", "stopped")).toBe(true);
+    expect(isHoldoutStageTransitionAllowed("analysis-period", "stopped")).toBe(
+      true,
+    );
+    expect(isHoldoutStageTransitionAllowed("running", "running")).toBe(true);
+  });
+
+  it("rejects skipped and backward transitions", () => {
+    expect(isHoldoutStageTransitionAllowed("draft", "stopped")).toBe(false);
+    expect(isHoldoutStageTransitionAllowed("draft", "analysis-period")).toBe(
+      false,
+    );
+    expect(isHoldoutStageTransitionAllowed("stopped", "running")).toBe(false);
+  });
+
+  it("lists the valid sources for stopping", () => {
+    expect(getAllowedHoldoutStageSources("stopped")).toEqual([
+      "running",
+      "analysis-period",
+    ]);
   });
 });
