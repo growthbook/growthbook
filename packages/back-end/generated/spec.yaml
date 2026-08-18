@@ -943,6 +943,31 @@ paths:
                                       - match
                                       - ids
                                     additionalProperties: false
+                                savedGroupTargeting:
+                                  description: >-
+                                    Deprecated — use `savedGroups`. Accepted so
+                                    a GET response can be posted back unchanged;
+                                    `savedGroups` takes precedence if both are
+                                    sent.
+                                  deprecated: true
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      matchType:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - any
+                                          - none
+                                      savedGroups:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - matchType
+                                      - savedGroups
+                                    additionalProperties: false
                                 prerequisites:
                                   type: array
                                   items:
@@ -1022,6 +1047,31 @@ paths:
                                     required:
                                       - match
                                       - ids
+                                    additionalProperties: false
+                                savedGroupTargeting:
+                                  description: >-
+                                    Deprecated — use `savedGroups`. Accepted so
+                                    a GET response can be posted back unchanged;
+                                    `savedGroups` takes precedence if both are
+                                    sent.
+                                  deprecated: true
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      matchType:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - any
+                                          - none
+                                      savedGroups:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - matchType
+                                      - savedGroups
                                     additionalProperties: false
                                 prerequisites:
                                   type: array
@@ -1131,6 +1181,31 @@ paths:
                                     required:
                                       - match
                                       - ids
+                                    additionalProperties: false
+                                savedGroupTargeting:
+                                  description: >-
+                                    Deprecated — use `savedGroups`. Accepted so
+                                    a GET response can be posted back unchanged;
+                                    `savedGroups` takes precedence if both are
+                                    sent.
+                                  deprecated: true
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      matchType:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - any
+                                          - none
+                                      savedGroups:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - matchType
+                                      - savedGroups
                                     additionalProperties: false
                                 prerequisites:
                                   type: array
@@ -1351,6 +1426,31 @@ paths:
                                           - match
                                           - ids
                                         additionalProperties: false
+                                    savedGroupTargeting:
+                                      description: >-
+                                        Deprecated — use `savedGroups`. Accepted
+                                        so a GET response can be posted back
+                                        unchanged; `savedGroups` takes
+                                        precedence if both are sent.
+                                      deprecated: true
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          matchType:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - any
+                                              - none
+                                          savedGroups:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - matchType
+                                          - savedGroups
+                                        additionalProperties: false
                                     prerequisites:
                                       type: array
                                       items:
@@ -1430,6 +1530,31 @@ paths:
                                         required:
                                           - match
                                           - ids
+                                        additionalProperties: false
+                                    savedGroupTargeting:
+                                      description: >-
+                                        Deprecated — use `savedGroups`. Accepted
+                                        so a GET response can be posted back
+                                        unchanged; `savedGroups` takes
+                                        precedence if both are sent.
+                                      deprecated: true
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          matchType:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - any
+                                              - none
+                                          savedGroups:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - matchType
+                                          - savedGroups
                                         additionalProperties: false
                                     prerequisites:
                                       type: array
@@ -1539,6 +1664,31 @@ paths:
                                         required:
                                           - match
                                           - ids
+                                        additionalProperties: false
+                                    savedGroupTargeting:
+                                      description: >-
+                                        Deprecated — use `savedGroups`. Accepted
+                                        so a GET response can be posted back
+                                        unchanged; `savedGroups` takes
+                                        precedence if both are sent.
+                                      deprecated: true
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          matchType:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - any
+                                              - none
+                                          savedGroups:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - matchType
+                                          - savedGroups
                                         additionalProperties: false
                                     prerequisites:
                                       type: array
@@ -1942,6 +2092,31 @@ paths:
                                       - match
                                       - ids
                                     additionalProperties: false
+                                savedGroupTargeting:
+                                  description: >-
+                                    Deprecated — use `savedGroups`. Accepted so
+                                    a GET response can be posted back unchanged;
+                                    `savedGroups` takes precedence if both are
+                                    sent.
+                                  deprecated: true
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      matchType:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - any
+                                          - none
+                                      savedGroups:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - matchType
+                                      - savedGroups
+                                    additionalProperties: false
                                 prerequisites:
                                   type: array
                                   items:
@@ -2021,6 +2196,31 @@ paths:
                                     required:
                                       - match
                                       - ids
+                                    additionalProperties: false
+                                savedGroupTargeting:
+                                  description: >-
+                                    Deprecated — use `savedGroups`. Accepted so
+                                    a GET response can be posted back unchanged;
+                                    `savedGroups` takes precedence if both are
+                                    sent.
+                                  deprecated: true
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      matchType:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - any
+                                          - none
+                                      savedGroups:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - matchType
+                                      - savedGroups
                                     additionalProperties: false
                                 prerequisites:
                                   type: array
@@ -2130,6 +2330,31 @@ paths:
                                     required:
                                       - match
                                       - ids
+                                    additionalProperties: false
+                                savedGroupTargeting:
+                                  description: >-
+                                    Deprecated — use `savedGroups`. Accepted so
+                                    a GET response can be posted back unchanged;
+                                    `savedGroups` takes precedence if both are
+                                    sent.
+                                  deprecated: true
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      matchType:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - any
+                                          - none
+                                      savedGroups:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - matchType
+                                      - savedGroups
                                     additionalProperties: false
                                 prerequisites:
                                   type: array
@@ -2350,6 +2575,31 @@ paths:
                                           - match
                                           - ids
                                         additionalProperties: false
+                                    savedGroupTargeting:
+                                      description: >-
+                                        Deprecated — use `savedGroups`. Accepted
+                                        so a GET response can be posted back
+                                        unchanged; `savedGroups` takes
+                                        precedence if both are sent.
+                                      deprecated: true
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          matchType:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - any
+                                              - none
+                                          savedGroups:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - matchType
+                                          - savedGroups
+                                        additionalProperties: false
                                     prerequisites:
                                       type: array
                                       items:
@@ -2429,6 +2679,31 @@ paths:
                                         required:
                                           - match
                                           - ids
+                                        additionalProperties: false
+                                    savedGroupTargeting:
+                                      description: >-
+                                        Deprecated — use `savedGroups`. Accepted
+                                        so a GET response can be posted back
+                                        unchanged; `savedGroups` takes
+                                        precedence if both are sent.
+                                      deprecated: true
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          matchType:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - any
+                                              - none
+                                          savedGroups:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - matchType
+                                          - savedGroups
                                         additionalProperties: false
                                     prerequisites:
                                       type: array
@@ -2538,6 +2813,31 @@ paths:
                                         required:
                                           - match
                                           - ids
+                                        additionalProperties: false
+                                    savedGroupTargeting:
+                                      description: >-
+                                        Deprecated — use `savedGroups`. Accepted
+                                        so a GET response can be posted back
+                                        unchanged; `savedGroups` takes
+                                        precedence if both are sent.
+                                      deprecated: true
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          matchType:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - any
+                                              - none
+                                          savedGroups:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - matchType
+                                          - savedGroups
                                         additionalProperties: false
                                     prerequisites:
                                       type: array
@@ -6955,6 +7255,30 @@ paths:
                                 - match
                                 - ids
                               additionalProperties: false
+                          savedGroupTargeting:
+                            description: >-
+                              Deprecated — use `savedGroups`. Accepted so a GET
+                              response can be posted back unchanged;
+                              `savedGroups` takes precedence if both are sent.
+                            deprecated: true
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                matchType:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - any
+                                    - none
+                                savedGroups:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - matchType
+                                - savedGroups
+                              additionalProperties: false
                           prerequisites:
                             type: array
                             items:
@@ -7066,6 +7390,30 @@ paths:
                               required:
                                 - match
                                 - ids
+                              additionalProperties: false
+                          savedGroupTargeting:
+                            description: >-
+                              Deprecated — use `savedGroups`. Accepted so a GET
+                              response can be posted back unchanged;
+                              `savedGroups` takes precedence if both are sent.
+                            deprecated: true
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                matchType:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - any
+                                    - none
+                                savedGroups:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - matchType
+                                - savedGroups
                               additionalProperties: false
                           prerequisites:
                             type: array
@@ -7203,6 +7551,30 @@ paths:
                                 - match
                                 - ids
                               additionalProperties: false
+                          savedGroupTargeting:
+                            description: >-
+                              Deprecated — use `savedGroups`. Accepted so a GET
+                              response can be posted back unchanged;
+                              `savedGroups` takes precedence if both are sent.
+                            deprecated: true
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                matchType:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - any
+                                    - none
+                                savedGroups:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - matchType
+                                - savedGroups
+                              additionalProperties: false
                           prerequisites:
                             type: array
                             items:
@@ -7329,6 +7701,30 @@ paths:
                               required:
                                 - match
                                 - ids
+                              additionalProperties: false
+                          savedGroupTargeting:
+                            description: >-
+                              Deprecated — use `savedGroups`. Accepted so a GET
+                              response can be posted back unchanged;
+                              `savedGroups` takes precedence if both are sent.
+                            deprecated: true
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                matchType:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - any
+                                    - none
+                                savedGroups:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - matchType
+                                - savedGroups
                               additionalProperties: false
                           prerequisites:
                             type: array
@@ -7655,6 +8051,30 @@ paths:
                                 - match
                                 - ids
                               additionalProperties: false
+                          savedGroupTargeting:
+                            description: >-
+                              Deprecated — use `savedGroups`. Accepted so a GET
+                              response can be posted back unchanged;
+                              `savedGroups` takes precedence if both are sent.
+                            deprecated: true
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                matchType:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - any
+                                    - none
+                                savedGroups:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - matchType
+                                - savedGroups
+                              additionalProperties: false
                           prerequisites:
                             type: array
                             items:
@@ -7766,6 +8186,30 @@ paths:
                               required:
                                 - match
                                 - ids
+                              additionalProperties: false
+                          savedGroupTargeting:
+                            description: >-
+                              Deprecated — use `savedGroups`. Accepted so a GET
+                              response can be posted back unchanged;
+                              `savedGroups` takes precedence if both are sent.
+                            deprecated: true
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                matchType:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - any
+                                    - none
+                                savedGroups:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - matchType
+                                - savedGroups
                               additionalProperties: false
                           prerequisites:
                             type: array
@@ -7903,6 +8347,30 @@ paths:
                                 - match
                                 - ids
                               additionalProperties: false
+                          savedGroupTargeting:
+                            description: >-
+                              Deprecated — use `savedGroups`. Accepted so a GET
+                              response can be posted back unchanged;
+                              `savedGroups` takes precedence if both are sent.
+                            deprecated: true
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                matchType:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - any
+                                    - none
+                                savedGroups:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - matchType
+                                - savedGroups
+                              additionalProperties: false
                           prerequisites:
                             type: array
                             items:
@@ -8029,6 +8497,30 @@ paths:
                               required:
                                 - match
                                 - ids
+                              additionalProperties: false
+                          savedGroupTargeting:
+                            description: >-
+                              Deprecated — use `savedGroups`. Accepted so a GET
+                              response can be posted back unchanged;
+                              `savedGroups` takes precedence if both are sent.
+                            deprecated: true
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                matchType:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - any
+                                    - none
+                                savedGroups:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - matchType
+                                - savedGroups
                               additionalProperties: false
                           prerequisites:
                             type: array
@@ -13392,6 +13884,30 @@ paths:
                             - match
                             - ids
                           additionalProperties: false
+                      savedGroupTargeting:
+                        description: >-
+                          Deprecated — use `savedGroups`. Accepted so a GET
+                          response can be posted back unchanged; `savedGroups`
+                          takes precedence if both are sent.
+                        deprecated: true
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            matchType:
+                              type: string
+                              enum:
+                                - all
+                                - any
+                                - none
+                            savedGroups:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - matchType
+                            - savedGroups
+                          additionalProperties: false
                       variationWeights:
                         description: >-
                           Deprecated: use `trafficSplit`. Takes precedence if
@@ -14066,6 +14582,30 @@ paths:
                           required:
                             - match
                             - ids
+                          additionalProperties: false
+                      savedGroupTargeting:
+                        description: >-
+                          Deprecated — use `savedGroups`. Accepted so a GET
+                          response can be posted back unchanged; `savedGroups`
+                          takes precedence if both are sent.
+                        deprecated: true
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            matchType:
+                              type: string
+                              enum:
+                                - all
+                                - any
+                                - none
+                            savedGroups:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - matchType
+                            - savedGroups
                           additionalProperties: false
                       variationWeights:
                         description: >-

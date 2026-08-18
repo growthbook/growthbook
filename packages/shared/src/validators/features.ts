@@ -1407,13 +1407,15 @@ const postFeatureRuleProjectScopeShape = {
     .optional(),
 };
 
-// `savedGroupTargeting` is the response spelling: accepted, undocumented, loses.
 const v1RuleSavedGroupInput = {
   savedGroups: z.array(savedGroupTargeting).optional(),
   savedGroupTargeting: z
     .array(postFeatureSavedGroupTargeting)
     .optional()
-    .meta({ "x-undocumented": true }),
+    .describe(
+      "Deprecated — use `savedGroups`. Accepted so a GET response can be posted back unchanged; `savedGroups` takes precedence if both are sent.",
+    )
+    .meta({ deprecated: true }),
 };
 
 const postFeatureForceRule = z.object({

@@ -328,36 +328,6 @@ function stripDefaultedFromRequired(node: unknown): void {
   }
 }
 
-// Drop properties marked `x-undocumented`: inputs we still accept but don't
-// advertise. Request schemas only, so responses keep describing what we return.
-function stripUndocumentedProperties(node: unknown): void {
-  if (Array.isArray(node)) {
-    node.forEach(stripUndocumentedProperties);
-    return;
-  }
-  if (!node || typeof node !== "object") return;
-  const obj = node as Record<string, unknown>;
-
-  const props = obj.properties as Record<string, unknown> | undefined;
-  if (props) {
-    for (const [name, prop] of Object.entries(props)) {
-      const schema = prop as Record<string, unknown> | undefined;
-      if (schema && typeof schema === "object" && schema["x-undocumented"]) {
-        delete props[name];
-        if (Array.isArray(obj.required)) {
-          const filtered = (obj.required as string[]).filter((r) => r !== name);
-          if (filtered.length) obj.required = filtered;
-          else delete obj.required;
-        }
-      }
-    }
-  }
-
-  for (const value of Object.values(obj)) {
-    stripUndocumentedProperties(value);
-  }
-}
-
 /**
  * Build a cURL code sample from the example request data and route metadata.
  */
@@ -684,7 +654,6 @@ curl https://api.growthbook.io/api/v1/features \
     if (isNonEmptySchema(schemas?.params)) {
       const jsonSchema = toOpenApiSchema(schemas.params);
       stripDefaultedFromRequired(jsonSchema);
-      stripUndocumentedProperties(jsonSchema);
       Object.entries(jsonSchema.properties ?? {}).forEach(([name, schema]) => {
         const isRequired = (jsonSchema.required ?? []).includes(name);
         const parameter: Parameter = {
@@ -720,7 +689,6 @@ curl https://api.growthbook.io/api/v1/features \
     if (isNonEmptySchema(schemas?.query)) {
       const jsonSchema = toOpenApiSchema(schemas.query);
       stripDefaultedFromRequired(jsonSchema);
-      stripUndocumentedProperties(jsonSchema);
       Object.entries(jsonSchema.properties ?? {}).forEach(([name, schema]) => {
         const isRequired = (jsonSchema.required ?? []).includes(name);
         // Hoist x- extension fields — plus serialization fields like
@@ -769,7 +737,6 @@ curl https://api.growthbook.io/api/v1/features \
     if (isNonEmptySchema(schemas?.body)) {
       const jsonSchema = toOpenApiSchema(schemas.body);
       stripDefaultedFromRequired(jsonSchema);
-      stripUndocumentedProperties(jsonSchema);
       requestBody = {
         required: !(schemas.body instanceof z.ZodOptional),
         content: {

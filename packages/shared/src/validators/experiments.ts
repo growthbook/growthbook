@@ -756,12 +756,13 @@ const apiPhaseSavedGroupTargeting = z
   )
   .optional();
 
-// `savedGroupTargeting` is the response spelling: accepted, undocumented, loses.
 const phaseSavedGroupInput = {
   savedGroups: z.array(savedGroupTargeting).optional(),
-  savedGroupTargeting: apiPhaseSavedGroupTargeting.meta({
-    "x-undocumented": true,
-  }),
+  savedGroupTargeting: apiPhaseSavedGroupTargeting
+    .describe(
+      "Deprecated — use `savedGroups`. Accepted so a GET response can be posted back unchanged; `savedGroups` takes precedence if both are sent.",
+    )
+    .meta({ deprecated: true }),
 };
 
 // Phase sub-schema for API responses
