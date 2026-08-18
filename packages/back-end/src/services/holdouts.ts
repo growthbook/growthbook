@@ -10,10 +10,15 @@ import {
   validateCondition,
 } from "shared/util";
 import {
+  ApiUpdateHoldoutBody,
   CreateHoldoutInput,
   HoldoutInterface,
   HoldoutNextScheduledStatusUpdate,
+  HOLDOUT_API_EXPERIMENT_UPDATE_FIELDS,
+  HOLDOUT_API_TARGETING_UPDATE_FIELDS,
+  HOLDOUT_API_UPDATE_FIELDS,
 } from "shared/validators";
+import { UpdateProps } from "shared/types/base-model";
 import {
   Changeset,
   ExperimentInterface,
@@ -21,6 +26,7 @@ import {
 } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
 import { DataSourceInterface } from "shared/types/datasource";
+import { resolveOwnerToUserId } from "back-end/src/services/owner";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -252,8 +258,8 @@ export async function createHoldoutWithExperiment(
     hypothesis: "",
     goalMetrics: data.goalMetrics || [],
     secondaryMetrics: data.secondaryMetrics || [],
-    guardrailMetrics: data.guardrailMetrics || [],
-    activationMetric: data.activationMetric || "",
+    guardrailMetrics: [],
+    activationMetric: "",
     metricOverrides: [],
     segment: "",
     queryFilter: "",
@@ -300,6 +306,154 @@ export async function createHoldoutWithExperiment(
   }
 
   return { holdout, experiment, datasource, metricIds };
+}
+
+/**
+ * Applies a validated REST update body to a Holdout and its companion
+ * experiment. Splits the work across the three storage locations a Holdout
+ * spans — the current experiment phase (targeting/sizing), the experiment
+ * document (metadata and analysis settings), and the holdout document itself —
+ * and returns the refreshed pair. Permission gating is the caller's job.
+ */
+export async function updateHoldoutWithExperiment(
+  context: ReqContext | ApiReqContext,
+  {
+    holdout,
+    experiment,
+    body,
+  }: {
+    holdout: HoldoutInterface;
+    experiment: ExperimentInterface;
+    body: ApiUpdateHoldoutBody;
+  },
+): Promise<{ holdout: HoldoutInterface; experiment: ExperimentInterface }> {
+  const experimentChanges: Partial<ExperimentInterface> = {};
+
+  // 1. Phase-level targeting and sizing.
+  const isTargetingChange = HOLDOUT_API_TARGETING_UPDATE_FIELDS.some(
+    (field) => body[field] !== undefined,
+  );
+  if (isTargetingChange) {
+    const phases = [...experiment.phases];
+    if (!phases.length) {
+      throw new Error("Holdout does not have a phase to target");
+    }
+
+    // Reject a malformed targeting condition up front rather than letting it
+    // break bucketing later. validateCondition treats undefined/"{}" as valid.
+    if (body.targetingCondition !== undefined) {
+      const conditionResult = validateCondition(body.targetingCondition);
+      if (!conditionResult.success) {
+        throw new Error(
+          `Invalid targeting condition: ${conditionResult.error}`,
+        );
+      }
+    }
+
+    const current = phases[phases.length - 1];
+    phases[phases.length - 1] = {
+      ...current,
+      condition: body.targetingCondition ?? current.condition,
+      savedGroups: body.savedGroupTargeting ?? current.savedGroups,
+      coverage:
+        body.holdoutSize === undefined
+          ? current.coverage
+          : holdoutSizeToCoverage(body.holdoutSize),
+    };
+
+    experimentChanges.phases = phases;
+    if (body.hashAttribute !== undefined) {
+      experimentChanges.hashAttribute = body.hashAttribute;
+    }
+  }
+
+  // 2. Metadata and analysis settings on the companion experiment.
+  for (const field of HOLDOUT_API_EXPERIMENT_UPDATE_FIELDS) {
+    if (body[field] !== undefined) {
+      (experimentChanges as Record<string, unknown>)[field] = body[field];
+    }
+  }
+  if (body.owner !== undefined) {
+    experimentChanges.owner = await resolveOwnerToUserId(body.owner, context);
+  }
+  // Validate analysis settings as a whole against the *effective* post-update
+  // values: the datasource exists, the goal/secondary metrics belong to it,
+  // and the assignment query is one of its exposure queries. Otherwise a bad
+  // id — including an old exposure query or metric left behind when only the
+  // datasource changes — slips through to snapshot/query time and fails there
+  // with a confusing error.
+  if (
+    body.datasourceId !== undefined ||
+    body.assignmentQueryId !== undefined ||
+    body.goalMetrics !== undefined ||
+    body.secondaryMetrics !== undefined
+  ) {
+    const { datasource } = await validateExperimentData(context, {
+      datasource: body.datasourceId ?? experiment.datasource,
+      goalMetrics: body.goalMetrics ?? experiment.goalMetrics,
+      secondaryMetrics: body.secondaryMetrics ?? experiment.secondaryMetrics,
+    });
+
+    assertValidAssignmentQuery(
+      datasource,
+      body.assignmentQueryId ?? experiment.exposureQueryId,
+    );
+
+    if (body.datasourceId !== undefined) {
+      experimentChanges.datasource = body.datasourceId;
+    }
+    if (body.assignmentQueryId !== undefined) {
+      experimentChanges.exposureQueryId = body.assignmentQueryId;
+    }
+  }
+  // The name is stored on both documents and must not drift.
+  if (body.name !== undefined) {
+    experimentChanges.name = body.name;
+  }
+
+  // Single write to the companion experiment.
+  if (Object.keys(experimentChanges).length) {
+    experiment = await updateExperiment({
+      context,
+      experiment,
+      changes: experimentChanges,
+    });
+  }
+
+  // 3. Fields on the holdout document itself.
+  const holdoutUpdates: UpdateProps<HoldoutInterface> = {};
+  for (const field of HOLDOUT_API_UPDATE_FIELDS) {
+    if (body[field] !== undefined) {
+      (holdoutUpdates as Record<string, unknown>)[field] = body[field];
+    }
+  }
+  if (body.name !== undefined) {
+    holdoutUpdates.name = body.name;
+  }
+  if (body.environments !== undefined) {
+    holdoutUpdates.environmentSettings = Object.fromEntries(
+      Object.entries(body.environments).map(([id, settings]) => [
+        id,
+        { enabled: settings.enabled },
+      ]),
+    );
+  }
+  if (body.statusUpdateSchedule !== undefined) {
+    Object.assign(
+      holdoutUpdates,
+      normalizeHoldoutScheduleUpdates({
+        holdout,
+        experiment,
+        scheduleInput: body.statusUpdateSchedule,
+      }),
+    );
+  }
+
+  const updatedHoldout = Object.keys(holdoutUpdates).length
+    ? await context.models.holdout.update(holdout, holdoutUpdates)
+    : holdout;
+
+  return { holdout: updatedHoldout, experiment };
 }
 
 export function normalizeHoldoutScheduleUpdates({
