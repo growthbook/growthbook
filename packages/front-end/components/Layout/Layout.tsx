@@ -244,8 +244,8 @@ const Layout = (): React.ReactElement => {
                   </button>
                 </li>
                 <ProjectSelector />
-                {navlinks.map((v, i) => (
-                  <SidebarLink {...v} key={i} />
+                {navlinks.map((v) => (
+                  <SidebarLink key={v.href} {...v} />
                 ))}
               </ul>
             </div>

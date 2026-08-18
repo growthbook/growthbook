@@ -33,6 +33,7 @@ import Redshift from "back-end/src/integrations/Redshift";
 import Snowflake from "back-end/src/integrations/Snowflake";
 import Postgres from "back-end/src/integrations/Postgres";
 import Vertica from "back-end/src/integrations/Vertica";
+import AdobeExperiencePlatformQueryService from "back-end/src/integrations/AdobeExperiencePlatformQueryService";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import ClickHouse from "back-end/src/integrations/ClickHouse";
 import Mixpanel from "back-end/src/integrations/Mixpanel";
@@ -94,6 +95,8 @@ function getIntegrationObj(
       return new Postgres(context, datasource);
     case "vertica":
       return new Vertica(context, datasource);
+    case "adobe_experience_platform_query_service":
+      return new AdobeExperiencePlatformQueryService(context, datasource);
     case "mysql":
       return new Mysql(context, datasource);
     case "mssql":

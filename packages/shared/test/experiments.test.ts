@@ -23,6 +23,9 @@ import {
   getRowFilterSQL,
   getEffectiveLookbackOverride,
   getIntersectionBaseMetricIds,
+  parseSliceQueryString,
+  parseSliceMetricId,
+  generateSliceString,
   getAllExpandedMetricIdsFromExperiment,
   ExperimentMetricInterface,
 } from "../src/experiments";
@@ -2302,6 +2305,49 @@ describe("getIntersectionBaseMetricIds", () => {
         ["m_b", "m_a?dim:x=y", "m_a"],
       ),
     ).toEqual(["m_b", "m_a"]);
+  });
+});
+
+describe("parseSliceQueryString", () => {
+  it("parses a simple slice query string", () => {
+    expect(parseSliceQueryString("dim:browser=Chrome&dim:country=AU")).toEqual([
+      { column: "browser", datatype: "string", levels: ["Chrome"] },
+      { column: "country", datatype: "string", levels: ["AU"] },
+    ]);
+  });
+
+  it("treats an empty value as no levels", () => {
+    expect(parseSliceQueryString("dim:browser=")).toEqual([
+      { column: "browser", datatype: "string", levels: [] },
+    ]);
+  });
+
+  it("round-trips values containing % and other special characters", () => {
+    const slices = {
+      promo: "50% off",
+      pattern: "%foo%",
+      "col%name": "a&b=c",
+    };
+    expect(parseSliceQueryString(generateSliceString(slices))).toEqual([
+      { column: "col%name", datatype: "string", levels: ["a&b=c"] },
+      { column: "pattern", datatype: "string", levels: ["%foo%"] },
+      { column: "promo", datatype: "string", levels: ["50% off"] },
+    ]);
+  });
+
+  it("parses slice metric ids with % in the level without throwing", () => {
+    const sliceString = generateSliceString({ query: "LIKE '%checkout%'" });
+    expect(parseSliceMetricId(`m_goal?${sliceString}`)).toEqual({
+      isSliceMetric: true,
+      baseMetricId: "m_goal",
+      sliceLevels: [
+        {
+          column: "query",
+          datatype: "string",
+          levels: ["LIKE '%checkout%'"],
+        },
+      ],
+    });
   });
 });
 

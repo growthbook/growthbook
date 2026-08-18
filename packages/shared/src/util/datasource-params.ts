@@ -206,6 +206,15 @@ const DATA_SOURCE_PARAM_SENSITIVITY = {
     viewId: "public",
     delimiter: "public",
   },
+
+  adobe_experience_platform_query_service: {
+    host: "public",
+    port: "public",
+    database: "public",
+    username: "public",
+    technicalAccountId: "public",
+    credential: "secret",
+  },
 } satisfies {
   [T in DataSourceType]: ParamClassification<DataSourceParamsForType<T>>;
 };

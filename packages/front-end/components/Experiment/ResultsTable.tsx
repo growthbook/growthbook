@@ -58,6 +58,7 @@ import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import HelperText from "@/ui/HelperText";
 import VariationLabel from "@/ui/VariationLabel";
 import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
+import { getTimeSeriesGraphVariations } from "@/services/timeSeriesVariations";
 import { DrilldownTooltip, isInteractiveElement } from "./DrilldownTooltip";
 import AlignedGraph from "./AlignedGraph";
 import ExperimentMetricTimeSeriesGraphWrapper from "./ExperimentMetricTimeSeriesGraphWrapper";
@@ -425,6 +426,7 @@ export default function ResultsTable({
   const showVariations = orderedVariations.map(
     (v) => !variationFilter?.includes(v.index),
   );
+  const timeSeriesVariations = getTimeSeriesGraphVariations(orderedVariations);
   const filteredVariations = orderedVariations.filter(
     (v) => !variationFilter?.includes(v.index),
   );
@@ -1317,7 +1319,7 @@ export default function ResultsTable({
                                           phase={phase}
                                           metric={row.metric}
                                           differenceType={differenceType}
-                                          variations={orderedVariations}
+                                          variations={timeSeriesVariations}
                                           showVariations={showVariations}
                                           statsEngine={statsEngine}
                                           pValueAdjustmentEnabled={

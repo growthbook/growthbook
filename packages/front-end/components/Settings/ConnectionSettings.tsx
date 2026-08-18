@@ -11,6 +11,7 @@ import PrestoForm from "./PrestoForm";
 import SnowflakeForm from "./SnowflakeForm";
 import MssqlForm from "./MssqlForm";
 import DatabricksForm from "./DatabricksForm";
+import AdobeExperiencePlatformQueryServiceForm from "./AdobeExperiencePlatformQueryServiceForm";
 import SharedConnectionSettings from "./SharedConnectionSettings";
 
 export interface Props {
@@ -207,6 +208,15 @@ export default function ConnectionSettings({
         />
       );
       break;
+    case "adobe_experience_platform_query_service":
+      datasourceComponent = (
+        <AdobeExperiencePlatformQueryServiceForm
+          existing={storedCredentials}
+          onParamChange={onParamChange}
+          params={datasource?.params || {}}
+        />
+      );
+      break;
     default:
       invalidType = datasource.type;
       throw `Invalid type: ${invalidType}`;
@@ -216,6 +226,7 @@ export default function ConnectionSettings({
       {datasourceComponent}
       {beforeAdvancedSettings}
       <SharedConnectionSettings
+        type={datasource.type}
         onSettingChange={onSettingChange}
         settings={datasource?.settings || {}}
       />
