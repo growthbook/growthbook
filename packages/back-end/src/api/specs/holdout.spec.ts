@@ -16,7 +16,9 @@ export const holdoutStartEndpoint = {
   operationId: "startHoldout",
   validator: apiHoldoutActionValidator,
   zodReturnObject: apiHoldoutActionReturn,
-  summary: "Start a Holdout",
+  summary: "Start the Holdout's Active Period",
+  description:
+    "Feature Flags and experiments can be added during this period while the Holdout measures their cumulative impact.",
   possibleErrors: ["invalid_status"] as const,
 };
 
@@ -26,7 +28,9 @@ export const holdoutStartAnalysisEndpoint = {
   operationId: "startHoldoutAnalysis",
   validator: apiHoldoutActionValidator,
   zodReturnObject: apiHoldoutActionReturn,
-  summary: "Start a Holdout analysis period",
+  summary: "Start the Holdout's Analysis Period",
+  description:
+    "New Feature Flags and experiments can no longer be added, but existing traffic splits remain active. Results exclude data from before the analysis period so you can measure the cumulative impact after changes are frozen.",
   possibleErrors: ["invalid_status"] as const,
 };
 
