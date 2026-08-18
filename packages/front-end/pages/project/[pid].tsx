@@ -86,7 +86,8 @@ const ProjectPage: FC = () => {
 
   const checklist = data?.checklist;
 
-  const { dashboards } = useDashboards(false);
+  const canViewDashboards = hasCommercialFeature("dashboards");
+  const { dashboards } = useDashboards(false, () => canViewDashboards);
   const projectDashboards = useMemo(
     () =>
       dashboards.filter((d) => !d.projects?.length || d.projects.includes(pid)),
@@ -402,34 +403,39 @@ const ProjectPage: FC = () => {
                     </Flex>
                   </Flex>
                 </Frame>
-                <Frame>
-                  <Flex gap="4" mb="4">
-                    <Box width="220px" flexShrink="0">
-                      <Heading as="h4" size="md">
-                        Home Page Dashboard
-                      </Heading>
-                    </Box>
-                    <Flex align="start" direction="column" flexGrow="1">
-                      <Box mb="3" width="100%">
-                        <Heading as="h5" size="sm">
-                          Default Dashboard
+                {canViewDashboards && (
+                  <Frame>
+                    <Flex gap="4" mb="4">
+                      <Box width="220px" flexShrink="0">
+                        <Heading as="h4" size="md">
+                          Home Page Dashboard
                         </Heading>
-                        <p className="pt-2">
-                          Members of this project see this dashboard on their
-                          home page by default. They can still pick a different
-                          one for themselves.
-                        </p>
-                        <DashboardSelector
-                          dashboards={projectDashboards}
-                          value={form.watch("defaultDashboardId") || ""}
-                          setValue={(v) =>
-                            form.setValue("defaultDashboardId", v || undefined)
-                          }
-                        />
                       </Box>
+                      <Flex align="start" direction="column" flexGrow="1">
+                        <Box mb="3" width="100%">
+                          <Heading as="h5" size="sm">
+                            Default Dashboard
+                          </Heading>
+                          <p className="pt-2">
+                            Members of this project see this dashboard on their
+                            home page by default. They can still pick a
+                            different one for themselves.
+                          </p>
+                          <DashboardSelector
+                            dashboards={projectDashboards}
+                            value={form.watch("defaultDashboardId") || ""}
+                            setValue={(v) =>
+                              form.setValue(
+                                "defaultDashboardId",
+                                v || undefined,
+                              )
+                            }
+                          />
+                        </Box>
+                      </Flex>
                     </Flex>
-                  </Flex>
-                </Frame>
+                  </Frame>
+                )}
                 <div className="w-100 py-3" style={{ bottom: 0, height: 70 }}>
                   <div className="container-fluid pagecontents d-flex">
                     <div className="flex-grow-1 mr-4">
