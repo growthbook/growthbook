@@ -1026,29 +1026,19 @@ export default function ReviewAndPublish({
     });
 
   const [selectedExperiments, setSelectedExperiments] = useState(() =>
-    getDefaultSelectedExperimentIds(scheduledExperiments.map((e) => e.id)),
+    getDefaultSelectedExperimentIds(),
   );
-  // `experiments` is derived from the async `experimentsList` prop, so the
-  // useState initializer can run before it arrives. Reconcile: auto-select
-  // newly-appearing scheduled experiments, leave immediate-start unchecked,
-  // and drop ones that vanished while preserving explicit user selections.
-  const knownExperimentIdsRef = useRef<Set<string>>(
-    new Set(experiments.map((e) => e.id)),
-  );
+  // `experiments` is derived from the async `experimentsList` prop.
+  // Drop vanished ids and keep explicit user selections; never auto-check.
   useEffect(() => {
     const currentIds = new Set(experiments.map((e) => e.id));
-    const scheduledIds = new Set(scheduledExperiments.map((e) => e.id));
-    const known = knownExperimentIdsRef.current;
-    knownExperimentIdsRef.current = currentIds;
     setSelectedExperiments((prev) =>
       reconcileSelectedExperimentIds({
         prevSelected: prev,
         currentIds,
-        knownIds: known,
-        scheduledIds,
       }),
     );
-  }, [experiments, scheduledExperiments]);
+  }, [experiments]);
 
   const selectedImmediateCount = immediateStartExperiments.filter((e) =>
     selectedExperiments.has(e.id),
