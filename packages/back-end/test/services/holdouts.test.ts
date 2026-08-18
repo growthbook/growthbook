@@ -1,10 +1,28 @@
-import { ExperimentInterface } from "shared/types/experiment";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { HoldoutInterface, ApiUpdateHoldoutBody } from "shared/validators";
+import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import { CasConflictError } from "back-end/src/models/BaseModel";
+import { logger } from "back-end/src/util/logger";
+import type { ReqContext } from "back-end/types/request";
 import {
   getHoldoutLivePayloadChanges,
   getNextScheduledStatusUpdateForStage,
   isHoldoutExperiment,
   normalizeHoldoutScheduleUpdates,
+  setHoldoutStage,
+  updateHoldoutWithExperiment,
 } from "back-end/src/services/holdouts";
+
+jest.mock("back-end/src/models/ExperimentModel", () => ({
+  updateExperiment: jest.fn(),
+  createExperiment: jest.fn(),
+  deleteExperimentByIdForOrganization: jest.fn(),
+  getExperimentsByIds: jest.fn(),
+}));
+
+jest.mock("back-end/src/services/features", () => ({
+  queueSDKPayloadRefresh: jest.fn(),
+}));
 
 function makeExperiment(
   overrides: Partial<ExperimentInterface> = {},
@@ -16,7 +34,7 @@ function makeExperiment(
   } as unknown as ExperimentInterface;
 }
 
-function makeHoldout(
+function makeHoldoutExperiment(
   phases: { coverage: number }[],
 ): ExperimentInterface & { type: "holdout" } {
   return makeExperiment({
@@ -47,7 +65,7 @@ describe("isHoldoutExperiment", () => {
 });
 
 describe("getHoldoutLivePayloadChanges", () => {
-  const experiment = makeHoldout([{ coverage: 0.1 }]);
+  const experiment = makeHoldoutExperiment([{ coverage: 0.1 }]);
 
   it("reports a change when coverage differs from phase 0", () => {
     expect(getHoldoutLivePayloadChanges(experiment, 0.2)).toEqual({
@@ -71,7 +89,10 @@ describe("getHoldoutLivePayloadChanges", () => {
   });
 
   it("uses phase 0 as the payload phase, ignoring later phases", () => {
-    const multiPhase = makeHoldout([{ coverage: 0.1 }, { coverage: 0.9 }]);
+    const multiPhase = makeHoldoutExperiment([
+      { coverage: 0.1 },
+      { coverage: 0.9 },
+    ]);
     // Matches phase 0 (0.1) -> no change, even though phase 1 differs.
     expect(
       getHoldoutLivePayloadChanges(multiPhase, 0.1).changesLivePayload,
@@ -331,5 +352,121 @@ describe("getNextScheduledStatusUpdateForStage", () => {
     expect(
       getNextScheduledStatusUpdateForStage({ startAt: SOON }, "draft"),
     ).toBeNull();
+  });
+});
+
+describe("rollbackExperimentAfterHoldoutFailure guard", () => {
+  const mockUpdateExperiment = updateExperiment as jest.Mock;
+
+  const makeRollbackExperiment = (
+    overrides: Partial<ExperimentInterface> = {},
+  ): ExperimentInterface =>
+    ({
+      id: "exp_1",
+      organization: "org",
+      name: "Old",
+      status: "running",
+      phases: [{ dateEnded: undefined }],
+      dateUpdated: new Date("2026-07-28T12:00:00.000Z"),
+      ...overrides,
+    }) as unknown as ExperimentInterface;
+
+  const makeRollbackHoldout = (
+    overrides: Partial<HoldoutInterface> = {},
+  ): HoldoutInterface =>
+    ({
+      id: "hld_1",
+      organization: "org",
+      name: "Old",
+      projects: [],
+      environmentSettings: {},
+      statusUpdateSchedule: null,
+      nextScheduledStatusUpdate: null,
+      analysisStartDate: undefined,
+      ...overrides,
+    }) as unknown as HoldoutInterface;
+
+  const makeContext = (holdoutUpdate: jest.Mock): ReqContext =>
+    ({
+      org: { id: "org", settings: {} },
+      models: { holdout: { update: holdoutUpdate } },
+    }) as unknown as ReqContext;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe("metadata updates", () => {
+    it("guards the rollback on the fields the update wrote, not dateUpdated", async () => {
+      const experiment = makeRollbackExperiment();
+      mockUpdateExperiment
+        .mockResolvedValueOnce(makeRollbackExperiment({ name: "New" }))
+        .mockResolvedValueOnce(makeRollbackExperiment({ name: "Old" }));
+      const holdoutUpdate = jest
+        .fn()
+        .mockRejectedValue(new Error("holdout down"));
+
+      await expect(
+        updateHoldoutWithExperiment(makeContext(holdoutUpdate), {
+          holdout: makeRollbackHoldout(),
+          experiment,
+          body: { name: "New" } as ApiUpdateHoldoutBody,
+        }),
+      ).rejects.toThrow("holdout down");
+
+      expect(mockUpdateExperiment).toHaveBeenCalledTimes(2);
+      const rollbackCall = mockUpdateExperiment.mock.calls[1][0];
+      expect(rollbackCall.guard).toEqual({ name: "New" });
+      expect(rollbackCall.changes).toEqual({ name: "Old" });
+    });
+
+    it("skips the rollback and warns when a written field changed concurrently", async () => {
+      mockUpdateExperiment
+        .mockResolvedValueOnce(makeRollbackExperiment({ name: "New" }))
+        .mockRejectedValueOnce(new CasConflictError());
+      const holdoutUpdate = jest
+        .fn()
+        .mockRejectedValue(new Error("holdout down"));
+      const warn = jest.spyOn(logger, "warn").mockImplementation();
+
+      await expect(
+        updateHoldoutWithExperiment(makeContext(holdoutUpdate), {
+          holdout: makeRollbackHoldout(),
+          experiment: makeRollbackExperiment(),
+          body: { name: "New" } as ApiUpdateHoldoutBody,
+        }),
+      ).rejects.toThrow("holdout down");
+
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0][0]).toContain("may need reconciling");
+    });
+  });
+
+  describe("lifecycle transitions", () => {
+    it("guards the rollback on the status and phases it wrote", async () => {
+      const experiment = makeRollbackExperiment({ status: "running" });
+      mockUpdateExperiment
+        .mockResolvedValueOnce(makeRollbackExperiment({ status: "stopped" }))
+        .mockResolvedValueOnce(makeRollbackExperiment({ status: "running" }));
+      const holdoutUpdate = jest
+        .fn()
+        .mockRejectedValue(new Error("holdout down"));
+
+      await expect(
+        setHoldoutStage(makeContext(holdoutUpdate), {
+          holdout: makeRollbackHoldout(),
+          experiment,
+          stage: "stopped",
+        }),
+      ).rejects.toThrow("holdout down");
+
+      expect(mockUpdateExperiment).toHaveBeenCalledTimes(2);
+      const forwardChanges = mockUpdateExperiment.mock.calls[0][0].changes;
+      const rollbackCall = mockUpdateExperiment.mock.calls[1][0];
+      // The guard is exactly the changeset the forward write applied.
+      expect(rollbackCall.guard).toBe(forwardChanges);
+      expect(rollbackCall.guard.status).toBe("stopped");
+      expect(rollbackCall.changes.status).toBe("running");
+    });
   });
 });
