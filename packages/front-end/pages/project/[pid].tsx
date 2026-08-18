@@ -270,10 +270,10 @@ const ProjectPage: FC = () => {
         )}
 
         <Box mt="4">
-          <Tabs defaultValue="settings">
+          <Tabs defaultValue="members">
             <TabsList>
-              <TabsTrigger value="settings">Experiment Settings</TabsTrigger>
               <TabsTrigger value="members">Project Members</TabsTrigger>
+              <TabsTrigger value="settings">Experiment Settings</TabsTrigger>
             </TabsList>
             <Box pt="4">
               <TabsContent value="settings">
