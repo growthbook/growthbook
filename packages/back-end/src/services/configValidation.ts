@@ -377,13 +377,7 @@ export async function assertConfigValueValidForPublish(
             comment: revision.comment,
             authorId: revision.authorId,
             contributors: revision.contributors,
-            reviews: revision.reviews.map((r) => ({
-              userId: r.userId,
-              decision: r.decision,
-              comment: r.comment,
-              stale: r.stale,
-              dateCreated: r.dateCreated,
-            })),
+            reviews: revision.reviews,
           }
         : undefined,
     });
@@ -785,7 +779,15 @@ export async function collectConfigPublishHookGates({
       extends: config.extends,
       extensible: config.extensible,
     },
-    revision,
+    revision: {
+      version: revision.version,
+      status: revision.status,
+      title: revision.title,
+      comment: revision.comment,
+      authorId: revision.authorId,
+      contributors: revision.contributors,
+      reviews: revision.reviews,
+    },
   });
   return hookResultsToGates(hookResults, bypassApprovalPermission("config"));
 }

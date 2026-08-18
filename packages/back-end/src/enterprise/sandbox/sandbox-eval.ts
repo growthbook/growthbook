@@ -11,6 +11,7 @@ import {
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
 import { teamsForMember } from "shared/permissions";
+import { toHookReviewerVerdicts } from "shared/enterprise";
 import {
   buildConstantValueMap,
   resolveConstantRefs,
@@ -23,7 +24,10 @@ import { SoftWarningError } from "back-end/src/util/errors";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { Context } from "back-end/src/models/BaseModel";
-import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
+import {
+  expandOrgMembers,
+  getContextForAgendaJobByOrgObject,
+} from "back-end/src/services/organizations";
 import {
   configToResolvable,
   ResolvableValue,
@@ -69,6 +73,42 @@ function withReviewerTeams<
       teams: teamsForMember(r.userId, context.org, context.teams ?? []),
     })),
   };
+}
+
+/**
+ * Reviewer verdicts in the shape hooks see, with each reviewer's event user and
+ * current teams. Only called once a hook is known to match, so the member
+ * expansion never runs on the ordinary publish path.
+ *
+ * The generic revision stores only a userId, so the event user is reconstructed:
+ * a reviewer who is still a member is a dashboard user, and anything else is an
+ * API key, whose id is what the review recorded.
+ */
+async function hookReviewerVerdicts(
+  context: Context,
+  reviews: {
+    userId: string;
+    decision: string;
+    stale?: boolean;
+    dateCreated: Date;
+  }[],
+) {
+  const members = await expandOrgMembers(context.org.members ?? []);
+  const byId = new Map(members.map((m) => [m.id, m]));
+  return toHookReviewerVerdicts(reviews, (userId) => {
+    const member = byId.get(userId);
+    return {
+      user: member
+        ? {
+            type: "dashboard" as const,
+            id: member.id,
+            name: member.name || "",
+            email: member.email,
+          }
+        : { type: "api_key" as const, apiKey: userId },
+      teams: teamsForMember(userId, context.org, context.teams ?? []),
+    };
+  });
 }
 
 export async function runValidateFeatureRevisionHooks({
@@ -416,14 +456,14 @@ export type ConfigRevisionHookInput = {
   comment?: string;
   authorId: string;
   contributors?: string[];
+  // Stored verdicts as-is; prepareConfigRevisionHookCall maps them to the
+  // feature-shaped `{ userId, user, status, timestamp, teams }` hooks receive.
   reviews: {
     userId: string;
     decision: string;
     comment?: string;
     stale?: boolean;
     dateCreated: Date;
-    // Attached at call time by withReviewerTeams; not stored on the revision.
-    teams?: { id: string; name: string }[];
   }[];
 };
 
@@ -447,10 +487,15 @@ async function prepareConfigRevisionHookCall({
     return null;
   }
   const enriched = await prepareConfigHookArgs(context, config, original);
+  const revisionArg = revision
+    ? {
+        ...revision,
+        reviews: await hookReviewerVerdicts(context, revision.reviews),
+      }
+    : null;
   // Args are injected by destructuring, so `revision` must always be bound —
   // an absent key makes `if (revision)` a ReferenceError inside the hook.
   // Direct publishes (REST value update, revert) have no revision → null.
-  const revisionArg = withReviewerTeams(context, revision) ?? null;
   return [
     context,
     "validateConfigRevision",

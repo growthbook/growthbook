@@ -234,6 +234,8 @@ The hook runs at publish time with `revision.status === "published"` on the prop
 - `timestamp` — when the verdict was submitted. Compare against `revision.dateUpdated` to detect approvals that predate later edits.
 - `teams` — the teams the reviewer belongs to _right now_, as `[{ id, name }]`, so a policy can key on team instead of on a list of user IDs. Resolved at publish time from current membership, not recorded when the verdict was given: moving someone out of a team stops their approval satisfying a team requirement. Empty for API-key reviewers and for anyone no longer in the organization.
 
+`validateConfigRevision` exposes reviewers in this same shape, so one policy can be written against both. Comments are not verdicts and never appear in `reviews`, and each reviewer appears once, with their latest verdict.
+
 Disable **Incremental Changes Only** for publish-gating hooks so the policy is enforced on every publish.
 
 Example: Require approval from a specific service account plus at least one human.

@@ -640,3 +640,58 @@ export function getRevisionNumberById<
     ]),
   );
 }
+
+/** Verdict statuses exposed to custom hooks, matching the feature revision shape. */
+export type ReviewerVerdictStatus =
+  | "approved"
+  | "changes-requested"
+  | "approved-stale"
+  | "changes-requested-stale";
+
+const VERDICT_BASE: Record<string, "approved" | "changes-requested"> = {
+  approve: "approved",
+  "request-changes": "changes-requested",
+};
+
+/**
+ * Stored verdicts in the shape custom hooks see: one entry per reviewer, latest
+ * first-class verdict only, comments dropped, and the generic
+ * `decision` + `stale` pair collapsed into the feature flow's single `status`.
+ *
+ * `enrich` supplies the parts only the caller can resolve — the reviewer's event
+ * user and their current teams.
+ */
+export function toHookReviewerVerdicts<U, T>(
+  reviews: {
+    userId: string;
+    decision: string;
+    stale?: boolean;
+    dateCreated: Date;
+  }[],
+  enrich: (userId: string) => { user: U; teams: T[] },
+): {
+  userId: string;
+  user: U;
+  status: ReviewerVerdictStatus;
+  timestamp: Date;
+  teams: T[];
+}[] {
+  const latest = new Map<
+    string,
+    { status: ReviewerVerdictStatus; timestamp: Date }
+  >();
+  for (const r of reviews) {
+    const base = VERDICT_BASE[r.decision];
+    if (!base) continue;
+    const status = (r.stale ? `${base}-stale` : base) as ReviewerVerdictStatus;
+    const existing = latest.get(r.userId);
+    if (existing && existing.timestamp > r.dateCreated) continue;
+    latest.set(r.userId, { status, timestamp: r.dateCreated });
+  }
+  return Array.from(latest, ([userId, v]) => ({
+    userId,
+    ...enrich(userId),
+    status: v.status,
+    timestamp: v.timestamp,
+  }));
+}
