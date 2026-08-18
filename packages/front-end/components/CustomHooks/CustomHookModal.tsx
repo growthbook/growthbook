@@ -6,7 +6,7 @@ import {
   hookEntityType,
 } from "shared/validators";
 import { CreateProps } from "shared/types/base-model";
-import { Flex, Kbd, Separator } from "@radix-ui/themes";
+import { Box, Flex, Kbd, Separator } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -16,7 +16,6 @@ import {
 } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 import { useFeaturesList } from "@/services/features";
-import { Select, SelectItem } from "@/ui/Select";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -423,11 +422,14 @@ export default function CustomHookModal({
   const showFeaturePicker =
     !feature && "feature" in (hookTypeData?.availableArguments ?? {});
 
+  // An empty id is the "use the sample values" option, which puts the generic
+  // fixture back so the picker isn't a one-way door.
   const prefillFromFeature = (id: string) => {
     setPrefillFeatureId(id);
     const picked = featuresList.find((f) => f.id === id);
-    if (!picked) return;
-    const json = stringify(picked);
+    const json = picked
+      ? stringify(picked)
+      : hookTypeData.availableArguments.feature.testValue;
     setTestValues((v) => ({ ...v, feature: json }));
     setPriorTestValues((v) => ({ ...v, feature: json }));
   };
@@ -623,19 +625,13 @@ export default function CustomHookModal({
         <div style={{ width: "50%" }}>
           <h3>Test Your Hook</h3>
           {showFeaturePicker && (
-            <Select
+            <SelectField
               label="Prefill from a Feature Flag"
-              placeholder="Use the sample values"
+              initialOption="Use the sample values"
               value={prefillFeatureId}
-              setValue={prefillFromFeature}
-              mb="3"
-            >
-              {featuresList.map((f) => (
-                <SelectItem key={f.id} value={f.id}>
-                  {f.id}
-                </SelectItem>
-              ))}
-            </Select>
+              onChange={prefillFromFeature}
+              options={featuresList.map((f) => ({ label: f.id, value: f.id }))}
+            />
           )}
           {Object.keys(hookTypeData?.availableArguments).map((arg) => (
             <CodeTextArea
@@ -716,7 +712,7 @@ export default function CustomHookModal({
             </div>
           )}
           {testResult.suppressed && (
-            <div className="mt-3">
+            <Box mt="3">
               <strong>Suppressed by Incremental Changes Only:</strong>
               {[
                 ...(testResult.suppressed.error
@@ -728,7 +724,7 @@ export default function CustomHookModal({
                   {m}
                 </Callout>
               ))}
-            </div>
+            </Box>
           )}
           {testResult.returnVal && (
             <div className="mt-3">
