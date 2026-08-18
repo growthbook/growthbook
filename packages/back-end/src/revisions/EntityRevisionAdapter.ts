@@ -69,7 +69,18 @@ export function revisionActionHooks<TSnapshot extends Record<string, unknown>>({
       context.permissions.canRevisionAction(model, "draft", {
         projects: projectsOf(snapshot),
       }),
-    canReview: (context, snapshot) => scoped("review", context, snapshot),
+    // `environments` is the caller's change-aware footprint (see
+    // reviewFootprintFor). Falling back to envsOf keeps callers that cannot
+    // compute one working, and an absent narrowing fails closed.
+    canReview: (context, snapshot, environments) =>
+      environments !== undefined
+        ? context.permissions.canRevisionAction(
+            model,
+            "review",
+            { projects: projectsOf(snapshot) },
+            environments,
+          )
+        : scoped("review", context, snapshot),
     canPublishRevision: (context, snapshot) =>
       scoped("publish", context, snapshot),
     canRevert: (context, snapshot) => scoped("revert", context, snapshot),
@@ -148,7 +159,11 @@ export interface EntityRevisionAdapter<
   canManageDrafts?(context: Context, snapshot: TSnapshot): boolean;
 
   /** Approve / request changes / undo a verdict. */
-  canReview?(context: Context, snapshot: TSnapshot): boolean;
+  canReview?(
+    context: Context,
+    snapshot: TSnapshot,
+    environments?: string[] | null,
+  ): boolean;
 
   /** Restore a previously-published revision. */
   canRevert?(context: Context, snapshot: TSnapshot): boolean;

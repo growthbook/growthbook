@@ -79,6 +79,33 @@ export type RevisionActionKind =
  * deliberately no scope argument to pass wrongly. Verbs that LAND on live keep
  * the explicit scope via `canDoRevisionAction`.
  */
+/**
+ * The environments a reviewer must hold authority in to approve this revision:
+ * the publish footprint of the very same change. Deriving both from one function
+ * is what makes "you may not approve what you could not publish" structural
+ * rather than a convention two call sites have to remember.
+ *
+ * `[]` here means the change binds no environment (a base value, metadata), and
+ * the review branch of `canRevisionAction` reads that as "needs authority no
+ * environment limit restricts" — fail closed.
+ */
+export function reviewFootprintFor(
+  context: Context,
+  revision: Pick<Revision, "target">,
+): string[] {
+  const adapter = getAdapter(revision.target.type);
+  const snapshot = revision.target.snapshot as Record<string, unknown>;
+  return resolvePublishFootprint(
+    context,
+    adapter.publishFootprint?.(
+      context,
+      snapshot,
+      revision.target.proposedChanges,
+    ),
+    snapshot,
+  );
+}
+
 export function canRevisionOwnedAction(
   context: Context,
   revision: Pick<Revision, "target">,
@@ -89,6 +116,7 @@ export function canRevisionOwnedAction(
     action,
     context,
     revision.target.snapshot as Record<string, unknown>,
+    action === "review" ? reviewFootprintFor(context, revision) : undefined,
   );
 }
 
@@ -104,6 +132,12 @@ export function canDoRevisionAction(
   // LIVE entity, because that is where the change lands. For draft/review prefer
   // `canRevisionOwnedAction`, which cannot be given the wrong one.
   snapshot: Record<string, unknown>,
+  // Review only: the environments this change would land in. Omitted for the
+  // other actions, which resolve their own scope from the adapter.
+  // Review only. A footprint scopes the check to what would land; `null` skips
+  // the environment constraint for union checks that are not sanctioning a
+  // change. Omitted falls back to the adapter's own scope.
+  environments?: string[] | null,
 ): boolean {
   const adapter = getAdapter(type);
   // Exhaustive on purpose: a new action must fail the build rather than fall
@@ -130,7 +164,11 @@ export function canDoRevisionAction(
       }
     }
   };
-  return (hookFor(action) ?? adapter.canUpdate)(context, snapshot);
+  return (hookFor(action) ?? adapter.canUpdate)(
+    context,
+    snapshot,
+    environments,
+  );
 }
 
 // Commenting is participation, not authority over the entity: the addComments
@@ -148,7 +186,7 @@ export function canCommentOnRevision(
   return (
     context.permissions.canAddComment(projects) ||
     canDoRevisionAction(type, "draft", context, snapshot) ||
-    canDoRevisionAction(type, "review", context, snapshot)
+    canDoRevisionAction(type, "review", context, snapshot, null)
   );
 }
 
@@ -162,7 +200,14 @@ export function canTouchRevision(
   snapshot: Record<string, unknown>,
 ): boolean {
   return (["draft", "review", "revert", "publish", "delete"] as const).some(
-    (action) => canDoRevisionAction(type, action, context, snapshot),
+    (action) =>
+      canDoRevisionAction(
+        type,
+        action,
+        context,
+        snapshot,
+        action === "review" ? null : undefined,
+      ),
   );
 }
 
@@ -522,9 +567,14 @@ export async function approveRevision(
   const canReview = adapter.canReview ?? adapter.canUpdate;
   // On the revision's SNAPSHOT, like every other review check (the preflight,
   // `addReview`'s CAS, the REST twin): a review belongs to the revision, whose
-  // project a later move on the live entity does not change.
+  // project a later move on the live entity does not change. The ENVIRONMENTS,
+  // though, come from the change — approving is scoped to what would land.
   if (
-    !canReview(context, revision.target.snapshot as Record<string, unknown>)
+    !canReview(
+      context,
+      revision.target.snapshot as Record<string, unknown>,
+      reviewFootprintFor(context, revision),
+    )
   ) {
     context.permissions.throwPermissionError();
   }
@@ -1350,6 +1400,8 @@ export async function submitRevisionReview({
           entityType,
           "review",
           revision.target.snapshot as Record<string, unknown>,
+          // Scoped to what the change would land, like the internal route.
+          reviewFootprintFor(context, revision),
         ))
   ) {
     context.permissions.throwPermissionError();
