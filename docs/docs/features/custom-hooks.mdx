@@ -92,6 +92,15 @@ Because execution continues after `addWarning`, you can raise warnings and still
 
 Each Custom Hook has an **Incremental Changes Only** option that affects behavior during update operations. When enabled, the hook is skipped if the same error was already present before the update.
 
+A hook receives only the arguments listed for its type, and they always describe the proposed state. To act on what a change introduces, check that state and enable this option: GrowthBook re-runs the hook against the previous state and discards the error when both runs report the same message, so avoid interpolating changing values into a message you want suppressed.
+
+```js
+// Blocks adding the "pii" tag; features that already carry it are unaffected.
+if ((feature.tags || []).includes("pii")) {
+  throw new Error("The 'pii' tag must be applied by a data steward.");
+}
+```
+
 This is especially useful for enforcing rules that may be difficult to fix retroactively. For example, if you require all features to have at least one tag, enabling this option will prevent users from being blocked by existing features that violate this rule when they attempt to make unrelated changes.
 
 In some cases, you should NOT enable this option. For example, a hook that prevents publishing changes to "locked" features should run every time to ensure the lock is still in place.
@@ -104,7 +113,9 @@ GrowthBook supports several Custom Hook types. Each is triggered at a different 
 
 ### validateFeature
 
-Called whenever a feature is about to be created or updated. Receives the full feature object as input.
+Called whenever the feature itself is written: on create, and on publish, including an edit that publishes immediately. Changes staged into a draft are covered by `validateFeatureRevision` instead.
+
+Receives one argument, `feature`: the feature as it will look once the change lands.
 
 Example: Require a non-empty description before the feature is toggled ON in production.
 
@@ -140,7 +151,22 @@ if (feature.valueType === "json" && feature.defaultValue === "{}") {
 
 ### validateFeatureRevision
 
-Called whenever a feature revision is about to be created or updated. Receives the full feature and the revision as inputs.
+Called whenever a feature revision is created or updated, including while a change is still staged in a draft.
+
+Receives two arguments:
+
+- `feature`: the live feature, as it stands before this revision publishes.
+- `revision`: the revision being written, including `version`, `baseVersion`, `status`, `comment`, `title`, `defaultValue`, `rules`, `createdBy`, `contributors`, `reviews`, and `metadata`.
+
+`revision.metadata` holds the feature-level fields the revision carries (`tags`, `description`, `owner`, `project`, `customFields`, `jsonSchema`, and more), captured when the draft was created and updated as further changes are staged. Publishing applies only the difference between the revision and its base, so a value here is not necessarily one this revision will change. Older revisions may omit fields, so read them with optional chaining.
+
+Example: Restrict who can add a sensitive tag. Enable **Incremental Changes Only** so features that already carry it aren't blocked on unrelated edits.
+
+```js
+if ((revision.metadata?.tags || []).includes("pii")) {
+  throw new Error("The 'pii' tag must be applied by a data steward.");
+}
+```
 
 Example: Require a comment before publishing a draft.
 
