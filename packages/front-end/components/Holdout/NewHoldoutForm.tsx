@@ -256,8 +256,6 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
       projects: value.projects,
       tags: value.tags,
       hashAttribute: value.hashAttribute,
-      // The UI edits phase coverage (twice the holdout size); flatten it back to
-      // the user-facing proportion the API expects.
       holdoutSize:
         phase?.coverage === undefined
           ? undefined
