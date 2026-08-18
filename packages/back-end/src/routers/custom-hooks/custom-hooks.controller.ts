@@ -4,8 +4,7 @@ import { CustomHookEntityType, CustomHookInterface } from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import { runInSandbox } from "back-end/src/enterprise/sandbox/sandbox-pool";
-import { applyIncrementalSuppression } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import { runCustomHookTest } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { revertCustomHookToVersion } from "back-end/src/services/customHookHistory";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -183,49 +182,14 @@ export const testCustomHook = async (
   }
 
   const { functionBody, functionArgs, originalFunctionArgs } = req.body;
-  const result = await runInSandbox(functionBody, functionArgs);
+  const result = await runCustomHookTest(
+    functionBody,
+    functionArgs,
+    originalFunctionArgs,
+  );
 
-  // With a previous state supplied, mirror what a real save would do: run the
-  // hook against it too and report which outcomes suppression would hide.
-  const incremental = originalFunctionArgs
-    ? await applyIncrementalSuppression(
-        functionBody,
-        result,
-        originalFunctionArgs,
-      )
-    : null;
-  const suppressedWarnings = incremental
-    ? result.warnings.filter((w) => !incremental.warnings.includes(w))
-    : [];
-  const suppressed =
-    incremental?.errorSuppressed || suppressedWarnings.length
-      ? {
-          ...(incremental?.errorSuppressed ? { error: result.error } : {}),
-          ...(suppressedWarnings.length
-            ? { warnings: suppressedWarnings }
-            : {}),
-        }
-      : undefined;
-
-  if (result.ok || incremental?.errorSuppressed) {
-    res.status(200).json({
-      status: 200,
-      success: true,
-      returnVal: result.returnVal
-        ? JSON.stringify(result.returnVal, null, 2)
-        : undefined,
-      warnings: incremental ? incremental.warnings : result.warnings,
-      log: result.log,
-      suppressed,
-    });
-  } else {
-    res.status(200).json({
-      status: 200,
-      success: false,
-      error: result.error || "Unknown error",
-      warnings: result.warnings,
-      log: result.log,
-      suppressed,
-    });
-  }
+  res.status(200).json({
+    status: 200,
+    ...result,
+  });
 };

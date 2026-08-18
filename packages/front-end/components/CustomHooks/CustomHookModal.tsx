@@ -545,6 +545,7 @@ export default function CustomHookModal({
               form.setValue("hook", value as CustomHookType);
               setTestValues(initialTestValues(value as CustomHookType));
               setPriorTestValues(initialTestValues(value as CustomHookType));
+              setPrefillFeatureId("");
             }}
           />
           {!scope && (
