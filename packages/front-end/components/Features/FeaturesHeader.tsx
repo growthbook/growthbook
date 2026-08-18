@@ -242,13 +242,14 @@ export default function FeaturesHeader({
     !isManagedFlag &&
     permissionsUtil.canPublishFeature(baseFeature, liveArchiveEnvs);
   const canToggleArchive =
-    (isArchived ? canUnarchive : canArchive) ||
-    canStageArchiveDraft({
-      permissions: permissionsUtil,
-      model: "feature",
-      entity: { project: baseFeature.project },
-      archived: !isArchived,
-    });
+    !isManagedFlag &&
+    ((isArchived ? canUnarchive : canArchive) ||
+      canStageArchiveDraft({
+        permissions: permissionsUtil,
+        model: "feature",
+        entity: { project: baseFeature.project },
+        archived: !isArchived,
+      }));
 
   // Tab chip + tooltip count revisions at "request review" or beyond; drafts
   // still being edited don't need reviewer/publisher attention.
@@ -634,21 +635,25 @@ export default function FeaturesHeader({
               <Tabs value={tab} onValueChange={setTab}>
                 <TabsList size="lg" style={{ width: "100%" }}>
                   <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="review">
-                    Review &amp; Publish
-                    {activeDraftCount > 0 && (
-                      <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
-                        <Badge
-                          label={String(activeDraftCount)}
-                          color="red"
-                          variant="solid"
-                          radius="full"
-                          ml="2"
-                          style={{ minWidth: 18, height: 18 }}
-                        />
-                      </Tooltip>
-                    )}
-                  </TabsTrigger>
+                  {/* Review and publish for a managed flag happen on its
+                      experiment; the feature routes refuse them here. */}
+                  {!isManagedFlag && (
+                    <TabsTrigger value="review">
+                      Review &amp; Publish
+                      {activeDraftCount > 0 && (
+                        <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
+                          <Badge
+                            label={String(activeDraftCount)}
+                            color="red"
+                            variant="solid"
+                            radius="full"
+                            ml="2"
+                            style={{ minWidth: 18, height: 18 }}
+                          />
+                        </Tooltip>
+                      )}
+                    </TabsTrigger>
+                  )}
                   <TabsTrigger value="test">Simulate</TabsTrigger>
                   <TabsTrigger value="stats">Code Refs</TabsTrigger>
                   <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>

@@ -16,6 +16,7 @@ import {
   getReviewSetting,
   getTargetingProjectIds,
   isRampScheduleServing,
+  isManagedFeature,
 } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { RxCircleBackslash } from "react-icons/rx";
@@ -433,15 +434,22 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const router = useRouter();
     const useDummyData = router.query["dummy"] === "true";
 
-    const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
+    // A flag an experiment manages refuses every direct rule write, so the rule
+    // menu must not offer edit / enable / disable / delete for it. The
+    // experiment owns those; ejecting reopens them.
+    const isManagedFlag = isManagedFeature(feature);
+
+    const canEdit =
+      !isManagedFlag && permissionsUtil.canEditFeatureDrafts(feature);
 
     const canPublishFeatureEnvs = useMemo(
       () =>
+        !isManagedFlag &&
         permissionsUtil.canPublishFeature(
           feature,
           environments.map((e) => e.id),
         ),
-      [feature, permissionsUtil, environments],
+      [feature, permissionsUtil, environments, isManagedFlag],
     );
 
     const canControlRamp = useMemo(() => {

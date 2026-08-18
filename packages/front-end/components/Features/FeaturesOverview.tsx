@@ -568,18 +568,21 @@ export default function FeaturesOverview({
   // between the revision card and sticky banner. Just a navigation affordance:
   // all lifecycle actions (review, publish, fix conflicts, discard) live on the
   // review tab, which evaluates the full policy matrix. Shown to everyone.
-  const draftCtaGroup = isDraft ? (
-    <Box>
-      <Button
-        icon={<FaArrowRight />}
-        iconPosition="right"
-        onClick={() => setTab("review")}
-        style={{ whiteSpace: "nowrap" as const }}
-      >
-        Review &amp; Publish
-      </Button>
-    </Box>
-  ) : null;
+  // Review & publish for a managed flag happens on its experiment; the feature
+  // routes refuse it here.
+  const draftCtaGroup =
+    isDraft && !isManagedFlag ? (
+      <Box>
+        <Button
+          icon={<FaArrowRight />}
+          iconPosition="right"
+          onClick={() => setTab("review")}
+          style={{ whiteSpace: "nowrap" as const }}
+        >
+          Review &amp; Publish
+        </Button>
+      </Box>
+    ) : null;
 
   const renderRevisionInfo = () => {
     return (

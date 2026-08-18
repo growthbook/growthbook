@@ -2,6 +2,7 @@ import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
+import { isManagedFeature } from "shared/util";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import FeaturesHeader from "@/components/Features/FeaturesHeader";
@@ -142,6 +143,14 @@ export default function FeaturePage() {
     }
   }, [router.asPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The selected tab is sticky in localStorage and can also arrive in the URL
+  // hash, so a managed flag can land on the hidden Review tab and render an
+  // empty shell. Overview is where its managed banner lives.
+  const isManagedFlag = !!baseFeature && isManagedFeature(baseFeature);
+  useEffect(() => {
+    if (isManagedFlag && tab === "review") setTab("overview");
+  }, [isManagedFlag, tab]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const dependents =
     (dependentsData?.features.length ?? 0) +
     (dependentsData?.experiments.length ?? 0);
@@ -217,7 +226,7 @@ export default function FeaturePage() {
           />
         )}
 
-        {tab === "review" && (
+        {tab === "review" && !isManagedFeature(baseFeature) && (
           <ReviewAndPublish
             feature={baseFeature}
             revisions={data.revisions}
