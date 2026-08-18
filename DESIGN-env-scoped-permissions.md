@@ -631,7 +631,10 @@ at all.
 - [ ] `maxConcurrentDrafts` → the other three entities
 - [ ] One draft-cap policy across both UI surfaces (modal's warn+acknowledge);
       drop the widget's `isAdmin` exemption
-- [ ] Delete dead `canBypassReview` / `resetReviewOnChange` stubs
+- [ ] Delete the dead `canBypassReview` settings field (declared in
+      `shared/types/organization.d.ts`, read nowhere). NOT `resetReviewOnChange`,
+      which an earlier draft lumped in with it — that one is live and load-bearing
+      in `shared/util/features.ts`.
 - [ ] Copy: widen `maxConcurrentDrafts` and `restApiBypassesReviews`; update
       `targetingReviewMode` copy _with_ its behaviour change
 - [ ] Leave `featureRegexValidator` / `featureKeyExample` feature-only
