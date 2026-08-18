@@ -206,8 +206,8 @@ export default function FunnelTabContent() {
     if (funnelMetricOptions.some((o) => o.value === linkedFunnelMetricId)) {
       return;
     }
-    // The metric link is optional metadata. A stale link must not discard a
-    // valid funnel restored from `?config=`.
+    // The link is optional metadata; the funnel itself can remain valid after
+    // the source metric is archived, deleted, or moves out of scope.
     setLinkedFunnelMetricId(null);
   }, [
     ready,
