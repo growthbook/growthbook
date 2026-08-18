@@ -1,5 +1,6 @@
 import { DashboardInterface } from "shared/enterprise";
 import { Flex } from "@radix-ui/themes";
+import { PiArrowRight } from "react-icons/pi";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Callout from "@/ui/Callout";
@@ -66,12 +67,14 @@ export default function DashboardView({
         nextUpdate={dashboard.nextUpdate}
         dashboardLastUpdated={dashboard.lastUpdated}
         dashboardComparison={dashboard.comparison}
+        showHeader={!maxBlocks}
       />
       {hasHiddenBlocks && (
-        <Flex justify="end" mt="2">
+        <Flex justify="end" align="center" gap="1" mt="2">
           <Link href={`/product-analytics/dashboards/${dashboard.id}`}>
-            View full dashboard →
+            View full dashboard
           </Link>
+          <PiArrowRight />
         </Flex>
       )}
     </DashboardSnapshotProvider>
