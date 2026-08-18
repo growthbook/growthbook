@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
@@ -17,6 +18,9 @@ import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import Field from "@/components/Forms/Field";
+import RadioGroup from "@/ui/RadioGroup";
+import VariationLabel from "@/ui/VariationLabel";
+import ValueDisplay from "@/components/Features/ValueDisplay";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -27,6 +31,8 @@ import useApi from "@/hooks/useApi";
  * the full modal's deferral, scheduling and diff machinery has nothing to act
  * on. The CTA comes from `getReviewAndPublishState` so it can't drift from it.
  */
+
+type ReviewDecision = "Comment" | "Requested Changes" | "Approved";
 
 type Props = {
   experiment: ExperimentInterfaceStringDates;
@@ -47,6 +53,7 @@ export default function ManagedFlagApproval({
   const permissionsUtil = usePermissionsUtil();
   const [open, setOpen] = useState(false);
   const [comment, setComment] = useState("");
+  const [decision, setDecision] = useState<ReviewDecision>("Comment");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -162,80 +169,106 @@ export default function ManagedFlagApproval({
     );
   });
 
-  const content = (
-    <Box width="320px" p="1">
-      <Text size="sm" color="text-low" as="div" mb="2">
-        This experiment&apos;s Feature Flag is{" "}
-        <strong>{revisionStatusLabel(status)}</strong>.{" "}
+  const variations = getLatestPhaseVariations(experiment);
+  const enabledEnvs = Object.entries(revision?.environmentsEnabled ?? {})
+    .filter(([, on]) => on)
+    .map(([env]) => env);
+
+  const changesColumn = (
+    <Flex direction="column" gap="3" width="50%" minWidth="0">
+      <Text size="sm" weight="semibold" color="text-high">
+        Changes
+      </Text>
+      {variations.map((v, i) => (
+        <Box key={v.id}>
+          <VariationLabel number={i} name={v.name} size="sm" />
+          <Box mt="1">
+            <ValueDisplay
+              value={
+                info.values.find((sv) => sv.variationId === v.id)?.value ?? ""
+              }
+              type={info.feature.valueType}
+              sparse={info.sparse}
+              defaultValue={info.feature.defaultValue}
+              showCopyButton={false}
+              fullStyle={{ maxHeight: 60, overflowY: "auto" }}
+            />
+          </Box>
+        </Box>
+      ))}
+      {enabledEnvs.length > 0 && (
+        <Text size="sm" color="text-low">
+          Enables {enabledEnvs.join(", ")}
+        </Text>
+      )}
+    </Flex>
+  );
+
+  const reviewColumn = (
+    <Flex direction="column" gap="3" width="50%" minWidth="0">
+      <Text size="sm" weight="semibold" color="text-high">
+        Review
+      </Text>
+      <Text size="sm" color="text-low">
+        {revisionStatusLabel(status)}.{" "}
         {publishIsLaunch
-          ? "It publishes when you start the experiment."
+          ? "Publishes when you start the experiment."
           : "Publish to make these values live."}
       </Text>
 
       {reviewerRows.length > 0 && (
-        <>
-          <Separator size="4" my="3" />
-          <Text size="sm" weight="semibold" as="div" mb="2">
-            Reviewers
-          </Text>
-          <Flex direction="column" gap="2">
-            {reviewerRows}
-          </Flex>
-        </>
+        <Flex direction="column" gap="2">
+          {reviewerRows}
+        </Flex>
+      )}
+
+      {canReview && (
+        <RadioGroup
+          value={decision}
+          setValue={(v) => setDecision(v as ReviewDecision)}
+          options={[
+            { value: "Comment", label: "Comment" },
+            { value: "Requested Changes", label: "Request changes" },
+            { value: "Approved", label: "Approve" },
+          ]}
+        />
       )}
 
       {(canReview || submitAction === "request-review") && (
-        <>
-          <Separator size="4" my="3" />
-          <Field
-            size="sm"
-            textarea
-            minRows={2}
-            placeholder="Add a comment (optional)"
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-          />
-        </>
+        <Field
+          size="sm"
+          textarea
+          minRows={2}
+          placeholder="Add a comment (optional)"
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+        />
       )}
 
       {error && (
-        <Callout status="error" mt="2" size="sm">
+        <Callout status="error" size="sm">
           {error}
         </Callout>
       )}
 
-      <Separator size="4" my="3" />
       <Flex gap="2" align="center" wrap="wrap">
         {canReview ? (
-          <>
-            <Button
-              disabled={submitting}
-              onClick={() =>
-                post("submit-review", { comment, review: "Approved" })
-              }
-            >
-              Approve
-            </Button>
-            <Button
-              variant="soft"
-              disabled={submitting}
-              onClick={() =>
-                post("submit-review", {
-                  comment,
-                  review: "Requested Changes",
-                })
-              }
-            >
-              Request changes
-            </Button>
-          </>
-        ) : state.hasSubmit && state.submitAction !== "none" ? (
+          <Button
+            disabled={
+              submitting ||
+              (decision === "Comment" && comment.trim().length === 0)
+            }
+            onClick={() => post("submit-review", { comment, review: decision })}
+          >
+            Submit review
+          </Button>
+        ) : showSubmit ? (
           <Button
             disabled={!state.ctaEnabled || submitting}
             onClick={() =>
               post(
-                state.submitAction === "publish" ? "publish" : "request-review",
-                state.submitAction === "publish" ? {} : { comment },
+                submitAction === "publish" ? "publish" : "request-review",
+                submitAction === "publish" ? {} : { comment },
               )
             }
           >
@@ -254,7 +287,19 @@ export default function ManagedFlagApproval({
           <Link onClick={() => post("recall-review")}>Return to draft</Link>
         )}
       </Flex>
-    </Box>
+    </Flex>
+  );
+
+  const content = (
+    <Flex gap="4" width="620px">
+      {changesColumn}
+      {/* Radix vertical separators collapse without an explicit stretch. */}
+      <Separator
+        orientation="vertical"
+        style={{ alignSelf: "stretch", height: "auto" }}
+      />
+      {reviewColumn}
+    </Flex>
   );
 
   if (!hasAnyAction) return null;
