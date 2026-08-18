@@ -507,6 +507,52 @@ describe("summarizeExperimentForAI", () => {
     expect(summary.results?.unknownVariations).toBeUndefined();
   });
 
+  it("labels result rows using the latest phase's variation order", () => {
+    // Snapshot rows follow the phase's list, which here is reversed relative
+    // to experiment.variations.
+    const reorderedExperiment = {
+      ...experiment,
+      phases: [
+        {
+          ...experiment.phases[1],
+          variations: [
+            { id: "var_1", status: "active" },
+            { id: "var_0", status: "active" },
+          ],
+          variationWeights: [0.7, 0.3],
+        },
+      ],
+    } as ExperimentInterface;
+
+    const summary = summarizeExperimentForAI({
+      experiment: reorderedExperiment,
+      snapshot: makeSnapshot(resultVariations),
+      metricMap,
+      goalMetricIds: ["met_purchases"],
+      secondaryMetricIds: [],
+      guardrailMetricIds: [],
+    });
+
+    expect(summary.experiment.variations).toEqual([
+      { name: "Two-step", description: "Shorter flow", weight: 0.7 },
+      { name: "Control", description: "Current flow", weight: 0.3 },
+    ]);
+    // resultVariations[1] holds the lift, so it must be labelled with the
+    // phase's second variation, not the experiment's.
+    expect(summary.results?.metrics[0].variations).toEqual([
+      { variation: "Two-step", users: 1000, value: 100, cr: 0.1 },
+      {
+        variation: "Control",
+        users: 1010,
+        value: 121,
+        cr: 0.1198,
+        lift: 0.198,
+        ci: [0.0512, 0.3512],
+        pValue: 0.0123,
+      },
+    ]);
+  });
+
   it("keeps warehouse queries and health time series out of the prompt", () => {
     const snapshot: ExperimentSnapshotInterface = {
       ...makeSnapshot(resultVariations),

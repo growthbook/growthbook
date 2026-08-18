@@ -3,7 +3,11 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  getLatestPhaseVariations,
+  isFactMetric,
+} from "shared/experiments";
 import { getSnapshotAnalysis } from "shared/util";
 
 export const MAX_HYPOTHESIS_CHARS = 600;
@@ -274,6 +278,9 @@ export function summarizeExperimentForAI({
 }): AIExperimentSummary {
   const phases = experiment.phases || [];
   const lastPhase = phases[phases.length - 1];
+  // Snapshot results are indexed against the latest phase's variation list,
+  // which can reorder or omit entries relative to experiment.variations.
+  const phaseVariations = getLatestPhaseVariations(experiment);
   // Results only describe the last phase, so earlier ones are listed as
   // context rather than mixed in with the numbers.
   const priorPhases: AIPhaseSummary[] = phases.slice(0, -1).map((phase) => ({
@@ -282,7 +289,7 @@ export function summarizeExperimentForAI({
     startDate: toISODate(phase.dateStarted),
     endDate: toISODate(phase.dateEnded),
   }));
-  const variationNames = (experiment.variations || []).map(
+  const variationNames = phaseVariations.map(
     (v, i) => v.name || `Variation ${i}`,
   );
 
@@ -294,7 +301,7 @@ export function summarizeExperimentForAI({
       hypothesis: truncateForAI(experiment.hypothesis, MAX_HYPOTHESIS_CHARS),
       description: truncateForAI(experiment.description, MAX_DESCRIPTION_CHARS),
       priorAnalysis: truncateForAI(experiment.analysis, MAX_ANALYSIS_CHARS),
-      variations: (experiment.variations || []).map((v, i) => ({
+      variations: phaseVariations.map((v, i) => ({
         name: variationNames[i],
         description: truncateForAI(
           v.description,
