@@ -151,9 +151,25 @@ Two readings, wildly different costs:
   Cheap, because `RequireReview[]` is already the policy-rule shape scoped by
   project and environment. **Chosen.**
 
-Operationally the second is what people want: "only Team A" means nothing ships
-when Team A is on holiday, and it does not compose (finance _and_ the owning
-team). Required-approvers gives the control without the deadlock.
+**These two are behaviourally identical in the simple case, and an earlier draft of
+this note claimed otherwise.** There is no approvals-required threshold in the
+codebase — one covering approval satisfies the gate — so with a single required team
+both readings say "cannot ship until someone on Team A approves". The claim that
+required-approvers avoids a holiday deadlock is wrong: if Team A's approval is
+required, Team A being away blocks either way.
+
+They diverge on three things, and only the third is why the second was chosen:
+
+1. **Composition.** "Only Team A" is exclusive by construction, so it cannot stack
+   with "only finance". "Must be among the approvers" stacks — one requirement per
+   governing review project.
+2. **Participation.** "Only Team A may approve" makes everyone else's approval inert
+   rather than merely insufficient. With `blockSelfApproval` that can strand a draft:
+   if the one available Team A member also edited it, nobody can approve.
+3. **Cost, which is the actual reason.** "Only Team A may approve" is a PERMISSION
+   narrowed to an arbitrary set of features, needing a third dimension in the model
+   (project × environment × flag-set). "Team A must approve" is a POLICY RULE on a
+   row that already exists.
 
 It plugs into machinery that already exists. `getGoverningReviewProjects(primary,
 targetingProjects, targetingReviewMode)` already returns _primary + strict-mode
@@ -162,9 +178,18 @@ becomes "for each governing review project, its required approver teams must
 have signed off," and delivery-scope projects contribute their approvers for
 free.
 
-This does tie approver policy to project alignment, which is fine — that is what
-a primary governance project is for. The escape hatch for cross-project approval
-is already sanctioned: mark the secondary targeting project `strict`.
+**The load-bearing assumption: "these features" can only mean "features in these
+projects."** Selection is `getGoverningReviewProjects` (primary + strict-mode
+targeting projects) resolved against each rule's `projects[]`, narrowed by the rule's
+`environments[]`. There is no tag-based or per-flag selector, and `getReviewSetting`
+is first-match-wins rather than a union. So if a customer's "Team A's features" does
+not line up with a project boundary, this cannot express it — they would reorganise
+projects, or we would need a new selector. Confirm that with the customer before
+building, because nothing else in the design can rescue it.
+
+Given project alignment, tying approver policy to it is fine — that is what a primary
+governance project is for. The escape hatch for cross-project approval is already
+sanctioned: mark the secondary targeting project `strict`.
 
 Same gate, two questions: _does this approval cover the footprint_, and _does the
 approval set satisfy the rules_. One evaluation, at publish, against current
