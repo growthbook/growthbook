@@ -641,8 +641,12 @@ at all.
       `.resetReviewOnChange` (`organization.d.ts:231-233`, both read nowhere).
       Name the type when doing it: `RequireReview.resetReviewOnChange` is a
       different field and is live.
-- [ ] Copy: widen `maxConcurrentDrafts` and `restApiBypassesReviews`; update
-      `targetingReviewMode` copy _with_ its behaviour change
+- [x] Copy: `restApiBypassesReviews` now names all four entities and both bypass
+      policies; the section heading is "Features, Configs, & Constants" and the
+      Global blurb lists all four. Verified the public docs table and the agent
+      skill docs were already accurate.
+- [ ] Copy still pending: `maxConcurrentDrafts` label (widen WITH the behaviour) and
+      `targetingReviewMode` (correct today, must move WITH the behaviour)
 - [ ] Leave `featureRegexValidator` / `featureKeyExample` feature-only
 
 ### 6. UI
