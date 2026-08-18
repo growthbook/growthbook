@@ -20,6 +20,7 @@ import {
   getReviewSetting,
   generateVariationId,
   naiveFlattenV1Rules,
+  isManagedByExperiment,
   parsePlainJSONObject,
   stripDefaultsForSparse,
   expandSparseToFull,
@@ -228,6 +229,8 @@ export default function EditFeatureFlagValuesModal({
   // experiment-ref rule, so live doesn't have the rule yet. Saving to a new
   // draft or a different existing draft would fail because those revisions
   // don't contain the rule. Lock the dropdown to the one draft that does.
+  const isManaged = isManagedByExperiment(feature, experiment.id);
+
   const ruleOnlyOnDraft =
     linkedFeatureInfo.state === "draft" &&
     linkedFeatureInfo.liveHasMatchingRule === false &&
@@ -405,23 +408,29 @@ export default function EditFeatureFlagValuesModal({
       header="Edit Feature Flag Values"
       subheader="Changes made here will be reflected on the linked Feature Flag rule."
       headerAction={
-        <DraftSelectorDropdown
-          feature={feature}
-          revisionList={revisionList}
-          mode={mode}
-          setMode={handleSetMode}
-          selectedDraft={selectedDraft}
-          setSelectedDraft={handleSetSelectedDraft}
-          canAutoPublish={false}
-          gatedEnvSet={gatedEnvSet}
-          locked={ruleOnlyOnDraft}
-          lockedTooltip={
-            ruleOnlyOnDraft
-              ? "This experiment rule is added in this draft revision. Changes will be saved to it."
-              : undefined
-          }
-          eligibleDraftVersions={eligibleDraftVersions}
-        />
+        // Managed mode has exactly one draft that matters at a time, and the
+        // defaults below already resolve to it (existing draft when there is
+        // one, a new draft otherwise). Exposing a revision picker would only
+        // offer choices that are wrong or unavailable.
+        isManaged ? undefined : (
+          <DraftSelectorDropdown
+            feature={feature}
+            revisionList={revisionList}
+            mode={mode}
+            setMode={handleSetMode}
+            selectedDraft={selectedDraft}
+            setSelectedDraft={handleSetSelectedDraft}
+            canAutoPublish={false}
+            gatedEnvSet={gatedEnvSet}
+            locked={ruleOnlyOnDraft}
+            lockedTooltip={
+              ruleOnlyOnDraft
+                ? "This experiment rule is added in this draft revision. Changes will be saved to it."
+                : undefined
+            }
+            eligibleDraftVersions={eligibleDraftVersions}
+          />
+        )
       }
       submit={form.handleSubmit(async (values) => {
         const rows = values.variations;
