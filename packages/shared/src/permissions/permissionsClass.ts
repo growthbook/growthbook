@@ -381,8 +381,7 @@ export class Permissions {
     model: RevisionModel,
     action: RevisionAction,
     obj: { project?: string; projects?: string[] },
-    // `null` means no environment constraint — the caller is not sanctioning a
-    // change. `[]` still means an unbound change, which fails closed.
+    // `null` = no environment constraint. `[]` = unbound, which fails closed.
     environments: string[] | null = [],
   ): boolean => {
     const projects = obj.projects ?? (obj.project ? [obj.project] : []);
@@ -394,8 +393,7 @@ export class Permissions {
           permission as ProjectScopedPermission,
         );
       }
-      // An unbound change (metadata, a base Config value) has no environment to
-      // check, so reviewing one takes authority no environment limit restricts.
+      // Unbound changes take authority no environment limit restricts.
       if (action === "review" && !environments.length) {
         return this.checkUnrestrictedEnvAuthority({ projects }, permission);
       }
@@ -1068,9 +1066,8 @@ export class Permissions {
     });
   };
 
-  // The footprint is required: a caller that does not say what the draft
-  // changes cannot be given a safe default. Use `{ scope: "any" }` when not
-  // sanctioning a change.
+  // Required: there is no safe default for "what does this draft change".
+  // Pass `{ scope: "any" }` when not sanctioning a change.
   public canReviewFeatureDrafts = (
     feature: Pick<FeatureInterface, "project">,
     footprint: ReviewAuthorityFootprint,
@@ -1084,8 +1081,7 @@ export class Permissions {
     );
   };
 
-  // Entity-aware on purpose: a model whose review is project-scoped (saved
-  // groups) must not be handed an environment requirement.
+  // Saved-group review is project-scoped, so it takes no env requirement.
   public canReviewRevision = (
     model: RevisionModel,
     projects: string[],

@@ -641,7 +641,7 @@ export function getRevisionNumberById<
   );
 }
 
-/** Verdict statuses exposed to custom hooks, matching the feature revision shape. */
+// Matches the feature revision shape.
 export type ReviewerVerdictStatus =
   | "approved"
   | "changes-requested"
@@ -653,14 +653,8 @@ const VERDICT_BASE: Record<string, "approved" | "changes-requested"> = {
   "request-changes": "changes-requested",
 };
 
-/**
- * Stored verdicts in the shape custom hooks see: one entry per reviewer, latest
- * first-class verdict only, comments dropped, and the generic
- * `decision` + `stale` pair collapsed into the feature flow's single `status`.
- *
- * `enrich` supplies the parts only the caller can resolve — the reviewer's event
- * user and their current teams.
- */
+// Stored verdicts as custom hooks see them: latest per reviewer, comments
+// dropped, and `decision` + `stale` collapsed into the feature flow's `status`.
 export function toHookReviewerVerdicts<U, T>(
   reviews: {
     userId: string;
@@ -696,10 +690,7 @@ export function toHookReviewerVerdicts<U, T>(
   }));
 }
 
-/**
- * Co-authors of a draft: everyone who edited it except the primary author.
- * `contributors` may include the author, and may carry blanks from older rows.
- */
+// `contributors` may include the author, and carries blanks from older rows.
 export function coauthorIds(
   authorId: string | undefined,
   contributors: string[] | undefined,

@@ -2732,14 +2732,12 @@ export function getGoverningReviewProjects(
   return Array.from(new Set([primary ?? "", ...strict]));
 }
 
-// What a rule can select on. Only `project` ships today; a tag or flag-id
-// selector slots in as a further layer without changing the resolver's shape.
+// Only `project` today; a tag or flag-id selector slots in as another layer.
 export type ReviewRuleEntity = {
   project?: string;
 };
 
-// Most specific first. A rule naming projects beats the all-projects rule, which
-// is the base layer everything inherits from.
+// Most specific first; the all-projects rule is the base layer.
 function reviewRuleLayers(
   rules: RequireReview[],
   entity: ReviewRuleEntity,
@@ -2751,8 +2749,7 @@ function reviewRuleLayers(
   return [...specific, ...base];
 }
 
-// Fields an override may leave unset and inherit. `projects` is the selector and
-// `requireReviewOn` is the override's own on/off switch, so neither inherits.
+// `projects` is the selector and `requireReviewOn` the override's own switch.
 const INHERITABLE_FIELDS = [
   "environments",
   "resetReviewOnChange",
@@ -2763,14 +2760,8 @@ const INHERITABLE_FIELDS = [
   "requiredApproverTeams",
 ] as const;
 
-/**
- * The review rule governing an entity: most specific wins, inheriting unset
- * fields from the layers beneath it. Mirrors `getTargetingReviewMode`, which
- * already resolves its sibling setting this way.
- *
- * With a single rule — every org today — this returns that rule unchanged, so
- * it is inert for existing data.
- */
+// Most specific wins, inheriting unset fields from the layers beneath. With one
+// rule it returns that rule unchanged. Mirrors getTargetingReviewMode.
 export function getReviewSetting(
   requireReviewSettings: RequireReview[],
   entity: ReviewRuleEntity,
@@ -2780,12 +2771,10 @@ export function getReviewSetting(
   if (!winner) return undefined;
   if (layers.length === 1) return winner;
 
-  // Field by field, first layer that sets it — so an override naming only
-  // requiredApproverTeams keeps the base layer's other toggles.
   const merged: RequireReview = { ...winner };
   for (const field of INHERITABLE_FIELDS) {
     const source = layers.find((l) => l[field] !== undefined);
-    if (source) (merged[field] as unknown) = source[field];
+    if (source) Object.assign(merged, { [field]: source[field] });
   }
   return merged;
 }
@@ -2903,7 +2892,7 @@ export function reviewRulesRequiringTeam(
   );
 }
 
-/** Config form of `getConstantReviewRequirement` — carries the flavor scope. */
+// Config form — carries the flavor scope.
 export function getConfigReviewRequirement(
   config: { project?: string },
   change: {
@@ -2923,7 +2912,6 @@ export function getConfigReviewRequirement(
   return { required: true, rules: rule ? [rule] : [] };
 }
 
-// At most one rule matches — getReviewSetting is first-match-by-project.
 export function getConstantReviewRequirement(
   constant: { project?: string },
   change: {
@@ -3504,8 +3492,7 @@ export function getNewDraftExperimentsToPublish({
   return [...new Set(draftExperiments)];
 }
 
-// The rules are what per-rule policy hangs off. `required` can be true with no
-// rules: the legacy boolean setting has no rule object to attach policy to.
+// `required` can be true with no rules: the legacy boolean setting has none.
 export type ReviewRequirement = {
   required: boolean;
   rules: RequireReview[];
@@ -3531,8 +3518,6 @@ export function getRevisionReviewRequirement({
   const none: ReviewRequirement = { required: false, rules: [] };
   if (!requireApprovalsLicensed) return none;
   const requireReviews = settings?.requireReviews;
-  // The legacy boolean form has no rule object, so per-rule policy (required
-  // approver teams) has nothing to attach to and cannot apply.
   if (!Array.isArray(requireReviews)) {
     return requireReviews ? { required: true, rules: [] } : none;
   }
@@ -3656,9 +3641,7 @@ export function getRevisionReviewRequirement({
   };
 
   const triggering = reviewSettings.filter(needsReviewForSetting);
-  // By content, not identity: one merged rule per governing project, so two
-  // projects inheriting the same layer yield equal-but-distinct objects and
-  // would otherwise each add their own "needs approval from X" line.
+  // By content: merged rules are distinct objects, so identity would not dedupe.
   const seen = new Set<string>();
   const rules = triggering.filter((r) => {
     const key = JSON.stringify(r);
@@ -4393,11 +4376,9 @@ export function computeContextualBanditLinkageDelta({
 export type ReviewAuthorityFootprint =
   | { scope: "environments"; environments: string[] }
   | { scope: "everywhere" }
-  // Not sanctioning anything — reads, comments, withdrawing an approval. Asks
-  // only whether the person holds review here at all.
+  // Not sanctioning anything — reads, comments, withdrawing an approval.
   | { scope: "any" }
-  // Metadata with no environment binding. Requires authority no environment
-  // limit restricts, since an empty environment list would pass vacuously.
+  // Unbound metadata: an empty environment list would pass vacuously.
   | { scope: "unbound" };
 
 function requiresMetadataReview(settings?: OrganizationSettings): boolean {
@@ -4409,13 +4390,8 @@ function requiresMetadataReview(settings?: OrganizationSettings): boolean {
   );
 }
 
-/**
- * The environments a reviewer needs authority in to approve this draft.
- *
- * `bases` takes every state the draft could be measured against — the live
- * revision and the draft's base — because those two can disagree. Unioning
- * means drift can only ever demand more authority, never less.
- */
+// `bases` unions live and the draft's base, which can disagree — so drift can
+// only ever demand more authority, never less.
 export function getReviewAuthorityFootprint({
   revision,
   bases,
@@ -4445,8 +4421,7 @@ export function getReviewAuthorityFootprint({
       continue;
     }
 
-    // A global change that is not purely metadata reaches live state in every
-    // environment, so nothing narrower can sanction it.
+    // A non-metadata global change lands everywhere, so nothing narrower fits.
     if (!revisionHasMetadataOnlyGlobalChange(revision, base)) {
       return { scope: "everywhere" };
     }

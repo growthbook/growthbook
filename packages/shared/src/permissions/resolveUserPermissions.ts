@@ -10,8 +10,7 @@ import {
 } from "shared/types/organization";
 import { TeamInterface } from "shared/types/team";
 
-// Only the role-bearing fields, so callers holding a team without its member
-// list (the front end) can resolve permissions too.
+// Role-bearing fields only, so the front end can resolve without member lists.
 export type RoleSourceTeam = Pick<
   TeamInterface,
   | "id"
@@ -156,9 +155,8 @@ function mergeUserAndTeamPermissions(
   ]);
 
   // Loop through that list of projects and merge the user and team permissions.
-  // An explicitly-set project role takes precedence over a global role, so a
-  // principal with no project role contributes nothing (not its global role)
-  // rather than letting its global permissions leak into the project.
+  // A project role beats a global one, so a principal without a project role
+  // contributes nothing here rather than leaking its global permissions in.
   const noProjectRole = (): UserPermission => ({
     limitAccessByEnvironment: false,
     environments: [],
@@ -185,11 +183,8 @@ function getLimitAccessByEnvironment(
   limitAccessByEnvironment: boolean,
   org: OrganizationInterface,
 ): boolean {
-  // If all environments are selected, treat that the same as not limiting by
-  // environment. `every` on an empty list is vacuously true, so an org whose
-  // settings carry no environments would otherwise read as "all selected" and
-  // drop the restriction entirely — keep it when there is nothing to compare
-  // against.
+  // All environments selected == not limited. Guard the empty case: `every` on
+  // [] is vacuously true, which would read as "all" and drop the restriction.
   const validEnvs = org.settings?.environments?.map((e) => e.id) || [];
   if (
     limitAccessByEnvironment &&
@@ -250,10 +245,8 @@ function getSingleRolePermission(
     environments,
     limitAccessByEnvironment: effectiveLimit,
     permissions,
-    // The env verdict for scoped permissions comes from per-role grants, so two
-    // roles with different restrictions can't cross-contaminate when merged.
-    // Omitted (not []) when the role grants nothing env-scoped, so the object
-    // keeps its historical shape for roles the field says nothing about.
+    // Per-role grants, so two roles' restrictions can't cross-contaminate.
+    // Omitted, not [], so roles granting nothing env-scoped keep their shape.
     ...(envScoped.length
       ? {
           envGrants: [
@@ -268,10 +261,7 @@ function getSingleRolePermission(
   };
 }
 
-/**
- * Build a full UserPermissions object from a role info with optional project
- * roles and team memberships. Used for both org API keys and member records.
- */
+// Used for both org API keys and member records.
 export function getRolePermissions(
   roleInfo: MemberRoleWithProjects,
   org: OrganizationInterface,
@@ -318,7 +308,6 @@ export function getRolePermissions(
 }
 
 // Shared so hook props and the required-approver gate agree on "in team X".
-// Non-members and API keys belong to no team.
 export function teamsForMember(
   userId: string,
   org: { members?: { id: string; teams?: string[] }[] },
@@ -333,8 +322,7 @@ export function teamsForMember(
     .map((t) => ({ id: t.id, name: t.name }));
 }
 
-// ANY team within a rule satisfies it; EVERY rule must be satisfied. Only
-// covering approvals count, or widening a draft would keep the box ticked.
+// ANY team within a rule satisfies it; EVERY rule must be satisfied.
 export function assessRequiredApproverTeams({
   rules,
   coveringApproverIds,
@@ -362,7 +350,6 @@ export function assessRequiredApproverTeams({
     const required = rule.requiredApproverTeams ?? [];
     if (!required.length) continue;
     if (required.some((teamId) => approverTeamIds.has(teamId))) continue;
-    // Named for the message; a deleted team id would otherwise show as blank.
     unmet.push(
       required
         .map((id) => byId.get(id))
@@ -376,8 +363,7 @@ export function assessRequiredApproverTeams({
   return { satisfied: actionable.length === 0, unmet: actionable };
 }
 
-// Uses CURRENT rules — an approval is not a snapshot of authority. Takes each
-// approver's rules so server and client can both call it; null = not a member.
+// Uses CURRENT rules — an approval is not a snapshot of authority.
 export function assessApprovalCoverage({
   org,
   teams,
@@ -388,9 +374,8 @@ export function assessApprovalCoverage({
 }: {
   org: OrganizationInterface;
   teams: RoleSourceTeam[];
-  // Required, not defaulted: each model declares its own review atom and scope.
   model: RevisionModel;
-  // Every project the entity belongs to — authority is required in all of them.
+  // Authority is required in all of them.
   projects: string[];
   footprint: ReviewAuthorityFootprint;
   approvers: { id: string; roleInfo: MemberRoleWithProjects | null }[];

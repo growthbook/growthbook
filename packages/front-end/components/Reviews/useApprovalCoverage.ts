@@ -14,18 +14,13 @@ type Reviewer = { id: string; status: "approved" | "changes-requested" };
 const NO_RULES: { requiredApproverTeams?: string[] }[] = [];
 
 export interface ApprovalCoverage {
-  // Approvers whose current rights no longer span what the draft changes.
   uncoveredApprovers: Set<string>;
-  // Per-approver phrasing for the avatar tooltip and timeline row.
   uncoveredApproverReasons: Map<string, string>;
-  // Footprint environments no standing approver covers — what it waits on.
   uncoveredFootprintEnvs: string[];
-  // At least one standing approval spans the whole footprint.
   approvalsCoverFootprint: boolean;
-  // An approval stands but doesn't reach everything the draft changes — the
-  // only case the "approved, but not enough" callout should speak to.
+  // Approved but short of the footprint — the "approved, but not enough" state.
   hasUncoveredApproval: boolean;
-  // Separate from coverage: a draft can be approved and still miss a named team.
+  // Separate from coverage: a draft can be approved and still miss a team.
   requiredTeams: {
     satisfied: boolean;
     unmet: { id: string; name: string }[][];
@@ -46,9 +41,7 @@ export function useApprovalCoverage({
   envIds: string[];
   // The rules that demanded review — where required teams are declared.
   reviewRules?: { requiredApproverTeams?: string[] }[];
-  // Which entity is being approved — each declares its own review atom.
   model: RevisionModel;
-  // Every project the entity belongs to.
   projects: string[];
 }): ApprovalCoverage {
   const { users, teams, organization } = useUser();

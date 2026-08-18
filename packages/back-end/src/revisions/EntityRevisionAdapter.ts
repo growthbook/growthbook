@@ -70,9 +70,8 @@ export function revisionActionHooks<TSnapshot extends Record<string, unknown>>({
       context.permissions.canRevisionAction(model, "draft", {
         projects: projectsOf(snapshot),
       }),
-    // `environments` is the caller's change-aware footprint (see
-    // reviewFootprintFor). Falling back to envsOf keeps callers that cannot
-    // compute one working, and an absent narrowing fails closed.
+    // `environments` is the caller's change-aware footprint; falling back to
+    // envsOf keeps callers that cannot compute one working.
     canReview: (context, snapshot, environments) =>
       environments !== undefined
         ? context.permissions.canRevisionAction(
@@ -202,12 +201,8 @@ export interface EntityRevisionAdapter<
   // lets metadata-only revisions skip review).
   isApprovalRequiredForRevision?(context: Context, revision: Revision): boolean;
 
-  /**
-   * Same answer as `isApprovalRequiredForRevision`, plus the review rules that
-   * demanded it — what per-rule policy (required approver teams) hangs off.
-   * Implemented by entities on the `requireReviews` model; saved groups use
-   * `approvalFlows`, which carries no rules.
-   */
+  // Same answer as isApprovalRequiredForRevision, plus the rules that demanded
+  // it — what per-rule policy hangs off. Saved groups carry no rules.
   reviewRequirementForRevision?(
     context: Context,
     revision: Revision,

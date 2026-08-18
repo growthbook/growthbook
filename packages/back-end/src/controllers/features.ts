@@ -1400,8 +1400,8 @@ export async function postFeatureReviewOrComment(
     throw new Error("Could not find feature revision");
   }
 
-  // A verdict is judged against what the draft would actually change, so this
-  // waits on the revision. Comments keep their pre-fetch refusal.
+  // A verdict is judged against what the draft changes, so it waits on the
+  // revision. Comments keep their pre-fetch refusal.
   if (review !== "Comment") {
     const footprint = await getFeatureReviewFootprint({
       context,
@@ -1524,8 +1524,7 @@ export async function postFeatureApproveAndPublish(
   const feature = await getFeature(context, id);
   if (!feature) throw new Error("Could not find feature");
 
-  // Coarse refusal first, so someone with no review rights still gets a 403
-  // rather than a 404 for a bad version.
+  // Coarse refusal first: no review rights should 403, not 404 on a bad version.
   if (!context.permissions.canReviewFeatureDrafts(feature, { scope: "any" })) {
     context.permissions.throwPermissionError();
   }

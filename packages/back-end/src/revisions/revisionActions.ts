@@ -83,8 +83,8 @@ export type RevisionActionKind =
  * deliberately no scope argument to pass wrongly. Verbs that LAND on live keep
  * the explicit scope via `canDoRevisionAction`.
  */
-// The publish footprint of the same change, so you cannot approve what you could
-// not publish. `[]` = binds no environment, which the review branch fails closed.
+// The publish footprint of the same change: you cannot approve what you could
+// not publish. `[]` binds no environment, which the review branch fails closed.
 export function reviewFootprintFor(
   context: Context,
   revision: Pick<Revision, "target">,
@@ -128,11 +128,9 @@ export function canDoRevisionAction(
   // LIVE entity, because that is where the change lands. For draft/review prefer
   // `canRevisionOwnedAction`, which cannot be given the wrong one.
   snapshot: Record<string, unknown>,
-  // Review only: the environments this change would land in. Omitted for the
-  // other actions, which resolve their own scope from the adapter.
-  // Review only. A footprint scopes the check to what would land; `null` skips
-  // the environment constraint for union checks that are not sanctioning a
-  // change. Omitted falls back to the adapter's own scope.
+  // Review only; other actions resolve their own scope from the adapter.
+  // Review only. `null` skips the env constraint for union checks that are not
+  // sanctioning a change; omitted falls back to the adapter's own scope.
   environments?: string[] | null,
 ): boolean {
   const adapter = getAdapter(type);
@@ -626,8 +624,7 @@ export async function approveRevision(
   return updated;
 }
 
-// `status === "approved"` was decided when the approval was given; a later edit
-// can widen the change past what its approver may sanction.
+// `approved` was decided when given; a later edit can widen past its approver.
 // Only covering approvals count toward a team requirement.
 export function revisionRequiredApproverTeams(
   context: Context,
@@ -675,8 +672,7 @@ export function revisionApprovalsCoverChange(
       .filter((r) => r.decision === "approve" && !r.stale)
       .map((r) => ({
         id: r.userId,
-        // Guarded: this runs inside a publish gate, so a context without a
-        // member list must refuse rather than throw a 500.
+        // Inside a publish gate: a context without members refuses, not 500s.
         roleInfo:
           (context.org.members ?? []).find((m) => m.id === r.userId) ?? null,
       })),
@@ -740,7 +736,7 @@ async function publishRevisionInner(
   const canBypass =
     bypass || (!deferred && adapter.canBypassApproval(context, entity));
 
-  // Coverage, not just status: an approval given while the change was narrower
+  // Coverage, not just status: an approval given when the change was narrower
   // does not sanction what it would land now.
   const coverage = revisionApprovalsCoverChange(context, revision);
   const approvedAndCovered =

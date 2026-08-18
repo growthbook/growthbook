@@ -59,11 +59,8 @@ export async function runValidateFeatureHooks({
   );
 }
 
-// Reviewer team membership, attached for hooks that gate on team rather than on
-// identity. Copied onto the args, never onto the stored revision — membership is
-// current-state, not something the revision recorded.
-// One member expansion per hook call, shared by verdicts and authorship. Still a
-// member = dashboard user; anything else = an API key.
+// For hooks that gate on team rather than identity.
+// One member expansion per hook call. Still a member = user, else an API key.
 async function memberDirectory(context: Context) {
   const members = await expandOrgMembers(context.org.members ?? []);
   const byId = new Map(members.map((m) => [m.id, m]));
@@ -99,10 +96,7 @@ async function hookAuthorship(
   };
 }
 
-/**
- * The revision as hooks see it: reviewer teams, plus who wrote it. Copied onto the
- * args, never onto the stored revision — membership is current state.
- */
+// Copied onto the args, never onto the stored revision — teams are current state.
 async function withHookRevisionContext<
   T extends
     | {
@@ -134,7 +128,7 @@ async function withHookRevisionContext<
   };
 }
 
-// Only called once a hook matches, so this never runs on the ordinary path.
+// Only called once a hook matches, so it never runs on the ordinary path.
 async function hookReviewerVerdicts(
   context: Context,
   reviews: {

@@ -99,8 +99,7 @@ export function areProjectRolesValid(
   if (!projectRoles) {
     return true;
   }
-  // One rule per project: two entries union rather than the second replacing the
-  // first, so a duplicate grants more than whoever wrote it meant.
+  // One rule per project: duplicates union, granting more than was meant.
   if (!hasNoDuplicateProjects(projectRoles)) {
     return false;
   }
@@ -168,8 +167,7 @@ export function envsAllowedBy(
   return envs.every((env) => userPermission.environments.includes(env));
 }
 
-// Authority not limited by environment at all. A change with no environment
-// binding needs this, since an empty footprint would otherwise pass vacuously.
+// Unbound changes need this: an empty footprint would otherwise pass vacuously.
 export function hasUnrestrictedEnvAuthority(
   userPermission: UserPermission,
   permissionToCheck: Permission,
@@ -311,9 +309,8 @@ export function getEffectiveRolesForProject(
       ? p.projectRoles?.find((r) => r.project === project)
       : undefined;
     const { sourceType, sourceName } = p;
-    // Additional rules grant alongside their base role rather than replacing it,
-    // and belong to whichever rule set applies — a project override replaces the
-    // global one wholesale, its own additional rules included.
+    // Additional rules grant alongside their base role, and a project override
+    // replaces the global one wholesale — its own additional rules included.
     const applicable = projectRole ?? p;
     const roles = [
       applicable.role,
@@ -328,8 +325,7 @@ export function getEffectiveRolesForProject(
   return explicit.length ? explicit : globals;
 }
 
-// Whether a role can be limited by environment: true if any of its policies
-// carries an environment-scoped atom.
+// True if any of the role's policies carries an environment-scoped atom.
 export function roleSupportsEnvLimitFromRole(
   role: Pick<Role, "policies">,
 ): boolean {

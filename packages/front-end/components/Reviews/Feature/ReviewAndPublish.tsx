@@ -679,10 +679,8 @@ export default function ReviewAndPublish({
     );
   }, [revision, baseRevision, liveRevision, envIds, feature]);
 
-  // What a reviewer needs authority over, derived the same way the server does
-  // so the UI agrees with the refusal. "any" while the revisions are still
-  // loading: the server is the authority, so being optimistic here only risks a
-  // late refusal, never an unsanctioned approval.
+  // Derived the way the server derives it, so the UI agrees with the refusal.
+  // "any" while loading — optimism here risks a late refusal, nothing worse.
   const reviewFootprint: ReviewAuthorityFootprint = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return { scope: "any" };
     return getReviewAuthorityFootprint({
@@ -874,8 +872,7 @@ export default function ReviewAndPublish({
     );
 
   const hasScheduledRevisions = hasCommercialFeature("scheduled-revisions");
-  // One gate for both modes; arming on a draft rides request-review, so it also
-  // needs draft authority.
+  // Arming on a draft rides request-review, so it needs draft authority too.
   const canArmSchedule =
     holdsSchedulePublish &&
     (revision?.status !== "draft" ||
@@ -885,7 +882,6 @@ export default function ReviewAndPublish({
     autopublishOnApproval &&
     canArmSchedule &&
     (revision?.status !== "approved" || !approvalsCoverFootprint);
-  // The premium (`scheduled-revisions`) gate is applied at render.
   const canArmOnDate = canArmSchedule;
   const effectivePublishMode: "approve" | "date" = canArmWhenApproved
     ? publishMode
@@ -2325,9 +2321,8 @@ export default function ReviewAndPublish({
       ["draft", "pending-review", "changes-requested"].includes(revision.status)
     )
       return { overridable: true };
-    // Approved, but no approver covers what the draft now changes. Overridable
-    // so the bypass affordance stays reachable — this is the state that most
-    // needs it.
+    // Overridable so the bypass affordance stays reachable — the state that
+    // most needs it.
     if (requireReviews && !adminPublish && !approvalsCoverFootprint)
       return { overridable: true };
     // Properly approved, but the rule's required team has not signed off.

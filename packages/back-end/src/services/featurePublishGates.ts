@@ -68,11 +68,8 @@ export type FeatureMergePlan = {
   /** A ramp schedule is armed to activate when this revision publishes. */
   hasLinkedPendingRamp: boolean;
   requiresReview: boolean;
-  // Approvers whose authority no longer covers what the draft changes.
   uncoveredApprovers: string[];
-  /** At least one standing approval whose approver covers the footprint. */
   hasCoveringApproval: boolean;
-  // Evaluated over the rules that demanded review.
   requiredApproverTeams: {
     satisfied: boolean;
     unmet: { id: string; name: string }[][];
@@ -176,9 +173,8 @@ export async function planFeatureRevisionMerge({
   });
   const requiresReview = reviewRequirement.required;
 
-  // Re-derive what the draft changes and re-check every standing approval
-  // against it, using each approver's current permissions. Status alone is
-  // materialized at approval time and cannot see the draft growing afterwards.
+  // Re-check standing approvals against what the draft changes NOW, using each
+  // approver's current permissions. Status was materialized at approval time.
   const reviewFootprint = getReviewAuthorityFootprint({
     revision: effectiveRevision,
     bases: [filledLive, base],
@@ -296,9 +292,6 @@ export async function collectFeaturePublishGates({
       }),
     );
   }
-  // An "approved" status is not sufficient on its own: it was decided when the
-  // approval was given, and the draft may have grown to touch environments the
-  // approver has no authority over since.
   const approvedAndCovered =
     revision.status === "approved" && plan.hasCoveringApproval;
   if (plan.requiresReview && !approvedAndCovered) {
@@ -320,8 +313,7 @@ export async function collectFeaturePublishGates({
     );
   }
 
-  // A separate gate from "needs an approval": the draft can be properly approved
-  // and still be missing the team the rule names.
+  // Separate gate: a properly approved draft can still miss the named team.
   if (plan.requiresReview && !plan.requiredApproverTeams.satisfied) {
     gates.push(
       makeBlockingGate({

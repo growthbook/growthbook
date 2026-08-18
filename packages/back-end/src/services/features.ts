@@ -3720,12 +3720,8 @@ export async function getLiveRevisionForFeature(
   return live;
 }
 
-/**
- * The environments a reviewer must hold authority in to approve this revision.
- *
- * Measured against the live revision AND the draft's base: those two can drift,
- * and unioning them means drift only ever demands more authority.
- */
+// Measured against live AND the draft's base: those two can drift, and unioning
+// them means drift only ever demands more authority.
 export async function getFeatureReviewFootprint({
   context,
   feature,
