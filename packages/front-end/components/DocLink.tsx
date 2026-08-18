@@ -137,6 +137,7 @@ const docSections = {
   queryOptimization: "/app/query-optimization",
   metricGroups: "/app/metrics#metric-groups",
   managedWarehouseTracking: "/app/managed-warehouse#sending-events",
+  managedWarehouseIngestionApi: "/app/managed-warehouse#ingestion-api",
   eventForwarder: "/app/event-forwarder",
   chooseDataPath: "/app/choose-data-path",
   devTools: "/tools/chrome-extension",

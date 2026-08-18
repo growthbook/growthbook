@@ -1,4 +1,9 @@
 {
+  "packages/back-end/list-feature-keys.js": {
+    "@typescript-eslint/no-require-imports": {
+      "count": 1
+    }
+  },
   "packages/back-end/src/events/handlers/legacy.ts": {
     "@typescript-eslint/switch-exhaustiveness-check": {
       "count": 1

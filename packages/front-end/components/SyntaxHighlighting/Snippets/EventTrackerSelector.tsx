@@ -2,7 +2,7 @@ import React from "react";
 import SelectField from "@/components/Forms/SelectField";
 
 const eventTrackerOptions = [
-  { label: "GrowthBook Managed Warehouse", value: "growthbook" },
+  { label: "GrowthBook", value: "growthbook" },
   { label: "Google Analytics 4", value: "GA4" },
   { label: "Google Analytics 4 via GTM", value: "GTM" },
   { label: "Segment.io", value: "segment" },
