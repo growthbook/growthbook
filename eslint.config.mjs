@@ -151,6 +151,15 @@ export default defineConfig([
         },
       ],
 
+      "react/jsx-key": [
+        "error",
+        {
+          checkFragmentShorthand: true,
+          checkKeyMustBeforeSpread: true,
+          warnOnDuplicates: true,
+        },
+      ],
+
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
 
