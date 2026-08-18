@@ -308,7 +308,7 @@ export default function CustomHooksPage() {
 
           <EntityScopedHooksSection
             title="Config-specific Hooks"
-            description="These hooks are scoped to a single config and managed from that config's Validation tab."
+            description="These hooks are scoped to a single Config and managed from that Config's Validation tab."
             entityLabel="Config"
             entityHref={(hook) => `/configs/${hook.entityId}#validation`}
             hooks={configHooks}

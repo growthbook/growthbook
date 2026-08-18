@@ -1,6 +1,10 @@
 import { getValidDate } from "shared/dates";
 import { buildMinimalOrCondition, format } from "shared/sql";
 import {
+  buildPrevResolvedExpr,
+  conversionWindowToSeconds,
+} from "shared/funnels";
+import {
   buildManagedWarehouseAttributeAliasClause,
   MANAGED_WAREHOUSE_EVENTS_TABLE,
   MANAGED_WAREHOUSE_EXPERIMENT_VIEWS_TABLE,
@@ -16,6 +20,7 @@ import {
   MetricCappingSettings,
   NumberFormat,
   ColumnRef,
+  StandardFactMetricInterface,
 } from "shared/types/fact-table";
 import { DataSourceSettings, DataSourceType } from "shared/types/datasource";
 import {
@@ -28,13 +33,13 @@ import {
   ProductAnalyticsResult,
   ProductAnalyticsResultRow,
   FunnelDataset,
-  FunnelStep,
-  ConversionWindow,
 } from "../../validators/product-analytics";
+import { FunnelStep } from "../../validators/fact-table";
 import {
   getRowFilterSQL,
   getColumnExpression,
   getAggregateFilters,
+  isFactFunnelMetric,
 } from "../../experiments/experiments";
 
 // Internal Type definitions
@@ -42,8 +47,11 @@ type MinimalFactTable = Pick<
   FactTableInterface,
   "sql" | "columns" | "filters" | "userIdTypes" | "timestampColumn"
 >;
+// Funnel fact metrics are excluded: product-analytics explorations describe
+// their own funnels through the funnel dataset, and a funnel fact metric has no
+// numerator column to roll up.
 type MinimalMetric = Pick<
-  FactMetricInterface,
+  StandardFactMetricInterface,
   | "id"
   | "name"
   | "metricType"
@@ -213,6 +221,11 @@ function getFactTableGroups({
           const originalMetric = metricMap.get(value.metricId);
           if (!originalMetric) {
             throw new Error(`Metric ${value.metricId} not found`);
+          }
+          if (isFactFunnelMetric(originalMetric)) {
+            throw new Error(
+              `Metric ${value.metricId} is a funnel metric, which is not supported here. Use a funnel exploration instead.`,
+            );
           }
 
           const metric: MinimalMetric = {
@@ -1268,45 +1281,6 @@ function generateFinalSelect(
 /* Funnel SQL                                                                 */
 /* -------------------------------------------------------------------------- */
 
-const CONVERSION_WINDOW_UNIT_TO_SECONDS: Record<
-  ConversionWindow["unit"],
-  number
-> = {
-  minutes: 60,
-  hours: 3600,
-  days: 86400,
-  weeks: 86400 * 7,
-};
-
-function conversionWindowToSeconds(window: ConversionWindow): number {
-  return (
-    Math.max(1, Math.round(window.value)) *
-    CONVERSION_WINDOW_UNIT_TO_SECONDS[window.unit]
-  );
-}
-
-/**
- * The "previous resolved timestamp" that step `index` measures its window and
- * concurrency against: the nearest preceding required step.
- *
- * Optional steps are skipped rather than chained through. An optional step can
- * land *after* the step that follows it, and anchoring on it would then push
- * that already-completed conversion outside the window and drop it.
- */
-function buildPrevResolvedExpr(
-  steps: FunnelStep[],
-  index: number,
-  alias: string = "",
-): string {
-  const prefix = alias ? `${alias}.` : "";
-  for (let i = index - 1; i >= 0; i--) {
-    if (!steps[i].optional) return `${prefix}step${i + 1}_resolved_ts`;
-  }
-  // Every preceding step is optional, so anchor on step 1, which
-  // __funnel_qualifying_users already guarantees is non-null.
-  return `${prefix}step1_resolved_ts`;
-}
-
 interface FunnelFactTableGroup {
   index: number;
   factTable: MinimalFactTable;
@@ -1415,6 +1389,9 @@ export function buildFunnelSql(
   const concurrencyWindowSeconds = dataset.concurrencyWindowSeconds ?? 0;
   const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
   const ftGroups = groupFunnelStepsByFactTable(steps, factTableMap);
+
+  const resolvedTsColumn = (stepIndex: number) =>
+    `step${stepIndex + 1}_resolved_ts`;
 
   // Validate that the unit exists on every step's fact table.
   for (const group of ftGroups) {
@@ -1616,7 +1593,12 @@ export function buildFunnelSql(
   for (let i = 1; i < steps.length; i++) {
     const step = steps[i];
     const stepN = i + 1;
-    const prevExpr = buildPrevResolvedExpr(steps, i, "r");
+    const prevExpr = buildPrevResolvedExpr({
+      steps,
+      index: i,
+      resolvedTsColumn,
+      alias: "r",
+    });
     const windowSeconds = step.conversionWindow
       ? conversionWindowToSeconds(step.conversionWindow)
       : null;
@@ -1663,7 +1645,11 @@ export function buildFunnelSql(
       `${dialect.castToFloat(`COUNT(step${stepN}_resolved_ts)`)} AS step${stepN}_count`,
     );
     if (i > 0) {
-      const prevExpr = buildPrevResolvedExpr(steps, i);
+      const prevExpr = buildPrevResolvedExpr({
+        steps,
+        index: i,
+        resolvedTsColumn,
+      });
       // Express the diff in hours so the sum-of-squares stays well below
       // MAX_SAFE_INTEGER at scale. Millisecond-precision squares overflow
       // JS numbers with only a few thousand users.

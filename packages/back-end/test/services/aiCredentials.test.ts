@@ -24,19 +24,9 @@ describe("AI credential encryption", () => {
     expect(encryptAIKey(key)).not.toBe(encryptAIKey(key));
   });
 
-  it("does not throw when the key is wrong", () => {
+  it("does not throw or return plaintext when the key is wrong", () => {
     for (let i = 0; i < 200; i++) {
       const ciphertext = AES.encrypt("sk-real-key", "another-key").toString();
-      expect(() => decryptAIKey(ciphertext)).not.toThrow();
-    }
-  });
-
-  it("does not return the plaintext when the key is wrong", () => {
-    for (let i = 0; i < 200; i++) {
-      const ciphertext = AES.encrypt(
-        "sk-real-key",
-        "some-other-key",
-      ).toString();
       expect(decryptAIKey(ciphertext)).not.toBe("sk-real-key");
     }
   });

@@ -21,6 +21,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
   getIsExperimentIncludedInIncrementalRefresh,
   getPipelineSettingsAfterReenablingExperiment,
+  getResultMetricDisplayName,
 } from "@/services/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/ui/Badge";
@@ -218,30 +219,10 @@ export default function ResultMoreMenu({
           const stats = variation.metrics[metricId];
           if (!stats) return;
 
-          let metricName = metricId;
-          if (metricId.includes("?")) {
-            const baseMetricId = metricId.split("?")[0];
-            const baseMetric = getExperimentMetricById(baseMetricId);
-            if (baseMetric) {
-              const queryString = metricId.split("?")[1];
-              const params = new URLSearchParams(queryString);
-              const sliceParts: string[] = [];
-              for (const [key, value] of params.entries()) {
-                if (key.startsWith("dim:")) {
-                  const column = decodeURIComponent(key.substring(4));
-                  const level =
-                    value === "" ? "other" : decodeURIComponent(value);
-                  sliceParts.push(`${column}: ${level}`);
-                }
-              }
-              metricName = `${baseMetric.name} (${sliceParts.join(", ")})`;
-            }
-          } else {
-            const metric = getExperimentMetricById(metricId);
-            if (metric) {
-              metricName = metric.name;
-            }
-          }
+          const metricName = getResultMetricDisplayName(
+            metricId,
+            getExperimentMetricById,
+          );
 
           csvRows.push({
             ...(dimensionName && { [dimensionName]: result.name }),

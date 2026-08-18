@@ -106,7 +106,7 @@ const ConstantSearchFilters: FC<
           }}
         >
           <FilterItem
-            item="Archived constants"
+            item="Archived Constants"
             exists={doesFilterExist("is", "archived", "")}
           />
         </DropdownMenuItem>

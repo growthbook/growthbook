@@ -1,4 +1,8 @@
-import { CustomHookInterface, CustomHookType } from "shared/validators";
+import {
+  CustomHookInterface,
+  CustomHookType,
+  hookEntityType,
+} from "shared/validators";
 import {
   getConfigAncestorKeys,
   getConfigBaseKeys,
@@ -573,11 +577,20 @@ async function _runCustomHooks(
   );
 
   // A hard hook error (a hook threw) blocks unless the caller passes the
-  // privileged skipHooks (which already requires the bypassApprovalChecks
+  // privileged skipHooks (which already requires the FlagsBypassApprovals
   // permission). Its own flag, not skipSchemaValidation — a hook failure isn't a
   // schema error. This is the assert-path equivalent of the custom-hook gate the
   // REST publish handlers emit.
-  if (hardErrors.length && !context.skipHooks) {
+  // Which family's bypass authority clears a hook rejection depends on WHOSE hook
+  // it is — this runner serves feature, feature-revision, experiment and config
+  // hooks. `hookEntityType` already maps that; experiment hooks have no flag
+  // family, so nothing clears them by permission alone.
+  const hookFamily = hookEntityType[hookType];
+  const canSkip =
+    hookFamily === "feature" || hookFamily === "config"
+      ? context.canSkipHooksFor(hookFamily)
+      : false;
+  if (hardErrors.length && !canSkip) {
     throw new Error(hardErrors.join("\n"));
   }
 

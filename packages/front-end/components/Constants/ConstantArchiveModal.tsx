@@ -1,3 +1,9 @@
+import {
+  canStageArchiveDraft,
+  canWriteArchiveIntoDraft,
+  archiveFootprintForControl,
+  canLandArchiveToggle,
+} from "shared/permissions";
 import { ConstantWithoutValue } from "shared/types/constant";
 import { Revision } from "shared/enterprise";
 import ArchiveModal from "@/components/Revision/ArchiveModal";
@@ -6,6 +12,9 @@ import { ConstantRevisionContext } from "@/components/Constants/useConstantDraft
 import ConstantReferencesList from "@/components/Constants/ConstantReferencesList";
 import { useConstantReferences } from "@/hooks/useConstantReferences";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useUser } from "@/services/UserContext";
+import { useEnvironments } from "@/services/features";
 
 // Thin wrapper around the entity-agnostic ArchiveModal.
 export default function ConstantArchiveModal({
@@ -25,6 +34,9 @@ export default function ConstantArchiveModal({
 
   const { openRevisions, allRevisions, approvalRequired, canBypassApproval } =
     revisionCtx;
+  const permissionsUtil = usePermissionsUtil();
+  const { userId } = useUser();
+  const environments = useEnvironments();
 
   const isArchived = !!constant.archived;
 
@@ -44,6 +56,13 @@ export default function ConstantArchiveModal({
       openRevisions={openRevisions}
       approvalRequired={approvalRequired}
       canBypassApproval={canBypassApproval}
+      // Archive requires delete authority; unarchive requires publish authority.
+      canLand={canLandArchiveToggle(
+        permissionsUtil,
+        "constant",
+        constant,
+        archiveFootprintForControl({ environments, entity: constant }),
+      )}
       referenceCount={totalReferences}
       referencesLoading={loading}
       referencesError={(error ?? null) !== null}
@@ -57,6 +76,21 @@ export default function ConstantArchiveModal({
           constants={references?.constants ?? []}
         />
       }
+      canStageDraft={canStageArchiveDraft({
+        permissions: permissionsUtil,
+        model: "constant",
+        entity: constant,
+        archived: !constant.archived,
+      })}
+      canWriteIntoDraft={(r) =>
+        canWriteArchiveIntoDraft({
+          permissions: permissionsUtil,
+          model: "constant",
+          entity: constant,
+          revision: r,
+          userId,
+        })
+      }
       renderDraftSelector={({
         mode,
         setMode,
@@ -64,10 +98,14 @@ export default function ConstantArchiveModal({
         setSelectedDraftId,
         canAutoPublish,
         approvalRequired: gated,
+        canWriteIntoDraft,
+        canDraft,
       }) => (
         <ConstantDraftSelectorForChanges
           constantId={constant.id}
           openRevisions={openRevisions}
+          canWriteIntoDraft={canWriteIntoDraft}
+          canDraft={canDraft}
           allRevisions={allRevisions}
           mode={mode}
           setMode={setMode}
