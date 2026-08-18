@@ -47261,6 +47261,11 @@ paths:
                         type: integer
                         minimum: 2
                         maximum: 50
+                    heightScale:
+                      type: string
+                      enum:
+                        - relative
+                        - absolute
                   required:
                     - type
                     - factTableId
@@ -47707,6 +47712,11 @@ paths:
                                       type: integer
                                       minimum: 2
                                       maximum: 50
+                                  heightScale:
+                                    type: string
+                                    enum:
+                                      - relative
+                                      - absolute
                                 required:
                                   - type
                                   - factTableId
@@ -66882,6 +66892,11 @@ components:
                         type: integer
                         minimum: 2
                         maximum: 50
+                    heightScale:
+                      type: string
+                      enum:
+                        - relative
+                        - absolute
                   required:
                     - type
                     - factTableId

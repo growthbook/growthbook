@@ -109,6 +109,12 @@ export const journeyPathStepValidator = z
   .strict();
 export type JourneyPathStep = z.infer<typeof journeyPathStepValidator>;
 
+/** Column height scaling for the journey Sankey.
+ *  - `relative`: each step fills the chart height; bars are shares of that step.
+ *  - `absolute`: one scale for the whole journey, so later steps shrink as users exit. */
+export const journeyHeightScaleValidator = z.enum(["relative", "absolute"]);
+export type JourneyHeightScale = z.infer<typeof journeyHeightScaleValidator>;
+
 export const MAX_JOURNEY_STEP_COLUMNS = 3;
 export const MAX_JOURNEY_STEP_GROUPS = 25;
 export const MAX_JOURNEY_PATH_LENGTH = 15;
@@ -158,6 +164,8 @@ const journeyDatasetValidator = z
           .max(MAX_JOURNEY_OPTIONS_PER_STEP),
       ),
     ),
+    // Optional for backward compatibility; read sites default to "relative".
+    heightScale: journeyHeightScaleValidator.optional(),
   })
   .strict();
 export type JourneyDataset = z.infer<typeof journeyDatasetValidator>;

@@ -4,6 +4,7 @@ import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { useTooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
 import { JOURNEY_OTHER, JOURNEY_TERMINALS } from "shared/journeys";
+import type { JourneyHeightScale } from "shared/validators";
 import TextUI from "@/ui/Text";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { CHART_COLORS } from "@/enterprise/components/ProductAnalytics/chart-theme";
@@ -253,19 +254,45 @@ function lerpLayout(from: Layout, to: Layout, t: number): Layout {
   };
 }
 
-/** Each column is scaled to its own total, so every step fills the height and
- *  within-step proportions stay readable however far the journey has narrowed. */
-function layout(m: JourneyViewModel, width: number, height: number): Layout {
+function columnFillScale(
+  total: number,
+  nodeCount: number,
+  height: number,
+): number {
+  const gaps = Math.max(0, nodeCount - 1) * NODE_GAP;
+  const availC = height - PAD_T - PAD_B - gaps;
+  return total > 0 ? availC / total : 0;
+}
+
+/** Relative: each column fills the height. Absolute: one scale for the whole
+ *  journey so later steps shrink as users exit. */
+function layout(
+  m: JourneyViewModel,
+  width: number,
+  height: number,
+  heightScale: JourneyHeightScale,
+): Layout {
   const cols = m.columns.map((c) => ({
     ...c,
     nodes: c.nodes.map((n) => ({ ...n })),
   }));
   const pitch = cols.length > 1 ? (width - NODE_W) / (cols.length - 1) : 0;
-  cols.forEach((c) => {
-    c.total = c.nodes.reduce((a, n) => a + n.value, 0);
-    const gaps = Math.max(0, c.nodes.length - 1) * NODE_GAP;
-    const availC = height - PAD_T - PAD_B - gaps;
-    c.scale = c.total > 0 ? availC / c.total : 0;
+  const totals = cols.map((c) => c.nodes.reduce((a, n) => a + n.value, 0));
+  let sharedScale = 0;
+  if (heightScale === "absolute") {
+    let min = Infinity;
+    cols.forEach((c, i) => {
+      const s = columnFillScale(totals[i], c.nodes.length, height);
+      if (s > 0 && s < min) min = s;
+    });
+    sharedScale = min === Infinity ? 0 : min;
+  }
+  cols.forEach((c, i) => {
+    c.total = totals[i];
+    c.scale =
+      heightScale === "absolute"
+        ? sharedScale
+        : columnFillScale(c.total, c.nodes.length, height);
     let y = PAD_T;
     for (const n of c.nodes) {
       const ln = n as LaidNode;
@@ -426,6 +453,7 @@ function SankeySvg({
   model,
   width,
   height,
+  heightScale,
   onCommit,
   onPop,
   onViewMore,
@@ -436,6 +464,7 @@ function SankeySvg({
   model: JourneyViewModel;
   width: number;
   height: number;
+  heightScale: JourneyHeightScale;
   onCommit: (keys: string[]) => void;
   onPop: (index: number) => void;
   onViewMore: (levelIndex: number) => void;
@@ -448,7 +477,10 @@ function SankeySvg({
   const reduceMotion =
     typeof window !== "undefined" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const target = useMemo(() => layout(model, w, h), [model, w, h]);
+  const target = useMemo(
+    () => layout(model, w, h, heightScale),
+    [model, w, h, heightScale],
+  );
   const [drawn, setDrawn] = useState(target);
   const visualRef = useRef(target);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -807,7 +839,7 @@ function SankeySvg({
                               ? "ending step"
                               : "starting step"
                           }`,
-                          ...(c.total
+                          ...(c.total && heightScale === "relative"
                             ? [
                                 `${pct(n.value, c.total)} of this step — what the height shows`,
                               ]
@@ -909,6 +941,7 @@ function SankeySvg({
 
 export default function JourneySankey({
   model,
+  heightScale,
   onCommit,
   onPop,
   onViewMore,
@@ -917,6 +950,7 @@ export default function JourneySankey({
   canCommitStep,
 }: {
   model: JourneyViewModel;
+  heightScale: JourneyHeightScale;
   onCommit: (keys: string[]) => void;
   onPop: (index: number) => void;
   onViewMore: (levelIndex: number) => void;
@@ -933,6 +967,7 @@ export default function JourneySankey({
             model={model}
             width={width}
             height={Math.max(280, height)}
+            heightScale={heightScale}
             onCommit={onCommit}
             onPop={onPop}
             onViewMore={onViewMore}

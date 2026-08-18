@@ -990,7 +990,12 @@ export function toFetchKey(
   }
   if (base.dataset.type === "journey") {
     // path is applied client-side when the current result can serve it.
-    const { path: _path, ...journeyFetchDataset } = base.dataset;
+    // heightScale only affects how columns are drawn.
+    const {
+      path: _path,
+      heightScale: _heightScale,
+      ...journeyFetchDataset
+    } = base.dataset;
     return {
       ...rest,
       chartType: getChartCategory(base.chartType),

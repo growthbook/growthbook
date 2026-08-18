@@ -147,6 +147,9 @@ export default function JourneyChart({
     [draftDataset, exploration, loading, submittedExploreState.dataset],
   );
 
+  const heightScale =
+    draftDataset?.heightScale ?? dataset?.heightScale ?? "relative";
+
   if (!dataset || !model) return null;
 
   if (model.emptyReason === "no-anchor") {
@@ -169,6 +172,7 @@ export default function JourneyChart({
       <Box style={{ flex: 1, minHeight: 220, position: "relative" }}>
         <JourneySankey
           model={visibleModel ?? model}
+          heightScale={heightScale}
           onCommit={onCommit}
           onPop={popJourneyPath}
           onViewMore={onViewMore}

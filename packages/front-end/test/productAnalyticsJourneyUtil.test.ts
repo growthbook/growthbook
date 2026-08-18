@@ -191,14 +191,21 @@ describe("journey util branches", () => {
       dimensions: [],
       dataset: journeyDataset({
         path: [{ value: "search" }],
+        heightScale: "absolute",
       }),
     };
     const key = toFetchKey(config) as {
-      dataset: { type: string; lookaheadDepth?: number; path?: unknown };
+      dataset: {
+        type: string;
+        lookaheadDepth?: number;
+        path?: unknown;
+        heightScale?: unknown;
+      };
     };
     expect(key.dataset.type).toBe("journey");
     expect(key.dataset.lookaheadDepth).toBe(3);
     expect(key.dataset).not.toHaveProperty("path");
+    expect(key.dataset).not.toHaveProperty("heightScale");
   });
 
   it("journeyShouldPrefetchMore starts one step before the prefetch runs out", () => {
