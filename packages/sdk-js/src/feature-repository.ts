@@ -124,6 +124,9 @@ const pollers: Map<string, Poller> = new Map();
 const supportsSSE: Set<string> = new Set();
 const streamingWarnings: Set<string> = new Set();
 
+// Ceiling for both the SSE reconnect and the polling error backoff
+const MAX_BACKOFF_MS = 1000 * 60 * 5;
+
 // Public functions
 export function setPolyfills(overrides: Partial<Polyfills>): void {
   Object.assign(polyfills, overrides);
@@ -543,8 +546,8 @@ function onSSEError(channel: ScopedChannel) {
         if (streams.get(channel.key) !== channel) return;
         enableChannel(channel);
       },
-      Math.min(delay, 300000),
-    ); // 5 minutes max
+      Math.min(delay, MAX_BACKOFF_MS),
+    );
   }
 }
 
@@ -572,10 +575,8 @@ function enableChannel(channel: ScopedChannel) {
     channel.src.onerror = () => onSSEError(channel);
     channel.src.onopen = () => {
       channel.errors = 0;
-      // Only now is streaming confirmed working, so it can take over from polling.
-      // Constructing an EventSource says nothing about whether it will connect, and
-      // an SSE connection blocked by a firewall or proxy is exactly why someone
-      // configured polling in the first place.
+      // Retire polling once the stream is confirmed open, not merely constructed -
+      // a stream blocked by a proxy is exactly why someone configured polling
       const poller = pollers.get(channel.key);
       if (poller) destroyPoller(poller, channel.key);
     };
@@ -610,8 +611,8 @@ function destroyChannel(channel: ScopedChannel, key: string) {
 
 // Refresh on a fixed interval. Deduped per key, so many instances sharing a clientKey poll once.
 function startPolling(key: string, interval: number): void {
-  // setTimeout collapses any out-of-range delay to 1ms - negative, NaN, Infinity,
-  // sub-millisecond, or past its signed 32-bit max - turning a typo into a request loop
+  // setTimeout collapses an out-of-range delay to 1ms, turning a typo into a request
+  // loop. console.warn here for the same reason as warnStreamingUnavailable above
   if (!Number.isFinite(interval) || interval < 1 || interval > 2147483647) {
     console.warn(
       `[GrowthBook] Ignoring invalid pollingInterval (${interval}). Expected a finite number of milliseconds between 1 and 2147483647.`,
@@ -626,13 +627,14 @@ function startPolling(key: string, interval: number): void {
 }
 
 function scheduleNextPoll(key: string, poller: Poller): void {
-  // Back off on repeated errors, with jitter, capped at 5 minutes
+  // Back off on repeated errors, with jitter. Deliberately a gentler curve than
+  // onSSEError's, since this one scales off the user's configured interval
   const delay =
     poller.errors > 0
       ? Math.min(
           poller.interval * Math.pow(2, poller.errors - 1) +
             Math.random() * 1000,
-          300000,
+          MAX_BACKOFF_MS,
         )
       : poller.interval;
 
@@ -716,12 +718,10 @@ export function startBackgroundSync(
 
   subscribe(instance);
 
-  // Poll until streaming is confirmed working, at which point onopen retires the poller.
-  // Deliberately not gated on an existing stream: startAutoRefresh opens one whenever the
-  // host advertises SSE, so gating here would silently drop the polling that was asked for
-  // and leave nothing behind if that stream never connects.
-  // Checked against undefined rather than truthiness so that 0 reaches the validation
-  // warning in startPolling instead of silently disabling refreshes.
+  // Not gated on an existing stream: startAutoRefresh opens one whenever the host
+  // advertises SSE, so gating here would drop the polling that was asked for if that
+  // stream never connects. onopen retires the poller once it does.
+  // Checked against undefined so 0 reaches startPolling's validation warning
   const key = getKey(instance);
   if (options.pollingInterval !== undefined && cacheSettings.backgroundSync) {
     startPolling(key, options.pollingInterval);
