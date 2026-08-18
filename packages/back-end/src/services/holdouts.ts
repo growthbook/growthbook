@@ -697,7 +697,6 @@ export async function setHoldoutStage(
       experiment,
       changes,
     });
-    refreshPayload(event);
     try {
       await context.models.holdout.update(holdout, holdoutChanges);
     } catch (e) {
@@ -713,6 +712,7 @@ export async function setHoldoutStage(
       }
       throw e;
     }
+    refreshPayload(event);
   };
 
   switch (stage) {

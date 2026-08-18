@@ -2,6 +2,7 @@ import type { ExperimentInterface } from "shared/types/experiment";
 import type { HoldoutInterface, ApiUpdateHoldoutBody } from "shared/validators";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { CasConflictError } from "back-end/src/models/BaseModel";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { logger } from "back-end/src/util/logger";
 import type { ReqContext } from "back-end/types/request";
 import {
@@ -275,6 +276,7 @@ describe("getNextScheduledStatusUpdateForStage", () => {
 
 describe("rollbackExperimentAfterHoldoutFailure guard", () => {
   const mockUpdateExperiment = updateExperiment as jest.Mock;
+  const mockQueueSDKPayloadRefresh = queueSDKPayloadRefresh as jest.Mock;
 
   const makeExperiment = (
     overrides: Partial<ExperimentInterface> = {},
@@ -385,6 +387,31 @@ describe("rollbackExperimentAfterHoldoutFailure guard", () => {
       expect(rollbackCall.guard).toBe(forwardChanges);
       expect(rollbackCall.guard.status).toBe("stopped");
       expect(rollbackCall.changes.status).toBe("running");
+    });
+
+    it("never queues the forward refresh when the holdout write is rolled back", async () => {
+      const experiment = makeExperiment({ status: "running" });
+      mockUpdateExperiment
+        .mockResolvedValueOnce(makeExperiment({ status: "stopped" }))
+        .mockResolvedValueOnce(makeExperiment({ status: "running" }));
+      const holdoutUpdate = jest
+        .fn()
+        .mockRejectedValue(new Error("holdout down"));
+
+      await expect(
+        setHoldoutStage(makeContext(holdoutUpdate), {
+          holdout: makeHoldout(),
+          experiment,
+          stage: "stopped",
+        }),
+      ).rejects.toThrow("holdout down");
+
+      const events = mockQueueSDKPayloadRefresh.mock.calls.map(
+        ([arg]) => arg.auditContext.event,
+      );
+      // The forward lifecycle refresh must not run once the transition rolls
+      // back; only the reverted-state refresh should reach the SDK caches.
+      expect(events).toEqual(["Reverted: Status changed to stopped"]);
     });
   });
 });
