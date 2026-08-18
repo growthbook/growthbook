@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Frame from "@/ui/Frame";
 import {
   useDefinitions,
   LOCALSTORAGE_DASHBOARD_KEY,
@@ -70,23 +71,23 @@ export default function DashboardCard() {
           value={resolvedDashboardId}
           setValue={setSelectedDashboardId}
           style={{ minWidth: "240px" }}
+          placeholder="Select a dashboard"
         />
       </Flex>
       {resolvedDashboardId ? (
-        <Box
+        <Frame
+          position="relative"
           pt="1"
           pb="4"
           px="4"
-          style={{
-            border: "1px solid var(--slate-a4)",
-            borderRadius: "var(--radius-3)",
-          }}
+          mb="0"
+          style={{ minHeight: "160px" }}
         >
           <DashboardView
             dashboardId={resolvedDashboardId}
             maxBlocks={PREVIEW_MAX_BLOCKS}
           />
-        </Box>
+        </Frame>
       ) : (
         <Text color="text-mid">
           Select a dashboard above to preview it here.
