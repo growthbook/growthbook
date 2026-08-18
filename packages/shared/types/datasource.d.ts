@@ -8,6 +8,7 @@ import { PostgresConnectionParams } from "./integrations/postgres";
 import { PrestoConnectionParams } from "./integrations/presto";
 import { SnowflakeConnectionParams } from "./integrations/snowflake";
 import { DatabricksConnectionParams } from "./integrations/databricks";
+import { AdobeExperiencePlatformQueryServiceConnectionParams } from "./integrations/adobe-experience-platform-query-service";
 import { MetricType } from "./metric";
 import { MssqlConnectionParams } from "./integrations/mssql";
 import { FactTableColumnType } from "./fact-table";
@@ -27,7 +28,8 @@ export type DataSourceType =
   | "presto"
   | "databricks"
   | "mixpanel"
-  | "vertica";
+  | "vertica"
+  | "adobe_experience_platform_query_service";
 
 export type DataSourceParams =
   | PostgresConnectionParams
@@ -40,7 +42,8 @@ export type DataSourceParams =
   | SnowflakeConnectionParams
   | BigQueryConnectionParams
   | ClickHouseConnectionParams
-  | MixpanelConnectionParams;
+  | MixpanelConnectionParams
+  | AdobeExperiencePlatformQueryServiceConnectionParams;
 
 export type QueryLanguage = "sql" | "javascript" | "json" | "none";
 
@@ -461,6 +464,10 @@ interface VerticaDataSource extends DataSourceBase {
   type: "vertica";
 }
 
+interface AdobeExperiencePlatformQueryServiceDataSource extends DataSourceBase {
+  type: "adobe_experience_platform_query_service";
+}
+
 interface BigQueryDataSource extends DataSourceBase {
   type: "bigquery";
 }
@@ -505,11 +512,15 @@ export type PostgresDataSourceWithParams = WithParams<
   PostgresDataSource,
   PostgresConnectionParams
 >;
-
 export type VerticaDataSourceWithParams = WithParams<
   VerticaDataSource,
   PostgresConnectionParams
 >;
+export type AdobeExperiencePlatformQueryServiceDataSourceWithParams =
+  WithParams<
+    AdobeExperiencePlatformQueryServiceDataSource,
+    AdobeExperiencePlatformQueryServiceConnectionParams
+  >;
 export type MysqlDataSourceWithParams = WithParams<
   MysqlDataSource,
   MysqlConnectionParams
@@ -545,7 +556,8 @@ export type DataSourceInterface =
   | MssqlDataSource
   | BigQueryDataSource
   | ClickHouseDataSource
-  | MixpanelDataSource;
+  | MixpanelDataSource
+  | AdobeExperiencePlatformQueryServiceDataSource;
 
 export type DataSourceInterfaceWithParams =
   | GrowthbookClickhouseDataSourceWithParams
@@ -561,4 +573,5 @@ export type DataSourceInterfaceWithParams =
   | MssqlDataSourceWithParams
   | BigQueryDataSourceWithParams
   | ClickHouseDataSourceWithParams
-  | MixpanelDataSourceWithParams;
+  | MixpanelDataSourceWithParams
+  | AdobeExperiencePlatformQueryServiceDataSourceWithParams;
