@@ -317,6 +317,27 @@ export function getRolePermissions(
 }
 
 /**
+ * The teams a member belongs to, resolved for display and for policy that keys on
+ * team rather than on identity. Shared so a custom hook's reviewer props and any
+ * future required-approver-team gate agree on what "in team X" means.
+ *
+ * Returns [] for a non-member and for API-key reviewers, which belong to no team.
+ */
+export function teamsForMember(
+  userId: string,
+  org: { members?: { id: string; teams?: string[] }[] },
+  teams: { id: string; name: string }[],
+): { id: string; name: string }[] {
+  const member = (org.members ?? []).find((m) => m.id === userId);
+  if (!member?.teams?.length) return [];
+  const byId = new Map(teams.map((t) => [t.id, t]));
+  return member.teams
+    .map((id) => byId.get(id))
+    .filter((t): t is { id: string; name: string } => !!t)
+    .map((t) => ({ id: t.id, name: t.name }));
+}
+
+/**
  * Which standing approvals still count, judged against what the draft changes.
  *
  * Takes each approver's role rules rather than looking them up, so the same

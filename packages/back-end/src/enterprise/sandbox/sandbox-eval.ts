@@ -10,6 +10,7 @@ import {
   withConfigExtends,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
+import { teamsForMember } from "shared/permissions";
 import {
   buildConstantValueMap,
   resolveConstantRefs,
@@ -54,6 +55,22 @@ export async function runValidateFeatureHooks({
   );
 }
 
+// Reviewer team membership, attached for hooks that gate on team rather than on
+// identity. Copied onto the args, never onto the stored revision — membership is
+// current-state, not something the revision recorded.
+function withReviewerTeams<
+  T extends { reviews?: { userId: string }[] } | null | undefined,
+>(context: Context, revision: T): T {
+  if (!revision?.reviews?.length) return revision;
+  return {
+    ...revision,
+    reviews: revision.reviews.map((r) => ({
+      ...r,
+      teams: teamsForMember(r.userId, context.org, context.teams ?? []),
+    })),
+  };
+}
+
 export async function runValidateFeatureRevisionHooks({
   context,
   feature,
@@ -68,12 +85,12 @@ export async function runValidateFeatureRevisionHooks({
   return _runCustomHooks(
     context,
     "validateFeatureRevision",
-    { feature, revision },
+    { feature, revision: withReviewerTeams(context, revision) },
     feature.project,
     feature.id,
     {
       feature,
-      revision: original,
+      revision: withReviewerTeams(context, original),
     },
   );
 }
@@ -115,12 +132,12 @@ export async function collectValidateFeatureRevisionHookResults({
   return collectCustomHookResults(
     context,
     "validateFeatureRevision",
-    { feature, revision },
+    { feature, revision: withReviewerTeams(context, revision) },
     feature.project,
     feature.id,
     {
       feature,
-      revision: original,
+      revision: withReviewerTeams(context, original),
     },
   );
 }
@@ -405,6 +422,8 @@ export type ConfigRevisionHookInput = {
     comment?: string;
     stale?: boolean;
     dateCreated: Date;
+    // Attached at call time by withReviewerTeams; not stored on the revision.
+    teams?: { id: string; name: string }[];
   }[];
 };
 
@@ -431,14 +450,15 @@ async function prepareConfigRevisionHookCall({
   // Args are injected by destructuring, so `revision` must always be bound —
   // an absent key makes `if (revision)` a ReferenceError inside the hook.
   // Direct publishes (REST value update, revert) have no revision → null.
+  const revisionArg = withReviewerTeams(context, revision) ?? null;
   return [
     context,
     "validateConfigRevision",
-    { config: enriched.config, revision: revision ?? null },
+    { config: enriched.config, revision: revisionArg },
     config.project ?? "",
     config.key,
     enriched.original
-      ? { config: enriched.original, revision: revision ?? null }
+      ? { config: enriched.original, revision: revisionArg }
       : undefined,
     { parent: config.parent, extends: config.extends },
   ];
