@@ -56,6 +56,16 @@ function seatLabel(count: number): string {
   return count === 1 ? "seat" : "seats";
 }
 
+function expirationDisplayDate(value: string | undefined): string {
+  if (!value) return "";
+  const parsed = new Date(value);
+  // Backend formats missing Stripe cancel_at as epoch (e.g. "Wed Dec 31 1969").
+  if (Number.isNaN(parsed.getTime()) || parsed.getFullYear() <= 1970) {
+    return "";
+  }
+  return date(parsed);
+}
+
 export default function SubscriptionInfo() {
   const { apiCall } = useAuth();
   const {
@@ -109,7 +119,8 @@ export default function SubscriptionInfo() {
   const isEnterprise = accountPlan === "enterprise";
   const showCancelButton = hasActiveOrbSubscription && !isEnterprise;
   const contractExpirationDate =
-    date(license?.dateExpires || "") || subscription?.dateToBeCanceled;
+    expirationDisplayDate(license?.dateExpires) ||
+    expirationDisplayDate(subscription?.dateToBeCanceled);
   const showActionButtons =
     showStripeManageButton ||
     showUpdateInvoiceButton ||
