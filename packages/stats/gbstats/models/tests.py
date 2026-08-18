@@ -79,7 +79,10 @@ def frequentist_variance_relative_cuped_ratio(
 ) -> float:
     if stat_a.unadjusted_mean == 0 or stat_a.d_statistic_post.mean == 0:
         return 0  # avoid division by zero
-    g_abs = stat_b.mean - stat_a.mean
+    # The estimate is (mean_b - mean_a) / abs(unadjusted_mean), so its gradient
+    # in the control post-period terms carries the sign of the baseline; folding
+    # it into g_abs keeps the variance correct when the baseline mean is negative.
+    g_abs = (stat_b.mean - stat_a.mean) * np.sign(stat_a.unadjusted_mean)
     g_rel_den = np.abs(stat_a.unadjusted_mean)
     nabla_ctrl_0_num = -(g_rel_den + g_abs) / stat_a.d_statistic_post.mean
     nabla_ctrl_0_den = g_rel_den**2
@@ -1156,7 +1159,7 @@ class PostStratificationSummary:
             if self.mean[0] == 0:
                 return 0
             else:
-                return self.mean[1] / self.mean[0]
+                return self.mean[1] / abs(self.mean[0])
         else:
             return self.mean[1]
 
@@ -1329,11 +1332,12 @@ class PostStratificationSummaryRatio(PostStratificationSummary):
             if self.point_estimate_rel_denominator == 0:
                 return 0
             else:
-                return (
+                relative_estimate = (
                     self.point_estimate_rel_numerator
                     / self.point_estimate_rel_denominator
                     - 1
                 )
+                return relative_estimate * np.sign(self.unadjusted_baseline_mean)
         else:
             mn_trt_num = self.mean[0] + self.mean[1]
             mn_trt_den = self.mean[2] + self.mean[3]
