@@ -15,7 +15,7 @@ import Button from "@/components/Button";
 import RadixButton from "@/ui/Button";
 import TempMessage from "@/components/TempMessage";
 import ProjectModal from "@/components/Projects/ProjectModal";
-import ProjectApprovalCard from "@/components/Projects/ProjectApprovalCard";
+import ProjectApprovalSettings from "@/components/Projects/ProjectApprovalSettings";
 import MemberList from "@/components/Settings/Team/MemberList";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { useUser } from "@/services/UserContext";
@@ -239,10 +239,10 @@ const ProjectPage: FC = () => {
         )}
 
         <Box mt="4">
-          <ProjectApprovalCard project={pid} projectName={p.name} />
           <Tabs defaultValue="members">
             <TabsList>
               <TabsTrigger value="members">Project Members</TabsTrigger>
+              <TabsTrigger value="approvals">Approvals</TabsTrigger>
               <TabsTrigger value="settings">Experiment Settings</TabsTrigger>
             </TabsList>
             <Box pt="4">
@@ -437,6 +437,9 @@ const ProjectPage: FC = () => {
                     </div>
                   </div>
                 </div>
+              </TabsContent>
+              <TabsContent value="approvals">
+                <ProjectApprovalSettings project={pid} projectName={p.name} />
               </TabsContent>
               <TabsContent value="members">
                 <MemberList

@@ -11,6 +11,7 @@ import {
   Revision,
   applyTopLevelPatchOps,
   JsonPatchOperation,
+  getApprovalFlowSettings,
 } from "shared/enterprise";
 import { useForm } from "react-hook-form";
 import { isEqual } from "lodash";
@@ -88,18 +89,17 @@ const SavedGroupForm: FC<{
   const { user } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
-  // Compute approvalFlowRequired from settings if not provided as prop
+  // Resolved against the group's own projects, so a project override applies.
+  const approvalFlow = getApprovalFlowSettings(
+    settings.approvalFlows,
+    "saved-group",
+    current.projects ?? [],
+  );
   const isApprovalFlowRequired =
-    approvalFlowRequired ??
-    settings.approvalFlows?.savedGroups?.[0]?.required ??
-    false;
-
-  // Compute metadataReviewRequired from settings if not provided as prop
+    approvalFlowRequired ?? !!approvalFlow?.required;
   const isMetadataReviewRequired =
     metadataReviewRequired ??
-    (isApprovalFlowRequired &&
-      (settings.approvalFlows?.savedGroups?.[0]?.requireMetadataReview ??
-        true));
+    (isApprovalFlowRequired && (approvalFlow?.requireMetadataReview ?? true));
 
   const canAdminPublish =
     !!isApprovalFlowRequired &&
