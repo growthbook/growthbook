@@ -1,4 +1,4 @@
-import { FC, ReactNode } from "react";
+import { FC, ReactNode, useState } from "react";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
 import { useAuth, safeLogout } from "@/services/auth";
@@ -23,6 +23,7 @@ const LoggedInPageGuard = ({
 }) => {
   const { error, ready, organization } = useUser();
   const { organizations } = useAuth();
+  const [logoutError, setLogoutError] = useState<string | null>(null);
 
   if (error) {
     return (
@@ -52,6 +53,7 @@ const LoggedInPageGuard = ({
                 </Button>
                 <Button
                   color="red"
+                  setError={setLogoutError}
                   onClick={async () => {
                     await safeLogout();
                   }}
@@ -59,6 +61,11 @@ const LoggedInPageGuard = ({
                   Log Out
                 </Button>
               </Flex>
+              {logoutError ? (
+                <Callout status="error" mt="3">
+                  {logoutError}
+                </Callout>
+              ) : null}
             </Box>
           </div>
         </main>
