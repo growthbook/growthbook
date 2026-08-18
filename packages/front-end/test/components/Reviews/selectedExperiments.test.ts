@@ -10,9 +10,9 @@ describe("getDefaultSelectedExperimentIds", () => {
   });
 
   it("selects scheduled experiments by default", () => {
-    expect([...getDefaultSelectedExperimentIds(["sched-1", "sched-2"])]).toEqual(
-      ["sched-1", "sched-2"],
-    );
+    expect([
+      ...getDefaultSelectedExperimentIds(["sched-1", "sched-2"]),
+    ]).toEqual(["sched-1", "sched-2"]);
   });
 });
 
