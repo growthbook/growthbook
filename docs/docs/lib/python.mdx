@@ -767,8 +767,8 @@ async def main():
             tracking_plugins=[
                 GrowthBookTrackingPlugin(
                     # Use the region you selected when setting up your Managed Warehouse
-                    # (defaults to https://us1.gb-ingest.com; https://eu-west-1.gb-ingest.com for EU)
-                    ingestor_host="https://us1.gb-ingest.com",
+                    # (defaults to https://us-east-1.gb-ingest.com; https://eu-west-1.gb-ingest.com for EU)
+                    ingestor_host="https://us-east-1.gb-ingest.com",
                     # Additional callback for custom analytics
                     additional_callback=my_custom_tracker
                 )
@@ -820,8 +820,8 @@ gb = GrowthBook(
     plugins=[
         GrowthBookTrackingPlugin(
             # Use the region you selected when setting up your Managed Warehouse
-            # (defaults to https://us1.gb-ingest.com; https://eu-west-1.gb-ingest.com for EU)
-            ingestor_host="https://us1.gb-ingest.com",
+            # (defaults to https://us-east-1.gb-ingest.com; https://eu-west-1.gb-ingest.com for EU)
+            ingestor_host="https://us-east-1.gb-ingest.com",
             # Additional callback for custom analytics
             additional_callback=my_custom_tracker,
             # Number of events to accumulate before flushing (optional, default 10)
