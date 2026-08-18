@@ -284,7 +284,9 @@ export default function ManagedFlagApproval({
           <Link onClick={() => post("undo-review")}>Retract my review</Link>
         )}
         {state.canRecallReview && (
-          <Link onClick={() => post("recall-review")}>Return to draft</Link>
+          <Link onClick={() => post("recall-review")}>
+            Cancel review request
+          </Link>
         )}
       </Flex>
     </Flex>
