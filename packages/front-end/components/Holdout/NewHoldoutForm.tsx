@@ -107,22 +107,17 @@ export function getNewExperimentDatasourceDefaults(
 
 export const genEnvironmentSettings = ({
   environments,
-  permissions,
-  project,
 }: {
   environments: ReturnType<typeof useEnvironments>;
-  permissions: ReturnType<typeof usePermissionsUtil>;
-  project: string;
 }): Record<string, FeatureEnvironment> => {
   const envSettings: Record<string, FeatureEnvironment> = {};
 
   environments.forEach((e) => {
-    // How should we handle a holdout having multiple projects here?
-    const canPublish = permissions.canPublishFeature({ project }, [e.id]);
-    const defaultEnabled = canPublish ? (e.defaultState ?? true) : false;
-    const enabled = canPublish ? defaultEnabled : false;
-
-    envSettings[e.id] = { enabled };
+    // The environment's own default state, nothing else: the holdout endpoints
+    // authorize via the Holdout permissions, project-scoped, so keying defaults
+    // on Feature Publish silently pre-disabled environments for holdout users
+    // who hold no feature permissions at all.
+    envSettings[e.id] = { enabled: e.defaultState ?? true };
   });
 
   return envSettings;
@@ -228,11 +223,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
         scopedSettings.regressionAdjustmentEnabled.value,
       environmentSettings:
         initialHoldout?.environmentSettings ||
-        genEnvironmentSettings({
-          environments,
-          permissions: permissionsUtils,
-          project,
-        }),
+        genEnvironmentSettings({ environments }),
     },
   });
 
@@ -443,7 +434,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
             {projects?.length > 0 && (
               <div className="form-group">
                 <MultiSelectField
-                  size="legacy"
+                  legacyHeight
                   label={
                     <>
                       Projects{" "}
@@ -487,6 +478,9 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
               />
             </div>
             <EnvironmentSelect
+              // No per-environment rule: the create endpoint authorizes via
+              // canCreateHoldout, project-scoped — requiring Feature Publish
+              // here blocked holdout users who hold no feature permissions.
               environmentSettings={environmentSettings}
               environments={environments}
               setValue={(env, on) => {

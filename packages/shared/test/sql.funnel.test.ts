@@ -153,7 +153,7 @@ const factTableMap = new Map<string, FactTableInterface>([
 ]);
 
 function baseFunnelConfig(
-  steps: { name: string; factTable: string; rowFilters?: never[] }[],
+  steps: { name: string; factTableId: string; rowFilters?: never[] }[],
   overrides: Partial<ExplorationConfig> = {},
 ): ExplorationConfig {
   return {
@@ -173,7 +173,7 @@ function baseFunnelConfig(
       unit: "user_id",
       steps: steps.map((s) => ({
         name: s.name,
-        factTable: s.factTable,
+        factTableId: s.factTableId,
         rowFilters: s.rowFilters ?? [],
         optional: false,
         conversionWindow: undefined,
@@ -186,9 +186,9 @@ function baseFunnelConfig(
 describe("buildFunnelSql", () => {
   it("emits one raw CTE per fact table and chains step resolutions", () => {
     const config = baseFunnelConfig([
-      { name: "Step 1", factTable: "orders" },
-      { name: "Step 2", factTable: "orders" },
-      { name: "Step 3", factTable: "orders" },
+      { name: "Step 1", factTableId: "orders" },
+      { name: "Step 2", factTableId: "orders" },
+      { name: "Step 3", factTableId: "orders" },
     ]);
 
     const { sql, stepCount } = buildFunnelSql(config, factTableMap, helpers);
@@ -219,11 +219,91 @@ describe("buildFunnelSql", () => {
     expect(sql).not.toContain("step1_tfp_sum_hrs");
   });
 
+  it("filters out non-qualifying users before the per-step CTEs, not just in the final SELECT", () => {
+    const config = baseFunnelConfig(
+      [
+        { name: "Step 1", factTableId: "orders" },
+        { name: "Step 2", factTableId: "orders" },
+        { name: "Step 3", factTableId: "orders" },
+      ],
+      {
+        dimensions: [
+          {
+            dimensionType: "static",
+            column: "country",
+            values: ["US", "CA"],
+          },
+        ],
+      },
+    );
+
+    const { sql } = buildFunnelSql(config, factTableMap, helpers);
+    const qualifyingIdx = sql.indexOf("__funnel_qualifying_users AS (");
+    const step2Idx = sql.indexOf("__funnel_resolved_step2 AS (");
+    expect(qualifyingIdx).toBeGreaterThan(-1);
+    // The qualifying-users CTE is defined before the per-step CTEs that
+    // consume it, and does the step1/dimension filtering so later steps
+    // never process users who couldn't survive anyway.
+    expect(qualifyingIdx).toBeLessThan(step2Idx);
+    expect(sql).toContain("FROM __funnel_user_aggregates");
+    expect(sql).toContain("WHERE step1_resolved_ts IS NOT NULL");
+    expect(sql).toContain("FROM __funnel_qualifying_users r");
+    expect(sql).not.toContain("FROM __funnel_user_aggregates r");
+    // The final SELECT no longer repeats the filter.
+    const finalSelect = sql.slice(sql.lastIndexOf("SELECT"));
+    expect(finalSelect).not.toContain("WHERE");
+  });
+
+  it("filters to pinned values via a WHERE clause for a static dimension", () => {
+    const config = baseFunnelConfig(
+      [
+        { name: "Step 1", factTableId: "orders" },
+        { name: "Step 2", factTableId: "orders" },
+      ],
+      {
+        dimensions: [
+          {
+            dimensionType: "static",
+            column: "country",
+            values: ["US", "CA"],
+          },
+        ],
+      },
+    );
+
+    const { sql } = buildFunnelSql(config, factTableMap, helpers);
+    // Applied post-aggregation on the first-touch dimension, not on raw
+    // per-fact-table events (which may also feed unrelated steps).
+    expect(sql).toContain("dimension_1 IN ('US', 'CA')");
+    expect(sql).not.toContain("'other'");
+  });
+
+  it("skips the filter for a static dimension with no pinned values instead of emitting invalid SQL", () => {
+    // The validator no longer rejects an empty `values` array (it must keep
+    // parsing already-persisted/URL-encoded explorations that predate the
+    // editor's 1-20 cap), so this must not emit a malformed `IN ()`.
+    const config = baseFunnelConfig(
+      [
+        { name: "Step 1", factTableId: "orders" },
+        { name: "Step 2", factTableId: "orders" },
+      ],
+      {
+        dimensions: [
+          { dimensionType: "static", column: "country", values: [] },
+        ],
+      },
+    );
+
+    const { sql } = buildFunnelSql(config, factTableMap, helpers);
+    expect(sql).not.toContain("IN ()");
+    expect(sql).not.toContain("dimension_1 IN");
+  });
+
   it("aggregates the event log exactly once and looks step 2+ up in arrays", () => {
     const config = baseFunnelConfig([
-      { name: "Step 1", factTable: "orders" },
-      { name: "Step 2", factTable: "orders" },
-      { name: "Step 3", factTable: "orders" },
+      { name: "Step 1", factTableId: "orders" },
+      { name: "Step 2", factTableId: "orders" },
+      { name: "Step 3", factTableId: "orders" },
     ]);
     const { sql } = buildFunnelSql(config, factTableMap, helpers);
     // Each follow-on step CTE reads directly from the previous CTE — the
@@ -242,8 +322,8 @@ describe("buildFunnelSql", () => {
 
   it("emits a UNION ALL events CTE when steps span multiple fact tables", () => {
     const config = baseFunnelConfig([
-      { name: "Visit", factTable: "visits" },
-      { name: "Purchase", factTable: "orders" },
+      { name: "Visit", factTableId: "visits" },
+      { name: "Purchase", factTableId: "orders" },
     ]);
     const { sql } = buildFunnelSql(config, factTableMap, helpers);
     expect(sql).toContain("__funnel_ft0_raw");
@@ -260,8 +340,8 @@ describe("buildFunnelSql", () => {
 
   it("applies the conversion window upper bound on follow-on steps", () => {
     const config = baseFunnelConfig([
-      { name: "Step 1", factTable: "orders" },
-      { name: "Step 2", factTable: "orders" },
+      { name: "Step 1", factTableId: "orders" },
+      { name: "Step 2", factTableId: "orders" },
     ]);
     if (config.dataset.type !== "funnel") throw new Error("never");
     config.dataset.steps[1].conversionWindow = { unit: "minutes", value: 30 };
@@ -273,8 +353,8 @@ describe("buildFunnelSql", () => {
 
   it("expands the concurrency window into the lower bound on every follow-on step", () => {
     const config = baseFunnelConfig([
-      { name: "Step 1", factTable: "orders" },
-      { name: "Step 2", factTable: "orders" },
+      { name: "Step 1", factTableId: "orders" },
+      { name: "Step 2", factTableId: "orders" },
     ]);
     if (config.dataset.type !== "funnel") throw new Error("never");
     config.dataset.concurrencyWindowSeconds = 5;
@@ -284,27 +364,44 @@ describe("buildFunnelSql", () => {
     expect(sql).toMatch(/step\d+_resolved_ts - INTERVAL '5 seconds'/);
   });
 
-  it("chains COALESCE through optional skipped steps", () => {
+  it("anchors past an optional step on the nearest required step", () => {
     const config = baseFunnelConfig([
-      { name: "Step 1", factTable: "orders" },
-      { name: "Step 2", factTable: "orders" },
-      { name: "Step 3", factTable: "orders" },
+      { name: "Step 1", factTableId: "orders" },
+      { name: "Step 2", factTableId: "orders" },
+      { name: "Step 3", factTableId: "orders" },
     ]);
     if (config.dataset.type !== "funnel") throw new Error("never");
     config.dataset.steps[1].optional = true;
 
     const { sql } = buildFunnelSql(config, factTableMap, helpers);
-    // Step 3's previous-resolved expression should fall through step 2
-    // (optional) to step 1 via COALESCE.
+    // Optional step 2 can land after step 3, so step 3 measures from required
+    // step 1 rather than chaining through whichever step resolved last. The
+    // anchor has to be asserted inside step 3's own range predicate.
     expect(sql).toMatch(
-      /COALESCE\(r\.step2_resolved_ts, r\.step1_resolved_ts\)/,
+      /FROM unnest\(r\.step3_arr\) AS t WHERE t >= r\.step1_resolved_ts/,
     );
+  });
+
+  it("anchors on step 1 when every preceding step is optional", () => {
+    const config = baseFunnelConfig([
+      { name: "Step 1", factTableId: "orders" },
+      { name: "Step 2", factTableId: "orders" },
+    ]);
+    if (config.dataset.type !== "funnel") throw new Error("never");
+    // Step 1 is guaranteed non-null by __funnel_qualifying_users, so it stays
+    // the anchor and no NULL bound reaches the window comparison.
+    config.dataset.steps[0].optional = true;
+    config.dataset.steps[1].conversionWindow = { unit: "minutes", value: 30 };
+
+    const { sql } = buildFunnelSql(config, factTableMap, helpers);
+    expect(sql).toContain("r.step1_resolved_ts + INTERVAL '1800 seconds'");
+    expect(sql).not.toMatch(/NULL \+ INTERVAL/);
   });
 
   it("rejects funnels without a unit", () => {
     const config = baseFunnelConfig([
-      { name: "Step 1", factTable: "orders" },
-      { name: "Step 2", factTable: "orders" },
+      { name: "Step 1", factTableId: "orders" },
+      { name: "Step 2", factTableId: "orders" },
     ]);
     if (config.dataset.type !== "funnel") throw new Error("never");
     config.dataset.unit = null;
@@ -315,8 +412,8 @@ describe("buildFunnelSql", () => {
 
   it("rejects funnels whose unit isn't a userIdType on every step's fact table", () => {
     const config = baseFunnelConfig([
-      { name: "Step 1", factTable: "orders" },
-      { name: "Step 2", factTable: "visits" },
+      { name: "Step 1", factTableId: "orders" },
+      { name: "Step 2", factTableId: "visits" },
     ]);
     if (config.dataset.type !== "funnel") throw new Error("never");
     config.dataset.unit = "anonymous_id";
@@ -328,7 +425,7 @@ describe("buildFunnelSql", () => {
 
   it("rejects single-step funnels", () => {
     const config = baseFunnelConfig([
-      { name: "Only step", factTable: "orders" },
+      { name: "Only step", factTableId: "orders" },
     ]);
     expect(() => buildFunnelSql(config, factTableMap, helpers)).toThrow(
       /at least 2 steps/,
@@ -339,9 +436,9 @@ describe("buildFunnelSql", () => {
 describe("transformFunnelRowsToResult", () => {
   it("returns one result row per warehouse row with per-step counts and timings", () => {
     const config = baseFunnelConfig([
-      { name: "Step 1", factTable: "orders" },
-      { name: "Step 2", factTable: "orders" },
-      { name: "Step 3", factTable: "orders" },
+      { name: "Step 1", factTableId: "orders" },
+      { name: "Step 2", factTableId: "orders" },
+      { name: "Step 3", factTableId: "orders" },
     ]);
     const rows = [
       {
@@ -375,8 +472,8 @@ describe("transformFunnelRowsToResult", () => {
   it("attaches the dimension when one is configured", () => {
     const config = baseFunnelConfig(
       [
-        { name: "Step 1", factTable: "orders" },
-        { name: "Step 2", factTable: "orders" },
+        { name: "Step 1", factTableId: "orders" },
+        { name: "Step 2", factTableId: "orders" },
       ],
       {
         dimensions: [

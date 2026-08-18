@@ -159,7 +159,7 @@ export const SlackIntegrationAddEditModal: FC<
       />
 
       <MultiSelectField
-        size="legacy"
+        legacyHeight
         label="Event filters"
         helpText="Only receive notifications for matching events."
         value={form.watch("events")}
@@ -212,7 +212,7 @@ export const SlackIntegrationAddEditModal: FC<
       />
 
       <MultiSelectField
-        size="legacy"
+        legacyHeight
         label="Environment filters"
         helpText="Only receive notifications for matching environments."
         value={form.watch("environments")}
@@ -227,7 +227,7 @@ export const SlackIntegrationAddEditModal: FC<
       />
 
       <MultiSelectField
-        size="legacy"
+        legacyHeight
         label="Project filters"
         helpText="Only receive notifications for matching projects."
         value={form.watch("projects")}

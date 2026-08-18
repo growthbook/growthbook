@@ -40,7 +40,7 @@ export default function BuildTablesCard({
           </Tooltip>
         }
       >
-        <Text as="p" size="medium" m="0">
+        <Text as="p" size="md" m="0">
           Before we can build visualizations, we need to identify what tables
           are available on this Data Source.
         </Text>

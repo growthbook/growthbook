@@ -6,13 +6,9 @@ import Callout from "@/ui/Callout";
 
 export default function RoleFormWrapper({
   children,
-  href,
-  display,
   breadcrumb,
 }: {
   children: ReactNode;
-  href: string;
-  display: string;
   breadcrumb: string;
 }) {
   const { hasCommercialFeature } = useUser();
@@ -43,10 +39,7 @@ export default function RoleFormWrapper({
     <>
       <PageHead
         breadcrumb={[
-          {
-            display,
-            href,
-          },
+          { display: "Roles", href: "/settings/team#roles" },
           { display: breadcrumb },
         ]}
       />

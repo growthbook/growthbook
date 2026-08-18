@@ -140,7 +140,7 @@ export default function ReviewHeader({
       <Box mb="4">
         <Flex align="start" justify="between" gap="4">
           <Box>
-            <Heading as="h3" size="medium" mb="2">
+            <Heading as="h3" size="md" mb="2">
               {title}{" "}
               <span
                 style={{
@@ -238,7 +238,7 @@ export default function ReviewHeader({
                 <Box pl="2" flexShrink="0">
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="md"
                     icon={<PiGitDiff />}
                     onClick={onCompareRevisions}
                     style={{ whiteSpace: "nowrap" }}

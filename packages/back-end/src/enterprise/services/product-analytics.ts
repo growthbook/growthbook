@@ -111,7 +111,7 @@ export async function runProductAnalyticsExploration(
     // Populate fact table map
     const factTableIds = new Set<string>();
     factMetrics.forEach((fm) => {
-      if (fm.numerator.factTableId) {
+      if (fm.numerator?.factTableId) {
         factTableIds.add(fm.numerator.factTableId);
       }
       if (fm.metricType === "ratio" && fm.denominator?.factTableId) {
@@ -161,11 +161,11 @@ export async function runProductAnalyticsExploration(
     // ids into a Set first because the order in `dataset.steps` is
     // significant for SQL generation; getFactTablesByIds dedupes for us.
     const factTableIds = Array.from(
-      new Set(dataset.steps.map((s) => s.factTable).filter(Boolean)),
+      new Set(dataset.steps.map((s) => s.factTableId).filter(Boolean)),
     );
     if (
       factTableIds.length === 0 ||
-      dataset.steps.some((step) => !step.factTable)
+      dataset.steps.some((step) => !step.factTableId)
     ) {
       throw new BadRequestError("Funnel steps require fact tables");
     }

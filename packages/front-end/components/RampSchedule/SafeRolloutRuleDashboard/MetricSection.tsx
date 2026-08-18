@@ -416,7 +416,7 @@ function SafeRolloutMetricDrilldownModal({
       header={<MetricName metric={metric} officialBadgePosition="right" />}
       subHeader={
         metric.description ? (
-          <Text as="div" size="small" color="text-mid">
+          <Text as="div" size="sm" color="text-mid">
             {metric.description}
           </Text>
         ) : undefined
@@ -568,10 +568,10 @@ export function MetricSection({
 
   return (
     <Box>
-      <Text as="div" weight="medium" size="medium" mb="1">
+      <Text as="div" weight="medium" size="md" mb="1">
         {title}
       </Text>
-      <Text as="div" size="small" color="text-low" mb="2">
+      <Text as="div" size="sm" color="text-low" mb="2">
         {subtitle}
       </Text>
 
@@ -639,10 +639,7 @@ export function MetricSection({
                       hasData ? () => setDrilldownRowIndex(i) : undefined
                     }
                   >
-                    <td
-                      className="variation with-variation-label"
-                      style={{ width: 280 }}
-                    >
+                    <td style={{ width: 280 }}>
                       <div
                         className="d-flex align-items-center"
                         style={{ minHeight: ROW_HEIGHT }}
@@ -816,12 +813,12 @@ export function HealthChecks({
             <Flex direction="column" gap="4">
               <Box>
                 <AlertDialog.Title>
-                  <Text as="div" size="x-large" weight="medium">
+                  <Text as="div" size="xl" weight="medium">
                     Sample Ratio Mismatch (SRM)
                   </Text>
                 </AlertDialog.Title>
                 <AlertDialog.Description>
-                  <Text as="div" size="medium" color="text-low">
+                  <Text as="div" size="md" color="text-low">
                     When actual traffic splits are significantly different from
                     expected, we raise an SRM issue.
                   </Text>
@@ -859,32 +856,32 @@ export function HealthChecks({
 
               {srmHealth === "unhealthy" && (
                 <Box>
-                  <Text as="div" size="small" mb="2">
+                  <Text as="div" size="sm" mb="2">
                     Most common causes:
                   </Text>
                   <ul style={{ margin: 0, paddingLeft: 20 }}>
                     <li>
-                      <Text size="small">
+                      <Text size="sm">
                         Broken event firing or SDK trackingCallback issues
                       </Text>
                     </li>
                     <li>
-                      <Text size="small">
+                      <Text size="sm">
                         Mismatch between SDK attribute and data ID
                       </Text>
                     </li>
                     <li>
-                      <Text size="small">
+                      <Text size="sm">
                         Coverage or targeting changes mid-rollout
                       </Text>
                     </li>
                     <li>
-                      <Text size="small">
+                      <Text size="sm">
                         Step jumps that re-randomize traffic
                       </Text>
                     </li>
                   </ul>
-                  <Text as="div" size="small" mt="2">
+                  <Text as="div" size="sm" mt="2">
                     <a
                       target="_blank"
                       rel="noreferrer"
@@ -930,7 +927,7 @@ export function HealthChecks({
               transition: "transform 0.15s",
             }}
           />
-          <Text size="medium" weight="medium">
+          <Text size="md" weight="medium">
             Health Checks
           </Text>
         </span>
@@ -951,7 +948,7 @@ export function HealthChecks({
       {expanded && (
         <Box mt="2">
           {!hasData ? (
-            <Text as="div" size="small" color="text-low">
+            <Text as="div" size="sm" color="text-low">
               No traffic data yet. Monitoring recently started, check back soon
               for updated status.
             </Text>

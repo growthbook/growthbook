@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Box, Flex } from "@radix-ui/themes";
 import { ProjectMemberRole } from "shared/types/organization";
 import { getDefaultRole } from "shared/permissions";
 import { useUser } from "@/services/UserContext";
@@ -6,6 +7,7 @@ import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Text from "@/ui/Text";
+import Button from "@/ui/Button";
 import SingleRoleSelector from "./SingleRoleSelector";
 
 export default function ProjectRolesSelector({
@@ -24,7 +26,7 @@ export default function ProjectRolesSelector({
   const hasFeature = hasCommercialFeature("advanced-permissions");
   if (!projects?.length) return null;
 
-  const usedProjectIds = projectRoles.map((r) => r.project) || [];
+  const usedProjectIds = projectRoles.map((r) => r.project);
   const unusedProjects = projects.filter((p) => !usedProjectIds.includes(p.id));
 
   return (
@@ -36,49 +38,51 @@ export default function ProjectRolesSelector({
       </Text>
       {projectRoles.map((projectRole, i) => (
         <div className="appbox px-3 pt-2 bg-light" key={i}>
-          <div style={{ float: "right" }}>
-            <a
-              href="#"
-              className="text-danger"
-              onClick={(e) => {
-                e.preventDefault();
+          <Flex justify="between" align="start" gap="3">
+            <Box flexGrow="1">
+              <SingleRoleSelector
+                value={{
+                  role: projectRole.role,
+                  environments: projectRole.environments,
+                  limitAccessByEnvironment:
+                    projectRole.limitAccessByEnvironment,
+                }}
+                setValue={(newRoleInfo) => {
+                  const newProjectRoles = [...projectRoles];
+                  newProjectRoles[i] = {
+                    ...projectRole,
+                    ...newRoleInfo,
+                  };
+                  setProjectRoles(newProjectRoles);
+                }}
+                label={
+                  <>
+                    Project:{" "}
+                    <strong>{getProjectById(projectRole.project)?.name}</strong>
+                  </>
+                }
+                disabled={!hasFeature}
+                includeAdminRole={false}
+                includeProjectAdminRole={true}
+              />
+            </Box>
+            <Button
+              variant="ghost"
+              color="red"
+              onClick={() => {
                 const newProjectRoles = [...projectRoles];
                 newProjectRoles.splice(i, 1);
                 setProjectRoles(newProjectRoles);
               }}
             >
-              remove
-            </a>
-          </div>
-          <SingleRoleSelector
-            value={{
-              role: projectRole.role,
-              environments: projectRole.environments,
-              limitAccessByEnvironment: projectRole.limitAccessByEnvironment,
-            }}
-            setValue={(newRoleInfo) => {
-              const newProjectRoles = [...projectRoles];
-              newProjectRoles[i] = {
-                ...projectRole,
-                ...newRoleInfo,
-              };
-              setProjectRoles(newProjectRoles);
-            }}
-            label={
-              <>
-                Project:{" "}
-                <strong>{getProjectById(projectRole.project)?.name}</strong>
-              </>
-            }
-            disabled={!hasFeature}
-            includeAdminRole={false}
-            includeProjectAdminRole={true}
-          />
+              Remove
+            </Button>
+          </Flex>
         </div>
       ))}
       {unusedProjects.length > 0 && (
-        <div className="row">
-          <div className="col">
+        <Flex gap="3" align="start">
+          <Box flexGrow="1">
             <SelectField
               size="legacy"
               value={newProject}
@@ -90,30 +94,27 @@ export default function ProjectRolesSelector({
               }))}
               disabled={!hasFeature}
             />
-          </div>
-          <div className="col-auto">
-            <button
-              className="btn btn-outline-primary"
-              disabled={!newProject || !hasFeature}
-              onClick={(e) => {
-                e.preventDefault();
-                if (!newProject) return;
+          </Box>
+          <Button
+            variant="outline"
+            disabled={!newProject || !hasFeature}
+            onClick={() => {
+              if (!newProject) return;
 
-                const newProjectRoles: ProjectMemberRole[] = [...projectRoles];
-                newProjectRoles.push({
-                  project: newProject,
-                  role: defaultRole.role,
-                  limitAccessByEnvironment: false,
-                  environments: [],
-                });
-                setProjectRoles(newProjectRoles);
-                setNewProject("");
-              }}
-            >
-              Add Project Role
-            </button>
-          </div>
-        </div>
+              const newProjectRoles: ProjectMemberRole[] = [...projectRoles];
+              newProjectRoles.push({
+                project: newProject,
+                role: defaultRole.role,
+                limitAccessByEnvironment: false,
+                environments: [],
+              });
+              setProjectRoles(newProjectRoles);
+              setNewProject("");
+            }}
+          >
+            Add Project role
+          </Button>
+        </Flex>
       )}
     </>
   );

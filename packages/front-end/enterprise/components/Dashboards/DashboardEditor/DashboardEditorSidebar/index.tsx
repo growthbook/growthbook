@@ -26,25 +26,11 @@ import Button from "@/ui/Button";
 import {
   BLOCK_SUBGROUPS,
   BLOCK_TYPE_INFO,
-  isBlockTypeAllowed,
-} from "@/enterprise/components/Dashboards/DashboardEditor";
+  GENERAL_DASHBOARD_BLOCK_TYPES,
+  getAvailableBlockTypes,
+} from "@/enterprise/components/Dashboards/DashboardEditor/dashboardBlockTypes";
 import Text from "@/ui/Text";
 import EditSingleBlock from "./EditSingleBlock";
-
-// Block types that are allowed in general dashboards (non-experiment specific)
-const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
-  "markdown",
-  "metric-exploration",
-  "metric-experiments",
-  "experiments-scaled-impact",
-  "experiments-win-rate",
-  "experiments-status",
-  "fact-table-exploration",
-  "data-source-exploration",
-  "funnel-exploration",
-  "sql-explorer",
-  "metric-explorer",
-];
 
 function moveBlocks<T>(
   blocks: Array<T>,
@@ -72,12 +58,12 @@ function BlockTypePopoverContent({
         <Avatar radius="small" color="indigo" variant="soft" size="sm">
           {blockInfo.icon}
         </Avatar>
-        <Text size="large" weight="semibold" color="text-high">
+        <Text size="lg" weight="semibold" color="text-high">
           {blockInfo.name}
         </Text>
       </Flex>
       {blockInfo.description && (
-        <Text as="div" size="medium" color="text-mid">
+        <Text as="div" size="md" color="text-mid">
           {blockInfo.description}
         </Text>
       )}
@@ -104,7 +90,7 @@ interface Props {
   setStagedBlock: React.Dispatch<
     DashboardBlockInterfaceOrData<DashboardBlockInterface> | undefined
   >;
-  addBlockType: (bType: DashboardBlockType, i?: number) => void;
+  addBlockType: (bType: DashboardBlockType) => void;
   focusBlock: (index: number) => void;
   editBlock: (index: number) => void;
   duplicateBlock: (index: number) => void;
@@ -156,13 +142,16 @@ export default function DashboardEditorSidebar({
   }, [blocks, draggingBlockIndex, previewBlockPlacement]);
 
   const blockNavigatorEnabled = false;
+  const availableBlockTypes = useMemo(
+    () => new Set(getAvailableBlockTypes(isGeneralDashboard)),
+    [isGeneralDashboard],
+  );
 
   const addBlocksContent = (
     <Flex direction="column" align="start" px="4" pb="4" pt="2" gap="5">
       {BLOCK_SUBGROUPS.map(([subgroup, blockTypes], i) => {
-        // Filter block types based on dashboard type
-        const allowedBlockTypes = blockTypes.filter((bType) =>
-          isBlockTypeAllowed(bType, isGeneralDashboard),
+        const allowedBlockTypes = blockTypes.filter((blockType) =>
+          availableBlockTypes.has(blockType),
         );
 
         // Don't render the subgroup if no block types are allowed
@@ -180,7 +169,7 @@ export default function DashboardEditorSidebar({
           >
             <Text
               weight="medium"
-              size="small"
+              size="sm"
               color="text-high"
               textTransform="uppercase"
             >
@@ -188,9 +177,6 @@ export default function DashboardEditorSidebar({
             </Text>
 
             {allowedBlockTypes.map((bType) => {
-              if (BLOCK_TYPE_INFO[bType].deprecated) {
-                return null;
-              }
               return (
                 <Tooltip
                   key={bType}
@@ -226,7 +212,7 @@ export default function DashboardEditorSidebar({
                       >
                         {BLOCK_TYPE_INFO[bType].icon}
                       </Avatar>
-                      <Text size="medium" weight="regular" color="text-high">
+                      <Text size="md" weight="regular" color="text-high">
                         {BLOCK_TYPE_INFO[bType].name}
                       </Text>
                       <div style={{ flex: 1 }} />
@@ -300,7 +286,7 @@ export default function DashboardEditorSidebar({
         ) : !blockNavigatorEnabled ? (
           <div style={{ width: "440px" }}>
             <Box px="4" pt="4">
-              <Text size="large" weight="semibold">
+              <Text size="lg" weight="semibold">
                 Add a Block
               </Text>
             </Box>
