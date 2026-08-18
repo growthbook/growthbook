@@ -392,6 +392,21 @@ implement.
 
 ## Resolved
 
+- **Coverage is re-derived on every publish path, including deferred ones.**
+  Verified by reading each path rather than assumed: both engines converge on a
+  single check (`publishRevisionInner` for the generic engine,
+  `publishFeatureRevision` for features), and the armed/scheduled paths call
+  those same functions at fire time under the armer's context
+  (`maybePublishScheduledRevision` in both `revisionActions.ts` and
+  `autoPublishOnApproval.ts`). So a schedule armed while an approval covered the
+  draft is refused if the approval no longer covers it when it fires, and the
+  refusal is recorded for the "stuck" indicator. Nothing is stored, so there is
+  no armed-at snapshot to go stale.
+
+  Reverts are not an exception: a revert that becomes a draft publishes through
+  those same paths, and a direct revert carries no approval to be stale — it is
+  gated on revert authority plus `revertFootprint`.
+
 - **The no-environment-binding case: fail closed.** Metadata edits, a Constant's
   base value and a base Config carry `NO_ENVIRONMENT_BINDING`, which is a bare
   `[]` whose own comment warns it "would skip environment checks". Review
