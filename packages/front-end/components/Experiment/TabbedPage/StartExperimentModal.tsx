@@ -254,7 +254,7 @@ export default function StartExperimentModal({
       ? `Scheduled to start ${format(parsedScheduledDate, "MMM d, yyyy 'at' h:mm a (z)")}`
       : isHoldout
         ? "Once started, experiments and features can be added to the holdout."
-        : null;
+        : "This publishes the experiment. For Feature Flag experiments, a user is enrolled when your app evaluates the flag. For Visual Editor experiments, when the page loads with the script.";
 
   const primaryAction = useScheduledFlow
     ? scheduleExperiment!

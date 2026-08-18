@@ -10,7 +10,7 @@ toc_max_heading_level: 5
 
 We provide an HTML `<script>` tag option for easily integrating GrowthBook into any website.
 
-This option is quick and straightforward to use and does not require coding knowledge to implement.
+This option is quick and straightforward to use. Visual Editor experiments do not require coding knowledge — they run when the page loads. Feature Flag experiments still require you to evaluate the flag in code (for example `isOn`). Adding the script does not enroll users in Feature Flag experiments by itself.
 
 ## Installation
 
@@ -46,6 +46,7 @@ Besides the Client Key, there are some additional settings you can define with `
 
 - `data-api-host` - Defaults to GrowthBook Cloud's https://cdn.growthbook.io. This must be set to your own domain instead if self-hosting or using the GrowthBook Proxy.
 - `data-decryption-key` - Required if you enabled encryption in your SDK Connection settings in GrowthBook
+- `data-tracking` - Set to `growthbook` to send experiment view events that already fired to GrowthBook's warehouse. This does not evaluate flags or enroll users.
 
 All other settings can be defined with a `window.growthbook_config` object BEFORE you load the script tag. This accepts the same settings as our [JavaScript SDK](/lib/js). Here's an example:
 
@@ -127,7 +128,7 @@ document.dispatchEvent(new CustomEvent("growthbookrefresh"));
 
 ## Tracking Experiment Views
 
-When a user views an experiment, a tracking event is fired. There is built-in support for Segment.io (`analytics.js`), GA4 (`gtag`), and Google Tag Manager (`dataLayer`).
+When a user is included in an experiment, a tracking event is fired. Loading the script does not fire this by itself. There is built-in support for Segment.io (`analytics.js`), GA4 (`gtag`), and Google Tag Manager (`dataLayer`).
 
 ### Segment.io
 
@@ -232,7 +233,7 @@ data-sticky-bucket-prefix="my_prefix"
 
 ## Using Feature Flags
 
-You can use feature flags with this SDK, but it does require some manual coding work. Here is an example:
+You can use Feature Flags with this SDK, but it does require some manual coding work. The script on the page is not enough. A user enters a Feature Flag experiment only when you evaluate the flag, as in the example below:
 
 ```html
 <script>
