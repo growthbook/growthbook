@@ -75,7 +75,6 @@ export default function SubscriptionInfo() {
     accountPlan,
     users,
     organization,
-    license,
     teams,
   } = useUser();
   const {
@@ -118,9 +117,14 @@ export default function SubscriptionInfo() {
   const showRenewButton = subscription?.status === "canceled" && canSubscribe;
   const isEnterprise = accountPlan === "enterprise";
   const showCancelButton = hasActiveOrbSubscription && !isEnterprise;
-  const contractExpirationDate =
-    expirationDisplayDate(license?.dateExpires) ||
-    expirationDisplayDate(subscription?.dateToBeCanceled);
+  const contractExpirationDate = expirationDisplayDate(
+    subscription?.dateToBeCanceled,
+  );
+  // Self-serve pending cancelation means no further charges; enterprise
+  // contracts still bill until the contract end even when auto-renew is off.
+  const showNextBillDate =
+    subscription?.status !== "canceled" &&
+    (isEnterprise || !subscription?.pendingCancelation);
   const showActionButtons =
     showStripeManageButton ||
     showUpdateInvoiceButton ||
@@ -250,38 +254,37 @@ export default function SubscriptionInfo() {
           <strong>Contract Expiration:</strong> {contractExpirationDate}
         </Box>
       ) : null}
-      {subscription?.status !== "canceled" &&
-        !subscription?.pendingCancelation && (
-          <Box mb="3">
-            <div>
-              <strong>Next Bill Date: </strong>
-              {subscription?.nextBillDate}
-            </div>
-            {subscription?.hasPaymentMethod === true ? (
-              <Box maxWidth="650px" mt="3">
-                <Callout status="success">
-                  You have a valid payment method on file. You will be billed
-                  automatically on this date.
-                </Callout>
-              </Box>
-            ) : subscription?.hasPaymentMethod === false &&
-              accountPlan !== "enterprise" ? (
-              <Box maxWidth="550px" mt="3">
-                <Callout status="warning">
-                  <p>
-                    You do not have a valid payment method on file. Your
-                    subscription will be cancelled on this date unless you add a
-                    valid payment method.
-                  </p>
-                  <p className="mb-0">
-                    Click <strong>View Plan Details</strong> below to add a
-                    payment method.
-                  </p>
-                </Callout>
-              </Box>
-            ) : null}
-          </Box>
-        )}
+      {showNextBillDate ? (
+        <Box mb="3">
+          <div>
+            <strong>Next Bill Date: </strong>
+            {subscription?.nextBillDate}
+          </div>
+          {subscription?.hasPaymentMethod === true ? (
+            <Box maxWidth="650px" mt="3">
+              <Callout status="success">
+                You have a valid payment method on file. You will be billed
+                automatically on this date.
+              </Callout>
+            </Box>
+          ) : subscription?.hasPaymentMethod === false &&
+            accountPlan !== "enterprise" ? (
+            <Box maxWidth="550px" mt="3">
+              <Callout status="warning">
+                <p>
+                  You do not have a valid payment method on file. Your
+                  subscription will be cancelled on this date unless you add a
+                  valid payment method.
+                </p>
+                <p className="mb-0">
+                  Click <strong>View Plan Details</strong> below to add a
+                  payment method.
+                </p>
+              </Callout>
+            </Box>
+          ) : null}
+        </Box>
+      ) : null}
       {subscription?.pendingCancelation &&
         subscription?.dateToBeCanceled &&
         !isEnterprise && (
