@@ -94,3 +94,29 @@ export function seedManagedVariationValues(
     value: v.key || String(i),
   }));
 }
+
+/**
+ * Values for a managed flag on an experiment duplicated from another. Copies the
+ * source flag's values onto the new experiment's variations **by position**, not
+ * by variation id: a duplicate gets its own variation ids, so matching on id
+ * would silently fall back to the seed for every variation. Variations the
+ * source doesn't cover (the duplicate added one) fall back to the seed.
+ */
+export function copyManagedVariationValues({
+  sourceValues,
+  sourceVariations,
+  targetVariations,
+}: {
+  sourceValues: { variationId: string; value: string }[];
+  sourceVariations: { id: string }[];
+  targetVariations: { id: string; key?: string }[];
+}): { variationId: string; value: string }[] {
+  const byIndex = sourceVariations.map(
+    (sv) => sourceValues.find((v) => v.variationId === sv.id)?.value,
+  );
+  const seeded = seedManagedVariationValues(targetVariations);
+  return targetVariations.map((v, i) => ({
+    variationId: v.id,
+    value: byIndex[i] ?? seeded[i].value,
+  }));
+}

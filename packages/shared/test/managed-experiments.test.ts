@@ -1,4 +1,5 @@
 import {
+  copyManagedVariationValues,
   isManagedByExperiment,
   isManagedFeature,
   managedExperimentFlagsDefault,
@@ -162,5 +163,70 @@ describe("seedManagedVariationValues", () => {
       { variationId: "v0", value: "0" },
       { variationId: "v1", value: "1" },
     ]);
+  });
+});
+
+describe("copyManagedVariationValues", () => {
+  const sourceVariations = [{ id: "src0" }, { id: "src1" }];
+  const sourceValues = [
+    { variationId: "src0", value: "old-control" },
+    { variationId: "src1", value: "old-treatment" },
+  ];
+
+  it("copies by position, since a duplicate gets fresh variation ids", () => {
+    expect(
+      copyManagedVariationValues({
+        sourceValues,
+        sourceVariations,
+        targetVariations: [
+          { id: "new0", key: "control" },
+          { id: "new1", key: "treatment" },
+        ],
+      }),
+    ).toEqual([
+      { variationId: "new0", value: "old-control" },
+      { variationId: "new1", value: "old-treatment" },
+    ]);
+  });
+
+  it("seeds variations the source does not cover", () => {
+    expect(
+      copyManagedVariationValues({
+        sourceValues,
+        sourceVariations,
+        targetVariations: [
+          { id: "new0", key: "control" },
+          { id: "new1", key: "treatment" },
+          { id: "new2", key: "third" },
+        ],
+      })[2],
+    ).toEqual({ variationId: "new2", value: "third" });
+  });
+
+  it("seeds a position the source left unset rather than dropping it", () => {
+    expect(
+      copyManagedVariationValues({
+        // src1 has no value — the rule never defined one.
+        sourceValues: [{ variationId: "src0", value: "old-control" }],
+        sourceVariations,
+        targetVariations: [
+          { id: "new0", key: "control" },
+          { id: "new1", key: "treatment" },
+        ],
+      }),
+    ).toEqual([
+      { variationId: "new0", value: "old-control" },
+      { variationId: "new1", value: "treatment" },
+    ]);
+  });
+
+  it("ignores source values beyond the target's variation count", () => {
+    expect(
+      copyManagedVariationValues({
+        sourceValues,
+        sourceVariations,
+        targetVariations: [{ id: "new0", key: "control" }],
+      }),
+    ).toEqual([{ variationId: "new0", value: "old-control" }]);
   });
 });

@@ -1,5 +1,6 @@
 import { RequestHandler } from "express";
 import {
+  copyManagedVariationValues,
   isManagedByExperiment,
   isManagedFeature,
   managedFeatureKeyCandidate,
@@ -30,6 +31,8 @@ import {
   getEnvironments,
 } from "back-end/src/services/organizations";
 import { getEnabledEnvironments } from "back-end/src/util/features";
+import { getLinkedFeatureInfo } from "back-end/src/services/experiments";
+import { logger } from "back-end/src/util/logger";
 import {
   ExperimentFeatureLinkResult,
   linkFeatureToExperiment,
@@ -246,6 +249,69 @@ export async function createManagedFeatureForExperiment({
   }
 
   return { feature: created, version: linked.version };
+}
+
+/**
+ * How many times to re-read the source flag when copying it for a duplicate.
+ * Each attempt reads the values, then re-reads the flag to confirm it did not
+ * move underneath us; a rival edit costs one more attempt.
+ */
+const MAX_SOURCE_READ_ATTEMPTS = 3;
+
+/**
+ * The type and values a duplicated experiment's managed flag should start with,
+ * copied from the experiment it was duplicated from.
+ *
+ * Returns null when there is nothing safe to copy — no managed source, or the
+ * source kept changing while we read it. Callers seed a brand new flag instead
+ * of failing: a duplicate with fresh values is a far better outcome than an
+ * experiment with no implementation and no way to add one.
+ */
+export async function readManagedValuesForDuplicate({
+  context,
+  sourceExperiment,
+  targetExperiment,
+}: {
+  context: ReqContext;
+  sourceExperiment: ExperimentInterface;
+  targetExperiment: ExperimentInterface;
+}): Promise<{
+  valueType: FeatureValueType;
+  variations: ExperimentRefVariation[];
+} | null> {
+  for (let attempt = 0; attempt < MAX_SOURCE_READ_ATTEMPTS; attempt++) {
+    const before = await getManagedFeatureForExperiment(
+      context,
+      sourceExperiment,
+    );
+    if (!before) return null;
+
+    const info = (await getLinkedFeatureInfo(context, sourceExperiment)).find(
+      (f) => f.feature.id === before.id,
+    );
+    if (!info) return null;
+
+    // Compare-and-swap on the source: the values above came from a separate
+    // read, so they only describe one point in time if the flag is unchanged
+    // since. Otherwise we could copy a half-applied edit.
+    const after = await getFeature(context, before.id);
+    if (after && after.dateUpdated.getTime() === before.dateUpdated.getTime()) {
+      return {
+        valueType: before.valueType,
+        variations: copyManagedVariationValues({
+          sourceValues: info.values,
+          sourceVariations: sourceExperiment.variations,
+          targetVariations: targetExperiment.variations,
+        }),
+      };
+    }
+  }
+
+  logger.warn(
+    { sourceExperiment: sourceExperiment.id },
+    "Managed flag source kept changing while copying for a duplicate; seeding fresh values instead",
+  );
+  return null;
 }
 
 /**

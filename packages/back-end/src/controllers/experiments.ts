@@ -158,6 +158,7 @@ import {
   createManagedFeatureForExperiment,
   ejectManagedFeature,
   getManagedFeatureForExperiment,
+  readManagedValuesForDuplicate,
 } from "back-end/src/services/managedFeatures";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
@@ -1493,16 +1494,60 @@ export async function postExperiments(
     // through a Feature Flag it owns outright. Created here, in the same
     // request, so a managed experiment never exists without its flag — that
     // state has no implementation UI and no way to add one.
-    if (data.managedFlag) {
-      try {
-        await createManagedFeatureForExperiment({
+    // Duplicating a managed experiment carries managed mode across: the copy
+    // gets its OWN flag, keyed off its own tracking key and pointing at itself.
+    // Without this the duplicate lands with no implementation and no way to add
+    // one, since managed mode withholds the add-a-change chooser.
+    const originalExperiment = req.query.originalId
+      ? await getExperimentById(context, req.query.originalId)
+      : null;
+    const sourceManaged = originalExperiment
+      ? await getManagedFeatureForExperiment(context, originalExperiment)
+      : null;
+
+    if (data.managedFlag ?? !!sourceManaged) {
+      // Carry the source flag's type and values so the duplicate serves what the
+      // original did. Read under compare-and-swap on the source, so a concurrent
+      // edit can't hand us a half-applied copy.
+      const copied =
+        sourceManaged && originalExperiment
+          ? await readManagedValuesForDuplicate({
+              context,
+              sourceExperiment: originalExperiment,
+              targetExperiment: experiment,
+            })
+          : null;
+
+      const seeded = {
+        valueType: "string" as FeatureValueType,
+        variations: seedManagedVariationValues(experiment.variations),
+      };
+
+      const createManaged = (plan: typeof seeded) =>
+        createManagedFeatureForExperiment({
           context,
           experiment,
-          valueType: "string",
-          variations: seedManagedVariationValues(experiment.variations),
+          valueType: plan.valueType,
+          variations: plan.variations,
           eventAudit: res.locals.eventAudit,
           audit: req.audit,
         });
+
+      try {
+        try {
+          await createManaged(copied ?? seeded);
+        } catch (e) {
+          // A copy can fail for reasons a fresh flag won't — a source value the
+          // duplicate's schema rejects, a type that no longer validates. Falling
+          // back to a brand new flag beats failing the duplicate outright; the
+          // user can edit values, but can't conjure an implementation.
+          if (!copied) throw e;
+          logger.warn(
+            { experiment: experiment.id, error: e.message },
+            "Copying the managed Feature Flag for a duplicate failed; creating a fresh one instead",
+          );
+          await createManaged(seeded);
+        }
       } catch (e) {
         // Undo the experiment rather than hand back one stuck in managed mode
         // with nothing to manage. The flag half compensates itself, so there is
