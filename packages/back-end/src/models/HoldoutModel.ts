@@ -456,9 +456,20 @@ export class HoldoutModel extends BaseClass {
       const envs = Array.from(
         new Set([...currentlyEnabledEnvs, ...requestedEnabledEnvs]),
       );
+      // Authorize against the current project scope and, when the request moves
+      // the Holdout, the destination scope too — otherwise a request could
+      // deploy targeting under a project the caller lacks run permission on.
+      // Each scope is checked separately because an empty projects array means
+      // global scope, which merging into one array would silently drop.
+      const projectScopes = [holdout.projects];
+      if (body.projects !== undefined) {
+        projectScopes.push(body.projects);
+      }
       if (
         envs.length > 0 &&
-        !this.context.permissions.canRunHoldout(holdout, envs)
+        !projectScopes.every((projects) =>
+          this.context.permissions.canRunHoldout({ projects }, envs),
+        )
       ) {
         this.context.permissions.throwPermissionError();
       }

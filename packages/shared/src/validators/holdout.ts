@@ -295,7 +295,7 @@ export const apiListHoldoutsValidator = {
 };
 
 export const apiCreateHoldoutBody = z.strictObject({
-  name: z.string(),
+  name: z.string().min(1, "Holdout name cannot be empty"),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   projects: z
     .array(z.string())
@@ -341,7 +341,7 @@ export const apiCreateHoldoutBody = z.strictObject({
 export type ApiCreateHoldoutBody = z.infer<typeof apiCreateHoldoutBody>;
 
 export const apiUpdateHoldoutBody = z.strictObject({
-  name: z.string().optional(),
+  name: z.string().min(1, "Holdout name cannot be empty").optional(),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   projects: z.array(z.string()).optional(),
   owner: ownerInputField.optional(),
