@@ -3,7 +3,6 @@ import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   apiPaginationFieldsValidator,
   savedGroupTargeting,
-  inputWarningsField,
   booleanQueryField,
   paginationQueryFields,
   publishOverrideBodyFields,
@@ -812,10 +811,7 @@ export const postFeatureV2Validator = {
   bodySchema: postFeatureBodyV2,
   querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   paramsSchema: z.never(),
-  responseSchema: featureV2ResponseSchema.extend({
-    warnings: inputWarningsField,
-  }),
-  surfaceInputWarnings: true,
+  responseSchema: featureV2ResponseSchema,
   summary: "Create a single feature",
   description:
     "Creates a new Feature Flag. The caller needs Create access in its Project, plus Publish access for any environment the Feature Flag starts enabled in — one that starts disabled everywhere needs Create alone. Rules are supplied as a top-level `rules` array; each rule includes `allEnvironments` / `environments` scope fields.\n\n" +
@@ -872,10 +868,7 @@ export const updateFeatureV2Validator = {
   bodySchema: updateFeatureBodyV2,
   querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   paramsSchema: idParams,
-  responseSchema: featureV2UpdateResponseSchema.extend({
-    warnings: inputWarningsField,
-  }),
-  surfaceInputWarnings: true,
+  responseSchema: featureV2UpdateResponseSchema,
   summary: "Partially update a feature",
   description:
     "Updates the Feature Flag and immediately publishes a new revision. The caller needs Edit access in the Feature Flag's Project and Publish access for every affected environment. When approval is required, use the revision endpoints instead, unless the caller can bypass draft approvals.\n\nOther top-level fields are patch-merged: omit a field to leave it unchanged. The `rules` field, when supplied, replaces the entire `rules` array in one operation. To preserve existing rules, fetch the Feature Flag, update the returned `rules` array, and send the complete array back. Safe-rollout rules round-trip through `safeRolloutId`; use `POST /v2/features/:id/revisions/:version/rules` to create new ones.",

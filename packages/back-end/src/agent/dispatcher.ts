@@ -147,7 +147,6 @@ async function executeRoute(
       fakeReq as { params: unknown; query: unknown; body: unknown },
       route.schemas,
       route.rawHandler,
-      { surfaceInputWarnings: route.surfaceInputWarnings },
     );
     return { status, body: toJsonWire(body) };
   } catch (err) {

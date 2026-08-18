@@ -62,31 +62,6 @@ export type BackEndApiEndpointSpec<
   possibleErrors?: readonly ApiErrorCode[];
 };
 
-// Fields accepted under an older name, mapped to the documented one.
-const ALTERNATE_FIELD_NAMES: Record<string, string> = {
-  savedGroupTargeting: "savedGroups",
-};
-
-type IssueLike = {
-  code?: string;
-  keys?: readonly string[];
-  errors?: readonly (readonly IssueLike[])[];
-};
-
-// Includes keys nested inside union branch failures.
-function collectUnrecognizedKeys(issues: readonly IssueLike[]): string[] {
-  const keys: string[] = [];
-  for (const issue of issues) {
-    if (issue.code === "unrecognized_keys" && issue.keys) {
-      keys.push(...issue.keys);
-    }
-    for (const branch of issue.errors ?? []) {
-      keys.push(...collectUnrecognizedKeys(branch));
-    }
-  }
-  return keys;
-}
-
 function validate<T extends ZodType>(
   schema: T,
   value: unknown,
@@ -101,20 +76,11 @@ function validate<T extends ZodType>(
     } {
   const result = schema.safeParse(value);
   if (!result.success) {
-    const hints = [...new Set(collectUnrecognizedKeys(result.error.issues))]
-      .filter((key) => key in ALTERNATE_FIELD_NAMES)
-      .map(
-        (key) =>
-          `[${key}] Unsupported field. Use \`${ALTERNATE_FIELD_NAMES[key]}\` instead.`,
-      );
     return {
       success: false,
-      errors: [
-        ...hints,
-        ...result.error.issues.map((i) => {
-          return "[" + i.path.join(".") + "] " + i.message;
-        }),
-      ],
+      errors: result.error.issues.map((i) => {
+        return "[" + i.path.join(".") + "] " + i.message;
+      }),
     };
   }
 
@@ -158,102 +124,6 @@ export type RawApiRequestHandler<
   >,
 ) => Promise<z.infer<ResponseSchema>>;
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-// Keys the caller sent that Zod stripped, as dotted paths.
-function collectStrippedKeys(
-  raw: unknown,
-  parsed: unknown,
-  path = "",
-): string[] {
-  if (Array.isArray(raw) && Array.isArray(parsed)) {
-    return raw.flatMap((item, i) =>
-      collectStrippedKeys(item, parsed[i], `${path}[${i}]`),
-    );
-  }
-  if (!isPlainObject(raw) || !isPlainObject(parsed)) return [];
-  const dropped: string[] = [];
-  for (const key of Object.keys(raw)) {
-    const child = path ? `${path}.${key}` : key;
-    if (!(key in parsed)) dropped.push(child);
-    else dropped.push(...collectStrippedKeys(raw[key], parsed[key], child));
-  }
-  return dropped;
-}
-
-// Alternate-named fields in the body, with the name to use instead.
-function collectAlternateKeys(
-  value: unknown,
-  path = "",
-): { path: string; use: string }[] {
-  if (Array.isArray(value)) {
-    return value.flatMap((item, i) =>
-      collectAlternateKeys(item, `${path}[${i}]`),
-    );
-  }
-  if (!isPlainObject(value)) return [];
-  const found: { path: string; use: string }[] = [];
-  for (const key of Object.keys(value)) {
-    const child = path ? `${path}.${key}` : key;
-    const use = ALTERNATE_FIELD_NAMES[key];
-    if (use) found.push({ path: child, use });
-    found.push(...collectAlternateKeys(value[key], child));
-  }
-  return found;
-}
-
-const responseKeyCache = new WeakMap<ZodType, ReadonlySet<string>>();
-
-// Every property name the endpoint can return, at any depth. Anything a caller
-// echoes back from a GET is a round-trip artifact rather than a mistake, so it
-// must not be warned about. Derived from the schema, so response-only fields
-// added later are covered without touching this file.
-function responseKeyNames(schema: ZodType): ReadonlySet<string> {
-  const cached = responseKeyCache.get(schema);
-  if (cached) return cached;
-
-  const names = new Set<string>();
-  const collect = (node: unknown): void => {
-    if (Array.isArray(node)) return node.forEach(collect);
-    if (!isPlainObject(node)) return;
-    const props = node.properties;
-    if (isPlainObject(props)) Object.keys(props).forEach((k) => names.add(k));
-    Object.values(node).forEach(collect);
-  };
-  // Converting to JSON Schema keeps this off Zod's internals, which shift
-  // between major versions. A schema that can't convert simply suppresses
-  // nothing, which is the pre-existing behaviour.
-  try {
-    collect(z.toJSONSchema(schema, { unrepresentable: "any", io: "output" }));
-  } catch {
-    // fall through with whatever was collected
-  }
-
-  responseKeyCache.set(schema, names);
-  return names;
-}
-
-// Advisories about how a request body was read. Always ride along with a 2xx
-// and are never gated behind `ignoreWarnings`.
-export function buildInputWarnings(
-  raw: unknown,
-  parsed: unknown,
-  echoedKeys: ReadonlySet<string> = new Set(),
-): string[] {
-  const stripped = collectStrippedKeys(raw, parsed).filter(
-    (key) => !echoedKeys.has(key.split(".").pop() ?? key),
-  );
-  return [
-    ...stripped.map((key) => `Unrecognized field \`${key}\` was ignored.`),
-    ...collectAlternateKeys(raw).map(
-      ({ path, use }) =>
-        `\`${path}\` is accepted for compatibility but is not part of the documented contract. Use \`${use}\` instead.`,
-    ),
-  ];
-}
-
 /**
  * The single source of truth for "validate the three inputs, run the business
  * handler, shape success/error into `{status, body}`". Both the Express wrapper
@@ -274,13 +144,10 @@ export async function runApiHandler(
     params?: ZodType;
     body?: ZodType;
     query?: ZodType;
-    response?: ZodType;
   },
   handler: (req: never) => Promise<unknown>,
-  options?: { surfaceInputWarnings?: boolean },
 ): Promise<{ status: number; body: unknown }> {
   const allErrors: string[] = [];
-  const rawBody = options?.surfaceInputWarnings ? req.body : undefined;
   if (schemas.params && !(schemas.params instanceof ZodNever)) {
     const validated = validate(schemas.params, req.params);
     if (!validated.success) {
@@ -311,16 +178,6 @@ export async function runApiHandler(
 
   try {
     const result = await handler(req as never);
-    if (options?.surfaceInputWarnings && isPlainObject(result)) {
-      const warnings = buildInputWarnings(
-        rawBody,
-        req.body,
-        schemas.response ? responseKeyNames(schemas.response) : undefined,
-      );
-      if (warnings.length) {
-        return { status: 200, body: { ...result, warnings } };
-      }
-    }
     return { status: 200, body: result };
   } catch (e) {
     const body: ApiErrorResponse = { message: e.message };
@@ -415,7 +272,6 @@ export type OpenApiRoute<
   excludeFromSpec?: boolean;
   /** Error codes this endpoint may throw, used to generate OpenAPI error response schemas. */
   possibleErrors?: readonly ApiErrorCode[];
-  surfaceInputWarnings?: boolean;
 };
 
 export function createApiRequestHandler<
@@ -449,7 +305,6 @@ export function createApiRequestHandler<
     deprecated,
     deprecationDate,
     possibleErrors,
-    surfaceInputWarnings,
   } = data;
 
   return (
@@ -475,10 +330,8 @@ export function createApiRequestHandler<
             params: paramsSchema,
             body: bodySchema,
             query: querySchema,
-            response: responseSchema,
           },
           handler,
-          { surfaceInputWarnings },
         );
         return res
           .status(status)
@@ -515,7 +368,6 @@ export function createApiRequestHandler<
       rawHandler: handler,
       excludeFromSpec,
       possibleErrors,
-      surfaceInputWarnings,
     };
 
     return route;

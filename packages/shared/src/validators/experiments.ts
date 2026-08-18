@@ -8,7 +8,6 @@ import {
   namespaceValue,
   featurePrerequisite,
   savedGroupTargeting,
-  inputWarningsField,
   paginationQueryFields,
   apiPaginationFieldsValidator,
   ignoreWarningsBodyField,
@@ -1896,10 +1895,8 @@ export const postExperimentValidator = {
   responseSchema: z
     .object({
       experiment: apiExperimentValidator,
-      warnings: inputWarningsField,
     })
     .strict(),
-  surfaceInputWarnings: true,
   summary: "Create a single experiment",
   operationId: "postExperiment",
   tags: ["experiments"],
@@ -2005,10 +2002,8 @@ export const updateExperimentValidator = {
   responseSchema: z
     .object({
       experiment: apiExperimentValidator,
-      warnings: inputWarningsField,
     })
     .strict(),
-  surfaceInputWarnings: true,
   summary: "Update a single experiment",
   operationId: "updateExperiment",
   tags: ["experiments"],

@@ -1776,14 +1776,6 @@ paths:
                 properties:
                   feature:
                     $ref: '#/components/schemas/FeatureV1'
-                  warnings:
-                    description: >-
-                      Non-fatal advisories about how the request was interpreted
-                      — request fields that were ignored, or accepted under an
-                      undocumented name.
-                    type: array
-                    items:
-                      type: string
                 required:
                   - feature
                 additionalProperties: false
@@ -2808,14 +2800,6 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/bypassedGates'
-                  warnings:
-                    description: >-
-                      Non-fatal advisories about how the request was interpreted
-                      — request fields that were ignored, or accepted under an
-                      undocumented name.
-                    type: array
-                    items:
-                      type: string
                 required:
                   - feature
                 additionalProperties: false
@@ -7510,14 +7494,6 @@ paths:
                 properties:
                   feature:
                     $ref: '#/components/schemas/FeatureV2'
-                  warnings:
-                    description: >-
-                      Non-fatal advisories about how the request was interpreted
-                      — request fields that were ignored, or accepted under an
-                      undocumented name.
-                    type: array
-                    items:
-                      type: string
                 required:
                   - feature
                 additionalProperties: false
@@ -8243,14 +8219,6 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/bypassedGates'
-                  warnings:
-                    description: >-
-                      Non-fatal advisories about how the request was interpreted
-                      — request fields that were ignored, or accepted under an
-                      undocumented name.
-                    type: array
-                    items:
-                      type: string
                 required:
                   - feature
                 additionalProperties: false
@@ -13677,14 +13645,6 @@ paths:
                 properties:
                   experiment:
                     $ref: '#/components/schemas/Experiment'
-                  warnings:
-                    description: >-
-                      Non-fatal advisories about how the request was interpreted
-                      — request fields that were ignored, or accepted under an
-                      undocumented name.
-                    type: array
-                    items:
-                      type: string
                 required:
                   - experiment
                 additionalProperties: false
@@ -14366,14 +14326,6 @@ paths:
                 properties:
                   experiment:
                     $ref: '#/components/schemas/Experiment'
-                  warnings:
-                    description: >-
-                      Non-fatal advisories about how the request was interpreted
-                      — request fields that were ignored, or accepted under an
-                      undocumented name.
-                    type: array
-                    items:
-                      type: string
                 required:
                   - experiment
                 additionalProperties: false

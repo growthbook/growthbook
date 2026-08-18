@@ -5,7 +5,6 @@ import {
   featurePrerequisite,
   namespaceValue,
   savedGroupTargeting,
-  inputWarningsField,
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
@@ -1753,10 +1752,7 @@ export const postFeatureValidator = {
   bodySchema: postFeatureBody,
   querySchema: z.never(),
   paramsSchema: z.never(),
-  responseSchema: featureResponseSchema.extend({
-    warnings: inputWarningsField,
-  }),
-  surfaceInputWarnings: true,
+  responseSchema: featureResponseSchema,
   summary: "Create a single feature",
   description:
     "**Deprecated.** Use [POST /v2/features](#operation/postFeatureV2) instead.",
@@ -1802,10 +1798,7 @@ export const updateFeatureValidator = {
   bodySchema: updateFeatureBody,
   querySchema: z.never(),
   paramsSchema: idParams,
-  responseSchema: featureUpdateResponseSchema.extend({
-    warnings: inputWarningsField,
-  }),
-  surfaceInputWarnings: true,
+  responseSchema: featureUpdateResponseSchema,
   summary: "Partially update a feature",
   description:
     "**Deprecated.** Use [POST /v2/features/:id](#operation/updateFeatureV2) instead.\n\nUpdates the Feature Flag and immediately publishes a new revision. The caller needs Edit access in the Feature Flag's Project and Publish access for every affected environment. When approval is required, use the revision endpoints instead, unless the caller can bypass draft approvals.",
