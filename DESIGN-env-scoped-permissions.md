@@ -526,20 +526,25 @@ Landed alongside, not originally listed:
 
 ### 2. Review becomes environment-scoped
 
-- [x] Org setting, default off — `settings.envScopedReview`
-- [x] `review*` joins the env-scoped set when enabled — `envScopedPermissions(org)`,
-      so per-role `envGrants` carry the review atoms
-- [x] `revisionActionPermission()` answers "environment" for review only when
-      enabled; saved groups excluded (review is env-scoped only where publish is)
+- [x] No org setting: `review*` atoms are statically environment-scoped. An
+      earlier draft gated this behind `settings.envScopedReview`; that setting
+      never existed on prod, so it was dropped rather than shipped — orgs that
+      lose review rights are handled case by case.
+- [x] `review*` sits in the env-scoped set, so per-role `envGrants` carry the
+      review atoms
+- [x] `revisionActionPermission()` answers "environment" for review; saved groups
+      excluded (review is env-scoped only where publish is)
 - [x] No-binding changes fail closed — an empty footprint satisfies `every()`, so
       reviewing an unbound change now takes authority unrestricted by environment
 - [x] Generic adapter `canReview` routed through the footprint-supplying helper;
       it was the one action that never received one
 - [x] Tests: `shared/test/permissions/envScopedReview.test.ts`, nine cases
       covering flag off (no change), per-env, spanning, unbound, saved groups
-- [ ] **Feature engine still unwired — blocked on the question below**
+- [x] Feature engine wired: `getReviewAuthorityFootprint` (in `shared/util/features.ts`)
+      feeds `controllers/features.ts`, `services/features.ts` and
+      `services/featurePublishGates.ts`. Resolution of the question below: **(b)**.
 
-**Blocker: what is a Feature revision's review footprint?**
+**Resolved: what is a Feature revision's review footprint?**
 
 Constants and Configs already carry a per-revision footprint, so wiring them was
 mechanical. Features do not. Feature _publish_ gates on
@@ -558,7 +563,9 @@ Two readings, and they behave very differently:
   This is what the customer described ("they can approve dev, draft has prod
   changes") and what the "footprint widens" UI above assumes.
 
-(b) is the intent. **Derived, never stored** — a revision already holds its full
+**(b) is what shipped.** `bases` takes a LIST — the live revision and the draft's
+base — unioned, so the two disagreeing (the v1/v2 drift) can only ever demand
+more authority, never less. **Derived, never stored** — a revision already holds its full
 staged state (`defaultValue`, `rules`, `environmentsEnabled`, `metadata`), so the
 delta is a pure function of (revision, base) and there is nothing to accumulate.
 An earlier draft of this note said "deriving and storing", which conflated two
@@ -592,16 +599,24 @@ at all.
 
 ### 3. Approvals checked at publish
 
-- [ ] An approval counts only if that approver covers the current footprint
-- [ ] Uncovered approvals do not count; existing "needs review" gate refuses
-- [ ] Uses approvers' current permissions; no snapshotting
-- [ ] Tests: approve dev-only, widen to prod, publish refused
-- [ ] Approver avatars: outlined green when insufficient (see "Marking an
-      approval as insufficient")
-- [ ] Same marking on the left-column event timeline
-- [ ] Tooltip derived from the reviewer's role and the current footprint
-- [ ] Test: widening the footprint during `pending-review` invalidates or
-      re-evaluates standing approvals — confirm `approvedBaseVersion` does this
+- [x] An approval counts only if that approver covers the current footprint —
+      `assessApprovalCoverage`, called from both engines' publish paths
+- [x] Uncovered approvals do not count; the publish gate refuses with a message
+      naming the environments the approvers cannot approve
+- [x] Uses approvers' current permissions; no snapshotting
+- [x] Tests: `approvalCoverage.test.ts`, `revisionApprovalCoverage.test.ts`,
+      `reviewAuthorityFootprint.test.ts`, `reviewFootprintGeneric.test.ts`
+- [x] Approver avatars: dashed outline when insufficient, with a tooltip and a
+      "not a qualifying approval" suffix on the timeline row
+- [x] Same marking on the left-column event timeline, including approvals that
+      carry a comment (those render as cards, which needed the suffix separately)
+- [x] Tooltip derived from the reviewer's role and the current footprint —
+      `uncoveredApproverReasons`, naming the environments they cannot approve
+- [ ] Still open: whether `approvedBaseVersion` re-evaluates a standing approval
+      when the footprint widens _during_ `pending-review`. The widening semantics
+      themselves are covered (`approvalCoverage.test.ts` discounts an approval once
+      the draft grows past the approver); what is unverified is the feature
+      engine's own stale-approval mechanism interacting with it.
 
 ### 4. Required approvers
 
