@@ -121,8 +121,6 @@ export const createHoldoutInputValidator = z.object({
   assignmentQueryId: z.string().optional(),
   goalMetrics: z.array(z.string()).optional(),
   secondaryMetrics: z.array(z.string()).optional(),
-  guardrailMetrics: z.array(z.string()).optional(),
-  activationMetric: z.string().optional(),
 
   environmentSettings: z.record(z.string(), featureEnvironment).optional(),
   statsEngine: z.enum(statsEngines).optional(),
@@ -236,7 +234,7 @@ export const apiHoldoutValidator = namedSchema(
     targetingCondition: z
       .string()
       .describe("Targeting condition as a JSON string."),
-    savedGroups: z.array(savedGroupTargeting).optional(),
+    savedGroupTargeting: z.array(savedGroupTargeting).optional(),
 
     // Analysis settings
     datasourceId: z.string(),
@@ -319,12 +317,16 @@ export const apiCreateHoldoutBody = z.strictObject({
     .string()
     .describe("Targeting condition as a JSON string.")
     .optional(),
-  savedGroups: z.array(savedGroupTargeting).optional(),
+  savedGroupTargeting: z.array(savedGroupTargeting).optional(),
 
   datasourceId: z.string().optional(),
   assignmentQueryId: z.string().optional(),
   goalMetrics: z.array(z.string()).optional(),
   secondaryMetrics: z.array(z.string()).optional(),
+  statsEngine: z
+    .enum(statsEngines)
+    .describe("Statistics engine used to analyze this Holdout.")
+    .optional(),
 
   environments: z
     .record(z.string(), apiHoldoutEnvironment)
@@ -350,23 +352,15 @@ export const apiUpdateHoldoutBody = z.strictObject({
   holdoutSize: holdoutSizeField.optional(),
   hashAttribute: z.string().optional(),
   targetingCondition: z.string().optional(),
-  savedGroups: z.array(savedGroupTargeting).optional(),
+  savedGroupTargeting: z.array(savedGroupTargeting).optional(),
 
   datasourceId: z.string().optional(),
   assignmentQueryId: z.string().optional(),
   goalMetrics: z.array(z.string()).optional(),
   secondaryMetrics: z.array(z.string()).optional(),
-  variations: z
-    .array(
-      z.object({
-        variationId: z.string(),
-        name: z.string().optional(),
-        description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-      }),
-    )
-    .describe(
-      "Rename a Holdout's variations. A Holdout always has exactly two variations, so they cannot be added or removed.",
-    )
+  statsEngine: z
+    .enum(statsEngines)
+    .describe("Statistics engine used to analyze this Holdout.")
     .optional(),
 
   environments: z
@@ -398,6 +392,7 @@ export const HOLDOUT_API_EXPERIMENT_UPDATE_FIELDS = [
   "archived",
   "goalMetrics",
   "secondaryMetrics",
+  "statsEngine",
 ] as const satisfies readonly (keyof ApiUpdateHoldoutBody)[];
 
 /**
@@ -409,7 +404,7 @@ export const HOLDOUT_API_TARGETING_UPDATE_FIELDS = [
   "holdoutSize",
   "hashAttribute",
   "targetingCondition",
-  "savedGroups",
+  "savedGroupTargeting",
 ] as const satisfies readonly (keyof ApiUpdateHoldoutBody)[];
 
 export const apiHoldoutStageValidator = {

@@ -2,7 +2,6 @@ import { z } from "zod";
 import {
   coverageToHoldoutSize,
   getHoldoutStage,
-  holdoutSizeToCoverage,
   stringToBoolean,
 } from "shared/util";
 import {
@@ -10,9 +9,7 @@ import {
   apiCreateHoldoutBody,
   apiHoldoutStageReturn,
   apiUpdateHoldoutBody,
-  HOLDOUT_API_EXPERIMENT_UPDATE_FIELDS,
   HOLDOUT_API_TARGETING_UPDATE_FIELDS,
-  HOLDOUT_API_UPDATE_FIELDS,
   HoldoutInterface,
   holdoutValidator,
 } from "shared/validators";
@@ -29,20 +26,16 @@ import {
   createHoldoutWithExperiment,
   normalizeHoldoutScheduleUpdates,
   setHoldoutStage,
+  updateHoldoutWithExperiment,
 } from "back-end/src/services/holdouts";
 import {
   resolveOwnerEmail,
   resolveOwnerEmails,
   resolveOwnerForCreate,
-  resolveOwnerToUserId,
 } from "back-end/src/services/owner";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { MakeModelClass } from "./BaseModel";
-import {
-  getExperimentById,
-  getExperimentsByIds,
-  updateExperiment,
-} from "./ExperimentModel";
+import { getExperimentById, getExperimentsByIds } from "./ExperimentModel";
 
 const COLLECTION_NAME = "holdouts";
 
@@ -160,7 +153,7 @@ export function toApiHoldout(
     holdoutSize: coverageToHoldoutSize(phase?.coverage ?? 0),
     hashAttribute: experiment.hashAttribute,
     targetingCondition: phase?.condition ?? "",
-    savedGroups: phase?.savedGroups,
+    savedGroupTargeting: phase?.savedGroups,
 
     datasourceId: experiment.datasource,
     assignmentQueryId: experiment.exposureQueryId,
@@ -333,14 +326,13 @@ export class HoldoutModel extends BaseClass {
         skipAsDefaultHoldout: body.skipAsDefaultHoldout,
         datasourceId: body.datasourceId,
         assignmentQueryId: body.assignmentQueryId,
-        // An empty hash attribute would leave the Holdout unable to bucket
-        // anyone, so fall back to the conventional default.
         hashAttribute: body.hashAttribute || "id",
         holdoutSize: body.holdoutSize,
         targetingCondition: body.targetingCondition,
-        savedGroups: body.savedGroups,
+        savedGroups: body.savedGroupTargeting,
         goalMetrics: body.goalMetrics,
         secondaryMetrics: body.secondaryMetrics,
+        statsEngine: body.statsEngine,
         environmentSettings: body.environments
           ? Object.fromEntries(
               Object.entries(body.environments).map(([id, settings]) => [
@@ -378,7 +370,7 @@ export class HoldoutModel extends BaseClass {
 
     const holdout = await this.getById(req.params.id);
     if (!holdout) req.context.throwNotFoundError();
-    let experiment = await this.getExperimentOrThrow(holdout);
+    const experiment = await this.getExperimentOrThrow(holdout);
 
     // Gate every path explicitly. Writes to the companion experiment go through
     // `updateExperiment`, which does no permission checking of its own, and a
@@ -391,13 +383,12 @@ export class HoldoutModel extends BaseClass {
       this.context.permissions.throwPermissionError();
     }
 
-    const isTargetingChange = HOLDOUT_API_TARGETING_UPDATE_FIELDS.some(
-      (field) => body[field] !== undefined,
-    );
-
     // Targeting and sizing changes reach live SDK payloads, so they additionally
     // require run permission on the Holdout's environments — the same bar the
     // internal targeting endpoint applies.
+    const isTargetingChange = HOLDOUT_API_TARGETING_UPDATE_FIELDS.some(
+      (field) => body[field] !== undefined,
+    );
     if (isTargetingChange) {
       const envs = Object.keys(holdout.environmentSettings).filter(
         (env) => holdout.environmentSettings[env]?.enabled,
@@ -410,114 +401,17 @@ export class HoldoutModel extends BaseClass {
       }
     }
 
-    // 1. Phase-level targeting and sizing.
-    if (isTargetingChange) {
-      const phases = [...experiment.phases];
-      if (!phases.length) {
-        throw new Error("Holdout does not have a phase to target");
-      }
-
-      const current = phases[phases.length - 1];
-      phases[phases.length - 1] = {
-        ...current,
-        condition: body.targetingCondition ?? current.condition,
-        savedGroups: body.savedGroups ?? current.savedGroups,
-        coverage:
-          body.holdoutSize === undefined
-            ? current.coverage
-            : holdoutSizeToCoverage(body.holdoutSize),
-      };
-
-      experiment = await updateExperiment({
-        context: this.context,
+    const { holdout: updated, experiment: updatedExperiment } =
+      await updateHoldoutWithExperiment(this.context, {
+        holdout,
         experiment,
-        changes: {
-          phases,
-          ...(body.hashAttribute !== undefined && {
-            hashAttribute: body.hashAttribute,
-          }),
-        },
+        body,
       });
-    }
 
-    // 2. Metadata and analysis settings on the companion experiment.
-    const experimentChanges: Partial<ExperimentInterface> = {};
-    for (const field of HOLDOUT_API_EXPERIMENT_UPDATE_FIELDS) {
-      if (body[field] !== undefined) {
-        (experimentChanges as Record<string, unknown>)[field] = body[field];
-      }
-    }
-    if (body.owner !== undefined) {
-      experimentChanges.owner = await resolveOwnerToUserId(
-        body.owner,
-        this.context,
-      );
-    }
-    if (body.datasourceId !== undefined) {
-      experimentChanges.datasource = body.datasourceId;
-    }
-    if (body.assignmentQueryId !== undefined) {
-      experimentChanges.exposureQueryId = body.assignmentQueryId;
-    }
-    // A holdout's two variations are fixed, so only their labels can change.
-    if (body.variations) {
-      const renames = new Map(body.variations.map((v) => [v.variationId, v]));
-      experimentChanges.variations = experiment.variations.map((v) => {
-        const rename = renames.get(v.id);
-        if (!rename) return v;
-        return {
-          ...v,
-          name: rename.name ?? v.name,
-          description: rename.description ?? v.description,
-        };
-      });
-    }
-    // The name is stored on both documents and must not drift.
-    if (body.name !== undefined) {
-      experimentChanges.name = body.name;
-    }
-    if (Object.keys(experimentChanges).length) {
-      experiment = await updateExperiment({
-        context: this.context,
-        experiment,
-        changes: experimentChanges,
-      });
-    }
-
-    // 3. Fields on the holdout document itself.
-    const holdoutUpdates: UpdateProps<HoldoutInterface> = {};
-    for (const field of HOLDOUT_API_UPDATE_FIELDS) {
-      if (body[field] !== undefined) {
-        (holdoutUpdates as Record<string, unknown>)[field] = body[field];
-      }
-    }
-    if (body.name !== undefined) {
-      holdoutUpdates.name = body.name;
-    }
-    if (body.environments !== undefined) {
-      holdoutUpdates.environmentSettings = Object.fromEntries(
-        Object.entries(body.environments).map(([id, settings]) => [
-          id,
-          { enabled: settings.enabled },
-        ]),
-      );
-    }
-    if (body.statusUpdateSchedule !== undefined) {
-      Object.assign(
-        holdoutUpdates,
-        normalizeHoldoutScheduleUpdates({
-          holdout,
-          experiment,
-          scheduleInput: body.statusUpdateSchedule,
-        }),
-      );
-    }
-
-    const updated = Object.keys(holdoutUpdates).length
-      ? await this.update(holdout, holdoutUpdates)
-      : holdout;
-
-    return resolveOwnerEmail(toApiHoldout(updated, experiment), this.context);
+    return resolveOwnerEmail(
+      toApiHoldout(updated, updatedExperiment),
+      this.context,
+    );
   }
 
   protected async beforeUpdate(

@@ -49514,7 +49514,7 @@ paths:
                   type: string
                 targetingCondition:
                   type: string
-                savedGroups:
+                savedGroupTargeting:
                   type: array
                   items:
                     type: object
@@ -49545,24 +49545,12 @@ paths:
                   type: array
                   items:
                     type: string
-                variations:
-                  description: >-
-                    Rename a Holdout's variations. A Holdout always has exactly
-                    two variations, so they cannot be added or removed.
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      variationId:
-                        type: string
-                      name:
-                        type: string
-                      description:
-                        type: string
-                        maxLength: 10000
-                    required:
-                      - variationId
-                    additionalProperties: false
+                statsEngine:
+                  description: Statistics engine used to analyze this Holdout.
+                  type: string
+                  enum:
+                    - bayesian
+                    - frequentist
                 environments:
                   description: >-
                     Replaces the entire per-environment state. Environments not
@@ -49683,7 +49671,7 @@ paths:
                 targetingCondition:
                   description: Targeting condition as a JSON string.
                   type: string
-                savedGroups:
+                savedGroupTargeting:
                   type: array
                   items:
                     type: object
@@ -49714,6 +49702,12 @@ paths:
                   type: array
                   items:
                     type: string
+                statsEngine:
+                  description: Statistics engine used to analyze this Holdout.
+                  type: string
+                  enum:
+                    - bayesian
+                    - frequentist
                 environments:
                   description: >-
                     Per-environment state, keyed by environment ID. Environments
@@ -65680,7 +65674,7 @@ components:
         targetingCondition:
           description: Targeting condition as a JSON string.
           type: string
-        savedGroups:
+        savedGroupTargeting:
           type: array
           items:
             type: object
