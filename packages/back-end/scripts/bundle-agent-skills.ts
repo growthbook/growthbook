@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 
 // Assembles the in-app assistant's skills from growthbook/skills plus the
-// checked-in skills-local tree. Dependency-free because CI runs this before
-// pnpm install.
+// checked-in skills-local tree.
 
 import {
   cpSync,
@@ -15,46 +14,22 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { dirname, join, resolve } from "node:path";
 
-const scriptDir = dirname(fileURLToPath(import.meta.url));
+const scriptDir = __dirname;
 const packageRoot = resolve(scriptDir, "..");
 const repoRoot = resolve(packageRoot, "..", "..");
 const outputDir = join(packageRoot, "generated", "agent-skills");
 const localSkillsDir = join(packageRoot, "src", "agent", "skills-local");
 
 const SKILLS_REPOSITORY = "https://github.com/growthbook/skills";
-export const CANONICAL_SKILLS = ["feature-flags", "experiments", "analytics"];
+export const CANONICAL_SKILLS = [
+  "feature-flags",
+  "experiments",
+  "analytics",
+] as const;
 
-function rewriteReferencePaths(content, entrypoint) {
-  const loadSkill = (name) =>
-    `\`loadSkill('${entrypoint}/references/${name}')\``;
-  const adapted = content
-    .replace(
-      /\[[^\]\r\n]+\]\(references\/([a-z0-9-]+)\.md\)/g,
-      (_match, name) => loadSkill(name),
-    )
-    .replace(/`references\/([a-z0-9-]+)\.md`/g, (_match, name) =>
-      loadSkill(name),
-    )
-    .replace(/references\/([a-z0-9-]+)\.md/g, (_match, name) =>
-      loadSkill(name),
-    );
-  const remaining = adapted.match(/references\/[^`'"\s)]+\.md/);
-  if (remaining) {
-    throw new Error(
-      `Could not convert workflow reference "${remaining[0]}" in canonical skill "${entrypoint}".`,
-    );
-  }
-  return adapted;
-}
-
-export function adaptCanonicalSkill(content, name, entrypoint = name) {
-  return rewriteReferencePaths(content, entrypoint);
-}
-
-function isSkillsCheckout(dir) {
+function isSkillsCheckout(dir: string): boolean {
   return existsSync(join(dir, "skills"));
 }
 
@@ -63,7 +38,7 @@ const SIBLING_CANDIDATES = [
   resolve(repoRoot, "..", "..", "skills"),
 ];
 
-function resolveSkillsSource() {
+function resolveSkillsSource(): string | null {
   if (process.env.SKILLS_SRC) {
     const explicit = resolve(process.env.SKILLS_SRC);
     if (!isSkillsCheckout(explicit)) {
@@ -76,19 +51,23 @@ function resolveSkillsSource() {
   return SIBLING_CANDIDATES.find(isSkillsCheckout) ?? null;
 }
 
-function markdownFiles(dir) {
+function markdownFiles(dir: string): string[] {
   if (!existsSync(dir)) return [];
   return readdirSync(dir)
     .filter((entry) => entry.endsWith(".md"))
     .sort();
 }
 
-function copyCanonicalSkill(source, skillName, destination) {
-  const sourceDir = join(source, "skills", skillName);
+function copySkillDirectory(
+  sourceDir: string,
+  skillName: string,
+  destination: string,
+  sourceLabel: string,
+): void {
   const skillFile = join(sourceDir, "SKILL.md");
   if (!existsSync(skillFile)) {
     throw new Error(
-      `Allowlisted canonical skill "${skillName}" has no SKILL.md in ${sourceDir}.`,
+      `${sourceLabel} skill "${skillName}" has no SKILL.md in ${sourceDir}.`,
     );
   }
 
@@ -96,7 +75,7 @@ function copyCanonicalSkill(source, skillName, destination) {
   mkdirSync(destinationDir, { recursive: true });
   writeFileSync(
     join(destinationDir, "SKILL.md"),
-    adaptCanonicalSkill(readFileSync(skillFile, "utf8"), skillName, skillName),
+    readFileSync(skillFile, "utf8"),
     "utf8",
   );
 
@@ -106,21 +85,19 @@ function copyCanonicalSkill(source, skillName, destination) {
     const destinationReferences = join(destinationDir, "references");
     mkdirSync(destinationReferences, { recursive: true });
     for (const file of references) {
-      const name = basename(file, ".md");
       writeFileSync(
         join(destinationReferences, file),
-        adaptCanonicalSkill(
-          readFileSync(join(referencesDir, file), "utf8"),
-          name,
-          skillName,
-        ),
+        readFileSync(join(referencesDir, file), "utf8"),
         "utf8",
       );
     }
   }
 }
 
-export function assertNoSkillNameCollision(name, canonicalNames) {
+export function assertNoSkillNameCollision(
+  name: string,
+  canonicalNames: ReadonlySet<string>,
+): void {
   if (canonicalNames.has(name)) {
     throw new Error(
       `Local skill "${name}" collides with an allowlisted canonical skill.`,
@@ -128,76 +105,29 @@ export function assertNoSkillNameCollision(name, canonicalNames) {
   }
 }
 
-function copyLocalSkills(sourceRoot, destination, canonicalNames) {
+function copyLocalSkills(
+  sourceRoot: string,
+  destination: string,
+  canonicalNames: ReadonlySet<string>,
+): string[] {
   if (!existsSync(sourceRoot)) return [];
-
-  const copied = [];
+  const copied: string[] = [];
   for (const name of readdirSync(sourceRoot).sort()) {
     const sourceDir = join(sourceRoot, name);
     if (!statSync(sourceDir).isDirectory()) continue;
     assertNoSkillNameCollision(name, canonicalNames);
-
-    const skillFile = join(sourceDir, "SKILL.md");
-    if (!existsSync(skillFile)) {
-      throw new Error(`Local skill "${name}" has no SKILL.md in ${sourceDir}.`);
-    }
-
-    const destinationDir = join(destination, name);
-    mkdirSync(destinationDir, { recursive: true });
-    writeFileSync(
-      join(destinationDir, "SKILL.md"),
-      readFileSync(skillFile, "utf8"),
-      "utf8",
-    );
-
-    const referencesDir = join(sourceDir, "references");
-    const references = markdownFiles(referencesDir);
-    if (references.length > 0) {
-      const destinationReferences = join(destinationDir, "references");
-      mkdirSync(destinationReferences, { recursive: true });
-      for (const file of references) {
-        writeFileSync(
-          join(destinationReferences, file),
-          readFileSync(join(referencesDir, file), "utf8"),
-          "utf8",
-        );
-      }
-    }
+    copySkillDirectory(sourceDir, name, destination, "Local");
     copied.push(name);
   }
   return copied;
 }
 
-export function validateLoadSkillTargets(dir) {
-  const targets = new Set();
-  const markdown = [];
-
-  for (const entrypoint of readdirSync(dir).sort()) {
-    const skillDir = join(dir, entrypoint);
-    if (!statSync(skillDir).isDirectory()) continue;
-    const skillFile = join(skillDir, "SKILL.md");
-    if (!existsSync(skillFile)) continue;
-
-    targets.add(entrypoint);
-    markdown.push(skillFile);
-
-    const referencesDir = join(skillDir, "references");
-    for (const file of markdownFiles(referencesDir)) {
-      targets.add(`${entrypoint}/references/${basename(file, ".md")}`);
-      markdown.push(join(referencesDir, file));
-    }
-  }
-
-  for (const file of markdown) {
-    const content = readFileSync(file, "utf8");
-    for (const match of content.matchAll(/loadSkill\('([^']+)'\)/g)) {
-      if (!targets.has(match[1])) {
-        throw new Error(
-          `Generated skill ${file} references missing loadSkill target "${match[1]}".`,
-        );
-      }
-    }
-  }
+interface BundleSkillsOptions {
+  source?: string | null;
+  destination?: string;
+  localSource?: string;
+  canonicalSkills?: readonly string[];
+  ci?: boolean;
 }
 
 export function bundleSkills({
@@ -206,7 +136,7 @@ export function bundleSkills({
   localSource = localSkillsDir,
   canonicalSkills = CANONICAL_SKILLS,
   ci = Boolean(process.env.CI && process.env.CI !== "false"),
-} = {}) {
+}: BundleSkillsOptions = {}): void {
   const reusableBundle =
     !source &&
     canonicalSkills.every((name) =>
@@ -234,7 +164,12 @@ export function bundleSkills({
   try {
     if (source) {
       for (const skillName of canonicalSkills) {
-        copyCanonicalSkill(source, skillName, temporaryDir);
+        copySkillDirectory(
+          join(source, "skills", skillName),
+          skillName,
+          temporaryDir,
+          "Allowlisted canonical",
+        );
       }
     } else if (reusableBundle) {
       for (const skillName of canonicalSkills) {
@@ -248,7 +183,6 @@ export function bundleSkills({
       temporaryDir,
       new Set(canonicalSkills),
     );
-    validateLoadSkillTargets(temporaryDir);
 
     rmSync(destination, { recursive: true, force: true });
     mkdirSync(dirname(destination), { recursive: true });
@@ -263,10 +197,7 @@ export function bundleSkills({
   }
 }
 
-if (
-  process.argv[1] &&
-  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
-) {
+if (process.argv[1] && resolve(process.argv[1]) === resolve(__filename)) {
   try {
     bundleSkills();
   } catch (error) {

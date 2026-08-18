@@ -92,37 +92,29 @@ describeWorkflows("agent skills generated from growthbook/skills", () => {
     expect(names).not.toContain("product-analytics");
   });
 
-  it("rewrites the upstream runtime contract", () => {
+  it("preserves canonical skill content unchanged", () => {
     const leaf = getSkillByName("feature-flags/references/flag-create");
 
     expect(leaf?.kind).toBe("leaf");
     expect(leaf?.group).toBe("feature-flags");
-    expect(leaf?.body).toContain("Translate `gb-call METHOD PATH [body]`");
-    expect(leaf?.body).toContain(
-      "loadSkill('feature-flags/references/flag-rules')",
-    );
-    expect(leaf?.body).not.toContain("allowed-tools:");
-    expect(leaf?.body).not.toMatch(/`references\/[a-z0-9-]+\.md`/);
+    expect(leaf?.body).toContain("gb-call GET /api/v2/feature-keys");
+    expect(leaf?.body).toContain("`references/flag-rules.md`");
 
     const router = getSkillByName("analytics");
-    expect(router?.body).toContain(
-      "loadSkill('analytics/references/analytics-explore')",
-    );
-    expect(router?.body).not.toContain("gb-setup");
+    expect(router?.body).toContain("`references/analytics-explore.md`");
+    expect(router?.body).toContain("gb-setup");
   });
 
-  it("drops steps this runtime has no tools for", () => {
+  it("preserves runtime-specific steps for the system prompt to translate", () => {
     const cleanup = getSkillByName("feature-flags/references/flag-cleanup");
-    expect(cleanup?.body).not.toContain("Use the Read tool");
-    expect(cleanup?.body).not.toContain("Grep tool");
+    expect(cleanup?.body).toContain("Use the Read tool");
+    expect(cleanup?.body).toContain("Grep tool");
 
     const analyze = getSkillByName("experiments/references/experiment-analyze");
-    expect(analyze?.body).toContain("Check once, then re-fetch when ready");
-    expect(analyze?.body).not.toContain("for i in");
-    expect(analyze?.body).not.toContain("sleep 5");
+    expect(analyze?.body).toContain("for i in");
+    expect(analyze?.body).toContain("sleep 5");
 
     const analytics = getSkillByName("analytics/references/analytics-explore");
-    expect(analytics?.body).toContain("never sleep or re-POST just to poll");
-    expect(analytics?.body).not.toContain("sleep 10");
+    expect(analytics?.body).toContain("sleep 10");
   });
 });

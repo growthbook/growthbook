@@ -112,8 +112,9 @@ COPY packages/stats-ts/package.json ./packages/stats-ts/package.json
 RUN pnpm install --frozen-lockfile --offline
 RUN pnpm postinstall
 COPY packages ./packages
+COPY skills-src/skills ./skills-src/skills
 RUN \
-  pnpm build \
+  SKILLS_SRC=/usr/local/src/app/skills-src pnpm build \
   && test -f packages/back-end/dist/server.js \
   && test -f packages/back-end/dist/agent/skills/feature-flags/SKILL.md \
   && test -f packages/back-end/dist/agent/skills/feature-flags/references/flag-create.md \

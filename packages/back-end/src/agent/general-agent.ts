@@ -600,5 +600,6 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
 export const postGeneralAgentChat = createAgentHandler(generalAgentConfig);
 
 // Exposed for unit tests — see test/agent/general-agent.test.ts
+export const _buildGeneralAgentSystemPrompt = buildGeneralAgentSystemPrompt;
 export const _coerceBody = coerceBody;
 export const _requiresMutationConfirmation = requiresMutationConfirmation;

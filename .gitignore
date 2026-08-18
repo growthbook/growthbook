@@ -20,6 +20,7 @@ config.yml
 packages/stats/notebooks
 buildinfo/
 back-end-dist/
+skills-src/
 *.tsbuildinfo
 
 # Python compiled files
