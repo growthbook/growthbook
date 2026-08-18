@@ -140,7 +140,11 @@ import {
 } from "shared/types/feature";
 import { ProjectInterface } from "shared/types/project";
 import { MetricGroupInterface } from "shared/types/metric-groups";
-import { ExperimentQueryMetadata } from "shared/types/query";
+import {
+  ExperimentQueryMetadata,
+  Queries,
+  QueryStatus,
+} from "shared/types/query";
 import {
   isExperimentCoveredByIncrementalPipeline,
   getUnsupportedIncrementalExperimentTypeReason,
@@ -184,6 +188,7 @@ import { logger } from "back-end/src/util/logger";
 import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "back-end/src/queryRunners/QueryRunner";
+import { getExperimentResultStatus } from "back-end/src/queryRunners/experimentResultStatus";
 import {
   buildUnitDimensionQueryMap,
   filterParentQueryMap,
@@ -2620,13 +2625,12 @@ async function getSnapshotAnalyses(
       return;
     }
 
-    const totalQueries = snapshot.queries.length;
-    const failedQueries = snapshot.queries.filter((q) => q.status === "failed");
-    const runningQueries = snapshot.queries.filter(
-      (q) => q.status === "running",
+    const queryStatus = getExperimentSnapshotResultStatus(
+      snapshot.queries,
+      queryMap,
     );
 
-    if (runningQueries.length > 0 || failedQueries.length >= totalQueries / 2) {
+    if (queryStatus !== "succeeded" && queryStatus !== "partially-succeeded") {
       logger.error(
         `Snapshot queries not available for analysis: ${snapshot.id}`,
       );
@@ -2698,22 +2702,39 @@ async function getSnapshotAnalyses(
   return analysisParamsMap;
 }
 
-// Loads the query results needed to run gbstats for the given analyses. For
+function getExperimentSnapshotResultStatus(
+  queries: Queries,
+  queryMap: QueryMap,
+): QueryStatus {
+  const queryTypesById = new Map(
+    Array.from(queryMap.values()).map(({ id, queryType }) => [id, queryType]),
+  );
+  return getExperimentResultStatus(
+    queries.map((query) => ({
+      status: query.status,
+      queryType: query.queryType ?? queryTypesById.get(query.query),
+    })),
+  );
+}
+
+// Selects the query results needed to run gbstats for the given analyses. For
 // unit-dimension analyses (whose queries live under a `unitdim:<dim>:` prefix
 // on the parent snapshot), the map is filtered + renamed so gbstats sees the
 // bare metric keys it expects.
-async function getQueryMapForAnalysis(
-  context: ReqContext | ApiReqContext,
+function getQueryMapForAnalysis(
   snapshot: ExperimentSnapshotInterface,
   analysisSettingsList: ExperimentSnapshotAnalysisSettings[],
-): Promise<QueryMap> {
-  const queryMap = await getQueryMap(context, snapshot.queries);
+  fullQueryMap: QueryMap,
+): QueryMap {
   const dimensionId = analysisSettingsList[0]?.dimensions[0];
   if (
     dimensionId &&
     snapshot.settings.precomputedUnitDimensionIds?.includes(dimensionId)
   ) {
-    const unitDimQueryMap = buildUnitDimensionQueryMap(queryMap, dimensionId);
+    const unitDimQueryMap = buildUnitDimensionQueryMap(
+      fullQueryMap,
+      dimensionId,
+    );
     if (unitDimQueryMap.size === 0) {
       // The parent snapshot lists this unit dimension in its settings but
       // has no `unitdim:<id>:` query results — either the snapshot predates
@@ -2725,7 +2746,7 @@ async function getQueryMapForAnalysis(
     }
     return unitDimQueryMap;
   }
-  return filterParentQueryMap(queryMap);
+  return filterParentQueryMap(fullQueryMap);
 }
 
 export async function createSnapshotAnalyses(
@@ -2754,11 +2775,12 @@ export async function createSnapshotAnalysis(
     throw new Error("Analysis not allowed with this snapshot");
   }
 
-  const totalQueries = snapshot.queries.length;
-  const failedQueries = snapshot.queries.filter((q) => q.status === "failed");
-  const runningQueries = snapshot.queries.filter((q) => q.status === "running");
-
-  if (runningQueries.length > 0 || failedQueries.length >= totalQueries / 2) {
+  const fullQueryMap = await getQueryMap(context, snapshot.queries);
+  const queryStatus = getExperimentSnapshotResultStatus(
+    snapshot.queries,
+    fullQueryMap,
+  );
+  if (queryStatus !== "succeeded" && queryStatus !== "partially-succeeded") {
     throw new Error("Snapshot queries not available for analysis");
   }
   const analysis: ExperimentSnapshotAnalysis = {
@@ -2776,9 +2798,11 @@ export async function createSnapshotAnalysis(
   });
 
   // Format data correctly
-  const queryMap = await getQueryMapForAnalysis(context, snapshot, [
-    analysisSettings,
-  ]);
+  const queryMap = getQueryMapForAnalysis(
+    snapshot,
+    [analysisSettings],
+    fullQueryMap,
+  );
 
   // Run the analysis
   const { results } = await analyzeExperimentResults({
@@ -2823,10 +2847,12 @@ export async function createSnapshotAnalysesBatched(
     }
   }
 
-  const totalQueries = snapshot.queries.length;
-  const failedQueries = snapshot.queries.filter((q) => q.status === "failed");
-  const runningQueries = snapshot.queries.filter((q) => q.status === "running");
-  if (runningQueries.length > 0 || failedQueries.length >= totalQueries / 2) {
+  const fullQueryMap = await getQueryMap(context, snapshot.queries);
+  const queryStatus = getExperimentSnapshotResultStatus(
+    snapshot.queries,
+    fullQueryMap,
+  );
+  if (queryStatus !== "succeeded" && queryStatus !== "partially-succeeded") {
     throw new Error("Snapshot queries not available for analysis");
   }
 
@@ -2840,10 +2866,10 @@ export async function createSnapshotAnalysesBatched(
     }),
   );
 
-  const queryMap = await getQueryMapForAnalysis(
-    context,
+  const queryMap = getQueryMapForAnalysis(
     snapshot,
     analysisSettingsList,
+    fullQueryMap,
   );
 
   // Single gbstats call -- all analyses share the same queryResults and
