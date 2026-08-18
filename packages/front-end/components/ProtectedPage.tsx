@@ -8,6 +8,11 @@ import { isCloud } from "@/services/env";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+} from "@/ui/DropdownMenu";
 import LoadingOverlay from "./LoadingOverlay";
 import CreateOrJoinOrganization from "./Auth/CreateOrJoinOrganization";
 import SelectInitialPlan from "./Auth/SelectInitialPlan";
@@ -22,8 +27,13 @@ const LoggedInPageGuard = ({
   organizationRequired: boolean;
 }) => {
   const { error, ready, organization } = useUser();
-  const { organizations } = useAuth();
+  const { organizations, orgId, setOrgId } = useAuth();
   const [logoutError, setLogoutError] = useState<string | null>(null);
+
+  // A bad organization selection (deleted org, revoked membership) fails every
+  // org-scoped request, so switching orgs is the only way out of the error
+  // screen short of logging out.
+  const otherOrgs = (organizations || []).filter((o) => o.id !== orgId);
 
   if (error) {
     return (
@@ -40,9 +50,39 @@ const LoggedInPageGuard = ({
                 Something Went Wrong
               </Heading>
               <Callout status="error">{error}</Callout>
-              {/* Reload first: it's the non-destructive option, and the two
-                  buttons previously sat flush against each other. */}
+              {/* Ordered least to most destructive, so Log Out is never the
+                  first thing a stuck user reaches for. */}
               <Flex align="center" justify="end" gap="3" mt="4">
+                {setOrgId && otherOrgs.length > 0 ? (
+                  <DropdownMenu
+                    trigger={
+                      <Button variant="soft">Switch Organization</Button>
+                    }
+                    menuPlacement="start"
+                  >
+                    <DropdownMenuLabel>Organization</DropdownMenuLabel>
+                    {otherOrgs.map((o) => (
+                      <DropdownMenuItem
+                        key={o.id}
+                        onClick={() => {
+                          setOrgId(o.id);
+                          try {
+                            localStorage.setItem(
+                              "gb-last-picked-org",
+                              `"${o.id}"`,
+                            );
+                          } catch (e) {
+                            console.warn(
+                              "Unable to save last org in localStorage",
+                            );
+                          }
+                        }}
+                      >
+                        {o.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenu>
+                ) : null}
                 <Button
                   variant="ghost"
                   onClick={() => {

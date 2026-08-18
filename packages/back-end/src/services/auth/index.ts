@@ -197,6 +197,22 @@ export async function processJWT(
         (await getOrganizationById("" + req.headers["x-organization"])) ||
         undefined;
 
+      // A stale or revoked organization selection would otherwise fail every
+      // request, including the one the app uses to look up which organizations
+      // the user can switch to. GET /user is scoped to the user rather than the
+      // organization, so let it through with no organization attached and let
+      // the app recover instead of dead-ending on the error screen.
+      const isUserScopedRequest = `${req.method} ${req.path}` === "GET /user";
+
+      if (
+        req.organization &&
+        !req.superAdmin &&
+        isUserScopedRequest &&
+        !req.organization.members.some((m) => m.id === req.userId)
+      ) {
+        req.organization = undefined;
+      }
+
       if (req.organization) {
         if (req.organization.suspended && !req.superAdmin) {
           const allowedPaths = new Set(["GET /organization", "GET /user"]);
@@ -271,7 +287,7 @@ export async function processJWT(
           getUserCodesForOrg,
           getLicenseMetaData,
         );
-      } else {
+      } else if (!isUserScopedRequest) {
         res.status(404).json({
           status: 404,
           message: "Organization not found",
