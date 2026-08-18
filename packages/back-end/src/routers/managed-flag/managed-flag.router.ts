@@ -41,5 +41,12 @@ router.post(
   resolveManagedFlagParams,
   featuresController.postFeaturePublish,
 );
+// Review comments are conversation, not flag content, so they stay editable —
+// but only through the experiment, like everything else on a managed flag.
+router.put(
+  "/log/:logId",
+  resolveManagedFlagParams,
+  featuresController.putFeatureRevisionLogComment,
+);
 
 export { router as managedFlagRouter };

@@ -82,7 +82,14 @@ export default function CommentCard({
           }}
         />
         <Box px="1">
-          <Flex justify="between" align="center" mb={body ? "2" : "0"} gap="2">
+          {/* Compact headers wrap to two lines, so a centered action drifts
+              down the card — pin it to the first line instead. */}
+          <Flex
+            justify="between"
+            align={compact ? "start" : "center"}
+            mb={body ? "2" : "0"}
+            gap="2"
+          >
             <Flex align="center" gap="2" wrap="wrap">
               <EventUser
                 user={user}

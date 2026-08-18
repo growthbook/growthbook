@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { datetime } from "shared/dates";
-import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Box, Flex, Separator, IconButton } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -10,6 +10,7 @@ import {
   FeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { getReviewAndPublishState } from "@/components/Reviews/reviewAndPublishState";
 import {
   PersonRow,
@@ -20,6 +21,7 @@ import { rowVisual } from "@/components/Reviews/RevisionTimeline";
 import MarkdownWithDiffRefs from "@/components/Reviews/DiffCommentMarkdown";
 import CommentCard from "@/components/Comments/CommentCard";
 import Avatar from "@/ui/Avatar";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { Popover } from "@/ui/Popover";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
@@ -65,6 +67,8 @@ export default function ManagedFlagApproval({
   const [open, setOpen] = useState(false);
   const [comment, setComment] = useState("");
   const [decision, setDecision] = useState<ReviewDecision>("Comment");
+  const [editingLogId, setEditingLogId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -131,12 +135,16 @@ export default function ManagedFlagApproval({
     state.submitAction === "publish" && !publishIsLaunch ? "publish" : "none";
   const showSubmit = state.hasSubmit && submitAction !== "none";
 
-  async function post(path: string, body: Record<string, unknown> = {}) {
+  async function post(
+    path: string,
+    body: Record<string, unknown> = {},
+    method: "POST" | "PUT" = "POST",
+  ) {
     setSubmitting(true);
     setError(null);
     try {
       await apiCall(`/experiment/${experiment.id}/managed-flag/${path}`, {
-        method: "POST",
+        method,
         body: JSON.stringify(body),
       });
       setComment("");
@@ -220,7 +228,7 @@ export default function ManagedFlagApproval({
 
   const changesColumn = (
     <Flex direction="column" gap="3" width="50%" minWidth="0">
-      <Text size="sm" weight="semibold" color="text-high">
+      <Text size="md" weight="semibold" color="text-high">
         Changes
       </Text>
       {variations.map((v, i) => (
@@ -250,7 +258,7 @@ export default function ManagedFlagApproval({
 
   const reviewColumn = (
     <Flex direction="column" gap="3" width="50%" minWidth="0">
-      <Text size="sm" weight="semibold" color="text-high">
+      <Text size="md" weight="semibold" color="text-high">
         Review
       </Text>
       <Text size="sm" color="text-low">
@@ -318,10 +326,6 @@ export default function ManagedFlagApproval({
             Waiting for another reviewer to approve.
           </Text>
         ) : null}
-
-        {state.canUndoReview && (
-          <Link onClick={() => post("undo-review")}>Retract my review</Link>
-        )}
       </Flex>
 
       {reviewComments.length > 0 && (
@@ -339,6 +343,10 @@ export default function ManagedFlagApproval({
                   : l.action === "Requested Changes"
                     ? "red"
                     : null;
+              const logUserId =
+                l.user && "id" in l.user ? (l.user as { id: string }).id : null;
+              const isOwn = !!logUserId && logUserId === userId;
+              const isActiveVerdict = !!verdictColor;
               return (
                 <CommentCard
                   key={l.id ?? i}
@@ -354,10 +362,78 @@ export default function ManagedFlagApproval({
                   }
                   avatarSize="sm"
                   compact
+                  actions={
+                    isOwn && (l.id || isActiveVerdict) ? (
+                      <DropdownMenu
+                        trigger={
+                          <IconButton
+                            variant="ghost"
+                            color="gray"
+                            radius="full"
+                            size="1"
+                            highContrast
+                          >
+                            <BsThreeDotsVertical size={14} />
+                          </IconButton>
+                        }
+                        menuPlacement="end"
+                      >
+                        {l.id && l.comment && (
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setEditingLogId(l.id ?? null);
+                              setEditText(l.comment ?? "");
+                            }}
+                          >
+                            Edit
+                          </DropdownMenuItem>
+                        )}
+                        {isActiveVerdict && state.canUndoReview && (
+                          <DropdownMenuItem
+                            color="red"
+                            onClick={() => post("undo-review")}
+                          >
+                            Retract review
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenu>
+                    ) : undefined
+                  }
                   // A bare verdict has no body — same chrome, just the header
                   // line, so it stays distinguishable from a comment.
                   body={
-                    l.comment ? (
+                    editingLogId && editingLogId === l.id ? (
+                      <Flex direction="column" gap="2">
+                        <Field
+                          size="sm"
+                          textarea
+                          minRows={2}
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                        />
+                        <Flex gap="2">
+                          <Button
+                            size="sm"
+                            disabled={submitting || !editText.trim()}
+                            onClick={async () => {
+                              await post(
+                                `log/${l.id}`,
+                                {
+                                  comment: editText,
+                                },
+                                "PUT",
+                              );
+                              setEditingLogId(null);
+                            }}
+                          >
+                            Save
+                          </Button>
+                          <Link onClick={() => setEditingLogId(null)}>
+                            Cancel
+                          </Link>
+                        </Flex>
+                      </Flex>
+                    ) : l.comment ? (
                       <MarkdownWithDiffRefs className="speech-bubble">
                         {l.comment}
                       </MarkdownWithDiffRefs>
