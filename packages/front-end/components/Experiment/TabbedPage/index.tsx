@@ -43,6 +43,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import DashboardsTab from "@/enterprise/components/Dashboards/DashboardsTab";
 import { useExperimentDashboards } from "@/hooks/useDashboards";
 import Callout from "@/ui/Callout";
+import { useManagedExperimentFlags } from "@/hooks/useManagedExperimentFlags";
+import ManagedFlagApproval from "@/components/Experiment/LinkedChanges/ManagedFlagApproval";
 import Link from "@/ui/Link";
 import CompareExperimentEventsModal from "@/components/Experiment/CompareExperimentEventsModal";
 import { PreLaunchChecklistProvider } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
@@ -136,6 +138,15 @@ export default function TabbedPage({
   const [watchersModal, setWatchersModal] = useState(false);
   const [visualEditorModal, setVisualEditorModal] = useState(false);
   const [featureModal, setFeatureModal] = useState(false);
+
+  // Review and publish for a managed flag is a page-level action, not something
+  // buried in the implementation card.
+  const { managedFeature } = useManagedExperimentFlags({
+    experiment,
+    linkedFeatures,
+  });
+  const managedFlagWithDraft =
+    managedFeature?.state === "draft" ? managedFeature : null;
   const [urlRedirectModal, setUrlRedirectModal] = useState(false);
   const [healthNotificationCount, setHealthNotificationCount] = useState(0);
   const [showDashboardView, setShowDashboardView] = useState(
@@ -551,6 +562,27 @@ export default function TabbedPage({
           !showDashboardView && (
             <CustomMarkdown page={"experiment"} variables={variables} />
           )}
+        {managedFlagWithDraft && (
+          <Callout
+            status="info"
+            mt="3"
+            action={
+              <ManagedFlagApproval
+                experiment={experiment}
+                info={managedFlagWithDraft}
+                mutate={mutate}
+                // Starting the experiment is what publishes the draft, so
+                // before launch this is review only — same as the pre-launch
+                // checklist.
+                ctaLabel={
+                  experiment.status === "draft" ? "Review" : "Review & Publish"
+                }
+              />
+            }
+          >
+            This experiment has unpublished values.
+          </Callout>
+        )}
         {showStoppedBanner && (
           <div className="pt-3">
             <StoppedExperimentBanner

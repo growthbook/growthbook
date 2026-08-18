@@ -32,12 +32,15 @@ type Props = {
   experiment: ExperimentInterfaceStringDates;
   info: LinkedFeatureInfo;
   mutate: () => void;
+  /** Overrides the trigger label when the surrounding copy already sets it up. */
+  ctaLabel?: string;
 };
 
 export default function ManagedFlagApproval({
   experiment,
   info,
   mutate,
+  ctaLabel,
 }: Props) {
   const { apiCall } = useAuth();
   const { userId, users } = useUser();
@@ -267,7 +270,12 @@ export default function ManagedFlagApproval({
         <Button variant="ghost">
           {/* Name what the popover will actually offer: `status` alone drifts,
               and a primary label with only secondary actions available lies. */}
-          {canReview ? "Review" : showSubmit ? state.ctaLabel : "Manage review"}
+          {ctaLabel ??
+            (canReview
+              ? "Review"
+              : showSubmit
+                ? state.ctaLabel
+                : "Manage review")}
         </Button>
       }
     />

@@ -21,7 +21,6 @@ import {
   revisionStatusColor,
   revisionStatusLabel,
 } from "@/components/Reviews/RevisionStatusBadge";
-import ManagedFlagApproval from "@/components/Experiment/LinkedChanges/ManagedFlagApproval";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
@@ -195,13 +194,6 @@ export default function LinkedFeatureFlag({
         actions={
           isManaged ? (
             <Flex align="center" gap="2">
-              {(info.state === "draft" || info.state === "live") && (
-                <ManagedFlagApproval
-                  experiment={experiment}
-                  info={info}
-                  mutate={() => mutate?.()}
-                />
-              )}
               {canUpdateLinkedFeature && (
                 <DropdownMenu
                   trigger={
@@ -313,7 +305,9 @@ export default function LinkedFeatureFlag({
               </Link>
             </Callout>
           )}
-        {info.state === "draft" &&
+        {/* A managed flag says this once, page-level, above the fold. */}
+        {!isManaged &&
+          info.state === "draft" &&
           !info.hasMergeConflict &&
           !info.hasUnrelatedDraftChanges && (
             <Callout
@@ -321,23 +315,7 @@ export default function LinkedFeatureFlag({
               my="4"
               icon={<PiGitMerge style={{ fontSize: "1.2em" }} />}
             >
-              {isManaged ? (
-                // The controls above are how you act on this — no link out.
-                <>
-                  Values for this experiment are in a <strong>draft</strong>
-                  {info.pendingApproval ? (
-                    info.draftRevisionStatus === "approved" ? (
-                      <>
-                        {" "}
-                        that has been <strong>approved</strong>
-                      </>
-                    ) : (
-                      <> pending approval</>
-                    )
-                  ) : null}
-                  . It publishes automatically when the experiment starts.
-                </>
-              ) : info.pendingApproval ? (
+              {info.pendingApproval ? (
                 <>
                   Rule changes for this feature are in a{" "}
                   {info.draftRevisionStatus === "approved" ? (
