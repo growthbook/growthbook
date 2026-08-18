@@ -524,8 +524,9 @@ function SankeySvg({
       >
         <Group>
           {L.cols.map((c, ci) => {
+            const commitIndex = c.commitIndex;
             const canPop =
-              c.committed && !c.anchor && !c.loading && c.commitIndex != null;
+              c.committed && !c.anchor && !c.loading && commitIndex != null;
             return (
               <text
                 key={`h-${ci}`}
@@ -540,18 +541,18 @@ function SankeySvg({
                 aria-label={canPop ? `Return to ${c.label}` : undefined}
                 style={{ cursor: canPop ? "pointer" : "default" }}
                 onClick={
-                  canPop && c.commitIndex != null
-                    ? () => onPop(c.commitIndex)
-                    : undefined
+                  !canPop || commitIndex == null
+                    ? undefined
+                    : () => onPop(commitIndex)
                 }
                 onKeyDown={
-                  canPop && c.commitIndex != null
-                    ? (ev) => {
+                  !canPop || commitIndex == null
+                    ? undefined
+                    : (ev) => {
                         if (ev.key !== "Enter" && ev.key !== " ") return;
                         ev.preventDefault();
-                        onPop(c.commitIndex);
+                        onPop(commitIndex);
                       }
-                    : undefined
                 }
               >
                 {c.anchor
