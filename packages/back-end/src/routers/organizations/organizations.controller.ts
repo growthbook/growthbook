@@ -15,7 +15,12 @@ import {
 } from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
-import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
+import {
+  DUPLICATE_PROJECT_ROLES_MESSAGE,
+  hasNoDuplicateProjects,
+  AgreementType,
+  updateSdkWebhookValidator,
+} from "shared/validators";
 import { entityTypes } from "shared/constants";
 import { AI_PROVIDERS } from "shared/ai";
 import { UpdateSdkWebhookProps } from "shared/types/webhook";
@@ -453,7 +458,19 @@ export async function putMemberRole(
     });
   }
 
-  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+  if (!isRoleValid(role, org)) {
+    return res.status(400).json({
+      status: 400,
+      message: "Invalid role",
+    });
+  }
+  if (!hasNoDuplicateProjects(projectRoles)) {
+    return res.status(400).json({
+      status: 400,
+      message: DUPLICATE_PROJECT_ROLES_MESSAGE,
+    });
+  }
+  if (!areProjectRolesValid(projectRoles, org)) {
     return res.status(400).json({
       status: 400,
       message: "Invalid role",
@@ -815,7 +832,19 @@ export async function putInviteRole(
   const { key } = req.params;
   const originalInvites: Invite[] = cloneDeep(org.invites);
 
-  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+  if (!isRoleValid(role, org)) {
+    return res.status(400).json({
+      status: 400,
+      message: "Invalid role",
+    });
+  }
+  if (!hasNoDuplicateProjects(projectRoles)) {
+    return res.status(400).json({
+      status: 400,
+      message: DUPLICATE_PROJECT_ROLES_MESSAGE,
+    });
+  }
+  if (!areProjectRolesValid(projectRoles, org)) {
     return res.status(400).json({
       status: 400,
       message: "Invalid role",
@@ -1427,7 +1456,19 @@ export async function postInvite(
   } = req.body;
 
   // Make sure role is valid
-  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+  if (!isRoleValid(role, org)) {
+    return res.status(400).json({
+      status: 400,
+      message: "Invalid role",
+    });
+  }
+  if (!hasNoDuplicateProjects(projectRoles)) {
+    return res.status(400).json({
+      status: 400,
+      message: DUPLICATE_PROJECT_ROLES_MESSAGE,
+    });
+  }
+  if (!areProjectRolesValid(projectRoles, org)) {
     return res.status(400).json({
       status: 400,
       message: "Invalid role",
@@ -2340,7 +2381,19 @@ export async function addOrphanedUser(
   }
 
   // Make sure role is valid
-  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+  if (!isRoleValid(role, org)) {
+    return res.status(400).json({
+      status: 400,
+      message: "Invalid role",
+    });
+  }
+  if (!hasNoDuplicateProjects(projectRoles)) {
+    return res.status(400).json({
+      status: 400,
+      message: DUPLICATE_PROJECT_ROLES_MESSAGE,
+    });
+  }
+  if (!areProjectRolesValid(projectRoles, org)) {
     return res.status(400).json({
       status: 400,
       message: "Invalid role",

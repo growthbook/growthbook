@@ -103,11 +103,7 @@ export default function ScheduledPublishControl({
   requiresApproval: boolean;
   // The org has auto-publish-on-approval enabled (gates the "when approved" mode).
   autopublishOnApproval: boolean;
-  /**
-   * Whether the standing approvals cover what the revision changes. An approved
-   * revision they don't cover is still waiting on a qualifying approval, so
-   * "when approved" remains meaningful there. Defaults to true.
-   */
+  // Approved-but-uncovered still waits on a qualifying approval. Defaults true.
   approvalsCoverChange?: boolean;
   // Optional extra note rendered under the date controls (e.g. the feature
   // flow's "linked experiments won't start" warning).
@@ -139,15 +135,11 @@ export default function ScheduledPublishControl({
     pending && !!revision.scheduledPublishBypassApproval;
 
   // ── Parity with the feature derivations ──
-  // Both modes answer one question — when does this publish — so they share one
-  // gate: publish authority, which is what the arming endpoints take. Arming on a
-  // DRAFT is staged and applied by request-review, so that path needs draft
-  // authority too.
+  // One gate for both modes; arming on a draft is applied by request-review, so
+  // that path needs draft authority too.
   const canArmSchedule =
     canEdit && canArm && (status !== "draft" || (canDraft ?? true));
-  // "when approved" only makes sense while the revision still needs an approval
-  // to publish: before approval, or approved by someone whose rights don't cover
-  // what it changes. Once it can publish, Publish already does that.
+  // Only while an approval is still needed; once it can publish, Publish does that.
   const awaitingQualifyingApproval =
     status !== "approved" || approvalsCoverChange === false;
   const canArmWhenApproved =

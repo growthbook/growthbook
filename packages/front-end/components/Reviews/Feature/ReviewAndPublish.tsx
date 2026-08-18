@@ -696,17 +696,21 @@ export default function ReviewAndPublish({
     });
   }, [revision, baseRevision, liveRevision, feature, envIds, settings]);
 
+  // Against LIVE, filled, because a different base selects different rules.
   const reviewRules = useMemo(() => {
-    if (!revision || !baseRevision) return [];
+    if (!revision || !liveRevision) return [];
     return getRevisionReviewRequirement({
       feature,
-      baseRevision,
+      baseRevision: {
+        ...liveRevision,
+        ...liveRevisionFromFeature(liveRevision, feature),
+      },
       revision,
       allEnvironments: envIds,
       settings,
       requireApprovalsLicensed: hasCommercialFeature("require-approvals"),
     }).rules;
-  }, [revision, baseRevision, feature, envIds, settings, hasCommercialFeature]);
+  }, [revision, liveRevision, feature, envIds, settings, hasCommercialFeature]);
 
   const {
     uncoveredApprovers,
@@ -870,17 +874,13 @@ export default function ReviewAndPublish({
     );
 
   const hasScheduledRevisions = hasCommercialFeature("scheduled-revisions");
-  // Both modes answer one question — when does this publish — so they share one
-  // gate: the publish authority the schedule endpoints take. Arming on a DRAFT
-  // rides `postFeatureRequestReview`, so that path needs draft authority too.
+  // One gate for both modes; arming on a draft rides request-review, so it also
+  // needs draft authority.
   const canArmSchedule =
     holdsSchedulePublish &&
     (revision?.status !== "draft" ||
       permissionsUtil.canEditFeatureDrafts(feature));
-  // "when approved" only makes sense while an approval is still needed to
-  // publish: before approval, or approved by someone whose rights don't cover
-  // what the draft changes. Once it can publish, Publish already does that, so
-  // only "on a date" is offered.
+  // Only while an approval is still needed; once it can publish, Publish does that.
   const canArmWhenApproved =
     autopublishOnApproval &&
     canArmSchedule &&
@@ -2950,8 +2950,7 @@ export default function ReviewAndPublish({
                     pt="4"
                     style={{ borderTop: "1px solid var(--gray-a5)" }}
                   >
-                    {/* The verdict stands, so the status stays "Approved" — this
-                    says why it is not enough to publish. */}
+                    {/* The verdict stands, so the status stays "Approved". */}
                     {requireReviews && !requiredTeams.satisfied && (
                       <Box mb="3">
                         <Callout status="warning" size="sm">

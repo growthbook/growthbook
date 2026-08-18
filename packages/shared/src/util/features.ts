@@ -2851,10 +2851,7 @@ export function constantRequiresReview(
   return false;
 }
 
-/**
- * The review rules that name a team as a required approver, for surfacing on the
- * team's own page ("what does this team gate?").
- */
+// What a team gates, for its own page.
 export function reviewRulesRequiringTeam(
   teamId: string,
   settings?: OrganizationSettings,
@@ -2886,12 +2883,7 @@ export function getConfigReviewRequirement(
   return { required: true, rules: rule ? [rule] : [] };
 }
 
-/**
- * The constant/config equivalent of `getRevisionReviewRequirement`: same answer
- * as `constantRequiresReview`, plus the rule that produced it so per-rule policy
- * has something to read. At most one rule matches — `getReviewSetting` is
- * first-match-by-project.
- */
+// At most one rule matches — getReviewSetting is first-match-by-project.
 export function getConstantReviewRequirement(
   constant: { project?: string },
   change: {
@@ -3472,14 +3464,8 @@ export function getNewDraftExperimentsToPublish({
   return [...new Set(draftExperiments)];
 }
 
-/**
- * Whether review is required, AND which rules demanded it.
- *
- * The rules are what any per-rule policy hangs off (required approver teams), so
- * they are returned rather than collapsed to a boolean. `required` can be true
- * with no rules: the legacy boolean setting form demands review without a rule
- * object to attach policy to.
- */
+// The rules are what per-rule policy hangs off. `required` can be true with no
+// rules: the legacy boolean setting has no rule object to attach policy to.
 export type ReviewRequirement = {
   required: boolean;
   rules: RequireReview[];
@@ -3505,7 +3491,8 @@ export function getRevisionReviewRequirement({
   const none: ReviewRequirement = { required: false, rules: [] };
   if (!requireApprovalsLicensed) return none;
   const requireReviews = settings?.requireReviews;
-  // Boolean format: true = all changes require review, false/undefined = none do.
+  // The legacy boolean form has no rule object, so per-rule policy (required
+  // approver teams) has nothing to attach to and cannot apply.
   if (!Array.isArray(requireReviews)) {
     return requireReviews ? { required: true, rules: [] } : none;
   }
@@ -3632,7 +3619,7 @@ export function getRevisionReviewRequirement({
   return { required: triggering.length > 0, rules: triggering };
 }
 
-/** Boolean form, for the many callers that only ask whether review is needed. */
+// Boolean form, for callers that only ask whether review is needed.
 export function checkIfRevisionNeedsReview(
   args: Parameters<typeof getRevisionReviewRequirement>[0],
 ): boolean {

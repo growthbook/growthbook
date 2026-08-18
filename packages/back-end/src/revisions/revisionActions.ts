@@ -83,16 +83,8 @@ export type RevisionActionKind =
  * deliberately no scope argument to pass wrongly. Verbs that LAND on live keep
  * the explicit scope via `canDoRevisionAction`.
  */
-/**
- * The environments a reviewer must hold authority in to approve this revision:
- * the publish footprint of the very same change. Deriving both from one function
- * is what makes "you may not approve what you could not publish" structural
- * rather than a convention two call sites have to remember.
- *
- * `[]` here means the change binds no environment (a base value, metadata), and
- * the review branch of `canRevisionAction` reads that as "needs authority no
- * environment limit restricts" — fail closed.
- */
+// The publish footprint of the same change, so you cannot approve what you could
+// not publish. `[]` = binds no environment, which the review branch fails closed.
 export function reviewFootprintFor(
   context: Context,
   revision: Pick<Revision, "target">,
@@ -634,22 +626,9 @@ export async function approveRevision(
   return updated;
 }
 
-/**
- * Does any standing approval still cover what this revision would land?
- *
- * `status === "approved"` was decided when the approval was given; a later edit
- * can widen the change past what its approver may sanction. Uses each approver's
- * CURRENT rules — an approval is not a snapshot of authority.
- *
- * An unbound change resolves to `[]`, which `canReviewRevision` reads as
- * "needs authority no environment limit restricts", so the fail-closed rule for
- * base values and metadata carries through here unchanged.
- */
-/**
- * Which required approver teams a revision is still missing. Only COVERING
- * approvals count — an approval that no longer spans the change cannot satisfy a
- * team requirement either.
- */
+// `status === "approved"` was decided when the approval was given; a later edit
+// can widen the change past what its approver may sanction.
+// Only covering approvals count toward a team requirement.
 export function revisionRequiredApproverTeams(
   context: Context,
   revision: Revision,
@@ -678,9 +657,7 @@ export function revisionApprovalsCoverChange(
     project?: string;
     projects?: string[];
   };
-  // Every project the entity belongs to, not just the first: authority over a
-  // multi-project entity is the intersection, which is how every other check on
-  // one behaves.
+  // Authority over a multi-project entity is the intersection, not the first.
   const projects = snapshot.projects?.length
     ? snapshot.projects
     : snapshot.project

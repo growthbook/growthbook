@@ -62,13 +62,8 @@ export async function runValidateFeatureHooks({
 // Reviewer team membership, attached for hooks that gate on team rather than on
 // identity. Copied onto the args, never onto the stored revision — membership is
 // current-state, not something the revision recorded.
-/**
- * Resolves a user id to the event user + current teams a hook sees. One member
- * expansion per hook call, shared by reviewer verdicts and authorship.
- *
- * A reviewer or author who is still a member is a dashboard user; anything else
- * is an API key, whose id is what the revision recorded.
- */
+// One member expansion per hook call, shared by verdicts and authorship. Still a
+// member = dashboard user; anything else = an API key.
 async function memberDirectory(context: Context) {
   const members = await expandOrgMembers(context.org.members ?? []);
   const byId = new Map(members.map((m) => [m.id, m]));
@@ -88,11 +83,7 @@ async function memberDirectory(context: Context) {
   };
 }
 
-/**
- * Who wrote the draft, with their teams — the authorship counterpart to
- * `reviews`. `coauthors` excludes the primary author, matching how the product
- * describes them.
- */
+// `coauthors` excludes the primary author, matching the product's wording.
 async function hookAuthorship(
   context: Context,
   authorId: string | undefined,
@@ -143,15 +134,7 @@ async function withHookRevisionContext<
   };
 }
 
-/**
- * Reviewer verdicts in the shape hooks see, with each reviewer's event user and
- * current teams. Only called once a hook is known to match, so the member
- * expansion never runs on the ordinary publish path.
- *
- * The generic revision stores only a userId, so the event user is reconstructed:
- * a reviewer who is still a member is a dashboard user, and anything else is an
- * API key, whose id is what the review recorded.
- */
+// Only called once a hook matches, so this never runs on the ordinary path.
 async function hookReviewerVerdicts(
   context: Context,
   reviews: {
@@ -513,8 +496,7 @@ export type ConfigRevisionHookInput = {
   // Attached at call time by hookAuthorship; not stored on the revision.
   author?: { userId: string } | null;
   coauthors?: { userId: string }[];
-  // Stored verdicts as-is; prepareConfigRevisionHookCall maps them to the
-  // feature-shaped `{ userId, user, status, timestamp, teams }` hooks receive.
+  // Stored as-is; the prep maps them to the feature-shaped entries hooks see.
   reviews: {
     userId: string;
     decision: string;

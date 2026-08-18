@@ -161,11 +161,7 @@ export interface ReviewAndPublishTabProps<T> {
   // Per-revision approval gate (caller applies org settings + e.g. the
   // metadata-only shortcut).
   requiresApproval: boolean;
-  /**
-   * The review rules governing this entity, so the panel can show which required
-   * approver teams are still outstanding. The caller already resolves them for
-   * `requiresApproval`.
-   */
+  // The caller already resolves these for `requiresApproval`.
   reviewRules?: { requiredApproverTeams?: string[] }[];
   // The viewer can edit the underlying entity (manage drafts / review).
   canEditEntity: boolean;
@@ -514,8 +510,7 @@ function ReviewAndPublishRevision<T>({
   }, [revision.activityLog, revision.reviews]);
   const isReviewer = !!userId && reviewers.some((r) => r.id === userId);
 
-  // What a reviewer needs authority over, derived from the same footprint the
-  // server authorizes publishing with, so the panel and the refusal agree.
+  // Same footprint the server authorizes publishing with.
   const snapshotScope = revision.target.snapshot as {
     project?: string;
     projects?: string[];
@@ -894,8 +889,7 @@ function ReviewAndPublishRevision<T>({
   // the revision is publishable or an admin can bypass — mirrors the feature's
   // showPublishSection, so a disabled Publish button isn't shown prematurely on a
   // not-yet-approved draft.
-  // An approved revision whose approvals don't cover what it changes still needs
-  // the bypass affordance — it is the state that most needs it.
+  // Approved-but-uncovered is the state that most needs the bypass affordance.
   const adminBypassAvailable =
     canBypassApproval &&
     requiresApproval &&
@@ -1489,8 +1483,7 @@ function ReviewAndPublishRevision<T>({
               pt="4"
               style={{ borderTop: "1px solid var(--gray-a5)" }}
             >
-              {/* The verdict stands, so the status stays "Approved" — this
-                says why it is not enough to publish. */}
+              {/* The verdict stands, so the status stays "Approved". */}
               {requiresApproval && hasUncoveredApproval && (
                 <Box mb="3">
                   <Callout status="warning" size="sm">

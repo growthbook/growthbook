@@ -651,10 +651,24 @@ at all.
 
 ### 4. Required approvers
 
-- [ ] `requiredApproverTeams` on `RequireReview[]`
-- [ ] Enforced at the same publish gate
-- [ ] Evaluated per governing review project (`getGoverningReviewProjects`)
-- [ ] Saved Groups per decision 0
+- [x] `requiredApproverTeams` on `RequireReview[]`, OR within a rule and AND across
+      rules; only COVERING approvals satisfy it
+- [x] Enforced at the feature REST gate, the interactive feature publish, and the
+      generic engine's gate and backstop
+- [x] Evaluated over the RULE SET rather than per governing project, so a future
+      non-project selector (tags, per-flag) joins the set without touching the gate
+- [x] Saved Groups excluded per decision 0 — `approvalFlows` carries no rules
+- [x] Surfaced on both review panels, the team page, and the project page
+- [ ] Known gap: an org on the LEGACY BOOLEAN `requireReviews` form has no rule
+      object, so required approver teams stored over the REST API silently never
+      gate. Either reject them there or migrate the org to the array form.
+- [ ] Known gap: a rule whose named teams have all been deleted stops gating
+      rather than failing closed (it cannot be satisfied OR explained). Needs a
+      settings-side warning rather than a publish-time one.
+- [ ] Not built: editing required teams from the project page — blocked on whether
+      a project-scoped rule forks the org rule (first-match-wins returns ONE whole
+      rule) or whether `getReviewSetting` becomes most-specific-plus-inherited
+      first. The latter is also the prerequisite for tag/per-flag rules.
 
 ### 5. Settings unification
 

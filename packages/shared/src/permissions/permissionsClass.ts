@@ -75,10 +75,7 @@ function isEventForwarderManagedFactTable(
   );
 }
 
-// "everywhere" and "unbound" both resolve to the empty list, which canRevisionAction
-// reads as fail-closed: authority no environment limit restricts. Holding every
-// environment already normalizes to exactly that. "any" means the caller is not
-// sanctioning a change, so no environment constraint applies.
+// "everywhere"/"unbound" → [] (fail closed); "any" → null (not sanctioning).
 function footprintEnvironments(
   footprint: ReviewAuthorityFootprint,
 ): string[] | null {
@@ -1087,13 +1084,8 @@ export class Permissions {
     );
   };
 
-  /**
-   * May this principal approve a revision of `model` in `projects`, given what
-   * the draft changes? Entity-aware on purpose: each model declares its own
-   * review atom and scope, so a model whose review is project-scoped (saved
-   * groups, which have no environment dimension) must not be handed an
-   * environment requirement.
-   */
+  // Entity-aware on purpose: a model whose review is project-scoped (saved
+  // groups) must not be handed an environment requirement.
   public canReviewRevision = (
     model: RevisionModel,
     projects: string[],

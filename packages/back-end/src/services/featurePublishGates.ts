@@ -68,18 +68,11 @@ export type FeatureMergePlan = {
   /** A ramp schedule is armed to activate when this revision publishes. */
   hasLinkedPendingRamp: boolean;
   requiresReview: boolean;
-  /**
-   * Approvers whose environment authority no longer covers what this draft
-   * changes — for example someone who approved it while it was dev-only, before
-   * a production rule was added. Their approval must not count.
-   */
+  // Approvers whose authority no longer covers what the draft changes.
   uncoveredApprovers: string[];
   /** At least one standing approval whose approver covers the footprint. */
   hasCoveringApproval: boolean;
-  /**
-   * Whether every review rule's required approver teams have signed off, and
-   * which are still outstanding. Evaluated over the rules that demanded review.
-   */
+  // Evaluated over the rules that demanded review.
   requiredApproverTeams: {
     satisfied: boolean;
     unmet: { id: string; name: string }[][];

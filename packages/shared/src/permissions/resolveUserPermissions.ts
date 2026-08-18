@@ -317,13 +317,8 @@ export function getRolePermissions(
   return permissions;
 }
 
-/**
- * The teams a member belongs to, resolved for display and for policy that keys on
- * team rather than on identity. Shared so a custom hook's reviewer props and any
- * future required-approver-team gate agree on what "in team X" means.
- *
- * Returns [] for a non-member and for API-key reviewers, which belong to no team.
- */
+// Shared so hook props and the required-approver gate agree on "in team X".
+// Non-members and API keys belong to no team.
 export function teamsForMember(
   userId: string,
   org: { members?: { id: string; teams?: string[] }[] },
@@ -338,32 +333,21 @@ export function teamsForMember(
     .map((t) => ({ id: t.id, name: t.name }));
 }
 
-/**
- * Required approver teams: has each triggering review rule been signed off by
- * someone from one of the teams it names?
- *
- * A requirement on the approval SET, not on who may approve. Semantics:
- * - within a rule, ANY of its teams satisfies it (OR)
- * - across rules, EVERY rule with required teams must be satisfied (AND)
- *
- * Only COVERING approvals count. An approval that no longer spans what the draft
- * changes cannot satisfy a team requirement either — otherwise widening a draft
- * past its approver would silently keep the team box ticked.
- */
+// ANY team within a rule satisfies it; EVERY rule must be satisfied. Only
+// covering approvals count, or widening a draft would keep the box ticked.
 export function assessRequiredApproverTeams({
   rules,
   coveringApproverIds,
   org,
   teams,
 }: {
-  /** The rules that demanded review — see `ReviewRequirement.rules`. */
   rules: { requiredApproverTeams?: string[] }[];
   coveringApproverIds: string[];
   org: { members?: { id: string; teams?: string[] }[] };
   teams: { id: string; name: string }[];
 }): {
   satisfied: boolean;
-  /** One entry per unsatisfied rule; any ONE of its teams would satisfy it. */
+  // One entry per unsatisfied rule; any ONE of its teams would satisfy it.
   unmet: { id: string; name: string }[][];
 } {
   const approverTeamIds = new Set(
@@ -372,13 +356,13 @@ export function assessRequiredApproverTeams({
     ),
   );
 
+  const byId = new Map(teams.map((t) => [t.id, t]));
   const unmet: { id: string; name: string }[][] = [];
   for (const rule of rules) {
     const required = rule.requiredApproverTeams ?? [];
     if (!required.length) continue;
     if (required.some((teamId) => approverTeamIds.has(teamId))) continue;
-    // Name them for the message; a deleted team id would otherwise show as blank.
-    const byId = new Map(teams.map((t) => [t.id, t]));
+    // Named for the message; a deleted team id would otherwise show as blank.
     unmet.push(
       required
         .map((id) => byId.get(id))
@@ -387,24 +371,13 @@ export function assessRequiredApproverTeams({
     );
   }
 
-  // A rule whose every named team has been deleted lists nothing actionable, so
-  // it cannot be satisfied and cannot be explained — drop it rather than block
-  // publishing on a requirement no one can meet.
+  // A rule naming only deleted teams can be neither satisfied nor explained.
   const actionable = unmet.filter((teamList) => teamList.length > 0);
   return { satisfied: actionable.length === 0, unmet: actionable };
 }
 
-/**
- * Which standing approvals still count, judged against what the draft changes.
- *
- * Takes each approver's role rules rather than looking them up, so the same
- * function serves the server (from org.members) and the client (from the
- * members map). A null roleInfo means they are no longer a member, and a
- * non-member covers nothing.
- *
- * Uses CURRENT rules — an approval is not a snapshot of authority. Losing
- * rights in an environment the draft now touches withdraws coverage.
- */
+// Uses CURRENT rules — an approval is not a snapshot of authority. Takes each
+// approver's rules so server and client can both call it; null = not a member.
 export function assessApprovalCoverage({
   org,
   teams,
@@ -415,13 +388,9 @@ export function assessApprovalCoverage({
 }: {
   org: OrganizationInterface;
   teams: RoleSourceTeam[];
-  /**
-   * Which entity is being approved. Required, not defaulted: each model declares
-   * its own review atom and scope, and judging one entity by another's atom is
-   * correct only by coincidence of how the policies happen to bundle today.
-   */
+  // Required, not defaulted: each model declares its own review atom and scope.
   model: RevisionModel;
-  /** Every project the entity belongs to — authority is required in all of them. */
+  // Every project the entity belongs to — authority is required in all of them.
   projects: string[];
   footprint: ReviewAuthorityFootprint;
   approvers: { id: string; roleInfo: MemberRoleWithProjects | null }[];

@@ -11,6 +11,8 @@ import { useUser } from "@/services/UserContext";
 
 type Reviewer = { id: string; status: "approved" | "changes-requested" };
 
+const NO_RULES: { requiredApproverTeams?: string[] }[] = [];
+
 export interface ApprovalCoverage {
   // Approvers whose current rights no longer span what the draft changes.
   uncoveredApprovers: Set<string>;
@@ -23,36 +25,30 @@ export interface ApprovalCoverage {
   // An approval stands but doesn't reach everything the draft changes — the
   // only case the "approved, but not enough" callout should speak to.
   hasUncoveredApproval: boolean;
-  /**
-   * Required approver teams still outstanding. Separate from coverage: a draft can
-   * be properly approved and still be missing the team its rule names.
-   */
+  // Separate from coverage: a draft can be approved and still miss a named team.
   requiredTeams: {
     satisfied: boolean;
     unmet: { id: string; name: string }[][];
   };
 }
 
-/**
- * Resolves standing approvals against what a draft actually changes, using the
- * same function the server uses, so the panel and the refusal cannot disagree.
- */
+// Uses the same functions the server uses, so the panel and the refusal agree.
 export function useApprovalCoverage({
   reviewers,
   footprint,
   envIds,
   model,
   projects,
-  reviewRules = [],
+  reviewRules = NO_RULES,
 }: {
   reviewers: Reviewer[];
   footprint: ReviewAuthorityFootprint;
   envIds: string[];
-  /** The review rules that demanded review — where required teams are declared. */
+  // The rules that demanded review — where required teams are declared.
   reviewRules?: { requiredApproverTeams?: string[] }[];
-  /** Which entity is being approved — each declares its own review atom. */
+  // Which entity is being approved — each declares its own review atom.
   model: RevisionModel;
-  /** Every project the entity belongs to. */
+  // Every project the entity belongs to.
   projects: string[];
 }): ApprovalCoverage {
   const { users, teams, organization } = useUser();
