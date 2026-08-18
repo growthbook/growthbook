@@ -44,10 +44,15 @@ export function useExperimentDashboards(experimentId: string) {
   };
 }
 
-export function useDashboards(includeExperimentDashboards: boolean) {
+export function useDashboards(
+  includeExperimentDashboards: boolean,
+  shouldRun?: () => boolean,
+) {
   const { data, error, mutate } = useApi<{
     dashboards: DashboardInterface[];
-  }>(`/dashboards?includeExperimentDashboards=${includeExperimentDashboards}`);
+  }>(`/dashboards?includeExperimentDashboards=${includeExperimentDashboards}`, {
+    shouldRun,
+  });
 
   const dashboards = useMemo(() => data?.dashboards || [], [data]);
 
