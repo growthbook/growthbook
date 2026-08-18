@@ -97,15 +97,6 @@ export type HoldoutInterfaceStringDates = z.infer<
   typeof _holdoutStringDatesValidator
 >;
 
-/**
- * Flattened, user-settable inputs for creating a Holdout.
- *
- * `createHoldoutWithExperiment` turns these into the companion experiment, its
- * single initial phase, and the holdout document. Every value the caller cannot
- * choose — the fixed two variations, the 50/50 split, the tracking key, the
- * phase scaffolding — is owned by the service, not accepted here. `holdoutSize`
- * is the user-facing proportion; the service doubles it into the phase coverage.
- */
 export const createHoldoutInputValidator = z.object({
   name: z.string(),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),

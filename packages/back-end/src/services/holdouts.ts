@@ -155,14 +155,6 @@ export async function resolveHoldoutExperimentToLink({
   }
 }
 
-/**
- * A Holdout's assignment query is the experiment's exposure query. It only makes
- * sense in the context of a datasource and must reference one of that
- * datasource's configured exposure queries — otherwise the invalid id silently
- * flows through to snapshot/query time and fails there with a confusing error.
- *
- * Shared by the create and edit paths so both reject bad ids the same way.
- */
 export function assertValidAssignmentQuery(
   datasource: DataSourceInterface | null,
   assignmentQueryId: string | undefined,
@@ -195,8 +187,6 @@ export async function createHoldoutWithExperiment(
 
   assertValidAssignmentQuery(datasource, data.assignmentQueryId);
 
-  // Reject a malformed targeting condition up front rather than letting it break
-  // bucketing later. validateCondition treats undefined/"{}" as valid.
   const conditionResult = validateCondition(data.targetingCondition);
   if (!conditionResult.success) {
     throw new Error(`Invalid targeting condition: ${conditionResult.error}`);
@@ -240,8 +230,6 @@ export async function createHoldoutWithExperiment(
     exposureQueryId: data.assignmentQueryId || "",
     userIdType: "anonymous",
     name: data.name,
-    // A Holdout is created with a single draft phase. The second "Analysis"
-    // phase is added later by setHoldoutStage, never at creation.
     phases: [
       {
         name: "Holdout",
@@ -572,12 +560,10 @@ export async function setHoldoutStage(
   }
 }
 
-/**
- * Delete a holdout along with its underlying experiment, unlink it from its
- * linked features and experiments, and refresh affected SDK payloads. Callers
- * are responsible for experiment-level permission checks; deleting the holdout
- * itself enforces canDeleteHoldout.
- */
+// Delete a holdout along with its underlying experiment, unlink it from its
+// linked features and experiments, and refresh affected SDK payloads. Callers
+// are responsible for experiment-level permission checks; deleting the holdout
+// itself enforces canDeleteHoldout.
 export async function deleteHoldoutAndExperiment(
   context: ReqContext,
   holdout: HoldoutInterface,
