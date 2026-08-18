@@ -14,6 +14,7 @@ import {
   applyTopLevelPatchOps,
   isUserBlockedFromApproving,
   isAutopublishOnApprovalEnabled,
+  entityProjects,
   isScheduledPublishPending,
   isScheduledPublishLockActive,
   findPublishLockingScheduledRevision,
@@ -511,16 +512,9 @@ function ReviewAndPublishRevision<T>({
   const isReviewer = !!userId && reviewers.some((r) => r.id === userId);
 
   // Same footprint the server authorizes publishing with.
-  const snapshotScope = revision.target.snapshot as {
-    project?: string;
-    projects?: string[];
-  };
-  const entityProject = snapshotScope.project;
-  const entityProjects = snapshotScope.projects?.length
-    ? snapshotScope.projects
-    : entityProject
-      ? [entityProject]
-      : [];
+  const entityProject = (revision.target.snapshot as { project?: string })
+    .project;
+  const projects = entityProjects(revision.target.snapshot);
   const reviewFootprint = useMemo(
     () =>
       entityReviewFootprint(
@@ -554,7 +548,7 @@ function ReviewAndPublishRevision<T>({
     footprint: reviewFootprint,
     envIds,
     model: revision.target.type,
-    projects: entityProjects,
+    projects,
     reviewRules,
   });
 
@@ -614,9 +608,7 @@ function ReviewAndPublishRevision<T>({
     isAutopublishOnApprovalEnabled(
       organization?.settings,
       revision.target.type,
-      // Constants match their per-project `requireReviews` rule, so the
-      // entity's project must be passed; ignored for approvalFlows entities.
-      (revision.target.snapshot as { project?: string }).project,
+      projects,
     ) && hasCommercialFeature("require-approvals");
   const revisionAutoPublishArmed = !!revision.autoPublishOnApproval;
 

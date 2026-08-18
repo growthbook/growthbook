@@ -44,6 +44,10 @@ import {
   expandNestedSavedGroups,
   EXTENDS_KEY,
 } from "../sdk-versioning";
+import {
+  resolveProjectScopedRule,
+  projectsWithOwnRule,
+} from "./projectScopedRules";
 import { formatJsonMultilineObjects } from "./format-json";
 import { stemRuleId } from "./ruleId";
 import {
@@ -2714,9 +2718,7 @@ export function getTargetingReviewMode(
 // a requireReviews rule can add a requirement beyond the primary. Lets us skip
 // enumerating every org project just to intersect it back down.
 function candidateReviewProjects(requireReviews: RequireReview[]): string[] {
-  return Array.from(new Set(requireReviews.flatMap((r) => r.projects))).filter(
-    Boolean,
-  );
+  return projectsWithOwnRule(requireReviews).filter(Boolean);
 }
 
 // Projects whose review rules govern a change: primary + strict-mode targeting
@@ -2737,18 +2739,6 @@ export type ReviewRuleEntity = {
   project?: string;
 };
 
-// Most specific first; the all-projects rule is the base layer.
-function reviewRuleLayers(
-  rules: RequireReview[],
-  entity: ReviewRuleEntity,
-): RequireReview[] {
-  const specific = entity.project
-    ? rules.filter((r) => r.projects.includes(entity.project as string))
-    : [];
-  const base = rules.filter((r) => r.projects.length === 0);
-  return [...specific, ...base];
-}
-
 // `projects` is the selector and `requireReviewOn` the override's own switch.
 const INHERITABLE_FIELDS = [
   "environments",
@@ -2766,17 +2756,11 @@ export function getReviewSetting(
   requireReviewSettings: RequireReview[],
   entity: ReviewRuleEntity,
 ): RequireReview | undefined {
-  const layers = reviewRuleLayers(requireReviewSettings, entity);
-  const winner = layers[0];
-  if (!winner) return undefined;
-  if (layers.length === 1) return winner;
-
-  const merged: RequireReview = { ...winner };
-  for (const field of INHERITABLE_FIELDS) {
-    const source = layers.find((l) => l[field] !== undefined);
-    if (source) Object.assign(merged, { [field]: source[field] });
-  }
-  return merged;
+  return resolveProjectScopedRule(
+    requireReviewSettings,
+    entity.project,
+    INHERITABLE_FIELDS,
+  );
 }
 
 // `entity` is any project-scoped entity (a feature, or a constant which mirrors
@@ -2901,7 +2885,7 @@ export function reviewScopesRequiringTeam(
   const scopes: ReviewScope[] = [];
   const base = demandingRule({});
   if (base) scopes.push({ project: null, environments: base.environments });
-  const overridden = [...new Set(requireReviews.flatMap((r) => r.projects))];
+  const overridden = projectsWithOwnRule(requireReviews);
   for (const project of overridden) {
     const rule = demandingRule({ project });
     if (rule) scopes.push({ project, environments: rule.environments });
@@ -3509,10 +3493,14 @@ export function getNewDraftExperimentsToPublish({
   return [...new Set(draftExperiments)];
 }
 
+// Only the field per-rule policy hangs off, so both the flag family's
+// RequireReview and a saved group's ApprovalFlowConfiguration fit.
+export type PolicyRule = { requiredApproverTeams?: string[] };
+
 // `required` can be true with no rules: the legacy boolean setting has none.
 export type ReviewRequirement = {
   required: boolean;
-  rules: RequireReview[];
+  rules: PolicyRule[];
 };
 
 // Primary + strict-mode targeting over the current+staged union, so adding and

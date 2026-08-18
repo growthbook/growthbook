@@ -915,8 +915,11 @@ export const putSavedGroup = async (
             SAVED_GROUP_METADATA_FIELDS.has(k),
           );
         const metadataReviewRequired =
-          getApprovalFlowSettings(org.settings?.approvalFlows, "saved-group")
-            ?.requireMetadataReview ?? true;
+          getApprovalFlowSettings(
+            org.settings?.approvalFlows,
+            "saved-group",
+            savedGroup.projects ?? [],
+          )?.requireMetadataReview ?? true;
         if (!isMetadataOnlyChange || metadataReviewRequired) {
           context.permissions.throwPermissionError();
         }

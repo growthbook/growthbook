@@ -2,6 +2,7 @@ import isEqual from "lodash/isEqual";
 import type {
   ApprovalFlowConfiguration,
   ApprovalFlowConfigurations,
+  ApprovalFlowPolicy,
   OrganizationSettings,
 } from "shared/types/organization";
 import type { TeamInterface } from "shared/types/team";
@@ -26,31 +27,105 @@ import {
 import { configUpdatableFieldsSchema } from "../validators/config";
 import { constantUpdatableFieldsSchema } from "../validators/constant";
 import { savedGroupUpdatableFieldsSchema } from "../validators/saved-group";
+import { resolveProjectScopedRule } from "../util/projectScopedRules";
+
+// The projects a revision snapshot belongs to: one for a constant or config,
+// several for a saved group.
+export const entityProjects = (snapshot: unknown): string[] => {
+  const entity = (snapshot ?? {}) as { project?: string; projects?: string[] };
+  if (entity.projects?.length) return entity.projects;
+  return entity.project ? [entity.project] : [];
+};
+
+// `projects` is the selector and `required` the override's own switch.
+const APPROVAL_FLOW_INHERITABLE = [
+  "requireMetadataReview",
+  "blockSelfApproval",
+  "autopublishOnApproval",
+  "resetReviewOnChange",
+  "requiredApproverTeams",
+] as const;
 
 /**
- * Resolve the approval-flow configuration for a given entity type.
+ * The approval-flow rules for an entity type.
  *
  * Extension point: when introducing a new RevisionTargetType, add a `case`
  * mapping it to the corresponding key on `ApprovalFlowConfigurations`.
- *
- * Returns `undefined` if no approval-flow config exists for the entity type
- * yet (treat the same as "no approval flow features enabled").
  */
-export const getApprovalFlowSettings = (
+const approvalFlowRulesFor = (
   approvalFlows: ApprovalFlowConfigurations | undefined,
   entityType: RevisionTargetType,
-): ApprovalFlowConfiguration | undefined => {
-  if (!approvalFlows) return undefined;
+): ApprovalFlowConfiguration[] => {
+  if (!approvalFlows) return [];
   switch (entityType) {
     case "saved-group":
-      return approvalFlows.savedGroups?.[0];
+      return approvalFlows.savedGroups ?? [];
     // Constants don't use this config — they inherit the feature `requireReviews`
     // settings (see constantRequiresReview).
     case "config":
     case "constant":
     default:
-      return undefined;
+      return [];
   }
+};
+
+/**
+ * One resolved rule per governing project. A saved group can belong to several
+ * projects, and each project's rule is its own requirement — so this returns
+ * the set rather than picking a winner.
+ */
+export const getApprovalFlowRules = (
+  approvalFlows: ApprovalFlowConfigurations | undefined,
+  entityType: RevisionTargetType,
+  projects: string[] = [],
+): ApprovalFlowConfiguration[] => {
+  const rules = approvalFlowRulesFor(approvalFlows, entityType);
+  if (!rules.length) return [];
+  const scopes: (string | undefined)[] = projects.length
+    ? projects
+    : [undefined];
+  const seen = new Set<string>();
+  const resolved: ApprovalFlowConfiguration[] = [];
+  for (const project of scopes) {
+    const rule = resolveProjectScopedRule(
+      rules,
+      project,
+      APPROVAL_FLOW_INHERITABLE,
+    );
+    if (!rule) continue;
+    // By content: projects inheriting the same layer resolve to equal but
+    // distinct objects, so identity would not dedupe them.
+    const key = JSON.stringify(rule);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    resolved.push(rule);
+  }
+  return resolved;
+};
+
+/**
+ * What the toggles resolve to for one entity. Where several projects govern it,
+ * the stricter answer wins — except `autopublishOnApproval`, which loosens the
+ * flow and so needs every governing project to allow it.
+ *
+ * Returns `undefined` when no rule governs (treat the same as "no approval flow
+ * features enabled").
+ */
+export const getApprovalFlowSettings = (
+  approvalFlows: ApprovalFlowConfigurations | undefined,
+  entityType: RevisionTargetType,
+  projects: string[] = [],
+): ApprovalFlowPolicy | undefined => {
+  const rules = getApprovalFlowRules(approvalFlows, entityType, projects);
+  if (!rules.length) return undefined;
+  if (rules.length === 1) return rules[0];
+  return {
+    required: rules.some((r) => r.required),
+    requireMetadataReview: rules.some((r) => r.requireMetadataReview !== false),
+    blockSelfApproval: rules.some((r) => !!r.blockSelfApproval),
+    resetReviewOnChange: rules.some((r) => !!r.resetReviewOnChange),
+    autopublishOnApproval: rules.every((r) => !!r.autopublishOnApproval),
+  };
 };
 
 /**
@@ -241,12 +316,18 @@ const isSelfApprovalBlockedForEntity = (
   entityType: RevisionTargetType,
   revision: Pick<Revision, "target">,
 ): boolean => {
+  const snapshot = revision.target.snapshot as {
+    project?: string;
+    projects?: string[];
+  };
   if (entityType === "constant" || entityType === "config") {
-    const snapshot = revision.target.snapshot as { project?: string };
     return constantBlockSelfApproval({ project: snapshot.project }, settings);
   }
-  return !!getApprovalFlowSettings(settings?.approvalFlows, entityType)
-    ?.blockSelfApproval;
+  return !!getApprovalFlowSettings(
+    settings?.approvalFlows,
+    entityType,
+    snapshot.projects ?? [],
+  )?.blockSelfApproval;
 };
 
 /**
@@ -279,15 +360,18 @@ export const isUserBlockedFromApproving = ({
 export const isAutopublishOnApprovalEnabled = (
   settings: OrganizationSettings | undefined,
   entityType: RevisionTargetType,
-  // The constant's project, used to match its `requireReviews` rule. Ignored
-  // for entities that read from `approvalFlows`.
-  project?: string,
+  // The entity's projects: one for a constant or config, several for a saved
+  // group. Both families match their rules on it.
+  projects: string[] = [],
 ): boolean => {
   if (entityType === "constant" || entityType === "config") {
-    return constantAutopublishOnApproval({ project }, settings);
+    return constantAutopublishOnApproval({ project: projects[0] }, settings);
   }
-  return !!getApprovalFlowSettings(settings?.approvalFlows, entityType)
-    ?.autopublishOnApproval;
+  return !!getApprovalFlowSettings(
+    settings?.approvalFlows,
+    entityType,
+    projects,
+  )?.autopublishOnApproval;
 };
 
 /**

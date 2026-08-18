@@ -2287,7 +2287,9 @@ describe("getReviewSetting", () => {
     expect(getReviewSetting([ruleA], featureNoProject)).toBeUndefined();
   });
 
-  it("returns the first matching rule when multiple rules match (project-scoped before catch-all)", () => {
+  // Not toBe: with two layers the result is the project rule merged over the
+  // catch-all, so it is an equal-but-distinct object.
+  it("prefers the project-scoped rule over the catch-all", () => {
     const projectRule = makeReviewSetting({
       projects: ["proj-a"],
       requireReviewOn: true,
@@ -2296,7 +2298,7 @@ describe("getReviewSetting", () => {
       projects: [],
       requireReviewOn: false,
     });
-    expect(getReviewSetting([projectRule, catchAll], featureInProjA)).toBe(
+    expect(getReviewSetting([projectRule, catchAll], featureInProjA)).toEqual(
       projectRule,
     );
   });

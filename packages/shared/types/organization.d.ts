@@ -224,8 +224,12 @@ export type ExperimentUpdateSchedule = {
 export type Environment = z.infer<typeof environment>;
 
 export type ApprovalFlowConfiguration = {
-  requireMetadataReview: boolean;
+  // Selector; empty (or absent, on rows predating the field) = all projects.
+  projects?: string[];
+  requireMetadataReview?: boolean;
   required: boolean;
+  // Same meaning as the flag family's: a requirement on the approval SET.
+  requiredApproverTeams?: string[];
   // When true, anyone listed in `revision.contributors` (including the author)
   // is blocked from approving the revision. A separate, non-contributor
   // reviewer is required.
@@ -239,6 +243,14 @@ export type ApprovalFlowConfiguration = {
 export type ApprovalFlowConfigurations = {
   savedGroups: ApprovalFlowConfiguration[];
 };
+
+// What the toggles resolve to for one entity. Team requirements are deliberately
+// absent: a multi-project entity is governed by several rules, and flattening
+// their team lists into one would turn "A and B" into "A or B".
+export type ApprovalFlowPolicy = Omit<
+  ApprovalFlowConfiguration,
+  "projects" | "requiredApproverTeams"
+>;
 
 export interface OrganizationSettings {
   visualEditorEnabled?: boolean;

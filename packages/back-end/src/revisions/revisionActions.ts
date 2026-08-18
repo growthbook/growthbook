@@ -7,6 +7,7 @@ import {
   normalizeProposedChanges,
   isUserBlockedFromApproving,
   isAutopublishOnApprovalEnabled,
+  entityProjects,
   isScheduledPublishPending,
   isScheduledPublishDue,
   ReviewDecision,
@@ -1090,7 +1091,7 @@ export async function canEnableAutoPublishOnApproval(
     : isAutopublishOnApprovalEnabled(
         context.org.settings,
         entityType,
-        (entity as { project?: string }).project,
+        entityProjects(entity),
       );
   if (!enabled) return false;
   // Arming takes the SAME change-aware authority the eventual fire will: the
