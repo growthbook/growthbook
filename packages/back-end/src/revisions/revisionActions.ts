@@ -638,7 +638,7 @@ export async function approveRevision(
  * can widen the change past what its approver may sanction. Uses each approver's
  * CURRENT rules — an approval is not a snapshot of authority.
  *
- * An unbound change resolves to `[]`, which `canReviewFeatureDrafts` reads as
+ * An unbound change resolves to `[]`, which `canReviewRevision` reads as
  * "needs authority no environment limit restricts", so the fail-closed rule for
  * base values and metadata carries through here unchanged.
  */
@@ -651,12 +651,19 @@ export function revisionApprovalsCoverChange(
     project?: string;
     projects?: string[];
   };
+  // Every project the entity belongs to, not just the first: authority over a
+  // multi-project entity is the intersection, which is how every other check on
+  // one behaves.
+  const projects = snapshot.projects?.length
+    ? snapshot.projects
+    : snapshot.project
+      ? [snapshot.project]
+      : [];
   return assessApprovalCoverage({
     org: context.org,
     teams: context.teams ?? [],
-    feature: {
-      project: snapshot.project ?? snapshot.projects?.[0] ?? "",
-    },
+    model: revision.target.type,
+    projects,
     footprint: environments.length
       ? { scope: "environments", environments }
       : { scope: "unbound" },

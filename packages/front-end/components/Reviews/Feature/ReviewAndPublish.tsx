@@ -705,7 +705,8 @@ export default function ReviewAndPublish({
     reviewers,
     footprint: reviewFootprint,
     envIds,
-    project: feature.project,
+    model: "feature",
+    projects: feature.project ? [feature.project] : [],
   });
 
   // Fall back to all applicable environments until the merge footprint is known.

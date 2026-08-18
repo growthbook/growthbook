@@ -2,6 +2,51 @@ import type { Revision } from "shared/types/revision";
 import { revisionApprovalsCoverChange } from "back-end/src/revisions/revisionActions";
 import type { Context } from "back-end/src/models/BaseModel";
 
+// A saved group belongs to many projects, and authority over it is the
+// intersection — so the coverage check must not read only the first.
+const savedGroupContext = (projectWithReview: string): Context =>
+  ({
+    org: {
+      id: "org_1",
+      settings: { environments: [{ id: "dev" }, { id: "production" }] },
+      customRoles: [
+        {
+          id: "sg_reviewer",
+          description: "",
+          policies: ["SavedGroupsReview"],
+        },
+      ],
+      members: [
+        {
+          id: "u_rev",
+          role: "noaccess",
+          limitAccessByEnvironment: false,
+          environments: [],
+          projectRoles: [
+            {
+              project: projectWithReview,
+              role: "sg_reviewer",
+              limitAccessByEnvironment: false,
+              environments: [],
+            },
+          ],
+        },
+      ],
+    },
+    teams: [],
+  }) as unknown as Context;
+
+const savedGroupRevision = (projects: string[]): Revision =>
+  ({
+    status: "approved",
+    reviews: [{ userId: "u_rev", decision: "approve" }],
+    target: {
+      type: "saved-group",
+      snapshot: { id: "sg_1", projects },
+      proposedChanges: [{ op: "replace", path: "/condition", value: "{}" }],
+    },
+  }) as unknown as Revision;
+
 const context = (memberEnvs: string[] | null): Context =>
   ({
     org: {
@@ -111,5 +156,28 @@ describe("standing approvals on a generic revision", () => {
     expect(
       revisionApprovalsCoverChange(context(["dev"]), r).hasCoveringApproval,
     ).toBe(false);
+  });
+});
+
+describe("a multi-project entity needs authority in every project", () => {
+  it("counts the approval when it covers the entity's only project", () => {
+    expect(
+      revisionApprovalsCoverChange(
+        savedGroupContext("prj_a"),
+        savedGroupRevision(["prj_a"]),
+      ).hasCoveringApproval,
+    ).toBe(true);
+  });
+
+  // The bug this closes: reading snapshot.projects[0] credited an approver who
+  // covered only the first of several projects.
+  it("discounts it when a second project is uncovered", () => {
+    const result = revisionApprovalsCoverChange(
+      savedGroupContext("prj_a"),
+      savedGroupRevision(["prj_a", "prj_b"]),
+    );
+
+    expect(result.hasCoveringApproval).toBe(false);
+    expect(result.uncoveredApprovers).toEqual(["u_rev"]);
   });
 });

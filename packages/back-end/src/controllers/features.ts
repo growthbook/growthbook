@@ -2184,7 +2184,8 @@ export async function postFeaturePublish(
   const { hasCoveringApproval } = assessApprovalCoverage({
     org,
     teams: context.teams,
-    feature,
+    model: "feature",
+    projects: feature.project ? [feature.project] : [],
     footprint: getReviewAuthorityFootprint({
       revision: effectiveRevision,
       bases: [filledLive, base],

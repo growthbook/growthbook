@@ -186,7 +186,8 @@ export async function planFeatureRevisionMerge({
   const { hasCoveringApproval, uncoveredApprovers } = assessApprovalCoverage({
     org: context.org,
     teams: context.teams,
-    feature,
+    model: "feature",
+    projects: feature.project ? [feature.project] : [],
     footprint: reviewFootprint,
     approvers: (revision.reviews ?? [])
       .filter((r) => r.status === "approved")

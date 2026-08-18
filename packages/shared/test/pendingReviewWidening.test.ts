@@ -52,7 +52,8 @@ const coverageOf = (draft: RevisionFields, live: RevisionFields) =>
   assessApprovalCoverage({
     org,
     teams: [],
-    feature: { project: "" },
+    model: "feature",
+    projects: [],
     footprint: getReviewAuthorityFootprint({
       revision: draft,
       bases: [live],

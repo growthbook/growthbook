@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { assessApprovalCoverage } from "shared/permissions";
 import type { ReviewAuthorityFootprint } from "shared/util";
+import type { RevisionModel } from "shared/permissions";
 import type { OrganizationInterface } from "shared/types/organization";
 import type { TeamInterface } from "shared/types/team";
 import { useUser } from "@/services/UserContext";
@@ -29,12 +30,16 @@ export function useApprovalCoverage({
   reviewers,
   footprint,
   envIds,
-  project,
+  model,
+  projects,
 }: {
   reviewers: Reviewer[];
   footprint: ReviewAuthorityFootprint;
   envIds: string[];
-  project?: string;
+  /** Which entity is being approved — each declares its own review atom. */
+  model: RevisionModel;
+  /** Every project the entity belongs to. */
+  projects: string[];
 }): ApprovalCoverage {
   const { users, teams, organization } = useUser();
 
@@ -45,7 +50,8 @@ export function useApprovalCoverage({
       assessApprovalCoverage({
         org: organization as OrganizationInterface,
         teams: (teams ?? []) as TeamInterface[],
-        feature: { project: project ?? "" },
+        model,
+        projects,
         footprint,
         approvers: approved.map((r) => ({
           id: r.id,
@@ -53,7 +59,7 @@ export function useApprovalCoverage({
         })),
       }).uncoveredApprovers,
     );
-  }, [reviewers, organization, teams, project, footprint, users]);
+  }, [reviewers, organization, teams, model, projects, footprint, users]);
 
   const uncoveredApproverReasons = useMemo(() => {
     const reason = (approverId: string): string => {

@@ -509,8 +509,16 @@ function ReviewAndPublishRevision<T>({
 
   // What a reviewer needs authority over, derived from the same footprint the
   // server authorizes publishing with, so the panel and the refusal agree.
-  const entityProject = (revision.target.snapshot as { project?: string })
-    .project;
+  const snapshotScope = revision.target.snapshot as {
+    project?: string;
+    projects?: string[];
+  };
+  const entityProject = snapshotScope.project;
+  const entityProjects = snapshotScope.projects?.length
+    ? snapshotScope.projects
+    : entityProject
+      ? [entityProject]
+      : [];
   const reviewFootprint = useMemo(
     () =>
       entityReviewFootprint(
@@ -542,7 +550,8 @@ function ReviewAndPublishRevision<T>({
     reviewers,
     footprint: reviewFootprint,
     envIds,
-    project: entityProject,
+    model: revision.target.type,
+    projects: entityProjects,
   });
 
   // For the stale-approval banner: when the surviving approval was given (the

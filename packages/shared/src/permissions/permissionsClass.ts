@@ -75,6 +75,17 @@ function isEventForwarderManagedFactTable(
   );
 }
 
+// "everywhere" and "unbound" both resolve to the empty list, which canRevisionAction
+// reads as fail-closed: authority no environment limit restricts. Holding every
+// environment already normalizes to exactly that. "any" means the caller is not
+// sanctioning a change, so no environment constraint applies.
+function footprintEnvironments(
+  footprint: ReviewAuthorityFootprint,
+): string[] | null {
+  if (footprint.scope === "environments") return footprint.environments;
+  return footprint.scope === "any" ? null : [];
+}
+
 export class Permissions {
   private userPermissions: UserPermissions;
   constructor(permissions: UserPermissions) {
@@ -1069,17 +1080,31 @@ export class Permissions {
   ): boolean => {
     // Reviewer eligibility follows the primary project only. Targeting projects
     // affect whether a review is required, never who may approve.
-    const obj = { projects: feature.project ? [feature.project] : [] };
-    // "everywhere" and "unbound" both resolve to the empty list, which reads as
-    // fail-closed: authority no environment limit restricts. Holding every
-    // environment already normalizes to exactly that.
-    const environments =
-      footprint.scope === "environments"
-        ? footprint.environments
-        : footprint.scope === "any"
-          ? null
-          : [];
-    return this.canRevisionAction("feature", "review", obj, environments);
+    return this.canReviewRevision(
+      "feature",
+      feature.project ? [feature.project] : [],
+      footprint,
+    );
+  };
+
+  /**
+   * May this principal approve a revision of `model` in `projects`, given what
+   * the draft changes? Entity-aware on purpose: each model declares its own
+   * review atom and scope, so a model whose review is project-scoped (saved
+   * groups, which have no environment dimension) must not be handed an
+   * environment requirement.
+   */
+  public canReviewRevision = (
+    model: RevisionModel,
+    projects: string[],
+    footprint: ReviewAuthorityFootprint,
+  ): boolean => {
+    return this.canRevisionAction(
+      model,
+      "review",
+      { projects },
+      footprintEnvironments(footprint),
+    );
   };
 
   /**

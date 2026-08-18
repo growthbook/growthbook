@@ -2,6 +2,7 @@ import {
   hasNoDuplicateProjects,
   memberRoleWithProjects,
 } from "shared/validators";
+import { areProjectRolesValid } from "shared/permissions";
 
 const rule = (project: string, role = "engineer") => ({
   project,
@@ -53,5 +54,42 @@ describe("one rule per project", () => {
     expect(parse(undefined).success).toBe(true);
     expect(parse([]).success).toBe(true);
     expect(hasNoDuplicateProjects(undefined)).toBe(true);
+  });
+});
+
+// The internal member/invite/default-role writes are AuthRequests with no zod
+// validation, so the schema refine above never runs on them. areProjectRolesValid
+// is the guard all three share.
+describe("the internal write path rejects duplicates too", () => {
+  const org = {
+    customRoles: [
+      { id: "engineer2", description: "", policies: ["FlagsReview" as const] },
+    ],
+  };
+
+  it("accepts distinct projects", () => {
+    expect(
+      areProjectRolesValid(
+        [rule("prj_1", "engineer2"), rule("prj_2", "engineer2")],
+        org,
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects a second rule for the same project", () => {
+    expect(
+      areProjectRolesValid(
+        [rule("prj_1", "engineer2"), rule("prj_1", "engineer2")],
+        org,
+      ),
+    ).toBe(false);
+  });
+
+  it("still rejects an unknown role", () => {
+    expect(areProjectRolesValid([rule("prj_1", "nope")], org)).toBe(false);
+  });
+
+  it("treats absent as valid", () => {
+    expect(areProjectRolesValid(undefined, org)).toBe(true);
   });
 });

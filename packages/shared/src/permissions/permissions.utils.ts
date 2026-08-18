@@ -9,6 +9,7 @@ import {
   MemberRoleWithProjects,
   UserPermission,
 } from "shared/types/organization";
+import { hasNoDuplicateProjects } from "../validators/organization";
 import {
   DEFAULT_ROLES,
   ENV_SCOPED_PERMISSIONS,
@@ -97,6 +98,11 @@ export function areProjectRolesValid(
 ) {
   if (!projectRoles) {
     return true;
+  }
+  // One rule per project: two entries union rather than the second replacing the
+  // first, so a duplicate grants more than whoever wrote it meant.
+  if (!hasNoDuplicateProjects(projectRoles)) {
+    return false;
   }
   return projectRoles.every((p) => isRoleValid(p.role, org));
 }

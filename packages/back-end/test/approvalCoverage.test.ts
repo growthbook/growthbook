@@ -37,7 +37,8 @@ const assess = (
   assessApprovalCoverage({
     org: o,
     teams,
-    feature,
+    model: "feature",
+    projects: feature.project ? [feature.project] : [],
     footprint: { scope: "environments", environments },
     // Callers resolve the approver's rules; the server maps from org.members.
     approvers: approverIds.map((id) => ({

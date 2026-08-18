@@ -26,6 +26,7 @@ import {
   ENV_SCOPED_PERMISSIONS,
 } from "./permissions.constants";
 import { Permissions } from "./permissionsClass";
+import type { RevisionModel } from "./revisionPermissions";
 import { roleSupportsEnvLimit, roleToPermissionMap } from "./permissions.utils";
 
 function hasEnvScopedPermissions(userPermission: PermissionsObject): boolean {
@@ -351,13 +352,21 @@ export function teamsForMember(
 export function assessApprovalCoverage({
   org,
   teams,
-  feature,
+  model,
+  projects,
   footprint,
   approvers,
 }: {
   org: OrganizationInterface;
   teams: RoleSourceTeam[];
-  feature: { project?: string };
+  /**
+   * Which entity is being approved. Required, not defaulted: each model declares
+   * its own review atom and scope, and judging one entity by another's atom is
+   * correct only by coincidence of how the policies happen to bundle today.
+   */
+  model: RevisionModel;
+  /** Every project the entity belongs to — authority is required in all of them. */
+  projects: string[];
   footprint: ReviewAuthorityFootprint;
   approvers: { id: string; roleInfo: MemberRoleWithProjects | null }[];
 }): { hasCoveringApproval: boolean; uncoveredApprovers: string[] } {
@@ -369,7 +378,7 @@ export function assessApprovalCoverage({
       !!roleInfo &&
       new Permissions(
         getRolePermissions(roleInfo, org, teams),
-      ).canReviewFeatureDrafts(feature, footprint);
+      ).canReviewRevision(model, projects, footprint);
     if (covers) hasCoveringApproval = true;
     else uncoveredApprovers.push(id);
   }
