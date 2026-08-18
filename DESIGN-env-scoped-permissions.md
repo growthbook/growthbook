@@ -692,6 +692,16 @@ at all.
       per field: an override naming only `requiredApproverTeams` must inherit
       `resetReviewOnChange` and the rest from the layer above.
 
+- [ ] Must be fixed WITH the project-page editor, because both only become
+      reachable once project-scoped rules can be created from the UI: - `reviewRulesRequiringTeam` filters RAW rules, so the team page will
+      under-report a project that only INHERITS the team requirement, and
+      over-report a project whose override replaces it. Resolve per candidate
+      project instead of filtering. - `requiresMetadataReview` (features.ts) is a raw `.some()` across all rules
+      and feeds the review-authority footprint, so it can disagree with the
+      resolved per-project answer. - `ApprovalFlowSettings` reads raw `form.watch` values, so with two rules the
+      settings screen shows a rule's own (possibly unset) value while the
+      effective value is inherited. The screen has no way to express precedence.
+
 - [ ] Duplication carries governance ASYMMETRICALLY, and B needs an explicit step for
       it because rules reference projects and teams BY ID — a clone is a new id no
       rule mentions, so nothing carries by default (under C a project's would, being

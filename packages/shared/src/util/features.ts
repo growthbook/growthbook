@@ -2732,22 +2732,62 @@ export function getGoverningReviewProjects(
   return Array.from(new Set([primary ?? "", ...strict]));
 }
 
+// What a rule can select on. Only `project` ships today; a tag or flag-id
+// selector slots in as a further layer without changing the resolver's shape.
+export type ReviewRuleEntity = {
+  project?: string;
+};
+
+// Most specific first. A rule naming projects beats the all-projects rule, which
+// is the base layer everything inherits from.
+function reviewRuleLayers(
+  rules: RequireReview[],
+  entity: ReviewRuleEntity,
+): RequireReview[] {
+  const specific = entity.project
+    ? rules.filter((r) => r.projects.includes(entity.project as string))
+    : [];
+  const base = rules.filter((r) => r.projects.length === 0);
+  return [...specific, ...base];
+}
+
+// Fields an override may leave unset and inherit. `projects` is the selector and
+// `requireReviewOn` is the override's own on/off switch, so neither inherits.
+const INHERITABLE_FIELDS = [
+  "environments",
+  "resetReviewOnChange",
+  "featureRequireEnvironmentReview",
+  "featureRequireMetadataReview",
+  "blockSelfApproval",
+  "autopublishOnApproval",
+  "requiredApproverTeams",
+] as const;
+
+/**
+ * The review rule governing an entity: most specific wins, inheriting unset
+ * fields from the layers beneath it. Mirrors `getTargetingReviewMode`, which
+ * already resolves its sibling setting this way.
+ *
+ * With a single rule — every org today — this returns that rule unchanged, so
+ * it is inert for existing data.
+ */
 export function getReviewSetting(
   requireReviewSettings: RequireReview[],
-  // Any project-scoped entity (features, and constants which mirror the feature
-  // `project` field) — matched by its single project.
-  entity: { project?: string },
+  entity: ReviewRuleEntity,
 ): RequireReview | undefined {
-  // check projects
-  for (const reviewSetting of requireReviewSettings) {
-    // match first value found empty means all projects
-    if (
-      (entity?.project && reviewSetting.projects.includes(entity?.project)) ||
-      reviewSetting.projects.length === 0
-    ) {
-      return reviewSetting;
-    }
+  const layers = reviewRuleLayers(requireReviewSettings, entity);
+  const winner = layers[0];
+  if (!winner) return undefined;
+  if (layers.length === 1) return winner;
+
+  // Field by field, first layer that sets it — so an override naming only
+  // requiredApproverTeams keeps the base layer's other toggles.
+  const merged: RequireReview = { ...winner };
+  for (const field of INHERITABLE_FIELDS) {
+    const source = layers.find((l) => l[field] !== undefined);
+    if (source) (merged[field] as unknown) = source[field];
   }
+  return merged;
 }
 
 // `entity` is any project-scoped entity (a feature, or a constant which mirrors
@@ -3616,7 +3656,17 @@ export function getRevisionReviewRequirement({
   };
 
   const triggering = reviewSettings.filter(needsReviewForSetting);
-  return { required: triggering.length > 0, rules: triggering };
+  // By content, not identity: one merged rule per governing project, so two
+  // projects inheriting the same layer yield equal-but-distinct objects and
+  // would otherwise each add their own "needs approval from X" line.
+  const seen = new Set<string>();
+  const rules = triggering.filter((r) => {
+    const key = JSON.stringify(r);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return { required: rules.length > 0, rules };
 }
 
 // Boolean form, for callers that only ask whether review is needed.
