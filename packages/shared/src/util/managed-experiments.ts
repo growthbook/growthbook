@@ -79,3 +79,18 @@ export function managedFeatureKeyCandidate({
   const base = sanitized || experimentId;
   return attempt === 0 ? base : `${base}-${attempt + 1}`;
 }
+
+/**
+ * Seed values for a managed flag created alongside its experiment. Creation has
+ * no values to collect yet — the point of Automatic mode is a thin creation
+ * modal — so each variation starts serving its own key as a string, which is
+ * self-describing in the payload and immediately editable from the experiment.
+ */
+export function seedManagedVariationValues(
+  variations: { id: string; key?: string }[],
+): { variationId: string; value: string }[] {
+  return variations.map((v, i) => ({
+    variationId: v.id,
+    value: v.key || String(i),
+  }));
+}

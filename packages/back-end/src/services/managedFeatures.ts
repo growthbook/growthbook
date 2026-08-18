@@ -18,6 +18,7 @@ import { ReqContext } from "back-end/types/request";
 import { OpenApiRoute, runApiHandler } from "back-end/src/util/handler";
 import {
   createFeature,
+  deleteFeature,
   getFeature,
   updateFeature,
 } from "back-end/src/models/FeatureModel";
@@ -29,7 +30,10 @@ import {
   getEnvironments,
 } from "back-end/src/services/organizations";
 import { getEnabledEnvironments } from "back-end/src/util/features";
-import { linkFeatureToExperiment } from "back-end/src/services/experiment-feature";
+import {
+  ExperimentFeatureLinkResult,
+  linkFeatureToExperiment,
+} from "back-end/src/services/experiment-feature";
 
 /**
  * A Feature Flag in managed mode is owned by its experiment: it holds one
@@ -207,31 +211,41 @@ export async function createManagedFeatureForExperiment({
     );
   }
 
-  const { version } = await linkFeatureToExperiment({
-    context,
-    experiment,
-    feature: created,
-    rule: {
-      type: "experiment-ref",
-      description: "",
-      id: "",
-      allEnvironments: true,
-      condition: "",
-      enabled: true,
-      scheduleRules: [],
-      experimentId: experiment.id,
-      variations,
-      ...(sparse ? { sparse: true } : {}),
-    },
-    eventAudit,
-    audit,
-    // Managed flags always start as a draft; the experiment's start publishes
-    // it, and later edits go through a new draft the same way.
-    autoPublish: false,
-    forceNewDraft: true,
-  });
+  // The flag and its rule are one unit: a flag with no experiment-ref rule is
+  // a locked-down orphan nobody can edit or reach. If the link fails, undo the
+  // create rather than leave that behind. Innermost step compensates itself,
+  // so the caller only has to undo what it wrote.
+  let linked: ExperimentFeatureLinkResult;
+  try {
+    linked = await linkFeatureToExperiment({
+      context,
+      experiment,
+      feature: created,
+      rule: {
+        type: "experiment-ref",
+        description: "",
+        id: "",
+        allEnvironments: true,
+        condition: "",
+        enabled: true,
+        scheduleRules: [],
+        experimentId: experiment.id,
+        variations,
+        ...(sparse ? { sparse: true } : {}),
+      },
+      eventAudit,
+      audit,
+      // Managed flags always start as a draft; the experiment's start publishes
+      // it, and later edits go through a new draft the same way.
+      autoPublish: false,
+      forceNewDraft: true,
+    });
+  } catch (e) {
+    await deleteFeature(context, created);
+    throw e;
+  }
 
-  return { feature: created, version };
+  return { feature: created, version: linked.version };
 }
 
 /**

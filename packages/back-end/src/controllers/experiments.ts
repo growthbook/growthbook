@@ -12,6 +12,7 @@ import {
   reconcileMergeBaselines,
   includeExperimentInPayload,
   isManagedByExperiment,
+  seedManagedVariationValues,
 } from "shared/util";
 import {
   expandDerivedMetricsInMap,
@@ -1149,7 +1150,9 @@ export async function getSnapshots(
  */
 export async function postExperiments(
   req: AuthRequest<
-    Partial<ExperimentInterfaceStringDates>,
+    // `managedFlag` is a creation-time instruction, not a stored experiment
+    // field: ownership lives on the Feature Flag it creates.
+    Partial<ExperimentInterfaceStringDates> & { managedFlag?: boolean },
     unknown,
     {
       allowDuplicateTrackingKey?: boolean;
@@ -1485,6 +1488,31 @@ export async function postExperiments(
       item: experiment.id,
       type: "experiments",
     });
+
+    // Automatic implementation mode: the experiment delivers its variations
+    // through a Feature Flag it owns outright. Created here, in the same
+    // request, so a managed experiment never exists without its flag — that
+    // state has no implementation UI and no way to add one.
+    if (data.managedFlag) {
+      try {
+        await createManagedFeatureForExperiment({
+          context,
+          experiment,
+          valueType: "string",
+          variations: seedManagedVariationValues(experiment.variations),
+          eventAudit: res.locals.eventAudit,
+          audit: req.audit,
+        });
+      } catch (e) {
+        // Undo the experiment rather than hand back one stuck in managed mode
+        // with nothing to manage. The flag half compensates itself, so there is
+        // nothing else left behind.
+        await deleteExperimentByIdForOrganization(context, experiment);
+        throw new Error(
+          `Could not create the managed Feature Flag for this experiment: ${e.message}`,
+        );
+      }
+    }
 
     res.status(200).json({
       status: 200,
