@@ -122,7 +122,7 @@ export const MembersTabView: FC = () => {
         />
       )}
       <SSOSettings ssoConnection={ssoConnection || null} />
-      <h1>Team Members</h1>
+      <h1>Organization Members</h1>
       {isMultiOrg() && (
         <AutoApproveMembersToggle mutate={refreshOrganization} />
       )}

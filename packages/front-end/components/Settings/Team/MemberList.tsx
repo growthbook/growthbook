@@ -404,7 +404,7 @@ const MemberList: FC<{
                     })}
                   </TableCell>
 
-                  <TableCell>
+                  <TableCell justify="end">
                     {member.id !== userId && (
                       <DropdownMenu
                         trigger={
