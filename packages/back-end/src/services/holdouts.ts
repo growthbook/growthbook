@@ -44,7 +44,8 @@ import { getEnabledEnvironments } from "back-end/src/util/features";
 import { isHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
-import { BadRequestError, InternalServerError } from "back-end/src/util/errors";
+import { BadRequestError } from "back-end/src/util/errors";
+import { logger } from "back-end/src/util/logger";
 import {
   getChangesToStartExperiment,
   validateExperimentData,
@@ -301,11 +302,31 @@ export async function createHoldoutWithExperiment(
     linkedExperiments: {},
   });
 
-  if (!holdout) {
-    throw new InternalServerError("Failed to create holdout");
-  }
-
   return { holdout, experiment, datasource, metricIds };
+}
+
+/**
+ * Roll an experiment back to a prior snapshot after its companion holdout write
+ * failed (the two documents share no transaction). Returns whether the restore
+ * succeeded so callers can gate follow-up work; on failure we log for manual
+ * reconciliation rather than masking the caller's original error.
+ */
+async function rollbackExperimentAfterHoldoutFailure(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  revertChanges: Partial<ExperimentInterface>,
+  logContext: string,
+): Promise<boolean> {
+  try {
+    await updateExperiment({ context, experiment, changes: revertChanges });
+    return true;
+  } catch (revertError) {
+    logger.error(
+      revertError,
+      `Failed to roll back experiment "${experiment.id}" ${logContext}; the holdout and experiment are now inconsistent and need reconciling by hand`,
+    );
+    return false;
+  }
 }
 
 /**
@@ -376,12 +397,9 @@ export async function updateHoldoutWithExperiment(
   if (body.owner !== undefined) {
     experimentChanges.owner = await resolveOwnerToUserId(body.owner, context);
   }
-  // Validate analysis settings as a whole against the *effective* post-update
-  // values: the datasource exists, the goal/secondary metrics belong to it,
-  // and the assignment query is one of its exposure queries. Otherwise a bad
-  // id — including an old exposure query or metric left behind when only the
-  // datasource changes — slips through to snapshot/query time and fails there
-  // with a confusing error.
+  // Validate analysis settings against the effective post-update values so a
+  // stale metric or exposure query (e.g. left behind when only the datasource
+  // changes) is rejected here rather than failing later at query time.
   if (
     body.datasourceId !== undefined ||
     body.assignmentQueryId !== undefined ||
@@ -440,20 +458,19 @@ export async function updateHoldoutWithExperiment(
     );
   }
 
-  // Persist the holdout document before touching the companion experiment. The
-  // holdout write runs its own validation (`beforeUpdate` rejects bad schedule
-  // dates) but has no side effects, while `updateExperiment` commits and
-  // triggers an SDK payload refresh. Writing the holdout first means a
-  // validation failure aborts the request before any experiment change or
-  // refresh lands, so the two documents can't diverge (e.g. a mirrored `name`)
-  // on rejected input. Experiment-side changes are already fully validated
-  // above, so the trailing write only fails on infrastructure errors.
-  const updatedHoldout = Object.keys(holdoutUpdates).length
-    ? await context.models.holdout.update(holdout, holdoutUpdates)
-    : holdout;
+  // Persist the experiment first, then the holdout. With no cross-document
+  // transaction, a holdout failure after the experiment write is committed
+  // would leave the pair inconsistent, so snapshot the changed experiment
+  // fields and roll them back on failure (mirrors `setHoldoutStage`).
+  const originalExperimentValues: Partial<ExperimentInterface> = {};
+  for (const key of Object.keys(experimentChanges)) {
+    (originalExperimentValues as Record<string, unknown>)[key] = (
+      experiment as Record<string, unknown>
+    )[key];
+  }
 
-  // Single write to the companion experiment.
-  if (Object.keys(experimentChanges).length) {
+  const experimentChanged = Object.keys(experimentChanges).length > 0;
+  if (experimentChanged) {
     experiment = await updateExperiment({
       context,
       experiment,
@@ -461,7 +478,27 @@ export async function updateHoldoutWithExperiment(
     });
   }
 
-  return { holdout: updatedHoldout, experiment };
+  if (!Object.keys(holdoutUpdates).length) {
+    return { holdout, experiment };
+  }
+
+  try {
+    const updatedHoldout = await context.models.holdout.update(
+      holdout,
+      holdoutUpdates,
+    );
+    return { holdout: updatedHoldout, experiment };
+  } catch (e) {
+    if (experimentChanged) {
+      await rollbackExperimentAfterHoldoutFailure(
+        context,
+        experiment,
+        originalExperimentValues,
+        "after holdout update failed",
+      );
+    }
+    throw e;
+  }
 }
 
 export function normalizeHoldoutScheduleUpdates({
@@ -605,6 +642,12 @@ export async function setHoldoutStage(
   let phases = [...experiment.phases] as ExperimentPhase[];
   const changes: Changeset = {};
 
+  // Snapshot the only experiment fields any branch below mutates, before those
+  // mutations run, so a failed holdout write can be compensated by restoring
+  // them (see `commitTransition`).
+  const originalStatus = experiment.status;
+  const originalPhases = structuredClone(experiment.phases);
+
   const refreshPayload = (event: string) =>
     queueSDKPayloadRefresh({
       context,
@@ -619,6 +662,37 @@ export async function setHoldoutStage(
       },
     });
 
+  // Commit a stage transition across both documents. With no cross-document
+  // transaction, a holdout failure after the experiment write is committed
+  // rolls the experiment back to its pre-transition status and phases and
+  // rethrows, leaving the schedule pointer untouched so a retry re-selects the
+  // still-due holdout.
+  const commitTransition = async (
+    event: string,
+    holdoutChanges: UpdateProps<HoldoutInterface>,
+  ) => {
+    const updatedExperiment = await updateExperiment({
+      context,
+      experiment,
+      changes,
+    });
+    refreshPayload(event);
+    try {
+      await context.models.holdout.update(holdout, holdoutChanges);
+    } catch (e) {
+      const reverted = await rollbackExperimentAfterHoldoutFailure(
+        context,
+        updatedExperiment,
+        { status: originalStatus, phases: originalPhases },
+        `after holdout update failed during "${event}"`,
+      );
+      if (reverted) {
+        refreshPayload(`Reverted: ${event}`);
+      }
+      throw e;
+    }
+  };
+
   switch (stage) {
     case "stopped": {
       if (phases[0]) {
@@ -628,9 +702,7 @@ export async function setHoldoutStage(
         phases[1].dateEnded = new Date();
       }
       Object.assign(changes, { phases, status: "stopped" });
-      await updateExperiment({ context, experiment, changes });
-      refreshPayload("Status changed to stopped");
-      await context.models.holdout.update(holdout, {
+      await commitTransition("Status changed to stopped", {
         nextScheduledStatusUpdate: getNextScheduledStatusUpdateForStage(
           holdout.statusUpdateSchedule,
           "stopped",
@@ -645,9 +717,7 @@ export async function setHoldoutStage(
       }
       phases[0].dateEnded = undefined;
       Object.assign(changes, { phases: [phases[0]], status: "draft" });
-      await updateExperiment({ context, experiment, changes });
-      refreshPayload("Status changed to draft");
-      await context.models.holdout.update(holdout, {
+      await commitTransition("Status changed to draft", {
         analysisStartDate: undefined,
       });
       return;
@@ -663,9 +733,7 @@ export async function setHoldoutStage(
           changes,
           await getChangesToStartExperiment(context, experiment),
         );
-        await updateExperiment({ context, experiment, changes });
-        refreshPayload("Status changed to running");
-        await context.models.holdout.update(holdout, {
+        await commitTransition("Status changed to running", {
           analysisStartDate: undefined,
           nextScheduledStatusUpdate: getNextScheduledStatusUpdateForStage(
             holdout.statusUpdateSchedule,
@@ -680,9 +748,7 @@ export async function setHoldoutStage(
         phases = [phases[0]];
       }
       Object.assign(changes, { phases, status: "running" });
-      await updateExperiment({ context, experiment, changes });
-      refreshPayload("Status changed to running");
-      await context.models.holdout.update(holdout, {
+      await commitTransition("Status changed to running", {
         analysisStartDate: undefined,
       });
       return;
@@ -705,9 +771,7 @@ export async function setHoldoutStage(
         name: "Analysis",
       };
       Object.assign(changes, { phases, status: "running" });
-      await updateExperiment({ context, experiment, changes });
-      refreshPayload("Status changed to analysis period");
-      await context.models.holdout.update(holdout, {
+      await commitTransition("Status changed to analysis period", {
         analysisStartDate,
         nextScheduledStatusUpdate: getNextScheduledStatusUpdateForStage(
           holdout.statusUpdateSchedule,
