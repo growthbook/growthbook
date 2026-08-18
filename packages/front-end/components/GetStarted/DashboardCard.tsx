@@ -86,6 +86,7 @@ export default function DashboardCard() {
           <DashboardView
             dashboardId={resolvedDashboardId}
             maxBlocks={PREVIEW_MAX_BLOCKS}
+            showHeader={false}
           />
         </Frame>
       ) : (

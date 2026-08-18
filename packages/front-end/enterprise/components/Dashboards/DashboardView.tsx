@@ -14,12 +14,16 @@ import DashboardSnapshotProvider from "@/enterprise/components/Dashboards/Dashbo
 export default function DashboardView({
   dashboardId,
   maxBlocks,
+  showHeader = true,
 }: {
   dashboardId: string;
   // When set, only the first N blocks render (in the dashboard's own saved
   // order/sizing) instead of shrinking or reflowing everything to fit a
   // smaller space. A "View full dashboard" link covers the rest.
   maxBlocks?: number;
+  // Independent of maxBlocks — a caller may want a capped block count with
+  // the header still shown, or a full-block embed without it.
+  showHeader?: boolean;
 }) {
   const { data, isLoading, error, mutate } = useApi<{
     dashboard: DashboardInterface;
@@ -67,14 +71,13 @@ export default function DashboardView({
         nextUpdate={dashboard.nextUpdate}
         dashboardLastUpdated={dashboard.lastUpdated}
         dashboardComparison={dashboard.comparison}
-        showHeader={!maxBlocks}
+        showHeader={showHeader}
       />
       {hasHiddenBlocks && (
-        <Flex justify="end" align="center" gap="1" mt="2">
+        <Flex justify="end" mt="2">
           <Link href={`/product-analytics/dashboards/${dashboard.id}`}>
-            View full dashboard
+            View full dashboard <PiArrowRight />
           </Link>
-          <PiArrowRight />
         </Flex>
       )}
     </DashboardSnapshotProvider>
