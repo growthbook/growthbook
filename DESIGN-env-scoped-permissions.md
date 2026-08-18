@@ -208,17 +208,18 @@ surfaces never disagree.
 Four states, not two. The outline has to sit alongside the existing ones without
 colliding:
 
-| State                         | Mark           |
-| ----------------------------- | -------------- |
-| Not yet reviewed              | grey / empty   |
-| Approved, sanctioned          | filled green   |
-| Approved, insufficient rights | outlined green |
-| Changes requested             | red            |
+| State                         | Mark                 |
+| ----------------------------- | -------------------- |
+| Not yet reviewed              | grey / empty         |
+| Approved, sanctioned          | filled green         |
+| Approved, insufficient rights | dashed green outline |
+| Changes requested             | red                  |
 
-**Prerequisite.** `reviewFeatures`, `reviewConfigs` and `reviewConstants` are in
-`PROJECT_SCOPED_PERMISSIONS` today, so "can approve dev but not prod" is not
-expressible yet. Section 2 of the checklist has to land first — until it does,
-every approval is trivially sanctioned and the outlined state can never occur.
+**Prerequisite — met.** `reviewFeatures`, `reviewConfigs` and `reviewConstants`
+were in `PROJECT_SCOPED_PERMISSIONS` when this was written, so "can approve dev
+but not prod" was not expressible and the outlined state could never occur.
+Section 2 has since landed: the review atoms are environment-scoped, so the state
+is reachable and is what the coverage UI now renders.
 
 **The rule.** An approval is sanctioned when the approver's review environments
 cover the draft's `PublishFootprint`:
@@ -631,10 +632,10 @@ at all.
 - [ ] `maxConcurrentDrafts` → the other three entities
 - [ ] One draft-cap policy across both UI surfaces (modal's warn+acknowledge);
       drop the widget's `isAdmin` exemption
-- [ ] Delete the dead `canBypassReview` settings field (declared in
-      `shared/types/organization.d.ts`, read nowhere). NOT `resetReviewOnChange`,
-      which an earlier draft lumped in with it — that one is live and load-bearing
-      in `shared/util/features.ts`.
+- [ ] Delete `ApprovalFlowConfiguration.canBypassReview` /
+      `.resetReviewOnChange` (`organization.d.ts:231-233`, both read nowhere).
+      Name the type when doing it: `RequireReview.resetReviewOnChange` is a
+      different field and is live.
 - [ ] Copy: widen `maxConcurrentDrafts` and `restApiBypassesReviews`; update
       `targetingReviewMode` copy _with_ its behaviour change
 - [ ] Leave `featureRegexValidator` / `featureKeyExample` feature-only
