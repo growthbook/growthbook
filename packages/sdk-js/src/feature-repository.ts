@@ -124,9 +124,6 @@ const pollers: Map<string, Poller> = new Map();
 const supportsSSE: Set<string> = new Set();
 const streamingWarnings: Set<string> = new Set();
 
-// Ceiling for both the SSE reconnect and the polling error backoff
-const MAX_BACKOFF_MS = 1000 * 60 * 5;
-
 // Public functions
 export function setPolyfills(overrides: Partial<Polyfills>): void {
   Object.assign(polyfills, overrides);
@@ -205,6 +202,17 @@ export function onVisible() {
 }
 
 // Private functions
+
+const MAX_BACKOFF_MS = 1000 * 60 * 5;
+
+// Exponential backoff. Jitter is proportional rather than flat, so that clients retrying
+// against the same host spread out instead of bunching at the same offset.
+function backoffDelay(base: number, factor: number, attempt: number): number {
+  return Math.min(
+    base * Math.pow(factor, attempt) * (1 + Math.random()),
+    MAX_BACKOFF_MS,
+  );
+}
 
 // The only place the SDK warns directly rather than through the env-gated instance.log().
 // log() is debug-only, so routing a misconfiguration through it would hide the problem from
@@ -540,19 +548,15 @@ function onSSEError(channel: ScopedChannel) {
   channel.errors++;
   if (channel.errors > 3 || (channel.src && channel.src.readyState === 2)) {
     // exponential backoff after 4 errors, with jitter
-    const delay =
-      Math.pow(3, channel.errors - 3) * (1000 + Math.random() * 1000);
+    const delay = backoffDelay(1000, 3, channel.errors - 3);
     disableChannel(channel);
-    setTimeout(
-      () => {
-        if (["idle", "active"].includes(channel.state)) return;
-        // A channel dropped while backing off (destroy, clearCache) must not reconnect:
-        // it would open an EventSource nothing tracks or can ever close
-        if (streams.get(channel.key) !== channel) return;
-        enableChannel(channel);
-      },
-      Math.min(delay, MAX_BACKOFF_MS),
-    );
+    setTimeout(() => {
+      if (["idle", "active"].includes(channel.state)) return;
+      // A channel dropped while backing off (destroy, clearCache) must not reconnect:
+      // it would open an EventSource nothing tracks or can ever close
+      if (streams.get(channel.key) !== channel) return;
+      enableChannel(channel);
+    }, delay);
   }
 }
 
@@ -631,15 +635,11 @@ function startPolling(key: string, interval: number): void {
 }
 
 function scheduleNextPoll(key: string, poller: Poller): void {
-  // Back off on repeated errors, with jitter. Deliberately a gentler curve than
-  // onSSEError's, since this one scales off the user's configured interval
+  // Gentler curve than onSSEError's, since this one already starts from the
+  // user's configured interval rather than a fixed 1s
   const delay =
     poller.errors > 0
-      ? Math.min(
-          poller.interval * Math.pow(2, poller.errors - 1) +
-            Math.random() * 1000,
-          MAX_BACKOFF_MS,
-        )
+      ? backoffDelay(poller.interval, 2, poller.errors - 1)
       : poller.interval;
 
   const timer = setTimeout(() => {
