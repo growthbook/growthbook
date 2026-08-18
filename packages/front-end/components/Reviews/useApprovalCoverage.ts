@@ -1,5 +1,8 @@
 import { useMemo } from "react";
-import { assessApprovalCoverage } from "shared/permissions";
+import {
+  assessApprovalCoverage,
+  assessRequiredApproverTeams,
+} from "shared/permissions";
 import type { ReviewAuthorityFootprint } from "shared/util";
 import type { RevisionModel } from "shared/permissions";
 import type { OrganizationInterface } from "shared/types/organization";
@@ -20,6 +23,14 @@ export interface ApprovalCoverage {
   // An approval stands but doesn't reach everything the draft changes — the
   // only case the "approved, but not enough" callout should speak to.
   hasUncoveredApproval: boolean;
+  /**
+   * Required approver teams still outstanding. Separate from coverage: a draft can
+   * be properly approved and still be missing the team its rule names.
+   */
+  requiredTeams: {
+    satisfied: boolean;
+    unmet: { id: string; name: string }[][];
+  };
 }
 
 /**
@@ -32,10 +43,13 @@ export function useApprovalCoverage({
   envIds,
   model,
   projects,
+  reviewRules = [],
 }: {
   reviewers: Reviewer[];
   footprint: ReviewAuthorityFootprint;
   envIds: string[];
+  /** The review rules that demanded review — where required teams are declared. */
+  reviewRules?: { requiredApproverTeams?: string[] }[];
   /** Which entity is being approved — each declares its own review atom. */
   model: RevisionModel;
   /** Every project the entity belongs to. */
@@ -102,6 +116,22 @@ export function useApprovalCoverage({
     (r) => r.status === "approved" && !uncoveredApprovers.has(r.id),
   );
 
+  const requiredTeams = useMemo(
+    () =>
+      assessRequiredApproverTeams({
+        rules: reviewRules,
+        // Only covering approvals can satisfy a team requirement.
+        coveringApproverIds: reviewers
+          .filter(
+            (r) => r.status === "approved" && !uncoveredApprovers.has(r.id),
+          )
+          .map((r) => r.id),
+        org: organization as OrganizationInterface,
+        teams: (teams ?? []) as TeamInterface[],
+      }),
+    [reviewRules, reviewers, uncoveredApprovers, organization, teams],
+  );
+
   return {
     uncoveredApprovers,
     uncoveredApproverReasons,
@@ -109,5 +139,6 @@ export function useApprovalCoverage({
     approvalsCoverFootprint,
     hasUncoveredApproval:
       !approvalsCoverFootprint && uncoveredApprovers.size > 0,
+    requiredTeams,
   };
 }

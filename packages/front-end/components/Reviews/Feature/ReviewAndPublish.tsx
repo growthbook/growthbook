@@ -18,6 +18,7 @@ import {
   autoMerge,
   fillRevisionFromFeature,
   getReviewAuthorityFootprint,
+  getRevisionReviewRequirement,
   liveRevisionFromFeature,
   type ReviewAuthorityFootprint,
   filterEnvironmentsByFeature,
@@ -695,18 +696,32 @@ export default function ReviewAndPublish({
     });
   }, [revision, baseRevision, liveRevision, feature, envIds, settings]);
 
+  const reviewRules = useMemo(() => {
+    if (!revision || !baseRevision) return [];
+    return getRevisionReviewRequirement({
+      feature,
+      baseRevision,
+      revision,
+      allEnvironments: envIds,
+      settings,
+      requireApprovalsLicensed: hasCommercialFeature("require-approvals"),
+    }).rules;
+  }, [revision, baseRevision, feature, envIds, settings, hasCommercialFeature]);
+
   const {
     uncoveredApprovers,
     uncoveredApproverReasons,
     uncoveredFootprintEnvs,
     approvalsCoverFootprint,
     hasUncoveredApproval,
+    requiredTeams,
   } = useApprovalCoverage({
     reviewers,
     footprint: reviewFootprint,
     envIds,
     model: "feature",
     projects: feature.project ? [feature.project] : [],
+    reviewRules,
   });
 
   // Fall back to all applicable environments until the merge footprint is known.
@@ -2250,7 +2265,9 @@ export default function ReviewAndPublish({
   const canDoPrimary =
     state.submitAction === "publish"
       ? hasPublishPermission &&
-        (adminPublish || !requireReviews || approvalsCoverFootprint)
+        (adminPublish ||
+          !requireReviews ||
+          (approvalsCoverFootprint && requiredTeams.satisfied))
       : true;
 
   // Shared by the no-changes empty state and the actions column kebab — the
@@ -2312,6 +2329,9 @@ export default function ReviewAndPublish({
     // so the bypass affordance stays reachable — this is the state that most
     // needs it.
     if (requireReviews && !adminPublish && !approvalsCoverFootprint)
+      return { overridable: true };
+    // Properly approved, but the rule's required team has not signed off.
+    if (requireReviews && !adminPublish && !requiredTeams.satisfied)
       return { overridable: true };
     if (!adminPublish && !governance?.canPublish) return { overridable: true };
     if (!adminPublish && featureLockedByRamp) return { overridable: true };
@@ -2932,6 +2952,21 @@ export default function ReviewAndPublish({
                   >
                     {/* The verdict stands, so the status stays "Approved" — this
                     says why it is not enough to publish. */}
+                    {requireReviews && !requiredTeams.satisfied && (
+                      <Box mb="3">
+                        <Callout status="warning" size="sm">
+                          {requiredTeams.unmet
+                            .map(
+                              (t) =>
+                                `Needs approval from ${t
+                                  .map((x) => x.name)
+                                  .join(" or ")}.`,
+                            )
+                            .join(" ")}
+                        </Callout>
+                      </Box>
+                    )}
+
                     {requireReviews && hasUncoveredApproval && (
                       <Box mb="3">
                         <Callout status="warning" size="sm">

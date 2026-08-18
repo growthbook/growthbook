@@ -660,6 +660,7 @@ export default function ConstantDetailPage(): React.ReactElement {
             entityName={constant.name}
             entityNoun="Constant"
             requiresApproval={selectedRevisionRequiresApproval}
+            reviewRules={reviewRule ? [reviewRule] : []}
             canEditEntity={permissionsUtil.canRevisionAction(
               "constant",
               "draft",

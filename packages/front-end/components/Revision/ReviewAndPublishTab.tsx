@@ -161,6 +161,12 @@ export interface ReviewAndPublishTabProps<T> {
   // Per-revision approval gate (caller applies org settings + e.g. the
   // metadata-only shortcut).
   requiresApproval: boolean;
+  /**
+   * The review rules governing this entity, so the panel can show which required
+   * approver teams are still outstanding. The caller already resolves them for
+   * `requiresApproval`.
+   */
+  reviewRules?: { requiredApproverTeams?: string[] }[];
   // The viewer can edit the underlying entity (manage drafts / review).
   canEditEntity: boolean;
   // Reverting is its own authority, so a revert-only role holds no edit rights.
@@ -248,6 +254,7 @@ function ReviewAndPublishRevision<T>({
   entityName = "",
   entityNoun = "revision",
   requiresApproval,
+  reviewRules,
   canEditEntity,
   canRevertEntity,
   canLandRevertEntity,
@@ -546,12 +553,14 @@ function ReviewAndPublishRevision<T>({
     uncoveredFootprintEnvs,
     approvalsCoverFootprint,
     hasUncoveredApproval,
+    requiredTeams,
   } = useApprovalCoverage({
     reviewers,
     footprint: reviewFootprint,
     envIds,
     model: revision.target.type,
     projects: entityProjects,
+    reviewRules,
   });
 
   // For the stale-approval banner: when the surviving approval was given (the
@@ -876,7 +885,9 @@ function ReviewAndPublishRevision<T>({
     checklistBlocked: false,
     checklistAcknowledged: false,
     governanceCanPublish:
-      !mustRebase && (!requiresApproval || approvalsCoverFootprint),
+      !mustRebase &&
+      (!requiresApproval ||
+        (approvalsCoverFootprint && requiredTeams.satisfied)),
   });
 
   // The publish controls (admin-bypass checkbox + Publish button) show only when
@@ -892,6 +903,7 @@ function ReviewAndPublishRevision<T>({
     hasChanges &&
     (revision.status !== "approved" ||
       !approvalsCoverFootprint ||
+      !requiredTeams.satisfied ||
       adminPublish);
 
   // Whether the publish section below has anything to show. Each term mirrors one
@@ -1485,6 +1497,21 @@ function ReviewAndPublishRevision<T>({
                     {uncoveredFootprintEnvs.length
                       ? `Approved, but no reviewer has approval rights in ${uncoveredFootprintEnvs.join(", ")}. This draft needs approval from someone who does.`
                       : `Approved, but no reviewer has approval rights across everything this draft changes.`}
+                  </Callout>
+                </Box>
+              )}
+
+              {requiresApproval && !requiredTeams.satisfied && (
+                <Box mb="3">
+                  <Callout status="warning" size="sm">
+                    {requiredTeams.unmet
+                      .map(
+                        (t) =>
+                          `Needs approval from ${t
+                            .map((x) => x.name)
+                            .join(" or ")}.`,
+                      )
+                      .join(" ")}
                   </Callout>
                 </Box>
               )}
