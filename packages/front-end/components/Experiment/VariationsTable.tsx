@@ -24,7 +24,7 @@ import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselM
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Metadata from "@/ui/Metadata";
 import VariationLabel from "@/ui/VariationLabel";
-import ForceSummary from "@/components/Features/ForceSummary";
+import ValueDisplay from "@/components/Features/ValueDisplay";
 
 export const MAX_VARIATION_WIDTH = 336;
 
@@ -392,27 +392,36 @@ export function VariationBox({
               </Flex>
             )}
           </Flex>
+          {/* Same Metadata label treatment as Split, and the same semibold
+              small link as Image, so the card footer reads as one row style
+              rather than three. */}
           {servedValueFeature ? (
-            <Box mt="3">
-              <Flex align="center" justify="between" gap="2" mb="1">
-                <Text size="sm" color="text-low">
-                  Serves
-                </Text>
-                {onEditServedValue ? (
-                  <Link onClick={onEditServedValue}>
-                    <Text size="sm" weight="semibold">
-                      Edit
-                    </Text>
-                  </Link>
-                ) : null}
-              </Flex>
-              <ForceSummary
-                value={servedValue ?? ""}
-                feature={servedValueFeature}
-                sparse={servedValueSparse}
-                maxHeight={60}
+            <Flex align="center" justify="between" gap="2" mt="1">
+              <Metadata
+                label="Serves"
+                size="sm"
+                value={
+                  // ValueDisplay, not ForceSummary: the latter prefixes its own
+                  // "SERVE" label, which would read as "Serves: SERVE ..." next
+                  // to the Metadata label.
+                  <ValueDisplay
+                    value={servedValue ?? ""}
+                    type={servedValueFeature.valueType}
+                    sparse={servedValueSparse}
+                    defaultValue={servedValueFeature.defaultValue}
+                    showCopyButton={false}
+                    fullStyle={{ maxHeight: 60, overflowY: "auto" }}
+                  />
+                }
               />
-            </Box>
+              {onEditServedValue ? (
+                <Link onClick={onEditServedValue}>
+                  <Text size="sm" weight="semibold">
+                    Edit
+                  </Text>
+                </Link>
+              ) : null}
+            </Flex>
           ) : null}
         </Box>
       </Flex>

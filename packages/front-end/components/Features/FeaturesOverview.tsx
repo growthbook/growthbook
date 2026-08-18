@@ -23,7 +23,11 @@ import {
   PiClockFill,
 } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";
-import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
+import {
+  filterEnvironmentsByFeature,
+  getReviewSetting,
+  isManagedFeature,
+} from "shared/util";
 import {
   isScheduledPublishPending,
   isScheduledPublishLockActive,
@@ -522,14 +526,24 @@ export default function FeaturesOverview({
 
   // Judged on the LIVE flag, like the toggle endpoint — `feature` is the draft
   // projection, so a draft staging a project move judged the wrong project.
-  const canEditDrafts = permissionsUtil.canEditFeatureDrafts(baseFeature);
+  // A flag an experiment manages accepts no direct writes — every mutating
+  // route refuses them server-side. Fold that into the two authority atoms the
+  // page's controls key off, so it can't render an affordance the server will
+  // reject. Deliberately NOT inside `permissionsClass`: the experiment-side
+  // components ask the same questions about the same flag and must keep
+  // working, and those methods take `Pick<FeatureInterface, "project">`, so a
+  // caller passing a bare `{project}` literal would silently skip the check.
+  const isManagedFlag = isManagedFeature(baseFeature);
+  const canEditDrafts =
+    !isManagedFlag && permissionsUtil.canEditFeatureDrafts(baseFeature);
   // An env change can be staged in a draft or published straight out. Offer the
   // control when either route is open; the modal narrows it to the ones that are.
   const canChangeEnvironments =
-    canEditDrafts ||
-    envs.some((envId) =>
-      permissionsUtil.canPublishFeature(baseFeature, [envId]),
-    );
+    !isManagedFlag &&
+    (canEditDrafts ||
+      envs.some((envId) =>
+        permissionsUtil.canPublishFeature(baseFeature, [envId]),
+      ));
 
   const featureCustomFields = filterCustomFieldsForSectionAndProject(
     allCustomFields,
@@ -637,6 +651,22 @@ export default function FeaturesOverview({
   return (
     <>
       <Box className="contents container-fluid pagecontents">
+        {isManagedFlag && (
+          <Callout status="info" mb="3">
+            This Feature Flag is managed by an{" "}
+            <Link
+              href={`/experiment/${
+                baseFeature.managedBy?.type === "experiment"
+                  ? baseFeature.managedBy.experimentId
+                  : ""
+              }#implementation`}
+            >
+              experiment
+            </Link>
+            . Its values, review and publishing are handled there, so it is read
+            only here. Eject it from the experiment to edit it directly.
+          </Callout>
+        )}
         {(() => {
           const bannerProps =
             isDraft || isPendingReview

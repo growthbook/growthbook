@@ -8,7 +8,11 @@ import { createPortal } from "react-dom";
 import clsx from "clsx";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
-import { filterEnvironmentsByFeature, isDefined } from "shared/util";
+import {
+  filterEnvironmentsByFeature,
+  isDefined,
+  isManagedFeature,
+} from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiEye, PiWarning } from "react-icons/pi";
 import { REVIEW_REQUESTED_STATUSES, HoldoutInterface } from "shared/validators";
@@ -207,9 +211,15 @@ export default function FeaturesHeader({
 
   // Editing an existing flag takes draft authority, not the create gate:
   // `canViewFeatureModal` answers "may this user create a feature".
-  const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
+  // A flag an experiment manages refuses every direct write server-side, so the
+  // header must not offer edit, publish, archive or delete for it. Editing goes
+  // through the experiment; ejecting there reopens all of this.
+  const isManagedFlag = isManagedFeature(feature);
+  const canEdit =
+    !isManagedFlag && permissionsUtil.canEditFeatureDrafts(feature);
   const enabledEnvs = getEnabledEnvironments(feature, environments);
-  const canPublish = permissionsUtil.canPublishFeature(feature, enabledEnvs);
+  const canPublish =
+    !isManagedFlag && permissionsUtil.canPublishFeature(feature, enabledEnvs);
   // Duplicating CREATES a flag, so it takes create authority — not authority over
   // the one being copied. The modal gates its own environment toggles.
   const canDuplicate = permissionsUtil.canCreateFeature(
@@ -222,18 +232,15 @@ export default function FeaturesHeader({
     baseFeature,
     filterEnvironmentsByFeature(allEnvironments, baseFeature),
   );
-  const canArchive = permissionsUtil.canDeleteFeature(
-    baseFeature,
-    liveArchiveEnvs,
-  );
-  const canDelete = permissionsUtil.canDeleteFeature(
-    baseFeature,
-    NO_ENVIRONMENT_BINDING,
-  );
-  const canUnarchive = permissionsUtil.canPublishFeature(
-    baseFeature,
-    liveArchiveEnvs,
-  );
+  const canArchive =
+    !isManagedFlag &&
+    permissionsUtil.canDeleteFeature(baseFeature, liveArchiveEnvs);
+  const canDelete =
+    !isManagedFlag &&
+    permissionsUtil.canDeleteFeature(baseFeature, NO_ENVIRONMENT_BINDING);
+  const canUnarchive =
+    !isManagedFlag &&
+    permissionsUtil.canPublishFeature(baseFeature, liveArchiveEnvs);
   const canToggleArchive =
     (isArchived ? canUnarchive : canArchive) ||
     canStageArchiveDraft({
