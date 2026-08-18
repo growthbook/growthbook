@@ -196,7 +196,6 @@ export function toApiHoldout(
     tags: experiment.tags,
     archived: experiment.archived,
     stage: getHoldoutStage(holdout, experiment),
-    experimentId: holdout.experimentId,
     trackingKey: experiment.trackingKey,
     skipAsDefaultHoldout: holdout.skipAsDefaultHoldout ?? false,
 

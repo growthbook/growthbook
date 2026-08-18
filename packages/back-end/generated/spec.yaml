@@ -65756,11 +65756,6 @@ components:
             - running
             - analysis-period
             - stopped
-        experimentId:
-          description: >-
-            ID of the companion experiment that stores this Holdout's analysis
-            settings and results.
-          type: string
         trackingKey:
           type: string
         skipAsDefaultHoldout:
@@ -65953,7 +65948,6 @@ components:
         - tags
         - archived
         - stage
-        - experimentId
         - trackingKey
         - skipAsDefaultHoldout
         - holdoutSize
