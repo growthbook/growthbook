@@ -498,44 +498,62 @@ export default function DashboardsPage() {
                                       </DropdownMenuItem>
 
                                       {singleEligibleProjectForDefault ? (
-                                        <DropdownMenuItem
-                                          disabled={isDefaultForSingleProject}
-                                          onClick={() =>
-                                            setDefaultDashboard(
-                                              singleEligibleProjectForDefault.id,
-                                              d.id,
-                                            )
+                                        <Tooltip
+                                          body={
+                                            isDefaultForSingleProject
+                                              ? `Remove this dashboard as the default. Members of the ${singleEligibleProjectForDefault.name} Project currently see it on their home page by default.`
+                                              : `Members of the ${singleEligibleProjectForDefault.name} Project will see this dashboard on their home page by default. They can still pick a different one for themselves.`
                                           }
                                         >
-                                          {isDefaultForSingleProject
-                                            ? `Default for ${singleEligibleProjectForDefault.name}`
-                                            : `Set as Default for ${singleEligibleProjectForDefault.name}`}
-                                        </DropdownMenuItem>
+                                          <DropdownMenuItem
+                                            onClick={() =>
+                                              setDefaultDashboard(
+                                                singleEligibleProjectForDefault.id,
+                                                isDefaultForSingleProject
+                                                  ? ""
+                                                  : d.id,
+                                              )
+                                            }
+                                          >
+                                            {isDefaultForSingleProject
+                                              ? `Remove as Default for ${singleEligibleProjectForDefault.name}`
+                                              : `Set as Default for ${singleEligibleProjectForDefault.name}`}
+                                          </DropdownMenuItem>
+                                        </Tooltip>
                                       ) : eligibleProjectsForDefault.length >
                                         1 ? (
                                         <DropdownSubMenu trigger="Set as Default Dashboard">
                                           {eligibleProjectsForDefault.map(
-                                            (p) => (
-                                              <DropdownMenuItem
-                                                key={p.id}
-                                                disabled={
-                                                  p.settings
-                                                    ?.defaultDashboardId ===
-                                                  d.id
-                                                }
-                                                onClick={() =>
-                                                  setDefaultDashboard(
-                                                    p.id,
-                                                    d.id,
-                                                  )
-                                                }
-                                              >
-                                                {p.settings
-                                                  ?.defaultDashboardId === d.id
-                                                  ? `${p.name} (current default)`
-                                                  : p.name}
-                                              </DropdownMenuItem>
-                                            ),
+                                            (p) => {
+                                              const isCurrentDefault =
+                                                p.settings
+                                                  ?.defaultDashboardId === d.id;
+                                              return (
+                                                <Tooltip
+                                                  key={p.id}
+                                                  body={
+                                                    isCurrentDefault
+                                                      ? `Remove this dashboard as the default. Members of the ${p.name} Project currently see it on their home page by default.`
+                                                      : `Members of the ${p.name} Project will see this dashboard on their home page by default. They can still pick a different one for themselves.`
+                                                  }
+                                                >
+                                                  <DropdownMenuItem
+                                                    onClick={() =>
+                                                      setDefaultDashboard(
+                                                        p.id,
+                                                        isCurrentDefault
+                                                          ? ""
+                                                          : d.id,
+                                                      )
+                                                    }
+                                                  >
+                                                    {isCurrentDefault
+                                                      ? `Remove as Default (${p.name})`
+                                                      : p.name}
+                                                  </DropdownMenuItem>
+                                                </Tooltip>
+                                              );
+                                            },
                                           )}
                                         </DropdownSubMenu>
                                       ) : null}
