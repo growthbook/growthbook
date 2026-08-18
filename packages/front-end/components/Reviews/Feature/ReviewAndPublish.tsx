@@ -853,28 +853,24 @@ export default function ReviewAndPublish({
       affectedRevisionEnvs,
     );
 
-  // Only the draft / review-request owner can edit the arming; others see a
-  // read-only summary when armed (matching main's auto-publish-on-approval rule).
-  const isArmingOwner =
-    holdsSchedulePublish && (revision?.status === "draft" || isReviewRequester);
   const hasScheduledRevisions = hasCommercialFeature("scheduled-revisions");
-  // "when approved" only makes sense before approval — once approved it would
-  // just publish now (which Publish already does), so approved revisions only
-  // offer "on a date".
-  // The draft term matches the STAGING path (arming at request-review rides
-  // `postFeatureRequestReview`, which takes draft authority); the toggle
-  // endpoint itself gates on publish authority alone. Deliberately stricter
-  // than the endpoint on the arm side — arming is a content decision.
+  // Both modes answer one question — when does this publish — so they share one
+  // gate: the publish authority the schedule endpoints take. Arming on a DRAFT
+  // rides `postFeatureRequestReview`, so that path needs draft authority too.
+  const canArmSchedule =
+    holdsSchedulePublish &&
+    (revision?.status !== "draft" ||
+      permissionsUtil.canEditFeatureDrafts(feature));
+  // "when approved" only makes sense while an approval is still needed to
+  // publish: before approval, or approved by someone whose rights don't cover
+  // what the draft changes. Once it can publish, Publish already does that, so
+  // only "on a date" is offered.
   const canArmWhenApproved =
     autopublishOnApproval &&
-    isArmingOwner &&
-    permissionsUtil.canEditFeatureDrafts(feature) &&
-    revision?.status !== "approved";
-  // Arming/editing a dated schedule needs only publish authority — not draft /
-  // review-request ownership — matching the backend `canScheduleFeaturePublish`
-  // gate, so a reviewer with publish permission can manage the schedule from the
-  // UI. The premium (`scheduled-revisions`) gate is applied at render.
-  const canArmOnDate = holdsSchedulePublish;
+    canArmSchedule &&
+    (revision?.status !== "approved" || !approvalsCoverFootprint);
+  // The premium (`scheduled-revisions`) gate is applied at render.
+  const canArmOnDate = canArmSchedule;
   const effectivePublishMode: "approve" | "date" = canArmWhenApproved
     ? publishMode
     : "date";

@@ -874,12 +874,16 @@ function ReviewAndPublishRevision<T>({
   // the revision is publishable or an admin can bypass — mirrors the feature's
   // showPublishSection, so a disabled Publish button isn't shown prematurely on a
   // not-yet-approved draft.
+  // An approved revision whose approvals don't cover what it changes still needs
+  // the bypass affordance — it is the state that most needs it.
   const adminBypassAvailable =
     canBypassApproval &&
     requiresApproval &&
     mergeSuccess &&
     hasChanges &&
-    (revision.status !== "approved" || adminPublish);
+    (revision.status !== "approved" ||
+      !approvalsCoverFootprint ||
+      adminPublish);
 
   // Whether the publish section below has anything to show. Each term mirrors one
   // child's own condition; without this the divider rendered around an empty box.
@@ -1536,7 +1540,7 @@ function ReviewAndPublishRevision<T>({
                     canBypassApproval={canBypassApproval}
                     requiresApproval={requiresApproval}
                     autopublishOnApproval={autopublishOnApproval}
-                    isReviewRequester={isAuthor}
+                    approvalsCoverChange={approvalsCoverFootprint}
                     mutate={mutate}
                   />
                 )}
