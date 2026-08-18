@@ -136,10 +136,6 @@ import {
 import RevertModal from "@/components/Reviews/Feature/RevertModal";
 import { getReviewAndPublishState } from "@/components/Reviews/reviewAndPublishState";
 import {
-  getDefaultSelectedExperimentIds,
-  reconcileSelectedExperimentIds,
-} from "@/components/Reviews/selectedExperiments";
-import {
   PersonRow,
   ReviewerVerdictIcon,
 } from "@/components/Reviews/ReviewPeople";
@@ -1025,19 +1021,15 @@ export default function ReviewAndPublish({
       experimentsMap,
     });
 
-  const [selectedExperiments, setSelectedExperiments] = useState(() =>
-    getDefaultSelectedExperimentIds(),
+  const [selectedExperiments, setSelectedExperiments] = useState<Set<string>>(
+    new Set(),
   );
-  // `experiments` is derived from the async `experimentsList` prop.
-  // Drop vanished ids and keep explicit user selections; never auto-check.
   useEffect(() => {
     const currentIds = new Set(experiments.map((e) => e.id));
-    setSelectedExperiments((prev) =>
-      reconcileSelectedExperimentIds({
-        prevSelected: prev,
-        currentIds,
-      }),
-    );
+    setSelectedExperiments((prev) => {
+      const next = new Set([...prev].filter((id) => currentIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
   }, [experiments]);
 
   const selectedImmediateCount = immediateStartExperiments.filter((e) =>
