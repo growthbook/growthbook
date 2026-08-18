@@ -4,7 +4,6 @@ import { getRoleById } from "shared/permissions";
 import {
   generateEncryptionKey,
   generateSigningKey,
-  isUserAccessToken,
   migrateApiKey,
 } from "back-end/src/util/api-key.util";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
@@ -116,8 +115,7 @@ export class ApiKeyModel extends BaseClass {
       // and users must still be able to disable or delete the ones they have.
       if (
         !previousDoc &&
-        this.context.org.settings?.disablePersonalAccessTokens &&
-        isUserAccessToken(doc)
+        this.context.org.settings?.disablePersonalAccessTokens
       ) {
         this.context.throwBadRequestError(
           "Personal access tokens are disabled for this organization.",

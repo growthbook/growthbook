@@ -41,7 +41,7 @@ const PersonalAccessTokenSettings: FC = () => {
       </Heading>
       <Checkbox
         label="Disable personal access tokens"
-        description="Members can't create personal access tokens, and existing tokens stop working immediately. Also blocks OAuth access tokens used by MCP and agent integrations. The Visual Editor is unaffected."
+        description="Members can't create personal access tokens, and existing tokens stop working immediately. This covers every token that acts as a user — also OAuth access tokens used by MCP and agent integrations, and the key the Visual Editor needs, so the Visual Editor stops working too."
         value={tokensDisabled}
         disabled={!canManageOrgSettings || hasFileConfig()}
         disabledMessage={
@@ -65,7 +65,7 @@ const PersonalAccessTokenSettings: FC = () => {
       {confirming && (
         <ConfirmDialog
           title="Disable personal access tokens?"
-          content="Every existing personal access token and OAuth access token in this organization will stop working immediately, and members won't be able to create new ones. Turning this setting back off restores them."
+          content="Every token that acts as a user stops working immediately — personal access tokens, OAuth access tokens, and the Visual Editor. Members won't be able to create new ones. Turning this setting back off restores them."
           yesText="Disable tokens"
           onConfirm={async () => {
             await save(true);

@@ -17,7 +17,6 @@ import {
 import { getCustomLogProps } from "back-end/src/util/logger";
 import {
   isApiKeyForUserInOrganization,
-  isUserAccessToken,
   dangerousLookupOrganizationByApiKey,
 } from "back-end/src/util/api-key.util";
 import {
@@ -268,12 +267,9 @@ function authenticateWithApiKey(
       }
       req.organization = org;
 
-      // Turning the org setting on revokes every existing PAT (and OAuth
-      // access token) immediately, without touching the stored docs.
-      if (
-        org.settings?.disablePersonalAccessTokens &&
-        isUserAccessToken(apiKeyDoc)
-      ) {
+      // Turning the org setting on revokes every user-attributed token
+      // immediately, without touching the stored docs.
+      if (userId && org.settings?.disablePersonalAccessTokens) {
         throw new Error(
           "Personal access tokens are disabled for this organization",
         );

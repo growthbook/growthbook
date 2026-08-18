@@ -2,7 +2,6 @@ import { ApiKeyInterface } from "shared/types/apikey";
 import { OrganizationInterface } from "shared/types/organization";
 import {
   isApiKeyForUserInOrganization,
-  isUserAccessToken,
   migrateApiKey,
   roleForApiKey,
 } from "back-end/src/util/api-key.util";
@@ -135,53 +134,18 @@ describe("api key utils", () => {
     });
   });
 
-  describe("isUserAccessToken", () => {
-    it("should return true for a personal access token", () => {
-      expect(isUserAccessToken({ userId: "user-abc123", role: "user" })).toBe(
-        true,
-      );
-    });
-
-    it("should return true for a PAT whose role was stripped on read", () => {
-      expect(
-        isUserAccessToken({ userId: "user-abc123", role: undefined }),
-      ).toBe(true);
-    });
-
-    it("should return false for an app-issued Visual Editor key", () => {
-      expect(
-        isUserAccessToken({ userId: "user-abc123", role: "visualEditor" }),
-      ).toBe(false);
-    });
-
-    it("should return false for an org API key", () => {
-      expect(isUserAccessToken({ userId: undefined, role: "admin" })).toBe(
-        false,
-      );
-    });
-  });
-
   describe("migrateApiKey", () => {
-    it("should strip the role from a personal access token", () => {
-      const migrated = migrateApiKey({
-        userId: "user-abc123",
-        role: "user",
-        secret: true,
-        dateCreated: new Date(),
-      });
+    it("should strip the role from every user-attributed key", () => {
+      for (const role of ["user", "visualEditor"]) {
+        const migrated = migrateApiKey({
+          userId: "user-abc123",
+          role,
+          secret: true,
+          dateCreated: new Date(),
+        });
 
-      expect(migrated.role).toBeUndefined();
-    });
-
-    it("should keep the role on an app-issued Visual Editor key", () => {
-      const migrated = migrateApiKey({
-        userId: "user-abc123",
-        role: "visualEditor",
-        secret: true,
-        dateCreated: new Date(),
-      });
-
-      expect(migrated.role).toEqual("visualEditor");
+        expect(migrated.role).toBeUndefined();
+      }
     });
 
     it("should still default a roleless org secret key to admin", () => {
