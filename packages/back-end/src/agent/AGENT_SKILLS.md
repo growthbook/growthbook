@@ -44,16 +44,13 @@ pnpm --filter back-end bundle:skills
 ## Runtime adaptation
 
 Canonical skills describe REST calls through `gb-call`. At bundle time the
-adapter:
+adapter only rewrites `references/<workflow>.md` links to
+`loadSkill('<domain>/references/<workflow>')`.
 
-- strips `allowed-tools` frontmatter;
-- rewrites `references/<workflow>.md` links to
-  `loadSkill('<domain>/references/<workflow>')`;
-- adds an in-app note mapping REST examples to `callApi`;
-- removes `gb-setup` handoffs;
-- removes code-editing steps from `flag-cleanup`;
-- changes experiment and analytics polling to a single status check;
-- documents the in-app `owner` requirement for flag creation.
+All other canonical content is preserved so runtime testing can reveal which
+compatibility adjustments are actually necessary. The system prompt tells the
+assistant to translate `gb-call` examples to `callApi` and ignore shell,
+credential, host, and setup instructions.
 
 Page context, active-datasource hints, mutation gating, chart rendering, and
 other host behavior belong in `general-agent.ts`, not canonical skill content.

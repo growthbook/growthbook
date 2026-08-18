@@ -73,7 +73,7 @@ test("uses an explicit canonical allowlist", () => {
   assert.equal(CANONICAL_SKILLS.includes("gb-setup"), false);
 });
 
-test("adapts canonical routing and runtime instructions", () => {
+test("preserves canonical content while adapting routing", () => {
   const content = `---
 name: analytics
 description: Chart data. For first-time API key configuration, use gb-setup.
@@ -88,13 +88,13 @@ Read \`references/analytics-explore.md\`.
 `;
   const adapted = adaptCanonicalSkill(content, "analytics");
 
-  assert.match(adapted, /Use `callApi`/);
   assert.match(
     adapted,
     /loadSkill\('analytics\/references\/analytics-explore'\)/,
   );
-  assert.doesNotMatch(adapted, /allowed-tools:/);
-  assert.doesNotMatch(adapted, /gb-setup/);
+  assert.match(adapted, /allowed-tools: Bash\(gb-call \*\)/);
+  assert.match(adapted, /gb-setup/);
+  assert.doesNotMatch(adapted, /In-app assistant note/);
 });
 
 test("qualifies identical reference names by domain", () => {
@@ -124,7 +124,7 @@ test("rewrites inline code, Markdown links, and plain workflow paths", () => {
   assert.doesNotMatch(adapted, /references\/[^'"]+\.md/);
 });
 
-test("removes analytics polling instructions", () => {
+test("preserves workflow-specific runtime instructions", () => {
   const content = `---
 name: analytics-explore
 description: Run a chart
@@ -134,8 +134,7 @@ description: Run a chart
 `;
   const adapted = adaptCanonicalSkill(content, "analytics-explore");
 
-  assert.match(adapted, /never sleep or re-POST just to poll/);
-  assert.doesNotMatch(adapted, /sleep 10/);
+  assert.match(adapted, /wait \(`sleep 10`\), then re-POST/);
 });
 
 test("rejects local skills that shadow canonical skills", () => {

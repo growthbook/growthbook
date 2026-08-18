@@ -27,33 +27,6 @@ const localSkillsDir = join(packageRoot, "src", "agent", "skills-local");
 const SKILLS_REPOSITORY = "https://github.com/growthbook/skills";
 export const CANONICAL_SKILLS = ["feature-flags", "experiments", "analytics"];
 
-const IN_APP_NOTE = `> **In-app assistant note:** Use \`callApi\` for every REST request shown below.
-> Translate \`gb-call METHOD PATH [body]\` to \`{ method, path, query?, body? }\`; pass
-> \`body\` as a JSON object or array. Never run shell commands. This assistant uses the
-> logged-in GrowthBook session, so ignore API-key, host, setup, and credential instructions.
-> Non-GET calls are gated automatically: issue \`callApi\` directly and do not ask for
-> mutation confirmation. Keep explicit product-safety pauses. Use relative app links.
-
-`;
-
-function stripAllowedTools(content) {
-  return content.replace(/^allowed-tools:.*(?:\r?\n|$)/gm, "");
-}
-
-function stripExcludedSkillHandoffs(content) {
-  return content
-    .replace(/ For first-time API key configuration, use gb-setup\./g, "")
-    .replace(
-      /^All API calls go through the bundled helper\..*(?:\r?\n|$)/gm,
-      "",
-    )
-    .replace(
-      /, or hand off to the \*\*gb-setup\*\* skill to switch tokens/g,
-      "",
-    )
-    .replace(/^- \*\*gb-setup\*\*.*(?:\r?\n|$)/gm, "");
-}
-
 function rewriteReferencePaths(content, entrypoint) {
   const loadSkill = (name) =>
     `\`loadSkill('${entrypoint}/references/${name}')\``;
@@ -77,84 +50,8 @@ function rewriteReferencePaths(content, entrypoint) {
   return adapted;
 }
 
-function insertAfterFrontmatter(content, note) {
-  const match = content.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
-  if (!match) return note + content;
-  return (
-    content.slice(0, match[0].length) +
-    "\n" +
-    note +
-    content.slice(match[0].length)
-  );
-}
-
-function stripHeadingRange(content, startHeading, endHeading) {
-  const start = content.indexOf(startHeading);
-  if (start === -1) return content;
-  const end = content.indexOf(endHeading, start + startHeading.length);
-  if (end === -1) {
-    throw new Error(
-      `Found "${startHeading}" without closing heading "${endHeading}"`,
-    );
-  }
-  return content.slice(0, start) + content.slice(end);
-}
-
 export function adaptCanonicalSkill(content, name, entrypoint = name) {
-  let adapted = stripAllowedTools(content);
-  adapted = stripExcludedSkillHandoffs(adapted);
-  adapted = rewriteReferencePaths(adapted, entrypoint);
-
-  let note = IN_APP_NOTE;
-  if (name === "flag-create") {
-    note +=
-      "> **Runtime override:** The in-app v2 create contract requires `owner`; use the\n" +
-      '> requested email/user ID, or send `"owner": ""` when none was specified.\n\n';
-  }
-  if (name === "flag-cleanup") {
-    adapted = stripHeadingRange(
-      adapted,
-      "### 3. Find call sites",
-      "### 5. Archive the flag",
-    );
-    note +=
-      "> **Runtime override:** Code cleanup is outside this assistant's tool access. Report\n" +
-      "> Code References when available, but do not search or edit a working tree.\n\n";
-  }
-  if (name === "experiment-analyze") {
-    adapted = adapted.replace(
-      "3. **Trigger a fresh snapshot, poll, then re-fetch results.**",
-      "3. **Trigger a fresh snapshot, check once, then re-fetch results.**",
-    );
-    adapted = stripHeadingRange(
-      adapted,
-      "   **3b. Poll for completion.**",
-      "   **3c. Re-fetch results**",
-    );
-    adapted = adapted.replace(
-      "   **3c. Re-fetch results**",
-      "   **3b. Check once, then re-fetch when ready.** Call `GET /api/v1/snapshots/<snapshot-id>` once. If it is still running, tell the user to ask again later and stop. When it succeeds, re-fetch results",
-    );
-    note +=
-      "> **Runtime override:** Never poll or sleep. After creating a snapshot, check its\n" +
-      "> status once; if still running, tell the user to ask again later.\n\n";
-  }
-  if (name === "analytics-explore") {
-    adapted = adapted.replace(
-      /^- `"running"` →.*$/m,
-      '- `"running"` → tell the user the query is still running, provide `explorationUrl`, and stop. The app polls that URL; never sleep or re-POST just to poll.',
-    );
-    note +=
-      "> **Runtime override:** Never poll or sleep. If an exploration is still running,\n" +
-      "> provide its URL and let the app continue polling.\n\n";
-  }
-  if (adapted.includes("gb-setup")) {
-    throw new Error(
-      `Canonical skill "${name}" still references excluded skill "gb-setup"; add an explicit runtime adaptation.`,
-    );
-  }
-
-  return insertAfterFrontmatter(adapted, note);
+  return rewriteReferencePaths(content, entrypoint);
 }
 
 function isSkillsCheckout(dir) {
