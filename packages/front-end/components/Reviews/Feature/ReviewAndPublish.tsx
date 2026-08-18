@@ -18,6 +18,7 @@ import {
   autoMerge,
   fillRevisionFromFeature,
   getReviewAuthorityFootprint,
+  governingReviewProjectsForFeature,
   getRevisionReviewRequirement,
   liveRevisionFromFeature,
   type ReviewAuthorityFootprint,
@@ -691,6 +692,11 @@ export default function ReviewAndPublish({
       ],
       allEnvironments: envIds,
       settings,
+      governingProjects: governingReviewProjectsForFeature({
+        feature,
+        revision,
+        settings,
+      }),
     });
   }, [revision, baseRevision, liveRevision, feature, envIds, settings]);
 

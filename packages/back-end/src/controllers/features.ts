@@ -29,6 +29,7 @@ import {
   evaluatePublishGovernance,
   featureMetadataEnvelope,
   getReviewAuthorityFootprint,
+  governingReviewProjectsForFeature,
   resetReviewOnChange,
   getAffectedEnvsForExperiment,
   getDependentExperiments,
@@ -2193,6 +2194,11 @@ export async function postFeaturePublish(
       bases: [filledLive, base],
       allEnvironments: environmentIds,
       settings: org.settings,
+      governingProjects: governingReviewProjectsForFeature({
+        feature,
+        revision: effectiveRevision,
+        settings: org.settings,
+      }),
       liveRampScheduleEnvs,
     }),
     approvers: (revision.reviews ?? [])

@@ -109,6 +109,7 @@ import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
   getReviewAuthorityFootprint,
+  governingReviewProjectsForFeature,
   type ReviewAuthorityFootprint,
 } from "shared/util";
 import { ApiReqContext } from "back-end/types/api";
@@ -3742,6 +3743,11 @@ export async function getFeatureReviewFootprint({
     bases: [live, base],
     allEnvironments: getEnvironmentIdsFromOrg(context.org),
     settings: context.org.settings,
+    governingProjects: governingReviewProjectsForFeature({
+      feature,
+      revision,
+      settings: context.org.settings,
+    }),
   });
 }
 

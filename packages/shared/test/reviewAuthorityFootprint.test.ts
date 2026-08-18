@@ -54,12 +54,14 @@ const footprint = (
   revision: RevisionFields,
   bases: RevisionFields[],
   settings?: OrganizationSettings,
+  governingProjects?: string[],
 ) =>
   getReviewAuthorityFootprint({
     revision,
     bases,
     allEnvironments: ALL_ENVS,
     settings,
+    governingProjects,
   });
 
 describe("review authority footprint", () => {
@@ -132,6 +134,39 @@ describe("review authority footprint", () => {
     expect(footprint(draft, [live], metadataReviewOff)).toEqual({
       scope: "environments",
       environments: [],
+    });
+  });
+
+  // Only the governing project's rule decides. A rule scoped to some other
+  // project must not drag an unrelated feature up to unbound authority.
+  it("ignores a metadata gate scoped to a project that does not govern", () => {
+    const live = base();
+    const draft = base({ metadata: { description: "new" } });
+    const settings: OrganizationSettings = {
+      requireReviews: [
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: false,
+          environments: [],
+          projects: [],
+          featureRequireMetadataReview: false,
+        },
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: false,
+          environments: [],
+          projects: ["prj_other"],
+          featureRequireMetadataReview: true,
+        },
+      ],
+    };
+
+    expect(footprint(draft, [live], settings, ["prj_mine"])).toEqual({
+      scope: "environments",
+      environments: [],
+    });
+    expect(footprint(draft, [live], settings, ["prj_other"])).toEqual({
+      scope: "unbound",
     });
   });
 

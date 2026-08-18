@@ -3,7 +3,7 @@ import React, { FC, useState } from "react";
 import { date, datetime } from "shared/dates";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Flex, IconButton } from "@radix-ui/themes";
-import { reviewRulesRequiringTeam } from "shared/util";
+import { reviewScopesRequiringTeam } from "shared/util";
 import { useAuth } from "@/services/auth";
 import TeamModal from "@/components/Teams/TeamModal";
 import { AddMembersModal } from "@/components/Teams/AddMembersModal";
@@ -49,7 +49,7 @@ const TeamPage: FC = () => {
 
   // Which review rules demand this team's sign-off, described by their scope, so
   // the team page answers "what does this team gate?".
-  const approvalRules = reviewRulesRequiringTeam(tid, settings);
+  const approvalScopes = reviewScopesRequiringTeam(tid, settings);
 
   const team = teams?.find((team) => team.id === tid);
   const isEditable = !team?.managedByIdp;
@@ -176,22 +176,31 @@ const TeamPage: FC = () => {
           )}
         </Flex>
 
-        {approvalRules.length > 0 && (
+        {approvalScopes.length > 0 && (
           <Flex direction="column" gap="1" mb="5">
             <Text weight="semibold">Required approver for:</Text>
-            {approvalRules.map((rule, i) => (
-              <Flex key={i} align="center" gap="2" wrap="wrap">
-                {rule.projects.length ? (
-                  rule.projects.map((id) => (
-                    <Link key={id} href={`/project/${id}`}>
-                      {getProjectById(id)?.name || id}
-                    </Link>
-                  ))
+            {approvalScopes.map((scope) => (
+              <Flex
+                key={scope.project ?? "all"}
+                align="center"
+                gap="2"
+                wrap="wrap"
+              >
+                {scope.project ? (
+                  <Link href={`/project/${scope.project}`}>
+                    {getProjectById(scope.project)?.name || scope.project}
+                  </Link>
                 ) : (
-                  <Text>All projects</Text>
+                  <Text>
+                    {approvalScopes.length > 1
+                      ? "All other projects"
+                      : "All projects"}
+                  </Text>
                 )}
-                {rule.environments.length > 0 && (
-                  <Text color="text-low">· {rule.environments.join(", ")}</Text>
+                {scope.environments.length > 0 && (
+                  <Text color="text-low">
+                    · {scope.environments.join(", ")}
+                  </Text>
                 )}
               </Flex>
             ))}

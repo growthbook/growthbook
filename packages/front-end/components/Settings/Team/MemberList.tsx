@@ -213,13 +213,13 @@ const MemberList: FC<{
               </SortableTableColumnHeader>
               <SortableTableColumnHeader
                 field="dateCreated"
-                style={{ width: "10%" }}
+                style={{ width: MEMBER_COLUMN_WIDTHS.date }}
               >
                 Date Joined
               </SortableTableColumnHeader>
               <SortableTableColumnHeader
                 field="lastLoginDate"
-                style={{ width: "10%" }}
+                style={{ width: MEMBER_COLUMN_WIDTHS.date }}
               >
                 Last Login
               </SortableTableColumnHeader>

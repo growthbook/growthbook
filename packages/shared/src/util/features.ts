@@ -2880,16 +2880,33 @@ export function constantRequiresReview(
   return false;
 }
 
-// What a team gates, for its own page.
-export function reviewRulesRequiringTeam(
+export type ReviewScope = { project: string | null; environments: string[] };
+
+// What a team gates, for its own page. Resolved, not raw: a project override
+// inherits the base rule's teams, and can also replace them.
+export function reviewScopesRequiringTeam(
   teamId: string,
   settings?: OrganizationSettings,
-): RequireReview[] {
+): ReviewScope[] {
   const requireReviews = settings?.requireReviews;
   if (!Array.isArray(requireReviews)) return [];
-  return requireReviews.filter(
-    (r) => r.requireReviewOn && r.requiredApproverTeams?.includes(teamId),
-  );
+
+  const demandingRule = (entity: ReviewRuleEntity) => {
+    const rule = getReviewSetting(requireReviews, entity);
+    return rule?.requireReviewOn && rule.requiredApproverTeams?.includes(teamId)
+      ? rule
+      : undefined;
+  };
+
+  const scopes: ReviewScope[] = [];
+  const base = demandingRule({});
+  if (base) scopes.push({ project: null, environments: base.environments });
+  const overridden = [...new Set(requireReviews.flatMap((r) => r.projects))];
+  for (const project of overridden) {
+    const rule = demandingRule({ project });
+    if (rule) scopes.push({ project, environments: rule.environments });
+  }
+  return scopes;
 }
 
 // Config form — carries the flavor scope.
@@ -3498,6 +3515,39 @@ export type ReviewRequirement = {
   rules: RequireReview[];
 };
 
+// Primary + strict-mode targeting over the current+staged union, so adding and
+// removing a project are both governed. All-projects uses the rule-named ones.
+export function governingReviewProjectsForFeature({
+  feature,
+  revision,
+  settings,
+}: {
+  feature: Pick<
+    FeatureInterface,
+    "project" | "targetingAllProjects" | "targetingProjects"
+  >;
+  revision: Pick<FeatureRevisionInterface, "metadata">;
+  settings?: OrganizationSettings;
+}): string[] {
+  const requireReviews = Array.isArray(settings?.requireReviews)
+    ? settings.requireReviews
+    : [];
+  const usesAllProjects =
+    !!feature.targetingAllProjects || !!revision.metadata?.targetingAllProjects;
+  const stagedTargeting =
+    revision.metadata?.targetingProjects ?? feature.targetingProjects ?? [];
+  const targetingUnion = usesAllProjects
+    ? candidateReviewProjects(requireReviews)
+    : Array.from(
+        new Set([...(feature.targetingProjects ?? []), ...stagedTargeting]),
+      );
+  return getGoverningReviewProjects(
+    feature.project,
+    targetingUnion,
+    settings?.targetingReviewMode,
+  );
+}
+
 export function getRevisionReviewRequirement({
   feature,
   baseRevision,
@@ -3522,23 +3572,11 @@ export function getRevisionReviewRequirement({
     return requireReviews ? { required: true, rules: [] } : none;
   }
 
-  // Govern by primary + strict-mode targeting over the current+staged union (so
-  // adding and removing a project are both governed). All-projects (live or
-  // staged) uses the requireReviews-named projects instead of an explicit list.
-  const usesAllProjects =
-    !!feature.targetingAllProjects || !!revision.metadata?.targetingAllProjects;
-  const stagedTargeting =
-    revision.metadata?.targetingProjects ?? feature.targetingProjects ?? [];
-  const targetingUnion = usesAllProjects
-    ? candidateReviewProjects(requireReviews)
-    : Array.from(
-        new Set([...(feature.targetingProjects ?? []), ...stagedTargeting]),
-      );
-  const reviewSettings = getGoverningReviewProjects(
-    feature.project,
-    targetingUnion,
-    settings?.targetingReviewMode,
-  )
+  const reviewSettings = governingReviewProjectsForFeature({
+    feature,
+    revision,
+    settings,
+  })
     .map((project) => getReviewSetting(requireReviews, { project }))
     .filter((rs): rs is RequireReview => !!rs?.requireReviewOn);
   if (!reviewSettings.length) return none;
@@ -4381,13 +4419,21 @@ export type ReviewAuthorityFootprint =
   // Unbound metadata: an empty environment list would pass vacuously.
   | { scope: "unbound" };
 
-function requiresMetadataReview(settings?: OrganizationSettings): boolean {
+// Per governing project, not across every rule: an unrelated project's rule must
+// not make a metadata change demand authority no environment limit restricts.
+function requiresMetadataReview(
+  settings?: OrganizationSettings,
+  governingProjects?: string[],
+): boolean {
   const requireReviews = settings?.requireReviews;
   if (!Array.isArray(requireReviews)) return !!requireReviews;
-  return requireReviews.some(
-    (rule) =>
-      rule.requireReviewOn && rule.featureRequireMetadataReview !== false,
-  );
+  const projects = governingProjects?.length ? governingProjects : [undefined];
+  return projects.some((project) => {
+    const rule = getReviewSetting(requireReviews, { project });
+    return (
+      !!rule?.requireReviewOn && rule.featureRequireMetadataReview !== false
+    );
+  });
 }
 
 // `bases` unions live and the draft's base, which can disagree — so drift can
@@ -4397,12 +4443,14 @@ export function getReviewAuthorityFootprint({
   bases,
   allEnvironments,
   settings,
+  governingProjects,
   liveRampScheduleEnvs,
 }: {
   revision: RevisionFields;
   bases: RevisionFields[];
   allEnvironments: string[];
   settings?: OrganizationSettings;
+  governingProjects?: string[];
   liveRampScheduleEnvs?: Map<string, string[] | "all">;
 }): ReviewAuthorityFootprint {
   const environments = new Set<string>();
@@ -4428,7 +4476,10 @@ export function getReviewAuthorityFootprint({
     metadataOnlyGlobal = true;
   }
 
-  if (metadataOnlyGlobal && requiresMetadataReview(settings)) {
+  if (
+    metadataOnlyGlobal &&
+    requiresMetadataReview(settings, governingProjects)
+  ) {
     return { scope: "unbound" };
   }
 

@@ -10,6 +10,7 @@ import {
   liveRevisionFromFeature,
   MergeResultChanges,
   getReviewAuthorityFootprint,
+  governingReviewProjectsForFeature,
 } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
 import {
@@ -180,6 +181,11 @@ export async function planFeatureRevisionMerge({
     bases: [filledLive, base],
     allEnvironments: environmentIds,
     settings: context.org.settings,
+    governingProjects: governingReviewProjectsForFeature({
+      feature,
+      revision: effectiveRevision,
+      settings: context.org.settings,
+    }),
     liveRampScheduleEnvs,
   });
   const { hasCoveringApproval, uncoveredApprovers } = assessApprovalCoverage({

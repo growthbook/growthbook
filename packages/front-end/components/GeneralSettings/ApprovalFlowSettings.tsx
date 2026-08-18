@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useFormContext } from "react-hook-form";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
@@ -89,6 +89,16 @@ export default function ApprovalFlowSettings() {
     });
   }, [requireReviewsWatched]);
 
+  // Project overrides are created from the project page, so more than one rule
+  // is now ordinary — each block says what it governs.
+  const ruleScope = (i: number) => {
+    const ids = form.watch(`requireReviews.${i}.projects`) || [];
+    if (!ids.length) return "All projects";
+    return ids
+      .map((id) => projects.find((p) => p.id === id)?.name || id)
+      .join(", ");
+  };
+
   // Org-wide targeting review governance. The UI edits the all-projects default
   // rule; any project-specific override rules (API-only for now) are preserved.
   const targetingReviewRules = form.watch("targetingReviewMode") || [];
@@ -137,6 +147,10 @@ export default function ApprovalFlowSettings() {
               <>
                 {featureRequireReviews.map((_, i) => (
                   <Box key={`approval-flow-${i}`}>
+                    {i > 0 && <Separator size="4" my="4" />}
+                    <Text as="p" size="sm" weight="semibold" mb="2">
+                      {ruleScope(i)}
+                    </Text>
                     <Checkbox
                       id={`toggle-require-reviews-${i}`}
                       label="Require approval to publish changes"
