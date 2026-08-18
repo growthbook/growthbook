@@ -136,6 +136,10 @@ import {
 import RevertModal from "@/components/Reviews/Feature/RevertModal";
 import { getReviewAndPublishState } from "@/components/Reviews/reviewAndPublishState";
 import {
+  getDefaultSelectedExperimentIds,
+  reconcileSelectedExperimentIds,
+} from "@/components/Reviews/selectedExperiments";
+import {
   PersonRow,
   ReviewerVerdictIcon,
 } from "@/components/Reviews/ReviewPeople";
@@ -1021,29 +1025,30 @@ export default function ReviewAndPublish({
       experimentsMap,
     });
 
-  const [selectedExperiments, setSelectedExperiments] = useState(
-    new Set(experiments.map((e) => e.id)),
+  const [selectedExperiments, setSelectedExperiments] = useState(() =>
+    getDefaultSelectedExperimentIds(scheduledExperiments.map((e) => e.id)),
   );
   // `experiments` is derived from the async `experimentsList` prop, so the
   // useState initializer can run before it arrives. Reconcile: auto-select
-  // newly-appearing experiments and drop ones that vanished, while preserving
-  // explicit user deselections of already-known ids.
+  // newly-appearing scheduled experiments, leave immediate-start unchecked,
+  // and drop ones that vanished while preserving explicit user selections.
   const knownExperimentIdsRef = useRef<Set<string>>(
     new Set(experiments.map((e) => e.id)),
   );
   useEffect(() => {
     const currentIds = new Set(experiments.map((e) => e.id));
+    const scheduledIds = new Set(scheduledExperiments.map((e) => e.id));
     const known = knownExperimentIdsRef.current;
-    const newlyAdded = [...currentIds].filter((id) => !known.has(id));
     knownExperimentIdsRef.current = currentIds;
-    setSelectedExperiments((prev) => {
-      const next = new Set([...prev].filter((id) => currentIds.has(id)));
-      newlyAdded.forEach((id) => next.add(id));
-      return next.size === prev.size && [...next].every((id) => prev.has(id))
-        ? prev
-        : next;
-    });
-  }, [experiments]);
+    setSelectedExperiments((prev) =>
+      reconcileSelectedExperimentIds({
+        prevSelected: prev,
+        currentIds,
+        knownIds: known,
+        scheduledIds,
+      }),
+    );
+  }, [experiments, scheduledExperiments]);
 
   const selectedImmediateCount = immediateStartExperiments.filter((e) =>
     selectedExperiments.has(e.id),
