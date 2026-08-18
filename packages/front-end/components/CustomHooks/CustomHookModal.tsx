@@ -15,6 +15,8 @@ import {
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
+import { useFeaturesList } from "@/services/features";
+import { Select, SelectItem } from "@/ui/Select";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -363,6 +365,7 @@ export default function CustomHookModal({
   const projectOptions = useProjectOptions(() => true, current?.projects || []);
 
   const hookType = form.watch("hook");
+  const incrementalChangesOnly = form.watch("incrementalChangesOnly") ?? true;
   const hookTypeData = hookTypes[hookType];
   const exampleDocSection = EXAMPLE_DOC_SECTIONS[hookType];
 
@@ -399,13 +402,46 @@ export default function CustomHookModal({
   const [testValues, setTestValues] = useState<Record<string, string>>(
     initialTestValues(defaultHook),
   );
+  // The "before" side of an Incremental Changes Only run. Seeded identically to
+  // the proposed state so an author starts from a no-op and edits one side.
+  const [priorTestValues, setPriorTestValues] = useState<
+    Record<string, string>
+  >(initialTestValues(defaultHook));
   const [testResult, setTestResult] = useState<{
     status: "" | "success" | "error";
     returnVal?: string;
     error?: string;
     warnings?: string[];
     log?: string;
+    suppressed?: { error?: string; warnings?: string[] };
   }>({ status: "" });
+
+  // A hook created from Settings has no entity in context, so its fixtures are
+  // generic samples. Let the author swap in a real one.
+  const { features: featuresList } = useFeaturesList();
+  const [prefillFeatureId, setPrefillFeatureId] = useState("");
+  const showFeaturePicker =
+    !feature && "feature" in (hookTypeData?.availableArguments ?? {});
+
+  const prefillFromFeature = (id: string) => {
+    setPrefillFeatureId(id);
+    const picked = featuresList.find((f) => f.id === id);
+    if (!picked) return;
+    const json = stringify(picked);
+    setTestValues((v) => ({ ...v, feature: json }));
+    setPriorTestValues((v) => ({ ...v, feature: json }));
+  };
+
+  const parseArgs = (values: Record<string, string>) =>
+    Object.fromEntries(
+      Object.entries(values).map(([k, v]) => {
+        try {
+          return [k, JSON.parse(v)];
+        } catch (e) {
+          return [k, v];
+        }
+      }),
+    );
 
   const runTest = async () => {
     try {
@@ -415,19 +451,15 @@ export default function CustomHookModal({
         error?: string;
         warnings?: string[];
         log?: string;
+        suppressed?: { error?: string; warnings?: string[] };
       }>("/custom-hooks/test", {
         method: "POST",
         body: JSON.stringify({
           functionBody: form.getValues("code"),
-          functionArgs: Object.fromEntries(
-            Object.entries(testValues).map(([k, v]) => {
-              try {
-                return [k, JSON.parse(v)];
-              } catch (e) {
-                return [k, v];
-              }
-            }),
-          ),
+          functionArgs: parseArgs(testValues),
+          ...(incrementalChangesOnly
+            ? { originalFunctionArgs: parseArgs(priorTestValues) }
+            : {}),
           ...(feature
             ? { entityType: "feature" as const, entityId: feature.id }
             : experiment
@@ -443,6 +475,7 @@ export default function CustomHookModal({
         error: res.error,
         warnings: res.warnings,
         log: res.log,
+        suppressed: res.suppressed,
       });
     } catch (e) {
       setTestResult({ status: "error", error: e.message });
@@ -511,6 +544,7 @@ export default function CustomHookModal({
             onChange={(value) => {
               form.setValue("hook", value as CustomHookType);
               setTestValues(initialTestValues(value as CustomHookType));
+              setPriorTestValues(initialTestValues(value as CustomHookType));
             }}
           />
           {!scope && (
@@ -587,6 +621,21 @@ export default function CustomHookModal({
         </div>
         <div style={{ width: "50%" }}>
           <h3>Test Your Hook</h3>
+          {showFeaturePicker && (
+            <Select
+              label="Prefill from a Feature Flag"
+              placeholder="Use the sample values"
+              value={prefillFeatureId}
+              setValue={prefillFromFeature}
+              mb="3"
+            >
+              {featuresList.map((f) => (
+                <SelectItem key={f.id} value={f.id}>
+                  {f.id}
+                </SelectItem>
+              ))}
+            </Select>
+          )}
           {Object.keys(hookTypeData?.availableArguments).map((arg) => (
             <CodeTextArea
               language="json"
@@ -606,6 +655,35 @@ export default function CustomHookModal({
               showFullscreenButton
             />
           ))}
+          {incrementalChangesOnly && (
+            <>
+              <Text as="div" size="sm" color="text-low" mb="2">
+                Incremental Changes Only also runs the hook against the state
+                before the change. Edit the values above to represent the
+                change; anything this hook reports for both states is suppressed
+                on a real save.
+              </Text>
+              {Object.keys(hookTypeData?.availableArguments).map((arg) => (
+                <CodeTextArea
+                  language="json"
+                  key={`prior-${arg}`}
+                  label={`${arg} (before the change)`}
+                  required
+                  value={priorTestValues[arg] || ""}
+                  setValue={(value) =>
+                    setPriorTestValues((existing) => ({
+                      ...existing,
+                      [arg]: value,
+                    }))
+                  }
+                  onCtrlEnter={runTest}
+                  maxLines={8}
+                  showCopyButton
+                  showFullscreenButton
+                />
+              ))}
+            </>
+          )}
           <Button
             onClick={runTest}
             disabled={!form.watch("code")}
@@ -632,6 +710,21 @@ export default function CustomHookModal({
               {testResult.warnings.map((w, i) => (
                 <Callout key={i} status="warning" mt="2">
                   {w}
+                </Callout>
+              ))}
+            </div>
+          )}
+          {testResult.suppressed && (
+            <div className="mt-3">
+              <strong>Suppressed by Incremental Changes Only:</strong>
+              {[
+                ...(testResult.suppressed.error
+                  ? [testResult.suppressed.error]
+                  : []),
+                ...(testResult.suppressed.warnings ?? []),
+              ].map((m, i) => (
+                <Callout key={i} status="info" mt="2">
+                  {m}
                 </Callout>
               ))}
             </div>

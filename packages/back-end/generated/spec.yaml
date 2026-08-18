@@ -26182,6 +26182,15 @@ paths:
                   propertyNames:
                     type: string
                   additionalProperties: {}
+                originalFunctionArgs:
+                  description: >-
+                    State before the change. When supplied, the hook also runs
+                    against it and Incremental Changes Only suppression is
+                    applied to the result.
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties: {}
                 entityType:
                   type: string
                   enum:
@@ -26215,6 +26224,8 @@ paths:
                   log:
                     description: Captured console output
                     type: string
+                  suppressed:
+                    $ref: '#/components/schemas/suppressed'
                 required:
                   - success
                 additionalProperties: false
@@ -67741,6 +67752,19 @@ components:
         - override
         - requiresPermission
         - resolution
+      additionalProperties: false
+    suppressed:
+      description: >-
+        Outcomes the previous state produced too, which Incremental Changes Only
+        would hide on a real save
+      type: object
+      properties:
+        error:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
       additionalProperties: false
     versions:
       type: object
