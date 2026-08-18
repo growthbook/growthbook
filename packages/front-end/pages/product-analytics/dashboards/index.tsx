@@ -48,8 +48,7 @@ import LinkButton from "@/ui/LinkButton";
 export default function DashboardsPage() {
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature, userId } = useUser();
-  const { project, projects, getProjectById, mutateDefinitions } =
-    useDefinitions();
+  const { project, projects, mutateDefinitions } = useDefinitions();
   const { apiCall } = useAuth();
   const [saving, setSaving] = useState(false);
   const router = useRouter();
@@ -165,14 +164,13 @@ export default function DashboardsPage() {
   };
 
   const setDefaultDashboard = async (projectId: string, dashId: string) => {
-    const p = getProjectById(projectId);
+    // The server merges this into the project's existing settings, so only
+    // the changed field needs to be sent (avoids clobbering concurrent
+    // changes to statsEngine/confidenceLevel/etc. from a stale snapshot).
     await apiCall(`/projects/${projectId}/settings`, {
       method: "PUT",
       body: JSON.stringify({
-        // `settings` is a single field server-side (replaced wholesale, not
-        // merged), so the rest of the project's settings must be spread back
-        // in or this would silently clear statsEngine/confidenceLevel/etc.
-        settings: { ...p?.settings, defaultDashboardId: dashId },
+        settings: { defaultDashboardId: dashId },
       }),
     });
     mutateDefinitions();

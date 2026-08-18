@@ -344,7 +344,7 @@ export const deleteProject = async (
 // endregion DELETE /projects/:id
 
 type PutProjectSettingsRequest = AuthRequest<
-  { settings: ProjectSettings },
+  { settings: Partial<ProjectSettings> },
   { id: string }
 >;
 type PutProjectSettingsResponse = {
@@ -372,7 +372,7 @@ export const putProjectSettings = async (
     return;
   }
 
-  const { settings } = req.body;
+  const settings = { ...project.settings, ...req.body.settings };
 
   // The dedicated endpoint owns this field. Preserve its current value even
   // when a stale settings form is saved concurrently with a dashboard change.
