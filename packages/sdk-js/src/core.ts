@@ -18,12 +18,7 @@ import {
   ClientOptions,
   TrackingUserContext,
   UserContext,
-  InterleaveExposureData,
-  InterleaveList,
-  InterleaveOptions,
-  InterleaveResult,
 } from "./types/growthbook";
-import { itemDraft } from "./interleave";
 import { evalCondition } from "./mongrule";
 import { ConditionInterface } from "./types/mongrule";
 import {
@@ -981,130 +976,6 @@ function isIncludedInRollout(
     : coverage !== undefined
       ? n <= coverage
       : true;
-}
-
-function realizeInterleaveList<T>(list: InterleaveList<T>): T[] {
-  return typeof list.items === "function" ? list.items() : list.items;
-}
-
-export function runInterleave<T>(
-  options: InterleaveOptions<T>,
-  ctx: EvalContext,
-): InterleaveResult<T> {
-  const { key, lists, getItemId } = options;
-  const interleaveId =
-    options.interleaveId ||
-    (typeof crypto !== "undefined" && crypto.randomUUID
-      ? crypto.randomUUID()
-      : Date.now().toString(36) + Math.random().toString(36).slice(2));
-
-  const fallbackResult = (): InterleaveResult<T> => {
-    const name = options.fallback || (lists[0] && lists[0].name);
-    const list = lists.find((l) => l.name === name) || lists[0];
-    return {
-      inExperiment: false,
-      interleaveId,
-      key,
-      items: list ? realizeInterleaveList(list) : [],
-      meta: [],
-      // No interleave keys outside the experiment, so callers can spread
-      // this into their analytics events unconditionally
-      trackingProps: (itemId: string) => ({ item_id: itemId }),
-    };
-  };
-
-  // 1. Look up the payload-delivered definition
-  const definition = (ctx.global.interleaveExperiments || []).find(
-    (d) => d.key === key,
-  );
-  if (!definition) {
-    ctx.global.log("Skip interleave because of missing definition", { key });
-    return fallbackResult();
-  }
-  if (definition.active === false || ctx.global.enabled === false) {
-    return fallbackResult();
-  }
-
-  // 2. The definition selects which caller lists get woven
-  const selected = (definition.lists || []).map((name) =>
-    lists.find((l) => l.name === name),
-  );
-  if (selected.length < 2 || selected.some((l) => !l)) {
-    ctx.global.log("Skip interleave because of list mismatch", {
-      key,
-      wanted: definition.lists,
-      registered: lists.map((l) => l.name),
-    });
-    return fallbackResult();
-  }
-
-  // 3. Per-user enrollment: hash attribute, filters, condition, coverage
-  const { hashAttribute, hashValue } = getHashAttribute(
-    ctx,
-    definition.hashAttribute,
-    definition.fallbackAttribute,
-  );
-  if (!hashValue) return fallbackResult();
-
-  if (definition.filters && isFilteredOut(definition.filters, ctx)) {
-    return fallbackResult();
-  }
-  if (definition.condition && !conditionPasses(definition.condition, ctx)) {
-    return fallbackResult();
-  }
-
-  const enrollHash = hash(
-    definition.seed || key,
-    toString(hashValue),
-    definition.hashVersion || 2,
-  );
-  if (enrollHash === null) return fallbackResult();
-  if (enrollHash > (definition.coverage ?? 1)) return fallbackResult();
-
-  // 4. Realize only the selected lists and run the per-impression draft
-  const realized = (selected as InterleaveList<T>[]).map((l) => ({
-    name: l.name,
-    items: realizeInterleaveList(l),
-  }));
-  const rng = (round: number, captain: number) =>
-    hash(
-      (definition.seed || key) + "__interleave",
-      interleaveId + ":" + round + ":" + captain,
-      2,
-    ) ?? 0.5;
-  const { items, meta } = itemDraft(
-    realized,
-    getItemId,
-    rng,
-    definition.maxItems,
-  );
-
-  // 5. Fire the exposure callback (one per impression, no dedupe)
-  if (ctx.global.onInterleaveExposure) {
-    const cb = ctx.global.onInterleaveExposure;
-    const data: InterleaveExposureData = {
-      timestamp: Date.now(),
-      experimentId: key,
-      interleaveId,
-      hashAttribute,
-      hashValue: toString(hashValue),
-      items: meta,
-    };
-    safeCall(() => cb(data));
-  }
-
-  return {
-    inExperiment: true,
-    interleaveId,
-    key,
-    items,
-    meta,
-    trackingProps: (itemId: string) => ({
-      item_id: itemId,
-      interleave_id: interleaveId,
-      experiment_id: key,
-    }),
-  };
 }
 
 export function getExperimentResult<T>(

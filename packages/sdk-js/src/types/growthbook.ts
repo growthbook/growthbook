@@ -225,10 +225,11 @@ export interface InterleaveResult<T> {
   interleaveId: string;
   key: string;
   items: T[];
-  meta: InterleavedItemMeta[];
   // Identity-keyed (safe under client-side filtering/sorting). On fallback
   // results the interleave keys are omitted, so spreading is always safe:
   //   analytics.track("Add to Cart", { value, ...result.trackingProps(id) })
+  // Per-item draft metadata (variation, position, competitive) lives on the
+  // exposure record, not the result — analysis needs only the join keys.
   trackingProps: (itemId: string) => InterleaveTrackingProps;
 }
 
@@ -403,7 +404,6 @@ export type Options = {
   savedGroups?: SavedGroupsValues;
   contextualBandits?: ContextualBanditDefinitions;
   interleaveExperiments?: InterleaveExperiment[];
-  onInterleaveExposure?: InterleaveExposureCallback;
   plugins?: Plugin[];
 };
 
@@ -443,8 +443,6 @@ export type GlobalContext = {
   qaMode?: boolean;
   savedGroups?: SavedGroupsValues;
   contextualBandits?: ContextualBanditDefinitions;
-  interleaveExperiments?: InterleaveExperiment[];
-  onInterleaveExposure?: InterleaveExposureCallback;
   forcedVariations?: Record<string, number>;
   forcedFeatureValues?: Map<string, any>;
   trackingCallback?: TrackingCallbackWithUser;

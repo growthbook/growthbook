@@ -1,4 +1,9 @@
 export { autoAttributesPlugin } from "./auto-attributes";
+export {
+  interleavePlugin,
+  interleave,
+  EVENT_INTERLEAVE_EXPOSURE,
+} from "./interleave";
 export { growthbookTrackingPlugin } from "./growthbook-tracking";
 export { thirdPartyTrackingPlugin } from "./third-party-tracking";
 export {
@@ -10,6 +15,7 @@ export {
 } from "./devtools";
 
 // Types must be exported separately, otherwise rollup includes them in the javascript output which breaks things
+export type { InterleavePluginSettings } from "./interleave";
 export type { TrackingTransport } from "./growthbook-tracking";
 export type {
   DevtoolsState,

@@ -32,8 +32,7 @@ import type {
   EventLogger,
   LogUnion,
   DestroyOptions,
-  InterleaveOptions,
-  InterleaveResult,
+  InterleaveExperiment,
 } from "./types/growthbook";
 import {
   decrypt,
@@ -52,7 +51,6 @@ import {
 } from "./feature-repository";
 import {
   runExperiment,
-  runInterleave,
   evalFeature as _evalFeature,
   getExperimentResult,
   getAllStickyBucketAssignmentDocs,
@@ -649,8 +647,9 @@ export class GrowthBook<
     return result;
   }
 
-  public interleave<T>(options: InterleaveOptions<T>): InterleaveResult<T> {
-    return runInterleave(options, this._getEvalContext());
+  // Consumed by the interleave plugin (@growthbook/growthbook/plugins)
+  public getInterleaveExperiments(): InterleaveExperiment[] {
+    return this._options.interleaveExperiments || [];
   }
 
   public triggerExperiment(key: string) {
@@ -714,8 +713,6 @@ export class GrowthBook<
       qaMode: this._options.qaMode,
       savedGroups: this._options.savedGroups,
       contextualBandits: this._options.contextualBandits,
-      interleaveExperiments: this._options.interleaveExperiments,
-      onInterleaveExposure: this._options.onInterleaveExposure,
       groups: this._options.groups,
       overrides: this._options.overrides,
       onExperimentEval: this._onExperimentEval,

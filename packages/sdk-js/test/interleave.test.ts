@@ -1,5 +1,6 @@
 import { GrowthBook } from "../src";
 import { itemDraft, flattenInterleaveExposure } from "../src/interleave";
+import { interleavePlugin, interleave } from "../src/plugins/interleave";
 import { hash } from "../src/util";
 import {
   InterleaveExperiment,
@@ -78,7 +79,7 @@ describe("itemDraft", () => {
     let firstPicks = 0;
     const n = 1000;
     for (let i = 0; i < n; i++) {
-      // the same seeded rng runInterleave uses, swept over interleaveIds
+      // the same seeded rng the plugin uses, swept over interleaveIds
       const rng = (round: number, captain: number) =>
         hash("seed__interleave", `imp-${i}:${round}:${captain}`, 2) ?? 0.5;
       const { meta } = itemDraft(
@@ -96,7 +97,7 @@ describe("itemDraft", () => {
   });
 });
 
-describe("interleave", () => {
+describe("interleave plugin", () => {
   const definition: InterleaveExperiment = {
     key: "ranker-test",
     lists: ["control", "treatment"],
@@ -107,11 +108,13 @@ describe("interleave", () => {
   ];
 
   it("serves fallback when the definition is missing", () => {
-    const gb = new GrowthBook({ attributes: { id: "user-1" } });
-    const res = gb.interleave({ key: "nope", lists, getItemId: id });
+    const gb = new GrowthBook({
+      attributes: { id: "user-1" },
+      plugins: [interleavePlugin()],
+    });
+    const res = interleave(gb, { key: "nope", lists, getItemId: id });
     expect(res.inExperiment).toBe(false);
     expect(res.items).toEqual(["A", "B", "C", "D"]);
-    expect(res.meta).toEqual([]);
     gb.destroy();
   });
 
@@ -119,45 +122,56 @@ describe("interleave", () => {
     const gb = new GrowthBook({
       attributes: { id: "user-1" },
       interleaveExperiments: [{ ...definition, active: false }],
+      plugins: [interleavePlugin()],
     });
     expect(
-      gb.interleave({ key: "ranker-test", lists, getItemId: id }).inExperiment,
+      interleave(gb, { key: "ranker-test", lists, getItemId: id }).inExperiment,
     ).toBe(false);
     gb.destroy();
 
     const gb2 = new GrowthBook({
       attributes: { id: "user-1" },
       interleaveExperiments: [{ ...definition, coverage: 0 }],
+      plugins: [interleavePlugin()],
     });
     expect(
-      gb2.interleave({ key: "ranker-test", lists, getItemId: id }).inExperiment,
+      interleave(gb2, { key: "ranker-test", lists, getItemId: id })
+        .inExperiment,
     ).toBe(false);
     gb2.destroy();
   });
 
   it("interleaves both lists, fires one exposure per impression, and varies draft by interleaveId", () => {
     const exposures: InterleaveExposureData[] = [];
+    const logged: { name: string; props: Record<string, unknown> }[] = [];
     const gb = new GrowthBook({
       attributes: { id: "user-1" },
       interleaveExperiments: [definition],
-      onInterleaveExposure: (data) => {
-        exposures.push(data);
+      plugins: [
+        interleavePlugin({
+          onExposure: (d) => {
+            exposures.push(d);
+          },
+        }),
+      ],
+      eventLogger: (name, props) => {
+        logged.push({ name, props });
       },
     });
 
-    const r1 = gb.interleave({
+    const r1 = interleave(gb, {
       key: "ranker-test",
       lists,
       getItemId: id,
       interleaveId: "imp-1",
     });
-    const r1again = gb.interleave({
+    const r1again = interleave(gb, {
       key: "ranker-test",
       lists,
       getItemId: id,
       interleaveId: "imp-1",
     });
-    const r2 = gb.interleave({
+    const r2 = interleave(gb, {
       key: "ranker-test",
       lists,
       getItemId: id,
@@ -166,21 +180,48 @@ describe("interleave", () => {
 
     expect(r1.inExperiment).toBe(true);
     expect(r1.items.slice().sort()).toEqual(["A", "B", "C", "D"]);
-    expect(r1.meta.length).toBe(4);
     // deterministic replay for the same interleaveId
     expect(r1again.items).toEqual(r1.items);
-    // both variations drafted equally
-    const counts: Record<string, number> = {};
-    r1.meta.forEach(
-      (m) => (counts[m.variation] = (counts[m.variation] || 0) + 1),
-    );
-    expect(counts).toEqual({ control: 2, treatment: 2 });
-    // no dedupe: three calls, three exposures
-    expect(exposures.length).toBe(3);
+    expect(r2.interleaveId).toBe("imp-2");
+
+    // draft metadata lives on the exposure record, not the result
+    expect(exposures.length).toBe(3); // no dedupe: three calls, three exposures
     expect(exposures[0].experimentId).toBe("ranker-test");
     expect(exposures[0].interleaveId).toBe("imp-1");
     expect(exposures[0].hashValue).toBe("user-1");
-    expect(r2.interleaveId).toBe("imp-2");
+    expect(exposures[0].items.length).toBe(4);
+    const counts: Record<string, number> = {};
+    exposures[0].items.forEach(
+      (m) => (counts[m.variation] = (counts[m.variation] || 0) + 1),
+    );
+    expect(counts).toEqual({ control: 2, treatment: 2 });
+
+    // exposures also flow through the generic event path
+    const exposureEvents = logged.filter(
+      (e) => e.name === "Interleave Exposure",
+    );
+    expect(exposureEvents.length).toBe(3);
+    expect(exposureEvents[0].props.interleaveId).toBe("imp-1");
+    gb.destroy();
+  });
+
+  it("works without plugin registration (logEvent path only)", () => {
+    const logged: string[] = [];
+    const gb = new GrowthBook({
+      attributes: { id: "user-1" },
+      interleaveExperiments: [definition],
+      eventLogger: (name) => {
+        logged.push(name);
+      },
+    });
+    const res = interleave(gb, {
+      key: "ranker-test",
+      lists,
+      getItemId: id,
+      interleaveId: "imp-1",
+    });
+    expect(res.inExperiment).toBe(true);
+    expect(logged).toContain("Interleave Exposure");
     gb.destroy();
   });
 
@@ -188,8 +229,9 @@ describe("interleave", () => {
     const gb = new GrowthBook({
       attributes: { id: "user-1" },
       interleaveExperiments: [definition],
+      plugins: [interleavePlugin()],
     });
-    const res = gb.interleave({
+    const res = interleave(gb, {
       key: "ranker-test",
       lists,
       getItemId: id,
@@ -203,8 +245,11 @@ describe("interleave", () => {
     gb.destroy();
 
     // Fallback: no interleave keys, so spreading is a safe no-op
-    const gb2 = new GrowthBook({ attributes: { id: "user-1" } });
-    const fallback = gb2.interleave({ key: "nope", lists, getItemId: id });
+    const gb2 = new GrowthBook({
+      attributes: { id: "user-1" },
+      plugins: [interleavePlugin()],
+    });
+    const fallback = interleave(gb2, { key: "nope", lists, getItemId: id });
     expect(fallback.trackingProps("A")).toEqual({ item_id: "A" });
     gb2.destroy();
   });
@@ -218,9 +263,28 @@ describe("interleave", () => {
     const gb = new GrowthBook({
       attributes: { id: "user-1" },
       interleaveExperiments: [{ ...definition, coverage: 0 }],
+      plugins: [interleavePlugin()],
     });
-    gb.interleave({ key: "ranker-test", lists: lazyLists, getItemId: id });
+    interleave(gb, { key: "ranker-test", lists: lazyLists, getItemId: id });
     expect(realized).toBe(1); // only the fallback list was realized
+    gb.destroy();
+  });
+
+  it("a throwing onExposure callback does not break serving", () => {
+    const gb = new GrowthBook({
+      attributes: { id: "user-1" },
+      interleaveExperiments: [definition],
+      plugins: [
+        interleavePlugin({
+          onExposure: () => {
+            throw new Error("boom");
+          },
+        }),
+      ],
+    });
+    const res = interleave(gb, { key: "ranker-test", lists, getItemId: id });
+    expect(res.inExperiment).toBe(true);
+    expect(res.items.length).toBe(4);
     gb.destroy();
   });
 });
