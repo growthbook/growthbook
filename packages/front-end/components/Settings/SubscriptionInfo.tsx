@@ -228,16 +228,16 @@ export default function SubscriptionInfo() {
       <div className="col-md-12 mb-3">
         <strong>Number Of Seats:</strong> {subscriptionSeats || 0}
         {readOnlySeats > 0 ? (
-          <div className="text-muted">
+          <Text as="div" color="gray" size="2">
             This includes {readOnlySeats} read-only {seatLabel(readOnlySeats)}{" "}
             and {fullMemberSeats} full-member {seatLabel(fullMemberSeats)}.
-          </div>
+          </Text>
         ) : null}
       </div>
       {isEnterprise && contractExpirationDate ? (
-        <div className="col-md-12 mb-3">
+        <Box mb="3">
           <strong>Contract Expiration:</strong> {contractExpirationDate}
-        </div>
+        </Box>
       ) : null}
       {subscription?.status !== "canceled" &&
         !subscription?.pendingCancelation && (
