@@ -376,6 +376,44 @@ export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
   }
 }
 
+/** Seed Count and line-vs-table when entering Explore Dataset, not when a test query first returns columns. */
+export function withDefaultSqlCountValue(
+  config: ExplorerDraftConfig,
+): ExplorerDraftConfig {
+  if (config.dataset.type !== "sql") return config;
+  if (config.dataset.values.length > 0) return config;
+  if (
+    !config.dataset.sql.trim() ||
+    Object.keys(config.dataset.columnTypes).length === 0
+  ) {
+    return config;
+  }
+
+  const hasTimestamp = config.dataset.timestampColumn !== null;
+  const dimensions =
+    hasTimestamp &&
+    !config.dimensions.some((dimension) => dimension.dimensionType === "date")
+      ? [
+          {
+            dimensionType: "date" as const,
+            column: "date",
+            dateGranularity: "auto" as const,
+          },
+          ...config.dimensions,
+        ]
+      : config.dimensions;
+
+  return {
+    ...config,
+    chartType: hasTimestamp ? "line" : "table",
+    dimensions,
+    dataset: {
+      ...config.dataset,
+      values: [createEmptyValue("sql") as SqlValue],
+    },
+  } as ExplorerDraftConfig;
+}
+
 /** Builds an empty funnel step. `factTableId` is optional so the "Add step"
  *  button can prefill from the previous step (the inherited default). */
 export function createEmptyFunnelStep({

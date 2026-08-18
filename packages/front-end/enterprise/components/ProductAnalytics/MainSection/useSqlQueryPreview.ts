@@ -85,7 +85,7 @@ export default function useSqlQueryPreview({
         const shouldDefaultToLine =
           prev.dataset.timestampColumn === null &&
           timestampColumn !== null &&
-          prev.chartType === "bar";
+          (prev.chartType === "bar" || prev.chartType === "table");
         const dimensions = prev.dimensions.filter(
           (dimension) =>
             dimension.dimensionType !== "dynamic" ||

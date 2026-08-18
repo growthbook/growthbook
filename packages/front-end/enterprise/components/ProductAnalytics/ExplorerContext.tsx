@@ -47,6 +47,7 @@ import {
   stripExplorerDraftFields,
   toFetchKey,
   validateDimensions,
+  withDefaultSqlCountValue,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import track from "@/services/track";
@@ -98,6 +99,7 @@ export interface ExplorerContextValue {
     setDraft?: boolean;
   }) => Promise<void>;
   addValueToDataset: (datasetType: DatasetType) => void;
+  ensureDefaultSqlValue: () => void;
   updateValueInDataset: (index: number, value: ProductAnalyticsValue) => void;
   deleteValueFromDataset: (index: number) => void;
   updateTimestampColumn: (column: string | null) => void;
@@ -178,8 +180,10 @@ export function ExplorerProvider({
       getFactTableById,
       getFactMetricById,
     );
-    const normalizedInitial = normalizeTimelessSqlConfig(
-      clearInapplicableShowAs(withUnits, getFactMetricById),
+    const normalizedInitial = withDefaultSqlCountValue(
+      normalizeTimelessSqlConfig(
+        clearInapplicableShowAs(withUnits, getFactMetricById),
+      ),
     );
     const normalizedSubmitted = initialSubmittedConfig
       ? normalizeTimelessSqlConfig(
@@ -843,6 +847,10 @@ export function ExplorerProvider({
     [createDefaultValue, setDraftExploreState, getFactTableById],
   );
 
+  const ensureDefaultSqlValue = useCallback(() => {
+    setDraftExploreState((prev) => withDefaultSqlCountValue(prev));
+  }, [setDraftExploreState]);
+
   const updateValueInDataset = useCallback(
     (index: number, value: ProductAnalyticsValue) => {
       setDraftExploreState((prev) => {
@@ -902,7 +910,7 @@ export function ExplorerProvider({
           prev.dataset.type === "sql" &&
           prev.dataset.timestampColumn === null &&
           column !== null &&
-          prev.chartType === "bar";
+          (prev.chartType === "bar" || prev.chartType === "table");
         return {
           ...prev,
           chartType: shouldDefaultToLine ? "line" : prev.chartType,
@@ -1069,6 +1077,7 @@ export function ExplorerProvider({
       setDraftExploreState,
       handleSubmit,
       addValueToDataset,
+      ensureDefaultSqlValue,
       updateValueInDataset,
       deleteValueFromDataset,
       updateTimestampColumn,
@@ -1094,6 +1103,7 @@ export function ExplorerProvider({
     }),
     [
       addValueToDataset,
+      ensureDefaultSqlValue,
       changeChartType,
       clearAllDatasets,
       commonColumns,

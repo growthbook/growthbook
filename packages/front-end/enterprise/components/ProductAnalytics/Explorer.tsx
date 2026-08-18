@@ -40,6 +40,7 @@ import {
   comparisonModeQueryParser,
   stripExplorerDraftFields,
 } from "./util";
+import styles from "./Explorer.module.scss";
 
 const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
   metric: "Metric",
@@ -98,8 +99,11 @@ export function ExplorerContent({
   hideSidebarHeaderActions?: boolean;
   sidebarHeaderActions?: React.ReactNode;
 }) {
-  const { managedWarehouseUnavailable, draftExploreState } =
-    useExplorerContext();
+  const {
+    managedWarehouseUnavailable,
+    draftExploreState,
+    ensureDefaultSqlValue,
+  } = useExplorerContext();
   const sqlEditorContext = useOptionalSqlEditorContext();
   const isSql = draftExploreState.type === "sql";
 
@@ -171,10 +175,11 @@ export function ExplorerContent({
             value={sqlEditorContext.viewMode}
             onValueChange={(value) => {
               if (value === "dataset" || value === "explore") {
-                sqlEditorContext.setViewMode(value);
                 if (value === "explore") {
+                  ensureDefaultSqlValue();
                   sqlEditorContext.markExploreSeen();
                 }
+                sqlEditorContext.setViewMode(value);
               }
             }}
             style={{
@@ -215,15 +220,11 @@ export function ExplorerContent({
                         {sqlEditorContext.exploreReady &&
                         !sqlEditorContext.hasSeenExplore ? (
                           <span
-                            style={{
-                              width: 6,
-                              height: 6,
-                              borderRadius: "50%",
-                              backgroundColor: "var(--green-9)",
-                              flexShrink: 0,
-                            }}
+                            className={styles.readyDot}
                             aria-label="Sample results ready"
-                          />
+                          >
+                            <span className={styles.readyDotPing} aria-hidden />
+                          </span>
                         ) : null}
                       </Flex>
                     </TabsTrigger>

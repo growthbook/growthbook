@@ -131,7 +131,7 @@ export default function SqlQuerySection({
   const { getDatasourceById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const { aiEnabled } = useAISettings();
-  const { draftExploreState } = useExplorerContext();
+  const { draftExploreState, ensureDefaultSqlValue } = useExplorerContext();
   const dataset =
     draftExploreState.dataset.type === "sql" ? draftExploreState.dataset : null;
   const datasource = draftExploreState.datasource
@@ -244,6 +244,7 @@ export default function SqlQuerySection({
                   size="sm"
                   weight="medium"
                   onClick={() => {
+                    ensureDefaultSqlValue();
                     markExploreSeen();
                     setViewMode("explore");
                   }}
@@ -253,7 +254,7 @@ export default function SqlQuerySection({
                     gap: 4,
                   }}
                 >
-                  Explore full dataset
+                  Customize table or create visualization
                   <PiArrowRight size={14} aria-hidden />
                 </Link>
               ) : null}
