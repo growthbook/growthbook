@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
 import { ProjectInterface, ProjectSettings } from "shared/types/project";
 import { getScopedSettings } from "shared/settings";
+import { getReviewSetting } from "shared/util";
 import { DEFAULT_CONFIDENCE_LEVEL } from "shared/constants";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
@@ -56,7 +57,12 @@ function hasChanges(value: ProjectSettings, existing: ProjectSettings) {
 const ProjectPage: FC = () => {
   const [editChecklistOpen, setEditChecklistOpen] = useState(false);
   const { hasCommercialFeature } = useUser();
-  const { organization, refreshOrganization } = useUser();
+  const {
+    organization,
+    refreshOrganization,
+    settings: orgSettings,
+    teams,
+  } = useUser();
   const { getProjectById, mutateDefinitions, ready, error } = useDefinitions();
 
   const { pid } = router.query as { pid: string };
@@ -77,6 +83,19 @@ const ProjectPage: FC = () => {
 
   const permissionsUtil = usePermissionsUtil();
   const canEditSettings = permissionsUtil.canUpdateProject(pid);
+
+  // Teams whose approval this project's review rule demands, so the project page
+  // answers "who has to sign off here?".
+  const projectReviewRule = Array.isArray(orgSettings.requireReviews)
+    ? getReviewSetting(orgSettings.requireReviews, { project: pid })
+    : undefined;
+  const requiredApproverTeams = (
+    projectReviewRule?.requireReviewOn
+      ? (projectReviewRule.requiredApproverTeams ?? [])
+      : []
+  )
+    .map((id) => (teams ?? []).find((t) => t.id === id))
+    .filter((t): t is NonNullable<typeof t> => !!t);
   // todo: should this also be project scoped?
   const canManageTeam = permissionsUtil.canManageTeam();
 
@@ -194,6 +213,20 @@ const ProjectPage: FC = () => {
                 label="ID"
                 value={<code className="text-muted">{p.id}</code>}
               />
+              {requiredApproverTeams.length > 0 && (
+                <Metadata
+                  label="Required approvers"
+                  value={
+                    <Flex align="center" gap="2" wrap="wrap">
+                      {requiredApproverTeams.map((t) => (
+                        <NextLink key={t.id} href={`/settings/team/${t.id}`}>
+                          {t.name}
+                        </NextLink>
+                      ))}
+                    </Flex>
+                  }
+                />
+              )}
             </Flex>
           </Flex>
           <DropdownMenu

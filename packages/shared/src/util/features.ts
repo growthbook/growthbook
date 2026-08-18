@@ -2851,6 +2851,21 @@ export function constantRequiresReview(
   return false;
 }
 
+/**
+ * The review rules that name a team as a required approver, for surfacing on the
+ * team's own page ("what does this team gate?").
+ */
+export function reviewRulesRequiringTeam(
+  teamId: string,
+  settings?: OrganizationSettings,
+): RequireReview[] {
+  const requireReviews = settings?.requireReviews;
+  if (!Array.isArray(requireReviews)) return [];
+  return requireReviews.filter(
+    (r) => r.requireReviewOn && r.requiredApproverTeams?.includes(teamId),
+  );
+}
+
 /** Config form of `getConstantReviewRequirement` — carries the flavor scope. */
 export function getConfigReviewRequirement(
   config: { project?: string },
