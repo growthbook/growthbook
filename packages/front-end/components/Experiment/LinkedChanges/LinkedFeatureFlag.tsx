@@ -315,7 +315,25 @@ export default function LinkedFeatureFlag({
               my="4"
               icon={<PiGitMerge style={{ fontSize: "1.2em" }} />}
             >
-              {info.pendingApproval ? (
+              {isManaged ? (
+                // Managed mode keeps the whole lifecycle on this page, so the
+                // callout states the situation and stops — the controls above
+                // are the way to act on it, not a trip to the Feature Flag page.
+                <>
+                  Values for this experiment are in a <strong>draft</strong>
+                  {info.pendingApproval ? (
+                    info.draftRevisionStatus === "approved" ? (
+                      <>
+                        {" "}
+                        that has been <strong>approved</strong>
+                      </>
+                    ) : (
+                      <> pending approval</>
+                    )
+                  ) : null}
+                  . It publishes automatically when the experiment starts.
+                </>
+              ) : info.pendingApproval ? (
                 <>
                   Rule changes for this feature are in a{" "}
                   {info.draftRevisionStatus === "approved" ? (

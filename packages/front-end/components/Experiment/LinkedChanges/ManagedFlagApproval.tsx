@@ -65,6 +65,13 @@ export default function ManagedFlagApproval({
   const reviews = revision?.reviews ?? [];
   const isReviewer = reviews.some((r) => r.userId === userId);
 
+  // Starting the experiment IS the publish event for a managed flag — the
+  // launch publishes this draft. So a draft experiment never offers Publish
+  // separately; only the review cycle runs here, so the draft can be approved
+  // and ready by the time someone hits Start. Publishing on its own becomes
+  // available once the experiment is live and later edits open a new draft.
+  const publishIsLaunch = experiment.status === "draft";
+
   const state = getReviewAndPublishState({
     requireReviews: !!info.pendingApproval,
     status,
@@ -79,10 +86,13 @@ export default function ManagedFlagApproval({
     isContributor: (revision?.contributors ?? []).includes(userId ?? ""),
     isDraftOwner: revision?.createdBy?.id === userId,
     isReviewer,
-    adminPublish: permissionsUtil.canBypassFlagApprovalChecks(
-      info.feature,
-      "feature",
-    ),
+    // Bypass authority is about landing a change, and on a draft experiment
+    // nothing lands here — the launch does that. Passing it through would send
+    // an admin straight to a "publish now" the launch owns, skipping the review
+    // cycle the draft still needs to go through before start.
+    adminPublish:
+      !publishIsLaunch &&
+      permissionsUtil.canBypassFlagApprovalChecks(info.feature, "feature"),
     // Managed mode has no pre-launch checklist step of its own — starting the
     // experiment is what runs that, and it publishes this draft itself.
     hasSelectedExperiments: false,
@@ -101,6 +111,18 @@ export default function ManagedFlagApproval({
     permissionsUtil.canReviewFeatureDrafts(info.feature) &&
     status === "pending-review" &&
     revision?.createdBy?.id !== userId;
+
+  const submitAction =
+    publishIsLaunch && state.submitAction === "publish"
+      ? "none"
+      : state.submitAction;
+  const showSubmit = state.hasSubmit && submitAction !== "none";
+
+  // With nothing to request, approve, retract or publish, the control would be
+  // a button that opens a popover offering nothing. Render no trigger at all —
+  // the status badge and callout already say where the draft stands.
+  const hasAnyAction =
+    canReview || showSubmit || state.canUndoReview || state.canRecallReview;
 
   async function post(path: string, body: Record<string, unknown> = {}) {
     setSubmitting(true);
@@ -152,8 +174,10 @@ export default function ManagedFlagApproval({
     <Box width="320px" p="1">
       <Text size="sm" color="text-low" as="div" mb="2">
         This experiment&apos;s Feature Flag is{" "}
-        <strong>{revisionStatusLabel(status)}</strong>. It publishes
-        automatically when the experiment starts.
+        <strong>{revisionStatusLabel(status)}</strong>.{" "}
+        {publishIsLaunch
+          ? "It publishes when you start the experiment."
+          : "Publish to make these values live."}
       </Text>
 
       {reviewerRows.length > 0 && (
@@ -168,7 +192,7 @@ export default function ManagedFlagApproval({
         </>
       )}
 
-      {(canReview || state.submitAction === "request-review") && (
+      {(canReview || submitAction === "request-review") && (
         <>
           <Separator size="4" my="3" />
           <Field
@@ -241,6 +265,8 @@ export default function ManagedFlagApproval({
     </Box>
   );
 
+  if (!hasAnyAction) return null;
+
   return (
     <Popover
       open={open}
@@ -250,11 +276,11 @@ export default function ManagedFlagApproval({
       content={content}
       trigger={
         <Button variant="ghost">
-          {status === "approved"
-            ? "Publish"
-            : status === "pending-review"
-              ? "Review"
-              : "Request review"}
+          {/* Name the action the popover will actually offer. Deriving this
+              from `status` alone drifts: an org that doesn't require approvals
+              sits in "draft" but publishes directly, so the trigger read
+              "Request review" over a Publish button. */}
+          {canReview ? "Review" : state.ctaLabel}
         </Button>
       }
     />
