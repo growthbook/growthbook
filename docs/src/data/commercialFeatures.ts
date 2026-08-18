@@ -73,6 +73,10 @@ export default {
     plan: "enterprise",
     displayName: "Environment Inheritance",
   },
+  "event-logs": {
+    plan: "pro",
+    displayName: "Event Logs",
+  },
   "events-forwarder": {
     plan: "pro",
     displayName: "Events Forwarder",

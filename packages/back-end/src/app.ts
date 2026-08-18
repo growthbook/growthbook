@@ -169,6 +169,7 @@ import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
 import { importingRouter } from "./routers/importing/importing.router";
 import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
 import { sessionReplayRouter } from "./routers/session-replay/session-replay.router";
+import { eventLogsRouter } from "./routers/event-logs/event-logs.router";
 import { agentRouter } from "./routers/agent/agent.router";
 
 const app = express();
@@ -1230,6 +1231,7 @@ app.get(
 app.use("/upload", uploadRouter);
 
 app.use("/session-replay", sessionReplayRouter);
+app.use("/event-logs", eventLogsRouter);
 
 // Teams
 app.use("/teams", teamRouter);

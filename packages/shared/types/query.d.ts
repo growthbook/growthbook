@@ -120,6 +120,9 @@ export type QueryType =
   // Session replay metadata queries
   | "sessionReplayList"
   | "sessionReplayDetail"
+  // Event log queries
+  | "eventLogSummary"
+  | "eventLogRecords"
 
   // ---
   // Legacy, should be deprecated

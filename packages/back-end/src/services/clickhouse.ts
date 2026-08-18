@@ -195,6 +195,276 @@ function toClickhouseStringLiteral(value: string): string {
   return `'${escapeClickhouseString(value)}'`;
 }
 
+// --- Event Logs ---
+
+export type EventLogSummaryRow = {
+  event_name: string;
+  total_count: string;
+  dau_count: string;
+  daily_counts: string[];
+};
+
+export type EventLogRecordRow = {
+  event_uuid: string;
+  timestamp: string;
+  event_name: string;
+  user_id: string | null;
+  device_id: string | null;
+  environment: string | null;
+  properties: Record<string, unknown>;
+  attributes: Record<string, unknown>;
+  url: string | null;
+  geo_country: string | null;
+  ua_browser: string | null;
+  ua_os: string | null;
+  ua_device_type: string | null;
+  sdk_language: string | null;
+  sdk_version: string | null;
+};
+
+export async function listEventLogSummary(
+  context: ReqContext,
+  options: {
+    dateFrom: string;
+    dateTo: string;
+    clientKeys: string[];
+    search?: string;
+    limit: number;
+    offset: number;
+  },
+): Promise<EventLogSummaryRow[]> {
+  const datasource = await getGrowthbookDatasource(context);
+  if (!datasource) return [];
+
+  const integration = getSourceIntegrationObject(
+    context,
+    datasource,
+  ) as SqlIntegration;
+
+  if (!options.clientKeys.length) return [];
+
+  const escapedKeys = options.clientKeys
+    .map((k) => toClickhouseStringLiteral(k))
+    .join(", ");
+  const dateFrom = escapeClickhouseString(options.dateFrom);
+  const dateTo = escapeClickhouseString(options.dateTo);
+  const searchCondition = options.search
+    ? `AND event_name ILIKE ${toClickhouseStringLiteral(`%${options.search}%`)}`
+    : "";
+
+  const limit = Math.max(1, Math.min(100, Math.floor(options.limit)));
+  const offset = Math.max(0, Math.floor(options.offset));
+
+  const timeAndKeyFilter = `client_key IN (${escapedKeys})
+      AND timestamp >= parseDateTimeBestEffort('${dateFrom}')
+      AND timestamp < parseDateTimeBestEffort('${dateTo}')`;
+
+  const { rows } = await integration.runQuery(
+    `
+    SELECT
+      event_name,
+      sum(day_count) AS total_count,
+      avg(day_dau) AS dau_count,
+      arrayMap(
+        item -> item.2,
+        arraySort(item -> item.1, groupArray((day, day_count)))
+      ) AS daily_counts
+    FROM (
+      SELECT event_name, toDate(timestamp) AS day,
+        count() AS day_count, uniqExact(user_id) AS day_dau
+      FROM events
+      WHERE ${timeAndKeyFilter}
+      GROUP BY event_name, day
+
+      UNION ALL
+
+      SELECT 'Experiment Viewed' AS event_name, toDate(timestamp) AS day,
+        count() AS day_count, uniqExact(user_id) AS day_dau
+      FROM experiment_views
+      WHERE ${timeAndKeyFilter}
+      GROUP BY day
+
+      UNION ALL
+
+      SELECT 'Feature Evaluated' AS event_name, toDate(timestamp) AS day,
+        count() AS day_count, 0 AS day_dau
+      FROM feature_usage
+      WHERE ${timeAndKeyFilter}
+      GROUP BY day
+    )
+    WHERE 1=1 ${searchCondition}
+    GROUP BY event_name
+    ORDER BY total_count DESC
+    LIMIT ${limit}
+    OFFSET ${offset}
+    `,
+    undefined,
+    { queryType: "eventLogSummary" },
+  );
+
+  return rows as unknown as EventLogSummaryRow[];
+}
+
+export async function listEventLogRecords(
+  context: ReqContext,
+  options: {
+    dateFrom: string;
+    dateTo: string;
+    clientKeys: string[];
+    eventName?: string;
+    userId?: string;
+    environment?: string;
+    browser?: string;
+    os?: string;
+    country?: string;
+    sdk?: string;
+    limit: number;
+    offset: number;
+  },
+): Promise<EventLogRecordRow[]> {
+  const datasource = await getGrowthbookDatasource(context);
+  if (!datasource) return [];
+
+  const integration = getSourceIntegrationObject(
+    context,
+    datasource,
+  ) as SqlIntegration;
+
+  if (!options.clientKeys.length) return [];
+
+  const escapedKeys = options.clientKeys
+    .map((k) => toClickhouseStringLiteral(k))
+    .join(", ");
+  const dateFrom = escapeClickhouseString(options.dateFrom);
+  const dateTo = escapeClickhouseString(options.dateTo);
+
+  const limit = Math.max(1, Math.min(100, Math.floor(options.limit)));
+  const offset = Math.max(0, Math.floor(options.offset));
+
+  // Column sets differ per table: experiment_views lacks event_name;
+  // feature_usage is a narrow table with only evaluation-specific columns
+  // (timestamp, client_key, environment, feature, value, source, ruleId,
+  // variationId) — everything else must be NULL-filled.
+  const sharedTail = `device_id,
+    environment, properties, attributes,
+    url, geo_country, ua_browser, ua_os, ua_device_type,
+    sdk_language, sdk_version`;
+  const eventsColumns = `event_uuid, timestamp, event_name, user_id, ${sharedTail}`;
+  const experimentViewsColumns = `event_uuid, timestamp, 'Experiment Viewed' AS event_name, user_id, ${sharedTail}`;
+  // feature_usage has no event UUID, so derive a stable identifier from its payload.
+  const featureUsageColumns = `concat(
+      'feature-usage-',
+      toString(cityHash64(timestamp, client_key, environment, feature, value, source, ruleId, variationId))
+    ) AS event_uuid, timestamp,
+    'Feature Evaluated' AS event_name, NULL AS user_id, NULL AS device_id,
+    environment, CAST('{}' AS JSON) AS properties, CAST('{}' AS JSON) AS attributes,
+    NULL AS url, NULL AS geo_country, NULL AS ua_browser, NULL AS ua_os,
+    NULL AS ua_device_type, NULL AS sdk_language, NULL AS sdk_version`;
+
+  const extraConditions: string[] = [];
+  if (options.userId) {
+    extraConditions.push(
+      `user_id = ${toClickhouseStringLiteral(options.userId)}`,
+    );
+  }
+  if (options.environment) {
+    extraConditions.push(
+      `environment = ${toClickhouseStringLiteral(options.environment)}`,
+    );
+  }
+  if (options.browser) {
+    extraConditions.push(
+      `ua_browser = ${toClickhouseStringLiteral(options.browser)}`,
+    );
+  }
+  if (options.os) {
+    extraConditions.push(`ua_os = ${toClickhouseStringLiteral(options.os)}`);
+  }
+  if (options.country) {
+    extraConditions.push(
+      `geo_country = ${toClickhouseStringLiteral(options.country)}`,
+    );
+  }
+  if (options.sdk) {
+    extraConditions.push(
+      `sdk_language = ${toClickhouseStringLiteral(options.sdk)}`,
+    );
+  }
+  const extraWhere = extraConditions.length
+    ? ` AND ${extraConditions.join(" AND ")}`
+    : "";
+
+  const hasUnsupportedFeatureUsageFilter = Boolean(
+    options.userId ||
+      options.browser ||
+      options.os ||
+      options.country ||
+      options.sdk,
+  );
+  const featureUsageExtraWhere = options.environment
+    ? ` AND environment = ${toClickhouseStringLiteral(options.environment)}`
+    : "";
+
+  const baseWhere = `client_key IN (${escapedKeys})
+    AND timestamp >= parseDateTimeBestEffort('${dateFrom}')
+    AND timestamp < parseDateTimeBestEffort('${dateTo}')${extraWhere}`;
+
+  const featureUsageWhere = `client_key IN (${escapedKeys})
+    AND timestamp >= parseDateTimeBestEffort('${dateFrom}')
+    AND timestamp < parseDateTimeBestEffort('${dateTo}')${featureUsageExtraWhere}`;
+
+  let sql: string;
+
+  // Route to the specific table when event name is known to avoid UNION ALL
+  if (options.eventName === "Experiment Viewed") {
+    sql = `
+      SELECT ${experimentViewsColumns}
+      FROM experiment_views
+      WHERE ${baseWhere}
+      ORDER BY timestamp DESC
+      LIMIT ${limit} OFFSET ${offset}`;
+  } else if (options.eventName === "Feature Evaluated") {
+    if (hasUnsupportedFeatureUsageFilter) return [];
+    sql = `
+      SELECT ${featureUsageColumns}
+      FROM feature_usage
+      WHERE ${featureUsageWhere}
+      ORDER BY timestamp DESC
+      LIMIT ${limit} OFFSET ${offset}`;
+  } else if (options.eventName) {
+    sql = `
+      SELECT ${eventsColumns}
+      FROM events
+      WHERE ${baseWhere}
+        AND event_name = ${toClickhouseStringLiteral(options.eventName)}
+      ORDER BY timestamp DESC
+      LIMIT ${limit} OFFSET ${offset}`;
+  } else {
+    const featureUsageUnion = hasUnsupportedFeatureUsageFilter
+      ? ""
+      : `
+        UNION ALL
+        SELECT ${featureUsageColumns} FROM feature_usage
+        WHERE ${featureUsageWhere}`;
+    sql = `
+      SELECT * FROM (
+        SELECT ${eventsColumns} FROM events
+        WHERE ${baseWhere}
+        UNION ALL
+        SELECT ${experimentViewsColumns} FROM experiment_views
+        WHERE ${baseWhere}${featureUsageUnion}
+      )
+      ORDER BY timestamp DESC
+      LIMIT ${limit} OFFSET ${offset}`;
+  }
+
+  const { rows } = await integration.runQuery(sql, undefined, {
+    queryType: "eventLogRecords",
+  });
+
+  return rows as unknown as EventLogRecordRow[];
+}
+
 export async function getSessionReplayChunksBySessionId(
   context: ReqContext,
   sessionId: string,

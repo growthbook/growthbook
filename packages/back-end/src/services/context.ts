@@ -71,6 +71,7 @@ import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
 import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
 import { AgreementModel } from "back-end/src/models/AgreementModel";
 import { SessionReplayModel } from "back-end/src/models/SessionReplayModel";
+import { EventLogModel } from "back-end/src/models/EventLogModel";
 import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
 import { ExperimentSnapshotAnalysisChunkModel } from "back-end/src/models/ExperimentSnapshotAnalysisChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
@@ -158,6 +159,7 @@ export type ModelName =
   | "contextualBanditSnapshots"
   | "contextualBanditEvents"
   | "sessionReplays"
+  | "eventLogs"
   | "eventForwarderConfigs"
   | "aiCredentials";
 
@@ -214,6 +216,7 @@ export const modelClasses = {
   contextualBanditSnapshots: ContextualBanditSnapshotModel,
   contextualBanditEvents: ContextualBanditEventModel,
   sessionReplays: SessionReplayModel,
+  eventLogs: EventLogModel,
   eventForwarderConfigs: EventForwarderConfigModel,
 };
 // ModelClass narrows to only BaseModel-derived model constructors (those
@@ -373,6 +376,7 @@ export class ReqContextClass {
       contextualBanditSnapshots: new ContextualBanditSnapshotModel(this),
       contextualBanditEvents: new ContextualBanditEventModel(this),
       sessionReplays: new SessionReplayModel(this),
+      eventLogs: new EventLogModel(this),
       eventForwarderConfigs: new EventForwarderConfigModel(this),
     };
   }

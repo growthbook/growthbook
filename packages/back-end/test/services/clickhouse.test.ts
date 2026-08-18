@@ -9,6 +9,8 @@ import {
 } from "shared/util";
 import type { ReqContext } from "back-end/types/request";
 import {
+  listEventLogRecords,
+  listEventLogSummary,
   listSessionReplays,
   syncManagedWarehouseIdentifiers,
 } from "back-end/src/services/clickhouse";
@@ -138,6 +140,97 @@ describe("listSessionReplays", () => {
 
     await expect(listSessionReplays(context)).resolves.toEqual([]);
     expect(runQuery).not.toHaveBeenCalled();
+  });
+});
+
+describe("event logs", () => {
+  const context = {
+    org: { id: "org_test" },
+  } as unknown as ReqContext;
+
+  const datasource = {
+    id: "managed_warehouse",
+    organization: "org_test",
+    type: "growthbook_clickhouse",
+    settings: {},
+  } as unknown as GrowthbookClickhouseDataSource;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetGrowthbookDatasource.mockResolvedValue(datasource);
+  });
+
+  it("orders summary counts chronologically", async () => {
+    const runQuery = jest.fn().mockResolvedValue({ rows: [] });
+    mockGetSourceIntegrationObject.mockReturnValue({ runQuery } as never);
+
+    await listEventLogSummary(context, {
+      dateFrom: "2026-08-01T00:00:00.000Z",
+      dateTo: "2026-08-02T00:00:00.000Z",
+      clientKeys: ["sdk-key"],
+      limit: 100,
+      offset: 0,
+    });
+
+    const query = runQuery.mock.calls[0][0] as string;
+    expect(query).toContain(
+      "arraySort(item -> item.1, groupArray((day, day_count)))",
+    );
+  });
+
+  it("omits feature usage when filters cannot apply to that table", async () => {
+    const runQuery = jest.fn().mockResolvedValue({ rows: [] });
+    mockGetSourceIntegrationObject.mockReturnValue({ runQuery } as never);
+
+    await listEventLogRecords(context, {
+      dateFrom: "2026-08-01T00:00:00.000Z",
+      dateTo: "2026-08-02T00:00:00.000Z",
+      clientKeys: ["sdk-key"],
+      userId: "user-1",
+      limit: 100,
+      offset: 0,
+    });
+
+    const query = runQuery.mock.calls[0][0] as string;
+    expect(query).toContain("FROM events");
+    expect(query).toContain("FROM experiment_views");
+    expect(query).not.toContain("FROM feature_usage");
+  });
+
+  it("returns no feature usage rows for unsupported filters", async () => {
+    const runQuery = jest.fn().mockResolvedValue({ rows: [] });
+    mockGetSourceIntegrationObject.mockReturnValue({ runQuery } as never);
+
+    await expect(
+      listEventLogRecords(context, {
+        dateFrom: "2026-08-01T00:00:00.000Z",
+        dateTo: "2026-08-02T00:00:00.000Z",
+        clientKeys: ["sdk-key"],
+        eventName: "Feature Evaluated",
+        browser: "Chrome",
+        limit: 100,
+        offset: 0,
+      }),
+    ).resolves.toEqual([]);
+    expect(runQuery).not.toHaveBeenCalled();
+  });
+
+  it("uses a stable hash for feature usage row IDs", async () => {
+    const runQuery = jest.fn().mockResolvedValue({ rows: [] });
+    mockGetSourceIntegrationObject.mockReturnValue({ runQuery } as never);
+
+    await listEventLogRecords(context, {
+      dateFrom: "2026-08-01T00:00:00.000Z",
+      dateTo: "2026-08-02T00:00:00.000Z",
+      clientKeys: ["sdk-key"],
+      eventName: "Feature Evaluated",
+      limit: 100,
+      offset: 0,
+    });
+
+    const query = runQuery.mock.calls[0][0] as string;
+    expect(query).toContain("cityHash64(");
+    expect(query).not.toContain("generateUUIDv4()");
   });
 });
 

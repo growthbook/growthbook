@@ -98,7 +98,7 @@ export const navlinks: SidebarLinkProps[] = [
   {
     name: "Product Analytics",
     href: "/product-analytics/explore",
-    path: /^(product-analytics|sql-explorer|session-replay)/,
+    path: /^(product-analytics|sql-explorer|session-replay|event-logs)/,
     Icon: GBProductAnalytics,
     subLinks: [
       {
@@ -127,6 +127,13 @@ export const navlinks: SidebarLinkProps[] = [
         path: /^session-replay/,
         beta: true,
         filter: ({ gb }) => !!gb?.isOn("session-replays"),
+      },
+      {
+        name: "Event Logs",
+        href: "/event-logs",
+        path: /^event-logs/,
+        beta: true,
+        filter: ({ gb }) => !!gb?.isOn("event-logs"),
       },
     ],
   },
