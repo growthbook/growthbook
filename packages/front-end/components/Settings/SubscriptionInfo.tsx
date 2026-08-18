@@ -226,7 +226,7 @@ export default function SubscriptionInfo() {
           your updated plan.
         </Callout>
       ) : null}
-      <div className="col-auto mb-3">
+      <Box mb="3">
         <strong>Current Plan:</strong> {isCloud() ? "Cloud" : "Self-Hosted"}{" "}
         {planNameFromAccountPlan(accountPlan)}
         {subscription?.status === "trialing" && (
@@ -235,8 +235,8 @@ export default function SubscriptionInfo() {
             <em>(trial)</em>
           </>
         )}
-      </div>
-      <div className="col-md-12 mb-3">
+      </Box>
+      <Box mb="3">
         <strong>Number Of Seats:</strong> {subscriptionSeats || 0}
         {readOnlySeats > 0 ? (
           <Text as="div" color="gray" size="2">
@@ -244,15 +244,15 @@ export default function SubscriptionInfo() {
             and {fullMemberSeats} full-member {seatLabel(fullMemberSeats)}.
           </Text>
         ) : null}
-      </div>
+      </Box>
       {isEnterprise && contractExpirationDate ? (
-        <Box mb="3" ml="2">
+        <Box mb="3">
           <strong>Contract Expiration:</strong> {contractExpirationDate}
         </Box>
       ) : null}
       {subscription?.status !== "canceled" &&
         !subscription?.pendingCancelation && (
-          <div className="col-md-12 mb-3">
+          <Box mb="3">
             <div>
               <strong>Next Bill Date: </strong>
               {subscription?.nextBillDate}
@@ -280,7 +280,7 @@ export default function SubscriptionInfo() {
                 </Callout>
               </Box>
             ) : null}
-          </div>
+          </Box>
         )}
       {subscription?.pendingCancelation &&
         subscription?.dateToBeCanceled &&
