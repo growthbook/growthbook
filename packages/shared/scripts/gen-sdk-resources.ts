@@ -18,7 +18,10 @@ function defineSDKCapabilityVersion(sdk: string, capabilities: string[]) {
   });
 }
 
-const basePath = path.resolve(path.dirname(process.argv[1]), "../../../docs");
+const basePath = path.resolve(
+  path.dirname(process.argv[1]),
+  "../../../docs-archive",
+);
 const TARGET = `${basePath}/src/data/SDKInfo.ts`;
 
 const defaultCapabilities = [

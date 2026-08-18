@@ -766,8 +766,9 @@ async def main():
             client_key="sdk-abc123",
             tracking_plugins=[
                 GrowthBookTrackingPlugin(
-                    # Ingestor host for GrowthBook built-in usage
-                    ingestor_host="https://c1.growthbook.io",
+                    # Use the region you selected when setting up your Managed Warehouse
+                    # (defaults to https://us-east-1.gb-ingest.com; https://eu-west-1.gb-ingest.com for EU)
+                    ingestor_host="https://us-east-1.gb-ingest.com",
                     # Additional callback for custom analytics
                     additional_callback=my_custom_tracker
                 )
@@ -796,40 +797,37 @@ asyncio.run(main())
 <TabItem value="legacy" label="Legacy Client">
 
 ```python
-from growthbook import GrowthBook, TrackingPlugin
+from growthbook import GrowthBook, GrowthBookTrackingPlugin
 
 # Custom tracking callback for your analytics system
-def my_custom_tracker(events):
-    """Process a batch of tracking events"""
-    for event in events:
-        # Send to your analytics system
-        analytics.track(
-            user_id=event.user_id,
-            event_name="Experiment Viewed",
-            properties={
-                'experiment_id': event.experiment.key,
-                'variation_id': event.result.key,
-                'variation_value': event.result.value,
-                'timestamp': event.timestamp
-            }
-        )
-    print(f"Processed {len(events)} tracking events")
+def my_custom_tracker(experiment, result, user_context):
+    """Process a tracking event"""
+    analytics.track(
+        user_id=user_context.attributes.get('id'),
+        event_name="Experiment Viewed",
+        properties={
+            'experiment_id': experiment.key,
+            'variation_id': result.key,
+            'variation_value': result.value,
+        }
+    )
 
 # Create GrowthBook with tracking plugin
 gb = GrowthBook(
     api_host="https://cdn.growthbook.io",
     client_key="sdk-abc123",
     attributes={"id": "user_123"},
-    tracking_plugins=[
-        TrackingPlugin(
-            # Your custom tracking function
-            callback=my_custom_tracker,
-            # Batch size (optional, default 10)
+    plugins=[
+        GrowthBookTrackingPlugin(
+            # Use the region you selected when setting up your Managed Warehouse
+            # (defaults to https://us-east-1.gb-ingest.com; https://eu-west-1.gb-ingest.com for EU)
+            ingestor_host="https://us-east-1.gb-ingest.com",
+            # Additional callback for custom analytics
+            additional_callback=my_custom_tracker,
+            # Number of events to accumulate before flushing (optional, default 10)
             batch_size=5,
-            # Flush interval in seconds (optional, default 30)
-            flush_interval=10,
-            # Max retries (optional, default 3)
-            max_retries=2
+            # Max seconds to wait before flushing a partial batch (optional, default 10.0)
+            batch_timeout=10.0
         )
     ]
 )
@@ -864,13 +862,15 @@ def segment_tracker(experiment, result, user_context):
 async def segment_track_async(experiment, result):
      await segment.track_async(...)
 
-async def mixpanel_tracker(events):
-    """Send events to Mixpanel"""
-    for event in events:
-        await mixpanel.track_async(event.user_id, "Experiment Viewed", {
-            'experiment_id': event.experiment.key,
-            'variation': event.result.value
-        })
+def mixpanel_tracker(experiment, result, user_context):
+    """Send events to Mixpanel (Fire-and-Forget)"""
+    loop = asyncio.get_running_loop()
+    loop.create_task(mixpanel.track_async(
+        user_context.attributes.get('id'), "Experiment Viewed", {
+            'experiment_id': experiment.key,
+            'variation': result.value
+        }
+    ))
 
 # Create client with multiple tracking plugins
 client = GrowthBookClient(
@@ -918,7 +918,7 @@ client = GrowthBookClient(
         on_experiment_viewed=legacy_tracker,
         # Plus new tracking plugins
         tracking_plugins=[
-            TrackingPlugin(callback=my_custom_tracker)
+            GrowthBookTrackingPlugin(additional_callback=my_custom_tracker)
         ]
     )
 )

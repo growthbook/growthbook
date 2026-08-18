@@ -6,7 +6,10 @@ import {
   CommercialFeature,
 } from "../src/enterprise/license-consts";
 
-const basePath = path.resolve(path.dirname(process.argv[1]), "../../../docs");
+const basePath = path.resolve(
+  path.dirname(process.argv[1]),
+  "../../../docs-archive",
+);
 const TARGET = `${basePath}/src/data/commercialFeatures.ts`;
 
 // Determine the lowest plan that has access to a feature

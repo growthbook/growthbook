@@ -6,7 +6,10 @@ import {
   notificationEventPayload,
 } from "shared/validators";
 
-const basePath = path.resolve(path.dirname(process.argv[1]), "../../../docs");
+const basePath = path.resolve(
+  path.dirname(process.argv[1]),
+  "../../../docs-archive",
+);
 
 const TARGET = `${basePath}/src/partials/event-webhook/_event-webhook-list.md`;
 
