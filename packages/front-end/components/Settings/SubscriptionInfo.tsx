@@ -235,7 +235,7 @@ export default function SubscriptionInfo() {
         ) : null}
       </div>
       {isEnterprise && contractExpirationDate ? (
-        <Box mb="3">
+        <Box mb="3" ml="2">
           <strong>Contract Expiration:</strong> {contractExpirationDate}
         </Box>
       ) : null}
