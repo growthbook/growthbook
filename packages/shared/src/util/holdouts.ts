@@ -7,6 +7,8 @@ import { HoldoutInterface } from "../validators/holdout";
 // Capped at 0.5 because an equal control group is reserved alongside the holdout.
 export const MAX_HOLDOUT_SIZE = 0.5;
 
+export const DEFAULT_HOLDOUT_SIZE = 0.05;
+
 export function holdoutSizeToCoverage(holdoutSize: number): number {
   return holdoutSize * 2;
 }

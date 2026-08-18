@@ -2,11 +2,8 @@ import type { Response } from "express";
 import isEqual from "lodash/isEqual";
 import { omit } from "lodash";
 import { UpdateProps } from "shared/types/base-model";
-import { HoldoutInterface } from "shared/validators";
-import {
-  ExperimentInterface,
-  ExperimentInterfaceStringDates,
-} from "shared/types/experiment";
+import { CreateHoldoutInput, HoldoutInterface } from "shared/validators";
+import { ExperimentInterface } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { HoldoutStage, PermissionError } from "shared/util";
@@ -110,7 +107,7 @@ export const getHoldout = async (
 
 export const createHoldout = async (
   req: AuthRequest<
-    Partial<ExperimentInterfaceStringDates> & Partial<HoldoutInterface>,
+    CreateHoldoutInput,
     unknown,
     { autoRefreshResults?: boolean }
   >,
@@ -126,15 +123,17 @@ export const createHoldout = async (
 ) => {
   const context = getContextFromReq(req);
 
+  const data = req.body;
+
   if (
-    !context.permissions.canCreateHoldout({ projects: req.body.projects || [] })
+    !context.permissions.canCreateHoldout({ projects: data.projects || [] })
   ) {
     context.permissions.throwPermissionError();
   }
 
   try {
     const { holdout, experiment, datasource, metricIds } =
-      await createHoldoutWithExperiment(context, req.body);
+      await createHoldoutWithExperiment(context, data);
 
     if (datasource && req.query.autoRefreshResults && metricIds.length > 0) {
       try {

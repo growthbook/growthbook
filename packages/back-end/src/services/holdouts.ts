@@ -2,18 +2,21 @@ import { v4 as uuidv4 } from "uuid";
 import { getValidDate } from "shared/dates";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import {
+  DEFAULT_HOLDOUT_SIZE,
   generateVariationId,
   getHoldoutStage,
+  holdoutSizeToCoverage,
   HoldoutStage,
+  validateCondition,
 } from "shared/util";
 import {
+  CreateHoldoutInput,
   HoldoutInterface,
   HoldoutNextScheduledStatusUpdate,
 } from "shared/validators";
 import {
   Changeset,
   ExperimentInterface,
-  ExperimentInterfaceStringDates,
   ExperimentPhase,
 } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
@@ -152,9 +155,30 @@ export async function resolveHoldoutExperimentToLink({
   }
 }
 
+/**
+ * A Holdout's assignment query is the experiment's exposure query. It only makes
+ * sense in the context of a datasource and must reference one of that
+ * datasource's configured exposure queries — otherwise the invalid id silently
+ * flows through to snapshot/query time and fails there with a confusing error.
+ *
+ * Shared by the create and edit paths so both reject bad ids the same way.
+ */
+export function assertValidAssignmentQuery(
+  datasource: DataSourceInterface | null,
+  assignmentQueryId: string | undefined,
+): void {
+  if (!assignmentQueryId) return;
+  const exposureQuery = datasource?.settings?.queries?.exposure?.find(
+    (q) => q.id === assignmentQueryId,
+  );
+  if (!exposureQuery) {
+    throw new Error("Invalid assignment query: " + assignmentQueryId);
+  }
+}
+
 export async function createHoldoutWithExperiment(
   context: ReqContext | ApiReqContext,
-  data: Partial<ExperimentInterfaceStringDates> & Partial<HoldoutInterface>,
+  data: CreateHoldoutInput,
 ): Promise<{
   holdout: HoldoutInterface;
   experiment: ExperimentInterface;
@@ -163,7 +187,24 @@ export async function createHoldoutWithExperiment(
 }> {
   const { org, userId } = context;
 
-  const { metricIds, datasource } = await validateExperimentData(context, data);
+  const { metricIds, datasource } = await validateExperimentData(context, {
+    datasource: data.datasourceId,
+    goalMetrics: data.goalMetrics,
+    secondaryMetrics: data.secondaryMetrics,
+  });
+
+  assertValidAssignmentQuery(datasource, data.assignmentQueryId);
+
+  // Reject a malformed targeting condition up front rather than letting it break
+  // bucketing later. validateCondition treats undefined/"{}" as valid.
+  const conditionResult = validateCondition(data.targetingCondition);
+  if (!conditionResult.success) {
+    throw new Error(`Invalid targeting condition: ${conditionResult.error}`);
+  }
+
+  if (data.projects && data.projects.length > 0) {
+    await context.models.projects.ensureProjectsExist(data.projects);
+  }
 
   const variations = [
     {
@@ -185,8 +226,8 @@ export async function createHoldoutWithExperiment(
   const obj: Omit<ExperimentInterface, "id" | "uid"> = {
     organization: org.id,
     archived: false,
-    hashAttribute: data.hashAttribute || "",
-    fallbackAttribute: data.fallbackAttribute || "",
+    hashAttribute: data.hashAttribute || "id",
+    fallbackAttribute: "",
     hashVersion: 2,
     disableStickyBucketing: true,
     autoSnapshots: true,
@@ -195,19 +236,29 @@ export async function createHoldoutWithExperiment(
     project: "",
     owner: data.owner || userId,
     trackingKey: `holdout-${uuidv4()}`,
-    datasource: data.datasource || "",
-    exposureQueryId: data.exposureQueryId || "",
-    userIdType: data.userIdType || "anonymous",
-    name: data.name || "",
-    phases: data.phases
-      ? data.phases.map(({ dateStarted, dateEnded, ...phase }) => {
-          return {
-            ...phase,
-            dateStarted: dateStarted ? getValidDate(dateStarted) : new Date(),
-            dateEnded: dateEnded ? getValidDate(dateEnded) : undefined,
-          };
-        })
-      : [],
+    datasource: data.datasourceId || "",
+    exposureQueryId: data.assignmentQueryId || "",
+    userIdType: "anonymous",
+    name: data.name,
+    // A Holdout is created with a single draft phase. The second "Analysis"
+    // phase is added later by setHoldoutStage, never at creation.
+    phases: [
+      {
+        name: "Holdout",
+        reason: "",
+        dateStarted: new Date(),
+        coverage: holdoutSizeToCoverage(
+          data.holdoutSize ?? DEFAULT_HOLDOUT_SIZE,
+        ),
+        condition: data.targetingCondition ?? "",
+        savedGroups: data.savedGroups,
+        variationWeights: [0.5, 0.5],
+        variations: variations.map((v) => ({
+          id: v.id,
+          status: "active" as const,
+        })),
+      },
+    ],
     tags: data.tags || [],
     description: data.description || "",
     hypothesis: "",
@@ -230,17 +281,15 @@ export async function createHoldoutWithExperiment(
     autoAssign: false,
     previewURL: "",
     targetURLRegex: "",
-    // todo: revisit this logic for project level settings, as well as "override stats settings" toggle:
     sequentialTestingEnabled: false,
     sequentialTestingTuningParameter:
-      data.sequentialTestingTuningParameter ??
       org?.settings?.sequentialTestingTuningParameter ??
       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     regressionAdjustmentEnabled: false,
     statsEngine: data.statsEngine,
     type: "holdout",
-    customFields: data.customFields || undefined,
-    shareLevel: data.shareLevel || "organization",
+    customFields: data.customFields,
+    shareLevel: "organization",
     decisionFrameworkSettings: {},
   };
 
