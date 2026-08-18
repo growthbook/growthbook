@@ -7,6 +7,7 @@ import { stringifyToolResultForStorage } from "shared/ai-chat";
 import type { AIAgentPendingAction } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AIConversationModel } from "back-end/src/models/AIConversationModel";
 import {
   dispatchInternal,
   type DispatchInput,
@@ -154,6 +155,64 @@ type ErrorPart = Extract<AgentStreamPart, { type: "error" }>;
 
 const activeStreamControllers = new Map<string, AbortController>();
 
+const SSE_KEEPALIVE_MS = 15_000;
+// Keep this below the client's 60-second stale-stream threshold.
+const DB_HEARTBEAT_MS = 30_000;
+
+// SSE pings keep the connection open; Mongo updates support reloads and
+// cancellation handled by another server instance.
+function startStreamHeartbeats({
+  conversations,
+  conversationId,
+  emit,
+  onCancelled,
+}: {
+  conversations: AIConversationModel;
+  conversationId: string;
+  emit: AgentEmit;
+  onCancelled: () => void;
+}) {
+  const sseKeepalive = setInterval(
+    () => emit("keepalive", {}),
+    SSE_KEEPALIVE_MS,
+  );
+
+  let bumpInFlight = false;
+  const dbHeartbeat = setInterval(() => {
+    if (bumpInFlight) return;
+    bumpInFlight = true;
+    void conversations
+      .touchStreamedAt(conversationId)
+      .then((doc) => {
+        if (doc && !doc.isStreaming) {
+          stopSseKeepalive();
+          stopDbHeartbeat();
+          onCancelled();
+        }
+      })
+      .catch((err) => {
+        logger.debug(
+          `Keepalive bump failed for conversation ${conversationId}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      })
+      .finally(() => {
+        bumpInFlight = false;
+      });
+  }, DB_HEARTBEAT_MS);
+
+  const stopSseKeepalive = (): void => {
+    clearInterval(sseKeepalive);
+  };
+
+  const stopDbHeartbeat = (): void => {
+    clearInterval(dbHeartbeat);
+  };
+
+  return { stopSseKeepalive, stopDbHeartbeat };
+}
+
 /**
  * Abort the active LLM stream for a conversation. Called from the cancel
  * endpoint — returns true if there was a stream to abort.
@@ -298,16 +357,30 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
     activeStreamControllers.set(conversationId, abortController);
     let cancelledExternally = false;
 
+    const markCancelledExternally = (): void => {
+      cancelledExternally = true;
+      abortController.abort();
+    };
+
     const checkCancellation = async (): Promise<boolean> => {
       if (cancelledExternally) return true;
       const doc = await context.models.aiConversations.getById(conversationId);
       if (doc && !doc.isStreaming) {
-        cancelledExternally = true;
-        abortController.abort();
+        markCancelledExternally();
         return true;
       }
       return false;
     };
+
+    const heartbeats = startStreamHeartbeats({
+      conversations: context.models.aiConversations,
+      conversationId,
+      emit,
+      onCancelled: markCancelledExternally,
+    });
+
+    // Continue the DB heartbeat so the result survives a disconnected client.
+    res.on("close", heartbeats.stopSseKeepalive);
 
     try {
       const stream = await streamingChatCompletion({
@@ -360,6 +433,8 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
 
       await titlePromise;
     } finally {
+      heartbeats.stopSseKeepalive();
+      heartbeats.stopDbHeartbeat();
       activeStreamControllers.delete(conversationId);
 
       try {

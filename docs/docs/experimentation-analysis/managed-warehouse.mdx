@@ -280,7 +280,7 @@ req.growthbook.logEvent("Sign Up", {
 
 #### Sending events to the right region
 
-The tracking plugin sends events to `https://us1.gb-ingest.com` by default. If you selected **eu-west-1** as your Data Region when creating your Managed Warehouse, override the ingestor host so events reach the right ClickHouse cluster instead of being dropped:
+The tracking plugin sends events to `https://us-east-1.gb-ingest.com` by default. If you selected **eu-west-1** as your Data Region when creating your Managed Warehouse, override the ingestor host so events reach the right ClickHouse cluster instead of being dropped:
 
 - **HTML Script Tag**: add `data-event-ingestor-host="https://eu-west-1.gb-ingest.com"` to the script tag.
 - **JavaScript / React / Node.js**: pass `ingestorHost` to `growthbookTrackingPlugin()`:
@@ -297,7 +297,7 @@ You can find your datasource's configured region on its settings page.
 
 You can also send events directly to our ingestion API. The host depends on the **Data Region** you chose when creating your Managed Warehouse datasource:
 
-- `us-east-1` → `https://us1.gb-ingest.com`
+- `us-east-1` → `https://us-east-1.gb-ingest.com`
 - `eu-west-1` → `https://eu-west-1.gb-ingest.com`
 
 Sending events to the wrong region's host means they won't reach the ClickHouse cluster your data warehouse actually lives in — always match the host to the region shown on your datasource's settings page.
@@ -340,7 +340,7 @@ Prefer the explicit `user_id` and `device_id` keys, and use each key for one kin
 By default, events are timestamped with the time they are received by the ingestion API. If you batch events before sending, you can preserve each event's original timing by adding a per-event `timestamp` along with a top-level `sentAt` field:
 
 ```bash
-curl -X POST "https://us1.gb-ingest.com/track?client_key=YOUR_CLIENT_KEY" \
+curl -X POST "https://YOUR_WAREHOUSE_REGION.gb-ingest.com/track?client_key=YOUR_CLIENT_KEY" \
 -H "Content-Type: application/json" \
 -d '{
   "sentAt": "2025-06-01T12:00:05.000Z",

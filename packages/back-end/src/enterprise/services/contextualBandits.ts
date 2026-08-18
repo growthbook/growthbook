@@ -1063,12 +1063,36 @@ export async function persistContextualBanditEvent(
     ...(result.srm ? { degreesOfFreedom: result.srm.degreesOfFreedom } : {}),
   });
 
-  await context.models.contextualBandits.patchLeafWeights(cb.id, leafWeights, {
-    bumpVersion: weightsWereUpdated,
-  });
+  const updatedCb = await context.models.contextualBandits.patchLeafWeights(
+    cb.id,
+    leafWeights,
+    {
+      bumpVersion: weightsWereUpdated,
+    },
+  );
 
   if (weightsWereUpdated) {
-    await refreshLinkedFeaturePayloads(context, cb, "contextualBandit.refresh");
+    await refreshLinkedFeaturePayloads(
+      context,
+      updatedCb,
+      "contextualBandit.refresh",
+    );
+    // Best-effort: a throw here would leave the snapshot running and re-persist.
+    try {
+      await context.auditLog({
+        event: "contextualBandit.update",
+        entity: {
+          object: "contextualBandit",
+          id: cb.id,
+        },
+        details: auditDetailsUpdate(cb, updatedCb),
+      });
+    } catch (e) {
+      context.logger.error(
+        e,
+        `Error creating audit log for contextualBandit.update (${cb.id})`,
+      );
+    }
   }
 
   return cbe;
