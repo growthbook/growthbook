@@ -1,6 +1,9 @@
 import { ReactNode } from "react";
 import clsx from "clsx";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "shared/types/experiment";
 import {
   getLatestPhaseVariations,
   hasAttributeCondition,
@@ -32,6 +35,9 @@ export interface Props {
   editNamespace?: (() => void) | null;
   addVariation?: (() => void) | null;
   setEditVariationIndex?: (index: number) => void;
+  // Managed-mode Feature Flag: shown inline on each variation card.
+  managedFeature?: LinkedFeatureInfo | null;
+  onEditServedValue?: () => void;
   canEditExperiment?: boolean;
   safeToEdit: boolean;
   mutate?: () => void;
@@ -181,6 +187,8 @@ export default function TrafficAllocationFunnel({
   editNamespace,
   addVariation,
   setEditVariationIndex,
+  managedFeature,
+  onEditServedValue,
   canEditExperiment = false,
   safeToEdit = false,
   mutate,
@@ -379,6 +387,10 @@ export default function TrafficAllocationFunnel({
                   ? addVariation
                   : undefined
               }
+              servedValues={managedFeature?.values}
+              servedValueFeature={managedFeature?.feature}
+              servedValueSparse={managedFeature?.sparse}
+              onEditServedValue={onEditServedValue}
             />
           </>
         )}

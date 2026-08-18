@@ -154,6 +154,13 @@ export default function LinkedFeatureFlag({
     }),
   );
 
+  // Managed mode moves the values out, so the section only earns its space when
+  // one of the live/draft warnings has something to say.
+  const showValueSection =
+    !isManaged ||
+    ((info.state === "live" || info.state === "draft") &&
+      (info.inconsistentValues || info.rulesAbove));
+
   const showEditButton =
     canEditFeatureDraft &&
     experiment.status === "draft" &&
@@ -188,11 +195,6 @@ export default function LinkedFeatureFlag({
         actions={
           isManaged ? (
             <Flex align="center" gap="2">
-              {showEditButton && (
-                <Button variant="ghost" onClick={() => setEditModalOpen(true)}>
-                  Edit values
-                </Button>
-              )}
               {(info.state === "draft" || info.state === "live") && (
                 <ManagedFlagApproval
                   experiment={experiment}
@@ -225,16 +227,22 @@ export default function LinkedFeatureFlag({
           if (info.state === "archived") {
             return <Badge label="Archived" radius="full" color="gray" />;
           }
+          // Managed mode has one draft whose review status is the state worth
+          // showing — the flag's own live/draft state is already implied by the
+          // experiment. Otherwise a draft awaiting approval reads as plain
+          // "Draft" and the badge disagrees with the approval control.
           const revisionStatus =
-            info.state === "live"
-              ? "live"
-              : info.state === "draft"
-                ? "draft"
-                : info.state === "locked"
-                  ? "published"
-                  : info.state === "discarded"
-                    ? "discarded"
-                    : null;
+            isManaged && info.state === "draft" && info.draftRevisionStatus
+              ? info.draftRevisionStatus
+              : info.state === "live"
+                ? "live"
+                : info.state === "draft"
+                  ? "draft"
+                  : info.state === "locked"
+                    ? "published"
+                    : info.state === "discarded"
+                      ? "discarded"
+                      : null;
           if (!revisionStatus) return null;
           return (
             <Badge
@@ -378,50 +386,62 @@ export default function LinkedFeatureFlag({
           )}
         {info.state !== "discarded" && info.state !== "archived" && (
           <Box className="appbox" style={{ backgroundColor: "transparent" }}>
-            <Flex width="100%" gap="4" py="4" px="5" direction="column">
-              <Box flexGrow="1">
-                <LinkedChangeVariationRows
-                  alignContent={
-                    info.feature.valueType === "json" ? "start" : "center"
-                  }
-                  experiment={experiment}
-                  renderContent={(j) =>
-                    !configuredVariationIds.has(variations[j].id) ? (
-                      <HelperText status="warning">
-                        Define missing values
-                      </HelperText>
-                    ) : (
-                      <ForceSummary
-                        value={orderedValues[j]}
-                        feature={info.feature}
-                        sparse={info.sparse}
-                        maxHeight={60}
-                      />
-                    )
-                  }
-                />
-              </Box>
+            {/* With the value rows moved onto the variation cards, this section
+                is empty for a managed flag unless one of the warnings below
+                applies — rendering the padded container regardless leaves a
+                blank band above the environments grid. */}
+            {showValueSection && (
+              <Flex width="100%" gap="4" py="4" px="5" direction="column">
+                {/* Managed mode shows the served values on the variation cards
+                  above, so restating them here would be the same information
+                  twice with two edit affordances. */}
+                {!isManaged && (
+                  <Box flexGrow="1">
+                    <LinkedChangeVariationRows
+                      alignContent={
+                        info.feature.valueType === "json" ? "start" : "center"
+                      }
+                      experiment={experiment}
+                      renderContent={(j) =>
+                        !configuredVariationIds.has(variations[j].id) ? (
+                          <HelperText status="warning">
+                            Define missing values
+                          </HelperText>
+                        ) : (
+                          <ForceSummary
+                            value={orderedValues[j]}
+                            feature={info.feature}
+                            sparse={info.sparse}
+                            maxHeight={60}
+                          />
+                        )
+                      }
+                    />
+                  </Box>
+                )}
 
-              {(info.state === "live" || info.state === "draft") && (
-                <>
-                  {info.inconsistentValues && (
-                    <Callout status="warning">
-                      <strong>Warning:</strong> This experiment is included
-                      multiple times with different values. The values above are
-                      from the first matching experiment in{" "}
-                      <strong>{info.valuesFrom}</strong>.
-                    </Callout>
-                  )}
+                {(info.state === "live" || info.state === "draft") && (
+                  <>
+                    {info.inconsistentValues && (
+                      <Callout status="warning">
+                        <strong>Warning:</strong> This experiment is included
+                        multiple times with different values. The values above
+                        are from the first matching experiment in{" "}
+                        <strong>{info.valuesFrom}</strong>.
+                      </Callout>
+                    )}
 
-                  {info.rulesAbove && (
-                    <Callout status="info">
-                      <strong>Notice:</strong> There are Feature Flag rules
-                      above this experiment so some users might not be included.
-                    </Callout>
-                  )}
-                </>
-              )}
-            </Flex>
+                    {info.rulesAbove && (
+                      <Callout status="info">
+                        <strong>Notice:</strong> There are Feature Flag rules
+                        above this experiment so some users might not be
+                        included.
+                      </Callout>
+                    )}
+                  </>
+                )}
+              </Flex>
+            )}
 
             {info.state !== "locked" && (
               <>

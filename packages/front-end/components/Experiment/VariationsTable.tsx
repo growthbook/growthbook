@@ -3,6 +3,7 @@ import {
   Variation,
 } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
+import { FeatureInterface } from "shared/types/feature";
 import { FC, useState, useRef, useCallback, useEffect } from "react";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import {
@@ -23,6 +24,7 @@ import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselM
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Metadata from "@/ui/Metadata";
 import VariationLabel from "@/ui/VariationLabel";
+import ForceSummary from "@/components/Features/ForceSummary";
 
 export const MAX_VARIATION_WIDTH = 336;
 
@@ -160,6 +162,13 @@ interface Props {
   onEditTraffic?: (variationId?: string) => void;
   // When true, the grid is centered and capped at 3 columns.
   centered?: boolean;
+  // Managed-mode Feature Flag delivery. When set, each card shows the value its
+  // variation serves, so the split and the delivered value read together
+  // instead of being restated in a separate implementation block.
+  servedValues?: { variationId: string; value: string }[];
+  servedValueFeature?: FeatureInterface;
+  servedValueSparse?: boolean;
+  onEditServedValue?: () => void;
 }
 
 function AddVariationButton({ onClick }: { onClick: () => void }) {
@@ -224,6 +233,10 @@ export function VariationBox({
   onEditMetadata,
   onEditTraffic,
   capWidth = false,
+  servedValue,
+  servedValueFeature,
+  servedValueSparse,
+  onEditServedValue,
 }: {
   i: number;
   v: Variation;
@@ -245,6 +258,12 @@ export function VariationBox({
   onEditMetadata?: (variationIndex: number) => void;
   onEditTraffic?: (variationId?: string) => void;
   capWidth?: boolean;
+  // Managed-mode Feature Flag delivery: the value this variation serves, shown
+  // on the card itself so the split and what it delivers read together.
+  servedValue?: string;
+  servedValueFeature?: FeatureInterface;
+  servedValueSparse?: boolean;
+  onEditServedValue?: () => void;
 }) {
   const { blockFileUploads } = useOrgSettings();
   const isBandit = experiment.type === "multi-armed-bandit";
@@ -373,6 +392,28 @@ export function VariationBox({
               </Flex>
             )}
           </Flex>
+          {servedValueFeature ? (
+            <Box mt="3">
+              <Flex align="center" justify="between" gap="2" mb="1">
+                <Text size="sm" color="text-low">
+                  Serves
+                </Text>
+                {onEditServedValue ? (
+                  <Link onClick={onEditServedValue}>
+                    <Text size="sm" weight="semibold">
+                      Edit
+                    </Text>
+                  </Link>
+                ) : null}
+              </Flex>
+              <ForceSummary
+                value={servedValue ?? ""}
+                feature={servedValueFeature}
+                sparse={servedValueSparse}
+                maxHeight={60}
+              />
+            </Box>
+          ) : null}
         </Box>
       </Flex>
     </Box>
@@ -393,6 +434,10 @@ const VariationsTable: FC<Props> = ({
   onAddVariation,
   onEditTraffic,
   centered = false,
+  servedValues,
+  servedValueFeature,
+  servedValueSparse,
+  onEditServedValue,
 }) => {
   const { apiCall } = useAuth();
   const variations = getLatestPhaseVariations(experiment);
@@ -461,6 +506,12 @@ const VariationsTable: FC<Props> = ({
               shareType={shareType}
               onEditMetadata={onEditMetadata}
               onEditTraffic={onEditTraffic}
+              servedValue={
+                servedValues?.find((sv) => sv.variationId === v.id)?.value
+              }
+              servedValueFeature={servedValueFeature}
+              servedValueSparse={servedValueSparse}
+              onEditServedValue={onEditServedValue}
               showNoImage={
                 experiment.status === "draft" || someVariationHasImage
               }

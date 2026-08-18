@@ -12,6 +12,7 @@ import { experimentHasLiveLinkedChanges } from "shared/util";
 import { Flex } from "@radix-ui/themes";
 import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
 import { useManagedExperimentFlags } from "@/hooks/useManagedExperimentFlags";
+import EditFeatureFlagValuesModal from "@/components/Experiment/LinkedChanges/EditFeatureFlagValuesModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import EditVariationMetadataModal from "@/components/Experiment/EditVariationMetadataModal";
@@ -112,11 +113,24 @@ export default function Implementation({
   // other implementation, so the three-way "add a change" chooser is suppressed
   // — both once a managed flag exists and, before that, when the resolved
   // Project/org setting says new experiments here are managed.
-  const { isManaged, defaultsToManaged } = useManagedExperimentFlags({
-    experiment,
-    linkedFeatures,
-  });
+  const { isManaged, defaultsToManaged, managedFeature } =
+    useManagedExperimentFlags({
+      experiment,
+      linkedFeatures,
+    });
   const managedMode = isManaged || (!hasLinkedChanges && defaultsToManaged);
+
+  // Values live on the variation cards in managed mode, so the editor is owned
+  // here rather than by the implementation card — both surfaces open the same
+  // modal.
+  const [editValuesOpen, setEditValuesOpen] = useState(false);
+  const canEditManagedValues =
+    !!managedFeature &&
+    canEditExperiment &&
+    permissionsUtil.canEditFeatureDrafts(managedFeature.feature) &&
+    managedFeature.state !== "locked" &&
+    managedFeature.state !== "archived" &&
+    managedFeature.state !== "discarded";
 
   const holdoutHasLinkedExpOrFeatures =
     holdoutExperiments?.length || holdoutFeatures?.length;
@@ -162,6 +176,16 @@ export default function Implementation({
           mutate={mutate}
         />
       )}
+      {editValuesOpen && managedFeature && (
+        <EditFeatureFlagValuesModal
+          feature={managedFeature.feature}
+          experiment={experiment}
+          linkedFeatureInfo={managedFeature}
+          numLinkedChanges={linkedFeatures.length}
+          close={() => setEditValuesOpen(false)}
+          mutate={mutate}
+        />
+      )}
       {editMetadataIndex !== null && canEditExperiment && (
         <EditVariationMetadataModal
           experiment={experiment}
@@ -187,6 +211,10 @@ export default function Implementation({
             safeToEdit={safeToEdit}
             mutate={mutate}
             phaseIndex={phases.length - 1}
+            managedFeature={managedFeature}
+            onEditServedValue={
+              canEditManagedValues ? () => setEditValuesOpen(true) : undefined
+            }
           />
         ) : (
           <TrafficAndTargeting

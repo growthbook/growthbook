@@ -52,9 +52,13 @@ export default function ManagedFlagApproval({
   const [error, setError] = useState<string | null>(null);
 
   const version = info.draftRevisionVersion;
+  // Fetched whether or not the popover is open: the trigger's label depends on
+  // who authored the draft, and gating the fetch on `open` made that unknown at
+  // render time — so the author saw "Review", an action they can't take on
+  // their own draft, until they clicked it.
   const { data } = useApi<{ revisions: FeatureRevisionInterface[] }>(
     `/feature/${info.feature.id}`,
-    { shouldRun: () => open && version != null },
+    { shouldRun: () => version != null },
   );
   const revision = useMemo(
     () => data?.revisions?.find((r) => r.version === version),
@@ -110,7 +114,8 @@ export default function ManagedFlagApproval({
   const canReview =
     permissionsUtil.canReviewFeatureDrafts(info.feature) &&
     status === "pending-review" &&
-    revision?.createdBy?.id !== userId;
+    !!revision &&
+    revision.createdBy?.id !== userId;
 
   const submitAction =
     publishIsLaunch && state.submitAction === "publish"
@@ -280,7 +285,10 @@ export default function ManagedFlagApproval({
               from `status` alone drifts: an org that doesn't require approvals
               sits in "draft" but publishes directly, so the trigger read
               "Request review" over a Publish button. */}
-          {canReview ? "Review" : state.ctaLabel}
+          {/* And when the only actions left are secondary (retract a verdict,
+              return to draft), naming a primary action promises something the
+              popover won't offer — fall back to the status instead. */}
+          {canReview ? "Review" : showSubmit ? state.ctaLabel : "Manage review"}
         </Button>
       }
     />
