@@ -1,4 +1,4 @@
-import { FC, useEffect } from "react";
+import { FC, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
@@ -8,11 +8,13 @@ import { getEqualWeights } from "shared/experiments";
 import {
   getManagedWarehouseExposureQueryIdForAttribute,
   isProjectListValidForProject,
+  managedExperimentFlagsDefault,
 } from "shared/util";
 import { Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
+import RadioGroup from "@/ui/RadioGroup";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import {
@@ -303,6 +305,20 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     !hashAttributeLinkedToIdentifier &&
     !wouldAutoSelectExposureQuery;
 
+  // Implementation mode for the new experiment. Defaults from the resolved
+  // Project-then-org setting; the user can still opt out per experiment.
+  const managedDefault = managedExperimentFlagsDefault({
+    settings,
+    project: projects.find((p) => p.id === selectedProject) ?? null,
+  });
+  const [managedFlag, setManagedFlag] = useState(managedDefault);
+  // Re-resolve when the Project changes, but only until the user has touched
+  // the control — after that their choice stands.
+  const [managedTouched, setManagedTouched] = useState(false);
+  useEffect(() => {
+    if (!managedTouched) setManagedFlag(managedDefault);
+  }, [managedDefault, managedTouched]);
+
   const onSubmit = form.handleSubmit(async (rawValue) => {
     const name = (rawValue.name || "").trim();
     if (name.length < 1) {
@@ -413,7 +429,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       | { duplicateTrackingKey: true; existingId: string }
     >("/experiments", {
       method: "POST",
-      body: JSON.stringify(data),
+      body: JSON.stringify({ ...data, managedFlag }),
     });
 
     if ("duplicateTrackingKey" in res) {
@@ -558,6 +574,30 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
         {...form.register("hypothesis")}
       />
+
+      <Flex direction="column" gap="1" mb="3">
+        <Text weight="semibold">Implementation</Text>
+        <RadioGroup
+          value={managedFlag ? "managed" : "manual"}
+          setValue={(v) => {
+            setManagedTouched(true);
+            setManagedFlag(v === "managed");
+          }}
+          options={[
+            {
+              value: "managed",
+              label: "Automatic",
+              description:
+                "Feature Flag set up and published from this experiment",
+            },
+            {
+              value: "manual",
+              label: "Manual",
+              description: "Feature Flag, Visual Editor or URL Redirect",
+            },
+          ]}
+        />
+      </Flex>
 
       <SelectField
         required

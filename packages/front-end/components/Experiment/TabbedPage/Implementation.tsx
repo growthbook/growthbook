@@ -11,6 +11,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { experimentHasLiveLinkedChanges } from "shared/util";
 import { Flex } from "@radix-ui/themes";
 import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
+import { useManagedExperimentFlags } from "@/hooks/useManagedExperimentFlags";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import EditVariationMetadataModal from "@/components/Experiment/EditVariationMetadataModal";
@@ -106,6 +107,16 @@ export default function Implementation({
     experiment.hasVisualChangesets ||
     linkedFeatures.length > 0 ||
     experiment.hasURLRedirects;
+
+  // In managed mode the experiment owns exactly one Feature Flag and takes no
+  // other implementation, so the three-way "add a change" chooser is suppressed
+  // — both once a managed flag exists and, before that, when the resolved
+  // Project/org setting says new experiments here are managed.
+  const { isManaged, defaultsToManaged } = useManagedExperimentFlags({
+    experiment,
+    linkedFeatures,
+  });
+  const managedMode = isManaged || (!hasLinkedChanges && defaultsToManaged);
 
   const holdoutHasLinkedExpOrFeatures =
     holdoutExperiments?.length || holdoutFeatures?.length;
@@ -204,6 +215,7 @@ export default function Implementation({
             canEditExperiment={canEditExperiment}
             setEditVariationIndex={setEditMetadataIndex}
             hideVariations={showTrafficFunnel}
+            managedMode={managedMode}
           />
         ) : null}
 

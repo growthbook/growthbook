@@ -5,7 +5,13 @@ import {
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import { PiArrowSquareOut, PiGitMerge, PiXBold } from "react-icons/pi";
+import {
+  PiArrowSquareOut,
+  PiGitMerge,
+  PiXBold,
+  PiDotsThreeVertical,
+} from "react-icons/pi";
+import { isManagedByExperiment } from "shared/util";
 import LinkedChange from "@/components/Experiment/LinkedChanges/LinkedChange";
 import LinkedChangeVariationRows from "@/components/Experiment/LinkedChanges/LinkedChangeVariationRows";
 import ForceSummary from "@/components/Features/ForceSummary";
@@ -15,7 +21,10 @@ import {
   revisionStatusColor,
   revisionStatusLabel,
 } from "@/components/Reviews/RevisionStatusBadge";
+import ManagedFlagApproval from "@/components/Experiment/LinkedChanges/ManagedFlagApproval";
 import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
@@ -40,6 +49,7 @@ export default function LinkedFeatureFlag({
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const [removing, setRemoving] = useState(false);
+  const [ejecting, setEjecting] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
   const canEditExperiment =
@@ -73,6 +83,29 @@ export default function LinkedFeatureFlag({
       mutate?.();
     } finally {
       setRemoving(false);
+    }
+  };
+
+  // Managed mode: this flag exists only to deliver this experiment, so the card
+  // owns the whole lifecycle — values, review, publish — and the flag itself is
+  // closed to direct edits until it is ejected.
+  const isManaged = isManagedByExperiment(info.feature, experiment.id);
+
+  const handleEject = async () => {
+    if (
+      !confirm(
+        "Eject this Feature Flag? It becomes an ordinary flag you edit from the Feature Flag page, and this experiment can take other implementations.",
+      )
+    )
+      return;
+    setEjecting(true);
+    try {
+      await apiCall(`/experiment/${experiment.id}/managed-flag/eject`, {
+        method: "POST",
+      });
+      mutate?.();
+    } finally {
+      setEjecting(false);
     }
   };
 
@@ -147,6 +180,47 @@ export default function LinkedFeatureFlag({
         feature={info.feature}
         canEdit={showEditButton}
         onEdit={showEditButton ? () => setEditModalOpen(true) : undefined}
+        managedBadge={
+          isManaged ? (
+            <Badge label="Managed" radius="full" color="violet" />
+          ) : undefined
+        }
+        actions={
+          isManaged ? (
+            <Flex align="center" gap="2">
+              {showEditButton && (
+                <Button variant="ghost" onClick={() => setEditModalOpen(true)}>
+                  Edit values
+                </Button>
+              )}
+              {(info.state === "draft" || info.state === "live") && (
+                <ManagedFlagApproval
+                  experiment={experiment}
+                  info={info}
+                  mutate={() => mutate?.()}
+                />
+              )}
+              {canUpdateLinkedFeature && (
+                <DropdownMenu
+                  trigger={
+                    <Button variant="ghost" size="sm">
+                      <PiDotsThreeVertical size={18} />
+                    </Button>
+                  }
+                  menuPlacement="end"
+                >
+                  <DropdownMenuItem
+                    color="red"
+                    disabled={ejecting}
+                    onClick={handleEject}
+                  >
+                    Eject Feature Flag
+                  </DropdownMenuItem>
+                </DropdownMenu>
+              )}
+            </Flex>
+          ) : undefined
+        }
         additionalBadge={(() => {
           if (info.state === "archived") {
             return <Badge label="Archived" radius="full" color="gray" />;
