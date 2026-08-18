@@ -352,7 +352,7 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
     expect(mockedUpdate).not.toHaveBeenCalled();
   });
 
-  it("takes over a pre-existing user identifier type and adds only the missing query", async () => {
+  it("links a pre-existing user identifier type and adds only the missing query", async () => {
     const raw = ds("ds_1", {
       // Datasource that predates the Event Forwarder.
       userIdTypes: [
@@ -387,7 +387,6 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
         userIdType: "user_id",
         description: "Mine",
         attributes: ["user_id"],
-        managedBy: "api",
         sourceAttribute: "user_id",
       },
     ]);

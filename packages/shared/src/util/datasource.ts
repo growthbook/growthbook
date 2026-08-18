@@ -8,6 +8,7 @@ export {
   getEventForwarderDatasourceParams,
   getEventForwarderSinkTypeForDatasource,
   getUserIdTypesToAdd,
+  isEventForwarderLinkedUserIdType,
   isEventForwarderManagedUserIdType,
   mergeUserIdTypes,
   reconcileEventForwarderManagedUserIdTypes,

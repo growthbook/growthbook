@@ -27,6 +27,20 @@ export function isEventForwarderManagedUserIdType(
   return userIdType.managedBy === "api";
 }
 
+/**
+ * Identifier types the Event Forwarder feeds warehouse queries for: the ones it
+ * created, plus user-created ones already linked to a hash attribute. Linking is
+ * not ownership — only `managedBy` entries are ever deleted here.
+ */
+export function isEventForwarderLinkedUserIdType(
+  userIdType: UserIdType,
+): boolean {
+  return (
+    isEventForwarderManagedUserIdType(userIdType) ||
+    (userIdType.sourceAttribute ?? null) !== null
+  );
+}
+
 const LEGACY_EVENT_FORWARDER_MANAGED_NAME_PREFIX = "ef_";
 
 /**
@@ -234,6 +248,13 @@ export function getUserIdTypesToAdd(
   );
 }
 
+/** Drops the Event Forwarder link, keeping everything else. */
+function unlinkUserIdType(userIdType: UserIdType): UserIdType {
+  const unlinked = { ...userIdType };
+  delete unlinked.sourceAttribute;
+  return unlinked;
+}
+
 /**
  * Reconciles managed identifier types against the hash attributes the org's
  * schema calls for. One identifier type per hash attribute.
@@ -241,7 +262,8 @@ export function getUserIdTypesToAdd(
  * - Covered attribute → leave the entry alone. Only `sourceAttribute` is
  *   backfilled; the name stays put, and so does every warehouse artifact keyed
  *   off it (column aliases, identity joins, fact table `userIdTypes`).
- * - Uncovered attribute whose name is already taken → take that entry over.
+ * - Uncovered attribute whose name is already taken → link that entry to it,
+ *   without claiming ownership.
  * - Uncovered attribute with a free name → add it.
  * - Managed entry whose attribute is gone (archived, un-flagged, out of the
  *   datasource's Projects) → drop it.
@@ -263,6 +285,19 @@ export function reconcileEventForwarderManagedUserIdTypes(
 
   for (const entry of existing) {
     if (!isEventForwarderManagedUserIdType(entry)) {
+      // A linked entry claims its attribute so we never add a second type for
+      // it. If the attribute is gone we unlink rather than delete: the entry is
+      // the user's, and whatever references its name still needs it.
+      if ((entry.sourceAttribute ?? null) !== null) {
+        const linkedSource = normalizeUserIdTypeName(
+          getEventForwarderUserIdTypeSourceAttribute(entry),
+        );
+        if (!desiredBySource.has(linkedSource)) {
+          result.push(unlinkUserIdType(entry));
+          continue;
+        }
+        claimedSources.add(linkedSource);
+      }
       result.push(entry);
       continue;
     }
@@ -289,9 +324,10 @@ export function reconcileEventForwarderManagedUserIdTypes(
       continue;
     }
 
-    // Name already taken: that entry already models this attribute, so take it
-    // over rather than duplicate it. Keeps the user's name and description;
-    // backfills the hash attribute and description only when unset.
+    // Name already taken: that entry already models this attribute, so link it
+    // rather than duplicate it. `managedBy` is deliberately left alone — linking
+    // must not make the user's own entry deletable when the attribute is
+    // archived, which would take any fact table or identity join with it.
     const reuseIndex = result.findIndex(
       (entry) =>
         normalizeUserIdTypeName(entry.userIdType) ===
@@ -308,12 +344,10 @@ export function reconcileEventForwarderManagedUserIdTypes(
 
       result[reuseIndex] = {
         ...reused,
-        managedBy: "api",
         sourceAttribute,
         attributes: hasSourceAttribute
           ? reused.attributes
           : [...(reused.attributes ?? []), sourceAttribute],
-        description: reused.description || wanted.description,
       };
       continue;
     }

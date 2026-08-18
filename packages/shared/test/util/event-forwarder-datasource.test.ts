@@ -390,8 +390,8 @@ describe("reconcileEventForwarderManagedUserIdTypes", () => {
   });
 
   // Datasource that predates the Event Forwarder: the user already models this
-  // unit, so connecting takes their entry over instead of duplicating it.
-  it("takes over a same-named user-created type that already links the attribute", () => {
+  // unit, so connecting links their entry instead of duplicating it.
+  it("leaves a same-named user-created type alone when it already links the attribute", () => {
     const existing = [
       {
         userIdType: "user_id",
@@ -407,47 +407,45 @@ describe("reconcileEventForwarderManagedUserIdTypes", () => {
         userIdType: "user_id",
         description: "Mine",
         attributes: ["user_id", "device_id"],
-        managedBy: "api",
         sourceAttribute: "user_id",
       },
     ]);
   });
 
-  it("links the hash attribute when taking over a type that has none", () => {
+  it("links the hash attribute on a type that has none, without claiming it", () => {
     const existing = [
       { userIdType: "user_id", description: "", attributes: [] },
     ];
 
+    // No managedBy, and the description stays the user's — calling it "Managed
+    // by Event Forwarder" would be a lie for an entry we do not own.
     expect(
       reconcileEventForwarderManagedUserIdTypes(existing, desired),
     ).toEqual([
       {
         userIdType: "user_id",
-        description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+        description: "",
         attributes: ["user_id"],
-        managedBy: "api",
         sourceAttribute: "user_id",
       },
     ]);
   });
 
-  it("drops a taken-over type once its attribute is gone", () => {
+  it("unlinks rather than deletes a linked type once its attribute is gone", () => {
     const existing = [
       { userIdType: "user_id", description: "Mine", attributes: ["user_id"] },
     ];
-    const takenOver = reconcileEventForwarderManagedUserIdTypes(
-      existing,
-      desired,
-    );
+    const linked = reconcileEventForwarderManagedUserIdTypes(existing, desired);
 
-    expect(takenOver[0].managedBy).toBe("api");
-    // Take-over means EF owns the lifecycle, deletion included.
-    expect(reconcileEventForwarderManagedUserIdTypes(takenOver, [])).toEqual(
-      [],
+    // Linking is not ownership, so archiving the attribute leaves the user's
+    // entry intact along with anything referencing its name.
+    expect(linked[0].managedBy).toBe(undefined);
+    expect(reconcileEventForwarderManagedUserIdTypes(linked, [])).toEqual(
+      existing,
     );
   });
 
-  it("is idempotent across repeated take-over", () => {
+  it("is idempotent across repeated linking", () => {
     const existing = [
       { userIdType: "user_id", description: "", attributes: [] },
     ];
@@ -458,13 +456,12 @@ describe("reconcileEventForwarderManagedUserIdTypes", () => {
     );
   });
 
-  it("does not add a second identifier type when a taken-over one was renamed", () => {
+  it("does not add a second identifier type when a linked one was renamed", () => {
     const renamed = [
       {
         userIdType: "logged_in_user",
         description: "Mine",
         attributes: ["user_id"],
-        managedBy: "api" as const,
         sourceAttribute: "user_id",
       },
     ];

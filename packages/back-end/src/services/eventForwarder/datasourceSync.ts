@@ -1,7 +1,7 @@
 import {
   buildUserIdTypesFromAttributeSchema,
   mergeUserIdTypes,
-  isEventForwarderManagedUserIdType,
+  isEventForwarderLinkedUserIdType,
   reconcileEventForwarderManagedExposureQueries,
   reconcileEventForwarderManagedUserIdTypes,
 } from "shared/util";
@@ -91,9 +91,9 @@ export async function reconcileEventForwarderDatasourceUserIdTypesAndExposureQue
     existingUserIdTypes,
     desiredUserIdTypes,
   );
-  // Includes types just taken over, which are marked managed above.
-  const managedUserIdTypes = updatedUserIdTypes.filter(
-    isEventForwarderManagedUserIdType,
+  // Managed types plus user-created ones linked to a hash attribute.
+  const linkedUserIdTypes = updatedUserIdTypes.filter(
+    isEventForwarderLinkedUserIdType,
   );
 
   const connectionParams = getSourceIntegrationObject(context, datasource)
@@ -113,7 +113,7 @@ export async function reconcileEventForwarderDatasourceUserIdTypesAndExposureQue
   } else {
     updatedExposure = reconcileEventForwarderManagedExposureQueries({
       existing: existingExposure,
-      userIdTypes: managedUserIdTypes,
+      userIdTypes: linkedUserIdTypes,
       params: sqlParams,
       attributeSchema,
     });
