@@ -250,10 +250,10 @@ production rule to a draft that was dev-only. Verified: `reviewCycle` is `$inc`d
 on submit-for-review, on recall/retract, and on revert-to-draft, and reviews are
 demoted to `approved-stale` when a revision re-enters `pending-review`. What is
 NOT yet confirmed is whether an edit that widens the footprint _while already in_
-`pending-review` invalidates standing approvals — `approvedBaseVersion` looks
-like the mechanism, and it needs a test pinning it before this ships. If it does
-not, a dev-only approval could silently become "sufficient" for a draft that
-later added production.
+`pending-review` invalidates standing approvals. It does not, and
+`approvedBaseVersion` is not the mechanism — it tracks LIVE movement, not draft
+growth. Resolved instead by re-deriving at publish (section 3), so a dev-only
+approval simply stops counting once the draft adds production.
 
 **Resolved — partial coverage does not sum.** One approver must cover the whole
 footprint; two half-covering approvals do not combine. An approval is an
@@ -613,11 +613,16 @@ at all.
       carry a comment (those render as cards, which needed the suffix separately)
 - [x] Tooltip derived from the reviewer's role and the current footprint —
       `uncoveredApproverReasons`, naming the environments they cannot approve
-- [ ] Still open: whether `approvedBaseVersion` re-evaluates a standing approval
-      when the footprint widens _during_ `pending-review`. The widening semantics
-      themselves are covered (`approvalCoverage.test.ts` discounts an approval once
-      the draft grows past the approver); what is unverified is the feature
-      engine's own stale-approval mechanism interacting with it.
+- [x] Closed, and `approvedBaseVersion` was never the mechanism. It asks
+      `liveVersion !== approvedBaseVersion` — did the LIVE feature move since the
+      approval — and only while `status === "approved"`, so it says nothing about a
+      draft growing during `pending-review`. Nothing needs to mark the approval
+      stale: the gate re-derives the footprint at publish and re-checks each
+      recorded approver, so an approval stops counting the moment the draft passes
+      it. Pinned by `shared/test/pendingReviewWidening.test.ts`, which runs the
+      sequence (approve dev-only → same draft also changes production → refused)
+      with no status transition in between — exactly what `resetReviewOnChange` and
+      `clearReviews` both miss.
 
 ### 4. Required approvers
 
