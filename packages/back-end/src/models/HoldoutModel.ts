@@ -141,7 +141,7 @@ const BaseClass = MakeModelClass({
           handleHoldoutStageTransition(req, {
             targetStage: "running",
             invalidStatusMessage:
-              "Holdout must be in the draft stage before it can start.",
+              "Holdout must be in the draft stage to start.",
           }),
       }),
       defineCustomApiHandler({
@@ -150,7 +150,7 @@ const BaseClass = MakeModelClass({
           handleHoldoutStageTransition(req, {
             targetStage: "analysis-period",
             invalidStatusMessage:
-              "Holdout must be running before its analysis period can start.",
+              "Holdout must be running to start its analysis period.",
           }),
       }),
       defineCustomApiHandler({
@@ -159,7 +159,7 @@ const BaseClass = MakeModelClass({
           handleHoldoutStageTransition(req, {
             targetStage: "stopped",
             invalidStatusMessage:
-              "Holdout must be running or in its analysis period before it can stop.",
+              "Holdout must be running or in its analysis period to stop.",
           }),
       }),
     ],

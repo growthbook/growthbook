@@ -48,10 +48,7 @@ export function isScheduledTransitionApplicable(
 ): boolean {
   const currentStage = getHoldoutStage(holdout, experiment);
   const targetStage = scheduledTypeToStage(scheduledType);
-  return (
-    currentStage !== targetStage &&
-    isHoldoutStageTransitionAllowed(currentStage, targetStage)
-  );
+  return isHoldoutStageTransitionAllowed(currentStage, targetStage);
 }
 
 const QUEUE_HOLDOUT_UPDATES = "queueScheduledHoldoutUpdates";

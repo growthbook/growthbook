@@ -83,7 +83,7 @@ describe("getHoldoutStage", () => {
 });
 
 describe("holdout stage transitions", () => {
-  it("allows forward lifecycle transitions and retries", () => {
+  it("allows forward lifecycle transitions", () => {
     expect(isHoldoutStageTransitionAllowed("draft", "running")).toBe(true);
     expect(isHoldoutStageTransitionAllowed("running", "analysis-period")).toBe(
       true,
@@ -92,10 +92,14 @@ describe("holdout stage transitions", () => {
     expect(isHoldoutStageTransitionAllowed("analysis-period", "stopped")).toBe(
       true,
     );
-    expect(isHoldoutStageTransitionAllowed("running", "running")).toBe(true);
   });
 
-  it("rejects skipped and backward transitions", () => {
+  it("rejects repeated, skipped, and backward transitions", () => {
+    expect(isHoldoutStageTransitionAllowed("running", "running")).toBe(false);
+    expect(
+      isHoldoutStageTransitionAllowed("analysis-period", "analysis-period"),
+    ).toBe(false);
+    expect(isHoldoutStageTransitionAllowed("stopped", "stopped")).toBe(false);
     expect(isHoldoutStageTransitionAllowed("draft", "stopped")).toBe(false);
     expect(isHoldoutStageTransitionAllowed("draft", "analysis-period")).toBe(
       false,
