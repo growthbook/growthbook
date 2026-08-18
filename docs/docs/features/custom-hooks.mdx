@@ -95,9 +95,9 @@ Each Custom Hook has an **Incremental Changes Only** option that affects behavio
 A hook receives only the arguments listed for its type, and they always describe the proposed state. To act on what a change introduces, check that state and enable this option: GrowthBook re-runs the hook against the previous state and discards the error when both runs report the same message, so avoid interpolating changing values into a message you want suppressed.
 
 ```js
-// Blocks adding the "pii" tag; features that already carry it are unaffected.
-if ((feature.tags || []).includes("pii")) {
-  throw new Error("The 'pii' tag must be applied by a data steward.");
+// Blocks adding the "restricted" tag; features that already carry it are unaffected.
+if ((feature.tags || []).includes("restricted")) {
+  throw new Error("The 'restricted' tag is reserved and cannot be added.");
 }
 ```
 
@@ -160,11 +160,11 @@ Receives two arguments:
 
 `revision.metadata` holds the feature-level fields the revision carries (`tags`, `description`, `owner`, `project`, `customFields`, `jsonSchema`, and more), captured when the draft was created and updated as further changes are staged. Publishing applies only the difference between the revision and its base, so a value here is not necessarily one this revision will change. Older revisions may omit fields, so read them with optional chaining.
 
-Example: Restrict who can add a sensitive tag. Enable **Incremental Changes Only** so features that already carry it aren't blocked on unrelated edits.
+Example: Block staging a reserved tag. Enable **Incremental Changes Only** so features that already carry it aren't blocked on unrelated edits.
 
 ```js
-if ((revision.metadata?.tags || []).includes("pii")) {
-  throw new Error("The 'pii' tag must be applied by a data steward.");
+if ((revision.metadata?.tags || []).includes("restricted")) {
+  throw new Error("The 'restricted' tag is reserved and cannot be added.");
 }
 ```
 
