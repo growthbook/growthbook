@@ -433,15 +433,28 @@ export class HoldoutModel extends BaseClass {
       this.context.permissions.throwPermissionError();
     }
 
-    // Targeting and sizing changes reach live SDK payloads, so they additionally
-    // require run permission on the Holdout's environments — the same bar the
-    // internal targeting endpoint applies.
+    // Targeting, sizing, and environment changes reach live SDK payloads, so
+    // they additionally require run permission on the Holdout's environments —
+    // the same bar the internal targeting endpoint applies. The environment map
+    // is replaced wholesale by the write below, so authorize the union of the
+    // currently enabled environments and the ones this request would enable;
+    // otherwise a request could deploy targeting to an environment the caller
+    // lacks run permission on.
     const isTargetingChange = HOLDOUT_API_TARGETING_UPDATE_FIELDS.some(
       (field) => body[field] !== undefined,
     );
-    if (isTargetingChange) {
-      const envs = Object.keys(holdout.environmentSettings).filter(
-        (env) => holdout.environmentSettings[env]?.enabled,
+    const isEnvironmentChange = body.environments !== undefined;
+    if (isTargetingChange || isEnvironmentChange) {
+      const currentlyEnabledEnvs = Object.keys(
+        holdout.environmentSettings,
+      ).filter((env) => holdout.environmentSettings[env]?.enabled);
+      const requestedEnabledEnvs = body.environments
+        ? Object.keys(body.environments).filter(
+            (env) => body.environments?.[env]?.enabled,
+          )
+        : [];
+      const envs = Array.from(
+        new Set([...currentlyEnabledEnvs, ...requestedEnabledEnvs]),
       );
       if (
         envs.length > 0 &&
