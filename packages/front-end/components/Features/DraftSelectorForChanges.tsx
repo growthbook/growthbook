@@ -35,11 +35,13 @@ export default function DraftSelectorForChanges({
   selectedDraft,
   setSelectedDraft,
   canAutoPublish,
+  canDraft = true,
   gatedEnvSet,
   defaultExpanded = false,
   hideExisting = false,
   triggerPrefix = "Changes will be",
   allowNewDraftAtCap = false,
+  canWriteIntoDraft,
 }: {
   feature: FeatureInterface;
   // Un-merged live feature doc; fallback for env state on old sparse live revisions.
@@ -50,6 +52,8 @@ export default function DraftSelectorForChanges({
   selectedDraft: number | null;
   setSelectedDraft: (v: number | null) => void;
   canAutoPublish: boolean;
+  // Whether the user may author drafts; without it publishing is the only route.
+  canDraft?: boolean;
   gatedEnvSet: Set<string> | "all" | "none";
   defaultExpanded?: boolean;
   hideExisting?: boolean;
@@ -57,9 +61,14 @@ export default function DraftSelectorForChanges({
   // Keep "create a new draft" available even when the org's soft draft cap is
   // reached — for critical flows (revert, archive) that shouldn't be blocked.
   allowNewDraftAtCap?: boolean;
+  /** Only drafts this flow may WRITE into; omit when every active draft is fine. */
+  canWriteIntoDraft?: (revision: MinimalFeatureRevisionInterface) => boolean;
 }) {
   const permissionsUtil = usePermissionsUtil();
-  const isAdmin = permissionsUtil.canBypassApprovalChecks(feature);
+  const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(
+    feature,
+    "feature",
+  );
 
   const activeDrafts = useMemo(
     () =>
@@ -155,11 +164,26 @@ export default function DraftSelectorForChanges({
       )
     : null;
 
+  // The dropdown inside THIS control picks a write target — the draft the archive
+  // flip is written into — so it lists only drafts this caller may write into. The
+  // page-level revision picker uses the same component to VIEW, and there listing
+  // every draft is correct; only the write-target instance narrows. Matches the
+  // generic twin. The current selection is kept regardless, so a selection made
+  // before a permission change still renders its label instead of vanishing.
+  const selectableRevisions = canWriteIntoDraft
+    ? revisionList.filter(
+        (r) =>
+          r.version === selectedDraft ||
+          !(ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status) ||
+          canWriteIntoDraft(r),
+      )
+    : revisionList;
+
   const revisionDropdown = (
     <>
       <RevisionDropdown
         feature={feature}
-        revisions={revisionList}
+        revisions={selectableRevisions}
         version={selectedDraft ?? activeDrafts[0]?.version ?? null}
         setVersion={setSelectedDraft}
         draftsOnly
@@ -181,11 +205,22 @@ export default function DraftSelectorForChanges({
   return (
     <SharedDraftSelectorForChanges<number>
       activeDraftKeys={activeDrafts.map((r) => r.version)}
+      // Only drafts this flow may write into, when narrower than "active". The
+      // feature archive endpoint refuses a write into another author's draft, so
+      // listing them turned a picker choice into a 403.
+      writableDraftKeys={
+        canWriteIntoDraft
+          ? activeDrafts
+              .filter((r) => canWriteIntoDraft(r))
+              .map((r) => r.version)
+          : undefined
+      }
       selectedDraft={selectedDraft}
       setSelectedDraft={setSelectedDraft}
       mode={mode}
       setMode={setMode}
       canAutoPublish={canAutoPublish}
+      canDraft={canDraft}
       approvalRequired={gatedEnvSet !== "none"}
       existingDraftLabel={existingDraftLabel}
       revisionDropdown={revisionDropdown}

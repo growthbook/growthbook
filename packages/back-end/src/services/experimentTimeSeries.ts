@@ -1,10 +1,15 @@
 import md5 from "md5";
 import {
   getAllExpandedMetricIdsFromExperiment,
+  getAllMetricIdsFromExperiment,
   isFactMetricId,
-  expandAllSliceMetricsInMap,
+  expandDerivedMetricsInMap,
   getLatestPhaseVariations,
   isDimensionPrecomputed,
+  getFactMetricPrimaryFactTableId,
+  isFactFunnelMetric,
+  parseFunnelStepMetricId,
+  parseSliceMetricId,
 } from "shared/experiments";
 import {
   CreateMetricTimeSeriesSingleDataPoint,
@@ -102,8 +107,8 @@ export async function getExperimentTimeSeriesContext({
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
 
-  // Expand all slice metrics (auto and custom) and add them to the metricMap
-  expandAllSliceMetricsInMap({
+  // Expand all derived metrics (slices and funnel steps) into the metricMap
+  expandDerivedMetricsInMap({
     metricMap,
     factTableMap,
     experiment,
@@ -116,8 +121,14 @@ export async function getExperimentTimeSeriesContext({
     metricGroups,
   });
 
+  // Only the stored metrics, not the derived ids also in allMetricIds: those
+  // hash against their parent's definition (see getDefinitionMetricId).
   let factMetrics: FactMetricInterface[] | undefined;
-  const factMetricsIds: string[] = allMetricIds.filter(isFactMetricId);
+  const factMetricsIds = getAllMetricIdsFromExperiment(
+    experimentSnapshot.settings,
+    true,
+    metricGroups,
+  ).filter(isFactMetricId);
   if (factMetricsIds.length > 0) {
     factMetrics = await context.models.factMetrics.getByIds(factMetricsIds);
   }
@@ -367,7 +378,7 @@ function getExperimentSettingsHash(
 
 export function getFiltersForHash(
   factTable: FactTableInterface | undefined,
-  columnRef: ColumnRef | null,
+  columnRef: Pick<ColumnRef, "rowFilters"> | null,
 ) {
   if (!factTable || !columnRef) {
     return undefined;
@@ -386,17 +397,35 @@ export function getFiltersForHash(
     }));
 }
 
-function getMetricSettingsHash(
+/**
+ * The id whose stored definition governs a metric. Funnel steps and slices are
+ * derived from a parent and have no document of their own, so they hash against
+ * the parent: an edit anywhere in the parent (another step's row filters, say)
+ * tags every derived series. That blast radius is wider than strictly needed,
+ * but it matches how the parent already behaves and errs toward flagging a
+ * change rather than hiding it.
+ */
+function getDefinitionMetricId(metricId: string): string {
+  const stepInfo = parseFunnelStepMetricId(metricId);
+  return stepInfo.isFunnelStepMetric
+    ? stepInfo.baseMetricId
+    : parseSliceMetricId(metricId).baseMetricId;
+}
+
+export function getMetricSettingsHash(
   metricId: string,
   metricSettings?: MetricForSnapshot,
   factMetrics?: FactMetricInterface[],
   factTableMap?: Map<string, FactTableInterface>,
 ): string {
-  const factMetric = factMetrics?.find((metric) => metric.id === metricId);
+  const definitionMetricId = getDefinitionMetricId(metricId);
+  const factMetric = factMetrics?.find(
+    (metric) => metric.id === definitionMetricId,
+  );
   if (!factMetric) {
     return hashObject(metricSettings ?? { id: metricId });
   } else {
-    const numeratorFactTableId = factMetric.numerator.factTableId;
+    const numeratorFactTableId = getFactMetricPrimaryFactTableId(factMetric);
     const numeratorFactTable = numeratorFactTableId
       ? factTableMap?.get(numeratorFactTableId)
       : undefined;
@@ -413,10 +442,16 @@ function getMetricSettingsHash(
       denominator: factMetric.denominator,
       cappingSettings: factMetric.cappingSettings,
       quantileSettings: factMetric.quantileSettings,
+      funnelSettings: factMetric.funnelSettings,
       numeratorFactTable: {
         sql: numeratorFactTable?.sql,
         eventName: numeratorFactTable?.eventName,
         filters: getFiltersForHash(numeratorFactTable, factMetric.numerator),
+        funnelFilters: isFactFunnelMetric(factMetric)
+          ? factMetric.funnelSettings.steps.flatMap(
+              (step) => getFiltersForHash(numeratorFactTable, step) ?? [],
+            )
+          : undefined,
       },
       denominatorFactTable: {
         sql: denominatorFactTable?.sql,

@@ -12,6 +12,7 @@ import omit from "lodash/omit";
 import { z } from "zod";
 import { isEqual, pick } from "lodash";
 import { evalCondition } from "@growthbook/growthbook";
+import { PermissionError } from "shared/util";
 import { BaseSchemaWithPrimaryKey } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { EntityType, EventType } from "shared/types/audit";
@@ -47,6 +48,7 @@ import {
   resolveOwnerEmails,
   resolveOwnerToUserId,
 } from "back-end/src/services/owner";
+import { runCasLoop } from "./casLoop";
 
 export type Context = ApiReqContext | ReqContext;
 
@@ -87,15 +89,13 @@ export const createSchema = <
   return output.strict() as unknown as CreateZodObject<T, PKey>;
 };
 
-/**
- * UpdateProps scoped to a specific model's primary key — forbids both the
- * standard protected base fields AND whatever fields comprise the pKey.
- *
- * PK is the literal tuple of primary key field names (e.g. readonly ["id"]
- * or readonly ["userId", "organization"]).  The tuple passed to MakeModelClass
- * will be defined with `as const` so that PK[number] resolves to a narrow string
- * literal union rather than just `string`.
- */
+// UpdateProps scoped to a specific model's primary key — forbids both the
+// standard protected base fields AND whatever fields comprise the pKey.
+//
+// PK is the literal tuple of primary key field names (e.g. readonly ["id"]
+// or readonly ["userId", "organization"]).  The tuple passed to MakeModelClass
+// will be defined with `as const` so that PK[number] resolves to a narrow string
+// literal union rather than just `string`.
 type PKeyUpdateProps<
   T extends BaseSchemaWithPrimaryKey<PKey>,
   PKey extends z.ZodRawShape,
@@ -294,16 +294,14 @@ export async function waitForIndexes(): Promise<void> {
   pendingIndexOperations.clear();
 }
 
-/**
- * Extracts the Zod schema type for a specific slot (paramsSchema/bodySchema/querySchema)
- * for a specific CRUD action from the model's crudValidatorOverrides type (CVO).
- * Falls back to DefaultCrudValidators when no override is defined for that action/slot,
- * preserving structural guarantees (e.g. params.id on delete/get/update).
- *
- * CVO is inferred from the concrete crudValidatorOverrides value passed to MakeModelClass,
- * so handleApi* override signatures in subclasses are automatically derived from the validators
- * without requiring explicit type annotations on the req parameter.
- */
+// Extracts the Zod schema type for a specific slot (paramsSchema/bodySchema/querySchema)
+// for a specific CRUD action from the model's crudValidatorOverrides type (CVO).
+// Falls back to DefaultCrudValidators when no override is defined for that action/slot,
+// preserving structural guarantees (e.g. params.id on delete/get/update).
+//
+// CVO is inferred from the concrete crudValidatorOverrides value passed to MakeModelClass,
+// so handleApi* override signatures in subclasses are automatically derived from the validators
+// without requiring explicit type annotations on the req parameter.
 type ExtractCrudSchema<
   CVO extends CrudValidatorOverrides,
   Action extends CrudAction,
@@ -315,11 +313,31 @@ type ExtractCrudSchema<
       : DefaultCrudValidators[Action][Slot]
     : DefaultCrudValidators[Action][Slot];
 
-// Thrown by `_updateOne` when a guarded write matches zero docs. Caught by
-// `updateWithCas`; exported so a model guarding its own call can retry too.
+/**
+ * The `dateUpdated` a guarded write stamps: now, but strictly AFTER the token it
+ * was conditioned on. `Date` is millisecond-precision, so a write landing in the
+ * same millisecond as the guarded stamp would otherwise leave the token
+ * unchanged — and a rival conditioned on that same token would then pass its own
+ * guard instead of losing the race.
+ */
+export function advancedGuardStamp(guardedOn: Date | undefined): Date {
+  const now = new Date();
+  return guardedOn && now <= guardedOn
+    ? new Date(guardedOn.getTime() + 1)
+    : now;
+}
+
+// Thrown by `_updateOne` when a guarded write matches zero docs (the doc changed
+// between read and write). `updateWithCas` catches it to retry; landing paths
+// catch it to refuse, since a landing that lost the race must not be re-applied.
 export class CasConflictError extends Error {
+  // A lost race, not a malformed request: 409 tells the client a plain retry
+  // usually succeeds, where the 400 default says don't bother.
+  status = 409;
   constructor() {
-    super("Compare-and-swap conflict");
+    super(
+      "This change could not be applied because the record was updated concurrently. Retry the request.",
+    );
     this.name = "CasConflictError";
   }
 }
@@ -682,13 +700,58 @@ export abstract class BaseModel<
     existing: z.infer<T>,
     updates: PKeyUpdateProps<T, PKey, PK>,
     writeOptions?: WriteOptions,
+    options?: {
+      /** @see _updateOne's `onWritten` — fires before audit and afterUpdate. */
+      onWritten?: (newDoc: z.infer<T>) => void;
+    },
   ): Promise<z.infer<T>> {
     if (!this.hasPremiumFeature()) {
       throw new Error(
         "Your organization does not have access to this feature.",
       );
     }
-    return this._updateOne(existing, updates, { writeOptions });
+    return this._updateOne(existing, updates, {
+      writeOptions,
+      onWritten: options?.onWritten,
+    });
+  }
+  /**
+   * `update`, conditioned on `existing` still being the current stored doc.
+   * Where `update` is last-write-wins, this throws `CasConflictError`: the
+   * loser must refuse rather than apply state computed against a version that
+   * no longer exists.
+   *
+   * No baseline argument, deliberately — the guard IS the doc the caller was
+   * handed. Stamps via `advancedGuardStamp`, strictly after the guarded token,
+   * so two writers holding the same token cannot both pass even inside one
+   * millisecond.
+   */
+  public updateIfUnchanged(
+    existing: z.infer<T>,
+    updates: PKeyUpdateProps<T, PKey, PK>,
+    writeOptions?: WriteOptions,
+    options?: {
+      // Skip the canUpdate gate, for orchestration writes whose authority the
+      // calling flow already established under a different rule (e.g. a Config
+      // scoped-overrides commit takes publish authority, not manage). Same
+      // contract as updateWithCas's flag.
+      dangerouslyBypassCanUpdate?: boolean;
+      /** @see _updateOne's `onWritten` — fires before audit and afterUpdate. */
+      onWritten?: (newDoc: z.infer<T>) => void;
+    },
+  ): Promise<z.infer<T>> {
+    if (!this.hasPremiumFeature()) {
+      throw new Error(
+        "Your organization does not have access to this feature.",
+      );
+    }
+    const stamp = (existing as { dateUpdated?: Date }).dateUpdated;
+    return this._updateOne(existing, updates, {
+      writeOptions,
+      guard: { dateUpdated: stamp === undefined ? { $exists: false } : stamp },
+      forceCanUpdate: options?.dangerouslyBypassCanUpdate,
+      onWritten: options?.onWritten,
+    });
   }
   public async dangerousUpdateBypassPermission(
     existing: z.infer<T>,
@@ -727,18 +790,16 @@ export abstract class BaseModel<
     }
     return this._updateOne(existing, updates, { writeOptions });
   }
-  /**
-   * Compare-and-swap update for read-modify-write hotspots (e.g. reconciling a
-   * denormalized status from an embedded array several writers touch at once).
-   * Re-reads, runs `compute`, and writes only if `guardFields` are unchanged,
-   * retrying up to `maxAttempts`. Application-level optimistic concurrency (no
-   * transactions), so it stays DocumentDB/CosmosDB compatible.
-   *
-   * Goes through canRead + `_updateOne` (canUpdate, validation, audit, hooks),
-   * which run only on the winning attempt — but `compute` may run several times,
-   * so keep it side-effect free. Returns the updated doc, or null if the doc is
-   * gone / not readable / `compute` aborts. Throws if attempts are exhausted.
-   */
+  // Compare-and-swap update for read-modify-write hotspots (e.g. reconciling a
+  // denormalized status from an embedded array several writers touch at once).
+  // Re-reads, runs `compute`, and writes only if `guardFields` are unchanged,
+  // retrying up to `maxAttempts`. Application-level optimistic concurrency (no
+  // transactions), so it stays DocumentDB/CosmosDB compatible.
+  //
+  // Goes through canRead + `_updateOne` (canUpdate, validation, audit, hooks),
+  // which run only on the winning attempt — but `compute` may run several times,
+  // so keep it side-effect free. Returns the updated doc, or null if the doc is
+  // gone / not readable / `compute` aborts. Throws if attempts are exhausted.
   public async updateWithCas(
     id: string,
     guardFields: (keyof z.infer<T>)[],
@@ -748,53 +809,86 @@ export abstract class BaseModel<
       | PKeyUpdateProps<T, PKey, PK>
       | null
       | Promise<PKeyUpdateProps<T, PKey, PK> | null>,
-    options: { maxAttempts?: number; writeOptions?: WriteOptions } = {},
+    options: {
+      maxAttempts?: number;
+      writeOptions?: WriteOptions;
+      // Skip the canUpdate gate, for orchestration writes whose authority was
+      // already established by the calling flow — e.g. claiming recovery of a
+      // merged revision, which canUpdate refuses to protect history from
+      // ordinary edits. Same contract as dangerousUpdateBypassPermission.
+      dangerouslyBypassCanUpdate?: boolean;
+      // Skip the read gate, for models whose linkage is a side effect of an
+      // authorized write on ANOTHER entity — e.g. a Feature Flag publish updating
+      // a Holdout in Projects the publisher cannot see. Without this those
+      // callers silently get `null` (the not-found answer) and skip the write.
+      dangerouslyBypassCanRead?: boolean;
+      // Skip the licence gate, for the same class of caller: gating them here
+      // would fail a publish rewind on an org whose licence lapsed, stranding
+      // linkage the flag write has already committed to removing.
+      dangerouslyBypassPremium?: boolean;
+    } = {},
   ): Promise<z.infer<T> | null> {
     this._assertHasIdField();
-    if (!this.hasPremiumFeature()) {
+    if (!options.dangerouslyBypassPremium && !this.hasPremiumFeature()) {
       throw new Error(
         "Your organization does not have access to this feature.",
       );
     }
     const maxAttempts = options.maxAttempts ?? 5;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      // Read raw so guard + compute share one snapshot of the stored doc.
-      const raw = (await this._dangerousGetCollection().findOne(
-        this.applyBaseQuery({ id }),
-      )) as Record<string, unknown> | null;
-      if (!raw) return null;
+    const outcome = await runCasLoop<
+      z.infer<T>,
+      PKeyUpdateProps<T, PKey, PK>,
+      z.infer<T>
+    >({
+      alsoGuard: guardFields.map(String),
+      maxAttempts,
+      read: async () => {
+        // Read raw so the guard describes the STORED doc while `compute` gets a
+        // migrated one.
+        const raw = (await this._dangerousGetCollection().findOne(
+          this.applyBaseQuery({ id }),
+        )) as Record<string, unknown> | null;
+        if (!raw) return null;
 
-      const existing = this._stripLegacyNullFields(
-        this.migrate(this._removeMongooseFields(raw)) as z.infer<T>,
+        const existing = this._stripLegacyNullFields(
+          this.migrate(this._removeMongooseFields(raw)) as z.infer<T>,
+        );
+
+        // Read gate mirrors getById/_findOne; canUpdate is enforced in
+        // _updateOne. Denial ends the loop the same way a missing doc does.
+        await this.populateForeignRefs([existing]);
+        if (!options.dangerouslyBypassCanRead && !this.canRead(existing)) {
+          return null;
+        }
+
+        return { snapshot: existing, observed: raw };
+      },
+      compute,
+      write: async (updates, guard, existing) => {
+        try {
+          return {
+            applied: true as const,
+            result: await this._updateOne(existing, updates, {
+              writeOptions: options.writeOptions,
+              guard,
+              forceCanUpdate: options.dangerouslyBypassCanUpdate,
+            }),
+          };
+        } catch (e) {
+          if (e instanceof CasConflictError) return { applied: false };
+          throw e;
+        }
+      },
+    });
+
+    if (outcome.status === "applied") return outcome.result;
+    if (outcome.status === "exhausted") {
+      throw new Error(
+        `updateWithCas: exhausted ${maxAttempts} attempts for ${this.config.collectionName} ${id}`,
       );
-
-      // Read gate mirrors getById/_findOne; canUpdate is enforced in _updateOne.
-      await this.populateForeignRefs([existing]);
-      if (!this.canRead(existing)) return null;
-
-      const updates = await compute(existing);
-      if (!updates) return null;
-
-      const guard = Object.fromEntries(
-        guardFields.map((f) => {
-          const v = raw[f as string];
-          return [f as string, v === undefined ? { $exists: false } : v];
-        }),
-      );
-
-      try {
-        return await this._updateOne(existing, updates, {
-          writeOptions: options.writeOptions,
-          guard,
-        });
-      } catch (e) {
-        if (e instanceof CasConflictError) continue;
-        throw e;
-      }
     }
-    throw new Error(
-      `updateWithCas: exhausted ${maxAttempts} attempts for ${this.config.collectionName} ${id}`,
-    );
+    // `aborted` and `not-found` are one answer here.
+    return null;
   }
   public async delete(
     existing: z.infer<T>,
@@ -814,6 +908,30 @@ export abstract class BaseModel<
       return;
     }
     await this._deleteOne(existing, writeOptions);
+    return existing;
+  }
+  // For cascades and compensating rollbacks: a delete implied by an action the
+  // caller was already authorized to take. Re-checking the acting user here asks
+  // for authority the triggering action never needed, and these paths are
+  // best-effort — a refusal is swallowed, leaving the row orphaned with nobody
+  // told. Never use this for a delete the user asked for directly.
+  // The by-id variant resolves through `getById`, which returns null for a doc
+  // the caller cannot READ, so it no-ops rather than deleting.
+  public async dangerousDeleteBypassPermission(
+    existing: z.infer<T>,
+    writeOptions?: WriteOptions,
+  ): Promise<z.infer<T> | undefined> {
+    await this._deleteOne(existing, writeOptions, true);
+    return existing;
+  }
+  public async dangerousDeleteByIdBypassPermission(
+    id: string,
+    writeOptions?: WriteOptions,
+  ): Promise<z.infer<T> | undefined> {
+    this._assertHasIdField();
+    const existing = await this.getById(id);
+    if (!existing) return;
+    await this._deleteOne(existing, writeOptions, true);
     return existing;
   }
 
@@ -869,9 +987,11 @@ export abstract class BaseModel<
       projection,
       dangerousCrossOrganization,
     }: {
-      sort?: Partial<{
-        [key in keyof Omit<z.infer<T>, "organization">]: 1 | -1;
-      }>;
+      // Dotted paths sort embedded fields (Mongo supports them natively) — the
+      // same shape additionalIndexes accepts, so an indexed path is sortable.
+      sort?: Partial<
+        Record<Exclude<IndexableFieldPath<z.infer<T>>, "organization">, 1 | -1>
+      >;
       limit?: number;
       skip?: number;
       bypassReadPermissionChecks?: boolean;
@@ -885,6 +1005,9 @@ export abstract class BaseModel<
     const fullQuery = this.applyBaseQuery(query, dangerousCrossOrganization);
     let rawDocs;
     let omittedFields: ReadonlySet<string> | undefined;
+    // Set only on the Mongo path: the config-file branch sorts in memory and has no
+    // cursor to page with, so it keeps slicing.
+    let pagedInDatabase = false;
 
     if (this.useConfigFile()) {
       const docs =
@@ -917,6 +1040,17 @@ export abstract class BaseModel<
             [key: string]: 1 | -1;
           },
         );
+      // Page in the DATABASE only when nothing downstream can drop a row: the
+      // per-document read-permission post-filter shortens the result, so a
+      // cursor-side limit would under-fill the page — that case still slices
+      // below. Bypassed, the two are equivalent, and the caller stops
+      // materialising the whole match (revision history is full documents;
+      // "load everything, keep 25" was tens of megabytes per page view).
+      pagedInDatabase = !!bypassReadPermissionChecks && !!(skip || limit);
+      if (pagedInDatabase) {
+        if (skip) cursor.skip(skip);
+        if (limit) cursor.limit(limit);
+      }
       rawDocs = await cursor.toArray();
     }
 
@@ -932,7 +1066,7 @@ export abstract class BaseModel<
       : await this.filterByReadPermissions(migrated);
 
     const paged =
-      !skip && !limit
+      pagedInDatabase || (!skip && !limit)
         ? filtered
         : filtered.slice(skip || 0, limit ? (skip || 0) + limit : undefined);
 
@@ -1024,7 +1158,9 @@ export abstract class BaseModel<
 
     await this.populateForeignRefs([doc]);
     if (!forceCanCreate && !this.canCreate(doc)) {
-      throw new Error("You do not have access to create this resource");
+      throw new PermissionError(
+        "You do not have access to create this resource",
+      );
     }
 
     await this.validateProjectFields(doc);
@@ -1096,6 +1232,11 @@ export abstract class BaseModel<
       // CAS guard: write only applies if the doc still matches these field
       // values, else throws CasConflictError. Set via `updateWithCas`.
       guard?: Record<string, unknown>;
+      // Called the instant the write lands, BEFORE audit logging and the
+      // afterUpdate hooks: reporting after `_updateOne` returns cannot tell
+      // "never wrote" from "wrote, then a hook failed", and compensation must
+      // not mistake the second for the first.
+      onWritten?: (newDoc: z.infer<T>) => void;
     },
   ) {
     updates = this.updateValidator.parse(updates);
@@ -1130,8 +1271,11 @@ export abstract class BaseModel<
       .map(([k]) => k) as (keyof z.infer<T>)[];
     updates = pick(updates, updatedFields);
 
-    // If no updates are needed, return immediately
-    if (!updatedFields.length) {
+    // If no updates are needed, return immediately — UNLESS the write is
+    // guarded. A guarded write is a CAS fence as much as a mutation: skipping
+    // it would confirm "the doc I read is still current" without checking it
+    // or advancing the token. The fence writes only the advanced stamp.
+    if (!updatedFields.length && !options?.guard) {
       return doc;
     }
 
@@ -1162,7 +1306,18 @@ export abstract class BaseModel<
 
     const allUpdates = {
       ...updates,
-      ...(setDateUpdated ? { dateUpdated: new Date() } : null),
+      // A guarded write must ADVANCE the token even inside the same millisecond
+      // — see advancedGuardStamp — and a guarded no-change write still stamps,
+      // since advancing the token is the write's whole point in that case.
+      ...(setDateUpdated || options?.guard
+        ? {
+            dateUpdated: advancedGuardStamp(
+              options?.guard?.dateUpdated instanceof Date
+                ? options.guard.dateUpdated
+                : undefined,
+            ),
+          }
+        : null),
     };
 
     const newDoc = { ...doc, ...allUpdates } as z.infer<T>;
@@ -1170,7 +1325,9 @@ export abstract class BaseModel<
     await this.populateForeignRefs([newDoc]);
 
     if (!options?.forceCanUpdate && !this.canUpdate(doc, updates, newDoc)) {
-      throw new Error("You do not have access to update this resource");
+      throw new PermissionError(
+        "You do not have access to update this resource",
+      );
     }
 
     await this.validateProjectFields(updates as Partial<z.infer<T>>);
@@ -1200,6 +1357,8 @@ export abstract class BaseModel<
     if (options?.guard && writeResult.matchedCount === 0) {
       throw new CasConflictError();
     }
+
+    options?.onWritten?.(newDoc);
 
     // Skip audit logging if only operational fields are being updated
     const shouldSkipAuditLog =
@@ -1324,9 +1483,15 @@ export abstract class BaseModel<
     return result;
   }
 
-  protected async _deleteOne(doc: z.infer<T>, writeOptions?: WriteOptions) {
-    if (!this.canDelete(doc)) {
-      throw new Error("You do not have access to delete this resource");
+  protected async _deleteOne(
+    doc: z.infer<T>,
+    writeOptions?: WriteOptions,
+    forceCanDelete?: boolean,
+  ) {
+    if (!forceCanDelete && !this.canDelete(doc)) {
+      throw new PermissionError(
+        "You do not have access to delete this resource",
+      );
     }
 
     if (this.useConfigFile()) {

@@ -15,6 +15,7 @@ jest.mock("back-end/src/models/AITokenUsageModel", () => ({
 
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { getTokensUsedByOrganization } from "back-end/src/models/AITokenUsageModel";
+import { ReqContext } from "back-end/types/request";
 import {
   secondsUntilAICanBeUsedAgainForEmbeddings,
   secondsUntilAICanBeUsedAgainForModel,
@@ -28,13 +29,11 @@ const mockedTokens = getTokensUsedByOrganization as jest.MockedFunction<
   typeof getTokensUsedByOrganization
 >;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const context = { org: { id: "org_1" } } as any;
+const context = { org: { id: "org_1" } } as unknown as ReqContext;
 
 describe("AI usage cap when self-hosted", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Well over any limit — self-hosted should not look at this at all.
     mockedTokens.mockResolvedValue({
       numTokensUsed: 100,
       dailyLimit: 10,

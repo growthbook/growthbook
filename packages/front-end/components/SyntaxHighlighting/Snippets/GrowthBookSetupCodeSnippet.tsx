@@ -1,6 +1,9 @@
 import { SDKLanguage } from "shared/types/sdk-connection";
 import { paddedVersionString } from "@growthbook/growthbook";
-import { getSDKCapabilities } from "shared/sdk-versioning";
+import {
+  getSDKCapabilities,
+  getSDKCapabilityVersion,
+} from "shared/sdk-versioning";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import React from "react";
 import { Box } from "@radix-ui/themes";
@@ -219,8 +222,11 @@ gb.logEvent("Button Click", {
             </Box>
           ) : (
             <Callout status="warning" mt="3">
-              Upgrade this SDK Connection to SDK version 1.4.0 or later to send
-              events to GrowthBook, or send events directly with the{" "}
+              Upgrade this SDK Connection to SDK version{" "}
+              {getSDKCapabilityVersion(language, "trackingPlugin") ||
+                "a later version"}{" "}
+              or later to send events to GrowthBook, or send events directly
+              with the{" "}
               <DocLink docSection="managedWarehouseIngestionApi">
                 Ingestion API
               </DocLink>
@@ -311,8 +317,11 @@ gb.logEvent("Button Click", {
             </Box>
           ) : (
             <Callout status="warning" mt="3">
-              Upgrade this SDK Connection to SDK version 1.4.0 or later to send
-              events to GrowthBook, or send events directly with the{" "}
+              Upgrade this SDK Connection to SDK version{" "}
+              {getSDKCapabilityVersion(language, "trackingPlugin") ||
+                "a later version"}{" "}
+              or later to send events to GrowthBook, or send events directly
+              with the{" "}
               <DocLink docSection="managedWarehouseIngestionApi">
                 Ingestion API
               </DocLink>

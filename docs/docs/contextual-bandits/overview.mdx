@@ -36,8 +36,6 @@ You should run a contextual bandit when:
 | Best when       | One variation is best for all users         | The best variation varies across segments              |
 | Setup           | Standard assignment query                   | Assignment query that also selects the context columns |
 
-If you don't expect the winner to vary across segments, a standard [multi-armed bandit](/bandits/overview) is simpler and usually the better choice.
-
 ### What you need to run one
 
 A contextual bandit splits traffic on **context attributes**, so it needs an assignment query that selects those columns in addition to the user identifier and timestamp. In GrowthBook these are defined on a **Contextual Bandit Query**, which holds the assignment SQL plus the list of `targetingAttributeColumns` the bandit is allowed to split on. Each context column you want to use must appear in the query's `SELECT`, and at least one targeting attribute is required — a bandit with no context to split on is just a multi-armed bandit.
@@ -48,6 +46,9 @@ To get started you will need:
 - An assignment query that selects your user id, timestamp, and one or more **context columns**.
 - A single **Decision Metric** to optimize toward.
 - Two or more **variations** to test.
+- An **SDK that supports contextual bandits** — version 1.7.0+ of the JavaScript, React, or Node.js SDK.
+
+For a step-by-step checklist covering SDK installation, tracking callback changes, and the rest of the setup, see [Setting up a Contextual Bandit](/contextual-bandits/config).
 
 ### GrowthBook's Contextual Bandit implementation
 
@@ -66,7 +67,7 @@ The statistical details are covered in the [Contextual Bandit technical referenc
    No. Like multi-armed bandits, contextual bandits are available only under the Bayesian engine, where Thompson sampling is used.
 
 3. **What happens if a context has very little traffic?**<br />
-   GrowthBook controls how finely it splits using settings like `minUsersPerLeaf` and `maxLeaves`. Sparse contexts are grouped together rather than split out, so the bandit doesn't try to learn separate weights for a segment it has too little data on.
+   GrowthBook controls how finely it splits using settings like `minUsersPerLeaf` and `maxLeaves`.
 
 4. **Do contextual bandits suffer from the same biases as multi-armed bandits?**<br />
    Yes — because traffic weights change adaptively, the same [adaptive-experimentation biases](https://arxiv.org/abs/1905.11397) apply, and splitting by context can make them more pronounced in low-traffic segments. If unbiased per-metric effect estimates are your goal, a standard experiment is still the better tool.

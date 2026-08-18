@@ -7,7 +7,6 @@ import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { PiArrowRight, PiPaperPlaneTiltFill } from "react-icons/pi";
 import { Flex, Box } from "@radix-ui/themes";
 import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
-import { getEventIngestorRegion } from "@/services/dataRegions";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
 import InstallationCodeSnippet from "@/components/SyntaxHighlighting/Snippets/InstallationCodeSnippet";
@@ -58,8 +57,7 @@ const VerifyConnectionPage = ({
   const settings = useOrgSettings();
   const attributeSchema = useAttributeSchema();
   const { data, error, mutate } = useSDKConnections();
-  const { datasources } = useDefinitions();
-  const eventIngestorRegion = getEventIngestorRegion(datasources);
+  const { ready: definitionsReady, eventIngestorRegion } = useDefinitions();
 
   const currentConnection: SDKConnectionInterface | null =
     data?.connections.find((c) => c.id === connection) || null;
@@ -157,7 +155,7 @@ const VerifyConnectionPage = ({
 
   return (
     <div style={{ padding: "0px 57px" }}>
-      {!currentConnection && <LoadingOverlay />}
+      {(!currentConnection || !definitionsReady) && <LoadingOverlay />}
       {inviting && (
         <InviteModal
           close={() => setInviting(false)}
@@ -180,7 +178,7 @@ const VerifyConnectionPage = ({
           showModalClose
         />
       )}
-      {currentConnection && (
+      {currentConnection && definitionsReady && (
         <div>
           <div className="d-flex mb-1">
             <h3>

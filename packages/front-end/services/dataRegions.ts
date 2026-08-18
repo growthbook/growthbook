@@ -1,10 +1,7 @@
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
-import {
-  DataSourceInterfaceWithParams,
-  GrowthbookClickhouseDataSourceWithParams,
-} from "shared/types/datasource";
+import type { DataRegion } from "shared/util";
 
-export type DataRegion = "us-east-1" | "eu-west-1";
+export type { DataRegion };
 
 export const DATA_REGION_OPTIONS: { label: string; value: DataRegion }[] = [
   { label: "AWS us-east-1", value: "us-east-1" },
@@ -34,22 +31,4 @@ const EVENT_INGESTOR_HOSTS: Record<DataRegion, string> = {
 // callers only need to pass this along explicitly for non-default regions.
 export function getEventIngestorHost(region: DataRegion): string {
   return EVENT_INGESTOR_HOSTS[region];
-}
-
-// The org's events land in the same ingestor infrastructure whether they're
-// destined for the Managed Warehouse (growthbook_clickhouse datasource) or
-// forwarded to the org's own warehouse via the Event Forwarder.
-export function getEventIngestorRegion(
-  datasources: DataSourceInterfaceWithParams[],
-): DataRegion | undefined {
-  const managedWarehouse = datasources.find(
-    (d): d is GrowthbookClickhouseDataSourceWithParams =>
-      d.type === "growthbook_clickhouse",
-  );
-  if (managedWarehouse) {
-    return managedWarehouse.settings?.region;
-  }
-
-  return datasources.find((d) => d.eventForwarderConfig)?.eventForwarderConfig
-    ?.region;
 }

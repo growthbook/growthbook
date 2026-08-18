@@ -43,21 +43,25 @@ import {
   getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
-  expandAllSliceMetricsInMap,
+  expandDerivedMetricsInMap,
   getEqualWeights,
   getEffectiveLookbackOverride,
+  getFunnelStepMetric,
   getMetricResultStatus,
   getMetricSnapshotSettings,
+  isFactFunnelMetric,
   isFactMetric,
   isFactMetricId,
   isMetricJoinable,
   isDimensionPrecomputed,
+  parseFunnelStepMetricId,
   parseSliceMetricId,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
   getAllVariations,
   getLatestPhaseVariations,
   getPhaseVariations,
+  getFactMetricPrimaryFactTableId,
 } from "shared/experiments";
 import { getValidDate, hoursBetween, resolveScheduledStop } from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
@@ -85,6 +89,7 @@ import {
   ApiExperimentResults,
   ApiMetric,
   ScheduledStopPlan,
+  resolveSavedGroupsInput,
 } from "shared/validators";
 import { Dimension } from "shared/types/integrations";
 import {
@@ -259,6 +264,20 @@ export async function getExperimentMetricById(
   context: Context,
   metricId: string,
 ): Promise<ExperimentMetricInterface | null> {
+  // Funnel step metrics are derived from their parent rather than stored. Check
+  // first: parseSliceMetricId reports a step id as a non-slice, which would
+  // otherwise send the full `<id>?step=k` to the lookup and miss.
+  const stepInfo = parseFunnelStepMetricId(metricId);
+  if (stepInfo.isFunnelStepMetric && stepInfo.stepIndex !== null) {
+    const parent = await getExperimentMetricById(
+      context,
+      stepInfo.baseMetricId,
+    );
+    return parent && isFactFunnelMetric(parent)
+      ? getFunnelStepMetric(parent, stepInfo.stepIndex)
+      : null;
+  }
+
   // Handle slice metric IDs by extracting the base metric ID
   const sliceInfo = parseSliceMetricId(metricId);
   const actualMetricId = sliceInfo.isSliceMetric
@@ -535,7 +554,7 @@ export function isJoinableMetric({
 
   const metricIdTypes =
     (isFactMetric(metric)
-      ? factTableMap.get(metric.numerator.factTableId)?.userIdTypes
+      ? factTableMap.get(getFactMetricPrimaryFactTableId(metric))?.userIdTypes
       : metric.userIdTypes) ?? [];
 
   return isMetricJoinable(metricIdTypes, experimentIdType, datasource.settings);
@@ -689,8 +708,8 @@ export function getSnapshotSettings({
   // Set currentDate in a const to use the same date for all metric settings
   const currentDate = new Date();
 
-  // Expand all slice metrics (auto and custom) and add them to the metricMap
-  expandAllSliceMetricsInMap({
+  // Expand all derived metrics (slices and funnel steps) into the metricMap
+  expandDerivedMetricsInMap({
     metricMap,
     factTableMap,
     experiment,
@@ -2319,7 +2338,7 @@ export async function createExperimentSnapshotFromPlan({
   const factTableMap = await getFactTableMap(context);
   const metricGroups = await context.models.metricGroups.getAll();
 
-  expandAllSliceMetricsInMap({
+  expandDerivedMetricsInMap({
     metricMap,
     factTableMap,
     experiment,
@@ -2515,9 +2534,9 @@ async function getSnapshotAnalyses(
   const createAnalysisPromises: (() => Promise<void>)[] = [];
   params.forEach(({ experiment, analysisSettings, metricMap, snapshot }, i) => {
     const expandedMetricMap = new Map(metricMap);
-    // Ensure slice metrics from existing snapshot query results can always
+    // Ensure derived metrics from existing snapshot query results can always
     // be resolved during re-analysis, regardless of caller behavior.
-    expandAllSliceMetricsInMap({
+    expandDerivedMetricsInMap({
       metricMap: expandedMetricMap,
       factTableMap,
       experiment,
@@ -4221,10 +4240,7 @@ export function postExperimentApiPayloadToInterface(
       coverage: p.coverage != null ? p.coverage : 1,
       condition,
       prerequisites: p.prerequisites || [],
-      savedGroups: (p.savedGroupTargeting || []).map((s) => ({
-        match: s.matchType,
-        ids: s.savedGroups,
-      })),
+      savedGroups: resolveSavedGroupsInput(p) ?? [],
       namespace: toPhaseNamespaceValue(
         p.namespace,
         organization.settings?.namespaces,
@@ -4490,10 +4506,7 @@ function resolveExperimentUpdateVariationsAndPhases(
         coverage: p.coverage != null ? p.coverage : 1,
         condition,
         prerequisites: p.prerequisites || [],
-        savedGroups: (p.savedGroupTargeting || []).map((s) => ({
-          match: s.matchType,
-          ids: s.savedGroups,
-        })),
+        savedGroups: resolveSavedGroupsInput(p) ?? [],
         namespace: toPhaseNamespaceValue(p.namespace, orgNamespaces),
         variationWeights,
         variations: phaseVariations,

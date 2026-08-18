@@ -207,7 +207,7 @@ export default function StartExperimentModal({
     (item) => item.hardBlock,
   );
   const softBlockerItems = incompleteChecklistItems.filter(
-    (item) => !item.hardBlock,
+    (item) => !item.hardBlock && item.required,
   );
   // Only group when we actually have hard-blocker items in the rendered list,
   // not just a non-zero count from props, so we never render an empty section.

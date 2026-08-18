@@ -16,11 +16,12 @@ import {
   getAllMetricSettingsForSnapshot,
   expandMetricGroups,
   generateSliceString,
-  expandAllSliceMetricsInMap,
+  expandDerivedMetricsInMap,
   parseSliceMetricId,
   SliceLevelsData,
   getEffectiveLookbackOverride,
   getLatestPhaseVariations,
+  getFactMetricPrimaryFactTableId,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import { differenceInMinutes } from "date-fns";
@@ -204,10 +205,17 @@ export function getSnapshotSettingsFromReportArgs(
     stddev: DEFAULT_PROPER_PRIOR_STDDEV,
   };
 
-  // Expand slice metrics if factTableMap is provided
+  const expandedArgs: LegacyExperimentReportArgs = {
+    ...args,
+    goalMetrics: expandMetricGroups(args.goalMetrics, metricGroups),
+    secondaryMetrics: expandMetricGroups(args.secondaryMetrics, metricGroups),
+    guardrailMetrics: expandMetricGroups(args.guardrailMetrics, metricGroups),
+  };
+
+  // Expand derived metrics if factTableMap is provided
   if (factTableMap) {
-    // Expand all slice metrics (auto and custom) and add them to the metricMap
-    expandAllSliceMetricsInMap({
+    // Expand all derived metrics (slices and funnel steps) into the metricMap
+    expandDerivedMetricsInMap({
       metricMap,
       factTableMap,
       experiment: experiment ?? args,
@@ -217,10 +225,9 @@ export function getSnapshotSettingsFromReportArgs(
 
   const snapshotSettings: ExperimentSnapshotSettings = {
     metricSettings: getAllExpandedMetricIdsFromExperiment({
-      exp: args,
+      exp: expandedArgs,
       expandedMetricMap: metricMap,
       includeActivationMetric: true,
-      metricGroups: [],
     })
       .map((m) =>
         getMetricForSnapshot({
@@ -252,9 +259,9 @@ export function getSnapshotSettingsFromReportArgs(
     skipPartialData: !!args.skipPartialData,
     defaultMetricPriorSettings: defaultMetricPriorSettings,
     regressionAdjustmentEnabled: !!args.regressionAdjustmentEnabled,
-    goalMetrics: args.goalMetrics,
-    secondaryMetrics: args.secondaryMetrics,
-    guardrailMetrics: args.guardrailMetrics,
+    goalMetrics: expandedArgs.goalMetrics,
+    secondaryMetrics: expandedArgs.secondaryMetrics,
+    guardrailMetrics: expandedArgs.guardrailMetrics,
     dimensions: args.dimension ? [{ id: args.dimension }] : [],
     variations: args.variations.map((v) => ({
       id: v.id,
@@ -262,7 +269,7 @@ export function getSnapshotSettingsFromReportArgs(
     })),
     coverage: args.coverage,
   };
-  const analysisSettings = getAnalysisSettingsFromReportArgs(args);
+  const analysisSettings = getAnalysisSettingsFromReportArgs(expandedArgs);
 
   return { snapshotSettings, analysisSettings };
 }
@@ -497,8 +504,8 @@ export async function createReportSnapshot({
 
   const metricGroups = await context.models.metricGroups.getAll();
 
-  // Expand all slice metrics (auto and custom) and add them to the metricMap
-  expandAllSliceMetricsInMap({
+  // Expand all derived metrics (slices and funnel steps) into the metricMap
+  expandDerivedMetricsInMap({
     metricMap,
     factTableMap,
     experiment: report.experimentAnalysisSettings,
@@ -729,8 +736,15 @@ export function getReportSnapshotSettings({
           }
         : undefined;
 
+  // Use the scrubbed lists so metricSettings lines up with the goal/secondary/
+  // guardrail lists returned below (a scrubbed metric must not be queried).
   const metricSettings = getAllExpandedMetricIdsFromExperiment({
-    exp: report.experimentAnalysisSettings,
+    exp: {
+      goalMetrics,
+      secondaryMetrics,
+      guardrailMetrics,
+      activationMetric: report.experimentAnalysisSettings.activationMetric,
+    },
     expandedMetricMap: metricMap,
     includeActivationMetric: true,
     metricGroups,
@@ -863,7 +877,8 @@ export async function generateExperimentReportSSRData({
 
   let factTableIds: string[] = [];
   factMetrics.forEach((m) => {
-    if (m?.numerator?.factTableId) factTableIds.push(m.numerator.factTableId);
+    const primaryFactTableId = getFactMetricPrimaryFactTableId(m);
+    if (primaryFactTableId) factTableIds.push(primaryFactTableId);
     if (m?.denominator?.factTableId)
       factTableIds.push(m.denominator.factTableId);
   });
@@ -923,7 +938,7 @@ export async function generateExperimentReportSSRData({
   > = {};
   for (const factMetric of factMetrics) {
     if (factMetric.metricAutoSlices?.length) {
-      const factTableId = factMetric.numerator.factTableId;
+      const factTableId = getFactMetricPrimaryFactTableId(factMetric);
       const factTable = factTableId ? factTableMap[factTableId] : undefined;
       if (factTable) {
         const dimensionColumns = factTable.columns.filter(

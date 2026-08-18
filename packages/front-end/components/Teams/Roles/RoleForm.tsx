@@ -1,19 +1,39 @@
 import {
   POLICY_DISPLAY_GROUPS,
   POLICY_METADATA_MAP,
+  POLICY_PARTS,
   Policy,
   RESERVED_ROLE_IDS,
+  DEPRECATED_POLICIES,
 } from "shared/permissions";
 import { FormProvider, useForm } from "react-hook-form";
+import isEqual from "lodash/isEqual";
 import { Role } from "shared/types/organization";
 import router from "next/router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiMinusBold, PiPlusBold } from "react-icons/pi";
+import {
+  policyCheckboxState,
+  togglePolicy as togglePolicySelection,
+  togglePolicyPart as togglePolicyPartSelection,
+} from "@/components/Teams/Roles/policySelection";
 import Field from "@/components/Forms/Field";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import Button from "@/components/Button";
+import Button from "@/ui/Button";
+import Checkbox from "@/ui/Checkbox";
+import Frame from "@/ui/Frame";
+import Heading from "@/ui/Heading";
+import HelperText from "@/ui/HelperText";
+import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import TempMessage from "@/components/TempMessage";
 import Callout from "@/ui/Callout";
+
+// Policies that appear as a part of another policy render inside their parent's
+// drill-down, so they must not also render as a top-level row.
+const PART_POLICIES = new Set<string>(Object.values(POLICY_PARTS).flat());
 
 export default function RoleForm({
   role,
@@ -28,6 +48,35 @@ export default function RoleForm({
   const { refreshOrganization } = useUser();
   const [status, setStatus] = useState<"editing" | "viewing" | "creating">(
     action,
+  );
+  // Client-side navigation between role pages reuses this mounted component, so
+  // the mode must follow the route's `action` rather than snapshot mount time —
+  // otherwise /edit reached from /view keeps rendering read-only, and vice versa.
+  useEffect(() => {
+    setStatus(action);
+  }, [action]);
+
+  // Expand policies whose component grants are selected individually.
+  const [expandedPolicies, setExpandedPolicies] = useState<Set<Policy>>(() => {
+    const granted = new Set(role.policies || []);
+    return new Set(
+      (Object.keys(POLICY_PARTS) as Policy[]).filter(
+        (policy) =>
+          !granted.has(policy) &&
+          (POLICY_PARTS[policy] || []).some((part) => granted.has(part)),
+      ),
+    );
+  });
+
+  // Retired policies the stored role still carries. They are absent from
+  // POLICY_DISPLAY_GROUPS, so without this an admin sees a role that looks
+  // reduced to Edit while hidden Publish/Delete/Bypass grants remain — and has
+  // no way to remove them. Frozen on mount so a row doesn't disappear the
+  // moment it is unchecked.
+  const [legacyPolicies] = useState<Policy[]>(() =>
+    DEPRECATED_POLICIES.filter((policy) =>
+      (role.policies || []).includes(policy),
+    ),
   );
 
   const validateInputs = (input: {
@@ -72,7 +121,7 @@ export default function RoleForm({
     policies: Policy[];
     displayName?: string;
   }>({
-    defaultValues: role,
+    defaultValues: { ...role },
   });
 
   const currentValue = {
@@ -95,7 +144,18 @@ export default function RoleForm({
     return "Create & Save";
   };
 
-  const hasChanges = JSON.stringify(role) !== JSON.stringify(currentValue);
+  // Policies are a set, so their order carries no meaning — comparing the arrays
+  // positionally left Save enabled after toggling one off and back on, which
+  // re-appended it at a different index.
+  const hasChanges = !isEqual(
+    {
+      id: role.id,
+      description: role.description,
+      policies: [...(role.policies ?? [])].sort(),
+      displayName: role.displayName,
+    },
+    { ...currentValue, policies: [...(currentValue.policies ?? [])].sort() },
+  );
 
   const saveSettings = form.handleSubmit(async (currentValue) => {
     setError(null);
@@ -127,11 +187,28 @@ export default function RoleForm({
     }
   });
 
+  const applyPolicies = (next: Policy[]) => form.setValue("policies", next);
+  const togglePolicy = (policy: Policy) =>
+    applyPolicies(togglePolicySelection(policy, form.getValues("policies")));
+  const togglePolicyPart = (policy: Policy, part: Policy) =>
+    applyPolicies(
+      togglePolicyPartSelection(policy, part, form.getValues("policies")),
+    );
+
+  const toggleExpanded = (policy: Policy) => {
+    setExpandedPolicies((prev) => {
+      const next = new Set(prev);
+      if (next.has(policy)) next.delete(policy);
+      else next.add(policy);
+      return next;
+    });
+  };
+
   return (
     <FormProvider {...form}>
-      <div className="bg-white p-4 mt-2">
+      <Frame mt="2">
         <Field
-          size="legacy"
+          size="md"
           label="Name"
           required
           autoFocus
@@ -139,7 +216,6 @@ export default function RoleForm({
           maxLength={40}
           currentLength={currentValue.id.length}
           placeholder="Name your Custom Role"
-          labelClassName="font-weight-bold"
           {...form.register("id")}
           helpText={
             status === "creating" ? (
@@ -148,106 +224,187 @@ export default function RoleForm({
                 <strong>Cannot be changed later!</strong>
               </>
             ) : (
-              <>Role names cannot be changed once created.</>
+              "Role names cannot be changed once created."
             )
           }
         />
         <Field
-          size="legacy"
+          size="md"
           label="Description"
           disabled={status === "viewing"}
           currentLength={currentValue.description.length}
           placeholder="Briefly describe what this role will permit users to do"
           maxLength={100}
-          labelClassName="font-weight-bold"
           {...form.register("description")}
         />
         <Field
-          size="legacy"
+          size="md"
           label="Display Name"
           disabled={status === "viewing"}
           currentLength={currentValue.displayName?.length || 0}
           placeholder="Optional: User-friendly name to display in the UI (e.g., 'Project Admin')"
           maxLength={64}
-          labelClassName="font-weight-bold"
           {...form.register("displayName")}
           helpText="Optional. If not provided, the role ID will be used for display."
         />
-      </div>
-      <div className="pt-4">
-        <h2 className="py-2">Select Permissions</h2>
-        <div className="bg-white p-5">
+      </Frame>
+      <Box pt="2">
+        <Heading as="h2" size="md" mb="3">
+          Select Permissions
+        </Heading>
+        <Frame>
           {POLICY_DISPLAY_GROUPS.map((group) => {
             const policies = group.policies;
 
             if (!policies.length) return null;
             return (
-              <div key={group.name} className="pb-4">
-                <>
-                  <p className="text-secondary font-weight-bold">
-                    {group.name.toUpperCase()}
-                  </p>
-                  {policies.map((policy) => {
-                    const policyData = POLICY_METADATA_MAP[policy];
-                    const currentPolicies = form.watch("policies");
+              <Box key={group.name} mb="5">
+                <Text
+                  as="div"
+                  size="md"
+                  weight="semibold"
+                  color="text-mid"
+                  textTransform="uppercase"
+                  mb="3"
+                >
+                  {group.name}
+                </Text>
+                <Flex direction="column" gap="3">
+                  {policies
+                    .filter((policy) => !PART_POLICIES.has(policy))
+                    .map((policy) => {
+                      const policyData = POLICY_METADATA_MAP[policy];
+                      const { policies: currentPolicies } = currentValue;
 
-                    const checked = currentPolicies.includes(policy);
-                    return (
-                      <div key={policyData.displayName}>
-                        <div className="d-flex align-items-baseline pb-3">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            disabled={status === "viewing"}
+                      const checked = currentPolicies.includes(policy);
+                      const parts = POLICY_PARTS[policy] || [];
+                      const policyValue = policyCheckboxState(
+                        policy,
+                        currentPolicies,
+                      );
+                      const expanded = expandedPolicies.has(policy);
+                      return (
+                        <Box key={policy}>
+                          <Checkbox
                             id={`${policy}-checkbox`}
-                            onChange={() => {
-                              if (!checked) {
-                                currentPolicies.push(policy);
-                              } else {
-                                const indexToRemove =
-                                  currentPolicies.indexOf(policy);
-                                currentPolicies.splice(indexToRemove, 1);
-                              }
-                              form.setValue("policies", currentPolicies);
-                            }}
+                            value={policyValue}
+                            setValue={() => togglePolicy(policy)}
+                            disabled={status === "viewing"}
+                            weight="bold"
+                            label={policyData.displayName}
+                            description={policyData.description}
                           />
-                          <div className="ml-2">
-                            <p className="m-0 font-weight-bold">
-                              {policyData.displayName}
-                            </p>
-                            <span>{policyData.description}</span>
-                            {policyData.warning ? (
-                              <div className="text-danger">
-                                <strong>Warning: </strong>
+                          {policyData.warning ? (
+                            <Box ml="5" mt="1">
+                              <HelperText status="attention" size="sm">
                                 {policyData.warning}
-                              </div>
-                            ) : null}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </>
-              </div>
+                              </HelperText>
+                            </Box>
+                          ) : null}
+                          {parts.length ? (
+                            <Box ml="5" mt="1">
+                              <Link
+                                aria-expanded={expanded}
+                                onClick={() => toggleExpanded(policy)}
+                              >
+                                <Flex align="center" gap="1">
+                                  {expanded ? <PiMinusBold /> : <PiPlusBold />}
+                                  {expanded
+                                    ? "Hide individual permissions"
+                                    : "Select individual permissions"}
+                                </Flex>
+                              </Link>
+                              {expanded ? (
+                                <Flex direction="column" gap="2" mt="2">
+                                  {parts.map((part) => {
+                                    const meta = POLICY_METADATA_MAP[part];
+                                    return (
+                                      <Checkbox
+                                        key={part}
+                                        id={`${policy}-${part}-checkbox`}
+                                        value={
+                                          checked ||
+                                          currentPolicies.includes(part)
+                                        }
+                                        setValue={() =>
+                                          togglePolicyPart(policy, part)
+                                        }
+                                        disabled={status === "viewing"}
+                                        weight="regular"
+                                        label={meta.displayName}
+                                        description={meta.description}
+                                      />
+                                    );
+                                  })}
+                                </Flex>
+                              ) : null}
+                            </Box>
+                          ) : null}
+                        </Box>
+                      );
+                    })}
+                </Flex>
+              </Box>
             );
           })}
-        </div>
-      </div>
+          {legacyPolicies.length ? (
+            <Box mb="5">
+              <Text
+                as="div"
+                size="md"
+                weight="semibold"
+                color="text-mid"
+                textTransform="uppercase"
+                mb="3"
+              >
+                Legacy grants
+              </Text>
+              <Box mb="3">
+                <HelperText status="attention" size="sm">
+                  This role still grants access through retired policies. They
+                  keep working, but they are not offered for new roles — uncheck
+                  one to drop the access it carries.
+                </HelperText>
+              </Box>
+              <Flex direction="column" gap="3">
+                {legacyPolicies.map((policy) => {
+                  const meta = POLICY_METADATA_MAP[policy];
+                  return (
+                    <Checkbox
+                      key={policy}
+                      id={`legacy-${policy}-checkbox`}
+                      value={currentValue.policies.includes(policy)}
+                      setValue={() => togglePolicy(policy)}
+                      disabled={status === "viewing"}
+                      weight="bold"
+                      label={meta?.displayName ?? policy}
+                      description={meta?.description}
+                    />
+                  );
+                })}
+              </Flex>
+            </Box>
+          ) : null}
+        </Frame>
+      </Box>
       {!isReservedRole ? (
-        <div
-          className="bg-main-color position-sticky w-100 py-3 border-top"
-          style={{ bottom: 0, height: 70 }}
+        <Box
+          py="3"
+          className="bg-main-color"
+          position="sticky"
+          bottom="0"
+          width="100%"
+          style={{ borderTop: "1px solid var(--border-color-200)" }}
         >
-          <div className="container-fluid pagecontents d-flex">
+          <Flex className="container-fluid pagecontents" align="center" gap="3">
             {error ? (
               <Callout status="error">
                 <strong>Error: {error}</strong>
               </Callout>
             ) : null}
-            <div className="flex-grow-1 mr-4">
+            <Box flexGrow="1">
               {saveMsg && (
                 <TempMessage
-                  className="mb-0 py-2"
                   close={() => {
                     setSaveMsg(false);
                   }}
@@ -255,32 +412,28 @@ export default function RoleForm({
                   Custom Role has been saved
                 </TempMessage>
               )}
-            </div>
-            <div>
-              <button
-                className="btn btn-link mr-2"
-                onClick={async () => await router.push("/settings/team#roles")}
-              >
-                Cancel
-              </button>
-              <Button
-                style={{ marginRight: "4rem" }}
-                color={"primary"}
-                loadingCta="Saving"
-                disabled={status !== "viewing" && !hasChanges}
-                onClick={async () => {
-                  if (status === "viewing") {
-                    setStatus("editing");
-                    return;
-                  }
-                  await saveSettings();
-                }}
-              >
-                {getFooterCTA()}
-              </Button>
-            </div>
-          </div>
-        </div>
+            </Box>
+            <Button
+              variant="ghost"
+              onClick={() => router.push("/settings/team#roles")}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={status !== "viewing" && !hasChanges}
+              setError={setError}
+              onClick={async () => {
+                if (status === "viewing") {
+                  setStatus("editing");
+                  return;
+                }
+                await saveSettings();
+              }}
+            >
+              {getFooterCTA()}
+            </Button>
+          </Flex>
+        </Box>
       ) : null}
     </FormProvider>
   );

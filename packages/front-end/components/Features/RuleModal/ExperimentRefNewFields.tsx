@@ -1,4 +1,5 @@
 import { useFormContext } from "react-hook-form";
+import { CustomField } from "shared/types/custom-fields";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   FeatureInterface,
@@ -54,10 +55,6 @@ import { convertTemplateToExperimentRule } from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
 import Callout from "@/ui/Callout";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
-import {
-  filterCustomFieldsForSectionAndProject,
-  useCustomFields,
-} from "@/hooks/useCustomFields";
 import HelperText from "@/ui/HelperText";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
@@ -102,6 +99,8 @@ export default function ExperimentRefNewFields({
   hideVariationIds = true,
   startEditingIndexes = false,
   orgStickyBucketing,
+  customFields,
+  customFieldValues,
   setCustomFields,
   isTemplate = false,
   holdoutHashAttribute,
@@ -138,6 +137,8 @@ export default function ExperimentRefNewFields({
   hideVariationIds?: boolean;
   startEditingIndexes?: boolean;
   orgStickyBucketing?: boolean;
+  customFields?: CustomField[];
+  customFieldValues?: Record<string, string>;
   setCustomFields?: (customFields: Record<string, string>) => void;
   isTemplate?: boolean;
   holdoutHashAttribute?: string;
@@ -277,12 +278,6 @@ export default function ExperimentRefNewFields({
     settings.requireExperimentTemplates &&
     availableTemplates.length >= 1;
 
-  const customFields = filterCustomFieldsForSectionAndProject(
-    useCustomFields(),
-    "experiment",
-    project,
-  );
-
   return (
     <>
       {step === 0 ? (
@@ -381,16 +376,13 @@ export default function ExperimentRefNewFields({
           {envScope && <RuleEnvironmentScopeField {...envScope} my="5" />}
           {projectScope && <RuleProjectScopeField {...projectScope} mb="5" />}
 
-          {hasCommercialFeature("custom-metadata") &&
-            !!customFields?.length && (
-              <CustomFieldInput
-                customFields={customFields}
-                currentCustomFields={form.watch("customFields")}
-                setCustomFields={setCustomFields ? setCustomFields : () => {}}
-                section={"experiment"}
-                project={project}
-              />
-            )}
+          {!!customFields?.length && (
+            <CustomFieldInput
+              fields={customFields}
+              value={customFieldValues ?? {}}
+              onChange={setCustomFields ? setCustomFields : () => {}}
+            />
+          )}
         </>
       ) : null}
 
@@ -715,12 +707,14 @@ export default function ExperimentRefNewFields({
                       Activation Metric{" "}
                       <MetricsSelectorTooltip
                         onlyBinomial={true}
+                        noFactFunnelMetrics={true}
                         isSingular={true}
                       />
                     </>
                   }
                   initialOption="None"
                   onlyBinomial
+                  filterFactFunnelMetrics
                   value={form.watch("activationMetric")}
                   onChange={(value) =>
                     form.setValue("activationMetric", value || "")

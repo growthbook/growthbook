@@ -1,3 +1,5 @@
+import { bypassApprovalPermission } from "shared/permissions";
+import type { RevisionModel } from "shared/permissions";
 import type { Revision, RevisionTargetType } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
 import type { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisionAdapter";
@@ -5,14 +7,12 @@ import type { PublishGate } from "back-end/src/revisions/publishGates";
 import { makeBlockingGate } from "back-end/src/revisions/publishGates";
 import { isRevisionDiverged } from "back-end/src/revisions/util";
 
-/**
- * The approval-required and stale-base publish gates for any entity on the
- * generic revision system — the single implementation behind both the
- * single-entity REST publish handlers and the bulk publisher. Approval
- * scoping stays per-adapter (`isApprovalRequiredForRevision`); this collector
- * must never flatten it into an org-level check. Features are deliberately
- * NOT served here — their gates live in services/featurePublishGates.ts.
- */
+// The approval-required and stale-base publish gates for any entity on the
+// generic revision system — the single implementation behind both the
+// single-entity REST publish handlers and the bulk publisher. Approval
+// scoping stays per-adapter (`isApprovalRequiredForRevision`); this collector
+// must never flatten it into an org-level check. Features are deliberately
+// NOT served here — their gates live in services/featurePublishGates.ts.
 export function collectRevisionGovernanceGates({
   context,
   adapter,
@@ -32,6 +32,7 @@ export function collectRevisionGovernanceGates({
   const identifier =
     (entity as { key?: string }).key ?? (entity as { id: string }).id;
   const routeBase = `/${targetType}s-revisions/${identifier}/${revision.version}`;
+  const bypassPermission = bypassApprovalPermission(targetType);
 
   const approvalRequired = adapter.isApprovalRequiredForRevision
     ? adapter.isApprovalRequiredForRevision(context, revision)
@@ -43,7 +44,7 @@ export function collectRevisionGovernanceGates({
         messages: [
           `Requires approval before publishing (status: "${revision.status}").`,
         ],
-        requiresPermission: "bypassApprovalChecks",
+        requiresPermission: bypassPermission,
         resolution: {
           action: "request-review",
           method: "POST",
@@ -66,7 +67,7 @@ export function collectRevisionGovernanceGates({
         type: "stale-base",
         messages: ["This revision was created against an older version."],
         override: "ignoreWarnings",
-        requiresPermission: "bypassApprovalChecks",
+        requiresPermission: bypassPermission,
         resolution: {
           action: "rebase",
           method: "POST",
@@ -79,23 +80,24 @@ export function collectRevisionGovernanceGates({
   return gates;
 }
 
-/**
- * The approval gate for the direct archive/unarchive endpoints.
- * `approvalRequired` is computed by the caller (each handler runs the
- * adapter's change-aware check against a synthetic archive revision), and the
- * create-draft resolution path is passed in because it is not uniform across
- * entities.
- */
+// The approval gate for the direct archive/unarchive endpoints.
+// `approvalRequired` is computed by the caller (each handler runs the
+// adapter's change-aware check against a synthetic archive revision), and the
+// create-draft resolution path is passed in because it is not uniform across
+// entities.
 export function collectArchiveApprovalGate({
   approvalRequired,
   archived,
   noun,
   createDraftPath,
+  model,
 }: {
   approvalRequired: boolean;
   archived: boolean;
   noun: string;
   createDraftPath: string;
+  /** The entity being archived, so the gate names its family's bypass atom. */
+  model: RevisionModel;
 }): PublishGate[] {
   if (!approvalRequired) return [];
   return [
@@ -106,7 +108,7 @@ export function collectArchiveApprovalGate({
           archived ? "archive" : "unarchive"
         } this ${noun}.`,
       ],
-      requiresPermission: "bypassApprovalChecks",
+      requiresPermission: bypassApprovalPermission(model),
       resolution: {
         action: "create-draft",
         method: "POST",
