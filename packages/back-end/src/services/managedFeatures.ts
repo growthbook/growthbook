@@ -2,6 +2,7 @@ import { RequestHandler } from "express";
 import {
   copyManagedVariationValues,
   isManagedByExperiment,
+  checkIfRevisionNeedsReview,
   isManagedFeature,
   managedFeatureKeyCandidate,
   seedManagedVariationValues,
@@ -24,7 +25,11 @@ import {
   getFeature,
   updateFeature,
 } from "back-end/src/models/FeatureModel";
-import { getActiveDraft } from "back-end/src/models/FeatureRevisionModel";
+import {
+  getActiveDraft,
+  getRevision,
+  markRevisionAsReviewRequested,
+} from "back-end/src/models/FeatureRevisionModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { ManagedFeatureError, NotFoundError } from "back-end/src/util/errors";
 import {
@@ -33,6 +38,8 @@ import {
 } from "back-end/src/services/organizations";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { getLinkedFeatureInfo } from "back-end/src/services/experiments";
+import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
+import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { logger } from "back-end/src/util/logger";
 import {
   ExperimentFeatureLinkResult,
@@ -222,6 +229,13 @@ export async function createManagedFeatureForExperiment({
     throw e;
   }
 
+  await requestReviewForManagedDraft({
+    context,
+    feature: created,
+    version: linked.version,
+    eventAudit,
+  });
+
   return { feature: created, version: linked.version };
 }
 
@@ -275,6 +289,64 @@ export async function readManagedValuesForDuplicate({
     "Managed flag source kept changing while copying for a duplicate; seeding fresh values instead",
   );
   return null;
+}
+
+/**
+ * A managed draft goes straight into review — there is no separate "request
+ * review" step to click. No-op when approvals aren't required for this flag, so
+ * orgs without review land in plain `draft` and publish at experiment start.
+ */
+export async function requestReviewForManagedDraft({
+  context,
+  feature,
+  version,
+  eventAudit,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  version: number;
+  eventAudit: EventUser;
+}): Promise<void> {
+  const revision = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    feature,
+    version,
+  });
+  if (!revision || revision.status !== "draft") return;
+
+  const { base } = await getLiveAndBaseRevisionsForFeature({
+    context,
+    feature,
+    revision,
+  });
+  const needsReview = checkIfRevisionNeedsReview({
+    feature,
+    baseRevision: base,
+    revision,
+    allEnvironments: context.environments,
+    settings: context.org.settings,
+    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
+  });
+  if (!needsReview) return;
+
+  await markRevisionAsReviewRequested(context, revision, eventAudit, "");
+
+  const updated = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    feature,
+    version,
+  });
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    updated ?? revision,
+    "revision.reviewRequested",
+    { reviewComment: null },
+  );
 }
 
 /**

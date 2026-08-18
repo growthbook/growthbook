@@ -5,13 +5,17 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import {
+  FeatureRevisionInterface,
+  RevisionLog,
+} from "shared/types/feature-revision";
 import { getReviewAndPublishState } from "@/components/Reviews/reviewAndPublishState";
 import {
   PersonRow,
   ReviewerVerdictIcon,
 } from "@/components/Reviews/ReviewPeople";
 import { revisionStatusLabel } from "@/components/Reviews/RevisionStatusBadge";
+import { REVIEW_ACTIVITY_ACTIONS } from "@/components/Reviews/RevisionTimeline";
 import { Popover } from "@/ui/Popover";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
@@ -40,6 +44,8 @@ type Props = {
   mutate: () => void;
   /** Overrides the trigger label when the surrounding copy already sets it up. */
   ctaLabel?: string;
+  /** "inherit" lets the trigger take its surroundings' accent (e.g. a Callout). */
+  triggerColor?: "inherit";
 };
 
 export default function ManagedFlagApproval({
@@ -47,6 +53,7 @@ export default function ManagedFlagApproval({
   info,
   mutate,
   ctaLabel,
+  triggerColor,
 }: Props) {
   const { apiCall } = useAuth();
   const { userId, users } = useUser();
@@ -113,15 +120,12 @@ export default function ManagedFlagApproval({
     !!revision &&
     revision.createdBy?.id !== userId;
 
+  // Editing values is the review request, and starting the experiment is the
+  // publish — so the only primary action left here is a publish on a running
+  // experiment.
   const submitAction =
-    publishIsLaunch && state.submitAction === "publish"
-      ? "none"
-      : state.submitAction;
+    state.submitAction === "publish" && !publishIsLaunch ? "publish" : "none";
   const showSubmit = state.hasSubmit && submitAction !== "none";
-
-  // Nothing to offer means no trigger; the badge already shows the status.
-  const hasAnyAction =
-    canReview || showSubmit || state.canUndoReview || state.canRecallReview;
 
   async function post(path: string, body: Record<string, unknown> = {}) {
     setSubmitting(true);
@@ -168,6 +172,25 @@ export default function ManagedFlagApproval({
       />
     );
   });
+
+  // Verdicts carry the reviewer's comment in the revision log, not on the
+  // verdict itself, so the conversation needs its own fetch.
+  const { data: logData } = useApi<{ log: RevisionLog[] }>(
+    `/feature/${info.feature.id}/${version}/log`,
+    { shouldRun: () => open && version != null },
+  );
+  const reviewComments = (logData?.log ?? [])
+    .filter((l) => REVIEW_ACTIVITY_ACTIONS.has(l.action))
+    .map((l) => {
+      let comment: string | undefined;
+      try {
+        comment = JSON.parse(l.value)?.comment;
+      } catch {
+        // not JSON
+      }
+      return { ...l, comment };
+    })
+    .filter((l) => !!l.comment);
 
   const variations = getLatestPhaseVariations(experiment);
   const enabledEnvs = Object.entries(revision?.environmentsEnabled ?? {})
@@ -222,6 +245,26 @@ export default function ManagedFlagApproval({
         </Flex>
       )}
 
+      {reviewComments.length > 0 && (
+        <Flex direction="column" gap="2">
+          {reviewComments.map((l, i) => (
+            <Box key={l.id ?? i}>
+              <Text size="sm" weight="semibold" color="text-high" as="div">
+                {l.user && "name" in l.user
+                  ? (l.user.name ?? l.user.email)
+                  : "Unknown"}{" "}
+                <Text size="sm" weight="regular" color="text-low">
+                  {l.action.toLowerCase()}
+                </Text>
+              </Text>
+              <Text size="sm" color="text-mid" as="div">
+                {l.comment}
+              </Text>
+            </Box>
+          ))}
+        </Flex>
+      )}
+
       {canReview && (
         <RadioGroup
           value={decision}
@@ -234,7 +277,7 @@ export default function ManagedFlagApproval({
         />
       )}
 
-      {(canReview || submitAction === "request-review") && (
+      {canReview && (
         <Field
           size="sm"
           textarea
@@ -265,12 +308,7 @@ export default function ManagedFlagApproval({
         ) : showSubmit ? (
           <Button
             disabled={!state.ctaEnabled || submitting}
-            onClick={() =>
-              post(
-                submitAction === "publish" ? "publish" : "request-review",
-                submitAction === "publish" ? {} : { comment },
-              )
-            }
+            onClick={() => post("publish")}
           >
             {state.ctaLabel}
           </Button>
@@ -282,11 +320,6 @@ export default function ManagedFlagApproval({
 
         {state.canUndoReview && (
           <Link onClick={() => post("undo-review")}>Retract my review</Link>
-        )}
-        {state.canRecallReview && (
-          <Link onClick={() => post("recall-review")}>
-            Cancel review request
-          </Link>
         )}
       </Flex>
     </Flex>
@@ -304,8 +337,6 @@ export default function ManagedFlagApproval({
     </Flex>
   );
 
-  if (!hasAnyAction) return null;
-
   return (
     <Popover
       open={open}
@@ -314,15 +345,18 @@ export default function ManagedFlagApproval({
       align="end"
       content={content}
       trigger={
-        <Button variant="ghost">
+        <Button variant="ghost" color={triggerColor}>
           {/* Name what the popover will actually offer: `status` alone drifts,
               and a primary label with only secondary actions available lies. */}
-          {ctaLabel ??
-            (canReview
-              ? "Review"
-              : showSubmit
-                ? state.ctaLabel
-                : "Manage review")}
+          {/* With no action available — the author can't approve their own
+              draft, and starting the experiment is what publishes it — the
+              popover is still worth opening to see the changes and who has
+              reviewed. Say that rather than promising an action. */}
+          {canReview
+            ? "Review"
+            : showSubmit
+              ? (ctaLabel ?? state.ctaLabel)
+              : "View changes"}
         </Button>
       }
     />

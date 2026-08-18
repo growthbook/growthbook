@@ -12,6 +12,7 @@ import {
   reconcileMergeBaselines,
   includeExperimentInPayload,
   isManagedByExperiment,
+  isManagedFeature,
 } from "shared/util";
 import {
   expandDerivedMetricsInMap,
@@ -158,6 +159,7 @@ import {
   createManagedFlagForNewExperiment,
   ejectManagedFeature,
   getManagedFeatureForExperiment,
+  requestReviewForManagedDraft,
 } from "back-end/src/services/managedFeatures";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
@@ -4447,6 +4449,17 @@ export async function postExperimentFeatureValues(
       user: res.locals.eventAudit,
       orgSettings: org.settings,
     });
+
+    // A managed flag has no separate "request review" step — editing its values
+    // is the request.
+    if (!autoPublish && isManagedFeature(feature)) {
+      await requestReviewForManagedDraft({
+        context,
+        feature,
+        version: updatedRevision.version,
+        eventAudit: res.locals.eventAudit,
+      });
+    }
 
     if (autoPublish) {
       const { live, base } = await getLiveAndBaseRevisionsForFeature({

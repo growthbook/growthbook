@@ -14,6 +14,7 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { FaChartBar } from "react-icons/fa";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
+import { Flex } from "@radix-ui/themes";
 import {
   getAvailableMetricsFilters,
   getAvailableMetricTags,
@@ -43,6 +44,11 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import DashboardsTab from "@/enterprise/components/Dashboards/DashboardsTab";
 import { useExperimentDashboards } from "@/hooks/useDashboards";
 import Callout from "@/ui/Callout";
+import Badge from "@/ui/Badge";
+import {
+  revisionStatusColor,
+  revisionStatusLabel,
+} from "@/components/Reviews/RevisionStatusBadge";
 import { useManagedExperimentFlags } from "@/hooks/useManagedExperimentFlags";
 import ManagedFlagApproval from "@/components/Experiment/LinkedChanges/ManagedFlagApproval";
 import Link from "@/ui/Link";
@@ -147,6 +153,19 @@ export default function TabbedPage({
   });
   const managedFlagWithDraft =
     managedFeature?.state === "draft" ? managedFeature : null;
+  const managedApprovalBlocking =
+    !!managedFlagWithDraft?.pendingApproval &&
+    managedFlagWithDraft.draftRevisionStatus !== "approved";
+  // Both gates have to appear together: on a draft experiment approval alone
+  // doesn't publish anything, so naming only approval would leave someone
+  // waiting for a launch that needs a separate action.
+  const managedNextStep = managedApprovalBlocking
+    ? experiment.status === "draft"
+      ? "They need approval, then go live when the experiment starts."
+      : "They need approval before they go live."
+    : experiment.status === "draft"
+      ? "They go live when the experiment starts."
+      : "Publish them to go live.";
   const [urlRedirectModal, setUrlRedirectModal] = useState(false);
   const [healthNotificationCount, setHealthNotificationCount] = useState(0);
   const [showDashboardView, setShowDashboardView] = useState(
@@ -564,7 +583,9 @@ export default function TabbedPage({
           )}
         {managedFlagWithDraft && (
           <Callout
-            status="info"
+            // Warning only while approval is actually holding the publish back;
+            // approved (or an org that doesn't require approvals) is just info.
+            status={managedApprovalBlocking ? "warning" : "info"}
             mt="3"
             action={
               <ManagedFlagApproval
@@ -577,10 +598,25 @@ export default function TabbedPage({
                 ctaLabel={
                   experiment.status === "draft" ? "Review" : "Review & Publish"
                 }
+                triggerColor="inherit"
               />
             }
           >
-            This experiment has unpublished values.
+            <Flex align="center" gap="2">
+              This experiment has unpublished values. {managedNextStep}
+              {managedFlagWithDraft.pendingApproval &&
+                managedFlagWithDraft.draftRevisionStatus && (
+                  <Badge
+                    label={revisionStatusLabel(
+                      managedFlagWithDraft.draftRevisionStatus,
+                    )}
+                    color={revisionStatusColor(
+                      managedFlagWithDraft.draftRevisionStatus,
+                    )}
+                    radius="full"
+                  />
+                )}
+            </Flex>
           </Callout>
         )}
         {showStoppedBanner && (

@@ -4,13 +4,9 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { Box, Flex, Separator } from "@radix-ui/themes";
-import {
-  PiArrowSquareOut,
-  PiGitMerge,
-  PiXBold,
-  PiDotsThreeVertical,
-} from "react-icons/pi";
+import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
+import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiArrowSquareOut, PiGitMerge, PiXBold } from "react-icons/pi";
 import { isManagedByExperiment } from "shared/util";
 import LinkedChange from "@/components/Experiment/LinkedChanges/LinkedChange";
 import LinkedChangeVariationRows from "@/components/Experiment/LinkedChanges/LinkedChangeVariationRows";
@@ -22,7 +18,7 @@ import {
   revisionStatusLabel,
 } from "@/components/Reviews/RevisionStatusBadge";
 import Badge from "@/ui/Badge";
-import Button from "@/ui/Button";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
@@ -52,6 +48,7 @@ export default function LinkedFeatureFlag({
   const permissionsUtil = usePermissionsUtil();
   const [removing, setRemoving] = useState(false);
   const [ejecting, setEjecting] = useState(false);
+  const [ejectConfirm, setEjectConfirm] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
   const canEditExperiment =
@@ -91,17 +88,12 @@ export default function LinkedFeatureFlag({
   const isManaged = isManagedByExperiment(info.feature, experiment.id);
 
   const handleEject = async () => {
-    if (
-      !confirm(
-        "Eject this Feature Flag? It becomes an ordinary flag you edit from the Feature Flag page, and this experiment can take other implementations.",
-      )
-    )
-      return;
     setEjecting(true);
     try {
       await apiCall(`/experiment/${experiment.id}/managed-flag/eject`, {
         method: "POST",
       });
+      setEjectConfirm(false);
       mutate?.();
     } finally {
       setEjecting(false);
@@ -170,6 +162,15 @@ export default function LinkedFeatureFlag({
 
   return (
     <>
+      {ejectConfirm && (
+        <ConfirmDialog
+          title="Switch to manual implementation?"
+          content="This Experiment keeps using the linked Feature Flag, but you'll manage and review it directly from its own page instead of from here."
+          yesText="Switch to manual"
+          onConfirm={handleEject}
+          onCancel={() => setEjectConfirm(false)}
+        />
+      )}
       {editModalOpen && (
         <EditFeatureFlagValuesModal
           feature={info.feature}
@@ -188,7 +189,7 @@ export default function LinkedFeatureFlag({
         onEdit={showEditButton ? () => setEditModalOpen(true) : undefined}
         managedBadge={
           isManaged ? (
-            <Badge label="Managed" radius="full" color="violet" />
+            <Badge label="Managed by Experiment" radius="full" color="violet" />
           ) : undefined
         }
         actions={
@@ -197,18 +198,23 @@ export default function LinkedFeatureFlag({
               {canUpdateLinkedFeature && (
                 <DropdownMenu
                   trigger={
-                    <Button variant="ghost" size="sm">
-                      <PiDotsThreeVertical size={18} />
-                    </Button>
+                    <IconButton
+                      variant="ghost"
+                      color="gray"
+                      radius="full"
+                      size="2"
+                      highContrast
+                    >
+                      <BsThreeDotsVertical size={16} />
+                    </IconButton>
                   }
                   menuPlacement="end"
                 >
                   <DropdownMenuItem
-                    color="red"
                     disabled={ejecting}
-                    onClick={handleEject}
+                    onClick={() => setEjectConfirm(true)}
                   >
-                    Eject Feature Flag
+                    Switch to manual implementation
                   </DropdownMenuItem>
                 </DropdownMenu>
               )}
