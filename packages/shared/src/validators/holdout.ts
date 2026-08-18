@@ -218,7 +218,7 @@ export const apiHoldoutValidator = namedSchema(
     skipAsDefaultHoldout: z
       .boolean()
       .describe(
-        "When true, this Holdout is not pre-selected for new Feature Flags and experiments in its Projects.",
+        "When true, this Holdout is not selected automatically when creating Feature Flags or experiments in Projects assigned to the Holdout.",
       ),
 
     // Targeting and sizing
@@ -300,7 +300,12 @@ export const apiCreateHoldoutBody = z.strictObject({
     .optional(),
   owner: ownerInputField.optional(),
   tags: z.array(z.string()).optional(),
-  skipAsDefaultHoldout: z.boolean().optional(),
+  skipAsDefaultHoldout: z
+    .boolean()
+    .describe(
+      "When true, this Holdout is not selected automatically when creating Feature Flags or Experiments in Projects assigned to the Holdout.",
+    )
+    .optional(),
 
   holdoutSize: holdoutSizeField
     .describe(
@@ -342,7 +347,12 @@ export const apiUpdateHoldoutBody = z.strictObject({
   owner: ownerInputField.optional(),
   tags: z.array(z.string()).optional(),
   archived: z.boolean().optional(),
-  skipAsDefaultHoldout: z.boolean().optional(),
+  skipAsDefaultHoldout: z
+    .boolean()
+    .describe(
+      "When true, this Holdout is not selected automatically when creating Feature Flags or Experiments in Projects assigned to the Holdout.",
+    )
+    .optional(),
 
   holdoutSize: holdoutSizeField.optional(),
   hashAttribute: z.string().optional(),
