@@ -11,6 +11,7 @@ import {
 } from "shared/enterprise";
 import {
   configRequiresReview,
+  getConfigReviewRequirement,
   configResetReviewOnChange,
   constantAutopublishOnApproval,
   formatAncestorFieldConflictMessage,
@@ -168,6 +169,22 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     proposedChanges: unknown,
   ): PublishFootprint {
     return configPublishFootprint(snapshot, proposedChanges);
+  },
+
+  reviewRequirementForRevision(context: Context, revision: Revision) {
+    if (!context.hasPremiumFeature("require-approvals")) {
+      return { required: false, rules: [] };
+    }
+    const snapshot = revision.target.snapshot as ConfigInterface;
+    const flavorEnvironments = snapshot.scopedConfig
+      ? (snapshot.scopedConfig.environments ?? [])
+      : null;
+    return getConfigReviewRequirement(
+      { project: snapshot.project },
+      getConstantRevisionChange(snapshot, revision.target.proposedChanges),
+      flavorEnvironments,
+      context.org.settings,
+    );
   },
 
   canRead(context: Context, snapshot: ConfigInterface): boolean {

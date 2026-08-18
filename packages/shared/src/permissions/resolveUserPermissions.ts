@@ -339,6 +339,62 @@ export function teamsForMember(
 }
 
 /**
+ * Required approver teams: has each triggering review rule been signed off by
+ * someone from one of the teams it names?
+ *
+ * A requirement on the approval SET, not on who may approve. Semantics:
+ * - within a rule, ANY of its teams satisfies it (OR)
+ * - across rules, EVERY rule with required teams must be satisfied (AND)
+ *
+ * Only COVERING approvals count. An approval that no longer spans what the draft
+ * changes cannot satisfy a team requirement either — otherwise widening a draft
+ * past its approver would silently keep the team box ticked.
+ */
+export function assessRequiredApproverTeams({
+  rules,
+  coveringApproverIds,
+  org,
+  teams,
+}: {
+  /** The rules that demanded review — see `ReviewRequirement.rules`. */
+  rules: { requiredApproverTeams?: string[] }[];
+  coveringApproverIds: string[];
+  org: { members?: { id: string; teams?: string[] }[] };
+  teams: { id: string; name: string }[];
+}): {
+  satisfied: boolean;
+  /** One entry per unsatisfied rule; any ONE of its teams would satisfy it. */
+  unmet: { id: string; name: string }[][];
+} {
+  const approverTeamIds = new Set(
+    coveringApproverIds.flatMap((id) =>
+      teamsForMember(id, org, teams).map((t) => t.id),
+    ),
+  );
+
+  const unmet: { id: string; name: string }[][] = [];
+  for (const rule of rules) {
+    const required = rule.requiredApproverTeams ?? [];
+    if (!required.length) continue;
+    if (required.some((teamId) => approverTeamIds.has(teamId))) continue;
+    // Name them for the message; a deleted team id would otherwise show as blank.
+    const byId = new Map(teams.map((t) => [t.id, t]));
+    unmet.push(
+      required
+        .map((id) => byId.get(id))
+        .filter((t): t is { id: string; name: string } => !!t)
+        .map((t) => ({ id: t.id, name: t.name })),
+    );
+  }
+
+  // A rule whose every named team has been deleted lists nothing actionable, so
+  // it cannot be satisfied and cannot be explained — drop it rather than block
+  // publishing on a requirement no one can meet.
+  const actionable = unmet.filter((teamList) => teamList.length > 0);
+  return { satisfied: actionable.length === 0, unmet: actionable };
+}
+
+/**
  * Which standing approvals still count, judged against what the draft changes.
  *
  * Takes each approver's role rules rather than looking them up, so the same

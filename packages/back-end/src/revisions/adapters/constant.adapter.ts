@@ -13,6 +13,7 @@ import {
   constantAutopublishOnApproval,
   constantRequiresReview,
   constantResetReviewOnChange,
+  getConstantReviewRequirement,
 } from "shared/util";
 import {
   constantValidator,
@@ -205,6 +206,18 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     if (!context.hasPremiumFeature("require-approvals")) return false;
     const snapshot = revision.target.snapshot as ConstantInterface;
     return constantRequiresReview(
+      { project: snapshot.project },
+      getConstantRevisionChange(snapshot, revision.target.proposedChanges),
+      context.org.settings,
+    );
+  },
+
+  reviewRequirementForRevision(context: Context, revision: Revision) {
+    if (!context.hasPremiumFeature("require-approvals")) {
+      return { required: false, rules: [] };
+    }
+    const snapshot = revision.target.snapshot as ConstantInterface;
+    return getConstantReviewRequirement(
       { project: snapshot.project },
       getConstantRevisionChange(snapshot, revision.target.proposedChanges),
       context.org.settings,

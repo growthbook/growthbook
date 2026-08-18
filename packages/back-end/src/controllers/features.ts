@@ -6,6 +6,7 @@ import {
   projectScopeChanged,
   NO_ENVIRONMENT_BINDING,
   assessApprovalCoverage,
+  assessRequiredApproverTeams,
 } from "shared/permissions";
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
@@ -24,6 +25,7 @@ import {
   mergeResultHasChanges,
   MergeStrategy,
   checkIfRevisionNeedsReview,
+  getRevisionReviewRequirement,
   evaluatePublishGovernance,
   featureMetadataEnvelope,
   getReviewAuthorityFootprint,
@@ -2169,7 +2171,7 @@ export async function postFeaturePublish(
     }
   }
 
-  const requiresReview = checkIfRevisionNeedsReview({
+  const reviewRequirement = getRevisionReviewRequirement({
     feature,
     baseRevision: filledLive,
     revision: effectiveRevision,
@@ -2178,10 +2180,11 @@ export async function postFeaturePublish(
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
     liveRampScheduleEnvs,
   });
+  const requiresReview = reviewRequirement.required;
   // "approved" was decided when the approval was given. Re-check that a standing
   // approver still covers what the draft changes, so a draft approved while
   // dev-only cannot publish after growing to touch production.
-  const { hasCoveringApproval } = assessApprovalCoverage({
+  const { hasCoveringApproval, uncoveredApprovers } = assessApprovalCoverage({
     org,
     teams: context.teams,
     model: "feature",
@@ -2208,6 +2211,28 @@ export async function postFeaturePublish(
         ? "This draft now changes environments its approvers cannot approve. It needs approval from someone with review rights across everything it changes."
         : "needs review before publishing",
     );
+  }
+  if (!adminOverride && requiresReview) {
+    const { satisfied, unmet } = assessRequiredApproverTeams({
+      rules: reviewRequirement.rules,
+      coveringApproverIds: (revision.reviews ?? [])
+        .filter((r) => r.status === "approved")
+        .map((r) => r.userId)
+        .filter((id): id is string => !!id)
+        .filter((id) => !uncoveredApprovers.includes(id)),
+      org,
+      teams: context.teams,
+    });
+    if (!satisfied) {
+      throw new Error(
+        unmet
+          .map(
+            (t) =>
+              `Requires approval from ${t.map((x) => x.name).join(" or ")}.`,
+          )
+          .join(" "),
+      );
+    }
   }
   if (requiresReview && !reviewStatuses.includes(revision.status)) {
     throw new Error("Can only publish Draft revisions");

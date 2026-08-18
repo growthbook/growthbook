@@ -15,7 +15,7 @@ import Link from "@/ui/Link";
 
 export default function ApprovalFlowSettings() {
   const form = useFormContext<OrganizationSettingsWithMetricDefaults>();
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, teams } = useUser();
   const environments = useEnvironments();
   const { projects } = useDefinitions();
 
@@ -49,6 +49,18 @@ export default function ApprovalFlowSettings() {
     },
   );
 
+  const [showRequiredTeams, setShowRequiredTeams] = useState<
+    Record<number, boolean>
+  >(() => {
+    const raw = form.getValues("requireReviews");
+    const rules: { requiredApproverTeams?: string[] }[] = Array.isArray(raw)
+      ? raw
+      : [];
+    return Object.fromEntries(
+      rules.map((r, i) => [i, !!(r.requiredApproverTeams?.length ?? 0)]),
+    );
+  });
+
   // Auto-expand scope views when form values are loaded asynchronously
   // (the form initializes with defaults before settings load via useEffect+reset).
   const requireReviewsWatched = form.watch("requireReviews");
@@ -65,6 +77,13 @@ export default function ApprovalFlowSettings() {
       const next = { ...prev };
       requireReviewsWatched.forEach((r, i) => {
         if ((r.projects?.length ?? 0) > 0) next[i] = true;
+      });
+      return next;
+    });
+    setShowRequiredTeams((prev) => {
+      const next = { ...prev };
+      requireReviewsWatched.forEach((r, i) => {
+        if ((r.requiredApproverTeams?.length ?? 0) > 0) next[i] = true;
       });
       return next;
     });
@@ -199,6 +218,43 @@ export default function ApprovalFlowSettings() {
                               }
                             >
                               <PiPlus /> For specific environments
+                            </Link>
+                          )}
+                          {showRequiredTeams[i] ? (
+                            <MultiSelectField
+                              legacyHeight
+                              id={`required-approver-teams-${i}`}
+                              label="Required approver teams"
+                              labelClassName="font-weight-semibold"
+                              containerClassName="mb-0"
+                              value={
+                                form.watch(
+                                  `requireReviews.${i}.requiredApproverTeams`,
+                                ) || []
+                              }
+                              onChange={(v) =>
+                                form.setValue(
+                                  `requireReviews.${i}.requiredApproverTeams`,
+                                  v,
+                                )
+                              }
+                              options={(teams ?? []).map((t) => ({
+                                value: t.id,
+                                label: t.name,
+                              }))}
+                              placeholder="Anyone who can review (leave blank)"
+                              helpText="A draft cannot publish until someone from one of these teams approves it. Anyone eligible can still approve alongside them."
+                            />
+                          ) : (
+                            <Link
+                              onClick={() =>
+                                setShowRequiredTeams((prev) => ({
+                                  ...prev,
+                                  [i]: true,
+                                }))
+                              }
+                            >
+                              <PiPlus /> Require approval from specific teams
                             </Link>
                           )}
                         </Flex>

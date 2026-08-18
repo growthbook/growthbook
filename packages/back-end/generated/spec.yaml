@@ -58452,6 +58452,10 @@ components:
                 type: boolean
               autopublishOnApproval:
                 type: boolean
+              requiredApproverTeams:
+                type: array
+                items:
+                  type: string
             additionalProperties: false
         targetingReviewMode:
           type: array

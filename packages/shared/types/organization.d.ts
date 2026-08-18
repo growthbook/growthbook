@@ -85,6 +85,13 @@ export type RequireReview = {
   // When true, co-authors (contributors[]) are also blocked from approving, not just the original author.
   blockSelfApproval?: boolean;
   autopublishOnApproval?: boolean;
+  /**
+   * Team ids whose sign-off this rule demands. A requirement on the approval SET,
+   * not a restriction on who may approve: anyone eligible can still approve, but
+   * the draft cannot publish until one of these teams has. Any ONE of the listed
+   * teams satisfies the rule; a second rule is a separate requirement.
+   */
+  requiredApproverTeams?: string[];
 };
 
 // Whether secondary targeting projects impose their own review requirements

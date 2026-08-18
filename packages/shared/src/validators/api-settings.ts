@@ -72,6 +72,7 @@ export const apiSettingsValidator = namedSchema(
           featureRequireEnvironmentReview: z.boolean().optional(),
           featureRequireMetadataReview: z.boolean().optional(),
           autopublishOnApproval: z.boolean().optional(),
+          requiredApproverTeams: z.array(z.string()).optional(),
         }),
       ),
       targetingReviewMode: z

@@ -1,6 +1,6 @@
 import {
   autoMerge,
-  checkIfRevisionNeedsReview,
+  getRevisionReviewRequirement,
   draftDiffersFromLive,
   evaluatePublishGovernance,
   fillRevisionFromFeature,
@@ -14,6 +14,7 @@ import {
 import { FeatureInterface } from "shared/types/feature";
 import {
   assessApprovalCoverage,
+  assessRequiredApproverTeams,
   bypassApprovalPermission,
 } from "shared/permissions";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -75,6 +76,14 @@ export type FeatureMergePlan = {
   uncoveredApprovers: string[];
   /** At least one standing approval whose approver covers the footprint. */
   hasCoveringApproval: boolean;
+  /**
+   * Whether every review rule's required approver teams have signed off, and
+   * which are still outstanding. Evaluated over the rules that demanded review.
+   */
+  requiredApproverTeams: {
+    satisfied: boolean;
+    unmet: { id: string; name: string }[][];
+  };
   rebaseRequired: boolean;
   /** The governance explanation when rebaseRequired (for error copy). */
   rebaseBlockReason: string | null;
@@ -163,7 +172,7 @@ export async function planFeatureRevisionMerge({
     }
   }
 
-  const requiresReview = checkIfRevisionNeedsReview({
+  const reviewRequirement = getRevisionReviewRequirement({
     feature,
     baseRevision: filledLive,
     revision: effectiveRevision,
@@ -172,6 +181,7 @@ export async function planFeatureRevisionMerge({
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
     liveRampScheduleEnvs,
   });
+  const requiresReview = reviewRequirement.required;
 
   // Re-derive what the draft changes and re-check every standing approval
   // against it, using each approver's current permissions. Status alone is
@@ -199,6 +209,18 @@ export async function planFeatureRevisionMerge({
       })),
   });
 
+  const coveringApproverIds = (revision.reviews ?? [])
+    .filter((r) => r.status === "approved")
+    .map((r) => r.userId)
+    .filter((id): id is string => !!id)
+    .filter((id) => !uncoveredApprovers.includes(id));
+  const requiredTeams = assessRequiredApproverTeams({
+    rules: reviewRequirement.rules,
+    coveringApproverIds,
+    org: context.org,
+    teams: context.teams,
+  });
+
   const hasLinkedPendingRamp =
     (
       await context.models.rampSchedules.findByActivatingRevision(
@@ -218,6 +240,7 @@ export async function planFeatureRevisionMerge({
     requiresReview,
     uncoveredApprovers,
     hasCoveringApproval,
+    requiredApproverTeams: requiredTeams,
     rebaseRequired: !!rebaseGovernance?.rebaseRequired,
     rebaseBlockReason: rebaseGovernance?.rebaseRequired
       ? rebaseGovernance.blockReason
@@ -294,6 +317,26 @@ export async function collectFeaturePublishGates({
             ? `This draft now changes environments its approvers cannot approve. Needs approval from someone with review rights across everything it changes.`
             : `Requires approval before publishing (status: "${revision.status}").`,
         ],
+        requiresPermission: bypassApprovalPermission("feature"),
+        resolution: {
+          action: "request-review",
+          method: "POST",
+          path: `/features/${feature.id}/revisions/${version}/request-review`,
+        },
+      }),
+    );
+  }
+
+  // A separate gate from "needs an approval": the draft can be properly approved
+  // and still be missing the team the rule names.
+  if (plan.requiresReview && !plan.requiredApproverTeams.satisfied) {
+    gates.push(
+      makeBlockingGate({
+        type: "required-approvers-missing",
+        messages: plan.requiredApproverTeams.unmet.map(
+          (teams) =>
+            `Requires approval from ${teams.map((t) => t.name).join(" or ")}.`,
+        ),
         requiresPermission: bypassApprovalPermission("feature"),
         resolution: {
           action: "request-review",

@@ -15,7 +15,10 @@ import {
 } from "shared/enterprise";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import uniqid from "uniqid";
-import { assessApprovalCoverage } from "shared/permissions";
+import {
+  assessApprovalCoverage,
+  assessRequiredApproverTeams,
+} from "shared/permissions";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
   discardAuthorityOnRow,
@@ -642,6 +645,30 @@ export async function approveRevision(
  * "needs authority no environment limit restricts", so the fail-closed rule for
  * base values and metadata carries through here unchanged.
  */
+/**
+ * Which required approver teams a revision is still missing. Only COVERING
+ * approvals count — an approval that no longer spans the change cannot satisfy a
+ * team requirement either.
+ */
+export function revisionRequiredApproverTeams(
+  context: Context,
+  revision: Revision,
+  coverage: { uncoveredApprovers: string[] },
+): { satisfied: boolean; unmet: { id: string; name: string }[][] } {
+  const adapter = getAdapter(revision.target.type);
+  const requirement = adapter.reviewRequirementForRevision?.(context, revision);
+  if (!requirement?.rules.length) return { satisfied: true, unmet: [] };
+  return assessRequiredApproverTeams({
+    rules: requirement.rules,
+    coveringApproverIds: (revision.reviews ?? [])
+      .filter((r) => r.decision === "approve" && !r.stale)
+      .map((r) => r.userId)
+      .filter((id) => !coverage.uncoveredApprovers.includes(id)),
+    org: context.org,
+    teams: context.teams ?? [],
+  });
+}
+
 export function revisionApprovalsCoverChange(
   context: Context,
   revision: Revision,
@@ -750,7 +777,24 @@ async function publishRevisionInner(
     );
   }
 
-  const isBypass = approvalRequired && !approvedAndCovered;
+  const requiredTeams = revisionRequiredApproverTeams(
+    context,
+    revision,
+    coverage,
+  );
+  if (approvalRequired && !requiredTeams.satisfied && !canBypass) {
+    throw new BadRequestError(
+      requiredTeams.unmet
+        .map(
+          (teams) =>
+            `Requires approval from ${teams.map((t) => t.name).join(" or ")}.`,
+        )
+        .join(" "),
+    );
+  }
+
+  const isBypass =
+    approvalRequired && (!approvedAndCovered || !requiredTeams.satisfied);
 
   const conflictResult = checkMergeConflicts(
     revision.target.snapshot as Record<string, unknown>,

@@ -1,5 +1,6 @@
 import { isEqual } from "lodash";
 import type { Revision } from "shared/enterprise";
+import type { ReviewRequirement } from "shared/util";
 import {
   NO_ENVIRONMENT_BINDING,
   RevisionAction,
@@ -200,6 +201,17 @@ export interface EntityRevisionAdapter<
   // gate on what changed (e.g. saved-group's `requireMetadataReview`, which
   // lets metadata-only revisions skip review).
   isApprovalRequiredForRevision?(context: Context, revision: Revision): boolean;
+
+  /**
+   * Same answer as `isApprovalRequiredForRevision`, plus the review rules that
+   * demanded it — what per-rule policy (required approver teams) hangs off.
+   * Implemented by entities on the `requireReviews` model; saved groups use
+   * `approvalFlows`, which carries no rules.
+   */
+  reviewRequirementForRevision?(
+    context: Context,
+    revision: Revision,
+  ): ReviewRequirement;
 
   /** Whether the current user can bypass the approval requirement. */
   canBypassApproval(context: Context, snapshot: TSnapshot): boolean;

@@ -6,7 +6,10 @@ import type { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisio
 import type { PublishGate } from "back-end/src/revisions/publishGates";
 import { makeBlockingGate } from "back-end/src/revisions/publishGates";
 import { isRevisionDiverged } from "back-end/src/revisions/util";
-import { revisionApprovalsCoverChange } from "back-end/src/revisions/revisionActions";
+import {
+  revisionApprovalsCoverChange,
+  revisionRequiredApproverTeams,
+} from "back-end/src/revisions/revisionActions";
 
 // The approval-required and stale-base publish gates for any entity on the
 // generic revision system — the single implementation behind both the
@@ -53,6 +56,31 @@ export function collectRevisionGovernanceGates({
             ? "This revision now changes environments its approvers cannot approve. Needs approval from someone with review rights across everything it changes."
             : `Requires approval before publishing (status: "${revision.status}").`,
         ],
+        requiresPermission: bypassPermission,
+        resolution: {
+          action: "request-review",
+          method: "POST",
+          path: `${routeBase}/request-review`,
+        },
+      }),
+    );
+  }
+
+  // Separate from "needs an approval": the draft can be properly approved and
+  // still be missing the team its review rule names.
+  const requiredTeams = revisionRequiredApproverTeams(
+    context,
+    revision,
+    coverage,
+  );
+  if (approvalRequired && !requiredTeams.satisfied) {
+    gates.push(
+      makeBlockingGate({
+        type: "required-approvers-missing",
+        messages: requiredTeams.unmet.map(
+          (teams) =>
+            `Requires approval from ${teams.map((t) => t.name).join(" or ")}.`,
+        ),
         requiresPermission: bypassPermission,
         resolution: {
           action: "request-review",

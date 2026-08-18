@@ -2851,6 +2851,50 @@ export function constantRequiresReview(
   return false;
 }
 
+/** Config form of `getConstantReviewRequirement` — carries the flavor scope. */
+export function getConfigReviewRequirement(
+  config: { project?: string },
+  change: {
+    valueChanged: boolean;
+    changedEnvironments: string[];
+    metadataOnly: boolean;
+  },
+  flavorEnvironments: string[] | null,
+  settings?: OrganizationSettings,
+): ReviewRequirement {
+  if (!configRequiresReview(config, change, flavorEnvironments, settings)) {
+    return { required: false, rules: [] };
+  }
+  const requireReviews = settings?.requireReviews;
+  if (!Array.isArray(requireReviews)) return { required: true, rules: [] };
+  const rule = getReviewSetting(requireReviews, config);
+  return { required: true, rules: rule ? [rule] : [] };
+}
+
+/**
+ * The constant/config equivalent of `getRevisionReviewRequirement`: same answer
+ * as `constantRequiresReview`, plus the rule that produced it so per-rule policy
+ * has something to read. At most one rule matches — `getReviewSetting` is
+ * first-match-by-project.
+ */
+export function getConstantReviewRequirement(
+  constant: { project?: string },
+  change: {
+    valueChanged: boolean;
+    changedEnvironments: string[];
+    metadataOnly: boolean;
+  },
+  settings?: OrganizationSettings,
+): ReviewRequirement {
+  if (!constantRequiresReview(constant, change, settings)) {
+    return { required: false, rules: [] };
+  }
+  const requireReviews = settings?.requireReviews;
+  if (!Array.isArray(requireReviews)) return { required: true, rules: [] };
+  const rule = getReviewSetting(requireReviews, constant);
+  return { required: true, rules: rule ? [rule] : [] };
+}
+
 // Constant analogue of `resetReviewOnChange` + `getFeatureAutopublishOnApproval`
 // — constants borrow the feature `requireReviews` model rather than the
 // saved-group `approvalFlows` config, so they need their own accessors keyed off
@@ -3413,7 +3457,20 @@ export function getNewDraftExperimentsToPublish({
   return [...new Set(draftExperiments)];
 }
 
-export function checkIfRevisionNeedsReview({
+/**
+ * Whether review is required, AND which rules demanded it.
+ *
+ * The rules are what any per-rule policy hangs off (required approver teams), so
+ * they are returned rather than collapsed to a boolean. `required` can be true
+ * with no rules: the legacy boolean setting form demands review without a rule
+ * object to attach policy to.
+ */
+export type ReviewRequirement = {
+  required: boolean;
+  rules: RequireReview[];
+};
+
+export function getRevisionReviewRequirement({
   feature,
   baseRevision,
   revision,
@@ -3429,11 +3486,14 @@ export function checkIfRevisionNeedsReview({
   settings?: OrganizationSettings;
   requireApprovalsLicensed?: boolean;
   liveRampScheduleEnvs?: Map<string, string[] | "all">;
-}) {
-  if (!requireApprovalsLicensed) return false;
+}): ReviewRequirement {
+  const none: ReviewRequirement = { required: false, rules: [] };
+  if (!requireApprovalsLicensed) return none;
   const requireReviews = settings?.requireReviews;
   // Boolean format: true = all changes require review, false/undefined = none do.
-  if (!Array.isArray(requireReviews)) return !!requireReviews;
+  if (!Array.isArray(requireReviews)) {
+    return requireReviews ? { required: true, rules: [] } : none;
+  }
 
   // Govern by primary + strict-mode targeting over the current+staged union (so
   // adding and removing a project are both governed). All-projects (live or
@@ -3454,7 +3514,7 @@ export function checkIfRevisionNeedsReview({
   )
     .map((project) => getReviewSetting(requireReviews, { project }))
     .filter((rs): rs is RequireReview => !!rs?.requireReviewOn);
-  if (!reviewSettings.length) return false;
+  if (!reviewSettings.length) return none;
 
   const affected = getDraftAffectedEnvironments(
     revision,
@@ -3553,7 +3613,15 @@ export function checkIfRevisionNeedsReview({
     return false;
   };
 
-  return reviewSettings.some(needsReviewForSetting);
+  const triggering = reviewSettings.filter(needsReviewForSetting);
+  return { required: triggering.length > 0, rules: triggering };
+}
+
+/** Boolean form, for the many callers that only ask whether review is needed. */
+export function checkIfRevisionNeedsReview(
+  args: Parameters<typeof getRevisionReviewRequirement>[0],
+): boolean {
+  return getRevisionReviewRequirement(args).required;
 }
 
 // Entity pairing a single governance `project` with a secondary targeting scope.
