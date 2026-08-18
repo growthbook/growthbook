@@ -34299,6 +34299,12 @@ paths:
                         - week
                         - month
                         - year
+                    projects:
+                      type: array
+                      items:
+                        type: string
+                    experimentSearchString:
+                      type: string
                   additionalProperties: false
                 blocks:
                   type: array
@@ -34654,6 +34660,16 @@ paths:
                                     - id
                                     - visible
                                   additionalProperties: false
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  projects:
+                                    type: boolean
+                                  experimentSearchString:
+                                    type: boolean
+                                additionalProperties: false
                             required:
                               - type
                               - title
@@ -34799,6 +34815,16 @@ paths:
                                     additionalProperties: false
                                 required:
                                   - enabled
+                                additionalProperties: false
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  projects:
+                                    type: boolean
+                                  experimentSearchString:
+                                    type: boolean
                                 additionalProperties: false
                               metricId:
                                 type: string
@@ -34946,6 +34972,16 @@ paths:
                                 required:
                                   - enabled
                                 additionalProperties: false
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  projects:
+                                    type: boolean
+                                  experimentSearchString:
+                                    type: boolean
+                                additionalProperties: false
                               showProjectBreakdown:
                                 type: boolean
                             required:
@@ -35091,6 +35127,16 @@ paths:
                                     additionalProperties: false
                                 required:
                                   - enabled
+                                additionalProperties: false
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  projects:
+                                    type: boolean
+                                  experimentSearchString:
+                                    type: boolean
                                 additionalProperties: false
                               dateGranularity:
                                 type: string
@@ -37266,6 +37312,16 @@ paths:
                                     - id
                                     - visible
                                   additionalProperties: false
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  projects:
+                                    type: boolean
+                                  experimentSearchString:
+                                    type: boolean
+                                additionalProperties: false
                             required:
                               - organization
                               - id
@@ -37420,6 +37476,16 @@ paths:
                                     additionalProperties: false
                                 required:
                                   - enabled
+                                additionalProperties: false
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  projects:
+                                    type: boolean
+                                  experimentSearchString:
+                                    type: boolean
                                 additionalProperties: false
                               metricId:
                                 type: string
@@ -37576,6 +37642,16 @@ paths:
                                 required:
                                   - enabled
                                 additionalProperties: false
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  projects:
+                                    type: boolean
+                                  experimentSearchString:
+                                    type: boolean
+                                additionalProperties: false
                               showProjectBreakdown:
                                 type: boolean
                             required:
@@ -37730,6 +37806,16 @@ paths:
                                     additionalProperties: false
                                 required:
                                   - enabled
+                                additionalProperties: false
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  projects:
+                                    type: boolean
+                                  experimentSearchString:
+                                    type: boolean
                                 additionalProperties: false
                               dateGranularity:
                                 type: string
@@ -39814,6 +39900,12 @@ paths:
                         - week
                         - month
                         - year
+                    projects:
+                      type: array
+                      items:
+                        type: string
+                    experimentSearchString:
+                      type: string
                   additionalProperties: false
                 blocks:
                   type: array
@@ -40168,6 +40260,16 @@ paths:
                                 - id
                                 - visible
                               additionalProperties: false
+                          globalControlSettings:
+                            type: object
+                            properties:
+                              dateRange:
+                                type: boolean
+                              projects:
+                                type: boolean
+                              experimentSearchString:
+                                type: boolean
+                            additionalProperties: false
                         required:
                           - type
                           - title
@@ -40313,6 +40415,16 @@ paths:
                                 additionalProperties: false
                             required:
                               - enabled
+                            additionalProperties: false
+                          globalControlSettings:
+                            type: object
+                            properties:
+                              dateRange:
+                                type: boolean
+                              projects:
+                                type: boolean
+                              experimentSearchString:
+                                type: boolean
                             additionalProperties: false
                           metricId:
                             type: string
@@ -40460,6 +40572,16 @@ paths:
                             required:
                               - enabled
                             additionalProperties: false
+                          globalControlSettings:
+                            type: object
+                            properties:
+                              dateRange:
+                                type: boolean
+                              projects:
+                                type: boolean
+                              experimentSearchString:
+                                type: boolean
+                            additionalProperties: false
                           showProjectBreakdown:
                             type: boolean
                         required:
@@ -40605,6 +40727,16 @@ paths:
                                 additionalProperties: false
                             required:
                               - enabled
+                            additionalProperties: false
+                          globalControlSettings:
+                            type: object
+                            properties:
+                              dateRange:
+                                type: boolean
+                              projects:
+                                type: boolean
+                              experimentSearchString:
+                                type: boolean
                             additionalProperties: false
                           dateGranularity:
                             type: string
@@ -60279,6 +60411,12 @@ components:
                 - week
                 - month
                 - year
+            projects:
+              type: array
+              items:
+                type: string
+            experimentSearchString:
+              type: string
           additionalProperties: false
         comparison:
           type: object
@@ -60919,6 +61057,16 @@ components:
                         - id
                         - visible
                       additionalProperties: false
+                  globalControlSettings:
+                    type: object
+                    properties:
+                      dateRange:
+                        type: boolean
+                      projects:
+                        type: boolean
+                      experimentSearchString:
+                        type: boolean
+                    additionalProperties: false
                 required:
                   - organization
                   - id
@@ -61073,6 +61221,16 @@ components:
                         additionalProperties: false
                     required:
                       - enabled
+                    additionalProperties: false
+                  globalControlSettings:
+                    type: object
+                    properties:
+                      dateRange:
+                        type: boolean
+                      projects:
+                        type: boolean
+                      experimentSearchString:
+                        type: boolean
                     additionalProperties: false
                   metricId:
                     type: string
@@ -61229,6 +61387,16 @@ components:
                     required:
                       - enabled
                     additionalProperties: false
+                  globalControlSettings:
+                    type: object
+                    properties:
+                      dateRange:
+                        type: boolean
+                      projects:
+                        type: boolean
+                      experimentSearchString:
+                        type: boolean
+                    additionalProperties: false
                   showProjectBreakdown:
                     type: boolean
                 required:
@@ -61383,6 +61551,16 @@ components:
                         additionalProperties: false
                     required:
                       - enabled
+                    additionalProperties: false
+                  globalControlSettings:
+                    type: object
+                    properties:
+                      dateRange:
+                        type: boolean
+                      projects:
+                        type: boolean
+                      experimentSearchString:
+                        type: boolean
                     additionalProperties: false
                   dateGranularity:
                     type: string
