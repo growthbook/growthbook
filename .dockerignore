@@ -1,7 +1,6 @@
 # Build and test artifacts
 .git
 .github
-skills-src/**
 .gitignore
 Dockerfile
 docker-compose.yml
@@ -10,9 +9,6 @@ docker-compose.yml
 .prettier*
 .husky
 *.md
-# Only skill Markdown enters the build; the bundler owns the domain allowlist.
-!skills-src/skills/
-!skills-src/skills/**/
 !skills-src/skills/**/*.md
 !packages/back-end/src/agent/skills-local/**/*.md
 **/node_modules

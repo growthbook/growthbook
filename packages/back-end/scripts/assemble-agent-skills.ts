@@ -122,7 +122,7 @@ function copyLocalSkills(
   return copied;
 }
 
-interface BundleSkillsOptions {
+interface AssembleSkillsOptions {
   source?: string | null;
   destination?: string;
   localSource?: string;
@@ -130,14 +130,14 @@ interface BundleSkillsOptions {
   ci?: boolean;
 }
 
-export function bundleSkills({
+export function assembleSkills({
   source = resolveSkillsSource(),
   destination = outputDir,
   localSource = localSkillsDir,
   canonicalSkills = CANONICAL_SKILLS,
   ci = Boolean(process.env.CI && process.env.CI !== "false"),
-}: BundleSkillsOptions = {}): void {
-  const reusableBundle =
+}: AssembleSkillsOptions = {}): void {
+  const reusableAssembly =
     !source &&
     canonicalSkills.every((name) =>
       existsSync(join(destination, name, "SKILL.md")),
@@ -151,7 +151,7 @@ export function bundleSkills({
     process.stderr.write(
       `Skipping canonical agent skills: no ${SKILLS_REPOSITORY} checkout found.\n` +
         `Looked for $SKILLS_SRC, ${SIBLING_CANDIDATES.join(", and ")}.\n` +
-        (reusableBundle
+        (reusableAssembly
           ? `Reusing the existing canonical assembly and refreshing local skills.\n`
           : `Local-only skills will still be assembled.\n`),
     );
@@ -171,7 +171,7 @@ export function bundleSkills({
           "Allowlisted canonical",
         );
       }
-    } else if (reusableBundle) {
+    } else if (reusableAssembly) {
       for (const skillName of canonicalSkills) {
         cpSync(join(destination, skillName), join(temporaryDir, skillName), {
           recursive: true,
@@ -189,7 +189,7 @@ export function bundleSkills({
     renameSync(temporaryDir, destination);
 
     process.stdout.write(
-      `Assembled ${source || reusableBundle ? canonicalSkills.length : 0} canonical and ${localSkills.length} local agent skill(s) into ${destination}\n`,
+      `Assembled ${source || reusableAssembly ? canonicalSkills.length : 0} canonical and ${localSkills.length} local agent skill(s) into ${destination}\n`,
     );
   } catch (error) {
     rmSync(temporaryDir, { recursive: true, force: true });
@@ -199,7 +199,7 @@ export function bundleSkills({
 
 if (process.argv[1] && resolve(process.argv[1]) === resolve(__filename)) {
   try {
-    bundleSkills();
+    assembleSkills();
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : error}\n`);
     process.exit(1);

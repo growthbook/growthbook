@@ -6,8 +6,8 @@ import { logger } from "back-end/src/util/logger";
  * Agent skills teach the generic agent how to use slices of the GrowthBook
  * REST API via the `callApi` tool.
  *
- * `bundle:skills` assembles canonical and in-app-only skills under
- * `generated/agent-skills`; `build:skills` copies that tree beside this module
+ * `assemble:skills` assembles canonical and in-app-only skills under
+ * `generated/agent-skills`; `copy:skills` copies that tree beside this module
  * in `dist`.
  *
  * Layout:
@@ -196,7 +196,7 @@ function loadSkillsFromDisk(): Skill[] {
       continue;
     }
     logger.warn(
-      `Skill domain "${router.name}" has no workflows. Run 'pnpm --filter back-end bundle:skills' with a growthbook/skills checkout; see packages/back-end/src/agent/AGENT_SKILLS.md.`,
+      `Skill domain "${router.name}" has no workflows. Run 'pnpm --filter back-end assemble:skills' with a growthbook/skills checkout; see packages/back-end/src/agent/AGENT_SKILLS.md.`,
     );
   }
 

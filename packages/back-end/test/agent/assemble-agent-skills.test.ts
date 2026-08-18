@@ -9,10 +9,10 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
+  assembleSkills,
   assertNoSkillNameCollision,
-  bundleSkills,
   CANONICAL_SKILLS,
-} from "../../scripts/bundle-agent-skills";
+} from "../../scripts/assemble-agent-skills";
 
 function writeFixtureFile(path: string, content: string): void {
   mkdirSync(dirname(path), { recursive: true });
@@ -85,7 +85,7 @@ test("rejects local skills that shadow canonical skills", () => {
 test("assembles the canonical tree and standalone local skills", () => {
   const fixture = createSkillsFixture();
   try {
-    bundleSkills({
+    assembleSkills({
       source: fixture.source,
       localSource: fixture.localSource,
       destination: fixture.destination,
