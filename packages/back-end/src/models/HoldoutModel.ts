@@ -1,13 +1,17 @@
 import { z } from "zod";
 import {
   coverageToHoldoutSize,
+  getAllowedHoldoutStageSources,
   getHoldoutStage,
+  HoldoutStage,
+  isHoldoutStageTransitionAllowed,
   stringToBoolean,
 } from "shared/util";
 import {
   ApiHoldoutInterface,
   apiCreateHoldoutBody,
-  apiHoldoutStageReturn,
+  apiHoldoutActionReturn,
+  apiHoldoutActionValidator,
   apiUpdateHoldoutBody,
   HOLDOUT_API_TARGETING_UPDATE_FIELDS,
   HoldoutInterface,
@@ -16,12 +20,19 @@ import {
 import { UpdateProps } from "shared/types/base-model";
 import { ExperimentInterface } from "shared/types/experiment";
 import { getCollection } from "back-end/src/util/mongo.util";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  InvalidStatusError,
+  NotFoundError,
+} from "back-end/src/util/errors";
 import {
   holdoutApiSpec,
-  holdoutStageEndpoint,
+  holdoutStartAnalysisEndpoint,
+  holdoutStartEndpoint,
+  holdoutStopEndpoint,
 } from "back-end/src/api/specs/holdout.spec";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import { ApiRequest } from "back-end/src/util/handler";
 import {
   createHoldoutWithExperiment,
   normalizeHoldoutScheduleUpdates,
@@ -38,6 +49,68 @@ import { MakeModelClass } from "./BaseModel";
 import { getExperimentById, getExperimentsByIds } from "./ExperimentModel";
 
 const COLLECTION_NAME = "holdouts";
+
+type HoldoutActionRequest = ApiRequest<
+  z.infer<typeof apiHoldoutActionReturn>,
+  typeof apiHoldoutActionValidator.paramsSchema,
+  typeof apiHoldoutActionValidator.bodySchema,
+  typeof apiHoldoutActionValidator.querySchema
+>;
+
+async function handleHoldoutStageTransition(
+  req: HoldoutActionRequest,
+  {
+    targetStage,
+    invalidStatusMessage,
+  }: {
+    targetStage: HoldoutStage;
+    invalidStatusMessage: string;
+  },
+): Promise<z.infer<typeof apiHoldoutActionReturn>> {
+  const holdout = await req.context.models.holdout.getById(req.params.id);
+  if (!holdout) {
+    return req.context.throwNotFoundError();
+  }
+  const experiment = await getExperimentById(req.context, holdout.experimentId);
+  if (!experiment) {
+    return req.context.throwNotFoundError("Holdout experiment not found");
+  }
+
+  const envs = getEnvironmentIdsFromOrg(req.context.org);
+  if (!req.context.permissions.canRunHoldout(holdout, envs)) {
+    req.context.permissions.throwPermissionError();
+  }
+
+  const currentStage = getHoldoutStage(holdout, experiment);
+  if (!isHoldoutStageTransitionAllowed(currentStage, targetStage)) {
+    throw new InvalidStatusError(
+      invalidStatusMessage,
+      currentStage,
+      getAllowedHoldoutStageSources(targetStage),
+    );
+  }
+
+  await setHoldoutStage(req.context, {
+    holdout,
+    experiment,
+    stage: targetStage,
+  });
+
+  const [updatedHoldout, updatedExperiment] = await Promise.all([
+    req.context.models.holdout.getById(holdout.id),
+    getExperimentById(req.context, holdout.experimentId),
+  ]);
+  if (!updatedHoldout || !updatedExperiment) {
+    return req.context.throwNotFoundError();
+  }
+
+  return {
+    holdout: await resolveOwnerEmail(
+      toApiHoldout(updatedHoldout, updatedExperiment),
+      req.context,
+    ),
+  };
+}
 
 const BaseClass = MakeModelClass({
   schema: holdoutValidator,
@@ -63,54 +136,31 @@ const BaseClass = MakeModelClass({
     openApiSpec: holdoutApiSpec,
     customHandlers: [
       defineCustomApiHandler({
-        ...holdoutStageEndpoint,
-        reqHandler: async (
-          req,
-        ): Promise<z.infer<typeof apiHoldoutStageReturn>> => {
-          const holdout = await req.context.models.holdout.getById(
-            req.params.id,
-          );
-          if (!holdout) {
-            return req.context.throwNotFoundError();
-          }
-          const experiment = await getExperimentById(
-            req.context,
-            holdout.experimentId,
-          );
-          if (!experiment) {
-            return req.context.throwNotFoundError(
-              "Holdout experiment not found",
-            );
-          }
-
-          const envs = getEnvironmentIdsFromOrg(req.context.org);
-          if (!req.context.permissions.canRunHoldout(holdout, envs)) {
-            req.context.permissions.throwPermissionError();
-          }
-
-          await setHoldoutStage(req.context, {
-            holdout,
-            experiment,
-            stage: req.body.stage,
-          });
-
-          // Re-read both documents: the stage change rewrote the experiment's
-          // status and phases and the holdout's analysis/schedule fields.
-          const [updatedHoldout, updatedExperiment] = await Promise.all([
-            req.context.models.holdout.getById(holdout.id),
-            getExperimentById(req.context, holdout.experimentId),
-          ]);
-          if (!updatedHoldout || !updatedExperiment) {
-            return req.context.throwNotFoundError();
-          }
-
-          return {
-            holdout: await resolveOwnerEmail(
-              toApiHoldout(updatedHoldout, updatedExperiment),
-              req.context,
-            ),
-          };
-        },
+        ...holdoutStartEndpoint,
+        reqHandler: (req) =>
+          handleHoldoutStageTransition(req, {
+            targetStage: "running",
+            invalidStatusMessage:
+              "Holdout must be in the draft stage before it can start.",
+          }),
+      }),
+      defineCustomApiHandler({
+        ...holdoutStartAnalysisEndpoint,
+        reqHandler: (req) =>
+          handleHoldoutStageTransition(req, {
+            targetStage: "analysis-period",
+            invalidStatusMessage:
+              "Holdout must be running before its analysis period can start.",
+          }),
+      }),
+      defineCustomApiHandler({
+        ...holdoutStopEndpoint,
+        reqHandler: (req) =>
+          handleHoldoutStageTransition(req, {
+            targetStage: "stopped",
+            invalidStatusMessage:
+              "Holdout must be running or in its analysis period before it can stop.",
+          }),
       }),
     ],
   },

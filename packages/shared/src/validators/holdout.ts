@@ -212,7 +212,7 @@ export const apiHoldoutValidator = namedSchema(
     stage: z
       .enum(holdoutStage)
       .describe(
-        "Lifecycle stage of the Holdout. Change it with POST /holdouts/{id}/stage.",
+        "Lifecycle stage of the Holdout. Use the start, start-analysis, and stop endpoints to move through the lifecycle.",
       ),
     experimentId: z
       .string()
@@ -407,14 +407,12 @@ export const HOLDOUT_API_TARGETING_UPDATE_FIELDS = [
   "savedGroupTargeting",
 ] as const satisfies readonly (keyof ApiUpdateHoldoutBody)[];
 
-export const apiHoldoutStageValidator = {
+export const apiHoldoutActionValidator = {
   paramsSchema: z.strictObject({ id: z.string() }),
-  bodySchema: z.strictObject({
-    stage: z.enum(holdoutStage).describe("The stage to move the Holdout to."),
-  }),
+  bodySchema: z.never(),
   querySchema: z.never(),
 };
 
-export const apiHoldoutStageReturn = z.object({
+export const apiHoldoutActionReturn = z.object({
   holdout: apiHoldoutValidator,
 });
