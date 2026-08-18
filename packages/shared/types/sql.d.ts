@@ -13,6 +13,11 @@ export type StringMatchFn = (
   value: string,
 ) => string;
 
+/**
+ * Matches `columnExpr` against a wildcard pattern (`*` any run, `?` one char).
+ */
+export type GlobMatchFn = (columnExpr: string, glob: string) => string;
+
 /** One labeled column expanded per base row by {@link SqlDialect.unpivotLabeledPairs}. */
 export type UnpivotLabeledPair = {
   /** Logical name (unescaped); dialect may quote as a SQL string literal. */
@@ -76,6 +81,7 @@ export interface SqlDialect {
   identifierQuote: SqlIdentifierQuote;
   escapeStringLiteral: (s: string) => string;
   stringMatch: StringMatchFn;
+  globMatch: GlobMatchFn;
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
   evalBoolean: (col: string, value: boolean) => string;
   dateTrunc: (
@@ -89,6 +95,11 @@ export interface SqlDialect {
    * Postgres-flavored dialects; ClickHouse and friends override it.
    */
   dateDiffMs: (startCol: string, endCol: string) => string;
+  /**
+   * Concatenate string expressions. Base throws rather than defaulting to `||`:
+   * in MySQL `||` is boolean OR, which would silently produce a wrong result.
+   */
+  concatStrings: (parts: string[]) => string;
   /**
    * Shift a timestamp expression by `amount` seconds. `sign` is "+" or "-".
    * Used by funnel SQL to apply concurrency tolerance / conversion-window

@@ -8,6 +8,7 @@ import { baseDialect } from "./base";
 
 export const prestoDialect: SqlDialect = {
   ...baseDialect,
+  concatStrings: (parts: string[]) => parts.join(" || "),
   formatDialect: "trino",
   toTimestamp: (date: Date) =>
     `from_iso8601_timestamp('${date.toISOString()}')`,

@@ -137,6 +137,8 @@ Example call:
 - `POST /api/v1/product-analytics/fact-table-exploration` for `dataset.type: "fact_table"` configs.
 - `POST /api/v1/product-analytics/data-source-exploration` for `dataset.type: "data_source"` configs.
 
+Do not call the funnel or User Journey exploration endpoints. Those dataset types are not supported in AI chat.
+
 The body IS the exploration config — see `<config_schema>` below. Add an optional query param `cache=preferred|required|never` (default `preferred`).
 
 The response returns:
@@ -189,7 +191,7 @@ Use this only if the user references an older exploration by ID and the data isn
 <config_schema>
 Top-level config: `{ type, datasource, chartType, dateRange, dimensions, dataset, showAs? }`
 
-- `type`: `"metric" | "fact_table" | "data_source"` — must match the dataset.type and the endpoint you call.
+- `type`: `"metric" | "fact_table" | "data_source"` — must match the dataset.type and the endpoint you call. Do not emit `"funnel"` or `"journey"`.
 - `chartType`: `"line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber"`
 - `dateRange`: `{ predefined, lookbackValue?, lookbackUnit?, startDate?, endDate? }`
   - `lookbackUnit`: `"hour" | "day" | "week" | "month"`

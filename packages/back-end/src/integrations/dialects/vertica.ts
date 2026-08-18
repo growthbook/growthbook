@@ -1,4 +1,4 @@
-import { createLikeStringMatchFn } from "shared/sql";
+import { createLikeMatchFns } from "shared/sql";
 import type { SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 import { indicesTableUnpivot } from "back-end/src/integrations/sql/clauses/indices-table-unpivot";
@@ -7,7 +7,7 @@ import { baseDialect } from "./base";
 export const verticaDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "postgresql",
-  stringMatch: createLikeStringMatchFn({
+  ...createLikeMatchFns({
     escapeStringLiteral: baseDialect.escapeStringLiteral,
     emitEscapeClause: false,
   }),

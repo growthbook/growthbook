@@ -6,6 +6,7 @@ import {
   type AIChatToolResultPart,
 } from "shared/ai-chat";
 import {
+  datasetHasValues,
   dateRangePredefined,
   ExplorationConfig,
   explorationConfigValidator,
@@ -253,11 +254,9 @@ function buildSnapshotSummary(
       if (stepNames?.length) {
         parts.push(`steps: ${stepNames.join(", ")}`);
       }
-    } else {
-      const valueNames = curr.dataset?.values
-        ?.map((v) => v.name)
-        .filter(Boolean);
-      if (valueNames?.length) {
+    } else if (datasetHasValues(curr.dataset)) {
+      const valueNames = curr.dataset.values.map((v) => v.name).filter(Boolean);
+      if (valueNames.length) {
         parts.push(`values: ${valueNames.join(", ")}`);
       }
     }
@@ -276,8 +275,7 @@ function buildSnapshotSummary(
     );
   }
 
-  // Funnels carry "steps"; everything else carries "values". Diff whichever
-  // shape applies; treat shape change as a coarse "dataset changed".
+  // Funnels carry "steps"; journeys have neither; everything else carries "values".
   if (prev.dataset?.type === "funnel" && curr.dataset?.type === "funnel") {
     const prevSteps = prev.dataset.steps.map((s) => s.name);
     const currSteps = curr.dataset.steps.map((s) => s.name);
@@ -285,12 +283,9 @@ function buildSnapshotSummary(
     const removed = prevSteps.filter((n) => !currSteps.includes(n));
     if (added.length) parts.push(`added steps: ${added.join(", ")}`);
     if (removed.length) parts.push(`removed steps: ${removed.join(", ")}`);
-  } else if (
-    prev.dataset?.type !== "funnel" &&
-    curr.dataset?.type !== "funnel"
-  ) {
-    const prevNames = prev.dataset?.values?.map((v) => v.name) ?? [];
-    const currNames = curr.dataset?.values?.map((v) => v.name) ?? [];
+  } else if (datasetHasValues(prev.dataset) && datasetHasValues(curr.dataset)) {
+    const prevNames = prev.dataset.values.map((v) => v.name);
+    const currNames = curr.dataset.values.map((v) => v.name);
     const added = currNames.filter((n) => !prevNames.includes(n));
     const removed = prevNames.filter((n) => !currNames.includes(n));
     if (added.length) parts.push(`added: ${added.join(", ")}`);
@@ -714,11 +709,8 @@ async function normalizeConfigForExplorer(
     );
   }
 
-  // Funnel datasets have a different structure (steps instead of values)
-  // and the AI agent isn't equipped to produce them. The bigNumber / value
-  // count constraints below assume a `values` array, so we skip them for
-  // funnels — the front-end already enforces funnel-specific limits.
-  if (dataset.type !== "funnel") {
+  // The bigNumber / value count constraints below assume a `values` array.
+  if (datasetHasValues(dataset)) {
     // bigNumber: no dimensions, single value
     if (config.chartType === "bigNumber") {
       if (dims.length > 0) {

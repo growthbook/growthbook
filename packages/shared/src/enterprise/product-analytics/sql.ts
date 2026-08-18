@@ -41,6 +41,7 @@ import {
   getAggregateFilters,
   isFactFunnelMetric,
 } from "../../experiments/experiments";
+import { buildJourneySql, transformJourneyRowsToResult } from "./journey-sql";
 
 // Internal Type definitions
 type MinimalFactTable = Pick<
@@ -209,10 +210,12 @@ function getFactTableGroups({
         ];
       })();
     case "funnel":
-      // Funnels are dispatched away from this code path in
-      // generateProductAnalyticsSQL; this branch exists only so the switch
-      // is exhaustive over the dataset type union.
-      throw new Error("Funnel datasets are not handled by getFactTableGroups");
+    case "journey":
+      // Dispatched away from this code path in generateProductAnalyticsSQL;
+      // these branches exist so the switch is exhaustive over the dataset union.
+      throw new Error(
+        `${config.dataset.type} datasets are not handled by getFactTableGroups`,
+      );
     case "metric":
       return (() => {
         const groups: Record<string, FactTableGroup> = {};
@@ -448,7 +451,7 @@ export function getDateGranularity(
 }
 
 // Generate row filter SQL
-function generateRowFilterSQL(
+export function generateRowFilterSQL(
   rowFilters: RowFilter[],
   factTable: MinimalFactTable,
   helpers: SqlDialect,
@@ -937,7 +940,7 @@ function createStubFactTable(
 }
 
 // Generate dynamic dimension CTE
-function generateDynamicDimensionCTE(
+export function generateDynamicDimensionCTE(
   factTableGroup: FactTableGroup,
   dimension: ProductAnalyticsDynamicDimension,
   dimensionIndex: number,
@@ -1746,6 +1749,10 @@ export function generateProductAnalyticsSQL(
     const { sql } = buildFunnelSql(config, factTableMap, dialect);
     return { sql, orderedMetricIds: [] };
   }
+  if (config.dataset.type === "journey") {
+    const { sql } = buildJourneySql(config, factTableMap, dialect);
+    return { sql, orderedMetricIds: [] };
+  }
 
   const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
 
@@ -1975,6 +1982,9 @@ export function transformProductAnalyticsRowsToResult(
   // funnel-specific parser.
   if (config.dataset.type === "funnel") {
     return transformFunnelRowsToResult(config, rows);
+  }
+  if (config.dataset.type === "journey") {
+    return transformJourneyRowsToResult(config, rows);
   }
 
   // Raw rows should look like this:

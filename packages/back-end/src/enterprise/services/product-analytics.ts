@@ -8,7 +8,14 @@ import {
   calculateProductAnalyticsDateRange,
   encodeExplorationConfig,
   isFunnelSupportedDatasourceType,
+  isJourneySupportedDatasourceType,
 } from "shared/enterprise";
+import {
+  journeyMinUnusedLookahead,
+  toClientJourneyExploration,
+  validateJourneyDataset,
+  validateJourneyStepColumns,
+} from "shared/journeys";
 import {
   FactMetricInterface,
   FactTableInterface,
@@ -29,20 +36,14 @@ import { APP_ORIGIN } from "back-end/src/util/secrets";
 /**
  * Cache lookup keys off query-defining fields (see AnalyticsExplorationModel.getConfigHashes)
  * and can reuse compatible date ranges. Reuse the cached rows but surface the
- * client's requested display config.
+ * client's requested display config — journeys also collapse lookahead so the
+ * payload matches the path being viewed.
  */
 function withRequestedDisplayConfig(
   existing: ProductAnalyticsExploration,
   requested: ExplorationConfig,
 ): ProductAnalyticsExploration {
-  return {
-    ...existing,
-    config: {
-      ...existing.config,
-      chartType: requested.chartType,
-      dateRange: requested.dateRange,
-    },
-  };
+  return toClientJourneyExploration(existing, requested);
 }
 
 // Max time to wait synchronously for an exploration's queries before
@@ -60,7 +61,15 @@ export async function runProductAnalyticsExploration(
 
   if (options.cache !== "never") {
     const existing =
-      await context.models.analyticsExplorations.findLatestByConfig(config);
+      await context.models.analyticsExplorations.findLatestByConfig(config, {
+        // Every journey request needs one unused frontier level to project a
+        // display payload. Prefix cache hits are reused; a miss runs SQL with
+        // the full lookahead still in the dataset.
+        minUnusedLookahead:
+          config.dataset.type === "journey"
+            ? journeyMinUnusedLookahead(config.dataset.lookaheadDepth, "one")
+            : undefined,
+      });
     if (existing) {
       return withRequestedDisplayConfig(existing, config);
     }
@@ -187,6 +196,37 @@ export async function runProductAnalyticsExploration(
         );
       }
     }
+  } else if (dataset.type === "journey") {
+    // Every dataset-shape rule lives in validateJourneyDataset so the SQL
+    // builder and the explorer's Run button can't drift from this endpoint.
+    const errors = validateJourneyDataset(dataset, config.dimensions[0]);
+    if (errors.length) {
+      throw new BadRequestError(errors.join(" "));
+    }
+    if (!isJourneySupportedDatasourceType(datasource.type)) {
+      throw new BadRequestError(
+        "User Journey explorations aren't supported for this Data Source yet. Supported warehouses will expand as each is validated.",
+      );
+    }
+    const factTable = await getFactTable(context, dataset.factTableId ?? "");
+    if (!factTable) {
+      throw new NotFoundError("Fact table not found");
+    }
+    factTableMap.set(factTable.id, factTable);
+    if (factTable.datasource !== datasource.id) {
+      throw new BadRequestError(
+        "Fact Table must belong to the same Data Source as the exploration",
+      );
+    }
+    const columnErrors = validateJourneyStepColumns(dataset, factTable);
+    if (columnErrors.length) {
+      throw new BadRequestError(columnErrors.join(" "));
+    }
+    if (dataset.unit && !factTable.userIdTypes.includes(dataset.unit)) {
+      throw new BadRequestError(
+        `Journey unit "${dataset.unit}" is not a userIdType on the Fact Table`,
+      );
+    }
   } else {
     throw new BadRequestError("Invalid dataset type");
   }
@@ -259,7 +299,7 @@ export async function runProductAnalyticsExploration(
     if (syncTimer) clearTimeout(syncTimer);
   }
 
-  return queryRunner.model;
+  return withRequestedDisplayConfig(queryRunner.model, config);
 }
 
 const DATASET_TYPE_PATH: Record<ExplorationConfig["dataset"]["type"], string> =
@@ -268,6 +308,7 @@ const DATASET_TYPE_PATH: Record<ExplorationConfig["dataset"]["type"], string> =
     fact_table: "fact-table",
     data_source: "data-source",
     funnel: "funnel",
+    journey: "journey",
   };
 
 export function getProductAnalyticsExplorationUrl(config: ExplorationConfig) {
