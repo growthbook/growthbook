@@ -665,10 +665,44 @@ at all.
 - [ ] Known gap: a rule whose named teams have all been deleted stops gating
       rather than failing closed (it cannot be satisfied OR explained). Needs a
       settings-side warning rather than a publish-time one.
-- [ ] Not built: editing required teams from the project page — blocked on whether
-      a project-scoped rule forks the org rule (first-match-wins returns ONE whole
-      rule) or whether `getReviewSetting` becomes most-specific-plus-inherited
-      first. The latter is also the prerequisite for tag/per-flag rules.
+- [ ] Not built: editing required teams from the project page. **Decided: keep the
+      rules in org settings and make `getReviewSetting` most-specific-plus-inherited**
+      (option B), rather than storing governance on the project (option C).
+
+      Why B, given the project page is where you would expect to edit it: **tags and
+      flag ids are not project-scoped.** Flags carry org-level `tags[]`, and a tag
+      like `pii` deliberately cuts across projects, so a tag rule cannot live on a
+      project document. Any selector-based future is therefore org-level. B is
+      already a selector engine (`projects[]` today, `tags[]`/`features[]` later, each
+      with a specificity rank inheriting the layer above); C is an ownership model
+      that cannot express cross-cutting selectors and would fragment into three
+      stores with undefined precedence.
+
+      Two things make B cheap rather than novel: `getTargetingReviewMode` in the same
+      file is ALREADY most-specific-plus-fallback, so this makes the two settings in
+      one section agree; and with one rule (every org today, since the settings UI has
+      no add-rule control on main or this branch) first-match and most-specific
+      resolve identically, so it is inert for existing data. Orgs that created several
+      rules over the API do change behaviour — order stops deciding, specificity
+      starts — which is closer to what a project-scoped rule was written to mean, but
+      belongs in the release note.
+
+      Build it as a resolver over an ENTITY (project, tags, id) returning a merged
+      rule, even while only the project selector ships, and decide inheritance
+      per field: an override naming only `requiredApproverTeams` must inherit
+      `resetReviewOnChange` and the rest from the layer above.
+
+- [ ] Duplication carries governance ASYMMETRICALLY, and B needs an explicit step for
+      it because rules reference projects and teams BY ID — a clone is a new id no
+      rule mentions, so nothing carries by default (under C a project's would, being
+      a field on the copied doc). - **Project clone: carry it.** Add the new project id to the matching rules.
+      Being less governed than the original is the dangerous direction. - **Team clone: do NOT carry approver obligations.** Copy permissions only.
+      Making a clone instantly able to unblock everything its source gated widens
+      who holds authority without anyone granting it, and assumes intent the
+      duplicate action does not express.
+      Neither flow exists yet — only custom roles have a duplicate today
+      (`/settings/role/duplicate/[rid]`, which correctly copies `policies`). This is
+      a constraint on whoever builds them, not current work.
 
 ### 5. Settings unification
 
