@@ -23,3 +23,8 @@ export type {
   ParamClassification,
   ParamSensitivity,
 } from "./datasource-params";
+
+export {
+  getDefaultMaxConcurrentQueries,
+  getMaxConcurrentQueriesLimit,
+} from "./datasource-concurrency";
