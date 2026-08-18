@@ -22,7 +22,7 @@ import SelectField from "@/components/Forms/SelectField";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import MultiSelectField from "@/ui/MultiSelectField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
-import Checkbox from "@/ui/Checkbox";
+import Switch from "@/ui/Switch";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
@@ -615,10 +615,10 @@ export default function CustomHookModal({
             .
           </Text>
 
-          <Checkbox
+          <Switch
             label="Incremental Changes Only"
             value={form.watch("incrementalChangesOnly") ?? true}
-            setValue={(value) => form.setValue("incrementalChangesOnly", value)}
+            onChange={(value) => form.setValue("incrementalChangesOnly", value)}
             description="Ignore this hook if the same error was already present before attempting to save."
           />
         </div>
@@ -660,11 +660,14 @@ export default function CustomHookModal({
                 change; anything this hook reports for both states is suppressed
                 on a real save.
               </Text>
+              <Text as="div" weight="medium" mb="2">
+                Before the change
+              </Text>
               {Object.keys(hookTypeData?.availableArguments).map((arg) => (
                 <CodeTextArea
                   language="json"
                   key={`prior-${arg}`}
-                  label={`${arg} (before the change)`}
+                  label={arg}
                   required
                   value={priorTestValues[arg] || ""}
                   setValue={(value) =>
