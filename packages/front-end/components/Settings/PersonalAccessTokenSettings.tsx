@@ -41,7 +41,7 @@ const PersonalAccessTokenSettings: FC = () => {
       </Heading>
       <Checkbox
         label="Disable personal access tokens"
-        description="Members can't create personal access tokens, and existing tokens stop working immediately. This covers every token that acts as a user — also OAuth access tokens used by MCP and agent integrations, and the key the Visual Editor needs, so the Visual Editor stops working too."
+        description="Blocks new personal access tokens and stops existing ones working — including OAuth tokens and the Visual Editor."
         value={tokensDisabled}
         disabled={!canManageOrgSettings || hasFileConfig()}
         disabledMessage={
