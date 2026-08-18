@@ -166,7 +166,7 @@ interface Props {
   servedValues?: { variationId: string; value: string }[];
   servedValueFeature?: FeatureInterface;
   servedValueSparse?: boolean;
-  onEditServedValue?: () => void;
+  onEditServedValue?: (variationId: string) => void;
 }
 
 function AddVariationButton({ onClick }: { onClick: () => void }) {
@@ -260,7 +260,7 @@ export function VariationBox({
   servedValue?: string;
   servedValueFeature?: FeatureInterface;
   servedValueSparse?: boolean;
-  onEditServedValue?: () => void;
+  onEditServedValue?: (variationId: string) => void;
 }) {
   const { blockFileUploads } = useOrgSettings();
   const isBandit = experiment.type === "multi-armed-bandit";
@@ -394,7 +394,9 @@ export function VariationBox({
               value={servedValue ?? ""}
               feature={servedValueFeature}
               sparse={servedValueSparse}
-              onEdit={onEditServedValue}
+              onEdit={
+                onEditServedValue ? () => onEditServedValue(v.id) : undefined
+              }
             />
           ) : null}
         </Box>

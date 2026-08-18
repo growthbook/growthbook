@@ -37,7 +37,7 @@ export interface Props {
   setEditVariationIndex?: (index: number) => void;
   /** The sole linked Feature Flag, when the cards can show its values. */
   servedValueFeature?: LinkedFeatureInfo | null;
-  onEditServedValue?: () => void;
+  onEditServedValue?: (variationId: string) => void;
   canEditExperiment?: boolean;
   safeToEdit: boolean;
   mutate?: () => void;

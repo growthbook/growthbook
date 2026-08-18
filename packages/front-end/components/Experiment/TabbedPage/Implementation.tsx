@@ -128,6 +128,7 @@ export default function Implementation({
 
   // Owned here so the variation cards and the flag card open the same editor.
   const [editValuesOpen, setEditValuesOpen] = useState(false);
+  const [editValuesFocus, setEditValuesFocus] = useState<string | null>(null);
   const canEditServedValues =
     !!soleLinkedFeature &&
     canEditExperiment &&
@@ -186,7 +187,11 @@ export default function Implementation({
           experiment={experiment}
           linkedFeatureInfo={soleLinkedFeature}
           numLinkedChanges={linkedFeatures.length}
-          close={() => setEditValuesOpen(false)}
+          focusVariationId={editValuesFocus}
+          close={() => {
+            setEditValuesOpen(false);
+            setEditValuesFocus(null);
+          }}
           mutate={mutate}
         />
       )}
@@ -217,7 +222,12 @@ export default function Implementation({
             phaseIndex={phases.length - 1}
             servedValueFeature={soleLinkedFeature}
             onEditServedValue={
-              canEditServedValues ? () => setEditValuesOpen(true) : undefined
+              canEditServedValues
+                ? (variationId) => {
+                    setEditValuesFocus(variationId);
+                    setEditValuesOpen(true);
+                  }
+                : undefined
             }
           />
         ) : (

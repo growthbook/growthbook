@@ -69,6 +69,8 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatureInfo: LinkedFeatureInfo;
   numLinkedChanges: number;
+  /** Variation whose value field should take focus on open. */
+  focusVariationId?: string | null;
   close: () => void;
   mutate: () => void;
 }
@@ -147,6 +149,7 @@ export default function EditFeatureFlagValuesModal({
   feature,
   experiment,
   linkedFeatureInfo,
+  focusVariationId,
   numLinkedChanges,
   close,
   mutate,
@@ -245,6 +248,20 @@ export default function EditFeatureFlagValuesModal({
     initialSelectedDraft,
   );
   const [isEditingVariations, setIsEditingVariations] = useState(false);
+
+  // Jump straight to the variation whose Edit link was clicked. The value
+  // editor renders a CodeMirror or a plain input depending on type, so focus
+  // the first focusable inside the row's wrapper rather than assuming either.
+  useEffect(() => {
+    if (!focusVariationId) return;
+    const el = document.getElementById(`variation-value-${focusVariationId}`);
+    if (!el) return;
+    el.scrollIntoView({ block: "center" });
+    const focusable = el.querySelector<HTMLElement>(
+      "input, textarea, [contenteditable='true']",
+    );
+    focusable?.focus();
+  }, [focusVariationId, revisionList.length]);
 
   // On first render `useApi` hasn't resolved yet, so `revisionList` is empty
   // and the dropdown can't render revision labels. Re-apply the
@@ -588,7 +605,7 @@ export default function EditFeatureFlagValuesModal({
                             />
                           </Box>
                         </Flex>
-                        <Box>
+                        <Box id={`variation-value-${row.id}`}>
                           <Text as="label" weight="semibold">
                             Value
                           </Text>

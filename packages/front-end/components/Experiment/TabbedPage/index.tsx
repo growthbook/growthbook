@@ -603,7 +603,8 @@ export default function TabbedPage({
             }
           >
             <Flex align="center" gap="2">
-              This experiment has unpublished values. {managedNextStep}
+              This experiment has unpublished variation values.{" "}
+              {managedNextStep}
               {managedFlagWithDraft.pendingApproval &&
                 managedFlagWithDraft.draftRevisionStatus && (
                   <Badge

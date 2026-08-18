@@ -39,6 +39,11 @@ export interface CommentCardProps {
    */
   leading?: React.ReactNode;
   avatarSize?: Size;
+  /**
+   * Tighter chrome for narrow surfaces (popovers, side panels): drops the
+   * email from the header so the name and verb fit on one line.
+   */
+  compact?: boolean;
 }
 
 /**
@@ -56,10 +61,11 @@ export default function CommentCard({
   stripeColor = "violet",
   leading,
   avatarSize = "sm",
+  compact = false,
 }: CommentCardProps) {
   return (
-    <Flex align="start" gap="3">
-      <Box flexShrink="0" pt="2">
+    <Flex align="start" gap={compact ? "2" : "3"}>
+      <Box flexShrink="0" pt={compact ? "1" : "2"}>
         {leading ?? (
           <EventUser user={user} display="avatar" size={avatarSize} />
         )}
@@ -78,7 +84,11 @@ export default function CommentCard({
         <Box px="1">
           <Flex justify="between" align="center" mb={body ? "2" : "0"} gap="2">
             <Flex align="center" gap="2" wrap="wrap">
-              <EventUser user={user} display="name-email" size="sm" />
+              <EventUser
+                user={user}
+                display={compact ? "name" : "name-email"}
+                size="sm"
+              />
               <Text color="text-low" size="sm">
                 {metadata}
               </Text>

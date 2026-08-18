@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { getLatestPhaseVariations } from "shared/experiments";
+import { datetime } from "shared/dates";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
@@ -15,7 +16,10 @@ import {
   ReviewerVerdictIcon,
 } from "@/components/Reviews/ReviewPeople";
 import { revisionStatusLabel } from "@/components/Reviews/RevisionStatusBadge";
-import { REVIEW_ACTIVITY_ACTIONS } from "@/components/Reviews/RevisionTimeline";
+import { rowVisual } from "@/components/Reviews/RevisionTimeline";
+import MarkdownWithDiffRefs from "@/components/Reviews/DiffCommentMarkdown";
+import CommentCard from "@/components/Comments/CommentCard";
+import Avatar from "@/ui/Avatar";
 import { Popover } from "@/ui/Popover";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
@@ -179,8 +183,26 @@ export default function ManagedFlagApproval({
     `/feature/${info.feature.id}/${version}/log`,
     { shouldRun: () => open && version != null },
   );
+  // Comments, plus verdicts that are still active. `revision.reviews` is the
+  // live verdict set — a retracted approval is dropped from it — so matching
+  // against it excludes withdrawn reviews without replaying the log. Lifecycle
+  // events (requested, withdrawn, new revision) are state the status line
+  // already carries.
+  const verdictStatusForAction: Record<string, string> = {
+    Approved: "approved",
+    "Requested Changes": "changes-requested",
+  };
   const reviewComments = (logData?.log ?? [])
-    .filter((l) => REVIEW_ACTIVITY_ACTIONS.has(l.action))
+    .filter((l) => {
+      if (l.action === "Comment") return true;
+      const wanted = verdictStatusForAction[l.action];
+      if (!wanted) return false;
+      const logUserId =
+        l.user && "id" in l.user ? (l.user as { id: string }).id : null;
+      return reviews.some(
+        (r) => r.userId === logUserId && r.status.startsWith(wanted),
+      );
+    })
     .map((l) => {
       let comment: string | undefined;
       try {
@@ -189,8 +211,7 @@ export default function ManagedFlagApproval({
         // not JSON
       }
       return { ...l, comment };
-    })
-    .filter((l) => !!l.comment);
+    });
 
   const variations = getLatestPhaseVariations(experiment);
   const enabledEnvs = Object.entries(revision?.environmentsEnabled ?? {})
@@ -242,26 +263,6 @@ export default function ManagedFlagApproval({
       {reviewerRows.length > 0 && (
         <Flex direction="column" gap="2">
           {reviewerRows}
-        </Flex>
-      )}
-
-      {reviewComments.length > 0 && (
-        <Flex direction="column" gap="2">
-          {reviewComments.map((l, i) => (
-            <Box key={l.id ?? i}>
-              <Text size="sm" weight="semibold" color="text-high" as="div">
-                {l.user && "name" in l.user
-                  ? (l.user.name ?? l.user.email)
-                  : "Unknown"}{" "}
-                <Text size="sm" weight="regular" color="text-low">
-                  {l.action.toLowerCase()}
-                </Text>
-              </Text>
-              <Text size="sm" color="text-mid" as="div">
-                {l.comment}
-              </Text>
-            </Box>
-          ))}
         </Flex>
       )}
 
@@ -322,6 +323,52 @@ export default function ManagedFlagApproval({
           <Link onClick={() => post("undo-review")}>Retract my review</Link>
         )}
       </Flex>
+
+      {reviewComments.length > 0 && (
+        <>
+          <Separator size="4" />
+          <Flex direction="column" gap="3">
+            {reviewComments.map((l, i) => {
+              // Same visual vocabulary as the Review & Publish tab, so an
+              // approval, a change request and a plain comment stay
+              // distinguishable rather than collapsing into one card style.
+              const visual = rowVisual(l.action);
+              const verdictColor =
+                l.action === "Approved"
+                  ? "green"
+                  : l.action === "Requested Changes"
+                    ? "red"
+                    : null;
+              return (
+                <CommentCard
+                  key={l.id ?? i}
+                  user={l.user}
+                  metadata={`${visual.verb} on ${datetime(l.timestamp)}`}
+                  stripeColor={visual.color}
+                  leading={
+                    verdictColor ? (
+                      <Avatar size="sm" color={verdictColor} variant="solid">
+                        <>{visual.icon}</>
+                      </Avatar>
+                    ) : undefined
+                  }
+                  avatarSize="sm"
+                  compact
+                  // A bare verdict has no body — same chrome, just the header
+                  // line, so it stays distinguishable from a comment.
+                  body={
+                    l.comment ? (
+                      <MarkdownWithDiffRefs className="speech-bubble">
+                        {l.comment}
+                      </MarkdownWithDiffRefs>
+                    ) : undefined
+                  }
+                />
+              );
+            })}
+          </Flex>
+        </>
+      )}
     </Flex>
   );
 
@@ -356,7 +403,7 @@ export default function ManagedFlagApproval({
             ? "Review"
             : showSubmit
               ? (ctaLabel ?? state.ctaLabel)
-              : "View changes"}
+              : "Review changes"}
         </Button>
       }
     />
