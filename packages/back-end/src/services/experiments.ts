@@ -1341,6 +1341,7 @@ export function resolveSnapshotRunner({
 }): {
   runnerFamily: SnapshotQueryRunnerFamily;
   incrementalFallbackReason: string | null;
+  dimensionBlockedOnOverallResults?: true;
 } {
   if (
     !isExperimentCoveredByIncrementalPipeline(
@@ -1369,6 +1370,11 @@ export function resolveSnapshotRunner({
         runnerFamily: "results",
         incrementalFallbackReason:
           "No materialized units table yet for Overall Results.",
+        // Only a breakdown is blocked by this. A dimensionless run is what
+        // materializes the units table in the first place.
+        ...(hasSnapshotDimensions
+          ? { dimensionBlockedOnOverallResults: true as const }
+          : {}),
       };
     }
     return {
@@ -1448,6 +1454,22 @@ type IncrementalRefreshPrerequisiteArgs = {
   snapshotSettings: ExperimentSnapshotSettings;
   incrementalRefreshModel: IncrementalRefreshInterface | null;
 };
+
+async function getOverallResultsFullRefreshError({
+  prerequisites,
+}: {
+  prerequisites: IncrementalRefreshPrerequisiteArgs;
+}): Promise<string | null> {
+  try {
+    await assertIncrementalRefreshPrerequisites({
+      ...prerequisites,
+      analysisType: "main-fullRefresh",
+    });
+    return null;
+  } catch (error) {
+    return getErrorMessage(error);
+  }
+}
 
 /**
  * In case we cannot run an incremental update as planned, we need to determine
@@ -1558,6 +1580,7 @@ async function planSnapshotQueryRunner({
   fullRefreshReason,
   triggeredBy,
   throwOnErrorInsteadOfFallback,
+  isLatestPhase,
 }: {
   organization: OrganizationInterface;
   datasource: DataSourceInterface;
@@ -1572,6 +1595,7 @@ async function planSnapshotQueryRunner({
   fullRefreshReason: string | null;
   triggeredBy: SnapshotTriggeredBy;
   throwOnErrorInsteadOfFallback: boolean;
+  isLatestPhase: boolean;
 }): Promise<{
   runnerFamily: SnapshotQueryRunnerFamily;
   incrementalFallbackReason: string | null;
@@ -1586,8 +1610,41 @@ async function planSnapshotQueryRunner({
     hasMaterializedUnitsTable: !!incrementalRefreshModel?.unitsTableFullName,
   });
 
+  const prerequisites: IncrementalRefreshPrerequisiteArgs = {
+    org: organization,
+    integration,
+    experiment,
+    metricMap,
+    snapshotSettings,
+    incrementalRefreshModel,
+  };
+
+  if (decision.dimensionBlockedOnOverallResults) {
+    const unavailableReason = isLatestPhase
+      ? await getOverallResultsFullRefreshError({ prerequisites })
+      : null;
+    if (isLatestPhase && throwOnErrorInsteadOfFallback && !unavailableReason) {
+      throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
+        "Overall Results have not been computed yet, so there is no units table for a dimension breakdown to read.",
+      );
+    }
+    return {
+      runnerFamily: "results",
+      incrementalFallbackReason:
+        unavailableReason ?? decision.incrementalFallbackReason,
+      fullRefresh,
+      fullRefreshReason,
+    };
+  }
+
   if (decision.runnerFamily === "results") {
-    return { ...decision, fullRefresh, fullRefreshReason };
+    const { runnerFamily, incrementalFallbackReason } = decision;
+    return {
+      runnerFamily,
+      incrementalFallbackReason,
+      fullRefresh,
+      fullRefreshReason,
+    };
   }
 
   // Dimension breakdowns read the Overall Results units table. If experiment
@@ -1601,29 +1658,25 @@ async function planSnapshotQueryRunner({
       latestOverallSnapshotId,
     })
   ) {
-    if (throwOnErrorInsteadOfFallback) {
+    const unavailableReason = isLatestPhase
+      ? await getOverallResultsFullRefreshError({ prerequisites })
+      : null;
+    if (isLatestPhase && throwOnErrorInsteadOfFallback && !unavailableReason) {
       throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
         "Overall Results require a full refresh before Dimension Results can be updated.",
       );
     }
-
     return {
       runnerFamily: "results",
       incrementalFallbackReason:
-        "Overall Results need a full refresh; running non-incremental update instead of reading stale data.",
+        unavailableReason ??
+        (isLatestPhase
+          ? "Overall Results need a full refresh; running non-incremental update instead of reading stale data."
+          : "The requested phase's materialized units table is stale; running a non-incremental update instead."),
       fullRefresh,
       fullRefreshReason,
     };
   }
-
-  const prerequisites: IncrementalRefreshPrerequisiteArgs = {
-    org: organization,
-    integration,
-    experiment,
-    metricMap,
-    snapshotSettings,
-    incrementalRefreshModel,
-  };
 
   try {
     await assertIncrementalRefreshPrerequisites({
@@ -1634,7 +1687,11 @@ async function planSnapshotQueryRunner({
           ? "main-update"
           : "exploratory",
     });
-    return { ...decision, fullRefresh, fullRefreshReason };
+    return {
+      ...decision,
+      fullRefresh,
+      fullRefreshReason,
+    };
   } catch (error) {
     return resolveIncrementalPrerequisiteFailure({
       error,
@@ -1664,9 +1721,16 @@ export type PlannedExperimentSnapshot = {
 function shouldIncrementalThrowErrorInsteadOfFallback(
   useCache: boolean,
   triggeredBy: SnapshotTriggeredBy,
+  throwIfRequiresFullRefresh?: boolean,
 ): boolean {
   if (!useCache) {
     return false;
+  }
+
+  // A request-path caller will act on the error and resubmit, so surface it
+  // instead of guessing from triggeredBy (which a public API caller controls).
+  if (throwIfRequiresFullRefresh) {
+    return true;
   }
 
   switch (triggeredBy) {
@@ -1696,6 +1760,7 @@ export async function planSnapshot({
   metricMap,
   factTableMap,
   reweight,
+  throwIfRequiresFullRefresh,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -1709,6 +1774,7 @@ export async function planSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   reweight?: boolean;
+  throwIfRequiresFullRefresh?: boolean;
 }): Promise<PlannedExperimentSnapshot> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -1868,7 +1934,9 @@ export async function planSnapshot({
     throwOnErrorInsteadOfFallback: shouldIncrementalThrowErrorInsteadOfFallback(
       useCache,
       triggeredBy,
+      throwIfRequiresFullRefresh,
     ),
+    isLatestPhase: phaseIndex === experiment.phases.length - 1,
   });
 
   if (runnerPlan.runnerFamily === "incremental-exploratory") {
@@ -2365,6 +2433,7 @@ export async function planExperimentSnapshot({
   triggeredBy,
   type,
   reweight,
+  throwIfRequiresFullRefresh,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -2375,6 +2444,7 @@ export async function planExperimentSnapshot({
   triggeredBy?: SnapshotTriggeredBy;
   type?: SnapshotType;
   reweight?: boolean;
+  throwIfRequiresFullRefresh?: boolean;
 }): Promise<PlannedExperimentSnapshot> {
   const snapshotType =
     type ??
@@ -2479,6 +2549,7 @@ export async function planExperimentSnapshot({
     reweight,
     type: snapshotType,
     triggeredBy: triggeredBy ?? "manual",
+    throwIfRequiresFullRefresh,
   });
   return plan;
 }
