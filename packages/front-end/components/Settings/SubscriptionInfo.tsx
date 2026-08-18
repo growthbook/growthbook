@@ -130,6 +130,9 @@ export default function SubscriptionInfo() {
     showUpdateInvoiceButton ||
     showRenewButton ||
     showCancelButton;
+  const addPaymentMethodActionLabel = showUpdateInvoiceButton
+    ? "Update Invoice Details"
+    : "View Plan Details";
 
   return (
     <div className="p-3">
@@ -277,8 +280,8 @@ export default function SubscriptionInfo() {
                   valid payment method.
                 </p>
                 <p className="mb-0">
-                  Click <strong>View Plan Details</strong> below to add a
-                  payment method.
+                  Click <strong>{addPaymentMethodActionLabel}</strong> below to
+                  add a payment method.
                 </p>
               </Callout>
             </Box>
