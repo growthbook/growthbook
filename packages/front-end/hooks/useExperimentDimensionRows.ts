@@ -498,6 +498,7 @@ export function generateDimensionRowsForMetric({
   filteredResults.forEach((dimensionResult) => {
     const parentRow: ExperimentTableRow = {
       label: dimensionResult.name,
+      dimensionValue: dimensionResult.name,
       metric: newMetric,
       metricOverrideFields: overrideFields,
       rowClass: newMetric?.inverse ? "inverse" : "",
@@ -521,6 +522,7 @@ export function generateDimensionRowsForMetric({
       const stepMetricId = funnelStepMetricId(metricId, stepIndex);
       rows.push({
         label: step.name,
+        dimensionValue: dimensionResult.name,
         metric: newMetric,
         metricOverrideFields: overrideFields,
         rowClass: newMetric?.inverse ? "inverse" : "",

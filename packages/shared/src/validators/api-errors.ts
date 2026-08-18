@@ -10,6 +10,7 @@ const checklistItemSchema = z.object({
   status: z.enum(["complete", "incomplete"]),
   manual: z.boolean(),
   reason: z.string(),
+  hardBlock: z.boolean().optional(),
 });
 
 const pendingDraftFailureSchema = z.object({
