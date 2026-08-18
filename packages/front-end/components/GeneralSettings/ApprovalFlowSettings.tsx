@@ -104,14 +104,14 @@ export default function ApprovalFlowSettings() {
         <Box width="100%">
           <Frame p="3" mb="0">
             <Heading as="h4" size="sm" weight="semibold" mb="4">
-              Features
+              Features, Configs, &amp; Constants
             </Heading>
 
             <Text as="p" size="md" mb="4" color="text-low">
-              All changes to features are tracked as revisions. Requiring
-              approvals adds a review step before any change goes live. Kill
-              switch changes always prompt a confirmation regardless of approval
-              settings.
+              All changes to Feature Flags, Configs and Constants are tracked as
+              revisions. Requiring approvals adds a review step before any
+              change goes live. Kill switch changes always prompt a confirmation
+              regardless of approval settings.
             </Text>
 
             {hasRequireApprovals && (
@@ -352,35 +352,6 @@ export default function ApprovalFlowSettings() {
                 />
                 {!!form.watch("approvalFlows.savedGroups.0.required") && (
                   <Flex direction="column" gap="3" mt="2" ml="5">
-                    <Box mt="2">
-                      <Text as="label" size="md" weight="semibold" mb="2">
-                        Require approval for
-                      </Text>
-                      <Flex direction="column" gap="2" align="start">
-                        <Checkbox
-                          id="toggle-saved-group-values-conditions"
-                          label="Values and conditions"
-                          value={true}
-                          disabled={true}
-                          setValue={() => undefined}
-                        />
-                        <Checkbox
-                          id="toggle-saved-group-metadata-review"
-                          label="Metadata changes (description, owner, project, tags, etc.)"
-                          value={
-                            form.watch(
-                              `approvalFlows.savedGroups.0.requireMetadataReview`,
-                            ) !== false
-                          }
-                          setValue={(v) =>
-                            form.setValue(
-                              `approvalFlows.savedGroups.0.requireMetadataReview`,
-                              v,
-                            )
-                          }
-                        />
-                      </Flex>
-                    </Box>
                     <Checkbox
                       id="toggle-saved-group-reset-review-on-change"
                       label="Reset review on changes"
@@ -429,6 +400,35 @@ export default function ApprovalFlowSettings() {
                         )
                       }
                     />
+                    <Box mt="2">
+                      <Text as="label" size="md" weight="semibold" mb="2">
+                        Require approval for
+                      </Text>
+                      <Flex direction="column" gap="2" align="start">
+                        <Checkbox
+                          id="toggle-saved-group-values-conditions"
+                          label="Values and conditions"
+                          value={true}
+                          disabled={true}
+                          setValue={() => undefined}
+                        />
+                        <Checkbox
+                          id="toggle-saved-group-metadata-review"
+                          label="Metadata changes (description, owner, project, tags, etc.)"
+                          value={
+                            form.watch(
+                              `approvalFlows.savedGroups.0.requireMetadataReview`,
+                            ) !== false
+                          }
+                          setValue={(v) =>
+                            form.setValue(
+                              `approvalFlows.savedGroups.0.requireMetadataReview`,
+                              v,
+                            )
+                          }
+                        />
+                      </Flex>
+                    </Box>
                   </Flex>
                 )}
               </>
@@ -444,8 +444,8 @@ export default function ApprovalFlowSettings() {
               </Heading>
 
               <Text as="p" size="md" mb="4" color="text-low">
-                These settings apply to every approval flow (Feature Flags and
-                Saved Groups).
+                These settings apply to every approval flow (Feature Flags,
+                Configs, Constants and Saved Groups).
               </Text>
 
               <Flex direction="column" gap="3" align="start">
