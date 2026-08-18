@@ -225,6 +225,7 @@ export default function ConnectionSettings({
       {datasourceComponent}
       {beforeAdvancedSettings}
       <SharedConnectionSettings
+        type={datasource.type}
         onSettingChange={onSettingChange}
         settings={datasource?.settings || {}}
       />
