@@ -2,6 +2,10 @@ import { z } from "zod";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
+import {
+  DUPLICATE_PROJECT_ROLES_MESSAGE,
+  hasNoDuplicateProjects,
+} from "./organization";
 
 // Corresponds to schemas/Member.yaml
 export const apiMemberValidator = namedSchema(
@@ -33,12 +37,28 @@ export const apiMemberValidator = namedSchema(
     .strict(),
 );
 
+// Extra roles granted alongside the rule they sit on, for a member who needs more
+// than one role in the same scope.
+const apiAdditionalRoles = z
+  .array(
+    z.object({
+      role: z.string(),
+      environments: z.array(z.string()),
+      limitAccessByEnvironment: z.boolean().optional(),
+    }),
+  )
+  .describe(
+    "Additional roles granted alongside this one, in the same scope. Each is granted independently and environment access is the union across them.",
+  )
+  .optional();
+
 // Corresponds to payload-schemas/UpdateMemberRolePayload.yaml
 const updateMemberRoleBody = z
   .object({
     member: z.object({
       role: z.string().optional(),
       environments: z.array(z.string()).optional(),
+      additionalRoles: apiAdditionalRoles,
       projectRoles: z
         .array(
           z.object({
@@ -46,8 +66,12 @@ const updateMemberRoleBody = z
             role: z.string(),
             environments: z.array(z.string()),
             limitAccessByEnvironment: z.boolean().optional(),
+            additionalRoles: apiAdditionalRoles,
           }),
         )
+        .refine(hasNoDuplicateProjects, {
+          message: DUPLICATE_PROJECT_ROLES_MESSAGE,
+        })
         .optional(),
     }),
   })

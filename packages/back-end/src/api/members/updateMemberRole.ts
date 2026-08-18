@@ -108,11 +108,41 @@ export const updateMemberRole = createApiRequestHandler(
 
   const { member } = req.body;
 
+  // Extra rules are peers of the rule they sit on, so they take the same role and
+  // environment validation rather than riding in unchecked.
+  const normalizeAdditionalRoles = (
+    roles:
+      | {
+          role: string;
+          environments: string[];
+          limitAccessByEnvironment?: boolean;
+        }[]
+      | undefined,
+  ) =>
+    roles?.map((extra) => {
+      const { memberIsValid, reason } = validateRoleAndEnvs(
+        req.context.org,
+        extra.role,
+        !!extra.environments.length,
+        extra.environments,
+      );
+      if (!memberIsValid) {
+        throw new Error(reason);
+      }
+      return {
+        ...extra,
+        limitAccessByEnvironment: !!extra.environments.length,
+      };
+    });
+
   const updatedMember: Member = {
     ...orgUser,
     role: member.role || orgUser.role,
     environments: member.environments || orgUser.environments,
     limitAccessByEnvironment: !!member.environments?.length,
+    additionalRoles:
+      normalizeAdditionalRoles(member.additionalRoles) ??
+      orgUser.additionalRoles,
   };
 
   // Only gate a role change so existing assignments keep working
@@ -152,6 +182,9 @@ export const updateMemberRole = createApiRequestHandler(
       updatedProjectRoles.push({
         ...updatedProjectRole,
         limitAccessByEnvironment: !!updatedProjectRole.environments.length,
+        additionalRoles: normalizeAdditionalRoles(
+          updatedProjectRole.additionalRoles,
+        ),
       });
     });
 
