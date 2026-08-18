@@ -257,6 +257,7 @@ export function getEffectiveRolesForProject(
   member: Pick<MemberRoleInfo, "role"> & {
     projectRoles?: ProjectMemberRole[];
     teams?: string[];
+    additionalRoles?: { role: string }[];
   },
   project: string | null,
   teams: {
@@ -264,6 +265,7 @@ export function getEffectiveRolesForProject(
     name: string;
     role: string;
     projectRoles?: ProjectMemberRole[];
+    additionalRoles?: { role: string }[];
   }[],
 ): EffectiveRoleSource[] {
   const teamsById = new Map(teams.map((t) => [t.id, t]));
@@ -272,12 +274,14 @@ export function getEffectiveRolesForProject(
     sourceType: "user" | "team";
     sourceName: string;
     role: string;
+    additionalRoles?: { role: string }[];
     projectRoles?: ProjectMemberRole[];
   }[] = [
     {
       sourceType: "user",
       sourceName: "user",
       role: member.role,
+      additionalRoles: member.additionalRoles,
       projectRoles: member.projectRoles,
     },
   ];
@@ -288,6 +292,7 @@ export function getEffectiveRolesForProject(
         sourceType: "team",
         sourceName: team.name,
         role: team.role,
+        additionalRoles: team.additionalRoles,
         projectRoles: team.projectRoles,
       });
     }
@@ -300,11 +305,16 @@ export function getEffectiveRolesForProject(
       ? p.projectRoles?.find((r) => r.project === project)
       : undefined;
     const { sourceType, sourceName } = p;
-    if (projectRole) {
-      explicit.push({ role: projectRole.role, sourceType, sourceName });
-    } else {
-      globals.push({ role: p.role, sourceType, sourceName });
-    }
+    // Additional rules grant alongside their base role rather than replacing it,
+    // and belong to whichever rule set applies — a project override replaces the
+    // global one wholesale, its own additional rules included.
+    const applicable = projectRole ?? p;
+    const roles = [
+      applicable.role,
+      ...(applicable.additionalRoles || []).map((r) => r.role),
+    ];
+    const target = projectRole ? explicit : globals;
+    roles.forEach((role) => target.push({ role, sourceType, sourceName }));
   });
 
   // An explicit project role takes precedence over global roles, so only fall

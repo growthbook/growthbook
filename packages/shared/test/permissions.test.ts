@@ -1394,6 +1394,67 @@ describe("getEffectiveRolesForProject", () => {
       { role: "admin", sourceType: "team", sourceName: "Admins" },
     ]);
   });
+
+  it("counts a member's additional rules alongside their base role", () => {
+    expect(
+      getEffectiveRolesForProject(
+        {
+          role: "qa_reviewer",
+          additionalRoles: [{ role: "qa_publisher" }],
+        },
+        null,
+        [],
+      ),
+    ).toEqual([
+      { role: "qa_reviewer", sourceType: "user", sourceName: "user" },
+      { role: "qa_publisher", sourceType: "user", sourceName: "user" },
+    ]);
+  });
+
+  it("counts a team's additional rules", () => {
+    const result = getEffectiveRolesForProject(
+      { role: "readonly", teams: ["team_1"] },
+      null,
+      [
+        {
+          ...team("team_1", "Reviewers", "collaborator"),
+          additionalRoles: [{ role: "qa_reviewer" }],
+        },
+      ],
+    );
+    expect(result).toEqual([
+      { role: "readonly", sourceType: "user", sourceName: "user" },
+      { role: "collaborator", sourceType: "team", sourceName: "Reviewers" },
+      { role: "qa_reviewer", sourceType: "team", sourceName: "Reviewers" },
+    ]);
+  });
+
+  // A project entry replaces the global one wholesale, so global additional
+  // rules must not leak past it — only the override's own do.
+  it("drops global additional rules when a project role applies", () => {
+    expect(
+      getEffectiveRolesForProject(
+        {
+          role: "engineer",
+          additionalRoles: [{ role: "qa_publisher" }],
+          projectRoles: [
+            {
+              project: "prj_1",
+              role: "analyst",
+              limitAccessByEnvironment: false,
+              environments: [],
+              additionalRoles: [{ role: "qa_reviewer" }],
+            },
+          ],
+        },
+        "prj_1",
+        [],
+      ),
+    ).toEqual([
+      { role: "analyst", sourceType: "user", sourceName: "user" },
+      { role: "qa_reviewer", sourceType: "user", sourceName: "user" },
+    ]);
+  });
 });
 
 describe("canManageFactTableVirtualColumn", () => {

@@ -718,22 +718,45 @@ export const AuthProvider: React.FC<{
   );
 };
 
+function ruleHasAccessToEnv(
+  rule: {
+    role: string;
+    limitAccessByEnvironment: boolean;
+    environments: string[];
+  },
+  env: string,
+  org: Partial<OrganizationInterface>,
+): "yes" | "no" | "N/A" {
+  if (rule.role === "admin" || rule.role === "gbDefault_projectAdmin") {
+    return "yes";
+  }
+
+  if (!roleSupportsEnvLimit(rule.role, org)) return "N/A";
+
+  if (!rule.limitAccessByEnvironment) return "yes";
+
+  if (rule.environments.includes(env)) return "yes";
+
+  return "no";
+}
+
+/**
+ * Additional rules grant alongside the base role, so access is the union: one
+ * rule allowing the environment is enough, and the answer is only "not
+ * applicable" when no rule is environment-scoped at all.
+ */
 export function roleHasAccessToEnv(
   role: MemberRoleInfo,
   env: string,
   org: Partial<OrganizationInterface>,
 ): "yes" | "no" | "N/A" {
-  if (role.role === "admin" || role.role === "gbDefault_projectAdmin") {
-    return "yes";
-  }
+  const results = [role, ...(role.additionalRoles ?? [])].map((rule) =>
+    ruleHasAccessToEnv(rule, env, org),
+  );
 
-  if (!roleSupportsEnvLimit(role.role, org)) return "N/A";
-
-  if (!role.limitAccessByEnvironment) return "yes";
-
-  if (role.environments.includes(env)) return "yes";
-
-  return "no";
+  if (results.includes("yes")) return "yes";
+  if (results.includes("no")) return "no";
+  return "N/A";
 }
 
 type EnvAccessPrincipal = MemberRoleInfo & {
