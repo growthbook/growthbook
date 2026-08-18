@@ -309,7 +309,7 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
     ]);
   });
 
-  it("regenerates managed exposure SQL when the hash attribute datatype changes", async () => {
+  it("leaves managed exposure SQL alone when the hash attribute datatype changes", async () => {
     const raw = ds("ds_1", {
       userIdTypes: [
         {
@@ -346,15 +346,148 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
       attributeSchema,
     );
 
-    const exposure = mockedUpdate.mock.calls[0][2].settings?.queries?.exposure;
-    expect(exposure?.[0]).toEqual(
-      expect.objectContaining({
-        // Preserved: experiments and reports reference this id.
-        id: "exq_user",
+    // Reconciliation only adds and removes. The stored cast is now stale against
+    // the schema, but rewriting it would move the column type out from under
+    // every experiment already reading it — that is the user's call to make.
+    expect(mockedUpdate).not.toHaveBeenCalled();
+  });
+
+  it("takes over a pre-existing user identifier type and adds only the missing query", async () => {
+    const raw = ds("ds_1", {
+      // Datasource that predates the Event Forwarder.
+      userIdTypes: [
+        { userIdType: "user_id", description: "Mine", attributes: ["user_id"] },
+      ],
+      queries: {
+        exposure: [
+          {
+            id: "exq_mine",
+            userIdType: "user_id",
+            name: "My own query",
+            dimensions: [],
+            query: "SELECT user_id FROM my_own_table",
+          },
+        ],
+      },
+    });
+    setupDataSourceMocks(raw);
+    const attributeSchema = [
+      { property: "user_id", datatype: "string" as const, hashAttribute: true },
+    ];
+
+    await reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries(
+      contextWithSchema(attributeSchema) as never,
+      efConfig(),
+      attributeSchema,
+    );
+
+    const settings = mockedUpdate.mock.calls[0][2].settings;
+    expect(settings?.userIdTypes).toEqual([
+      {
         userIdType: "user_id",
-        query: expect.stringContaining("AS FLOAT64"),
+        description: "Mine",
+        attributes: ["user_id"],
+        managedBy: "api",
+        sourceAttribute: "user_id",
+      },
+    ]);
+    // Their query has different SQL, so it survives and the managed one is added
+    // beside it rather than replacing it.
+    expect(settings?.queries?.exposure).toHaveLength(2);
+    expect(settings?.queries?.exposure?.[0]).toEqual(
+      raw.settings?.queries?.exposure?.[0],
+    );
+    expect(settings?.queries?.exposure?.[1]).toEqual(
+      expect.objectContaining({
+        userIdType: "user_id",
+        sourceAttribute: "user_id",
+        managedBy: "api",
       }),
     );
+  });
+
+  it("adopts a legacy ef_-prefixed datasource in place, without a migration", async () => {
+    // Exactly what a datasource provisioned before this change looks like: the
+    // attribute is encoded in the name, the exposure query id is that same name,
+    // and neither record carries a link.
+    const legacyUserIdType = {
+      userIdType: "ef_user_id",
+      description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+      attributes: ["user_id"],
+      managedBy: "api" as const,
+    };
+    const legacyExposure = {
+      id: "ef_user_id",
+      userIdType: "ef_user_id",
+      name: "ef_user_id",
+      dimensions: ["country"],
+      managedBy: "api" as const,
+      query:
+        "SELECT CAST(JSON_VALUE(`attributes`, '$.\"user_id\"') AS STRING) AS `ef_user_id`",
+    };
+    const raw = ds("ds_1", {
+      userIdTypes: [legacyUserIdType],
+      queries: { exposure: [legacyExposure] },
+    });
+    setupDataSourceMocks(raw);
+    const attributeSchema = [
+      { property: "user_id", datatype: "string" as const, hashAttribute: true },
+    ];
+
+    await reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries(
+      contextWithSchema(attributeSchema) as never,
+      efConfig(),
+      attributeSchema,
+    );
+
+    const settings = mockedUpdate.mock.calls[0][2].settings;
+    // One identifier type for the attribute — no unprefixed twin beside it — and
+    // the exposure query keeps the id every experiment already references.
+    expect(settings?.userIdTypes).toEqual([
+      { ...legacyUserIdType, sourceAttribute: "user_id" },
+    ]);
+    expect(settings?.queries?.exposure).toEqual([
+      { ...legacyExposure, sourceAttribute: "user_id" },
+    ]);
+  });
+
+  it("stops writing once a legacy datasource is linked", async () => {
+    const raw = ds("ds_1", {
+      userIdTypes: [
+        {
+          userIdType: "ef_user_id",
+          description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+          attributes: ["user_id"],
+          managedBy: "api",
+          sourceAttribute: "user_id",
+        },
+      ],
+      queries: {
+        exposure: [
+          {
+            id: "ef_user_id",
+            userIdType: "ef_user_id",
+            name: "ef_user_id",
+            sourceAttribute: "user_id",
+            dimensions: ["country"],
+            managedBy: "api",
+            query: "SELECT legacy",
+          },
+        ],
+      },
+    });
+    setupDataSourceMocks(raw);
+    const attributeSchema = [
+      { property: "user_id", datatype: "string" as const, hashAttribute: true },
+    ];
+
+    await reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries(
+      contextWithSchema(attributeSchema) as never,
+      efConfig(),
+      attributeSchema,
+    );
+
+    expect(mockedUpdate).not.toHaveBeenCalled();
   });
 
   it("removes managed identifiers and queries when no hash attributes remain", async () => {

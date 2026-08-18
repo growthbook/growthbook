@@ -266,7 +266,7 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
     sourceAttribute,
   });
 
-  it("rewrites the alias and name on rename while preserving the query id", () => {
+  it("leaves an already-linked managed query completely untouched", () => {
     const existing: ExposureQuery[] = [
       {
         id: "exq_stable",
@@ -282,6 +282,8 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
 
     const reconciled = reconcileEventForwarderManagedExposureQueries({
       existing,
+      // Renamed out from under us. We still match it by source attribute, so no
+      // second query appears — but we do not rewrite the one that is there.
       userIdTypes: [managedUserIdType("logged_in_user", "user_id")],
       params: bigqueryParams,
       attributeSchema: [
@@ -290,15 +292,7 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
     });
 
     expect(reconciled).toHaveLength(1);
-    // The id is referenced by experiments, reports, and safe rollouts.
-    expect(reconciled[0].id).toBe("exq_stable");
-    expect(reconciled[0].userIdType).toBe("logged_in_user");
-    expect(reconciled[0].name).toBe("logged_in_user");
-    expect(reconciled[0].query).toContain("AS `logged_in_user`");
-    expect(reconciled[0].query).toContain('$."user_id"');
-    // User-owned fields survive.
-    expect(reconciled[0].dimensions).toEqual(["country"]);
-    expect(reconciled[0].hasNameCol).toBe(true);
+    expect(reconciled[0]).toEqual(existing[0]);
   });
 
   it("adds queries for newly managed identifier types", () => {
@@ -471,15 +465,38 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
     });
 
     expect(reconciled).toHaveLength(1);
-    // Dropping and re-minting would orphan every experiment, report, safe
-    // rollout, template, and ramp schedule referencing the old id.
-    expect(reconciled[0].id).toBe("ef_user_id");
-    expect(reconciled[0].sourceAttribute).toBe("user_id");
-    // The legacy name is the user's now, so the alias keeps it.
-    expect(reconciled[0].query).toContain("AS `ef_user_id`");
-    expect(reconciled[0].query).toContain('$."user_id"');
-    expect(reconciled[0].dimensions).toEqual(["country"]);
-    expect(reconciled[0].hasNameCol).toBe(true);
+    // Backfilling the link is the only write. Dropping and re-minting would
+    // orphan every experiment, report, safe rollout, template, and ramp schedule
+    // referencing the old id; rewriting the SQL would move the warehouse column.
+    expect(reconciled[0]).toEqual({
+      ...existing[0],
+      sourceAttribute: "user_id",
+    });
+  });
+
+  it("stops backfilling once the legacy query is linked", () => {
+    const existing: ExposureQuery[] = [
+      {
+        id: "ef_user_id",
+        userIdType: "ef_user_id",
+        name: "ef_user_id",
+        sourceAttribute: "user_id",
+        dimensions: [],
+        managedBy: "api",
+        query: "SELECT stale",
+      },
+    ];
+
+    const reconciled = reconcileEventForwarderManagedExposureQueries({
+      existing,
+      userIdTypes: [managedUserIdType("ef_user_id", "user_id")],
+      params: bigqueryParams,
+      attributeSchema: [
+        { property: "user_id", datatype: "string", hashAttribute: true },
+      ],
+    });
+
+    expect(reconciled).toEqual(existing);
   });
 
   it("does not strip the ef_ prefix from a user-created query", () => {

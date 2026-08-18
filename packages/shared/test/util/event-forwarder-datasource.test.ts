@@ -4,6 +4,7 @@ import {
   buildUserIdTypesFromAttributeSchema,
   findCollidingUserIdTypeName,
   findDuplicateUserIdTypeName,
+  findNewDuplicateUserIdTypeName,
   getEventForwarderDatasourceParams,
   getEventForwarderSinkTypeForDatasource,
   getEventForwarderUserIdTypeSourceAttribute,
@@ -287,6 +288,42 @@ describe("findDuplicateUserIdTypeName", () => {
   });
 });
 
+describe("findNewDuplicateUserIdTypeName", () => {
+  it("returns a collision the update introduces", () => {
+    expect(
+      findNewDuplicateUserIdTypeName(
+        [{ userIdType: "user_id" }],
+        [{ userIdType: "user_id" }, { userIdType: "USER_ID" }],
+      ),
+    ).toBe("USER_ID");
+  });
+
+  it("grandfathers a collision the datasource already stored", () => {
+    const stored = [{ userIdType: "user_id" }, { userIdType: "USER_ID" }];
+
+    expect(
+      findNewDuplicateUserIdTypeName(stored, [
+        ...stored,
+        { userIdType: "device_id" },
+      ]),
+    ).toBe(null);
+  });
+
+  it("still catches a second collision alongside a grandfathered one", () => {
+    expect(
+      findNewDuplicateUserIdTypeName(
+        [{ userIdType: "user_id" }, { userIdType: "USER_ID" }],
+        [
+          { userIdType: "user_id" },
+          { userIdType: "USER_ID" },
+          { userIdType: "device_id" },
+          { userIdType: "Device_Id" },
+        ],
+      ),
+    ).toBe("Device_Id");
+  });
+});
+
 describe("reconcileEventForwarderManagedUserIdTypes", () => {
   const desired = [
     {
@@ -352,7 +389,31 @@ describe("reconcileEventForwarderManagedUserIdTypes", () => {
     ).toEqual([...existing, ...desired]);
   });
 
-  it("reuses a same-named user-created type, backfilling the link and attribute", () => {
+  // Datasource that predates the Event Forwarder: the user already models this
+  // unit, so connecting takes their entry over instead of duplicating it.
+  it("takes over a same-named user-created type that already links the attribute", () => {
+    const existing = [
+      {
+        userIdType: "user_id",
+        description: "Mine",
+        attributes: ["user_id", "device_id"],
+      },
+    ];
+
+    expect(
+      reconcileEventForwarderManagedUserIdTypes(existing, desired),
+    ).toEqual([
+      {
+        userIdType: "user_id",
+        description: "Mine",
+        attributes: ["user_id", "device_id"],
+        managedBy: "api",
+        sourceAttribute: "user_id",
+      },
+    ]);
+  });
+
+  it("links the hash attribute when taking over a type that has none", () => {
     const existing = [
       { userIdType: "user_id", description: "", attributes: [] },
     ];
@@ -364,46 +425,29 @@ describe("reconcileEventForwarderManagedUserIdTypes", () => {
         userIdType: "user_id",
         description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
         attributes: ["user_id"],
+        managedBy: "api",
         sourceAttribute: "user_id",
       },
     ]);
   });
 
-  it("keeps a reused type's own description and attributes when already set", () => {
-    const existing = [
-      {
-        userIdType: "user_id",
-        description: "Mine",
-        attributes: ["user_id", "device_id"],
-      },
-    ];
-
-    expect(
-      reconcileEventForwarderManagedUserIdTypes(existing, desired),
-    ).toEqual([
-      {
-        userIdType: "user_id",
-        description: "Mine",
-        attributes: ["user_id", "device_id"],
-        sourceAttribute: "user_id",
-      },
-    ]);
-  });
-
-  it("does not mark a reused type managed, so it survives its attribute going away", () => {
+  it("drops a taken-over type once its attribute is gone", () => {
     const existing = [
       { userIdType: "user_id", description: "Mine", attributes: ["user_id"] },
     ];
-    const reused = reconcileEventForwarderManagedUserIdTypes(existing, desired);
-
-    expect(reused[0].managedBy).toBe(undefined);
-    // Unlinked rather than deleted once the attribute is no longer eligible.
-    expect(reconcileEventForwarderManagedUserIdTypes(reused, [])).toEqual(
+    const takenOver = reconcileEventForwarderManagedUserIdTypes(
       existing,
+      desired,
+    );
+
+    expect(takenOver[0].managedBy).toBe("api");
+    // Take-over means EF owns the lifecycle, deletion included.
+    expect(reconcileEventForwarderManagedUserIdTypes(takenOver, [])).toEqual(
+      [],
     );
   });
 
-  it("is idempotent across repeated reuse", () => {
+  it("is idempotent across repeated take-over", () => {
     const existing = [
       { userIdType: "user_id", description: "", attributes: [] },
     ];
@@ -414,12 +458,13 @@ describe("reconcileEventForwarderManagedUserIdTypes", () => {
     );
   });
 
-  it("does not add a second identifier type when a reused one was renamed", () => {
+  it("does not add a second identifier type when a taken-over one was renamed", () => {
     const renamed = [
       {
         userIdType: "logged_in_user",
         description: "Mine",
         attributes: ["user_id"],
+        managedBy: "api" as const,
         sourceAttribute: "user_id",
       },
     ];
@@ -444,10 +489,10 @@ describe("reconcileEventForwarderManagedUserIdTypes", () => {
       desired,
     );
 
-    // One entry, not the legacy one dropped and "user_id" minted beside it.
-    expect(reconciled).toHaveLength(1);
-    expect(reconciled[0].userIdType).toBe("ef_user_id");
-    expect(reconciled[0].sourceAttribute).toBe("user_id");
+    // One entry per hash attribute: the legacy one claims "user_id" rather than
+    // being dropped and re-minted beside it. Backfilling the link is the only
+    // write — the name stays put, so every warehouse artifact keyed off it does.
+    expect(reconciled).toEqual([{ ...legacy[0], sourceAttribute: "user_id" }]);
   });
 
   it("is idempotent after linking a legacy managed type", () => {

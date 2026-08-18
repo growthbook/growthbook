@@ -1,7 +1,7 @@
 import {
   buildUserIdTypesFromAttributeSchema,
   mergeUserIdTypes,
-  isEventForwarderLinkedUserIdType,
+  isEventForwarderManagedUserIdType,
   reconcileEventForwarderManagedExposureQueries,
   reconcileEventForwarderManagedUserIdTypes,
 } from "shared/util";
@@ -85,15 +85,15 @@ export async function reconcileEventForwarderDatasourceUserIdTypesAndExposureQue
   );
   const existingUserIdTypes = datasource.settings?.userIdTypes ?? [];
   const existingExposure = datasource.settings?.queries?.exposure ?? [];
-  // Matches on the source attribute, so an identifier type a user renamed keeps
-  // its name here instead of being reverted to the attribute's property name.
+  // Matches on the source attribute, so each hash attribute ends up with exactly
+  // one identifier type and existing entries keep their names.
   const updatedUserIdTypes = reconcileEventForwarderManagedUserIdTypes(
     existingUserIdTypes,
     desiredUserIdTypes,
   );
-  // Managed types plus user-created ones we reuse — both get a managed query.
-  const linkedUserIdTypes = updatedUserIdTypes.filter(
-    isEventForwarderLinkedUserIdType,
+  // Includes types just taken over, which are marked managed above.
+  const managedUserIdTypes = updatedUserIdTypes.filter(
+    isEventForwarderManagedUserIdType,
   );
 
   const connectionParams = getSourceIntegrationObject(context, datasource)
@@ -113,7 +113,7 @@ export async function reconcileEventForwarderDatasourceUserIdTypesAndExposureQue
   } else {
     updatedExposure = reconcileEventForwarderManagedExposureQueries({
       existing: existingExposure,
-      userIdTypes: linkedUserIdTypes,
+      userIdTypes: managedUserIdTypes,
       params: sqlParams,
       attributeSchema,
     });

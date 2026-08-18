@@ -147,15 +147,14 @@ export function buildEventForwarderExposureQuerySql({
 }: {
   sinkType: "bigquery" | "snowflake";
   tableRef: string;
-  /** Column alias / join key — the identifier type name, which users may rename. */
+  /** Column alias / join key — the identifier type's own name. */
   userIdType: string;
   /** SDK attribute the value is read from. Defaults to the identifier type name. */
   sourceAttribute?: string;
   attributeDatatype?: SDKAttributeType;
 }): string {
-  // The column alias / join key is the identifier type name, but the value is
-  // always extracted from the linked source attribute, so renaming an identifier
-  // type changes only the alias.
+  // The alias and the source are decoupled: a legacy `ef_user_id` identifier
+  // type keeps that alias while reading the `user_id` attribute.
   const attributeValueSql = buildEventForwarderAttributeValueSql({
     sinkType,
     userIdType: sourceAttribute ?? userIdType,
@@ -258,13 +257,17 @@ function isEquivalentExposureQuerySql(a: string, b: string): boolean {
 
 /**
  * Reconciles managed exposure queries against the datasource's Event Forwarder
- * linked identifier types, matching on `sourceAttribute`.
+ * linked identifier types, matching on `sourceAttribute` so each attribute ends
+ * up with exactly one managed query.
  *
- * Ownership split: GrowthBook owns `userIdType`, `name`, `sourceAttribute`, and
- * `query` (all regenerated here, so renaming an identifier type rewrites the
- * column alias automatically). The user owns `dimensions`, `hasNameCol`, and the
- * dimension metadata, which are carried over untouched. The `id` is always
- * preserved — experiments, reports, and safe rollouts reference it.
+ * Add or leave alone — never rewrite. A query that already covers its attribute
+ * keeps its `id`, `name`, `userIdType`, and SQL verbatim; the only write is
+ * backfilling `sourceAttribute` when it is missing. Regenerating SQL over
+ * existing queries would move warehouse column aliases out from under the
+ * experiments, reports, and safe rollouts already reading them.
+ *
+ * The trade-off is that a query written by an older version is not brought
+ * forward when SQL generation changes — it keeps the SQL it was created with.
  *
  * Non-managed queries pass through untouched. Managed queries whose source
  * attribute is no longer represented are dropped.
@@ -311,14 +314,11 @@ export function reconcileEventForwarderManagedExposureQueries({
     }
 
     claimedSources.add(source);
-    result.push({
-      ...query,
-      userIdType: wanted.userIdType,
-      name: wanted.name,
-      sourceAttribute: wanted.sourceAttribute,
-      description: wanted.description,
-      query: wanted.query,
-    });
+    result.push(
+      (query.sourceAttribute ?? null) === null
+        ? { ...query, sourceAttribute: wanted.sourceAttribute ?? source }
+        : query,
+    );
   }
 
   for (const [source, wanted] of desiredBySource) {

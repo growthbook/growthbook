@@ -213,8 +213,9 @@ export async function syncEventForwarderEventsFactTableMetadata(
       datatype: column.datatype,
       jsonFields: column.jsonFields,
     }));
-    // The fact table's own userIdTypes are the identifier type names, so a rename
-    // has to land here too or joins against this table break.
+    // The fact table's own userIdTypes list gates which identifiers can join
+    // against it, so a newly added hash attribute is unusable until its name
+    // lands here, and an archived one lingers as a dangling reference.
     const hasUserIdTypeChanges =
       JSON.stringify(factTable.userIdTypes ?? []) !==
       JSON.stringify(desiredUserIdTypeNames);

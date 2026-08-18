@@ -7,7 +7,7 @@ import {
   isEventForwarderManagedFeatureUsageQuery,
   isManagedWarehouseAwaitingProvisioning,
   isManagedWarehouseUnavailable,
-  findDuplicateUserIdTypeName,
+  findNewDuplicateUserIdTypeName,
 } from "shared/util";
 import {
   DataSourceInterface,
@@ -320,13 +320,20 @@ export async function deleteAllDataSourcesForAProject({
   await touchDefinitionsVersion(organizationId, definitionsScope([projectId]));
 }
 
+// Identifier type names become warehouse column aliases, so two names differing
+// only in case would collide as one column. `existing` grandfathers collisions
+// already stored — see findNewDuplicateUserIdTypeName.
 function assertUniqueUserIdTypeNames(
   settings: DataSourceSettings | undefined,
+  existing?: DataSourceSettings,
 ): void {
   if (!settings?.userIdTypes?.length) {
     return;
   }
-  const duplicate = findDuplicateUserIdTypeName(settings.userIdTypes);
+  const duplicate = findNewDuplicateUserIdTypeName(
+    existing?.userIdTypes ?? [],
+    settings.userIdTypes,
+  );
   if (duplicate) {
     throw new Error(
       `The identifier type ${duplicate} already exists (names are case-insensitive)`,
@@ -601,7 +608,7 @@ export async function updateDataSource(
           : "changed",
       skipEventForwarderManagedValidation,
     );
-    assertUniqueUserIdTypeNames(updates.settings);
+    assertUniqueUserIdTypeNames(updates.settings, datasource.settings);
     validatePipelineSettingsInvariants(updates.settings.pipelineSettings);
   }
   if (!hasActualChanges(datasource, updates)) {

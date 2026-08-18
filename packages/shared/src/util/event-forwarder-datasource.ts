@@ -19,46 +19,21 @@ export type EventForwarderDatasourceParams =
 export const EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION =
   "Managed by Event Forwarder.";
 
-// Event Forwarder managed identifier types are named after the SDK hash
-// attribute they read, and the link to that attribute is stored explicitly on
-// `sourceAttribute`. Nothing is encoded in the name: users may rename a managed
-// identifier type, and every consumer (SQL generation, reconciliation, fact
-// table metadata) resolves the source attribute through the link instead.
+// Managed identifier types carry the link to their hash attribute on
+// `sourceAttribute`. Nothing is encoded in the name.
 export function isEventForwarderManagedUserIdType(
   userIdType: Pick<UserIdType, "managedBy">,
 ): boolean {
   return userIdType.managedBy === "api";
 }
 
-/**
- * Identifier types the Event Forwarder feeds warehouse queries for: the ones it
- * created, plus user-created ones it reuses because they already model the same
- * hash attribute. Reuse links but does not take ownership — only `managedBy`
- * entries are ever deleted by reconciliation.
- */
-export function isEventForwarderLinkedUserIdType(
-  userIdType: UserIdType,
-): boolean {
-  return (
-    isEventForwarderManagedUserIdType(userIdType) ||
-    (userIdType.sourceAttribute ?? null) !== null
-  );
-}
-
-// Managed resources created before `sourceAttribute` existed encoded the link in
-// their name by prefixing the attribute with "ef_". Exactly one prefix was ever
-// applied, so stripping one recovers the attribute.
 const LEGACY_EVENT_FORWARDER_MANAGED_NAME_PREFIX = "ef_";
 
 /**
- * Recovers the source attribute of a managed resource written before the
- * explicit link existed. Read-only compatibility: nothing writes prefixed names
- * any more, and this is the only place the prefix is still understood. Without
- * it, reconciliation would fail to match a legacy record to its attribute, drop
- * it, and mint a replacement under a new id — orphaning every experiment,
- * report, safe rollout, template, and ramp schedule already referencing the old
- * one. Only ever applied to `managedBy: "api"` resources with no
- * `sourceAttribute`, so a user-created `ef_`-named identifier type is untouched.
+ * Recovers the attribute of a managed resource written before `sourceAttribute`
+ * existed, which encoded it as `ef_<attribute>`. Exactly one prefix was ever
+ * applied. Read-only — nothing writes prefixed names any more, and gating on
+ * `managedBy: "api"` keeps a user-created `ef_` name from being reinterpreted.
  */
 export function resolveLegacyEventForwarderManagedSourceAttribute(
   name: string,
@@ -104,18 +79,46 @@ export function findCollidingUserIdTypeName(
   return collision?.userIdType ?? null;
 }
 
+/** Maps each case-insensitively duplicated name to the colliding entry's name. */
+function collectDuplicateUserIdTypeNames(
+  userIdTypes: UserIdType[],
+): Map<string, string> {
+  const seen = new Set<string>();
+  const duplicates = new Map<string, string>();
+  for (const entry of userIdTypes) {
+    const normalized = normalizeUserIdTypeName(entry.userIdType);
+    if (seen.has(normalized)) {
+      duplicates.set(normalized, entry.userIdType);
+    }
+    seen.add(normalized);
+  }
+  return duplicates;
+}
+
 /** Returns a name that collides case-insensitively within the list, or null. */
 export function findDuplicateUserIdTypeName(
   userIdTypes: UserIdType[],
 ): string | null {
-  const seen = new Map<string, string>();
-  for (const entry of userIdTypes) {
-    const normalized = normalizeUserIdTypeName(entry.userIdType);
-    const existing = seen.get(normalized);
-    if (existing !== undefined) {
-      return entry.userIdType;
+  const [first] = collectDuplicateUserIdTypeNames(userIdTypes).values();
+  return first ?? null;
+}
+
+/**
+ * Returns a name `updated` collides on that `existing` did not, or null.
+ *
+ * Collisions already stored are grandfathered. A datasource that predates the
+ * uniqueness check would otherwise fail every later save — including the Event
+ * Forwarder sync, which runs unattended — until someone fixed it by hand.
+ */
+export function findNewDuplicateUserIdTypeName(
+  existing: UserIdType[],
+  updated: UserIdType[],
+): string | null {
+  const before = collectDuplicateUserIdTypeNames(existing);
+  for (const [normalized, name] of collectDuplicateUserIdTypeNames(updated)) {
+    if (!before.has(normalized)) {
+      return name;
     }
-    seen.set(normalized, entry.userIdType);
   }
   return null;
 }
@@ -231,28 +234,17 @@ export function getUserIdTypesToAdd(
   );
 }
 
-/** Drops the Event Forwarder link from a reused identifier type, keeping the rest. */
-function unlinkUserIdType(userIdType: UserIdType): UserIdType {
-  return {
-    userIdType: userIdType.userIdType,
-    description: userIdType.description,
-    attributes: userIdType.attributes,
-    managedBy: userIdType.managedBy,
-  };
-}
-
 /**
- * Reconciles the managed identifier types on a datasource against the ones the
- * org's attribute schema currently calls for, matching on `sourceAttribute` so
- * that user-renamed identifier types keep their names instead of being reverted.
+ * Reconciles managed identifier types against the hash attributes the org's
+ * schema calls for. One identifier type per hash attribute.
  *
- * Non-managed identifier types are passed through untouched, and one is never
- * promoted to managed — only types this function created are ever dropped again.
- * Managed types whose source attribute is no longer a hash attribute (archived,
- * un-flagged, or out of the datasource's Projects) are dropped.
- *
- * Does not rewrite `queries.identityJoins[].ids` when an identifier type is
- * renamed outside this path (e.g. direct MongoDB edit).
+ * - Covered attribute → leave the entry alone. Only `sourceAttribute` is
+ *   backfilled; the name stays put, and so does every warehouse artifact keyed
+ *   off it (column aliases, identity joins, fact table `userIdTypes`).
+ * - Uncovered attribute whose name is already taken → take that entry over.
+ * - Uncovered attribute with a free name → add it.
+ * - Managed entry whose attribute is gone (archived, un-flagged, out of the
+ *   datasource's Projects) → drop it.
  */
 export function reconcileEventForwarderManagedUserIdTypes(
   existing: UserIdType[],
@@ -271,21 +263,6 @@ export function reconcileEventForwarderManagedUserIdTypes(
 
   for (const entry of existing) {
     if (!isEventForwarderManagedUserIdType(entry)) {
-      // A reused entry is the user's, so it is never dropped — but it still
-      // claims its attribute so we don't create a second identifier type for the
-      // same one, and it keeps its link across a rename. If the attribute is no
-      // longer eligible we unlink instead, which stops us feeding it queries.
-      if (isEventForwarderLinkedUserIdType(entry)) {
-        const reusedSource = normalizeUserIdTypeName(
-          getEventForwarderUserIdTypeSourceAttribute(entry),
-        );
-        if (desiredBySource.has(reusedSource)) {
-          claimedSources.add(reusedSource);
-        } else {
-          result.push(unlinkUserIdType(entry));
-          continue;
-        }
-      }
       result.push(entry);
       continue;
     }
@@ -299,13 +276,12 @@ export function reconcileEventForwarderManagedUserIdTypes(
     }
 
     claimedSources.add(source);
-    // The name and description belong to the user once created; we only keep the
-    // link and the managed marker authoritative.
-    result.push({
-      ...entry,
-      managedBy: "api",
-      sourceAttribute: wanted.sourceAttribute,
-    });
+    // Backfill the link on legacy entries. Never touch the name.
+    result.push(
+      (entry.sourceAttribute ?? null) === null
+        ? { ...entry, sourceAttribute: wanted.sourceAttribute ?? source }
+        : entry,
+    );
   }
 
   for (const [source, wanted] of desiredBySource) {
@@ -313,13 +289,9 @@ export function reconcileEventForwarderManagedUserIdTypes(
       continue;
     }
 
-    // Reuse, don't duplicate or take over. When a user already has an identifier
-    // type under this name it already models the same unit, so link it to the
-    // attribute and backfill the hash attribute and description if they are not
-    // set yet. `managedBy` is deliberately left alone: reuse must not make the
-    // user's own entry deletable by the loop above once the attribute is
-    // archived, which would take any fact table or identity join referencing the
-    // name with it.
+    // Name already taken: that entry already models this attribute, so take it
+    // over rather than duplicate it. Keeps the user's name and description;
+    // backfills the hash attribute and description only when unset.
     const reuseIndex = result.findIndex(
       (entry) =>
         normalizeUserIdTypeName(entry.userIdType) ===
@@ -336,6 +308,7 @@ export function reconcileEventForwarderManagedUserIdTypes(
 
       result[reuseIndex] = {
         ...reused,
+        managedBy: "api",
         sourceAttribute,
         attributes: hasSourceAttribute
           ? reused.attributes
