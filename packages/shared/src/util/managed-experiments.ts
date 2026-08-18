@@ -2,15 +2,10 @@ import { FeatureInterface } from "shared/types/feature";
 import { OrganizationSettings } from "shared/types/organization";
 import { ProjectInterface } from "../validators/projects";
 
-/**
- * "Managed mode" is the simplified experiment implementation path: the
- * experiment owns exactly one Feature Flag, that flag holds exactly one
- * experiment-ref rule, and every change to it — values, review, publish,
- * eject — is made from the experiment page. The flag itself is closed to
- * direct edits for as long as it carries the marker.
- */
+// Managed mode: the experiment owns one Feature Flag holding one experiment-ref
+// rule, edited only from the experiment page while the marker is set.
 
-/** Characters a feature id may contain (see `postFeatures` in the back end). */
+/** Characters a feature id may contain (see `postFeatures`). */
 const FEATURE_KEY_ALLOWED = /[^a-zA-Z0-9_.:|-]+/g;
 
 export function isManagedFeature(
@@ -19,12 +14,6 @@ export function isManagedFeature(
   return feature.managedBy?.type === "experiment";
 }
 
-/**
- * True when `feature` is managed by exactly this experiment. Prefer it over a
- * bare `isManagedFeature` at any call site that already knows which experiment
- * it is acting for — a flag managed by a *different* experiment must be refused
- * there, not accepted.
- */
 export function isManagedByExperiment(
   feature: Pick<FeatureInterface, "managedBy">,
   experimentId: string,
@@ -35,11 +24,7 @@ export function isManagedByExperiment(
   );
 }
 
-/**
- * Whether new experiments here default to managed mode. Project setting wins
- * when present; otherwise the org setting; absent everywhere reads as off so
- * orgs that predate the feature keep the manual flag workflow.
- */
+/** Project setting wins when set; absent everywhere reads as off. */
 export function managedExperimentFlagsDefault({
   settings,
   project,
@@ -53,15 +38,9 @@ export function managedExperimentFlagsDefault({
 }
 
 /**
- * Derive a legal feature id from an experiment's tracking key. Disallowed
- * characters collapse to a single `-`; a key that sanitizes to nothing falls
- * back to the experiment id, which is already key-legal.
- *
- * The result is a *candidate*, not a reservation — uniqueness belongs to the
- * `{id, organization}` unique index. Callers pass successive `attempt` values
- * on duplicate-key errors rather than probing for a free id first, because a
- * check-then-write leaves a window for a rival create to take the id in
- * between.
+ * A candidate id, not a reservation: uniqueness belongs to the
+ * `{id, organization}` index, so callers bump `attempt` on duplicate-key errors
+ * rather than probing for a free id and racing.
  */
 export function managedFeatureKeyCandidate({
   trackingKey,
@@ -80,12 +59,7 @@ export function managedFeatureKeyCandidate({
   return attempt === 0 ? base : `${base}-${attempt + 1}`;
 }
 
-/**
- * Seed values for a managed flag created alongside its experiment. Creation has
- * no values to collect yet — the point of Automatic mode is a thin creation
- * modal — so each variation starts serving its own key as a string, which is
- * self-describing in the payload and immediately editable from the experiment.
- */
+/** Creation collects no values, so each variation starts serving its own key. */
 export function seedManagedVariationValues(
   variations: { id: string; key?: string }[],
 ): { variationId: string; value: string }[] {
@@ -96,11 +70,8 @@ export function seedManagedVariationValues(
 }
 
 /**
- * Values for a managed flag on an experiment duplicated from another. Copies the
- * source flag's values onto the new experiment's variations **by position**, not
- * by variation id: a duplicate gets its own variation ids, so matching on id
- * would silently fall back to the seed for every variation. Variations the
- * source doesn't cover (the duplicate added one) fall back to the seed.
+ * By position, not by variation id — a duplicate gets fresh ids, so an id match
+ * would fall back to the seed for every variation. Uncovered positions seed.
  */
 export function copyManagedVariationValues({
   sourceValues,

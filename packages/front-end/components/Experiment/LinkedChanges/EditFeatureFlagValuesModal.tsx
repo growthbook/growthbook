@@ -408,10 +408,7 @@ export default function EditFeatureFlagValuesModal({
       header="Edit Feature Flag Values"
       subheader="Changes made here will be reflected on the linked Feature Flag rule."
       headerAction={
-        // Managed mode has exactly one draft that matters at a time, and the
-        // defaults below already resolve to it (existing draft when there is
-        // one, a new draft otherwise). Exposing a revision picker would only
-        // offer choices that are wrong or unavailable.
+        // One draft matters at a time and the defaults already resolve to it.
         isManaged ? undefined : (
           <DraftSelectorDropdown
             feature={feature}

@@ -434,9 +434,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const router = useRouter();
     const useDummyData = router.query["dummy"] === "true";
 
-    // A flag an experiment manages refuses every direct rule write, so the rule
-    // menu must not offer edit / enable / disable / delete for it. The
-    // experiment owns those; ejecting reopens them.
+    // Managed flags refuse direct rule writes; the experiment owns them.
     const isManagedFlag = isManagedFeature(feature);
 
     const canEdit =

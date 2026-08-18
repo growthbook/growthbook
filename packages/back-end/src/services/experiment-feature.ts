@@ -85,9 +85,7 @@ export type ExperimentFeatureLinkOptions = {
 };
 
 /**
- * Stage (or land) an experiment-ref rule on a feature. Extracted from
- * `postFeatureExperimentRefRule` so the managed-flag flow can create a flag and
- * attach its single rule in one server-side call — the mirror of
+ * Stage (or land) an experiment-ref rule on a feature. Mirrors
  * `linkFeatureToContextualBandit`.
  */
 export async function linkFeatureToExperiment({

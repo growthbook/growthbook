@@ -5,15 +5,9 @@ import * as rawFeaturesController from "back-end/src/controllers/features";
 import { resolveManagedFlagParams } from "back-end/src/services/managedFeatures";
 
 /**
- * Everything an experiment-managed Feature Flag can have done to it, addressed
- * by experiment. Mounted under `/experiment/:id/managed-flag`, which is why it
- * needs `mergeParams` — the experiment id lives on the parent path.
- *
- * The review and publish routes deliberately hand off to the ordinary feature
- * controllers. `resolveManagedFlagParams` rewrites `:id` (experiment) into the
- * `(feature id, draft version)` those controllers already take, so managed mode
- * runs the same review lifecycle as any other flag rather than a parallel
- * implementation that could drift from it.
+ * Managed-flag actions addressed by experiment. `mergeParams` because the
+ * experiment id lives on the parent path; the review and publish routes hand off
+ * to the ordinary feature controllers so the lifecycle can't drift.
  */
 const router = express.Router({ mergeParams: true });
 const experimentsController = wrapController(rawExperimentsController);

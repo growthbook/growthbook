@@ -12,7 +12,6 @@ import {
   reconcileMergeBaselines,
   includeExperimentInPayload,
   isManagedByExperiment,
-  seedManagedVariationValues,
 } from "shared/util";
 import {
   expandDerivedMetricsInMap,
@@ -156,9 +155,9 @@ import {
 import { getLinkageSyncRevisionSummaries } from "back-end/src/models/FeatureRevisionModel";
 import {
   createManagedFeatureForExperiment,
+  createManagedFlagForNewExperiment,
   ejectManagedFeature,
   getManagedFeatureForExperiment,
-  readManagedValuesForDuplicate,
 } from "back-end/src/services/managedFeatures";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
@@ -1151,8 +1150,8 @@ export async function getSnapshots(
  */
 export async function postExperiments(
   req: AuthRequest<
-    // `managedFlag` is a creation-time instruction, not a stored experiment
-    // field: ownership lives on the Feature Flag it creates.
+    // A creation-time instruction, not a stored field — ownership lives on the
+    // Feature Flag it creates.
     Partial<ExperimentInterfaceStringDates> & { managedFlag?: boolean },
     unknown,
     {
@@ -1490,14 +1489,8 @@ export async function postExperiments(
       type: "experiments",
     });
 
-    // Automatic implementation mode: the experiment delivers its variations
-    // through a Feature Flag it owns outright. Created here, in the same
-    // request, so a managed experiment never exists without its flag — that
-    // state has no implementation UI and no way to add one.
-    // Duplicating a managed experiment carries managed mode across: the copy
-    // gets its OWN flag, keyed off its own tracking key and pointing at itself.
-    // Without this the duplicate lands with no implementation and no way to add
-    // one, since managed mode withholds the add-a-change chooser.
+    // A duplicate gets its OWN flag, keyed off its own tracking key. Without
+    // this it lands with no implementation and no way to add one.
     const originalExperiment = req.query.originalId
       ? await getExperimentById(context, req.query.originalId)
       : null;
@@ -1506,52 +1499,16 @@ export async function postExperiments(
       : null;
 
     if (data.managedFlag ?? !!sourceManaged) {
-      // Carry the source flag's type and values so the duplicate serves what the
-      // original did. Read under compare-and-swap on the source, so a concurrent
-      // edit can't hand us a half-applied copy.
-      const copied =
-        sourceManaged && originalExperiment
-          ? await readManagedValuesForDuplicate({
-              context,
-              sourceExperiment: originalExperiment,
-              targetExperiment: experiment,
-            })
-          : null;
-
-      const seeded = {
-        valueType: "string" as FeatureValueType,
-        variations: seedManagedVariationValues(experiment.variations),
-      };
-
-      const createManaged = (plan: typeof seeded) =>
-        createManagedFeatureForExperiment({
+      try {
+        await createManagedFlagForNewExperiment({
           context,
           experiment,
-          valueType: plan.valueType,
-          variations: plan.variations,
+          sourceExperiment: sourceManaged ? originalExperiment : null,
           eventAudit: res.locals.eventAudit,
           audit: req.audit,
         });
-
-      try {
-        try {
-          await createManaged(copied ?? seeded);
-        } catch (e) {
-          // A copy can fail for reasons a fresh flag won't — a source value the
-          // duplicate's schema rejects, a type that no longer validates. Falling
-          // back to a brand new flag beats failing the duplicate outright; the
-          // user can edit values, but can't conjure an implementation.
-          if (!copied) throw e;
-          logger.warn(
-            { experiment: experiment.id, error: e.message },
-            "Copying the managed Feature Flag for a duplicate failed; creating a fresh one instead",
-          );
-          await createManaged(seeded);
-        }
       } catch (e) {
-        // Undo the experiment rather than hand back one stuck in managed mode
-        // with nothing to manage. The flag half compensates itself, so there is
-        // nothing else left behind.
+        // The flag half compensates itself; undo the experiment.
         await deleteExperimentByIdForOrganization(context, experiment);
         throw new Error(
           `Could not create the managed Feature Flag for this experiment: ${e.message}`,
@@ -4578,8 +4535,7 @@ export async function deleteExperimentLinkedFeature(
     context.permissions.throwPermissionError();
   }
 
-  // A managed flag has no independent existence — unlinking it would leave a
-  // locked-down flag with no experiment to edit it from. Eject first.
+  // Unlinking would strand a locked-down flag with no experiment to edit it.
   if (feature && isManagedByExperiment(feature, id)) {
     throw new Error(
       "This Feature Flag is managed by the experiment. Eject it first to unlink it.",
@@ -4591,9 +4547,6 @@ export async function deleteExperimentLinkedFeature(
   res.status(200).json({ status: 200 });
 }
 
-// Create the Feature Flag this experiment manages, with its single
-// experiment-ref rule staged as a draft. Everything else about the flag —
-// values, review, publish — is driven from the experiment page from here on.
 export async function postExperimentManagedFlag(
   req: AuthRequest<
     {
@@ -4641,8 +4594,6 @@ export async function postExperimentManagedFlag(
   res.status(200).json({ status: 200, feature, version });
 }
 
-// Release the flag from the experiment. Nothing about the flag's content or
-// history changes — only the ownership marker, which reopens direct editing.
 export async function postExperimentManagedFlagEject(
   req: AuthRequest<null, { id: string }>,
   res: Response<

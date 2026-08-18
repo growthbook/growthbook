@@ -143,9 +143,8 @@ export default function FeaturePage() {
     }
   }, [router.asPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // The selected tab is sticky in localStorage and can also arrive in the URL
-  // hash, so a managed flag can land on the hidden Review tab and render an
-  // empty shell. Overview is where its managed banner lives.
+  // The tab is sticky in localStorage, so a managed flag can land on the hidden
+  // Review tab and render an empty shell.
   const isManagedFlag = !!baseFeature && isManagedFeature(baseFeature);
   useEffect(() => {
     if (isManagedFlag && tab === "review") setTab("overview");

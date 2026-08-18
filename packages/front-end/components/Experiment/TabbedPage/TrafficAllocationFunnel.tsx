@@ -35,8 +35,8 @@ export interface Props {
   editNamespace?: (() => void) | null;
   addVariation?: (() => void) | null;
   setEditVariationIndex?: (index: number) => void;
-  // Managed-mode Feature Flag: shown inline on each variation card.
-  managedFeature?: LinkedFeatureInfo | null;
+  /** The sole linked Feature Flag, when the cards can show its values. */
+  servedValueFeature?: LinkedFeatureInfo | null;
   onEditServedValue?: () => void;
   canEditExperiment?: boolean;
   safeToEdit: boolean;
@@ -187,7 +187,7 @@ export default function TrafficAllocationFunnel({
   editNamespace,
   addVariation,
   setEditVariationIndex,
-  managedFeature,
+  servedValueFeature,
   onEditServedValue,
   canEditExperiment = false,
   safeToEdit = false,
@@ -387,9 +387,9 @@ export default function TrafficAllocationFunnel({
                   ? addVariation
                   : undefined
               }
-              servedValues={managedFeature?.values}
-              servedValueFeature={managedFeature?.feature}
-              servedValueSparse={managedFeature?.sparse}
+              servedValues={servedValueFeature?.values}
+              servedValueFeature={servedValueFeature?.feature}
+              servedValueSparse={servedValueFeature?.sparse}
               onEditServedValue={onEditServedValue}
             />
           </>

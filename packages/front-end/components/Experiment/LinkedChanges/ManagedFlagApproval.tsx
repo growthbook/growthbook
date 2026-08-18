@@ -23,13 +23,9 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useApi from "@/hooks/useApi";
 
 /**
- * The whole review surface for a managed Feature Flag: primary CTA, the
- * reviewers who have weighed in, and nothing else. Deliberately thin — a
- * managed flag has one rule and one draft, so the deferral, scheduling and
- * diff machinery on the full Review & Publish modal has nothing to act on.
- *
- * The CTA itself is decided by `getReviewAndPublishState`, the same pure
- * function the full modal uses, so managed mode can't drift from it.
+ * CTA + reviewers, nothing else: a managed flag has one rule and one draft, so
+ * the full modal's deferral, scheduling and diff machinery has nothing to act
+ * on. The CTA comes from `getReviewAndPublishState` so it can't drift from it.
  */
 
 type Props = {
@@ -52,10 +48,8 @@ export default function ManagedFlagApproval({
   const [error, setError] = useState<string | null>(null);
 
   const version = info.draftRevisionVersion;
-  // Fetched whether or not the popover is open: the trigger's label depends on
-  // who authored the draft, and gating the fetch on `open` made that unknown at
-  // render time — so the author saw "Review", an action they can't take on
-  // their own draft, until they clicked it.
+  // Not gated on `open`: the trigger's label depends on who authored the draft,
+  // so the author saw "Review" — an action they can't take — until they clicked.
   const { data } = useApi<{ revisions: FeatureRevisionInterface[] }>(
     `/feature/${info.feature.id}`,
     { shouldRun: () => version != null },
@@ -69,19 +63,14 @@ export default function ManagedFlagApproval({
   const reviews = revision?.reviews ?? [];
   const isReviewer = reviews.some((r) => r.userId === userId);
 
-  // Starting the experiment IS the publish event for a managed flag — the
-  // launch publishes this draft. So a draft experiment never offers Publish
-  // separately; only the review cycle runs here, so the draft can be approved
-  // and ready by the time someone hits Start. Publishing on its own becomes
-  // available once the experiment is live and later edits open a new draft.
+  // Starting the experiment is the publish event, so a draft experiment runs the
+  // review cycle only. Publishing on its own returns once the experiment is live.
   const publishIsLaunch = experiment.status === "draft";
 
   const state = getReviewAndPublishState({
     requireReviews: !!info.pendingApproval,
     status,
-    // A conflicted or polluted draft is surfaced by the card's own callouts and
-    // has to be resolved on the Feature Flag page; the popover never offers a
-    // CTA that would fail.
+    // Conflicts are surfaced by the card's callouts; never offer a failing CTA.
     mergeSuccess: !info.hasMergeConflict,
     hasChanges: true,
     hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(info.feature),
@@ -90,15 +79,12 @@ export default function ManagedFlagApproval({
     isContributor: (revision?.contributors ?? []).includes(userId ?? ""),
     isDraftOwner: revision?.createdBy?.id === userId,
     isReviewer,
-    // Bypass authority is about landing a change, and on a draft experiment
-    // nothing lands here — the launch does that. Passing it through would send
-    // an admin straight to a "publish now" the launch owns, skipping the review
-    // cycle the draft still needs to go through before start.
+    // Bypass is about landing, and nothing lands here on a draft experiment —
+    // passing it through would skip the review cycle entirely for admins.
     adminPublish:
       !publishIsLaunch &&
       permissionsUtil.canBypassFlagApprovalChecks(info.feature, "feature"),
-    // Managed mode has no pre-launch checklist step of its own — starting the
-    // experiment is what runs that, and it publishes this draft itself.
+    // The experiment's own start runs the pre-launch checklist.
     hasSelectedExperiments: false,
     onlyScheduledSelected: false,
     experimentsStep: false,
@@ -123,9 +109,7 @@ export default function ManagedFlagApproval({
       : state.submitAction;
   const showSubmit = state.hasSubmit && submitAction !== "none";
 
-  // With nothing to request, approve, retract or publish, the control would be
-  // a button that opens a popover offering nothing. Render no trigger at all —
-  // the status badge and callout already say where the draft stands.
+  // Nothing to offer means no trigger; the badge already shows the status.
   const hasAnyAction =
     canReview || showSubmit || state.canUndoReview || state.canRecallReview;
 
@@ -281,13 +265,8 @@ export default function ManagedFlagApproval({
       content={content}
       trigger={
         <Button variant="ghost">
-          {/* Name the action the popover will actually offer. Deriving this
-              from `status` alone drifts: an org that doesn't require approvals
-              sits in "draft" but publishes directly, so the trigger read
-              "Request review" over a Publish button. */}
-          {/* And when the only actions left are secondary (retract a verdict,
-              return to draft), naming a primary action promises something the
-              popover won't offer — fall back to the status instead. */}
+          {/* Name what the popover will actually offer: `status` alone drifts,
+              and a primary label with only secondary actions available lies. */}
           {canReview ? "Review" : showSubmit ? state.ctaLabel : "Manage review"}
         </Button>
       }

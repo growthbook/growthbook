@@ -305,15 +305,12 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     !hashAttributeLinkedToIdentifier &&
     !wouldAutoSelectExposureQuery;
 
-  // Implementation mode for the new experiment. Defaults from the resolved
-  // Project-then-org setting; the user can still opt out per experiment.
   const managedDefault = managedExperimentFlagsDefault({
     settings,
     project: projects.find((p) => p.id === selectedProject) ?? null,
   });
   const [managedFlag, setManagedFlag] = useState(managedDefault);
-  // Re-resolve when the Project changes, but only until the user has touched
-  // the control — after that their choice stands.
+  // Re-resolve on Project change until the user touches the control.
   const [managedTouched, setManagedTouched] = useState(false);
   useEffect(() => {
     if (!managedTouched) setManagedFlag(managedDefault);

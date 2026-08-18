@@ -109,28 +109,32 @@ export default function Implementation({
     linkedFeatures.length > 0 ||
     experiment.hasURLRedirects;
 
-  // In managed mode the experiment owns exactly one Feature Flag and takes no
-  // other implementation, so the three-way "add a change" chooser is suppressed
-  // — both once a managed flag exists and, before that, when the resolved
-  // Project/org setting says new experiments here are managed.
-  const { isManaged, defaultsToManaged, managedFeature } =
-    useManagedExperimentFlags({
-      experiment,
-      linkedFeatures,
-    });
+  // Managed experiments take no other implementation, so the chooser is hidden.
+  const { isManaged, defaultsToManaged } = useManagedExperimentFlags({
+    experiment,
+    linkedFeatures,
+  });
   const managedMode = isManaged || (!hasLinkedChanges && defaultsToManaged);
 
-  // Values live on the variation cards in managed mode, so the editor is owned
-  // here rather than by the implementation card — both surfaces open the same
-  // modal.
+  // The variation cards can only name "the" served value when there is one
+  // implementation and it is a Feature Flag; with several, or a flag alongside
+  // visual changes or a redirect, they'd be stating one arbitrarily.
+  const soleLinkedFeature =
+    linkedFeatures.length === 1 &&
+    !experiment.hasVisualChangesets &&
+    !experiment.hasURLRedirects
+      ? linkedFeatures[0]
+      : null;
+
+  // Owned here so the variation cards and the flag card open the same editor.
   const [editValuesOpen, setEditValuesOpen] = useState(false);
-  const canEditManagedValues =
-    !!managedFeature &&
+  const canEditServedValues =
+    !!soleLinkedFeature &&
     canEditExperiment &&
-    permissionsUtil.canEditFeatureDrafts(managedFeature.feature) &&
-    managedFeature.state !== "locked" &&
-    managedFeature.state !== "archived" &&
-    managedFeature.state !== "discarded";
+    permissionsUtil.canEditFeatureDrafts(soleLinkedFeature.feature) &&
+    soleLinkedFeature.state !== "locked" &&
+    soleLinkedFeature.state !== "archived" &&
+    soleLinkedFeature.state !== "discarded";
 
   const holdoutHasLinkedExpOrFeatures =
     holdoutExperiments?.length || holdoutFeatures?.length;
@@ -176,11 +180,11 @@ export default function Implementation({
           mutate={mutate}
         />
       )}
-      {editValuesOpen && managedFeature && (
+      {editValuesOpen && soleLinkedFeature && (
         <EditFeatureFlagValuesModal
-          feature={managedFeature.feature}
+          feature={soleLinkedFeature.feature}
           experiment={experiment}
-          linkedFeatureInfo={managedFeature}
+          linkedFeatureInfo={soleLinkedFeature}
           numLinkedChanges={linkedFeatures.length}
           close={() => setEditValuesOpen(false)}
           mutate={mutate}
@@ -211,9 +215,9 @@ export default function Implementation({
             safeToEdit={safeToEdit}
             mutate={mutate}
             phaseIndex={phases.length - 1}
-            managedFeature={managedFeature}
+            servedValueFeature={soleLinkedFeature}
             onEditServedValue={
-              canEditManagedValues ? () => setEditValuesOpen(true) : undefined
+              canEditServedValues ? () => setEditValuesOpen(true) : undefined
             }
           />
         ) : (
@@ -244,6 +248,7 @@ export default function Implementation({
             setEditVariationIndex={setEditMetadataIndex}
             hideVariations={showTrafficFunnel}
             managedMode={managedMode}
+            valuesShownOnVariations={!!soleLinkedFeature && showTrafficFunnel}
           />
         ) : null}
 

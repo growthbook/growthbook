@@ -10,17 +10,10 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 /**
- * Whether this experiment is in managed mode, and which linked feature is the
- * managed one.
- *
- * Two questions with two different answers, deliberately:
- *   - `managedFeature` is the *fact* — read off `feature.managedBy`, the single
- *     source of truth, so nothing can drift.
- *   - `defaultsToManaged` is the *default* for an experiment that has no
- *     implementation yet, resolved Project-then-org.
- *
- * Once a managed flag exists it wins outright: an org that later turns the
- * setting off must not silently unlock flags that are already managed.
+ * `managedFeature` is the fact, read off `feature.managedBy`.
+ * `defaultsToManaged` is the default for an experiment with no implementation
+ * yet. An existing managed flag wins: turning the setting off must not unlock
+ * flags that are already managed.
  */
 export function useManagedExperimentFlags({
   experiment,

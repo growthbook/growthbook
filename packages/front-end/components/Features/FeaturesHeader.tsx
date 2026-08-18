@@ -211,9 +211,7 @@ export default function FeaturesHeader({
 
   // Editing an existing flag takes draft authority, not the create gate:
   // `canViewFeatureModal` answers "may this user create a feature".
-  // A flag an experiment manages refuses every direct write server-side, so the
-  // header must not offer edit, publish, archive or delete for it. Editing goes
-  // through the experiment; ejecting there reopens all of this.
+  // Managed flags refuse direct writes, so offer no edit/publish/archive/delete.
   const isManagedFlag = isManagedFeature(feature);
   const canEdit =
     !isManagedFlag && permissionsUtil.canEditFeatureDrafts(feature);
@@ -635,8 +633,6 @@ export default function FeaturesHeader({
               <Tabs value={tab} onValueChange={setTab}>
                 <TabsList size="lg" style={{ width: "100%" }}>
                   <TabsTrigger value="overview">Overview</TabsTrigger>
-                  {/* Review and publish for a managed flag happen on its
-                      experiment; the feature routes refuse them here. */}
                   {!isManagedFlag && (
                     <TabsTrigger value="review">
                       Review &amp; Publish

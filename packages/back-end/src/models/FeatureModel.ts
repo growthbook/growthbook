@@ -222,9 +222,8 @@ const featureSchema = new mongoose.Schema({
     id: String,
     value: String,
   },
-  // Mixed, like the other structured fields above: the discriminator key is
-  // literally named `type`, which Mongoose would read as a SchemaType
-  // declaration rather than a path. Validation lives in Zod.
+  // Mixed: the discriminator key is named `type`, which Mongoose would read as
+  // a SchemaType declaration rather than a path.
   managedBy: {},
 });
 
@@ -1245,9 +1244,8 @@ export async function updateFeature(
     // Remove the holdout pointer in the SAME write: splitting into two writes
     // opens a gap where a rival publish can land and be overwritten.
     unsetHoldout?: boolean;
-    // Clear the experiment-ownership marker (ejecting a managed flag). Needs an
-    // explicit $unset for the same reason as holdout: `managedBy: undefined` in
-    // a $set payload is dropped, not applied, so the marker would survive.
+    // Needs $unset for the same reason as holdout: `managedBy: undefined` in a
+    // $set is dropped, not applied.
     unsetManagedBy?: boolean;
     // The stamp this write PUTS on the document — fires only after Mongo
     // confirms the write ("this landed", never "this was attempted").

@@ -526,13 +526,10 @@ export default function FeaturesOverview({
 
   // Judged on the LIVE flag, like the toggle endpoint — `feature` is the draft
   // projection, so a draft staging a project move judged the wrong project.
-  // A flag an experiment manages accepts no direct writes — every mutating
-  // route refuses them server-side. Fold that into the two authority atoms the
-  // page's controls key off, so it can't render an affordance the server will
-  // reject. Deliberately NOT inside `permissionsClass`: the experiment-side
-  // components ask the same questions about the same flag and must keep
-  // working, and those methods take `Pick<FeatureInterface, "project">`, so a
-  // caller passing a bare `{project}` literal would silently skip the check.
+  // Managed flags refuse every direct write server-side, so fold that into the
+  // atoms the page's controls key off. Not in `permissionsClass`: the
+  // experiment-side components ask the same questions and must keep working,
+  // and a caller passing a bare `{project}` literal would skip the check.
   const isManagedFlag = isManagedFeature(baseFeature);
   const canEditDrafts =
     !isManagedFlag && permissionsUtil.canEditFeatureDrafts(baseFeature);
@@ -568,8 +565,7 @@ export default function FeaturesOverview({
   // between the revision card and sticky banner. Just a navigation affordance:
   // all lifecycle actions (review, publish, fix conflicts, discard) live on the
   // review tab, which evaluates the full policy matrix. Shown to everyone.
-  // Review & publish for a managed flag happens on its experiment; the feature
-  // routes refuse it here.
+  // Review & publish happens on the experiment.
   const draftCtaGroup =
     isDraft && !isManagedFlag ? (
       <Box>

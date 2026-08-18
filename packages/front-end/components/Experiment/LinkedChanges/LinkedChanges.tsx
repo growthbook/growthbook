@@ -42,6 +42,7 @@ export default function LinkedChanges({
   setEditVariationIndex,
   hideVariations,
   managedMode,
+  valuesShownOnVariations,
 }: {
   linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
@@ -59,9 +60,10 @@ export default function LinkedChanges({
   onAddVariation?: () => void;
   canEditExperiment?: boolean;
   setEditVariationIndex?: (index: number) => void;
-  // Managed mode: the experiment owns one Feature Flag and takes no other
-  // implementation, so the add-a-change surfaces are withheld entirely.
+  /** Withholds the add-a-change surfaces. */
   managedMode?: boolean;
+  /** The variation cards above are already showing the flag's values. */
+  valuesShownOnVariations?: boolean;
   hideVariations?: boolean;
 }) {
   const numLinkedChanges =
@@ -146,6 +148,7 @@ export default function LinkedChanges({
               onReAdd={
                 setFeatureModal ? () => setFeatureModal(true) : undefined
               }
+              valuesShownOnVariations={valuesShownOnVariations}
             />
           ))}
           <VisualChangesetTable

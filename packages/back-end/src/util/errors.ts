@@ -130,10 +130,8 @@ export class PlanDoesNotAllowError extends Error {
   }
 }
 
-// A Feature Flag is managed by an experiment, so it accepts no direct writes —
-// every change goes through that experiment. Forbidden regardless of the
-// caller's role, which is why this is a 403 rather than a permission error:
-// no grant makes it allowed, and ejecting the flag is what makes it possible.
+// 403 rather than a permission error: no grant makes this allowed — ejecting
+// the flag is what makes it possible.
 export class ManagedFeatureError extends Error {
   status = 403;
   readonly featureId: string;

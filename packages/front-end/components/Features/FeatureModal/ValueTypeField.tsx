@@ -24,8 +24,7 @@ const ValueTypeField: FC<{
   // Offer the config-backed authoring type (only flows whose value editor
   // supports config backing should enable this).
   allowConfig?: boolean;
-  // Reorder the base types so the most appropriate default for the calling
-  // flow reads first. Config, when offered, always stays last.
+  /** Reorders the base types; config, when offered, stays last. */
   order?: FeatureValueType[];
 }> = ({ onChange, value, allowConfig = false, order }) => {
   const { hasCommercialFeature } = useUser();

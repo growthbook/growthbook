@@ -37,6 +37,8 @@ type Props = {
   numLinkedChanges: number;
   onReAdd?: () => void;
   mutate?: () => void;
+  /** The variation cards are already showing these values. */
+  valuesShownOnVariations?: boolean;
 };
 
 export default function LinkedFeatureFlag({
@@ -45,6 +47,7 @@ export default function LinkedFeatureFlag({
   numLinkedChanges,
   onReAdd,
   mutate,
+  valuesShownOnVariations,
 }: Props) {
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
@@ -86,9 +89,6 @@ export default function LinkedFeatureFlag({
     }
   };
 
-  // Managed mode: this flag exists only to deliver this experiment, so the card
-  // owns the whole lifecycle — values, review, publish — and the flag itself is
-  // closed to direct edits until it is ejected.
   const isManaged = isManagedByExperiment(info.feature, experiment.id);
 
   const handleEject = async () => {
@@ -154,10 +154,10 @@ export default function LinkedFeatureFlag({
     }),
   );
 
-  // Managed mode moves the values out, so the section only earns its space when
-  // one of the live/draft warnings has something to say.
+  // With the values on the variation cards, this only earns space when one of
+  // the warnings below has something to say.
   const showValueSection =
-    !isManaged ||
+    !valuesShownOnVariations ||
     ((info.state === "live" || info.state === "draft") &&
       (info.inconsistentValues || info.rulesAbove));
 
@@ -227,10 +227,8 @@ export default function LinkedFeatureFlag({
           if (info.state === "archived") {
             return <Badge label="Archived" radius="full" color="gray" />;
           }
-          // Managed mode has one draft whose review status is the state worth
-          // showing — the flag's own live/draft state is already implied by the
-          // experiment. Otherwise a draft awaiting approval reads as plain
-          // "Draft" and the badge disagrees with the approval control.
+          // Show the review status: the flag's live/draft state is implied by
+          // the experiment, and "Draft" would disagree with the approval CTA.
           const revisionStatus =
             isManaged && info.state === "draft" && info.draftRevisionStatus
               ? info.draftRevisionStatus
@@ -324,9 +322,7 @@ export default function LinkedFeatureFlag({
               icon={<PiGitMerge style={{ fontSize: "1.2em" }} />}
             >
               {isManaged ? (
-                // Managed mode keeps the whole lifecycle on this page, so the
-                // callout states the situation and stops — the controls above
-                // are the way to act on it, not a trip to the Feature Flag page.
+                // The controls above are how you act on this — no link out.
                 <>
                   Values for this experiment are in a <strong>draft</strong>
                   {info.pendingApproval ? (
@@ -386,15 +382,8 @@ export default function LinkedFeatureFlag({
           )}
         {info.state !== "discarded" && info.state !== "archived" && (
           <Box className="appbox" style={{ backgroundColor: "transparent" }}>
-            {/* With the value rows moved onto the variation cards, this section
-                is empty for a managed flag unless one of the warnings below
-                applies — rendering the padded container regardless leaves a
-                blank band above the environments grid. */}
             {showValueSection && (
               <Flex width="100%" gap="4" py="4" px="5" direction="column">
-                {/* Managed mode shows the served values on the variation cards
-                  above, so restating them here would be the same information
-                  twice with two edit affordances. */}
                 {!isManaged && (
                   <Box flexGrow="1">
                     <LinkedChangeVariationRows

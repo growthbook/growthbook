@@ -24,7 +24,7 @@ import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselM
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Metadata from "@/ui/Metadata";
 import VariationLabel from "@/ui/VariationLabel";
-import ValueDisplay from "@/components/Features/ValueDisplay";
+import VariationServedValue from "@/components/Experiment/VariationServedValue";
 
 export const MAX_VARIATION_WIDTH = 336;
 
@@ -162,9 +162,7 @@ interface Props {
   onEditTraffic?: (variationId?: string) => void;
   // When true, the grid is centered and capped at 3 columns.
   centered?: boolean;
-  // Managed-mode Feature Flag delivery. When set, each card shows the value its
-  // variation serves, so the split and the delivered value read together
-  // instead of being restated in a separate implementation block.
+  /** Shows each variation's served value; see `soleLinkedFeature`. */
   servedValues?: { variationId: string; value: string }[];
   servedValueFeature?: FeatureInterface;
   servedValueSparse?: boolean;
@@ -258,8 +256,7 @@ export function VariationBox({
   onEditMetadata?: (variationIndex: number) => void;
   onEditTraffic?: (variationId?: string) => void;
   capWidth?: boolean;
-  // Managed-mode Feature Flag delivery: the value this variation serves, shown
-  // on the card itself so the split and what it delivers read together.
+  /** The value this variation serves, when the sole implementation is a flag. */
   servedValue?: string;
   servedValueFeature?: FeatureInterface;
   servedValueSparse?: boolean;
@@ -392,36 +389,13 @@ export function VariationBox({
               </Flex>
             )}
           </Flex>
-          {/* Same Metadata label treatment as Split, and the same semibold
-              small link as Image, so the card footer reads as one row style
-              rather than three. */}
           {servedValueFeature ? (
-            <Flex align="center" justify="between" gap="2" mt="1">
-              <Metadata
-                label="Serves"
-                size="sm"
-                value={
-                  // ValueDisplay, not ForceSummary: the latter prefixes its own
-                  // "SERVE" label, which would read as "Serves: SERVE ..." next
-                  // to the Metadata label.
-                  <ValueDisplay
-                    value={servedValue ?? ""}
-                    type={servedValueFeature.valueType}
-                    sparse={servedValueSparse}
-                    defaultValue={servedValueFeature.defaultValue}
-                    showCopyButton={false}
-                    fullStyle={{ maxHeight: 60, overflowY: "auto" }}
-                  />
-                }
-              />
-              {onEditServedValue ? (
-                <Link onClick={onEditServedValue}>
-                  <Text size="sm" weight="semibold">
-                    Edit
-                  </Text>
-                </Link>
-              ) : null}
-            </Flex>
+            <VariationServedValue
+              value={servedValue ?? ""}
+              feature={servedValueFeature}
+              sparse={servedValueSparse}
+              onEdit={onEditServedValue}
+            />
           ) : null}
         </Box>
       </Flex>

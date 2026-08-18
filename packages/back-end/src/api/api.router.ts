@@ -158,8 +158,7 @@ router.get("/", indexHandler);
 router.get("/v1/", indexHandler);
 
 export const allRoutes = [
-  // Direct writes to an experiment-managed flag are refused on both the v1 and
-  // v2 surfaces; the equivalent actions live on the experiment's own routes.
+  // Direct writes to a managed flag are refused on both surfaces.
   ...guardManagedFeatureRoutes(featureRoutes),
   ...guardManagedFeatureRoutes(featureV2Routes),
   ...archetypesRoutes,

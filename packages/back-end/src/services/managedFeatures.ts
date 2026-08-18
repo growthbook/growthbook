@@ -4,6 +4,7 @@ import {
   isManagedByExperiment,
   isManagedFeature,
   managedFeatureKeyCandidate,
+  seedManagedVariationValues,
 } from "shared/util";
 import {
   ExperimentInterface,
@@ -38,31 +39,20 @@ import {
   linkFeatureToExperiment,
 } from "back-end/src/services/experiment-feature";
 
-/**
- * A Feature Flag in managed mode is owned by its experiment: it holds one
- * experiment-ref rule, and every change to it is made from the experiment page
- * (or the equivalent `/experiments/:id/managed-flag/*` REST routes). This module
- * is what makes that ownership real rather than advisory.
- *
- * The guard is applied at the two *request entry points* — Express routes and
- * the agent dispatcher — rather than in the model layer, because the model
- * cannot tell a user editing the flag directly from the experiment's own start,
- * stop, holdout and ramp flows writing through it. Those internal writes must
- * keep working; only inbound requests aimed at a feature route are refused.
- */
+// Guards live at the request entry points (Express routes and the agent
+// dispatcher), not the model layer: the model can't tell a direct user edit from
+// the experiment's own start/stop/holdout/ramp writes, which must keep working.
 
 export async function assertFeatureNotManaged(
   context: ReqContext | ApiReqContext,
   featureId: string,
 ): Promise<void> {
   const feature = await getFeature(context, featureId);
-  // A feature the caller can't read, or that doesn't exist, is the handler's
-  // 404 to raise — not ours to pre-empt with a different status.
+  // Missing or unreadable is the handler's 404 to raise, not ours.
   if (!feature) return;
   if (!isManagedFeature(feature)) return;
   throw new ManagedFeatureError({
     featureId: feature.id,
-    // Narrowed by isManagedFeature; the union has one member today.
     experimentId:
       feature.managedBy?.type === "experiment"
         ? feature.managedBy.experimentId
@@ -70,12 +60,6 @@ export async function assertFeatureNotManaged(
   });
 }
 
-/**
- * How many key candidates to try before giving up. Each attempt is a real
- * insert; the unique `{id, organization}` index is what decides, so a rival
- * create taking the id mid-flight just costs one more attempt rather than
- * producing a duplicate. Ten is far past any realistic contention.
- */
 const MAX_KEY_ATTEMPTS = 10;
 
 function isDuplicateKeyError(e: unknown): boolean {
@@ -94,11 +78,9 @@ export type CreateManagedFeatureInput = {
 };
 
 /**
- * Create the Feature Flag an experiment manages and stage its single
- * experiment-ref rule as a draft. The flag starts disabled in every
- * environment; `linkFeatureToExperiment` flips on the rule's footprint inside
- * the draft, so nothing is served until that draft is published — which
- * happens when the experiment starts.
+ * Creates the flag disabled everywhere and stages its experiment-ref rule as a
+ * draft; `linkFeatureToExperiment` puts the env toggles in that same draft, so
+ * nothing serves until the experiment starts and publishes it.
  */
 export async function createManagedFeatureForExperiment({
   context,
@@ -134,9 +116,8 @@ export async function createManagedFeatureForExperiment({
     );
   }
 
-  // A managed flag's key is derived, not typed, so an org key regex can reject
-  // something the user never chose. Say so plainly rather than failing on the
-  // insert with a shape they can't act on.
+  // The key is derived, not typed, so an org key regex can reject something the
+  // user never chose — say so rather than failing on the insert.
   const regexValidator = org.settings?.featureRegexValidator;
 
   const baseFeature: Omit<FeatureInterface, "id"> = {
@@ -147,8 +128,7 @@ export async function createManagedFeatureForExperiment({
     tags: experiment.tags || [],
     valueType,
     defaultValue: variations[0].value,
-    // Disabled everywhere on create: the flag reaches no payload until its
-    // draft publishes, so creation needs create authority alone.
+    // Reaches no payload until the draft publishes, so create authority alone.
     environmentSettings: Object.fromEntries(
       allEnvironments.map((e) => [e.id, { enabled: false }]),
     ),
@@ -166,8 +146,6 @@ export async function createManagedFeatureForExperiment({
   if (
     !context.permissions.canCreateFeature(
       baseFeature,
-      // Enabled nowhere on create, so the publish half is vacuous by
-      // construction rather than by a hand-written empty list.
       Array.from(
         getEnabledEnvironments(
           baseFeature as FeatureInterface,
@@ -197,13 +175,11 @@ export async function createManagedFeatureForExperiment({
 
     try {
       await createFeature(context, { ...baseFeature, id });
-      // Re-read so the link step below works from the canonical stored doc
-      // (createFeature also writes the initial revision) rather than our input.
+      // createFeature also writes the initial revision; re-read the stored doc.
       created = await getFeature(context, id);
       break;
     } catch (e) {
-      // Someone else holds this key — the index is the arbiter, so take the
-      // next candidate rather than pre-checking and racing.
+      // The index is the arbiter; take the next candidate rather than racing.
       if (!isDuplicateKeyError(e)) throw e;
     }
   }
@@ -214,10 +190,8 @@ export async function createManagedFeatureForExperiment({
     );
   }
 
-  // The flag and its rule are one unit: a flag with no experiment-ref rule is
-  // a locked-down orphan nobody can edit or reach. If the link fails, undo the
-  // create rather than leave that behind. Innermost step compensates itself,
-  // so the caller only has to undo what it wrote.
+  // A flag with no experiment-ref rule is a locked-down orphan nobody can reach,
+  // so undo the create if the link fails.
   let linked: ExperimentFeatureLinkResult;
   try {
     linked = await linkFeatureToExperiment({
@@ -251,21 +225,11 @@ export async function createManagedFeatureForExperiment({
   return { feature: created, version: linked.version };
 }
 
-/**
- * How many times to re-read the source flag when copying it for a duplicate.
- * Each attempt reads the values, then re-reads the flag to confirm it did not
- * move underneath us; a rival edit costs one more attempt.
- */
 const MAX_SOURCE_READ_ATTEMPTS = 3;
 
 /**
- * The type and values a duplicated experiment's managed flag should start with,
- * copied from the experiment it was duplicated from.
- *
- * Returns null when there is nothing safe to copy — no managed source, or the
- * source kept changing while we read it. Callers seed a brand new flag instead
- * of failing: a duplicate with fresh values is a far better outcome than an
- * experiment with no implementation and no way to add one.
+ * Null when there is nothing safe to copy — no managed source, or the source
+ * kept changing while we read it. Callers seed a fresh flag instead of failing.
  */
 export async function readManagedValuesForDuplicate({
   context,
@@ -291,9 +255,8 @@ export async function readManagedValuesForDuplicate({
     );
     if (!info) return null;
 
-    // Compare-and-swap on the source: the values above came from a separate
-    // read, so they only describe one point in time if the flag is unchanged
-    // since. Otherwise we could copy a half-applied edit.
+    // The values came from a separate read, so they describe one point in time
+    // only if the flag is unchanged since; otherwise we'd copy a partial edit.
     const after = await getFeature(context, before.id);
     if (after && after.dateUpdated.getTime() === before.dateUpdated.getTime()) {
       return {
@@ -315,10 +278,59 @@ export async function readManagedValuesForDuplicate({
 }
 
 /**
- * Release a flag from its experiment. The flag and its revision history are
- * untouched — only the ownership marker is cleared, which reopens every direct
- * write path and lets the experiment take other implementations again.
+ * Create the managed flag for a newly created experiment, copying the source's
+ * type and values when it was duplicated from a managed one. A copy can fail
+ * where a fresh flag won't (a value the schema now rejects), so it falls back
+ * to seeded values rather than failing the create outright.
  */
+export async function createManagedFlagForNewExperiment({
+  context,
+  experiment,
+  sourceExperiment,
+  eventAudit,
+  audit,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  sourceExperiment: ExperimentInterface | null;
+  eventAudit: EventUser;
+  audit: (data: AuditInterfaceInput) => Promise<void>;
+}): Promise<void> {
+  const seeded = {
+    valueType: "string" as FeatureValueType,
+    variations: seedManagedVariationValues(experiment.variations),
+  };
+  const copied = sourceExperiment
+    ? await readManagedValuesForDuplicate({
+        context,
+        sourceExperiment,
+        targetExperiment: experiment,
+      })
+    : null;
+
+  const create = (plan: typeof seeded) =>
+    createManagedFeatureForExperiment({
+      context,
+      experiment,
+      valueType: plan.valueType,
+      variations: plan.variations,
+      eventAudit,
+      audit,
+    });
+
+  try {
+    await create(copied ?? seeded);
+  } catch (e) {
+    if (!copied) throw e;
+    logger.warn(
+      { experiment: experiment.id, error: e.message },
+      "Copying the managed Feature Flag for a duplicate failed; seeding a fresh one",
+    );
+    await create(seeded);
+  }
+}
+
+/** Clears the ownership marker only; content and history are untouched. */
 export async function ejectManagedFeature({
   context,
   feature,
@@ -333,8 +345,7 @@ export async function ejectManagedFeature({
       `Feature Flag "${feature.id}" is not managed by this experiment.`,
     );
   }
-  // Ejecting hands the flag back to ordinary editing, so it takes the same
-  // authority an ordinary edit would.
+  // Hands the flag back to ordinary editing, so it takes ordinary edit authority.
   if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
@@ -346,11 +357,7 @@ function isMutatingMethod(method: string): boolean {
   return !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase());
 }
 
-/**
- * Express guard for the internal `/feature/*` routes. Mounted once, ahead of
- * the route table, so a feature route added later is covered without anyone
- * remembering to opt in.
- */
+/** Mounted ahead of the route table so later feature routes are covered too. */
 export const blockManagedFeatureWrites: RequestHandler = (req, _res, next) => {
   if (!isMutatingMethod(req.method)) return next();
   const featureId = req.params?.id;
@@ -360,11 +367,7 @@ export const blockManagedFeatureWrites: RequestHandler = (req, _res, next) => {
     .catch(next);
 };
 
-/**
- * Find the flag an experiment manages, or null. Ownership is read off the
- * feature, never off the experiment, so there is one source of truth and
- * nothing to drift.
- */
+/** Ownership is read off the feature, never the experiment — one source. */
 export async function getManagedFeatureForExperiment(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
@@ -379,13 +382,11 @@ export async function getManagedFeatureForExperiment(
 }
 
 /**
- * Rewrite `/experiment/:id/managed-flag/<action>` into the `(id, version)` the
- * ordinary feature controllers already take, so those routes reuse the review
- * and publish logic verbatim instead of a parallel copy of it.
+ * Rewrites `/experiment/:id/managed-flag/<action>` into the `(id, version)` the
+ * feature controllers already take, so they're reused verbatim.
  *
- * The ownership re-check here is load-bearing: without it these routes would be
- * a way to drive any feature through an experiment path and around the
- * lockdown. A flag not managed by *this* experiment is refused.
+ * The ownership re-check is load-bearing: without it this route would drive any
+ * feature around the lockdown.
  */
 export const resolveManagedFlagParams: RequestHandler = (req, _res, next) => {
   void (async () => {
@@ -418,11 +419,9 @@ export const resolveManagedFlagParams: RequestHandler = (req, _res, next) => {
 };
 
 /**
- * Wrap REST feature routes so a managed flag refuses direct writes on both
- * paths a route can be invoked by: the Express `handler` and the agent
- * dispatcher's `rawHandler`. Rebuilding both from one guarded inner handler
- * keeps it a single check — attaching Express middleware instead would leave
- * the dispatcher, which never runs middleware, guarded by a separate mechanism.
+ * Guards both ways a route can be invoked: the Express `handler` and the agent
+ * dispatcher's `rawHandler`. Middleware alone would miss the dispatcher, which
+ * never runs it.
  */
 export function guardManagedFeatureRoutes(
   routes: OpenApiRoute[],
@@ -437,8 +436,7 @@ export function guardManagedFeatureRoutes(
       return inner(req);
     };
 
-    // Mirrors the wrapper `createApiRequestHandler` builds, pointed at the
-    // guarded inner handler so validation and error shaping stay identical.
+    // Mirrors createApiRequestHandler's wrapper so shaping stays identical.
     const handler: OpenApiRoute["handler"] = async (req, res, next) => {
       try {
         const { status, body } = await runApiHandler(

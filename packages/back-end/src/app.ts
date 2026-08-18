@@ -910,8 +910,7 @@ app.use("/ramp-schedule-templates", rampScheduleTemplateRouter);
 // Holdouts
 app.use("/holdout", holdoutRouter);
 
-// Experiment-managed Feature Flags. Mounted under /experiment so it sits
-// outside the direct-write lockdown on /feature/*.
+// Mounted under /experiment, outside the /feature/* lockdown.
 app.use("/experiment/:id/managed-flag", managedFlagRouter);
 
 // Reports
@@ -944,10 +943,7 @@ app.use("/revision", revisionRouter);
 app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 
 // Features
-// Refuse every direct write to a flag an experiment manages, ahead of the
-// route table so routes added later are covered without opting in. Reads pass
-// through; the experiment's own `/experiment/:id/managed-flag/*` routes sit
-// outside this path and are unaffected.
+// Ahead of the route table so feature routes added later are covered too.
 app.all("/feature/:id", blockManagedFeatureWrites);
 app.all("/feature/:id/*", blockManagedFeatureWrites);
 app.get("/feature", featuresController.getFeatures);

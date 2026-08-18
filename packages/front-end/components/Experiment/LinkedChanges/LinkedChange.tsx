@@ -17,9 +17,8 @@ type Props = {
   changeType: "flag" | "visual" | "redirect";
   feature?: { id: string; valueType: FeatureValueType };
   additionalBadge?: ReactNode;
-  // Ownership marker rendered next to the heading (managed Feature Flags).
   managedBadge?: ReactNode;
-  // Replaces the Edit/Remove cluster when the change owns its own controls.
+  /** Replaces the Edit/Remove cluster when the change owns its controls. */
   actions?: ReactNode;
   changes?: string[];
   vc?: VisualChangesetInterface;
