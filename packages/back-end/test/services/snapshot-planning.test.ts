@@ -1409,8 +1409,6 @@ describe("snapshot planning", () => {
     });
 
     expect(plan.snapshot.runnerKind).toBe("incremental-exploratory");
-    // Healthy breakdown running incrementally already, nothing to unblock.
-    expect(plan.overallResultsFullRefreshWouldUnblock).toBe(false);
   });
 
   it("throws ExperimentIncrementalPipelineRequiresFullRefreshError when the Overall units table requires a full refresh and prompting enabled", async () => {
@@ -1471,9 +1469,6 @@ describe("snapshot planning", () => {
     expect(plan.incrementalFallbackReason).toBe(
       "Overall Results need a full refresh; running non-incremental update instead of reading stale data.",
     );
-    // A Full Refresh of Overall Results would let this breakdown run
-    // incrementally, so the dashboard fan-out is told to rebuild once.
-    expect(plan.overallResultsFullRefreshWouldUnblock).toBe(true);
   });
 
   function makeNeverMaterializedContext() {
@@ -1553,9 +1548,6 @@ describe("snapshot planning", () => {
     expect(plan.incrementalFallbackReason).toBe(
       "No materialized units table yet for Overall Results.",
     );
-    // A dimensionless request is what materializes the table, so it is never
-    // "blocked on Overall Results" and never asks the fan-out to rebuild.
-    expect(plan.overallResultsFullRefreshWouldUnblock).toBe(false);
   });
 
   it("does not demand an Overall Results refresh the pipeline would reject for the same experiment", async () => {
@@ -1586,9 +1578,6 @@ describe("snapshot planning", () => {
     expect(plan.incrementalFallbackReason).toBe(
       "'Exclude In-Progress Conversions' is not supported with Incremental Pipeline mode while in beta. Please select 'Include' in the Analysis Settings for Metric Conversion Windows.",
     );
-    // A Full Refresh would be rejected for the same reason, so rebuilding
-    // Overall would not help and the fan-out must not attempt it.
-    expect(plan.overallResultsFullRefreshWouldUnblock).toBe(false);
   });
 
   it("does not demand an Overall Results refresh for a non-latest phase that would never materialize one", async () => {
@@ -1644,7 +1633,6 @@ describe("snapshot planning", () => {
 
     expect(plan.snapshot.runnerKind).toBe("incremental-exploratory");
     expect(plan.incrementalFallbackReason).toBeNull();
-    expect(plan.overallResultsFullRefreshWouldUnblock).toBe(false);
   });
 
   it("does not demand an Overall Results refresh for a settings-drifted non-latest phase", async () => {
@@ -1675,9 +1663,6 @@ describe("snapshot planning", () => {
     expect(plan.incrementalFallbackReason).toBe(
       "The requested phase's materialized units table is stale; running a non-incremental update instead.",
     );
-    // Overall Results never materialize for a non-latest phase, so a rebuild
-    // would not help and the boolean stays false.
-    expect(plan.overallResultsFullRefreshWouldUnblock).toBe(false);
   });
 
   it("falls back to results for a scheduled dimension request when Overall Results were never materialized", async () => {
@@ -1703,8 +1688,6 @@ describe("snapshot planning", () => {
     expect(plan.incrementalFallbackReason).toBe(
       "No materialized units table yet for Overall Results.",
     );
-    // Dimension-blocked and fixable, so the fan-out is told to rebuild once.
-    expect(plan.overallResultsFullRefreshWouldUnblock).toBe(true);
   });
 
   it("throws for a scheduled dimension request from a request path when Overall Results were never materialized", async () => {
@@ -1758,8 +1741,5 @@ describe("snapshot planning", () => {
     expect(plan.snapshot.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBeNull();
     expect(assertIncrementalRefreshPrerequisitesMock).not.toHaveBeenCalled();
-    // Not covered by the Incremental Pipeline at all, so there is nothing to
-    // unblock.
-    expect(plan.overallResultsFullRefreshWouldUnblock).toBe(false);
   });
 });

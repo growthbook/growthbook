@@ -1601,7 +1601,6 @@ async function planSnapshotQueryRunner({
   incrementalFallbackReason: string | null;
   fullRefresh: boolean;
   fullRefreshReason: string | null;
-  overallResultsFullRefreshWouldUnblock: boolean;
 }> {
   const decision = resolveSnapshotRunner({
     datasource,
@@ -1635,11 +1634,6 @@ async function planSnapshotQueryRunner({
         unavailableReason ?? decision.incrementalFallbackReason,
       fullRefresh,
       fullRefreshReason,
-      // A null reason means a Full Refresh of Overall Results would let this
-      // breakdown run incrementally. The dashboard fan-out reads this to rebuild
-      // Overall once instead of leaving every breakdown on the full-scan runner.
-      overallResultsFullRefreshWouldUnblock:
-        isLatestPhase && !unavailableReason,
     };
   }
 
@@ -1650,7 +1644,6 @@ async function planSnapshotQueryRunner({
       incrementalFallbackReason,
       fullRefresh,
       fullRefreshReason,
-      overallResultsFullRefreshWouldUnblock: false,
     };
   }
 
@@ -1682,8 +1675,6 @@ async function planSnapshotQueryRunner({
           : "The requested phase's materialized units table is stale; running a non-incremental update instead."),
       fullRefresh,
       fullRefreshReason,
-      overallResultsFullRefreshWouldUnblock:
-        isLatestPhase && !unavailableReason,
     };
   }
 
@@ -1700,23 +1691,19 @@ async function planSnapshotQueryRunner({
       ...decision,
       fullRefresh,
       fullRefreshReason,
-      overallResultsFullRefreshWouldUnblock: false,
     };
   } catch (error) {
-    return {
-      ...(await resolveIncrementalPrerequisiteFailure({
-        error,
-        decision,
-        experiment,
-        triggeredBy,
-        snapshotType,
-        fullRefresh,
-        fullRefreshReason,
-        prerequisites,
-        throwOnErrorInsteadOfFallback,
-      })),
-      overallResultsFullRefreshWouldUnblock: false,
-    };
+    return resolveIncrementalPrerequisiteFailure({
+      error,
+      decision,
+      experiment,
+      triggeredBy,
+      snapshotType,
+      fullRefresh,
+      fullRefreshReason,
+      prerequisites,
+      throwOnErrorInsteadOfFallback,
+    });
   }
 }
 
@@ -1729,7 +1716,6 @@ export type PlannedExperimentSnapshot = {
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
   incrementalFallbackReason: string | null;
   fullRefreshReason: string | null;
-  overallResultsFullRefreshWouldUnblock: boolean;
 };
 
 function shouldIncrementalThrowErrorInsteadOfFallback(
@@ -1988,8 +1974,6 @@ export async function planSnapshot({
     fullRefresh: runnerPlan.fullRefresh,
     fullRefreshReason: runnerPlan.fullRefreshReason,
     settingsForSnapshotMetrics,
-    overallResultsFullRefreshWouldUnblock:
-      runnerPlan.overallResultsFullRefreshWouldUnblock,
   };
 }
 
