@@ -206,14 +206,19 @@ export function onVisible() {
 
 // Private functions
 
-// console.warn rather than the usual env-gated instance.log(): log() is debug-only, so it
-// would hide this misconfiguration from the production users already serving a frozen
-// payload. Deduped per reason. Diagnostics still belong in instance.log().
+// The only place the SDK warns directly rather than through the env-gated instance.log().
+// log() is debug-only, so routing a misconfiguration through it would hide the problem from
+// exactly the production users it affects. Diagnostics still belong in instance.log().
+function warnMisconfiguration(message: string): void {
+  console.warn(`[GrowthBook] ${message}`);
+}
+
+// Deduped per reason, so a process warns once about each distinct cause
 function warnStreamingUnavailable(reason: string): void {
   if (streamingWarnings.has(reason)) return;
   streamingWarnings.add(reason);
-  console.warn(
-    `[GrowthBook] Streaming is enabled, but not active: ${reason}. Features will not be updated in the background. Set \`pollingInterval\` to refresh on a timer instead, or see https://docs.growthbook.io/lib/node#refreshing-features`,
+  warnMisconfiguration(
+    `Streaming is enabled, but not active: ${reason}. Features will not be updated in the background. Set \`pollingInterval\` to refresh on a timer instead, or see https://docs.growthbook.io/lib/node#refreshing-features`,
   );
 }
 
@@ -611,11 +616,10 @@ function destroyChannel(channel: ScopedChannel, key: string) {
 
 // Refresh on a fixed interval. Deduped per key, so many instances sharing a clientKey poll once.
 function startPolling(key: string, interval: number): void {
-  // setTimeout collapses an out-of-range delay to 1ms, turning a typo into a request
-  // loop. console.warn here for the same reason as warnStreamingUnavailable above
+  // setTimeout collapses an out-of-range delay to 1ms, turning a typo into a request loop
   if (!Number.isFinite(interval) || interval < 1 || interval > 2147483647) {
-    console.warn(
-      `[GrowthBook] Ignoring invalid pollingInterval (${interval}). Expected a finite number of milliseconds between 1 and 2147483647.`,
+    warnMisconfiguration(
+      `Ignoring invalid pollingInterval (${interval}). Expected a finite number of milliseconds between 1 and 2147483647.`,
     );
     return;
   }
