@@ -244,6 +244,9 @@ export default {
         remoteEval: "≥ v2.5.0",
       },
       {
+        trackingPlugin: "≥ v2.4.0",
+      },
+      {
         caseInsensitiveRegex: "≥ v2.3.0",
       },
       {
@@ -307,6 +310,9 @@ export default {
       },
       {
         caseInsensitiveRegex: "≥ v1.6.3",
+      },
+      {
+        trackingPlugin: "≥ v1.4.0",
       },
       {
         savedGroupReferences: "≥ v1.1.0",
@@ -408,6 +414,9 @@ export default {
         remoteEval: "≥ v2.3.0",
       },
       {
+        trackingPlugin: "≥ v2.2.0",
+      },
+      {
         caseInsensitiveMembership: "≥ v2.1.1",
       },
       {
@@ -461,6 +470,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        trackingPlugin: "≥ v0.2.8",
       },
       {
         caseInsensitiveMembership: "≥ v0.2.7",
@@ -1198,6 +1210,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        trackingPlugin: "≥ v4.4.0",
       },
       {
         caseInsensitiveRegex: "≥ v4.3.0",
