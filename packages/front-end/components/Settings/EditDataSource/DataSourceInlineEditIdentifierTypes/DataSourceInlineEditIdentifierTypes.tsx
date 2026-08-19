@@ -146,7 +146,6 @@ export const DataSourceInlineEditIdentifierTypes: FC<
 
       {userIdTypes.map((type, idx) => {
         const { userIdType, description, attributes } = type;
-        const isManaged = isEventForwarderManagedUserIdType(type);
 
         return (
           <Card key={userIdType} mt="3">
@@ -157,7 +156,6 @@ export const DataSourceInlineEditIdentifierTypes: FC<
                   <Heading size="sm" as="h3" mb="0">
                     {userIdType}
                   </Heading>
-                  {isManaged && <Badge label="Managed by Event Forwarder" />}
                 </Flex>
                 <Box mb="2">
                   <Metadata
