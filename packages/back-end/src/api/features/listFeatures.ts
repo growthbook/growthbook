@@ -14,7 +14,7 @@ import {
 } from "back-end/src/services/features";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
-import { referencedRefIds } from "back-end/src/util/features";
+import { getReferenceIdsInFeatures } from "back-end/src/util/features";
 import {
   applyPagination,
   createApiRequestHandler,
@@ -201,7 +201,7 @@ export async function loadFeaturesPage(
   const experimentMap = await getAllPayloadExperiments(
     context,
     experimentScope,
-    referencedRefIds(filtered, "experiment-ref"),
+    getReferenceIdsInFeatures(filtered, "experiment-ref"),
   );
 
   const hasMore = skipPagination ? false : offset + limit < total;

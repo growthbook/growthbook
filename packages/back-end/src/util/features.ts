@@ -601,7 +601,7 @@ const REF_ID: Record<RefRuleType, (rule: FeatureRule) => string | undefined> = {
     r?.type === "contextual-bandit-ref" ? r.contextualBanditId : undefined,
 };
 
-export function ruleRefIds(
+export function getReferenceIdsInRules(
   rules: FeatureRule[] | undefined,
   type: RefRuleType,
   { skipDisabled = false }: { skipDisabled?: boolean } = {},
@@ -616,14 +616,14 @@ export function ruleRefIds(
 }
 
 // Disabled rules never render, so what they reference is not needed.
-export function referencedRefIds(
+export function getReferenceIdsInFeatures(
   features: FeatureInterface[],
   type: RefRuleType,
 ): string[] {
   return [
     ...new Set(
       features.flatMap((f) =>
-        ruleRefIds(f.rules, type, { skipDisabled: true }),
+        getReferenceIdsInRules(f.rules, type, { skipDisabled: true }),
       ),
     ),
   ];
@@ -637,7 +637,9 @@ export function experimentMapForFeatures(
   projects: string[],
 ): Map<string, ExperimentInterface> {
   if (!projects.length) return experimentMap;
-  const referenced = new Set(referencedRefIds(features, "experiment-ref"));
+  const referenced = new Set(
+    getReferenceIdsInFeatures(features, "experiment-ref"),
+  );
   return new Map(
     [...experimentMap.entries()].filter(
       ([id, exp]) => projects.includes(exp.project || "") || referenced.has(id),
