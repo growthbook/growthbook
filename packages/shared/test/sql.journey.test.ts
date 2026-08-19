@@ -724,6 +724,35 @@ describe("journeyResultCanServe", () => {
     ).toBe(true);
   });
 
+  it("rejects a longer cache when view-more needs more options than it stored", () => {
+    const cached = dataset([{ value: "home" }], 3);
+    const requested = {
+      ...dataset([], 3),
+      optionsPerStep: [8],
+    };
+    if (cached.type !== "journey" || requested.type !== "journey") {
+      throw new Error("expected journey");
+    }
+    expect(
+      journeyResultCanServe({
+        cachedDataset: cached,
+        cachedRows: [
+          {
+            dimensions: [],
+            journey: {
+              kind: "committed",
+              direction: "forward",
+              stepIndex: 0,
+              value: "home",
+              count: 8,
+            },
+          },
+        ],
+        requestedDataset: requested,
+      }),
+    ).toBe(false);
+  });
+
   it("rejects a 3-step cache when the requested path uses every fetched level", () => {
     const cached = dataset([], 3);
     const requested = dataset(
@@ -1025,6 +1054,11 @@ describe("projectJourneyRows", () => {
       throw new Error("expected journey");
     }
     expect(client.config.dataset.path).toEqual([{ value: "home" }]);
+    expect(client.config.dataset.optionsPerStep).toEqual(
+      requested.dataset.type === "journey"
+        ? requested.dataset.optionsPerStep
+        : undefined,
+    );
     expect(client.config.dataset.lookaheadDepth).toBe(3);
     expect(
       client.result.rows.every(
@@ -1141,6 +1175,39 @@ describe("journeyCacheCandidateVerdict", () => {
         minUnusedLookahead: 1,
       }),
     ).toBe("needs-rows");
+  });
+
+  it("rejects a same-path cache when view-more asks for more options", () => {
+    expect(
+      journeyCacheCandidateVerdict({
+        cachedDataset: { ...dataset([], 3), optionsPerStep: [] },
+        requestedDataset: { ...dataset([], 3), optionsPerStep: [8] },
+        minUnusedLookahead: 1,
+      }),
+    ).toBe("no");
+  });
+
+  it("rejects a longer-path cache when view-more asks for more options", () => {
+    expect(
+      journeyCacheCandidateVerdict({
+        cachedDataset: {
+          ...dataset([{ value: "home" }], 3),
+          optionsPerStep: [],
+        },
+        requestedDataset: { ...dataset([], 3), optionsPerStep: [8] },
+        minUnusedLookahead: 1,
+      }),
+    ).toBe("no");
+  });
+
+  it("reuses a same-path cache that already has enough options", () => {
+    expect(
+      journeyCacheCandidateVerdict({
+        cachedDataset: { ...dataset([], 3), optionsPerStep: [8] },
+        requestedDataset: { ...dataset([], 3), optionsPerStep: [8] },
+        minUnusedLookahead: 1,
+      }),
+    ).toBe("yes");
   });
 
   it("agrees with journeyResultCanServe on the rows-free answers", () => {

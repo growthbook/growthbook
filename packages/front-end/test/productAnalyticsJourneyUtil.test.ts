@@ -17,6 +17,8 @@ import {
   hasUnsatisfiedInlineFilters,
   compareConfig,
   isSubmittableConfig,
+  explorerMainPresentation,
+  journeyDiffersOnlyByPath,
   journeyPreferredView,
   toFetchKey,
   withStepGroupsApplied,
@@ -225,6 +227,82 @@ describe("journey util branches", () => {
       needsFetch: true,
       needsUpdate: true,
     });
+  });
+
+  it("journeyDiffersOnlyByPath ignores path but not other fetch fields", () => {
+    const submitted: ExplorationConfig = {
+      type: "journey",
+      datasource: "ds_1",
+      chartType: "bar",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [],
+      dataset: journeyDataset({ path: [], lookaheadDepth: 3 }),
+    };
+    const pathOnly: ExplorationConfig = {
+      ...submitted,
+      dataset: journeyDataset({
+        path: [{ value: "home" }],
+        lookaheadDepth: 3,
+      }),
+    };
+    const withDimension: ExplorationConfig = {
+      ...pathOnly,
+      dimensions: [
+        {
+          dimensionType: "dynamic",
+          column: "country",
+          maxValues: 5,
+        },
+      ],
+    };
+    expect(journeyDiffersOnlyByPath(submitted, pathOnly)).toBe(true);
+    expect(journeyDiffersOnlyByPath(submitted, withDimension)).toBe(false);
+    expect(journeyDiffersOnlyByPath(submitted, submitted)).toBe(false);
+  });
+
+  it("shows the loading toast for journey fetches, including path-only clicks", () => {
+    const submitted: ExplorationConfig = {
+      type: "journey",
+      datasource: "ds_1",
+      chartType: "bar",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [],
+      dataset: journeyDataset({ path: [], lookaheadDepth: 3 }),
+    };
+    const base = {
+      draftType: "journey" as const,
+      chartType: "bar",
+      submitted,
+      hasChartData: true,
+      error: null,
+      isSubmittable: true,
+    };
+    expect(
+      explorerMainPresentation({
+        ...base,
+        loading: true,
+        isStale: false,
+      }).showStaleToast,
+    ).toBe(true);
+    expect(
+      explorerMainPresentation({
+        ...base,
+        loading: false,
+        isStale: true,
+      }).showStaleToast,
+    ).toBe(true);
   });
 
   it("toFetchKey keeps stepGroups, which change the generated SQL", () => {

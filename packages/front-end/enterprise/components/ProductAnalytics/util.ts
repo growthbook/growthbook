@@ -1005,6 +1005,27 @@ export function toFetchKey(
   };
 }
 
+/** True when the draft only changed the drilled journey path. */
+export function journeyDiffersOnlyByPath(
+  submitted: ExplorationConfig,
+  draft: ExplorationConfig,
+): boolean {
+  if (submitted.type !== "journey" || draft.type !== "journey") {
+    return false;
+  }
+  if (isEqual(submitted.dataset.path, draft.dataset.path)) return false;
+  return isEqual(
+    toFetchKey({
+      ...submitted,
+      dataset: { ...submitted.dataset, path: [] },
+    }),
+    toFetchKey({
+      ...draft,
+      dataset: { ...draft.dataset, path: [] },
+    }),
+  );
+}
+
 /** Returns true if any value/step targets a fact table whose `alwaysInlineFilter`
  *  columns are auto-seeded into rowFilters but still left at an empty value.
  *  We operate on the *raw* (uncleaned) config so we can see the placeholder
@@ -1362,9 +1383,7 @@ export function explorerMainPresentation({
         submittedExploreState: submitted,
       });
   const showTable = journeyView ? journeyView === "table" : true;
-  const showStaleToast =
-    (isStale || loading) &&
-    !(draftType === "journey" && loading && hasChartData);
+  const showStaleToast = isStale || loading;
 
   return { showChart, showTable, showStaleToast, emptyState: null };
 }

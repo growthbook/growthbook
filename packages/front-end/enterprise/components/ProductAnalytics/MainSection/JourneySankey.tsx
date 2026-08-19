@@ -50,6 +50,74 @@ export function dimColor(dimTop: string[], v: string): string {
   return i >= 0 && i < CHART_COLORS.length ? CHART_COLORS[i] : "var(--gray-8)";
 }
 
+const RIBBON_OPACITY = 0.55;
+const EXIT_RIBBON_OPACITY = 0.35;
+const EXIT_RIBBON_FILL = "var(--gray-8)";
+const STEP_BAR_FILL = "var(--accent-9)";
+
+function isExitNode(n: Pick<JourneyNode, "key" | "label">): boolean {
+  return JOURNEY_TERMINALS.has(n.key) || JOURNEY_TERMINALS.has(n.label);
+}
+
+function edgeTargetsExit(
+  e: JourneyEdge,
+  left: JourneyColumn,
+  right: JourneyColumn,
+): boolean {
+  const target = left.side === "b" ? left : right;
+  const key = target === right ? e.to : e.from;
+  const node = target.nodes.find((n) => n.key === key);
+  return !!node && isExitNode(node);
+}
+
+function ribbonParts(
+  e: JourneyEdge,
+  dimTop: string[],
+  toExit: boolean,
+): { y0: number; y1: number; h0: number; h1: number; fill: string }[] {
+  if (toExit) {
+    return [
+      {
+        y0: e.y0,
+        y1: e.y1,
+        h0: e.h0,
+        h1: e.h1,
+        fill: EXIT_RIBBON_FILL,
+      },
+    ];
+  }
+  if (e.dims && e.dims.size) {
+    const order = dimTop.concat([JOURNEY_OTHER]).filter((d) => e.dims?.has(d));
+    const gaps = Math.max(0, order.length - 1) * 2;
+    const usable0 = Math.max(0.5, e.h0 - gaps);
+    const usable1 = Math.max(0.5, e.h1 - gaps);
+    let a0 = e.y0;
+    let a1 = e.y1;
+    return order.map((d) => {
+      const frac = (e.dims?.get(d) ?? 0) / e.value;
+      const part = {
+        y0: a0,
+        y1: a1,
+        h0: usable0 * frac,
+        h1: usable1 * frac,
+        fill: dimColor(dimTop, d),
+      };
+      a0 += part.h0 + 2;
+      a1 += part.h1 + 2;
+      return part;
+    });
+  }
+  return [
+    {
+      y0: e.y0,
+      y1: e.y1,
+      h0: e.h0,
+      h1: e.h1,
+      fill: "var(--accent-a8)",
+    },
+  ];
+}
+
 function truncateLabel(label: string, pitch: number): string {
   const maxCh = Math.max(6, Math.floor((pitch - NODE_W - 40) / 9.2));
   return label.length > maxCh ? `${label.slice(0, maxCh - 1)}…` : label;
@@ -598,47 +666,9 @@ function SankeySvg({
             if (!A || !B) return null;
             const x0 = A.x + NODE_W;
             const x1 = B.x;
-            const op = e.leak ? 0.28 : e.committedEdge ? 0.45 : 0.62;
-            const parts: {
-              y0: number;
-              y1: number;
-              h0: number;
-              h1: number;
-              fill: string;
-            }[] =
-              e.dims && e.dims.size
-                ? (() => {
-                    const order = model.dimTop
-                      .concat([JOURNEY_OTHER])
-                      .filter((d) => e.dims?.has(d));
-                    const gaps = Math.max(0, order.length - 1) * 2;
-                    const usable0 = Math.max(0.5, e.h0 - gaps);
-                    const usable1 = Math.max(0.5, e.h1 - gaps);
-                    let a0 = e.y0;
-                    let a1 = e.y1;
-                    return order.map((d) => {
-                      const frac = (e.dims?.get(d) ?? 0) / e.value;
-                      const part = {
-                        y0: a0,
-                        y1: a1,
-                        h0: usable0 * frac,
-                        h1: usable1 * frac,
-                        fill: dimColor(model.dimTop, d),
-                      };
-                      a0 += part.h0 + 2;
-                      a1 += part.h1 + 2;
-                      return part;
-                    });
-                  })()
-                : [
-                    {
-                      y0: e.y0,
-                      y1: e.y1,
-                      h0: e.h0,
-                      h1: e.h1,
-                      fill: "var(--accent-a8)",
-                    },
-                  ];
+            const toExit = edgeTargetsExit(e, A, B);
+            const op = toExit ? EXIT_RIBBON_OPACITY : RIBBON_OPACITY;
+            const parts = ribbonParts(e, model.dimTop, toExit);
             const targetCol = A.side === "b" ? A : B;
             const popIndex =
               e.committedEdge &&
@@ -734,14 +764,8 @@ function SankeySvg({
             const lastCol = ci === L.cols.length - 1;
             return c.nodes.map((n) => {
               const ln = n as LaidNode;
-              const term = JOURNEY_TERMINALS.has(n.key) || n.terminal === true;
-              const fill = c.anchor
-                ? "var(--accent-9)"
-                : term
-                  ? "var(--gray-8)"
-                  : c.frontier
-                    ? "var(--accent-7)"
-                    : "var(--accent-9)";
+              const term = isExitNode(n) || n.terminal === true;
+              const fill = term ? EXIT_RIBBON_FILL : STEP_BAR_FILL;
               const hitH = Math.max(24, ln.h + 4);
               const lx = lastCol ? c.x - 7 : c.x + NODE_W + 7;
               const anch = lastCol ? "end" : "start";

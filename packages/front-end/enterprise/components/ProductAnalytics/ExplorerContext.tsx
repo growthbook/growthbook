@@ -44,6 +44,7 @@ import {
   getInitialInlineFilters,
   hasUnsatisfiedInlineFilters,
   isSubmittableConfig,
+  journeyDiffersOnlyByPath,
   stripExplorerDraftFields,
   toFetchKey,
   validateDimensions,
@@ -455,13 +456,11 @@ export function ExplorerProvider({
       if (options?.cache) {
         cache = options.cache;
       } else if (
-        configToSubmit.dataset.type === "journey" ||
         !hasEverFetchedRef.current ||
         isManagedWarehouse ||
         enablingComparison
       ) {
-        // Journeys always run (or reuse a prefix cache). First load, managed
-        // warehouse, and newly-enabled comparison do the same.
+        // first load, managed warehouse, or newly-enabled comparison: run if missing
         cache = "preferred";
       } else {
         cache = "required";
@@ -814,6 +813,11 @@ export function ExplorerProvider({
     if (needsFetch) {
       if (deferUntilManualRefresh) {
         setIsStale(true);
+      } else if (
+        baselineConfig &&
+        journeyDiffersOnlyByPath(baselineConfig, cleanedDraftExploreState)
+      ) {
+        doSubmit({ cache: "preferred" });
       } else {
         doSubmit();
       }

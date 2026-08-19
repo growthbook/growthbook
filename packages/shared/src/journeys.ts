@@ -419,6 +419,34 @@ function pathRowsContainStep(
   );
 }
 
+function journeyOptionsLength(
+  optionsPerStep: number[] | number | undefined,
+): number {
+  if (typeof optionsPerStep === "number") return 1;
+  return optionsPerStep?.length ?? 0;
+}
+
+/** Cached SQL must already have at least as many named buckets at every step. */
+function journeyOptionsCoverRequested(
+  cached: JourneyDataset,
+  requested: JourneyDataset,
+): boolean {
+  const last = Math.max(
+    journeyOptionsLength(cached.optionsPerStep),
+    journeyOptionsLength(requested.optionsPerStep),
+    requested.path.length + 1,
+  );
+  for (let i = 0; i < last; i++) {
+    if (
+      journeyOptionsAt(cached.optionsPerStep, i) <
+      journeyOptionsAt(requested.optionsPerStep, i)
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 /**
  * The part of `journeyResultCanServe` that only needs the two configs.
  *
@@ -436,19 +464,16 @@ export function journeyCacheCandidateVerdict({
   minUnusedLookahead?: number;
 }): "no" | "yes" | "needs-rows" {
   if (!journeyFamilyEquals(cachedDataset, requestedDataset)) return "no";
+  if (!journeyOptionsCoverRequested(cachedDataset, requestedDataset)) {
+    return "no";
+  }
 
   const cachedPath = cachedDataset.path;
   const requestedPath = requestedDataset.path;
-  const frontierOptionsOk =
-    journeyOptionsAt(cachedDataset.optionsPerStep, requestedPath.length) >=
-    journeyOptionsAt(requestedDataset.optionsPerStep, requestedPath.length);
 
   if (journeyPathIsPrefix(requestedPath, cachedPath)) {
     if (requestedPath.length === cachedPath.length) {
-      return cachedDataset.lookaheadDepth >= minUnusedLookahead &&
-        frontierOptionsOk
-        ? "yes"
-        : "no";
+      return cachedDataset.lookaheadDepth >= minUnusedLookahead ? "yes" : "no";
     }
     // Pop can reuse one stored frontier; that is not a full lookahead.
     if (minUnusedLookahead > 1) return "no";
@@ -460,7 +485,6 @@ export function journeyCacheCandidateVerdict({
   if (cachedDataset.lookaheadDepth - extra.length < minUnusedLookahead) {
     return "no";
   }
-  if (!frontierOptionsOk) return "no";
   return "needs-rows";
 }
 
@@ -709,6 +733,7 @@ export function toClientJourneyExploration(
       dataset: {
         ...cachedDataset,
         path: requestedDataset.path,
+        optionsPerStep: requestedDataset.optionsPerStep,
       },
     },
     result: { ...(exploration.result ?? { rows: [] }), rows },
