@@ -266,7 +266,7 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
     sourceAttribute,
   });
 
-  it("leaves an already-linked managed query completely untouched", () => {
+  it("keeps everything but the SQL when the identifier type is renamed", () => {
     const existing: ExposureQuery[] = [
       {
         id: "exq_stable",
@@ -282,8 +282,8 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
 
     const reconciled = reconcileEventForwarderManagedExposureQueries({
       existing,
-      // Renamed out from under us. We still match it by source attribute, so no
-      // second query appears — but we do not rewrite the one that is there.
+      // Renamed out from under us. Matched by source attribute, so no second
+      // query appears, and the alias stays on the query's own userIdType.
       userIdTypes: [managedUserIdType("logged_in_user", "user_id")],
       params: bigqueryParams,
       attributeSchema: [
@@ -292,7 +292,70 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
     });
 
     expect(reconciled).toHaveLength(1);
+    expect(reconciled[0]).toEqual({
+      ...existing[0],
+      query: expect.stringContaining("AS `user_id`"),
+    });
+    expect(reconciled[0].query).not.toContain("logged_in_user");
+  });
+
+  it("regenerates the SQL when the hash attribute datatype changes", () => {
+    const existing: ExposureQuery[] = [
+      {
+        id: "exq_stable",
+        userIdType: "id",
+        name: "id",
+        sourceAttribute: "id",
+        dimensions: [],
+        managedBy: "api",
+        query: generateEventForwarderExposureQueries(
+          [managedUserIdType("id", "id")],
+          bigqueryParams,
+          [{ property: "id", datatype: "string", hashAttribute: true }],
+        )[0].query,
+      },
+    ];
+
+    const reconciled = reconcileEventForwarderManagedExposureQueries({
+      existing,
+      userIdTypes: [managedUserIdType("id", "id")],
+      params: bigqueryParams,
+      attributeSchema: [
+        { property: "id", datatype: "number", hashAttribute: true },
+      ],
+    });
+
+    expect(reconciled[0].id).toBe("exq_stable");
+    expect(reconciled[0].query).toContain("FLOAT64");
+    expect(reconciled[0].query).toContain("AS `id`");
+  });
+
+  it("passes a query the user took ownership of straight through", () => {
+    const existing: ExposureQuery[] = [
+      {
+        id: "exq_stable",
+        userIdType: "id",
+        name: "id",
+        dimensions: [],
+        // Editing in the UI clears managedBy, so their SQL survives every sync.
+        managedBy: "",
+        query: "SELECT my_own_thing",
+      },
+    ];
+
+    const reconciled = reconcileEventForwarderManagedExposureQueries({
+      existing,
+      userIdTypes: [managedUserIdType("id", "id")],
+      params: bigqueryParams,
+      attributeSchema: [
+        { property: "id", datatype: "number", hashAttribute: true },
+      ],
+    });
+
     expect(reconciled[0]).toEqual(existing[0]);
+    // A fresh managed query is added beside theirs.
+    expect(reconciled).toHaveLength(2);
+    expect(reconciled[1].managedBy).toBe("api");
   });
 
   it("adds queries for newly managed identifier types", () => {
@@ -465,16 +528,23 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
     });
 
     expect(reconciled).toHaveLength(1);
-    // Backfilling the link is the only write. Dropping and re-minting would
-    // orphan every experiment, report, safe rollout, template, and ramp schedule
-    // referencing the old id; rewriting the SQL would move the warehouse column.
+    // Dropping and re-minting would orphan every experiment, report, safe
+    // rollout, template, and ramp schedule referencing the old id.
     expect(reconciled[0]).toEqual({
       ...existing[0],
       sourceAttribute: "user_id",
+      query: expect.any(String),
     });
+    // The legacy name is the warehouse column, so the alias keeps it while the
+    // value still reads the real attribute.
+    expect(reconciled[0].query).toContain("AS `ef_user_id`");
+    expect(reconciled[0].query).toContain('$."user_id"');
   });
 
-  it("stops backfilling once the legacy query is linked", () => {
+  it("stops writing once the legacy query is linked and its SQL is current", () => {
+    const attributeSchema = [
+      { property: "user_id", datatype: "string" as const, hashAttribute: true },
+    ];
     const existing: ExposureQuery[] = [
       {
         id: "ef_user_id",
@@ -483,7 +553,11 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
         sourceAttribute: "user_id",
         dimensions: [],
         managedBy: "api",
-        query: "SELECT stale",
+        query: generateEventForwarderExposureQueries(
+          [managedUserIdType("ef_user_id", "user_id")],
+          bigqueryParams,
+          attributeSchema,
+        )[0].query,
       },
     ];
 
@@ -491,9 +565,7 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
       existing,
       userIdTypes: [managedUserIdType("ef_user_id", "user_id")],
       params: bigqueryParams,
-      attributeSchema: [
-        { property: "user_id", datatype: "string", hashAttribute: true },
-      ],
+      attributeSchema,
     });
 
     expect(reconciled).toEqual(existing);

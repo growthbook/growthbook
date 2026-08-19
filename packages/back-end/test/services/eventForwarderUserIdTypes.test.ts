@@ -1,4 +1,5 @@
 import type { DataSourceInterface } from "shared/types/datasource";
+import { generateEventForwarderExposureQueries } from "shared/util";
 import {
   initializeDatasourceUserIdTypesFromOrgAttributeSchema,
   reconcileAllEventForwarderDatasourceUserIdTypesAndExposureQueries,
@@ -309,7 +310,7 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
     ]);
   });
 
-  it("leaves managed exposure SQL alone when the hash attribute datatype changes", async () => {
+  it("regenerates managed exposure SQL when the hash attribute datatype changes", async () => {
     const raw = ds("ds_1", {
       userIdTypes: [
         {
@@ -346,10 +347,17 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
       attributeSchema,
     );
 
-    // Reconciliation only adds and removes. The stored cast is now stale against
-    // the schema, but rewriting it would move the column type out from under
-    // every experiment already reading it — that is the user's call to make.
-    expect(mockedUpdate).not.toHaveBeenCalled();
+    const exposure = mockedUpdate.mock.calls[0][2].settings?.queries?.exposure;
+    expect(exposure?.[0]).toEqual(
+      expect.objectContaining({
+        // Preserved: experiments and reports reference this id, and the alias is
+        // the warehouse column. Only the cast tracks the schema.
+        id: "exq_user",
+        userIdType: "user_id",
+        name: "user_id",
+        query: expect.stringContaining("FLOAT64"),
+      }),
+    );
   });
 
   it("links a pre-existing user identifier type and adds only the missing query", async () => {
@@ -446,21 +454,30 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
       { ...legacyUserIdType, sourceAttribute: "user_id" },
     ]);
     expect(settings?.queries?.exposure).toEqual([
-      { ...legacyExposure, sourceAttribute: "user_id" },
+      {
+        ...legacyExposure,
+        sourceAttribute: "user_id",
+        query: expect.any(String),
+      },
     ]);
+    // The prefixed name is the warehouse column, so the alias keeps it.
+    expect(settings?.queries?.exposure?.[0].query).toContain("AS `ef_user_id`");
+    expect(settings?.queries?.exposure?.[0].query).toContain('$."user_id"');
   });
 
   it("stops writing once a legacy datasource is linked", async () => {
+    const attributeSchema = [
+      { property: "user_id", datatype: "string" as const, hashAttribute: true },
+    ];
+    const linkedUserIdType = {
+      userIdType: "ef_user_id",
+      description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+      attributes: ["user_id"],
+      managedBy: "api" as const,
+      sourceAttribute: "user_id",
+    };
     const raw = ds("ds_1", {
-      userIdTypes: [
-        {
-          userIdType: "ef_user_id",
-          description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
-          attributes: ["user_id"],
-          managedBy: "api",
-          sourceAttribute: "user_id",
-        },
-      ],
+      userIdTypes: [linkedUserIdType],
       queries: {
         exposure: [
           {
@@ -470,15 +487,21 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
             sourceAttribute: "user_id",
             dimensions: ["country"],
             managedBy: "api",
-            query: "SELECT legacy",
+            query: generateEventForwarderExposureQueries(
+              [linkedUserIdType],
+              {
+                sinkType: "bigquery",
+                projectId: "my-project",
+                dataset: "analytics_123",
+                tablePrefix: "gb",
+              },
+              attributeSchema,
+            )[0].query,
           },
         ],
       },
     });
     setupDataSourceMocks(raw);
-    const attributeSchema = [
-      { property: "user_id", datatype: "string" as const, hashAttribute: true },
-    ];
 
     await reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries(
       contextWithSchema(attributeSchema) as never,

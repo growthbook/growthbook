@@ -260,14 +260,15 @@ function isEquivalentExposureQuerySql(a: string, b: string): boolean {
  * linked identifier types, matching on `sourceAttribute` so each attribute ends
  * up with exactly one managed query.
  *
- * Add or leave alone — never rewrite. A query that already covers its attribute
- * keeps its `id`, `name`, `userIdType`, and SQL verbatim; the only write is
- * backfilling `sourceAttribute` when it is missing. Regenerating SQL over
- * existing queries would move warehouse column aliases out from under the
- * experiments, reports, and safe rollouts already reading them.
+ * A query that already covers its attribute keeps its `id`, `name`, and
+ * `userIdType`; `sourceAttribute` is backfilled when missing. Its SQL is
+ * regenerated so the extraction tracks the attribute's current datatype — the
+ * alias comes from the query's own `userIdType`, which is never renamed, so the
+ * warehouse column stays put and only the cast moves.
  *
- * The trade-off is that a query written by an older version is not brought
- * forward when SQL generation changes — it keeps the SQL it was created with.
+ * Editing a managed query in the UI clears `managedBy`, handing it to the user;
+ * from then on it passes through untouched and a fresh managed query is added
+ * beside it.
  *
  * Non-managed queries pass through untouched. Managed queries whose source
  * attribute is no longer represented are dropped.
@@ -283,6 +284,7 @@ export function reconcileEventForwarderManagedExposureQueries({
   params: GenerateEventForwarderExposureQueriesParams;
   attributeSchema?: SDKAttributeSchema;
 }): ExposureQuery[] {
+  const tableRef = buildEventForwarderExperimentViewedTableReference(params);
   const desired = generateEventForwarderExposureQueries(
     userIdTypes,
     params,
@@ -305,20 +307,31 @@ export function reconcileEventForwarderManagedExposureQueries({
       continue;
     }
 
-    const source = normalizeUserIdTypeName(
-      getEventForwarderExposureQuerySourceAttribute(query),
-    );
-    const wanted = desiredBySource.get(source);
-    if (!wanted) {
+    const sourceAttribute =
+      getEventForwarderExposureQuerySourceAttribute(query);
+    const source = normalizeUserIdTypeName(sourceAttribute);
+    if (!desiredBySource.has(source)) {
       continue;
     }
 
     claimedSources.add(source);
-    result.push(
-      (query.sourceAttribute ?? null) === null
-        ? { ...query, sourceAttribute: wanted.sourceAttribute ?? source }
-        : query,
+    const attribute = findHashAttributeBySourceAttribute(
+      sourceAttribute,
+      attributeSchema,
     );
+    result.push({
+      ...query,
+      sourceAttribute: query.sourceAttribute ?? sourceAttribute,
+      query: buildEventForwarderExposureQuerySql({
+        sinkType: params.sinkType,
+        tableRef,
+        // The query's own alias, not the identifier type's current name: this
+        // must not move a warehouse column.
+        userIdType: query.userIdType,
+        sourceAttribute,
+        attributeDatatype: attribute?.datatype,
+      }),
+    });
   }
 
   for (const [source, wanted] of desiredBySource) {

@@ -79,17 +79,11 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const userEnteredHasNameCol = form.watch("hasNameCol");
 
   const handleSubmit = form.handleSubmit(async (value) => {
-    if (isManaged && exposureQuery) {
-      value.userIdType = exposureQuery.userIdType;
-      value.managedBy = exposureQuery.managedBy;
-    } else if (
-      exposureQuery &&
-      isEventForwarderManagedExposureQuery(exposureQuery) &&
-      value.userIdType !== exposureQuery.userIdType
-    ) {
-      // Re-pointing a managed query at a different identifier hands it to the
-      // user. Leaving managedBy: "api" would make attribute reconciliation
-      // treat that identifier as Event Forwarder owned and delete it.
+    // Editing a managed query hands it to the user. GrowthBook regenerates the
+    // SQL of every query it still owns on each sync, so keeping managedBy: "api"
+    // would overwrite their edit. Reconciliation adds a fresh managed query
+    // beside theirs instead.
+    if (exposureQuery && isEventForwarderManagedExposureQuery(exposureQuery)) {
       value.managedBy = "";
       delete value.sourceAttribute;
     }
