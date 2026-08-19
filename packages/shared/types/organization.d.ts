@@ -382,6 +382,10 @@ export interface OrganizationSettings {
   postStratificationEnabled?: boolean;
   approvalFlows?: ApprovalFlowConfigurations;
   learningStatuses?: LearningStatus[];
+  // When true, members can't create user-attributed API tokens and existing
+  // ones are rejected at authentication. Covers Personal Access Tokens and
+  // OAuth-issued access tokens; app-issued Visual Editor keys are unaffected.
+  disablePersonalAccessTokens?: boolean;
 }
 
 export type LearningStatusColor =
