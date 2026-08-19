@@ -336,11 +336,18 @@ describe("mergeRefreshedTopValues", () => {
     expect(result).toEqual([userIdColumn, deletedColumn]);
   });
 
-  it("merges enriched auto slices only while the column remains enabled", () => {
+  it("preserves concurrently edited auto slices and derives fresh ones from refreshed top values", () => {
     const topValuesDate = new Date("2026-08-19T12:00:00.000Z");
-    const autoSliceColumn = makeCol("country", {
+    // Slices a user edited during the (slow) top-values scan must survive the
+    // merge, not be clobbered by the stale job-start snapshot.
+    const editedAutoSliceColumn = makeCol("country", {
       isAutoSliceColumn: true,
-      autoSlices: ["old-generated"],
+      autoSlices: ["user-edited"],
+    });
+    // An auto-slice column without existing slices derives them from the
+    // freshly refreshed top values.
+    const freshAutoSliceColumn = makeCol("plan", {
+      isAutoSliceColumn: true,
     });
     const noLongerAutoSliceColumn = makeCol("browser", {
       isAutoSliceColumn: false,
@@ -348,13 +355,25 @@ describe("mergeRefreshedTopValues", () => {
     });
 
     const result = mergeRefreshedTopValues({
-      currentColumns: [autoSliceColumn, noLongerAutoSliceColumn],
+      currentColumns: [
+        editedAutoSliceColumn,
+        freshAutoSliceColumn,
+        noLongerAutoSliceColumn,
+      ],
       currentUserIdTypes: [],
       refreshedColumns: [
         makeCol("country", {
           isAutoSliceColumn: true,
-          autoSlices: ["new-generated"],
-          topValues: ["new-a", "new-b"],
+          autoSlices: ["stale-generated"],
+          topValues: ["US", "CA"],
+          topValuesDate,
+        }),
+        makeCol("plan", {
+          isAutoSliceColumn: true,
+          // populateColumnTopValues already derived these from the new top
+          // values, since the current column had none.
+          autoSlices: ["free", "pro"],
+          topValues: ["free", "pro"],
           topValuesDate,
         }),
         makeCol("browser", {
@@ -367,12 +386,18 @@ describe("mergeRefreshedTopValues", () => {
     });
 
     expect(result[0]).toEqual({
-      ...autoSliceColumn,
-      topValues: ["new-a", "new-b"],
+      ...editedAutoSliceColumn,
+      topValues: ["US", "CA"],
       topValuesDate,
-      autoSlices: ["new-generated"],
+      autoSlices: ["user-edited"],
     });
     expect(result[1]).toEqual({
+      ...freshAutoSliceColumn,
+      topValues: ["free", "pro"],
+      topValuesDate,
+      autoSlices: ["free", "pro"],
+    });
+    expect(result[2]).toEqual({
       ...noLongerAutoSliceColumn,
       topValues: ["Chrome"],
       topValuesDate,

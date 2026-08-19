@@ -114,7 +114,14 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
   if (!factTable) return;
 
   const datasource = await getDataSourceById(context, factTable.datasource);
-  if (!datasource) return;
+  if (!datasource) {
+    await updateFactTableColumns(
+      factTable,
+      { columnRefreshPending: false, columnsError: "Datasource not found" },
+      context,
+    );
+    return;
+  }
 
   const columnDetectionChanges: Partial<
     Pick<
@@ -286,7 +293,10 @@ export function mergeRefreshedTopValues({
     };
 
     if (currentColumn.isAutoSliceColumn) {
-      updatedColumn.autoSlices = refreshedColumn.autoSlices;
+      updatedColumn.autoSlices =
+        currentColumn.autoSlices && currentColumn.autoSlices.length > 0
+          ? currentColumn.autoSlices
+          : refreshedColumn.autoSlices;
     }
 
     return updatedColumn;
