@@ -98,6 +98,7 @@ export {
   getPolyfills,
   getAutoExperimentChangeType,
   paddedVersionString,
+  hash,
 } from "./util";
 
 export { EVENT_EXPERIMENT_VIEWED, EVENT_FEATURE_EVALUATED } from "./core";

@@ -1,24 +1,22 @@
+import { hash } from "@growthbook/growthbook";
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const RESURVEY_DAYS = 90;
 const RESURVEY_MS = RESURVEY_DAYS * DAY_MS;
 
-// True while a user is inside the re-survey window after their last prompt.
-// A missing or unparseable date is treated as "not in the window".
+// A missing or unparseable date counts as "not in the window".
 export function withinCooldown(date?: string | Date | null): boolean {
   if (!date) return false;
   const t = new Date(date).getTime();
   return !Number.isNaN(t) && Date.now() - t < RESURVEY_MS;
 }
 
-// Don't ask users who haven't used GrowthBook long enough to have an opinion.
-// Overridable from the `nps-survey` feature; see parseSurveyConfig.
+// Don't ask users who haven't been here long enough to have an opinion.
 export const DEFAULT_MIN_TENURE_DAYS = 14;
 
-// True once the user has been around long enough to be worth surveying. Takes
-// a Date or an ISO string (the field is typed Date but crosses JSON as a
-// string). An unknown or unparseable date fails closed, so we never survey on
-// missing data — and never throw on it either.
+// Takes a Date or an ISO string (typed Date, but crosses JSON as a string).
+// Unknown or unparseable fails closed rather than throwing.
 export function meetsMinimumTenure(
   joined?: string | Date | null,
   minTenureDays: number = DEFAULT_MIN_TENURE_DAYS,
@@ -28,11 +26,10 @@ export function meetsMinimumTenure(
   return !Number.isNaN(t) && Date.now() - t >= minTenureDays * DAY_MS;
 }
 
-// Percentage (0-100) of eligible users to sample, as a 0-1 fraction.
-// Percent-only on purpose: accepting fractions too would make `1` ambiguous
-// between 1% and 100%, where guessing wrong surveys everybody. Anything
-// unexpected — including the flag's original boolean shape — fails closed at 0,
-// so a misconfigured flag never blasts the whole user base.
+// Percent (0-100) in, 0-1 fraction out. Percent-only on purpose: accepting
+// fractions too would make `1` ambiguous between 1% and 100%, and guessing wrong
+// surveys everybody. Anything else — including a boolean, the shape this feature
+// originally had — fails closed at 0 rather than blasting the whole user base.
 export function parseSampleRate(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
     return 0;
@@ -41,9 +38,8 @@ export function parseSampleRate(value: unknown): number {
 }
 
 export type NpsSurveyConfig = {
-  // 0-1 fraction of eligible users to sample per cycle.
+  // 0-1 fraction, not the percent the feature is configured with.
   rate: number;
-  // Days since the user joined before they're eligible to be asked.
   minTenureDays: number;
 };
 
@@ -54,15 +50,15 @@ function parseMinTenureDays(value: unknown): number {
   return value;
 }
 
-// Settings come from the `nps-survey` feature so they're tunable in GrowthBook
-// without a deploy. Two shapes are accepted so the feature can gain settings
-// without being recreated (GrowthBook can't change a feature's value type):
+// Tunable from the `nps-survey` feature without a deploy. Two shapes, so the
+// feature can gain settings without being recreated (GrowthBook can't change a
+// feature's value type):
 //
-//   Number feature:  5                            -> 5%, default tenure
-//   JSON feature:    {"rate":5,"minTenureDays":30} -> 5%, 30-day tenure
+//   Number:  5                            -> 5%, default tenure
+//   JSON:    {"rate":5,"minTenureDays":30} -> 5%, 30-day tenure
 //
-// Each field falls back independently, and an unusable value fails closed
-// (rate 0 = survey off, tenure = the conservative default).
+// Fields fall back independently and an unusable value fails closed, so a JSON
+// object missing `rate` turns the survey off.
 export function parseSurveyConfig(value: unknown): NpsSurveyConfig {
   if (typeof value === "object" && value !== null && !Array.isArray(value)) {
     const { rate, minTenureDays } = value as Record<string, unknown>;
@@ -77,45 +73,28 @@ export function parseSurveyConfig(value: unknown): NpsSurveyConfig {
   };
 }
 
-// FNV-1a, matching the GrowthBook SDK's v2 hashing so sampling buckets behave
-// the same way feature rollouts do (the SDK doesn't export its hash).
-function fnv32a(str: string): number {
-  let hval = 0x811c9dc5;
-  for (let i = 0; i < str.length; i++) {
-    hval ^= str.charCodeAt(i);
-    hval +=
-      (hval << 1) + (hval << 4) + (hval << 7) + (hval << 8) + (hval << 24);
-  }
-  return hval >>> 0;
-}
-
+// The SDK's own v2 bucketing, so sampling buckets behave like feature rollouts.
 function hashToUnitInterval(seed: string, value: string): number {
-  return (fnv32a(fnv32a(seed + value) + "") % 10000) / 10000;
+  // Only null for an unknown version; fail closed rather than bucketing at 0,
+  // which would put everyone in the cohort.
+  return hash(seed, value, 2) ?? 1;
 }
 
-// Selection runs in cycles matching the re-survey window, so a user is picked
-// at most once per cycle and the cohort re-rolls afterwards rather than being a
-// permanent panel.
+// Cycles match the re-survey window, so the cohort re-rolls rather than becoming
+// a permanent panel.
 const SAMPLE_CYCLE_DAYS = RESURVEY_DAYS;
 
 export function dayIndex(now: Date = new Date()): number {
   return Math.floor(now.getTime() / DAY_MS);
 }
 
-// True when this user is in the current cycle's sampled cohort AND their
-// staggered start day has arrived.
+// Keyed on user and cycle, deliberately not on the current day: re-drawing daily
+// would make the rate a share of user-*days*, biasing the score toward frequent
+// visitors. A visit is the delivery occasion, not part of the draw.
 //
-// Selection is keyed on the user and the cycle — deliberately NOT on the
-// current day. Re-drawing daily would make the rate behave as a share of
-// user-*days* rather than users, so someone visiting daily would be far more
-// likely to be picked than someone visiting monthly, biasing the score toward
-// power users. Here a visit is only the delivery occasion, not part of the
-// draw, which is how dedicated NPS tools sample.
-//
-// Each selected user then gets a start day spread across the cycle, so prompts
-// (and the Slack traffic they generate) trickle out evenly instead of arriving
-// as one launch-day burst. Eligibility runs from that day to the end of the
-// cycle, giving infrequent visitors a wide window to actually catch it.
+// Selected users get a start day spread across the cycle so prompts trickle out
+// instead of arriving as one launch-day burst, and stay eligible to the end of
+// the cycle so infrequent visitors can still catch it.
 export function inSampledCohort(
   userId: string | undefined,
   rate: number,
