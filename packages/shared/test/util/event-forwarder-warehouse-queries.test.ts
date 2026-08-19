@@ -276,7 +276,12 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
         dimensions: ["country"],
         hasNameCol: true,
         managedBy: "api",
-        query: "SELECT stale",
+        // Untouched generator output, so reconciliation still owns it.
+        query: generateEventForwarderExposureQueries(
+          [managedUserIdType("user_id", "user_id")],
+          bigqueryParams,
+          [{ property: "user_id", datatype: "string", hashAttribute: true }],
+        )[0].query,
       },
     ];
 
@@ -356,6 +361,112 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
     // A fresh managed query is added beside theirs.
     expect(reconciled).toHaveLength(2);
     expect(reconciled[1].managedBy).toBe("api");
+  });
+
+  it("hands over a managed query whose SQL was edited before the modal cleared managedBy", () => {
+    const existing: ExposureQuery[] = [
+      {
+        id: "exq_stable",
+        userIdType: "user_id",
+        name: "user_id",
+        sourceAttribute: "user_id",
+        dimensions: [],
+        // The modal only cleared managedBy when the identifier type changed, so
+        // an SQL-only edit left this behind. Regenerating would overwrite it.
+        managedBy: "api",
+        query: "SELECT my_own_thing AS `user_id` FROM my_own_table",
+      },
+    ];
+
+    const reconciled = reconcileEventForwarderManagedExposureQueries({
+      existing,
+      userIdTypes: [managedUserIdType("user_id", "user_id")],
+      params: bigqueryParams,
+      attributeSchema: [
+        { property: "user_id", datatype: "string", hashAttribute: true },
+      ],
+    });
+
+    // Their SQL and id survive; the link and the marker are dropped so later
+    // syncs leave it alone.
+    expect(reconciled[0]).toEqual({
+      ...existing[0],
+      managedBy: "",
+      sourceAttribute: undefined,
+    });
+    expect(reconciled[0].query).toBe(existing[0].query);
+    // A fresh managed query is added beside theirs, as when they edit today.
+    expect(reconciled).toHaveLength(2);
+    expect(reconciled[1].managedBy).toBe("api");
+    expect(reconciled[1].sourceAttribute).toBe("user_id");
+  });
+
+  it("still regenerates when only the datatype cast differs from the stored SQL", () => {
+    const existing: ExposureQuery[] = [
+      {
+        id: "exq_stable",
+        userIdType: "user_id",
+        name: "user_id",
+        sourceAttribute: "user_id",
+        dimensions: [],
+        managedBy: "api",
+        // Generator output for a datatype the attribute no longer has. This is
+        // the case regeneration exists for, so it must not read as an edit.
+        query: buildEventForwarderExposureQuerySql({
+          sinkType: "bigquery",
+          tableRef: "`proj`.`ds`.`gb_experiment_viewed`",
+          userIdType: "user_id",
+          sourceAttribute: "user_id",
+          attributeDatatype: "string",
+        }),
+      },
+    ];
+
+    const reconciled = reconcileEventForwarderManagedExposureQueries({
+      existing,
+      userIdTypes: [managedUserIdType("user_id", "user_id")],
+      params: bigqueryParams,
+      attributeSchema: [
+        { property: "user_id", datatype: "number", hashAttribute: true },
+      ],
+    });
+
+    expect(reconciled).toHaveLength(1);
+    expect(reconciled[0].managedBy).toBe("api");
+    expect(reconciled[0].query).toContain("FLOAT64");
+  });
+
+  it("reads reformatted generator output as unedited", () => {
+    const generated = buildEventForwarderExposureQuerySql({
+      sinkType: "bigquery",
+      tableRef: "`proj`.`ds`.`gb_experiment_viewed`",
+      userIdType: "user_id",
+      sourceAttribute: "user_id",
+      attributeDatatype: "string",
+    });
+    const existing: ExposureQuery[] = [
+      {
+        id: "exq_stable",
+        userIdType: "user_id",
+        name: "user_id",
+        sourceAttribute: "user_id",
+        dimensions: [],
+        managedBy: "api",
+        query: `\n  ${generated.replace(/\n/g, "\n    ")}  \n`,
+      },
+    ];
+
+    const reconciled = reconcileEventForwarderManagedExposureQueries({
+      existing,
+      userIdTypes: [managedUserIdType("user_id", "user_id")],
+      params: bigqueryParams,
+      attributeSchema: [
+        { property: "user_id", datatype: "string", hashAttribute: true },
+      ],
+    });
+
+    expect(reconciled).toHaveLength(1);
+    expect(reconciled[0].managedBy).toBe("api");
   });
 
   it("adds queries for newly managed identifier types", () => {
@@ -512,7 +623,15 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
         dimensions: ["country"],
         hasNameCol: true,
         managedBy: "api",
-        query: "SELECT stale",
+        // What the pre-prefix generator emitted: the prefixed name as the alias,
+        // the bare attribute as the source.
+        query: buildEventForwarderExposureQuerySql({
+          sinkType: "bigquery",
+          tableRef: "`proj`.`ds`.`gb_experiment_viewed`",
+          userIdType: "ef_user_id",
+          sourceAttribute: "user_id",
+          attributeDatatype: "string",
+        }),
       },
     ];
 

@@ -1,5 +1,8 @@
 import type { DataSourceInterface } from "shared/types/datasource";
-import { generateEventForwarderExposureQueries } from "shared/util";
+import {
+  buildEventForwarderExposureQuerySql,
+  generateEventForwarderExposureQueries,
+} from "shared/util";
 import {
   initializeDatasourceUserIdTypesFromOrgAttributeSchema,
   reconcileAllEventForwarderDatasourceUserIdTypesAndExposureQueries,
@@ -92,6 +95,29 @@ function efConfig(overrides: Record<string, unknown> = {}) {
     status: "pending" as const,
     ...overrides,
   };
+}
+
+// Matches the params mocked onto buildExposureQueryParams below, so fixtures can
+// hold byte-exact generator output rather than an abbreviation of it.
+const EXPERIMENT_VIEWED_TABLE_REF =
+  "`my-project`.`analytics_123`.`gb_experiment_viewed`";
+
+function managedExposureSql({
+  userIdType,
+  sourceAttribute,
+  attributeDatatype,
+}: {
+  userIdType: string;
+  sourceAttribute: string;
+  attributeDatatype: "string" | "number";
+}) {
+  return buildEventForwarderExposureQuerySql({
+    sinkType: "bigquery",
+    tableRef: EXPERIMENT_VIEWED_TABLE_REF,
+    userIdType,
+    sourceAttribute,
+    attributeDatatype,
+  });
 }
 
 function setupDataSourceMocks(raw?: DataSourceInterface) {
@@ -330,8 +356,11 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
             sourceAttribute: "user_id",
             dimensions: [],
             managedBy: "api",
-            query:
-              "SELECT CAST(JSON_VALUE(`attributes`, '$.\"user_id\"') AS STRING) AS `user_id`",
+            query: managedExposureSql({
+              userIdType: "user_id",
+              sourceAttribute: "user_id",
+              attributeDatatype: "string",
+            }),
           },
         ],
       },
@@ -428,8 +457,13 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
       name: "ef_user_id",
       dimensions: ["country"],
       managedBy: "api" as const,
-      query:
-        "SELECT CAST(JSON_VALUE(`attributes`, '$.\"user_id\"') AS STRING) AS `ef_user_id`",
+      // Byte-exact output of the pre-prefix generator: the prefixed name as the
+      // alias, the bare attribute as the source.
+      query: managedExposureSql({
+        userIdType: "ef_user_id",
+        sourceAttribute: "user_id",
+        attributeDatatype: "string",
+      }),
     };
     const raw = ds("ds_1", {
       userIdTypes: [legacyUserIdType],

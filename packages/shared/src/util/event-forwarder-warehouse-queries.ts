@@ -8,6 +8,7 @@ import type {
   SDKAttributeSchema,
   SDKAttributeType,
 } from "shared/types/organization";
+import { attributeDataTypes } from "../constants";
 import {
   EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE_SUFFIX,
   EVENT_FORWARDER_FEATURE_USAGE_TABLE_SUFFIX,
@@ -256,6 +257,44 @@ function isEquivalentExposureQuerySql(a: string, b: string): boolean {
 }
 
 /**
+ * Whether a managed query still holds generator output rather than a human's
+ * edit. For a fixed alias and source attribute the only thing that varies is
+ * the datatype cast, so every variant is a candidate.
+ *
+ * This matters for data written before the edit modal cleared `managedBy`: it
+ * used to do so only when the identifier type changed, so a query whose SQL
+ * alone was edited kept `managedBy: "api"` and would be regenerated over.
+ */
+function isUnmodifiedManagedExposureQuerySql({
+  query,
+  sinkType,
+  tableRef,
+  sourceAttribute,
+}: {
+  query: ExposureQuery;
+  sinkType: "bigquery" | "snowflake";
+  tableRef: string;
+  sourceAttribute: string;
+}): boolean {
+  const candidateDatatypes: (SDKAttributeType | undefined)[] = [
+    undefined,
+    ...attributeDataTypes,
+  ];
+  return candidateDatatypes.some((attributeDatatype) =>
+    isEquivalentExposureQuerySql(
+      query.query,
+      buildEventForwarderExposureQuerySql({
+        sinkType,
+        tableRef,
+        userIdType: query.userIdType,
+        sourceAttribute,
+        attributeDatatype,
+      }),
+    ),
+  );
+}
+
+/**
  * Reconciles managed exposure queries against the datasource's Event Forwarder
  * linked identifier types, matching on `sourceAttribute` so each attribute ends
  * up with exactly one managed query.
@@ -268,7 +307,9 @@ function isEquivalentExposureQuerySql(a: string, b: string): boolean {
  *
  * Editing a managed query in the UI clears `managedBy`, handing it to the user;
  * from then on it passes through untouched and a fresh managed query is added
- * beside it.
+ * beside it. A query still marked managed whose SQL is not generator output was
+ * edited before the modal did that, so it is handed over here instead of being
+ * regenerated over.
  *
  * Non-managed queries pass through untouched. Managed queries whose source
  * attribute is no longer represented are dropped.
@@ -311,6 +352,23 @@ export function reconcileEventForwarderManagedExposureQueries({
       getEventForwarderExposureQuerySourceAttribute(query);
     const source = normalizeUserIdTypeName(sourceAttribute);
     if (!desiredBySource.has(source)) {
+      continue;
+    }
+
+    if (
+      !isUnmodifiedManagedExposureQuerySql({
+        query,
+        sinkType: params.sinkType,
+        tableRef,
+        sourceAttribute,
+      })
+    ) {
+      // Hand-edited. Hand it to the user rather than overwriting, matching what
+      // the edit modal does now; the loop below adds a fresh managed query
+      // beside it. The source stays unclaimed so that query is generated.
+      const handedOff: ExposureQuery = { ...query, managedBy: "" };
+      delete handedOff.sourceAttribute;
+      result.push(handedOff);
       continue;
     }
 
