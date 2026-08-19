@@ -21,7 +21,7 @@ export default function DashboardView({
   const dashboard = data?.dashboard;
 
   if (isLoading) {
-    return <LoadingOverlay />;
+    return <LoadingOverlay relativePosition />;
   }
 
   if (error) {
@@ -29,7 +29,7 @@ export default function DashboardView({
   }
 
   if (!dashboard) {
-    return null;
+    return <Callout status="error">Dashboard not found</Callout>;
   }
 
   return (

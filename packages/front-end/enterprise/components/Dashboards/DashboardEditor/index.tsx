@@ -640,12 +640,16 @@ function DashboardEditor({
           >
             <Flex direction="column">
               <Heading as="h1" size="lg" weight="medium" align="center">
-                Add Content Blocks
+                {addBlockType || (canEdit && setIsEditing)
+                  ? "Add Content Blocks"
+                  : "No Blocks Yet"}
               </Heading>
               <Text align="center">
                 {addBlockType
                   ? "Choose a block type to get started."
-                  : "Add some blocks to get started"}
+                  : canEdit && setIsEditing
+                    ? "Add some blocks to get started"
+                    : "This dashboard has no blocks yet."}
               </Text>
             </Flex>
             {addBlockType ? (
