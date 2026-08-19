@@ -19,7 +19,10 @@ import {
   getAllVariations,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
-import { isExperimentIncrementalEnabled } from "shared/enterprise";
+import {
+  getHealthSettings,
+  isExperimentIncrementalEnabled,
+} from "shared/enterprise";
 import { v4 as uuidv4 } from "uuid";
 import { IdeaInterface } from "shared/types/idea";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
@@ -45,7 +48,7 @@ import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
 import isEqual from "lodash/isEqual";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { summarizeExperimentForAI } from "back-end/src/util/ai-prompt.util";
+import { summarizeExperimentAnalysisForAI } from "back-end/src/util/ai-prompt.util";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -295,8 +298,9 @@ export async function postAIExperimentAnalysis(
   const segmentName = segmentId
     ? (await context.models.segments.getById(segmentId))?.name
     : null;
+  const { srmThreshold } = getHealthSettings(context.org.settings);
 
-  const summary = summarizeExperimentForAI({
+  const summary = summarizeExperimentAnalysisForAI({
     experiment,
     snapshot,
     metricMap: allOrgMetrics,
@@ -304,6 +308,7 @@ export async function postAIExperimentAnalysis(
     secondaryMetricIds: expandIds(experiment.secondaryMetrics),
     guardrailMetricIds: expandIds(experiment.guardrailMetrics),
     segmentName,
+    srmThreshold,
   });
 
   const instructions =
@@ -330,7 +335,8 @@ export async function postAIExperimentAnalysis(
     "\n- results.differenceType: 'relative', 'absolute', or 'scaled'. This is how each lift below is expressed." +
     "\n- results.pValueThreshold, results.pValueCorrection, results.sequentialTesting, results.regressionAdjusted: the analysis settings the results were computed with." +
     // Health and validity checks
-    "\n- results.srmPValue: the Sample Ratio Mismatch p-value. A value below 0.001 means traffic was not split as configured and the results should not be trusted." +
+    "\n- results.srmPValue: the Sample Ratio Mismatch p-value. A value below results.srmThreshold means traffic was not split as configured and the results should not be trusted." +
+    "\n- results.srmThreshold: this org's configured significance threshold for the SRM check above." +
     "\n- results.multipleExposures: how many users saw more than one variation." +
     "\n- results.unknownVariations: variation ids found in the data that the experiment does not define. Anything listed here means the exposure data is suspect." +
     "\n- results.segment and results.queryFilter: when either is present the analysis covered only a subset of users, not everyone in the experiment. Say so whenever you state a result, so the numbers are not read as applying to all users." +
@@ -345,7 +351,7 @@ export async function postAIExperimentAnalysis(
     "\n  - metric: the metric name." +
     "\n  - role: 'goal' for metrics measuring the primary objective, which determine success or failure; 'guardrail' for metrics that must not regress; 'secondary' for metrics that add context only." +
     // Metric types
-    "\n  - metricType: proportion (also called binomial), mean, count, duration, revenue, ratio, quantile, or retention." +
+    "\n  - metricType: proportion (also called binomial), mean, count, duration, revenue, ratio, quantile, retention, or dailyParticipation." +
     "\n  - betterDirection: 'higher' or 'lower'. For 'lower' metrics such as bounce rate or latency, a positive lift is a regression, not a win." +
     "\n  - variations: one entry per variation, in the same order as experiment.variations, so the first entry is the baseline." +
     "\n    - users: the number of users exposed to the variation." +
@@ -358,6 +364,7 @@ export async function postAIExperimentAnalysis(
     "\n      - duration: the average time per user, in whatever unit the metric is configured with, which may be seconds, minutes, or hours. Do not assume a unit; refer to it as time unless you are told the unit." +
     "\n      - ratio: the ratio of two aggregated values across experiment users, such as revenue divided by orders." +
     "\n      - quantile: the value at the metric's configured percentile rather than an average." +
+    "\n      - dailyParticipation: the average share of days in the metric's window that each user was active, as a rate and not a percentage." +
     // Statistical results
     "\n    - lift: the difference compared to the baseline, expressed according to differenceType. Absent on the baseline itself." +
     "\n    - ci: the confidence interval for that lift, which is the range the true effect is likely to fall in." +

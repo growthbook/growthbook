@@ -9,7 +9,7 @@ import {
   MAX_METRICS_FOR_AI,
   MAX_QUERY_FILTER_CHARS,
   METRIC_ROLE_RESERVATIONS,
-  summarizeExperimentForAI,
+  summarizeExperimentAnalysisForAI,
 } from "back-end/src/util/ai-prompt.util";
 import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
 
@@ -46,6 +46,8 @@ const experiment = {
   secondaryMetrics: ["met_revenue"],
   guardrailMetrics: ["met_errors"],
 } as ExperimentInterface;
+
+const srmThreshold = 0.001;
 
 const metricMap = new Map<string, ExperimentMetricInterface>([
   [
@@ -118,15 +120,16 @@ const resultVariations: SnapshotVariation[] = [
   },
 ];
 
-describe("summarizeExperimentForAI", () => {
+describe("summarizeExperimentAnalysisForAI", () => {
   it("summarizes the experiment when there is no snapshot", () => {
-    const summary = summarizeExperimentForAI({
+    const summary = summarizeExperimentAnalysisForAI({
       experiment,
       snapshot: undefined,
       metricMap,
       goalMetricIds: ["met_purchases"],
       secondaryMetricIds: ["met_revenue"],
       guardrailMetricIds: ["met_errors"],
+      srmThreshold,
     });
 
     expect(summary.results).toBeUndefined();
@@ -156,7 +159,7 @@ describe("summarizeExperimentForAI", () => {
   });
 
   it("truncates long free-text fields", () => {
-    const summary = summarizeExperimentForAI({
+    const summary = summarizeExperimentAnalysisForAI({
       experiment: {
         ...experiment,
         hypothesis: "x".repeat(1000),
@@ -169,6 +172,7 @@ describe("summarizeExperimentForAI", () => {
       goalMetricIds: [],
       secondaryMetricIds: [],
       guardrailMetricIds: [],
+      srmThreshold,
     });
 
     expect(summary.experiment.hypothesis).toBe("x".repeat(600) + "…");
@@ -178,13 +182,14 @@ describe("summarizeExperimentForAI", () => {
   });
 
   it("groups results by metric, ordered goal then guardrail then secondary", () => {
-    const summary = summarizeExperimentForAI({
+    const summary = summarizeExperimentAnalysisForAI({
       experiment,
       snapshot: makeSnapshot(resultVariations),
       metricMap,
       goalMetricIds: ["met_purchases"],
       secondaryMetricIds: ["met_revenue"],
       guardrailMetricIds: ["met_errors"],
+      srmThreshold,
     });
 
     expect(summary.results?.statsEngine).toBe("frequentist");
@@ -192,6 +197,7 @@ describe("summarizeExperimentForAI", () => {
     expect(summary.results?.pValueThreshold).toBe(0.05);
     expect(summary.results?.sequentialTesting).toBe(true);
     expect(summary.results?.srmPValue).toBe(0.6324);
+    expect(summary.results?.srmThreshold).toBe(0.001);
     expect(summary.results?.multipleExposures).toBe(3);
     expect(summary.results?.droppedMetrics).toBeUndefined();
 
@@ -219,13 +225,14 @@ describe("summarizeExperimentForAI", () => {
   });
 
   it("marks inverse metrics as better when lower and prefers adjusted stats", () => {
-    const summary = summarizeExperimentForAI({
+    const summary = summarizeExperimentAnalysisForAI({
       experiment,
       snapshot: makeSnapshot(resultVariations),
       metricMap,
       goalMetricIds: ["met_purchases"],
       secondaryMetricIds: ["met_revenue"],
       guardrailMetricIds: ["met_errors"],
+      srmThreshold,
     });
 
     const errors = summary.results?.metrics.find((m) => m.metric === "Errors");
@@ -235,13 +242,14 @@ describe("summarizeExperimentForAI", () => {
   });
 
   it("omits metrics with no results and metrics missing from the metric map", () => {
-    const summary = summarizeExperimentForAI({
+    const summary = summarizeExperimentAnalysisForAI({
       experiment,
       snapshot: makeSnapshot(resultVariations),
       metricMap,
       goalMetricIds: ["met_purchases", "met_deleted"],
       secondaryMetricIds: [],
       guardrailMetricIds: ["met_no_results"],
+      srmThreshold,
     });
 
     expect(summary.results?.metrics.map((m) => m.metric)).toEqual([
@@ -283,17 +291,20 @@ describe("summarizeExperimentForAI", () => {
       },
     ];
 
-    return summarizeExperimentForAI({
+    return summarizeExperimentAnalysisForAI({
       experiment,
       snapshot: makeSnapshot(bigVariations),
       metricMap: bigMetricMap,
       goalMetricIds: goalIds,
       secondaryMetricIds: secondaryIds,
       guardrailMetricIds: guardrailIds,
+      srmThreshold,
     });
   }
 
-  function countByRole(summary: ReturnType<typeof summarizeExperimentForAI>) {
+  function countByRole(
+    summary: ReturnType<typeof summarizeExperimentAnalysisForAI>,
+  ) {
     return (summary.results?.metrics || []).reduce<Record<string, number>>(
       (acc, m) => ({ ...acc, [m.role]: (acc[m.role] || 0) + 1 }),
       {},
@@ -379,13 +390,14 @@ describe("summarizeExperimentForAI", () => {
       },
     } as ExperimentSnapshotInterface["health"];
 
-    const summary = summarizeExperimentForAI({
+    const summary = summarizeExperimentAnalysisForAI({
       experiment,
       snapshot,
       metricMap,
       goalMetricIds: ["met_purchases"],
       secondaryMetricIds: [],
       guardrailMetricIds: [],
+      srmThreshold,
     });
 
     expect(summary.results?.health).toEqual({
@@ -411,26 +423,28 @@ describe("summarizeExperimentForAI", () => {
       },
     } as ExperimentSnapshotInterface["health"];
 
-    const summary = summarizeExperimentForAI({
+    const summary = summarizeExperimentAnalysisForAI({
       experiment,
       snapshot,
       metricMap,
       goalMetricIds: ["met_purchases"],
       secondaryMetricIds: [],
       guardrailMetricIds: [],
+      srmThreshold,
     });
 
     expect(summary.results?.health).toEqual({ isLowPowered: true });
   });
 
   it("omits health entirely when the snapshot has none", () => {
-    const summary = summarizeExperimentForAI({
+    const summary = summarizeExperimentAnalysisForAI({
       experiment,
       snapshot: makeSnapshot(resultVariations),
       metricMap,
       goalMetricIds: ["met_purchases"],
       secondaryMetricIds: [],
       guardrailMetricIds: [],
+      srmThreshold,
     });
 
     expect(summary.results?.health).toBeUndefined();
@@ -442,7 +456,7 @@ describe("summarizeExperimentForAI", () => {
     snapshot.settings.queryFilter = "country = 'US'";
     snapshot.unknownVariations = ["3", "4"];
 
-    const summary = summarizeExperimentForAI({
+    const summary = summarizeExperimentAnalysisForAI({
       experiment,
       snapshot,
       metricMap,
@@ -450,6 +464,7 @@ describe("summarizeExperimentForAI", () => {
       secondaryMetricIds: [],
       guardrailMetricIds: [],
       segmentName: "Logged-in mobile users",
+      srmThreshold,
     });
 
     expect(summary.results?.segment).toBe("Logged-in mobile users");
@@ -461,7 +476,7 @@ describe("summarizeExperimentForAI", () => {
     const snapshot = makeSnapshot(resultVariations);
     snapshot.settings.segment = "seg_123";
 
-    const summary = summarizeExperimentForAI({
+    const summary = summarizeExperimentAnalysisForAI({
       experiment,
       snapshot,
       metricMap,
@@ -469,6 +484,7 @@ describe("summarizeExperimentForAI", () => {
       secondaryMetricIds: [],
       guardrailMetricIds: [],
       segmentName: null,
+      srmThreshold,
     });
 
     expect(summary.results?.segment).toBe("seg_123");
@@ -478,13 +494,14 @@ describe("summarizeExperimentForAI", () => {
     const snapshot = makeSnapshot(resultVariations);
     snapshot.settings.queryFilter = "a".repeat(1000);
 
-    const summary = summarizeExperimentForAI({
+    const summary = summarizeExperimentAnalysisForAI({
       experiment,
       snapshot,
       metricMap,
       goalMetricIds: ["met_purchases"],
       secondaryMetricIds: [],
       guardrailMetricIds: [],
+      srmThreshold,
     });
 
     expect(summary.results?.queryFilter).toBe(
@@ -493,13 +510,14 @@ describe("summarizeExperimentForAI", () => {
   });
 
   it("omits scoping fields when the analysis covered everyone", () => {
-    const summary = summarizeExperimentForAI({
+    const summary = summarizeExperimentAnalysisForAI({
       experiment,
       snapshot: makeSnapshot(resultVariations),
       metricMap,
       goalMetricIds: ["met_purchases"],
       secondaryMetricIds: [],
       guardrailMetricIds: [],
+      srmThreshold,
     });
 
     expect(summary.results?.segment).toBeUndefined();
@@ -569,13 +587,14 @@ describe("summarizeExperimentForAI", () => {
     };
 
     const serialized = JSON.stringify(
-      summarizeExperimentForAI({
+      summarizeExperimentAnalysisForAI({
         experiment,
         snapshot,
         metricMap,
         goalMetricIds: ["met_purchases"],
         secondaryMetricIds: ["met_revenue"],
         guardrailMetricIds: ["met_errors"],
+        srmThreshold,
       }),
     );
 

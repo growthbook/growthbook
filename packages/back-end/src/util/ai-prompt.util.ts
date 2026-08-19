@@ -109,6 +109,7 @@ export type AIExperimentSummary = {
     sequentialTesting?: boolean;
     regressionAdjusted?: boolean;
     srmPValue: number;
+    srmThreshold: number;
     multipleExposures: number;
     metrics: AIMetricResult[];
     droppedMetrics?: Partial<Record<AIMetricRole, number>>;
@@ -259,7 +260,7 @@ function summarizeHealth(
   return Object.keys(health).length ? health : undefined;
 }
 
-export function summarizeExperimentForAI({
+export function summarizeExperimentAnalysisForAI({
   experiment,
   snapshot,
   metricMap,
@@ -267,6 +268,7 @@ export function summarizeExperimentForAI({
   secondaryMetricIds,
   guardrailMetricIds,
   segmentName,
+  srmThreshold,
 }: {
   experiment: ExperimentInterface;
   snapshot: ExperimentSnapshotInterface | undefined;
@@ -275,6 +277,7 @@ export function summarizeExperimentForAI({
   secondaryMetricIds: string[];
   guardrailMetricIds: string[];
   segmentName?: string | null;
+  srmThreshold: number;
 }): AIExperimentSummary {
   const phases = experiment.phases || [];
   const lastPhase = phases[phases.length - 1];
@@ -341,6 +344,7 @@ export function summarizeExperimentForAI({
     sequentialTesting: analysis.settings.sequentialTesting,
     regressionAdjusted: analysis.settings.regressionAdjusted,
     srmPValue: roundForAI(analysis.results[0].srm),
+    srmThreshold,
     multipleExposures: snapshot.multipleExposures,
     metrics: metricResults.metrics,
     ...(Object.keys(metricResults.droppedMetrics).length
