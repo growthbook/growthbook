@@ -67,36 +67,53 @@ export function overrideScopes(families: Scoped[][]): string[] {
   return [...scopes];
 }
 
-// What a scope's fields should SHOW when it has no stored rule of its own: the
-// rule it inherits, not an empty one. Falling back to defaults would render an
-// inherited "approval required" as off — the opposite of what governs.
-export function displayedFlagRule(
+// What this scope would resolve to with its own rule taken out of the stack —
+// i.e. what each unset field falls back to. The all-projects scope is the base,
+// so nothing sits above it to inherit from.
+export function inheritedFlagRule(
   rules: RequireReview[],
   scope: string,
-): RequireReview {
-  const own = ruleForScope(rules, scope);
-  if (own) return own;
-  const inherited = getReviewSetting(rules, {
+): RequireReview | undefined {
+  if (!scope) return undefined;
+  return getReviewSetting(withoutScope(rules, scope), {
     project: scopeProjects(scope)[0],
   });
-  return inherited
-    ? { ...inherited, projects: scopeProjects(scope) }
-    : flagRuleDefaults(scope);
 }
 
-export function displayedSavedGroupRule(
+export function inheritedSavedGroupRule(
   rules: ApprovalFlowConfiguration[],
   scope: string,
-): ApprovalFlowConfiguration {
-  const own = ruleForScope(rules, scope);
-  if (own) return own;
-  // The rules, not the combined policy: only these carry requiredApproverTeams.
-  const inherited = getApprovalFlowRules(
-    { savedGroups: rules },
+): ApprovalFlowConfiguration | undefined {
+  if (!scope) return undefined;
+  return getApprovalFlowRules(
+    { savedGroups: withoutScope(rules, scope) },
     "saved-group",
     scopeProjects(scope),
   )[0];
-  return inherited
-    ? { ...inherited, projects: scopeProjects(scope) }
-    : savedGroupRuleDefaults(scope);
+}
+
+// The rule stored for this scope, or a fresh one whose non-inheriting switch is
+// seeded from what the scope resolves to today — so opening a tab never reads as
+// "approval off" when the scope in fact requires it.
+export function ownFlagRule(
+  rules: RequireReview[],
+  scope: string,
+  inherited: RequireReview | undefined,
+): RequireReview {
+  const own = ruleForScope(rules, scope);
+  if (own) return own;
+  return {
+    ...flagRuleDefaults(scope),
+    requireReviewOn: !!inherited?.requireReviewOn,
+  };
+}
+
+export function ownSavedGroupRule(
+  rules: ApprovalFlowConfiguration[],
+  scope: string,
+  inherited: ApprovalFlowConfiguration | undefined,
+): ApprovalFlowConfiguration {
+  const own = ruleForScope(rules, scope);
+  if (own) return own;
+  return { ...savedGroupRuleDefaults(scope), required: !!inherited?.required };
 }

@@ -14,11 +14,11 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import {
-  displayedFlagRule,
-  displayedSavedGroupRule,
-  flagRuleDefaults,
+  inheritedFlagRule,
+  inheritedSavedGroupRule,
+  ownFlagRule,
+  ownSavedGroupRule,
   ruleForScope,
-  savedGroupRuleDefaults,
   withRuleForScope,
   withoutScope,
 } from "@/components/GeneralSettings/approvalScopes";
@@ -45,12 +45,17 @@ export default function ProjectApprovalSettings({
     : [];
   const storedSavedGroupRules = settings.approvalFlows?.savedGroups ?? [];
 
+  const inheritedFlags = inheritedFlagRule(storedFlagRules, project);
+  const inheritedSavedGroups = inheritedSavedGroupRule(
+    storedSavedGroupRules,
+    project,
+  );
   const [flagRule, setFlagRule] = useState<RequireReview>(() =>
-    displayedFlagRule(storedFlagRules, project),
+    ownFlagRule(storedFlagRules, project, inheritedFlags),
   );
   const [savedGroupRule, setSavedGroupRule] =
     useState<ApprovalFlowConfiguration>(() =>
-      displayedSavedGroupRule(storedSavedGroupRules, project),
+      ownSavedGroupRule(storedSavedGroupRules, project, inheritedSavedGroups),
     );
   const [saving, setSaving] = useState(false);
 
@@ -92,8 +97,10 @@ export default function ProjectApprovalSettings({
         <ApprovalScopeSections
           idPrefix="project"
           flagRule={flagRule}
+          inheritedFlagRule={inheritedFlags}
           onFlagChange={setFlagRule}
           savedGroupRule={savedGroupRule}
+          inheritedSavedGroupRule={inheritedSavedGroups}
           onSavedGroupChange={setSavedGroupRule}
           savedGroupDescription="Applies to Saved Groups belonging to this project. A group in several projects must satisfy each of their requirements."
         />
@@ -122,8 +129,10 @@ export default function ProjectApprovalSettings({
                 withoutScope(storedFlagRules, project),
                 withoutScope(storedSavedGroupRules, project),
               );
-              setFlagRule(flagRuleDefaults(project));
-              setSavedGroupRule(savedGroupRuleDefaults(project));
+              setFlagRule(ownFlagRule([], project, inheritedFlags));
+              setSavedGroupRule(
+                ownSavedGroupRule([], project, inheritedSavedGroups),
+              );
             }}
           >
             <PiTrash /> Remove override

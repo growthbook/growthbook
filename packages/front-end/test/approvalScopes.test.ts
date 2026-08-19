@@ -5,8 +5,10 @@ import {
 } from "shared/types/organization";
 import {
   ALL_PROJECTS_SCOPE,
-  displayedFlagRule,
-  displayedSavedGroupRule,
+  inheritedFlagRule,
+  inheritedSavedGroupRule,
+  ownFlagRule,
+  ownSavedGroupRule,
   overrideScopes,
   ruleForScope,
   scopeKey,
@@ -84,58 +86,63 @@ describe("approval scope keys", () => {
 });
 
 // Regression: your dev org stores savedGroups as [{required:true}] with no
-// `projects` field, so an override tab found no rule and rendered "off".
-describe("displayed rule for a scope with no rule of its own", () => {
-  it("shows the inherited flag rule, not an empty one", () => {
+// `projects` field, so an override tab found no rule and read as "off".
+describe("what an override scope inherits", () => {
+  it("resolves the base rule with the scope's own rule taken out", () => {
     const rules = [
       {
         requireReviewOn: true,
-        resetReviewOnChange: false,
-        environments: ["production"],
         projects: [],
+        environments: ["production"],
         requiredApproverTeams: ["t_sec"],
+      } as RequireReview,
+      {
+        requireReviewOn: true,
+        projects: ["prj_a"],
+        requiredApproverTeams: ["t_pay"],
       } as RequireReview,
     ];
 
-    const shown = displayedFlagRule(rules, "prj_a");
-    expect(shown.requireReviewOn).toBe(true);
-    expect(shown.requiredApproverTeams).toEqual(["t_sec"]);
-    // Re-pointed at this scope, so editing it writes an override.
-    expect(shown.projects).toEqual(["prj_a"]);
+    const inherited = inheritedFlagRule(rules, "prj_a");
+    // The base layer, not the override that sits on top of it.
+    expect(inherited?.requiredApproverTeams).toEqual(["t_sec"]);
+    expect(inherited?.environments).toEqual(["production"]);
   });
 
-  it("shows the inherited saved-group rule when the stored row predates projects", () => {
+  it("has nothing to inherit at the all-projects scope", () => {
+    expect(inheritedFlagRule([], ALL_PROJECTS_SCOPE)).toBeUndefined();
+    expect(inheritedSavedGroupRule([], ALL_PROJECTS_SCOPE)).toBeUndefined();
+  });
+
+  it("inherits a legacy saved-group row that predates the projects field", () => {
     const legacy = [
       { required: true, autopublishOnApproval: true },
     ] as ApprovalFlowConfiguration[];
 
-    const shown = displayedSavedGroupRule(legacy, "prj_a");
-    expect(shown.required).toBe(true);
-    expect(shown.autopublishOnApproval).toBe(true);
-    expect(shown.projects).toEqual(["prj_a"]);
+    const inherited = inheritedSavedGroupRule(legacy, "prj_a");
+    expect(inherited?.required).toBe(true);
+    expect(inherited?.autopublishOnApproval).toBe(true);
   });
 
-  it("falls back to off when nothing governs the scope", () => {
-    expect(displayedFlagRule([], "prj_a").requireReviewOn).toBe(false);
-    expect(displayedSavedGroupRule([], "prj_a").required).toBe(false);
+  // The switch does not inherit, so a fresh override must carry it explicitly
+  // or the tab would read as "approval off" for a scope that requires it.
+  it("seeds a fresh override's switch from what the scope resolves to", () => {
+    const inherited = { requireReviewOn: true, projects: [] } as RequireReview;
+
+    expect(ownFlagRule([], "prj_a", inherited).requireReviewOn).toBe(true);
+    expect(ownFlagRule([], "prj_a", undefined).requireReviewOn).toBe(false);
+    expect(
+      ownSavedGroupRule([], "prj_a", { required: true, projects: [] }).required,
+    ).toBe(true);
   });
 
-  it("prefers the scope's own rule over anything inherited", () => {
-    const rules = [
-      {
-        requireReviewOn: true,
-        resetReviewOnChange: false,
-        environments: [],
-        projects: [],
-      } as RequireReview,
-      {
-        requireReviewOn: false,
-        resetReviewOnChange: false,
-        environments: [],
-        projects: ["prj_a"],
-      } as RequireReview,
-    ];
+  it("returns the stored rule untouched when the scope has one", () => {
+    const own = {
+      requireReviewOn: false,
+      projects: ["prj_a"],
+      requiredApproverTeams: ["t_pay"],
+    } as RequireReview;
 
-    expect(displayedFlagRule(rules, "prj_a").requireReviewOn).toBe(false);
+    expect(ownFlagRule([own], "prj_a", undefined)).toBe(own);
   });
 });

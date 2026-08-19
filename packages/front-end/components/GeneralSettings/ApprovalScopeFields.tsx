@@ -1,67 +1,242 @@
+import { ReactNode, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import { PiPlus } from "react-icons/pi";
+import {
+  PiArrowCounterClockwise,
+  PiCheckBold,
+  PiInfo,
+  PiPlus,
+  PiXBold,
+} from "react-icons/pi";
 import {
   ApprovalFlowConfiguration,
   RequireReview,
 } from "shared/types/organization";
-import { useState } from "react";
 import Checkbox from "@/ui/Checkbox";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import { useEnvironments } from "@/services/features";
 
-// One scope's rule, rendered the same way wherever it is edited: the org
-// settings tabs and the project page both mount these.
-type FieldsProps<T> = {
+// One scope's rule. `inherited` is the rule this scope falls back to, absent on
+// the all-projects tab — which is the base and so has nothing to inherit.
+type ScopeFieldsProps<T> = {
+  idPrefix: string;
   value: T;
   onChange: (next: T) => void;
-  // Distinguishes the control ids when several scopes render at once.
-  idPrefix: string;
+  inherited?: T;
 };
+
+function LabelWithHelp({ label, help }: { label: string; help?: string }) {
+  if (!help) return <>{label}</>;
+  return (
+    <Flex align="center" gap="1" asChild>
+      <span>
+        {label}
+        <span onClick={(e) => e.stopPropagation()}>
+          <Tooltip body={help}>
+            <PiInfo color="var(--color-text-low)" />
+          </Tooltip>
+        </span>
+      </span>
+    </Flex>
+  );
+}
 
 const REQUIRED_TEAMS_HELP =
   "A draft cannot publish until someone from one of these teams approves it. Anyone eligible can still approve alongside them.";
 
-function RequiredApproverTeams({
+type FieldHandle<V> = {
+  overridden: boolean;
+  effective: V;
+  set: (next: V) => void;
+  override: () => void;
+  revert: () => void;
+};
+
+// Per-field inheritance: `null` is the stored "unset" signal, so a field is
+// overridden exactly when this scope's rule holds a non-null value for it.
+// `whenUnset` is what the field means with no value anywhere, and seeds an
+// override with exactly what was on screen — so promoting a field never flips it.
+function fieldHandles<T extends object>(
+  value: T,
+  inherited: T | undefined,
+  onChange: (next: T) => void,
+) {
+  return function handle<K extends keyof T>(
+    key: K,
+    whenUnset: NonNullable<T[K]>,
+  ): FieldHandle<NonNullable<T[K]>> {
+    const own = (value[key] ?? null) !== null;
+    const raw = own ? value[key] : (inherited?.[key] ?? undefined);
+    const effective = (raw ?? whenUnset) as NonNullable<T[K]>;
+    return {
+      overridden: !inherited || own,
+      effective,
+      set: (next) => onChange({ ...value, [key]: next }),
+      override: () => onChange({ ...value, [key]: effective } as T),
+      revert: () => onChange({ ...value, [key]: null } as T),
+    };
+  };
+}
+
+// Inherited rows carry no controls and no badge: the value is shown as it
+// resolves and doubles as the affordance that starts an override.
+function InheritedValue({
+  children,
+  onOverride,
+}: {
+  children: ReactNode;
+  onOverride: () => void;
+}) {
+  return (
+    <Tooltip body="Inherited from All Projects. Click to override for this Project.">
+      <span
+        role="button"
+        tabIndex={0}
+        onClick={onOverride}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") onOverride();
+        }}
+        style={{ cursor: "pointer", textDecoration: "underline dotted" }}
+      >
+        {children}
+      </span>
+    </Tooltip>
+  );
+}
+
+function RevertLink({ onRevert }: { onRevert: () => void }) {
+  return (
+    <Link
+      size="sm"
+      color="red"
+      onClick={(e) => {
+        e.preventDefault();
+        onRevert();
+      }}
+    >
+      <Flex align="center" gap="1">
+        <PiArrowCounterClockwise /> Revert
+      </Flex>
+    </Link>
+  );
+}
+
+function InheritableCheckbox({
   id,
-  value,
-  onChange,
+  label,
+  help,
+  field,
 }: {
   id: string;
-  value: string[];
-  onChange: (next: string[]) => void;
+  label: string;
+  help?: string;
+  field: FieldHandle<boolean>;
 }) {
-  const { teams } = useUser();
+  if (!field.overridden) {
+    return (
+      <Flex align="center" gap="2">
+        <Text color="text-low">
+          {field.effective ? <PiCheckBold /> : <PiXBold />}
+        </Text>
+        <Text color="text-low">
+          <InheritedValue onOverride={field.override}>{label}</InheritedValue>
+        </Text>
+        {help ? (
+          <Tooltip body={help}>
+            <PiInfo color="var(--color-text-low)" />
+          </Tooltip>
+        ) : null}
+      </Flex>
+    );
+  }
   return (
-    <MultiSelectField
-      legacyHeight
-      id={id}
-      label="Required approver teams"
-      labelClassName="font-weight-semibold"
-      containerClassName="mb-0"
-      value={value}
-      onChange={onChange}
-      options={(teams ?? []).map((t) => ({ value: t.id, label: t.name }))}
-      placeholder="Anyone who can review (leave blank)"
-      helpText={REQUIRED_TEAMS_HELP}
-    />
+    <Flex align="center" justify="between" gap="3">
+      <Checkbox
+        id={id}
+        label={<LabelWithHelp label={label} help={help} />}
+        value={!!field.effective}
+        setValue={field.set}
+      />
+      <RevertLink onRevert={field.revert} />
+    </Flex>
+  );
+}
+
+function InheritableMultiSelect({
+  id,
+  label,
+  options,
+  placeholder,
+  help,
+  emptyLabel,
+  field,
+}: {
+  id: string;
+  label: string;
+  options: { value: string; label: string }[];
+  placeholder: string;
+  help?: string;
+  // What an empty list means for this field, since [] is a real value.
+  emptyLabel: string;
+  field: FieldHandle<string[]>;
+}) {
+  if (!field.overridden) {
+    const names = field.effective.map(
+      (v) => options.find((o) => o.value === v)?.label ?? v,
+    );
+    return (
+      <Box>
+        <Text as="label" size="md" weight="semibold">
+          <LabelWithHelp label={label} help={help} />
+        </Text>
+        <Box>
+          <Text color="text-low">
+            <InheritedValue onOverride={field.override}>
+              {names.length ? names.join(", ") : emptyLabel}
+            </InheritedValue>
+          </Text>
+        </Box>
+      </Box>
+    );
+  }
+  return (
+    <Box>
+      <Flex align="center" justify="between" gap="3">
+        <Text as="label" size="md" weight="semibold">
+          <LabelWithHelp label={label} help={help} />
+        </Text>
+        <RevertLink onRevert={field.revert} />
+      </Flex>
+      <MultiSelectField
+        legacyHeight
+        id={id}
+        containerClassName="mb-0"
+        value={field.effective}
+        onChange={field.set}
+        options={options}
+        placeholder={placeholder}
+      />
+    </Box>
   );
 }
 
 export function FlagApprovalFields({
+  idPrefix,
   value,
   onChange,
-  idPrefix,
-}: FieldsProps<RequireReview>) {
+  inherited,
+}: ScopeFieldsProps<RequireReview>) {
+  const { teams } = useUser();
   const environments = useEnvironments();
+  const handle = fieldHandles(value, inherited, onChange);
+  const envField = handle("environments", []);
   const [showEnvScope, setShowEnvScope] = useState(
-    !!value.environments?.length,
+    () => !!envField.effective.length || !envField.overridden,
   );
-  const set = (patch: Partial<RequireReview>) =>
-    onChange({ ...value, ...patch });
 
   return (
     <>
@@ -69,52 +244,50 @@ export function FlagApprovalFields({
         id={`${idPrefix}-require-reviews`}
         label="Require approval to publish changes"
         value={!!value.requireReviewOn}
-        setValue={(v) => set({ requireReviewOn: v })}
+        setValue={(v) => onChange({ ...value, requireReviewOn: v })}
       />
       {value.requireReviewOn && (
         <Flex direction="column" gap="3" mt="2" ml="5">
           {showEnvScope ? (
-            <MultiSelectField
-              legacyHeight
+            <InheritableMultiSelect
               id={`${idPrefix}-environments`}
               label="Specific environments"
-              labelClassName="font-weight-semibold"
-              containerClassName="mb-0"
-              value={value.environments ?? []}
-              onChange={(v) => set({ environments: v })}
               options={environments.map((e) => ({ value: e.id, label: e.id }))}
               placeholder="All environments (leave blank to gate all)"
+              emptyLabel="All environments"
+              field={envField}
             />
           ) : (
             <Link onClick={() => setShowEnvScope(true)}>
               <PiPlus /> For specific environments
             </Link>
           )}
-          <RequiredApproverTeams
+          <InheritableMultiSelect
             id={`${idPrefix}-required-approver-teams`}
-            value={value.requiredApproverTeams ?? []}
-            onChange={(v) => set({ requiredApproverTeams: v })}
+            label="Required approver teams"
+            options={(teams ?? []).map((t) => ({ value: t.id, label: t.name }))}
+            placeholder="Anyone who can review (leave blank)"
+            help={REQUIRED_TEAMS_HELP}
+            emptyLabel="Anyone who can review"
+            field={handle("requiredApproverTeams", [])}
           />
-          <Checkbox
+          <InheritableCheckbox
             id={`${idPrefix}-reset-review-on-change`}
             label="Reset review on changes"
-            description="If a draft is modified after being approved, the approval is revoked and a new review is required before publishing."
-            value={!!value.resetReviewOnChange}
-            setValue={(v) => set({ resetReviewOnChange: v })}
+            help="If a draft is modified after being approved, the approval is revoked and a new review is required before publishing."
+            field={handle("resetReviewOnChange", false)}
           />
-          <Checkbox
+          <InheritableCheckbox
             id={`${idPrefix}-block-self-approval`}
             label="Block contributors from self-approving"
-            description="Prevents anyone who edited a draft from approving it. Requires a separate reviewer."
-            value={!!value.blockSelfApproval}
-            setValue={(v) => set({ blockSelfApproval: v })}
+            help="Prevents anyone who edited a draft from approving it. Requires a separate reviewer."
+            field={handle("blockSelfApproval", false)}
           />
-          <Checkbox
+          <InheritableCheckbox
             id={`${idPrefix}-autopublish-on-approval`}
             label="Allow approve & publish in one step"
-            description="Adds an 'Approve & Publish' option so reviewers with publish access can approve and publish a draft together."
-            value={!!value.autopublishOnApproval}
-            setValue={(v) => set({ autopublishOnApproval: v })}
+            help="Adds an 'Approve & Publish' option so reviewers with publish access can approve and publish a draft together."
+            field={handle("autopublishOnApproval", false)}
           />
           <Box mt="2">
             <Text as="label" size="md" weight="semibold" mb="2">
@@ -128,17 +301,15 @@ export function FlagApprovalFields({
                 disabled={true}
                 setValue={() => undefined}
               />
-              <Checkbox
+              <InheritableCheckbox
                 id={`${idPrefix}-env-review`}
                 label="Enabled environment changes (kill switches)"
-                value={value.featureRequireEnvironmentReview !== false}
-                setValue={(v) => set({ featureRequireEnvironmentReview: v })}
+                field={handle("featureRequireEnvironmentReview", true)}
               />
-              <Checkbox
+              <InheritableCheckbox
                 id={`${idPrefix}-metadata-review`}
                 label="Metadata changes (description, owner, project, tags, etc.)"
-                value={value.featureRequireMetadataReview !== false}
-                setValue={(v) => set({ featureRequireMetadataReview: v })}
+                field={handle("featureRequireMetadataReview", true)}
               />
             </Flex>
           </Box>
@@ -149,49 +320,55 @@ export function FlagApprovalFields({
 }
 
 export function SavedGroupApprovalFields({
+  idPrefix,
   value,
   onChange,
-  idPrefix,
-}: FieldsProps<ApprovalFlowConfiguration>) {
-  const set = (patch: Partial<ApprovalFlowConfiguration>) =>
-    onChange({ ...value, ...patch });
+  inherited,
+}: ScopeFieldsProps<ApprovalFlowConfiguration>) {
+  const { teams } = useUser();
+  const handle = fieldHandles(value, inherited, onChange);
 
   return (
     <>
       <Checkbox
         id={`${idPrefix}-require-approvals-saved-groups`}
-        label="Require approval to modify Saved Groups"
-        description="When enabled, all changes to Saved Groups must be reviewed and approved by another person before going live."
+        label={
+          <LabelWithHelp
+            label="Require approval to modify Saved Groups"
+            help="When enabled, all changes to Saved Groups must be reviewed and approved by another person before going live."
+          />
+        }
         value={!!value.required}
-        setValue={(v) => set({ required: v })}
+        setValue={(v) => onChange({ ...value, required: v })}
       />
       {value.required && (
         <Flex direction="column" gap="3" mt="2" ml="5">
-          <RequiredApproverTeams
+          <InheritableMultiSelect
             id={`${idPrefix}-saved-group-required-approver-teams`}
-            value={value.requiredApproverTeams ?? []}
-            onChange={(v) => set({ requiredApproverTeams: v })}
+            label="Required approver teams"
+            options={(teams ?? []).map((t) => ({ value: t.id, label: t.name }))}
+            placeholder="Anyone who can review (leave blank)"
+            help={REQUIRED_TEAMS_HELP}
+            emptyLabel="Anyone who can review"
+            field={handle("requiredApproverTeams", [])}
           />
-          <Checkbox
+          <InheritableCheckbox
             id={`${idPrefix}-saved-group-reset-review-on-change`}
             label="Reset review on changes"
-            description="If a draft is modified after being approved, the approval is revoked and a new review is required before publishing."
-            value={!!value.resetReviewOnChange}
-            setValue={(v) => set({ resetReviewOnChange: v })}
+            help="If a draft is modified after being approved, the approval is revoked and a new review is required before publishing."
+            field={handle("resetReviewOnChange", false)}
           />
-          <Checkbox
+          <InheritableCheckbox
             id={`${idPrefix}-saved-group-block-self-approval`}
             label="Block contributors from self-approving"
-            description="Prevents anyone who edited a draft from approving it. Requires a separate reviewer."
-            value={!!value.blockSelfApproval}
-            setValue={(v) => set({ blockSelfApproval: v })}
+            help="Prevents anyone who edited a draft from approving it. Requires a separate reviewer."
+            field={handle("blockSelfApproval", false)}
           />
-          <Checkbox
+          <InheritableCheckbox
             id={`${idPrefix}-saved-group-autopublish-on-approval`}
             label="Allow approve & publish in one step"
-            description="Adds an 'Approve & Publish' option so reviewers with publish access can approve and publish a Saved Group change together."
-            value={!!value.autopublishOnApproval}
-            setValue={(v) => set({ autopublishOnApproval: v })}
+            help="Adds an 'Approve & Publish' option so reviewers with publish access can approve and publish a Saved Group change together."
+            field={handle("autopublishOnApproval", false)}
           />
           <Box mt="2">
             <Text as="label" size="md" weight="semibold" mb="2">
@@ -205,11 +382,10 @@ export function SavedGroupApprovalFields({
                 disabled={true}
                 setValue={() => undefined}
               />
-              <Checkbox
+              <InheritableCheckbox
                 id={`${idPrefix}-saved-group-metadata-review`}
                 label="Metadata changes (description, owner, project, tags, etc.)"
-                value={value.requireMetadataReview !== false}
-                setValue={(v) => set({ requireMetadataReview: v })}
+                field={handle("requireMetadataReview", true)}
               />
             </Flex>
           </Box>
@@ -225,15 +401,19 @@ export function ApprovalScopeSections({
   idPrefix,
   flagRule,
   onFlagChange,
+  inheritedFlagRule,
   savedGroupRule,
   onSavedGroupChange,
+  inheritedSavedGroupRule,
   savedGroupDescription,
 }: {
   idPrefix: string;
   flagRule: RequireReview;
   onFlagChange: (next: RequireReview) => void;
+  inheritedFlagRule?: RequireReview;
   savedGroupRule: ApprovalFlowConfiguration;
   onSavedGroupChange: (next: ApprovalFlowConfiguration) => void;
+  inheritedSavedGroupRule?: ApprovalFlowConfiguration;
   savedGroupDescription?: string;
 }) {
   return (
@@ -252,6 +432,7 @@ export function ApprovalScopeSections({
           idPrefix={`flags-${idPrefix}`}
           value={flagRule}
           onChange={onFlagChange}
+          inherited={inheritedFlagRule}
         />
       </Box>
 
@@ -269,6 +450,7 @@ export function ApprovalScopeSections({
           idPrefix={`saved-groups-${idPrefix}`}
           value={savedGroupRule}
           onChange={onSavedGroupChange}
+          inherited={inheritedSavedGroupRule}
         />
       </Box>
     </>

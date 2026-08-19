@@ -23,8 +23,10 @@ import {
 import {
   ALL_PROJECTS_SCOPE,
   overrideScopes,
-  displayedFlagRule,
-  displayedSavedGroupRule,
+  inheritedFlagRule,
+  inheritedSavedGroupRule,
+  ownFlagRule,
+  ownSavedGroupRule,
   scopeProjects,
   withRuleForScope,
   withoutScope,
@@ -175,9 +177,19 @@ export default function ApprovalFlowSettings() {
 
                     <ApprovalScopeSections
                       idPrefix={tabValue(scope)}
-                      flagRule={displayedFlagRule(flagRules, scope)}
+                      flagRule={ownFlagRule(
+                        flagRules,
+                        scope,
+                        inheritedFlagRule(flagRules, scope),
+                      )}
+                      inheritedFlagRule={inheritedFlagRule(flagRules, scope)}
                       onFlagChange={(next) => setFlagRule(scope, next)}
-                      savedGroupRule={displayedSavedGroupRule(
+                      savedGroupRule={ownSavedGroupRule(
+                        savedGroupRules,
+                        scope,
+                        inheritedSavedGroupRule(savedGroupRules, scope),
+                      )}
+                      inheritedSavedGroupRule={inheritedSavedGroupRule(
                         savedGroupRules,
                         scope,
                       )}
