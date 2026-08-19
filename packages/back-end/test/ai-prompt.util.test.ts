@@ -542,13 +542,14 @@ describe("summarizeExperimentAnalysisForAI", () => {
       ],
     } as ExperimentInterface;
 
-    const summary = summarizeExperimentForAI({
+    const summary = summarizeExperimentAnalysisForAI({
       experiment: reorderedExperiment,
       snapshot: makeSnapshot(resultVariations),
       metricMap,
       goalMetricIds: ["met_purchases"],
       secondaryMetricIds: [],
       guardrailMetricIds: [],
+      srmThreshold,
     });
 
     expect(summary.experiment.variations).toEqual([
