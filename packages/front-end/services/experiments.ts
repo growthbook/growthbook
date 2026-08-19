@@ -60,15 +60,8 @@ import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicat
 import { RowError } from "@/components/Experiment/ResultsTable";
 import { getDefaultRuleValue, NewExperimentRefRule } from "./features";
 
-// Sentinel written into SnapshotMetric.errorMessage by the front-end when a
-// metric has no data for a variation. Distinct from a real stats-engine
-// computation error, which carries the verbatim engine message instead.
 export const NO_DATA_ERROR_MESSAGE = "No data";
 
-// Returns the verbatim stats-engine error for a variation's metric result, or
-// null when it computed fine (or only carries the "no data" sentinel). The
-// error is per-variation: a whole-metric failure sets the same message on
-// every variation, while per-variation codes set it on some and not others.
 export function getComputeErrorMessage(
   stats?: Pick<SnapshotMetric, "errorMessage"> | null,
 ): string | null {

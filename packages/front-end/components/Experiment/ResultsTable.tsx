@@ -165,13 +165,8 @@ export enum RowError {
   QUANTILE_AGGREGATION_ERROR = "QUANTILE_AGGREGATION_ERROR",
 }
 
-// A per-variation stats-engine failure carrying the verbatim reason. Distinct
-// from "query error" (a warehouse query failed) and RowError (fixed copy): the
-// message comes straight from the stats engine.
 type MetricComputeError = { computeError: string };
 
-// Per-variation cell state: a normal result, one of the error markers, or null
-// for a skipped variation.
 type RowResultOrError =
   | RowResults
   | "query error"
@@ -489,9 +484,7 @@ export default function ResultsTable({
           users: 0,
         };
 
-        // Show a whole-row error only when this variation has no data to show.
-        // A per-variation code (e.g. ZERO_NEGATIVE_VARIANCE) keeps real
-        // users/value, so fall through and render the partial result.
+        // Show a whole-row error only when this variation has no data to show
         const computeError =
           getComputeErrorMessage(stats) || getComputeErrorMessage(baseline);
         if (computeError && !stats.users) {
