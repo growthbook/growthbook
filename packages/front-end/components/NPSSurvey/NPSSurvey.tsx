@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useFeatureIsOn, useFeatureValue } from "@growthbook/growthbook-react";
+import { useFeatureValue } from "@growthbook/growthbook-react";
 import { Flex, IconButton, TextArea } from "@radix-ui/themes";
 import { PiArrowLeft, PiX } from "react-icons/pi";
 import { useForm } from "react-hook-form";
@@ -16,6 +16,7 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Portal from "@/components/Modal/Portal";
 import { useKeydown } from "@/hooks/useKeydown";
+import { isCloud } from "@/services/env";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -30,6 +31,7 @@ import {
 type Panel = "question" | "feedback" | "thanks";
 
 const STORAGE_KEY = "gb_nps_v1";
+const FEEDBACK_FIELD_ID = "gb-nps-feedback";
 const SURVEY_ID = "app-nps";
 const SHOW_DELAY = 1100;
 const THANKS_DURATION = 2600;
@@ -71,9 +73,9 @@ type StoredState = { status: StoredStatus; date: string };
 
 // localStorage is user-writable, so treat it as untrusted: keep only the fields
 // we actually rely on and drop anything malformed rather than trusting a cast.
-function readStored(): StoredState | null {
+function readStored(key: string): StoredState | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(key);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== "object" || parsed === null) return null;
@@ -92,10 +94,10 @@ function readStored(): StoredState | null {
   }
 }
 
-function writeStored(status: StoredStatus): void {
+function writeStored(key: string, status: StoredStatus): void {
   try {
     localStorage.setItem(
-      STORAGE_KEY,
+      key,
       JSON.stringify({ status, date: new Date().toISOString() }),
     );
   } catch {
@@ -134,19 +136,35 @@ export default function NPSSurvey() {
   // Targeting rules on the feature still apply as usual.
   const surveyConfig: unknown = useFeatureValue("nps-survey", 0);
   const { rate: sampleRate, minTenureDays } = parseSurveyConfig(surveyConfig);
-  const previewFlagOn = useFeatureIsOn("nps-survey-preview");
   const { apiCall } = useAuth();
-  const { npsSurveyAt, orgSuspended, userId, user } = useUser();
+  const { npsSurveyAt, accountCreatedAt, orgSuspended, userId, superAdmin } =
+    useUser();
+  // Per-user localStorage key: the server half of this cooldown is per-account,
+  // so a shared key let one person's impression suppress the next account signed
+  // in on the same browser for the whole cycle.
+  const storageKey = userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY;
+  // Staff-gated rather than flag-gated: `nps-survey-preview` was never created
+  // in GrowthBook, so keying the override off it made `?show-nps` permanently
+  // inert. superAdmin is a real signal the server already sends, and the server
+  // independently re-checks it before honouring `preview`.
+  const isStaff = !!superAdmin;
   const suppressed = withinCooldown(npsSurveyAt);
   // Sample a slice of long-enough-tenured users rather than prompting everyone
   // at once, which would spike responses and then go quiet. Tenure is the
   // user's own join date, so a new hire at an established org isn't asked on
   // their first day.
   const eligible =
-    meetsMinimumTenure(user?.dateCreated, minTenureDays) &&
+    meetsMinimumTenure(accountCreatedAt, minTenureDays) &&
     inSampledCohort(userId, sampleRate);
-  // Derived, not state: a pure read of the URL plus the preview flag.
-  const forceShow = forceShowRequested(previewFlagOn);
+  // Latched, not derived. Read fresh each render, `?show-nps` disappears the
+  // moment a client-side navigation changes the URL, which silently turned a
+  // staff preview into a real response mid-card (and the reverse). Once set it
+  // describes this showing of the card and never changes under it.
+  const [forceShow, setForceShow] = useState(false);
+  useEffect(() => {
+    if (forceShow) return;
+    if (forceShowRequested(isStaff)) setForceShow(true);
+  }, [isStaff, forceShow]);
 
   const [visible, setVisible] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -166,6 +184,11 @@ export default function NPSSurvey() {
   // page that is being discarded (see the pagehide handler), so it never needs
   // to be superseded by a later submit.
   const sentRef = useRef(false);
+  // Arrow keys select as the radiogroup role promises, which means a score can
+  // be set while the user is still browsing the scale. Only a click or Enter
+  // (which advances to the feedback panel) counts as answering, so merely
+  // arrowing across the scale and then closing no longer files a score.
+  const confirmedRef = useRef(false);
   const closeTimer = useRef<number | null>(null);
   const exitTimer = useRef<number | null>(null);
 
@@ -173,26 +196,38 @@ export default function NPSSurvey() {
   // re-survey window (checked cross-device via the user record, and per-device
   // via localStorage — which also records a bare impression, so ignoring the
   // card suppresses it instead of re-prompting on every reload and new tab).
-  // `?show-nps` skips those gates for staff, but never the Cloud check.
+  // `?show-nps` skips those gates for staff; it is latched below.
   useEffect(() => {
     // Never show where the response can't be recorded: a suspended org's POST
     // is rejected by the API, which would silently drop the answer.
     if (orgSuspended) return;
     if (forceShow) {
-      setVisible(true);
+      // Preview mode records no suppression anywhere, so without this the card
+      // comes back on any dependency flip (switching org, for one) still frozen
+      // on the terminal thanks panel and unable to send anything.
+      if (!sentRef.current) setVisible(true);
       return;
     }
-    // No deployment check here: the `nps-survey` feature is targeted in
-    // GrowthBook and defaults off, and forwarding additionally requires the
-    // private NPS_SLACK_WEBHOOK, so self-hosted instances are already gated
-    // without a hardcoded Cloud test that would also block dev testing.
-    if (!eligible || suppressed || withinCooldown(readStored()?.date)) return;
+    // No deployment check here, deliberately: a hardcoded Cloud test also
+    // blocked every dev environment. Be clear about what that leaves, though.
+    // Self-hosted installs evaluate this flag against GrowthBook's own SDK key,
+    // so the only thing keeping the card off them is the targeting rule on the
+    // feature — the NPS_SLACK_WEBHOOK gates forwarding, not display. Any rule
+    // added here needs a `cloud = true` condition. Comment text is withheld from
+    // telemetry off-Cloud (see emitResponse) so a mis-targeted rule can't leak
+    // a customer's prose even if the card does appear.
+    if (!eligible || suppressed || withinCooldown(readStored(storageKey)?.date))
+      return;
     const t = window.setTimeout(() => {
-      writeStored("shown");
+      // A background tab still fires this timer. Recording an impression there
+      // would spend the user's once-per-cycle slot on a card they never saw, so
+      // leave it for a later page load instead.
+      if (document.visibilityState !== "visible") return;
+      writeStored(storageKey, "shown");
       setVisible(true);
     }, SHOW_DELAY);
     return () => window.clearTimeout(t);
-  }, [eligible, suppressed, forceShow, orgSuspended]);
+  }, [eligible, suppressed, forceShow, orgSuspended, storageKey]);
 
   // Tabs opened together each evaluate the gate before any of them records an
   // impression, so without this they all show the card and each can answer:
@@ -202,14 +237,24 @@ export default function NPSSurvey() {
   useEffect(() => {
     if (!visible) return;
     const onStorage = (e: StorageEvent) => {
-      if (e.key !== STORAGE_KEY || e.newValue === null) return;
+      if (e.key !== storageKey || e.newValue === null) return;
+      // Only stand down for a real answer. Treating the bare "shown" impression
+      // as one meant a second tab merely displaying its card tore this one away
+      // mid-answer and latched it, so nothing was ever sent.
+      let status: unknown;
+      try {
+        status = (JSON.parse(e.newValue) as { status?: unknown })?.status;
+      } catch {
+        return;
+      }
+      if (status !== "responded" && status !== "dismissed") return;
       sentRef.current = true;
       setClosing(false);
       setVisible(false);
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
-  }, [visible]);
+  }, [visible, storageKey]);
 
   // Persist the cross-device suppression signal on the user's account
   // (best-effort). keepalive lets the write survive a tab close, so abandonment
@@ -253,19 +298,23 @@ export default function NPSSurvey() {
         score: s,
         nps_value: npsValueOf(s),
         category: npsCategoryOf(s),
-        feedback: feedbackText,
+        // Scores are anonymous enough to report anywhere, free text is not. With
+        // no deployment gate left on the card, a self-hosted install evaluating
+        // GrowthBook's own flag would otherwise ship a customer's prose to our
+        // telemetry host, which the DISABLE_TELEMETRY disclosure doesn't cover.
+        feedback: isCloud() ? feedbackText : "",
         disposition,
         preview: forceShow,
         survey_id: SURVEY_ID,
       });
-      if (!forceShow) writeStored("responded");
+      if (!forceShow) writeStored(storageKey, "responded");
       persistServer("responded", {
         score: s,
         feedback: feedbackText,
         disposition,
       });
     },
-    [persistServer, getValues, forceShow],
+    [persistServer, getValues, forceShow, storageKey],
   );
 
   const dismissCard = useCallback(() => {
@@ -283,14 +332,21 @@ export default function NPSSurvey() {
 
   const handleClose = useCallback(() => {
     if (closeTimer.current) window.clearTimeout(closeTimer.current);
-    if (getValues("score") !== null) {
+    if (confirmedRef.current && getValues("score") !== null) {
       emitResponse("dismissed");
     } else {
-      if (!forceShow) writeStored("dismissed");
+      if (!forceShow) writeStored(storageKey, "dismissed");
       persistServer("dismissed");
     }
     dismissCard();
-  }, [emitResponse, dismissCard, persistServer, getValues, forceShow]);
+  }, [
+    emitResponse,
+    dismissCard,
+    persistServer,
+    getValues,
+    forceShow,
+    storageKey,
+  ]);
 
   const handleSubmit = useCallback(
     (disposition: Extract<NpsDisposition, "submitted" | "skipped">) => {
@@ -311,7 +367,11 @@ export default function NPSSurvey() {
     if (!visible) return;
     const flush = (e: PageTransitionEvent) => {
       if (e.persisted) return;
-      if (getValues("score") !== null && !sentRef.current) {
+      if (
+        confirmedRef.current &&
+        getValues("score") !== null &&
+        !sentRef.current
+      ) {
         emitResponse("abandoned");
       }
     };
@@ -326,6 +386,12 @@ export default function NPSSurvey() {
   // Escape without calling preventDefault at all.
   useKeydown("Escape", (e) => {
     if (!visible || e.defaultPrevented) return;
+    // Escape inside the comment box would dismiss the card, and the dismissed
+    // path deliberately drops unsent text — so the draft would vanish with no
+    // way back. For IME users Escape is just "cancel this conversion", which
+    // makes it routine rather than rare.
+    if (e.isComposing) return;
+    if ((e.target as HTMLElement | null)?.id === FEEDBACK_FIELD_ID) return;
     if (
       document.querySelector(
         ".modal.show, [role=dialog][data-state=open], [role=menu][data-state=open]",
@@ -405,6 +471,7 @@ export default function NPSSurvey() {
                   }`}
                   onClick={() => {
                     setValue("score", s);
+                    confirmedRef.current = true;
                     setPanel("feedback");
                   }}
                   onKeyDown={(e) => {
@@ -455,6 +522,11 @@ export default function NPSSurvey() {
                 // card after going back still filed it, so a mistap the user had
                 // explicitly gone back to correct was reported as their answer.
                 setValue("score", null);
+                // Also drop the draft. react-hook-form keeps unmounted field
+                // values by default, so a complaint written against a 2 was
+                // being sent verbatim with a 10 under the promoter prompt.
+                setValue("feedback", "");
+                confirmedRef.current = false;
                 setPanel("question");
               }}
             >
@@ -474,7 +546,7 @@ export default function NPSSurvey() {
             </Flex>
             <Text
               as="label"
-              htmlFor="gb-nps-feedback"
+              htmlFor={FEEDBACK_FIELD_ID}
               size="md"
               weight="semibold"
               color="text-high"
@@ -482,7 +554,7 @@ export default function NPSSurvey() {
               {CATEGORY_UI[cat].prompt}
             </Text>
             <TextArea
-              id="gb-nps-feedback"
+              id={FEEDBACK_FIELD_ID}
               rows={3}
               mt="2"
               maxLength={NPS_MAX_FEEDBACK_LENGTH}

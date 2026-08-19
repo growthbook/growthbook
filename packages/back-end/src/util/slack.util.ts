@@ -1,6 +1,13 @@
 // Neutralize Slack mrkdwn control sequences in user-supplied text. Escaping
-// these three chars stops `<!channel>`/`<!here>` mentions and link markup from
-// being interpreted, so a comment can't ping the channel or inject links.
+// these three chars stops `<!channel>`/`<!here>` mentions and the labelled
+// `<url|text>` form, so a comment can't ping the channel or hide a link behind
+// friendly text.
+//
+// It does NOT stop a bare URL rendering as a link, and it leaves `*bold*`,
+// `_italic_` and backticks to Slack. That is deliberate: people paste real URLs
+// into feedback to show what they mean, and wrapping the comment in a code fence
+// to kill linkification would break that. What keeps a hostile link from being
+// worth planting is volume, so the survey endpoint is rate limited.
 // Order matters: `&` is escaped first so it doesn't double-escape the `&` in
 // the `&lt;`/`&gt;` entities produced by the later replaces.
 export function escapeSlackMrkdwn(s: string): string {

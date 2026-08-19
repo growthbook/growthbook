@@ -105,6 +105,7 @@ export interface UserContextValue {
   email?: string;
   superAdmin?: boolean;
   npsSurveyAt?: string;
+  accountCreatedAt?: string;
   license?: Partial<LicenseInterface> | null;
   installationName?: string;
   subscription: SubscriptionInfo | null;
@@ -152,6 +153,7 @@ interface UserResponse {
   verified: boolean;
   superAdmin: boolean;
   npsSurveyAt?: string;
+  accountCreatedAt?: string;
   organizations?: UserOrganizations;
   currentUserPermissions: UserPermissions;
 }
@@ -548,6 +550,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         pylonHmacHash: data?.pylonHmacHash,
         superAdmin: data?.superAdmin,
         npsSurveyAt: data?.npsSurveyAt,
+        accountCreatedAt: data?.accountCreatedAt,
         updateUser,
         user,
         users,

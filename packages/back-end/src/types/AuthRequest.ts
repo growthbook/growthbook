@@ -32,7 +32,15 @@ export type AuthRequest<
 > = Request<Params, unknown, Body, QueryParams> & {
   currentUser: Pick<
     UserInterface,
-    "email" | "id" | "name" | "verified" | "superAdmin" | "npsSurveyAt"
+    | "email"
+    | "id"
+    | "name"
+    | "verified"
+    | "superAdmin"
+    | "npsSurveyAt"
+    // The account's own creation date, as distinct from the org-membership date
+    // carried on ExpandedMember. The survey's tenure gate needs this one.
+    | "dateCreated"
   >;
   email: string;
   verified?: boolean;

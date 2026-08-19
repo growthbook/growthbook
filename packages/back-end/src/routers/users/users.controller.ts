@@ -127,6 +127,10 @@ export async function getUser(req: AuthRequest, res: Response) {
     // Only the date is sent: the client uses it for the re-survey window, and
     // nothing reads the status, so it stays server-side.
     npsSurveyAt: req.currentUser?.npsSurveyAt?.toISOString(),
+    // The account's own creation date. The survey's tenure gate needs this
+    // rather than the org-membership date carried on ExpandedMember, which is
+    // re-stamped every time the user is added to another organization.
+    accountCreatedAt: req.currentUser?.dateCreated?.toISOString(),
     organizations: validOrgs.map((org) => {
       return {
         id: org.id,
@@ -259,9 +263,15 @@ export async function postNpsResponse(
 
   const { userId } = getContextFromReq(req);
 
+  // `preview` decides whether this response consumes the caller's re-survey
+  // window, so it can't be taken on trust from the body: any caller could set it
+  // and replay indefinitely without ever recording state. Honour it for staff
+  // only; everyone else records as normal whatever they claim.
+  const isPreview = preview === true && !!req.superAdmin;
+
   // A staff preview (`?show-nps`) still forwards to Slack so the path stays
   // testable, but must not consume the previewer's own re-survey window.
-  if (!preview) {
+  if (!isPreview) {
     await updateUser(userId, {
       npsSurveyStatus: status,
       npsSurveyAt: new Date(),
@@ -269,9 +279,10 @@ export async function postNpsResponse(
   }
 
   // Forward actual responses to Slack. Gated solely on the private webhook env
-  // var — only GrowthBook Cloud sets it, and the survey itself is isCloud()-
-  // gated on the front-end, so self-hosted deployments never generate a
-  // response to forward. Feedback text is only forwarded on an explicit
+  // var, which only GrowthBook Cloud sets, so a self-hosted install has nowhere
+  // to forward to even if it somehow produced a response. (It is no longer true
+  // that the front-end is isCloud()-gated — that check was removed — so the
+  // webhook is the whole gate on this path.) Feedback text is only forwarded on an explicit
   // "submitted" exit, matching the client contract. The 90-day re-survey window
   // is a display concern (the client just stops showing the survey), so every
   // response that arrives is forwarded. Fire-and-forget — a Slack failure must
@@ -282,7 +293,7 @@ export async function postNpsResponse(
       feedback: disposition === "submitted" ? (feedback ?? "").trim() : "",
       email: req.email,
       disposition,
-      preview,
+      preview: isPreview,
     });
   }
 
