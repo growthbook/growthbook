@@ -183,7 +183,12 @@ import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
-import { QueryMap, getQueryMap } from "back-end/src/queryRunners/QueryRunner";
+import {
+  QueryMap,
+  buildQueryMapFromPointers,
+  fetchQueriesByIdMap,
+  getQueryMap,
+} from "back-end/src/queryRunners/QueryRunner";
 import {
   buildUnitDimensionQueryMap,
   filterParentQueryMap,
@@ -2596,14 +2601,15 @@ async function getSnapshotAnalyses(
   const factTableMap = await getFactTableMap(context);
   const metricGroups = await context.models.metricGroups.getAll();
 
-  // get queryMap for all snapshots
-  const queryMap = await getQueryMap(
+  const allPointers = params.flatMap(({ snapshot }) => snapshot.queries);
+  const queriesById = await fetchQueriesByIdMap(
     context,
-    params.map((p) => p.snapshot.queries).flat(),
+    allPointers.map(({ query }) => query),
   );
 
   const createAnalysisPromises: (() => Promise<void>)[] = [];
   params.forEach(({ experiment, analysisSettings, metricMap, snapshot }, i) => {
+    const queryMap = buildQueryMapFromPointers(snapshot.queries, queriesById);
     const expandedMetricMap = new Map(metricMap);
     // Ensure derived metrics from existing snapshot query results can always
     // be resolved during re-analysis, regardless of caller behavior.
