@@ -450,7 +450,13 @@ export default function NPSSurvey() {
               size="xs"
               icon={<PiArrowLeft />}
               mb="3"
-              onClick={() => setPanel("question")}
+              onClick={() => {
+                // Drop the retracted score too. Leaving it set meant closing the
+                // card after going back still filed it, so a mistap the user had
+                // explicitly gone back to correct was reported as their answer.
+                setValue("score", null);
+                setPanel("question");
+              }}
             >
               Change score
             </Button>
