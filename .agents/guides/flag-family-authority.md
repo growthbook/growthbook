@@ -81,8 +81,10 @@ atom that carried the source side:
 
 The footprint is the set of environments a change actually reaches:
 
-- A Feature Flag revision: the environments whose rules or enabled state change,
-  plus any the change re-enables.
+- A Feature Flag revision: the serving environments whose rules change, plus any
+  the change enables or disables. A rule change in a disabled environment reaches
+  no payload, so it needs no authority there. This is the same rule as archive
+  below.
 - A Constant or Config: the per-environment overrides that differ.
 - A Saved Group: none — it is not partitioned by environment.
 - A **revert**: the environments where the _restored_ state differs from
