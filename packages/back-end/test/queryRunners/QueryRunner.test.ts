@@ -7,7 +7,12 @@ import {
   getQueryFailureError,
 } from "back-end/src/queryRunners/QueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
-import { getQueriesByIds, updateQuery } from "back-end/src/models/QueryModel";
+import {
+  getQueriesByIds,
+  updateQuery,
+  updateQueryIfPending,
+  updateQueryIfRunning,
+} from "back-end/src/models/QueryModel";
 
 jest.mock("back-end/src/models/QueryModel");
 
@@ -62,6 +67,54 @@ class TestQueryRunner extends QueryRunner<
     return Promise.resolve();
   }
 }
+
+class ExecutionTestQueryRunner extends QueryRunner<
+  InterfaceWithQueries,
+  object,
+  { success: boolean }
+> {
+  public updateModelSpy = jest.fn();
+  public onQueryFinishSpy = jest.fn();
+
+  checkPermissions() {
+    return true;
+  }
+
+  async startQueries() {
+    return [];
+  }
+
+  async runAnalysis() {
+    return { success: true };
+  }
+
+  async getLatestModel() {
+    return this.model;
+  }
+
+  async updateModel(params: {
+    status: QueryStatus;
+    queries: Queries;
+    runStarted?: Date;
+    result?: { success: boolean };
+    error?: string;
+  }) {
+    this.updateModelSpy(params);
+    return { ...this.model, queries: params.queries };
+  }
+
+  async onQueryFinish() {
+    this.onQueryFinishSpy();
+  }
+}
+
+const createDeferred = () => {
+  let resolve!: () => void;
+  const promise = new Promise<void>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+};
 
 const createMockQuery = (
   id: string,
@@ -517,6 +570,104 @@ describe("QueryRunner", () => {
           onFailure: expect.any(Function),
         }),
       );
+    });
+  });
+
+  describe("executeQuery", () => {
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it("blocks a terminal refresh until asynchronous failure cleanup settles", async () => {
+      const model: InterfaceWithQueries = {
+        id: "test-model",
+        organization: "test-org",
+        queries: [{ name: "failure", query: "qry_failure", status: "running" }],
+        runStarted: new Date(),
+      };
+      const runner = new ExecutionTestQueryRunner(
+        createMockContext(),
+        model,
+        createMockIntegration(),
+      );
+      const cleanupStarted = createDeferred();
+      const allowCleanupToFinish = createDeferred();
+      const statusSnapshotRead = createDeferred();
+      runner.status = "running";
+      (updateQueryIfPending as jest.Mock).mockResolvedValue(true);
+      (updateQueryIfRunning as jest.Mock).mockResolvedValue(true);
+      (getQueriesByIds as jest.Mock).mockImplementation(async () => {
+        statusSnapshotRead.resolve();
+        return [createMockQuery("qry_failure", "failed")];
+      });
+
+      void runner.executeQuery(createMockQuery("qry_failure", "queued"), {
+        run: jest.fn().mockRejectedValue(new Error("warehouse failed")),
+        onFailure: async () => {
+          cleanupStarted.resolve();
+          await allowCleanupToFinish.promise;
+        },
+      });
+
+      await cleanupStarted.promise;
+      const refresh = runner.refreshQueryStatuses();
+      await statusSnapshotRead.promise;
+      await Promise.resolve();
+      expect(runner.model.queries[0]?.status).toBe("failed");
+      expect(runner.updateModelSpy).not.toHaveBeenCalled();
+
+      allowCleanupToFinish.resolve();
+      await refresh;
+      expect(runner.updateModelSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ status: "failed" }),
+      );
+      expect(runner.onQueryFinishSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("blocks a terminal refresh until asynchronous success processing settles", async () => {
+      const model: InterfaceWithQueries = {
+        id: "test-model",
+        organization: "test-org",
+        queries: [{ name: "success", query: "qry_success", status: "running" }],
+        runStarted: new Date(),
+      };
+      const runner = new ExecutionTestQueryRunner(
+        createMockContext(),
+        model,
+        createMockIntegration(),
+      );
+      const processingStarted = createDeferred();
+      const allowProcessingToFinish = createDeferred();
+      const statusSnapshotRead = createDeferred();
+      runner.status = "running";
+      (updateQueryIfPending as jest.Mock).mockResolvedValue(true);
+      (getQueriesByIds as jest.Mock).mockImplementation(async () => {
+        statusSnapshotRead.resolve();
+        return [createMockQuery("qry_success", "succeeded")];
+      });
+
+      void runner.executeQuery(createMockQuery("qry_success", "queued"), {
+        run: jest.fn().mockResolvedValue({ rows: [], statistics: {} }),
+        onFailure: jest.fn(),
+        onSuccess: async () => {
+          processingStarted.resolve();
+          await allowProcessingToFinish.promise;
+        },
+      });
+
+      await processingStarted.promise;
+      const refresh = runner.refreshQueryStatuses();
+      await statusSnapshotRead.promise;
+      await Promise.resolve();
+      expect(runner.model.queries[0]?.status).toBe("succeeded");
+      expect(runner.updateModelSpy).not.toHaveBeenCalled();
+
+      allowProcessingToFinish.resolve();
+      await refresh;
+      expect(runner.updateModelSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ status: "succeeded" }),
+      );
+      expect(runner.onQueryFinishSpy).toHaveBeenCalledTimes(1);
     });
   });
 

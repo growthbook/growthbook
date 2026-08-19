@@ -1,5 +1,9 @@
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
+import type {
+  IncrementalRefreshMetricCovariateSourceInterface,
+  IncrementalRefreshMetricSourceInterface,
+} from "shared/validators";
 import {
   IncrementalRefreshModel,
   COLLECTION_NAME,
@@ -13,9 +17,23 @@ const context = {
   models: {},
 } as unknown as Context;
 
+const createDeferred = () => {
+  let resolve!: () => void;
+  const promise = new Promise<void>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+};
+
+class TestIncrementalRefreshModel extends IncrementalRefreshModel {
+  public getCollection() {
+    return this._dangerousGetCollection();
+  }
+}
+
 describe("IncrementalRefreshModel", () => {
   let mongod: MongoMemoryServer;
-  let model: IncrementalRefreshModel;
+  let model: TestIncrementalRefreshModel;
 
   const collection = () => mongoose.connection.db!.collection(COLLECTION_NAME);
 
@@ -68,7 +86,7 @@ describe("IncrementalRefreshModel", () => {
   });
 
   beforeEach(async () => {
-    model = new IncrementalRefreshModel(context);
+    model = new TestIncrementalRefreshModel(context);
     await waitForIndexes();
   });
 
@@ -325,5 +343,147 @@ describe("IncrementalRefreshModel", () => {
 
     const found = await model.getByExperimentIdAndPhase("exp_1", 0);
     expect(found?.experimentId).toBe("exp_1");
+  });
+
+  const source = (
+    groupId: string,
+    tableFullName: string,
+  ): IncrementalRefreshMetricSourceInterface => ({
+    groupId,
+    factTableId: `ft_${groupId}`,
+    metrics: [{ id: `m_${groupId}`, settingsHash: `hash_${groupId}` }],
+    maxTimestamp: null,
+    tableFullName,
+  });
+
+  const covariate = (
+    groupId: string,
+    tableFullName: string,
+  ): IncrementalRefreshMetricCovariateSourceInterface => ({
+    groupId,
+    tableFullName,
+    lastSuccessfulMaxTimestamp: null,
+  });
+
+  const sourcesByGroup = async (snapshotId: string) => {
+    const doc = await model.getLockedBySnapshotId("exp_1", snapshotId);
+    return Object.fromEntries(
+      (doc?.metricSources ?? []).map((s) => [s.groupId, s.tableFullName]),
+    );
+  };
+
+  it("appends a new source group and replaces an existing one, keyed by group", async () => {
+    await acquireLock("exp_1", 0, "snap_0");
+
+    expect(
+      await model.upsertMetricSource("exp_1", "snap_0", source("a", "tbl_a")),
+    ).toBe(true);
+    await model.upsertMetricSource("exp_1", "snap_0", source("b", "tbl_b"));
+    await model.upsertMetricSource("exp_1", "snap_0", source("a", "tbl_a_v2"));
+
+    expect(await sourcesByGroup("snap_0")).toEqual({
+      a: "tbl_a_v2",
+      b: "tbl_b",
+    });
+  });
+
+  it("allows only one conditional push after concurrent same-group pulls", async () => {
+    await acquireLock("exp_1", 0, "snap_0");
+    const mongoCollection = model.getCollection();
+    const updateOne = mongoCollection.updateOne.bind(mongoCollection);
+    const bothPullsFinished = createDeferred();
+    const releasePulls = createDeferred();
+    let completedUpdates = 0;
+    const updateOneSpy = jest
+      .spyOn(mongoCollection, "updateOne")
+      .mockImplementation(async (filter, update, options) => {
+        const result = await updateOne(filter, update, options);
+        completedUpdates += 1;
+        if (completedUpdates <= 2) {
+          if (completedUpdates === 2) bothPullsFinished.resolve();
+          await releasePulls.promise;
+        }
+        return result;
+      });
+
+    try {
+      const first = model.upsertMetricSource(
+        "exp_1",
+        "snap_0",
+        source("a", "tbl_a"),
+      );
+      const second = model.upsertMetricSource(
+        "exp_1",
+        "snap_0",
+        source("a", "tbl_a_v2"),
+      );
+      await bothPullsFinished.promise;
+      releasePulls.resolve();
+      expect(await Promise.all([first, second])).toEqual([true, true]);
+    } finally {
+      releasePulls.resolve();
+      updateOneSpy.mockRestore();
+    }
+
+    const doc = await model.getLockedBySnapshotId("exp_1", "snap_0");
+    expect(doc?.metricSources).toHaveLength(1);
+    expect(doc?.metricSources[0]?.groupId).toBe("a");
+  });
+
+  it("keeps a pulled source group gone when a sibling is upserted", async () => {
+    await acquireLock("exp_1", 0, "snap_0");
+    await model.upsertMetricSource("exp_1", "snap_0", source("a", "tbl_a"));
+    await model.upsertMetricSource("exp_1", "snap_0", source("b", "tbl_b"));
+
+    await model.invalidateMetricSourceGroup("exp_1", "snap_0", "a");
+    await model.upsertMetricSource("exp_1", "snap_0", source("b", "tbl_b_v2"));
+
+    expect(await sourcesByGroup("snap_0")).toEqual({ b: "tbl_b_v2" });
+  });
+
+  it("refuses a source upsert from a non-current execution", async () => {
+    await acquireLock("exp_1", 0, "snap_0");
+    await model.upsertMetricSource("exp_1", "snap_0", source("a", "tbl_a"));
+
+    expect(
+      await model.upsertMetricSource(
+        "exp_1",
+        "snap_stale",
+        source("b", "tbl_b"),
+      ),
+    ).toBe(false);
+    expect(await sourcesByGroup("snap_0")).toEqual({ a: "tbl_a" });
+  });
+
+  it("appends, replaces, and lock-guards covariate sources keyed by group", async () => {
+    await acquireLock("exp_1", 0, "snap_0");
+
+    await model.upsertMetricCovariateSource(
+      "exp_1",
+      "snap_0",
+      covariate("a", "cov_a"),
+    );
+    await model.upsertMetricCovariateSource(
+      "exp_1",
+      "snap_0",
+      covariate("a", "cov_a_v2"),
+    );
+    expect(
+      await model.upsertMetricCovariateSource(
+        "exp_1",
+        "snap_stale",
+        covariate("b", "cov_b"),
+      ),
+    ).toBe(false);
+
+    const doc = await model.getLockedBySnapshotId("exp_1", "snap_0");
+    expect(
+      Object.fromEntries(
+        (doc?.metricCovariateSources ?? []).map((s) => [
+          s.groupId,
+          s.tableFullName,
+        ]),
+      ),
+    ).toEqual({ a: "cov_a_v2" });
   });
 });

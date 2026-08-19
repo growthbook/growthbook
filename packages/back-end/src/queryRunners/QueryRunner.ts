@@ -69,7 +69,7 @@ export type StartQueryParams<Rows, ProcessedRows> = {
   /** @deprecated */
   process?: (rows: Rows) => ProcessedRows;
   onSuccess?: (rows: Rows) => void | Promise<void>;
-  onFailure?: () => void;
+  onFailure?: () => void | Promise<void>;
   queryType: QueryType;
   runAtEnd?: boolean;
 };
@@ -150,7 +150,7 @@ export abstract class QueryRunner<
       ) => Promise<QueryResponse<RowsType>>;
       process?: (rows: RowsType) => ProcessedRowsType;
       onSuccess?: (rows: RowsType) => void | Promise<void>;
-      onFailure: () => void;
+      onFailure: () => void | Promise<void>;
     };
   } = {};
   // Prevent early query completions from refreshing against a partial DAG.
@@ -159,6 +159,7 @@ export abstract class QueryRunner<
   private pendingTimers: Record<string, NodeJS.Timeout> = {};
   private lockHeartbeatTimer: null | NodeJS.Timeout = null;
   private finishedQueryMapCache: QueryMap = new Map();
+  private inFlightTerminalHandlers = new Set<Promise<void>>();
   protected experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null =
     null;
 
@@ -215,6 +216,16 @@ export abstract class QueryRunner<
 
   private hasTimer(id: string): boolean {
     return this.pendingTimers[id] !== undefined;
+  }
+
+  private registerTerminalHandler(handler: () => Promise<void>): void {
+    const terminalHandler = Promise.resolve()
+      .then(handler)
+      .catch((error) => logger.error(error))
+      .finally(() => {
+        this.inFlightTerminalHandlers.delete(terminalHandler);
+      });
+    this.inFlightTerminalHandlers.add(terminalHandler);
   }
 
   // Called periodically while the runner is active. Override to refresh an
@@ -575,6 +586,9 @@ export abstract class QueryRunner<
     );
 
     if (!hasChanges) return queryMap;
+    if (newStatus !== "running") {
+      await Promise.all([...this.inFlightTerminalHandlers]);
+    }
 
     let error: string | undefined = undefined;
     let result: Result | undefined = undefined;
@@ -800,7 +814,7 @@ export abstract class QueryRunner<
         queryMetadata: RunQueryMetadata,
       ) => Promise<QueryResponse<Rows>>;
       process?: (rows: Rows) => ProcessedRows;
-      onFailure: () => void;
+      onFailure: () => void | Promise<void>;
       onSuccess?: (rows: Rows) => void | Promise<void>;
     },
   ): Promise<void> {
@@ -842,10 +856,42 @@ export abstract class QueryRunner<
       });
     };
 
-    run(doc.query, setExternalId, { queryType: doc.queryType || "unknown" })
-      .then(async ({ rows, statistics }) => {
-        clearInterval(timer);
-        logger.debug("Query succeeded: " + doc.id);
+    const finishQuery = async () => {
+      try {
+        await this.onQueryFinish();
+      } catch (error) {
+        logger.error(error);
+      }
+    };
+    const handleFailure = async (error: unknown) => {
+      clearInterval(timer);
+      const message = error instanceof Error ? error.message : String(error);
+      logger.debug("Query failed: " + message);
+      try {
+        const updated = await updateQueryIfRunning(this.context, doc, {
+          finishedAt: new Date(),
+          status: "failed",
+          error: message,
+        });
+        if (!updated) {
+          logger.debug(
+            `Query ${doc.id} failure not written: already terminal (e.g. user cancel)`,
+          );
+        }
+      } catch (updateError) {
+        logger.error(updateError);
+      }
+      try {
+        await onFailure();
+      } catch (failureError) {
+        logger.error(failureError);
+      }
+      await finishQuery();
+    };
+    const handleSuccess = async ({ rows, statistics }: QueryResponse<Rows>) => {
+      clearInterval(timer);
+      logger.debug("Query succeeded: " + doc.id);
+      try {
         await updateQuery(this.context, doc, {
           finishedAt: new Date(),
           status: "succeeded",
@@ -856,28 +902,20 @@ export abstract class QueryRunner<
         if (onSuccess) {
           await onSuccess(rows);
         }
-        this.onQueryFinish();
-      })
-      .catch(async (e) => {
-        clearInterval(timer);
-        logger.debug("Query failed: " + e.message);
-        try {
-          const updated = await updateQueryIfRunning(this.context, doc, {
-            finishedAt: new Date(),
-            status: "failed",
-            error: e.message,
-          });
-          if (!updated) {
-            logger.debug(
-              `Query ${doc.id} failure not written: already terminal (e.g. user cancel)`,
-            );
-          }
-          onFailure();
-          this.onQueryFinish();
-        } catch (err) {
-          logger.error(err);
-        }
-      });
+      } catch (error) {
+        await handleFailure(error);
+        return;
+      }
+      await finishQuery();
+    };
+
+    run(doc.query, setExternalId, {
+      queryType: doc.queryType || "unknown",
+    }).then(
+      (response) => this.registerTerminalHandler(() => handleSuccess(response)),
+      (error: unknown) =>
+        this.registerTerminalHandler(() => handleFailure(error)),
+    );
   }
 
   public async startQuery<

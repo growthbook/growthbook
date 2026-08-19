@@ -227,6 +227,7 @@ const startExperimentIncrementalRefreshQueries = async (
     params: StartQueryParams<RowsType, ProcessedRowsType>,
   ) => Promise<QueryPointer>,
   experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null,
+  recordFailedMetricSourceGroup: (groupId: string) => void,
 ): Promise<Queries> => {
   const { snapshotSettings, queryParentId, experimentId, metricMap } = params;
 
@@ -582,8 +583,6 @@ const startExperimentIncrementalRefreshQueries = async (
     integration,
     snapshotSettings,
   });
-  let runningSourceData = existingSources ?? [];
-  let runningCovariateSourceData = existingCovariateSources ?? [];
 
   // Track per-group state we need from the per-FT pass for the cross-FT
   // pair pass below: each pipeline's cache table name (so the stats query
@@ -610,6 +609,10 @@ const startExperimentIncrementalRefreshQueries = async (
     const existingCovariateSource = existingCovariateSources?.find(
       (s) => s.groupId === group.groupId,
     );
+
+    const recordSourceGroupFailure = () => {
+      recordFailedMetricSourceGroup(group.groupId);
+    };
 
     const metricSourceTableFullName: string | undefined =
       existingSource?.tableFullName ??
@@ -666,6 +669,7 @@ const startExperimentIncrementalRefreshQueries = async (
             queryMetadata,
           ),
         ),
+        onFailure: recordSourceGroupFailure,
         queryType: "experimentIncrementalRefreshCreateMetricsSourceTable",
       });
       queries.push(createMetricsSourceQuery);
@@ -697,6 +701,7 @@ const startExperimentIncrementalRefreshQueries = async (
           setExternalId,
           queryMetadata,
         ),
+      onFailure: recordSourceGroupFailure,
       queryType: "experimentIncrementalRefreshInsertMetricsSourceData",
     });
     queries.push(insertMetricsSourceDataQuery);
@@ -747,6 +752,7 @@ const startExperimentIncrementalRefreshQueries = async (
           run: fenced((query, setExternalId, queryMetadata) =>
             integration.runDropTableQuery(query, setExternalId, queryMetadata),
           ),
+          onFailure: recordSourceGroupFailure,
           queryType: "experimentIncrementalRefreshDropMetricsCovariateTable",
         });
         queries.push(dropMetricCovariateTableQuery);
@@ -769,6 +775,7 @@ const startExperimentIncrementalRefreshQueries = async (
               queryMetadata,
             ),
           ),
+          onFailure: recordSourceGroupFailure,
           queryType: "experimentIncrementalRefreshCreateMetricsCovariateTable",
         });
         queries.push(createMetricCovariateTableQuery);
@@ -815,6 +822,7 @@ const startExperimentIncrementalRefreshQueries = async (
             setExternalId,
             queryMetadata,
           ),
+        onFailure: recordSourceGroupFailure,
         onSuccess: async () => {
           const incrementalRefresh =
             await context.models.incrementalRefresh.getLockedBySnapshotId(
@@ -834,22 +842,11 @@ const startExperimentIncrementalRefreshQueries = async (
                   lastSuccessfulMaxTimestamp,
                   tableFullName: metricSourceCovariateTableFullName,
                 };
-          if (!existingCovariateSource) {
-            runningCovariateSourceData = runningCovariateSourceData.concat(
-              updatedCovariateSource,
-            );
-          } else {
-            runningCovariateSourceData = runningCovariateSourceData.map((s) =>
-              s.groupId === group.groupId ? updatedCovariateSource : s,
-            );
-          }
           const lockHeld =
-            await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
+            await context.models.incrementalRefresh.upsertMetricCovariateSource(
               experimentId,
               executionId,
-              {
-                metricCovariateSources: runningCovariateSourceData,
-              },
+              updatedCovariateSource,
             );
           if (lockHeld !== true) {
             context.logger.warn(
@@ -914,24 +911,7 @@ const startExperimentIncrementalRefreshQueries = async (
       dependencies: [insertMetricsSourceDataQuery.query],
       run: (query, setExternalId, queryMetadata) =>
         integration.runMaxTimestampQuery(query, setExternalId, queryMetadata),
-      onFailure: async () => {
-        // Remove the source from the running data if max timestamp fails
-        runningSourceData = runningSourceData.filter(
-          (s) => s.groupId !== group.groupId,
-        );
-        // Note: onFailure is not awaited by QueryRunner, so we must catch
-        // errors here to avoid unhandled promise rejections.
-        context.models.incrementalRefresh
-          .updateByExperimentIdIfCurrentExecution(experimentId, executionId, {
-            metricSources: runningSourceData,
-          })
-          .catch((e) =>
-            context.logger.error(
-              e,
-              "Failed to update metric sources on query failure",
-            ),
-          );
-      },
+      onFailure: recordSourceGroupFailure,
       onSuccess: async (rows) => {
         const maxTimestamp = new Date(rows[0].max_timestamp as string);
         if (maxTimestamp) {
@@ -959,20 +939,11 @@ const startExperimentIncrementalRefreshQueries = async (
                   })),
                   tableFullName: metricSourceTableFullName,
                 };
-          if (!existingSource) {
-            runningSourceData = runningSourceData.concat(updatedSource);
-          } else {
-            runningSourceData = runningSourceData.map((s) =>
-              s.groupId === group.groupId ? updatedSource : s,
-            );
-          }
           const lockHeld =
-            await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
+            await context.models.incrementalRefresh.upsertMetricSource(
               experimentId,
               executionId,
-              {
-                metricSources: runningSourceData,
-              },
+              updatedSource,
             );
           if (lockHeld !== true) {
             context.logger.warn(
@@ -1175,6 +1146,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
 > {
   private variationNames: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
+  private failedMetricSourceGroupIds = new Set<string>();
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
@@ -1191,6 +1163,29 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
           "Failed to refresh incremental refresh lock heartbeat",
         ),
       );
+  }
+
+  protected recordFailedMetricSourceGroup(groupId: string): void {
+    this.failedMetricSourceGroupIds.add(groupId);
+  }
+
+  private async invalidateFailedMetricSourceGroups(): Promise<void> {
+    const results = await Promise.all(
+      [...this.failedMetricSourceGroupIds].map((groupId) =>
+        this.context.models.incrementalRefresh.invalidateMetricSourceGroup(
+          this.model.experiment,
+          this.model.id,
+          groupId,
+        ),
+      ),
+    );
+    if (results.some((lockHeld) => !lockHeld)) {
+      this.context.logger.warn(
+        "Incremental refresh execution lock lost for experiment: " +
+          this.model.experiment,
+      );
+    }
+    this.failedMetricSourceGroupIds.clear();
   }
 
   async startQueries(
@@ -1244,6 +1239,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       this.integration,
       this.startQuery.bind(this),
       this.experimentUpdateExecutionLogger,
+      (groupId) => this.recordFailedMetricSourceGroup(groupId),
     );
   }
 
@@ -1397,6 +1393,8 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     // Release the incremental refresh lock on any terminal status
     // TODO: Properly handle partially-succeeded status that also becomes terminal??
     if (snapshotStatus !== "running") {
+      await this.invalidateFailedMetricSourceGroups();
+
       if (snapshotStatus === "success") {
         await this.context.models.incrementalRefresh
           .updateByExperimentIdIfCurrentExecution(

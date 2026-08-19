@@ -1,9 +1,19 @@
 import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type { ApiReqContext } from "back-end/types/api";
+import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import { updateSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import {
+  ExperimentIncrementalRefreshQueryRunner,
   getIncrementalRefreshMetricSources,
   MetricSourceGroups,
 } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { factMetricFactory } from "../factories/FactMetric.factory";
+import { snapshotFactory } from "../factories/Snapshot.factory";
+
+jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
+  findSnapshotById: jest.fn(),
+  updateSnapshot: jest.fn(),
+}));
 
 // `getIncrementalRefreshMetricSources` only reaches into the integration for
 // `getSourceProperties().maxColumns` (used by the chunker). The rest of the
@@ -174,5 +184,99 @@ describe("getIncrementalRefreshMetricSources fan-out", () => {
     // exists and that orientation is recoverable from the metric.
     expect(numGroup).toBeDefined();
     expect(numGroup!.metrics[0].numerator.factTableId).toBe("ft_num");
+  });
+});
+
+const createDeferred = () => {
+  let resolve!: () => void;
+  const promise = new Promise<void>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+};
+
+class TestableIncrementalRefreshQueryRunner extends ExperimentIncrementalRefreshQueryRunner {
+  public recordFailedGroup(groupId: string): void {
+    this.recordFailedMetricSourceGroup(groupId);
+  }
+}
+
+describe("ExperimentIncrementalRefreshQueryRunner terminal invalidation", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("invalidates recorded groups before materialization and lock release", async () => {
+    const events: string[] = [];
+    const invalidationStarted = createDeferred();
+    const finishInvalidation = createDeferred();
+    const invalidateMetricSourceGroup = jest.fn(async () => {
+      events.push("invalidate-started");
+      invalidationStarted.resolve();
+      await finishInvalidation.promise;
+      events.push("invalidated");
+      return true;
+    });
+    const updateByExperimentIdIfCurrentExecution = jest.fn(async () => {
+      events.push("materialized");
+      return true;
+    });
+    const releaseLock = jest.fn(async () => {
+      events.push("released");
+    });
+    const context = {
+      org: { id: "org_1" },
+      permissions: { canRunExperimentQueries: () => true },
+      logger: { warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
+      models: {
+        incrementalRefresh: {
+          invalidateMetricSourceGroup,
+          updateByExperimentIdIfCurrentExecution,
+          releaseLock,
+        },
+      },
+    } as unknown as ApiReqContext;
+    const integration = {
+      datasource: { id: "ds_1", type: "postgres", settings: {} },
+      context: { org: { id: "org_1" } },
+    } as unknown as SourceIntegrationInterface;
+    const snapshot = snapshotFactory.build({
+      id: "snap_1",
+      experiment: "exp_1",
+      status: "running",
+    });
+    const runner = new TestableIncrementalRefreshQueryRunner(
+      context,
+      snapshot,
+      integration,
+    );
+    runner.recordFailedGroup("group_a");
+    (updateSnapshot as jest.Mock).mockImplementation(async () => {
+      events.push("snapshot-updated");
+    });
+
+    const terminalUpdate = runner.updateModel({
+      status: "partially-succeeded",
+      queries: [],
+    });
+    await invalidationStarted.promise;
+    expect(updateByExperimentIdIfCurrentExecution).not.toHaveBeenCalled();
+    expect(releaseLock).not.toHaveBeenCalled();
+
+    finishInvalidation.resolve();
+    await terminalUpdate;
+    expect(events).toEqual([
+      "snapshot-updated",
+      "invalidate-started",
+      "invalidated",
+      "materialized",
+      "released",
+    ]);
+
+    await runner.updateModel({
+      status: "partially-succeeded",
+      queries: [],
+    });
+    expect(invalidateMetricSourceGroup).toHaveBeenCalledTimes(1);
   });
 });

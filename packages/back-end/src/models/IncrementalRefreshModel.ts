@@ -2,6 +2,8 @@ import uniqid from "uniqid";
 import { UpdateProps } from "shared/types/base-model";
 import {
   IncrementalRefreshInterface,
+  IncrementalRefreshMetricSourceInterface,
+  IncrementalRefreshMetricCovariateSourceInterface,
   incrementalRefreshValidator,
 } from "shared/validators";
 import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
@@ -253,6 +255,94 @@ export class IncrementalRefreshModel extends BaseClass {
       { $set: { ...data, dateUpdated: new Date() } },
     );
     return result.matchedCount > 0;
+  }
+
+  public async invalidateMetricSourceGroup(
+    experimentId: string,
+    executionId: string,
+    groupId: string,
+  ): Promise<boolean> {
+    const result = await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        experimentId,
+        currentExecutionSnapshotId: executionId,
+      },
+      {
+        $pull: {
+          metricSources: { groupId },
+          metricCovariateSources: { groupId },
+        },
+        $set: { dateUpdated: new Date() },
+      },
+    );
+    return result.matchedCount > 0;
+  }
+
+  /**
+   * MongoDB rejects `$pull` and `$push` on one path, while DocumentDB and
+   * Cosmos reject pipeline updates. The conditional push prevents concurrent
+   * same-group writes from creating duplicates.
+   */
+  private async _upsertSourceGroupEntry(
+    field: "metricSources" | "metricCovariateSources",
+    experimentId: string,
+    executionId: string,
+    entry: { groupId: string },
+  ): Promise<boolean> {
+    const filter = {
+      organization: this.context.org.id,
+      experimentId,
+      currentExecutionSnapshotId: executionId,
+    };
+
+    const collection = this._dangerousGetCollection();
+
+    await collection.updateOne(filter, {
+      $pull: { [field]: { groupId: entry.groupId } },
+    });
+
+    const result = await collection.updateOne(
+      {
+        ...filter,
+        [`${field}.groupId`]: { $ne: entry.groupId },
+      },
+      {
+        $push: { [field]: entry },
+        $set: { dateUpdated: new Date() },
+      },
+    );
+    if (result.matchedCount > 0) return true;
+
+    return (
+      (await collection.findOne(filter, { projection: { _id: 1 } })) !== null
+    );
+  }
+
+  public async upsertMetricSource(
+    experimentId: string,
+    executionId: string,
+    source: IncrementalRefreshMetricSourceInterface,
+  ): Promise<boolean> {
+    return this._upsertSourceGroupEntry(
+      "metricSources",
+      experimentId,
+      executionId,
+      source,
+    );
+  }
+
+  public async upsertMetricCovariateSource(
+    experimentId: string,
+    executionId: string,
+    source: IncrementalRefreshMetricCovariateSourceInterface,
+  ): Promise<boolean> {
+    return this._upsertSourceGroupEntry(
+      "metricCovariateSources",
+      experimentId,
+      executionId,
+      source,
+    );
   }
 
   public async deleteByExperimentIdAndPhase(
