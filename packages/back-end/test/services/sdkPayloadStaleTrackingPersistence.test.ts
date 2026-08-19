@@ -56,6 +56,8 @@ jest.mock("back-end/src/services/organizations", () => ({
 }));
 jest.mock("back-end/src/jobs/updateAllJobs", () => ({
   triggerWebhookJobs: jest.fn().mockResolvedValue(undefined),
+  triggerLegacyWebhookJobs: jest.fn().mockResolvedValue(undefined),
+  purgeCDNCacheForEnvironments: jest.fn().mockResolvedValue(undefined),
 }));
 
 const getSDKPayloadCacheLocationMock = jest.requireMock(
@@ -178,6 +180,28 @@ describe("SDK payload stale tracking persistence (real SDKConnectionModel)", () 
     expect(scheduleOrgRefreshJobMock).toHaveBeenCalledWith("org-1");
   });
 
+  it("marks connections the writing API key cannot read (marking uses a full-access context)", async () => {
+    await insertConnection({ id: "c1", key: "sdk-hidden" });
+    const mockModels = mockRefreshDependencies(jest.fn());
+
+    queueSDKPayloadRefresh({
+      // A project-scoped key: its own permissions can't read the connection,
+      // but the affected-connection scan must not be limited by that.
+      context: minimalContext({
+        models: mockModels as ReqContext["models"],
+        permissions: {
+          canReadMultiProjectResource: () => false,
+        } as ApiReqContext["permissions"],
+      }) as ReqContext,
+      payloadKeys: [{ environment: "production", project: "" }],
+    });
+    await new Promise((r) => setTimeout(r, 50));
+
+    const doc = await rawCollection().findOne({ key: "sdk-hidden" });
+    expect(doc?.staleSince).toBeInstanceOf(Date);
+    expect(scheduleOrgRefreshJobMock).toHaveBeenCalledWith("org-1");
+  });
+
   it("bumps staleSince again on a second write even though the connection is already stale", async () => {
     const original = new Date(Date.now() - 60_000);
     await insertConnection({ id: "c1", key: "sdk-1", staleSince: original });
@@ -244,6 +268,57 @@ describe("SDK payload stale tracking persistence (real SDKConnectionModel)", () 
 
     const doc = await rawCollection().findOne({ key: "sdk-race" });
     expect(doc?.staleSince).toBeInstanceOf(Date);
+  });
+
+  it("a re-mark with an EARLIER timestamp (skewed writer clock) also survives the clear", async () => {
+    const original = new Date(Date.now() - 60_000);
+    await insertConnection({ id: "c1", key: "sdk-skew", staleSince: original });
+
+    // The re-marking server's clock is behind the job runner's: the new mark
+    // predates the job's read. An exact-match clear must still preserve it.
+    const skewed = new Date(Date.now() - 120_000);
+    const upsert = jest.fn().mockImplementation(async () => {
+      await rawCollection().updateOne(
+        { key: "sdk-skew" },
+        { $set: { staleSince: skewed } },
+      );
+    });
+    const mockModels = mockRefreshDependencies(upsert);
+
+    await refreshStaleSdkConnectionsForOrg(
+      minimalContext({
+        models: mockModels as ReqContext["models"],
+      }) as ReqContext,
+    );
+
+    const doc = await rawCollection().findOne({ key: "sdk-skew" });
+    expect(doc?.staleSince?.getTime()).toBe(skewed.getTime());
+  });
+
+  it("keeps the mark of a connection whose rebuild failed while clearing the rest, and throws", async () => {
+    await insertConnection({ id: "c1", key: "sdk-ok", staleSince: new Date() });
+    await insertConnection({
+      id: "c2",
+      key: "sdk-broken",
+      staleSince: new Date(),
+    });
+    const upsert = jest.fn().mockImplementation(async (key: string) => {
+      if (key === "sdk-broken") throw new Error("write failed");
+    });
+    const mockModels = mockRefreshDependencies(upsert);
+
+    await expect(
+      refreshStaleSdkConnectionsForOrg(
+        minimalContext({
+          models: mockModels as ReqContext["models"],
+        }) as ReqContext,
+      ),
+    ).rejects.toThrow("Failed to rebuild 1 stale SDK connection(s)");
+
+    const ok = await rawCollection().findOne({ key: "sdk-ok" });
+    const broken = await rawCollection().findOne({ key: "sdk-broken" });
+    expect(ok?.staleSince).toBeNull();
+    expect(broken?.staleSince).toBeInstanceOf(Date);
   });
 
   it("still refreshes directly when job scheduling fails, leaving the mark set for the next write to clean up", async () => {

@@ -63,6 +63,8 @@ jest.mock("back-end/src/services/organizations", () => ({
 }));
 jest.mock("back-end/src/jobs/updateAllJobs", () => ({
   triggerWebhookJobs: jest.fn().mockResolvedValue(undefined),
+  triggerLegacyWebhookJobs: jest.fn().mockResolvedValue(undefined),
+  purgeCDNCacheForEnvironments: jest.fn().mockResolvedValue(undefined),
 }));
 
 const getSDKPayloadCacheLocationMock = jest.requireMock(
@@ -82,6 +84,11 @@ const clearStaleSdkConnections =
 const scheduleOrgRefreshJob = jest.requireMock(
   "back-end/src/jobs/refreshStaleSdkConnections",
 ).scheduleOrgRefreshJob as jest.Mock;
+const updateAllJobsMock = jest.requireMock("back-end/src/jobs/updateAllJobs");
+const triggerLegacyWebhookJobs =
+  updateAllJobsMock.triggerLegacyWebhookJobs as jest.Mock;
+const purgeCDNCacheForEnvironments =
+  updateAllJobsMock.purgeCDNCacheForEnvironments as jest.Mock;
 
 function minimalContext(overrides?: Partial<ApiReqContext>): ApiReqContext {
   return {
@@ -171,14 +178,20 @@ describe("queueSDKPayloadRefresh (stale tracking enabled)", () => {
 
     expect(markSdkConnectionsStale).toHaveBeenCalledWith("org-1", ["sdk-A"]);
     expect(scheduleOrgRefreshJob).toHaveBeenCalledWith("org-1");
+    // Legacy webhooks self-build at fire time, so they're enqueued at mark
+    // time with the exact payload keys the deferred rebuild no longer has.
+    expect(triggerLegacyWebhookJobs).toHaveBeenCalledWith(expect.anything(), [
+      { environment: "production", project: "" },
+    ]);
     // The actual rebuild happens inside the job, not inline here.
     expect(upsert).not.toHaveBeenCalled();
   });
 
-  it("still enqueues even when the org already has other pending staleness — Agenda's uniqueness collapses concurrent enqueues onto one job", async () => {
+  it("marks the union when a caller passes both payloadKeys and explicit sdkConnections", async () => {
     const upsert = jest.fn().mockResolvedValue(undefined);
     const mockModels = mockRefreshDependencies(upsert);
     const connB = conn("sdk-B");
+    const connExplicit = conn("sdk-explicit");
 
     findSDKConnectionsByOrganization.mockResolvedValue([connB]);
     markSdkConnectionsStale.mockResolvedValue(undefined);
@@ -188,10 +201,15 @@ describe("queueSDKPayloadRefresh (stale tracking enabled)", () => {
         models: mockModels as ReqContext["models"],
       }) as ReqContext,
       payloadKeys: [{ environment: "production", project: "" }],
+      sdkConnections: [connExplicit],
     });
 
     await new Promise((r) => setTimeout(r, 50));
 
+    expect(markSdkConnectionsStale).toHaveBeenCalledWith("org-1", [
+      "sdk-explicit",
+      "sdk-B",
+    ]);
     expect(scheduleOrgRefreshJob).toHaveBeenCalledWith("org-1");
   });
 
@@ -282,11 +300,13 @@ describe("refreshStaleSdkConnectionsForOrg", () => {
     expect(clearStaleSdkConnections).not.toHaveBeenCalled();
   });
 
-  it("rebuilds every stale connection in one pass, then clears staleness for exactly those keys", async () => {
+  it("rebuilds every stale connection in one pass, then clears exactly the marks it read", async () => {
     const upsert = jest.fn().mockResolvedValue(undefined);
     const mockModels = mockRefreshDependencies(upsert);
-    const connF = conn("sdk-F");
-    const connG = conn("sdk-G");
+    const staleF = new Date(Date.now() - 1000);
+    const staleG = new Date(Date.now() - 2000);
+    const connF = { ...conn("sdk-F"), staleSince: staleF };
+    const connG = { ...conn("sdk-G"), staleSince: staleG };
     findStaleSdkConnectionsByOrganization.mockResolvedValue([connF, connG]);
 
     await refreshStaleSdkConnectionsForOrg(
@@ -296,10 +316,39 @@ describe("refreshStaleSdkConnectionsForOrg", () => {
     );
 
     expect(upsert).toHaveBeenCalledTimes(2);
-    expect(clearStaleSdkConnections).toHaveBeenCalledWith(
-      "org-1",
-      ["sdk-F", "sdk-G"],
-      expect.any(Date),
-    );
+    // Cleared by exact read value, so a concurrent re-mark always survives.
+    expect(clearStaleSdkConnections).toHaveBeenCalledWith("org-1", [
+      { key: "sdk-F", staleSince: staleF },
+      { key: "sdk-G", staleSince: staleG },
+    ]);
+    // Env-level surrogate keys (legacy API-key CDN entries) get purged too.
+    expect(purgeCDNCacheForEnvironments).toHaveBeenCalledWith("org-1", [
+      "production",
+    ]);
+  });
+
+  it("keeps the mark of a connection whose rebuild failed and throws so the job retries", async () => {
+    const upsert = jest.fn().mockImplementation(async (key: string) => {
+      if (key === "sdk-bad") throw new Error("mongo write failed");
+    });
+    const mockModels = mockRefreshDependencies(upsert);
+    const staleGood = new Date(Date.now() - 1000);
+    const staleBad = new Date(Date.now() - 2000);
+    findStaleSdkConnectionsByOrganization.mockResolvedValue([
+      { ...conn("sdk-good"), staleSince: staleGood },
+      { ...conn("sdk-bad"), staleSince: staleBad },
+    ]);
+
+    await expect(
+      refreshStaleSdkConnectionsForOrg(
+        minimalContext({
+          models: mockModels as ReqContext["models"],
+        }) as ReqContext,
+      ),
+    ).rejects.toThrow("Failed to rebuild 1 stale SDK connection(s)");
+
+    expect(clearStaleSdkConnections).toHaveBeenCalledWith("org-1", [
+      { key: "sdk-good", staleSince: staleGood },
+    ]);
   });
 });

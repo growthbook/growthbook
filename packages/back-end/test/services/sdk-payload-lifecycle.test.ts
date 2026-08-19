@@ -68,6 +68,8 @@ jest.mock("back-end/src/services/organizations", () => ({
 }));
 jest.mock("back-end/src/jobs/updateAllJobs", () => ({
   triggerWebhookJobs: jest.fn().mockResolvedValue(undefined),
+  triggerLegacyWebhookJobs: jest.fn().mockResolvedValue(undefined),
+  purgeCDNCacheForEnvironments: jest.fn().mockResolvedValue(undefined),
 }));
 
 const getSDKPayloadCacheLocationMock = jest.requireMock(

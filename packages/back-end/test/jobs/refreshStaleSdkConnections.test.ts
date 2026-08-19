@@ -12,6 +12,7 @@ import { hasAnyStaleSdkConnection } from "back-end/src/models/SdkConnectionModel
 
 jest.mock("back-end/src/models/SdkConnectionModel", () => ({
   hasAnyStaleSdkConnection: jest.fn(),
+  findOrganizationsWithStaleSdkConnections: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock("back-end/src/services/organizations", () => ({
@@ -46,7 +47,8 @@ describe("refreshStaleSdkConnections (real Agenda lifecycle)", () => {
     await mongoose.connect(mongod.getUri());
     testAgenda = new Agenda({
       mongo: mongoose.connection.db!,
-      processEvery: "300 milliseconds",
+      // Numeric ms — human-interval has no ms unit ("300 milliseconds" = 300s, "300ms" = NaN)
+      processEvery: 300,
     });
     addRefreshStaleSdkConnectionsJob(testAgenda);
     await testAgenda.start();
@@ -59,10 +61,17 @@ describe("refreshStaleSdkConnections (real Agenda lifecycle)", () => {
   });
 
   beforeEach(async () => {
-    refreshStaleSdkConnectionsForOrgMock.mockClear();
+    refreshStaleSdkConnectionsForOrgMock.mockReset();
+    refreshStaleSdkConnectionsForOrgMock.mockResolvedValue(undefined);
     hasAnyStaleSdkConnectionMock.mockReset();
+    // Default (after any mockResolvedValueOnce chains) so a straggler
+    // success-listener from a previous test can't crash on a bare mock.
+    hasAnyStaleSdkConnectionMock.mockResolvedValue(false);
     await mongoose.connection.db!.collection("agendaJobs").deleteMany({});
   });
+
+  // Let in-flight success/fail listeners finish before the next test resets mocks.
+  const settle = () => new Promise((r) => setTimeout(r, 400));
 
   it("runs once and does not reschedule when nothing new arrived", async () => {
     hasAnyStaleSdkConnectionMock.mockResolvedValue(false);
@@ -91,6 +100,7 @@ describe("refreshStaleSdkConnections (real Agenda lifecycle)", () => {
         }
       }, 100);
     });
+    await settle();
 
     expect(refreshStaleSdkConnectionsForOrgMock).toHaveBeenCalledTimes(2);
   }, 20000);
@@ -113,9 +123,78 @@ describe("refreshStaleSdkConnections (real Agenda lifecycle)", () => {
         }
       }, 100);
     });
+    await settle();
 
     expect(refreshStaleSdkConnectionsForOrgMock).toHaveBeenCalledTimes(2);
   }, 20000);
+
+  it("retries a failed run with a backoff delay instead of hot-looping", async () => {
+    refreshStaleSdkConnectionsForOrgMock.mockRejectedValueOnce(
+      new Error("rebuild blew up"),
+    );
+
+    const enqueuedAt = Date.now();
+    await scheduleOrgRefreshJob("org_fail");
+
+    // Wait for the failing run to happen.
+    await new Promise((resolve) => {
+      const check = setInterval(() => {
+        if (refreshStaleSdkConnectionsForOrgMock.mock.calls.length >= 1) {
+          clearInterval(check);
+          resolve(undefined);
+        }
+      }, 100);
+    });
+    await settle();
+
+    // The fail listener rescheduled the same unique doc into the future
+    // (first failure → 10s backoff), so no immediate second run happened.
+    expect(refreshStaleSdkConnectionsForOrgMock).toHaveBeenCalledTimes(1);
+    const doc = await mongoose.connection
+      .db!.collection("agendaJobs")
+      .findOne({ "data.organization": "org_fail" });
+    expect(doc?.nextRunAt).toBeTruthy();
+    expect(new Date(doc!.nextRunAt).getTime()).toBeGreaterThan(
+      enqueuedAt + 5000,
+    );
+  }, 20000);
+
+  it("keeps per-org jobs separate — the unique index must not collide across orgs", async () => {
+    await scheduleOrgRefreshJob("org_a");
+    await scheduleOrgRefreshJob("org_b");
+
+    const jobs = await mongoose.connection
+      .db!.collection("agendaJobs")
+      .find({ "data.organization": { $in: ["org_a", "org_b"] } })
+      .toArray();
+    expect(jobs).toHaveLength(2);
+    await settle();
+  });
+
+  it("backs job.unique() with a real unique index scoped to this job name only", async () => {
+    // Fire-and-forget at registration time, so poll briefly for it.
+    let spec: { unique?: boolean; partialFilterExpression?: unknown } | null =
+      null;
+    for (let i = 0; i < 20 && !spec; i++) {
+      const indexes = await mongoose.connection
+        .db!.collection("agendaJobs")
+        .listIndexes()
+        .toArray();
+      spec =
+        indexes.find(
+          (ix) =>
+            ix.unique &&
+            JSON.stringify(ix.key) ===
+              JSON.stringify({ name: 1, "data.organization": 1 }),
+        ) ?? null;
+      if (!spec) await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(spec).toBeTruthy();
+    // Partial: other Agenda jobs (data.organization: null) must not collide.
+    expect(spec?.partialFilterExpression).toEqual({
+      name: "refreshStaleSdkConnections",
+    });
+  });
 
   it("collapses concurrent enqueues for the same org onto a single job", async () => {
     hasAnyStaleSdkConnectionMock.mockResolvedValue(false);
