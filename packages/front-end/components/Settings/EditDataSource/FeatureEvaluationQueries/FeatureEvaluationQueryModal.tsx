@@ -7,7 +7,11 @@ import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import { isEventForwarderManagedFeatureUsageQuery } from "shared/util";
+import {
+  EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
+  isEventForwarderManagedFeatureUsageQuery,
+  releaseEventForwarderQueryDescription,
+} from "shared/util";
 import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Modal from "@/components/Modal";
@@ -57,6 +61,10 @@ export const FeatureEvaluationQueryModal: FC<FeatureEvaluationQueryProps> = ({
     // being an Event Forwarder resource rather than being overwritten later.
     if (isEventForwarderManaged) {
       value.managedBy = "";
+      value.description = releaseEventForwarderQueryDescription(
+        value.description,
+        EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
+      );
     }
     await onSave(value);
 

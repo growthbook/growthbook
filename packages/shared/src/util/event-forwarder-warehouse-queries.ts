@@ -36,6 +36,22 @@ export const EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION =
   "Managed by Event Forwarder and updated when the linked Identifier type changes.";
 export const EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION =
   "Managed by Event Forwarder for feature usage events.";
+export const EVENT_FORWARDER_RELEASED_QUERY_DESCRIPTION = "Managed by User";
+
+/**
+ * Swaps the Event Forwarder's own description for the released one when handing
+ * a query over. A description the user wrote is theirs and is left as it is —
+ * only the generated text, which would otherwise keep promising updates that no
+ * longer happen, is replaced.
+ */
+export function releaseEventForwarderQueryDescription(
+  description: string | undefined,
+  managedDescription: string,
+): string | undefined {
+  return description === managedDescription
+    ? EVENT_FORWARDER_RELEASED_QUERY_DESCRIPTION
+    : description;
+}
 
 export type BuildEventForwarderExperimentViewedTableRefParams =
   | {
@@ -303,7 +319,14 @@ function isUnmodifiedManagedExposureQuerySql({
  * experiments, reports, safe rollouts, templates, and ramp schedules reference.
  */
 function releaseManagedExposureQuery(query: ExposureQuery): ExposureQuery {
-  const released: ExposureQuery = { ...query, managedBy: "" };
+  const released: ExposureQuery = {
+    ...query,
+    managedBy: "",
+    description: releaseEventForwarderQueryDescription(
+      query.description,
+      EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
+    ),
+  };
   delete released.sourceAttribute;
   return released;
 }

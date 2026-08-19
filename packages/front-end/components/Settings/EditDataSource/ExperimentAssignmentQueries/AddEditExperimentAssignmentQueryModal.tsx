@@ -9,7 +9,11 @@ import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import { isEventForwarderManagedExposureQuery } from "shared/util";
+import {
+  EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
+  isEventForwarderManagedExposureQuery,
+  releaseEventForwarderQueryDescription,
+} from "shared/util";
 import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
 import StringArrayField from "@/ui/StringArrayField";
@@ -89,6 +93,10 @@ export const AddEditExperimentAssignmentQueryModal: FC<
     if (exposureQuery && isEventForwarderManagedExposureQuery(exposureQuery)) {
       value.managedBy = "";
       delete value.sourceAttribute;
+      value.description = releaseEventForwarderQueryDescription(
+        value.description,
+        EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
+      );
     }
     await onSave(value);
 

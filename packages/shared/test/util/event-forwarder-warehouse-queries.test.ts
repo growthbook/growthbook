@@ -8,12 +8,14 @@ import {
   buildEventForwarderFeatureUsageTableReference,
   EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
   EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
+  EVENT_FORWARDER_RELEASED_QUERY_DESCRIPTION,
   eventForwarderManagedFeatureUsageQueryExists,
   generateEventForwarderExposureQueries,
   getActiveFeatureUsageQuery,
   isEventForwarderManagedExposureQuery,
   isEventForwarderManagedFeatureUsageQuery,
   reconcileEventForwarderManagedExposureQueries,
+  releaseEventForwarderQueryDescription,
 } from "../../src/util/event-forwarder-warehouse-queries";
 import {
   buildEventForwarderPropertyValueSql,
@@ -514,6 +516,56 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
     ]);
   });
 
+  it("replaces the generated description when a query is released", () => {
+    const existing: ExposureQuery[] = [
+      {
+        id: "exq_legacy",
+        userIdType: "legacy_id",
+        name: "legacy_id",
+        sourceAttribute: "legacy_id",
+        description: EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
+        dimensions: [],
+        managedBy: "api",
+        query: "SELECT legacy",
+      },
+    ];
+
+    const reconciled = reconcileEventForwarderManagedExposureQueries({
+      existing,
+      userIdTypes: [],
+      params: bigqueryParams,
+    });
+
+    // The old text promises updates when the linked identifier type changes,
+    // which stops being true the moment the query is handed over.
+    expect(reconciled[0].description).toBe(
+      EVENT_FORWARDER_RELEASED_QUERY_DESCRIPTION,
+    );
+  });
+
+  it("keeps a description the user wrote when a query is released", () => {
+    const existing: ExposureQuery[] = [
+      {
+        id: "exq_legacy",
+        userIdType: "legacy_id",
+        name: "legacy_id",
+        sourceAttribute: "legacy_id",
+        description: "Ours, do not touch",
+        dimensions: [],
+        managedBy: "api",
+        query: "SELECT legacy",
+      },
+    ];
+
+    const reconciled = reconcileEventForwarderManagedExposureQueries({
+      existing,
+      userIdTypes: [],
+      params: bigqueryParams,
+    });
+
+    expect(reconciled[0].description).toBe("Ours, do not touch");
+  });
+
   it("writes nothing on the sync after a query is released", () => {
     const released: ExposureQuery[] = [
       {
@@ -873,6 +925,45 @@ describe("buildEventForwarderFeatureUsageQuery", () => {
     );
     expect(query.query).toContain("feature_usage");
     expect(isEventForwarderManagedFeatureUsageQuery(query as never)).toBe(true);
+  });
+});
+
+describe("releaseEventForwarderQueryDescription", () => {
+  it("swaps the generated description for the released one", () => {
+    expect(
+      releaseEventForwarderQueryDescription(
+        EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
+        EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
+      ),
+    ).toBe(EVENT_FORWARDER_RELEASED_QUERY_DESCRIPTION);
+    expect(
+      releaseEventForwarderQueryDescription(
+        EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
+        EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
+      ),
+    ).toBe(EVENT_FORWARDER_RELEASED_QUERY_DESCRIPTION);
+  });
+
+  it("leaves anything else alone", () => {
+    expect(
+      releaseEventForwarderQueryDescription(
+        "Mine",
+        EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
+      ),
+    ).toBe("Mine");
+    expect(
+      releaseEventForwarderQueryDescription(
+        undefined,
+        EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
+      ),
+    ).toBeUndefined();
+    // The other resource's text is not this resource's to rewrite.
+    expect(
+      releaseEventForwarderQueryDescription(
+        EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
+        EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
+      ),
+    ).toBe(EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION);
   });
 });
 
