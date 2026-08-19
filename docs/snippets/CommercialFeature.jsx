@@ -76,6 +76,10 @@ export const CommercialFeature = ({ feature, description }) => {
       plan: "enterprise",
       displayName: "Experiment Impact",
     },
+    "feature-configs": {
+      plan: "enterprise",
+      displayName: "Feature Configs",
+    },
     "hash-secure-attributes": {
       plan: "pro",
       displayName: "Hash Secure Attributes",
