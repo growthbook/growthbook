@@ -14,8 +14,12 @@ import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationM
 import Frame from "@/ui/Frame";
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
-import SelectField from "@/components/Forms/SelectField";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+} from "@/ui/DropdownMenu";
 import {
   ALL_PROJECTS_SCOPE,
   overrideScopes,
@@ -25,10 +29,7 @@ import {
   withRuleForScope,
   withoutScope,
 } from "./approvalScopes";
-import {
-  FlagApprovalFields,
-  SavedGroupApprovalFields,
-} from "./ApprovalScopeFields";
+import { ApprovalScopeSections } from "./ApprovalScopeFields";
 
 export default function ApprovalFlowSettings() {
   const form = useFormContext<OrganizationSettingsWithMetricDefaults>();
@@ -46,7 +47,9 @@ export default function ApprovalFlowSettings() {
 
   // A tab the user just opened has no stored rule until they turn something on.
   const [pendingScopes, setPendingScopes] = useState<string[]>([]);
-  const [addingOverride, setAddingOverride] = useState(false);
+  // Controlled: the shared Tabs wrapper ties uncontrolled tabs to the URL hash,
+  // which the settings page's own tab strip already owns.
+  const [activeScope, setActiveScope] = useState(ALL_PROJECTS_SCOPE);
 
   const scopes = [
     ALL_PROJECTS_SCOPE,
@@ -55,6 +58,10 @@ export default function ApprovalFlowSettings() {
       ...pendingScopes.filter((p) => !!p),
     ]),
   ];
+
+  // Radix treats "" as no value, so the all-projects scope needs a real tab id.
+  const ALL_PROJECTS_TAB = "all-projects";
+  const tabValue = (scope: string) => scope || ALL_PROJECTS_TAB;
 
   const scopeName = (scope: string) =>
     scope
@@ -72,6 +79,11 @@ export default function ApprovalFlowSettings() {
       withRuleForScope(savedGroupRules, scope, next),
     );
 
+  const addOverride = (project: string) => {
+    setPendingScopes((prev) => [...prev, project]);
+    setActiveScope(project);
+  };
+
   const removeOverride = (scope: string) => {
     form.setValue("requireReviews", withoutScope(flagRules, scope));
     form.setValue(
@@ -79,6 +91,7 @@ export default function ApprovalFlowSettings() {
       withoutScope(savedGroupRules, scope),
     );
     setPendingScopes((prev) => prev.filter((p) => p !== scope));
+    setActiveScope(ALL_PROJECTS_SCOPE);
   };
 
   const availableProjects = projects.filter(
@@ -98,99 +111,81 @@ export default function ApprovalFlowSettings() {
       <Flex align="start" direction="column" gap="4" mt="7">
         {hasRequireApprovals && (
           <Box width="100%">
-            <Tabs defaultValue={ALL_PROJECTS_SCOPE}>
+            <Text as="p" size="md" mb="3" color="text-low">
+              Approval requirements apply per Project. Everything inside the
+              panel below belongs to the selected Project scope.
+            </Text>
+            <Tabs
+              value={tabValue(activeScope)}
+              onValueChange={(v) =>
+                setActiveScope(v === ALL_PROJECTS_TAB ? ALL_PROJECTS_SCOPE : v)
+              }
+            >
               <Flex align="center" justify="between" gap="3" wrap="wrap">
                 <TabsList>
                   {scopes.map((scope) => (
-                    <TabsTrigger key={scope || "all"} value={scope}>
+                    <TabsTrigger key={tabValue(scope)} value={tabValue(scope)}>
                       {scopeName(scope)}
                     </TabsTrigger>
                   ))}
                 </TabsList>
-                {addingOverride ? (
-                  <Box width="260px">
-                    <SelectField
-                      value=""
-                      placeholder="Select a project..."
-                      options={availableProjects.map((p) => ({
-                        value: p.id,
-                        label: p.name,
-                      }))}
-                      onChange={(id) => {
-                        setPendingScopes((prev) => [...prev, id]);
-                        setAddingOverride(false);
-                      }}
-                      containerClassName="mb-0"
-                    />
-                  </Box>
-                ) : (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={!availableProjects.length}
-                    onClick={() => setAddingOverride(true)}
+                {availableProjects.length > 0 && (
+                  <DropdownMenu
+                    menuPlacement="end"
+                    trigger={
+                      <Button variant="ghost" size="sm">
+                        <PiPlus /> Project override
+                      </Button>
+                    }
                   >
-                    <PiPlus /> Project override
-                  </Button>
+                    <DropdownMenuGroup>
+                      {availableProjects.map((p) => (
+                        <DropdownMenuItem
+                          key={p.id}
+                          onClick={() => addOverride(p.id)}
+                        >
+                          {p.name}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuGroup>
+                  </DropdownMenu>
                 )}
               </Flex>
 
               {scopes.map((scope) => (
-                <TabsContent key={scope || "all"} value={scope}>
-                  <Flex direction="column" gap="4" pt="4">
-                    {scope ? (
+                <TabsContent key={tabValue(scope)} value={tabValue(scope)}>
+                  <Frame p="4" mt="3" mb="0">
+                    <Flex align="start" justify="between" gap="3" mb="4">
                       <Text size="sm" color="text-low">
-                        Overrides the All Projects settings for{" "}
-                        {scopeName(scope)}. Anything left off here follows the
-                        All Projects tab.
+                        {scope
+                          ? `Applies to ${scopeName(scope)}. Anything left unset here follows All Projects.`
+                          : "Applies to every Project without an override of its own."}
                       </Text>
-                    ) : null}
+                      {scope ? (
+                        <Button
+                          variant="ghost"
+                          color="red"
+                          size="sm"
+                          onClick={() => removeOverride(scope)}
+                        >
+                          <PiTrash /> Remove override
+                        </Button>
+                      ) : null}
+                    </Flex>
 
-                    <Frame p="3" mb="0">
-                      <Heading as="h4" size="sm" weight="semibold" mb="4">
-                        Features, Configs, &amp; Constants
-                      </Heading>
-                      <Text as="p" size="md" mb="4" color="text-low">
-                        All changes to Feature Flags, Configs and Constants are
-                        tracked as revisions. Requiring approvals adds a review
-                        step before any change goes live. Kill switch changes
-                        always prompt a confirmation regardless of approval
-                        settings.
-                      </Text>
-                      <FlagApprovalFields
-                        idPrefix={`flags-${scope || "all"}`}
-                        value={displayedFlagRule(flagRules, scope)}
-                        onChange={(next) => setFlagRule(scope, next)}
-                      />
-                    </Frame>
-
-                    <Frame p="3" mb="0">
-                      <Heading as="h4" size="sm" weight="semibold" mb="4">
-                        Saved Groups
-                      </Heading>
-                      <Text as="p" size="md" mb="4" color="text-low">
-                        All changes to Saved Groups are tracked as revisions.
-                        Requiring approvals adds a review step before any change
-                        goes live.
-                      </Text>
-                      <SavedGroupApprovalFields
-                        idPrefix={`saved-groups-${scope || "all"}`}
-                        value={displayedSavedGroupRule(savedGroupRules, scope)}
-                        onChange={(next) => setSavedGroupRule(scope, next)}
-                      />
-                    </Frame>
-
-                    {scope ? (
-                      <Button
-                        variant="ghost"
-                        color="red"
-                        size="sm"
-                        onClick={() => removeOverride(scope)}
-                      >
-                        <PiTrash /> Remove override
-                      </Button>
-                    ) : null}
-                  </Flex>
+                    <ApprovalScopeSections
+                      idPrefix={tabValue(scope)}
+                      flagRule={displayedFlagRule(flagRules, scope)}
+                      onFlagChange={(next) => setFlagRule(scope, next)}
+                      savedGroupRule={displayedSavedGroupRule(
+                        savedGroupRules,
+                        scope,
+                      )}
+                      onSavedGroupChange={(next) =>
+                        setSavedGroupRule(scope, next)
+                      }
+                    />
+                  </Frame>
                 </TabsContent>
               ))}
             </Tabs>

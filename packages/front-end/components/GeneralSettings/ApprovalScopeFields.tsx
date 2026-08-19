@@ -1,4 +1,4 @@
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import {
   ApprovalFlowConfiguration,
@@ -8,6 +8,7 @@ import { useState } from "react";
 import Checkbox from "@/ui/Checkbox";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import { useUser } from "@/services/UserContext";
 import { useEnvironments } from "@/services/features";
@@ -214,6 +215,62 @@ export function SavedGroupApprovalFields({
           </Box>
         </Flex>
       )}
+    </>
+  );
+}
+
+// Both families for one scope, in the order the org settings and the project
+// page both present them. Shared so the two surfaces cannot drift.
+export function ApprovalScopeSections({
+  idPrefix,
+  flagRule,
+  onFlagChange,
+  savedGroupRule,
+  onSavedGroupChange,
+  savedGroupDescription,
+}: {
+  idPrefix: string;
+  flagRule: RequireReview;
+  onFlagChange: (next: RequireReview) => void;
+  savedGroupRule: ApprovalFlowConfiguration;
+  onSavedGroupChange: (next: ApprovalFlowConfiguration) => void;
+  savedGroupDescription?: string;
+}) {
+  return (
+    <>
+      <Box>
+        <Heading as="h4" size="sm" weight="semibold" mb="2">
+          Features, Configs, &amp; Constants
+        </Heading>
+        <Text as="p" size="md" mb="4" color="text-low">
+          All changes to Feature Flags, Configs and Constants are tracked as
+          revisions. Requiring approvals adds a review step before any change
+          goes live. Kill switch changes always prompt a confirmation regardless
+          of approval settings.
+        </Text>
+        <FlagApprovalFields
+          idPrefix={`flags-${idPrefix}`}
+          value={flagRule}
+          onChange={onFlagChange}
+        />
+      </Box>
+
+      <Separator size="4" my="4" />
+
+      <Box>
+        <Heading as="h4" size="sm" weight="semibold" mb="2">
+          Saved Groups
+        </Heading>
+        <Text as="p" size="md" mb="4" color="text-low">
+          {savedGroupDescription ??
+            "All changes to Saved Groups are tracked as revisions. Requiring approvals adds a review step before any change goes live."}
+        </Text>
+        <SavedGroupApprovalFields
+          idPrefix={`saved-groups-${idPrefix}`}
+          value={savedGroupRule}
+          onChange={onSavedGroupChange}
+        />
+      </Box>
     </>
   );
 }

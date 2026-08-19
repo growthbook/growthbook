@@ -9,7 +9,6 @@ import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Frame from "@/ui/Frame";
-import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -23,10 +22,7 @@ import {
   withRuleForScope,
   withoutScope,
 } from "@/components/GeneralSettings/approvalScopes";
-import {
-  FlagApprovalFields,
-  SavedGroupApprovalFields,
-} from "@/components/GeneralSettings/ApprovalScopeFields";
+import { ApprovalScopeSections } from "@/components/GeneralSettings/ApprovalScopeFields";
 
 // The same two sections the org settings tabs render, fixed to this project's
 // scope. Editing here writes that project's override.
@@ -92,34 +88,14 @@ export default function ProjectApprovalSettings({
         only. <Link href="/settings#approval-flow">Organization defaults</Link>
       </Callout>
 
-      <Frame p="3" mb="0">
-        <Heading as="h4" size="sm" weight="semibold" mb="4">
-          Features, Configs, &amp; Constants
-        </Heading>
-        <Text as="p" size="md" mb="4" color="text-low">
-          All changes to Feature Flags, Configs and Constants in this project
-          are tracked as revisions. Requiring approvals adds a review step
-          before any change goes live.
-        </Text>
-        <FlagApprovalFields
-          idPrefix="project-flags"
-          value={flagRule}
-          onChange={setFlagRule}
-        />
-      </Frame>
-
-      <Frame p="3" mb="0">
-        <Heading as="h4" size="sm" weight="semibold" mb="4">
-          Saved Groups
-        </Heading>
-        <Text as="p" size="md" mb="4" color="text-low">
-          Applies to Saved Groups belonging to this project. A group in several
-          projects must satisfy each of their requirements.
-        </Text>
-        <SavedGroupApprovalFields
-          idPrefix="project-saved-groups"
-          value={savedGroupRule}
-          onChange={setSavedGroupRule}
+      <Frame p="4" mb="0">
+        <ApprovalScopeSections
+          idPrefix="project"
+          flagRule={flagRule}
+          onFlagChange={setFlagRule}
+          savedGroupRule={savedGroupRule}
+          onSavedGroupChange={setSavedGroupRule}
+          savedGroupDescription="Applies to Saved Groups belonging to this project. A group in several projects must satisfy each of their requirements."
         />
       </Frame>
 
