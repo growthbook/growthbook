@@ -2,7 +2,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
   const sdkInfo = {
     js: {
       name: "JS SDK",
-      version: "1.6.5",
+      version: "1.7.0",
       github:
         "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
       examples: [
@@ -25,10 +25,16 @@ export const SdkSupportedFeatures = ({ sdk }) => {
           experimentation: "All versions",
         },
         {
+          contextualBandits: "≥ v1.7.0",
+        },
+        {
           caseInsensitiveMembership: "≥ v1.6.4",
         },
         {
           caseInsensitiveRegex: "≥ v1.6.3",
+        },
+        {
+          trackingPlugin: "≥ v1.4.0",
         },
         {
           savedGroupReferences: "≥ v1.1.0",
@@ -76,7 +82,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     react: {
       name: "React SDK",
-      version: "1.6.5",
+      version: "1.7.0",
       github:
         "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
       examples: [
@@ -107,10 +113,16 @@ export const SdkSupportedFeatures = ({ sdk }) => {
           experimentation: "All versions",
         },
         {
+          contextualBandits: "≥ v1.7.0",
+        },
+        {
           caseInsensitiveMembership: "≥ v1.6.4",
         },
         {
           caseInsensitiveRegex: "≥ v1.6.3",
+        },
+        {
+          trackingPlugin: "≥ v1.4.0",
         },
         {
           savedGroupReferences: "≥ v1.1.0",
@@ -211,7 +223,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     php: {
       name: "PHP SDK",
-      version: "1.7.0",
+      version: "2.6.1",
       github: "https://github.com/growthbook/growthbook-php",
       examples: [],
       packageRepos: [
@@ -226,6 +238,18 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          remoteEval: "≥ v2.5.0",
+        },
+        {
+          trackingPlugin: "≥ v2.4.0",
+        },
+        {
+          caseInsensitiveRegex: "≥ v2.3.0",
+        },
+        {
+          caseInsensitiveMembership: "≥ v2.3.0",
         },
         {
           savedGroupReferences: "≥ v1.7.0",
@@ -255,7 +279,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     node: {
       name: "Node SDK",
-      version: "1.6.5",
+      version: "1.7.0",
       github:
         "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
       examples: [
@@ -278,10 +302,16 @@ export const SdkSupportedFeatures = ({ sdk }) => {
           experimentation: "All versions",
         },
         {
+          contextualBandits: "≥ v1.7.0",
+        },
+        {
           caseInsensitiveMembership: "≥ v1.6.4",
         },
         {
           caseInsensitiveRegex: "≥ v1.6.3",
+        },
+        {
+          trackingPlugin: "≥ v1.4.0",
         },
         {
           savedGroupReferences: "≥ v1.1.0",
@@ -363,7 +393,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     python: {
       name: "Python SDK",
-      version: "2.1.1",
+      version: "2.4.0",
       github: "https://github.com/growthbook/growthbook-python",
       examples: [],
       packageRepos: [
@@ -378,6 +408,12 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          remoteEval: "≥ v2.3.0",
+        },
+        {
+          trackingPlugin: "≥ v2.2.0",
         },
         {
           caseInsensitiveMembership: "≥ v2.1.1",
@@ -413,7 +449,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     go: {
       name: "Go SDK",
-      version: "0.2.8",
+      version: "0.2.9",
       github: "https://github.com/growthbook/growthbook-golang",
       examples: [
         {
@@ -433,6 +469,9 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          trackingPlugin: "≥ v0.2.8",
         },
         {
           caseInsensitiveMembership: "≥ v0.2.7",
@@ -471,7 +510,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     rust: {
       name: "Rust SDK",
-      version: "0.1.1",
+      version: "0.2.1",
       github: "https://github.com/growthbook/growthbook-rust",
       examples: [
         {
@@ -491,6 +530,9 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferences: "≥ v0.2.0",
         },
         {
           caseInsensitiveRegex: "≥ v0.1.1",
@@ -523,7 +565,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     java: {
       name: "Java SDK",
-      version: "0.10.6",
+      version: "0.10.10",
       github: "https://github.com/growthbook/growthbook-sdk-java",
       examples: [
         {
@@ -557,10 +599,13 @@ export const SdkSupportedFeatures = ({ sdk }) => {
           experimentation: "All versions",
         },
         {
+          caseInsensitiveMembership: "≥ v0.10.9",
+        },
+        {
           caseInsensitiveRegex: "≥ v0.10.6",
         },
         {
-          remoteEvaluation: "≥ v0.9.92",
+          remoteEval: "≥ v0.9.92",
         },
         {
           prerequisites: "≥ v0.9.3",
@@ -590,7 +635,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     csharp: {
       name: "C# SDK",
-      version: "1.1.3",
+      version: "1.2.0",
       github: "https://github.com/growthbook/growthbook-c-sharp",
       examples: [
         {
@@ -612,7 +657,13 @@ export const SdkSupportedFeatures = ({ sdk }) => {
           experimentation: "All versions",
         },
         {
-          remoteEvaluation: "≥ v1.1.3",
+          caseInsensitiveMembership: "≥ v1.2.0",
+        },
+        {
+          caseInsensitiveRegex: "≥ v1.2.0",
+        },
+        {
+          remoteEval: "≥ v1.1.3",
         },
         {
           stickyBucketing: "≥ v1.1.0",
@@ -683,7 +734,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     kotlin: {
       name: "Kotlin SDK",
-      version: "7.1.1",
+      version: "7.6.0",
       github: "https://github.com/growthbook/growthbook-kotlin",
       examples: [],
       packageRepos: [
@@ -736,7 +787,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     swift: {
       name: "Swift SDK",
-      version: "1.1.4",
+      version: "1.2.0",
       github: "https://github.com/growthbook/growthbook-swift",
       examples: [],
       packageRepos: [
@@ -789,7 +840,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     reactNative: {
       name: "React Native SDK",
-      version: "1.6.5",
+      version: "1.7.0",
       github:
         "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
       examples: [
@@ -812,10 +863,16 @@ export const SdkSupportedFeatures = ({ sdk }) => {
           experimentation: "All versions",
         },
         {
+          contextualBandits: "≥ v1.7.0",
+        },
+        {
           caseInsensitiveMembership: "≥ v1.6.4",
         },
         {
           caseInsensitiveRegex: "≥ v1.6.3",
+        },
+        {
+          trackingPlugin: "≥ v1.4.0",
         },
         {
           savedGroupReferences: "≥ v1.1.0",
@@ -863,7 +920,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     edgeCloudflare: {
       name: "Cloudflare Workers App & SDK",
-      version: "0.2.8",
+      version: "0.2.9",
       github:
         "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare",
       examples: [
@@ -934,7 +991,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     edgeFastly: {
       name: "Fastly Compute App & SDK",
-      version: "0.2.8",
+      version: "0.2.9",
       github:
         "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-fastly",
       examples: [
@@ -1005,7 +1062,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     edgeLambda: {
       name: "Lambda@Edge App & SDK",
-      version: "0.0.28",
+      version: "0.0.29",
       github:
         "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-lambda",
       examples: [],
@@ -1071,7 +1128,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     edgeUtils: {
       name: "Edge Utils",
-      version: "0.2.8",
+      version: "0.2.9",
       github:
         "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils",
       examples: [],
@@ -1137,7 +1194,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     flutter: {
       name: "Flutter SDK",
-      version: "4.2.1",
+      version: "4.4.0",
       github: "https://github.com/growthbook/growthbook-flutter",
       examples: [],
       packageRepos: [
@@ -1152,6 +1209,18 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          trackingPlugin: "≥ v4.4.0",
+        },
+        {
+          caseInsensitiveRegex: "≥ v4.3.0",
+        },
+        {
+          caseInsensitiveMembership: "≥ v4.3.0",
+        },
+        {
+          savedGroupReferences: "≥ v3.9.4",
         },
         {
           stickyBucketing: "≥ v3.8.0",
@@ -1184,7 +1253,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     roku: {
       name: "Roku SDK",
-      version: "1.3.1",
+      version: "1.4.1",
       github: "https://github.com/growthbook/growthbook-roku",
       examples: [
         {
@@ -1203,6 +1272,12 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          encryption: "≥ v1.4.1",
+        },
+        {
+          stickyBucketing: "≥ v1.4.1",
         },
         {
           prerequisites: "≥ v1.3.0",
@@ -1413,6 +1488,30 @@ export const SdkSupportedFeatures = ({ sdk }) => {
           viewBox="0 0 256 256"
         >
           <path d="M174.63,81.37a80,80,0,1,0-93.26,93.26,80,80,0,1,0,93.26-93.26ZM224,160c0,1.52-.07,3-.18,4.51l-50-50A80,80,0,0,0,176,98,64.11,64.11,0,0,1,224,160Zm-13.47,39.21L157.91,146.6a80.5,80.5,0,0,0,9.93-15.44L219.7,183A64,64,0,0,1,210.53,199.21ZM183,219.7l-51.86-51.86a80.5,80.5,0,0,0,15.44-9.93l52.61,52.62A64,64,0,0,1,183,219.7ZM45.47,56.79,98.09,109.4a80.5,80.5,0,0,0-9.93,15.44L36.3,73A64,64,0,0,1,45.47,56.79ZM73,36.3l51.86,51.86a80.5,80.5,0,0,0-15.44,9.93L56.79,45.47A64,64,0,0,1,73,36.3ZM160,96a64.07,64.07,0,0,1-64,64A64.07,64.07,0,0,1,160,96Zm-2-16a80,80,0,0,0-16.49,2.13l-50-50C93,32.07,94.48,32,96,32A64.11,64.11,0,0,1,158,80.05ZM32,96c0-1.52.07-3,.18-4.51l50,50A80,80,0,0,0,80.05,158,64.11,64.11,0,0,1,32,96ZM98,176a80,80,0,0,0,16.49-2.13l50,50c-1.49.11-3,.18-4.51.18A64.11,64.11,0,0,1,98,176Z" />
+        </svg>
+      ),
+    },
+    contextualBandits: {
+      label: "Contextual Bandits",
+      icon: () => (
+        <svg
+          fill="currentColor"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 256 256"
+        >
+          <path d="M117.25,157.92a60,60,0,1,0-66.5,0A95.83,95.83,0,0,0,3.53,195.63a8,8,0,1,0,13.4,8.74,80,80,0,0,1,134.14,0,8,8,0,0,0,13.4-8.74A95.83,95.83,0,0,0,117.25,157.92ZM40,108a44,44,0,1,1,44,44A44.05,44.05,0,0,1,40,108Zm210.14,98.23a8,8,0,0,1-11.07-2.33A79.83,79.83,0,0,0,172,168a8,8,0,0,1,0-16,44,44,0,1,0-16.34-84.87,8,8,0,1,1-5.94-14.85,60,60,0,0,1,55.53,105.64,95.83,95.83,0,0,1,47.22,31.95A8,8,0,0,1,250.14,206.23Z" />
+        </svg>
+      ),
+    },
+    trackingPlugin: {
+      label: "Tracking Plugin",
+      icon: () => (
+        <svg
+          fill="currentColor"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 256 256"
+        >
+          <path d="M240,128a8,8,0,0,1-8,8H204.94l-37.78,75.58A8,8,0,0,1,160,216h-.4a8,8,0,0,1-7.08-5.14L95.35,60.76,63.28,131.31A8,8,0,0,1,56,136H24a8,8,0,0,1,0-16H50.46L88.62,36.69a8,8,0,0,1,14.76.46L160.46,187,187.06,136H232A8,8,0,0,1,240,128Z" />
         </svg>
       ),
     },
