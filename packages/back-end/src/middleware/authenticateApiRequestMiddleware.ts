@@ -264,6 +264,14 @@ function authenticateWithApiKey(
       }
       req.organization = org;
 
+      // Turning the org setting on revokes every user-attributed token
+      // immediately, without touching the stored docs.
+      if (userId && org.settings?.disablePersonalAccessTokens) {
+        throw new Error(
+          "Personal access tokens are disabled for this organization",
+        );
+      }
+
       if (org.suspended && !req.user?.superAdmin) {
         return res.status(403).json({
           message:

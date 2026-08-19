@@ -237,11 +237,11 @@ Then, configure the polyfill and enable streaming during init:
 
 ```js
 const { setPolyfills } = require("@growthbook/growthbook");
+// Note the destructuring - `eventsource` v3+ uses a named export
+const { EventSource } = require("eventsource");
 
 // Configure GrowthBook to use the eventsource library
-setPolyfills({
-  EventSource: require("eventsource"),
-});
+setPolyfills({ EventSource });
 
 const gbClient = new GrowthBookClient({
   clientKey: "sdk-abc123"
@@ -251,20 +251,51 @@ const gbClient = new GrowthBookClient({
 await gbClient.init({ streaming: true });
 ```
 
+:::caution
+
+Which import form you need depends on the `eventsource` version you have installed. The snippet above is for v3 and up, which is what a fresh `npm install eventsource` gives you:
+
+| `eventsource`                                    | Import                                           |
+| ------------------------------------------------ | ------------------------------------------------ |
+| v3 and up (v3 needs Node 18+, v4 needs Node 20+) | `const { EventSource } = require("eventsource")` |
+| v2 and below                                     | `const EventSource = require("eventsource")`     |
+
+v3.0.0 moved the constructor from the default export to a named export. Using the wrong form for your version passes the module object rather than the constructor, which prevents streaming from starting — and the two forms fail in opposite directions, so match the form to the version you actually have rather than copying whichever one you saw first.
+
+If streaming is enabled but features never update, check this before anything else — the SDK logs a warning naming the reason whenever it detects that streaming could not be started.
+
+:::
+
 This will make an initial network request to download the features payload from the GrowthBook API. Then, it will open a streaming connection to listen to updates.
 
 Every call to evaluate feature flags will use the latest available payload.
 
 ### Polling Updates
 
-If your environment doesn't support streaming updates or you want a simpler option, you can use a polling approach:
+If your environment doesn't support streaming updates or you want a simpler option, pass a `pollingInterval` (in milliseconds) into `init`. This requires no polyfills.
 
 ```js
-// Refresh once every 5 minutes
+const gbClient = new GrowthBookClient({
+  clientKey: "sdk-abc123"
+});
+
+// Refresh once per minute
+await gbClient.init({ pollingInterval: 60 * 1000 });
+```
+
+Polling is deduped per `clientKey`, so many instances sharing a key produce a single request per interval. Requests bypass the cache, so the interval you set is the interval used. Failed requests back off exponentially (capped at 5 minutes), and the timer never keeps a short-lived process alive.
+
+`pollingInterval` is ignored while streaming is active, so it is safe to set both — polling only runs when the stream isn't connected.
+
+We don't recommend polling more often than once per minute. If you need faster updates, use Streaming (above).
+
+You can also drive refreshes yourself instead:
+
+```js
 setInterval(() => gbClient.refreshFeatures(), 5*60*1000);
 ```
 
-We don't recommend polling more often than once per minute. If you need faster updates, use Streaming (above).
+Note that `refreshFeatures()` goes through the cache, so it will not issue a request if the payload is newer than `staleTTL` (60 seconds by default). Pass `skipCache: true` to force one.
 
 ## Caching
 
@@ -303,8 +334,8 @@ configureCache({
   cacheKey: "gbFeaturesCache",
   // Consider features stale after this much time (60 seconds default)
   staleTTL: 1000 * 60,
-  // Cached features older than this will be ignored (24 hours default)
-  maxAge: 1000 * 60 * 60 * 24,
+  // Cached features older than this will be ignored (4 hours default)
+  maxAge: 1000 * 60 * 60 * 4,
   // Set to `true` to completely disable both in-memory and persistent caching
   disableCache: false,
 })

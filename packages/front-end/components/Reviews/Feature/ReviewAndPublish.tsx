@@ -1069,27 +1069,14 @@ export default function ReviewAndPublish({
       experimentsMap,
     });
 
-  const [selectedExperiments, setSelectedExperiments] = useState(
-    new Set(experiments.map((e) => e.id)),
-  );
-  // `experiments` is derived from the async `experimentsList` prop, so the
-  // useState initializer can run before it arrives. Reconcile: auto-select
-  // newly-appearing experiments and drop ones that vanished, while preserving
-  // explicit user deselections of already-known ids.
-  const knownExperimentIdsRef = useRef<Set<string>>(
-    new Set(experiments.map((e) => e.id)),
+  const [selectedExperiments, setSelectedExperiments] = useState<Set<string>>(
+    new Set(),
   );
   useEffect(() => {
     const currentIds = new Set(experiments.map((e) => e.id));
-    const known = knownExperimentIdsRef.current;
-    const newlyAdded = [...currentIds].filter((id) => !known.has(id));
-    knownExperimentIdsRef.current = currentIds;
     setSelectedExperiments((prev) => {
       const next = new Set([...prev].filter((id) => currentIds.has(id)));
-      newlyAdded.forEach((id) => next.add(id));
-      return next.size === prev.size && [...next].every((id) => prev.has(id))
-        ? prev
-        : next;
+      return next.size === prev.size ? prev : next;
     });
   }, [experiments]);
 

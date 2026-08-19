@@ -17,8 +17,9 @@ import {
   getExperimentMetricFormatter,
   formatPercent,
 } from "@/services/metrics";
+import { findTimeSeriesVariation } from "@/services/timeSeriesVariations";
 import { useCurrency } from "@/hooks/useCurrency";
-import { GraphVariation } from "./ExperimentDateGraph";
+import type { GraphVariation } from "./ExperimentDateGraph";
 import ExperimentTimeSeriesGraph, {
   DataPointVariation,
   ExperimentTimeSeriesGraphDataPoint,
@@ -65,7 +66,7 @@ function mapTimeSeriesPointToVariationCells({
   pValueThreshold: number;
 }): (DataPointVariation | null)[] {
   return variations.map((gv) => {
-    const variation = point.variations.find((v) => v.name === gv.name);
+    const variation = findTimeSeriesVariation(point.variations, gv);
     if (!variation) return null;
 
     const liftSlice = getLiftSlice(variation, differenceType);
