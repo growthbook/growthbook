@@ -1,32 +1,23 @@
-import { useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
-import { PiTrash } from "react-icons/pi";
-import {
-  ApprovalFlowConfiguration,
-  RequireReview,
-} from "shared/types/organization";
+import { Flex } from "@radix-ui/themes";
+import NextLink from "next/link";
+import { RequireReview } from "shared/types/organization";
+import { getReviewSetting } from "shared/util";
+import { getApprovalFlowRules } from "shared/enterprise";
 import { useUser } from "@/services/UserContext";
-import { useAuth } from "@/services/auth";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
-import Button from "@/ui/Button";
-import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
-import {
-  clonedFlagRule,
-  clonedSavedGroupRule,
-  differsFromBase,
-  inheritedFlagRule,
-  inheritedSavedGroupRule,
-  ruleForScope,
-  withRuleForScope,
-  withoutScope,
-} from "@/components/GeneralSettings/approvalScopes";
 import { ApprovalScopeSections } from "@/components/GeneralSettings/ApprovalScopeFields";
+import {
+  flagRuleDefaults,
+  savedGroupRuleDefaults,
+} from "@/components/GeneralSettings/approvalScopes";
 
-// The same two sections the org settings tabs render, fixed to this project's
-// scope. Editing here writes that project's override.
+// Read-only on purpose. A rule can govern several Projects at once, so editing it
+// from one Project's page would either change the others silently or fork the
+// rule behind the reader's back. Rendered with the same fields as the editor so
+// the two cannot drift.
 export default function ProjectApprovalSettings({
   project,
   projectName,
@@ -34,137 +25,65 @@ export default function ProjectApprovalSettings({
   project: string;
   projectName: string;
 }) {
-  const { settings, hasCommercialFeature, refreshOrganization } = useUser();
-  const { apiCall } = useAuth();
-  const permissionsUtil = usePermissionsUtil();
-  const canEdit = permissionsUtil.canManageOrgSettings();
-
-  const storedFlagRules: RequireReview[] = Array.isArray(
-    settings.requireReviews,
-  )
-    ? settings.requireReviews
-    : [];
-  const storedSavedGroupRules = settings.approvalFlows?.savedGroups ?? [];
-
-  const inheritedFlags = inheritedFlagRule(storedFlagRules, project);
-  const inheritedSavedGroups = inheritedSavedGroupRule(
-    storedSavedGroupRules,
-    project,
-  );
-  const [flagRule, setFlagRule] = useState<RequireReview>(() =>
-    clonedFlagRule(storedFlagRules, project),
-  );
-  const [savedGroupRule, setSavedGroupRule] =
-    useState<ApprovalFlowConfiguration>(() =>
-      clonedSavedGroupRule(storedSavedGroupRules, project),
-    );
-  const [saving, setSaving] = useState(false);
+  const { settings, hasCommercialFeature } = useUser();
+  const { projects } = useDefinitions();
 
   if (!hasCommercialFeature("require-approvals")) return null;
 
-  const hasOverride =
-    !!ruleForScope(storedFlagRules, project) ||
-    !!ruleForScope(storedSavedGroupRules, project);
+  const flagRules: RequireReview[] = Array.isArray(settings.requireReviews)
+    ? settings.requireReviews
+    : [];
+  const savedGroupRules = settings.approvalFlows?.savedGroups ?? [];
 
-  const save = async (
-    requireReviews: RequireReview[],
-    savedGroups: ApprovalFlowConfiguration[],
-  ) => {
-    setSaving(true);
-    try {
-      await apiCall("/organization", {
-        method: "PUT",
-        body: JSON.stringify({
-          settings: {
-            requireReviews,
-            approvalFlows: { ...settings.approvalFlows, savedGroups },
-          },
-        }),
-      });
-      await refreshOrganization();
-    } finally {
-      setSaving(false);
-    }
-  };
+  // What actually applies here, folded the same way the publish gate folds it.
+  const flagRule =
+    getReviewSetting(flagRules, { project }) ?? flagRuleDefaults(project);
+  const savedGroupRule =
+    getApprovalFlowRules(settings.approvalFlows, "saved-group", [project])[0] ??
+    savedGroupRuleDefaults(project);
+
+  const naming = [
+    ...flagRules.filter((r) => r.projects?.includes(project)),
+    ...savedGroupRules.filter((r) => r.projects?.includes(project)),
+  ];
+  const sharedWith = [
+    ...new Set(
+      naming.flatMap((r) => (r.projects ?? []).filter((p) => p !== project)),
+    ),
+  ].map((id) => projects.find((p) => p.id === id)?.name ?? id);
 
   return (
     <Flex direction="column" gap="4">
-      <Callout status="info">
-        These settings override the organization defaults for {projectName}{" "}
-        only. <Link href="/settings#approval-flow">Organization defaults</Link>
-      </Callout>
+      <Text as="p" size="md" color="text-low">
+        {!naming.length ? (
+          <>
+            {projectName} follows the organization&apos;s All Projects approval
+            settings.
+          </>
+        ) : sharedWith.length ? (
+          <>
+            {projectName} is governed by a rule it shares with{" "}
+            {sharedWith.join(", ")}.
+          </>
+        ) : (
+          <>{projectName} has its own approval settings.</>
+        )}{" "}
+        <NextLink href="/settings#approval-flow" legacyBehavior>
+          <Link>Edit in organization settings</Link>
+        </NextLink>
+      </Text>
 
       <Frame p="4" mb="0">
         <ApprovalScopeSections
-          idPrefix="project"
+          readOnly
+          idPrefix={`project-${project}`}
           flagRule={flagRule}
-          onFlagChange={setFlagRule}
-          onFlagReset={
-            differsFromBase(flagRule, inheritedFlags)
-              ? () =>
-                  setFlagRule(
-                    clonedFlagRule(
-                      withoutScope(storedFlagRules, project),
-                      project,
-                    ),
-                  )
-              : undefined
-          }
+          onFlagChange={() => undefined}
           savedGroupRule={savedGroupRule}
-          onSavedGroupChange={setSavedGroupRule}
-          onSavedGroupReset={
-            differsFromBase(savedGroupRule, inheritedSavedGroups)
-              ? () =>
-                  setSavedGroupRule(
-                    clonedSavedGroupRule(
-                      withoutScope(storedSavedGroupRules, project),
-                      project,
-                    ),
-                  )
-              : undefined
-          }
-          savedGroupDescription="Applies to Saved Groups belonging to this project. A group in several projects must satisfy each of their requirements."
+          onSavedGroupChange={() => undefined}
+          savedGroupDescription="Applies to Saved Groups in this Project. A group in several Projects must satisfy each of their requirements."
         />
       </Frame>
-
-      <Flex align="center" gap="3">
-        <Button
-          disabled={!canEdit}
-          loading={saving}
-          onClick={() =>
-            save(
-              withRuleForScope(storedFlagRules, project, flagRule),
-              withRuleForScope(storedSavedGroupRules, project, savedGroupRule),
-            )
-          }
-        >
-          Save
-        </Button>
-        {hasOverride && (
-          <Button
-            variant="ghost"
-            color="red"
-            disabled={!canEdit}
-            onClick={async () => {
-              await save(
-                withoutScope(storedFlagRules, project),
-                withoutScope(storedSavedGroupRules, project),
-              );
-              setFlagRule(clonedFlagRule([], project));
-              setSavedGroupRule(clonedSavedGroupRule([], project));
-            }}
-          >
-            <PiTrash /> Remove override
-          </Button>
-        )}
-        {!canEdit && (
-          <Box>
-            <Text size="sm" color="text-low">
-              Requires permission to manage organization settings.
-            </Text>
-          </Box>
-        )}
-      </Flex>
     </Flex>
   );
 }

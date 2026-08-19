@@ -21,6 +21,9 @@ type ScopeFieldsProps<T> = {
   idPrefix: string;
   value: T;
   onChange: (next: T) => void;
+  // Read-only renders the same fields rather than a parallel summary, so a new
+  // field can never appear in the editor and go missing from the read-only view.
+  readOnly?: boolean;
 };
 
 function LabelWithHelp({ label, help }: { label: string; help?: string }) {
@@ -49,12 +52,14 @@ function HelpCheckbox({
   help,
   value,
   setValue,
+  disabled,
 }: {
   id: string;
   label: string;
   help?: string;
   value: boolean;
   setValue: (next: boolean) => void;
+  disabled?: boolean;
 }) {
   return (
     <Checkbox
@@ -62,6 +67,7 @@ function HelpCheckbox({
       label={<LabelWithHelp label={label} help={help} />}
       value={value}
       setValue={setValue}
+      disabled={disabled}
     />
   );
 }
@@ -74,6 +80,7 @@ function HelpMultiSelect({
   help,
   value,
   onChange,
+  disabled,
 }: {
   id: string;
   label: string;
@@ -82,6 +89,7 @@ function HelpMultiSelect({
   help?: string;
   value: string[];
   onChange: (next: string[]) => void;
+  disabled?: boolean;
 }) {
   return (
     <Box>
@@ -96,6 +104,7 @@ function HelpMultiSelect({
         onChange={onChange}
         options={options}
         placeholder={placeholder}
+        disabled={disabled}
       />
     </Box>
   );
@@ -106,7 +115,8 @@ function CollapsibleMultiSelect({
   ...props
 }: Parameters<typeof HelpMultiSelect>[0] & { revealLabel: string }) {
   const [shown, setShown] = useState(() => props.value.length > 0);
-  if (!shown) {
+  // Nothing to reveal when read-only; the field shows what applies.
+  if (!shown && !props.disabled) {
     return (
       <Box>
         <Link onClick={() => setShown(true)}>
@@ -122,6 +132,7 @@ export function FlagApprovalFields({
   idPrefix,
   value,
   onChange,
+  readOnly,
 }: ScopeFieldsProps<RequireReview>) {
   const { teams } = useUser();
   const environments = useEnvironments();
@@ -135,6 +146,7 @@ export function FlagApprovalFields({
         label="Require approval to publish changes"
         value={!!value.requireReviewOn}
         setValue={(v) => onChange({ ...value, requireReviewOn: v })}
+        disabled={readOnly}
       />
       {value.requireReviewOn && (
         <Flex direction="column" gap="3" mt="2" ml="5">
@@ -146,6 +158,7 @@ export function FlagApprovalFields({
             placeholder="All environments (leave blank to gate all)"
             value={value.environments ?? []}
             onChange={(v) => set({ environments: v })}
+            disabled={readOnly}
           />
           <CollapsibleMultiSelect
             revealLabel="Require approval from specific teams"
@@ -156,6 +169,7 @@ export function FlagApprovalFields({
             help={REQUIRED_TEAMS_HELP}
             value={value.requiredApproverTeams ?? []}
             onChange={(v) => set({ requiredApproverTeams: v })}
+            disabled={readOnly}
           />
           <HelpCheckbox
             id={`${idPrefix}-reset-review-on-change`}
@@ -163,6 +177,7 @@ export function FlagApprovalFields({
             help="If a draft is modified after being approved, the approval is revoked and a new review is required before publishing."
             value={!!value.resetReviewOnChange}
             setValue={(v) => set({ resetReviewOnChange: v })}
+            disabled={readOnly}
           />
           <HelpCheckbox
             id={`${idPrefix}-block-self-approval`}
@@ -170,6 +185,7 @@ export function FlagApprovalFields({
             help="Prevents anyone who edited a draft from approving it. Requires a separate reviewer."
             value={!!value.blockSelfApproval}
             setValue={(v) => set({ blockSelfApproval: v })}
+            disabled={readOnly}
           />
           <HelpCheckbox
             id={`${idPrefix}-autopublish-on-approval`}
@@ -177,6 +193,7 @@ export function FlagApprovalFields({
             help="Adds an 'Approve & Publish' option so reviewers with publish access can approve and publish a draft together."
             value={!!value.autopublishOnApproval}
             setValue={(v) => set({ autopublishOnApproval: v })}
+            disabled={readOnly}
           />
           <Box mt="2">
             <Text as="label" size="md" weight="semibold" mb="2">
@@ -195,12 +212,14 @@ export function FlagApprovalFields({
                 label="Enabled environment changes (kill switches)"
                 value={value.featureRequireEnvironmentReview !== false}
                 setValue={(v) => set({ featureRequireEnvironmentReview: v })}
+                disabled={readOnly}
               />
               <HelpCheckbox
                 id={`${idPrefix}-metadata-review`}
                 label="Metadata changes (description, owner, project, tags, etc.)"
                 value={value.featureRequireMetadataReview !== false}
                 setValue={(v) => set({ featureRequireMetadataReview: v })}
+                disabled={readOnly}
               />
             </Flex>
           </Box>
@@ -214,6 +233,7 @@ export function SavedGroupApprovalFields({
   idPrefix,
   value,
   onChange,
+  readOnly,
 }: ScopeFieldsProps<ApprovalFlowConfiguration>) {
   const { teams } = useUser();
   const set = (patch: Partial<ApprovalFlowConfiguration>) =>
@@ -231,6 +251,7 @@ export function SavedGroupApprovalFields({
         }
         value={!!value.required}
         setValue={(v) => onChange({ ...value, required: v })}
+        disabled={readOnly}
       />
       {value.required && (
         <Flex direction="column" gap="3" mt="2" ml="5">
@@ -243,6 +264,7 @@ export function SavedGroupApprovalFields({
             help={REQUIRED_TEAMS_HELP}
             value={value.requiredApproverTeams ?? []}
             onChange={(v) => set({ requiredApproverTeams: v })}
+            disabled={readOnly}
           />
           <HelpCheckbox
             id={`${idPrefix}-saved-group-reset-review-on-change`}
@@ -250,6 +272,7 @@ export function SavedGroupApprovalFields({
             help="If a draft is modified after being approved, the approval is revoked and a new review is required before publishing."
             value={!!value.resetReviewOnChange}
             setValue={(v) => set({ resetReviewOnChange: v })}
+            disabled={readOnly}
           />
           <HelpCheckbox
             id={`${idPrefix}-saved-group-block-self-approval`}
@@ -257,6 +280,7 @@ export function SavedGroupApprovalFields({
             help="Prevents anyone who edited a draft from approving it. Requires a separate reviewer."
             value={!!value.blockSelfApproval}
             setValue={(v) => set({ blockSelfApproval: v })}
+            disabled={readOnly}
           />
           <HelpCheckbox
             id={`${idPrefix}-saved-group-autopublish-on-approval`}
@@ -264,6 +288,7 @@ export function SavedGroupApprovalFields({
             help="Adds an 'Approve & Publish' option so reviewers with publish access can approve and publish a Saved Group change together."
             value={!!value.autopublishOnApproval}
             setValue={(v) => set({ autopublishOnApproval: v })}
+            disabled={readOnly}
           />
           <Box mt="2">
             <Text as="label" size="md" weight="semibold" mb="2">
@@ -282,6 +307,7 @@ export function SavedGroupApprovalFields({
                 label="Metadata changes (description, owner, project, tags, etc.)"
                 value={value.requireMetadataReview !== false}
                 setValue={(v) => set({ requireMetadataReview: v })}
+                disabled={readOnly}
               />
             </Flex>
           </Box>
@@ -302,6 +328,7 @@ export function ApprovalScopeSections({
   onSavedGroupChange,
   onSavedGroupReset,
   savedGroupDescription,
+  readOnly,
 }: {
   idPrefix: string;
   flagRule: RequireReview;
@@ -313,6 +340,7 @@ export function ApprovalScopeSections({
   // the All Projects rule it was copied from.
   onFlagReset?: () => void;
   onSavedGroupReset?: () => void;
+  readOnly?: boolean;
 }) {
   return (
     <>
@@ -330,6 +358,7 @@ export function ApprovalScopeSections({
           idPrefix={`flags-${idPrefix}`}
           value={flagRule}
           onChange={onFlagChange}
+          readOnly={readOnly}
         />
       </Box>
 
@@ -345,6 +374,7 @@ export function ApprovalScopeSections({
           idPrefix={`saved-groups-${idPrefix}`}
           value={savedGroupRule}
           onChange={onSavedGroupChange}
+          readOnly={readOnly}
         />
       </Box>
     </>

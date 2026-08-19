@@ -40,6 +40,7 @@ import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
+import UnmetApproverTeams from "@/components/Reviews/UnmetApproverTeams";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import PermissionBlocker from "@/ui/PermissionBlocker";
@@ -1489,14 +1490,7 @@ function ReviewAndPublishRevision<T>({
               {requiresApproval && !requiredTeams.satisfied && (
                 <Box mb="3">
                   <Callout status="warning" size="sm">
-                    {requiredTeams.unmet
-                      .map(
-                        (t) =>
-                          `Needs approval from ${t
-                            .map((x) => x.name)
-                            .join(" or ")}.`,
-                      )
-                      .join(" ")}
+                    <UnmetApproverTeams unmet={requiredTeams.unmet} />
                   </Callout>
                 </Box>
               )}

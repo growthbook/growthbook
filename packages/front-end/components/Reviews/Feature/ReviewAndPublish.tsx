@@ -97,6 +97,7 @@ import {
   revisionStatusLabel,
 } from "@/components/Reviews/RevisionStatusBadge";
 import Callout from "@/ui/Callout";
+import UnmetApproverTeams from "@/components/Reviews/UnmetApproverTeams";
 import Checkbox from "@/ui/Checkbox";
 import SelectField from "@/components/Forms/SelectField";
 import { useHoldouts } from "@/hooks/useHoldouts";
@@ -2955,14 +2956,7 @@ export default function ReviewAndPublish({
                     {requireReviews && !requiredTeams.satisfied && (
                       <Box mb="3">
                         <Callout status="warning" size="sm">
-                          {requiredTeams.unmet
-                            .map(
-                              (t) =>
-                                `Needs approval from ${t
-                                  .map((x) => x.name)
-                                  .join(" or ")}.`,
-                            )
-                            .join(" ")}
+                          <UnmetApproverTeams unmet={requiredTeams.unmet} />
                         </Callout>
                       </Box>
                     )}
