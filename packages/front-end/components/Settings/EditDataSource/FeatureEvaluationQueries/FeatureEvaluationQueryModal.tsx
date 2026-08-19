@@ -10,7 +10,7 @@ import { FaExternalLinkAlt } from "react-icons/fa";
 import {
   EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
   isEventForwarderManagedFeatureUsageQuery,
-  releaseEventForwarderQueryDescription,
+  releaseEventForwarderManagedDescription,
 } from "shared/util";
 import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -61,7 +61,7 @@ export const FeatureEvaluationQueryModal: FC<FeatureEvaluationQueryProps> = ({
     // being an Event Forwarder resource rather than being overwritten later.
     if (isEventForwarderManaged) {
       value.managedBy = "";
-      value.description = releaseEventForwarderQueryDescription(
+      value.description = releaseEventForwarderManagedDescription(
         value.description,
         EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
       );

@@ -4,7 +4,11 @@ import {
   DataSourceInterfaceWithParams,
   UserIdType,
 } from "shared/types/datasource";
-import { isEventForwarderManagedUserIdType } from "shared/util";
+import {
+  EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+  isEventForwarderManagedUserIdType,
+  releaseEventForwarderManagedDescription,
+} from "shared/util";
 import { PiPlus } from "react-icons/pi";
 import { Box, Card, Flex } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
@@ -88,16 +92,26 @@ export const DataSourceInlineEditIdentifierTypes: FC<
           if (!existing) {
             return;
           }
-          // Managed: only description is editable. Otherwise spread existing so
-          // reused types keep sourceAttribute / managedBy across edits.
-          types[idx] = editingManagedType
-            ? { ...existing, description }
-            : {
-                ...existing,
-                userIdType,
-                description,
-                attributes,
-              };
+          // Spread existing so linked types keep sourceAttribute across edits.
+          const updated = {
+            ...existing,
+            userIdType,
+            description,
+            attributes,
+          };
+          if (editingManagedType) {
+            // Editing hands the record to the user, matching assignment and
+            // feature usage queries. Dropping the link lets reconciliation
+            // re-match it if it still models the attribute, or provision a new
+            // identifier type for that attribute if it no longer does.
+            updated.managedBy = "";
+            delete updated.sourceAttribute;
+            updated.description = releaseEventForwarderManagedDescription(
+              description,
+              EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+            );
+          }
+          types[idx] = updated;
         }
 
         if (!copy.settings) {

@@ -8,14 +8,14 @@ import {
   buildEventForwarderFeatureUsageTableReference,
   EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
   EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
-  EVENT_FORWARDER_RELEASED_QUERY_DESCRIPTION,
+  EVENT_FORWARDER_RELEASED_DESCRIPTION,
   eventForwarderManagedFeatureUsageQueryExists,
   generateEventForwarderExposureQueries,
   getActiveFeatureUsageQuery,
   isEventForwarderManagedExposureQuery,
   isEventForwarderManagedFeatureUsageQuery,
   reconcileEventForwarderManagedExposureQueries,
-  releaseEventForwarderQueryDescription,
+  releaseEventForwarderManagedDescription,
 } from "../../src/util/event-forwarder-warehouse-queries";
 import {
   buildEventForwarderPropertyValueSql,
@@ -539,7 +539,7 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
     // The old text promises updates when the linked identifier type changes,
     // which stops being true the moment the query is handed over.
     expect(reconciled[0].description).toBe(
-      EVENT_FORWARDER_RELEASED_QUERY_DESCRIPTION,
+      EVENT_FORWARDER_RELEASED_DESCRIPTION,
     );
   });
 
@@ -928,38 +928,38 @@ describe("buildEventForwarderFeatureUsageQuery", () => {
   });
 });
 
-describe("releaseEventForwarderQueryDescription", () => {
+describe("releaseEventForwarderManagedDescription", () => {
   it("swaps the generated description for the released one", () => {
     expect(
-      releaseEventForwarderQueryDescription(
+      releaseEventForwarderManagedDescription(
         EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
         EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
       ),
-    ).toBe(EVENT_FORWARDER_RELEASED_QUERY_DESCRIPTION);
+    ).toBe(EVENT_FORWARDER_RELEASED_DESCRIPTION);
     expect(
-      releaseEventForwarderQueryDescription(
+      releaseEventForwarderManagedDescription(
         EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
         EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
       ),
-    ).toBe(EVENT_FORWARDER_RELEASED_QUERY_DESCRIPTION);
+    ).toBe(EVENT_FORWARDER_RELEASED_DESCRIPTION);
   });
 
   it("leaves anything else alone", () => {
     expect(
-      releaseEventForwarderQueryDescription(
+      releaseEventForwarderManagedDescription(
         "Mine",
         EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
       ),
     ).toBe("Mine");
     expect(
-      releaseEventForwarderQueryDescription(
+      releaseEventForwarderManagedDescription(
         undefined,
         EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
       ),
     ).toBeUndefined();
     // The other resource's text is not this resource's to rewrite.
     expect(
-      releaseEventForwarderQueryDescription(
+      releaseEventForwarderManagedDescription(
         EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
         EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
       ),

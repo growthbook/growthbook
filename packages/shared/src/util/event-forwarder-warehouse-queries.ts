@@ -36,20 +36,28 @@ export const EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION =
   "Managed by Event Forwarder and updated when the linked Identifier type changes.";
 export const EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION =
   "Managed by Event Forwarder for feature usage events.";
-export const EVENT_FORWARDER_RELEASED_QUERY_DESCRIPTION = "Managed by User";
+export const EVENT_FORWARDER_RELEASED_DESCRIPTION = "Managed by User";
 
 /**
  * Swaps the Event Forwarder's own description for the released one when handing
- * a query over. A description the user wrote is theirs and is left as it is —
- * only the generated text, which would otherwise keep promising updates that no
- * longer happen, is replaced.
+ * a record over. A description the user wrote is theirs and is left as it is —
+ * only the generated text, which would otherwise keep claiming the record is
+ * managed, is replaced.
  */
-export function releaseEventForwarderQueryDescription(
+export function releaseEventForwarderManagedDescription(
+  description: string,
+  managedDescription: string,
+): string;
+export function releaseEventForwarderManagedDescription(
+  description: string | undefined,
+  managedDescription: string,
+): string | undefined;
+export function releaseEventForwarderManagedDescription(
   description: string | undefined,
   managedDescription: string,
 ): string | undefined {
   return description === managedDescription
-    ? EVENT_FORWARDER_RELEASED_QUERY_DESCRIPTION
+    ? EVENT_FORWARDER_RELEASED_DESCRIPTION
     : description;
 }
 
@@ -322,7 +330,7 @@ function releaseManagedExposureQuery(query: ExposureQuery): ExposureQuery {
   const released: ExposureQuery = {
     ...query,
     managedBy: "",
-    description: releaseEventForwarderQueryDescription(
+    description: releaseEventForwarderManagedDescription(
       query.description,
       EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
     ),

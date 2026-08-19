@@ -4,10 +4,10 @@ import { useForm } from "react-hook-form";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { findCollidingUserIdTypeName } from "shared/util";
 import MultiSelectField from "@/ui/MultiSelectField";
-import Callout from "@/ui/Callout";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
+import Callout from "@/ui/Callout";
 
 type EditIdentifierTypeProps = {
   dataSource: DataSourceInterfaceWithParams;
@@ -16,7 +16,7 @@ type EditIdentifierTypeProps = {
   userIdType: string;
   description?: string;
   attributes?: string[];
-  /** Event forwarder provisions hash-attribute identifier types; only description is editable. */
+  /** Event Forwarder provisions hash-attribute identifier types. Editable — saving hands the record over. */
   isEventForwarderManagedType?: boolean;
   onSave: (
     name: string,
@@ -121,12 +121,13 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
       ctaEnabled={saveEnabled}
     >
       <>
-        {isEventForwarderManagedType && (
-          <Callout status="info" mb="3">
-            This identifier type is managed by the Event Forwarder. Only the
-            description can be edited.
+        {isEventForwarderManagedType ? (
+          <Callout status="info" mb="4">
+            Managed by the Event Forwarder. Saving any edit takes ownership and
+            stops automatic updates.
           </Callout>
-        )}
+        ) : null}
+
         <Field
           size="legacy"
           label="Identifier Type"
@@ -151,14 +152,7 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
             legacyHeight
             label="Hash Attributes"
             value={form.watch("attributes")}
-            // Managed types keep the field visible so the linked attribute stays
-            // readable; disabling it explains why it cannot be changed.
-            disabled={isEventForwarderManagedType}
-            helpText={
-              isEventForwarderManagedType
-                ? "Managed by Event Forwarder for this identifier type."
-                : "Select the hash attributes that map to this identifier type."
-            }
+            helpText="Select the hash attributes that map to this identifier type."
             onChange={(value) => {
               form.setValue("attributes", value);
             }}

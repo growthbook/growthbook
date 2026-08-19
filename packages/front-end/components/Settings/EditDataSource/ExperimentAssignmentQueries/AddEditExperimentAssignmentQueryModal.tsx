@@ -12,7 +12,7 @@ import { FaExternalLinkAlt } from "react-icons/fa";
 import {
   EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
   isEventForwarderManagedExposureQuery,
-  releaseEventForwarderQueryDescription,
+  releaseEventForwarderManagedDescription,
 } from "shared/util";
 import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -93,7 +93,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
     if (exposureQuery && isEventForwarderManagedExposureQuery(exposureQuery)) {
       value.managedBy = "";
       delete value.sourceAttribute;
-      value.description = releaseEventForwarderQueryDescription(
+      value.description = releaseEventForwarderManagedDescription(
         value.description,
         EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
       );
