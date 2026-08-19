@@ -295,9 +295,9 @@ export class HoldoutModel extends BaseClass {
    ***************/
 
   protected toApiInterface(): ApiHoldoutInterface {
-    // A holdout needs its companion experiment to serialize, and fetching it is
-    // async. Every handler below resolves the experiment and calls `toApiHoldout`
-    // directly, so this default is never the right path.
+    // No correct sync implementation exists: the API shape needs the companion
+    // experiment, which is an async fetch. Callers must resolve it and
+    // use `toApiHoldout` instead.
     throw new Error(
       "Use handleApi* handlers to serialize a Holdout; toApiInterface cannot resolve its experiment.",
     );
