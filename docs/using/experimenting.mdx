@@ -1,14 +1,11 @@
----
-title: Experimenting in GrowthBook
-description: Analyze A/B test results in GrowthBook: import experiments, set traffic splits, choose metrics, and interpret Bayesian or frequentist results.
----
+# Experimenting in GrowthBook
 
 The Experiments section in GrowthBook is all about analyzing raw experiment results in a data source.
 Before analyzing results, you need to actually run the experiment. This can be done in several ways:
 
 - Feature Flags (most common)
 - Running an inline experiment directly with our SDKs
-- Our Visual Editor (beta)
+- Our [Visual Editor](/app/visual)
 - Your own custom variation assignment / bucketing system
 
 When you go to add an experiment in GrowthBook, it will first look in your data source for any new
@@ -96,12 +93,10 @@ At the metric level, you can pick three different metric windows:
 - Lookback - uses only data in the last window before an experiment ends.
 
 Here's a representation of how these metric windows work for a hypothetical user:
-
-<Frame>![Metric Windows](/static/images/metric-windows.png)</Frame>
+![Metric Windows](/static/images/metric-windows.png)
 
 Here's a second example for a hypothetical User 2, who joins the experiment late. Notice that the conversion window can extend beyond the experiment end date.
-
-<Frame>![Metric Windows (User 2)](/static/images/metric-windows-user-2.png)</Frame>
+![Metric Windows (User 2)](/static/images/metric-windows-user-2.png)
 
 You can override all Conversion windows to be No window at the experiment level using the "Conversion Window Override" in the Experiment Analysis Settings.
 
@@ -111,12 +106,12 @@ You can override all Conversion windows to be No window at the experiment level 
 
 In GrowthBook the experiment results will look like this.
 
-<Frame>![GrowthBook Results](/static/images/using/experiment-results-bayesian.png)</Frame>
+![GrowthBook Results](/static/images/using/experiment-results-bayesian.png)
 
 Each row of this table is a different metric. This is a simplified overview of the data. If you want to
 see the full data, mouse over any of the results.
 
-<Frame>![GrowthBook Results](/static/images/using/experiment-results-bayesian-details2.png)</Frame>
+![GrowthBook Results](/static/images/using/experiment-results-bayesian-details2.png)
 
 Value is the conversion rate or average value per user. In small print you can see the raw numbers
 used to calculate this.
@@ -140,7 +135,7 @@ differences in means and displays the commensurate p-values and confidence inter
 If you selected the "Frequentist" engine, when you navigate to the results tab to view and update the
 results, you will see the following results:
 
-<Frame>![GrowthBook Results - Frequentist](/static/images/using/experiment-results-frequentist.png)</Frame>
+![GrowthBook Results - Frequentist](/static/images/using/experiment-results-frequentist.png)
 
 Everything is the same as above except for two key changes:
 
@@ -221,7 +216,7 @@ Guardrail results show up beneath the main table of goal and secondary metrics. 
 goal metrics, and similarly they are colored based on "Chance to Beat Control". If guardrail metrics
 become significant, you may want to consider ending the experiment.
 
-<Frame>![Guardrail Results](/static/images/using/guardrail-metrics.png)</Frame>
+![Guardrail Results](/static/images/using/guardrail-metrics.png)
 
 If you select the frequentist engine, we instead use yellow to represent a metric moving in the wrong
 direction at all (regardless of statistical significance), red to represent a metric moving in the wrong
@@ -236,16 +231,21 @@ change.
 
 ### Segmentation
 
-Segments are applied to experiment results to only show users that match a particular attribute. For
-example, you might have “country” as a dimension, and create a segment for just “US visitors”. In the
-experiment you can configure the experiment to just look at one particular segment of users. Segments
-can be created with SQL from the "Data and Metrics → Segments" page.
+<Warning>
+**Segments are deprecated**
 
-<Frame>![Segments](/static/images/using/segments-page.png)</Frame>
+Segments have been deprecated and are being phased out. If you don't already have one configured, you
+shouldn't create one. Use a [Dimension](/app/dimensions) instead, or apply a custom SQL filter in the
+experiment's analysis settings to only show users that match a particular attribute.
 
-There are two ways you can use segments in your experiment results. The first is to use the
-experiment's 'analytics settings' and add one of the segments. The other way is to create a custom
-report, and then click on 'customize' and select a segment to apply to the results.
+</Warning>
+
+Previously, Segments could be applied to experiment results to only show users that match a particular
+attribute. For example, you might have “country” as a dimension, and create a segment for just “US
+visitors”. In the experiment you could configure the experiment to just look at one particular segment
+of users. If you need this kind of filtering today, a custom SQL filter in the experiment's analysis
+settings is the recommended approach, as long as the attribute you want to filter on already exists on
+your experiment assignment query.
 
 ### Dimensions
 
@@ -254,7 +254,7 @@ automatically let you break down by date, and any additional dimensions can be a
 the exposure query, or with custom SQL from the dimension menu. Some examples of common
 dimensions are “Browser” or “location”. You can read more about [dimensions here](/app/dimensions).
 
-<Frame>![Dimension Selector](/static/images/using/dimension-selector.png)</Frame>
+![Dimension Selector](/static/images/using/dimension-selector.png)
 
 It can be very helpful to look into how specific dimensions of your users are affected by the
 experiment. For example, you may discover that a specific browser is underperforming compared to
@@ -275,7 +275,7 @@ Common use cases for custom reports include:
 - Creating targeted views for different stakeholders
 - Documenting key findings for future reference
 
-<Frame caption="Example Custom Report">
+<Frame>
   <img src="/static/images/reports-share-report.webp" alt="Example Custom Reports" width="800" />
 </Frame>
 

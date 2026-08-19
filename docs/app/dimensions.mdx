@@ -17,6 +17,20 @@ The two best use cases are identfying bugs (the `browser` example) and getting i
 
 Dimensions are supported for both Mixpanel and SQL data sources.
 
+## Breaking down by more than one dimension
+
+GrowthBook currently only supports selecting a single dimension at a time when viewing experiment
+results. There isn't native support yet for combining two or more dimensions into one breakdown, but
+there are two workarounds:
+
+- **Custom SQL filter**: If one of your dimensions already exists on your experiment assignment query,
+  add a custom SQL filter in the experiment's analysis settings to restrict results to a specific value
+  of that dimension, then use the dimension selector to break down by the second dimension.
+- **Custom dimension SQL**: Create a new dimension whose SQL computes the intersection of the two
+  dimensions you care about — for example, concatenating `country` and `account_type` into a single
+  value like `US - premium`. See the [User Dimensions](#user-dimensions) section below for how to write
+  custom dimension SQL.
+
 ## SQL
 
 There are two types of dimensions for SQL data sources: Experiment Dimensions and User Dimensions. Experiment dimensions are more reliable for producing unbiased experiment analyses because we can always know the dimension that is associated with the first experiment exposure for a unit. Using dimension data that could be affected by the experiment (e.g. that is collected _after_ the first experiment exposure) could bias dimension drill-downs. Therefore, use user dimensions with caution, and we suggest using immutable dimensions as your user dimensions (e.g. the first client the user ever used, or the first country the user ever logged in from).
@@ -129,13 +143,13 @@ For simple dimensions, you can just put the event property name directly. For ex
 
 We also support complex javascript expressions. For example:
 
-```js
+```
 event.properties.$browser.match(/chrome/i) ? "Chrome" : "Other"
 ```
 
 For more complex expressions, you can wrap your code in an anonymous function:
 
-```js
+```
 (() => {
   // ...some complex logic
   return dimensionValue
@@ -144,7 +158,7 @@ For more complex expressions, you can wrap your code in an anonymous function:
 
 You can also reference the experiment start/end date in your javascript expression. For example, if you add a super event called `userRegistrationDate` that stores a unix timestamp, you could make a `New vs Existing` dimension like this:
 
-```js
+```
 event.properties.userRegistrationDate >= {{ startDateUnix }} ? "new" : "existing"
 ```
 
