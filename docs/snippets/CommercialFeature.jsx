@@ -8,6 +8,10 @@ export const CommercialFeature = ({ feature, description }) => {
       plan: "pro",
       displayName: "Advanced Permissions",
     },
+    "ai-byok": {
+      plan: "enterprise",
+      displayName: "Ai Byok",
+    },
     "ai-suggestions": {
       plan: "enterprise",
       displayName: "AI Suggestions",
