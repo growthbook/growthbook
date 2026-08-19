@@ -109,12 +109,15 @@ export default function Implementation({
     linkedFeatures.length > 0 ||
     experiment.hasURLRedirects;
 
-  // Managed experiments take no other implementation, so the chooser is hidden.
-  const { isManaged, defaultsToManaged } = useManagedExperimentFlags({
+  // Keyed on the flag existing, not on the org default: a managed flag is only
+  // created at experiment creation, so an experiment without one chose manual.
+  // Suppressing the chooser there left it with no implementation and no way to
+  // add one.
+  const { isManaged } = useManagedExperimentFlags({
     experiment,
     linkedFeatures,
   });
-  const managedMode = isManaged || (!hasLinkedChanges && defaultsToManaged);
+  const managedMode = isManaged;
 
   // The variation cards can only name "the" served value when there is one
   // implementation and it is a Feature Flag; with several, or a flag alongside

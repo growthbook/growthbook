@@ -6,6 +6,7 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
+import { ExperimentRefVariation } from "shared/types/feature";
 import {
   FeatureRevisionInterface,
   RevisionLog,
@@ -31,18 +32,17 @@ import Field from "@/components/Forms/Field";
 import RadioGroup from "@/ui/RadioGroup";
 import VariationLabel from "@/ui/VariationLabel";
 import ValueDisplay from "@/components/Features/ValueDisplay";
+import { formatValue } from "@/components/Features/FeatureDiffRenders";
+import { TextChangedField } from "@/components/AuditHistoryExplorer/DiffRenderUtils";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useApi from "@/hooks/useApi";
 
-/**
- * CTA + reviewers, nothing else: a managed flag has one rule and one draft, so
- * the full modal's deferral, scheduling and diff machinery has nothing to act
- * on. The CTA comes from `getReviewAndPublishState` so it can't drift from it.
- */
-
 type ReviewDecision = "Comment" | "Requested Changes" | "Approved";
+
+const logUserId = (l: RevisionLog) =>
+  l.user && "id" in l.user ? (l.user as { id: string }).id : null;
 
 type Props = {
   experiment: ExperimentInterfaceStringDates;
@@ -54,6 +54,11 @@ type Props = {
   triggerColor?: "inherit";
 };
 
+/**
+ * CTA + reviewers, nothing else: a managed flag has one rule and one draft, so
+ * the full modal's deferral, scheduling and diff machinery has nothing to act
+ * on. The CTA comes from `getReviewAndPublishState` so it can't drift from it.
+ */
 export default function ManagedFlagApproval({
   experiment,
   info,
@@ -72,19 +77,20 @@ export default function ManagedFlagApproval({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const version = info.draftRevisionVersion;
+  const version = info.pendingDraft?.version;
   // Not gated on `open`: the trigger's label depends on who authored the draft,
   // so the author saw "Review" — an action they can't take — until they clicked.
-  const { data } = useApi<{ revisions: FeatureRevisionInterface[] }>(
-    `/feature/${info.feature.id}`,
-    { shouldRun: () => version != null },
-  );
+  const { data, mutate: mutateRevisions } = useApi<{
+    revisions: FeatureRevisionInterface[];
+  }>(`/feature/${info.feature.id}`, {
+    shouldRun: () => (version ?? null) !== null,
+  });
   const revision = useMemo(
     () => data?.revisions?.find((r) => r.version === version),
     [data, version],
   );
 
-  const status = info.draftRevisionStatus ?? "draft";
+  const status = info.pendingDraft?.status ?? "draft";
   const reviews = revision?.reviews ?? [];
   const isReviewer = reviews.some((r) => r.userId === userId);
 
@@ -93,10 +99,10 @@ export default function ManagedFlagApproval({
   const publishIsLaunch = experiment.status === "draft";
 
   const state = getReviewAndPublishState({
-    requireReviews: !!info.pendingApproval,
+    requireReviews: !!info.pendingDraft?.pendingApproval,
     status,
     // Conflicts are surfaced by the card's callouts; never offer a failing CTA.
-    mergeSuccess: !info.hasMergeConflict,
+    mergeSuccess: !info.pendingDraft?.hasMergeConflict,
     hasChanges: true,
     hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(info.feature),
     canManageDraft: permissionsUtil.canEditFeatureDrafts(info.feature),
@@ -128,11 +134,14 @@ export default function ManagedFlagApproval({
     !!revision &&
     revision.createdBy?.id !== userId;
 
-  // Editing values is the review request, and starting the experiment is the
-  // publish — so the only primary action left here is a publish on a running
-  // experiment.
+  // Starting the experiment is the publish, so only publish is launch-gated.
+  // Request-review has to stay reachable: a draft can land back in `draft` or
+  // `changes-requested` after the auto-request, and without this CTA that state
+  // has no action at all.
   const submitAction =
-    state.submitAction === "publish" && !publishIsLaunch ? "publish" : "none";
+    state.submitAction === "publish" && publishIsLaunch
+      ? "none"
+      : state.submitAction;
   const showSubmit = state.hasSubmit && submitAction !== "none";
 
   async function post(
@@ -149,7 +158,10 @@ export default function ManagedFlagApproval({
       });
       setComment("");
       setOpen(false);
-      await mutate();
+      // The parent mutate only refreshes /experiment/:id. Without these two the
+      // popover keeps its pre-action revision, so the actor's own verdict and
+      // comment disappear from it until a page reload.
+      await Promise.all([mutate(), mutateRevisions(), mutateLog()]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
@@ -187,15 +199,14 @@ export default function ManagedFlagApproval({
 
   // Verdicts carry the reviewer's comment in the revision log, not on the
   // verdict itself, so the conversation needs its own fetch.
-  const { data: logData } = useApi<{ log: RevisionLog[] }>(
+  const { data: logData, mutate: mutateLog } = useApi<{ log: RevisionLog[] }>(
     `/feature/${info.feature.id}/${version}/log`,
-    { shouldRun: () => open && version != null },
+    { shouldRun: () => open && (version ?? null) !== null },
   );
-  // Comments, plus verdicts that are still active. `revision.reviews` is the
-  // live verdict set — a retracted approval is dropped from it — so matching
-  // against it excludes withdrawn reviews without replaying the log. Lifecycle
-  // events (requested, withdrawn, new revision) are state the status line
-  // already carries.
+  // Comments, plus verdicts still present in `revision.reviews` — a retracted
+  // approval is dropped from that set, so matching against it drops withdrawn
+  // reviews without replaying the log. Lifecycle events are state the status
+  // line already carries.
   const verdictStatusForAction: Record<string, string> = {
     Approved: "approved",
     "Requested Changes": "changes-requested",
@@ -205,10 +216,8 @@ export default function ManagedFlagApproval({
       if (l.action === "Comment") return true;
       const wanted = verdictStatusForAction[l.action];
       if (!wanted) return false;
-      const logUserId =
-        l.user && "id" in l.user ? (l.user as { id: string }).id : null;
       return reviews.some(
-        (r) => r.userId === logUserId && r.status.startsWith(wanted),
+        (r) => r.userId === logUserId(l) && r.status.startsWith(wanted),
       );
     })
     .map((l) => {
@@ -226,28 +235,47 @@ export default function ManagedFlagApproval({
     .filter(([, on]) => on)
     .map(([env]) => env);
 
+  const draftValues = info.pendingDraft?.values ?? info.values;
+  const valueFor = (
+    values: ExperimentRefVariation[] | undefined,
+    variationId: string,
+  ) => values?.find((sv) => sv.variationId === variationId)?.value;
+
   const changesColumn = (
     <Flex direction="column" gap="3" width="50%" minWidth="0">
       <Text size="md" weight="semibold" color="text-high">
         Changes
       </Text>
-      {variations.map((v, i) => (
-        <Box key={v.id}>
-          <VariationLabel number={i} name={v.name} size="sm" />
-          <Box mt="1">
-            <ValueDisplay
-              value={
-                info.values.find((sv) => sv.variationId === v.id)?.value ?? ""
-              }
-              type={info.feature.valueType}
-              sparse={info.sparse}
-              defaultValue={info.feature.defaultValue}
-              showCopyButton={false}
-              fullStyle={{ maxHeight: 60, overflowY: "auto" }}
-            />
+      {variations.map((v, i) => {
+        const after = valueFor(draftValues, v.id) ?? "";
+        const before = valueFor(info.liveValues, v.id);
+        // Only a value that actually moved earns the before/after treatment;
+        // the first draft has no live rule to compare against, and unchanged
+        // variations would read as "Δ x → x".
+        const changed = before !== undefined && before !== after;
+        return (
+          <Box key={v.id}>
+            <VariationLabel number={i} name={v.name} size="sm" />
+            <Box mt="1">
+              {changed ? (
+                <TextChangedField
+                  pre={formatValue(before)}
+                  post={formatValue(after)}
+                />
+              ) : (
+                <ValueDisplay
+                  value={after}
+                  type={info.feature.valueType}
+                  sparse={info.pendingDraft?.sparse ?? info.sparse}
+                  defaultValue={info.feature.defaultValue}
+                  showCopyButton={false}
+                  fullStyle={{ maxHeight: 60, overflowY: "auto" }}
+                />
+              )}
+            </Box>
           </Box>
-        </Box>
-      ))}
+        );
+      })}
       {enabledEnvs.length > 0 && (
         <Text size="sm" color="text-low">
           Enables {enabledEnvs.join(", ")}
@@ -286,7 +314,7 @@ export default function ManagedFlagApproval({
         />
       )}
 
-      {canReview && (
+      {(canReview || submitAction === "request-review") && (
         <Field
           size="sm"
           textarea
@@ -317,7 +345,12 @@ export default function ManagedFlagApproval({
         ) : showSubmit ? (
           <Button
             disabled={!state.ctaEnabled || submitting}
-            onClick={() => post("publish")}
+            onClick={() =>
+              post(
+                submitAction === "publish" ? "publish" : "request-review",
+                submitAction === "publish" ? {} : { comment },
+              )
+            }
           >
             {state.ctaLabel}
           </Button>
@@ -343,9 +376,7 @@ export default function ManagedFlagApproval({
                   : l.action === "Requested Changes"
                     ? "red"
                     : null;
-              const logUserId =
-                l.user && "id" in l.user ? (l.user as { id: string }).id : null;
-              const isOwn = !!logUserId && logUserId === userId;
+              const isOwn = !!logUserId(l) && logUserId(l) === userId;
               const isActiveVerdict = !!verdictColor;
               return (
                 <CommentCard
@@ -399,8 +430,7 @@ export default function ManagedFlagApproval({
                       </DropdownMenu>
                     ) : undefined
                   }
-                  // A bare verdict has no body — same chrome, just the header
-                  // line, so it stays distinguishable from a comment.
+                  // A bare verdict has no body — same chrome, header line only.
                   body={
                     editingLogId && editingLogId === l.id ? (
                       <Flex direction="column" gap="2">
@@ -418,9 +448,7 @@ export default function ManagedFlagApproval({
                             onClick={async () => {
                               await post(
                                 `log/${l.id}`,
-                                {
-                                  comment: editText,
-                                },
+                                { comment: editText, version },
                                 "PUT",
                               );
                               setEditingLogId(null);
@@ -449,15 +477,25 @@ export default function ManagedFlagApproval({
   );
 
   const content = (
-    <Flex gap="4" width="620px">
-      {changesColumn}
-      {/* Radix vertical separators collapse without an explicit stretch. */}
-      <Separator
-        orientation="vertical"
-        style={{ alignSelf: "stretch", height: "auto" }}
-      />
-      {reviewColumn}
-    </Flex>
+    // The variation list and the comment thread both grow unbounded, so cap the
+    // popover and scroll. The scroll sits on this wrapper rather than the Flex:
+    // on the Flex, `align-items: stretch` would size the separator to the
+    // clamped height instead of the content height and it would stop partway
+    // down as you scroll.
+    <Box
+      width="620px"
+      style={{ maxHeight: "min(60vh, 520px)", overflowY: "auto" }}
+    >
+      <Flex gap="4" width="100%">
+        {changesColumn}
+        {/* Radix vertical separators collapse without an explicit stretch. */}
+        <Separator
+          orientation="vertical"
+          style={{ alignSelf: "stretch", height: "auto" }}
+        />
+        {reviewColumn}
+      </Flex>
+    </Box>
   );
 
   return (
@@ -469,12 +507,9 @@ export default function ManagedFlagApproval({
       content={content}
       trigger={
         <Button variant="ghost" color={triggerColor}>
-          {/* Name what the popover will actually offer: `status` alone drifts,
-              and a primary label with only secondary actions available lies. */}
-          {/* With no action available — the author can't approve their own
-              draft, and starting the experiment is what publishes it — the
-              popover is still worth opening to see the changes and who has
-              reviewed. Say that rather than promising an action. */}
+          {/* Name what the popover actually offers. With no action available —
+              the author can't approve their own draft — it's still worth
+              opening to see the changes and who has reviewed. */}
           {canReview
             ? "Review"
             : showSubmit

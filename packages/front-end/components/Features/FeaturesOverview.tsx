@@ -531,6 +531,10 @@ export default function FeaturesOverview({
   // experiment-side components ask the same questions and must keep working,
   // and a caller passing a bare `{project}` literal would skip the check.
   const isManagedFlag = isManagedFeature(baseFeature);
+  const managedByExperimentId =
+    baseFeature.managedBy?.type === "experiment"
+      ? baseFeature.managedBy.experimentId
+      : "";
   const canEditDrafts =
     !isManagedFlag && permissionsUtil.canEditFeatureDrafts(baseFeature);
   // An env change can be staged in a draft or published straight out. Offer the
@@ -653,13 +657,7 @@ export default function FeaturesOverview({
         {isManagedFlag && (
           <Callout status="info" mb="3">
             This Feature Flag is managed by an{" "}
-            <Link
-              href={`/experiment/${
-                baseFeature.managedBy?.type === "experiment"
-                  ? baseFeature.managedBy.experimentId
-                  : ""
-              }#implementation`}
-            >
+            <Link href={`/experiment/${managedByExperimentId}#implementation`}>
               experiment
             </Link>
             . Its values, review and publishing are handled there, so it is read

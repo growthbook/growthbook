@@ -160,7 +160,7 @@ export default function ExperimentSettings({
                     New experiments deliver their variations through a Feature
                     Flag that is set up, reviewed and published entirely from
                     the experiment — no separate Feature Flag workflow. Can be
-                    overridden per Project, and turned off per experiment.
+                    turned off per experiment.
                   </Text>
                 </Flex>
               </Flex>

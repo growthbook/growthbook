@@ -92,6 +92,9 @@ type VariationRow = {
 
 type FormValues = { variations: VariationRow[] };
 
+/** Upper bound on waiting for the dynamically-imported value editor to mount. */
+const FOCUS_WAIT_MS = 2000;
+
 function SplitField({
   index,
   weight,
@@ -179,8 +182,16 @@ export default function EditFeatureFlagValuesModal({
     if (linkedFeatureInfo.draftRevisionVersion != null) {
       set.add(linkedFeatureInfo.draftRevisionVersion);
     }
+    if (linkedFeatureInfo.pendingDraft) {
+      set.add(linkedFeatureInfo.pendingDraft.version);
+    }
     return set;
-  }, [data?.revisions, experiment.id, linkedFeatureInfo.draftRevisionVersion]);
+  }, [
+    data?.revisions,
+    experiment.id,
+    linkedFeatureInfo.draftRevisionVersion,
+    linkedFeatureInfo.pendingDraft,
+  ]);
 
   const latestPhase = experiment.phases?.[experiment.phases.length - 1];
 
@@ -239,9 +250,17 @@ export default function EditFeatureFlagValuesModal({
     linkedFeatureInfo.liveHasMatchingRule === false &&
     linkedFeatureInfo.draftRevisionVersion != null;
 
+  // A managed flag has exactly one draft by construction, but
+  // `draftRevisionVersion` is only populated while the EXPERIMENT is a draft.
+  // On a running managed experiment this modal would otherwise open in "new
+  // draft" mode and open a second one alongside the pending edit.
+  const targetDraftVersion =
+    linkedFeatureInfo.draftRevisionVersion ??
+    (isManaged ? (linkedFeatureInfo.pendingDraft?.version ?? null) : null);
+
   const initialMode: DraftMode =
-    linkedFeatureInfo.draftRevisionVersion != null ? "existing" : "new";
-  const initialSelectedDraft = linkedFeatureInfo.draftRevisionVersion ?? null;
+    targetDraftVersion != null ? "existing" : "new";
+  const initialSelectedDraft = targetDraftVersion;
 
   const [mode, setMode] = useState<DraftMode>(initialMode);
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
@@ -249,19 +268,33 @@ export default function EditFeatureFlagValuesModal({
   );
   const [isEditingVariations, setIsEditingVariations] = useState(false);
 
-  // Jump straight to the variation whose Edit link was clicked. The value
-  // editor renders a CodeMirror or a plain input depending on type, so focus
-  // the first focusable inside the row's wrapper rather than assuming either.
+  // Jump straight to the variation whose Edit link was clicked.
+  //
+  // The field is not in the DOM when this first runs: the modal body renders a
+  // loading overlay until `data` resolves. JSON values add a second wait — they
+  // render in Ace behind `next/dynamic`, whose input is `textarea.ace_text-input`
+  // — so poll for the field rather than guessing at either boundary.
   useEffect(() => {
-    if (!focusVariationId) return;
-    const el = document.getElementById(`variation-value-${focusVariationId}`);
-    if (!el) return;
-    el.scrollIntoView({ block: "center" });
-    const focusable = el.querySelector<HTMLElement>(
-      "input, textarea, [contenteditable='true']",
-    );
-    focusable?.focus();
-  }, [focusVariationId, revisionList.length]);
+    if (!focusVariationId || !data) return;
+    let frame = 0;
+    const giveUpAt = Date.now() + FOCUS_WAIT_MS;
+    const tryFocus = () => {
+      const row = document.getElementById(
+        `variation-value-${focusVariationId}`,
+      );
+      const field = row?.querySelector<HTMLElement>(
+        "textarea, input:not([type='hidden']), [contenteditable='true']",
+      );
+      if (field) {
+        row?.scrollIntoView({ block: "center" });
+        field.focus();
+        return;
+      }
+      if (Date.now() < giveUpAt) frame = requestAnimationFrame(tryFocus);
+    };
+    frame = requestAnimationFrame(tryFocus);
+    return () => cancelAnimationFrame(frame);
+  }, [focusVariationId, data, fields.length]);
 
   // On first render `useApi` hasn't resolved yet, so `revisionList` is empty
   // and the dropdown can't render revision labels. Re-apply the
@@ -605,7 +638,7 @@ export default function EditFeatureFlagValuesModal({
                             />
                           </Box>
                         </Flex>
-                        <Box id={`variation-value-${row.id}`}>
+                        <Box>
                           <Text as="label" weight="semibold">
                             Value
                           </Text>
@@ -737,23 +770,25 @@ export default function EditFeatureFlagValuesModal({
                       </DropdownMenuItem>
                     </DropdownMenu>
                   </Flex>
-                  <FeatureValueField
-                    id={`variation-${row.id}`}
-                    value={row.value ?? ""}
-                    setValue={(val) =>
-                      form.setValue(`variations.${i}.value`, val)
-                    }
-                    valueType={feature.valueType}
-                    feature={feature}
-                    renderJSONInline={true}
-                    useCodeInput={true}
-                    showFullscreenButton={true}
-                    sparse={sparse}
-                    allowConfigBacking={isConfigBacked}
-                    configBackingOptionKeys={configBackingOptionKeys}
-                    configBackingShowPatch={isConfigBacked}
-                    lockConfigBacking={isConfigBacked}
-                  />
+                  <Box id={`variation-value-${row.id}`}>
+                    <FeatureValueField
+                      id={`variation-${row.id}`}
+                      value={row.value ?? ""}
+                      setValue={(val) =>
+                        form.setValue(`variations.${i}.value`, val)
+                      }
+                      valueType={feature.valueType}
+                      feature={feature}
+                      renderJSONInline={true}
+                      useCodeInput={true}
+                      showFullscreenButton={true}
+                      sparse={sparse}
+                      allowConfigBacking={isConfigBacked}
+                      configBackingOptionKeys={configBackingOptionKeys}
+                      configBackingShowPatch={isConfigBacked}
+                      lockConfigBacking={isConfigBacked}
+                    />
+                  </Box>
                   {isNewVariation && numLinkedChanges > 1 && (
                     <Callout status="warning" mt="2">
                       <Text weight="semibold">Don&apos;t forget!</Text> Define

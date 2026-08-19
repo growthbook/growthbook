@@ -225,7 +225,7 @@ export default function FeaturePage() {
           />
         )}
 
-        {tab === "review" && !isManagedFeature(baseFeature) && (
+        {tab === "review" && !isManagedFlag && (
           <ReviewAndPublish
             feature={baseFeature}
             revisions={data.revisions}
