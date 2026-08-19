@@ -27,7 +27,10 @@ import {
 import { configUpdatableFieldsSchema } from "../validators/config";
 import { constantUpdatableFieldsSchema } from "../validators/constant";
 import { savedGroupUpdatableFieldsSchema } from "../validators/saved-group";
-import { resolveProjectScopedRule } from "../util/projectScopedRules";
+import {
+  resolveProjectScopedRule,
+  RuleCombiners,
+} from "../util/projectScopedRules";
 
 // The projects a revision snapshot belongs to: one for a constant or config,
 // several for a saved group.
@@ -35,6 +38,18 @@ export const entityProjects = (snapshot: unknown): string[] => {
   const entity = (snapshot ?? {}) as { project?: string; projects?: string[] };
   if (entity.projects?.length) return entity.projects;
   return entity.project ? [entity.project] : [];
+};
+
+// Same folding as the flag family: stricter wins, autopublish takes agreement,
+// and team lists union into one OR-group.
+const APPROVAL_FLOW_COMBINERS: RuleCombiners<ApprovalFlowConfiguration> = {
+  required: (vals) => vals.some(Boolean),
+  requireMetadataReview: (vals) => vals.some((v) => v !== false),
+  blockSelfApproval: (vals) => vals.some(Boolean),
+  resetReviewOnChange: (vals) => vals.some(Boolean),
+  autopublishOnApproval: (vals) => vals.every(Boolean),
+  requiredApproverTeams: (vals) =>
+    [...new Set(vals.flatMap((v) => v ?? []))].sort(),
 };
 
 // `projects` is the selector and `required` the override's own switch.
@@ -91,6 +106,8 @@ export const getApprovalFlowRules = (
       rules,
       project,
       APPROVAL_FLOW_INHERITABLE,
+      APPROVAL_FLOW_COMBINERS,
+      (r) => !!r.required,
     );
     if (!rule) continue;
     // By content: projects inheriting the same layer resolve to equal but

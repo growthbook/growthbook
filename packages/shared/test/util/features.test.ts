@@ -3116,18 +3116,13 @@ describe("reset review on change", () => {
         },
       ],
     };
+    // The second rule gates every environment (empty list), so staging is covered
+    // by it. This read `false` only because resolution stopped at the first
+    // matching rule; the fold now consults both.
     expect(
       resetReviewOnChange({
         feature,
         changedEnvironments: ["staging"],
-        defaultValueChanged: false,
-        settings,
-      }),
-    ).toEqual(false);
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["prod"],
         defaultValueChanged: false,
         settings,
       }),
@@ -3137,9 +3132,19 @@ describe("reset review on change", () => {
         feature,
         changedEnvironments: ["prod"],
         defaultValueChanged: false,
+        settings,
+      }),
+    ).toEqual(true);
+    // settingsOff's second rule still resets on any change in every environment,
+    // so turning the first rule's flag off no longer decides the answer alone.
+    expect(
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: ["prod"],
+        defaultValueChanged: false,
         settings: settingsOff,
       }),
-    ).toEqual(false);
+    ).toEqual(true);
     expect(
       resetReviewOnChange({
         feature,
@@ -3147,7 +3152,7 @@ describe("reset review on change", () => {
         defaultValueChanged: false,
         settings: settingsOff,
       }),
-    ).toEqual(false);
+    ).toEqual(true);
   });
   it("turn off for first project", () => {
     const settings: OrganizationSettings = {

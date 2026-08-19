@@ -47,6 +47,7 @@ import {
 import {
   resolveProjectScopedRule,
   projectsWithOwnRule,
+  RuleCombiners,
 } from "./projectScopedRules";
 import { formatJsonMultilineObjects } from "./format-json";
 import { stemRuleId } from "./ruleId";
@@ -2750,6 +2751,29 @@ const INHERITABLE_FIELDS = [
   "requiredApproverTeams",
 ] as const;
 
+// Folding several rules that govern one project: the stricter answer wins, so
+// the outcome never depends on their order. `autopublishOnApproval` loosens the
+// flow, so it takes agreement rather than one vote.
+const REVIEW_COMBINERS: RuleCombiners<RequireReview> = {
+  requireReviewOn: (vals) => vals.some(Boolean),
+  resetReviewOnChange: (vals) => vals.some(Boolean),
+  blockSelfApproval: (vals) => vals.some(Boolean),
+  // These two gate unless turned off, so an unset value is already strict.
+  featureRequireEnvironmentReview: (vals) => vals.some((v) => v !== false),
+  featureRequireMetadataReview: (vals) => vals.some((v) => v !== false),
+  autopublishOnApproval: (vals) => vals.every(Boolean),
+  // No list means every environment, so it swallows any narrower list. Sorted so
+  // the fold is canonical rather than merely set-equal.
+  environments: (vals) =>
+    vals.some((v) => !v?.length)
+      ? []
+      : [...new Set(vals.flatMap((v) => v ?? []))].sort(),
+  // Unioned into one OR-group: any one of the named teams satisfies the rule.
+  // Keeping the lists separate would demand an approver from each.
+  requiredApproverTeams: (vals) =>
+    [...new Set(vals.flatMap((v) => v ?? []))].sort(),
+};
+
 // Most specific wins, inheriting unset fields from the layers beneath. With one
 // rule it returns that rule unchanged. Mirrors getTargetingReviewMode.
 export function getReviewSetting(
@@ -2760,6 +2784,8 @@ export function getReviewSetting(
     requireReviewSettings,
     entity.project,
     INHERITABLE_FIELDS,
+    REVIEW_COMBINERS,
+    (rule) => !!rule.requireReviewOn,
   );
 }
 

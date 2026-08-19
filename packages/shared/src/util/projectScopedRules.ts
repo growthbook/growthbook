@@ -4,15 +4,47 @@
 // no `projects` at all, and those must read as the all-projects layer.
 export type ProjectScopedRule = { projects?: string[] };
 
-function layersFor<T extends ProjectScopedRule>(
+function matchingLayers<T extends ProjectScopedRule>(
   rules: T[],
   project: string | undefined,
-): T[] {
-  const specific = project
-    ? rules.filter((r) => (r.projects ?? []).includes(project))
-    : [];
-  const base = rules.filter((r) => !r.projects?.length);
-  return [...specific, ...base];
+): { specific: T[]; base: T[] } {
+  return {
+    specific: project
+      ? rules.filter((r) => (r.projects ?? []).includes(project))
+      : [],
+    base: rules.filter((r) => !r.projects?.length),
+  };
+}
+
+// How to fold several rules that govern the same project into one. A combiner
+// sees every rule's raw value, including the unset ones, because what "unset"
+// means is the field's own business. Fields without a combiner take the first
+// set value, which is only safe where such rules agree.
+export type RuleCombiners<T> = Partial<{
+  [K in keyof T]: (values: (T[K] | undefined)[]) => T[K];
+}>;
+
+// Order-independent on purpose: nothing about the outcome should depend on where
+// a rule sits in the array.
+function combineRules<T extends ProjectScopedRule>(
+  rules: T[],
+  combine: RuleCombiners<T>,
+): T {
+  const merged: T = { ...rules[0] };
+  const keys = new Set<keyof T>(
+    rules.flatMap((r) => Object.keys(r) as (keyof T)[]),
+  );
+  for (const key of keys) {
+    const raw = rules.map((r) => r[key]);
+    const set = raw.filter((v) => (v ?? null) !== null);
+    if (!set.length) continue;
+    const fold = combine[key];
+    Object.assign(merged, { [key]: fold ? fold(raw) : set[0] });
+  }
+  Object.assign(merged, {
+    projects: [...new Set(rules.flatMap((r) => r.projects ?? []))].sort(),
+  });
+  return merged;
 }
 
 // `inheritable` names the fields an override may leave unset. A rule's selector
@@ -21,11 +53,27 @@ export function resolveProjectScopedRule<T extends ProjectScopedRule>(
   rules: T[],
   project: string | undefined,
   inheritable: readonly (keyof T)[],
+  combine: RuleCombiners<T> = {},
+  // A rule whose own switch is off gates nothing, so it must not contribute its
+  // scope to the fold — otherwise "review not required, all environments" would
+  // widen the environments the other rules gate.
+  isActive?: (rule: T) => boolean,
 ): T | undefined {
-  const layers = layersFor(rules, project);
-  const winner = layers[0];
+  const { specific, base } = matchingLayers(rules, project);
+  const fold = (group: T[]): T | undefined => {
+    if (!group.length) return undefined;
+    const active = isActive ? group.filter(isActive) : group;
+    if (!active.length) return group[0];
+    return active.length > 1 ? combineRules(active, combine) : active[0];
+  };
+  const specificWinner = fold(specific);
+  const baseWinner = fold(base);
+  const winner = specificWinner ?? baseWinner;
   if (!winner) return undefined;
-  if (layers.length === 1) return winner;
+  // Only a project-specific winner has somewhere to inherit from. A base winner
+  // is already the bottom layer, so it is returned as-is.
+  if (!specificWinner || !baseWinner) return winner;
+  const layers = [specificWinner, baseWinner];
 
   const merged: T = { ...winner };
   for (const field of inheritable) {
