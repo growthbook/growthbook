@@ -76,6 +76,7 @@ import {
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
+import { getExperimentResultStatus } from "./experimentResultStatus";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
 
 export const INCREMENTAL_UNITS_TABLE_PREFIX = "gb_units";
@@ -1193,6 +1194,10 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
           "Failed to refresh incremental refresh lock heartbeat",
         ),
       );
+  }
+
+  protected override getOverallQueryStatus(): QueryStatus {
+    return getExperimentResultStatus(this.model.queries);
   }
 
   async startQueries(
