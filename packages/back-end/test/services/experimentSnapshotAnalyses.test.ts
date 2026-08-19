@@ -103,7 +103,14 @@ function makeSnapshot(): ExperimentSnapshotInterface {
       ],
     },
     type: "standard",
-    queries: [{ status: "success" } as never],
+    queries: [
+      {
+        query: "qry_metric",
+        name: "met_1",
+        status: "succeeded",
+        queryType: "experimentMetric",
+      },
+    ],
     unknownVariations: [],
     multipleExposures: 0,
     analyses: [],
