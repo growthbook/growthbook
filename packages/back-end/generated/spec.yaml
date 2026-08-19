@@ -5894,6 +5894,8 @@ paths:
                           type: string
                         exposureQueryId:
                           type: string
+                        exposureQueryIdentifierType:
+                          type: string
                         guardrailMetricIds:
                           minItems: 1
                           type: array
@@ -6568,6 +6570,8 @@ paths:
                         datasourceId:
                           type: string
                         exposureQueryId:
+                          type: string
+                        exposureQueryIdentifierType:
                           type: string
                         guardrailMetricIds:
                           minItems: 1
@@ -7286,6 +7290,8 @@ paths:
                     datasourceId:
                       type: string
                     exposureQueryId:
+                      type: string
+                    exposureQueryIdentifierType:
                       type: string
                     guardrailMetricIds:
                       minItems: 1
@@ -11734,6 +11740,8 @@ paths:
                           type: string
                         exposureQueryId:
                           type: string
+                        exposureQueryIdentifierType:
+                          type: string
                         guardrailMetricIds:
                           minItems: 1
                           type: array
@@ -12433,6 +12441,8 @@ paths:
                         datasourceId:
                           type: string
                         exposureQueryId:
+                          type: string
+                        exposureQueryIdentifierType:
                           type: string
                         guardrailMetricIds:
                           minItems: 1
@@ -13161,6 +13171,8 @@ paths:
                     datasourceId:
                       type: string
                     exposureQueryId:
+                      type: string
+                    exposureQueryIdentifierType:
                       type: string
                     guardrailMetricIds:
                       minItems: 1
@@ -14907,11 +14919,34 @@ paths:
                     ID for the [DataSource](#tag/DataSource_model). Can only be
                     set if a templateId is not provided.
                   type: string
-                assignmentQueryId:
+                assignmentQuery:
                   description: >-
-                    The ID property of one of the assignment query objects
-                    associated with the datasource. Can only be set if a
-                    templateId is not provided.
+                    The assignment query to use, grouping its ID with the
+                    identifier type to analyze on. The ID must be one of the
+                    assignment query objects associated with the datasource, and
+                    the identifier type must be one it declares. Can only be set
+                    if a templateId is not provided. Mutually exclusive with the
+                    deprecated assignmentQueryId/assignmentQueryIdentifierType.
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    identifierType:
+                      type: string
+                  required:
+                    - id
+                    - identifierType
+                  additionalProperties: false
+                assignmentQueryId:
+                  deprecated: true
+                  description: >-
+                    Deprecated: use assignmentQuery instead. The ID property of
+                    one of the assignment query objects associated with the
+                    datasource. Can only be set if a templateId is not provided.
+                  type: string
+                assignmentQueryIdentifierType:
+                  deprecated: true
+                  description: 'Deprecated: use assignmentQuery.identifierType instead.'
                   type: string
                 trackingKey:
                   type: string
@@ -15627,7 +15662,28 @@ paths:
                     Can only be set if existing experiment does not have a
                     datasource
                   type: string
+                assignmentQuery:
+                  description: >-
+                    The assignment query to use, grouping its ID with the
+                    identifier type to analyze on. Mutually exclusive with the
+                    deprecated assignmentQueryId/assignmentQueryIdentifierType.
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    identifierType:
+                      type: string
+                  required:
+                    - id
+                    - identifierType
+                  additionalProperties: false
                 assignmentQueryId:
+                  deprecated: true
+                  description: 'Deprecated: use assignmentQuery instead.'
+                  type: string
+                assignmentQueryIdentifierType:
+                  deprecated: true
+                  description: 'Deprecated: use assignmentQuery.identifierType instead.'
                   type: string
                 trackingKey:
                   type: string
@@ -20616,7 +20672,7 @@ paths:
     get:
       operationId: listDataSources
       summary: Get all data sources
-      tags:
+      tags: &ref_0
         - data-sources
       parameters:
         - $ref: '#/components/parameters/limit'
@@ -20648,7 +20704,7 @@ paths:
     get:
       operationId: getDataSource
       summary: Get a single data source
-      tags:
+      tags: &ref_1
         - data-sources
       parameters:
         - $ref: '#/components/parameters/id'
@@ -20702,6 +20758,62 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/data-sources/{dataSourceId}/information-schema'
             \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v2/data-sources:
+    get:
+      operationId: listDataSourcesV2
+      summary: Get all data sources
+      tags: *ref_0
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      dataSources:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DataSource'
+                    required:
+                      - dataSources
+                    additionalProperties: false
+                  - $ref: '#/components/schemas/PaginationFields'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v2/data-sources' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v2/data-sources/{id}:
+    get:
+      operationId: getDataSourceV2
+      summary: Get a single data source
+      tags: *ref_1
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dataSource:
+                    $ref: '#/components/schemas/DataSource'
+                required:
+                  - dataSource
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v2/data-sources/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/data-sources/{id}/sql/search-tables:
     post:
@@ -33146,7 +33258,30 @@ paths:
                       properties:
                         datasourceId:
                           type: string
+                        exposureQuery:
+                          description: >-
+                            The exposure query to use, grouping its ID with the
+                            identifier type analyzed on. Mutually exclusive with
+                            the deprecated exposureQueryId.
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            identifierType:
+                              type: string
+                          required:
+                            - id
+                            - identifierType
+                          additionalProperties: false
                         exposureQueryId:
+                          deprecated: true
+                          description: 'Deprecated: use exposureQuery instead.'
+                          type: string
+                        exposureQueryIdentifierType:
+                          deprecated: true
+                          description: >-
+                            Deprecated: use exposureQuery.identifierType
+                            instead.
                           type: string
                         guardrailMetricIds:
                           minItems: 1
@@ -33191,7 +33326,6 @@ paths:
                             - rollback
                       required:
                         - datasourceId
-                        - exposureQueryId
                         - guardrailMetricIds
                       additionalProperties: false
                     - type: 'null'
@@ -34188,8 +34322,6 @@ paths:
                         properties:
                           datasourceId:
                             type: string
-                          exposureQueryId:
-                            type: string
                           guardrailMetricIds:
                             minItems: 1
                             type: array
@@ -34238,9 +34370,34 @@ paths:
                               - rollback
                               - hold
                               - warn
+                          exposureQuery:
+                            description: >-
+                              The exposure query to use, grouping its ID with
+                              the identifier type analyzed on. Mutually
+                              exclusive with the deprecated
+                              exposureQueryId/exposureQueryIdentifierType.
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                              identifierType:
+                                type: string
+                            required:
+                              - id
+                              - identifierType
+                            additionalProperties: false
+                          exposureQueryId:
+                            deprecated: true
+                            description: 'Deprecated: use exposureQuery instead.'
+                            type: string
+                          exposureQueryIdentifierType:
+                            deprecated: true
+                            description: >-
+                              Deprecated: use exposureQuery.identifierType
+                              instead.
+                            type: string
                         required:
                           - datasourceId
-                          - exposureQueryId
                           - guardrailMetricIds
                         additionalProperties: false
                       - type: 'null'
@@ -34570,8 +34727,6 @@ paths:
                         properties:
                           datasourceId:
                             type: string
-                          exposureQueryId:
-                            type: string
                           guardrailMetricIds:
                             minItems: 1
                             type: array
@@ -34620,9 +34775,34 @@ paths:
                               - rollback
                               - hold
                               - warn
+                          exposureQuery:
+                            description: >-
+                              The exposure query to use, grouping its ID with
+                              the identifier type analyzed on. Mutually
+                              exclusive with the deprecated
+                              exposureQueryId/exposureQueryIdentifierType.
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                              identifierType:
+                                type: string
+                            required:
+                              - id
+                              - identifierType
+                            additionalProperties: false
+                          exposureQueryId:
+                            deprecated: true
+                            description: 'Deprecated: use exposureQuery instead.'
+                            type: string
+                          exposureQueryIdentifierType:
+                            deprecated: true
+                            description: >-
+                              Deprecated: use exposureQuery.identifierType
+                              instead.
+                            type: string
                         required:
                           - datasourceId
-                          - exposureQueryId
                           - guardrailMetricIds
                         additionalProperties: false
                       - type: 'null'
@@ -34807,13 +34987,11 @@ paths:
             schema:
               description: >-
                 Full replacement of the monitoring configuration. `datasourceId`
-                and `exposureQueryId` cannot be changed while a monitoring
+                and `exposureQuery` cannot be changed while a monitoring
                 experiment is active — stop the schedule first.
               type: object
               properties:
                 datasourceId:
-                  type: string
-                exposureQueryId:
                   type: string
                 guardrailMetricIds:
                   minItems: 1
@@ -34863,9 +35041,31 @@ paths:
                     - rollback
                     - hold
                     - warn
+                exposureQuery:
+                  description: >-
+                    The exposure query to use, grouping its ID with the
+                    identifier type analyzed on. Mutually exclusive with the
+                    deprecated exposureQueryId/exposureQueryIdentifierType.
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    identifierType:
+                      type: string
+                  required:
+                    - id
+                    - identifierType
+                  additionalProperties: false
+                exposureQueryId:
+                  deprecated: true
+                  description: 'Deprecated: use exposureQuery instead.'
+                  type: string
+                exposureQueryIdentifierType:
+                  deprecated: true
+                  description: 'Deprecated: use exposureQuery.identifierType instead.'
+                  type: string
               required:
                 - datasourceId
-                - exposureQueryId
                 - guardrailMetricIds
               additionalProperties: false
       responses:
@@ -35014,8 +35214,6 @@ paths:
                         properties:
                           datasourceId:
                             type: string
-                          exposureQueryId:
-                            type: string
                           guardrailMetricIds:
                             minItems: 1
                             type: array
@@ -35064,9 +35262,34 @@ paths:
                               - rollback
                               - hold
                               - warn
+                          exposureQuery:
+                            description: >-
+                              The exposure query to use, grouping its ID with
+                              the identifier type analyzed on. Mutually
+                              exclusive with the deprecated
+                              exposureQueryId/exposureQueryIdentifierType.
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                              identifierType:
+                                type: string
+                            required:
+                              - id
+                              - identifierType
+                            additionalProperties: false
+                          exposureQueryId:
+                            deprecated: true
+                            description: 'Deprecated: use exposureQuery instead.'
+                            type: string
+                          exposureQueryIdentifierType:
+                            deprecated: true
+                            description: >-
+                              Deprecated: use exposureQuery.identifierType
+                              instead.
+                            type: string
                         required:
                           - datasourceId
-                          - exposureQueryId
                           - guardrailMetricIds
                         additionalProperties: false
                       - type: 'null'
@@ -35399,8 +35622,6 @@ paths:
                         properties:
                           datasourceId:
                             type: string
-                          exposureQueryId:
-                            type: string
                           guardrailMetricIds:
                             minItems: 1
                             type: array
@@ -35449,9 +35670,34 @@ paths:
                               - rollback
                               - hold
                               - warn
+                          exposureQuery:
+                            description: >-
+                              The exposure query to use, grouping its ID with
+                              the identifier type analyzed on. Mutually
+                              exclusive with the deprecated
+                              exposureQueryId/exposureQueryIdentifierType.
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                              identifierType:
+                                type: string
+                            required:
+                              - id
+                              - identifierType
+                            additionalProperties: false
+                          exposureQueryId:
+                            deprecated: true
+                            description: 'Deprecated: use exposureQuery instead.'
+                            type: string
+                          exposureQueryIdentifierType:
+                            deprecated: true
+                            description: >-
+                              Deprecated: use exposureQuery.identifierType
+                              instead.
+                            type: string
                         required:
                           - datasourceId
-                          - exposureQueryId
                           - guardrailMetricIds
                         additionalProperties: false
                       - type: 'null'
@@ -49312,7 +49558,28 @@ paths:
                     type: string
                 datasource:
                   type: string
+                exposureQuery:
+                  description: >-
+                    The exposure query to use, grouping its ID with the
+                    identifier type analyzed on. Mutually exclusive with the
+                    deprecated exposureQueryId/exposureQueryIdentifierType.
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    identifierType:
+                      type: string
+                  required:
+                    - id
+                    - identifierType
+                  additionalProperties: false
                 exposureQueryId:
+                  deprecated: true
+                  description: 'Deprecated: use exposureQuery instead.'
+                  type: string
+                exposureQueryIdentifierType:
+                  deprecated: true
+                  description: 'Deprecated: use exposureQuery.identifierType instead.'
                   type: string
                 hashAttribute:
                   type: string
@@ -49478,7 +49745,28 @@ paths:
                     type: string
                 datasource:
                   type: string
+                exposureQuery:
+                  description: >-
+                    The exposure query to use, grouping its ID with the
+                    identifier type analyzed on. Mutually exclusive with the
+                    deprecated exposureQueryId/exposureQueryIdentifierType.
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    identifierType:
+                      type: string
+                  required:
+                    - id
+                    - identifierType
+                  additionalProperties: false
                 exposureQueryId:
+                  deprecated: true
+                  description: 'Deprecated: use exposureQuery instead.'
+                  type: string
+                exposureQueryIdentifierType:
+                  deprecated: true
+                  description: 'Deprecated: use exposureQuery.identifierType instead.'
                   type: string
                 hashAttribute:
                   type: string
@@ -49581,7 +49869,6 @@ paths:
                 - templateMetadata
                 - type
                 - datasource
-                - exposureQueryId
                 - statsEngine
                 - targeting
               additionalProperties: false
@@ -49693,7 +49980,31 @@ paths:
                               type: string
                           datasource:
                             type: string
+                          exposureQuery:
+                            description: >-
+                              The exposure query to use, grouping its ID with
+                              the identifier type analyzed on. Mutually
+                              exclusive with the deprecated
+                              exposureQueryId/exposureQueryIdentifierType.
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                              identifierType:
+                                type: string
+                            required:
+                              - id
+                              - identifierType
+                            additionalProperties: false
                           exposureQueryId:
+                            deprecated: true
+                            description: 'Deprecated: use exposureQuery instead.'
+                            type: string
+                          exposureQueryIdentifierType:
+                            deprecated: true
+                            description: >-
+                              Deprecated: use exposureQuery.identifierType
+                              instead.
                             type: string
                           hashAttribute:
                             type: string
@@ -49796,7 +50107,6 @@ paths:
                           - templateMetadata
                           - type
                           - datasource
-                          - exposureQueryId
                           - statsEngine
                           - targeting
                         additionalProperties: false
@@ -55215,6 +55525,8 @@ paths:
                           type: string
                         exposureQueryId:
                           type: string
+                        exposureQueryIdentifierType:
+                          type: string
                         guardrailMetricIds:
                           minItems: 1
                           type: array
@@ -55518,6 +55830,8 @@ paths:
                         datasourceId:
                           type: string
                         exposureQueryId:
+                          type: string
+                        exposureQueryIdentifierType:
                           type: string
                         guardrailMetricIds:
                           minItems: 1
@@ -56146,6 +56460,8 @@ paths:
                         datasourceId:
                           type: string
                         exposureQueryId:
+                          type: string
+                        exposureQueryIdentifierType:
                           type: string
                         guardrailMetricIds:
                           minItems: 1
@@ -59799,6 +60115,8 @@ components:
                         type: string
                       exposureQueryId:
                         type: string
+                      exposureQueryIdentifierType:
+                        type: string
                       guardrailMetricIds:
                         minItems: 1
                         type: array
@@ -60255,6 +60573,8 @@ components:
                       datasourceId:
                         type: string
                       exposureQueryId:
+                        type: string
+                      exposureQueryIdentifierType:
                         type: string
                       guardrailMetricIds:
                         minItems: 1
@@ -61326,6 +61646,8 @@ components:
                         type: string
                       exposureQueryId:
                         type: string
+                      exposureQueryIdentifierType:
+                        type: string
                       guardrailMetricIds:
                         minItems: 1
                         type: array
@@ -61782,6 +62104,8 @@ components:
                       datasourceId:
                         type: string
                       exposureQueryId:
+                        type: string
+                      exposureQueryIdentifierType:
                         type: string
                       guardrailMetricIds:
                         minItems: 1
@@ -62738,7 +63062,22 @@ components:
       properties:
         datasourceId:
           type: string
+        assignmentQuery:
+          type: object
+          properties:
+            id:
+              type: string
+            identifierType:
+              type: string
+          required:
+            - id
+            - identifierType
+          additionalProperties: false
         assignmentQueryId:
+          deprecated: true
+          type: string
+        assignmentQueryIdentifierType:
+          deprecated: true
           type: string
         experimentId:
           type: string
@@ -64359,7 +64698,12 @@ components:
               description:
                 type: string
                 maxLength: 10000
+              identifierTypes:
+                type: array
+                items:
+                  type: string
               identifierType:
+                deprecated: true
                 type: string
               sql:
                 type: string
@@ -64373,6 +64717,7 @@ components:
               - id
               - name
               - description
+              - identifierTypes
               - identifierType
               - sql
               - includesNameColumns
@@ -68680,8 +69025,6 @@ components:
               properties:
                 datasourceId:
                   type: string
-                exposureQueryId:
-                  type: string
                 guardrailMetricIds:
                   minItems: 1
                   type: array
@@ -68730,9 +69073,31 @@ components:
                     - rollback
                     - hold
                     - warn
+                exposureQuery:
+                  description: >-
+                    The exposure query to use, grouping its ID with the
+                    identifier type analyzed on. Mutually exclusive with the
+                    deprecated exposureQueryId/exposureQueryIdentifierType.
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    identifierType:
+                      type: string
+                  required:
+                    - id
+                    - identifierType
+                  additionalProperties: false
+                exposureQueryId:
+                  deprecated: true
+                  description: 'Deprecated: use exposureQuery instead.'
+                  type: string
+                exposureQueryIdentifierType:
+                  deprecated: true
+                  description: 'Deprecated: use exposureQuery.identifierType instead.'
+                  type: string
               required:
                 - datasourceId
-                - exposureQueryId
                 - guardrailMetricIds
               additionalProperties: false
             - type: 'null'
@@ -69100,8 +69465,29 @@ components:
             trackingKey:
               description: Tracking key used to identify experiment exposures
               type: string
+            exposureQuery:
+              description: >-
+                Datasource exposure query (Assignment Table), grouping its ID
+                with the identifier type analyzed on.
+              type: object
+              properties:
+                id:
+                  type: string
+                identifierType:
+                  type: string
+              required:
+                - id
+                - identifierType
+              additionalProperties: false
             exposureQueryId:
-              description: Datasource exposure query ID (Assignment Table)
+              deprecated: true
+              description: >-
+                Deprecated: use exposureQuery instead. Datasource exposure query
+                ID (Assignment Table).
+              type: string
+            exposureQueryIdentifierType:
+              deprecated: true
+              description: 'Deprecated: use exposureQuery.identifierType instead.'
               type: string
             segment:
               description: Segment ID to filter users by
@@ -73525,7 +73911,22 @@ components:
             type: string
         datasource:
           type: string
+        exposureQuery:
+          type: object
+          properties:
+            id:
+              type: string
+            identifierType:
+              type: string
+          required:
+            - id
+            - identifierType
+          additionalProperties: false
         exposureQueryId:
+          deprecated: true
+          type: string
+        exposureQueryIdentifierType:
+          deprecated: true
           type: string
         hashAttribute:
           type: string
@@ -75788,6 +76189,8 @@ components:
                 datasourceId:
                   type: string
                 exposureQueryId:
+                  type: string
+                exposureQueryIdentifierType:
                   type: string
                 guardrailMetricIds:
                   minItems: 1

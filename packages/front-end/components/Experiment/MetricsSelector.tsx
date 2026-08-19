@@ -24,6 +24,7 @@ import MetricName from "@/components/Metrics/MetricName";
 import { useUser } from "@/services/UserContext";
 import MetricGroupInlineForm from "@/enterprise/components/MetricGroupInlineForm";
 import Link from "@/ui/Link";
+import { getExposureQueryIdentifierType } from "@/services/datasources";
 
 type MetricOption = {
   id: string;
@@ -99,6 +100,7 @@ const MetricsSelector: FC<{
   datasource?: string;
   project?: string;
   exposureQueryId?: string;
+  exposureQueryIdentifierType?: string;
   selected: string[];
   onChange: (metrics: string[]) => void;
   autoFocus?: boolean;
@@ -125,6 +127,7 @@ const MetricsSelector: FC<{
   datasource,
   project,
   exposureQueryId,
+  exposureQueryIdentifierType,
   selected,
   onChange,
   autoFocus,
@@ -163,10 +166,12 @@ const MetricsSelector: FC<{
   const datasourceSettings = datasource
     ? getDatasourceById(datasource)?.settings
     : undefined;
-  // todo: get specific exposure query from experiment?
-  const userIdType = datasourceSettings?.queries?.exposure?.find(
+  const exposureQuery = datasourceSettings?.queries?.exposure?.find(
     (e) => e.id === exposureQueryId,
-  )?.userIdType;
+  );
+  const userIdType = exposureQuery
+    ? getExposureQueryIdentifierType(exposureQuery, exposureQueryIdentifierType)
+    : undefined;
 
   const filteredOptions = useMemo(() => {
     const options: MetricOption[] = [

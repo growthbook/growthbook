@@ -637,6 +637,24 @@ export function getSnapshotSettings({
   const exposureQuery = queries.find(
     (q) => q.id === experiment.exposureQueryId,
   );
+  const exposureQueryIdentifierTypes = exposureQuery?.userIdTypes?.length
+    ? exposureQuery.userIdTypes
+    : exposureQuery?.userIdType
+      ? [exposureQuery.userIdType]
+      : [];
+  // Prefer the stored identifier type, but if the assignment query no longer
+  // declares it (its identifier types were edited after the experiment was
+  // configured), fall back to the query's first declared type rather than
+  // blocking analysis. The exposureQueryIdentifierType outdated-reason surfaces
+  // the drift. When no matching query is found there is nothing to validate
+  // against, so keep whatever was stored.
+  const storedIdentifierType = experiment.exposureQueryIdentifierType;
+  const exposureQueryIdentifierType =
+    storedIdentifierType &&
+    (exposureQueryIdentifierTypes.length === 0 ||
+      exposureQueryIdentifierTypes.includes(storedIdentifierType))
+      ? storedIdentifierType
+      : exposureQueryIdentifierTypes[0];
 
   // get dimensions for standard analysis
   // TODO(dimensions): customize which dimensions to use at experiment level
@@ -889,6 +907,7 @@ export function getSnapshotSettings({
     regressionAdjustmentEnabled,
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: experiment.exposureQueryId,
+    exposureQueryIdentifierType,
     metricSettings,
     variations: getLatestPhaseVariations(experiment).map((v, i) => ({
       id: v.key || i + "",
@@ -3252,7 +3271,16 @@ export async function toExperimentApiInterface(
     })),
     settings: {
       datasourceId: experiment.datasource || "",
+      ...(experiment.exposureQueryId && experiment.exposureQueryIdentifierType
+        ? {
+            assignmentQuery: {
+              id: experiment.exposureQueryId,
+              identifierType: experiment.exposureQueryIdentifierType,
+            },
+          }
+        : {}),
       assignmentQueryId: experiment.exposureQueryId || "",
+      assignmentQueryIdentifierType: experiment.exposureQueryIdentifierType,
       experimentId: experiment.trackingKey,
       segmentId: experiment.segment || "",
       queryFilter: experiment.queryFilter || "",
@@ -3483,7 +3511,21 @@ export function toSnapshotApiInterface(
       "",
     settings: {
       datasourceId: experiment.datasource || "",
+      ...(experiment.exposureQueryId &&
+      (snapshot.settings.exposureQueryIdentifierType ??
+        experiment.exposureQueryIdentifierType)
+        ? {
+            assignmentQuery: {
+              id: experiment.exposureQueryId,
+              identifierType: (snapshot.settings.exposureQueryIdentifierType ??
+                experiment.exposureQueryIdentifierType) as string,
+            },
+          }
+        : {}),
       assignmentQueryId: experiment.exposureQueryId || "",
+      assignmentQueryIdentifierType:
+        snapshot.settings.exposureQueryIdentifierType ??
+        experiment.exposureQueryIdentifierType,
       experimentId: experiment.trackingKey,
       segmentId: snapshot.settings.segment,
       queryFilter: snapshot.settings.queryFilter,
@@ -4579,6 +4621,9 @@ export function postExperimentApiPayloadToInterface(
       },
     },
   ];
+  const assignmentQuery = datasource?.settings.queries?.exposure?.find(
+    (query) => query.id === payload.assignmentQueryId,
+  );
 
   const obj: Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> = {
     organization: organization.id,
@@ -4612,6 +4657,10 @@ export function postExperimentApiPayloadToInterface(
       payload.assignmentQueryId ||
       datasource?.settings.queries?.exposure?.[0]?.id ||
       "",
+    exposureQueryIdentifierType:
+      payload.assignmentQueryIdentifierType ??
+      assignmentQuery?.userIdTypes?.[0] ??
+      assignmentQuery?.userIdType,
     name: payload.name || "",
     type: payload.type || "standard",
     phases,
@@ -4934,6 +4983,7 @@ export function updateExperimentApiPayloadToInterface(
     owner,
     datasourceId,
     assignmentQueryId,
+    assignmentQueryIdentifierType,
     hashAttribute,
     hashVersion,
     disableStickyBucketing,
@@ -4988,6 +5038,9 @@ export function updateExperimentApiPayloadToInterface(
     ...(owner !== undefined ? { owner } : {}),
     ...(datasourceId ? { datasource: datasourceId } : {}),
     ...(assignmentQueryId ? { exposureQueryId: assignmentQueryId } : {}),
+    ...(assignmentQueryIdentifierType !== undefined
+      ? { exposureQueryIdentifierType: assignmentQueryIdentifierType }
+      : {}),
     ...(hashAttribute ? { hashAttribute } : {}),
     ...(hashVersion ? { hashVersion } : {}),
     ...(payload.attributeScopeAllProjects !== undefined

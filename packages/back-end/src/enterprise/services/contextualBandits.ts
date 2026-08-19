@@ -1984,6 +1984,7 @@ export function buildSnapshotSettingsForCb(
     queryFilter: "",
     datasourceId: cbSnapshotSettings.datasourceId,
     exposureQueryId: cbSnapshotSettings.contextualBanditQueryId,
+    exposureQueryIdentifierType: cbSnapshotSettings.userIdType,
     startDate: cbSnapshotSettings.startDate,
     endDate: cbSnapshotSettings.endDate ?? new Date(),
     goalMetrics: decisionMetric ? [decisionMetric] : [],

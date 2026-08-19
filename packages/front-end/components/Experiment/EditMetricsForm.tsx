@@ -208,6 +208,7 @@ const EditMetricsForm: FC<{
         noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
         datasource={experiment.datasource}
         exposureQueryId={experiment.exposureQueryId}
+        exposureQueryIdentifierType={experiment.exposureQueryIdentifierType}
         project={experiment.project}
         goalMetrics={form.watch("goalMetrics")}
         secondaryMetrics={form.watch("secondaryMetrics")}
@@ -262,6 +263,9 @@ const EditMetricsForm: FC<{
               initialOption="None"
               value={form.watch("activationMetric")}
               exposureQueryId={experiment.exposureQueryId}
+              exposureQueryIdentifierType={
+                experiment.exposureQueryIdentifierType
+              }
               onChange={(metric) => form.setValue("activationMetric", metric)}
               datasource={experiment.datasource}
               project={experiment.project}

@@ -4,9 +4,22 @@ import { getInformationSchema } from "./getInformationSchema";
 import { listDataSources } from "./listDataSources";
 import { sqlRoutes } from "./sql/sql.router";
 
+const listDataSourcesV2 = {
+  ...listDataSources,
+  version: "v2" as const,
+  operationId: "listDataSourcesV2",
+};
+const getDataSourceV2 = {
+  ...getDataSource,
+  version: "v2" as const,
+  operationId: "getDataSourceV2",
+};
+
 export const dataSourcesRoutes: OpenApiRoute[] = [
   listDataSources,
   getDataSource,
   getInformationSchema,
+  listDataSourcesV2,
+  getDataSourceV2,
   ...sqlRoutes,
 ];

@@ -15,8 +15,8 @@ import StringArrayField from "@/ui/StringArrayField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
 
@@ -55,24 +55,32 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const form = useForm<ExposureQuery>({
     defaultValues:
       mode === "edit" && exposureQuery
-        ? cloneDeep<ExposureQuery>(exposureQuery)
+        ? {
+            ...cloneDeep<ExposureQuery>(exposureQuery),
+            userIdTypes: exposureQuery.userIdTypes?.length
+              ? exposureQuery.userIdTypes
+              : [exposureQuery.userIdType].filter(Boolean),
+          }
         : {
             description: "",
             id: uniqId("tbl_"),
             name: "",
             dimensions: [],
             query: defaultQuery,
-            userIdType: userIdTypeOptions ? userIdTypeOptions[0]?.value : "",
+            userIdType: defaultUserId ?? "",
+            userIdTypes: defaultUserId ? [defaultUserId] : [],
           },
   });
 
   // User-entered values
-  const userEnteredUserIdType = form.watch("userIdType");
+  const userEnteredUserIdTypes = form.watch("userIdTypes");
   const userEnteredQuery = form.watch("query");
   const userEnteredDimensions = form.watch("dimensions");
   const userEnteredHasNameCol = form.watch("hasNameCol");
 
   const handleSubmit = form.handleSubmit(async (value) => {
+    // Keep the deprecated scalar in sync with the first declared identifier.
+    value.userIdType = value.userIdTypes[0] ?? value.userIdType;
     await onSave(value);
 
     form.reset({
@@ -83,6 +91,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       description: "",
       hasNameCol: false,
       userIdType: undefined,
+      userIdTypes: [],
     });
   });
 
@@ -91,18 +100,18 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       "experiment_id",
       "variation_id",
       "timestamp",
-      userEnteredUserIdType,
+      ...userEnteredUserIdTypes,
       ...(userEnteredDimensions || []),
       ...(userEnteredHasNameCol ? ["experiment_name", "variation_name"] : []),
     ]);
-  }, [userEnteredUserIdType, userEnteredDimensions, userEnteredHasNameCol]);
+  }, [userEnteredUserIdTypes, userEnteredDimensions, userEnteredHasNameCol]);
 
   const identityTypes = useMemo(
     () => dataSource.settings.userIdTypes || [],
     [dataSource.settings.userIdTypes],
   );
 
-  const saveEnabled = !!userEnteredUserIdType && !!userEnteredQuery;
+  const saveEnabled = userEnteredUserIdTypes.length >= 1 && !!userEnteredQuery;
 
   if (!exposureQuery && mode === "edit") {
     console.error(
@@ -260,16 +269,16 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                 maxLength={MAX_DESCRIPTION_LENGTH}
                 {...form.register("description")}
               />
-              <SelectField
-                size="legacy"
-                label="Identifier Type"
+              <MultiSelectField
+                legacyHeight
+                label="Identifier types"
                 options={identityTypes.map((i) => ({
                   value: i.userIdType,
                   label: i.userIdType,
                 }))}
                 required
-                value={form.watch("userIdType")}
-                onChange={(value) => form.setValue("userIdType", value)}
+                value={userEnteredUserIdTypes}
+                onChange={(value) => form.setValue("userIdTypes", value)}
               />
               <div className="form-group">
                 <label className="mr-5">Query</label>

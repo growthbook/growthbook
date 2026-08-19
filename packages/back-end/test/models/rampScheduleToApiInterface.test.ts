@@ -7,7 +7,10 @@ jest.mock("back-end/src/services/rampSchedule", () => ({
 }));
 
 import { RampScheduleInterface } from "shared/validators";
-import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
+import {
+  apiMonitoringConfigToInternal,
+  rampScheduleToApiInterface,
+} from "back-end/src/models/RampScheduleModel";
 
 function makeSchedule(
   overrides: Partial<RampScheduleInterface> = {},
@@ -112,5 +115,77 @@ describe("rampScheduleToApiInterface approval fields", () => {
     );
     expect(api.stepApproval).toBeUndefined();
     expect(api.awaitingApproval).toBe(true);
+  });
+});
+
+describe("rampScheduleToApiInterface exposureQuery", () => {
+  it("groups the stored exposure query id and identifier type into exposureQuery", () => {
+    // A stored monitoringConfig activates the monitoringStatus branch, which
+    // calls into the mocked rampSchedule service; give it valid returns.
+    const svc = jest.requireMock("back-end/src/services/rampSchedule");
+    svc.getRampMonitoringMode.mockReturnValue("manual");
+    svc.getRampAutoUpdatePreference.mockReturnValue(false);
+    svc.getEffectiveRampAutoUpdateState.mockReturnValue({
+      enabled: false,
+      reason: null,
+    });
+    const api = rampScheduleToApiInterface(
+      makeSchedule({
+        monitoringConfig: {
+          datasourceId: "ds_1",
+          exposureQueryId: "eq_1",
+          exposureQueryIdentifierType: "anonymous_id",
+          guardrailMetricIds: ["met_1"],
+        },
+      } as unknown as Partial<RampScheduleInterface>),
+    );
+    expect(api.monitoringConfig?.exposureQuery).toEqual({
+      id: "eq_1",
+      identifierType: "anonymous_id",
+    });
+    // deprecated flat fields still present for back-compat
+    expect(api.monitoringConfig?.exposureQueryId).toBe("eq_1");
+  });
+});
+
+describe("apiMonitoringConfigToInternal", () => {
+  it("projects the exposureQuery object onto the flat fields", () => {
+    expect(
+      apiMonitoringConfigToInternal({
+        datasourceId: "ds_1",
+        exposureQuery: { id: "eq_1", identifierType: "anonymous_id" },
+        guardrailMetricIds: ["met_1"],
+      }),
+    ).toEqual({
+      datasourceId: "ds_1",
+      exposureQueryId: "eq_1",
+      exposureQueryIdentifierType: "anonymous_id",
+      guardrailMetricIds: ["met_1"],
+    });
+  });
+
+  it("passes through the deprecated flat fields when no object is set", () => {
+    expect(
+      apiMonitoringConfigToInternal({
+        datasourceId: "ds_1",
+        exposureQueryId: "eq_1",
+        guardrailMetricIds: ["met_1"],
+      }),
+    ).toEqual({
+      datasourceId: "ds_1",
+      exposureQueryId: "eq_1",
+      guardrailMetricIds: ["met_1"],
+    });
+  });
+
+  it("rejects the object together with the deprecated flat fields", () => {
+    expect(() =>
+      apiMonitoringConfigToInternal({
+        datasourceId: "ds_1",
+        exposureQuery: { id: "eq_1", identifierType: "anonymous_id" },
+        exposureQueryId: "eq_1",
+        guardrailMetricIds: ["met_1"],
+      }),
+    ).toThrow("Cannot set exposureQuery together with the deprecated");
   });
 });
