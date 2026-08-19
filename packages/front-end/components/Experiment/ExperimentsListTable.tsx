@@ -1,7 +1,7 @@
 import React, { FC, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { RxDesktop } from "react-icons/rx";
-import { BsFlag } from "react-icons/bs";
+import { BsFlag, BsFlagFill } from "react-icons/bs";
 import { PiShuffle } from "react-icons/pi";
 import { ComputedExperimentInterface } from "shared/types/experiment";
 import { date, datetime } from "shared/dates";
@@ -171,14 +171,14 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                               : "Linked Feature Flag"
                           }
                         >
-                          {/* Same glyph — it is still a Feature Flag — tinted
-                              the violet that means "managed" elsewhere in this
-                              flow, rather than an arbitrary weight change. */}
-                          <BsFlag
-                            className={
-                              getManagedFlag(e.id) ? "text-purple" : "text-blue"
-                            }
-                          />
+                          {/* Filled and violet, so ownership survives a glance
+                              rather than resting on colour alone. Violet is the
+                              same "managed" accent used on the experiment. */}
+                          {getManagedFlag(e.id) ? (
+                            <BsFlagFill className="text-purple" />
+                          ) : (
+                            <BsFlag className="text-blue" />
+                          )}
                         </Tooltip>
                       ) : null}
                       {e.hasURLRedirects ? (
