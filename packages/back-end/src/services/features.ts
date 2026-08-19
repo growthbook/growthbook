@@ -134,7 +134,7 @@ import {
   getParsedCondition,
   pairedWeightsToPositional,
   experimentMapForFeatures,
-  referencedExperimentIds,
+  referencedRefIds,
 } from "back-end/src/util/features";
 import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
@@ -1466,16 +1466,7 @@ export async function buildSDKPayloadForConnection(
   }
 
   let cbMap: Map<string, ContextualBanditInterface> | undefined;
-  const cbIdsFromRules: string[] = [];
-  for (const feature of filteredFeatures) {
-    const rules = feature.rules ?? [];
-    for (const rule of rules) {
-      if (rule.type === "contextual-bandit-ref" && rule.contextualBanditId) {
-        cbIdsFromRules.push(rule.contextualBanditId);
-      }
-    }
-  }
-  const cbIds = Array.from(new Set(cbIdsFromRules));
+  const cbIds = referencedRefIds(filteredFeatures, "contextual-bandit-ref");
   if (cbIds.length > 0) {
     const cbDocs = await Promise.all(
       cbIds.map((id) => context.models.contextualBandits.getById(id)),
@@ -1623,7 +1614,7 @@ export async function getFeatureDefinitions(
   const experimentMap = await getAllPayloadExperiments(
     context,
     projectFilter,
-    referencedExperimentIds(allFeatures),
+    referencedRefIds(allFeatures, "experiment-ref"),
   );
   const safeRolloutMap =
     await context.models.safeRollout.getAllPayloadSafeRollouts();

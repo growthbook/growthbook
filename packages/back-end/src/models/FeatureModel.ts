@@ -103,7 +103,7 @@ import {
   buildInheritedChildrenByAncestor,
   expandRuleEnvsForInheritance,
   getAffectedSDKPayloadKeys,
-  experimentRefIds,
+  ruleRefIds,
   getSDKPayloadKeysByDiff,
 } from "back-end/src/util/features";
 import {
@@ -4339,7 +4339,7 @@ function getLinkedExperiments(feature: FeatureInterface) {
   return [
     ...new Set([
       ...(feature.linkedExperiments || []),
-      ...experimentRefIds(feature.rules),
+      ...ruleRefIds(feature.rules, "experiment-ref"),
     ]),
   ];
 }

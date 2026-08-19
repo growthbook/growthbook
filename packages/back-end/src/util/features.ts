@@ -592,26 +592,38 @@ export function getSDKPayloadKeysByDiff(
   return getSDKPayloadKeys(environments, projects);
 }
 
-export function experimentRefIds(
+type RefRuleType = "experiment-ref" | "contextual-bandit-ref";
+
+const REF_ID: Record<RefRuleType, (rule: FeatureRule) => string | undefined> = {
+  "experiment-ref": (r) =>
+    r?.type === "experiment-ref" ? r.experimentId : undefined,
+  "contextual-bandit-ref": (r) =>
+    r?.type === "contextual-bandit-ref" ? r.contextualBanditId : undefined,
+};
+
+export function ruleRefIds(
   rules: FeatureRule[] | undefined,
+  type: RefRuleType,
   { skipDisabled = false }: { skipDisabled?: boolean } = {},
 ): string[] {
   const ids = new Set<string>();
   (rules ?? []).forEach((rule) => {
-    if (rule?.type !== "experiment-ref") return;
-    if (skipDisabled && rule.enabled === false) return;
-    ids.add(rule.experimentId);
+    if (skipDisabled && rule?.enabled === false) return;
+    const id = REF_ID[type](rule);
+    if (id) ids.add(id);
   });
   return [...ids];
 }
 
-export function referencedExperimentIds(
+// Disabled rules never render, so what they reference is not needed.
+export function referencedRefIds(
   features: FeatureInterface[],
+  type: RefRuleType,
 ): string[] {
   return [
     ...new Set(
       features.flatMap((f) =>
-        experimentRefIds(f.rules, { skipDisabled: true }),
+        ruleRefIds(f.rules, type, { skipDisabled: true }),
       ),
     ),
   ];
@@ -625,7 +637,7 @@ export function experimentMapForFeatures(
   projects: string[],
 ): Map<string, ExperimentInterface> {
   if (!projects.length) return experimentMap;
-  const referenced = new Set(referencedExperimentIds(features));
+  const referenced = new Set(referencedRefIds(features, "experiment-ref"));
   return new Map(
     [...experimentMap.entries()].filter(
       ([id, exp]) => projects.includes(exp.project || "") || referenced.has(id),

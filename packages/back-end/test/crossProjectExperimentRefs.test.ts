@@ -2,7 +2,7 @@ import type { FeatureInterface } from "shared/types/feature";
 import type { ExperimentInterface } from "back-end/types/experiment";
 import {
   experimentMapForFeatures,
-  referencedExperimentIds,
+  referencedRefIds,
 } from "back-end/src/util/features";
 
 const feature = (
@@ -26,14 +26,14 @@ const feature = (
 const experiment = (id: string, project: string): ExperimentInterface =>
   ({ id, project }) as unknown as ExperimentInterface;
 
-describe("referencedExperimentIds", () => {
+describe("referencedRefIds", () => {
   it("collects experiment ids from experiment-ref rules", () => {
     const features = [
       feature("f1", "prj_b", [{ experimentId: "exp_a" }]),
       feature("f2", "prj_b", [{ experimentId: "exp_c" }]),
     ];
 
-    expect(referencedExperimentIds(features).sort()).toEqual([
+    expect(referencedRefIds(features, "experiment-ref").sort()).toEqual([
       "exp_a",
       "exp_c",
     ]);
@@ -44,7 +44,7 @@ describe("referencedExperimentIds", () => {
       feature("f1", "prj_b", [{ experimentId: "exp_a", enabled: false }]),
     ];
 
-    expect(referencedExperimentIds(features)).toEqual([]);
+    expect(referencedRefIds(features, "experiment-ref")).toEqual([]);
   });
 
   it("dedupes an experiment referenced by several features", () => {
@@ -53,11 +53,13 @@ describe("referencedExperimentIds", () => {
       feature("f2", "prj_b", [{ experimentId: "exp_a" }]),
     ];
 
-    expect(referencedExperimentIds(features)).toEqual(["exp_a"]);
+    expect(referencedRefIds(features, "experiment-ref")).toEqual(["exp_a"]);
   });
 
   it("ignores features with no rules", () => {
-    expect(referencedExperimentIds([feature("f1", "prj_b", [])])).toEqual([]);
+    expect(
+      referencedRefIds([feature("f1", "prj_b", [])], "experiment-ref"),
+    ).toEqual([]);
   });
 });
 
@@ -99,5 +101,53 @@ describe("experimentMapForFeatures", () => {
     const result = experimentMapForFeatures(map, features, ["prj_b"]);
 
     expect(result.has("exp_a")).toBe(false);
+  });
+});
+
+describe("referencedRefIds for contextual bandits", () => {
+  const cbFeature = (
+    id: string,
+    rules: { contextualBanditId?: string; enabled?: boolean }[],
+  ): FeatureInterface =>
+    ({
+      id,
+      project: "prj_b",
+      rules: rules.map((r, i) => ({
+        id: `rule-${i}`,
+        type: "contextual-bandit-ref",
+        contextualBanditId: r.contextualBanditId,
+        allEnvironments: true,
+        ...(r.enabled === false ? { enabled: false } : {}),
+      })),
+    }) as unknown as FeatureInterface;
+
+  it("collects contextual bandit ids from the same walk", () => {
+    const features = [
+      cbFeature("f1", [{ contextualBanditId: "cb_1" }]),
+      cbFeature("f2", [{ contextualBanditId: "cb_2" }]),
+    ];
+
+    expect(referencedRefIds(features, "contextual-bandit-ref").sort()).toEqual([
+      "cb_1",
+      "cb_2",
+    ]);
+  });
+
+  it("keeps the two rule types apart", () => {
+    const features = [
+      feature("f1", "prj_b", [{ experimentId: "exp_a" }]),
+      cbFeature("f2", [{ contextualBanditId: "cb_1" }]),
+    ];
+
+    expect(referencedRefIds(features, "experiment-ref")).toEqual(["exp_a"]);
+    expect(referencedRefIds(features, "contextual-bandit-ref")).toEqual([
+      "cb_1",
+    ]);
+  });
+
+  it("ignores a rule with no bandit id", () => {
+    expect(
+      referencedRefIds([cbFeature("f1", [{}])], "contextual-bandit-ref"),
+    ).toEqual([]);
   });
 });
