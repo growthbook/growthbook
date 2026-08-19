@@ -731,6 +731,7 @@ app.use(populationDataRouter);
 
 // Experiments
 app.get("/experiments", experimentsController.getExperiments);
+app.get("/experiments/managed", experimentsController.getManagedExperiments);
 app.post("/experiments", experimentsController.postExperiments);
 app.get(
   "/experiments/frequency/month/:num",

@@ -151,6 +151,7 @@ import { legacyDocDescribesPhase } from "back-end/src/enterprise/services/data-p
 import {
   getFeature,
   getFeaturesByIds,
+  getManagedFlagsByExperiment,
   publishRevision,
 } from "back-end/src/models/FeatureModel";
 import { getLinkageSyncRevisionSummaries } from "back-end/src/models/FeatureRevisionModel";
@@ -194,6 +195,27 @@ import { canLinkExperimentToHoldoutFromFeatures } from "back-end/src/services/ho
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
+
+/**
+ * Which of the requested experiments manage a Feature Flag. Ownership lives on
+ * the flag, so a list row cannot answer this from its own document; callers
+ * pass the ids they are rendering rather than the whole list.
+ */
+export async function getManagedExperiments(
+  req: AuthRequest<unknown, unknown, { ids?: string }>,
+  res: Response<{ status: 200; managed: Record<string, string> }>,
+) {
+  const context = getContextFromReq(req);
+  const ids = (req.query?.ids || "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+
+  res.status(200).json({
+    status: 200,
+    managed: await getManagedFlagsByExperiment(context, ids),
+  });
+}
 
 export async function getExperiments(
   req: AuthRequest<

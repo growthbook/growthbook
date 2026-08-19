@@ -230,6 +230,13 @@ const featureSchema = new mongoose.Schema({
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
 featureSchema.index({ organization: 1, project: 1 });
 featureSchema.index({ organization: 1, targetingProjects: 1 });
+// Partial, so it holds only the flags an experiment manages — a handful per
+// org. Lets a list resolve which experiments manage a flag without scanning
+// features.
+featureSchema.index(
+  { organization: 1, "managedBy.experimentId": 1 },
+  { partialFilterExpression: { "managedBy.type": "experiment" } },
+);
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
 
@@ -4540,6 +4547,45 @@ export async function getFeatureMetaInfoByIds(
       neverStale: f.neverStale,
       revision: f.revision as FeatureMetaInfo["revision"],
     }));
+}
+
+/**
+ * Of the given experiments, the ones that manage a Feature Flag, mapped to the
+ * flag they own. Served by the partial `managedBy.experimentId` index, and the
+ * caller passes only the rows it is about to render, so the cost tracks what is
+ * on screen rather than the size of either collection.
+ */
+export async function getManagedFlagsByExperiment(
+  context: ReqContext | ApiReqContext,
+  experimentIds: string[],
+): Promise<Record<string, string>> {
+  if (!experimentIds.length) return {};
+
+  const features = await FeatureModel.find(
+    {
+      organization: context.org.id,
+      "managedBy.type": "experiment",
+      "managedBy.experimentId": { $in: experimentIds },
+    },
+    {
+      id: 1,
+      project: 1,
+      targetingAllProjects: 1,
+      targetingProjects: 1,
+      managedBy: 1,
+    },
+  );
+
+  const byExperiment: Record<string, string> = {};
+  features
+    .filter((f) => context.permissions.canReadTargetingScopedResource(f))
+    .forEach((f) => {
+      const experimentId = (
+        f.managedBy as { experimentId?: string } | undefined
+      )?.experimentId;
+      if (experimentId) byExperiment[experimentId] = f.id;
+    });
+  return byExperiment;
 }
 
 export async function getFeatureEnvStatus(
