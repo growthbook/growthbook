@@ -14,6 +14,7 @@ import {
 } from "back-end/src/services/features";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
+import { referencedExperimentIds } from "back-end/src/util/features";
 import {
   applyPagination,
   createApiRequestHandler,
@@ -106,10 +107,7 @@ export async function loadFeaturesPage(
   }
 
   const experimentScope = projectId ? [projectId] : (projectIds ?? undefined);
-  const [groupMap, experimentMap] = await Promise.all([
-    getSavedGroupMap(context),
-    getAllPayloadExperiments(context, experimentScope),
-  ]);
+  const groupMap = await getSavedGroupMap(context);
 
   let filtered: Awaited<ReturnType<typeof getFeaturesPage>>;
   let total: number;
@@ -198,6 +196,13 @@ export async function loadFeaturesPage(
   );
   const safeRolloutMap =
     await context.models.safeRollout.getAllPayloadSafeRollouts();
+
+  // Loaded after the page resolves so the experiments it references come too.
+  const experimentMap = await getAllPayloadExperiments(
+    context,
+    experimentScope,
+    referencedExperimentIds(filtered),
+  );
 
   const hasMore = skipPagination ? false : offset + limit < total;
   const nextOffset = hasMore ? offset + limit : null;
