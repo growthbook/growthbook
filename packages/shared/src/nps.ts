@@ -23,6 +23,13 @@ export const NPS_CATEGORY_META: Record<
   promoter: { label: "Promoter", npsValue: 1, slackColor: "#2eb67d" },
 };
 
+// Longest comment the survey accepts. The client caps its textarea at this and
+// the back-end truncates to it when building the Slack message, so one
+// definition keeps the two from drifting. It also keeps the response body well
+// clear of the ~64KB ceiling browsers put on `keepalive` requests, which throw
+// before sending and would skip the cross-device suppression write.
+export const NPS_MAX_FEEDBACK_LENGTH = 1500;
+
 export function npsValueOf(score: number): number {
   return NPS_CATEGORY_META[npsCategoryOf(score)].npsValue;
 }

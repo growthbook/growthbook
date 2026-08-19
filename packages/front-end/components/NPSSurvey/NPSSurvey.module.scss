@@ -1,7 +1,10 @@
 .wrapper {
   position: fixed;
   right: 24px;
-  bottom: 24px;
+  // Clears the in-app help / Pylon launcher, which owns this corner at
+  // bottom: 20px with a 50px button. At 24px the card buried it, so Help
+  // couldn't be clicked until the survey was answered or dismissed.
+  bottom: 88px;
   // Below modals (bootstrap 1050, 1550 with increasedElevation) so the card
   // can never cover a dialog's footer buttons, but above ordinary page content.
   z-index: 1040;
@@ -189,7 +192,8 @@
   .wrapper {
     right: 16px;
     left: 16px;
-    bottom: 16px;
+    // The launcher doesn't move on small screens, so keep clearing it.
+    bottom: 84px;
     width: auto;
     max-width: none;
   }

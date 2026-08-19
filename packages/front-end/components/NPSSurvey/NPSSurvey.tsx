@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import {
   NPS_CATEGORY_META,
   NpsCategory,
+  NPS_MAX_FEEDBACK_LENGTH,
   npsCategoryOf,
   npsValueOf,
 } from "shared/nps";
@@ -192,6 +193,23 @@ export default function NPSSurvey() {
     }, SHOW_DELAY);
     return () => window.clearTimeout(t);
   }, [eligible, suppressed, forceShow, orgSuspended]);
+
+  // Tabs opened together each evaluate the gate before any of them records an
+  // impression, so without this they all show the card and each can answer:
+  // duplicate nps_response events and duplicate Slack messages for one person.
+  // `storage` only fires in the other tabs, so the one that wrote keeps its
+  // thanks panel while the rest stand down.
+  useEffect(() => {
+    if (!visible) return;
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== STORAGE_KEY || e.newValue === null) return;
+      sentRef.current = true;
+      setClosing(false);
+      setVisible(false);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [visible]);
 
   // Persist the cross-device suppression signal on the user's account
   // (best-effort). keepalive lets the write survive a tab close, so abandonment
@@ -380,6 +398,8 @@ export default function NPSSurvey() {
                   aria-checked={score === s}
                   aria-label={`Score ${s}`}
                   data-score={s}
+                  // Roving tabindex: the scale is one tab stop, not eleven.
+                  tabIndex={score === s || (score === null && s === 0) ? 0 : -1}
                   className={`${styles.cell} ${
                     CATEGORY_UI[npsCategoryOf(s)].className
                   }`}
@@ -396,6 +416,9 @@ export default function NPSSurvey() {
                     }
                     if (next !== null) {
                       e.preventDefault();
+                      // Arrows move and select together, as the radiogroup role
+                      // promises, so aria-checked follows the focused cell.
+                      setValue("score", next);
                       const el =
                         e.currentTarget.parentElement?.querySelector<HTMLButtonElement>(
                           `[data-score="${next}"]`,
@@ -456,6 +479,7 @@ export default function NPSSurvey() {
               id="gb-nps-feedback"
               rows={3}
               mt="2"
+              maxLength={NPS_MAX_FEEDBACK_LENGTH}
               placeholder="Optional — a sentence is plenty"
               {...register("feedback")}
             />

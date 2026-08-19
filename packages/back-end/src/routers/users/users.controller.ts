@@ -1,7 +1,11 @@
 import { createHmac } from "node:crypto";
 import { Response } from "express";
 import { OrganizationInterface } from "shared/types/organization";
-import { NPS_CATEGORY_META, npsCategoryOf } from "shared/nps";
+import {
+  NPS_CATEGORY_META,
+  NPS_MAX_FEEDBACK_LENGTH,
+  npsCategoryOf,
+} from "shared/nps";
 import {
   NpsDisposition,
   NpsResponseBody,
@@ -152,7 +156,6 @@ export async function putUserName(
   }
 }
 
-const MAX_FEEDBACK_LENGTH = 1500;
 // Slack rejects a section block whose text exceeds 3000 characters.
 const SLACK_SECTION_TEXT_LIMIT = 3000;
 
@@ -175,7 +178,7 @@ async function sendNpsResponseToSlack({
     NPS_CATEGORY_META[npsCategoryOf(score)];
 
   const safeFeedback = escapeSlackMrkdwn(
-    feedback.slice(0, MAX_FEEDBACK_LENGTH),
+    feedback.slice(0, NPS_MAX_FEEDBACK_LENGTH),
   );
   const header = `*NPS ${score}/10 · ${category}*`;
   const fullText = safeFeedback
