@@ -23,6 +23,7 @@ import {
   createFeature,
   deleteFeature,
   getFeature,
+  publishRevision,
   updateFeature,
 } from "back-end/src/models/FeatureModel";
 import {
@@ -44,19 +45,14 @@ import { logger } from "back-end/src/util/logger";
 import {
   ExperimentFeatureLinkResult,
   linkFeatureToExperiment,
+  mergeDraftForAutoPublish,
 } from "back-end/src/services/experiment-feature";
 
 // Guards live at the request entry points (Express routes and the agent
 // dispatcher), not the model layer: the model can't tell a direct user edit from
 // the experiment's own start/stop/holdout/ramp writes, which must keep working.
 
-export async function assertFeatureNotManaged(
-  context: ReqContext | ApiReqContext,
-  featureId: string,
-): Promise<void> {
-  const feature = await getFeature(context, featureId);
-  // Missing or unreadable is the handler's 404 to raise, not ours.
-  if (!feature) return;
+export function assertLoadedFeatureNotManaged(feature: FeatureInterface): void {
   if (!isManagedFeature(feature)) return;
   throw new ManagedFeatureError({
     featureId: feature.id,
@@ -65,6 +61,16 @@ export async function assertFeatureNotManaged(
         ? feature.managedBy.experimentId
         : "",
   });
+}
+
+export async function assertFeatureNotManaged(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+): Promise<void> {
+  const feature = await getFeature(context, featureId);
+  // Missing or unreadable is the handler's 404 to raise, not ours.
+  if (!feature) return;
+  assertLoadedFeatureNotManaged(feature);
 }
 
 const MAX_KEY_ATTEMPTS = 10;
@@ -224,17 +230,20 @@ export async function createManagedFeatureForExperiment({
       autoPublish: false,
       forceNewDraft: true,
     });
+
+    // Inside the compensation boundary: a throw here (event dispatch, revision
+    // re-read) would otherwise strand a created, linked, permanently locked flag
+    // while the caller deletes the experiment.
+    await requestReviewForManagedDraft({
+      context,
+      feature: created,
+      version: linked.version,
+      eventAudit,
+    });
   } catch (e) {
     await deleteFeature(context, created);
     throw e;
   }
-
-  await requestReviewForManagedDraft({
-    context,
-    feature: created,
-    version: linked.version,
-    eventAudit,
-  });
 
   return { feature: created, version: linked.version };
 }
@@ -264,15 +273,20 @@ export async function readManagedValuesForDuplicate({
     );
     if (!before) return null;
 
+    // CAS on the REVISION, not the feature: getLinkedFeatureInfo reads values out
+    // of the revision, and updateRevision stamps only that document — comparing
+    // feature.dateUpdated cannot see the edit this guard exists to catch.
+    const draftBefore = await getActiveDraft(context, before);
+
     const info = (await getLinkedFeatureInfo(context, sourceExperiment)).find(
       (f) => f.feature.id === before.id,
     );
     if (!info) return null;
 
-    // The values came from a separate read, so they describe one point in time
-    // only if the flag is unchanged since; otherwise we'd copy a partial edit.
-    const after = await getFeature(context, before.id);
-    if (after && after.dateUpdated.getTime() === before.dateUpdated.getTime()) {
+    const draftAfter = await getActiveDraft(context, before);
+    const stamp = (r: typeof draftBefore) =>
+      r ? `${r.version}:${r.dateUpdated.getTime()}` : "none";
+    if (stamp(draftBefore) === stamp(draftAfter)) {
       return {
         valueType: before.valueType,
         variations: copyManagedVariationValues({
@@ -402,6 +416,66 @@ export async function createManagedFlagForNewExperiment({
   }
 }
 
+/**
+ * Publish the managed flag's open draft, merging server-side.
+ * `postFeaturePublish` expects a caller-supplied `mergeResultSerialized`
+ * computed from its diff view; the managed surface has none, so reusing that
+ * controller made every publish fail its "something changed" check.
+ */
+export async function publishManagedDraft({
+  context,
+  experiment,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+}): Promise<FeatureInterface> {
+  const feature = await getManagedFeatureForExperiment(context, experiment);
+  if (!feature) {
+    throw new NotFoundError("This experiment does not manage a Feature Flag.");
+  }
+  const revision = await getActiveDraft(context, feature);
+  if (!revision) {
+    throw new NotFoundError("This Feature Flag has no draft to publish.");
+  }
+
+  const { live, base } = await getLiveAndBaseRevisionsForFeature({
+    context,
+    feature,
+    revision,
+  });
+  const { mergeResult, rebaseRequired } = mergeDraftForAutoPublish(
+    context,
+    feature,
+    revision,
+    live,
+    base,
+  );
+  // Neither state has a remedy on this surface — the managed flag has no rebase
+  // or conflict UI — so both messages name the way out.
+  if (!mergeResult.success) {
+    throw new Error(
+      "This Feature Flag's draft conflicts with its live version. Switch to a manual implementation to resolve the conflict on the Feature Flag page.",
+    );
+  }
+  if (rebaseRequired) {
+    throw new Error(
+      "This Feature Flag's draft is behind its live version and your organization requires a rebase before publishing. Switch to a manual implementation to rebase it on the Feature Flag page.",
+    );
+  }
+
+  return publishRevision({
+    context,
+    feature,
+    revision,
+    result: mergeResult.result,
+    comment: "",
+    bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
+      feature,
+      "feature",
+    ),
+  });
+}
+
 /** Clears the ownership marker only; content and history are untouched. */
 export async function ejectManagedFeature({
   context,
@@ -417,10 +491,34 @@ export async function ejectManagedFeature({
       `Feature Flag "${feature.id}" is not managed by this experiment.`,
     );
   }
-  // Hands the flag back to ordinary editing, so it takes ordinary edit authority.
-  if (!context.permissions.canEditFeatureDrafts(feature)) {
+  // Publish-class, not draft-class: this writes the live document and hands back
+  // the ability to change what a running experiment serves. Draft authority would
+  // grant a drafter exactly the publish they were not given.
+  if (
+    !context.permissions.canPublishFeature(
+      feature,
+      Array.from(
+        getEnabledEnvironments(
+          feature,
+          getEnvironments(context.org).map((e) => e.id),
+        ),
+      ),
+    )
+  ) {
     context.permissions.throwPermissionError();
   }
+  return clearManagedMarker(context, feature);
+}
+
+/**
+ * The marker write with no authority check. Callers that already established
+ * their own authority use this — notably experiment deletion, which must never
+ * be blocked into leaving an unrecoverable flag behind.
+ */
+export async function clearManagedMarker(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+): Promise<FeatureInterface> {
   return updateFeature(context, feature, {}, { unsetManagedBy: true });
 }
 
@@ -429,9 +527,16 @@ function isMutatingMethod(method: string): boolean {
   return !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase());
 }
 
+/**
+ * POSTs that compute a response without touching the flag. Blocking these would
+ * break the flag's own page (the value simulator) while protecting nothing.
+ */
+const READ_ONLY_POST_PATHS = [/\/eval$/];
+
 /** Mounted ahead of the route table so later feature routes are covered too. */
 export const blockManagedFeatureWrites: RequestHandler = (req, _res, next) => {
   if (!isMutatingMethod(req.method)) return next();
+  if (READ_ONLY_POST_PATHS.some((re) => re.test(req.path))) return next();
   const featureId = req.params?.id;
   if (!featureId) return next();
   assertFeatureNotManaged(getContextFromReq(req as AuthRequest), featureId)
@@ -459,36 +564,66 @@ export async function getManagedFeatureForExperiment(
  *
  * The ownership re-check is load-bearing: without it this route would drive any
  * feature around the lockdown.
+ *
+ * `allowExplicitVersion` lets a route address a specific revision by body
+ * `version` instead of the active draft. Only the comment route uses it: a
+ * conversation stays editable after its draft publishes, whereas a review action
+ * must always land on the draft under review.
  */
-export const resolveManagedFlagParams: RequestHandler = (req, _res, next) => {
-  void (async () => {
-    const context = getContextFromReq(req as AuthRequest);
-    const experimentId = req.params?.id;
-    if (!experimentId) throw new NotFoundError("Experiment not found");
+function makeResolveManagedFlagParams({
+  allowExplicitVersion = false,
+}: { allowExplicitVersion?: boolean } = {}): RequestHandler {
+  return (req, _res, next) => {
+    void (async () => {
+      const context = getContextFromReq(req as AuthRequest);
+      const experimentId = req.params?.id;
+      if (!experimentId) throw new NotFoundError("Experiment not found");
 
-    const experiment = await getExperimentById(context, experimentId);
-    if (!experiment) throw new NotFoundError("Experiment not found");
+      const experiment = await getExperimentById(context, experimentId);
+      if (!experiment) throw new NotFoundError("Experiment not found");
 
-    const feature = await getManagedFeatureForExperiment(context, experiment);
-    if (!feature) {
-      throw new NotFoundError(
-        "This experiment does not manage a Feature Flag.",
-      );
-    }
+      const feature = await getManagedFeatureForExperiment(context, experiment);
+      if (!feature) {
+        throw new NotFoundError(
+          "This experiment does not manage a Feature Flag.",
+        );
+      }
 
-    const draft = await getActiveDraft(context, feature);
-    if (!draft) {
-      throw new NotFoundError(
-        "This experiment's Feature Flag has no draft awaiting review.",
-      );
-    }
+      const requested = allowExplicitVersion
+        ? Number((req.body as { version?: unknown } | undefined)?.version)
+        : NaN;
 
-    req.params.id = feature.id;
-    req.params.version = String(draft.version);
-  })()
-    .then(() => next())
-    .catch(next);
-};
+      if (Number.isFinite(requested)) {
+        const revision = await getRevision({
+          context,
+          organization: feature.organization,
+          featureId: feature.id,
+          feature,
+          version: requested,
+        });
+        if (!revision) throw new NotFoundError("Revision not found");
+        req.params.version = String(revision.version);
+      } else {
+        const draft = await getActiveDraft(context, feature);
+        if (!draft) {
+          throw new NotFoundError(
+            "This experiment's Feature Flag has no draft awaiting review.",
+          );
+        }
+        req.params.version = String(draft.version);
+      }
+
+      req.params.id = feature.id;
+    })()
+      .then(() => next())
+      .catch(next);
+  };
+}
+
+export const resolveManagedFlagParams = makeResolveManagedFlagParams();
+export const resolveManagedFlagCommentParams = makeResolveManagedFlagParams({
+  allowExplicitVersion: true,
+});
 
 /**
  * Guards both ways a route can be invoked: the Express `handler` and the agent

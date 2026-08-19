@@ -46,11 +46,7 @@ import {
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
 import isEqual from "lodash/isEqual";
-import {
-  ExperimentRefVariation,
-  FeatureInterface,
-  FeatureValueType,
-} from "shared/validators";
+import { FeatureInterface } from "shared/validators";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   AuthRequest,
@@ -155,10 +151,11 @@ import {
 } from "back-end/src/models/FeatureModel";
 import { getLinkageSyncRevisionSummaries } from "back-end/src/models/FeatureRevisionModel";
 import {
-  createManagedFeatureForExperiment,
+  clearManagedMarker,
   createManagedFlagForNewExperiment,
   ejectManagedFeature,
   getManagedFeatureForExperiment,
+  publishManagedDraft,
   requestReviewForManagedDraft,
 } from "back-end/src/services/managedFeatures";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
@@ -3313,6 +3310,14 @@ export async function deleteExperiment(
     context.permissions.throwPermissionError();
   }
 
+  // Release the managed flag first. Without this it survives pointing at a
+  // deleted experiment, and every write path refuses it while the only eject
+  // route 404s — an unrecoverable state outside direct database access.
+  const managed = await getManagedFeatureForExperiment(context, experiment);
+  if (managed) {
+    await clearManagedMarker(context, managed);
+  }
+
   const promises = [
     // note: we might want to change this to change the status to
     // 'deleted' instead of actually deleting the document.
@@ -4560,23 +4565,15 @@ export async function deleteExperimentLinkedFeature(
   res.status(200).json({ status: 200 });
 }
 
-export async function postExperimentManagedFlag(
-  req: AuthRequest<
-    {
-      valueType: FeatureValueType;
-      variations: ExperimentRefVariation[];
-      sparse?: boolean;
-    },
-    { id: string }
-  >,
+export async function postExperimentManagedFlagPublish(
+  req: AuthRequest<null, { id: string }>,
   res: Response<
-    { status: 200; feature: FeatureInterface; version: number },
+    { status: 200; feature: FeatureInterface },
     EventUserForResponseLocals
   >,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const { valueType, variations, sparse } = req.body;
 
   const experiment = await getExperimentById(context, id);
   if (!experiment) {
@@ -4587,24 +4584,9 @@ export async function postExperimentManagedFlag(
     context.permissions.throwPermissionError();
   }
 
-  const existing = await getManagedFeatureForExperiment(context, experiment);
-  if (existing) {
-    throw new Error(
-      `This experiment already manages Feature Flag "${existing.id}".`,
-    );
-  }
+  const feature = await publishManagedDraft({ context, experiment });
 
-  const { feature, version } = await createManagedFeatureForExperiment({
-    context,
-    experiment,
-    valueType,
-    variations,
-    sparse,
-    eventAudit: res.locals.eventAudit,
-    audit: req.audit,
-  });
-
-  res.status(200).json({ status: 200, feature, version });
+  res.status(200).json({ status: 200, feature });
 }
 
 export async function postExperimentManagedFlagEject(

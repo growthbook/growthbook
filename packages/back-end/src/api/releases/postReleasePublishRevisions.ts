@@ -16,6 +16,7 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { PublishBlockedError } from "back-end/src/revisions/publishGates";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import { assertFeatureNotManaged } from "back-end/src/services/managedFeatures";
 import {
   commitBulkPublish,
   planBulkPublish,
@@ -119,6 +120,12 @@ export const postReleasePublishRevisions = createApiRequestHandler(
     } else if (item.entityType === "constant") {
       const constant = await req.context.models.constants.getByKey(callerId);
       if (constant) entityId = constant.id;
+    }
+
+    // This endpoint addresses features by body, not by URL param, so the
+    // route-level managed guard cannot see it. Both id shapes land here.
+    if (item.entityType === "feature") {
+      await assertFeatureNotManaged(req.context, entityId);
     }
 
     callerIdByInternal.set(`${item.entityType}:${entityId}`, callerId);

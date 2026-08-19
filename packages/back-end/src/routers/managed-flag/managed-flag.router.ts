@@ -2,7 +2,10 @@ import express from "express";
 import { wrapController } from "back-end/src/routers/wrapController";
 import * as rawExperimentsController from "back-end/src/controllers/experiments";
 import * as rawFeaturesController from "back-end/src/controllers/features";
-import { resolveManagedFlagParams } from "back-end/src/services/managedFeatures";
+import {
+  resolveManagedFlagCommentParams,
+  resolveManagedFlagParams,
+} from "back-end/src/services/managedFeatures";
 
 /**
  * Managed-flag actions addressed by experiment. `mergeParams` because the
@@ -13,7 +16,6 @@ const router = express.Router({ mergeParams: true });
 const experimentsController = wrapController(rawExperimentsController);
 const featuresController = wrapController(rawFeaturesController);
 
-router.post("/", experimentsController.postExperimentManagedFlag);
 router.post("/eject", experimentsController.postExperimentManagedFlagEject);
 
 router.post(
@@ -27,25 +29,19 @@ router.post(
   featuresController.postFeatureReviewOrComment,
 );
 router.post(
-  "/recall-review",
-  resolveManagedFlagParams,
-  featuresController.postFeatureRecallReview,
-);
-router.post(
   "/undo-review",
   resolveManagedFlagParams,
   featuresController.postFeatureUndoReview,
 );
-router.post(
-  "/publish",
-  resolveManagedFlagParams,
-  featuresController.postFeaturePublish,
-);
+// Not resolveManagedFlagParams + postFeaturePublish: that controller requires a
+// mergeResultSerialized this surface can't compute, so it merges server-side.
+router.post("/publish", experimentsController.postExperimentManagedFlagPublish);
 // Review comments are conversation, not flag content, so they stay editable —
-// but only through the experiment, like everything else on a managed flag.
+// but only through the experiment, like everything else on a managed flag. The
+// comment's own revision is addressed explicitly so it survives publishing.
 router.put(
   "/log/:logId",
-  resolveManagedFlagParams,
+  resolveManagedFlagCommentParams,
   featuresController.putFeatureRevisionLogComment,
 );
 

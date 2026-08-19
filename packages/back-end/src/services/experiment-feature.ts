@@ -163,9 +163,8 @@ export async function linkFeatureToExperiment({
   });
 
   // autoPublish always starts from live so the merge stays clean.
-  const targetVersion = autoPublish
-    ? feature.version
-    : forceNewDraft
+  const targetVersion =
+    autoPublish || forceNewDraft
       ? feature.version
       : (draftVersion ?? feature.version);
 
@@ -655,7 +654,7 @@ type ResolvedDraft = { featureId: string; revisionVersion: number };
 // followed by the same publish governance. `rebaseRequired` is only set for
 // the mergeable-but-blocked case (org requires rebase-before-publish or the
 // approval went stale) — true conflicts are reported via `mergeResult`.
-function mergeDraftForAutoPublish(
+export function mergeDraftForAutoPublish(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,

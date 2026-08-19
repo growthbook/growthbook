@@ -11,22 +11,13 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 // stored as valueType "json" backed by a config, not a runtime value type.
 export type FeatureAuthoringType = FeatureValueType | "config";
 
-const BASE_TYPE_LABELS: Record<FeatureValueType, string> = {
-  boolean: "Boolean (true/false)",
-  string: "String",
-  number: "Number",
-  json: "JSON",
-};
-
 const ValueTypeField: FC<{
   onChange: (v: FeatureAuthoringType) => void;
   value: FeatureAuthoringType;
   // Offer the config-backed authoring type (only flows whose value editor
   // supports config backing should enable this).
   allowConfig?: boolean;
-  /** Reorders the base types; config, when offered, stays last. */
-  order?: FeatureValueType[];
-}> = ({ onChange, value, allowConfig = false, order }) => {
+}> = ({ onChange, value, allowConfig = false }) => {
   const { hasCommercialFeature } = useUser();
   const canUseConfig = hasCommercialFeature("feature-configs");
 
@@ -38,10 +29,10 @@ const ValueTypeField: FC<{
       onChange={(v) => onChange(v as FeatureAuthoringType)}
       placeholder="Select Type..."
       options={[
-        ...(order ?? ["boolean", "string", "number", "json"]).map((t) => ({
-          label: BASE_TYPE_LABELS[t],
-          value: t as string,
-        })),
+        { label: "Boolean (true/false)", value: "boolean" },
+        { label: "String", value: "string" },
+        { label: "Number", value: "number" },
+        { label: "JSON", value: "json" },
         ...(allowConfig ? [{ label: "Config", value: "config" }] : []),
       ]}
       formatOptionLabel={(option) => {

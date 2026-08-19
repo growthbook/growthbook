@@ -745,8 +745,13 @@ export async function postFeatures(
     holdout,
     customFields,
     jsonSchema,
-    ...otherProps
+    ...rest
   } = req.body;
+
+  // Never client-settable: declaring managedBy on the Mongoose schema removed
+  // the implicit strip, so accepting it here would let anyone create a flag
+  // locked to a nonexistent experiment with no way back.
+  const otherProps = omit(rest, ["managedBy"]);
 
   if (
     !context.permissions.canCreateFeature(
