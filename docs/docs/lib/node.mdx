@@ -272,14 +272,30 @@ Every call to evaluate feature flags will use the latest available payload.
 
 ### Polling Updates
 
-If your environment doesn't support streaming updates or you want a simpler option, you can use a polling approach:
+If your environment doesn't support streaming updates or you want a simpler option, pass a `pollingInterval` (in milliseconds) into `init`. This requires no polyfills.
 
 ```js
-// Refresh once every 5 minutes
+const gbClient = new GrowthBookClient({
+  clientKey: "sdk-abc123"
+});
+
+// Refresh once per minute
+await gbClient.init({ pollingInterval: 60 * 1000 });
+```
+
+Polling is deduped per `clientKey`, so many instances sharing a key produce a single request per interval. Requests bypass the cache, so the interval you set is the interval used. Failed requests back off exponentially (capped at 5 minutes), and the timer never keeps a short-lived process alive.
+
+`pollingInterval` is ignored while streaming is active, so it is safe to set both — polling only runs when the stream isn't connected.
+
+We don't recommend polling more often than once per minute. If you need faster updates, use Streaming (above).
+
+You can also drive refreshes yourself instead:
+
+```js
 setInterval(() => gbClient.refreshFeatures(), 5*60*1000);
 ```
 
-We don't recommend polling more often than once per minute. If you need faster updates, use Streaming (above).
+Note that `refreshFeatures()` goes through the cache, so it will not issue a request if the payload is newer than `staleTTL` (60 seconds by default). Pass `skipCache: true` to force one.
 
 ## Caching
 

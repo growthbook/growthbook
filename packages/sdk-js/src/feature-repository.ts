@@ -20,6 +20,11 @@ type CacheEntry = {
   version: string;
   staleAt: Date;
 };
+type Poller = {
+  timer: ReturnType<typeof setTimeout> | null;
+  interval: number;
+  errors: number;
+};
 type ScopedChannel = {
   src: EventSource | null;
   cb: (event: MessageEvent<string>) => void;
@@ -115,6 +120,7 @@ let cacheInitialized = false;
 const cache: Map<string, CacheEntry> = new Map();
 const activeFetches: Map<string, Promise<FetchResponse>> = new Map();
 const streams: Map<string, ScopedChannel> = new Map();
+const pollers: Map<string, Poller> = new Map();
 const supportsSSE: Set<string> = new Set();
 const streamingWarnings: Set<string> = new Set();
 
@@ -171,7 +177,12 @@ function subscribe(instance: GrowthBook | GrowthBookClient): void {
   subscribedInstances.set(key, subs);
 }
 export function unsubscribe(instance: GrowthBook | GrowthBookClient): void {
-  subscribedInstances.forEach((s) => s.delete(instance));
+  subscribedInstances.forEach((s, key) => {
+    s.delete(instance);
+    // Nothing left to refresh, so stop polling this key
+    const poller = s.size ? undefined : pollers.get(key);
+    if (poller) destroyPoller(poller, key);
+  });
 }
 
 export function onHidden() {
@@ -192,14 +203,30 @@ export function onVisible() {
 
 // Private functions
 
-// console.warn rather than the usual env-gated instance.log(): log() is debug-only, so it
-// would hide this misconfiguration from the production users already serving a frozen
-// payload. Deduped per reason. Diagnostics still belong in instance.log().
+const MAX_BACKOFF_MS = 1000 * 60 * 5;
+
+// Exponential backoff. Jitter is proportional rather than flat, so that clients retrying
+// against the same host spread out instead of bunching at the same offset.
+function backoffDelay(base: number, factor: number, attempt: number): number {
+  return Math.min(
+    base * Math.pow(factor, attempt) * (1 + Math.random()),
+    MAX_BACKOFF_MS,
+  );
+}
+
+// The only place the SDK warns directly rather than through the env-gated instance.log().
+// log() is debug-only, so routing a misconfiguration through it would hide the problem from
+// exactly the production users it affects. Diagnostics still belong in instance.log().
+function warnMisconfiguration(message: string): void {
+  console.warn(`[GrowthBook] ${message}`);
+}
+
+// Deduped per reason, so a process warns once about each distinct cause
 function warnStreamingUnavailable(reason: string): void {
   if (streamingWarnings.has(reason)) return;
   streamingWarnings.add(reason);
-  console.warn(
-    `[GrowthBook] Streaming is enabled, but not active: ${reason}. Features will not be updated in the background. See https://docs.growthbook.io/lib/node#refreshing-features`,
+  warnMisconfiguration(
+    `Streaming is enabled, but not active: ${reason}. Features will not be updated in the background. Set \`pollingInterval\` to refresh on a timer instead, or see https://docs.growthbook.io/lib/node#refreshing-features`,
   );
 }
 
@@ -521,19 +548,15 @@ function onSSEError(channel: ScopedChannel) {
   channel.errors++;
   if (channel.errors > 3 || (channel.src && channel.src.readyState === 2)) {
     // exponential backoff after 4 errors, with jitter
-    const delay =
-      Math.pow(3, channel.errors - 3) * (1000 + Math.random() * 1000);
+    const delay = backoffDelay(1000, 3, channel.errors - 3);
     disableChannel(channel);
-    setTimeout(
-      () => {
-        if (["idle", "active"].includes(channel.state)) return;
-        // A channel dropped while backing off (destroy, clearCache) must not reconnect:
-        // it would open an EventSource nothing tracks or can ever close
-        if (streams.get(channel.key) !== channel) return;
-        enableChannel(channel);
-      },
-      Math.min(delay, 300000),
-    ); // 5 minutes max
+    setTimeout(() => {
+      if (["idle", "active"].includes(channel.state)) return;
+      // A channel dropped while backing off (destroy, clearCache) must not reconnect:
+      // it would open an EventSource nothing tracks or can ever close
+      if (streams.get(channel.key) !== channel) return;
+      enableChannel(channel);
+    }, delay);
   }
 }
 
@@ -561,6 +584,10 @@ function enableChannel(channel: ScopedChannel) {
     channel.src.onerror = () => onSSEError(channel);
     channel.src.onopen = () => {
       channel.errors = 0;
+      // Retire polling once the stream is confirmed open, not merely constructed -
+      // a stream blocked by a proxy is exactly why someone configured polling
+      const poller = pollers.get(channel.key);
+      if (poller) destroyPoller(poller, channel.key);
     };
   } catch (e) {
     // A half-built connection may already be open, so close it before dropping the ref
@@ -591,6 +618,60 @@ function destroyChannel(channel: ScopedChannel, key: string) {
   streams.delete(key);
 }
 
+// Refresh on a fixed interval. Deduped per key, so many instances sharing a clientKey poll once.
+function startPolling(key: string, interval: number): void {
+  // setTimeout collapses an out-of-range delay to 1ms, turning a typo into a request loop
+  if (!Number.isFinite(interval) || interval < 1 || interval > 2147483647) {
+    warnMisconfiguration(
+      `Ignoring invalid pollingInterval (${interval}). Expected a finite number of milliseconds between 1 and 2147483647.`,
+    );
+    return;
+  }
+  if (pollers.has(key)) return;
+
+  const poller: Poller = { timer: null, interval, errors: 0 };
+  pollers.set(key, poller);
+  scheduleNextPoll(key, poller);
+}
+
+function scheduleNextPoll(key: string, poller: Poller): void {
+  // Gentler curve than onSSEError's, since this one already starts from the
+  // user's configured interval rather than a fixed 1s
+  const delay =
+    poller.errors > 0
+      ? backoffDelay(poller.interval, 2, poller.errors - 1)
+      : poller.interval;
+
+  const timer = setTimeout(() => {
+    // Resolve a subscriber at poll time. The instance that started polling may have been
+    // destroyed, which clears its options and would send us to the wrong host.
+    const subs = subscribedInstances.get(key);
+    const instance = subs && subs.values().next().value;
+    if (!instance) {
+      destroyPoller(poller, key);
+      return;
+    }
+
+    // Bypass the cache so the interval, not staleTTL, decides how often we refresh
+    fetchFeatures(instance).then((res) => {
+      poller.errors = res.success ? 0 : poller.errors + 1;
+      // Don't reschedule if polling was stopped while the request was in flight
+      if (pollers.get(key) === poller) {
+        scheduleNextPoll(key, poller);
+      }
+    });
+  }, delay) as ReturnType<typeof setTimeout> & { unref?: () => void };
+
+  // Never hold a short-lived process (serverless, CLI) open just to poll
+  if (timer.unref) timer.unref();
+  poller.timer = timer;
+}
+
+function destroyPoller(poller: Poller, key: string) {
+  if (poller.timer) clearTimeout(poller.timer);
+  pollers.delete(key);
+}
+
 export function clearAutoRefresh() {
   // Clear list of which keys are auto-updated
   supportsSSE.clear();
@@ -599,6 +680,9 @@ export function clearAutoRefresh() {
   // Stop listening for any SSE events
   streams.forEach(destroyChannel);
 
+  // Stop any background polling
+  pollers.forEach(destroyPoller);
+
   // Remove all references to GrowthBook instances
   subscribedInstances.clear();
 
@@ -606,19 +690,20 @@ export function clearAutoRefresh() {
   helpers.stopIdleListener();
 }
 
-export function startStreaming(
+export function startBackgroundSync(
   instance: GrowthBook | GrowthBookClient,
   options: InitOptions | InitSyncOptions,
 ) {
+  if (!options.streaming && options.pollingInterval === undefined) return;
+
+  if (!instance.getClientKey()) {
+    throw new Error("Must specify clientKey to enable streaming or polling");
+  }
+
   if (options.streaming) {
-    if (!instance.getClientKey()) {
-      throw new Error("Must specify clientKey to enable streaming");
-    }
     if (options.payload) {
       startAutoRefresh(instance, true);
     }
-    subscribe(instance);
-
     if (!polyfills.EventSource) {
       warnStreamingUnavailable(
         "no EventSource implementation is available. In Node.js, install the `eventsource` package and pass it to setPolyfills({ EventSource })",
@@ -633,5 +718,16 @@ export function startStreaming(
         "the API host did not report SSE support (missing `x-sse-support` response header). This is also expected when the initial payload fetch fails",
       );
     }
+  }
+
+  subscribe(instance);
+
+  // Not gated on an existing stream: startAutoRefresh opens one whenever the host
+  // advertises SSE, so gating here would drop the polling that was asked for if that
+  // stream never connects. onopen retires the poller once it does.
+  // Checked against undefined so 0 reaches startPolling's validation warning
+  const key = getKey(instance);
+  if (options.pollingInterval !== undefined && cacheSettings.backgroundSync) {
+    startPolling(key, options.pollingInterval);
   }
 }
