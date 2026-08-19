@@ -194,3 +194,51 @@ describe("review authority footprint", () => {
     });
   });
 });
+
+// Publish drops environments the flag is off in; review must not. A rule edited
+// while production is off still applies there once production is switched on, and
+// the enabling draft's diff no longer contains that rule — so the environment has
+// to be in the review footprint while the rule is still reviewable.
+describe("review authority stays wider than publish", () => {
+  const withProdOff = (over: Partial<RevisionFields> = {}) =>
+    base({
+      environmentsEnabled: { dev: true, staging: true, production: false },
+      ...over,
+    });
+
+  it("keeps a disabled environment whose rules changed", () => {
+    const footprint = getReviewAuthorityFootprint({
+      revision: withProdOff({ rules: [rule("production")] }),
+      bases: [withProdOff()],
+      allEnvironments: ALL_ENVS,
+      settings: metadataReviewOn,
+    });
+
+    expect(footprint).toEqual({
+      scope: "environments",
+      environments: ["production"],
+    });
+  });
+
+  // A rule spanning every environment reads as a global change, so review asks for
+  // authority everywhere — which covers the disabled environment too, where publish
+  // now asks only for dev and staging.
+  it("asks for everywhere on a rule that spans on and off envs", () => {
+    const spanning = {
+      id: "r_all",
+      type: "force" as const,
+      description: "",
+      value: "true",
+      enabled: true,
+      allEnvironments: true,
+    };
+    const footprint = getReviewAuthorityFootprint({
+      revision: withProdOff({ rules: [spanning] }),
+      bases: [withProdOff()],
+      allEnvironments: ALL_ENVS,
+      settings: metadataReviewOn,
+    });
+
+    expect(footprint).toEqual({ scope: "everywhere" });
+  });
+});

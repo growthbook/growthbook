@@ -4457,6 +4457,11 @@ function requiresMetadataReview(
 
 // `bases` unions live and the draft's base, which can disagree — so drift can
 // only ever demand more authority, never less.
+//
+// Deliberately NOT narrowed to serving environments the way `featurePublishFootprint`
+// is. A rule edited while an environment is off still applies there once it is
+// switched on, and the enabling draft's diff no longer shows that rule — so an
+// approver with authority there must sign it while it is still visible.
 export function getReviewAuthorityFootprint({
   revision,
   bases,
