@@ -313,22 +313,163 @@ ul.sidebar-group > li[data-title="GrowthBook Guide"] {
   min-width: 0;
 }
 
-#sidebar-content li[data-title] > button > div:first-child span {
-  display: block;
+#sidebar-content li[data-title] > button > div:first-child > span:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* Right-align expand/collapse carets so nested API groups don't jam them
-   against the label. The default layout places the caret immediately after
-   the text, so longer names like "Feature Revisions (legacy)" collide. */
+#sidebar-content li[data-title] > button > div:first-child .nav-tag-pill {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+/* Status chips: match the old docs (BETA amber, NEW green, v2 blue).
+   LEGACY is new; gray so it doesn't compete with BETA. */
+#sidebar-content [data-nav-tag="BETA"] {
+  background: #fbbf24 !important;
+  color: #78350f !important;
+}
+
+#sidebar-content [data-nav-tag="NEW"] {
+  background: var(--green-a9) !important;
+  color: #fff !important;
+}
+
+#sidebar-content [data-nav-tag="LEGACY"] {
+  background: #e5e7eb !important;
+  color: #4b5563 !important;
+}
+
+#sidebar-content [data-nav-tag="v2"] {
+  background: #c2e6ff !important;
+  color: #0d74ce !important;
+}
+
+.dark #sidebar-content [data-nav-tag="BETA"] {
+  background: #78350f !important;
+  color: #fde68a !important;
+}
+
+.dark #sidebar-content [data-nav-tag="NEW"] {
+  background: #14532d !important;
+  color: #86efac !important;
+}
+
+.dark #sidebar-content [data-nav-tag="LEGACY"] {
+  background: #374151 !important;
+  color: #d1d5db !important;
+}
+
+.dark #sidebar-content [data-nav-tag="v2"] {
+  background: #0c4a6e !important;
+  color: #7dd3fc !important;
+}
+
+/* Buttons shrink-wrap to the label by default, so space-between never
+   moves the caret. Stretch them to the nav column first. */
 #sidebar-content li[data-title] > button {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   justify-content: space-between;
+  align-items: center;
 }
 
 #sidebar-content li[data-title] > button > div:last-child {
+  flex: 0 0 auto;
   margin-left: auto;
+}
+
+/* OpenAPI already paints a colored method pill. Keep it on the same row
+   as the title so the name can use the leftover sidebar width. */
+#sidebar-content a:has(.method-nav-pill) > .flex-1 {
+  min-width: 0;
+}
+
+#sidebar-content a:has(.method-nav-pill) .flex-wrap {
+  flex-wrap: nowrap;
+  width: 100%;
+}
+
+#sidebar-content a:has(.method-nav-pill) .flex-wrap > span.min-w-0 {
+  flex: 1 1 auto;
+  max-width: 100%;
+}
+
+/* Nested group links inherit the parent row's 1rem left padding. */
+#sidebar-content li[data-title] ul a {
+  padding-left: 1rem !important;
+}
+
+/* Legacy v1 feature/metric routes: grey method + struck name, no Deprecated chip. */
+#sidebar-content a[href^="/api/features/operation/"],
+#sidebar-content a[href^="/api/feature-revisions/operation/"],
+#sidebar-content a[href^="/api/metrics/operation/"] {
+  color: rgb(156 163 175) !important;
+}
+
+.dark #sidebar-content a[href^="/api/features/operation/"],
+.dark #sidebar-content a[href^="/api/feature-revisions/operation/"],
+.dark #sidebar-content a[href^="/api/metrics/operation/"] {
+  color: rgb(107 114 128) !important;
+}
+
+#sidebar-content a[href^="/api/features/operation/"]:hover,
+#sidebar-content a[href^="/api/features/operation/"]:focus-visible,
+#sidebar-content a[href^="/api/feature-revisions/operation/"]:hover,
+#sidebar-content a[href^="/api/feature-revisions/operation/"]:focus-visible,
+#sidebar-content a[href^="/api/metrics/operation/"]:hover,
+#sidebar-content a[href^="/api/metrics/operation/"]:focus-visible {
+  color: #111 !important;
+}
+
+.dark #sidebar-content a[href^="/api/features/operation/"]:hover,
+.dark #sidebar-content a[href^="/api/features/operation/"]:focus-visible,
+.dark #sidebar-content a[href^="/api/feature-revisions/operation/"]:hover,
+.dark
+  #sidebar-content
+  a[href^="/api/feature-revisions/operation/"]:focus-visible,
+.dark #sidebar-content a[href^="/api/metrics/operation/"]:hover,
+.dark #sidebar-content a[href^="/api/metrics/operation/"]:focus-visible {
+  color: #fff !important;
+}
+
+#sidebar-content a[href^="/api/features/operation/"] .method-nav-pill,
+#sidebar-content a[href^="/api/feature-revisions/operation/"] .method-nav-pill,
+#sidebar-content a[href^="/api/metrics/operation/"] .method-nav-pill {
+  filter: grayscale(1);
+  opacity: 0.65;
+}
+
+#sidebar-content a[href^="/api/features/operation/"]:hover .method-nav-pill,
+#sidebar-content
+  a[href^="/api/features/operation/"]:focus-visible
+  .method-nav-pill,
+#sidebar-content
+  a[href^="/api/feature-revisions/operation/"]:hover
+  .method-nav-pill,
+#sidebar-content
+  a[href^="/api/feature-revisions/operation/"]:focus-visible
+  .method-nav-pill,
+#sidebar-content a[href^="/api/metrics/operation/"]:hover .method-nav-pill,
+#sidebar-content
+  a[href^="/api/metrics/operation/"]:focus-visible
+  .method-nav-pill {
+  filter: none;
+  opacity: 1;
+}
+
+#sidebar-content a[href^="/api/features/operation/"] .flex-wrap > span.min-w-0,
+#sidebar-content
+  a[href^="/api/feature-revisions/operation/"]
+  .flex-wrap
+  > span.min-w-0,
+#sidebar-content a[href^="/api/metrics/operation/"] .flex-wrap > span.min-w-0 {
+  text-decoration: line-through;
 }
 
 /* Kapa is the docs AI widget. Hide Mintlify's built-in assistant chrome.

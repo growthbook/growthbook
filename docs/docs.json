@@ -156,7 +156,7 @@
                   "feature-flag-experiments",
                   {
                     "group": "Visual Editor",
-                    "tag": "Beta",
+                    "tag": "BETA",
                     "root": "app/visual",
                     "pages": [
                       "app/visual/install-and-connect",
@@ -210,7 +210,7 @@
               "insights",
               {
                 "group": "Product Analytics",
-                "tag": "New",
+                "tag": "NEW",
                 "root": "app/product-analytics",
                 "pages": [
                   "app/product-analytics/explorer",
@@ -495,7 +495,7 @@
               },
               {
                 "group": "Feature Flags (legacy)",
-                "tag": "Legacy",
+                "tag": "LEGACY",
                 "expanded": false,
                 "pages": [
                   "api/features/operation/listFeatures",
@@ -511,7 +511,7 @@
               },
               {
                 "group": "Feature Revisions (legacy)",
-                "tag": "Legacy",
+                "tag": "LEGACY",
                 "expanded": false,
                 "pages": [
                   "api/feature-revisions/operation/listRevisions",
@@ -610,7 +610,7 @@
               },
               {
                 "group": "Metrics (legacy)",
-                "tag": "Legacy",
+                "tag": "LEGACY",
                 "expanded": false,
                 "pages": [
                   "api/metrics/operation/listMetrics",
