@@ -1,7 +1,7 @@
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const RESURVEY_DAYS = 90;
-const RESURVEY_MS = RESURVEY_DAYS * 24 * 60 * 60 * 1000;
+const RESURVEY_MS = RESURVEY_DAYS * DAY_MS;
 
 // True while a user is inside the re-survey window after their last prompt.
 // A missing or unparseable date is treated as "not in the window".
@@ -12,30 +12,69 @@ export function withinCooldown(date?: string | Date | null): boolean {
 }
 
 // Don't ask users who haven't used GrowthBook long enough to have an opinion.
-const MIN_TENURE_DAYS = 14;
-const MIN_TENURE_MS = MIN_TENURE_DAYS * 24 * 60 * 60 * 1000;
+// Overridable from the `nps-survey` feature; see parseSurveyConfig.
+export const DEFAULT_MIN_TENURE_DAYS = 14;
 
 // True once the user has been around long enough to be worth surveying. Takes
 // a Date or an ISO string (the field is typed Date but crosses JSON as a
 // string). An unknown or unparseable date fails closed, so we never survey on
 // missing data — and never throw on it either.
-export function meetsMinimumTenure(joined?: string | Date | null): boolean {
+export function meetsMinimumTenure(
+  joined?: string | Date | null,
+  minTenureDays: number = DEFAULT_MIN_TENURE_DAYS,
+): boolean {
   if (!joined) return false;
   const t = new Date(joined).getTime();
-  return !Number.isNaN(t) && Date.now() - t >= MIN_TENURE_MS;
+  return !Number.isNaN(t) && Date.now() - t >= minTenureDays * DAY_MS;
 }
 
-// The `nps-survey` feature holds the percentage (0-100) of eligible users to
-// sample per cycle, so volume is tunable in GrowthBook without a deploy.
-// Returns a 0-1 fraction. Percent-only on purpose: accepting fractions too
-// would make `1` ambiguous between 1% and 100%, where guessing wrong surveys
-// everybody. Anything unexpected — including the flag's original boolean
-// shape — fails closed at 0, so a misconfigured flag never blasts everyone.
+// Percentage (0-100) of eligible users to sample, as a 0-1 fraction.
+// Percent-only on purpose: accepting fractions too would make `1` ambiguous
+// between 1% and 100%, where guessing wrong surveys everybody. Anything
+// unexpected — including the flag's original boolean shape — fails closed at 0,
+// so a misconfigured flag never blasts the whole user base.
 export function parseSampleRate(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
     return 0;
   }
   return Math.min(value / 100, 1);
+}
+
+export type NpsSurveyConfig = {
+  // 0-1 fraction of eligible users to sample per cycle.
+  rate: number;
+  // Days since the user joined before they're eligible to be asked.
+  minTenureDays: number;
+};
+
+function parseMinTenureDays(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return DEFAULT_MIN_TENURE_DAYS;
+  }
+  return value;
+}
+
+// Settings come from the `nps-survey` feature so they're tunable in GrowthBook
+// without a deploy. Two shapes are accepted so the feature can gain settings
+// without being recreated (GrowthBook can't change a feature's value type):
+//
+//   Number feature:  5                            -> 5%, default tenure
+//   JSON feature:    {"rate":5,"minTenureDays":30} -> 5%, 30-day tenure
+//
+// Each field falls back independently, and an unusable value fails closed
+// (rate 0 = survey off, tenure = the conservative default).
+export function parseSurveyConfig(value: unknown): NpsSurveyConfig {
+  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+    const { rate, minTenureDays } = value as Record<string, unknown>;
+    return {
+      rate: parseSampleRate(rate),
+      minTenureDays: parseMinTenureDays(minTenureDays),
+    };
+  }
+  return {
+    rate: parseSampleRate(value),
+    minTenureDays: DEFAULT_MIN_TENURE_DAYS,
+  };
 }
 
 // FNV-1a, matching the GrowthBook SDK's v2 hashing so sampling buckets behave

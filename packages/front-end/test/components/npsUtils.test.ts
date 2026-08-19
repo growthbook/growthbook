@@ -1,8 +1,10 @@
 import { npsCategoryOf, npsValueOf } from "shared/nps";
 import {
+  DEFAULT_MIN_TENURE_DAYS,
   inSampledCohort,
   meetsMinimumTenure,
   parseSampleRate,
+  parseSurveyConfig,
   withinCooldown,
 } from "@/components/NPSSurvey/nps.utils";
 
@@ -120,6 +122,73 @@ describe("meetsMinimumTenure", () => {
     expect(meetsMinimumTenure(null)).toBe(false);
     expect(meetsMinimumTenure("nonsense")).toBe(false);
     expect(meetsMinimumTenure(new Date("nonsense"))).toBe(false);
+  });
+});
+
+describe("meetsMinimumTenure with a configured window", () => {
+  const daysAgo = (n: number) => new Date(Date.now() - n * DAY_MS);
+
+  it("honors a longer window from the feature", () => {
+    expect(meetsMinimumTenure(daysAgo(20), 30)).toBe(false);
+    expect(meetsMinimumTenure(daysAgo(40), 30)).toBe(true);
+  });
+
+  it("honors a shorter window from the feature", () => {
+    expect(meetsMinimumTenure(daysAgo(3), 1)).toBe(true);
+  });
+
+  it("surveys immediately when the window is 0", () => {
+    expect(meetsMinimumTenure(daysAgo(0), 0)).toBe(true);
+  });
+
+  it("defaults to the 14-day window when not given one", () => {
+    expect(DEFAULT_MIN_TENURE_DAYS).toBe(14);
+    expect(meetsMinimumTenure(daysAgo(13))).toBe(false);
+    expect(meetsMinimumTenure(daysAgo(15))).toBe(true);
+  });
+});
+
+describe("parseSurveyConfig", () => {
+  it("reads a bare number as the rate, with the default tenure", () => {
+    expect(parseSurveyConfig(5)).toEqual({
+      rate: 0.05,
+      minTenureDays: DEFAULT_MIN_TENURE_DAYS,
+    });
+  });
+
+  it("reads both settings from an object", () => {
+    expect(parseSurveyConfig({ rate: 5, minTenureDays: 30 })).toEqual({
+      rate: 0.05,
+      minTenureDays: 30,
+    });
+  });
+
+  it("falls back per-field when one is missing or unusable", () => {
+    expect(parseSurveyConfig({ rate: 10 })).toEqual({
+      rate: 0.1,
+      minTenureDays: DEFAULT_MIN_TENURE_DAYS,
+    });
+    expect(parseSurveyConfig({ minTenureDays: 7 })).toEqual({
+      rate: 0,
+      minTenureDays: 7,
+    });
+    expect(parseSurveyConfig({ rate: 5, minTenureDays: "soon" })).toEqual({
+      rate: 0.05,
+      minTenureDays: DEFAULT_MIN_TENURE_DAYS,
+    });
+    expect(parseSurveyConfig({ rate: 5, minTenureDays: -3 })).toEqual({
+      rate: 0.05,
+      minTenureDays: DEFAULT_MIN_TENURE_DAYS,
+    });
+  });
+
+  it("fails closed on shapes that aren't a number or a config object", () => {
+    for (const v of [undefined, null, true, false, "5", [], [5]]) {
+      expect(parseSurveyConfig(v)).toEqual({
+        rate: 0,
+        minTenureDays: DEFAULT_MIN_TENURE_DAYS,
+      });
+    }
   });
 });
 

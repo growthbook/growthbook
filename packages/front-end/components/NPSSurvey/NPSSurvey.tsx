@@ -22,7 +22,7 @@ import styles from "./NPSSurvey.module.scss";
 import {
   inSampledCohort,
   meetsMinimumTenure,
-  parseSampleRate,
+  parseSurveyConfig,
   withinCooldown,
 } from "./nps.utils";
 
@@ -126,10 +126,13 @@ function CheckMark() {
 }
 
 export default function NPSSurvey() {
-  // The `nps-survey` feature carries the sample rate as a PERCENT (0 = off,
-  // 5 = 5% of eligible users per 90-day cycle, 100 = everyone), so volume is
-  // tunable in GrowthBook without a deploy. Targeting rules still apply.
-  const sampleRate = parseSampleRate(useFeatureValue("nps-survey", 0));
+  // Settings come from the `nps-survey` feature, so they're tunable in
+  // GrowthBook without a deploy. Either a bare percent (0 = off, 5 = 5% of
+  // eligible users per 90-day cycle, 100 = everyone) or a JSON object that also
+  // sets the joined-at-least-N-days gate: {"rate":5,"minTenureDays":30}.
+  // Targeting rules on the feature still apply as usual.
+  const surveyConfig: unknown = useFeatureValue("nps-survey", 0);
+  const { rate: sampleRate, minTenureDays } = parseSurveyConfig(surveyConfig);
   const previewFlagOn = useFeatureIsOn("nps-survey-preview");
   const { apiCall } = useAuth();
   const { npsSurveyAt, orgSuspended, userId, user } = useUser();
@@ -139,7 +142,7 @@ export default function NPSSurvey() {
   // user's own join date, so a new hire at an established org isn't asked on
   // their first day.
   const eligible =
-    meetsMinimumTenure(user?.dateCreated) &&
+    meetsMinimumTenure(user?.dateCreated, minTenureDays) &&
     inSampledCohort(userId, sampleRate);
   // Derived, not state: a pure read of the URL plus the preview flag.
   const forceShow = forceShowRequested(previewFlagOn);
