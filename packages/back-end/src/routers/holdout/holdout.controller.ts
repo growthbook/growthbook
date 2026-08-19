@@ -26,11 +26,14 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   setHoldoutStage,
+  assertCanRunHoldoutEnvironments,
   assertCanUpdateHoldout,
   assertHoldoutScopeCoversLinked,
+  assertValidHoldoutEnvironments,
   createHoldoutWithExperiment,
   deleteHoldoutAndExperiment,
   normalizeHoldoutScheduleUpdates,
+  refreshHoldoutPayload,
 } from "back-end/src/services/holdouts";
 import {
   assertNoLinkedHoldoutExperiments,
@@ -255,15 +258,32 @@ export const updateHoldout = async (
     });
   }
 
-  const updates = { ...req.body };
+  // Whitelist the client-settable holdout fields. experimentId, the linkage
+  // maps, analysisStartDate, and the computed schedule pointer are server-managed
+  // and must never be written straight from the request body.
+  const { name, projects, skipAsDefaultHoldout, environmentSettings } =
+    req.body;
+  const scheduleInput = req.body.statusUpdateSchedule;
 
-  if (updates.statusUpdateSchedule !== undefined) {
+  const updates: UpdateProps<HoldoutInterface> = {};
+  if (name !== undefined) updates.name = name;
+  if (projects !== undefined) updates.projects = projects;
+  if (skipAsDefaultHoldout !== undefined) {
+    updates.skipAsDefaultHoldout = skipAsDefaultHoldout;
+  }
+  if (environmentSettings !== undefined) {
+    updates.environmentSettings = environmentSettings;
+  }
+
+  assertValidHoldoutEnvironments(
+    context,
+    environmentSettings,
+    holdout.environmentSettings,
+  );
+
+  if (scheduleInput !== undefined) {
     const { statusUpdateSchedule, nextScheduledStatusUpdate } =
-      normalizeHoldoutScheduleUpdates({
-        holdout,
-        experiment,
-        scheduleInput: updates.statusUpdateSchedule,
-      });
+      normalizeHoldoutScheduleUpdates({ holdout, experiment, scheduleInput });
     updates.statusUpdateSchedule = statusUpdateSchedule;
     updates.nextScheduledStatusUpdate = nextScheduledStatusUpdate;
   }
@@ -278,7 +298,7 @@ export const updateHoldout = async (
       ? getEnabledHoldoutEnvironments(updates.environmentSettings)
       : undefined,
     isTargetingChange: false,
-    isScheduleChange: (req.body.statusUpdateSchedule ?? null) !== null,
+    isScheduleChange: (scheduleInput ?? null) !== null,
   });
 
   // Only when the scope actually changes, so a Holdout already holding a
@@ -288,6 +308,20 @@ export const updateHoldout = async (
   }
 
   const updatedHoldout = await context.models.holdout.update(holdout, updates);
+
+  // Environment changes move a running holdout's SDK payload footprint, so
+  // refresh (mirrors the REST update path). Targeting never comes through here.
+  if (
+    experiment.status === "running" &&
+    updates.environmentSettings !== undefined
+  ) {
+    refreshHoldoutPayload(context, {
+      holdout: updatedHoldout,
+      previousHoldout: holdout,
+      event: "Holdout updated",
+    });
+  }
+
   return res.status(200).json({ status: 200, holdout: updatedHoldout });
 };
 
@@ -335,19 +369,14 @@ export const editStatus = async (
     stage = req.body.holdoutRunningStatus ?? "running";
   }
 
-  // Starting the holdout (draft -> running) publishes to its enabled
-  // environments, so it needs run permission, mirroring the REST start path.
-  if (stage === "running" && experiment.status === "draft") {
-    const enabledEnvs = getEnabledHoldoutEnvironments(
+  // Lifecycle transitions change what live SDKs serve, so gate on run permission
+  // for the holdout's enabled environments
+  assertCanRunHoldoutEnvironments(context, {
+    enabledEnvironments: getEnabledHoldoutEnvironments(
       holdout.environmentSettings,
-    );
-    if (
-      enabledEnvs.length > 0 &&
-      !context.permissions.canRunHoldout(holdout, enabledEnvs)
-    ) {
-      context.permissions.throwPermissionError();
-    }
-  }
+    ),
+    projects: holdout.projects,
+  });
 
   await setHoldoutStage(context, { holdout, experiment, stage });
 
@@ -373,7 +402,7 @@ export const deleteHoldout = async (
   const experiment = await getExperimentById(context, holdout.experimentId);
 
   if (!experiment) {
-    res.status(403).json({
+    res.status(404).json({
       status: 404,
       message: "Holdout experiment not found",
     });

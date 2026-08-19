@@ -47,7 +47,6 @@ import {
   resolveOwnerEmails,
   resolveOwnerForCreate,
 } from "back-end/src/services/owner";
-import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { MakeModelClass } from "./BaseModel";
 import { getExperimentById, getExperimentsByIds } from "./ExperimentModel";
 
@@ -79,10 +78,17 @@ async function handleHoldoutStageTransition(
     return req.context.throwNotFoundError("Holdout experiment not found");
   }
 
-  const envs = getEnvironmentIdsFromOrg(req.context.org);
-  if (!req.context.permissions.canRunHoldout(holdout, envs)) {
+  if (!req.context.permissions.canUpdateHoldout(holdout, holdout)) {
     req.context.permissions.throwPermissionError();
   }
+  // Lifecycle transitions change what live SDKs serve, so gate on run permission
+  // for the holdout's enabled environments (matches the internal edit-status path).
+  assertCanRunHoldoutEnvironments(req.context, {
+    enabledEnvironments: getEnabledHoldoutEnvironments(
+      holdout.environmentSettings,
+    ),
+    projects: holdout.projects,
+  });
 
   const currentStage = getHoldoutStage(holdout, experiment);
   if (!isHoldoutStageTransitionAllowed(currentStage, targetStage)) {
@@ -126,6 +132,8 @@ const BaseClass = MakeModelClass({
     deleteEvent: "holdout.delete",
   },
   globallyUniquePrimaryKeys: false,
+  // The companion experiment is bound at creation and never reassigned.
+  readonlyFields: ["experimentId"],
   defaultValues: {
     skipAsDefaultHoldout: false,
   } as Partial<HoldoutInterface>,

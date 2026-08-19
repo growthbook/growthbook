@@ -121,6 +121,36 @@ describe("getEnabledHoldoutEnvironments", () => {
       }),
     ).toEqual(["dev"]);
   });
+
+  it("drops enabled ids missing from allowedEnvs", () => {
+    expect(
+      getEnabledHoldoutEnvironments(
+        {
+          production: { enabled: true },
+          staging: { enabled: true },
+          deleted: { enabled: true },
+        },
+        ["production", "staging"],
+      ),
+    ).toEqual(["production", "staging"]);
+  });
+
+  it("returns all enabled ids when allowedEnvs is omitted", () => {
+    expect(
+      getEnabledHoldoutEnvironments({
+        production: { enabled: true },
+        deleted: { enabled: true },
+      }),
+    ).toEqual(["production", "deleted"]);
+  });
+
+  it("returns an empty array when allowedEnvs excludes every enabled id", () => {
+    expect(
+      getEnabledHoldoutEnvironments({ deleted: { enabled: true } }, [
+        "production",
+      ]),
+    ).toEqual([]);
+  });
 });
 
 describe("holdout stage transitions", () => {

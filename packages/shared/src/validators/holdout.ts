@@ -393,10 +393,12 @@ export const HOLDOUT_API_UPDATE_FIELDS = [
   "skipAsDefaultHoldout",
 ] as const satisfies readonly (keyof ApiUpdateHoldoutBody)[];
 
-/** Update fields stored on the companion experiment document. */
+/**
+ * Update fields stored on the companion experiment document. `owner` is absent
+ * because it must be resolved to a user id first, so it is handled separately.
+ */
 export const HOLDOUT_API_EXPERIMENT_UPDATE_FIELDS = [
   "description",
-  "owner",
   "tags",
   "archived",
   "goalMetrics",

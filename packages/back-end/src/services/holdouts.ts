@@ -65,9 +65,41 @@ export function assertCanRunHoldoutEnvironments(
     projects: string[];
   },
 ): void {
-  if (enabledEnvironments.length === 0) return;
-  if (!context.permissions.canRunHoldout({ projects }, enabledEnvironments)) {
+  // Ignore envs that no longer exist in the org: the holdout can't serve there,
+  // so requiring run permission on them would be a spurious denial.
+  const orgEnvs = new Set(getEnvironmentIdsFromOrg(context.org));
+  const envs = enabledEnvironments.filter((env) => orgEnvs.has(env));
+  if (envs.length === 0) return;
+  if (!context.permissions.canRunHoldout({ projects }, envs)) {
     context.permissions.throwPermissionError();
+  }
+}
+
+/**
+ * Reject env ids that don't exist in the org. On update, ids already stored on
+ * the holdout are tolerated (pass `existingEnvironments`) so a client echoing
+ * settings that predate an environment deletion isn't blocked — only newly
+ * referenced ids are checked.
+ */
+export function assertValidHoldoutEnvironments(
+  context: ReqContext | ApiReqContext,
+  environments: Record<string, unknown> | undefined | null,
+  existingEnvironments?: Record<string, unknown>,
+): void {
+  if (!environments) return;
+  const orgEnvs = new Set(getEnvironmentIdsFromOrg(context.org));
+  const existing = new Set(
+    existingEnvironments ? Object.keys(existingEnvironments) : [],
+  );
+  const invalid = Object.keys(environments).filter(
+    (env) => !orgEnvs.has(env) && !existing.has(env),
+  );
+  if (invalid.length) {
+    throw new BadRequestError(
+      `Invalid environment${invalid.length > 1 ? "s" : ""}: ${invalid.join(
+        ", ",
+      )}`,
+    );
   }
 }
 
@@ -269,6 +301,8 @@ export async function createHoldoutWithExperiment(
     await context.models.projects.ensureProjectsExist(data.projects);
   }
 
+  assertValidHoldoutEnvironments(context, data.environmentSettings);
+
   const variations = [
     {
       name: "Holdout",
@@ -415,6 +449,41 @@ async function rollbackExperimentAfterHoldoutFailure(
 }
 
 /**
+ * Queue an SDK payload refresh for a holdout. When a write moves the holdout's
+ * environment or project footprint, pass its prior snapshot as `previousHoldout`
+ * too so keys for both the old and new footprint are invalidated. Callers decide
+ * when a change actually reaches the payload — only running holdouts are served.
+ */
+export function refreshHoldoutPayload(
+  context: ReqContext | ApiReqContext,
+  {
+    holdout,
+    previousHoldout,
+    event,
+  }: {
+    holdout: HoldoutInterface;
+    previousHoldout?: HoldoutInterface;
+    event: string;
+  },
+): void {
+  const orgEnvs = getEnvironmentIdsFromOrg(context.org);
+  const seen = new Set<string>();
+  const payloadKeys = [holdout, ...(previousHoldout ? [previousHoldout] : [])]
+    .flatMap((h) => getAffectedSDKPayloadKeys(h, orgEnvs))
+    .filter((key) => {
+      const s = JSON.stringify(key);
+      if (seen.has(s)) return false;
+      seen.add(s);
+      return true;
+    });
+  queueSDKPayloadRefresh({
+    context,
+    payloadKeys,
+    auditContext: { event, model: "holdout", id: holdout.id },
+  });
+}
+
+/**
  * Applies a validated REST update body to a Holdout and its companion
  * experiment. Splits the work across the three storage locations a Holdout
  * spans — the current experiment phase (targeting/sizing), the experiment
@@ -433,6 +502,12 @@ export async function updateHoldoutWithExperiment(
     body: ApiUpdateHoldoutBody;
   },
 ): Promise<{ holdout: HoldoutInterface; experiment: ExperimentInterface }> {
+  assertValidHoldoutEnvironments(
+    context,
+    body.environments,
+    holdout.environmentSettings,
+  );
+
   // Narrowing the scope must not strand linked entities (matches the internal
   // update endpoint). Only when it actually changes, so a Holdout already
   // holding a stranded link stays editable to be fixed.
@@ -564,30 +639,17 @@ export async function updateHoldoutWithExperiment(
     )[key];
   }
 
-  // Targeting/sizing (experiment phase) and environment changes both feed the
-  // SDK payload, so refresh it once the writes land (mirrors `setHoldoutStage`).
-  const affectsPayload = isTargetingChange || body.environments !== undefined;
+  const affectsPayload =
+    experiment.status === "running" &&
+    (isTargetingChange ||
+      body.environments !== undefined ||
+      body.archived !== undefined);
   const refreshPayload = (finalHoldout: HoldoutInterface) => {
     if (!affectsPayload) return;
-    const orgEnvs = getEnvironmentIdsFromOrg(context.org);
-    const seen = new Set<string>();
-    const payloadKeys = [
-      ...getAffectedSDKPayloadKeys(holdout, orgEnvs),
-      ...getAffectedSDKPayloadKeys(finalHoldout, orgEnvs),
-    ].filter((key) => {
-      const s = JSON.stringify(key);
-      if (seen.has(s)) return false;
-      seen.add(s);
-      return true;
-    });
-    queueSDKPayloadRefresh({
-      context,
-      payloadKeys,
-      auditContext: {
-        event: "Holdout updated",
-        model: "holdout",
-        id: holdout.id,
-      },
+    refreshHoldoutPayload(context, {
+      holdout: finalHoldout,
+      previousHoldout: holdout,
+      event: "Holdout updated",
     });
   };
 
@@ -774,18 +836,7 @@ export async function setHoldoutStage(
   const originalPhases = structuredClone(experiment.phases);
 
   const refreshPayload = (event: string) =>
-    queueSDKPayloadRefresh({
-      context,
-      payloadKeys: getAffectedSDKPayloadKeys(
-        holdout,
-        getEnvironmentIdsFromOrg(context.org),
-      ),
-      auditContext: {
-        event,
-        model: "holdout",
-        id: holdout.id,
-      },
-    });
+    refreshHoldoutPayload(context, { holdout, event });
 
   // Commit a stage transition across both documents. With no cross-document
   // transaction, a holdout failure after the experiment write is committed
@@ -951,18 +1002,7 @@ export async function deleteHoldoutAndExperiment(
 
   await context.models.holdout.delete(holdout);
 
-  queueSDKPayloadRefresh({
-    context,
-    payloadKeys: getAffectedSDKPayloadKeys(
-      holdout,
-      getEnvironmentIdsFromOrg(context.org),
-    ),
-    auditContext: {
-      event: "deleted",
-      model: "holdout",
-      id: holdout.id,
-    },
-  });
+  refreshHoldoutPayload(context, { holdout, event: "deleted" });
 }
 
 // Mirror of `getHoldoutAvailableForProject`, applied from the Holdout side:

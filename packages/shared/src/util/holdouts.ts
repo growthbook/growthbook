@@ -12,17 +12,21 @@ export const DEFAULT_HOLDOUT_SIZE = 0.05;
 /**
  * Enabled environment ids from a holdout-style environment map. Accepts both the
  * internal `environmentSettings` shape and the REST `environments` shape since
- * both expose `enabled`.
+ * both expose `enabled`. Pass `allowedEnvs` to drop ids that no longer exist in
+ * the org (e.g. a deleted environment still lingering in stored settings).
  */
 export function getEnabledHoldoutEnvironments(
   environmentSettings:
     | Record<string, { enabled?: boolean } | undefined>
     | undefined
     | null,
+  allowedEnvs?: string[],
 ): string[] {
   if (!environmentSettings) return [];
+  const allowed = allowedEnvs ? new Set(allowedEnvs) : null;
   return Object.keys(environmentSettings).filter(
-    (env) => environmentSettings[env]?.enabled,
+    (env) =>
+      environmentSettings[env]?.enabled && (!allowed || allowed.has(env)),
   );
 }
 

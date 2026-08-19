@@ -6,6 +6,7 @@ import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { logger } from "back-end/src/util/logger";
 import type { ReqContext } from "back-end/types/request";
 import {
+  assertValidHoldoutEnvironments,
   getNextScheduledStatusUpdateForStage,
   normalizeHoldoutScheduleUpdates,
   setHoldoutStage,
@@ -413,5 +414,61 @@ describe("rollbackExperimentAfterHoldoutFailure guard", () => {
       // back; only the reverted-state refresh should reach the SDK caches.
       expect(events).toEqual(["Reverted: Status changed to stopped"]);
     });
+  });
+});
+
+describe("assertValidHoldoutEnvironments", () => {
+  const context = {
+    org: {
+      id: "org",
+      settings: {
+        environments: [{ id: "production" }, { id: "staging" }],
+      },
+    },
+  } as unknown as ReqContext;
+
+  it("passes when every id exists in the org", () => {
+    expect(() =>
+      assertValidHoldoutEnvironments(context, {
+        production: { enabled: true },
+        staging: { enabled: false },
+      }),
+    ).not.toThrow();
+  });
+
+  it("throws when an id does not exist in the org", () => {
+    expect(() =>
+      assertValidHoldoutEnvironments(context, {
+        production: { enabled: true },
+        made_up: { enabled: true },
+      }),
+    ).toThrow(/Invalid environment: made_up/);
+  });
+
+  it("is a no-op for undefined or null", () => {
+    expect(() =>
+      assertValidHoldoutEnvironments(context, undefined),
+    ).not.toThrow();
+    expect(() => assertValidHoldoutEnvironments(context, null)).not.toThrow();
+  });
+
+  it("tolerates ids already stored on the holdout", () => {
+    expect(() =>
+      assertValidHoldoutEnvironments(
+        context,
+        { deleted: { enabled: false } },
+        { deleted: { enabled: true } },
+      ),
+    ).not.toThrow();
+  });
+
+  it("still rejects newly introduced ids on update", () => {
+    expect(() =>
+      assertValidHoldoutEnvironments(
+        context,
+        { deleted: { enabled: false }, made_up: { enabled: true } },
+        { deleted: { enabled: true } },
+      ),
+    ).toThrow(/Invalid environment: made_up/);
   });
 });
