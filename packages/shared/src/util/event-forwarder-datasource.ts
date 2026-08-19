@@ -20,18 +20,15 @@ export const EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION =
   "Managed by Event Forwarder.";
 
 /**
- * Identifier types the Event Forwarder created. Current ones carry
- * `managedBy: "api"`; ones written before that field existed are recognized by
- * the shape they were always written with — see
- * isLegacyEventForwarderManagedUserIdType.
+ * Identifier types the Event Forwarder owns. Ownership is explicit and is only
+ * ever taken at creation — nothing an earlier version wrote, and nothing a user
+ * wrote, is promoted into it. Records that predate the field are linked instead,
+ * which gives them their warehouse queries while leaving them fully editable.
  */
 export function isEventForwarderManagedUserIdType(
   userIdType: UserIdType,
 ): boolean {
-  return (
-    userIdType.managedBy === "api" ||
-    isLegacyEventForwarderManagedUserIdType(userIdType)
-  );
+  return userIdType.managedBy === "api";
 }
 
 /**
@@ -48,47 +45,18 @@ export function isEventForwarderLinkedUserIdType(
   );
 }
 
-const LEGACY_EVENT_FORWARDER_MANAGED_NAME_PREFIX = "ef_";
-
 /**
- * Identifier types the Event Forwarder wrote before `managedBy` existed. It only
- * ever emitted `{ userIdType: "ef_<attribute>", attributes: ["<attribute>"] }`,
- * so the name and the linked attribute together identify them. Both are required
- * — a user-created `ef_` name that links something else is left alone.
+ * Resolves the SDK attribute an identifier type reads its value from.
+ *
+ * An explicit link wins. Failing that the Linked Hash Attributes answer it: one
+ * identifier type models one hash attribute, so a lone entry there *is* the
+ * source. That is what recovers records written before the link existed —
+ * including the `ef_`-prefixed ones, which always carried their attribute in
+ * `attributes`. Nothing reads meaning from the name.
+ *
+ * An entry listing several attributes is a user's own construct rather than a
+ * model of one attribute, so it falls through to its name.
  */
-function isLegacyEventForwarderManagedUserIdType(
-  userIdType: UserIdType,
-): boolean {
-  if (
-    !userIdType.userIdType.startsWith(
-      LEGACY_EVENT_FORWARDER_MANAGED_NAME_PREFIX,
-    )
-  ) {
-    return false;
-  }
-  const recovered = normalizeUserIdTypeName(
-    resolveLegacyEventForwarderManagedSourceAttribute(userIdType.userIdType),
-  );
-  return (userIdType.attributes ?? []).some(
-    (attribute) => normalizeUserIdTypeName(attribute) === recovered,
-  );
-}
-
-/**
- * Recovers the attribute of a managed resource written before `sourceAttribute`
- * existed, which encoded it as `ef_<attribute>`. Exactly one prefix was ever
- * applied. Read-only — nothing writes prefixed names any more.
- */
-export function resolveLegacyEventForwarderManagedSourceAttribute(
-  name: string,
-): string {
-  return name.startsWith(LEGACY_EVENT_FORWARDER_MANAGED_NAME_PREFIX)
-    ? name.slice(LEGACY_EVENT_FORWARDER_MANAGED_NAME_PREFIX.length)
-    : name;
-}
-
-// Resolves the SDK attribute a userIdType reads its value from. Linked types
-// carry an explicit link; everything else is named after its own source.
 export function getEventForwarderUserIdTypeSourceAttribute(
   userIdType: UserIdType,
 ): string {
@@ -96,10 +64,9 @@ export function getEventForwarderUserIdTypeSourceAttribute(
   if (linked !== null) {
     return linked;
   }
-  if (isEventForwarderManagedUserIdType(userIdType)) {
-    return resolveLegacyEventForwarderManagedSourceAttribute(
-      userIdType.userIdType,
-    );
+  const attributes = userIdType.attributes ?? [];
+  if (attributes.length === 1) {
+    return attributes[0];
   }
   return userIdType.userIdType;
 }
@@ -262,14 +229,13 @@ export function getUserIdTypesToAdd(
   const existingNames = new Set(
     existing.map((u) => normalizeUserIdTypeName(u.userIdType)),
   );
-  // A managed type already covering the attribute counts as present even after a
-  // rename, so a renamed identifier is never re-added under its original name.
+  // Any entry already modelling the attribute counts as present, whoever owns
+  // it, so a renamed identifier is never re-added under its original name and a
+  // record written before the marker existed never gains a twin.
   const existingSources = new Set(
-    existing
-      .filter(isEventForwarderManagedUserIdType)
-      .map((u) =>
-        normalizeUserIdTypeName(getEventForwarderUserIdTypeSourceAttribute(u)),
-      ),
+    existing.map((u) =>
+      normalizeUserIdTypeName(getEventForwarderUserIdTypeSourceAttribute(u)),
+    ),
   );
   return built.filter(
     (u) =>
@@ -299,68 +265,57 @@ function releaseUserIdType(userIdType: UserIdType): UserIdType {
 }
 
 /**
- * Reconciles managed identifier types against the hash attributes the org's
- * schema calls for. One identifier type per hash attribute.
+ * Reconciles Event Forwarder identifier types against the hash attributes the
+ * org's schema calls for. One identifier type per hash attribute, and one hash
+ * attribute per identifier type.
  *
- * - Covered attribute → leave the entry alone. Only `sourceAttribute` is
- *   backfilled; the name stays put, and so does every warehouse artifact keyed
- *   off it (column aliases, identity joins, fact table `userIdTypes`).
- * - Uncovered attribute whose name is already taken → link that entry to it,
- *   without claiming ownership.
- * - Uncovered attribute with a free name → add it.
- * - Entry whose attribute is gone (archived, un-flagged, out of the
- *   datasource's Projects) → release it: the link and the managed marker come
- *   off and the entry stays, now the user's to keep or delete.
+ * An attribute is matched to an entry that already models it, in this order:
+ * an explicit `sourceAttribute`, then Linked Hash Attributes, then the name.
+ * Only an attribute nothing models gets a new managed entry — reconciliation
+ * does not mint a second identifier type for a unit the datasource already has
+ * just to own one.
+ *
+ * Matching an entry writes the link, and the attribute into Linked Hash
+ * Attributes if missing. It never writes `managedBy`: ownership is taken at
+ * creation and never afterwards, so an entry a user created stays theirs, fully
+ * editable and deletable, whatever it is called.
+ *
+ * Nothing is deleted. An entry whose attribute is gone (archived, un-flagged,
+ * out of the datasource's Projects) is released — link and managed marker off,
+ * record kept — for the user to clean up if they want it gone.
  */
 export function reconcileEventForwarderManagedUserIdTypes(
   existing: UserIdType[],
   desired: UserIdType[],
 ): UserIdType[] {
-  const desiredBySource = new Map(
-    desired.map((entry) => [
-      normalizeUserIdTypeName(
-        getEventForwarderUserIdTypeSourceAttribute(entry),
-      ),
-      entry,
-    ]),
-  );
-  const claimedSources = new Set<string>();
-  const result: UserIdType[] = [];
-
-  for (const entry of existing) {
+  // Insertion order is attribute-schema order, which makes every tie below
+  // resolve the same way on every sync.
+  const desiredBySource = new Map<string, UserIdType>();
+  for (const entry of desired) {
     const source = normalizeUserIdTypeName(
       getEventForwarderUserIdTypeSourceAttribute(entry),
     );
-    const wanted = desiredBySource.get(source);
+    if (!desiredBySource.has(source)) {
+      desiredBySource.set(source, entry);
+    }
+  }
 
-    if (isEventForwarderManagedUserIdType(entry)) {
-      // Attribute gone, or an earlier entry already represents it. The second
-      // case only arises from data written before legacy detection worked.
-      // Either way the entry is released, never deleted.
-      if (!wanted || claimedSources.has(source)) {
-        result.push(releaseUserIdType(entry));
-        continue;
-      }
-      claimedSources.add(source);
-      // Backfill the markers on legacy entries. Never touch the name.
-      result.push({
-        ...entry,
-        managedBy: "api",
-        sourceAttribute:
-          entry.sourceAttribute ?? wanted.sourceAttribute ?? source,
-      });
+  const claimedSources = new Set<string>();
+  const result: UserIdType[] = [];
+
+  // An explicit link is the strongest claim, so it is settled before anything
+  // competes for the same attribute by name or by Linked Hash Attributes.
+  for (const entry of existing) {
+    if ((entry.sourceAttribute ?? null) === null) {
+      result.push(entry);
       continue;
     }
-
-    // A linked entry claims its attribute so we never add a second type for
-    // it. If the attribute is gone the link comes off and the entry stays.
-    if ((entry.sourceAttribute ?? null) !== null) {
-      if (!wanted) {
-        result.push(releaseUserIdType(entry));
-        continue;
-      }
-      claimedSources.add(source);
+    const source = normalizeUserIdTypeName(entry.sourceAttribute as string);
+    if (!desiredBySource.has(source) || claimedSources.has(source)) {
+      result.push(releaseUserIdType(entry));
+      continue;
     }
+    claimedSources.add(source);
     result.push(entry);
   }
 
@@ -369,35 +324,48 @@ export function reconcileEventForwarderManagedUserIdTypes(
       continue;
     }
 
-    // Name already taken: that entry already models this attribute, so link it
-    // rather than duplicate it. `managedBy` is deliberately left alone — linking
-    // must not make the user's own entry deletable when the attribute is
-    // archived, which would take any fact table or identity join with it.
-    const reuseIndex = result.findIndex(
-      (entry) =>
-        normalizeUserIdTypeName(entry.userIdType) ===
-        normalizeUserIdTypeName(wanted.userIdType),
-    );
-    if (reuseIndex >= 0) {
-      const reused = result[reuseIndex];
-      const sourceAttribute = wanted.sourceAttribute ?? wanted.userIdType;
-      const hasSourceAttribute = reused.attributes?.some(
-        (attribute) =>
-          normalizeUserIdTypeName(attribute) ===
-          normalizeUserIdTypeName(sourceAttribute),
+    const sourceAttribute = wanted.sourceAttribute ?? wanted.userIdType;
+    const isUnlinked = (entry: UserIdType) =>
+      (entry.sourceAttribute ?? null) === null;
+    // Linked Hash Attributes first: an entry already modelling the attribute is
+    // the one the warehouse is wired to, so matching it keeps the existing
+    // column, query, and id in place.
+    const hostIndex = (() => {
+      const byAttribute = result.findIndex(
+        (entry) =>
+          isUnlinked(entry) &&
+          (entry.attributes ?? []).some(
+            (attribute) => normalizeUserIdTypeName(attribute) === source,
+          ),
       );
+      if (byAttribute >= 0) {
+        return byAttribute;
+      }
+      return result.findIndex(
+        (entry) =>
+          isUnlinked(entry) &&
+          normalizeUserIdTypeName(entry.userIdType) === source,
+      );
+    })();
 
-      result[reuseIndex] = {
-        ...reused,
+    if (hostIndex >= 0) {
+      const host = result[hostIndex];
+      const hasSourceAttribute = (host.attributes ?? []).some(
+        (attribute) => normalizeUserIdTypeName(attribute) === source,
+      );
+      result[hostIndex] = {
+        ...host,
         sourceAttribute,
         attributes: hasSourceAttribute
-          ? reused.attributes
-          : [...(reused.attributes ?? []), sourceAttribute],
+          ? host.attributes
+          : [...(host.attributes ?? []), sourceAttribute],
       };
+      claimedSources.add(source);
       continue;
     }
 
     result.push(wanted);
+    claimedSources.add(source);
   }
 
   return result;

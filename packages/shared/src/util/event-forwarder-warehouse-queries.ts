@@ -26,7 +26,6 @@ import {
 import {
   getEventForwarderUserIdTypeSourceAttribute,
   normalizeUserIdTypeName,
-  resolveLegacyEventForwarderManagedSourceAttribute,
 } from "./event-forwarder-datasource";
 
 export const EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE =
@@ -229,20 +228,24 @@ export function isEventForwarderManagedExposureQuery(
 }
 
 /**
- * The SDK attribute a managed query reads. For queries written before the link
- * existed the attribute is recovered from the legacy `ef_`-prefixed identifier
- * name, so reconciliation matches them to their attribute and preserves their id
- * instead of dropping them and minting a replacement.
+ * The SDK attribute a query reads. Queries written before the link existed carry
+ * it nowhere, so it comes from the identifier type they run against — which by
+ * then has been matched to its attribute. That is what lets a query provisioned
+ * under the old naming keep its id instead of being replaced.
  */
 function getEventForwarderExposureQuerySourceAttribute(
   query: ExposureQuery,
+  userIdTypesByName: Map<string, UserIdType>,
 ): string {
   const linked = query.sourceAttribute ?? null;
   if (linked !== null) {
     return linked;
   }
-  if (isEventForwarderManagedExposureQuery(query)) {
-    return resolveLegacyEventForwarderManagedSourceAttribute(query.userIdType);
+  const owner = userIdTypesByName.get(
+    normalizeUserIdTypeName(query.userIdType),
+  );
+  if (owner) {
+    return getEventForwarderUserIdTypeSourceAttribute(owner);
   }
   return query.userIdType;
 }
@@ -343,10 +346,16 @@ export function reconcileEventForwarderManagedExposureQueries({
     params,
     attributeSchema,
   );
+  const userIdTypesByName = new Map(
+    userIdTypes.map((userIdType) => [
+      normalizeUserIdTypeName(userIdType.userIdType),
+      userIdType,
+    ]),
+  );
   const desiredBySource = new Map(
     desired.map((query) => [
       normalizeUserIdTypeName(
-        getEventForwarderExposureQuerySourceAttribute(query),
+        getEventForwarderExposureQuerySourceAttribute(query, userIdTypesByName),
       ),
       query,
     ]),
@@ -360,8 +369,10 @@ export function reconcileEventForwarderManagedExposureQueries({
       continue;
     }
 
-    const sourceAttribute =
-      getEventForwarderExposureQuerySourceAttribute(query);
+    const sourceAttribute = getEventForwarderExposureQuerySourceAttribute(
+      query,
+      userIdTypesByName,
+    );
     const source = normalizeUserIdTypeName(sourceAttribute);
     if (!desiredBySource.has(source)) {
       // Attribute gone. The query is released rather than deleted — its id is

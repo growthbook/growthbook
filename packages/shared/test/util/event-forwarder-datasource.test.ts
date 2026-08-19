@@ -188,16 +188,16 @@ describe("isEventForwarderManagedUserIdType", () => {
     );
   });
 
-  // Records written before `managedBy` existed carry no marker at all, so they
-  // are identified by the shape the old builder always emitted.
-  it("identifies a legacy type by its name and linked attribute", () => {
+  // Ownership is taken at creation and never afterwards. A record written before
+  // the marker existed is linked, not owned, so it stays the user's to edit.
+  it("does not promote a record that predates the marker", () => {
     expect(
       isEventForwarderManagedUserIdType({
         userIdType: "ef_id",
         description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
         attributes: ["id"],
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("leaves an ef_ name that links something else alone", () => {
@@ -251,37 +251,47 @@ describe("getEventForwarderUserIdTypeSourceAttribute", () => {
     ).toBe("device_id");
   });
 
-  it("recovers the attribute from a legacy ef_-prefixed managed name", () => {
+  // The old builder always wrote the attribute into Linked Hash Attributes, so
+  // that is what recovers it. The name is never read, prefixed or not.
+  it("recovers the attribute from a lone linked hash attribute", () => {
     expect(
       getEventForwarderUserIdTypeSourceAttribute({
         userIdType: "ef_user_id",
-        managedBy: "api",
+        attributes: ["user_id"],
       }),
     ).toBe("user_id");
   });
 
-  it("strips exactly one legacy prefix", () => {
-    // The old code prefixed unconditionally, so an attribute literally named
-    // "ef_user_id" was stored as "ef_ef_user_id".
+  it("reads no meaning from an ef_ name on its own", () => {
+    expect(
+      getEventForwarderUserIdTypeSourceAttribute({ userIdType: "ef_user_id" }),
+    ).toBe("ef_user_id");
+    // Including one an old build produced by prefixing an attribute already
+    // called "ef_user_id".
     expect(
       getEventForwarderUserIdTypeSourceAttribute({
         userIdType: "ef_ef_user_id",
-        managedBy: "api",
+        attributes: ["ef_user_id"],
       }),
     ).toBe("ef_user_id");
   });
 
-  it("leaves an ef_ name alone on a user-created type", () => {
+  it("falls back to the name when several hash attributes are linked", () => {
+    // Several means the entry is the user's own construct rather than a model
+    // of one attribute.
     expect(
-      getEventForwarderUserIdTypeSourceAttribute({ userIdType: "ef_user_id" }),
-    ).toBe("ef_user_id");
+      getEventForwarderUserIdTypeSourceAttribute({
+        userIdType: "anonymous_id",
+        attributes: ["anonymous_id", "user_id"],
+      }),
+    ).toBe("anonymous_id");
   });
 
-  it("prefers an explicit link over the legacy name", () => {
+  it("prefers an explicit link over the linked hash attribute", () => {
     expect(
       getEventForwarderUserIdTypeSourceAttribute({
         userIdType: "ef_user_id",
-        managedBy: "api",
+        attributes: ["user_id"],
         sourceAttribute: "device_id",
       }),
     ).toBe("device_id");
@@ -572,7 +582,7 @@ describe("reconcileEventForwarderManagedUserIdTypes", () => {
   });
 
   // Exactly what the old builder wrote: no managedBy, attribute in `attributes`.
-  it("adopts a real legacy record and claims its attribute", () => {
+  it("links a record that predates the marker without taking it over", () => {
     const legacy = [
       {
         userIdType: "ef_user_id",
@@ -581,12 +591,14 @@ describe("reconcileEventForwarderManagedUserIdTypes", () => {
       },
     ];
 
+    // Linked, so it claims the attribute and no unprefixed twin appears. Not
+    // owned: no managedBy is written, so it stays editable and deletable.
     expect(reconcileEventForwarderManagedUserIdTypes(legacy, desired)).toEqual([
-      { ...legacy[0], managedBy: "api", sourceAttribute: "user_id" },
+      { ...legacy[0], sourceAttribute: "user_id" },
     ]);
   });
 
-  it("keeps the legacy entry managed and releases the duplicate beside it", () => {
+  it("lets an explicit link win the attribute over one inferred from attributes", () => {
     const existing = [
       {
         userIdType: "ef_user_id",
@@ -603,20 +615,66 @@ describe("reconcileEventForwarderManagedUserIdTypes", () => {
       },
     ];
 
-    // The legacy entry wins the attribute: it is the one the warehouse artifacts
-    // reference. The duplicate is released rather than deleted, since anything
-    // created against it in the meantime still points at that name.
+    // The explicit link settles it, so the attribute is not contested by the
+    // older entry's Linked Hash Attributes. Both records survive untouched —
+    // the loser is simply left unlinked rather than deleted.
+    expect(
+      reconcileEventForwarderManagedUserIdTypes(existing, desired),
+    ).toEqual(existing);
+  });
+
+  it("prefers the entry whose linked hash attributes model the attribute", () => {
+    const existing = [
+      // Provisioned by an older build. Its exposure query, warehouse column, and
+      // every experiment reference hang off this name, so it keeps the attribute
+      // even though another entry is named after it.
+      {
+        userIdType: "ef_user_id",
+        description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+        attributes: ["user_id"],
+      },
+      { userIdType: "user_id", description: "Mine", attributes: [] },
+    ];
+
     expect(
       reconcileEventForwarderManagedUserIdTypes(existing, desired),
     ).toEqual([
-      { ...existing[0], managedBy: "api", sourceAttribute: "user_id" },
+      { ...existing[0], sourceAttribute: "user_id" },
+      // Untouched: no link, no marker, still entirely the user's.
+      existing[1],
+    ]);
+  });
+
+  it("claims one attribute per identifier type", () => {
+    const existing = [
       {
-        userIdType: "user_id",
+        userIdType: "combined",
+        description: "Mine",
+        attributes: ["user_id", "device_id"],
+      },
+    ];
+
+    const reconciled = reconcileEventForwarderManagedUserIdTypes(existing, [
+      ...desired,
+      {
+        userIdType: "device_id",
         description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
-        attributes: ["user_id"],
-        managedBy: "",
+        attributes: ["device_id"],
+        managedBy: "api" as const,
+        sourceAttribute: "device_id",
       },
     ]);
+
+    // One entry cannot serve two attributes: its query aliases a single column
+    // reading a single attribute. It takes the first, and the second gets its
+    // own entry rather than being silently folded in.
+    expect(reconciled).toHaveLength(2);
+    expect(reconciled[0]).toEqual({
+      ...existing[0],
+      sourceAttribute: "user_id",
+    });
+    expect(reconciled[1].userIdType).toBe("device_id");
+    expect(reconciled[1].managedBy).toBe("api");
   });
 
   it("does not adopt a user-created ef_-prefixed type", () => {

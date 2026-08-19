@@ -498,9 +498,11 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
 
     const settings = mockedUpdate.mock.calls[0][2].settings;
     // One identifier type for the attribute — no unprefixed twin beside it — and
-    // the exposure query keeps the id every experiment already references.
+    // the exposure query keeps the id every experiment already references. The
+    // record is linked, not taken over: no managedBy is written, so it stays
+    // fully editable and the user can remove it whenever they want.
     expect(settings?.userIdTypes).toEqual([
-      { ...legacyUserIdType, managedBy: "api", sourceAttribute: "user_id" },
+      { ...legacyUserIdType, sourceAttribute: "user_id" },
     ]);
     expect(settings?.queries?.exposure).toEqual([
       {
