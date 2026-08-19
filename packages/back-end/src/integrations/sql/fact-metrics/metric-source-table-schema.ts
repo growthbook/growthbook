@@ -8,7 +8,11 @@ import type { SqlDialect } from "shared/types/sql";
 
 import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
 import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
-import { funnelStepArrayColumn } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
+import {
+  funnelStepArrayColumn,
+  funnelStepResolvedTsColumn,
+} from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
+import { funnelStep0NeedsExposureWindow } from "back-end/src/integrations/sql/ctes/funnel-resolution-cte";
 
 // Generates the cache table schema for a single per-fact-table metric source.
 //
@@ -34,8 +38,15 @@ export function getMetricSourceTableSchema(
   metrics.forEach((metric) => {
     if (isFactFunnelMetric(metric)) {
       const prefix = encodeMetricIdForColumnName(metric.id);
+      const step0Scalar = !funnelStep0NeedsExposureWindow(metric);
       (metric.funnelSettings?.steps ?? []).forEach((step, stepIndex) => {
-        if (step.factTable === factTableId) {
+        if (step.factTable !== factTableId) return;
+        if (stepIndex === 0 && step0Scalar) {
+          schema.set(
+            funnelStepResolvedTsColumn(prefix, 0),
+            dialect.getDataType("timestamp"),
+          );
+        } else {
           schema.set(
             funnelStepArrayColumn(prefix, stepIndex),
             dialect.getDataType("arrayTimestamp"),

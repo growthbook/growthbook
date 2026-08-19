@@ -4,6 +4,7 @@ import { format as formatDate, subDays } from "date-fns";
 import {
   ExperimentMetricInterface,
   getFactTableTemplateVariables,
+  isFactFunnelMetric,
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
@@ -132,6 +133,12 @@ import { getAlterNewIncrementalUnitsQuery } from "back-end/src/integrations/sql/
 import { getBanditVariationPeriodWeights as getBanditVariationPeriodWeightsFromSql } from "back-end/src/integrations/sql/clauses/bandit-variation-period-weights";
 import { getColumnsTopValuesQuery } from "back-end/src/integrations/sql/queries/columns-top-values-query";
 import { castToTimestamp } from "back-end/src/integrations/sql/primitives/cast-to-timestamp";
+import {
+  funnelStepTimestampColumn,
+  funnelStepArrayColumn,
+  funnelStepResolvedTsColumn,
+} from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
+import { funnelStep0NeedsExposureWindow } from "back-end/src/integrations/sql/ctes/funnel-resolution-cte";
 import { getDimensionCTE } from "back-end/src/integrations/sql/ctes/dimension-cte";
 import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension-col";
 import { getDimensionInStatement } from "back-end/src/integrations/sql/fact-metrics/dimension-in-statement";
@@ -2177,6 +2184,26 @@ export default abstract class SqlIntegration
             , m.timestamp AS timestamp
             ${metricData
               .map((data) => {
+                if (isFactFunnelMetric(data.metric)) {
+                  return (data.metric.funnelSettings?.steps ?? [])
+                    .map((step, stepIndex) => {
+                      if (step.factTable !== params.factTableId) return "";
+                      const col = funnelStepTimestampColumn(
+                        data.alias,
+                        stepIndex,
+                      );
+                      return `, ${addCaseWhenTimeFilter(this.getSqlDialect(), {
+                        col: `m.${col}`,
+                        metric: data.metric,
+                        overrideConversionWindows:
+                          data.overrideConversionWindows,
+                        endDate: params.settings.endDate,
+                        metricTimestampColExpr: castToTimestamp("m.timestamp"),
+                        exposureTimestampColExpr: "d.first_exposure_timestamp",
+                      })} AS ${col}`;
+                    })
+                    .join("\n");
+                }
                 // For each metric, project only the columns this cache owns.
                 // Cross-FT ratio metrics fan into a numerator-only insert
                 // against the numerator FT and a denominator-only insert
@@ -2243,6 +2270,26 @@ export default abstract class SqlIntegration
             , ${this.getSqlDialect().castToDate("timestamp")} AS metric_date
             ${metricData
               .map((m) => {
+                if (isFactFunnelMetric(m.metric)) {
+                  const step0Scalar = !funnelStep0NeedsExposureWindow(m.metric);
+                  const prefix = encodeMetricIdForColumnName(m.id);
+                  return (m.metric.funnelSettings?.steps ?? [])
+                    .map((step, stepIndex) => {
+                      if (step.factTable !== params.factTableId) return "";
+                      const inCol = funnelStepTimestampColumn(
+                        m.alias,
+                        stepIndex,
+                      );
+                      if (stepIndex === 0 && step0Scalar) {
+                        return `, MIN(${inCol}) AS ${funnelStepResolvedTsColumn(prefix, 0)}`;
+                      }
+                      return `, ${this.getSqlDialect().arrayAggSorted(
+                        inCol,
+                        "timestamp",
+                      )} AS ${funnelStepArrayColumn(prefix, stepIndex)}`;
+                    })
+                    .join("\n");
+                }
                 // Use partial aggregation function since we are
                 // aggregating at the user-date level, not the user level
                 const aggfunction =
@@ -2280,6 +2327,21 @@ export default abstract class SqlIntegration
           dv.${baseIdType} AS ${baseIdType}
           ${metricData
             .map((m) => {
+              // Funnels: pass through the per-step columns produced above.
+              if (isFactFunnelMetric(m.metric)) {
+                const step0Scalar = !funnelStep0NeedsExposureWindow(m.metric);
+                const prefix = encodeMetricIdForColumnName(m.id);
+                return (m.metric.funnelSettings?.steps ?? [])
+                  .map((step, stepIndex) => {
+                    if (step.factTable !== params.factTableId) return "";
+                    const outCol =
+                      stepIndex === 0 && step0Scalar
+                        ? funnelStepResolvedTsColumn(prefix, 0)
+                        : funnelStepArrayColumn(prefix, stepIndex);
+                    return `, ${outCol} AS ${outCol}`;
+                  })
+                  .join("\n");
+              }
               const numeratorCol = includesNumerator(m.metric)
                 ? `, ${encodeMetricIdForColumnName(m.id)}_value AS ${encodeMetricIdForColumnName(m.id)}_value`
                 : "";
