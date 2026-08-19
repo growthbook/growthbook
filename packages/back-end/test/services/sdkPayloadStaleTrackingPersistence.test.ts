@@ -163,6 +163,15 @@ describe("SDK payload stale tracking persistence (real SDKConnectionModel)", () 
     await rawCollection().deleteMany({});
   });
 
+  // queueSDKPayloadRefresh's stale tracking is fire-and-forget; fixed sleeps
+  // race real-Mongo latency on loaded CI runners, so poll for the signal.
+  const waitForCalls = async (mock: jest.Mock, count = 1) => {
+    const start = Date.now();
+    while (mock.mock.calls.length < count && Date.now() - start < 5000) {
+      await new Promise((r) => setTimeout(r, 20));
+    }
+  };
+
   it("marks the affected connection stale on a REST write", async () => {
     await insertConnection({ id: "c1", key: "sdk-1" });
     const mockModels = mockRefreshDependencies(jest.fn());
@@ -173,7 +182,7 @@ describe("SDK payload stale tracking persistence (real SDKConnectionModel)", () 
       }) as ReqContext,
       payloadKeys: [{ environment: "production", project: "" }],
     });
-    await new Promise((r) => setTimeout(r, 50));
+    await waitForCalls(scheduleOrgRefreshJobMock);
 
     const doc = await rawCollection().findOne({ key: "sdk-1" });
     expect(doc?.staleSince).toBeInstanceOf(Date);
@@ -195,7 +204,7 @@ describe("SDK payload stale tracking persistence (real SDKConnectionModel)", () 
       }) as ReqContext,
       payloadKeys: [{ environment: "production", project: "" }],
     });
-    await new Promise((r) => setTimeout(r, 50));
+    await waitForCalls(scheduleOrgRefreshJobMock);
 
     const doc = await rawCollection().findOne({ key: "sdk-hidden" });
     expect(doc?.staleSince).toBeInstanceOf(Date);
@@ -213,7 +222,7 @@ describe("SDK payload stale tracking persistence (real SDKConnectionModel)", () 
       }) as ReqContext,
       payloadKeys: [{ environment: "production", project: "" }],
     });
-    await new Promise((r) => setTimeout(r, 50));
+    await waitForCalls(scheduleOrgRefreshJobMock);
 
     const doc = await rawCollection().findOne({ key: "sdk-1" });
     expect(doc?.staleSince.getTime()).toBeGreaterThan(original.getTime());
@@ -333,7 +342,7 @@ describe("SDK payload stale tracking persistence (real SDKConnectionModel)", () 
       }) as ReqContext,
       payloadKeys: [{ environment: "production", project: "" }],
     });
-    await new Promise((r) => setTimeout(r, 50));
+    await waitForCalls(upsert);
 
     expect(upsert).toHaveBeenCalledWith(
       "sdk-fallback",
