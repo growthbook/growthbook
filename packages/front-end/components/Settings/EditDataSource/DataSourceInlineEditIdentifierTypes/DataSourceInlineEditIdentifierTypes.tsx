@@ -167,7 +167,13 @@ export const DataSourceInlineEditIdentifierTypes: FC<
 
               {/* region Identity Type actions */}
               {canEdit && (
-                <Flex gap="3">
+                <Flex gap="2">
+                  <Button
+                    variant="outline"
+                    onClick={handleActionEditClicked(idx)}
+                  >
+                    Edit
+                  </Button>
                   <DeleteButton
                     onClick={handleActionDeleteClicked(idx)}
                     useIcon={false}
@@ -175,14 +181,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
                     deleteMessage={`Are you sure you want to delete identifier type ${userIdTypes[idx]?.userIdType}?`}
                     title="Delete"
                     text="Delete"
-                    outline={false}
                   />
-                  <Button
-                    variant="ghost"
-                    onClick={handleActionEditClicked(idx)}
-                  >
-                    Edit
-                  </Button>
                 </Flex>
               )}
               {/* endregion Identity Type actions */}
