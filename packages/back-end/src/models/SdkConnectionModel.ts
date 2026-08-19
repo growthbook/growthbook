@@ -482,8 +482,8 @@ export async function markSDKConnectionUsed(key: string) {
   );
 }
 
-// Always bumps staleSince — a write during an in-flight rebuild must advance
-// the timestamp so clearStaleSdkConnections' `< clearBefore` guard keeps it.
+// Always bumps staleSince — a write during an in-flight rebuild must change
+// the value so clearStaleSdkConnections' exact-match clear keeps it.
 export async function markSdkConnectionsStale(
   organization: string,
   keys: string[],
