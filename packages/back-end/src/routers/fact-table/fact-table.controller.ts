@@ -46,12 +46,13 @@ import {
   getIntegrationIdentifierQuote,
 } from "back-end/src/services/datasource";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
 import {
-  runRefreshColumnsQuery,
+  runColumnDetectionQuery,
+  refreshColumnTopValues,
   runColumnsTopValuesQuery,
   populateAutoSlices,
-  queueFactTableColumnsRefresh,
-} from "back-end/src/jobs/refreshFactTableColumns";
+} from "back-end/src/services/factTableColumns";
 import {
   deriveUserIdTypesFromColumns,
   validateAggregatedFactTableSettings,
@@ -350,12 +351,13 @@ export async function refreshColumns(
 
     return { columns, needsBackgroundRefresh: true };
   } else {
-    // Slow path: Full LIMIT 20 query (existing behavior)
-    const columns = await runRefreshColumnsQuery(
+    // Slow path runs full detection plus top values inline
+    const columns = await runColumnDetectionQuery(
       context,
       datasource,
       factTable,
     );
+    await refreshColumnTopValues(context, datasource, factTable, columns);
     return { columns, needsBackgroundRefresh: false };
   }
 }

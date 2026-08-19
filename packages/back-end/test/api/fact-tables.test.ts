@@ -3,10 +3,8 @@ import {
   FactTableInterface,
   UpdateFactTableProps,
 } from "shared/types/fact-table";
-import {
-  columnsNeedDetection,
-  needsColumnRefresh,
-} from "back-end/src/api/fact-tables/updateFactTable";
+import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
+import { columnsNeedDetection } from "back-end/src/util/factTable";
 
 const existing: Pick<FactTableInterface, "sql" | "eventName"> = {
   sql: "SELECT user_id, timestamp FROM events",

@@ -38,7 +38,7 @@ import {
   getAllFactTablesForOrganization,
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { runColumnsTopValuesQuery } from "back-end/src/jobs/refreshFactTableColumns";
+import { runColumnsTopValuesQuery } from "back-end/src/services/factTableColumns";
 
 // =============================================================================
 // Constants & system prompt
