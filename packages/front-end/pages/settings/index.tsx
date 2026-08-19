@@ -17,7 +17,6 @@ import {
   DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS,
   DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_LEARNING_STATUSES,
-  DEFAULT_REVISION_CONFIGURATION,
 } from "shared/constants";
 import {
   DEFAULT_MAX_METRIC_SLICE_LEVELS,
@@ -40,6 +39,7 @@ import {
 import { useUser } from "@/services/UserContext";
 import { useCurrency } from "@/hooks/useCurrency";
 import useURLHash from "@/hooks/useURLHash";
+import { applyApprovalFlowEntitlements } from "@/hooks/useOrgSettings";
 import OrganizationAndLicenseSettings from "@/components/GeneralSettings/OrganizationAndLicenseSettings";
 import ImportSettings from "@/components/GeneralSettings/ImportSettings";
 import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetricSettings";
@@ -76,28 +76,6 @@ function hasChanges(
   if (!existing) return true;
 
   return !isEqual(value, existing);
-}
-
-function applyApprovalFlowEntitlements(
-  approvalFlows: OrganizationSettings["approvalFlows"],
-  hasRequireApprovals: boolean,
-): OrganizationSettings["approvalFlows"] {
-  if (hasRequireApprovals || !approvalFlows) return approvalFlows;
-
-  const savedGroupApprovalFlow =
-    approvalFlows?.savedGroups?.[0] ??
-    DEFAULT_REVISION_CONFIGURATION.savedGroups[0];
-
-  return {
-    ...approvalFlows,
-    savedGroups: [
-      {
-        ...savedGroupApprovalFlow,
-        required: false,
-      },
-      ...(approvalFlows.savedGroups?.slice(1) ?? []),
-    ],
-  };
 }
 
 const GeneralSettingsPage = (): React.ReactElement => {

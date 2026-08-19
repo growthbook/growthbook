@@ -17,6 +17,7 @@ import {
   getLiveRevision,
   getRevisionNumber,
   isSavedGroupRevisionMetadataOnly,
+  getApprovalFlowSettings,
 } from "shared/enterprise";
 import { REVIEW_REQUESTED_STATUSES } from "shared/validators";
 import {
@@ -169,13 +170,14 @@ export default function EditSavedGroupPage() {
   );
   const { projects } = useDefinitions();
 
-  const approvalRequired =
-    settings.approvalFlows?.savedGroups?.[0]?.required ?? false;
-
-  // Check if metadata review is required
+  const approvalFlow = getApprovalFlowSettings(
+    settings.approvalFlows,
+    "saved-group",
+    savedGroup?.projects ?? [],
+  );
+  const approvalRequired = !!approvalFlow?.required;
   const metadataReviewRequired =
-    approvalRequired &&
-    (settings.approvalFlows?.savedGroups?.[0]?.requireMetadataReview ?? true);
+    approvalRequired && (approvalFlow?.requireMetadataReview ?? true);
 
   const revisionState = useSavedGroupRevision(
     savedGroup?.id,
