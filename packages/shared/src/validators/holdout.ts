@@ -236,6 +236,10 @@ export const apiHoldoutValidator = namedSchema(
     assignmentQueryId: z.string(),
     goalMetrics: z.array(z.string()),
     secondaryMetrics: z.array(z.string()),
+    statsEngine: z
+      .enum(statsEngines)
+      .describe("Statistics engine used to analyze this Holdout.")
+      .optional(),
     variations: z.array(apiHoldoutVariation),
 
     environments: z
