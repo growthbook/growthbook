@@ -46,7 +46,11 @@
     white-space: nowrap;
     box-sizing: border-box;
     padding: var(--space-3);
-    box-shadow: inset 0 1px 0 0 var(--slate-a5, rgba(0, 9, 50, 0.12));
+    // Top line = table's top edge; bottom line = separator to the first body row
+    // (the drop shadow on .rt-TableHeader alone is invisible in dark mode).
+    box-shadow:
+      inset 0 1px 0 0 var(--slate-a5, rgba(0, 9, 50, 0.12)),
+      inset 0 -1px 0 0 var(--slate-a5, rgba(0, 9, 50, 0.12));
   }
 
   :global(.rt-TableRootTable) {

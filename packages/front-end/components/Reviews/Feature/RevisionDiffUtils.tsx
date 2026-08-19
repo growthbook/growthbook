@@ -13,9 +13,8 @@ import {
   PiGitDiff,
   PiSparkle,
   PiBracketsCurly,
-  PiPencilSimpleFill,
 } from "react-icons/pi";
-import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
+import { Box, Flex, Grid } from "@radix-ui/themes";
 import { datetime, getValidDate } from "shared/dates";
 import {
   MergeConflict,
@@ -36,8 +35,8 @@ import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import EventUser from "@/components/Avatar/EventUser";
+import RevisionDescription from "@/components/Reviews/RevisionDescription";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Markdown from "@/components/Markdown/Markdown";
 import CommentComposer from "@/components/Comments/CommentComposer";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
@@ -154,7 +153,7 @@ export function DiffFormatToggle({
   const segment = (target: DiffFormat) => (
     <Button
       key={target}
-      size="sm"
+      size="md"
       variant={value === target ? "solid" : "outline"}
       onClick={() => setValue(target)}
     >
@@ -179,7 +178,7 @@ export function DiffFormatToggle({
 // Height-capped wrapper with a fade-out and a "Show more"/"Show less" toggle
 // (same affordance as the Notes panel). Only collapses when the content
 // actually overflows; a ResizeObserver re-checks as content reflows.
-function CollapsedSection({
+export function CollapsedSection({
   maxHeight,
   children,
 }: {
@@ -356,11 +355,15 @@ function formattedNodeToText(root: HTMLElement): string {
 // currently being *viewed*.
 export function CopyAsButton({
   entityName,
+  entityNoun = "feature",
   diffs,
   raw,
   formattedRef,
 }: {
   entityName: string;
+  // Noun for the copy wording ("Changes to <noun> …") + the copy formats'
+  // entityType. Defaults to "feature" so the feature flow is unchanged.
+  entityNoun?: string;
   diffs: FeatureRevisionDiff[];
   // Whole before/after object of the primary entity, when available. Powers the
   // "Full JSON" and "LLM" formats.
@@ -380,9 +383,15 @@ export function CopyAsButton({
     if (format === "formatted") {
       const root = formattedRef?.current;
       const rendered = root ? formattedNodeToText(root) : "";
-      if (rendered) return `Changes to feature "${entityName}":\n\n${rendered}`;
+      if (rendered)
+        return `Changes to ${entityNoun} "${entityName}":\n\n${rendered}`;
     }
-    return formatDiffForCopy(format, { entityName, diffs, raw });
+    return formatDiffForCopy(format, {
+      entityName,
+      entityType: entityNoun,
+      diffs,
+      raw,
+    });
   };
 
   const formatIcons: Record<CopyDiffFormat, React.ReactNode> = {
@@ -402,7 +411,7 @@ export function CopyAsButton({
       variant="soft"
       color="violet"
       trigger={
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="md">
           <Flex align="center" gap="1">
             {copySuccess ? <PiCheckBold /> : <PiCopy />}
             {/* Fixed width so swapping "Copy as" ↔ "Copied!" doesn't shift the
@@ -783,7 +792,7 @@ export function ExpandableConflict({
             >
               <Flex align="center" justify="between" gap="2" mb="2">
                 <Flex align="center" gap="2" wrap="wrap">
-                  <Heading as="h4" size="x-small" mb="0">
+                  <Heading as="h4" size="xs" mb="0">
                     {liveRevision ? (
                       <OverflowText
                         maxWidth={200}
@@ -809,7 +818,7 @@ export function ExpandableConflict({
                     />
                   )}
                   {liveRevision?.createdBy && (
-                    <Text size="small" color="text-low">
+                    <Text size="sm" color="text-low">
                       <EventUser
                         user={liveRevision.createdBy}
                         display="name-email"
@@ -817,7 +826,7 @@ export function ExpandableConflict({
                     </Text>
                   )}
                   {liveRevision && (
-                    <Text size="small" color="text-low">
+                    <Text size="sm" color="text-low">
                       {datetime(
                         liveRevision.datePublished ?? liveRevision.dateUpdated,
                       )}
@@ -825,7 +834,7 @@ export function ExpandableConflict({
                   )}
                 </Flex>
                 <Button
-                  size="sm"
+                  size="md"
                   variant={strategy === "discard" ? "solid" : "outline"}
                   style={{ flexShrink: 0 }}
                   preventDefault
@@ -847,7 +856,7 @@ export function ExpandableConflict({
             <Box px="3" pt="2" pb="3">
               <Flex align="center" justify="between" gap="2" mb="2">
                 <Flex align="center" gap="2" wrap="wrap">
-                  <Heading as="h4" size="x-small" mb="0">
+                  <Heading as="h4" size="xs" mb="0">
                     {draftRevision ? (
                       <OverflowText
                         maxWidth={200}
@@ -873,7 +882,7 @@ export function ExpandableConflict({
                     />
                   )}
                   {draftRevision?.createdBy && (
-                    <Text size="small" color="text-low">
+                    <Text size="sm" color="text-low">
                       <EventUser
                         user={draftRevision.createdBy}
                         display="name-email"
@@ -881,13 +890,13 @@ export function ExpandableConflict({
                     </Text>
                   )}
                   {draftRevision && (
-                    <Text size="small" color="text-low">
+                    <Text size="sm" color="text-low">
                       {datetime(draftRevision.dateUpdated)}
                     </Text>
                   )}
                 </Flex>
                 <Button
-                  size="sm"
+                  size="md"
                   variant={strategy === "overwrite" ? "solid" : "outline"}
                   style={{ flexShrink: 0 }}
                   preventDefault
@@ -1159,7 +1168,7 @@ export function RevisionCompareLabel({
                 />
               </Tooltip>
             )}
-            <Text weight="semibold" size="large">
+            <Text weight="semibold" size="lg">
               <OverflowText
                 maxWidth={250}
                 title={revisionLabelText(versionA, revA?.title)}
@@ -1184,7 +1193,7 @@ export function RevisionCompareLabel({
                 based on: Revision {revA.baseVersion}
               </HelperText>
             ) : (
-              <Text as="div" size="small" color="text-low">
+              <Text as="div" size="sm" color="text-low">
                 based on: Revision {revA.baseVersion}
               </Text>
             );
@@ -1222,7 +1231,7 @@ export function RevisionCompareLabel({
                 />
               </Tooltip>
             )}
-            <Text weight="semibold" size="large">
+            <Text weight="semibold" size="lg">
               <OverflowText
                 maxWidth={250}
                 title={revisionLabelText(versionB, revB?.title)}
@@ -1247,7 +1256,7 @@ export function RevisionCompareLabel({
                 based on: Revision {revB.baseVersion}
               </HelperText>
             ) : (
-              <Text as="div" size="small" color="text-low">
+              <Text as="div" size="sm" color="text-low">
                 based on: Revision {revB.baseVersion}
               </Text>
             );
@@ -1311,7 +1320,7 @@ function RevisionCommentItem({
   // When comparing multiple revisions, label which revision the notes belong to.
   showLabel?: boolean;
   // Mirrors the overview page gating: isDraft = active draft status,
-  // canEdit = canManageFeatureDrafts permission.
+  // canEdit = canEditFeatureDrafts permission.
   isDraft?: boolean;
   canEdit?: boolean;
   onSaved?: () => void;
@@ -1346,76 +1355,27 @@ function RevisionCommentItem({
     return null;
   }, [data]);
 
-  const [editing, setEditing] = useState(false);
-  // Optimistic value so the saved note shows immediately (revisionComment from
-  // the parent stays stale until it re-fetches).
-  const [localComment, setLocalComment] = useState<string | null>(null);
+  const comment = revisionComment ?? logEntry?.comment ?? "";
 
-  const comment = localComment ?? revisionComment ?? logEntry?.comment ?? "";
-
-  // Read-only surfaces with no comment render nothing (no empty box).
-  const canEditNotes = isDraft && canEdit;
-
-  // ── Size-aware overflow controls for the read-only Notes body ──
-  // Show a "Show more"/"Show less" toggle only when the rendered Markdown
-  // exceeds NOTES_MAX_COLLAPSED_HEIGHT. ResizeObserver re-checks when the
-  // content height changes (e.g. images load, viewport changes).
-  const NOTES_MAX_COLLAPSED_HEIGHT = 200;
-  const [notesExpanded, setNotesExpanded] = useState(false);
-  const [notesOverflow, setNotesOverflow] = useState(false);
-  const notesContentRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = notesContentRef.current;
-    if (!el) return;
-    const check = () => {
-      setNotesOverflow(el.scrollHeight > NOTES_MAX_COLLAPSED_HEIGHT + 1);
-    };
-    check();
-    const ro = new ResizeObserver(check);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [comment, editing]);
-
-  if (!comment && !canEditNotes) return null;
-
+  // Thin wrapper: the shared RevisionDescription owns the card/heading/pencil +
+  // markdown body + Show-more/less + the inline CommentComposer edit. This
+  // component keeps the feature-specific bits — the log fetch (for editor
+  // attribution + a comment fallback) and the feature comment endpoint.
   return (
-    <Box mb="5" className="appbox">
-      <Flex
-        align="center"
-        gap="2"
-        px="4"
-        style={{ borderBottom: "1px solid var(--gray-a4)", minHeight: 40 }}
-      >
-        <Flex align="center" gap="2">
-          <Heading as="h5" size="small" color="text-mid" mb="0">
-            Revision description
-          </Heading>
-          {isDraft && canEdit && !editing && (
-            <IconButton
-              variant="ghost"
-              color="violet"
-              size="2"
-              radius="full"
-              mx="1"
-              onClick={() => setEditing(true)}
-              aria-label="Edit description"
-            >
-              <PiPencilSimpleFill />
-            </IconButton>
-          )}
-        </Flex>
-        {showLabel && (
-          <Text size="small" color="text-mid">
-            <OverflowText
-              maxWidth={200}
-              title={revisionLabelText(version, title)}
-            >
-              <RevisionLabel version={version} title={title} />
-            </OverflowText>
-          </Text>
-        )}
-        {logEntry?.user && (
-          <Flex align="center" gap="1" ml="auto">
+    <RevisionDescription
+      description={comment}
+      canEdit={!!isDraft && !!canEdit}
+      onEdit={async (next) => {
+        await apiCall(`/feature/${featureId}/${version}/comment`, {
+          method: "PUT",
+          body: JSON.stringify({ comment: next }),
+        });
+        await mutate();
+        onSaved?.();
+      }}
+      editorMeta={
+        logEntry?.user ? (
+          <>
             <EventUser
               user={logEntry.user}
               display="avatar-name-email"
@@ -1423,80 +1383,27 @@ function RevisionCommentItem({
               wrap={true}
             />
             {logEntry?.timestamp && (
-              <Text size="small" color="text-low">
+              <Text size="sm" color="text-low">
                 {" · "}
                 {datetime(logEntry.timestamp)}
               </Text>
             )}
-          </Flex>
-        )}
-      </Flex>
-
-      <Box p="4">
-        {editing ? (
-          <CommentComposer
-            cta="Save"
-            placeholder="Describe this revision..."
-            initialValue={comment}
-            autofocus
-            onCancel={() => setEditing(false)}
-            onSubmit={async (next) => {
-              await apiCall(`/feature/${featureId}/${version}/comment`, {
-                method: "PUT",
-                body: JSON.stringify({ comment: next }),
-              });
-              setLocalComment(next);
-              setEditing(false);
-              await mutate();
-              onSaved?.();
-            }}
-          />
-        ) : comment ? (
-          <>
-            <Box
-              style={
-                !notesExpanded && notesOverflow
-                  ? {
-                      position: "relative",
-                      maxHeight: NOTES_MAX_COLLAPSED_HEIGHT,
-                      overflow: "hidden",
-                    }
-                  : { position: "relative" }
-              }
-            >
-              <Box ref={notesContentRef}>
-                <Markdown className="speech-bubble">{comment}</Markdown>
-              </Box>
-              {!notesExpanded && notesOverflow && (
-                <Box
-                  style={{
-                    position: "absolute",
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    height: 64,
-                    background:
-                      "linear-gradient(transparent, var(--color-panel-solid))",
-                    pointerEvents: "none",
-                  }}
-                />
-              )}
-            </Box>
-            {notesOverflow && (
-              <Box mt="2">
-                <Link onClick={() => setNotesExpanded((v) => !v)}>
-                  {notesExpanded ? "Show less" : "Show more"}
-                </Link>
-              </Box>
-            )}
           </>
-        ) : (
-          <Text size="medium" as="div" color="text-low" fontStyle="italic">
-            No description yet.
+        ) : undefined
+      }
+      label={
+        showLabel ? (
+          <Text size="sm" color="text-mid">
+            <OverflowText
+              maxWidth={200}
+              title={revisionLabelText(version, title)}
+            >
+              <RevisionLabel version={version} title={title} />
+            </OverflowText>
           </Text>
-        )}
-      </Box>
-    </Box>
+        ) : undefined
+      }
+    />
   );
 }
 
@@ -1514,7 +1421,7 @@ export function RevisionCommentSection({
     title?: string | null;
   }>;
   // Mirrors the overview page gating: isDraft = active draft status,
-  // canEdit = canManageFeatureDrafts permission.
+  // canEdit = canEditFeatureDrafts permission.
   isDraft?: boolean;
   canEdit?: boolean;
   onSaved?: () => void;
@@ -1544,7 +1451,7 @@ export function RevisionCommentSection({
 }
 
 // Section-title humanizer shared by the formatted render.
-function formatSectionTitle(title: string): string {
+export function formatSectionTitle(title: string): string {
   if (title === "Default Value") return "Default value";
   if (title.startsWith("Rules - ")) {
     const env = title.slice("Rules - ".length);
@@ -1553,17 +1460,28 @@ function formatSectionTitle(title: string): string {
   return title;
 }
 
+// Minimal section shape the formatted render needs. Both the feature
+// (FeatureRevisionDiff) and the generic (DiffItem-derived) flows produce this,
+// so FormattedChanges is entity-agnostic and shared across both surfaces.
+export type FormattedChangeItem = {
+  title: string;
+  a: string;
+  b: string;
+  customRender?: React.ReactNode;
+  titleSuffix?: React.ReactNode;
+};
+
 // The human-readable "Formatted changes" view: one card per changed section
 // using its rich customRender, falling back to a JSON diff when a section has
 // no human render. Extracted so it can be rendered both visibly and in a hidden
 // node whose innerText powers the "Copy as → Formatted changes" action.
 // `jsonFallback={false}` (the review Conversation tab) swaps that fallback for a
 // link to the Changes tab, keeping this view strictly human-readable.
-function FormattedChanges({
+export function FormattedChanges({
   diffs,
   jsonFallback = true,
 }: {
-  diffs: FeatureRevisionDiff[];
+  diffs: FormattedChangeItem[];
   jsonFallback?: boolean;
 }) {
   return (
@@ -1572,13 +1490,13 @@ function FormattedChanges({
         d.customRender || !jsonFallback ? (
           <Box key={d.title} p="3" my="3" className="rounded bg-light">
             <Flex align="center" gap="2" mb="2" wrap="wrap">
-              <Heading as="h6" size="small" color="text-mid" mb="0">
+              <Heading as="h6" size="sm" color="text-mid" mb="0">
                 {formatSectionTitle(d.title)}
               </Heading>
               {d.titleSuffix}
             </Flex>
             {d.customRender ?? (
-              <Text size="medium" as="div" color="text-low">
+              <Text size="md" as="div" color="text-low">
                 This section changed.{" "}
                 <Link onClick={() => requestReviewSubTab("changes")}>
                   View the diff on the Changes tab
@@ -1642,7 +1560,7 @@ export function DiffContent({
   // to the per-section JSON diffs.
   raw?: { before: unknown; after: unknown; title?: string };
   // Mirrors the overview page gating for the notes edit pencil:
-  // isDraftNotes = active draft status, canEditNotes = canManageFeatureDrafts.
+  // isDraftNotes = active draft status, canEditNotes = canEditFeatureDrafts.
   isDraftNotes?: boolean;
   canEditNotes?: boolean;
   onNotesSaved?: () => void;
@@ -1725,7 +1643,7 @@ export function DiffContent({
             >
               <Heading
                 as="h4"
-                size="medium"
+                size="md"
                 color="text-mid"
                 mt="0"
                 mb={

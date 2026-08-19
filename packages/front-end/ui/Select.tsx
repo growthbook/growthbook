@@ -1,11 +1,17 @@
-import { Select as RadixSelect, Text, Flex } from "@radix-ui/themes";
+import { Select as RadixSelect, Flex } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { forwardRef, ReactNode } from "react";
 import clsx from "clsx";
+import { radixSize, Size } from "@/ui/sizes";
 import HelperText from "./HelperText";
+import Text, { TextSizes, TextWeights } from "./Text";
+
+export type SelectSize = Size<"sm" | "md" | "lg">;
 
 type SelectProps = {
   label?: ReactNode;
+  labelSize?: TextSizes;
+  labelWeight?: TextWeights;
   defaultValue?: string;
   disabled?: boolean;
   error?: string;
@@ -13,17 +19,21 @@ type SelectProps = {
   value: string | undefined;
   setValue: (value: string) => void;
   children: React.ReactNode;
-  size?: "1" | "2" | "3";
+  size?: SelectSize;
   placeholder?: string;
   variant?: "classic" | "surface" | "soft" | "ghost";
   style?: React.CSSProperties;
   triggerClassName?: string;
   align?: "start" | "center" | "end";
+  /** Portal container — use to render the dropdown inside a parent portal (e.g. Popover). */
+  container?: HTMLElement | null;
 } & MarginProps;
 
 export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
   {
     label,
+    labelSize,
+    labelWeight = "semibold",
     defaultValue,
     disabled = false,
     error,
@@ -31,19 +41,25 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     children,
     value,
     setValue,
-    size = "3",
+    size = "md",
     placeholder,
     variant = "surface",
     triggerClassName,
     align = "start",
+    container,
     ...containerProps
   }: SelectProps,
   ref,
 ) {
   return (
-    <Flex direction="column" {...containerProps} ref={ref}>
+    <Flex
+      direction="column"
+      {...containerProps}
+      ref={ref}
+      className={`gb-select--${size}`}
+    >
       {typeof label === "string" ? (
-        <Text as="label" size="3" weight="medium">
+        <Text as="label" size={labelSize ?? "md"} weight={labelWeight}>
           {label}
         </Text>
       ) : label !== undefined ? (
@@ -51,7 +67,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
       ) : null}
       <RadixSelect.Root
         defaultValue={defaultValue}
-        size={size}
+        size={radixSize(size)}
         disabled={disabled}
         value={value}
         onValueChange={setValue}
@@ -62,7 +78,12 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
           disabled={disabled}
           variant={variant}
         />
-        <RadixSelect.Content variant="soft" position="popper" align={align}>
+        <RadixSelect.Content
+          variant="soft"
+          position="popper"
+          align={align}
+          container={container ?? undefined}
+        >
           {children}
         </RadixSelect.Content>
       </RadixSelect.Root>

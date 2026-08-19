@@ -3,7 +3,7 @@ import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
-import { namedSchema } from "./openapi-helpers";
+import { componentSchema, namedSchema } from "./openapi-helpers";
 import {
   apiAggregatedTableRefreshTriggerValidator,
   apiAggregatedTableRunSummaryValidator,
@@ -41,10 +41,22 @@ export const numberFormatValidator = z.enum([
   "memory:kilobytes",
 ]);
 
+/** Persisted JSON fields: every field has a datatype (`""` until detected). */
 export const jsonColumnFieldsValidator = z.record(
   z.string(),
   z.object({
     datatype: factTableColumnTypeValidator,
+  }),
+);
+
+/**
+ * Input JSON fields may omit datatype; buildColumnInterface normalizes
+ * omitted values to `""`.
+ */
+export const jsonColumnFieldsInputValidator = z.record(
+  z.string(),
+  z.object({
+    datatype: factTableColumnTypeValidator.optional(),
   }),
 );
 
@@ -54,14 +66,36 @@ export const createColumnPropsValidator = z
     name: z.string().optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     numberFormat: numberFormatValidator.optional(),
-    datatype: factTableColumnTypeValidator,
-    jsonFields: jsonColumnFieldsValidator.optional(),
+    // Omitted datatype means auto-detect later
+    datatype: factTableColumnTypeValidator.optional(),
+    jsonFields: jsonColumnFieldsInputValidator.optional(),
     deleted: z.boolean().optional(),
     alwaysInlineFilter: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
     isAutoSliceColumn: z.boolean().optional(),
     autoSlices: z.array(z.string()).optional(),
     lockedAutoSlices: z.array(z.string()).optional(),
+    // Virtual (computed) column inputs.
+    isVirtual: z.boolean().optional(),
+    sql: z.string().optional(),
+  })
+  .strict();
+
+// Input for the internal "create virtual column" route. Intentionally a
+// narrow subset of `createColumnPropsValidator`: it omits auto-slice fields
+// (`isAutoSliceColumn`/`autoSlices`/`lockedAutoSlices`) — an enterprise
+// feature that is not premium-gated on this path — as well as fields only
+// meaningful for SQL-detected columns (`deleted`, `alwaysInlineFilter`,
+// `topValues`). `sql` and `datatype` are required; the handler forces
+// `isVirtual: true`, so it is not accepted from the caller.
+export const createVirtualColumnPropsValidator = z
+  .object({
+    column: z.string(),
+    name: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    numberFormat: numberFormatValidator.optional(),
+    datatype: factTableColumnTypeValidator,
+    sql: z.string(),
   })
   .strict();
 
@@ -71,13 +105,27 @@ export const updateColumnPropsValidator = z
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     numberFormat: numberFormatValidator.optional(),
     datatype: factTableColumnTypeValidator.optional(),
-    jsonFields: jsonColumnFieldsValidator.optional(),
+    jsonFields: jsonColumnFieldsInputValidator.optional(),
     alwaysInlineFilter: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
     deleted: z.boolean().optional(),
     isAutoSliceColumn: z.boolean().optional(),
     autoSlices: z.array(z.string()).optional(),
     lockedAutoSlices: z.array(z.string()).optional(),
+    // Only a virtual column's expression is editable. `isVirtual` (a column's
+    // origin) is intentionally omitted so a SQL-detected column can never be
+    // flipped to virtual via the update route.
+    sql: z.string().optional(),
+  })
+  .strict();
+
+export const testVirtualColumnPropsValidator = z
+  .object({
+    sql: z.string(),
+    datatype: factTableColumnTypeValidator,
+    // The column id to use as the SELECT alias in the test query, so the
+    // preview matches the real column name. Sanitized server-side.
+    columnId: z.string().optional(),
   })
   .strict();
 
@@ -91,6 +139,11 @@ export const aggregatedFactTableSettingsValidator = z
       })
       .strict(),
     lookbackWindow: z.number().int().positive(),
+    // How many days each sequential INSERT covers when fullRestate rebuilds
+    // the table. Smaller chunks keep each query's output inside the engine's
+    // per-stage write budget on wide fact tables. Unset = no chunking (a single
+    // full-window INSERT).
+    restateChunkDays: z.number().int().min(1).max(7).optional(),
   })
   .strict();
 
@@ -130,7 +183,6 @@ export const updateFactTablePropsValidator = z
     eventName: z.string().optional(),
     columns: z.array(createColumnPropsValidator).optional(),
     managedBy: z.enum(["", "api", "admin"]).optional(),
-    columnsError: z.string().nullable().optional(),
     archived: z.boolean().optional(),
     autoSliceUpdatesEnabled: z.boolean().optional(),
     aggregatedFactTableSettings: aggregatedFactTableSettingsValidator
@@ -161,6 +213,8 @@ export const rowFilterOperators = [
   "<=",
   ">",
   ">=",
+  "between",
+  "not_between",
   "in",
   "not_in",
   "contains",
@@ -175,11 +229,35 @@ export const rowFilterOperators = [
   "saved_filter",
 ] as const;
 
-export const rowFilterValidator = z.object({
-  operator: z.enum(rowFilterOperators),
-  column: z.string().optional(),
-  values: z.array(z.string()).optional(),
-});
+/**
+ * `between` / `not_between` describe a lower and an upper bound, so a third
+ * value has no meaning — reject it rather than silently ignoring it. Either
+ * bound may be blank, which the query builder reads as an open-ended range
+ * (`["2024-01-01", ""]` becomes `>= 2024-01-01`).
+ */
+export const ROW_FILTER_RANGE_LENGTH_MESSAGE =
+  "between and not_between take at most two values (a lower and an upper bound)";
+
+export function isValidRowFilterRangeLength(filter: {
+  operator: string;
+  values?: string[];
+}): boolean {
+  if (filter.operator !== "between" && filter.operator !== "not_between") {
+    return true;
+  }
+  return (filter.values?.length ?? 0) <= 2;
+}
+
+export const rowFilterValidator = z
+  .object({
+    operator: z.enum(rowFilterOperators),
+    column: z.string().optional(),
+    values: z.array(z.string()).optional(),
+  })
+  .refine(isValidRowFilterRangeLength, {
+    message: ROW_FILTER_RANGE_LENGTH_MESSAGE,
+    path: ["values"],
+  });
 
 export const columnRefValidator = z
   .object({
@@ -245,6 +323,62 @@ export const priorSettingsValidator = z.object({
   stddev: z.number().gt(0),
 });
 
+// ---------------------------------------------------------------------------
+// Funnel step / settings validators
+// ---------------------------------------------------------------------------
+// Defined here (rather than in product-analytics.ts) so factMetricValidator can
+// reference funnelStepValidator without a circular import: funnelStepValidator
+// needs rowFilterValidator (defined above in this file), and factMetricValidator
+// needs funnelStepValidator. product-analytics.ts imports these from here.
+
+export const conversionWindowValidator = z.object({
+  unit: conversionWindowUnitValidator,
+  value: z.number().positive(),
+});
+export type ConversionWindow = z.infer<typeof conversionWindowValidator>;
+
+export const funnelStepValidator = z.object({
+  // Display name shown in the sidebar / chart / table.
+  name: z.string(),
+  factTableId: z.string(),
+  rowFilters: z.array(rowFilterValidator),
+  // When true, the step still resolves for its own conversion but does not
+  // anchor later steps' windows (those use the nearest prior required step,
+  // or exposure for experiment metrics when every prior step is optional).
+  optional: z.boolean(),
+  // Bounds how long after the nearest prior required step (or exposure, for
+  // step 0 / after only-optional priors in experiment funnel metrics) this
+  // step's event can occur.
+  conversionWindow: conversionWindowValidator.nullish(),
+});
+export type FunnelStep = z.infer<typeof funnelStepValidator>;
+
+// Step ordering for funnel metrics. v1 supports "sequential" only; "strict"
+// and "unordered" are modeled now (locked in FactMetricModel.customValidation)
+// so the fast-follows need no schema migration.
+export const funnelOrderingValidator = z.enum([
+  "sequential",
+  "strict",
+  "unordered",
+]);
+export type FunnelOrdering = z.infer<typeof funnelOrderingValidator>;
+
+export const MAX_FACT_METRIC_FUNNEL_STEPS = 20;
+
+// Funnel-as-experiment-metric settings. Mirrors the quantileSettings pattern:
+// a nullable sub-object on the fact metric. Statistically a proportion.
+export const funnelSettingsValidator = z.object({
+  steps: z.array(funnelStepValidator).min(2).max(MAX_FACT_METRIC_FUNNEL_STEPS),
+  ordering: funnelOrderingValidator.optional(),
+  // Out-of-order tolerance between adjacent steps (seconds). Optional; only
+  // meaningful for ordered modes (ignored for "unordered").
+  concurrencyWindowSeconds: z.number().int().min(0).optional(),
+  // Session-scoped funnels: fast-follow, locked to false by
+  // FactMetricModel.customValidation.
+  sessionBased: z.boolean().optional(),
+});
+export type FunnelSettings = z.infer<typeof funnelSettingsValidator>;
+
 export const metricTypeValidator = z.enum([
   "ratio",
   "mean",
@@ -252,9 +386,10 @@ export const metricTypeValidator = z.enum([
   "retention",
   "quantile",
   "dailyParticipation",
+  "funnel",
 ]);
 
-export const factMetricValidator = z
+const factMetricObjectValidator = z
   .object({
     id: z.string(),
     organization: z.string(),
@@ -271,7 +406,10 @@ export const factMetricValidator = z
     archived: z.boolean().optional(),
 
     metricType: metricTypeValidator,
-    numerator: columnRefValidator,
+    // Null only for funnel metrics, which describe their events through
+    // funnelSettings.steps instead. Cross-field rules live in
+    // FactMetricModel.customValidation.
+    numerator: columnRefValidator.nullable(),
     denominator: columnRefValidator.nullable(),
 
     cappingSettings: cappingSettingsValidator,
@@ -294,8 +432,51 @@ export const factMetricValidator = z
     metricAutoSlices: z.array(z.string()).optional(),
 
     quantileSettings: quantileSettingsValidator.nullable(),
+
+    funnelSettings: funnelSettingsValidator.nullable(),
   })
   .strict();
+
+type FactMetricFields = z.infer<typeof factMetricObjectValidator>;
+type FactMetricSharedFields = Omit<
+  FactMetricFields,
+  "metricType" | "numerator" | "funnelSettings"
+>;
+
+/** Every metric type except "funnel": describes its events with a ColumnRef. */
+export type StandardFactMetric = FactMetricSharedFields & {
+  metricType: Exclude<FactMetricFields["metricType"], "funnel">;
+  numerator: z.infer<typeof columnRefValidator>;
+  // Required-null (like quantileSettings) rather than optional: this keeps the
+  // member a subtype of the flat schema output, which MakeModelClass's
+  // BaseSchemaWithPrimaryKey constraint intersects with the union.
+  funnelSettings: null;
+};
+
+/** Describes its events with an ordered list of funnel steps instead. */
+export type FunnelFactMetric = FactMetricSharedFields & {
+  metricType: "funnel";
+  numerator: null;
+  funnelSettings: z.infer<typeof funnelSettingsValidator>;
+};
+
+/**
+ * The runtime schema stays a plain ZodObject so MakeModelClass can call
+ * `.omit()` / `.partial()` / `.shape` on it, but the declared output is
+ * narrowed to a discriminated union. That makes `numerator` non-null wherever
+ * the metric type has been narrowed away from "funnel", instead of forcing
+ * every reader into optional chaining. The `metricType` / `numerator` /
+ * `funnelSettings` combinations are enforced at runtime by
+ * FactMetricModel.customValidation.
+ *
+ * `z.infer` of this intersection is `flatObjectOutput & (Standard | Funnel)`.
+ * Both union members are deliberately kept as subtypes of the flat output
+ * (see StandardFactMetric.funnelSettings), so the intersection distributes to
+ * exactly the union instead of re-widening or over-requiring fields.
+ */
+export const factMetricValidator =
+  factMetricObjectValidator as typeof factMetricObjectValidator &
+    z.ZodType<StandardFactMetric | FunnelFactMetric>;
 
 export const createFactFilterPropsValidator = z
   .object({
@@ -332,16 +513,13 @@ export const apiFactTableColumnValidator = namedSchema(
       column: z
         .string()
         .describe("The actual column name in the database/SQL query"),
-      datatype: z.enum([
-        "number",
-        "string",
-        "date",
-        "boolean",
-        "json",
-        "binary",
-        "other",
-        "",
-      ]),
+      datatype: factTableColumnTypeValidator.describe(
+        "The column's data type (can be an override of the warehouse-reported datatype, for JSON string columns for example).",
+      ),
+      dataTypeFromWarehouse: factTableColumnTypeValidator
+        .describe("The warehouse-reported datatype.")
+        .readonly()
+        .optional(),
       numberFormat: z
         .enum([
           "",
@@ -403,6 +581,32 @@ export const apiFactTableColumnValidator = namedSchema(
           "Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results.",
         )
         .optional(),
+      isVirtual: z
+        .boolean()
+        .describe(
+          "Whether this is a virtual (computed) column defined by a SQL expression rather than detected from the fact table SQL. Can be set when creating a column, but a column's origin cannot be changed afterwards — sending a value that contradicts an existing column is rejected.",
+        )
+        .optional()
+        .meta({ default: false }),
+      sql: z
+        .string()
+        .describe(
+          "For virtual columns, the SQL expression that computes the column value. Only valid on a virtual column; when omitted from an update, the existing expression is preserved.",
+        )
+        .optional(),
+      topValues: z
+        .array(z.string())
+        .describe(
+          "The most common values for this column, sampled from the warehouse to populate filter pickers and auto slices. Read-only.",
+        )
+        .readonly()
+        .optional(),
+      topValuesDate: z
+        .string()
+        .meta({ format: "date-time" })
+        .describe("When topValues was last refreshed for this column.")
+        .readonly()
+        .optional(),
       dateCreated: z
         .string()
         .meta({ format: "date-time" })
@@ -412,6 +616,26 @@ export const apiFactTableColumnValidator = namedSchema(
         .string()
         .meta({ format: "date-time" })
         .readonly()
+        .optional(),
+    })
+    .strict(),
+);
+
+export const apiFactTableColumnInputValidator = componentSchema(
+  "FactTableColumnInput",
+  apiFactTableColumnValidator
+    .omit({
+      dataTypeFromWarehouse: true,
+      dateCreated: true,
+      dateUpdated: true,
+      topValues: true,
+      topValuesDate: true,
+    })
+    .extend({
+      datatype: apiFactTableColumnValidator.shape.datatype
+        .describe(
+          'The column\'s data type. Omit (or send "") to have it auto-detected from the SQL.',
+        )
         .optional(),
     })
     .strict(),
@@ -449,8 +673,21 @@ export const apiFactTableValidator = namedSchema(
         .string()
         .nullable()
         .describe("Error message if there was an issue parsing the SQL schema")
+        .readonly()
+        .optional(),
+      columnRefreshPending: z
+        .boolean()
+        .describe(
+          "True while the fact table's column schema is being detected in the background. While true, `columns` may be empty or incomplete and metrics referencing not-yet-detected columns cannot be created.",
+        )
         .optional(),
       archived: z.boolean().optional(),
+      autoSliceUpdatesEnabled: z
+        .boolean()
+        .describe(
+          "Whether Auto Slice values for this fact table's columns are refreshed automatically in the background.",
+        )
+        .optional(),
       managedBy: z
         .enum(["", "api", "admin"])
         .describe(
@@ -463,6 +700,8 @@ export const apiFactTableValidator = namedSchema(
 );
 
 export type ApiFactTable = z.infer<typeof apiFactTableValidator>;
+
+export type ApiFactTableColumn = z.infer<typeof apiFactTableColumnValidator>;
 
 // Corresponds to schemas/FactTableFilter.yaml
 export const apiFactTableFilterValidator = namedSchema(
@@ -579,6 +818,12 @@ const postFactTableBody = z
       .string()
       .describe("The event name used in SQL template variables")
       .optional(),
+    columns: z
+      .array(apiFactTableColumnInputValidator)
+      .describe(
+        'Optional array of column definitions to store for this fact table. Supplied columns are stored as-is. Omit `datatype` (or send "") on a column to have it auto-detected from the SQL.',
+      )
+      .optional(),
     managedBy: z
       .enum(["", "api", "admin"])
       .describe('Set this to "api" to disable editing in the GrowthBook UI')
@@ -618,15 +863,10 @@ const updateFactTableBody = z
       .describe("The event name used in SQL template variables")
       .optional(),
     columns: z
-      .array(apiFactTableColumnValidator)
+      .array(apiFactTableColumnInputValidator)
       .describe(
-        "Optional array of columns that you want to update. Only allows updating properties of existing columns. Cannot create new columns or delete existing ones. Columns cannot be added or deleted; column structure is determined by SQL parsing. Slice-related properties require an enterprise license.",
+        'Optional array of columns to upsert by `column`: existing columns are patched, new columns are created, and columns not included are left unchanged. Omit `datatype` to leave an existing column\'s type untouched; send "" to reset it for auto-detection; new columns are auto-detected when `datatype` is omitted or "". Slice-related properties require an enterprise license.',
       )
-      .optional(),
-    columnsError: z
-      .string()
-      .nullable()
-      .describe("Error message if there was an issue parsing the SQL schema")
       .optional(),
     managedBy: z
       .enum(["", "api", "admin"])
@@ -901,6 +1141,119 @@ export const deleteFactTableFilterValidator = {
   method: "delete" as const,
   path: "/fact-tables/:factTableId/filters/:id",
   exampleRequest: { params: { factTableId: "abc123", id: "abc123" } },
+};
+
+// The public API can only create/update/delete virtual (computed) columns.
+// SQL-detected columns are managed by column auto-detection, so a real
+// datatype (never "") and a SQL expression are required.
+const virtualColumnDatatype = z.enum([
+  "number",
+  "string",
+  "date",
+  "boolean",
+  "json",
+  "binary",
+  "other",
+]);
+
+const postFactTableVirtualColumnBody = z
+  .object({
+    column: z
+      .string()
+      .describe(
+        "The column identifier used in generated SQL. Must contain only letters, numbers, and underscores and end with `_vc`.",
+      )
+      .meta({ example: "revenue_vc" }),
+    name: z.string().describe("Display name for the column").optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    numberFormat: numberFormatValidator.optional(),
+    datatype: virtualColumnDatatype.describe(
+      "The data type of the computed column",
+    ),
+    sql: z
+      .string()
+      .describe("The SQL expression that computes the column value")
+      .meta({ example: "price * quantity" }),
+  })
+  .strict();
+
+const updateFactTableVirtualColumnBody = z
+  .object({
+    name: z.string().describe("Display name for the column").optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    numberFormat: numberFormatValidator.optional(),
+    datatype: virtualColumnDatatype
+      .describe("The data type of the computed column")
+      .optional(),
+    sql: z
+      .string()
+      .describe("The SQL expression that computes the column value")
+      .optional(),
+  })
+  .strict();
+
+export const postFactTableVirtualColumnValidator = {
+  bodySchema: postFactTableVirtualColumnBody,
+  querySchema: z.never(),
+  paramsSchema: factTableIdParams,
+  responseSchema: z
+    .object({
+      factTableColumn: apiFactTableColumnValidator,
+    })
+    .strict(),
+  summary: "Create a virtual (computed) column on a fact table",
+  operationId: "postFactTableVirtualColumn",
+  tags: ["fact-tables"],
+  method: "post" as const,
+  path: "/fact-tables/:factTableId/virtual-columns",
+  exampleRequest: {
+    params: { factTableId: "abc123" },
+    body: {
+      column: "revenue_vc",
+      datatype: "number" as const,
+      sql: "price * quantity",
+    },
+  },
+};
+
+export const updateFactTableVirtualColumnValidator = {
+  bodySchema: updateFactTableVirtualColumnBody,
+  querySchema: z.never(),
+  paramsSchema: factTableIdAndIdParams,
+  responseSchema: z
+    .object({
+      factTableColumn: apiFactTableColumnValidator,
+    })
+    .strict(),
+  summary: "Update a virtual (computed) column on a fact table",
+  operationId: "updateFactTableVirtualColumn",
+  tags: ["fact-tables"],
+  method: "post" as const,
+  path: "/fact-tables/:factTableId/virtual-columns/:id",
+  exampleRequest: {
+    params: { factTableId: "abc123", id: "revenue_vc" },
+    body: { sql: "price * quantity * 1.1" },
+  },
+};
+
+export const deleteFactTableVirtualColumnValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: factTableIdAndIdParams,
+  responseSchema: z
+    .object({
+      deletedId: z
+        .string()
+        .describe("The id of the deleted virtual column")
+        .meta({ example: "revenue_vc" }),
+    })
+    .strict(),
+  summary: "Delete a virtual (computed) column from a fact table",
+  operationId: "deleteFactTableVirtualColumn",
+  tags: ["fact-tables"],
+  method: "delete" as const,
+  path: "/fact-tables/:factTableId/virtual-columns/:id",
+  exampleRequest: { params: { factTableId: "abc123", id: "revenue_vc" } },
 };
 
 export const getAggregatedFactTablesValidator = {

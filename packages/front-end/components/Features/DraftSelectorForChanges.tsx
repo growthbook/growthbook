@@ -21,7 +21,8 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useApi from "@/hooks/useApi";
 import { useEnvironments } from "@/services/features";
 import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
-import DraftSelector, { DraftMode } from "@/components/DraftSelector";
+import { DraftMode } from "@/components/DraftSelector";
+import SharedDraftSelectorForChanges from "@/components/DraftSelectorForChanges";
 
 export type { DraftMode };
 
@@ -34,11 +35,13 @@ export default function DraftSelectorForChanges({
   selectedDraft,
   setSelectedDraft,
   canAutoPublish,
+  canDraft = true,
   gatedEnvSet,
   defaultExpanded = false,
   hideExisting = false,
   triggerPrefix = "Changes will be",
   allowNewDraftAtCap = false,
+  canWriteIntoDraft,
 }: {
   feature: FeatureInterface;
   // Un-merged live feature doc; fallback for env state on old sparse live revisions.
@@ -49,6 +52,8 @@ export default function DraftSelectorForChanges({
   selectedDraft: number | null;
   setSelectedDraft: (v: number | null) => void;
   canAutoPublish: boolean;
+  // Whether the user may author drafts; without it publishing is the only route.
+  canDraft?: boolean;
   gatedEnvSet: Set<string> | "all" | "none";
   defaultExpanded?: boolean;
   hideExisting?: boolean;
@@ -56,9 +61,14 @@ export default function DraftSelectorForChanges({
   // Keep "create a new draft" available even when the org's soft draft cap is
   // reached — for critical flows (revert, archive) that shouldn't be blocked.
   allowNewDraftAtCap?: boolean;
+  /** Only drafts this flow may WRITE into; omit when every active draft is fine. */
+  canWriteIntoDraft?: (revision: MinimalFeatureRevisionInterface) => boolean;
 }) {
   const permissionsUtil = usePermissionsUtil();
-  const isAdmin = permissionsUtil.canBypassApprovalChecks(feature);
+  const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(
+    feature,
+    "feature",
+  );
 
   const activeDrafts = useMemo(
     () =>
@@ -70,29 +80,10 @@ export default function DraftSelectorForChanges({
     [revisionList],
   );
 
-  const singleOption = hideExisting
-    ? !canAutoPublish
-    : activeDrafts.length === 0 && !canAutoPublish;
-
-  // Soft per-feature draft cap (org setting). At/over the cap we steer users to
-  // an existing draft and block creating a new one — except admins and critical
-  // flows (revert, archive) that opt in via `allowNewDraftAtCap`.
+  // Soft per-feature draft cap (org setting). The shared shell steers users to
+  // an existing draft and blocks creating a new one at/over the cap.
   const settings = useOrgSettings();
   const maxDrafts = settings?.maxConcurrentDrafts || 0;
-  const atDraftCap =
-    !hideExisting && maxDrafts > 0 && activeDrafts.length >= maxDrafts;
-  const newDraftBlocked = atDraftCap && !isAdmin && !allowNewDraftAtCap;
-
-  // When there is only one mode available it must be "new"; keep the form in
-  // sync in case the parent initialised with a stale value.
-  if (singleOption && mode !== "new") {
-    setSelectedDraft(null);
-    setMode("new");
-  } else if (newDraftBlocked && mode === "new") {
-    // "new" is disabled at the cap — fall back to the most recent active draft.
-    setMode("existing");
-    setSelectedDraft(selectedDraft ?? activeDrafts[0]?.version ?? null);
-  }
 
   // Use context revisions if available; fetch only when rendered outside FeaturesOverview.
   const ctx = useFeatureRevisionsContext();
@@ -173,11 +164,26 @@ export default function DraftSelectorForChanges({
       )
     : null;
 
+  // The dropdown inside THIS control picks a write target — the draft the archive
+  // flip is written into — so it lists only drafts this caller may write into. The
+  // page-level revision picker uses the same component to VIEW, and there listing
+  // every draft is correct; only the write-target instance narrows. Matches the
+  // generic twin. The current selection is kept regardless, so a selection made
+  // before a permission change still renders its label instead of vanishing.
+  const selectableRevisions = canWriteIntoDraft
+    ? revisionList.filter(
+        (r) =>
+          r.version === selectedDraft ||
+          !(ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status) ||
+          canWriteIntoDraft(r),
+      )
+    : revisionList;
+
   const revisionDropdown = (
     <>
       <RevisionDropdown
         feature={feature}
-        revisions={revisionList}
+        revisions={selectableRevisions}
         version={selectedDraft ?? activeDrafts[0]?.version ?? null}
         setVersion={setSelectedDraft}
         draftsOnly
@@ -197,26 +203,34 @@ export default function DraftSelectorForChanges({
   );
 
   return (
-    <DraftSelector
-      hasActiveDrafts={!hideExisting && activeDrafts.length > 0}
+    <SharedDraftSelectorForChanges<number>
+      activeDraftKeys={activeDrafts.map((r) => r.version)}
+      // Only drafts this flow may write into, when narrower than "active". The
+      // feature archive endpoint refuses a write into another author's draft, so
+      // listing them turned a picker choice into a 403.
+      writableDraftKeys={
+        canWriteIntoDraft
+          ? activeDrafts
+              .filter((r) => canWriteIntoDraft(r))
+              .map((r) => r.version)
+          : undefined
+      }
+      selectedDraft={selectedDraft}
+      setSelectedDraft={setSelectedDraft}
       mode={mode}
       setMode={setMode}
       canAutoPublish={canAutoPublish}
+      canDraft={canDraft}
       approvalRequired={gatedEnvSet !== "none"}
-      defaultExpanded={defaultExpanded}
-      triggerPrefix={triggerPrefix}
       existingDraftLabel={existingDraftLabel}
       revisionDropdown={revisionDropdown}
-      singleOption={singleOption}
-      recommendExisting={atDraftCap}
-      newDraftDisabled={newDraftBlocked}
-      newDraftDisabledReason={
-        newDraftBlocked
-          ? `This feature is at your organization's cap of ${maxDrafts} active draft${
-              maxDrafts === 1 ? "" : "s"
-            }. Add to an existing draft, or publish/discard one first.`
-          : undefined
-      }
+      defaultExpanded={defaultExpanded}
+      hideExisting={hideExisting}
+      triggerPrefix={triggerPrefix}
+      maxDrafts={maxDrafts}
+      isAdmin={isAdmin}
+      allowNewDraftAtCap={allowNewDraftAtCap}
+      capNoun="This feature"
     />
   );
 }

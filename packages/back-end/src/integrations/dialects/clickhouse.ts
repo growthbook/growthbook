@@ -1,6 +1,7 @@
 import { createLikeStringMatchFn } from "shared/sql";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
+import { eligibleTopValueExpr } from "back-end/src/integrations/sql/clauses/approx-top-values";
 import { baseDialect } from "./base";
 
 const clickHouseEscapeStringLiteral = (value: string) =>
@@ -39,6 +40,10 @@ export const clickHouseDialect: SqlDialect = {
     `dateTrunc('${granularity}', ${col})`,
   dateDiff: (startCol: string, endCol: string) =>
     `dateDiff('day', ${startCol}, ${endCol})`,
+  dateDiffMs: (startCol: string, endCol: string) =>
+    `dateDiff('millisecond', ${startCol}, ${endCol})`,
+  addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>
+    `date${sign === "+" ? "Add" : "Sub"}(second, ${amount}, ${col})`,
   formatDate: (col: string) => `formatDateTime(${col}, '%F')`,
   formatDateTimeString: (col: string) =>
     `formatDateTime(${col}, '%Y-%m-%d %H:%i:%S.%f')`,
@@ -47,6 +52,32 @@ export const clickHouseDialect: SqlDialect = {
   castToDate: (col: string) => {
     const columType = col === "NULL" ? "Nullable(DATE)" : "DATE";
     return `CAST(${col} AS ${columType})`;
+  },
+  castToTimestamp: (col: string) => {
+    // CH demands `Nullable(...)` to hold NULL; `DateTime` alone rejects it.
+    const colType = col === "NULL" ? "Nullable(DateTime)" : "DateTime";
+    return `CAST(${col} AS ${colType})`;
+  },
+
+  // ClickHouse uses functional array operators (no `unnest`-style relational
+  // expansion). These match the funnel SQL's array-based step resolution.
+  arrayAggSorted: (col: string) =>
+    // groupArrayIf skips NULLs entirely; we then sort ascending.
+    `arraySort(groupArrayIf(${col}, isNotNull(${col})))`,
+
+  argMinByTimestamp: (valueCol: string, tsCol: string) =>
+    `argMinIf(${valueCol}, ${tsCol}, isNotNull(${tsCol}))`,
+
+  arrayMinInRange: (col, lowerBound, upperBound) => {
+    const preds: string[] = [];
+    if (lowerBound) preds.push(`x >= ${lowerBound}`);
+    if (upperBound) preds.push(`x <= ${upperBound}`);
+    const predicate = preds.length ? preds.join(" AND ") : "1";
+    // `arrayMin([])` returned 0/epoch in older CH versions, which would
+    // pollute downstream DateTime math; guard with a length check so the
+    // result is properly NULL when no element falls in the window.
+    const filtered = `arrayFilter(x -> ${predicate}, ${col})`;
+    return `if(length(${filtered}) > 0, arrayMin(${filtered}), NULL)`;
   },
   castToString: (col: string) => `toString(${col})`,
   castToFloat: (col: string) => `toFloat64(${col})`,
@@ -108,4 +139,56 @@ if(
   // ClickHouse's LENGTH returns bytes (not characters); that's stricter
   // than JS .length but fine for the document-size guard.
   stringLength: (column: string) => `length(${column})`,
+
+  // topK(k)(expr) returns the k most frequent values in descending-frequency
+  // order with NO counts. Since the outer query sorts by `count DESC`, we
+  // synthesize a `count` from the inverse array position (`limit - i + 1`) to
+  // preserve topK's ordering; it's an internal sort key, never projected out.
+  //
+  // One aggregation row holds an array of (column_name, topK-array) tuples;
+  // aggregation and ARRAY JOIN live in separate query levels so the aggregate
+  // runs once before unnesting. topK skips NULLs.
+  approxTopValuesCTEBody: ({
+    pairs,
+    fromTable,
+    whereClause,
+    limit,
+    maxValueLength,
+  }) => {
+    const tuples = pairs
+      .map(
+        (p) =>
+          `('${p.keyLiteral}', topK(${limit})(${eligibleTopValueExpr(
+            clickHouseDialect,
+            p.valueSql,
+            maxValueLength,
+          )}))`,
+      )
+      .join(",\n        ");
+    return `
+  SELECT
+    column_name,
+    tupleElement(__valueCount, 1) AS value,
+    tupleElement(__valueCount, 2) AS count
+  FROM (
+    SELECT
+      tupleElement(__col, 1) AS column_name,
+      tupleElement(__col, 2) AS __values
+    FROM (
+      SELECT [
+        ${tuples}
+      ] AS __cols
+      FROM ${fromTable}
+      WHERE ${whereClause}
+    )
+    ARRAY JOIN __cols AS __col
+  )
+  ARRAY JOIN arrayMap(
+    -- (value, synthetic count): inverse array position, NOT a real frequency
+    (v, i) -> (v, toInt64(${limit}) - i + 1),
+    __values,
+    arrayEnumerate(__values)
+  ) AS __valueCount
+  WHERE value IS NOT NULL`;
+  },
 };

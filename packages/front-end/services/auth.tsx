@@ -24,7 +24,9 @@ import { DocLink } from "@/components/DocLink";
 import Welcome from "@/components/Auth/Welcome";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
 import type { InitialPlanOptions } from "@/components/Auth/SelectInitialPlan";
+import Callout from "@/ui/Callout";
 import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
+import { getGrowthBookTrackingHeaders } from "./utils";
 import { useProject, LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
 import { captureAttribution } from "./attribution-capture";
 
@@ -40,6 +42,10 @@ export type ApiCallType<T> = (
 // Append the ignoreWarnings flag so the server skips soft warnings on retry.
 export function appendIgnoreWarnings(url: string): string {
   return url + (url.includes("?") ? "&" : "?") + "ignoreWarnings=true";
+}
+
+export function isExternalApiPath(url: string): boolean {
+  return /^\/api\/v\d/.test(url);
 }
 
 export interface AuthContextValue {
@@ -188,7 +194,9 @@ function getDetailedError(error: string): string | ReactElement {
           environment variables{" "}
           <code className="font-weight-bold">APP_ORIGIN</code> and{" "}
           <code className="font-weight-bold">API_HOST</code>.{" "}
-          <DocLink docSection="config_domains_and_ports">View docs</DocLink>
+          <DocLink useRadix={false} docSection="config_domains_and_ports">
+            View docs
+          </DocLink>
         </div>
       );
     }
@@ -276,6 +284,7 @@ export const AuthProvider: React.FC<{
       if (resp.confirm) {
         setAuthComponent(
           <Modal
+            useRadixButton={false}
             trackingEventModalType=""
             open={true}
             submit={async () => {
@@ -357,7 +366,7 @@ export const AuthProvider: React.FC<{
       const init = { ...options };
       init.headers = init.headers || {};
       init.headers["Authorization"] = `Bearer ${token}`;
-      init.credentials = "include";
+      init.credentials = isExternalApiPath(url) ? "omit" : "include";
 
       if (init.body && !init.headers["Content-Type"]) {
         init.headers["Content-Type"] = "application/json";
@@ -366,6 +375,11 @@ export const AuthProvider: React.FC<{
       if (orgId && !init.headers["X-Organization"]) {
         init.headers["X-Organization"] = orgId;
       }
+
+      Object.assign(
+        init.headers,
+        getGrowthBookTrackingHeaders(router.pathname),
+      );
 
       const response = await fetch(getApiHost() + url, init);
 
@@ -377,11 +391,19 @@ export const AuthProvider: React.FC<{
         responseData = await response.blob();
       } else {
         responseData = await response.json();
+        if (
+          !response.ok &&
+          responseData &&
+          typeof responseData === "object" &&
+          typeof responseData.status !== "number"
+        ) {
+          responseData.status = response.status;
+        }
       }
 
       return responseData;
     },
-    [orgId],
+    [orgId, router.pathname],
   );
 
   const fetchRaw = useCallback(
@@ -391,7 +413,7 @@ export const AuthProvider: React.FC<{
       init.headers["Authorization"] = `Bearer ${token}`;
 
       if (!init.credentials) {
-        init.credentials = "include";
+        init.credentials = isExternalApiPath(url) ? "omit" : "include";
       }
 
       if (init.body && !init.headers["Content-Type"]) {
@@ -401,6 +423,11 @@ export const AuthProvider: React.FC<{
       if (orgId && !init.headers["X-Organization"]) {
         init.headers["X-Organization"] = orgId;
       }
+
+      Object.assign(
+        init.headers,
+        getGrowthBookTrackingHeaders(router.pathname),
+      );
 
       const response = await fetch(getApiHost() + url, init);
 
@@ -447,7 +474,7 @@ export const AuthProvider: React.FC<{
 
       return response;
     },
-    [orgId, token],
+    [orgId, token, router.pathname],
   );
 
   // Register a warning request; all pending requests share one dialog.
@@ -587,6 +614,7 @@ export const AuthProvider: React.FC<{
   if (initError) {
     return (
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         header="logo"
         open={true}
@@ -605,7 +633,7 @@ export const AuthProvider: React.FC<{
           Error connecting to the GrowthBook API at <code>{getApiHost()}</code>.
         </p>
         <p>Received the following error message:</p>
-        <div className="alert alert-danger">{getDetailedError(initError)}</div>
+        <Callout status="error">{getDetailedError(initError)}</Callout>
       </Modal>
     );
   }
@@ -613,6 +641,7 @@ export const AuthProvider: React.FC<{
   if (sessionError) {
     return (
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         open={true}
         cta="OK"
@@ -694,6 +723,10 @@ export function roleHasAccessToEnv(
   env: string,
   org: Partial<OrganizationInterface>,
 ): "yes" | "no" | "N/A" {
+  if (role.role === "admin" || role.role === "gbDefault_projectAdmin") {
+    return "yes";
+  }
+
   if (!roleSupportsEnvLimit(role.role, org)) return "N/A";
 
   if (!role.limitAccessByEnvironment) return "yes";
@@ -701,4 +734,41 @@ export function roleHasAccessToEnv(
   if (role.environments.includes(env)) return "yes";
 
   return "no";
+}
+
+type EnvAccessPrincipal = MemberRoleInfo & {
+  projectRoles?: (MemberRoleInfo & { project: string })[];
+};
+
+/** Resolves effective environment access for one project or across all projects. */
+export function memberEnvAccess(
+  principal: EnvAccessPrincipal,
+  environment: { id: string; projects?: string[] },
+  org: Partial<OrganizationInterface>,
+  project: string,
+): "yes" | "no" | "N/A" {
+  const envProjects = environment.projects?.length
+    ? environment.projects
+    : null;
+
+  if (project) {
+    if (envProjects && !envProjects.includes(project)) return "N/A";
+    const projectRole = principal.projectRoles?.find(
+      (r) => r.project === project,
+    );
+    return roleHasAccessToEnv(projectRole ?? principal, environment.id, org);
+  }
+
+  const results: ("yes" | "no" | "N/A")[] = [
+    roleHasAccessToEnv(principal, environment.id, org),
+  ];
+  (principal.projectRoles ?? []).forEach((pr) => {
+    if (!envProjects || envProjects.includes(pr.project)) {
+      results.push(roleHasAccessToEnv(pr, environment.id, org));
+    }
+  });
+
+  if (results.includes("yes")) return "yes";
+  if (results.includes("no")) return "no";
+  return "N/A";
 }

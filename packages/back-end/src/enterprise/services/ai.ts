@@ -6,9 +6,13 @@ import {
   tool as aiTool,
   stepCountIs,
   NoObjectGeneratedError,
+  NoOutputGeneratedError,
 } from "ai";
 import type { ToolSet, ModelMessage } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
+import {
+  createOpenAI,
+  type OpenAIResponsesProviderOptions,
+} from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createXai } from "@ai-sdk/xai";
 import { createMistral } from "@ai-sdk/mistral";
@@ -21,8 +25,10 @@ import {
 import {
   AIModel,
   AIPromptType,
+  AIProvider,
   getProviderFromModel,
   getProviderFromEmbeddingModel,
+  getProviderForAIModel,
   isReasoningModel,
 } from "shared/ai";
 import { z, ZodObject, ZodRawShape } from "zod";
@@ -34,19 +40,44 @@ import {
   updateTokenUsage,
 } from "back-end/src/models/AITokenUsageModel";
 import { ApiReqContext } from "back-end/types/api";
-import { getAISettingsForOrg } from "back-end/src/services/organizations";
+import {
+  getAISettingsForOrg,
+  getAllowedAIModel,
+} from "back-end/src/services/organizations";
+import {
+  AIKeySource,
+  missingAIKeyMessage,
+} from "back-end/src/services/aiCredentials";
 import { logCloudAIUsage } from "back-end/src/services/licenseServerManagedClickhouse";
+import { AIUsageOutcome, trackAIUsage } from "back-end/src/services/growthbook";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
-export const getAIProviderClass = (
+const usesOwnAIKey = (
+  keySource: Record<AIProvider, AIKeySource>,
+  model: AIModel,
+): boolean => {
+  if (!IS_CLOUD) return true;
+  const provider = getProviderForAIModel("text", model);
+  return provider !== null && keySource[provider] === "organization";
+};
+
+export const resolveTextAIModel = (
+  overrideModel: AIModel | undefined,
+  defaultAIModel: AIModel,
+  keySource: Record<AIProvider, AIKeySource>,
+): AIModel =>
+  getAllowedAIModel("text", overrideModel, keySource) || defaultAIModel;
+
+export const getAIProviderClass = async (
   context: ReqContext | ApiReqContext,
   model: AIModel,
-):
+): Promise<
   | ReturnType<typeof createAnthropic>
   | ReturnType<typeof createOpenAI>
   | ReturnType<typeof createXai>
   | ReturnType<typeof createMistral>
-  | ReturnType<typeof createGoogleGenerativeAI> => {
+  | ReturnType<typeof createGoogleGenerativeAI>
+> => {
   const {
     aiEnabled,
     openAIAPIKey,
@@ -54,7 +85,7 @@ export const getAIProviderClass = (
     xaiAPIKey,
     mistralAPIKey,
     googleAPIKey,
-  } = getAISettingsForOrg(context, true);
+  } = await getAISettingsForOrg(context, true);
 
   if (!aiEnabled) {
     throw new Error(
@@ -66,41 +97,54 @@ export const getAIProviderClass = (
 
   if (selectedProvider === "anthropic") {
     if (!anthropicAPIKey) {
-      throw new Error("ANTHROPIC_API_KEY is not set.");
+      throw new Error(missingAIKeyMessage("anthropic"));
     }
     return createAnthropic({
       apiKey: anthropicAPIKey,
     });
   } else if (selectedProvider === "xai") {
     if (!xaiAPIKey) {
-      throw new Error("XAI_API_KEY is not set.");
+      throw new Error(missingAIKeyMessage("xai"));
     }
     return createXai({
       apiKey: xaiAPIKey,
     });
   } else if (selectedProvider === "mistral") {
     if (!mistralAPIKey) {
-      throw new Error("MISTRAL_API_KEY is not set.");
+      throw new Error(missingAIKeyMessage("mistral"));
     }
     return createMistral({
       apiKey: mistralAPIKey,
     });
   } else if (selectedProvider === "google") {
     if (!googleAPIKey) {
-      throw new Error("GOOGLE_AI_API_KEY is not set.");
+      throw new Error(missingAIKeyMessage("google"));
     }
     return createGoogleGenerativeAI({
       apiKey: googleAPIKey,
     });
   } else {
     if (!openAIAPIKey) {
-      throw new Error("OPENAI_API_KEY is not set.");
+      throw new Error(missingAIKeyMessage("openai"));
     }
     return createOpenAI({
       apiKey: openAIAPIKey,
     });
   }
 };
+
+function getOpenAIProviderOptions(model: AIModel) {
+  if (getProviderFromModel(model) !== "openai") return {};
+
+  return {
+    providerOptions: {
+      openai: {
+        store: false,
+        include: ["reasoning.encrypted_content"],
+      } satisfies OpenAIResponsesProviderOptions,
+    },
+  };
+}
 
 /**
  * The docs say OpenAI might not always return token usage info in rare edge cases.
@@ -155,6 +199,46 @@ export const secondsUntilAICanBeUsedAgain = async (
   return numTokensUsed > dailyLimit
     ? (nextResetAt - new Date().getTime()) / 1000
     : 0;
+};
+
+export const secondsUntilAICanBeUsedAgainForProvider = async (
+  context: ReqContext | ApiReqContext,
+  provider: AIProvider | undefined,
+): Promise<number> => {
+  if (!IS_CLOUD) return 0;
+  const { keySource } = await getAISettingsForOrg(context);
+  if (provider && keySource[provider] === "organization") return 0;
+  return secondsUntilAICanBeUsedAgain(context.org);
+};
+
+export const secondsUntilAICanBeUsedAgainForModel = async (
+  context: ReqContext | ApiReqContext,
+  overrideModel?: AIModel,
+): Promise<number> => {
+  if (!IS_CLOUD) return 0;
+  const { defaultAIModel, keySource } = await getAISettingsForOrg(context);
+  const model = resolveTextAIModel(overrideModel, defaultAIModel, keySource);
+  const provider = getProviderForAIModel("text", model) ?? undefined;
+  return secondsUntilAICanBeUsedAgainForProvider(context, provider);
+};
+
+export const secondsUntilAICanBeUsedAgainForPrompt = async (
+  context: ReqContext | ApiReqContext,
+  type: AIPromptType,
+): Promise<number> => {
+  if (!IS_CLOUD) return 0;
+  const { overrideModel } = await context.models.aiPrompts.getAIPrompt(type);
+  return secondsUntilAICanBeUsedAgainForModel(context, overrideModel);
+};
+
+export const secondsUntilAICanBeUsedAgainForEmbeddings = async (
+  context: ReqContext | ApiReqContext,
+): Promise<number> => {
+  if (!IS_CLOUD) return 0;
+  const { embeddingModel } = await getAISettingsForOrg(context);
+  const provider =
+    getProviderForAIModel("embedding", embeddingModel) ?? undefined;
+  return secondsUntilAICanBeUsedAgainForProvider(context, provider);
 };
 
 const constructMessages = (
@@ -217,11 +301,15 @@ export const simpleCompletion = async ({
   jsonSchema?: ZodObject<ZodRawShape>;
   overrideModel?: AIModel;
 }) => {
-  const { defaultAIModel } = getAISettingsForOrg(context, true);
+  const { defaultAIModel, keySource } = await getAISettingsForOrg(
+    context,
+    true,
+  );
 
-  const model = overrideModel || defaultAIModel;
+  const model = resolveTextAIModel(overrideModel, defaultAIModel, keySource);
+  const ownKey = usesOwnAIKey(keySource, model);
 
-  const aiProvider = getAIProviderClass(context, model);
+  const aiProvider = await getAIProviderClass(context, model);
 
   if (aiProvider == null) {
     throw new Error("AI provider not enabled or key not set");
@@ -238,6 +326,7 @@ export const simpleCompletion = async ({
   const generateOptions = {
     model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
     messages,
+    ...getOpenAIProviderOptions(model),
     ...(effectiveTemperature != null
       ? { temperature: effectiveTemperature }
       : {}),
@@ -268,12 +357,13 @@ export const simpleCompletion = async ({
   }
 
   if (IS_CLOUD) {
-    if (!numTokensUsed) {
-      numTokensUsed = numTokensFromMessages(messages, model);
+    if (!ownKey) {
+      if (!numTokensUsed) {
+        numTokensUsed = numTokensFromMessages(messages, model);
+      }
+      await updateTokenUsage({ numTokensUsed, organization: context.org });
     }
-    await updateTokenUsage({ numTokensUsed, organization: context.org });
 
-    // Fire and forget
     logCloudAIUsage({
       organization: context.org.id,
       type,
@@ -284,6 +374,18 @@ export const simpleCompletion = async ({
       usedDefaultPrompt: isDefaultPrompt,
     });
   }
+
+  trackAIUsage({
+    organizationId: context.org.id,
+    userId: context.userId,
+    type,
+    model,
+    provider: getProviderFromModel(model),
+    numPromptTokensUsed: inputTokensUsed,
+    numCompletionTokensUsed: outputTokensUsed,
+    usedDefaultPrompt: isDefaultPrompt,
+    usedOwnKey: ownKey,
+  });
 
   return result;
 };
@@ -311,9 +413,13 @@ export const streamingChatCompletion = async ({
   maxSteps?: number;
   abortSignal?: AbortSignal;
 }) => {
-  const { defaultAIModel } = getAISettingsForOrg(context, true);
-  const model = overrideModel || defaultAIModel;
-  const aiProvider = getAIProviderClass(context, model);
+  const { defaultAIModel, keySource } = await getAISettingsForOrg(
+    context,
+    true,
+  );
+  const model = resolveTextAIModel(overrideModel, defaultAIModel, keySource);
+  const ownKey = usesOwnAIKey(keySource, model);
+  const aiProvider = await getAIProviderClass(context, model);
 
   if (aiProvider == null) {
     throw new Error("AI provider not enabled or key not set");
@@ -325,36 +431,120 @@ export const streamingChatCompletion = async ({
     ? undefined
     : temperature;
 
+  const recordUsage = async ({
+    inputTokens,
+    outputTokens,
+    totalTokens,
+    outcome,
+  }: {
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+    outcome: AIUsageOutcome;
+  }) => {
+    trackAIUsage({
+      organizationId: context.org.id,
+      userId: context.userId,
+      type,
+      model,
+      provider: getProviderFromModel(model),
+      numPromptTokensUsed: inputTokens,
+      numCompletionTokensUsed: outputTokens,
+      usedDefaultPrompt: isDefaultPrompt,
+      usedOwnKey: ownKey,
+      outcome,
+    });
+
+    if (!IS_CLOUD) return;
+
+    const numTokensUsed = totalTokens ?? 0;
+    if (numTokensUsed && !ownKey) {
+      try {
+        await updateTokenUsage({ numTokensUsed, organization: context.org });
+      } catch (e) {
+        // Accounting failures must not turn a completed AI response into a 500.
+        logger.error(e, "streamingChatCompletion: could not meter token usage");
+      }
+    }
+
+    logCloudAIUsage({
+      organization: context.org.id,
+      type,
+      model,
+      numPromptTokensUsed: inputTokens,
+      numCompletionTokensUsed: outputTokens,
+      temperature: effectiveTemperature,
+      usedDefaultPrompt: isDefaultPrompt,
+    });
+  };
+
+  type TerminalUsage = {
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+    outcome: AIUsageOutcome;
+  };
+  let terminalUsage: TerminalUsage | undefined;
+  let streamErrored = false;
+
   const result = streamText({
     model: aiProvider(model) as Parameters<typeof streamText>[0]["model"],
     system,
     messages,
+    ...getOpenAIProviderOptions(model),
     ...(effectiveTemperature != null
       ? { temperature: effectiveTemperature }
       : {}),
     ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
     ...(abortSignal ? { abortSignal } : {}),
-    onFinish: async ({ usage }) => {
-      if (IS_CLOUD) {
-        const numTokensUsed = usage?.totalTokens ?? 0;
-        if (numTokensUsed) {
-          await updateTokenUsage({ numTokensUsed, organization: context.org });
-        }
-
-        logCloudAIUsage({
-          organization: context.org.id,
-          type,
-          model,
-          numPromptTokensUsed: usage?.inputTokens,
-          numCompletionTokensUsed: usage?.outputTokens,
-          temperature: effectiveTemperature,
-          usedDefaultPrompt: isDefaultPrompt,
-        });
+    onFinish: ({ totalUsage }) => {
+      // onFinish's `usage` is only the last step; totalUsage covers the run.
+      if (terminalUsage?.outcome !== "aborted") {
+        terminalUsage = {
+          inputTokens: totalUsage.inputTokens,
+          outputTokens: totalUsage.outputTokens,
+          totalTokens: totalUsage.totalTokens,
+          outcome: streamErrored ? "error" : "success",
+        };
       }
+    },
+    onAbort: ({ steps }) => {
+      const usage = steps.reduce(
+        (acc, step) => ({
+          inputTokens: acc.inputTokens + (step.usage?.inputTokens ?? 0),
+          outputTokens: acc.outputTokens + (step.usage?.outputTokens ?? 0),
+          totalTokens: acc.totalTokens + (step.usage?.totalTokens ?? 0),
+        }),
+        { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      );
+      terminalUsage = { ...usage, outcome: "aborted" };
+    },
+    onError: ({ error }) => {
+      logger.error(error, "streamingChatCompletion: stream error");
+      streamErrored = true;
     },
   });
 
-  return result;
+  let accountingPromise: Promise<void> | undefined;
+  const completeAccounting = (): Promise<void> => {
+    if (!accountingPromise) {
+      accountingPromise = (async () => {
+        try {
+          await result.response;
+        } catch {
+          // The terminal outcome is recorded below.
+        }
+        await recordUsage(
+          terminalUsage ?? {
+            outcome: streamErrored ? "error" : "aborted",
+          },
+        );
+      })();
+    }
+    return accountingPromise;
+  };
+
+  return { result, completeAccounting };
 };
 
 export { aiTool };
@@ -374,6 +564,8 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   cacheSystemPrompt = false,
   onStepFinish,
   retryOnNoObject = true,
+  maxOutputTokens = 8000,
+  logContext,
 }: {
   context: ReqContext | ApiReqContext;
   instructions?: string;
@@ -392,6 +584,19 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   // selector-correction retry — otherwise one request could fan out to
   // 4 LLM calls).
   retryOnNoObject?: boolean;
+  // Cap on GENERATED (output) tokens. Set explicitly because an un-capped
+  // call relies on the provider default (~4k for Anthropic), and a large
+  // response — e.g. a full global-CSS replacement, where the model must
+  // re-emit all existing CSS — can blow past it and get truncated
+  // mid-JSON, which surfaces as NoObjectGeneratedError ("couldn't format a
+  // valid response"). 8000 stays under every current provider's ceiling;
+  // callers that emit large artifacts (Figma → Variant) can raise it.
+  maxOutputTokens?: number;
+  // Extra fields merged into the NoObjectGeneratedError diagnostic logs so
+  // callers can attach request-specific context (e.g. the visual editor's
+  // picked-element selectors) for correlating which inputs trip the
+  // structured-output failure. Diagnostic only — never affects the model.
+  logContext?: Record<string, unknown>;
   // Optional tool-calling: when present, the model may emit tool calls
   // across up to `maxSteps` LLM round-trips before producing the final
   // structured output. Default of 1 keeps the no-tools shape identical.
@@ -408,10 +613,14 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   // and how many steps a turn used.
   onStepFinish?: Parameters<typeof generateText>[0]["onStepFinish"];
 }): Promise<z.infer<T>> => {
-  const { defaultAIModel } = getAISettingsForOrg(context, true);
-  const model = overrideModel || defaultAIModel;
+  const { defaultAIModel, keySource } = await getAISettingsForOrg(
+    context,
+    true,
+  );
+  const model = resolveTextAIModel(overrideModel, defaultAIModel, keySource);
+  const ownKey = usesOwnAIKey(keySource, model);
 
-  const aiProvider = getAIProviderClass(context, model);
+  const aiProvider = await getAIProviderClass(context, model);
 
   if (aiProvider == null) {
     throw new Error("AI provider not enabled or key not set");
@@ -446,19 +655,45 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     ? undefined
     : temperature;
 
-  const generateOnce = () =>
-    generateText({
+  const generateOnce = async () => {
+    const result = await generateText({
       model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
       messages: messages,
+      ...getOpenAIProviderOptions(model),
       output: Output.object({
         schema: zodObjectSchema,
       }),
+      maxOutputTokens,
       ...(effectiveTemperature != null
         ? { temperature: effectiveTemperature }
         : {}),
-      ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
+      ...(tools
+        ? {
+            tools,
+            stopWhen: stepCountIs(maxSteps),
+            // Force a final answer on the last allowed step. Otherwise a model
+            // that keeps calling tools until it exhausts maxSteps ends ON a
+            // tool call (finishReason !== "stop"), so no output object is
+            // produced and the run fails with NoOutputGeneratedError (observed
+            // with claude-haiku-4-5 on visual-editor moves). Forbidding tools
+            // on the final step makes it commit to the structured output using
+            // whatever it has gathered. Only fires on a runaway loop — a model
+            // that answers within budget never reaches this step.
+            prepareStep: ({ stepNumber }: { stepNumber: number }) =>
+              stepNumber >= maxSteps - 1 ? { toolChoice: "none" as const } : {},
+          }
+        : {}),
       ...(onStepFinish ? { onStepFinish } : {}),
     });
+    // Read the lazy `output` getter HERE, inside this awaited function, so the
+    // try/catch below catches BOTH generation failures. generateText only
+    // parses the object (and throws NoObjectGeneratedError) when the run ends
+    // on "stop"; when it ends on a tool call it RESOLVES normally with no
+    // output, and the getter throws NoOutputGeneratedError only on access.
+    // Touching it here routes that lazy throw through the same retry path
+    // instead of letting it escape at the call site as an opaque error.
+    return { output: result.output, usage: result.usage };
+  };
 
   // Output.object steers the model toward the schema but doesn't
   // grammar-constrain it, so conformance is probabilistic: a complex
@@ -469,37 +704,119 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   // rate is a simpler schema or a stronger model; this is just a cheap
   // backstop. A failed attempt still bills tokens (the error carries its
   // usage), so track them or the retry under-counts on Cloud.
+  // Two distinct generation failures share this retry path:
+  //   - NoObjectGeneratedError: the model produced text that didn't validate
+  //     against the schema (truncated mid-JSON, or invalid/prose output).
+  //   - NoOutputGeneratedError: with tools + multi-step, the run ENDED without
+  //     ever emitting the output object (e.g. it stopped on a tool call, or
+  //     returned only prose). The SDK surfaces this as a bare error with no
+  //     finishReason/text/usage. Left unhandled it escaped as an opaque
+  //     "No output generated." 400 — no retry, no friendly message, no log.
+  const isGenerationFailure = (
+    e: unknown,
+  ): e is NoObjectGeneratedError | NoOutputGeneratedError =>
+    NoObjectGeneratedError.isInstance(e) ||
+    NoOutputGeneratedError.isInstance(e);
+
+  // Pull whatever diagnostics the error carries so prod logs show WHY it
+  // failed. Only NoObjectGeneratedError has finishReason ("length" =
+  // truncated mid-JSON vs "stop" = invalid/prose) and the raw text sample;
+  // NoOutputGeneratedError carries just a cause, so guard those reads.
+  const noOutputDiag = (e: NoObjectGeneratedError | NoOutputGeneratedError) => {
+    const objErr = NoObjectGeneratedError.isInstance(e) ? e : undefined;
+    return {
+      // Spread caller context FIRST so the authoritative error fields below
+      // always win — a colliding logContext key can't mask the real signal.
+      ...(logContext ?? {}),
+      errorType: objErr ? "no-object" : "no-output",
+      finishReason: objErr?.finishReason,
+      cause: e.cause instanceof Error ? e.cause.message : String(e.cause ?? ""),
+      textSample: (objErr?.text ?? "").slice(0, 2000),
+    };
+  };
+
+  // usage is only present on NoObjectGeneratedError; NoOutputGeneratedError
+  // bills nothing extra to track.
+  const failureTokens = (e: NoObjectGeneratedError | NoOutputGeneratedError) =>
+    NoObjectGeneratedError.isInstance(e) ? (e.usage?.totalTokens ?? 0) : 0;
+
   let retriedTokens = 0;
+  const recordFailedAttempts = async () => {
+    if (IS_CLOUD && !ownKey && retriedTokens > 0) {
+      await updateTokenUsage({
+        numTokensUsed: retriedTokens,
+        organization: context.org,
+      });
+    }
+    trackAIUsage({
+      organizationId: context.org.id,
+      userId: context.userId,
+      type,
+      model,
+      provider: getProviderFromModel(model),
+      numRetriedTokensUsed: retriedTokens,
+      usedDefaultPrompt: isDefaultPrompt,
+      usedOwnKey: ownKey,
+      outcome: "error",
+    });
+  };
+
   let response: Awaited<ReturnType<typeof generateOnce>>;
   try {
     response = await generateOnce();
   } catch (err) {
-    if (!NoObjectGeneratedError.isInstance(err)) throw err;
+    if (!isGenerationFailure(err)) throw err;
+    retriedTokens += failureTokens(err);
     // Don't stack retries when the caller is already a retry path.
-    if (!retryOnNoObject) throw err;
-    retriedTokens += err.usage?.totalTokens ?? 0;
+    if (!retryOnNoObject) {
+      await recordFailedAttempts();
+      throw err;
+    }
     logger.warn(
-      { type, model },
-      "parsePrompt: model returned no schema-valid object; retrying once",
+      { type, model, ...noOutputDiag(err) },
+      "parsePrompt: model returned no usable output; retrying once",
     );
     try {
       response = await generateOnce();
     } catch (retryErr) {
-      if (!NoObjectGeneratedError.isInstance(retryErr)) throw retryErr;
-      retriedTokens += retryErr.usage?.totalTokens ?? 0;
-      // Bill both failed attempts before surfacing the error so Cloud
-      // rate-limiting doesn't under-count a double failure.
-      if (IS_CLOUD && retriedTokens > 0) {
-        await updateTokenUsage({
-          numTokensUsed: retriedTokens,
-          organization: context.org,
-        });
+      if (!isGenerationFailure(retryErr)) {
+        await recordFailedAttempts();
+        throw retryErr;
       }
+      retriedTokens += failureTokens(retryErr);
+      logger.warn(
+        { type, model, ...noOutputDiag(retryErr) },
+        "parsePrompt: model returned no usable output after retry; giving up",
+      );
+      await recordFailedAttempts();
+      // If either attempt stopped on the output-token ceiling, the JSON was
+      // cut off mid-stream — a generic "try again" won't help an inherently
+      // too-large response, so point the user at narrowing the request.
+      const truncated =
+        (NoObjectGeneratedError.isInstance(err) &&
+          err.finishReason === "length") ||
+        (NoObjectGeneratedError.isInstance(retryErr) &&
+          retryErr.finishReason === "length");
       throw new Error(
-        "The AI couldn't format a valid response for this request. Please try again, or rephrase/simplify the request.",
+        truncated
+          ? "Your request produced a response too large to return in one piece. Try a more focused request — for example, edit one section or a few elements at a time, then layer on more."
+          : "The AI couldn't format a valid response for this request. Please try again, or rephrase/simplify the request.",
       );
     }
   }
+
+  trackAIUsage({
+    organizationId: context.org.id,
+    userId: context.userId,
+    type,
+    model,
+    provider: getProviderFromModel(model),
+    numPromptTokensUsed: response.usage?.inputTokens,
+    numCompletionTokensUsed: response.usage?.outputTokens,
+    numRetriedTokensUsed: retriedTokens,
+    usedDefaultPrompt: isDefaultPrompt,
+    usedOwnKey: ownKey,
+  });
 
   if (IS_CLOUD) {
     // Fire and forget
@@ -513,10 +830,13 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       usedDefaultPrompt: isDefaultPrompt,
     });
 
-    const numTokensUsed =
-      (response.usage?.totalTokens ?? numTokensFromMessages(messages, model)) +
-      retriedTokens;
-    await updateTokenUsage({ numTokensUsed, organization: context.org });
+    // Only meter usage against the daily cap when GrowthBook is paying.
+    if (!ownKey) {
+      const numTokensUsed =
+        (response.usage?.totalTokens ??
+          numTokensFromMessages(messages, model)) + retriedTokens;
+      await updateTokenUsage({ numTokensUsed, organization: context.org });
+    }
   }
 
   if (!response.output) {
@@ -529,7 +849,7 @@ export function cosineSimilarity(vec1: number[], vec2: number[]): number {
   if (vec1.length !== vec2.length) {
     throw new Error("Vectors must be of the same length");
   }
-  const dot = vec1.reduce((sum, val, _i) => sum + val * val, 0);
+  const dot = vec1.reduce((sum, val, i) => sum + val * vec2[i], 0);
   const normA = Math.sqrt(vec1.reduce((sum, val) => sum + val * val, 0));
   const normB = Math.sqrt(vec2.reduce((sum, val) => sum + val * val, 0));
   return dot / (normA * normB);
@@ -548,7 +868,8 @@ export async function generateEmbeddings({
     mistralAPIKey,
     googleAPIKey,
     embeddingModel,
-  } = getAISettingsForOrg(context, true);
+    keySource,
+  } = await getAISettingsForOrg(context, true);
 
   if (!aiEnabled) {
     throw new Error("AI features are not enabled");
@@ -589,6 +910,7 @@ export async function generateEmbeddings({
 
     // Generate embeddings for each input string
     const embeddings: number[][] = [];
+    let numTokensUsed = 0;
 
     for (const text of input) {
       const result = await embed({
@@ -596,8 +918,24 @@ export async function generateEmbeddings({
         value: text,
       });
 
+      numTokensUsed += result.usage?.tokens ?? 0;
       embeddings.push(result.embedding);
     }
+
+    // One event per batch, counted as prompt tokens. Still not metered against
+    // the daily cap — they never were, and starting now would silently shrink
+    // every managed-key org's text budget.
+    trackAIUsage({
+      organizationId: context.org.id,
+      userId: context.userId,
+      type: "generate-embeddings",
+      model: embeddingModel,
+      provider,
+      numPromptTokensUsed: numTokensUsed,
+      // No prompt template exists for embeddings, so nothing was customized.
+      usedDefaultPrompt: true,
+      usedOwnKey: keySource[provider] === "organization",
+    });
 
     return embeddings;
   } catch (error) {

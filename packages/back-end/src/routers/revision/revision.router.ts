@@ -133,7 +133,19 @@ router.get(
   revisionController.getRevision,
 );
 
-// Submit a draft for review (changes status from "draft" to "pending-review")
+/** Exported for middleware-boundary validation tests. */
+export const submitBodySchema = z
+  .object({
+    autoPublishOnApproval: z.boolean().optional(),
+    // A dated schedule armed as part of the same request. A review-required draft
+    // cannot arm one through the schedule endpoint — it refuses until review is
+    // requested — so the control stages it and sends it here.
+    scheduledPublishAt: z.string().nullable().optional(),
+    scheduledPublishLockEdits: z.boolean().optional(),
+    scheduledPublishLockOthers: z.boolean().optional(),
+  })
+  .strict();
+
 router.post(
   "/:id/submit",
   validateRequestMiddleware({
@@ -142,11 +154,7 @@ router.post(
         id: z.string(),
       })
       .strict(),
-    body: z
-      .object({
-        autoPublishOnApproval: z.boolean().optional(),
-      })
-      .strict(),
+    body: submitBodySchema,
   }),
   revisionController.postSubmit,
 );
@@ -207,6 +215,24 @@ router.patch(
   revisionController.patchTitle,
 );
 
+// Update description (comment) of a revision
+router.patch(
+  "/:id/description",
+  validateRequestMiddleware({
+    params: z
+      .object({
+        id: z.string(),
+      })
+      .strict(),
+    body: z
+      .object({
+        description: z.string(),
+      })
+      .strict(),
+  }),
+  revisionController.patchDescription,
+);
+
 // Merge a revision
 router.post(
   "/:id/merge",
@@ -256,6 +282,23 @@ router.post(
   revisionController.postToggleAutoPublish,
 );
 
+// Arm (date set) or cancel (date null) a deferred/scheduled publish
+router.post(
+  "/:id/schedule-publish",
+  validateRequestMiddleware({
+    params: z.object({ id: z.string() }).strict(),
+    body: z
+      .object({
+        scheduledPublishAt: z.string().nullable(),
+        lockEdits: z.boolean().optional(),
+        lockOthers: z.boolean().optional(),
+        bypassApproval: z.boolean().optional(),
+      })
+      .strict(),
+  }),
+  revisionController.postSchedulePublish,
+);
+
 // Close a revision
 router.post(
   "/:id/close",
@@ -285,6 +328,43 @@ router.post(
       .strict(),
   }),
   revisionController.postReopen,
+);
+
+// Recall a review request (return a revision to draft)
+router.post(
+  "/:id/recall-review",
+  validateRequestMiddleware({
+    params: z.object({ id: z.string() }).strict(),
+  }),
+  revisionController.postRecallReview,
+);
+
+// Retract your own review verdict
+router.post(
+  "/:id/undo-review",
+  validateRequestMiddleware({
+    params: z.object({ id: z.string() }).strict(),
+  }),
+  revisionController.postUndoReview,
+);
+
+// Edit a comment you authored
+router.put(
+  "/:id/comment/:reviewId",
+  validateRequestMiddleware({
+    params: z.object({ id: z.string(), reviewId: z.string() }).strict(),
+    body: z.object({ comment: z.string() }).strict(),
+  }),
+  revisionController.putComment,
+);
+
+// Delete a comment you authored
+router.delete(
+  "/:id/comment/:reviewId",
+  validateRequestMiddleware({
+    params: z.object({ id: z.string(), reviewId: z.string() }).strict(),
+  }),
+  revisionController.deleteComment,
 );
 
 // Get revision history for an entity

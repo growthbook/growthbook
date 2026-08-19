@@ -1,9 +1,10 @@
 import { Permissions, userHasPermission } from "shared/permissions";
 import { uniq } from "lodash";
+import md5 from "md5";
 import type pino from "pino";
 import type { Request } from "express";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { CommercialFeature } from "shared/enterprise";
+import { CommercialFeature, OrgLimitsAccessor } from "shared/enterprise";
 import { AuditInterfaceInput } from "shared/types/audit";
 import {
   OrganizationInterface,
@@ -19,9 +20,11 @@ import { DataSourceInterface } from "shared/types/datasource";
 import { FeatureInterface } from "shared/types/feature";
 import { UserInterface } from "shared/types/user";
 import { stringToBoolean } from "shared/util";
+import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
   BadRequestError,
   UnauthorizedError,
+  PaymentRequiredError,
   PlanDoesNotAllowError,
   NotFoundError,
   InternalServerError,
@@ -29,6 +32,7 @@ import {
 import { SdkConnectionCacheModel } from "back-end/src/models/SdkConnectionCacheModel";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
@@ -59,11 +63,14 @@ import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
 import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
 import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
+import { ConstantModel } from "back-end/src/models/ConstantModel";
+import { ConfigModel } from "back-end/src/models/ConfigModel";
 import { FeatureRevisionLogModel } from "back-end/src/models/FeatureRevisionLogModel";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
 import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
 import { AgreementModel } from "back-end/src/models/AgreementModel";
+import { SessionReplayModel } from "back-end/src/models/SessionReplayModel";
 import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
 import { ExperimentSnapshotAnalysisChunkModel } from "back-end/src/models/ExperimentSnapshotAnalysisChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
@@ -71,15 +78,25 @@ import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
 import { RampScheduleTemplateModel } from "back-end/src/models/RampScheduleTemplateModel";
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
+import { ContextualBanditModel } from "back-end/src/enterprise/models/ContextualBanditModel";
+import { ContextualBanditQueryModel } from "back-end/src/enterprise/models/ContextualBanditQueryModel";
+import { ContextualBanditSnapshotModel } from "back-end/src/enterprise/models/ContextualBanditSnapshotModel";
+import { ContextualBanditEventModel } from "back-end/src/enterprise/models/ContextualBanditEventModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { RevisionModel } from "back-end/src/models/RevisionModel";
 import { AIConversationModel } from "back-end/src/models/AIConversationModel";
+import { LearningModel } from "back-end/src/models/LearningModel";
 import { EventForwarderConfigModel } from "back-end/src/models/EventForwarderConfigModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { FigmaConnectionModel } from "back-end/src/models/FigmaConnectionModel";
+import { AICredentialModel } from "back-end/src/models/AICredentialModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
+import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
+import { OAuthGrantModel } from "back-end/src/models/OAuthGrantModel";
+import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
 import { getUserByEmail, getUsersByIds } from "back-end/src/models/UserModel";
+import type { DeferredEventBuffer } from "back-end/src/events/bulkPublishCorrelation";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -120,6 +137,8 @@ export type ModelName =
   | "sdkConnectionCache"
   | "sdkWebhooks"
   | "savedGroups"
+  | "constants"
+  | "configs"
   | "teams"
   | "analyticsExplorations"
   | "presentationThemes"
@@ -127,14 +146,25 @@ export type ModelName =
   | "watch"
   | "figmaConnections"
   | "apiKeys"
+  | "oauthAuthCodes"
+  | "oauthGrants"
+  | "oauthRefreshTokens"
   | "rampSchedules"
   | "rampScheduleTemplates"
   | "aiConversations"
-  | "eventForwarderConfigs";
+  | "learnings"
+  | "contextualBandits"
+  | "contextualBanditQueries"
+  | "contextualBanditSnapshots"
+  | "contextualBanditEvents"
+  | "sessionReplays"
+  | "eventForwarderConfigs"
+  | "aiCredentials";
 
 export const modelClasses = {
   agreements: AgreementModel,
   aiPrompts: AiPromptModel,
+  aiCredentials: AICredentialModel,
   customFields: CustomFieldModel,
   factMetrics: FactMetricModel,
   featureRevisionLogs: FeatureRevisionLogModel,
@@ -163,6 +193,8 @@ export const modelClasses = {
   sdkConnectionCache: SdkConnectionCacheModel,
   sdkWebhooks: SdkWebhookModel,
   savedGroups: SavedGroupModel,
+  constants: ConstantModel,
+  configs: ConfigModel,
   teams: TeamModel,
   analyticsExplorations: AnalyticsExplorationModel,
   revisions: RevisionModel,
@@ -170,23 +202,127 @@ export const modelClasses = {
   watch: WatchModel,
   figmaConnections: FigmaConnectionModel,
   apiKeys: ApiKeyModel,
+  oauthAuthCodes: OAuthAuthCodeModel,
+  oauthGrants: OAuthGrantModel,
+  oauthRefreshTokens: OAuthRefreshTokenModel,
   rampSchedules: RampScheduleModel,
   rampScheduleTemplates: RampScheduleTemplateModel,
   aiConversations: AIConversationModel,
+  learnings: LearningModel,
+  contextualBandits: ContextualBanditModel,
+  contextualBanditQueries: ContextualBanditQueryModel,
+  contextualBanditSnapshots: ContextualBanditSnapshotModel,
+  contextualBanditEvents: ContextualBanditEventModel,
+  sessionReplays: SessionReplayModel,
   eventForwarderConfigs: EventForwarderConfigModel,
 };
-export type ModelClass = (typeof modelClasses)[ModelName];
+// ModelClass narrows to only BaseModel-derived model constructors (those
+// expose a static `getModelConfig`). Non-BaseModel context models — e.g.
+// SessionReplayModel, which is backed by ClickHouse + S3 rather than
+// Mongo — are still registered on the request context but excluded from
+// API_MODELS iteration in api.router.ts.
+export type ModelClass = Extract<
+  (typeof modelClasses)[ModelName],
+  { getModelConfig: () => unknown }
+>;
 type ModelInstances = {
   [K in ModelName]: InstanceType<(typeof modelClasses)[K]>;
 };
 
 export class ReqContextClass {
+  // When set, guard evaluators use this as their org-wide scan context instead
+  // of minting a fresh one per evaluation. Sharing one context makes the
+  // model-instance snapshot memos (e.g. ConfigModel.getAllForReconcile) span all
+  // guards in the operation, and lets the bulk publisher substitute an overlay
+  // whose reads reflect a hypothetical multi-entity end-state. Set
+  // self-referentially so nested evaluations inherit it. Request-scoped only —
+  // never cache one across requests.
+  public scanContextOverride?: ReqContextClass;
+
+  // Proposed feature states for the bulk publisher's overlay scan context,
+  // keyed by feature id. Honored by getAllFeaturesWithoutEditorFields (the
+  // single funnel every cross-entity validator reads features through), so
+  // guards evaluating a config/constant publish see the batch's proposed
+  // feature values instead of live ones. Only ever set on a dedicated
+  // plan-scoped scan context — never on a context that performs writes.
+  public featureScanOverlay?: Map<string, FeatureInterface> | null;
+
+  // When set, queueSDKPayloadRefresh appends payload keys here instead of
+  // refreshing — the bulk publisher's side-effect buffer, so a multi-entity
+  // commit produces ONE deduped refresh (at most one rebuild per SDK
+  // connection) after every write lands, and none at all if the commit
+  // compensates. `treatEmptyProjectAsGlobal` ORs across buffered calls so the
+  // flush matches connections at least as widely as the suppressed refreshes
+  // would have. Cleared before the flush itself refreshes.
+  public sdkPayloadRefreshBuffer?: {
+    keys: SDKPayloadKey[];
+    treatEmptyProjectAsGlobal: boolean;
+    // Set when the flush drains the buffer. Fire-and-forget producers that
+    // captured the buffer reference before the flush (e.g. a model
+    // afterUpdate's async resolvable scan) fall through to a live refresh
+    // instead of pushing into a drained array nobody will read.
+    closed?: boolean;
+  } | null;
+
+  // `*.updated` events held for the duration of a release: the bulk publisher
+  // flushes them after the commit lands and drops them on compensation, so a
+  // rolled-back release emits none. Audit entries are NOT deferred — they record
+  // writes that genuinely happened, compensation included.
+  //
+  // Entries are tagged with the release item whose apply produced them: compensation
+  // drops the events of items it rolled back, and must still emit those of an item
+  // whose restore FAILED — that entity is durably changed, so silence would leave
+  // consumers permanently behind live state.
+  //
+  // `closed` is the terminal disposition for a producer that arrives after the release
+  // has been decided. Some producers await mid-way and are invoked fire-and-forget
+  // (`onFeatureUpdate`), so read-and-push atomicity does not keep them inside the
+  // window — they carry a reference to THIS buffer instead of consulting the field.
+  public bulkPublishDeferredEvents?: DeferredEventBuffer | null;
+  /**
+   * Where a restore reports the document it put back. Points at the live buffer's
+   * `restored` set for the duration of a landing, so the in-window flush and any late
+   * producer read the same answer.
+   */
+  public bulkPublishRestoredEntities?: Set<string> | null;
+
+  // Set by compensation that could NOT put live state back. The deferred events
+  // above are dropped on a failed landing because a rolled-back change never
+  // happened — but when the rollback itself failed, part of the change IS live,
+  // and staying silent leaves consumers describing state that exists.
+  //
+  // Only CONSUMED inside `withBufferedPayloadRefreshes`. The five landings that set
+  // it through `compensateFailedLanding` are not wrapped in it, so on those paths this
+  // is currently inert — harmless because they rethrow immediately and the request
+  // ends. That stops being true the moment one of them is wrapped: the flag would then
+  // be live and would need clearing, or a buffered landing later in the same request
+  // would fire deferred events for a change that was cleanly rolled back.
+  public landingLeftPartialState?: boolean;
+
+  // Correlation token for the multi-entity publish ATTEMPT currently
+  // committing (`pub_…`, minted per commit). Distinct from the future
+  // Release id: a Release may publish over several attempts, each minting
+  // its own token. Revision lifecycle events emitted while set carry it as
+  // `bulkPublishId`. Absent on single-entity publishes.
+  public bulkPublishId?: string | null;
+
+  // True ONLY while a bulk-publish commit is writing entities (the claim →
+  // apply → compensation window). Write-path guards that already ran as plan
+  // gates against the combined end-state stand down while it's set, since
+  // re-running them against the mid-commit mix would spuriously fail a
+  // plan-clean release. Distinct from `bulkPublishId` (the event-correlation
+  // token, which stays set through post-commit emission): post-commit side
+  // effects (e.g. ramp activation) are genuine writes NOT covered by the plan
+  // gates, so they must run with guards active — hence a separate flag.
+  public bulkPublishApplying?: boolean;
+
   // Models
   public models!: ModelInstances;
   private initModels() {
     this.models = {
       agreements: new AgreementModel(this),
       aiPrompts: new AiPromptModel(this),
+      aiCredentials: new AICredentialModel(this),
       customFields: new CustomFieldModel(this),
       factMetrics: new FactMetricModel(this),
       featureRevisionLogs: new FeatureRevisionLogModel(this),
@@ -216,6 +352,8 @@ export class ReqContextClass {
       sdkConnectionCache: new SdkConnectionCacheModel(this),
       sdkWebhooks: new SdkWebhookModel(this),
       savedGroups: new SavedGroupModel(this),
+      constants: new ConstantModel(this),
+      configs: new ConfigModel(this),
       teams: new TeamModel(this),
       analyticsExplorations: new AnalyticsExplorationModel(this),
       revisions: new RevisionModel(this),
@@ -223,9 +361,18 @@ export class ReqContextClass {
       watch: new WatchModel(this),
       figmaConnections: new FigmaConnectionModel(this),
       apiKeys: new ApiKeyModel(this),
+      oauthAuthCodes: new OAuthAuthCodeModel(this),
+      oauthGrants: new OAuthGrantModel(this),
+      oauthRefreshTokens: new OAuthRefreshTokenModel(this),
       rampSchedules: new RampScheduleModel(this),
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
       aiConversations: new AIConversationModel(this),
+      learnings: new LearningModel(this),
+      contextualBandits: new ContextualBanditModel(this),
+      contextualBanditQueries: new ContextualBanditQueryModel(this),
+      contextualBanditSnapshots: new ContextualBanditSnapshotModel(this),
+      contextualBanditEvents: new ContextualBanditEventModel(this),
+      sessionReplays: new SessionReplayModel(this),
       eventForwarderConfigs: new EventForwarderConfigModel(this),
     };
   }
@@ -321,15 +468,96 @@ export class ReqContextClass {
   }
 
   // True to skip soft warnings; background jobs (no req) always ignore.
+  // Body-canonical (`{ "ignoreWarnings": true }`) with the querystring form
+  // kept as a deprecated alias — the flag is request disposition, but callers
+  // (agents especially) discover and retry flags far more reliably in the body
+  // schema. Strict zod body schemas mostly limit the flag to endpoints that
+  // declare the field, but not fully: `z.never()` bodies and internal routes
+  // skip body validation, so this getter can still see the raw flag there.
   public get ignoreWarnings(): boolean {
     if (!this.req) return true;
+    if (this.bodyFlag("ignoreWarnings")) return true;
     const v = this.req.query?.ignoreWarnings;
     if (typeof v !== "string") return false;
     return stringToBoolean(v);
   }
 
+  private bodyFlag(field: string): boolean {
+    const body = this.req?.body;
+    return (
+      !!body &&
+      typeof body === "object" &&
+      (body as Record<string, unknown>)[field] === true
+    );
+  }
+
+  // Opt-in escape hatch to skip JSON-schema / value-shape conformance checks on
+  // write paths (body-canonical `{ "skipSchemaValidation": true }`, with the
+  // querystring form as a deprecated alias). Validation is enforced by
+  // default; this only relaxes it when a caller explicitly asks. Background jobs
+  // (no req) never skip — they must produce conforming data.
+  //
+  // Gated: turning off hard validation is only honored for callers with org-wide
+  // bypass authority (`FlagsBypassApprovals` on all projects). A project-scoped
+  // writer can't silently ship non-conforming data — the flag is ignored and
+  // validation still runs (a 4xx, the secure default). Schema validation is new,
+  // so nothing depends on an ungated bypass.
+  // These request flags are entity-agnostic; the publish gates re-check the
+  // specific entity's bypass atom per gate (requiresPermission).
+  // Bypass is per FAMILY now, so the authority behind a privileged skip is
+  // resolved for the entity being written — ORing across the three models let
+  // an org-wide Constants bypass clear Config and Feature schema validation.
+  // Bulk publish already resolves per item; these keep single-entity paths on
+  // the same rule.
+  private hasFlagBypassAuthorityFor(
+    model: "feature" | "config" | "constant" | "saved-group",
+  ): boolean {
+    if (model === "saved-group") {
+      return this.permissions.canRevisionAction("saved-group", "bypass", {
+        projects: [],
+      });
+    }
+    return this.permissions.canBypassFlagApprovalChecks(
+      { project: undefined },
+      model,
+    );
+  }
+
+  private skipRequested(flag: "skipSchemaValidation" | "skipHooks"): boolean {
+    if (!this.req) return false;
+    const queryValue = this.req.query?.[flag];
+    return (
+      this.bodyFlag(flag) ||
+      (typeof queryValue === "string" && stringToBoolean(queryValue))
+    );
+  }
+
+  public canSkipSchemaValidationFor(
+    model: "feature" | "config" | "constant" | "saved-group",
+  ): boolean {
+    return (
+      this.skipRequested("skipSchemaValidation") &&
+      this.hasFlagBypassAuthorityFor(model)
+    );
+  }
+
+  // Force past a custom validation hook that rejected the change. Its own flag
+  // (not skipSchemaValidation — a hook failure isn't a schema error), honored
+  // only for callers with org-wide bypass authority on the entity's own family.
+  public canSkipHooksFor(
+    model: "feature" | "config" | "constant" | "saved-group",
+  ): boolean {
+    return (
+      this.skipRequested("skipHooks") && this.hasFlagBypassAuthorityFor(model)
+    );
+  }
+
   public throwBadRequestError(message: string): never {
     throw new BadRequestError(message);
+  }
+
+  public throwPaymentRequiredError(message: string): never {
+    throw new PaymentRequiredError(message);
   }
 
   public throwUnauthorizedError(message: string): never {
@@ -375,6 +603,26 @@ export class ReqContextClass {
 
   public hasPremiumFeature(feature: CommercialFeature) {
     return orgHasPremiumFeature(this.org, feature);
+  }
+
+  // Stable hash of this user's resolved permissions. Used to vary the
+  // `/organization/definitions` ETag, since that response is permission
+  // filtered per user. Over-invalidation on any perm change is fine (extra
+  // 200, never stale).
+  private _permissionsFingerprint?: string;
+  public getPermissionsFingerprint(): string {
+    if (this._permissionsFingerprint === undefined) {
+      this._permissionsFingerprint = md5(JSON.stringify(this.userPermissions));
+    }
+    return this._permissionsFingerprint;
+  }
+
+  private _limits: OrgLimitsAccessor | null = null;
+  public get limits(): OrgLimitsAccessor {
+    if (!this._limits) {
+      this._limits = getEffectiveOrgLimits(this.org);
+    }
+    return this._limits;
   }
 
   // Record an audit log entry
@@ -471,6 +719,15 @@ export class ReqContextClass {
       return projects;
     }
     return this._projects;
+  }
+
+  // Cached, unfiltered by read permissions (internal fan-out, unlike getProjects()).
+  private _allProjectIds: string[] | null = null;
+  public async getAllProjectIds(): Promise<string[]> {
+    if (this._allProjectIds === null) {
+      this._allProjectIds = await this.models.projects.getAllIdsForOrg();
+    }
+    return this._allProjectIds;
   }
 
   // Tags can be created on the fly, so we cache which ones already exist

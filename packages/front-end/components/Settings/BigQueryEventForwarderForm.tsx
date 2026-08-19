@@ -23,7 +23,7 @@ const BigQueryEventForwarderForm: FC<{
     patch: Partial<typeof bigQueryEventForwarderConfig.config>,
   ) => {
     setEventForwarderConfig({
-      sinkType: "bigquery",
+      ...bigQueryEventForwarderConfig,
       config: {
         ...bigQueryEventForwarderConfig.config,
         ...patch,

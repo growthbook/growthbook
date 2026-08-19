@@ -7,7 +7,7 @@ import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import LargeSavedGroupPerformanceWarning, {
   useLargeSavedGroupSupport,
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
@@ -62,11 +62,11 @@ export default function SavedGroupTargetingField({
   const savedGroupsLabel =
     label &&
     (slimMode ? (
-      <Text as="div" size="medium" weight="semibold" color="text-mid">
+      <Text as="div" size="md" weight="semibold" color="text-mid">
         {label}
       </Text>
     ) : (
-      <Text as="div" size="medium" weight="semibold">
+      <Text as="div" size="md" weight="semibold">
         {label}
       </Text>
     ));
@@ -82,7 +82,7 @@ export default function SavedGroupTargetingField({
         { value: "set", label: setModeLabel ?? "Set targeting" },
         { value: "remove", label: removeModeLabel ?? "Remove targeting" },
       ]}
-      labelSize="2"
+      labelSize="md"
     />
   ) : null;
   useEffect(() => {
@@ -150,7 +150,7 @@ export default function SavedGroupTargetingField({
               color="text-low"
               fontStyle="italic"
               mb="2"
-              size={slimMode ? "small" : undefined}
+              size={slimMode ? "sm" : undefined}
             >
               {emptyText || "No saved group targeting applied."}
             </Text>
@@ -171,7 +171,7 @@ export default function SavedGroupTargetingField({
               >
                 <Text
                   weight="semibold"
-                  size="medium"
+                  size="md"
                   color={locked ? "text-low" : undefined}
                 >
                   <PiPlusCircleBold className="mr-1" />
@@ -260,6 +260,7 @@ export default function SavedGroupTargetingField({
                   }
                   attributeSlot={
                     <SelectField
+                      size="legacy"
                       disabled={locked}
                       value={v.match}
                       onChange={(match) => {
@@ -278,6 +279,7 @@ export default function SavedGroupTargetingField({
                   }
                   valueSlot={
                     <MultiSelectField
+                      legacyHeight
                       disabled={locked}
                       value={v.ids}
                       onChange={(ids) => {

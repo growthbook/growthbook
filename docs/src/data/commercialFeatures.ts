@@ -9,6 +9,10 @@ export default {
     plan: "pro",
     displayName: "Advanced Permissions",
   },
+  "ai-byok": {
+    plan: "enterprise",
+    displayName: "Ai Byok",
+  },
   "ai-suggestions": {
     plan: "enterprise",
     displayName: "AI Suggestions",
@@ -28,6 +32,10 @@ export default {
   "code-references": {
     plan: "pro",
     displayName: "Code References",
+  },
+  "contextual-bandits": {
+    plan: "enterprise",
+    displayName: "Contextual Bandits",
   },
   "custom-hooks": {
     plan: "enterprise",
@@ -73,6 +81,14 @@ export default {
     plan: "enterprise",
     displayName: "Experiment Impact",
   },
+  "feature-configs": {
+    plan: "enterprise",
+    displayName: "Feature Configs",
+  },
+  "funnel-metrics": {
+    plan: "pro",
+    displayName: "Funnel Metrics",
+  },
   "hash-secure-attributes": {
     plan: "pro",
     displayName: "Hash Secure Attributes",
@@ -96,6 +112,10 @@ export default {
   "large-saved-groups": {
     plan: "enterprise",
     displayName: "Large Saved Groups",
+  },
+  learnings: {
+    plan: "enterprise",
+    displayName: "Learnings",
   },
   livechat: {
     plan: "pro",
@@ -192,6 +212,10 @@ export default {
   "regression-adjustment": {
     plan: "pro",
     displayName: "CUPED",
+  },
+  releases: {
+    plan: "enterprise",
+    displayName: "Releases",
   },
   "remote-evaluation": {
     plan: "pro",

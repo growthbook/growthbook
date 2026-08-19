@@ -1,9 +1,10 @@
 import React, { FC, useState } from "react";
 import { FaShippingFast } from "react-icons/fa";
+import { Flex } from "@radix-ui/themes";
 import clsx from "clsx";
 import { date, datetime } from "shared/dates";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   getLatestPhaseVariations,
   getMetricResultStatus,
   isSuspiciousUplift,
@@ -33,10 +34,11 @@ import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/Experi
 import ChangeColumn from "@/components/Experiment/ChangeColumn";
 import Pagination from "@/components/Pagination";
 import Checkbox from "@/ui/Checkbox";
+import VariationLabel from "@/ui/VariationLabel";
 
 interface Props {
   experimentsWithSnapshot: ExperimentWithSnapshot[];
-  metrics: ExperimentMetricInterface[];
+  metrics: ExperimentMetricDefinition[];
   bandits?: boolean;
   numPerPage?: number;
   differenceType?: DifferenceType;
@@ -290,27 +292,24 @@ const ExperimentWithMetricsTable: FC<Props> = ({
         </td>
 
         <td>
-          <div
+          <Flex
             key={`var-experiment${e.id}-variation${e.variationIndex}`}
-            className={`variation variation${e.variationIndex} with-variation-label d-flex my-1`}
+            align="center"
+            gap="1"
+            my="1"
           >
-            <span className="label" style={{ width: 20, height: 20 }}>
-              {e.variationIndex}
-            </span>
-            <span
-              className="d-inline-block text-ellipsis hover"
-              style={{
-                maxWidth: 200,
-              }}
-            >
-              {e.variationName}
-              {e.shipped ? (
-                <Tooltip body={"Variation marked as the winner"}>
-                  <FaShippingFast className="ml-1" />{" "}
-                </Tooltip>
-              ) : null}
-            </span>
-          </div>
+            <VariationLabel
+              number={e.variationIndex}
+              name={e.variationName}
+              size="md"
+              maxWidth="220px"
+            />
+            {e.shipped ? (
+              <Tooltip body={"Variation marked as the winner"}>
+                <FaShippingFast />
+              </Tooltip>
+            ) : null}
+          </Flex>
         </td>
         <td className="nowrap" title={datetime(e.date)}>
           {e.status === "running"

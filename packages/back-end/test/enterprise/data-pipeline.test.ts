@@ -4,11 +4,13 @@ import { OrganizationInterface } from "shared/types/organization";
 import { IncrementalRefreshInterface } from "shared/validators";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { IncrementalUpdateRequiresFullRefreshError } from "back-end/src/util/errors";
+import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
 import {
   getExperimentSettingsHashForIncrementalRefresh,
   assertIncrementalRefreshPrerequisites,
   getFactTablesNeedingRebuild,
+  exploratoryOverallRequiresFullRefresh,
+  legacyDocDescribesPhase,
 } from "back-end/src/enterprise/services/data-pipeline";
 import { planMetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
 import { factMetricFactory } from "../factories/FactMetric.factory";
@@ -131,7 +133,7 @@ describe("assertIncrementalRefreshPrerequisites experimentSettingsHash", () => {
         }),
         analysisType: "main-update",
       }),
-    ).rejects.toThrow(IncrementalUpdateRequiresFullRefreshError);
+    ).rejects.toThrow(ExperimentIncrementalPipelineRequiresFullRefreshError);
   });
 
   it("throws on main-update when the stored hash differs", async () => {
@@ -147,7 +149,7 @@ describe("assertIncrementalRefreshPrerequisites experimentSettingsHash", () => {
         }),
         analysisType: "main-update",
       }),
-    ).rejects.toThrow(IncrementalUpdateRequiresFullRefreshError);
+    ).rejects.toThrow(ExperimentIncrementalPipelineRequiresFullRefreshError);
   });
 
   it("skips hash validation on exploratory even when the stored hash differs", async () => {
@@ -395,5 +397,190 @@ describe("getFactTablesNeedingRebuild", () => {
       ]),
     });
     expect([...rebuild].sort()).toEqual(["ft_denom", "ft_num"]);
+  });
+});
+
+// A hash change forces existing incremental experiments into full refresh.
+describe("getExperimentSettingsHashForIncrementalRefresh — output hash", () => {
+  const GOLDEN_INPUT: ExperimentSnapshotSettings = {
+    activationMetric: null,
+    attributionModel: "firstExposure",
+    queryFilter: "",
+    segment: "",
+    skipPartialData: false,
+    datasourceId: "ds_123",
+    exposureQueryId: "exposure_1",
+    startDate: new Date("2024-01-01T00:00:00.000Z"),
+    regressionAdjustmentEnabled: false,
+    experimentId: "exp_123",
+    dimensions: [],
+    metricSettings: [],
+    goalMetrics: [],
+    secondaryMetrics: [],
+    guardrailMetrics: [],
+    defaultMetricPriorSettings: {},
+    endDate: new Date("2024-12-31T00:00:00.000Z"),
+    variations: [],
+  } as ExperimentSnapshotSettings;
+
+  it("produces the pinned md5 for the fixed input", () => {
+    expect(getExperimentSettingsHashForIncrementalRefresh(GOLDEN_INPUT)).toBe(
+      "1c14c7b3c695413e66101563d2b606ab",
+    );
+  });
+});
+
+describe("legacyDocDescribesPhase", () => {
+  it("returns true when the stored hash matches the requested phase's settings", () => {
+    const snapshotSettings = makeSnapshotSettings();
+    expect(
+      legacyDocDescribesPhase({
+        legacyDoc: makeIncrementalRefreshModel({
+          experimentSettingsHash:
+            getExperimentSettingsHashForIncrementalRefresh(snapshotSettings),
+        }),
+        snapshotSettings,
+      }),
+    ).toBe(true);
+  });
+
+  it("returns false when experimentSettingsHash is null", () => {
+    expect(
+      legacyDocDescribesPhase({
+        legacyDoc: makeIncrementalRefreshModel({
+          experimentSettingsHash: null,
+        }),
+        snapshotSettings: makeSnapshotSettings(),
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when experimentSettingsHash is undefined", () => {
+    expect(
+      legacyDocDescribesPhase({
+        legacyDoc: makeIncrementalRefreshModel({
+          experimentSettingsHash: undefined,
+        }),
+        snapshotSettings: makeSnapshotSettings(),
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when the phase start date differs", () => {
+    expect(
+      legacyDocDescribesPhase({
+        legacyDoc: makeIncrementalRefreshModel({
+          experimentSettingsHash:
+            getExperimentSettingsHashForIncrementalRefresh(
+              makeSnapshotSettings({ startDate: new Date("2024-01-01") }),
+            ),
+        }),
+        snapshotSettings: makeSnapshotSettings({
+          startDate: new Date("2024-06-01"),
+        }),
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when another setting differs", () => {
+    expect(
+      legacyDocDescribesPhase({
+        legacyDoc: makeIncrementalRefreshModel({
+          experimentSettingsHash:
+            getExperimentSettingsHashForIncrementalRefresh(
+              makeSnapshotSettings({ regressionAdjustmentEnabled: true }),
+            ),
+        }),
+        snapshotSettings: makeSnapshotSettings(),
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("exploratoryOverallRequiresFullRefresh", () => {
+  it("returns true when the experiment settings hash drifted", () => {
+    expect(
+      exploratoryOverallRequiresFullRefresh({
+        snapshotSettings: makeSnapshotSettings({ metricSettings: [] }),
+        incrementalRefreshModel: makeIncrementalRefreshModel({
+          experimentSettingsHash: "stale_hash",
+        }),
+        latestOverallSnapshotId: null,
+      }),
+    ).toBe(true);
+  });
+
+  it("returns true when there is no stored settings hash", () => {
+    expect(
+      exploratoryOverallRequiresFullRefresh({
+        snapshotSettings: makeSnapshotSettings({ metricSettings: [] }),
+        incrementalRefreshModel: makeIncrementalRefreshModel({
+          experimentSettingsHash: "",
+        }),
+        latestOverallSnapshotId: null,
+      }),
+    ).toBe(true);
+  });
+
+  it("returns false when the hash matches even though a metric is not cached", () => {
+    const settingsWithMetric = makeSnapshotSettings({
+      metricSettings: [{ id: "m1" }],
+    });
+    expect(
+      exploratoryOverallRequiresFullRefresh({
+        snapshotSettings: settingsWithMetric,
+        incrementalRefreshModel: makeIncrementalRefreshModel({
+          experimentSettingsHash:
+            getExperimentSettingsHashForIncrementalRefresh(settingsWithMetric),
+          metricSources: [],
+        }),
+        latestOverallSnapshotId: null,
+      }),
+    ).toBe(false);
+  });
+
+  it("returns true when hash matches but latest overall snapshot differs from materializer", () => {
+    const settings = makeSnapshotSettings({ metricSettings: [] });
+    expect(
+      exploratoryOverallRequiresFullRefresh({
+        snapshotSettings: settings,
+        incrementalRefreshModel: makeIncrementalRefreshModel({
+          experimentSettingsHash:
+            getExperimentSettingsHashForIncrementalRefresh(settings),
+          materializedBySnapshotId: "snp_old",
+        }),
+        latestOverallSnapshotId: "snp_new",
+      }),
+    ).toBe(true);
+  });
+
+  it("returns false when hash matches and latest overall snapshot equals materializer", () => {
+    const settings = makeSnapshotSettings({ metricSettings: [] });
+    expect(
+      exploratoryOverallRequiresFullRefresh({
+        snapshotSettings: settings,
+        incrementalRefreshModel: makeIncrementalRefreshModel({
+          experimentSettingsHash:
+            getExperimentSettingsHashForIncrementalRefresh(settings),
+          materializedBySnapshotId: "snp_old",
+        }),
+        latestOverallSnapshotId: "snp_old",
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when hash matches and no materializedBySnapshotId (legacy)", () => {
+    const settings = makeSnapshotSettings({ metricSettings: [] });
+    expect(
+      exploratoryOverallRequiresFullRefresh({
+        snapshotSettings: settings,
+        incrementalRefreshModel: makeIncrementalRefreshModel({
+          experimentSettingsHash:
+            getExperimentSettingsHashForIncrementalRefresh(settings),
+          materializedBySnapshotId: undefined,
+        }),
+        latestOverallSnapshotId: "snp_new",
+      }),
+    ).toBe(false);
   });
 });

@@ -1,3 +1,4 @@
+import isEqual from "lodash/isEqual";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   Environment,
@@ -25,6 +26,7 @@ import { FeatureUsageRecords } from "shared/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
 import {
   featureHasEnvironment,
+  filterEnvironmentsByFeature,
   generateVariationId,
   getNewDraftExperimentsToPublish,
   getRulesForEnvironment,
@@ -33,11 +35,24 @@ import {
   categorizeUnregisteredAttributes,
   extractConditionAttributeKeys,
   getRequireRegisteredAttributesSettings,
+  formatJsonMultilineObjects,
+  getTargetingProjectIds,
+  type MergeResultChanges,
   type RequireRegisteredAttributesSettings,
 } from "shared/util";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import isEqual from "lodash/isEqual";
-import { SafeRolloutRule } from "shared/validators";
+import {
+  HoldoutInterface,
+  RevisionRampAction,
+  SafeRolloutRule,
+} from "shared/validators";
+import {
+  featurePublishFootprint,
+  rampActionFootprint,
+  servingEnvironments,
+  holdoutEnvsForChange,
+  HOLDOUT_ENVS_UNRESOLVED,
+} from "shared/permissions";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getFutureScheduledStartDate } from "@/services/experiments";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
@@ -237,7 +252,7 @@ export function useFeatureSearch({
     [contentSearchPrefixes],
   );
   const { getOwnerDisplay } = useUser();
-  const { getProjectById } = useDefinitions();
+  const { getProjectById, projects } = useDefinitions();
 
   const features = useAddComputedFields(
     allFeatures,
@@ -272,6 +287,8 @@ export function useFeatureSearch({
       rampStates,
       dependencyIndex,
       experimentStates,
+      projects,
+      getProjectById,
     ],
     searchTermFilters: {
       is: (item) => {
@@ -316,10 +333,16 @@ export function useFeatureSearch({
         return has;
       },
       key: (item) => item.id,
-      project: (item: ComputedFeatureInterface) => [
-        item.project,
-        item.projectName,
-      ],
+      // Match the governance project plus any targeting projects (all
+      // projects when targetingAllProjects), by id and resolved name, so
+      // `project:` discovery mirrors where the feature is actually delivered.
+      project: (item: ComputedFeatureInterface) => {
+        const ids = getTargetingProjectIds(item) ?? projects.map((p) => p.id);
+        return [
+          ...ids,
+          ...ids.map((id) => (id ? getProjectById(id)?.name : undefined)),
+        ];
+      },
       created: (item) => new Date(item.dateCreated),
       updated: (item) => new Date(item.dateUpdated),
       experiment: (item) => item.linkedExperiments || [],
@@ -398,12 +421,12 @@ export function formatJSON(value: string): string | undefined {
     // Use dirty-json for small files to handle malformed JSON
     try {
       const parsed = dJSON.parse(value);
-      formatted = stringify(parsed);
+      formatted = formatJsonMultilineObjects(parsed);
     } catch (e) {
       // Fallback to native JSON.parse if dirty-json fails
       try {
         const parsed = JSON.parse(value);
-        formatted = stringify(parsed);
+        formatted = formatJsonMultilineObjects(parsed);
       } catch (e2) {
         // Ignore
       }
@@ -412,7 +435,7 @@ export function formatJSON(value: string): string | undefined {
     // For medium+ files, only use native JSON.parse (much faster)
     try {
       const parsed = JSON.parse(value);
-      formatted = stringify(parsed);
+      formatted = formatJsonMultilineObjects(parsed);
     } catch (e) {
       // Invalid JSON - skip formatting to avoid blocking UI
     }
@@ -787,6 +810,20 @@ export function validateFeatureRule(
         (ruleCopy as ExperimentRefRule).variations[i].value = newValue;
       }
     });
+  } else if (rule.type === "contextual-bandit-ref") {
+    rule.variations.forEach((v, i) => {
+      const newValue = validateFeatureValue(
+        feature,
+        v.value,
+        "Variation #" + i,
+      );
+      if (newValue !== v.value) {
+        hasChanges = true;
+        (ruleCopy as unknown as { variations: { value: string }[] }).variations[
+          i
+        ].value = newValue;
+      }
+    });
   } else if (rule.type === "safe-rollout") {
     const newVariationValue = validateFeatureValue(
       feature,
@@ -861,20 +898,105 @@ export function getDefaultValue(valueType: FeatureValueType): string {
   return "";
 }
 
-export function getAffectedRevisionEnvs(
-  liveFeature: FeatureInterface,
-  revision: FeatureRevisionInterface,
-  environments: Environment[],
-): string[] {
-  const enabledEnvs = getEnabledEnvironments(liveFeature, environments);
-  if (revision.defaultValue !== liveFeature.defaultValue) return enabledEnvs;
-
-  return enabledEnvs.filter((env) => {
-    const liveRules = getRulesForEnvironment(liveFeature.rules, env);
-    const revisionRules = getRulesForEnvironment(revision.rules, env);
-
-    return !isEqual(liveRules, revisionRules);
+/** Computes the client-side publish footprint using shared server rules. */
+export function getRevisionPublishEnvs({
+  liveFeature,
+  changes,
+  environments,
+  holdoutsMap,
+  rampActions,
+}: {
+  liveFeature: FeatureInterface;
+  changes: MergeResultChanges;
+  environments: Environment[];
+  holdoutsMap: Map<string, HoldoutInterface>;
+  /** Revision ramp actions, which are not part of the merge result. */
+  rampActions?: RevisionRampAction[];
+}): string[] {
+  const environmentIds = environments.map((e) => e.id);
+  const holdout = holdoutEnvsForChange({
+    currentHoldoutId: liveFeature.holdout?.id,
+    newHoldout: changes.holdout,
+    environmentIds,
+    resolve: (id) => holdoutsMap.get(id),
   });
+
+  const base = featurePublishFootprint({
+    feature: liveFeature,
+    liveRules: liveFeature.rules ?? [],
+    changes,
+    environmentIds,
+    holdoutEnvs: holdout.unresolved.length
+      ? HOLDOUT_ENVS_UNRESOLVED
+      : holdout.envs,
+  });
+
+  const rampEnvs = rampActionFootprint({
+    rampActions,
+    liveRules: liveFeature.rules ?? [],
+    environmentIds,
+  });
+  return rampEnvs === "all"
+    ? [...environmentIds]
+    : [...new Set([...base, ...rampEnvs])];
+}
+
+/** Returns environments applicable before or after a staged project move. */
+export function getMoveWidenedEnvironments({
+  feature,
+  changes,
+  allEnvironments,
+}: {
+  feature: FeatureInterface;
+  changes: MergeResultChanges;
+  allEnvironments: Environment[];
+}): Environment[] {
+  const base = filterEnvironmentsByFeature(allEnvironments, feature);
+  const m = changes.metadata;
+  const moves =
+    m?.project !== undefined ||
+    m?.targetingProjects !== undefined ||
+    m?.targetingAllProjects !== undefined;
+  if (!moves) return base;
+  const destination = filterEnvironmentsByFeature(allEnvironments, {
+    ...feature,
+    ...(m?.project !== undefined ? { project: m.project } : {}),
+    ...(m?.targetingProjects !== undefined
+      ? { targetingProjects: m.targetingProjects }
+      : {}),
+    ...(m?.targetingAllProjects !== undefined
+      ? { targetingAllProjects: m.targetingAllProjects }
+      : {}),
+  });
+  const seen = new Set(base.map((e) => e.id));
+  return [...base, ...destination.filter((e) => !seen.has(e.id))];
+}
+
+export function getMetadataEditEnvs({
+  feature,
+  proposed,
+  environments,
+}: {
+  feature: FeatureInterface;
+  proposed: {
+    project?: string;
+    targetingAllProjects?: boolean;
+    targetingProjects?: string[];
+  };
+  environments: Environment[];
+}): string[] {
+  const relocates = (proposed.project || "") !== (feature.project || "");
+  const targetingChanged =
+    !!proposed.targetingAllProjects !== !!feature.targetingAllProjects ||
+    !isEqual(
+      [...(proposed.targetingProjects ?? [])].sort(),
+      [...(feature.targetingProjects ?? [])].sort(),
+    );
+  if (!relocates && !targetingChanged) return [];
+  return servingEnvironments(
+    feature,
+    filterEnvironmentsByFeature(environments, feature).map((e) => e.id),
+  );
 }
 
 export function getDefaultVariationValue(defaultValue: string) {
@@ -1303,17 +1425,17 @@ export function jsonToConds(
             value: "",
           });
         }
-        if (operator === "$eq" && (v === true || v === false)) {
+        if (v === true || v === false) {
+          // Only `$eq` round-trips through `$true` / `$false`. Anything else
+          // (e.g. `{$ne: true}`, which also matches an unset attribute) has no
+          // simple-editor equivalent and would be rewritten on save.
+          if (operator !== "$eq") {
+            valid = false;
+            return;
+          }
           return conds.push({
             field,
             operator: v ? "$true" : "$false",
-            value: "",
-          });
-        }
-        if (operator === "$ne" && (v === true || v === false)) {
-          return conds.push({
-            field,
-            operator: v ? "$false" : "$true",
             value: "",
           });
         }
@@ -1507,7 +1629,8 @@ export function useAttributeMap(
         datatype: getAttributeDataType(schema.datatype),
         array: !!schema.datatype.match(/\[\]$/),
         enum:
-          schema.datatype === "enum" && schema.enum
+          (schema.datatype === "enum" || schema.datatype.endsWith("[]")) &&
+          schema.enum
             ? schema.enum.split(",").map((x) => x.trim())
             : schema.format === "isoCountryCode"
               ? ALL_COUNTRY_CODES
@@ -1556,7 +1679,7 @@ export function getExperimentDefinitionFromFeature(
     variations,
     phases: [
       {
-        coverage: expRule.coverage || 1,
+        coverage: expRule.coverage ?? 1,
         variationWeights,
         variations: variations.map((v) => ({
           id: v.id,
@@ -1637,7 +1760,8 @@ export function getDefaultOperator(attribute: AttributeData) {
   if (attribute.datatype === "boolean") {
     return "$true";
   } else if (attribute.array) {
-    return "$includes";
+    // Enum-constrained lists use set operators so the restricted MultiSelect shows.
+    return attribute.enum.length ? "$in" : "$includes";
   } else if (attribute.format === "version") {
     return "$veq";
   } else if (attribute.disableEqualityConditions) {

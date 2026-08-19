@@ -8,13 +8,15 @@ import {
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
+  publishOverrideBodyFields,
+  publishBypassedGatesField,
 } from "./shared";
 import { safeRolloutStatusArray } from "./safe-rollout";
 import {
   ownerEmailField,
   ownerField,
   ownerInputField,
-  optionalOwnerInputField,
+  requiredUnlessPatOwnerInputField,
 } from "./owner-field";
 import {
   featureRulePatch,
@@ -34,13 +36,37 @@ export const simpleSchemaFieldValidator = z.object({
   default: z.string().max(256),
   description: z.string().max(MAX_DESCRIPTION_LENGTH),
   enum: z.array(z.string().max(256)).max(256),
-  min: z.number(),
-  max: z.number(),
+  // Optional bounds — absent means no validation. Compiled only when present.
+  min: z.number().optional(),
+  max: z.number().optional(),
+  // Config-only, additive: `nullable` widens to `T | null`; `jsonSchema` is a
+  // raw per-field schema that supersedes the simple type.
+  nullable: z.boolean().optional(),
+  jsonSchema: z.string().optional(),
+});
+
+// Config-only: a named cross-field invariant — a relational rule JSON Schema
+// can't express (field-to-field comparisons, implications). `rule` is a mongo
+// condition (mongrule) boolean expression over the config's fields — field-to-field
+// comparisons use the `$ref` extension — stored as a JSON string (kept a string
+// rather than a nested object so it doesn't fight react-hook-form's typing in the
+// feature schema editor, which shares this validator); `message` is shown to editors.
+export const configInvariantValidator = z.object({
+  name: z.string().max(128),
+  rule: z.string(),
+  message: z.string().max(MAX_DESCRIPTION_LENGTH),
 });
 
 export const simpleSchemaValidator = z.object({
   type: z.enum(["object", "object[]", "primitive", "primitive[]"]),
   fields: z.array(simpleSchemaFieldValidator),
+  // Config-only: when true, the generated object schema permits keys beyond the
+  // declared fields (`additionalProperties: true`), letting child configs/rules
+  // extend the base. Absent = strict (`false`).
+  additionalProperties: z.boolean().optional(),
+  // Config-only: cross-field invariants evaluated at the save gate alongside the
+  // per-field JSON Schema check (see configInvariantValidator).
+  invariants: z.array(configInvariantValidator).optional(),
 });
 
 export const featureValueType = [
@@ -73,6 +99,15 @@ export const baseRule = z
     allEnvironments: z.boolean(),
     // Env list when `allEnvironments` is false.
     environments: z.array(z.string()).optional(),
+    // Wildcard project scope. When true (or when both fields are absent, the
+    // legacy/default state), the rule applies to every project the feature is
+    // delivered to. When false, the rule is limited to `projects`. An explicit
+    // boolean (mirroring `allEnvironments`) is required so project-deletion
+    // cleanup can empty `projects` to "nothing" without it flipping to "all".
+    allProjects: z.boolean().optional(),
+    // Project list when `allProjects` is false. `[]` means the rule applies to
+    // no project (leak-safe), NOT all projects.
+    projects: z.array(z.string()).optional(),
     enabled: z.boolean().optional(),
     scheduleRules: z.array(scheduleRule).optional(),
     savedGroups: z.array(savedGroupTargeting).optional(),
@@ -177,6 +212,17 @@ const experimentRefVariation = z
 
 export type ExperimentRefVariation = z.infer<typeof experimentRefVariation>;
 
+const contextualBanditRefVariation = z
+  .object({
+    variationId: z.string(),
+    value: z.string(),
+  })
+  .strict();
+
+export type ContextualBanditRefVariation = z.infer<
+  typeof contextualBanditRefVariation
+>;
+
 const experimentRefRule = baseRule
   .extend({
     type: z.literal("experiment-ref"),
@@ -187,6 +233,16 @@ const experimentRefRule = baseRule
   .strict();
 
 export type ExperimentRefRule = z.infer<typeof experimentRefRule>;
+
+const contextualBanditRefRule = baseRule
+  .extend({
+    type: z.literal("contextual-bandit-ref"),
+    contextualBanditId: z.string(),
+    variations: z.array(contextualBanditRefVariation),
+  })
+  .strict();
+
+export type ContextualBanditRefRule = z.infer<typeof contextualBanditRefRule>;
 
 export const safeRolloutRule = baseRule
   .extend({
@@ -210,6 +266,7 @@ export const featureRule = z.union([
   rolloutRule,
   experimentRule,
   experimentRefRule,
+  contextualBanditRefRule,
   safeRolloutRule,
 ]);
 
@@ -319,14 +376,12 @@ export const reviewRequestedStatusSchema = revisionStatusSchema.exclude([
 
 export const REVIEW_REQUESTED_STATUSES = reviewRequestedStatusSchema.options;
 
-/**
- * Status filter for revision list endpoints. Accepts a single value
- * (`draft`), comma-separated values (`draft,approved`), or the shorthand
- * `all-drafts` (expands to draft, pending-review, approved,
- * changes-requested). On v2 endpoints, omitting this parameter defaults to
- * `all-drafts`. Parsing is handled at the handler layer via
- * `parseRevisionStatusFilter`.
- */
+// Status filter for revision list endpoints. Accepts a single value
+// (`draft`), comma-separated values (`draft,approved`), or the shorthand
+// `all-drafts` (expands to draft, pending-review, approved,
+// changes-requested). On v2 endpoints, omitting this parameter defaults to
+// `all-drafts`. Parsing is handled at the handler layer via
+// `parseRevisionStatusFilter`.
 export const revisionStatusFilterSchema = z
   .union([z.string(), z.array(z.string())])
   .describe(
@@ -336,17 +391,15 @@ export const revisionStatusFilterSchema = z
 
 export type RevisionStatusFilter = z.infer<typeof revisionStatusFilterSchema>;
 
-/**
- * Parse a raw status query-param value into the form expected by
- * `getFeatureRevisionsByStatus`. Handles:
- * - Single values:          "draft"
- * - Comma-separated:        "draft,approved"
- * - "all-drafts" shorthand: expands to all four active-draft statuses
- * - Repeated query params:  ["all-drafts", "draft"] (from Express array parsing)
- *
- * Throws a plain Error (caught as 400 by createApiRequestHandler) if any
- * token is not a recognised RevisionStatus or "all-drafts".
- */
+// Parse a raw status query-param value into the form expected by
+// `getFeatureRevisionsByStatus`. Handles:
+// - Single values:          "draft"
+// - Comma-separated:        "draft,approved"
+// - "all-drafts" shorthand: expands to all four active-draft statuses
+// - Repeated query params:  ["all-drafts", "draft"] (from Express array parsing)
+//
+// Throws a plain Error (caught as 400 by createApiRequestHandler) if any
+// token is not a recognised RevisionStatus or "all-drafts".
 export function parseRevisionStatusFilter(
   val: string | string[] | undefined,
 ): RevisionStatus | RevisionStatus[] | undefined {
@@ -406,11 +459,17 @@ const revisionMetadataSchema = z.object({
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   owner: ownerField.optional(),
   project: z.string().optional(),
+  // Staged form of the feature's secondary-targeting scope (see featureInterface).
+  targetingAllProjects: z.boolean().optional(),
+  targetingProjects: z.array(z.string()).optional(),
   tags: z.array(z.string()).optional(),
   neverStale: z.boolean().optional(),
   customFields: z.record(z.string(), z.any()).optional(),
   jsonSchema: JSONSchemaDef.optional(),
   valueType: z.enum(featureValueType).optional(),
+  // Config mode. Tracked alongside jsonSchema/valueType so a change is
+  // snapshotted, diffed, gated, and applied on publish like any schema change.
+  baseConfig: z.string().nullable().optional(),
 });
 
 export type RevisionMetadata = z.infer<typeof revisionMetadataSchema>;
@@ -449,6 +508,12 @@ export const revisionRampCreateAction = z.object({
   ruleId: z.string(),
   monitoringConfig: rampMonitoringConfig.optional(),
   lockdownConfig: lockdownConfigSchema.optional(),
+  // When true, the ramp holds at step -1 (rule disabled, zero traffic) until a
+  // human explicitly approves the start, instead of firing on publish / at
+  // startDate. Per-launch decision — deliberately NOT sourced from templates.
+  // Tri-state on updates (mirrors startDate): true = on, null = explicitly off,
+  // undefined/absent = leave unchanged.
+  requiresStartApproval: z.boolean().nullish(),
 });
 
 // API input variant — normalize to RevisionRampCreateAction before storing.
@@ -563,6 +628,13 @@ export function reviewerKeyForEventUser(
 
 const featureRevisionInterface = minimalFeatureRevisionInterface
   .extend({
+    // Stable identity, dual-shaped: new docs store a minted "frev_<uniqid>";
+    // legacy docs get the computed tuple "frev_<version>_<featureId>" filled
+    // in-memory on read (and persisted opportunistically on publish writes).
+    // Tuple ids resolve by decoding onto the (organization, featureId,
+    // version) unique index; minted ids by the partial (organization, id)
+    // unique index.
+    id: z.string().optional(),
     featureId: z.string(),
     organization: z.string(),
     baseVersion: z.number(),
@@ -570,9 +642,18 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     // Used to detect "stale" approvals — i.e. changes published after approval.
     // Absent on drafts that were never approved and on legacy approvals.
     approvedBaseVersion: z.number().optional(),
+    // Version this revision reverts to. Persisted rather than passed at call time
+    // so a revert staged as a draft still relaxes the publish guards later.
+    revertedFrom: z.number().optional(),
     dateCreated: z.date(),
     publishedBy: z.union([z.null(), eventUser]),
     comment: z.string(),
+    // Version this draft reverts to, set when the draft is created by a revert.
+    // Same role as `revertedFrom` on the shared Revision model, but keyed by
+    // version since that's how feature revisions are addressed. Provenance only —
+    // publishing under revert authority additionally re-verifies that the draft
+    // still restores that revision's content and nothing else.
+    revertedFromVersion: z.number().optional(),
     defaultValue: z.string(),
     rules: revisionRulesSchema,
     // Revision envelopes — only present when explicitly changed
@@ -594,6 +675,8 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     // updateRevision's $addToSet; may be empty if no content edits have been made.
     // Note: the revision author (createdBy) is NOT automatically seeded here.
     contributors: z.array(z.string()).optional(),
+    /** Review-cycle identity; absent legacy values are treated as cycle 0. */
+    reviewCycle: z.number().optional(),
     autoPublishOnApproval: z.boolean().optional(),
     // User ID of whoever most recently armed `autoPublishOnApproval` — the
     // auto-publish executes with this user's authority. Absent when armed by
@@ -620,6 +703,14 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     // successful publish or when the schedule is canceled.
     scheduledPublishAttempts: z.number().optional(),
     scheduledPublishLastError: z.string().optional(),
+    // Backoff gate: the poller skips a due-but-failing revision until this time,
+    // so doomed retries space out exponentially instead of firing every tick.
+    scheduledPublishNextAttemptAt: z.union([z.null(), z.date()]).optional(),
+    // Set when the poller gives up on a failing scheduled publish (terminal
+    // failure, or transient failures exhausted the attempt cap). The schedule is
+    // cleared and the draft left open; this timestamp marks it abandoned so the
+    // UI can flag it. Cleared when the schedule is re-armed or canceled.
+    scheduledPublishGaveUpAt: z.union([z.null(), z.date()]).optional(),
     // Active reviewer verdicts for the current review cycle (one entry per
     // reviewer). Kept in sync by the review lifecycle mutations:
     // submit review upserts, undo review removes, request/recall review
@@ -659,10 +750,22 @@ export const featureInterface = z
     nextScheduledUpdate: z.union([z.date(), z.null()]).optional(),
     owner: ownerField,
     project: z.string().optional(),
+    // Secondary projects for read/discovery + SDK payload scoping beyond the
+    // governance `project`; `targetingAllProjects` overrides the list (targeted
+    // everywhere). Governance/approvals stay with `project`.
+    targetingAllProjects: z.boolean().optional(),
+    targetingProjects: z.array(z.string()).optional(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
     valueType: z.enum(featureValueType),
     defaultValue: z.string(),
+    // The config a JSON flag is backed by (a "config" authoring type). First-class
+    // and authoritative: its presence is what makes the flag config-backed. The
+    // payload compiler injects this config as the base layer under the default and
+    // every rule/variation value, so those values are stored as pure override
+    // patches (they may still carry their own optional `$extends` for layering,
+    // like rules). Stopgap ahead of a first-class `gb.config()` SDK primitive.
+    baseConfig: z.string().nullable().optional(),
     version: z.number(),
     tags: z.array(z.string()).optional(),
     environmentSettings: z.record(z.string(), featureEnvironment),
@@ -769,6 +872,18 @@ export const apiFeatureBaseRuleValidator = namedSchema(
             id: z.string().describe("Feature ID of the prerequisite"),
             condition: z.string(),
           }),
+        )
+        .optional(),
+      allProjects: z
+        .boolean()
+        .describe(
+          "When true (the default) the rule applies to every project the feature is delivered to. When false the rule is limited to `projects`.",
+        )
+        .optional(),
+      projects: z
+        .array(z.string())
+        .describe(
+          "Project IDs this rule is scoped to when `allProjects` is false. An empty array scopes the rule to no project.",
         )
         .optional(),
     })
@@ -903,6 +1018,27 @@ export const apiFeatureExperimentRefRuleValidator = namedSchema(
   ),
 );
 
+export const apiFeatureContextualBanditRefRuleValidator = namedSchema(
+  "FeatureContextualBanditRefRule",
+  z.intersection(
+    apiFeatureBaseRuleValidator
+      .omit({})
+      .describe(
+        "Common fields shared by all feature rule types. Specific rule types extend\nthis base with their own required properties (value, coverage, etc.).\n",
+      ),
+    z.object({
+      type: z.literal("contextual-bandit-ref"),
+      variations: z.array(
+        z.object({
+          value: z.string(),
+          variationId: z.string(),
+        }),
+      ),
+      contextualBanditId: z.string(),
+    }),
+  ),
+);
+
 // ---- FeatureSafeRolloutRule (schemas/FeatureSafeRolloutRule.yaml) ----
 export const apiFeatureSafeRolloutRuleValidator = namedSchema(
   "FeatureSafeRolloutRule",
@@ -935,6 +1071,7 @@ export const apiFeatureRuleValidator = namedSchema(
     apiFeatureRolloutRuleValidator,
     apiFeatureExperimentRuleValidator,
     apiFeatureExperimentRefRuleValidator,
+    apiFeatureContextualBanditRefRuleValidator,
     apiFeatureSafeRolloutRuleValidator,
   ]),
 );
@@ -1076,6 +1213,7 @@ export const apiRevisionMetadata = z
       })
       .optional(),
     customFields: z.record(z.string(), z.any()).optional(),
+    baseConfig: z.string().nullable().optional(),
   })
   .describe(
     "Metadata fields captured in this revision (only present when metadata gating is enabled)",
@@ -1104,6 +1242,11 @@ export const apiFeatureRevisionValidator = namedSchema(
   "FeatureRevisionV1",
   z
     .object({
+      id: z
+        .string()
+        .describe(
+          "Stable revision id. Newer revisions carry opaque ids; older ones a derived `frev_<version>_<featureId>` form. Both work wherever revision ids are accepted.",
+        ),
       featureId: z.string().describe("The feature this revision belongs to"),
       baseVersion: z.coerce.number().int(),
       version: z.coerce.number().int(),
@@ -1169,8 +1312,24 @@ export const apiFeatureValidator = namedSchema(
       owner: ownerField,
       ownerEmail: ownerEmailField,
       project: z.string(),
+      targetingAllProjects: z.boolean().optional(),
+      targetingProjects: z.array(z.string()).optional(),
       valueType: z.enum(["boolean", "string", "number", "json"]),
       defaultValue: z.string(),
+      baseConfig: z
+        .string()
+        .nullable()
+        .describe(
+          'Key of the config backing this flag ("Config mode"), or null. The config supplies the base JSON and schema. The internal `@config:` directive is scrubbed from values; `@const:` references are preserved. (v2 additionally exposes per-rule config fields.)',
+        )
+        .optional(),
+      defaultValueConfig: z
+        .string()
+        .nullable()
+        .describe(
+          "Config within `baseConfig`'s family that the default value resolves to (a descendant), or null when the default uses `baseConfig` directly.",
+        )
+        .optional(),
       tags: z.array(z.string()),
       environments: z.record(z.string(), apiFeatureEnvironmentValidator),
       prerequisites: z
@@ -1178,6 +1337,10 @@ export const apiFeatureValidator = namedSchema(
         .describe("Feature IDs. Each feature must evaluate to `true`")
         .optional(),
       revision: z.object({
+        id: z
+          .string()
+          .describe("Stable id of the feature's live revision.")
+          .optional(),
         version: z.coerce.number().int(),
         comment: z.string(),
         date: z.string().meta({ format: "date-time" }),
@@ -1227,10 +1390,39 @@ const postSparseRuleField = z
   )
   .optional();
 
+// Rule-level project scope, shared across the v1 write rule schemas so a v1
+// GET → PUT round-trip preserves it (non-strict Zod would otherwise strip it).
+const postFeatureRuleProjectScopeShape = {
+  allProjects: z
+    .boolean()
+    .describe(
+      "When true (default), the rule applies to every project the feature is delivered to. When false, `projects` scopes it.",
+    )
+    .optional(),
+  projects: z
+    .array(z.string())
+    .describe(
+      "Project IDs this rule is scoped to when `allProjects` is false. An empty array scopes the rule to no project.",
+    )
+    .optional(),
+};
+
+const v1RuleSavedGroupInput = {
+  savedGroups: z.array(savedGroupTargeting).optional(),
+  savedGroupTargeting: z
+    .array(postFeatureSavedGroupTargeting)
+    .optional()
+    .describe(
+      "Deprecated — use `savedGroups`. Accepted so a GET response can be posted back unchanged; `savedGroups` takes precedence if both are sent.",
+    )
+    .meta({ deprecated: true }),
+};
+
 const postFeatureForceRule = z.object({
+  ...postFeatureRuleProjectScopeShape,
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().describe("Applied to everyone by default.").optional(),
-  savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
+  ...v1RuleSavedGroupInput,
   prerequisites: z.array(apiRevisionPrerequisite).optional(),
   scheduleRules: z.array(apiScheduleRuleValidator).optional(),
   id: z.string().optional(),
@@ -1241,9 +1433,10 @@ const postFeatureForceRule = z.object({
 });
 
 const postFeatureRolloutRule = z.object({
+  ...postFeatureRuleProjectScopeShape,
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().describe("Applied to everyone by default.").optional(),
-  savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
+  ...v1RuleSavedGroupInput,
   prerequisites: z.array(postFeaturePrerequisite).optional(),
   scheduleRules: z.array(apiScheduleRuleValidator).optional(),
   id: z.string().optional(),
@@ -1267,12 +1460,13 @@ const postFeatureRolloutRule = z.object({
 });
 
 const postFeatureExperimentRefRule = z.object({
+  ...postFeatureRuleProjectScopeShape,
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   id: z.string().optional(),
   enabled: z.boolean().describe("Enabled by default").optional(),
   type: z.literal("experiment-ref"),
   condition: z.string().optional(),
-  savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
+  ...v1RuleSavedGroupInput,
   prerequisites: z.array(postFeaturePrerequisite).optional(),
   scheduleRules: z.array(apiScheduleRuleValidator).optional(),
   variations: z.array(
@@ -1286,6 +1480,7 @@ const postFeatureExperimentRefRule = z.object({
 });
 
 const postFeatureExperimentRule = z.object({
+  ...postFeatureRuleProjectScopeShape,
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string(),
   id: z.string().optional(),
@@ -1374,6 +1569,12 @@ const featureResponseSchema = z
   .object({ feature: apiFeatureValidator })
   .strict();
 
+// An update can land a live revision, so it can also step over an approval
+// requirement — reported the same way every other publish surface reports one.
+const featureUpdateResponseSchema = featureResponseSchema.extend({
+  bypassedGates: publishBypassedGatesField,
+});
+
 // ---- PostFeaturePayload ----
 const postFeatureBody = z
   .object({
@@ -1389,16 +1590,35 @@ const postFeatureBody = z
       .max(MAX_DESCRIPTION_LENGTH)
       .describe("Description of the feature")
       .optional(),
-    owner: optionalOwnerInputField,
+    owner: requiredUnlessPatOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
+    targetingAllProjects: z
+      .boolean()
+      .describe(
+        "Make this feature discoverable in — and served to — every project, beyond its primary `project`. Governance/approvals stay with `project`.",
+      )
+      .optional(),
+    targetingProjects: z
+      .array(z.string())
+      .describe(
+        "Secondary project IDs this feature is targeted in and served to, beyond its primary `project`. Governance/approvals stay with `project`.",
+      )
+      .optional(),
     valueType: z
       .enum(["boolean", "string", "number", "json"])
       .describe("The data type of the feature payload. Boolean by default."),
     defaultValue: z
       .string()
       .describe(
-        "Default value when feature is enabled. Type must match `valueType`.",
+        "Default value when feature is enabled. Type must match `valueType`. In Config mode (`baseConfig` set) this is the JSON override patch merged on top of the config.",
       ),
+    baseConfig: z
+      .string()
+      .nullable()
+      .describe(
+        'Key of the config backing this flag ("Config mode"). Requires `valueType: "json"` and a live config; `defaultValue` and rule values become override patches on top. null or omitted for a plain flag.',
+      )
+      .optional(),
     tags: z.array(z.string()).describe("List of associated tags").optional(),
     environments: z
       .record(z.string(), postFeatureEnvironment)
@@ -1417,6 +1637,7 @@ const postFeatureBody = z
       )
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),
+    ...publishOverrideBodyFields,
   })
   .strict();
 
@@ -1430,8 +1651,27 @@ const updateFeatureBody = z
       .optional(),
     archived: z.boolean().optional(),
     project: z.string().describe("An associated project ID").optional(),
+    targetingAllProjects: z
+      .boolean()
+      .describe(
+        "Make this feature discoverable in — and served to — every project, beyond its primary `project`. Governance/approvals stay with `project`.",
+      )
+      .optional(),
+    targetingProjects: z
+      .array(z.string())
+      .describe(
+        "Secondary project IDs this feature is targeted in and served to, beyond its primary `project`. Governance/approvals stay with `project`.",
+      )
+      .optional(),
     owner: ownerInputField.optional(),
     defaultValue: z.string().optional(),
+    baseConfig: z
+      .string()
+      .nullable()
+      .describe(
+        'The config backing this flag ("Config mode"), fixed at creation. Cannot be changed by an update — resend the current value or omit it; a different value (or null to detach) is rejected.',
+      )
+      .optional(),
     tags: z
       .array(z.string())
       .describe(
@@ -1464,20 +1704,19 @@ const updateFeatureBody = z
         "Holdout to assign this feature to. Pass `null` to remove the feature from its current holdout. Omit the field entirely to leave the holdout unchanged.\n",
       )
       .optional(),
+    ...publishOverrideBodyFields,
   })
   .strict();
 
 // ---- Route validators ----
 
-/**
- * RFC 8594 `Deprecation` header value for v1 feature endpoints.
- *
- * Emits `Deprecation: true` (boolean form, not a date) — signals "stop using
- * this endpoint ASAP" without committing to a removal date. V1 endpoints are
- * expected to remain available indefinitely for backward compatibility, but
- * new integrations should always use v2. If we ever commit to a removal date,
- * switch this to `@<unix-timestamp>` and add a `Sunset:` header alongside.
- */
+// RFC 8594 `Deprecation` header value for v1 feature endpoints.
+//
+// Emits `Deprecation: true` (boolean form, not a date) — signals "stop using
+// this endpoint ASAP" without committing to a removal date. V1 endpoints are
+// expected to remain available indefinitely for backward compatibility, but
+// new integrations should always use v2. If we ever commit to a removal date,
+// switch this to `@<unix-timestamp>` and add a `Sunset:` header alongside.
 export const FEATURE_V1_DEPRECATED = "true";
 
 export const listFeaturesValidator = {
@@ -1561,10 +1800,10 @@ export const updateFeatureValidator = {
   bodySchema: updateFeatureBody,
   querySchema: z.never(),
   paramsSchema: idParams,
-  responseSchema: featureResponseSchema,
+  responseSchema: featureUpdateResponseSchema,
   summary: "Partially update a feature",
   description:
-    '**Deprecated.** Use [POST /v2/features/:id](#operation/updateFeatureV2) instead.\n\nUpdates any combination of a feature\'s metadata (description, owner, tags, project), default value, environment settings (rules, kill switches, enabled state), prerequisites, holdout assignment, or JSON schema validation. All provided fields are merged into the existing feature and the result is immediately published as a new revision.\n\nReturns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.\n',
+    "**Deprecated.** Use [POST /v2/features/:id](#operation/updateFeatureV2) instead.\n\nUpdates the Feature Flag and immediately publishes a new revision. The caller needs Edit access in the Feature Flag's Project and Publish access for every affected environment. When approval is required, use the revision endpoints instead, unless the caller can bypass draft approvals.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "updateFeature",
@@ -1587,7 +1826,7 @@ export const deleteFeatureValidator = {
     .strict(),
   summary: "Deletes a single feature",
   description:
-    '**Deprecated.** Use [DELETE /v2/features/:id](#operation/deleteFeatureV2) instead.\n\nPermanently deletes a feature and all of its revisions.\n\nArchived features can be deleted freely. Deleting a live (non-archived) feature returns 403 unless the org setting "REST API always bypasses approval requirements" is enabled, or the API key lacks delete permission.\n',
+    '**Deprecated.** Use [DELETE /v2/features/:id](#operation/deleteFeatureV2) instead.\n\nPermanently deletes a Feature Flag and all of its revisions. The caller needs Archive & delete access. Deleting a live Feature Flag also requires Publish access for every environment where it is enabled and the organization setting "REST API always bypasses approval requirements". Otherwise, archive the Feature Flag before deleting it.',
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "deleteFeature",
@@ -1619,10 +1858,12 @@ export const toggleFeatureValidator = {
     .strict(),
   querySchema: z.never(),
   paramsSchema: idParams,
-  responseSchema: featureResponseSchema,
+  responseSchema: featureResponseSchema.extend({
+    bypassedGates: publishBypassedGatesField,
+  }),
   summary: "Toggle a feature in one or more environments",
   description:
-    '**Deprecated.** Use [POST /v2/features/:id/toggle](#operation/toggleFeatureV2) instead.\n\nEnables or disables a feature in one or more environments simultaneously. Accepts a map of environment name → boolean and immediately publishes the change.\n\nReturns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.\n',
+    "**Deprecated.** Use [POST /v2/features/:id/toggle](#operation/toggleFeatureV2) instead.\n\nEnables or disables a Feature Flag in one or more environments and immediately publishes the change. The caller needs Publish access for every environment in the request. When approval is required, use a draft revision instead, unless the caller can bypass draft approvals.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "toggleFeature",
@@ -1642,14 +1883,17 @@ export const revertFeatureValidator = {
     .object({
       revision: z.number(),
       comment: z.string().optional(),
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.never(),
   paramsSchema: idParams,
-  responseSchema: featureResponseSchema,
+  responseSchema: featureResponseSchema.extend({
+    bypassedGates: publishBypassedGatesField,
+  }),
   summary: "Revert a feature to a specific revision",
   description:
-    '**Deprecated.** Use [POST /v2/features/:id/revert](#operation/revertFeatureV2) instead.\n\nCreates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.\n\nReturns 403 if the API key lacks permission, or if approval rules are enabled for an affected environment and neither the "REST API always bypasses approval requirements" nor the "Allow reverts without approval" org setting is enabled.\n\nReturns 422 with a list of `warnings` if the restored values no longer validate against the feature\'s current value type or JSON schema. Re-submit with `?ignoreWarnings=true` to revert anyway.\n',
+    '**Deprecated.** Use [POST /v2/features/:id/revert](#operation/revertFeatureV2) instead.\n\nRestores a previously published revision and immediately publishes the result as a new revision. The caller needs Revert access for every affected environment. When approval is required, the request is allowed only if the caller holds the `FlagsBypassApprovals` policy, or the organization enables either "REST API always bypasses approval requirements" or "Allow reverts without approval".\n\nIf the restored values no longer match the Feature Flag\'s current value type or JSON schema, the API returns 422 with `warnings`. Send `"ignoreWarnings": true` to acknowledge those warnings and continue.',
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "revertFeature",

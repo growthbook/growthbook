@@ -4,7 +4,6 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import { fixupConfigRules, fixupPluginRules } from "@eslint/compat";
 import react from "eslint-plugin-react";
 import typescriptEslint from "@typescript-eslint/eslint-plugin";
-import prettier from "eslint-plugin-prettier";
 import nextEslintPluginNext from "@next/eslint-plugin-next";
 import noAsyncForeach from "eslint-plugin-no-async-foreach";
 import globals from "globals";
@@ -12,6 +11,7 @@ import * as tsParser from "@typescript-eslint/parser";
 import js from "@eslint/js";
 import { FlatCompat } from "@eslint/eslintrc";
 import noAlertClassname from "./eslint-rules/no-alert-classname.mjs";
+import restrictedQueryTypes from "./eslint-rules/restricted-query-types.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,6 +26,9 @@ const { name: _nextName, ...nextRecommendedConfig } =
 
 export default defineConfig([
   globalIgnores([
+    // Claude Code parks agent worktrees (full checkouts) here; linting them
+    // rewrites another branch's files.
+    ".claude/",
     "**/.next",
     "**/dist",
     "**/coverage",
@@ -36,6 +39,7 @@ export default defineConfig([
     "docs/build",
     "packages/sdk-js/scripts",
     "**/*.tsbuildinfo",
+    "packages/shared/types/*.js",
   ]),
   nextRecommendedConfig,
   {
@@ -47,7 +51,6 @@ export default defineConfig([
         "plugin:react/recommended",
         "plugin:@typescript-eslint/eslint-recommended",
         "plugin:@typescript-eslint/recommended",
-        "plugin:prettier/recommended",
         "plugin:react-hooks/recommended",
       ),
     ),
@@ -55,7 +58,6 @@ export default defineConfig([
     plugins: {
       react: fixupPluginRules(react),
       "@typescript-eslint": fixupPluginRules(typescriptEslint),
-      prettier: fixupPluginRules(prettier),
       "no-async-foreach": noAsyncForeach,
     },
 
@@ -149,6 +151,15 @@ export default defineConfig([
         },
       ],
 
+      "react/jsx-key": [
+        "error",
+        {
+          checkFragmentShorthand: true,
+          checkKeyMustBeforeSpread: true,
+          warnOnDuplicates: true,
+        },
+      ],
+
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
 
@@ -181,6 +192,16 @@ export default defineConfig([
 
     rules: {
       "import/no-named-as-default": "off",
+    },
+  },
+  {
+    // Standalone CommonJS runtime script (no build step): require() is correct
+    // and console is the intended logging channel.
+    files: ["./preview/idle-monitor.js"],
+
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+      "no-console": "off",
     },
   },
   {
@@ -268,8 +289,42 @@ export default defineConfig([
           message:
             "Don't use window.history.replaceState directly. Use router.replace(url, undefined, { shallow: true }) from next/router instead.",
         },
+        {
+          selector:
+            "JSXAttribute[name.name='size'][value.type='Literal'][value.value='legacy']",
+          message:
+            'Do not add new `size="legacy"` props. Omit `size` to use the component default, or use an explicit design-system size ("x-small", "small", or "medium" on Select/SelectField/MultiSelectField/StringArrayField/TextField; "sm" or "md" on Field).',
+        },
+        {
+          selector:
+            "JSXAttribute[name.name='size'] JSXExpressionContainer > Literal[value='legacy']",
+          message:
+            'Do not add new `size="legacy"` props. Omit `size` to use the component default, or use an explicit design-system size ("x-small", "small", or "medium" on Select/SelectField/MultiSelectField/StringArrayField/TextField; "sm" or "md" on Field).',
+        },
       ],
       "local/no-alert-classname": "error",
+    },
+  },
+  {
+    files: ["./packages/front-end/**/*.stories.tsx"],
+
+    rules: {
+      // Design system stories intentionally demonstrate all size variants, including legacy.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "MemberExpression[object.object.name='window'][object.property.name='history'][property.name='pushState']",
+          message:
+            "Don't use window.history.pushState directly. Use router.push(url, undefined, { shallow: true }) from next/router instead.",
+        },
+        {
+          selector:
+            "MemberExpression[object.object.name='window'][object.property.name='history'][property.name='replaceState']",
+          message:
+            "Don't use window.history.replaceState directly. Use router.replace(url, undefined, { shallow: true }) from next/router instead.",
+        },
+      ],
     },
   },
   {
@@ -369,6 +424,18 @@ export default defineConfig([
     },
   },
   {
+    files: ["./packages/back-end/**/*.ts"],
+    ignores: ["./packages/back-end/**/*.test.{ts,tsx,js,jsx}"],
+    plugins: {
+      localBackend: {
+        rules: { "restricted-query-types": restrictedQueryTypes },
+      },
+    },
+    rules: {
+      "localBackend/restricted-query-types": "error",
+    },
+  },
+  {
     files: [
       "./packages/back-end/src/controllers/**/*.ts",
       "./packages/back-end/src/routers/**/*.controller.ts",
@@ -444,6 +511,28 @@ export default defineConfig([
     },
   },
   {
+    files: ["./packages/stats-ts/**/*"],
+
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["*back-end*", "*front-end*"],
+              message: "stats-ts cannot import from back-end or front-end.",
+            },
+            {
+              group: ["shared/src", "shared/src/*", "shared/src/**"],
+              message:
+                "Import from the package (e.g., 'shared/experiments') instead of 'shared/src/...'",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ["./packages/sdk-{js,react}/**/*"],
 
     rules: {
@@ -479,6 +568,95 @@ export default defineConfig([
             "Use ownerField or ownerInputField from 'shared/validators' instead of a bare z.string() for owner properties to ensure consistent API documentation.",
         },
       ],
+    },
+  },
+  {
+    // tsc already resolves imports and enumerates exports, making these rules
+    // redundant. The ExportMap rules (import/default, import/namespace,
+    // import/export) also parse every imported module, so disabling all four
+    // shaves ~45s off an uncached full lint. docs/ and plain .js keep them since
+    // tsc never sees those. Scripts under back-end/shared are outside their
+    // tsconfig and lose import checking here, but they're dev-only.
+    files: ["./packages/**/*.{ts,tsx}"],
+
+    rules: {
+      "import/default": "off",
+      "import/export": "off",
+      "import/namespace": "off",
+      "import/no-unresolved": "off",
+    },
+  },
+  {
+    // Scope each package's resolver to its own tsconfig so import/order and
+    // import/no-restricted-paths resolve against a smaller project.
+    files: ["./packages/front-end/**/*.{ts,tsx}"],
+
+    settings: {
+      "import/resolver": {
+        node: true,
+        typescript: {
+          alwaysTryTypes: true,
+          project: ["packages/front-end/tsconfig.json"],
+        },
+      },
+    },
+  },
+  {
+    files: ["./packages/back-end/**/*.{ts,tsx}"],
+
+    settings: {
+      "import/resolver": {
+        node: true,
+        typescript: {
+          alwaysTryTypes: true,
+          project: [
+            "packages/back-end/tsconfig.json",
+            "packages/back-end/test/tsconfig.json",
+          ],
+        },
+      },
+    },
+  },
+  {
+    files: ["./packages/shared/**/*.{ts,tsx}"],
+
+    settings: {
+      "import/resolver": {
+        node: true,
+        typescript: {
+          alwaysTryTypes: true,
+          project: ["packages/shared/tsconfig.json"],
+        },
+      },
+    },
+  },
+  {
+    // Type-aware linting, one entry per package's tsconfig'd source root.
+    // projectService hard-errors on any file it can't map to a project, so this
+    // list must track each tsconfig's `include`. Scripts under back-end/shared
+    // are outside their tsconfig and would hard-error, so they're omitted.
+    files: [
+      "./packages/front-end/**/*.{ts,tsx}",
+      "./packages/back-end/src/**/*.{ts,tsx}",
+      "./packages/shared/src/**/*.{ts,tsx}",
+      "./packages/sdk-js/src/**/*.{ts,tsx}",
+      "./packages/sdk-react/src/**/*.{ts,tsx}",
+      "./packages/stats-ts/src/**/*.{ts,tsx}",
+    ],
+
+    // Exclude test dirs everywhere: shared/test and back-end/test are outside
+    // their tsconfig, and this keeps front-end/test consistent with them.
+    ignores: ["./packages/*/test/**"],
+
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: __dirname,
+      },
+    },
+
+    rules: {
+      "@typescript-eslint/switch-exhaustiveness-check": "error",
     },
   },
   {

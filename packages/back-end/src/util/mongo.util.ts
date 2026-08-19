@@ -216,6 +216,21 @@ export function isDuplicateKeyError(err: unknown): boolean {
 }
 
 /**
+ * A duplicate-key error attributable to a specific named index — a concurrent
+ * writer won the race for a partial unique index (e.g. the publish lock-others
+ * index). Combines the code check with an index-name match in the message.
+ */
+export function isDuplicateKeyErrorForIndex(
+  err: unknown,
+  indexName: string,
+): boolean {
+  return (
+    isDuplicateKeyError(err) &&
+    String((err as { message?: string }).message ?? "").includes(indexName)
+  );
+}
+
+/**
  * Retry an insert operation on duplicate-key error. Intended for use with
  * sequential-version unique indexes (e.g. `(organization, target, version)`)
  * where two concurrent creates can compute the same `nextVersion` from the
@@ -224,9 +239,8 @@ export function isDuplicateKeyError(err: unknown): boolean {
  * set of existing rows before retrying the insert.
  *
  * The provided `op` is invoked at most MAX_VERSION_RETRY_ATTEMPTS times. The
- * caller is also responsible for ensuring `op` is the only thing inside the
- * retry scope — non-idempotent work (custom hooks, audit logs, etc.) must
- * live outside or it will run multiple times under contention.
+ * Retry-safe work inside `op` may run multiple times under contention.
+ * Non-idempotent work must remain outside the retry scope.
  */
 export async function createWithVersionRetry<R>(
   op: () => Promise<R>,

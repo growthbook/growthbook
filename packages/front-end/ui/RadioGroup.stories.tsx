@@ -29,7 +29,7 @@ export default function RadioGroupStories() {
           value: "k4",
           label: "Progressive disclosure",
           description: "Click to render element",
-          renderOnSelect: <Field label="Another field" />,
+          renderOnSelect: <Field size="legacy" label="Another field" />,
         },
         {
           value: "k5",

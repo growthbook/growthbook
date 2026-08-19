@@ -8,12 +8,14 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { useState } from "react";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
+import { experimentHasLiveLinkedChanges } from "shared/util";
 import { Flex } from "@radix-ui/themes";
 import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import EditVariationMetadataModal from "@/components/Experiment/EditVariationMetadataModal";
 import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";
+import TrafficAllocationFunnel from "@/components/Experiment/TabbedPage/TrafficAllocationFunnel";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import DecisionMakingSettings from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
 import Callout from "@/ui/Callout";
@@ -26,6 +28,7 @@ import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
+import Frame from "@/ui/Frame";
 import HoldoutEnvironments from "./HoldoutEnvironments";
 
 export interface Props {
@@ -37,7 +40,9 @@ export interface Props {
   urlRedirects: URLRedirectInterface[];
   mutate: () => void;
   editTargeting?: (() => void) | null;
-  editTraffic?: (() => void) | null;
+  editTraffic?: ((variationId?: string) => void) | null;
+  addVariation?: (() => void) | null;
+  editNamespace?: (() => void) | null;
   editVariations?: (() => void) | null;
   setFeatureModal: (open: boolean) => void;
   setVisualEditorModal: (open: boolean) => void;
@@ -58,6 +63,8 @@ export default function Implementation({
   mutate,
   editTargeting,
   editTraffic,
+  addVariation,
+  editNamespace,
   editVariations,
   setFeatureModal,
   setVisualEditorModal,
@@ -74,6 +81,12 @@ export default function Implementation({
   );
   const phases = experiment.phases || [];
   const { apiCall } = useAuth();
+
+  // Only a pending scheduled START should lock down editing (the experiment is
+  // about to launch). A scheduled STOP (an end date on a running experiment)
+  // must not block normal mid-flight traffic/targeting/variation edits.
+  const pendingScheduledStart =
+    experiment.nextScheduledStatusUpdate?.type === "start";
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -102,6 +115,14 @@ export default function Implementation({
   );
 
   const isHoldout = experiment.type === "holdout";
+
+  const safeToEdit =
+    experiment.status !== "running" ||
+    !experimentHasLiveLinkedChanges(experiment, linkedFeatures);
+
+  // Temporary check while we test the new traffic funnel
+  // TODO: Remove this once we're ready to support holdouts in the new traffic funnel UI.
+  const showTrafficFunnel = !isHoldout;
   const canEditHoldoutDefaultState =
     isHoldout &&
     !!holdout &&
@@ -140,20 +161,32 @@ export default function Implementation({
         />
       )}
       <div className="my-4">
-        <Heading as="h2" size="large" color="text-high" mb="2">
+        <Heading as="h2" size="lg" color="text-high" mb="2">
           Implementation
         </Heading>
-        <TrafficAndTargeting
-          experiment={experiment}
-          editTraffic={
-            experiment.nextScheduledStatusUpdate ? null : editTraffic
-          }
-          editTargeting={
-            experiment.nextScheduledStatusUpdate ? null : editTargeting
-          }
-          phaseIndex={phases.length - 1}
-        />
-        {!isHoldout ? (
+        {showTrafficFunnel ? (
+          <TrafficAllocationFunnel
+            experiment={experiment}
+            editTraffic={pendingScheduledStart ? null : editTraffic}
+            editTargeting={pendingScheduledStart ? null : editTargeting}
+            editNamespace={pendingScheduledStart ? null : editNamespace}
+            addVariation={pendingScheduledStart ? null : addVariation}
+            setEditVariationIndex={setEditMetadataIndex}
+            canEditExperiment={canEditExperiment}
+            safeToEdit={safeToEdit}
+            mutate={mutate}
+            phaseIndex={phases.length - 1}
+          />
+        ) : (
+          <TrafficAndTargeting
+            experiment={experiment}
+            editTraffic={pendingScheduledStart ? null : editTraffic}
+            editTargeting={pendingScheduledStart ? null : editTargeting}
+            phaseIndex={phases.length - 1}
+          />
+        )}
+        {!isHoldout &&
+        (!showTrafficFunnel || hasLinkedChanges || canAddLinkedChanges) ? (
           <LinkedChanges
             linkedFeatures={linkedFeatures}
             experiment={experiment}
@@ -170,6 +203,7 @@ export default function Implementation({
             onAddVariation={editVariations ?? undefined}
             canEditExperiment={canEditExperiment}
             setEditVariationIndex={setEditMetadataIndex}
+            hideVariations={showTrafficFunnel}
           />
         ) : null}
 
@@ -180,8 +214,10 @@ export default function Implementation({
           />
         ) : null}
         {isHoldout && holdout ? (
-          <div className="box p-4 my-4">
-            <h4>Included Experiments & Features</h4>
+          <Frame>
+            <Heading color="text-high" as="h4" size="sm" mb="0">
+              Included Experiments & Features
+            </Heading>
             {/* TODO: Add a state for a stopped holdout with no experiments or features? */}
             {experiment.status === "draft" ? (
               <Text>
@@ -205,7 +241,7 @@ export default function Implementation({
                     setTab(value as "experiments" | "features")
                   }
                 >
-                  <TabsList size="2">
+                  <TabsList size="md">
                     <TabsTrigger value="experiments">
                       Experiments
                       {!!holdoutExperiments?.length && (
@@ -257,7 +293,7 @@ export default function Implementation({
                 weight="regular"
               />
             </Flex>
-          </div>
+          </Frame>
         ) : null}
         {(experiment.status !== "draft" ||
           !!experiment.nextScheduledStatusUpdate) &&
@@ -275,12 +311,12 @@ export default function Implementation({
           experiment={experiment}
           mutate={mutate}
           envs={envs}
-          canEdit={!!editTargeting && !experiment.nextScheduledStatusUpdate}
+          canEdit={!!editTargeting && !pendingScheduledStart}
         />
         <DecisionMakingSettings
           experiment={experiment}
           mutate={mutate}
-          canEdit={!!editTargeting && !experiment.nextScheduledStatusUpdate}
+          canEdit={!!editTargeting && !pendingScheduledStart}
         />
       </div>
     </>

@@ -1,15 +1,15 @@
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { FactTableInterface, RowFilter } from "shared/types/fact-table";
 import { PiCaretDown, PiCaretUp, PiX } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import SelectField, {
   GroupedValue,
   SingleValue,
 } from "@/components/Forms/SelectField";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import StringArrayField from "@/ui/StringArrayField";
 import Button from "@/ui/Button";
 import Switch from "@/ui/Switch";
 import {
@@ -19,7 +19,12 @@ import {
   numberRegex,
   getColumnInfo,
   getAttributeFieldsExposedAsColumns,
+  cleanupDateColumnValues,
+  reshapeDateValuesOnOperatorChange,
+  FACT_TABLE_TIMESTAMP_COLUMN,
+  hideTimeColumn,
 } from "@/components/FactTables/rowFilterUtils";
+import { DateColumnFilterInput } from "@/components/FactTables/DateColumnFilterInput";
 
 const NUMBER_PARTIAL_PATTERN = /^-?\.?$|^-?\d*\.?\d*$/;
 
@@ -31,6 +36,8 @@ export interface FilterColumnSource {
     datatype: string;
     topValues: string[];
   };
+  /** The source's event-time column, hidden from the column picker. */
+  timeColumn?: string;
 }
 
 export function factTableToColumnSource(
@@ -39,7 +46,6 @@ export function factTableToColumnSource(
   const columns: SingleValue[] = [];
   const hiddenAttributeFields = getAttributeFieldsExposedAsColumns(factTable);
   factTable.columns.forEach((col) => {
-    if (col.datatype === "date") return;
     if (factTable.userIdTypes?.includes(col.column)) return;
     if (col.deleted) return;
 
@@ -61,6 +67,7 @@ export function factTableToColumnSource(
     columns,
     savedFilters: factTable.filters.map((f) => ({ id: f.id, name: f.name })),
     getColumnInfo: (column) => getColumnInfo(factTable, column),
+    timeColumn: FACT_TABLE_TIMESTAMP_COLUMN,
   };
 }
 
@@ -69,14 +76,17 @@ export function columnTypesToColumnSource(
     string,
     "string" | "number" | "date" | "boolean" | "other"
   >,
+  timestampColumn?: string,
 ): FilterColumnSource {
-  const columns = Object.entries(columnTypes)
-    .filter(([, datatype]) => datatype !== "date")
-    .map(([col]) => ({ label: col, value: col }));
+  const columns = Object.entries(columnTypes).map(([col]) => ({
+    label: col,
+    value: col,
+  }));
 
   return {
     columns,
     savedFilters: [],
+    timeColumn: timestampColumn,
     getColumnInfo: (column) => {
       if (!column || !(column in columnTypes))
         return { datatype: "", topValues: [] };
@@ -110,7 +120,14 @@ export function ExplorerFilterRow({
   ) => void;
   onDelete: () => void;
 }) {
-  const columnOptions = [...columnSource.columns];
+  const columnOptions = columnSource.columns.filter(
+    (o) =>
+      !hideTimeColumn({
+        column: o.value,
+        timeColumn: columnSource.timeColumn,
+        selectedColumn: filter.column,
+      }),
+  );
 
   if (filter.column && !columnOptions.find((o) => o.value === filter.column)) {
     columnOptions.push({
@@ -162,6 +179,7 @@ export function ExplorerFilterRow({
   }
 
   let inputType: "text" | "number" = "text";
+  let isDateColumn = false;
   let displayOperator = filter.operator;
 
   if (operatorInputRequired) {
@@ -171,6 +189,10 @@ export function ExplorerFilterRow({
 
     if (datatype === "number") {
       inputType = "number";
+    }
+
+    if (datatype === "date") {
+      isDateColumn = true;
     }
 
     if (topValues) {
@@ -221,6 +243,7 @@ export function ExplorerFilterRow({
 
   const columnSelect = (
     <SelectField
+      size="small"
       value={
         filter.operator === "sql_expr"
           ? "$$sql_expr"
@@ -248,6 +271,10 @@ export function ExplorerFilterRow({
             newValues = newValues.filter((v) => numberRegex.test(v));
           }
 
+          if (datatype === "date") {
+            newValues = cleanupDateColumnValues(newValues);
+          }
+
           onUpdate({
             operator: newOperator,
             column: v,
@@ -265,6 +292,7 @@ export function ExplorerFilterRow({
 
   const operatorSelect = operatorInputRequired && firstSelectCompleted && (
     <SelectField
+      size="small"
       value={displayOperator}
       onChange={(v: RowFilter["operator"]) => {
         let newValues = filter.values || [];
@@ -274,6 +302,12 @@ export function ExplorerFilterRow({
         ) {
           newValues = newValues.filter((val) => val !== "");
         }
+        newValues = reshapeDateValuesOnOperatorChange(
+          newValues,
+          filter.operator,
+          v,
+          isDateColumn,
+        );
         onUpdate({ operator: v, values: newValues });
       }}
       options={operatorOptions}
@@ -285,8 +319,15 @@ export function ExplorerFilterRow({
 
   const valueInput = valueInputRequired && firstSelectCompleted && (
     <>
-      {multiValueInput && useValueOptions ? (
+      {isDateColumn && !multiValueInput ? (
+        <DateColumnFilterInput
+          operator={filter.operator}
+          values={filter.values}
+          onChange={(values) => onUpdate({ values })}
+        />
+      ) : multiValueInput && useValueOptions ? (
         <MultiSelectField
+          size="md"
           value={filter.values || []}
           onChange={(v) => onUpdate({ values: v })}
           options={valueOptions}
@@ -299,6 +340,7 @@ export function ExplorerFilterRow({
         />
       ) : multiValueInput ? (
         <StringArrayField
+          size="md"
           value={filter.values || []}
           onChange={(v) => onUpdate({ values: v })}
           delimiters={["Enter", "Tab"]}
@@ -308,6 +350,7 @@ export function ExplorerFilterRow({
         />
       ) : useValueOptions ? (
         <SelectField
+          size="small"
           value={filter.values?.[0] || ""}
           onChange={(v) => onUpdate({ values: [v] })}
           options={valueOptions}
@@ -320,6 +363,7 @@ export function ExplorerFilterRow({
         />
       ) : (
         <Field
+          size="md"
           value={filter.values?.[0] || ""}
           onChange={(e) => {
             const v = e.target.value;
@@ -385,12 +429,7 @@ export function ExplorerFilterRow({
       }}
     >
       <Flex justify="between" align="center" width="100%" gap="2">
-        <Text
-          size="small"
-          truncate
-          whiteSpace="nowrap"
-          title={getFilterSummary()}
-        >
+        <Text size="sm" truncate whiteSpace="nowrap" title={getFilterSummary()}>
           {getFilterSummary()}
         </Text>
         <Flex align="center" gap="1" style={{ flexShrink: 0 }}>
@@ -399,7 +438,7 @@ export function ExplorerFilterRow({
             onChange={(v) => onUpdate({ disabled: !v }, true)}
           />
           <Button
-            size="xs"
+            size="sm"
             variant="ghost"
             onClick={() => onUpdate({ collapsed: !filter.collapsed }, false)}
             style={{ padding: 2 }}
@@ -410,7 +449,7 @@ export function ExplorerFilterRow({
               <PiCaretUp size={14} />
             )}
           </Button>
-          <Button size="xs" variant="ghost" onClick={onDelete}>
+          <Button size="sm" variant="ghost" onClick={onDelete}>
             <PiX size={14} />
           </Button>
         </Flex>
@@ -422,8 +461,18 @@ export function ExplorerFilterRow({
         transitionTime={100}
       >
         <Flex direction="column" gap="2" mt="2">
-          {columnSelect}
-          {operatorSelect}
+          {operatorSelect ? (
+            <Flex direction="row" gap="2" align="center">
+              <Box flexGrow="1" style={{ minWidth: 0, flexBasis: 0 }}>
+                {columnSelect}
+              </Box>
+              <Box style={{ minWidth: 0, flex: "0 1 130px" }}>
+                {operatorSelect}
+              </Box>
+            </Flex>
+          ) : (
+            columnSelect
+          )}
           {valueInput}
         </Flex>
       </Collapsible>

@@ -62,7 +62,7 @@ The default display currency is USD, but you can change it under **Settings** â†
 
 ## Metric Types
 
-There are 6 types of metrics you can create within GrowthBook - Proportion, Retention, Daily Participation, Mean, Ratio, and Quantile.
+There are 7 types of metrics you can create within GrowthBook - Proportion, Retention, Daily Participation, Mean, Ratio, Quantile, and Funnel.
 
 ### Proportion Metrics
 
@@ -159,6 +159,16 @@ For event-level analysis, ignoring zeros entails removing all events from the an
 
 When picking `Quantile` you have several default options or can select `Custom`. If you select `Custom` you must input a number between 0 and 1. For example, inputting 0.75 will compare the $75^{\text{th}}$ percentiles across variations.
 
+### Funnel Metrics
+
+<CommercialFeature feature="funnel-metrics" />
+
+Funnel Metrics measure the share of exposed units who complete a series of steps in order, such as viewing a product, adding it to a cart, and then purchasing. Instead of a numerator, you define an ordered list of steps, each with its own row filters and conversion window.
+
+Each step is measured against all exposed units, not just the units who completed the previous step, which keeps every step directly comparable to your other metrics. The metric's own value is the share of units who reach the last step.
+
+See [Funnel Metrics](/app/metrics/funnel) for step settings, conversion windows, optional steps, and the API.
+
 ## Filters
 
 The real power of Fact Tables comes with filtering. This allows you to easily create metric variants.
@@ -180,6 +190,8 @@ Row Filters support a wide variety of operators:
 - `<`
 - `>=`
 - `<=`
+- `between` (takes two values: a lower and an upper bound)
+- `not_between`
 - `in`
 - `not_in`
 - `is_null`
@@ -192,6 +204,8 @@ Row Filters support a wide variety of operators:
 - `ends_with`
 - `sql_expr` (raw SQL for advanced use cases)
 - `saved_filter` (a saved SQL expression that can be reused across metrics)
+
+Filters on date and timestamp columns are compared in UTC. The UI offers `=`, `<`, `<=`, `>`, `>=`, `between`, `not_between`, and `is not null` for these columns, and a value is either a calendar day (`2024-01-15`) or a minute-precision timestamp (`2024-01-15T09:30`). A calendar day matches the whole day rather than the instant at its midnight, so `= 2024-01-15` includes every row stamped on that date.
 
 #### Auto Prompting for Row Filters
 
@@ -347,7 +361,7 @@ You can enable automatic updates of auto slice levels based on top column values
 
 **Fact Table level setting:**
 
-In the **Fact Table** modal, check the **Auto-update slice levels** checkbox. When enabled, a scheduled job periodically refreshes auto slice levels from **top values** using a 14-day lookback period. The job runs:
+In the **Fact Table** modal, check the **Auto-update slice levels** checkbox. When enabled, a scheduled job periodically refreshes auto slice levels from **top values**, scanning the lookback window configured in your organization's **Data Source settings** (default 14 days). The job runs:
 
 - Every 7 days by default (configurable via `AUTO_SLICE_UPDATE_FREQUENCY_HOURS` environment variable for self-hosted users)
 - Automatically when the fact table changes

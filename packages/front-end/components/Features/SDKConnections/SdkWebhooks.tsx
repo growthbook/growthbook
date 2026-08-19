@@ -192,7 +192,7 @@ export default function SdkWebhooks({
         <td className="px-0">
           {!webhook.managedBy?.type ? (
             <div className="col-auto mr-1">
-              <MoreMenu>
+              <MoreMenu useRadix={false}>
                 {canUpdateWebhook ? (
                   <button
                     className="dropdown-item"
@@ -206,6 +206,7 @@ export default function SdkWebhooks({
                 ) : null}
                 {canDeleteWebhook ? (
                   <DeleteButton
+                    useRadix={false}
                     className="dropdown-item"
                     displayName="SDK Connection"
                     text="Delete"
@@ -228,7 +229,10 @@ export default function SdkWebhooks({
   const renderAddWebhookButton = () => (
     <>
       <div className="text-muted mb-3">
-        Refer to the <DocLink docSection="sdkWebhooks">documentation</DocLink>{" "}
+        Refer to the{" "}
+        <DocLink useRadix={false} docSection="sdkWebhooks">
+          documentation
+        </DocLink>{" "}
         for setup instructions
       </div>
       {canCreateWebhooks ? (

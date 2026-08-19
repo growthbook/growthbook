@@ -67,6 +67,9 @@ export function getApiHost(): string {
 export function isCloud(): boolean {
   return env.cloud;
 }
+export function isLocalhost(): boolean {
+  return getAppOrigin().startsWith("http://localhost:");
+}
 export function isMultiOrg(): boolean {
   return !!env.isMultiOrg;
 }
@@ -114,7 +117,7 @@ export function getSuperadminDefaultRole() {
   return env.superadminDefaultRole;
 }
 export function getIngestorHost() {
-  return env.ingestorOverride || "https://us1.gb-ingest.com";
+  return env.ingestorOverride || "https://us-east-1.gb-ingest.com";
 }
 
 export function getStripePublishableKey() {

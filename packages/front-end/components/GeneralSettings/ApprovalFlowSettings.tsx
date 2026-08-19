@@ -10,7 +10,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import Frame from "@/ui/Frame";
 import Checkbox from "@/ui/Checkbox";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Link from "@/ui/Link";
 
 export default function ApprovalFlowSettings() {
@@ -70,11 +70,31 @@ export default function ApprovalFlowSettings() {
     });
   }, [requireReviewsWatched]);
 
+  // Org-wide targeting review governance. The UI edits the all-projects default
+  // rule; any project-specific override rules (API-only for now) are preserved.
+  const targetingReviewRules = form.watch("targetingReviewMode") || [];
+  const orgWideTargetingRule = targetingReviewRules.find(
+    (r) => (r.projects?.length ?? 0) === 0,
+  );
+  const targetingStrict = orgWideTargetingRule
+    ? orgWideTargetingRule.mode === "strict"
+    : true;
+  const setTargetingMode = (strict: boolean) => {
+    const mode: "strict" | "loose" = strict ? "strict" : "loose";
+    const perProject = targetingReviewRules.filter(
+      (r) => (r.projects?.length ?? 0) > 0,
+    );
+    form.setValue("targetingReviewMode", [
+      ...perProject,
+      { projects: [], mode },
+    ]);
+  };
+
   return (
     <Frame>
       <Flex gap="4">
         <Box width="220px" flexShrink="0">
-          <Heading size="medium" as="h4">
+          <Heading size="md" as="h4">
             Approval Flows
           </Heading>
         </Box>
@@ -83,11 +103,11 @@ export default function ApprovalFlowSettings() {
       <Flex align="start" direction="column" gap="4" mt="7">
         <Box width="100%">
           <Frame p="3" mb="0">
-            <Heading as="h4" size="small" weight="semibold" mb="4">
+            <Heading as="h4" size="sm" weight="semibold" mb="4">
               Features
             </Heading>
 
-            <Text as="p" size="medium" mb="4" color="text-low">
+            <Text as="p" size="md" mb="4" color="text-low">
               All changes to features are tracked as revisions. Requiring
               approvals adds a review step before any change goes live. Kill
               switch changes always prompt a confirmation regardless of approval
@@ -116,6 +136,7 @@ export default function ApprovalFlowSettings() {
                         <Flex direction="column" gap="3" mb="3">
                           {showProjectScope[i] ? (
                             <MultiSelectField
+                              legacyHeight
                               id={`projects-${i}`}
                               label="Projects"
                               labelClassName="font-weight-semibold"
@@ -146,6 +167,7 @@ export default function ApprovalFlowSettings() {
                           )}
                           {showEnvScope[i] ? (
                             <MultiSelectField
+                              legacyHeight
                               id={`environments-${i}`}
                               label="Specific environments"
                               labelClassName="font-weight-semibold"
@@ -229,12 +251,7 @@ export default function ApprovalFlowSettings() {
                           }
                         />
                         <Box mt="2">
-                          <Text
-                            as="label"
-                            size="medium"
-                            weight="semibold"
-                            mb="2"
-                          >
+                          <Text as="label" size="md" weight="semibold" mb="2">
                             Require approval for
                           </Text>
                           <Flex direction="column" gap="2" align="start">
@@ -283,7 +300,7 @@ export default function ApprovalFlowSettings() {
                             <Checkbox
                               id="toggle-restApiBypassesReviews"
                               label="REST API always bypasses approval requirements"
-                              description="When enabled, all API calls bypass approval requirements. When disabled, API calls are blocked unless the caller's role grants bypassApprovalChecks on the feature's project."
+                              description="When enabled, all API calls bypass approval requirements. When disabled, API calls are blocked unless the caller's role grants FlagsBypassApprovals on the Feature Flag's Project."
                               value={
                                 form.watch("restApiBypassesReviews") !== false
                               }
@@ -291,26 +308,21 @@ export default function ApprovalFlowSettings() {
                                 form.setValue("restApiBypassesReviews", v)
                               }
                             />
-                            <Box mt="2">
-                              <Checkbox
-                                id="toggle-requireRebaseBeforePublish"
-                                label="Require drafts to be rebased with live before publishing"
-                                description="When enabled, a draft based on an older version (or whose approval is stale because changes were published since) must be rebased with the live version before it can be published."
-                                value={
-                                  form.watch("requireRebaseBeforePublish") ===
-                                  true
-                                }
-                                setValue={(v) =>
-                                  form.setValue("requireRebaseBeforePublish", v)
-                                }
-                              />
-                            </Box>
                           </Box>
                         )}
                       </Flex>
                     )}
                   </Box>
                 ))}
+                <Box mt="4">
+                  <Checkbox
+                    id="toggle-targeting-review-mode"
+                    label="Apply approval requirements from Targeting Projects"
+                    description="When a Feature Flag is delivered into Targeting Projects, its changes must also satisfy those Projects' approval requirements before publishing. When off, only the primary Project governs approvals."
+                    value={targetingStrict}
+                    setValue={setTargetingMode}
+                  />
+                </Box>
               </>
             )}
           </Frame>
@@ -318,12 +330,12 @@ export default function ApprovalFlowSettings() {
 
         <Box width="100%">
           <Frame p="3" mb="0">
-            <Heading as="h4" size="small" weight="semibold" mb="4">
+            <Heading as="h4" size="sm" weight="semibold" mb="4">
               Saved Groups
             </Heading>
 
-            <Text as="p" size="medium" mb="4" color="text-low">
-              All changes to saved groups are tracked as revisions. Requiring
+            <Text as="p" size="md" mb="4" color="text-low">
+              All changes to Saved Groups are tracked as revisions. Requiring
               approvals adds a review step before any change goes live.
             </Text>
 
@@ -341,7 +353,7 @@ export default function ApprovalFlowSettings() {
                 {!!form.watch("approvalFlows.savedGroups.0.required") && (
                   <Flex direction="column" gap="3" mt="2" ml="5">
                     <Box mt="2">
-                      <Text as="label" size="medium" weight="semibold" mb="2">
+                      <Text as="label" size="md" weight="semibold" mb="2">
                         Require approval for
                       </Text>
                       <Flex direction="column" gap="2" align="start">
@@ -387,8 +399,8 @@ export default function ApprovalFlowSettings() {
                     />
                     <Checkbox
                       id="toggle-saved-group-block-self-approval"
-                      label="Require approval from a non-editor"
-                      description="Anyone who edited the draft is blocked from approving it. A separate reviewer must approve before publishing."
+                      label="Block contributors from self-approving"
+                      description="Prevents anyone who edited a draft from approving it. Requires a separate reviewer."
                       value={
                         !!form.watch(
                           `approvalFlows.savedGroups.0.blockSelfApproval`,
@@ -404,7 +416,7 @@ export default function ApprovalFlowSettings() {
                     <Checkbox
                       id="toggle-saved-group-autopublish-on-approval"
                       label="Allow approve & publish in one step"
-                      description="Adds an 'Approve & Publish' option so reviewers with publish access can approve and publish a saved group change together."
+                      description="Adds an 'Approve & Publish' option so reviewers with publish access can approve and publish a Saved Group change together."
                       value={
                         !!form.watch(
                           `approvalFlows.savedGroups.0.autopublishOnApproval`,
@@ -427,16 +439,33 @@ export default function ApprovalFlowSettings() {
         {hasRequireApprovals && (
           <Box width="100%">
             <Frame p="3" mb="0">
-              <Heading as="h4" size="small" weight="semibold" mb="4">
-                Reverts
+              <Heading as="h4" size="sm" weight="semibold" mb="4">
+                Global
               </Heading>
-              <Checkbox
-                id="toggle-reverts-bypass-approval"
-                label="Allow reverts without approval"
-                description="When enabled, anyone with publish permission can revert to a previously published revision and publish it immediately, even when approvals are required for other changes. Reverts restore an already-reviewed state, so the revert dialog defaults to 'Publish now'. Applies to features and saved groups."
-                value={!!form.watch("revertsBypassApproval")}
-                setValue={(v) => form.setValue("revertsBypassApproval", v)}
-              />
+
+              <Text as="p" size="md" mb="4" color="text-low">
+                These settings apply to every approval flow (Feature Flags and
+                Saved Groups).
+              </Text>
+
+              <Flex direction="column" gap="3" align="start">
+                <Checkbox
+                  id="toggle-requireRebaseBeforePublish"
+                  label="Require drafts to be rebased with live before publishing"
+                  description="Drafts based on an older version — or with a stale approval — must be rebased with live before they can be published."
+                  value={form.watch("requireRebaseBeforePublish") === true}
+                  setValue={(v) =>
+                    form.setValue("requireRebaseBeforePublish", v)
+                  }
+                />
+                <Checkbox
+                  id="toggle-reverts-bypass-approval"
+                  label="Allow reverts without approval"
+                  description="Anyone with the revert permission can revert to a past revision and publish it immediately, even when approvals are required."
+                  value={!!form.watch("revertsBypassApproval")}
+                  setValue={(v) => form.setValue("revertsBypassApproval", v)}
+                />
+              </Flex>
             </Frame>
           </Box>
         )}

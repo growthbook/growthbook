@@ -1,5 +1,6 @@
 import { diffLines } from "diff";
 import type { RevisionLog } from "shared/validators";
+import type { Review } from "shared/enterprise";
 
 // ── Diff comment references ──
 //
@@ -299,11 +300,14 @@ export function scrollToRevisionLogEntry(logId: string): void {
 
 // After posting a new timeline comment, scroll to the newest rendered entry.
 // Retries while the log refetch re-renders (same pattern as scrollToDiffRef).
+//
+// No flash here, unlike the two navigation helpers above: those highlight an entry
+// the reader did NOT just create, so the colour answers "where did I land?". You know
+// where your own comment went the moment it appears, and flashing it reads as though
+// something needs attention.
 export function scrollToLatestRevisionLogEntry(): void {
   const scrollTo = (el: Element) => {
     el.scrollIntoView({ behavior: "smooth", block: "center" });
-    el.classList.add("gb-log-entry-flash");
-    setTimeout(() => el.classList.remove("gb-log-entry-flash"), 1800);
   };
   const find = () => {
     const entries = document.querySelectorAll("[data-revision-log-id]");
@@ -334,6 +338,39 @@ export type AnchoredComment = {
 // Log actions whose `value.comment` is user-authored prose that may carry
 // ref tokens. Mirrors the card-rendered actions in RevisionLog.
 const COMMENT_ACTIONS = new Set(["Comment", "Approved", "Requested Changes"]);
+
+// Builds refId → most-recent comment from the generic revision system's baked
+// `reviews[]` (RevisionModel), mirroring buildAnchoredCommentMap but sourced
+// from reviews instead of the feature revision log. `logId` carries the review
+// id so timeline cards (which set `data-revision-log-id` to the same id) can be
+// jumped to from gutter markers.
+export function buildAnchoredCommentMapFromReviews(
+  reviews: Review[],
+  getUserName?: (userId: string) => string | undefined,
+): Map<string, AnchoredComment> {
+  const map = new Map<string, AnchoredComment>();
+  for (const review of reviews) {
+    const comment = review.comment;
+    if (!comment) continue;
+    const timestamp = new Date(review.dateCreated).toISOString();
+    for (const ref of parseDiffRefs(comment)) {
+      const id = diffRefId(ref);
+      const existing = map.get(id);
+      if (existing && existing.timestamp.localeCompare(timestamp) >= 0) {
+        continue;
+      }
+      map.set(id, {
+        ref,
+        logId: review.id,
+        comment,
+        userId: review.userId,
+        userName: getUserName?.(review.userId),
+        timestamp,
+      });
+    }
+  }
+  return map;
+}
 
 // Builds refId → most-recent comment from the revision log. When several
 // comments reference the same spot, only the newest is kept — the gutter

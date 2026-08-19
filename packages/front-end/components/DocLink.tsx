@@ -9,7 +9,7 @@ const docSections = {
   experimentResults: "/app/experiment-results",
   experimentDecisionFramework: "/app/experiment-decisions",
   experimentsOverview: "/experiments",
-  featureFlagExperiments: "/feature-flag-experiments",
+  featureFlagExperiments: "/features/feature-flag-experiments",
   experimentTimeSeries: "/app/experiment-time-series",
   experimentTemplates: "/running-experiments/experiment-templates",
   makingExperimentChanges: "/app/making-experiment-changes",
@@ -33,6 +33,7 @@ const docSections = {
   "sdkWebhooks#payload-format": "/app/webhooks/sdk-webhooks#payload-format",
   webhookSecrets: "/app/webhooks#webhook-secrets",
   bandits: "/bandits/overview",
+  contextualBandits: "/contextual-bandits/overview",
   targeting: "/features/targeting",
   namespaces: "/features/rules#namespaces",
   environments: "/features/environments",
@@ -46,6 +47,13 @@ const docSections = {
   staleDetection: "/features/stale-detection",
   featureDiagnostics: "/features/diagnostics",
   customHooks: "/features/custom-hooks",
+  "customHooks#validatefeature": "/features/custom-hooks#validatefeature",
+  "customHooks#validatefeaturerevision":
+    "/features/custom-hooks#validatefeaturerevision",
+  "customHooks#validateconfig": "/features/custom-hooks#validateconfig",
+  "customHooks#validateconfigrevision":
+    "/features/custom-hooks#validateconfigrevision",
+  "customHooks#validateexperiment": "/features/custom-hooks#validateexperiment",
   customRoles: "/account/user-permissions#custom-roles",
   //DataSourceType
   athena: "/app/datasources#aws-athena",
@@ -54,6 +62,8 @@ const docSections = {
   presto: "/warehouses/prestodb-or-trino",
   snowflake: "/warehouses/snowflake",
   vertica: "/warehouses/vertica",
+  adobe_experience_platform_query_service:
+    "/warehouses/adobe-experience-platform-query-service",
   databricks: "/warehouses/databricks",
   clickhouse: "/warehouses/clickhouse",
   postgres: "/warehouses/postgres",
@@ -127,6 +137,7 @@ const docSections = {
   queryOptimization: "/app/query-optimization",
   metricGroups: "/app/metrics#metric-groups",
   managedWarehouseTracking: "/app/managed-warehouse#sending-events",
+  managedWarehouseIngestionApi: "/app/managed-warehouse#ingestion-api",
   eventForwarder: "/app/event-forwarder",
   chooseDataPath: "/app/choose-data-path",
   devTools: "/tools/chrome-extension",
@@ -297,7 +308,7 @@ export function DocLink({
   docSection,
   fallBackSection = "home",
   className = "",
-  useRadix,
+  useRadix = true,
   children,
 }: DocLinkProps) {
   if (useRadix) {

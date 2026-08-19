@@ -5,6 +5,7 @@ import { postSavedGroup } from "./postSavedGroup";
 import { updateSavedGroup } from "./updateSavedGroup";
 import { archiveSavedGroup, unarchiveSavedGroup } from "./archiveSavedGroup";
 import { deleteSavedGroup } from "./deleteSavedGroup";
+import { getSavedGroupReferences } from "./getSavedGroupReferences";
 
 // Revision routes
 import { listSavedGroupRevisions } from "./listSavedGroupRevisions";
@@ -19,6 +20,10 @@ import { postSavedGroupRevisionRebase } from "./postSavedGroupRevisionRebase";
 import { postSavedGroupRevisionRevert } from "./postSavedGroupRevisionRevert";
 import { postSavedGroupRevisionRequestReview } from "./postSavedGroupRevisionRequestReview";
 import { postSavedGroupRevisionSubmitReview } from "./postSavedGroupRevisionSubmitReview";
+import { postSavedGroupRevisionRecallReview } from "./postSavedGroupRevisionRecallReview";
+import { postSavedGroupRevisionReopen } from "./postSavedGroupRevisionReopen";
+import { postSavedGroupRevisionSchedulePublish } from "./postSavedGroupRevisionSchedulePublish";
+import { postSavedGroupRevisionUndoReview } from "./postSavedGroupRevisionUndoReview";
 import { putSavedGroupRevisionMetadata } from "./putSavedGroupRevisionMetadata";
 import { putSavedGroupRevisionCondition } from "./putSavedGroupRevisionCondition";
 import { putSavedGroupRevisionValues } from "./putSavedGroupRevisionValues";
@@ -35,6 +40,7 @@ export const savedGroupsRoutes: OpenApiRoute[] = [
   updateSavedGroup,
   archiveSavedGroup,
   unarchiveSavedGroup,
+  getSavedGroupReferences,
   deleteSavedGroup,
 
   // Revisions — reading & listing.
@@ -58,6 +64,10 @@ export const savedGroupsRoutes: OpenApiRoute[] = [
   // Review & lifecycle
   postSavedGroupRevisionRequestReview,
   postSavedGroupRevisionSubmitReview,
+  postSavedGroupRevisionRecallReview,
+  postSavedGroupRevisionReopen,
+  postSavedGroupRevisionSchedulePublish,
+  postSavedGroupRevisionUndoReview,
   getSavedGroupRevisionMergeStatus,
   postSavedGroupRevisionRebase,
   postSavedGroupRevisionPublish,

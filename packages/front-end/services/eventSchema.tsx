@@ -8,6 +8,7 @@ import { ReactElement } from "react";
 import { BsDatabase } from "react-icons/bs";
 import { GrBarChart } from "react-icons/gr";
 import {
+  SiAdobe,
   SiAmazonredshift,
   SiClickhouse,
   SiDatabricks,
@@ -360,10 +361,10 @@ export const dataSourceConnections: {
     icon: <SiDatabricks />,
     docs: "databricks",
     default: {
+      authType: "oauth-m2m",
       host: "",
       port: 443,
       path: "",
-      token: "",
     },
   },
   {
@@ -488,6 +489,20 @@ export const dataSourceConnections: {
         trustServerCertificate: true,
         encrypt: true,
       },
+    },
+  },
+  {
+    type: "adobe_experience_platform_query_service",
+    display: "Adobe Experience Platform Query Service",
+    icon: <SiAdobe />,
+    docs: "adobe_experience_platform_query_service",
+    default: {
+      host: "",
+      port: 80,
+      database: "",
+      username: "",
+      technicalAccountId: "",
+      credential: "",
     },
   },
   {

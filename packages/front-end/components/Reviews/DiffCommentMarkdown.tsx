@@ -34,15 +34,15 @@ function DiffRefWidget({
     >
       <Flex align="center" gap="2" className="gb-diff-ref-widget-header">
         <PiGitDiff />
-        <Text size="small" weight="semibold">
+        <Text size="sm" weight="semibold">
           {refObj.sectionKey}
         </Text>
-        <Text size="small" color="text-low">
+        <Text size="sm" color="text-low">
           {sideLabel}, line {refObj.line}
         </Text>
         <Flex align="center" gap="1" ml="auto" className="gb-diff-ref-jump">
           <PiArrowBendUpRight />
-          <Text size="small">View in diff</Text>
+          <Text size="sm">View in diff</Text>
         </Flex>
       </Flex>
       {snapshot.lines.length > 0 && (
@@ -80,14 +80,20 @@ function DiffRefWidget({
 export default function MarkdownWithDiffRefs({
   children,
   className,
+  highlightCode = false,
 }: {
   children: string;
   className?: string;
+  highlightCode?: boolean;
 }) {
   const segments = useMemo(() => splitDiffRefSegments(children), [children]);
 
   if (segments.length === 1 && segments[0].type === "markdown") {
-    return <Markdown className={className}>{children}</Markdown>;
+    return (
+      <Markdown className={className} highlightCode={highlightCode}>
+        {children}
+      </Markdown>
+    );
   }
 
   return (
@@ -95,7 +101,9 @@ export default function MarkdownWithDiffRefs({
       {segments.map((seg, i) =>
         seg.type === "markdown" ? (
           seg.text.trim() ? (
-            <Markdown key={i}>{seg.text}</Markdown>
+            <Markdown key={i} highlightCode={highlightCode}>
+              {seg.text}
+            </Markdown>
           ) : null
         ) : (
           <DiffRefWidget key={i} refObj={seg.ref} snapshot={seg.snapshot} />

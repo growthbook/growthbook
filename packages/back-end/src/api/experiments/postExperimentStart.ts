@@ -9,6 +9,7 @@ import { ReqContext } from "back-end/types/request";
 import {
   approveScheduledExperimentStart,
   startExperiment,
+  validateExperimentChange,
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
@@ -85,6 +86,12 @@ export const postExperimentStart = createApiRequestHandler(
       )}`,
     };
   }
+
+  await validateExperimentChange({
+    context,
+    experiment: existing,
+    changes: { status: "running" },
+  });
 
   const { experiment, updated } = await startExperiment({
     context,

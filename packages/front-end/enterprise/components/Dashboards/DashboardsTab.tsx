@@ -41,6 +41,8 @@ export type CreateDashboardArgs = {
     updateSchedule?: DashboardUpdateSchedule;
     blocks?: DashboardBlockData<DashboardBlockInterface>[];
     projects?: string[];
+    globalControls?: DashboardInterface["globalControls"];
+    comparison?: DashboardInterface["comparison"];
   };
 };
 export type UpdateDashboardArgs = {
@@ -55,6 +57,8 @@ export type UpdateDashboardArgs = {
     enableAutoUpdates: boolean;
     updateSchedule?: DashboardUpdateSchedule;
     projects?: string[];
+    globalControls?: DashboardInterface["globalControls"];
+    comparison?: DashboardInterface["comparison"];
   }>;
 };
 export type SubmitDashboard<
@@ -146,12 +150,18 @@ function DashboardsTab({
   const updateTemporaryDashboard = useCallback(
     (update: {
       blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+      globalControls?: DashboardInterface["globalControls"];
+      comparison?: DashboardInterface["comparison"];
     }) => {
       setTemporaryDashboard((prev) => {
         if (!prev) return prev;
         return {
           ...prev,
           ...(update.blocks !== undefined ? { blocks: update.blocks } : {}),
+          ...(update.globalControls !== undefined
+            ? { globalControls: update.globalControls }
+            : {}),
+          ...("comparison" in update ? { comparison: update.comparison } : {}),
         } as DashboardInterface;
       });
     },
@@ -208,6 +218,11 @@ function DashboardsTab({
                 enableAutoUpdates: data.enableAutoUpdates,
                 shareLevel: data.shareLevel,
                 userId: data.userId,
+                globalControls: data.globalControls,
+                // Undefined drops out of the body and reads as "leave alone".
+                ...("comparison" in data
+                  ? { comparison: data.comparison ?? { enabled: false } }
+                  : {}),
               }
             : {
                 blocks: data.blocks ?? [],
@@ -216,6 +231,8 @@ function DashboardsTab({
                 enableAutoUpdates: data.enableAutoUpdates,
                 shareLevel: data.shareLevel,
                 experimentId: experiment.id,
+                globalControls: data.globalControls,
+                comparison: data.comparison ?? undefined,
               },
         ),
       });
@@ -401,7 +418,7 @@ function DashboardsTab({
                 </Flex>
                 <Flex align="center" justify="center">
                   <Button
-                    size="sm"
+                    size="md"
                     onClick={createOrPromptUpgrade}
                     disabled={!canCreate}
                   >

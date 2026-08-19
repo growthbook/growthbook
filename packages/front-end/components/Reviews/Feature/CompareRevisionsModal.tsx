@@ -327,7 +327,7 @@ function LogEntryMeta({ log }: { log: RevisionLog }) {
 
   return (
     <Box>
-      <Heading as="h4" size="small" mb="3">
+      <Heading as="h4" size="sm" mb="3">
         {log.action === "edit comment"
           ? "Edit revision description"
           : log.action}
@@ -1012,6 +1012,7 @@ export default function CompareRevisionsModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType="compare-revisions"
       open={true}
       header="Compare revisions"
@@ -1032,13 +1033,7 @@ export default function CompareRevisionsModal({
             quickActionRanges.liveRange ||
             quickActionRanges.allRange) && (
             <Box className={`${styles.section} border-bottom`} pb="2">
-              <Text
-                size="medium"
-                weight="medium"
-                color="text-mid"
-                mb="2"
-                as="p"
-              >
+              <Text size="md" weight="medium" color="text-mid" mb="2" as="p">
                 Quick actions
               </Text>
               <Flex direction="column" className={styles.quickActionsList}>
@@ -1056,7 +1051,7 @@ export default function CompareRevisionsModal({
                     <Box className={styles.rowSpacer} />
                     <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
                       <Text weight="semibold">Most recent draft changes</Text>
-                      <Text size="small" color="text-low">
+                      <Text size="sm" color="text-low">
                         <OverflowText
                           maxWidth={160}
                           title={revisionLabelText(
@@ -1123,7 +1118,7 @@ export default function CompareRevisionsModal({
                     <Box className={styles.rowSpacer} />
                     <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
                       <Text weight="semibold">Most recent live changes</Text>
-                      <Text size="small" color="text-low">
+                      <Text size="sm" color="text-low">
                         Revisions {quickActionRanges.liveRange[0]}{" "}
                         <PiArrowsLeftRightBold />{" "}
                         {quickActionRanges.liveRange[1]}
@@ -1151,7 +1146,7 @@ export default function CompareRevisionsModal({
                     <Box className={styles.rowSpacer} />
                     <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
                       <Text weight="semibold">All changes</Text>
-                      <Text size="small" color="text-low">
+                      <Text size="sm" color="text-low">
                         Revisions {quickActionRanges.allRange[0]}{" "}
                         <PiArrowsLeftRightBold />{" "}
                         {quickActionRanges.allRange[1]}
@@ -1164,7 +1159,7 @@ export default function CompareRevisionsModal({
           )}
           <Box className={styles.section} pb="3">
             <Flex align="center" justify="between" mb="2">
-              <Text size="medium" weight="medium" color="text-mid">
+              <Text size="md" weight="medium" color="text-mid">
                 Select range of revisions
               </Text>
               {(hasDraftRevisions ||
@@ -1384,7 +1379,7 @@ export default function CompareRevisionsModal({
                           ) : null}
                         </Flex>
                         {date && minRev ? (
-                          <Text size="small" color="text-low">
+                          <Text size="sm" color="text-low">
                             {datetime(date)} ·{" "}
                             <EventUser user={minRev.createdBy} display="name" />
                           </Text>
@@ -1399,7 +1394,7 @@ export default function CompareRevisionsModal({
                         <div className={styles.previewButtonWrapper}>
                           <Button
                             variant="outline"
-                            size="xs"
+                            size="sm"
                             className={styles.previewButton}
                             onClick={(e?) => {
                               e?.stopPropagation();
@@ -1451,7 +1446,7 @@ export default function CompareRevisionsModal({
                     {isExpanded && (
                       <div className={styles.logSubRows}>
                         {isLoadingLogs ? (
-                          <Text size="small" color="text-low" ml="2">
+                          <Text size="sm" color="text-low" ml="2">
                             Loading…
                           </Text>
                         ) : versionLogs && versionLogs.length > 0 ? (
@@ -1464,7 +1459,7 @@ export default function CompareRevisionsModal({
                             );
                             if (contentLogs.length === 0) {
                               return (
-                                <Text size="small" color="text-low" ml="2">
+                                <Text size="sm" color="text-low" ml="2">
                                   No changes in this revision
                                 </Text>
                               );
@@ -1505,7 +1500,7 @@ export default function CompareRevisionsModal({
                                         ? ` · ${logEntry.subject}`
                                         : ""}
                                     </div>
-                                    <Text size="small" color="text-low">
+                                    <Text size="sm" color="text-low">
                                       {datetime(logEntry.timestamp)}
                                       {logEntry.user?.type === "dashboard"
                                         ? ` · ${logEntry.user.name}`
@@ -1523,7 +1518,7 @@ export default function CompareRevisionsModal({
                             });
                           })()
                         ) : (
-                          <Text size="small" color="text-low" ml="2">
+                          <Text size="sm" color="text-low" ml="2">
                             No log entries
                           </Text>
                         )}
@@ -1560,10 +1555,10 @@ export default function CompareRevisionsModal({
                       <PiCaretLeftBold size={16} />
                     </button>
                   </Tooltip>
-                  <Heading as="h2" size="small" mb="0">
+                  <Heading as="h2" size="sm" mb="0">
                     Log entry
                   </Heading>
-                  <Text size="small" color="text-low">
+                  <Text size="sm" color="text-low">
                     · Revision {activeLogEntry.version}
                   </Text>
                 </Flex>
@@ -1595,10 +1590,10 @@ export default function CompareRevisionsModal({
               >
                 <Flex align="center" justify="between" gap="4" wrap="wrap">
                   <Flex align="center" gap="2">
-                    <Heading as="h2" size="small" mb="0">
+                    <Heading as="h2" size="sm" mb="0">
                       Preview draft
                     </Heading>
-                    <Text size="small" color="text-low">
+                    <Text size="sm" color="text-low">
                       Draft content vs live (two-way)
                     </Text>
                   </Flex>
@@ -1630,7 +1625,7 @@ export default function CompareRevisionsModal({
               {previewDisplayLoading ? (
                 <LoadingOverlay />
               ) : previewDisplayFailed.length > 0 ? (
-                <Callout status="error" contentsAs="div" mt="4">
+                <Callout status="error" mt="4">
                   <Flex gap="4" align="start">
                     <span>
                       Could not load revision
@@ -1675,13 +1670,13 @@ export default function CompareRevisionsModal({
                   <Flex align="center" gap="4">
                     {diffViewMode === "steps" && (
                       <>
-                        <Heading as="h2" size="small" mb="0">
+                        <Heading as="h2" size="sm" mb="0">
                           Step {safeDiffPage + 1} of {steps.length}
                         </Heading>
                         <Flex gap="2">
                           <Button
                             variant="soft"
-                            size="sm"
+                            size="md"
                             disabled={safeDiffPage <= 0}
                             onClick={() =>
                               setDiffPage((p) => Math.max(0, p - 1))
@@ -1691,7 +1686,7 @@ export default function CompareRevisionsModal({
                           </Button>
                           <Button
                             variant="soft"
-                            size="sm"
+                            size="md"
                             disabled={safeDiffPage >= steps.length - 1}
                             onClick={() =>
                               setDiffPage((p) =>
@@ -1726,13 +1721,13 @@ export default function CompareRevisionsModal({
                       )}
                   </Flex>
                   <Flex align="center" gap="2">
-                    <Text size="medium" weight="medium" color="text-mid">
+                    <Text size="md" weight="medium" color="text-mid">
                       Show diff as
                     </Text>
                     <Select
                       value={diffViewMode}
                       setValue={(v) => setDiffViewModeRaw(v)}
-                      size="2"
+                      size="md"
                       mb="0"
                     >
                       <SelectItem value="steps">Steps</SelectItem>
@@ -1758,7 +1753,7 @@ export default function CompareRevisionsModal({
               {displayLoading ? (
                 <LoadingOverlay />
               ) : displayFailed.length > 0 ? (
-                <Callout status="error" contentsAs="div" mt="4">
+                <Callout status="error" mt="4">
                   <Flex gap="4" align="start">
                     <span>
                       Could not load revision

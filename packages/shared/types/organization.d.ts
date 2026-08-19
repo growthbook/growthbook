@@ -15,9 +15,10 @@ import {
   AccountPlan,
   CommercialFeature,
   LicenseInterface,
+  OrgLimits,
   SubscriptionInfo,
 } from "shared/enterprise";
-import { AIModel, EmbeddingModel } from "shared/ai";
+import { AIModel, AIProvider, EmbeddingModel } from "shared/ai";
 import {
   AgreementType,
   environment,
@@ -52,10 +53,22 @@ export type Permission =
 
 export type PermissionsObject = Partial<Record<Permission, boolean>>;
 
+/** A principal's permissions in one scope, merged across their roles. */
 export type UserPermission = {
+  /** Union across roles. Legacy fallback — check environments via `envsAllowedBy`. */
   environments: string[];
   limitAccessByEnvironment: boolean;
   permissions: PermissionsObject;
+  /**
+   * Per role: its env-scoped permissions with its own env restriction, so one
+   * role's permission can't borrow another's environments. Absent for roles
+   * granting nothing env-scoped, and for payloads predating the field.
+   */
+  envGrants?: {
+    environments: string[];
+    limitAccessByEnvironment: boolean;
+    permissions: Permission[];
+  }[];
 };
 
 export type UserPermissions = {
@@ -72,6 +85,13 @@ export type RequireReview = {
   // When true, co-authors (contributors[]) are also blocked from approving, not just the original author.
   blockSelfApproval?: boolean;
   autopublishOnApproval?: boolean;
+};
+
+// Whether secondary targeting projects impose their own review requirements
+// (strict) or only the primary governs (loose). Most-specific-wins; default strict.
+export type TargetingReviewRule = {
+  projects: string[];
+  mode: "strict" | "loose";
 };
 
 export type OwnerJobTitle = keyof typeof OWNER_JOB_TITLES;
@@ -267,6 +287,26 @@ export interface OrganizationSettings {
   /** @deprecated */
   killswitchConfirmation?: boolean;
   requireReviews?: boolean | RequireReview[];
+  // Project-scoped rules; absent/no-match = strict.
+  targetingReviewMode?: TargetingReviewRule[];
+  // Default extensibility for newly authored configs. When true (default),
+  // base configs allow child configs / feature rules to add extra keys unless
+  // a config explicitly opts out via its own `extensible` flag.
+  configsExtensibleByDefault?: boolean;
+  // Default value of the per-config "experiment guard" for newly created configs.
+  // The guard soft-blocks publishing a config whose value is served to a running
+  // experiment. Seeded onto each config at creation (a concrete per-config flag),
+  // so changing this default doesn't retroactively affect existing configs.
+  // Absent = off.
+  configExperimentGuardDefault?: boolean;
+  // Whether publishing a revision is BLOCKED when its values don't match the
+  // JSON schema (features and configs). Per-write validation always runs (opt
+  // out per request with ?skipSchemaValidation=true); this governs the re-check
+  // at publish, which catches values that became invalid after the fact (e.g. a
+  // schema change, an ancestor-config change, or a value staged with the skip
+  // flag). true (default) blocks the publish; false surfaces a bypassable soft
+  // warning instead. Absent = true.
+  blockPublishOnSchemaError?: boolean;
   // When enabled, a feature draft whose base version is behind the current
   // live version (or whose approval has gone stale) must be rebased
   // ("Rebase with live") before it can be published.
@@ -321,6 +361,8 @@ export interface OrganizationSettings {
   metricPageMarkdown?: string;
   preferredEnvironment?: string | null; // null (or undefined) means "remember previous environment"
   maxMetricSliceLevels?: number;
+  topValuesLookbackValue?: number;
+  topValuesLookbackUnit?: "days";
   banditScheduleValue?: number;
   banditScheduleUnit?: "hours" | "days";
   banditBurnInValue?: number;
@@ -339,6 +381,32 @@ export interface OrganizationSettings {
   postStratificationDisabled?: boolean;
   postStratificationEnabled?: boolean;
   approvalFlows?: ApprovalFlowConfigurations;
+  learningStatuses?: LearningStatus[];
+  // When true, members can't create user-attributed API tokens and existing
+  // ones are rejected at authentication. Covers Personal Access Tokens and
+  // OAuth-issued access tokens; app-issued Visual Editor keys are unaffected.
+  disablePersonalAccessTokens?: boolean;
+}
+
+export type LearningStatusColor =
+  | "gray"
+  | "blue"
+  | "cyan"
+  | "indigo"
+  | "violet"
+  | "purple"
+  | "amber"
+  | "orange"
+  | "yellow"
+  | "green"
+  | "teal"
+  | "red"
+  | "pink";
+
+export interface LearningStatus {
+  id: string;
+  label: string;
+  color?: LearningStatusColor;
 }
 
 export interface OrganizationConnections {
@@ -426,6 +494,7 @@ export interface OrganizationInterface {
   disabled?: boolean;
   suspended?: boolean;
   setupEventTracker?: string;
+  limits?: OrgLimits;
 }
 
 export type NamespaceUsage = Record<
@@ -465,6 +534,9 @@ export type GetOrganizationResponse = {
     features: string[];
   };
   usage: OrganizationUsage;
+  // Providers with a usable key, stored or inherited from the environment.
+  // Non-secret, and rides along here so AI gating needs no separate request.
+  aiKeyProviders: AIProvider[];
 };
 
 export type DailyUsage = {

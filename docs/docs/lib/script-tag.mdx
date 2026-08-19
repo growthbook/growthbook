@@ -177,10 +177,11 @@ mixpanel.init("[YOUR PROJECT TOKEN]", {
    })
   },
 });
-window.growthbook_config.trackingCallback = (experiment, result) => {
+window.growthbook_config.trackingCallback = (experiment, result, user) => {
     mixpanel.track("$experiment_started", {
       "Experiment name": experiment.key,
       "Variant name": result.variationId,
+      "GrowthBook attributes": user?.attributes,
       $source: "growthbook",
     });
 </script>
@@ -195,13 +196,16 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
 
 For any other event tracking system (or if the built-in ones above do not meet your requirements), you can define your own custom tracking callback function. This must be defined _BEFORE_ loading the main GrowthBook snippet on the page.
 
+Starting in version 1.7.0, the callback receives a third `user` argument containing the `attributes` and optional `url` used when the experiment was evaluated. We recommend recording attributes from this argument so exposure events consistently reflect the attributes GrowthBook used for targeting and assignment.
+
 ```html
 <script>
 window.growthbook_config = window.growthbook_config || {};
-window.growthbook_config.trackingCallback = (experiment, result) => {
+window.growthbook_config.trackingCallback = (experiment, result, user) => {
   customEventTracker("Viewed Experiment", {
     experiment_id: experiment.key,
-    variation_id: result.key
+    variation_id: result.key,
+    attributes: user?.attributes
   })
 };
 </script>
@@ -256,6 +260,24 @@ window.growthbook_queue.push((gb) => {
 By default, this SDK persists a random unique identifier in a first-party cookie named `gbuuid`. This cookie is required to provide a consistent user experience to your visitors. Without this cookie, if you run an A/B test, a visitor might be re-bucketed into a different variation every time they visit your website.
 
 The `gbuuid` cookie does not contain any Personally Identifiable Information (it's just a randomly generated id). It is a first-party cookie that is never shared with any third-party services, not even GrowthBook itself. However, we still recommend adding this to your site's cookie policy if you have one.
+
+### Sharing the Cookie Across Subdomains
+
+By default the `gbuuid` cookie is **host-only**, so it is not readable on other subdomains. If your site spans multiple subdomains (for example `www.example.com` and `app.example.com`) — or if you run **redirect experiments that send users to another subdomain** — the visitor will get a brand new `gbuuid` on the new subdomain and be re-bucketed. This creates duplicate anonymous ids for the same person, which shows up as inflated user counts and a Sample Ratio Mismatch (SRM) in your analytics/warehouse.
+
+To keep one stable id across all subdomains, scope the cookie to your parent domain with `data-uuid-cookie-domain` (or `window.growthbook_config.uuidCookieDomain`):
+
+```html
+<script async
+  data-client-key="YOUR_CLIENT_KEY"
+  data-uuid-cookie-domain=".example.com"
+  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
+></script>
+```
+
+When set, this also scopes the sticky bucketing cookies (`data-use-sticky-bucket-service="cookie"`) to the same domain, so sticky assignments follow the shared id across subdomains.
+
+Note that cookies cannot be shared across completely different registrable domains (e.g. `example.com` and `example.co.uk`). For that case, pass the id through the redirect URL and initialize the destination with `data-uuid` / `window.growthbook_config.uuid`.
 
 ### Delay Storing the Cookie Until Consent is Granted
 

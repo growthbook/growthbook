@@ -38,10 +38,14 @@ import { ExperimentPhase } from "shared/types/experiment";
 import { LegacySavedGroupInterface } from "shared/types/saved-group";
 import { encryptParams } from "back-end/src/services/datasource";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
+import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
+import { migrateBlock } from "back-end/src/enterprise/models/DashboardModel";
 import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
 import {
   migrateExperimentReport,
   migrateSnapshot,
+  normalizeJsonSchemaDef,
+  pinLegacyRolloutSeeds,
   upgradeDatasourceObject,
   upgradeExperimentDoc,
   upgradeFeatureRule,
@@ -1869,6 +1873,22 @@ describe("Experiment Migration", () => {
       releasedVariationId: "foo",
     });
   });
+  it("uses `winner` 0 (control won) for releasedVariationId, not the default 1", () => {
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        status: "stopped",
+        results: "won",
+        winner: 0,
+      }),
+    ).toEqual({
+      ...upgraded,
+      status: "stopped",
+      results: "won",
+      winner: 0,
+      releasedVariationId: "0",
+    });
+  });
   it("Doesn't overwrite other attribution models", () => {
     expect(
       upgradeExperimentDoc({
@@ -2916,6 +2936,25 @@ describe("saved group migrations", () => {
     });
   });
 
+  it("does not synthesize a runtime condition when the read omitted condition", () => {
+    expect(
+      SavedGroupModel.migrateSavedGroup(
+        {
+          ...baseSavedGroup,
+          attributeKey: "foo",
+          values: [],
+          source: "runtime",
+        },
+        { conditionOmitted: true },
+      ),
+    ).toEqual({
+      ...baseSavedGroup,
+      attributeKey: "foo",
+      values: [],
+      type: "condition",
+    });
+  });
+
   it("does not migrate saved groups that already have type=list", () => {
     expect(
       SavedGroupModel.migrateSavedGroup({
@@ -2949,6 +2988,215 @@ describe("saved group migrations", () => {
       values: [],
       type: "condition",
       condition: JSON.stringify({ id: { $eq: "123" } }),
+    });
+  });
+});
+
+// Documents written before `schemaType`/`simple` existed hold a three-key
+// jsonSchema that means exactly what the five-key one means. Both the feature
+// read and the revision read normalize through this, so an untouched schema
+// never surfaces as an edit.
+describe("normalizeJsonSchemaDef", () => {
+  const legacy = {
+    schema: "",
+    date: new Date("2024-02-26T04:27:49.018Z"),
+    enabled: false,
+  };
+
+  it("backfills the keys that postdate the oldest documents", () => {
+    expect(normalizeJsonSchemaDef(legacy)).toEqual({
+      ...legacy,
+      schemaType: "schema",
+      simple: { type: "object", fields: [] },
+    });
+  });
+
+  it("gives a legacy and an already-backfilled document the same spelling", () => {
+    const backfilled = {
+      ...legacy,
+      schemaType: "schema" as const,
+      simple: { type: "object" as const, fields: [] },
+    };
+    expect(normalizeJsonSchemaDef(legacy)).toEqual(
+      normalizeJsonSchemaDef(backfilled),
+    );
+  });
+
+  it("leaves a configured schema alone", () => {
+    const configured = {
+      schemaType: "simple" as const,
+      schema: '{"type":"object"}',
+      simple: {
+        type: "object" as const,
+        fields: [{ key: "a", type: "string" }],
+      },
+      date: legacy.date,
+      enabled: true,
+    };
+    expect(normalizeJsonSchemaDef(configured)).toEqual(configured);
+  });
+
+  it("does not mutate its input", () => {
+    const input = { ...legacy };
+    normalizeJsonSchemaDef(input);
+    expect(input).toEqual(legacy);
+  });
+});
+
+describe("pinLegacyRolloutSeeds", () => {
+  const rollout = (over: Partial<FeatureRule> = {}) =>
+    ({
+      id: "fr_rule",
+      type: "rollout",
+      value: "true",
+      coverage: 0.5,
+      hashAttribute: "id",
+      ...over,
+    }) as FeatureRule;
+
+  it("pins a seedless rollout rule to the feature id", () => {
+    const [pinned] = pinLegacyRolloutSeeds([rollout()], "feat_1");
+    expect((pinned as { seed?: string }).seed).toBe("feat_1");
+  });
+
+  it("leaves an explicitly-seeded rollout rule untouched", () => {
+    const [pinned] = pinLegacyRolloutSeeds(
+      [rollout({ seed: "fr_rule" })],
+      "feat_1",
+    );
+    // An existing seed (rule.id default or a custom seed) is never rewritten.
+    expect((pinned as { seed?: string }).seed).toBe("fr_rule");
+  });
+
+  it("does not touch non-rollout rules", () => {
+    const force = { id: "fr_f", type: "force", value: "true" } as FeatureRule;
+    const safe = {
+      id: "fr_s",
+      type: "safe-rollout",
+      safeRolloutId: "sr_1",
+    } as unknown as FeatureRule;
+    const [pForce, pSafe] = pinLegacyRolloutSeeds([force, safe], "feat_1");
+    expect(pForce).not.toHaveProperty("seed");
+    // Safe rollouts carry their own random seed and are never pinned.
+    expect((pSafe as { seed?: string }).seed).toBeUndefined();
+  });
+
+  it("does not mutate the input rule objects", () => {
+    const input = rollout();
+    pinLegacyRolloutSeeds([input], "feat_1");
+    expect((input as { seed?: string }).seed).toBeUndefined();
+  });
+
+  it("tolerates sparse null array entries", () => {
+    const rules = [null, rollout()] as unknown as FeatureRule[];
+    const out = pinLegacyRolloutSeeds(rules, "feat_1");
+    expect(out[0]).toBeNull();
+    expect((out[1] as { seed?: string }).seed).toBe("feat_1");
+  });
+});
+
+describe("Funnel Step Migration (factTable → factTableId)", () => {
+  const legacyStep = (factTable: string) => ({
+    name: "Step 1",
+    factTable,
+    rowFilters: [],
+    optional: false,
+  });
+
+  const migratedStep = (factTableId: string) => ({
+    name: "Step 1",
+    factTableId,
+    rowFilters: [],
+    optional: false,
+  });
+
+  describe("AnalyticsExplorationModel.migrateFunnelSteps", () => {
+    it("renames factTable to factTableId", () => {
+      const steps = [legacyStep("orders"), legacyStep("visits")];
+      const result = AnalyticsExplorationModel.migrateFunnelSteps(steps);
+      expect(result).toEqual([migratedStep("orders"), migratedStep("visits")]);
+    });
+
+    it("passes through steps that already have factTableId", () => {
+      const steps = [migratedStep("orders")];
+      const result = AnalyticsExplorationModel.migrateFunnelSteps(
+        steps as Record<string, unknown>[],
+      );
+      expect(result).toEqual([migratedStep("orders")]);
+    });
+
+    it("handles a mix of legacy and migrated steps", () => {
+      const steps = [legacyStep("orders"), migratedStep("visits")];
+      const result = AnalyticsExplorationModel.migrateFunnelSteps(steps);
+      expect(result).toEqual([migratedStep("orders"), migratedStep("visits")]);
+    });
+  });
+
+  describe("migrateBlock (funnel-exploration)", () => {
+    it("renames factTable to factTableId on funnel steps", () => {
+      const block = {
+        type: "funnel-exploration" as const,
+        title: "My funnel",
+        explorerAnalysisId: "ae_1",
+        config: {
+          type: "funnel" as const,
+          datasource: "ds_1",
+          chartType: "bar" as const,
+          dimensions: [],
+          dateRange: {
+            predefined: "last7Days" as const,
+            startDate: null,
+            endDate: null,
+            lookbackValue: null,
+            lookbackUnit: null,
+          },
+          dataset: {
+            type: "funnel" as const,
+            unit: "user_id",
+            steps: [legacyStep("orders"), legacyStep("visits")],
+          },
+        },
+      };
+      expect(migrateBlock(block)).toMatchObject({
+        config: {
+          dataset: {
+            steps: [migratedStep("orders"), migratedStep("visits")],
+          },
+        },
+      });
+    });
+
+    it("passes through blocks that already have factTableId", () => {
+      const block = {
+        type: "funnel-exploration" as const,
+        title: "My funnel",
+        explorerAnalysisId: "ae_1",
+        config: {
+          type: "funnel" as const,
+          datasource: "ds_1",
+          chartType: "bar" as const,
+          dimensions: [],
+          dateRange: {
+            predefined: "last7Days" as const,
+            startDate: null,
+            endDate: null,
+            lookbackValue: null,
+            lookbackUnit: null,
+          },
+          dataset: {
+            type: "funnel" as const,
+            unit: "user_id",
+            steps: [migratedStep("orders")],
+          },
+        },
+      };
+      expect(migrateBlock(block)).toMatchObject({
+        config: {
+          dataset: {
+            steps: [migratedStep("orders")],
+          },
+        },
+      });
     });
   });
 });

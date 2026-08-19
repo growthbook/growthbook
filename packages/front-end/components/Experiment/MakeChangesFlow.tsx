@@ -131,6 +131,7 @@ export default function MakeChangesFlow({
 
   return (
     <PagedModal
+      useRadixButton={false}
       trackingEventModalType="make-changes"
       close={close}
       header={`Make ${isBandit ? "Bandit" : "Experiment"} Changes`}
@@ -148,7 +149,7 @@ export default function MakeChangesFlow({
       secondaryCTA={
         step === lastStepNumber ? (
           <Box style={{ minWidth: 520 }}>
-            <Callout status="warning" contentsAs="div">
+            <Callout status="warning">
               <Flex align="center" justify="between" gap="3">
                 <Text>
                   <Text weight="semibold">Warning:</Text> Changes made will

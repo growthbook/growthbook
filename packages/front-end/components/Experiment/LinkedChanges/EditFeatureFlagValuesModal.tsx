@@ -23,6 +23,9 @@ import {
   parsePlainJSONObject,
   stripDefaultsForSparse,
   expandSparseToFull,
+  getFeatureBaseConfigKey,
+  getConfigSubtree,
+  ensureConfigBacking,
 } from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
@@ -36,10 +39,13 @@ import DraftSelectorDropdown, {
 } from "@/components/Features/DraftSelectorDropdown";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import FeatureValueField from "@/components/Features/FeatureValueField";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import Callout from "@/ui/Callout";
+import FieldAlignedVariationNumber from "@/components/Experiment/FieldAlignedVariationNumber";
+import VariationLabel from "@/ui/VariationLabel";
 import {
   decimalToPercent,
   distributeWeights,
@@ -279,7 +285,36 @@ export default function EditFeatureFlagValuesModal({
   const sparseEligible =
     feature.valueType === "json" &&
     parsePlainJSONObject(feature.defaultValue ?? "") !== null;
-  const [sparse, setSparse] = useState(!!linkedFeatureInfo.sparse);
+  // Config-backed JSON flags always merge object arm values onto the resolved
+  // config, so they're inherently sparse patches that serve the default's
+  // config: default the toggle on (even for rules created via the v2 REST API
+  // that carry no `sparse` flag), drop the toggle, and render the arms with the
+  // config-backing editor. Mirrors StandardRuleFields / ExperimentRefFields.
+  const { configs } = useDefinitions();
+  const defaultConfigKey = getFeatureBaseConfigKey(feature);
+  const isConfigBacked = defaultConfigKey !== null;
+  const configBackingOptionKeys = useMemo(
+    () =>
+      defaultConfigKey
+        ? getConfigSubtree(defaultConfigKey, configs)
+        : undefined,
+    [defaultConfigKey, configs],
+  );
+  const [sparse, setSparse] = useState(
+    !!linkedFeatureInfo.sparse || isConfigBacked,
+  );
+
+  useEffect(() => {
+    if (!isConfigBacked || !defaultConfigKey) return;
+    const vars = (form.getValues("variations") || []) as { value?: string }[];
+    vars.forEach((v, i) => {
+      const normalized = ensureConfigBacking(v.value ?? "", defaultConfigKey);
+      if (normalized !== v.value) {
+        form.setValue(`variations.${i}.value`, normalized);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConfigBacked, defaultConfigKey]);
 
   const watchedVariations = form.watch("variations");
 
@@ -477,7 +512,7 @@ export default function EditFeatureFlagValuesModal({
       ) : (
         <>
           <Flex direction="column" gap="3" pt="2">
-            {sparseEligible && (
+            {!isConfigBacked && sparseEligible && (
               <Flex>
                 <SparsePatchToggle
                   checked={sparse}
@@ -507,7 +542,7 @@ export default function EditFeatureFlagValuesModal({
                 >
                   <Button
                     variant="ghost"
-                    size="xs"
+                    size="sm"
                     onClick={setEqualWeights}
                     icon={<PiArrowsClockwise size={12} />}
                   >
@@ -525,13 +560,7 @@ export default function EditFeatureFlagValuesModal({
                 return (
                   <Box key={field.id}>
                     <Flex direction="row" gap="3" align="start">
-                      <Box style={{ paddingTop: 28 }}>
-                        <Box
-                          className={`variation with-variation-label variation${i}`}
-                        >
-                          <span className="label">{i}</span>
-                        </Box>
-                      </Box>
+                      <FieldAlignedVariationNumber number={i} />
                       <Flex
                         direction="column"
                         gap="3"
@@ -569,6 +598,10 @@ export default function EditFeatureFlagValuesModal({
                             useCodeInput={true}
                             showFullscreenButton={true}
                             sparse={sparse}
+                            allowConfigBacking={isConfigBacked}
+                            configBackingOptionKeys={configBackingOptionKeys}
+                            configBackingShowPatch={isConfigBacked}
+                            lockConfigBacking={isConfigBacked}
                           />
                           {isNewVariation && numLinkedChanges > 1 && (
                             <Callout status="warning" mt="2">
@@ -623,16 +656,12 @@ export default function EditFeatureFlagValuesModal({
                 <Box key={field.id}>
                   <Flex justify="between" width="100%" mb="3">
                     <Flex align="center" direction="row" gap="2">
-                      <Flex align="center">
-                        <Box
-                          className={`variation with-variation-label variation${i}`}
-                        >
-                          <span className="label">{i}</span>
-                        </Box>
-                        <Text weight="semibold" size="large">
-                          {row.name}
-                        </Text>
-                      </Flex>
+                      <VariationLabel
+                        number={i}
+                        name={row.name}
+                        size="lg"
+                        maxWidth="320px"
+                      />
                       <Box as="span">&middot;</Box>
                       <Text color="text-mid">
                         {decimalToPercent(rowWeight)}% Split
@@ -697,6 +726,10 @@ export default function EditFeatureFlagValuesModal({
                     useCodeInput={true}
                     showFullscreenButton={true}
                     sparse={sparse}
+                    allowConfigBacking={isConfigBacked}
+                    configBackingOptionKeys={configBackingOptionKeys}
+                    configBackingShowPatch={isConfigBacked}
+                    lockConfigBacking={isConfigBacked}
                   />
                   {isNewVariation && numLinkedChanges > 1 && (
                     <Callout status="warning" mt="2">

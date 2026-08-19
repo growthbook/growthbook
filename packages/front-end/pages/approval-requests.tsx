@@ -1,8 +1,9 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex, TextField } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { datetime } from "shared/dates";
-import { Revision, RevisionStatus } from "shared/enterprise";
+import { Revision, RevisionStatus, getRevisionKey } from "shared/enterprise";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { FeatureMetaInfo } from "shared/types/feature";
 import Link from "next/link";
@@ -92,6 +93,7 @@ type ScopeValue = "needs-my-review" | "my-requests" | "all";
 function getEntityTypeLabel(entityType: string): string {
   const labels: Record<string, string> = {
     "saved-group": "Saved Group",
+    constant: "Constant",
     feature: "Feature",
   };
   return labels[entityType] || entityType;
@@ -160,10 +162,18 @@ function revisionToRow(revision: Revision): ApprovalRow {
       ? revision.target.snapshot?.groupName || revision.target.id
       : revision.target.id;
 
+  // Saved Groups carry `projects[]`; Configs and Constants a scalar `project`.
+  // Reading only the array left the scalar entities with no project, so a
+  // project-filtered "needs my review" view dropped them entirely.
+  const snapshot = revision.target.snapshot as
+    | { projects?: string[]; project?: string }
+    | undefined;
   const projects =
     revision.target.type === "saved-group"
-      ? (revision.target.snapshot?.projects ?? [])
-      : [];
+      ? (snapshot?.projects ?? [])
+      : snapshot?.project
+        ? [snapshot.project]
+        : [];
 
   return {
     id: revision.id,
@@ -175,9 +185,23 @@ function revisionToRow(revision: Revision): ApprovalRow {
     authorDisplay: "",
     status: revision.status,
     dateCreated: new Date(revision.dateCreated).getTime(),
-    url: buildSavedGroupRevisionUrl(revision.target.id, revision),
+    url: buildRevisionUrl(revision),
     projects,
   };
+}
+
+// Build the detail-page URL for a revision based on its entity type. The
+// revision key doubles as the route segment (saved-group → /saved-groups,
+// constant → /constants).
+function buildRevisionUrl(revision: Revision): string {
+  if (revision.target.type === "saved-group") {
+    return buildSavedGroupRevisionUrl(revision.target.id, revision);
+  }
+  const key = getRevisionKey(revision.target.type);
+  const base = `/${key ?? revision.target.type}/${revision.target.id}`;
+  return (revision.version ?? null) !== null
+    ? `${base}?v=${revision.version}`
+    : base;
 }
 
 function featureRevisionToRow(
@@ -341,11 +365,10 @@ const ApprovalRequests: FC = () => {
     return items.filter((item) => allowed.has(item.status));
   }, [items, hasExplicitStatusFilter]);
 
-  // Per-row "can I act on this as a reviewer?" check. Mirrors the rules used
-  // elsewhere: `canReview` permission on the feature's project for feature
-  // revisions, and "can edit = can review" (canUpdateSavedGroup) for
-  // saved-group revisions — matching canUserReviewEntity in
-  // shared/src/revisions/helpers.ts.
+  // Per-row "can I act on this as a reviewer?" check. Reviewing is its own
+  // authority for every model, so each row asks the same question of its own
+  // family's review atom. Constants and Configs previously fell through to
+  // `false`, hiding their rows from every reviewer.
   const canReviewRow = useCallback(
     (row: ApprovalRow): boolean => {
       if (row.entityType === "feature") {
@@ -353,10 +376,16 @@ const ApprovalRequests: FC = () => {
           project: row.projects[0] ?? "",
         });
       }
-      if (row.entityType === "saved-group") {
-        return permissionsUtil.canUpdateSavedGroup(
+      if (
+        row.entityType === "saved-group" ||
+        row.entityType === "constant" ||
+        row.entityType === "config"
+      ) {
+        return permissionsUtil.canRevisionAction(
+          row.entityType,
+          "review",
           { projects: row.projects },
-          { projects: row.projects },
+          NO_ENVIRONMENT_BINDING,
         );
       }
       return false;
@@ -515,12 +544,14 @@ const ApprovalRequests: FC = () => {
   return (
     <Box p="4" pr="7" width="100%" maxWidth="1340px" mx="auto">
       <Box mb="5">
-        <Heading as="h1" size="large" mb="2">
+        <Heading as="h1" size="lg" mb="2">
           Approval Requests
         </Heading>
         <Text color="text-low">
           Review changes across your organization that require approval.{" "}
-          <DocLink docSection="publishingAndApprovalFlows">View Docs</DocLink>
+          <DocLink useRadix={false} docSection="publishingAndApprovalFlows">
+            View Docs
+          </DocLink>
         </Text>
       </Box>
 

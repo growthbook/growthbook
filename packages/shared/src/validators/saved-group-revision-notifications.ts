@@ -8,6 +8,10 @@
 
 import { z } from "zod";
 import { apiSavedGroupRevisionValidator } from "./saved-group-revisions";
+import {
+  bulkPublishIdField,
+  revisionPublishFailedExtension,
+} from "./revision-publish-failed";
 
 // Reviewer identity, shared by approve/request-changes/comment events.
 // Mirrors the `reviewer` shape used by feature revision notifications.
@@ -62,7 +66,9 @@ export type SavedGroupRevisionRebasedPayload = z.infer<
 >;
 
 export const savedGroupRevisionPublishedPayload =
-  savedGroupRevisionWebhookPayload;
+  savedGroupRevisionWebhookPayload
+    .extend({ bulkPublishId: bulkPublishIdField })
+    .strict();
 export type SavedGroupRevisionPublishedPayload = z.infer<
   typeof savedGroupRevisionPublishedPayload
 >;
@@ -77,6 +83,24 @@ export const savedGroupRevisionReopenedPayload =
   savedGroupRevisionWebhookPayload;
 export type SavedGroupRevisionReopenedPayload = z.infer<
   typeof savedGroupRevisionReopenedPayload
+>;
+
+export const savedGroupRevisionRecalledPayload =
+  savedGroupRevisionWebhookPayload;
+export type SavedGroupRevisionRecalledPayload = z.infer<
+  typeof savedGroupRevisionRecalledPayload
+>;
+
+export const savedGroupRevisionReviewRetractedPayload =
+  savedGroupRevisionWebhookPayload;
+export type SavedGroupRevisionReviewRetractedPayload = z.infer<
+  typeof savedGroupRevisionReviewRetractedPayload
+>;
+
+export const savedGroupRevisionPublishScheduleChangedPayload =
+  savedGroupRevisionWebhookPayload;
+export type SavedGroupRevisionPublishScheduleChangedPayload = z.infer<
+  typeof savedGroupRevisionPublishScheduleChangedPayload
 >;
 
 // `change` indicates which kind of saved-group field was mutated. Derived from
@@ -129,8 +153,17 @@ export const savedGroupRevisionRevertedPayload =
       // The version that was reverted *to*, when it can be resolved from the
       // source revision. Optional because the revert is keyed by revision id.
       revertedToVersion: z.number().int().optional(),
+      bulkPublishId: bulkPublishIdField,
     })
     .strict();
 export type SavedGroupRevisionRevertedPayload = z.infer<
   typeof savedGroupRevisionRevertedPayload
+>;
+
+export const savedGroupRevisionPublishFailedPayload =
+  savedGroupRevisionWebhookPayload
+    .extend(revisionPublishFailedExtension)
+    .strict();
+export type SavedGroupRevisionPublishFailedPayload = z.infer<
+  typeof savedGroupRevisionPublishFailedPayload
 >;

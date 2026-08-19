@@ -28,13 +28,22 @@ export async function getCreateMetricPropsFromBody(
     organization,
   });
 
-  const factTable = await getFactTable(body.numerator.factTableId);
+  const primaryFactTableId =
+    body.metricType === "funnel"
+      ? body.funnelSettings?.steps[0]?.factTableId
+      : body.numerator?.factTableId;
+  if (!primaryFactTableId) {
+    throw new Error("Could not determine the Fact Table for this metric");
+  }
+
+  const factTable = await getFactTable(primaryFactTableId);
   if (!factTable) {
     throw new Error("Could not find fact table");
   }
 
   const {
     quantileSettings,
+    funnelSettings,
     cappingSettings,
     windowSettings,
     regressionAdjustmentSettings,
@@ -52,25 +61,37 @@ export async function getCreateMetricPropsFromBody(
 
   // Set the correct column based on metric type
   let column: string;
-  if (body.metricType === "proportion" || body.metricType === "retention") {
+  if (
+    body.metricType === "proportion" ||
+    body.metricType === "retention" ||
+    body.metricType === "funnel"
+  ) {
     column = "$$distinctUsers";
   } else if (body.metricType === "dailyParticipation") {
     column = "$$distinctDates";
   } else {
-    column = body.numerator.column || "$$distinctUsers";
+    column = body.numerator?.column || "$$distinctUsers";
   }
 
-  const cleanedNumerator = FactMetricModel.migrateColumnRef({
-    ...numerator,
-    column,
-    // Clear aggregation for metric types that use special columns
-    aggregation:
-      body.metricType === "proportion" ||
-      body.metricType === "retention" ||
-      body.metricType === "dailyParticipation"
-        ? undefined
-        : numerator.aggregation,
-  });
+  const cleanedNumerator =
+    body.metricType === "funnel"
+      ? null
+      : numerator
+        ? FactMetricModel.migrateColumnRef({
+            ...numerator,
+            column,
+            // Clear aggregation for metric types that use special columns
+            aggregation:
+              body.metricType === "proportion" ||
+              body.metricType === "retention" ||
+              body.metricType === "dailyParticipation"
+                ? undefined
+                : numerator.aggregation,
+          })
+        : null;
+  if (body.metricType !== "funnel" && !cleanedNumerator) {
+    throw new Error("Numerator required for non-funnel metrics");
+  }
 
   const data: CreateFactMetricProps = {
     datasource: factTable.datasource,
@@ -83,18 +104,18 @@ export async function getCreateMetricPropsFromBody(
       scopedSettings.winRisk.value ||
       DEFAULT_WIN_RISK_THRESHOLD,
     maxPercentChange:
-      maxPercentChange ||
-      scopedSettings.metricDefaults.value.maxPercentageChange ||
+      maxPercentChange ??
+      scopedSettings.metricDefaults.value.maxPercentageChange ??
       0,
     minPercentChange:
-      minPercentChange ||
-      scopedSettings.metricDefaults.value.minPercentageChange ||
+      minPercentChange ??
+      scopedSettings.metricDefaults.value.minPercentageChange ??
       0,
     targetMDE:
       targetMDE || scopedSettings.metricDefaults.value.targetMDE || 0.1,
     minSampleSize:
-      minSampleSize ||
-      scopedSettings.metricDefaults.value.minimumSampleSize ||
+      minSampleSize ??
+      scopedSettings.metricDefaults.value.minimumSampleSize ??
       150,
     description: "",
     owner: "",
@@ -102,6 +123,7 @@ export async function getCreateMetricPropsFromBody(
     tags: [],
     inverse: false,
     quantileSettings: quantileSettings ?? null,
+    funnelSettings: funnelSettings ?? null,
     windowSettings: {
       type: DEFAULT_FACT_METRIC_WINDOW,
       delayValue:
@@ -132,13 +154,13 @@ export async function getCreateMetricPropsFromBody(
     ...otherFields,
   };
 
-  if (denominator) {
+  if (denominator && body.metricType !== "funnel") {
     data.denominator = FactMetricModel.migrateColumnRef({
       ...denominator,
       column: denominator.column || "$$distinctUsers",
     });
     const denominatorFactTable =
-      denominator.factTableId === numerator.factTableId
+      denominator.factTableId === cleanedNumerator?.factTableId
         ? factTable
         : await getFactTable(denominator.factTableId);
     if (!denominatorFactTable) {

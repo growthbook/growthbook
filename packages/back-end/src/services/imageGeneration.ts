@@ -13,6 +13,7 @@ import {
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
+import { missingAIKeyMessage } from "back-end/src/services/aiCredentials";
 import { logger } from "back-end/src/util/logger";
 
 // Unified image-generation entrypoint. Dispatches between dedicated
@@ -59,15 +60,16 @@ function resolveAspect(
 
 // Build the right provider factory for a given model, using the
 // per-org API keys from getAISettingsForOrg.
-function getImageProvider(
+async function getImageProvider(
   context: ReqContext | ApiReqContext,
   meta: AIImageModelMeta,
-):
+): Promise<
   | ReturnType<typeof createGoogleGenerativeAI>
   | ReturnType<typeof createOpenAI>
-  | ReturnType<typeof createXai> {
+  | ReturnType<typeof createXai>
+> {
   const { aiEnabled, googleAPIKey, openAIAPIKey, xaiAPIKey } =
-    getAISettingsForOrg(context, true);
+    await getAISettingsForOrg(context, true);
   if (!aiEnabled) {
     throw new Error(
       "AI is not enabled for this organization. Visit Settings → AI Settings to enable it.",
@@ -75,18 +77,16 @@ function getImageProvider(
   }
   if (meta.provider === "google") {
     if (!googleAPIKey) {
-      throw new Error(
-        "GOOGLE_AI_API_KEY (or legacy GEMINI_API_KEY) is not set.",
-      );
+      throw new Error(missingAIKeyMessage("google"));
     }
     return createGoogleGenerativeAI({ apiKey: googleAPIKey });
   }
   if (meta.provider === "openai") {
-    if (!openAIAPIKey) throw new Error("OPENAI_API_KEY is not set.");
+    if (!openAIAPIKey) throw new Error(missingAIKeyMessage("openai"));
     return createOpenAI({ apiKey: openAIAPIKey });
   }
   if (meta.provider === "xai") {
-    if (!xaiAPIKey) throw new Error("XAI_API_KEY is not set.");
+    if (!xaiAPIKey) throw new Error(missingAIKeyMessage("xai"));
     return createXai({ apiKey: xaiAPIKey });
   }
   throw new Error(`Unsupported image provider: ${meta.provider}`);
@@ -116,7 +116,7 @@ async function generateViaImageEndpoint(
       `Model "${model}" does not support reference images. Choose a Gemini *-image-preview model for image-as-context, or generate from a text prompt only.`,
     );
   }
-  const provider = getImageProvider(context, meta);
+  const provider = await getImageProvider(context, meta);
   const sdkModelId = resolveImageModelIdForSdk(model);
   const { images, warnings } = await generateImage({
     model: provider.image(sdkModelId),
@@ -152,29 +152,45 @@ async function generateViaMultimodalText(
   aspect: { value: string; width: number; height: number },
 ): Promise<GeneratedImage[]> {
   const { context, model, prompt, count, referenceImage } = params;
-  const provider = getImageProvider(context, meta);
+  const provider = await getImageProvider(context, meta);
   const sdkModelId = resolveImageModelIdForSdk(model);
-  // These Gemini models don't accept `n` — fire `count` parallel calls
-  // and settle-all so one transient failure doesn't waste the others.
-  const userContent: Array<
+  // The reference image (if any) is the same on every call.
+  const baseContent: Array<
     | { type: "text"; text: string }
     | { type: "image"; image: Uint8Array; mediaType: string }
   > = [];
   if (referenceImage) {
-    userContent.push({
+    baseContent.push({
       type: "image",
       image: Buffer.from(referenceImage.data, "base64"),
       mediaType: referenceImage.mimeType,
     });
   }
-  userContent.push({ type: "text", text: prompt });
 
-  const callOnce = async (): Promise<GeneratedImage[]> => {
+  // When the user asks for several options at once, nudge each parallel call
+  // toward a distinct result — with identical inputs Gemini collapses to near
+  // duplicates (especially in img2img). The first call is the faithful take;
+  // each subsequent one varies a different lever. Only applied when count > 1.
+  const VARIATION_NUDGES = [
+    "",
+    "\n\nVariation: use a noticeably different composition and camera angle.",
+    "\n\nVariation: use a different color palette and lighting mood.",
+    "\n\nVariation: take a more minimal, alternative styling approach.",
+  ];
+
+  // These Gemini models don't accept `n` — fire `count` parallel calls and
+  // settle-all so one transient failure doesn't waste the others.
+  const callOnce = async (index: number): Promise<GeneratedImage[]> => {
+    const variation = count > 1 ? (VARIATION_NUDGES[index] ?? "") : "";
+    const content = [
+      ...baseContent,
+      { type: "text" as const, text: prompt + variation },
+    ];
     const result = await generateText({
       model: (provider as ReturnType<typeof createGoogleGenerativeAI>)(
         sdkModelId,
       ),
-      messages: [{ role: "user", content: userContent }],
+      messages: [{ role: "user", content }],
       providerOptions: {
         google: {
           // Without this Gemini returns a text description instead of bytes.
@@ -204,7 +220,7 @@ async function generateViaMultimodalText(
   };
 
   const settled = await Promise.allSettled(
-    Array.from({ length: count }, () => callOnce()),
+    Array.from({ length: count }, (_, i) => callOnce(i)),
   );
 
   const out: GeneratedImage[] = [];

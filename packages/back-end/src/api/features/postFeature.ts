@@ -1,7 +1,8 @@
 import { z } from "zod";
-import { validateFeatureValue } from "shared/util";
+import { normalizeTargetingProjects, validateFeatureValue } from "shared/util";
 import { postFeatureValidator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
+import { getApiCreateEnabledEnvironments } from "back-end/src/util/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerForCreate,
@@ -9,7 +10,6 @@ import {
 } from "back-end/src/services/owner";
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
-import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
   addIdsToFlatRules,
   addIdsToRules,
@@ -23,10 +23,15 @@ import { getEnvironments } from "back-end/src/services/organizations";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
+import { assertCanCreateFeatureInState } from "back-end/src/revisions/featureDraftAuthority";
 import { validateCustomFields } from "./validations";
 import {
   assertValidProjectId,
+  assertValidProjectIds,
+  assertValidRuleProjectIds,
   validateEnvRulesScheduleRules,
+  assertValidBaseConfig,
+  assertConfigSchemaCompat,
 } from "./v2Shared";
 
 export type ApiFeatureEnvSettings = NonNullable<
@@ -54,7 +59,19 @@ export const validateEnvKeys = (
 export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   req,
 ) => {
-  if (!req.context.permissions.canCreateFeature(req.body)) {
+  if (
+    !req.context.permissions.canCreateFeature(
+      req.body,
+      // The API body carries `environments`, not the stored
+      // `environmentSettings` shape getEnabledEnvironments reads. Resolved the
+      // same way the create itself resolves it, so an environment left out of
+      // the body but enabled by its `defaultState` still counts.
+      getApiCreateEnabledEnvironments(
+        getEnvironments(req.context.org),
+        req.body.environments,
+      ),
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -87,6 +104,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   }
 
   await assertValidProjectId(req.body.project, req.context);
+  await assertValidProjectIds(req.body.targetingProjects, req.context);
 
   await validateCustomFields(
     req.body.customFields,
@@ -96,16 +114,18 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
 
   const tags = req.body.tags || [];
 
-  if (tags.length > 0) {
-    await addTags(req.context.org.id, tags);
-  }
-
   const feature: FeatureInterface = {
     defaultValue: req.body.defaultValue ?? "",
     valueType: req.body.valueType,
+    baseConfig: req.body.baseConfig ?? undefined,
     owner: await resolveOwnerForCreate(req.body.owner, req.context),
     description: req.body.description || "",
     project: req.body.project || "",
+    ...normalizeTargetingProjects({
+      project: req.body.project || "",
+      targetingAllProjects: req.body.targetingAllProjects,
+      targetingProjects: req.body.targetingProjects,
+    }),
     dateCreated: new Date(),
     dateUpdated: new Date(),
     organization: req.context.org.id,
@@ -137,6 +157,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     orgEnvs,
     req.body.environments ?? {},
   );
+  await assertValidRuleProjectIds(feature.rules, req.context);
 
   const jsonSchema = parseApiJsonSchema(
     req.context.org,
@@ -146,21 +167,32 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
 
   feature.jsonSchema = jsonSchema;
 
+  // Config mode: baseConfig must be a live config on a JSON flag, and can't
+  // coexist with the flag's own JSON schema (the config's schema is authoritative).
+  await assertValidBaseConfig(
+    req.context,
+    feature.baseConfig,
+    feature.valueType,
+    feature.project,
+  );
+  assertConfigSchemaCompat({
+    jsonSchemaEnabled: feature.jsonSchema?.enabled,
+    baseConfig: feature.baseConfig,
+  });
+
   // ensure default value matches value type
   feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
 
-  if (
-    !req.context.permissions.canPublishFeature(
-      feature,
-      Array.from(
-        getEnabledEnvironments(
-          feature,
-          orgEnvs.map((e) => e.id),
-        ),
-      ),
-    )
-  ) {
-    req.context.permissions.throwPermissionError();
+  assertCanCreateFeatureInState({
+    context: req.context,
+    feature,
+    environmentIds: orgEnvs.map((e) => e.id),
+  });
+
+  // AFTER every authorization: tags are a persistent org-level side effect, and
+  // writing them first meant a request that then 403'd had already mutated tag state.
+  if (tags.length > 0) {
+    await addTags(req.context.org.id, tags);
   }
 
   addIdsToRules(feature.environmentSettings, feature.id);

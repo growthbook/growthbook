@@ -73,11 +73,11 @@ export default function StaleFeatureIcon({
       <Flex direction="column" gap="4">
         <Box>
           <span style={{ color: "var(--gray-11)" }}>
-            <Text size="large" weight="semibold">
+            <Text size="lg" weight="semibold">
               Detection Off
             </Text>
           </span>
-          <Text as="div" size="medium" color="text-low" mt="1">
+          <Text as="div" size="md" color="text-low" mt="1">
             Stale detection is disabled for this feature.
           </Text>
         </Box>
@@ -85,7 +85,7 @@ export default function StaleFeatureIcon({
       {onDisable && (
         <Flex justify="end" mt="4">
           <Button
-            size="xs"
+            size="sm"
             variant="outline"
             onClick={() => {
               setOpen(false);
@@ -142,7 +142,6 @@ export default function StaleFeatureIcon({
           header="Stale Status"
           trackingEventModalType="stale-feature-status"
           closeCta="Close"
-          useRadixButton={true}
         >
           {neverStaleContent}
         </Modal>
@@ -196,7 +195,6 @@ export default function StaleFeatureIcon({
           header="Stale Status"
           trackingEventModalType="stale-feature-status"
           closeCta="Close"
-          useRadixButton={true}
         >
           {loadingContent}
         </Modal>
@@ -231,7 +229,7 @@ export default function StaleFeatureIcon({
         <Box>
           <Text
             as="div"
-            size="small"
+            size="sm"
             weight="semibold"
             color="text-mid"
             textTransform="uppercase"
@@ -241,17 +239,17 @@ export default function StaleFeatureIcon({
           </Text>
           {isStale ? (
             <span style={{ color: "var(--yellow-11)" }}>
-              <Text size="large" weight="semibold">
+              <Text size="lg" weight="semibold">
                 Stale
               </Text>
             </span>
           ) : (
             <span style={{ color: "var(--green-10)" }}>
-              <Text size="large" weight="semibold">
+              <Text size="lg" weight="semibold">
                 Not Stale
               </Text>
               {mixed && (
-                <Text as="div" size="medium" color="text-low" mt="1">
+                <Text as="div" size="md" color="text-low" mt="1">
                   Some environments may be stale
                 </Text>
               )}
@@ -263,7 +261,7 @@ export default function StaleFeatureIcon({
           <Box>
             <Text
               as="div"
-              size="small"
+              size="sm"
               weight="semibold"
               color="text-mid"
               textTransform="uppercase"
@@ -271,7 +269,7 @@ export default function StaleFeatureIcon({
             >
               Reason
             </Text>
-            <Text size="medium" as="div">
+            <Text size="md" as="div">
               {staleReasonToMessageMap[staleReason]}
             </Text>
           </Box>
@@ -281,7 +279,7 @@ export default function StaleFeatureIcon({
           <Box mt="4">
             <Text
               as="div"
-              size="small"
+              size="sm"
               weight="semibold"
               color="text-mid"
               textTransform="uppercase"
@@ -306,12 +304,7 @@ export default function StaleFeatureIcon({
                   {envEntries.map(([envId, info]) => (
                     <tr key={envId} style={{ verticalAlign: "top" }}>
                       <td style={{ overflow: "hidden" }}>
-                        <Text
-                          size="medium"
-                          weight="medium"
-                          truncate
-                          title={envId}
-                        >
+                        <Text size="md" weight="medium" truncate title={envId}>
                           {envId}
                         </Text>
                       </td>
@@ -327,7 +320,7 @@ export default function StaleFeatureIcon({
                         )}
                       </td>
                       <td>
-                        <Text size="small" color="text-mid">
+                        <Text size="sm" color="text-mid">
                           {info.reason
                             ? (staleReasonToMessageMap[
                                 info.reason as StaleFeatureReason
@@ -372,7 +365,7 @@ export default function StaleFeatureIcon({
       {(handleRerun || onDisable || computedAt) && (
         <Flex direction="column" align="end" gap="2" mt="2">
           {computedAt && (
-            <Text size="small" color="text-low">
+            <Text size="sm" color="text-low">
               Last calculated: {ago(new Date(computedAt))}
             </Text>
           )}
@@ -380,7 +373,7 @@ export default function StaleFeatureIcon({
             <Flex gap="2">
               {handleRerun && (
                 <Button
-                  size="xs"
+                  size="sm"
                   variant="ghost"
                   onClick={handleRerun}
                   disabled={rerunning}
@@ -390,7 +383,7 @@ export default function StaleFeatureIcon({
               )}
               {onDisable && (
                 <Button
-                  size="xs"
+                  size="sm"
                   color="red"
                   variant="outline"
                   onClick={() => {
@@ -454,7 +447,6 @@ export default function StaleFeatureIcon({
         trackingEventModalType="stale-feature-status"
         closeCta="Close"
         size="lg"
-        useRadixButton={true}
       >
         {body}
       </Modal>

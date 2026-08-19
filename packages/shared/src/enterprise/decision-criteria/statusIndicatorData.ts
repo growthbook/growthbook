@@ -65,6 +65,14 @@ export function getStatusIndicatorData(
   }
 
   if (experimentData.status === "stopped") {
+    if (experimentData.type === "contextual-bandit") {
+      return {
+        color: "gray",
+        status: "Stopped",
+        sortOrder: 4,
+      };
+    }
+
     switch (experimentData.results) {
       case "won":
         return {
@@ -95,6 +103,7 @@ export function getStatusIndicatorData(
           detailedStatus: "Didn't finish",
           sortOrder: 1,
         };
+      case undefined:
       default:
         return {
           color: "amber",
@@ -140,6 +149,15 @@ function getDetailedRunningStatusIndicatorData(
         tooltip: decisionData.tooltip,
         needsAttention: true,
         sortOrder: 11,
+      };
+    case "scheduled-end-review":
+      return {
+        color: "amber",
+        status: "Running",
+        detailedStatus: "Ready for review",
+        tooltip: decisionData.tooltip,
+        needsAttention: true,
+        sortOrder: 10.5,
       };
     case "no-data":
       return {

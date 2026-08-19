@@ -21,6 +21,11 @@ import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 //   point-in-time snapshot.
 // - An empty array means the event has no environment-scoped impact; such
 //   events are only delivered to subscriptions without an environment filter.
+//   A producer whose change has no environment BINDING but is felt in all of them
+//   — a Constant's base value, a base Config — must therefore resolve the reach
+//   ITSELF and emit those environments, because [] here means "nothing", not
+//   "everything". The delivery filter cannot tell the two apart, which is why it
+//   must not try (see handlers/utils.ts).
 //
 // All producers must derive the routing field through the helpers in this
 // module so the semantics can't fork per event family again.
@@ -121,15 +126,16 @@ export function deriveRevisionEventEnvironments(
   orgEnvs: Environment[],
   overrideEnvironments?: string[],
 ): string[] {
-  const featureProject = feature.project;
+  // Union of primary + targeting projects (all envs when targeting all projects).
+  const featureProjects = [
+    feature.project,
+    ...(feature.targetingProjects ?? []),
+  ].filter((p): p is string => !!p);
   const inProject = (envId: string) => {
     const envDef = orgEnvs.find((e) => e.id === envId);
-    return (
-      !envDef ||
-      !envDef.projects?.length ||
-      !featureProject ||
-      envDef.projects.includes(featureProject)
-    );
+    if (!envDef || !envDef.projects?.length) return true;
+    if (feature.targetingAllProjects || !featureProjects.length) return true;
+    return featureProjects.some((p) => envDef.projects?.includes(p));
   };
 
   let rawEnvironments: string[];
@@ -141,7 +147,7 @@ export function deriveRevisionEventEnvironments(
     // pre-v2 docs) are skipped defensively — JIT-boundary filters already
     // drop them, but this loop fans out into event dispatch so a guard here
     // protects against any future regression.
-    const applicableEnvs = getApplicableEnvIds(orgEnvs, featureProject);
+    const applicableEnvs = getApplicableEnvIds(orgEnvs, feature);
     const declared = new Set<string>();
     for (const rule of revision.rules) {
       if (rule == null || typeof rule !== "object") continue;

@@ -11,6 +11,7 @@ import {
   discardRevision,
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
+import { canDiscardFeatureDraft } from "back-end/src/revisions/featureDraftAuthority";
 
 export async function discardFeatureRevision(
   req: Pick<ApiRequestLocals, "context" | "organization" | "audit"> & {
@@ -19,13 +20,6 @@ export async function discardFeatureRevision(
 ) {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
-
-  if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
-  ) {
-    req.context.permissions.throwPermissionError();
-  }
 
   const revision = await getRevision({
     context: req.context,
@@ -40,7 +34,25 @@ export async function discardFeatureRevision(
     throw new BadRequestError(`Cannot discard a ${revision.status} revision`);
   }
 
-  await discardRevision(req.context, revision, req.context.auditUser);
+  if (
+    !(await canDiscardFeatureDraft({
+      context: req.context,
+      feature,
+      draft: revision,
+    }))
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
+
+  // feature.version lets discardRevision refuse to discard the revision the
+  // feature is live on (#6483) — that discard is what turns a recoverable
+  // stranded state into permanent corruption.
+  await discardRevision(
+    req.context,
+    revision,
+    req.context.auditUser,
+    feature.version,
+  );
   await clearPendingFeatureDraftsForRevision(
     req.context,
     feature.id,

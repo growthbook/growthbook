@@ -9,8 +9,6 @@ import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import clsx from "clsx";
 import { Box, Flex, Theme } from "@radix-ui/themes";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
-import useGlobalMenu from "@/services/useGlobalMenu";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
@@ -23,11 +21,19 @@ import InitialSDKConnectionForm from "@/components/Features/SDKConnections/Initi
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Badge from "@/ui/Badge";
+import Switch from "@/ui/Switch";
 import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
 import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import styles from "./PreLaunchChecklist.module.scss";
 import { usePreLaunchChecklist } from "./PreLaunchChecklistProvider";
 import { CheckListItem, getChecklistItems } from "./PreLaunchChecklistItems";
+
+export type ChecklistReadyStatus = {
+  hasHardBlockers: boolean;
+  hasSoftBlockers: boolean;
+  loading: boolean;
+};
 
 function PreLaunchChecklistUI({
   experiment,
@@ -51,6 +57,7 @@ function PreLaunchChecklistUI({
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const [updatingChecklist, setUpdatingChecklist] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(false);
   const showEditChecklistLink =
     allowEditChecklist &&
     hasCommercialFeature("custom-launch-checklist") &&
@@ -100,61 +107,95 @@ function PreLaunchChecklistUI({
 
   if (experiment.status !== "draft") return null;
 
+  const incompleteItems = checklist.filter(
+    (item) => item.status === "incomplete",
+  );
+  const completeItems = checklist.filter((item) => item.status === "complete");
+
+  const renderItem = (item: CheckListItem, key: string | number) => {
+    const isReadonly = item.type === "auto";
+    const isReadonlyIncomplete = isReadonly && item.status === "incomplete";
+    return (
+      <Box key={key} mb="2">
+        <Checkbox
+          value={item.status === "complete"}
+          setValue={(checked) => {
+            if (item.type === "auto") return;
+            if (item.type === "manual" && updatingChecklist) return;
+            updateTaskStatus(!!checked, item.key);
+          }}
+          disabled={!canEditExperiment && item.type !== "auto"}
+          disabledMessage={
+            !canEditExperiment && item.type !== "auto"
+              ? "You don't have permission to mark this as completed"
+              : undefined
+          }
+          checkboxTooltip={
+            isReadonlyIncomplete
+              ? "Automatically detected and marked as 'complete' when task is finished"
+              : undefined
+          }
+          containerClassName={clsx({
+            [styles.readonly]: isReadonly,
+            [styles.readonlyIncomplete]: isReadonlyIncomplete,
+          })}
+          label={
+            <span
+              className={clsx({
+                [styles.completedLabel]: item.status === "complete",
+              })}
+            >
+              {item.display}
+              {item.hardBlock && item.status === "incomplete" && (
+                <Text size="sm" color="text-low" ml="1">
+                  (Required)
+                </Text>
+              )}
+              {!item.required && (
+                <Text size="sm" color="text-low" ml="1">
+                  (Optional)
+                </Text>
+              )}
+            </span>
+          }
+          description={
+            item.hideDescription || item.status === "complete"
+              ? undefined
+              : item.description
+          }
+          error={item.warning}
+          errorLevel="warning"
+        />
+      </Box>
+    );
+  };
+
+  const itemsBelowToggle = showCompleted
+    ? incompleteItems.length > 0 || completeItems.length > 0
+    : incompleteItems.length > 0;
+
   const contents = loading ? (
     <LoadingSpinner />
   ) : (
-    <div>
-      {checklist.map((item, i) => {
-        const isReadonly = item.type === "auto";
-        const isReadonlyIncomplete = isReadonly && item.status === "incomplete";
-        return (
-          <div key={i} className="mb-2">
-            <Checkbox
-              value={item.status === "complete"}
-              setValue={(checked) => {
-                if (item.type === "auto") return;
-                if (item.type === "manual" && updatingChecklist) return;
-                updateTaskStatus(!!checked, item.key);
-              }}
-              disabled={!canEditExperiment}
-              disabledMessage={
-                !canEditExperiment
-                  ? "You don't have permission to mark this as completed"
-                  : undefined
-              }
-              containerClassName={clsx({
-                [styles.readonly]: isReadonly,
-                [styles.readonlyIncomplete]: isReadonlyIncomplete,
-              })}
-              label={
-                <span
-                  style={{
-                    textDecoration:
-                      item.status === "complete" ? "line-through" : "none",
-                  }}
-                >
-                  {item.display}
-                  {!item.required && (
-                    <small className="text-muted ml-1">(optional)</small>
-                  )}
-                </span>
-              }
-              description={
-                item.hideDescription || item.status === "complete"
-                  ? undefined
-                  : item.description !== undefined
-                    ? item.description
-                    : item.type === "auto"
-                      ? "GrowthBook will mark this as completed automatically when you finish the task."
-                      : "You must manually mark this as complete. GrowthBook is unable to detect this automatically."
-              }
-              error={item.warning}
-              errorLevel="warning"
-            />
-          </div>
-        );
-      })}
-    </div>
+    <Box className={styles.drawerBodyInner}>
+      {completeItems.length > 0 && (
+        <Box
+          className={styles.showCompletedToggle}
+          style={{ marginBottom: itemsBelowToggle ? "19px" : "var(--space-2)" }}
+        >
+          <Switch
+            value={showCompleted}
+            onChange={setShowCompleted}
+            label="Show completed"
+          />
+        </Box>
+      )}
+      <Box className={styles.itemsScroll}>
+        {incompleteItems.map((item, i) => renderItem(item, i))}
+        {showCompleted &&
+          completeItems.map((item, i) => renderItem(item, `complete-${i}`))}
+      </Box>
+    </Box>
   );
 
   const header = (
@@ -206,8 +247,11 @@ function PreLaunchChecklistFeatureExpRule({
   mutateExperiment: () => unknown | Promise<unknown>;
   checklist: CheckListItem[];
 }) {
-  const failedRequired = checklist.some(
-    (item) => item.status === "incomplete" && item.required,
+  const hasHardBlockers = checklist.some(
+    (item) => item.status === "incomplete" && item.hardBlock,
+  );
+  const hasSoftBlockers = checklist.some(
+    (item) => item.status === "incomplete" && item.required && !item.hardBlock,
   );
 
   return (
@@ -227,12 +271,18 @@ function PreLaunchChecklistFeatureExpRule({
           </Link>
         }
       />
-      {failedRequired ? (
-        <Callout status="error" mb="3">
-          Please complete all required items before starting your experiment.
+      {hasHardBlockers ? (
+        <Callout status="error" my="3">
+          Please complete all required items to publish and start this
+          experiment.
+        </Callout>
+      ) : hasSoftBlockers ? (
+        <Callout status="warning" my="3">
+          Some recommended items are incomplete. Complete them first, or
+          acknowledge them to continue.
         </Callout>
       ) : (
-        <Callout status="success" mb="3">
+        <Callout status="success" my="3">
           All required items are complete. The experiment is ready to start.
         </Callout>
       )}{" "}
@@ -249,7 +299,7 @@ export function PreLaunchChecklistForDraftFeature({
   experiment: ExperimentInterfaceStringDates;
   feature: FeatureInterface;
   mutateExperiment: () => unknown | Promise<unknown>;
-  onReady?: (failedRequired: boolean, loading: boolean) => void;
+  onReady?: (status: ChecklistReadyStatus) => void;
 }) {
   const { data: checklistData, isLoading: checklistLoading } = useApi<{
     checklist: ExperimentLaunchChecklistInterface;
@@ -280,15 +330,22 @@ export function PreLaunchChecklistForDraftFeature({
     [experiment, experimentData, checklistData, connections, feature.id],
   );
 
-  const failedRequired = checklist.some(
-    (item) => item.status === "incomplete" && item.required,
+  const hasHardBlockers = checklist.some(
+    (item) => item.status === "incomplete" && item.hardBlock,
+  );
+  const hasSoftBlockers = checklist.some(
+    (item) => item.status === "incomplete" && item.required && !item.hardBlock,
   );
 
   const onReadyRef = useRef(onReady);
   onReadyRef.current = onReady;
   useEffect(() => {
-    onReadyRef.current?.(failedRequired, !!isLoading);
-  }, [failedRequired, isLoading]);
+    onReadyRef.current?.({
+      hasHardBlockers,
+      hasSoftBlockers,
+      loading: isLoading,
+    });
+  }, [hasHardBlockers, hasSoftBlockers, isLoading]);
 
   if (isLoading) {
     return <LoadingSpinner />;
@@ -319,18 +376,7 @@ export function PreLaunchChecklistDrawer() {
     setShowScheduleModal,
   } = usePreLaunchChecklist();
 
-  const [open, setOpen] = useLocalStorage<boolean>(
-    `prelaunchChecklistOpen__${experiment.id}`,
-    true,
-  );
-
-  useEffect(() => {
-    if (checklistItemsRemaining === 0) {
-      setOpen(false);
-    }
-  }, [checklistItemsRemaining, setOpen]);
-
-  useGlobalMenu(".prelaunch-checklist-drawer, .modal", () => setOpen(false));
+  const [open, setOpen] = useState(false);
 
   return (
     <>
@@ -377,7 +423,7 @@ export function PreLaunchChecklistDrawer() {
                 role="button"
               >
                 <Flex align="center">
-                  <Heading as="h4" size="small">
+                  <Heading as="h4" size="sm">
                     Pre-Launch Checklist
                   </Heading>
                   {checklistItemsRemaining !== null && (

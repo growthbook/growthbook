@@ -231,6 +231,18 @@ const capabilityDetails = {
     ),
     label: "Case Insensitive Membership",
   },
+  namespacesV2: {
+    icon: undefined,
+    label: "v2 Namespaces",
+  },
+  contextualBandits: {
+    icon: undefined,
+    label: "Contextual Bandits",
+  },
+  trackingPlugin: {
+    icon: undefined,
+    label: "Tracking Plugin",
+  },
 };
 
 export default function SdkSupportedFeatures({
@@ -245,7 +257,8 @@ export default function SdkSupportedFeatures({
       const feature = Object.keys(cap)[0];
       const version = cap[feature];
       return { feature, version };
-    });
+    })
+    .filter(({ feature }) => feature in capabilityDetails);
 
   return (
     <section className="sdk-supported-features">

@@ -1,14 +1,15 @@
 import { Revision, JsonPatchOperation } from "shared/enterprise";
-import { SavedGroupInterface } from "shared/types/saved-group";
 import {
   ResourceEvents,
   NotificationEventPayloadSchemaType,
 } from "shared/types/events/base-types";
+import { revisionEventRouting } from "back-end/src/services/revisionEventRouting";
 import { Context } from "back-end/src/models/BaseModel";
 import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { toApiSavedGroupRevision } from "back-end/src/api/saved-groups/toApiSavedGroupRevision";
 import type { RevisionLifecycleAction } from "back-end/src/events/revisionWebhookAdapters";
+import { bulkPublishFields } from "back-end/src/events/bulkPublishCorrelation";
 import { logger } from "back-end/src/util/logger";
 
 type SavedGroupRevisionEvent = Extract<
@@ -53,8 +54,16 @@ export async function dispatchSavedGroupRevisionEvent(
       revision,
       context as ApiReqContext,
     );
-    const snapshot = revision.target.snapshot as SavedGroupInterface;
-    const projects = snapshot.projects ?? [];
+    const liveForRouting = await context.models.savedGroups.getById(
+      revision.target.id,
+    );
+    // No `scopedFor`: saved groups have no environment partition, so their events
+    // stay env-unbound and every environment-filtered subscription hears them.
+    const { projects, environments } = await revisionEventRouting({
+      context,
+      revision,
+      liveForRouting,
+    });
 
     const emit = async <T extends SavedGroupRevisionEvent>(
       event: T,
@@ -68,7 +77,7 @@ export async function dispatchSavedGroupRevisionEvent(
         data: { object } as CreateEventData<"savedGroup", T>,
         projects,
         tags: [],
-        environments: [],
+        environments,
         containsSecrets: false,
       });
     };
@@ -82,8 +91,14 @@ export async function dispatchSavedGroupRevisionEvent(
           ...apiRevision,
           // Field-specific handlers pass the exact change; the generic
           // /revision controller omits it, so derive from the proposed changes.
+          // The cross-entity `change` union includes kinds saved groups never
+          // emit (constant "value", config "schema"); ignore those and re-derive.
           change:
-            action.change ?? deriveChange(revision.target.proposedChanges),
+            action.change &&
+            action.change !== "value" &&
+            action.change !== "schema"
+              ? action.change
+              : deriveChange(revision.target.proposedChanges),
         });
         break;
       case "reviewRequested":
@@ -125,13 +140,34 @@ export async function dispatchSavedGroupRevisionEvent(
         await emit("revision.rebased", apiRevision);
         break;
       case "published":
-        await emit("revision.published", apiRevision);
+        await emit("revision.published", {
+          ...apiRevision,
+          ...bulkPublishFields(context),
+        });
+        break;
+      case "publishFailed":
+        await emit("revision.publishFailed", {
+          ...apiRevision,
+          ...bulkPublishFields(context),
+          failureReason: action.reason,
+          terminal: action.terminal,
+          attempts: action.attempts,
+        });
         break;
       case "discarded":
         await emit("revision.discarded", apiRevision);
         break;
       case "reopened":
         await emit("revision.reopened", apiRevision);
+        break;
+      case "recalled":
+        await emit("revision.recalled", apiRevision);
+        break;
+      case "reviewRetracted":
+        await emit("revision.reviewRetracted", apiRevision);
+        break;
+      case "publishScheduleChanged":
+        await emit("revision.publishScheduleChanged", apiRevision);
         break;
       case "reverted": {
         // `revertedFrom` is the id of the revision being reverted to; surface
@@ -144,7 +180,8 @@ export async function dispatchSavedGroupRevisionEvent(
           : null;
         await emit("revision.reverted", {
           ...apiRevision,
-          ...(source?.version != null
+          ...bulkPublishFields(context),
+          ...(source && source.version !== undefined
             ? { revertedToVersion: source.version }
             : {}),
         });

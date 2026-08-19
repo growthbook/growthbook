@@ -29,7 +29,8 @@ export type QueryStatistics = {
 };
 
 export type QueryType =
-  | ""
+  // Internal fallback. Do not use this value.
+  | "unknown"
 
   // ---
   // Metadata queries used to power various GrowthBook features
@@ -86,16 +87,24 @@ export type QueryType =
   // ---
   // Standalone metric analysis query on legacy of fact metric page
   | "metricAnalysis"
+  // Metric impact / idea estimation
+  | "impactEstimate"
   // Query used by the product analytics tool
   | "productAnalyticsExploration"
 
   // ---
   // Non-persisted / utility queries (for cost attribution tracking)
   // ---
-  // SQL explorer ad-hoc queries
+  // User-provided SQL (SQL explorer ad-hoc queries)
   | "freeFormQuery"
-  // Connection tests and validation queries
+  // User-initiated datasource test / validation queries
   | "testQuery"
+  // Datasource connectivity probe (SELECT 1)
+  | "connectionTest"
+  // Schema introspection: list tables + column counts
+  | "informationSchema"
+  // Schema introspection: a single table's column data types
+  | "tableColumns"
   // Fact table column/SQL validation
   | "factTableValidation"
   // Pipeline write permission tests
@@ -104,6 +113,13 @@ export type QueryType =
   | "userExposure"
   // Feature evaluation diagnostics
   | "featureEvalDiagnostics"
+  // Fact table column top-values scan (auto-slices + column refresh)
+  | "columnTopValues"
+  // Auto fact table tracked-event discovery scan
+  | "trackedEvents"
+  // Session replay metadata queries
+  | "sessionReplayList"
+  | "sessionReplayDetail"
 
   // ---
   // Legacy, should be deprecated
@@ -130,6 +146,9 @@ export type QueryMetadata = AdditionalQueryMetadata &
     userName?: string;
     userId?: string;
   };
+
+// queryType is required to ensure visibility into query costs at the data warehouse
+export type RunQueryMetadata = QueryMetadata & { queryType: QueryType };
 
 export interface QueryInterface {
   id: string;

@@ -18,7 +18,16 @@ const BaseClass = MakeModelClass({
   pKey: ["key"] as const,
   globallyUniquePrimaryKeys: true,
   idPrefix: "key_",
-  additionalIndexes: [{ fields: { id: 1 } }],
+  additionalIndexes: [
+    { fields: { id: 1 } },
+    // Partial TTL for OAuth access tokens only — classic API keys/PATs are untouched.
+    {
+      fields: { expiresAt: 1 },
+      expireAfterSeconds: 0,
+      partialFilterExpression: { oauthClientId: { $exists: true } },
+      name: "oauthAccessTokenTtl",
+    },
+  ],
   skipDateUpdatedFields: ["lastUsed"],
   defaultValues: {
     limitAccessByEnvironment: false,
@@ -81,8 +90,37 @@ export class ApiKeyModel extends BaseClass {
     return { ...doc, key: "", encryptionKey: undefined };
   }
 
-  protected async customValidation(doc: ApiKeyInterface) {
+  // Projects an API key doc down to a safe, non-sensitive subset for audit
+  // details. This lives next to `sanitize` so the redaction allow-list stays in
+  // one place. The raw `key` token and `encryptionKey` must NEVER be included so
+  // the secret value can never leak into the audit log.
+  public static toAuditDetails(doc: ApiKeyInterface) {
+    return {
+      id: doc.id,
+      description: doc.description,
+      role: doc.role,
+      limitAccessByEnvironment: doc.limitAccessByEnvironment,
+      environments: doc.environments,
+      projectRoles: doc.projectRoles,
+      disabled: doc.disabled,
+    };
+  }
+
+  protected async customValidation(
+    doc: ApiKeyInterface,
+    previousDoc?: ApiKeyInterface,
+  ) {
     if (doc.userId) {
+      // Creation only — existing tokens are already rejected at authentication,
+      // and users must still be able to disable or delete the ones they have.
+      if (
+        !previousDoc &&
+        this.context.org.settings?.disablePersonalAccessTokens
+      ) {
+        this.context.throwBadRequestError(
+          "Personal access tokens are disabled for this organization.",
+        );
+      }
       // PATs inherit permissions from their user — scoping fields must not be set
       if (doc.limitAccessByEnvironment) {
         this.context.throwBadRequestError(
@@ -97,6 +135,17 @@ export class ApiKeyModel extends BaseClass {
     } else {
       // Org API keys — validate role, environments, project roles, and commercial features
       this.validateRole(doc.role);
+      // Only gate a role change so existing keys keep working
+      if (
+        doc.role &&
+        doc.role !== previousDoc?.role &&
+        doc.role !== "admin" &&
+        !this.context.limits.orgSupportsRoles()
+      ) {
+        this.context.throwBadRequestError(
+          "Your plan only supports the admin role. Upgrade your plan to assign other roles.",
+        );
+      }
       if (
         doc.limitAccessByEnvironment &&
         !this.context.hasPremiumFeature("advanced-permissions")
@@ -212,10 +261,11 @@ export class ApiKeyModel extends BaseClass {
     });
   }
 
+  // Returns the deleted doc so callers can audit-log the removed key.
   public async deleteByIdOrKey(
     id: string | undefined,
     key: string | undefined,
-  ): Promise<void> {
+  ): Promise<ApiKeyInterface> {
     if (!id && !key) this.context.throwNotFoundError();
 
     const doc = await this._findOne(id ? { id } : { key }, {
@@ -224,12 +274,82 @@ export class ApiKeyModel extends BaseClass {
     if (!doc) this.context.throwNotFoundError();
 
     await this.delete(doc);
+    return doc;
   }
 
-  public async setDisabled(id: string, disabled: boolean): Promise<void> {
+  // Returns both the pre- and post-update docs so callers can audit-log the
+  // before/after state from the real persisted doc.
+  public async setDisabled(
+    id: string,
+    disabled: boolean,
+  ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
     const doc = await this._findOne({ id }, { bypassSanitization: true });
     if (!doc) this.context.throwNotFoundError(`API key not found: ${id}`);
-    await this.update(doc, { disabled });
+    const after = await this.update(doc, { disabled });
+    return { before: doc, after };
+  }
+
+  // Admins can edit the permission scope of an existing org secret key in place
+  // (role + environment/project restrictions + description). This lets already
+  // issued tokens pick up new permissions immediately — auth reads the role from
+  // this DB record on every request.
+  public async updateSecretApiKeyPermissions(
+    id: string,
+    {
+      role,
+      limitAccessByEnvironment,
+      environments,
+      projectRoles,
+      description,
+    }: {
+      role?: string;
+      limitAccessByEnvironment?: boolean;
+      environments?: string[];
+      projectRoles?: ApiKeyInterface["projectRoles"];
+      description?: string;
+    },
+  ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
+    const doc = await this._findOne({ id }, { bypassSanitization: true });
+    if (!doc) this.context.throwNotFoundError(`API key not found: ${id}`);
+
+    // Only plain organization secret keys are editable here. SDK keys (non
+    // secret) have no role, and PATs (secret + userId) derive their permissions
+    // from the linked member, not the key doc — so both are rejected.
+    if (!doc.secret) {
+      this.context.throwBadRequestError(
+        "Only secret API keys can have their permissions edited.",
+      );
+    }
+    if (doc.userId) {
+      this.context.throwBadRequestError(
+        "Personal Access Tokens inherit permissions from their user and cannot be edited.",
+      );
+    }
+
+    // Permission fields (role/scope/description) are intentionally editable by
+    // admins, while the token's value and identity fields (key, secret, userId)
+    // stay immutable. `canUpdate` blocks every field except `disabled`, so we
+    // bypass it for this specific permission-only update via `forceCanUpdate`;
+    // the update object below is limited to permission fields, so identity
+    // fields can never be changed through this path. `customValidation` still
+    // runs, re-applying the same role/environment/project checks and the
+    // `advanced-permissions` premium gate used at creation time.
+    //
+    // The stored `key` string is left untouched so already-issued tokens keep
+    // working. Its `secret_<role>_` prefix is purely cosmetic and is
+    // intentionally left stale after a role change rather than reissuing.
+    const after = await this._updateOne(
+      doc,
+      {
+        role,
+        limitAccessByEnvironment,
+        environments,
+        projectRoles,
+        description,
+      },
+      { forceCanUpdate: true },
+    );
+    return { before: doc, after };
   }
 
   // Called from authentication middleware on every API request attempt.
@@ -243,6 +363,42 @@ export class ApiKeyModel extends BaseClass {
     await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateOne(
       { key, organization },
       { $set: { lastUsed: new Date() } },
+    );
+  }
+
+  // OAuth token endpoint has no ReqContext. These static helpers keep apikey
+  // writes in the model layer (same pattern as dangerousRecordUsageByKey).
+
+  public static async dangerousFindByKeyHash(
+    keyHash: string,
+  ): Promise<ApiKeyInterface | null> {
+    return getCollection<ApiKeyInterface>(COLLECTION_NAME).findOne({
+      key: keyHash,
+    });
+  }
+
+  public static async dangerousDisableByKeyHash(
+    keyHash: string,
+  ): Promise<void> {
+    await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateOne(
+      { key: keyHash },
+      { $set: { disabled: true } },
+    );
+  }
+
+  public static async dangerousDisableOAuthGrant(
+    clientId: string,
+    userId: string,
+    organization: string,
+  ): Promise<void> {
+    await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateMany(
+      {
+        oauthClientId: clientId,
+        userId,
+        organization,
+        disabled: { $ne: true },
+      },
+      { $set: { disabled: true } },
     );
   }
 

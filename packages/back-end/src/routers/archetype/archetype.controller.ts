@@ -28,6 +28,7 @@ import {
   evaluateFeature,
   getSavedGroupMap,
 } from "back-end/src/services/features";
+import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getAllPayloadExperiments } from "back-end/src/models/ExperimentModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
@@ -122,6 +123,7 @@ export const getArchetypeAndEval = async (
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
     const safeRolloutMap =
       await context.models.safeRollout.getAllPayloadSafeRollouts();
+    const constants = await getResolvableValues(context);
 
     archetype.forEach((arch) => {
       try {
@@ -144,6 +146,7 @@ export const getArchetypeAndEval = async (
           safeRolloutMap,
           namespaces: namespacesToMap(org.settings?.namespaces),
           organization: org,
+          constants,
         });
 
         if (!result) return;

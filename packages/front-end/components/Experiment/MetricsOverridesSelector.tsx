@@ -198,6 +198,7 @@ export default function MetricsOverridesSelector({
                     <div className="row py-1">
                       <div className="col">
                         <SelectField
+                          size="legacy"
                           placeholder={`${
                             metricDefinition?.windowSettings?.type !== undefined
                               ? capitalizeFirstLetter(
@@ -259,6 +260,7 @@ export default function MetricsOverridesSelector({
                           <div className="row mt-2">
                             <div className="col">
                               <Field
+                                size="legacy"
                                 label={
                                   metricDefinition &&
                                   isRetentionMetric(metricDefinition)
@@ -288,6 +290,7 @@ export default function MetricsOverridesSelector({
                             </div>
                             <div className="col">
                               <Field
+                                size="legacy"
                                 label="Conversion Window (hours)"
                                 placeholder="default"
                                 disabled={
@@ -339,6 +342,7 @@ export default function MetricsOverridesSelector({
                           <div className="row mt-2">
                             <div className="col">
                               <Field
+                                size="legacy"
                                 label={
                                   metricDefinition &&
                                   isRetentionMetric(metricDefinition)
@@ -368,6 +372,7 @@ export default function MetricsOverridesSelector({
                             </div>
                             <div className="col">
                               <Field
+                                size="legacy"
                                 label="Lookback Window (hours)"
                                 placeholder="default"
                                 helpText={
@@ -449,7 +454,7 @@ export default function MetricsOverridesSelector({
                       <Flex direction="column" mb="2">
                         <Switch
                           id={`toggle-properPrior_${i}`}
-                          size="1"
+                          size="sm"
                           label="Use proper prior for this metric"
                           value={
                             !!form.watch(
@@ -484,6 +489,7 @@ export default function MetricsOverridesSelector({
                           <div className="row">
                             <div className="col">
                               <Field
+                                size="legacy"
                                 label="Prior Mean"
                                 type="number"
                                 step="any"
@@ -502,6 +508,7 @@ export default function MetricsOverridesSelector({
                             </div>
                             <div className="col">
                               <Field
+                                size="legacy"
                                 label="Prior Standard Deviation"
                                 type="number"
                                 step="any"
@@ -572,7 +579,7 @@ export default function MetricsOverridesSelector({
                           <Flex direction="column" mb="2">
                             <Switch
                               id={`toggle-regressionAdjustmentEnabled_${i}`}
-                              size="1"
+                              size="sm"
                               label="Apply regression adjustment for this metric"
                               value={
                                 !!form.watch(
@@ -620,6 +627,7 @@ export default function MetricsOverridesSelector({
                             }}
                           >
                             <Field
+                              size="legacy"
                               label="Pre-exposure lookback period (days)"
                               type="number"
                               style={{

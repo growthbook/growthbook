@@ -10,6 +10,11 @@ import { DraftMode } from "@/components/DraftSelector";
 // falling back to the most-recently-updated active draft.
 export function useDefaultDraft(
   revisionList: MinimalFeatureRevisionInterface[],
+  // Drafts this flow may WRITE into. Without it the pre-selection could land on
+  // another author's draft — so an archive modal opened already in "existing" mode
+  // with a colleague's draft selected, and 403'd on submit with no user action at
+  // all. The radio and the cap were filtered; the DEFAULT was not.
+  canWriteIntoDraft?: (revision: MinimalFeatureRevisionInterface) => boolean,
 ): number | null {
   const ctx = useFeatureRevisionsContext();
 
@@ -19,14 +24,15 @@ export function useDefaultDraft(
         .filter(
           (r) =>
             !isRampGenerated(r) &&
-            (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
+            (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status) &&
+            (canWriteIntoDraft?.(r) ?? true),
         )
         .sort(
           (a, b) =>
             new Date(b.dateUpdated).getTime() -
             new Date(a.dateUpdated).getTime(),
         ),
-    [revisionList],
+    [revisionList, canWriteIntoDraft],
   );
 
   return useMemo(() => {
@@ -48,8 +54,9 @@ export function useDefaultDraft(
 export function useDefaultDraftMode(
   revisionList: MinimalFeatureRevisionInterface[],
   canAutoPublish: boolean,
+  canWriteIntoDraft?: (revision: MinimalFeatureRevisionInterface) => boolean,
 ): { mode: DraftMode; defaultDraft: number | null } {
-  const defaultDraft = useDefaultDraft(revisionList);
+  const defaultDraft = useDefaultDraft(revisionList, canWriteIntoDraft);
   const mode: DraftMode = canAutoPublish
     ? "publish"
     : defaultDraft !== null

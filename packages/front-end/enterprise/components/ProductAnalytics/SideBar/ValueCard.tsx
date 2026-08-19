@@ -11,8 +11,8 @@ import {
 import Collapsible from "react-collapsible";
 import { z } from "zod";
 import { rowFilterValidator } from "shared/validators";
-import { FactTableInterface } from "shared/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import useFullFactTable from "@/hooks/useFullFactTable";
 import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
@@ -35,38 +35,71 @@ export default function ValueCard({
 }) {
   const { draftExploreState, updateValueInDataset, deleteValueFromDataset } =
     useExplorerContext();
-  const { getFactTableById, getFactMetricById } = useDefinitions();
+  const { getFactMetricById } = useDefinitions();
 
-  const name = draftExploreState.dataset.values[index].name;
-  const filters = draftExploreState.dataset.values[index].rowFilters;
+  // ValueCard is only mounted from metric/fact_table/data_source tabs —
+  // funnels manage their own step UI. The hooks below must run unconditionally,
+  // so we narrow defensively but defer the early return until after them.
+  const isFunnel = draftExploreState.dataset.type === "funnel";
+  const dataset = isFunnel
+    ? null
+    : (draftExploreState.dataset as Exclude<
+        typeof draftExploreState.dataset,
+        { type: "funnel" }
+      >);
+  const value = dataset?.values[index];
+  const name = value?.name ?? "";
+  const filters = value?.rowFilters ?? [];
 
   const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(name ?? "");
+  const [editValue, setEditValue] = useState(name);
   const [unitDropdownOpen, setUnitDropdownOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  let factTable: FactTableInterface | null = null;
-  if (draftExploreState.dataset?.type === "fact_table") {
-    factTable = getFactTableById(draftExploreState.dataset.factTableId ?? "");
-  } else if (draftExploreState.dataset?.type === "metric") {
-    const factTableId = getFactMetricById(
-      draftExploreState.dataset.values[index].metricId ?? "",
-    )?.numerator?.factTableId;
-    if (factTableId) {
-      factTable = getFactTableById(factTableId);
-    }
-  }
+  // Column filters need full columns (jsonFields), which the slimmed
+  // definitions omit, so fetch the full fact table by id
+  const factTableId =
+    draftExploreState.dataset?.type === "fact_table"
+      ? (draftExploreState.dataset.factTableId ?? "")
+      : draftExploreState.dataset?.type === "metric"
+        ? (getFactMetricById(
+            draftExploreState.dataset.values[index].metricId ?? "",
+          )?.numerator?.factTableId ?? "")
+        : "";
+  const { factTable } = useFullFactTable(factTableId);
 
-  const displayName = (name ?? "").trim();
+  const columnSource = useMemo(() => {
+    if (factTable) {
+      return factTableToColumnSource(factTable);
+    }
+    if (
+      dataset?.type === "data_source" &&
+      dataset.columnTypes &&
+      Object.keys(dataset.columnTypes).length > 0
+    ) {
+      return columnTypesToColumnSource(
+        dataset.columnTypes,
+        dataset.timestampColumn,
+      );
+    }
+    return null;
+  }, [factTable, dataset]);
+
+  // Funnels manage their own step UI; ValueCard isn't mounted from
+  // FunnelTabContent. Returning null here keeps the hook order stable in
+  // case a parent ever renders it for a funnel dataset.
+  if (!dataset || !value) return null;
+
+  const displayName = name.trim();
 
   const handleStartEdit = () => {
-    setEditValue(name ?? "");
+    setEditValue(name);
     setIsEditing(true);
   };
 
   const handleCommitEdit = () => {
     updateValueInDataset(index, {
-      ...draftExploreState.dataset.values[index],
+      ...value,
       name: editValue.trim(),
     });
     setIsEditing(false);
@@ -77,30 +110,24 @@ export default function ValueCard({
       handleCommitEdit();
     }
     if (e.key === "Escape") {
-      setEditValue(name ?? "");
+      setEditValue(name);
       setIsEditing(false);
     }
   };
 
   const handleFiltersChange = (filters: RowFilter[]) => {
     updateValueInDataset(index, {
-      ...draftExploreState.dataset.values[index],
+      ...value,
       rowFilters: filters,
     });
   };
 
   let supportsUnitSelection = false;
 
-  if (
-    draftExploreState.dataset.type === "fact_table" ||
-    draftExploreState.dataset.type === "data_source"
-  ) {
-    supportsUnitSelection =
-      draftExploreState.dataset.values[index].valueType === "unit_count";
-  } else if (draftExploreState.dataset.type === "metric") {
-    const factMetric = getFactMetricById(
-      draftExploreState.dataset.values[index].metricId ?? "",
-    );
+  if (dataset.type === "fact_table" || dataset.type === "data_source") {
+    supportsUnitSelection = dataset.values[index].valueType === "unit_count";
+  } else if (dataset.type === "metric") {
+    const factMetric = getFactMetricById(dataset.values[index].metricId ?? "");
     if (
       factMetric?.metricType === "mean" ||
       factMetric?.metricType === "proportion" ||
@@ -115,20 +142,6 @@ export default function ValueCard({
       // TODO: handle separate denominator unit selector
     }
   }
-
-  const columnSource = useMemo(() => {
-    if (factTable) {
-      return factTableToColumnSource(factTable);
-    }
-    if (
-      draftExploreState.dataset.type === "data_source" &&
-      draftExploreState.dataset.columnTypes &&
-      Object.keys(draftExploreState.dataset.columnTypes).length > 0
-    ) {
-      return columnTypesToColumnSource(draftExploreState.dataset.columnTypes);
-    }
-    return null;
-  }, [factTable, draftExploreState.dataset]);
 
   const canAddFilter = !!columnSource;
 
@@ -175,7 +188,7 @@ export default function ValueCard({
               <Button
                 className={styles.editBtn}
                 variant="ghost"
-                size="xs"
+                size="sm"
                 onClick={handleStartEdit}
                 title="Edit name"
               >
@@ -187,7 +200,7 @@ export default function ValueCard({
         <Flex align="center" style={{ flexShrink: 0 }}>
           <Button
             variant="ghost"
-            size="xs"
+            size="sm"
             onClick={() => setIsCollapsed((prev) => !prev)}
             title={isCollapsed ? "Expand" : "Collapse"}
           >
@@ -196,8 +209,8 @@ export default function ValueCard({
           {
             <Button
               variant="ghost"
-              disabled={draftExploreState.dataset.values.length === 1}
-              size="xs"
+              disabled={dataset.values.length === 1}
+              size="sm"
               onClick={() => deleteValueFromDataset(index)}
             >
               <PiX size={14} />
@@ -225,7 +238,7 @@ export default function ValueCard({
         </Box>
         <Flex justify="between" align="center" mt="2">
           <Button
-            size="xs"
+            size="sm"
             variant="ghost"
             style={{ maxWidth: "fit-content" }}
             onClick={() => {
@@ -247,11 +260,10 @@ export default function ValueCard({
               open={unitDropdownOpen}
               onOpenChange={setUnitDropdownOpen}
               trigger={
-                <Button size="xs" variant="ghost">
+                <Button size="sm" variant="ghost">
                   <Flex align="center" gap="2">
                     <PiUserFill />{" "}
-                    {draftExploreState.dataset.values[index].unit ??
-                      "Select Unit..."}
+                    {dataset.values[index].unit ?? "Select Unit..."}
                   </Flex>
                 </Button>
               }
@@ -261,7 +273,7 @@ export default function ValueCard({
                   key={t}
                   onClick={() => {
                     updateValueInDataset(index, {
-                      ...draftExploreState.dataset.values[index],
+                      ...dataset.values[index],
                       unit: t || null,
                     });
                     setUnitDropdownOpen(false);

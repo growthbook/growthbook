@@ -309,7 +309,7 @@ const SegmentPage: FC = () => {
                         )}
                       </td>
                       <td>
-                        <MoreMenu>
+                        <MoreMenu useRadix={false}>
                           {/* If the user has permission & the segment isn't externally managed, show edit icon,
                           otherwise the cta should be `View Details`. This is because Segment's don't have an id page,
                          in order for the user to see the sql that powers the segment, we need to show the edit form, but in read only mode */}
@@ -334,6 +334,7 @@ const SegmentPage: FC = () => {
                           // if the segment has a managedBy value, it can't be deleted in the UI
                           !s.managedBy ? (
                             <DeleteButton
+                              useRadix={false}
                               className="dropdown-item"
                               displayName={s.name}
                               text="Delete"
@@ -374,7 +375,10 @@ const SegmentPage: FC = () => {
           <code>STORE_SEGMENTS_IN_MONGO</code> environment variable
           {hasCreatePermission &&
             " or click the button above to create your first one"}
-          . <DocLink docSection="config_yml">View Documentation</DocLink>
+          .{" "}
+          <DocLink useRadix={false} docSection="config_yml">
+            View Documentation
+          </DocLink>
         </Callout>
       )}
       {segments.length === 0 && hasFileConfig() && !storeSegmentsInMongo() && (
@@ -383,7 +387,9 @@ const SegmentPage: FC = () => {
           defined there will show up on this page. If you would like to store
           and access segments in MongoDB instead, please add the{" "}
           <code>STORE_SEGMENTS_IN_MONGO</code> environment variable.{" "}
-          <DocLink docSection="config_yml">View Documentation</DocLink>
+          <DocLink useRadix={false} docSection="config_yml">
+            View Documentation
+          </DocLink>
         </Callout>
       )}
     </div>

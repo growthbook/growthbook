@@ -47,6 +47,7 @@ import { useWatching } from "@/services/WatchProvider";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { convertExperimentToTemplate } from "@/services/experiments";
 import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import SelectField from "@/components/Forms/SelectField";
@@ -54,6 +55,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/ui/HelperText";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
+import ScheduledEndPassedBanner from "@/components/Experiment/TabbedPage/ScheduledEndPassedBanner";
 import StartExperimentModal, {
   PendingDraftFailure,
 } from "@/components/Experiment/TabbedPage/StartExperimentModal";
@@ -363,6 +365,8 @@ export default function ExperimentHeader({
     track("Start experiment", {
       source: "experiment-start-banner",
       action: "main CTA",
+      hasDatasource: !!dataSource,
+      hasExperimentAssignmentQuery: !!experiment.exposureQueryId,
     });
     setTab("results");
   }
@@ -480,6 +484,17 @@ export default function ExperimentHeader({
       />
     ) : null;
 
+  const scheduledEndPassedBanner =
+    experiment.status === "running" && !isHoldout && !isBandit ? (
+      <ScheduledEndPassedBanner
+        experiment={experiment}
+        runningExperimentStatus={runningExperimentStatus}
+        editSchedule={
+          canEditExperiment && editSchedule ? () => editSchedule() : undefined
+        }
+      />
+    ) : null;
+
   return (
     <>
       {showEditInfoModal && !isHoldout ? (
@@ -511,6 +526,7 @@ export default function ExperimentHeader({
       )}
       {showBanditModal ? (
         <Modal
+          useRadixButton={false}
           open={true}
           close={() => setShowBanditModal(false)}
           trackingEventModalType=""
@@ -736,7 +752,6 @@ export default function ExperimentHeader({
           close={() => setShareModalOpen(false)}
           closeCta="Close"
           header={`Share "${experiment.name}"`}
-          useRadixButton={true}
           secondaryCTA={shareLinkButton}
         >
           <div className="mb-3">
@@ -757,6 +772,7 @@ export default function ExperimentHeader({
           </div>
 
           <SelectField
+            size="legacy"
             label="View access"
             value={shareLevel}
             onChange={(v: ShareLevel) => setShareLevel(v)}
@@ -806,22 +822,20 @@ export default function ExperimentHeader({
         }
       >
         <Flex direction="row" align="start" justify="between" gap="5">
-          <Box>
-            <h1
-              className="mb-0"
-              style={{ display: "inline", verticalAlign: "middle" }}
+          <Flex align="center" gap="2">
+            <Heading
+              as="h1"
+              size="2xl"
+              color="text-high"
+              overflowWrap="anywhere"
+              weight="medium"
             >
               {experiment.name}
-            </h1>
-            <Box
-              ml="2"
-              mt="1"
-              display="inline-block"
-              style={{ userSelect: "none" }}
-            >
+            </Heading>
+            <Box style={{ userSelect: "none" }}>
               <ExperimentStatusIndicator experimentData={experiment} />
             </Box>
-          </Box>
+          </Flex>
 
           <Flex direction="row" align="center" gap="2" flexShrink="0">
             {isHoldout && holdout?.nextScheduledStatusUpdate ? (
@@ -1244,6 +1258,11 @@ export default function ExperimentHeader({
             {runningExperimentDecisionBanner}
           </Box>
         ) : null}
+        {scheduledEndPassedBanner ? (
+          <Box pt="1" pb="1">
+            {scheduledEndPassedBanner}
+          </Box>
+        ) : null}
       </div>
 
       {shouldHideTabs ? null : (
@@ -1270,7 +1289,7 @@ export default function ExperimentHeader({
                   onValueChange={setTab}
                   style={{ width: "100%" }}
                 >
-                  <TabsList size="3">
+                  <TabsList size="lg">
                     <Flex align="center" className="flex-1">
                       <TabsTrigger value="overview">Overview</TabsTrigger>
                       <TabsTrigger value="results">Results</TabsTrigger>
@@ -1304,7 +1323,7 @@ export default function ExperimentHeader({
                       {hasMultiplePhases ? (
                         <>
                           <div className="flex-1" />
-                          <Text size="medium" weight="medium">
+                          <Text size="md" weight="medium">
                             <PhaseSelector
                               phase={phase}
                               phases={experiment.phases}

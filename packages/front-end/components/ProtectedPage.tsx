@@ -4,6 +4,7 @@ import { useAuth, safeLogout } from "@/services/auth";
 import WatchProvider from "@/services/WatchProvider";
 import { UserContextProvider, useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
+import Callout from "@/ui/Callout";
 import LoadingOverlay from "./LoadingOverlay";
 import CreateOrJoinOrganization from "./Auth/CreateOrJoinOrganization";
 import SelectInitialPlan from "./Auth/SelectInitialPlan";
@@ -31,9 +32,9 @@ const LoggedInPageGuard = ({
               className="appbox p-4"
               style={{ maxWidth: 500, margin: "auto" }}
             >
-              <h3 className="mb-3">Error Signing In</h3>
-              <div className="alert alert-danger">{error}</div>
-              <div className="d-flex">
+              <h3 className="mb-3">Something Went Wrong</h3>
+              <Callout status="error">{error}</Callout>
+              <div className="d-flex align-items-center mt-3">
                 <Button
                   className="ml-auto"
                   onClick={async () => {

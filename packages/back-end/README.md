@@ -354,7 +354,7 @@ The OpenAPI spec is auto-generated from Zod validators. Define your request/resp
 pnpm generate-openapi
 ```
 
-See `.cursor/rules/backend/api-patterns.md` for details on the spec-based pattern and `namedSchema` for model documentation.
+See [`.agents/guides/backend/api-patterns.md`](../../.agents/guides/backend/api-patterns.md) for details on the spec-based pattern and `namedSchema` for model documentation.
 
 ### Router and Business Logic
 

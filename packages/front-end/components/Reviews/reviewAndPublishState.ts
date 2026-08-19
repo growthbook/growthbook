@@ -1,16 +1,5 @@
 import type { RevisionStatus } from "shared/validators";
 
-// Pure, entity-agnostic decision logic for the review-and-publish CTA
-// lifecycle. Lives in components/Reviews/ (the shared core) and is consumed by
-// entity-specific adapters (e.g. components/Reviews/Feature/ReviewAndPublish).
-//
-// Relationship to components/Revision/: that namespace is the newer generic
-// revision system (RevisionModel + EntityRevisionAdapter) currently serving
-// saved groups. This module belongs to the older feature-revision pipeline.
-// Once feature revisions converge onto the generic system, this state machine
-// can be unified with RevisionDetail's approval logic — until then the two
-// coexist as separate UI flows sharing the same entity-agnostic concepts.
-
 export type RnPMode = "fix-conflicts" | "main";
 
 // What the primary CTA does when clicked.
@@ -40,6 +29,8 @@ export interface RnPStateInput {
   // touched the revision). Contributors share ownership of the draft, so they
   // can return it to draft even if someone else requested the review.
   isContributor: boolean;
+  /** Whether this engine considers the caller an owner allowed to recall. */
+  isDraftOwner: boolean;
   // The current user has an active reviewer verdict on this revision —
   // they're the only one who can retract it.
   isReviewer: boolean;
@@ -56,10 +47,13 @@ export interface RnPStateInput {
   // Publishing is frozen by a sibling draft's scheduled publish that locks other
   // drafts. Treated identically to the ramp lock.
   featureLockedBySchedule: boolean;
-  // A selected experiment's required checklist is incomplete/loading.
+  checklistIncomplete: boolean;
   checklistBlocked: boolean;
+  checklistAcknowledged: boolean;
   // Governance allows publishing (false when a stale draft must be rebased).
   governanceCanPublish: boolean;
+  /** Feature edits reset changes-requested to draft; generic revision edits do not. */
+  editsResetStatus: boolean;
 }
 
 export interface RnPState {
@@ -71,12 +65,18 @@ export interface RnPState {
   submitAction: RnPSubmitAction;
   // Whether the main modal wires up a submit handler at all.
   hasSubmit: boolean;
+  showChecklistAcknowledgment: boolean;
   // Secondary actions shown as links/ghost buttons alongside the primary CTA.
   // Requester/author/contributor returns the revision to draft (retracting the
   // review request).
   canRecallReview: boolean;
   // Reviewer retracts their own verdict → back to pending-review.
   canUndoReview: boolean;
+  // The draft sits in pending review with no primary action for this viewer.
+  // Consumers must render an explicit waiting status in the CTA's place —
+  // with no reviewer verdicts yet, the page otherwise shows nothing but a
+  // status badge and reads as stuck.
+  waitingForReview: boolean;
 }
 
 function publishLabel(
@@ -98,6 +98,7 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     canManageDraft,
     isReviewRequester,
     isContributor,
+    isDraftOwner,
     isReviewer,
     adminPublish,
     hasSelectedExperiments,
@@ -105,27 +106,37 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     experimentsStep,
     featureLockedByRamp,
     featureLockedBySchedule,
+    checklistIncomplete,
     checklistBlocked,
+    checklistAcknowledged,
     governanceCanPublish,
+    editsResetStatus,
   } = input;
 
   // Ramp and scheduled-publish locks freeze publishing identically (lock glyph,
   // admin-bypassable), so collapse them into one concept below.
   const publishLocked = featureLockedByRamp || featureLockedBySchedule;
 
-  // recall-review ("Return to draft"): the requester or anyone with skin in
-  // the draft (author/contributor) can pull it back, provided they have
-  // draft-manage permission. Unrelated draft managers shouldn't be able to
-  // retract someone else's review request. (The backend only enforces
-  // canManageFeatureDrafts, so this is deliberately the stricter gate.)
+  const checklistGateOpen = !(
+    experimentsStep &&
+    checklistIncomplete &&
+    (checklistBlocked || (!adminPublish && !checklistAcknowledged))
+  );
+  const softChecklistOnly =
+    experimentsStep &&
+    checklistIncomplete &&
+    !checklistBlocked &&
+    !adminPublish;
+
+  // Owners may recall in-review drafts; other participants also need draft authority.
   const recallableStatuses = [
     "pending-review",
     "changes-requested",
     "approved",
   ];
   const canRecallReview =
-    canManageDraft &&
-    (isReviewRequester || isContributor) &&
+    (isDraftOwner ||
+      (canManageDraft && (isReviewRequester || isContributor))) &&
     recallableStatuses.includes(status);
 
   // undo-review: only the reviewer who submitted the verdict can retract it.
@@ -151,22 +162,26 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
       mergeSuccess && hasChanges && hasSelectedExperiments && !experimentsStep;
     // Admins can bypass a forced rebase (governance), but never unresolved
     // merge conflicts — those are handled by the fix-conflicts mode above.
-    const ctaEnabled =
+    const baseEnabled =
       mergeSuccess &&
       hasChanges &&
       (!publishLocked || adminPublish) &&
       (governanceCanPublish || adminPublish);
+    const showChecklistAcknowledgment =
+      !hasNextStep && softChecklistOnly && baseEnabled;
     return {
       mode,
       ctaLabel: hasNextStep
         ? "Next"
         : publishLabel(publishLocked, onlyScheduledSelected),
-      ctaEnabled,
+      ctaEnabled: baseEnabled && checklistGateOpen,
       ctaLocked: !hasNextStep && publishLocked,
       submitAction: hasNextStep ? "next-experiments" : "publish",
       hasSubmit: true,
       canRecallReview,
       canUndoReview,
+      waitingForReview: false,
+      showChecklistAcknowledgment,
     };
   }
 
@@ -174,7 +189,9 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
   const hasNextStep =
     mergeSuccess && approved && hasSelectedExperiments && !experimentsStep;
 
-  let ctaLabel = "Request Review";
+  const canResubmit = !editsResetStatus && status === "changes-requested";
+
+  let ctaLabel = canResubmit ? "Re-request Review" : "Request Review";
   let ctaLocked = false;
   if (approved && !hasNextStep) {
     ctaLabel = publishLabel(publishLocked, onlyScheduledSelected);
@@ -186,7 +203,7 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
   let submitAction: RnPSubmitAction;
   if (hasNextStep) {
     submitAction = "next-experiments";
-  } else if (!isPendingReview && !approved) {
+  } else if ((!isPendingReview && !approved) || canResubmit) {
     submitAction = "request-review";
   } else if (approved) {
     submitAction = "publish";
@@ -194,17 +211,20 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     submitAction = "none";
   }
 
-  // A pending-review draft is read-only for non-reviewers; approved drafts and
-  // request-review actions have step CTAs. Reviewers use the ReviewCommentPopover.
-  const hasSubmit = !isPendingReview || approved;
+  const hasSubmit = !isPendingReview || approved || canResubmit;
 
-  const ctaEnabled =
-    !(experimentsStep && checklistBlocked && !adminPublish) &&
+  const waitingForReview = status === "pending-review" && !approved;
+
+  const baseEnabled =
     (!publishLocked || adminPublish) &&
     !(approved && !governanceCanPublish && !adminPublish) &&
     // Publishing is the only action a conflict blocks — request-review
     // remains enabled so the review cycle can start regardless.
     (mergeSuccess || submitAction === "request-review");
+
+  const ctaEnabled = checklistGateOpen && baseEnabled;
+  const showChecklistAcknowledgment =
+    submitAction === "publish" && softChecklistOnly && baseEnabled;
 
   return {
     mode,
@@ -215,5 +235,7 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     hasSubmit,
     canRecallReview,
     canUndoReview,
+    waitingForReview,
+    showChecklistAcknowledgment,
   };
 }

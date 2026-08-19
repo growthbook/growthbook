@@ -3,8 +3,42 @@ import type {
   ReviewDecision,
   RevisionTargetType,
 } from "shared/enterprise";
+import { proposedProjectScope } from "shared/util";
 import type { Context } from "back-end/src/models/BaseModel";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
+import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
+import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
+
+/**
+ * Event routing scope for a revision lifecycle event: every project the change
+ * touches — the snapshot's (source), any destination its proposed changes relocate
+ * it to, and where the entity actually LIVES now.
+ *
+ * All three, because each alone has a blind spot. The snapshot predates a move, so
+ * a project-filtered webhook on the destination heard nothing about changes
+ * arriving in it. And an old draft publishing after the entity moved by some other
+ * route names neither the live project in its snapshot nor in its ops, so the
+ * project that owns the entity today heard nothing at all.
+ */
+export function revisionEventProjects(
+  revision: {
+    target: { snapshot?: unknown; proposedChanges?: unknown };
+  },
+  liveEntity?: { project?: string; projects?: string[] } | null,
+): string[] {
+  const snapshot = (revision.target.snapshot ?? {}) as {
+    project?: string;
+    projects?: string[];
+  };
+  const proposed = proposedProjectScope(revision.target.proposedChanges);
+  const all = new Set<string>([
+    ...(snapshot.projects ?? (snapshot.project ? [snapshot.project] : [])),
+    ...(proposed.projects ?? (proposed.project ? [proposed.project] : [])),
+    ...(liveEntity?.projects ??
+      (liveEntity?.project ? [liveEntity.project] : [])),
+  ]);
+  return [...all];
+}
 
 // Webhook-event plugin layer for the generic revision system.
 //
@@ -33,7 +67,15 @@ export type RevisionLifecycleAction =
   // dispatcher derives it from the revision's proposed-changes.
   | {
       type: "updated";
-      change?: "metadata" | "condition" | "values" | "archive";
+      // Union across entity types: saved groups use condition/values; constants
+      // use value; configs add schema. The dispatcher narrows to its subset.
+      change?:
+        | "metadata"
+        | "condition"
+        | "values"
+        | "value"
+        | "schema"
+        | "archive";
     }
   | { type: "reviewRequested" }
   | {
@@ -44,11 +86,22 @@ export type RevisionLifecycleAction =
     }
   | { type: "rebased" }
   | { type: "published" }
+  // A deferred publish (scheduled / auto-on-approval) was given up on after
+  // failing. Carries the failure context for the `revision.publishFailed` event.
+  | {
+      type: "publishFailed";
+      reason: string;
+      terminal: boolean;
+      attempts: number;
+    }
   | { type: "discarded" }
   | { type: "reopened" }
-  // Fires whenever a revert lands on the live entity — both the direct-publish
-  // path and an approval-gated draft that's later merged (the dispatcher
-  // detects the latter via the revision's `revertedFrom`).
+  // Recall returns an active review to draft; reopen revives discarded work.
+  | { type: "recalled" }
+  // Lifecycle transitions must not reuse content-diff events.
+  | { type: "reviewRetracted" }
+  | { type: "publishScheduleChanged" }
+  // Reverted fires for direct and approval-gated landings.
   | { type: "reverted" };
 
 export interface RevisionWebhookAdapter {
@@ -64,12 +117,12 @@ export interface RevisionWebhookAdapter {
   ): Promise<void>;
 }
 
-// Plug in a new approval type's webhook events here.
 const registry: Partial<Record<RevisionTargetType, RevisionWebhookAdapter>> = {
   "saved-group": { dispatch: dispatchSavedGroupRevisionEvent },
+  constant: { dispatch: dispatchConstantRevisionEvent },
+  config: { dispatch: dispatchConfigRevisionEvent },
 };
 
-/** Return the webhook adapter for the given entity type, if one is registered. */
 export function getRevisionWebhookAdapter(
   type: RevisionTargetType,
 ): RevisionWebhookAdapter | undefined {

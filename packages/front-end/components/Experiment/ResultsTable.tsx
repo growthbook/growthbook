@@ -30,9 +30,10 @@ import { getValidDate } from "shared/dates";
 import { MetricTimeSeries } from "shared/validators";
 import { Flex } from "@radix-ui/themes";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   ExperimentSortBy,
   SetExperimentSortBy,
+  funnelStepMetricId,
   isFactMetric,
 } from "shared/experiments";
 import { PiPencilSimpleFill } from "react-icons/pi";
@@ -55,7 +56,9 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import HelperText from "@/ui/HelperText";
+import VariationLabel from "@/ui/VariationLabel";
 import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
+import { getTimeSeriesGraphVariations } from "@/services/timeSeriesVariations";
 import { DrilldownTooltip, isInteractiveElement } from "./DrilldownTooltip";
 import AlignedGraph from "./AlignedGraph";
 import ExperimentMetricTimeSeriesGraphWrapper from "./ExperimentMetricTimeSeriesGraphWrapper";
@@ -96,7 +99,7 @@ export type ResultsTableProps = {
     location,
   }: {
     label: string | ReactElement;
-    metric: ExperimentMetricInterface;
+    metric: ExperimentMetricDefinition;
     row: ExperimentTableRow;
     maxRows?: number;
     numDimensions?: number;
@@ -277,11 +280,11 @@ export default function ResultsTable({
     };
 
     const getIcon = () => {
-      if (!isActive) return <FaSort size={16} />;
+      if (!isActive) return <FaSort size={15} />;
       return sortDirection === "desc" ? (
-        <FaSortDown size={16} />
+        <FaSortDown size={15} />
       ) : (
-        <FaSortUp size={16} />
+        <FaSortUp size={15} />
       );
     };
 
@@ -290,6 +293,7 @@ export default function ResultsTable({
         usePortal={true}
         innerClassName={"text-left"}
         body={getTooltipText()}
+        style={{ display: "inline-flex", alignItems: "center" }}
       >
         <a
           role="button"
@@ -298,6 +302,9 @@ export default function ResultsTable({
             marginLeft: "2px",
             color: isActive ? "var(--blue-10)" : "var(--gray-a8)",
             userSelect: "none",
+            display: "inline-flex",
+            alignItems: "center",
+            lineHeight: 0,
           }}
         >
           {getIcon()}
@@ -419,6 +426,7 @@ export default function ResultsTable({
   const showVariations = orderedVariations.map(
     (v) => !variationFilter?.includes(v.index),
   );
+  const timeSeriesVariations = getTimeSeriesGraphVariations(orderedVariations);
   const filteredVariations = orderedVariations.filter(
     (v) => !variationFilter?.includes(v.index),
   );
@@ -567,13 +575,13 @@ export default function ResultsTable({
                             <div className="col d-flex align-items-end px-0">
                               <a
                                 role="button"
-                                className="ml-1 cursor-pointer link-purple"
+                                className="cursor-pointer link-purple"
                                 onClick={(e) => {
                                   e.preventDefault();
                                   editMetrics();
                                 }}
                               >
-                                <PiPencilSimpleFill />
+                                <PiPencilSimpleFill size={15} />
                               </a>
                             </div>
                           ) : null}
@@ -634,10 +642,10 @@ export default function ResultsTable({
                             })}
                           >
                             {statsEngine === "bayesian" ? (
-                              <>
+                              <Flex align="center">
                                 Chance to Win
                                 <SortButton column="significance" />
-                              </>
+                              </Flex>
                             ) : sequentialTestingEnabled ||
                               appliedPValueCorrection ? (
                               <Tooltip
@@ -655,15 +663,17 @@ export default function ResultsTable({
                                   </div>
                                 }
                               >
-                                {appliedPValueCorrection ? "Adj. " : ""}
-                                P-value
-                                <SortButton column="significance" />
+                                <Flex align="center">
+                                  {appliedPValueCorrection ? "Adj. " : ""}
+                                  P-value
+                                  <SortButton column="significance" />
+                                </Flex>
                               </Tooltip>
                             ) : (
-                              <>
+                              <Flex align="center">
                                 P-value
                                 <SortButton column="significance" />
-                              </>
+                              </Flex>
                             )}
                           </th>
                         )}
@@ -772,6 +782,12 @@ export default function ResultsTable({
                     ? `${id}-${row.metric.id}-${row.sliceId}`
                     : `${id}-${row.metric.id}-${i}`;
 
+                  const funnelStepId =
+                    row.childRowType === "funnelStep" &&
+                    row.funnelStepIndex !== undefined
+                      ? funnelStepMetricId(row.metric.id, row.funnelStepIndex)
+                      : undefined;
+
                   const timeSeriesButton = showTimeSeriesButton ? (
                     <TimeSeriesButton
                       onClick={() => toggleVisibleTimeSeriesRowId(rowId)}
@@ -796,7 +812,7 @@ export default function ResultsTable({
                           {/* Render the main results tbody */}
                           <tbody
                             className={clsx("results-group-row", {
-                              "slice-row": row.isSliceRow,
+                              "child-row": row.isChildRow,
                               [styles.clickableRow]: !!effectiveOnRowClick,
                             })}
                             key={`${rowId}-tbody`}
@@ -1002,39 +1018,29 @@ export default function ResultsTable({
                                       "Metric & Variation Names",
                                     ) && (
                                       <td
-                                        className={`variation with-variation-label variation${v.index} position-relative`}
+                                        className="variation position-relative"
                                         style={{
                                           width: 220 * tableCellScale,
                                         }}
                                       >
                                         {!compactResults ? (
                                           <div
-                                            className={`d-flex align-items-center ${
-                                              row.isSliceRow
+                                            className={`d-flex align-items-center ml-2 ${
+                                              row.isChildRow
                                                 ? "pl-4"
                                                 : dimension
                                                   ? "pl-2" // less padding because no expansion buttons
                                                   : "pl-3"
                                             }`}
+                                            style={{
+                                              width: 200 * tableCellScale,
+                                            }}
                                           >
-                                            <span
-                                              className="label ml-2"
-                                              style={{
-                                                width: 20,
-                                                height: 20,
-                                              }}
-                                            >
-                                              {v.index}
-                                            </span>
-                                            <span
-                                              className="d-inline-block text-ellipsis"
-                                              title={v.name}
-                                              style={{
-                                                width: 200 * tableCellScale,
-                                              }}
-                                            >
-                                              {v.name}
-                                            </span>
+                                            <VariationLabel
+                                              number={v.index}
+                                              name={v.name}
+                                              size="md"
+                                            />
                                           </div>
                                         ) : (
                                           renderLabelColumn({
@@ -1313,7 +1319,7 @@ export default function ResultsTable({
                                           phase={phase}
                                           metric={row.metric}
                                           differenceType={differenceType}
-                                          variations={orderedVariations}
+                                          variations={timeSeriesVariations}
                                           showVariations={showVariations}
                                           statsEngine={statsEngine}
                                           pValueAdjustmentEnabled={
@@ -1323,6 +1329,7 @@ export default function ResultsTable({
                                             startDate,
                                           )}
                                           sliceId={row.sliceId}
+                                          funnelStepId={funnelStepId}
                                           baselineRow={baselineRow}
                                           unavailableMessage={timeSeriesMessage}
                                           preloadedTimeSeries={

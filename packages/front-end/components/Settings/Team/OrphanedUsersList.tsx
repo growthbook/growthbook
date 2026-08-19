@@ -1,10 +1,23 @@
 import React, { FC, useEffect, useState } from "react";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
+import { BsThreeDotsVertical } from "react-icons/bs";
+import { Box, IconButton } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
 import { isCloud } from "@/services/env";
+import Callout from "@/ui/Callout";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+} from "@/ui/DropdownMenu";
 import AddOrphanedUserModal from "./AddOrphanedUserModal";
 
 const OrphanedUsersList: FC<{
@@ -28,7 +41,7 @@ const OrphanedUsersList: FC<{
   if (isCloud()) return null;
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
 
   if (!data) {
@@ -42,7 +55,7 @@ const OrphanedUsersList: FC<{
   const addModalData = addModal && users.find((u) => u.id === addModal);
 
   return (
-    <div className="my-4">
+    <Box my="4">
       {addModalData && (
         <AddOrphanedUserModal
           close={() => setAddModal("")}
@@ -54,67 +67,72 @@ const OrphanedUsersList: FC<{
         />
       )}
       <h5>Orphaned Users{` (${users.length})`}</h5>
-      <table className="table appbox gbtable">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Email</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
+      <Table variant="list" stickyHeader roundedCorners>
+        <TableHeader>
+          <TableRow>
+            <TableColumnHeader>Name</TableColumnHeader>
+            <TableColumnHeader>Email</TableColumnHeader>
+            <TableColumnHeader style={{ width: 50 }} />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {Array.from(users).map(({ id, email, name }) => {
             return (
-              <tr key={id}>
-                <td>{name}</td>
-                <td>{email}</td>
-                <td style={{ width: 30 }}>
-                  {(enableAdd && (
-                    <MoreMenu>
-                      <button
-                        className="dropdown-item"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setAddModal(id);
+              <TableRow key={id}>
+                <TableCell>{name}</TableCell>
+                <TableCell>{email}</TableCell>
+                <TableCell>
+                  <DropdownMenu
+                    trigger={
+                      <IconButton
+                        variant="ghost"
+                        color="gray"
+                        radius="full"
+                        size="2"
+                        highContrast
+                      >
+                        <BsThreeDotsVertical size={18} />
+                      </IconButton>
+                    }
+                    menuPlacement="end"
+                    variant="soft"
+                  >
+                    <DropdownMenuGroup>
+                      {enableAdd && (
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setAddModal(id);
+                          }}
+                        >
+                          Add back to account
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem
+                        color="red"
+                        confirmation={{
+                          submit: async () => {
+                            await apiCall(`/orphaned-users/${id}/delete`, {
+                              method: "POST",
+                            });
+                            mutate();
+                          },
+                          confirmationTitle: `Permanently delete ${email}?`,
+                          cta: "Permanently delete",
+                          getConfirmationContent: async () =>
+                            "This action cannot be undone.",
                         }}
                       >
-                        Add back to account
-                      </button>
-                      <DeleteButton
-                        link={true}
-                        text="Permanently delete"
-                        useIcon={false}
-                        className="dropdown-item"
-                        displayName={email}
-                        onClick={async () => {
-                          await apiCall(`/orphaned-users/${id}/delete`, {
-                            method: "POST",
-                          });
-                          mutate();
-                        }}
-                      />
-                    </MoreMenu>
-                  )) || (
-                    <DeleteButton
-                      link={true}
-                      useIcon={true}
-                      className="dropdown-item"
-                      displayName={email}
-                      onClick={async () => {
-                        await apiCall(`/orphaned-users/${id}/delete`, {
-                          method: "POST",
-                        });
-                        mutate();
-                      }}
-                    />
-                  )}
-                </td>
-              </tr>
+                        Permanently delete
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </Box>
   );
 };
 

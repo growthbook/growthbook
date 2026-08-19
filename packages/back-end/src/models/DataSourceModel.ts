@@ -3,9 +3,11 @@ import uniqid from "uniqid";
 import { cloneDeep, isEqual } from "lodash";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import {
+  DataRegion,
   isEventForwarderManagedExposureQuery,
   isEventForwarderManagedFeatureUsageQuery,
   isManagedWarehouseAwaitingProvisioning,
+  isManagedWarehouseUnavailable,
 } from "shared/util";
 import {
   DataSourceInterface,
@@ -13,6 +15,7 @@ import {
   DataSourcePipelineSettings,
   DataSourceSettings,
   DataSourceType,
+  GrowthbookClickhouseDataSource,
 } from "shared/types/datasource";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
 import { ApiDataSource } from "shared/validators";
@@ -39,6 +42,10 @@ import { createModelAuditLogger } from "back-end/src/services/audit";
 import { syncEventForwarderAfterDatasourceDeleted } from "back-end/src/services/eventForwarder/datasourceLifecycle";
 import { deleteEventForwarderEventsFactTableForDatasource } from "back-end/src/services/eventForwarder/factTable";
 import { deleteFactTable, getFactTable } from "./FactTableModel";
+import {
+  definitionsScope,
+  touchDefinitionsVersion,
+} from "./DefinitionsVersionModel";
 
 const dataSourceAuditConfig = {
   entity: "datasource",
@@ -121,6 +128,32 @@ export async function getDataSourcesByOrganization(
   return datasources.filter((ds) =>
     context.permissions.canReadMultiProjectResource(ds.projects),
   );
+}
+
+// Unfiltered by project permissions - the org's event ingestor region isn't
+// sensitive on its own, and gating it on datasource read permissions means
+// users without access to the Managed Warehouse/Event Forwarder datasource
+// would get an incorrect region for the SDK setup snippets.
+export async function getEventIngestorRegionForOrganization(
+  context: ReqContext | ApiReqContext,
+): Promise<DataRegion | undefined> {
+  const datasources = usingFileConfig()
+    ? getConfigDatasources(context.org.id)
+    : (await DataSourceModel.find({ organization: context.org.id })).map(
+        toInterface,
+      );
+
+  const managedWarehouse = datasources.find(
+    (d): d is GrowthbookClickhouseDataSource =>
+      d.type === "growthbook_clickhouse",
+  );
+  if (managedWarehouse) {
+    return managedWarehouse.settings?.region;
+  }
+
+  const forwarderConfigs =
+    await context.models.eventForwarderConfigs.getAllBypassingReadPermissions();
+  return forwarderConfigs.find((c) => c.region)?.region;
 }
 
 // WARNING: This does not restrict by organization
@@ -215,8 +248,9 @@ export async function removeProjectFromDatasources(
 ) {
   await DataSourceModel.updateMany(
     { organization, projects: project },
-    { $pull: { projects: project } },
+    { $pull: { projects: project }, $set: { dateUpdated: new Date() } },
   );
+  await touchDefinitionsVersion(organization);
 }
 
 export async function deleteDatasource(
@@ -261,12 +295,26 @@ export async function deleteDatasource(
   });
 
   await audit.logDelete(context, datasource);
+  await touchDefinitionsVersion(
+    context.org.id,
+    definitionsScope(datasource.projects),
+  );
 }
 
 /**
  * Deletes data sources where the provided project is the only project of that data source.
  * Runs event-forwarder teardown per datasource before removal so Confluent resources are not orphaned.
  */
+export async function projectHasDataSources(
+  organizationId: string,
+  projectId: string,
+): Promise<boolean> {
+  return !!(await DataSourceModel.exists({
+    organization: organizationId,
+    projects: [projectId],
+  }));
+}
+
 export async function deleteAllDataSourcesForAProject({
   context,
   projectId,
@@ -294,6 +342,9 @@ export async function deleteAllDataSourcesForAProject({
     organization: organizationId,
     projects: [projectId],
   });
+  // Only datasources whose sole project is projectId are deleted here, so only
+  // that project's readers are affected.
+  await touchDefinitionsVersion(organizationId, definitionsScope([projectId]));
 }
 
 export async function createDataSource(
@@ -367,6 +418,10 @@ export async function createDataSource(
 
   const datasourceInterface = toInterface(model);
   await audit.logCreate(context, datasourceInterface);
+  await touchDefinitionsVersion(
+    context.org.id,
+    definitionsScope(datasourceInterface.projects),
+  );
   return datasourceInterface;
 }
 
@@ -391,7 +446,11 @@ export async function validateExposureQueriesAndAddMissingIds(
         if (!exposure.id) {
           exposure.id = uniqid("exq_");
         }
-        if (isManagedWarehouseAwaitingProvisioning(datasource)) {
+        // Skip live validation while the warehouse can't serve queries — never
+        // provisioned OR mid-migration (tables being recreated). Otherwise a
+        // concurrent settings save would test-run against unavailable tables and
+        // stamp a spurious error that self-heals only on the next validation.
+        if (isManagedWarehouseUnavailable(datasource)) {
           exposure.error = undefined;
           return;
         }
@@ -438,7 +497,7 @@ export async function validateExposureQueriesAndAddMissingIds(
   if (updatesCopy.queries?.featureUsage) {
     await Promise.all(
       updatesCopy.queries.featureUsage.map(async (featureUsage) => {
-        if (isManagedWarehouseAwaitingProvisioning(datasource)) {
+        if (isManagedWarehouseUnavailable(datasource)) {
           featureUsage.error = undefined;
           return;
         }
@@ -560,6 +619,10 @@ export async function updateDataSource(
     return;
   }
 
+  // Several service callers mutate `settings` without stamping dateUpdated;
+  // stamp it here at the model choke point so every real change is recorded.
+  updates = { ...updates, dateUpdated: new Date() };
+
   await DataSourceModel.updateOne(
     {
       id: datasource.id,
@@ -571,6 +634,13 @@ export async function updateDataSource(
   );
 
   await audit.logUpdate(context, datasource, { ...datasource, ...updates });
+  await touchDefinitionsVersion(
+    context.org.id,
+    definitionsScope(
+      datasource.projects,
+      updates.projects ?? datasource.projects,
+    ),
+  );
 }
 
 // WARNING: This does not restrict by organization

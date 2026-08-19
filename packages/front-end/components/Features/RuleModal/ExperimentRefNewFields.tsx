@@ -1,4 +1,5 @@
 import { useFormContext } from "react-hook-form";
+import { CustomField } from "shared/types/custom-fields";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   FeatureInterface,
@@ -54,14 +55,13 @@ import { convertTemplateToExperimentRule } from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
 import Callout from "@/ui/Callout";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
-import {
-  filterCustomFieldsForSectionAndProject,
-  useCustomFields,
-} from "@/hooks/useCustomFields";
 import HelperText from "@/ui/HelperText";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
+import RuleProjectScopeField, {
+  type ProjectScopeProps,
+} from "@/components/Features/RuleModal/ProjectScopeField";
 import { getExposureQuery } from "@/services/datasources";
 import Text from "@/ui/Text";
 import {
@@ -99,10 +99,13 @@ export default function ExperimentRefNewFields({
   hideVariationIds = true,
   startEditingIndexes = false,
   orgStickyBucketing,
+  customFields,
+  customFieldValues,
   setCustomFields,
   isTemplate = false,
   holdoutHashAttribute,
   envScope,
+  projectScope,
   onRuleCyclicChange,
 }: {
   step: number;
@@ -134,10 +137,13 @@ export default function ExperimentRefNewFields({
   hideVariationIds?: boolean;
   startEditingIndexes?: boolean;
   orgStickyBucketing?: boolean;
+  customFields?: CustomField[];
+  customFieldValues?: Record<string, string>;
   setCustomFields?: (customFields: Record<string, string>) => void;
   isTemplate?: boolean;
   holdoutHashAttribute?: string;
   envScope?: EnvScopeProps;
+  projectScope?: ProjectScopeProps;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
   const form = useFormContext();
@@ -272,12 +278,6 @@ export default function ExperimentRefNewFields({
     settings.requireExperimentTemplates &&
     availableTemplates.length >= 1;
 
-  const customFields = filterCustomFieldsForSectionAndProject(
-    useCustomFields(),
-    "experiment",
-    project,
-  );
-
   return (
     <>
       {step === 0 ? (
@@ -288,6 +288,7 @@ export default function ExperimentRefNewFields({
                 <label>Select Template</label>
               </PremiumTooltip>
               <SelectField
+                size="legacy"
                 value={form.watch("templateId") ?? ""}
                 onChange={(t) => {
                   if (t === "") {
@@ -321,7 +322,7 @@ export default function ExperimentRefNewFields({
                   return (
                     <Flex as="div" align="baseline">
                       <Text>{value.label}</Text>
-                      <Text size="small" color="text-mid" ml="auto">
+                      <Text size="sm" color="text-mid" ml="auto">
                         Created {date(t.dateCreated)}
                       </Text>
                     </Flex>
@@ -338,6 +339,7 @@ export default function ExperimentRefNewFields({
             </div>
           )}
           <Field
+            size="legacy"
             required={true}
             minLength={2}
             label="Experiment Name"
@@ -345,6 +347,7 @@ export default function ExperimentRefNewFields({
           />
 
           <Field
+            size="legacy"
             label="Tracking Key"
             {...form.register(`trackingKey`)}
             placeholder={feature?.id || ""}
@@ -352,6 +355,7 @@ export default function ExperimentRefNewFields({
           />
 
           <Field
+            size="legacy"
             label="Hypothesis"
             textarea
             minRows={1}
@@ -360,6 +364,7 @@ export default function ExperimentRefNewFields({
           />
 
           <Field
+            size="legacy"
             label="Description"
             textarea
             minRows={1}
@@ -369,17 +374,15 @@ export default function ExperimentRefNewFields({
           />
 
           {envScope && <RuleEnvironmentScopeField {...envScope} my="5" />}
+          {projectScope && <RuleProjectScopeField {...projectScope} mb="5" />}
 
-          {hasCommercialFeature("custom-metadata") &&
-            !!customFields?.length && (
-              <CustomFieldInput
-                customFields={customFields}
-                currentCustomFields={form.watch("customFields")}
-                setCustomFields={setCustomFields ? setCustomFields : () => {}}
-                section={"experiment"}
-                project={project}
-              />
-            )}
+          {!!customFields?.length && (
+            <CustomFieldInput
+              fields={customFields}
+              value={customFieldValues ?? {}}
+              onChange={setCustomFields ? setCustomFields : () => {}}
+            />
+          )}
         </>
       ) : null}
 
@@ -394,6 +397,7 @@ export default function ExperimentRefNewFields({
               variation to assign
             </Text>
             <SelectField
+              size="legacy"
               withRadixThemedPortal
               containerClassName="flex-1"
               options={attributeSchema
@@ -561,6 +565,7 @@ export default function ExperimentRefNewFields({
         <>
           <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
             <SelectField
+              size="legacy"
               label="Data Source"
               labelClassName="font-weight-bold"
               value={form.watch("datasource") ?? ""}
@@ -612,6 +617,7 @@ export default function ExperimentRefNewFields({
 
             {datasourceProperties?.exposureQueries && exposureQueries ? (
               <SelectField
+                size="legacy"
                 label={
                   <>
                     Experiment Assignment Table{" "}
@@ -701,12 +707,14 @@ export default function ExperimentRefNewFields({
                       Activation Metric{" "}
                       <MetricsSelectorTooltip
                         onlyBinomial={true}
+                        noFactFunnelMetrics={true}
                         isSingular={true}
                       />
                     </>
                   }
                   initialOption="None"
                   onlyBinomial
+                  filterFactFunnelMetrics
                   value={form.watch("activationMetric")}
                   onChange={(value) =>
                     form.setValue("activationMetric", value || "")
@@ -716,6 +724,7 @@ export default function ExperimentRefNewFields({
               )}
               {datasourceProperties?.experimentSegments && (
                 <SelectField
+                  size="legacy"
                   label="Segment"
                   labelClassName="font-weight-bold"
                   value={form.watch("segment")}
@@ -732,6 +741,7 @@ export default function ExperimentRefNewFields({
               )}
               {datasourceProperties?.separateExperimentResultQueries && (
                 <SelectField
+                  size="legacy"
                   label="Metric Conversion Windows"
                   labelClassName="font-weight-bold"
                   value={form.watch("skipPartialData")}

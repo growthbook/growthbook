@@ -21,18 +21,20 @@ import { getValidDate } from "shared/dates";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { isNil, omit } from "lodash";
 import {
-  FactTableInterface,
+  FactTableDefinition,
   FactMetricInterface,
   FactTableColumnType,
 } from "shared/types/fact-table";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
   getEqualWeights,
+  getFunnelStepMetric,
   getLatestPhaseVariations,
   getMetricResultStatus,
   getMetricSampleSize,
   hasEnoughData,
+  isFactFunnelMetric,
   isFactMetric,
   isMetricGroupId,
   isRatioMetric,
@@ -42,6 +44,8 @@ import {
   createAutoSliceDataForMetric,
   generateSliceString,
   generateSelectAllSliceString,
+  parseFunnelStepMetricId,
+  parseSliceMetricId,
   parseSliceQueryString,
   SliceDataForMetric,
 } from "shared/experiments";
@@ -185,14 +189,17 @@ export function getFutureScheduledStartDate(
 
 export type ExperimentTableRow = {
   label: string | ReactElement;
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   metricOverrideFields: string[];
   variations: SnapshotMetric[];
   rowClass?: string;
   metricSnapshotSettings?: MetricSnapshotSettings;
   resultGroup: "goal" | "secondary" | "guardrail";
   error?: RowError;
-  numSlices?: number;
+  // Child row presentation (generic parent/child)
+  numChildren?: number;
+  isChildRow?: boolean;
+  childRowType?: "slice" | "funnelStep";
   // Slice row properties
   isSliceRow?: boolean;
   parentRowId?: string;
@@ -203,6 +210,13 @@ export type ExperimentTableRow = {
     levels: string[];
   }>;
   allSliceLevels?: string[];
+  // Funnel step row properties
+  funnelStepIndex?: number;
+  funnelStepOptional?: boolean;
+  // Dimension-table rows: the raw dimension value this row belongs to. On a
+  // parent row this equals its label; child rows (e.g. funnel steps) carry it
+  // because their label is the step name, not the dimension value.
+  dimensionValue?: string;
   isHiddenByFilter?: boolean;
   labelOnly?: boolean;
 };
@@ -333,7 +347,7 @@ export function useDomain(
   return [lowerBound, upperBound];
 }
 
-export function applyMetricOverrides<T extends ExperimentMetricInterface>(
+export function applyMetricOverrides<T extends ExperimentMetricDefinition>(
   metric: T,
   metricOverrides?: MetricOverride[],
 ): {
@@ -419,6 +433,7 @@ export function useExperimentSearch({
   filterResults,
   localStorageKey,
   watchedExperimentIds,
+  controlledSearchValue,
 }: {
   allExperiments: ExperimentInterfaceStringDates[];
   defaultSortField?: keyof ComputedExperimentInterface;
@@ -428,6 +443,10 @@ export function useExperimentSearch({
   ) => ComputedExperimentInterface[];
   localStorageKey: string;
   watchedExperimentIds?: string[];
+  // When provided, drives filtering from a stored search string (e.g. a
+  // dashboard block's saved filter) instead of a user-typed input. Bypasses the
+  // URL `q` param so it doesn't leak into or clobber the page's search state.
+  controlledSearchValue?: string;
 }) {
   const {
     getExperimentMetricById,
@@ -483,7 +502,8 @@ export function useExperimentSearch({
     localStorageKey,
     defaultSortField,
     defaultSortDir,
-    updateSearchQueryOnChange: true,
+    updateSearchQueryOnChange: controlledSearchValue === undefined,
+    controlledSearchValue,
     searchFields: ["name^3", "trackingKey^2", "hypothesis^2", "description"],
     searchTermFilters: {
       is: (item) => {
@@ -615,8 +635,8 @@ export function getRowResults({
   baseline: SnapshotMetric;
   statsEngine: StatsEngine;
   differenceType: DifferenceType;
-  metric: ExperimentMetricInterface;
-  denominator?: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
+  denominator?: ExperimentMetricDefinition;
   metricDefaults: MetricDefaults;
   minSampleSize: number;
   ciUpper: number;
@@ -1048,6 +1068,43 @@ export function getPipelineSettingsAfterReenablingExperiment(
   return next;
 }
 
+/**
+ * Display name for a metric id that appears in snapshot results, including the
+ * derived ids that have no stored metric of their own: funnel steps are named
+ * off their parent as "Parent: Step", slices off their encoded levels as
+ * "Parent (col: val)". Falls back to the raw id so an unresolvable metric still
+ * labels its row.
+ */
+export function getResultMetricDisplayName(
+  metricId: string,
+  getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null,
+): string {
+  const metric = getExperimentMetricById(metricId);
+  if (metric) return metric.name;
+
+  const stepInfo = parseFunnelStepMetricId(metricId);
+  if (stepInfo.isFunnelStepMetric && stepInfo.stepIndex !== null) {
+    const parent = getExperimentMetricById(stepInfo.baseMetricId);
+    const step =
+      parent && isFactFunnelMetric(parent)
+        ? getFunnelStepMetric(parent, stepInfo.stepIndex)
+        : null;
+    return step?.name ?? metricId;
+  }
+
+  const { baseMetricId, sliceLevels } = parseSliceMetricId(metricId);
+  const baseName = getExperimentMetricById(baseMetricId)?.name;
+  if (!baseName || !sliceLevels.length) return metricId;
+
+  const sliceContext = sliceLevels
+    .map(
+      (s) =>
+        `${s.column}: ${s.levels.length ? s.levels.join(" OR ") : "other"}`,
+    )
+    .join(", ");
+  return `${baseName} (${sliceContext})`;
+}
+
 // Extracts available metrics and groups (for result filtering) from experiment metrics
 export function getAvailableMetricsFilters({
   goalMetrics,
@@ -1060,7 +1117,7 @@ export function getAvailableMetricsFilters({
   secondaryMetrics: string[];
   guardrailMetrics: string[];
   metricGroups: MetricGroupInterface[];
-  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
+  getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null;
 }): {
   groups: { id: string; name: string }[];
   metrics: { id: string; name: string }[];
@@ -1118,7 +1175,7 @@ export function getAvailableMetricTags({
   secondaryMetrics: string[];
   guardrailMetrics: string[];
   metricGroups: MetricGroupInterface[];
-  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
+  getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null;
 }): string[] {
   const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
   const expandedSecondaries = expandMetricGroups(
@@ -1167,9 +1224,9 @@ export function getAvailableSliceTags({
     }>;
   }> | null;
   metricGroups: MetricGroupInterface[];
-  factTables: FactTableInterface[];
-  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
-  getFactTableById: (id: string) => FactTableInterface | null;
+  factTables: FactTableDefinition[];
+  getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null;
+  getFactTableById: (id: string) => FactTableDefinition | null;
 }): AvailableSliceTag[] {
   const sliceTagsMap = new Map<
     string,
@@ -1177,7 +1234,7 @@ export function getAvailableSliceTags({
   >();
 
   // Build factTableMap for parseSliceQueryString
-  const factTableMap: Record<string, FactTableInterface> = {};
+  const factTableMap: Record<string, FactTableDefinition> = {};
   factTables.forEach((table) => {
     factTableMap[table.id] = table;
   });

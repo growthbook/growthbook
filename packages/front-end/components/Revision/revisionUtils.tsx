@@ -4,47 +4,34 @@ import { Revision, RevisionStatus } from "shared/enterprise";
 import Badge from "@/ui/Badge";
 import Tooltip from "@/ui/Tooltip";
 import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import {
+  revisionStatusColor,
+  revisionStatusLabel,
+  revisionStatusBadgeVariant,
+} from "@/components/Reviews/RevisionStatusBadge";
 
-// Status → badge color & label. Colors mirror the feature revision badge
-// (`components/Features/RevisionStatusBadge.tsx`) so revisions render
-// consistently across features and saved groups.
 export type RevisionBadgeStatus = RevisionStatus | "live";
 
-export const STATUS_CONFIG: Record<
-  RevisionBadgeStatus,
-  {
-    color: "green" | "orange" | "grass" | "amber" | "red" | "gray";
-    label: string;
-    // Discarded renders as a solid (inverted) gray badge so it reads as
-    // muted but stays distinguishable from Locked's soft gray.
-    variant?: "solid" | "soft";
-  }
-> = {
-  live: { color: "green", label: "Live" },
-  draft: { color: "amber", label: "Draft" },
-  "pending-review": { color: "orange", label: "Pending review" },
-  approved: { color: "grass", label: "Approved" },
-  "changes-requested": { color: "red", label: "Changes requested" },
-  merged: { color: "gray", label: "Locked" },
-  discarded: { color: "gray", label: "Discarded", variant: "solid" },
-};
-
+// Render a revision status badge. Delegates color/label/variant to the feature
+// status helpers (`components/Reviews/RevisionStatusBadge`) so features, saved
+// groups, and constants all share one source of truth for draft-state styling.
 export function getStatusBadge(
   status: RevisionBadgeStatus,
   requiresApproval: boolean = true,
 ) {
-  // If approvals are not required, show pending-review as Draft
+  // If approvals are not required, show pending-review as Draft.
   const effective: RevisionBadgeStatus =
     status === "pending-review" && !requiresApproval ? "draft" : status;
-  const config = STATUS_CONFIG[effective];
-  if (!config) {
-    return <Badge label={String(status)} color="gray" radius="full" />;
-  }
+  // The feature helpers key off the feature revision status, which uses
+  // "published" where the generic revision model uses "merged" (both = Locked).
+  const featureStatus = (
+    effective === "merged" ? "published" : effective
+  ) as Parameters<typeof revisionStatusColor>[0];
   return (
     <Badge
-      label={config.label}
-      color={config.color}
-      variant={config.variant ?? "soft"}
+      label={revisionStatusLabel(effective)}
+      color={revisionStatusColor(featureStatus)}
+      variant={revisionStatusBadgeVariant(featureStatus)}
       radius="full"
     />
   );
@@ -94,7 +81,32 @@ export function buildSavedGroupRevisionUrl(
   revision?: Pick<Revision, "version"> | null,
 ): string {
   const base = `/saved-groups/${savedGroupId}`;
-  if (revision?.version != null) return `${base}?v=${revision.version}`;
+  if (revision && revision.version !== undefined)
+    return `${base}?v=${revision.version}`;
+  return base;
+}
+
+// Builds the constant revision deep-link using `?v=<n>` (mirrors saved groups).
+// The detail page is addressed by the constant's `key`, not its internal id.
+export function buildConstantRevisionUrl(
+  constantKey: string,
+  revision?: Pick<Revision, "version"> | null,
+): string {
+  const base = `/constants/${constantKey}`;
+  if (revision && revision.version !== undefined)
+    return `${base}?v=${revision.version}`;
+  return base;
+}
+
+// Config revision deep-link. Configs are `config`-type constants but live on the
+// dedicated `/configs` route.
+export function buildConfigRevisionUrl(
+  configKey: string,
+  revision?: Pick<Revision, "version"> | null,
+): string {
+  const base = `/configs/${configKey}`;
+  if (revision && revision.version !== undefined)
+    return `${base}?v=${revision.version}`;
   return base;
 }
 
@@ -104,15 +116,14 @@ export function RevisionStatusDot({
   hasOpenRevisions?: boolean;
 }) {
   if (!hasOpenRevisions) return null;
-  const { color, label } = STATUS_CONFIG["pending-review"];
   return (
-    <Tooltip content={label}>
+    <Tooltip content={revisionStatusLabel("pending-review")}>
       <span
         style={{
           width: 8,
           height: 8,
           borderRadius: "50%",
-          backgroundColor: `var(--${color}-9)`,
+          backgroundColor: `var(--${revisionStatusColor("pending-review")}-9)`,
           display: "inline-block",
           flexShrink: 0,
         }}

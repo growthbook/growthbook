@@ -29,20 +29,17 @@ import {
   useMemo,
   useState,
 } from "react";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import {
   setUser as sentrySetUser,
   setTag as sentrySetTag,
 } from "@sentry/nextjs";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
-import {
-  Permissions,
-  roleToPermissionMap,
-  userHasPermission,
-} from "shared/permissions";
-import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { Permissions, userHasPermission } from "shared/permissions";
 import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
 import { AgreementType } from "shared/validators";
+import { AIProvider } from "shared/ai";
 import { getOwnerDisplay as getOwnerDisplayName } from "@/services/owners";
 import {
   getGrowthBookBuild,
@@ -74,6 +71,10 @@ export interface PermissionFunctions {
 export type Team = Omit<TeamInterface, "members"> & {
   members?: ExpandedMember[];
 };
+
+interface RefreshOrganizationOptions {
+  forceLicenseRefresh?: boolean;
+}
 
 export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   createDimensions: false,
@@ -112,7 +113,7 @@ export interface UserContextValue {
   getUserDisplay: (id: string, fallback?: boolean) => string;
   getOwnerDisplay: (owner: string | undefined) => string;
   updateUser: () => Promise<void>;
-  refreshOrganization: () => Promise<void>;
+  refreshOrganization: (options?: RefreshOrganizationOptions) => Promise<void>;
   permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
   settings: OrganizationSettings;
   enterpriseSSO?: Partial<SSOConnectionInterface> | null;
@@ -122,6 +123,9 @@ export interface UserContextValue {
   commercialFeatures: CommercialFeature[];
   organization: Partial<OrganizationInterface>;
   agreements?: AgreementType[];
+  // AI providers with a usable API key, from the org's own stored keys or the
+  // host's environment variables.
+  aiKeyProviders: AIProvider[];
   seatsInUse: number;
   roles: Role[];
   teams?: Team[];
@@ -168,6 +172,7 @@ export const UserContext = createContext<UserContextValue>({
   },
   organization: {},
   agreements: [],
+  aiKeyProviders: [],
   subscription: null,
   licenseError: "",
   seatsInUse: 0,
@@ -206,7 +211,7 @@ export function getCurrentUser() {
 }
 
 export function UserContextProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated, orgId, setOrganizations } = useAuth();
+  const { apiCall, isAuthenticated, orgId, setOrganizations } = useAuth();
 
   const {
     data,
@@ -225,11 +230,27 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
   const {
     data: currentOrg,
-    mutate: refreshOrganization,
+    mutate: mutateOrganization,
     error: orgLoadingError,
   } = useApi<GetOrganizationResponse>(`/organization`, {
     shouldRun: () => !!orgId,
   });
+
+  const refreshOrganization = useCallback(
+    async (options?: RefreshOrganizationOptions) => {
+      if (!options?.forceLicenseRefresh) {
+        await mutateOrganization();
+        return;
+      }
+
+      const organization = await apiCall<GetOrganizationResponse>(
+        "/organization?forceLicenseRefresh=true",
+        { method: "GET" },
+      );
+      await mutateOrganization(organization, false);
+    },
+    [apiCall, mutateOrganization],
+  );
 
   const hashedOrganizationId = useMemo(() => {
     const id = currentOrg?.organization?.id || "";
@@ -394,9 +415,17 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     }
   }, [currentOrg?.organization?.id]);
 
+  const hasVisualEditorPromo = useFeatureIsOn("visual-editor-free-access");
+
   const commercialFeatures = useMemo(() => {
-    return new Set(currentOrg?.commercialFeatures || []);
-  }, [currentOrg?.commercialFeatures]);
+    const features = new Set<CommercialFeature>(
+      currentOrg?.commercialFeatures || [],
+    );
+    // This is a temporary override to give some users access to the visual editor
+    // If we decide to keep this, we should add a getEffectiveCommercialFeatures that expands this functionality
+    if (hasVisualEditorPromo) features.add("visual-editor");
+    return features;
+  }, [currentOrg?.commercialFeatures, hasVisualEditorPromo]);
 
   const permissionsCheck = useCallback(
     (
@@ -449,125 +478,8 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         projects: {},
       };
 
-    // Inject a project-scoped role for the sample data project. The
-    // permissions system already supports per-project role overrides, so this
-    // gives us the existing readonly UX everywhere with no per-page tweaks.
-    //
-    // We start from readonly, then grant just the permissions needed to
-    // explore the sample data — running queries plus updating features,
-    // experiments, and fact metrics. We then patch the create/delete entry
-    // points below to keep new-resource CTAs disabled (the underlying
-    // permission can't separate update from create/delete).
-    const orgId = currentOrg?.organization?.id;
-    const org = currentOrg?.organization;
-    if (orgId && org) {
-      const demoProjectId = getDemoDatasourceProjectIdForOrganization(orgId);
-      const permissions = new Permissions({
-        ...basePermissions,
-        projects: {
-          ...basePermissions.projects,
-          [demoProjectId]: {
-            permissions: {
-              ...roleToPermissionMap("readonly", org),
-              runQueries: true,
-              // Allow editing existing features/experiments/fact metrics.
-              manageFeatures: true,
-              manageFeatureDrafts: true,
-              canReview: true,
-              createAnalyses: true,
-              manageFactMetrics: true,
-              // Allow publishing the resulting changes.
-              publishFeatures: true,
-              runExperiments: true,
-            },
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
-      });
-
-      // Block create/delete on the demo project — the granted permissions above
-      // gate update + create + delete equally, so we patch the create/delete
-      // call sites to keep "Add ..." CTAs disabled across the app.
-      const targetsDemoProject = (project?: string) =>
-        project === demoProjectId;
-      const projectsTargetDemoOnly = (projects?: string[]) =>
-        !!projects?.length && projects.every((p) => p === demoProjectId);
-
-      const wrapByProject =
-        <T extends { project?: string }, R extends boolean>(
-          original: (arg: T) => R,
-        ) =>
-        (arg: T) =>
-          (targetsDemoProject(arg.project) ? false : original(arg)) as R;
-
-      const wrapByProjects =
-        <T extends { projects?: string[] }, R extends boolean>(
-          original: (arg: T) => R,
-        ) =>
-        (arg: T) =>
-          (projectsTargetDemoOnly(arg.projects) ? false : original(arg)) as R;
-
-      const wrapByProjectString =
-        (
-          original: (
-            project?: string,
-            allProjects?: { id: string }[],
-          ) => boolean,
-        ) =>
-        (project?: string, allProjects?: { id: string }[]) =>
-          targetsDemoProject(project) ? false : original(project, allProjects);
-
-      permissions.canCreateFeature = wrapByProject(
-        permissions.canCreateFeature,
-      );
-      permissions.canDeleteFeature = wrapByProject(
-        permissions.canDeleteFeature,
-      );
-      permissions.canViewFeatureModal = wrapByProjectString(
-        permissions.canViewFeatureModal,
-      );
-
-      permissions.canCreateExperiment = wrapByProject(
-        permissions.canCreateExperiment,
-      );
-      permissions.canDeleteExperiment = wrapByProject(
-        permissions.canDeleteExperiment,
-      );
-      permissions.canViewExperimentModal = wrapByProjectString(
-        permissions.canViewExperimentModal,
-      );
-      permissions.canCreateExperimentTemplate = wrapByProject(
-        permissions.canCreateExperimentTemplate,
-      );
-      permissions.canDeleteExperimentTemplate = wrapByProject(
-        permissions.canDeleteExperimentTemplate,
-      );
-      permissions.canViewExperimentTemplateModal = wrapByProjectString(
-        permissions.canViewExperimentTemplateModal,
-      );
-
-      permissions.canCreateFactMetric = wrapByProjects(
-        permissions.canCreateFactMetric,
-      );
-      permissions.canDeleteFactMetric = wrapByProjects(
-        permissions.canDeleteFactMetric,
-      );
-
-      permissions.canCreateHoldout = wrapByProjects(
-        permissions.canCreateHoldout,
-      );
-      permissions.canDeleteHoldout = wrapByProjects(
-        permissions.canDeleteHoldout,
-      );
-      permissions.canViewHoldoutModal = wrapByProjectString(
-        permissions.canViewHoldoutModal,
-      );
-
-      return permissions;
-    }
     return new Permissions(basePermissions);
-  }, [currentOrg?.currentUserPermissions, currentOrg?.organization]);
+  }, [currentOrg?.currentUserPermissions]);
 
   const getUserDisplay = useCallback(
     (id: string, fallback = true) => {
@@ -641,7 +553,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         users,
         getUserDisplay: getUserDisplay,
         getOwnerDisplay: getOwnerDisplay,
-        refreshOrganization: refreshOrganization as () => Promise<void>,
+        refreshOrganization,
         roles: currentOrg?.roles || [],
         permissions,
         permissionsUtil,
@@ -654,8 +566,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         effectiveAccountPlan: currentOrg?.effectiveAccountPlan,
         commercialFeatureLowestPlan: currentOrg?.commercialFeatureLowestPlan,
         licenseError: currentOrg?.licenseError || "",
-        commercialFeatures: currentOrg?.commercialFeatures || [],
+        commercialFeatures: [...commercialFeatures],
         agreements: currentOrg?.agreements || [],
+        aiKeyProviders: currentOrg?.aiKeyProviders || [],
         organization: organization || {},
         seatsInUse: currentOrg?.seatsInUse || 0,
         teams,

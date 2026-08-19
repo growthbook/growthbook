@@ -1,13 +1,15 @@
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
+import { getImageModelMeta } from "shared/ai";
 import { findVisualChangesetById } from "back-end/src/models/VisualChangesetModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { uploadFile } from "back-end/src/services/files";
 import { optimizeAIImage } from "back-end/src/services/imageOptimization";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { generateImages } from "back-end/src/services/imageGeneration";
-import { secondsUntilAICanBeUsedAgain } from "back-end/src/enterprise/services/ai";
+import { secondsUntilAICanBeUsedAgainForProvider } from "back-end/src/enterprise/services/ai";
 import { updateTokenUsage } from "back-end/src/models/AITokenUsageModel";
+import { trackAIUsage } from "back-end/src/services/growthbook";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
 import { requireUserAuth } from "./requireUserAuth";
@@ -89,15 +91,25 @@ export const postAIImageGen = createApiRequestHandler(validation)(async (
 
   // Text endpoints inherit this check via parsePrompt; image-gen calls
   // the paid provider directly so we have to enforce it ourselves.
-  const { visualEditorImageModel, visualEditorAIContext, aiEnabled } =
-    getAISettingsForOrg(context, true);
+  const {
+    visualEditorImageModel,
+    visualEditorAIContext,
+    aiEnabled,
+    keySource,
+  } = await getAISettingsForOrg(context, true);
   if (!aiEnabled) {
     throw new Error(
       "AI features are disabled for this organization. Enable them in Settings → AI Settings.",
     );
   }
 
-  if (await secondsUntilAICanBeUsedAgain(org)) {
+  // Image models have their own registry. BYOK on this provider is neither
+  // capped nor metered, same rule simpleCompletion applies.
+  const imageProvider = getImageModelMeta(visualEditorImageModel)?.provider;
+  const usesOwnImageKey =
+    !!imageProvider && keySource[imageProvider] === "organization";
+
+  if (await secondsUntilAICanBeUsedAgainForProvider(context, imageProvider)) {
     throw new Error(
       "Daily AI usage limit reached. Try again later or upgrade your plan.",
     );
@@ -143,6 +155,23 @@ export const postAIImageGen = createApiRequestHandler(validation)(async (
   // before we return; try/catch because a transient billing-DB failure
   // shouldn't surface to the user (worst case: one batch under-counted).
   if (generated.length > 0) {
+    // Reported whichever key paid. Tokens are the cost-equivalent the cap uses.
+    trackAIUsage({
+      organizationId: org.id,
+      userId: context.userId,
+      type: "visual-editor-ai-image-gen",
+      model: visualEditorImageModel,
+      provider: imageProvider,
+      numCompletionTokensUsed:
+        IMAGE_GEN_TOKEN_COST_PER_IMAGE * generated.length,
+      // Brand guidelines are the only customization on this path.
+      usedDefaultPrompt: !visualEditorAIContext,
+      usedOwnKey: usesOwnImageKey,
+    });
+  }
+
+  // Only charged against the daily cap when GrowthBook is paying.
+  if (generated.length > 0 && !usesOwnImageKey) {
     try {
       await updateTokenUsage({
         organization: org,
@@ -166,7 +195,11 @@ export const postAIImageGen = createApiRequestHandler(validation)(async (
   let unoptimizedCount = 0;
   for (let i = 0; i < generated.length; i++) {
     const img = generated[i];
-    const optimized = await optimizeAIImage(img);
+    // When replacing an existing <img>, the extension sends its exact natural
+    // dimensions as `aspectRatio` ("W:H"). Crop the generated image to that
+    // aspect so it slots in cleanly instead of being center-cropped/zoomed by
+    // the page. Undefined for inserts / background-image targets → plain fit.
+    const optimized = await optimizeAIImage(img, { cropToAspect: aspectRatio });
     if (!optimized.optimized) unoptimizedCount++;
     beforeBytes += img.buffer.length;
     afterBytes += optimized.buffer.length;

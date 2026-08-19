@@ -2,9 +2,14 @@ import md5 from "md5";
 import {
   ExperimentMetricInterface,
   getAutoSliceMetrics,
+  getFactMetricPrimaryFactTableId,
   isSliceMetric,
 } from "shared/experiments";
-import { getIncrementalPipelineUnsupportedReason } from "shared/enterprise";
+import {
+  getIncrementalPipelineUnsupportedReason,
+  INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS,
+  overallResultsBuiltWithoutIncrementalPipeline,
+} from "shared/enterprise";
 import {
   AggregatedFactTableInterface,
   AggregatedFactTableMetricStateInterface,
@@ -21,10 +26,11 @@ import {
   FactTableInterface,
 } from "shared/types/fact-table";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { IncrementalUpdateRequiresFullRefreshError } from "back-end/src/util/errors";
+import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getFiltersForHash } from "back-end/src/services/experimentTimeSeries";
 import { getColumnsForMetric } from "back-end/src/integrations/sql/fact-metrics/columns-for-metric";
+import { getQueryableMetricsFromSnapshotSettings } from "back-end/src/services/experimentQueries/experimentQueries";
 import type { MetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
 
 /**
@@ -52,9 +58,10 @@ export async function assertIncrementalRefreshPrerequisites({
   incrementalRefreshModel: IncrementalRefreshInterface | null;
   analysisType: "main-update" | "main-fullRefresh" | "exploratory";
 }): Promise<void> {
-  const selectedMetrics = snapshotSettings.metricSettings
-    .map((m) => metricMap.get(m.id))
-    .filter((m) => m !== undefined);
+  const selectedMetrics = getQueryableMetricsFromSnapshotSettings(
+    snapshotSettings,
+    metricMap,
+  );
 
   const unsupportedReason = getIncrementalPipelineUnsupportedReason({
     datasourceProperties: integration.getSourceProperties(),
@@ -90,7 +97,7 @@ export async function assertIncrementalRefreshPrerequisites({
       getExperimentSettingsHashForIncrementalRefresh(snapshotSettings);
     const storedSettingsHash = incrementalRefreshModel.experimentSettingsHash;
     if (!storedSettingsHash || currentSettingsHash !== storedSettingsHash) {
-      throw new IncrementalUpdateRequiresFullRefreshError(
+      throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
         "The experiment configuration is outdated. Please run a Full Refresh.",
       );
     }
@@ -102,19 +109,32 @@ const hashObject = (obj: object) => md5(JSON.stringify(obj));
 export function getExperimentSettingsHashForIncrementalRefresh(
   snapshotSettings: ExperimentSnapshotSettings,
 ): string {
-  return hashObject({
-    // snapshotSettings
-    activationMetric: snapshotSettings.activationMetric,
-    attributionModel: snapshotSettings.attributionModel,
-    queryFilter: snapshotSettings.queryFilter,
-    segment: snapshotSettings.segment,
-    skipPartialData: snapshotSettings.skipPartialData,
-    datasourceId: snapshotSettings.datasourceId,
-    exposureQueryId: snapshotSettings.exposureQueryId,
-    startDate: snapshotSettings.startDate,
-    regressionAdjustmentEnabled: snapshotSettings.regressionAdjustmentEnabled,
-    experimentId: snapshotSettings.experimentId,
-  });
+  const settingsForHash: Record<string, unknown> = {};
+
+  for (const field of INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS) {
+    settingsForHash[field] = snapshotSettings[field];
+  }
+
+  return hashObject(settingsForHash);
+}
+
+/**
+ * A incremental refresh doc without a phase belongs to the phase
+ * that matches the experiment's settings hash.
+ */
+export function legacyDocDescribesPhase({
+  legacyDoc,
+  snapshotSettings,
+}: {
+  legacyDoc: IncrementalRefreshInterface;
+  snapshotSettings: ExperimentSnapshotSettings;
+}): boolean {
+  const storedHash = legacyDoc.experimentSettingsHash;
+  if (!storedHash) return false;
+  return (
+    storedHash ===
+    getExperimentSettingsHashForIncrementalRefresh(snapshotSettings)
+  );
 }
 
 type ComputedSettingsForSnapshot = NonNullable<
@@ -167,7 +187,7 @@ export function getMetricSettingsHashForIncrementalRefresh({
   factTableMap: Map<string, FactTableInterface>;
   metricSettings?: MetricForSnapshot;
 }): string {
-  const numeratorFactTableId = factMetric.numerator.factTableId;
+  const numeratorFactTableId = getFactMetricPrimaryFactTableId(factMetric);
   const numeratorFactTable = numeratorFactTableId
     ? factTableMap?.get(numeratorFactTableId)
     : undefined;
@@ -297,7 +317,7 @@ export function getMetricSettingsHashForAggregatedFactTable({
   factMetric: FactMetricInterface;
   factTableId: string;
 }): string {
-  const includeNumerator = factMetric.numerator.factTableId === factTableId;
+  const includeNumerator = factMetric.numerator?.factTableId === factTableId;
   const includeDenominator =
     !!factMetric.denominator &&
     factMetric.denominator.factTableId === factTableId;
@@ -473,4 +493,28 @@ export function getAggregatedFactTableRestateReason({
     return "schema-drift";
   }
   return null;
+}
+
+// True when a dimension breakdown would read a units table built under different
+// experiment-level settings.
+export function exploratoryOverallRequiresFullRefresh({
+  snapshotSettings,
+  incrementalRefreshModel,
+  latestOverallSnapshotId,
+}: {
+  snapshotSettings: ExperimentSnapshotSettings;
+  incrementalRefreshModel: IncrementalRefreshInterface;
+  latestOverallSnapshotId: string | null;
+}): boolean {
+  const currentSettingsHash =
+    getExperimentSettingsHashForIncrementalRefresh(snapshotSettings);
+  const storedSettingsHash = incrementalRefreshModel.experimentSettingsHash;
+  if (!storedSettingsHash || currentSettingsHash !== storedSettingsHash) {
+    return true;
+  }
+  return overallResultsBuiltWithoutIncrementalPipeline({
+    unitsTableFullName: incrementalRefreshModel.unitsTableFullName,
+    materializedBySnapshotId: incrementalRefreshModel.materializedBySnapshotId,
+    latestOverallSnapshotId,
+  });
 }
