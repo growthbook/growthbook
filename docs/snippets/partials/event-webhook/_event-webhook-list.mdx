@@ -16,6 +16,8 @@
 | **[feature.rampSchedule.actions.jumped](#feature-rampSchedule-actions-jumped)**                               | Triggered when a feature ramp schedule is jumped to a specific step                                                                                                                                                     |
 | **[feature.rampSchedule.actions.step.advanced](#feature-rampSchedule-actions-step-advanced)**                 | Triggered when a feature ramp schedule advances to the next step                                                                                                                                                        |
 | **[feature.rampSchedule.actions.step.approvalRequired](#feature-rampSchedule-actions-step-approvalrequired)** | Triggered when a feature ramp step is waiting for approval                                                                                                                                                              |
+| **[feature.rampSchedule.actions.awaitingStartApproval](#feature-rampSchedule-actions-awaitingstartapproval)** | Triggered when a feature ramp schedule is published but held at the start, awaiting an explicit start approval                                                                                                          |
+| **[feature.rampSchedule.actions.startApproved](#feature-rampSchedule-actions-startapproved)**                 | Triggered when a held ramp schedule's start is approved by a user                                                                                                                                                       |
 | **[feature.revision.created](#feature-revision-created)**                                                     | Triggered when a new draft revision is created for a feature                                                                                                                                                            |
 | **[feature.revision.updated](#feature-revision-updated)**                                                     | Triggered when a draft revision is modified (rules, default value, toggles, prerequisites, metadata, etc.). The `change` field indicates the specific kind of mutation.                                                 |
 | **[feature.revision.reviewRequested](#feature-revision-reviewrequested)**                                     | Triggered when a draft revision is submitted for review                                                                                                                                                                 |
@@ -768,6 +770,98 @@ Triggered when a feature ramp step is waiting for approval
             currentStepIndex: number;
             status: string;
             approvalNotes?: (string | null) | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+
+</Accordion>
+
+### feature.rampSchedule.actions.awaitingStartApproval
+
+Triggered when a feature ramp schedule is published but held at the start, awaiting an explicit start approval
+
+<Accordion title="Payload">
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.awaitingStartApproval";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+
+</Accordion>
+
+### feature.rampSchedule.actions.startApproved
+
+Triggered when a held ramp schedule's start is approved by a user
+
+<Accordion title="Payload">
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.startApproved";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
         };
     };
     user: {
