@@ -218,7 +218,7 @@ export default function ApprovalFlowSettings() {
                       <Flex align="start" justify="between" gap="3" mb="4">
                         <Text size="sm" color="text-low">
                           {scope
-                            ? "A copy of the All Projects rule. Later changes to All Projects do not reach it."
+                            ? "These Projects use this rule instead of All Projects, and do not pick up later changes to it. Reset a section to re-sync it, or Remove override to follow All Projects again."
                             : "Applies to every Project without an override of its own."}
                         </Text>
                         {scope ? (
@@ -234,7 +234,7 @@ export default function ApprovalFlowSettings() {
                       </Flex>
 
                       {scope ? (
-                        <Box mb="4" width="360px">
+                        <Box mb="4">
                           <MultiSelectField
                             legacyHeight
                             id={`approval-scope-projects-${tab.id}`}
@@ -252,7 +252,6 @@ export default function ApprovalFlowSettings() {
                                   ),
                               )
                               .map((p) => ({ value: p.id, label: p.name }))}
-                            helpText="These Projects share this rule."
                           />
                         </Box>
                       ) : null}
