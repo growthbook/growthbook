@@ -1012,6 +1012,7 @@ const startExperimentIncrementalRefreshQueries = async (
 
       const statisticsQuery = await startQuery({
         name: `statistics_${group.groupId}`,
+        resultMetricIds: sameFtMetrics.map((metric) => metric.id),
         displayTitle: `Compute Statistics ${sourceName}`,
         query: integration.getIncrementalRefreshStatisticsQuery({
           settings: snapshotSettings,
@@ -1081,6 +1082,7 @@ const startExperimentIncrementalRefreshQueries = async (
 
     const crossStatsQuery = await startQuery({
       name: `statistics_cross_${pipelineA.group.groupId}__${pipelineB.group.groupId}`,
+      resultMetricIds: subGroup.metrics.map(({ metric }) => metric.id),
       displayTitle: `Compute Cross-Fact Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         settings: snapshotSettings,
@@ -1256,6 +1258,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
         analysisSettings: this.model.analyses.map((a) => a.settings),
         variationNames: this.variationNames,
         metricMap: this.metricMap,
+        queries: this.model.queries,
       });
 
     const result: SnapshotResult = {

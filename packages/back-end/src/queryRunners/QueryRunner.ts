@@ -58,6 +58,7 @@ export type ProcessedRowsType = Record<string, any>;
 
 export type StartQueryParams<Rows, ProcessedRows> = {
   name: string;
+  resultMetricIds?: string[];
   displayTitle?: string;
   query: string;
   dependencies: string[];
@@ -895,6 +896,7 @@ export abstract class QueryRunner<
       onFailure: specifiedOnFailureCallback,
       onSuccess,
       queryType,
+      resultMetricIds,
     } = params;
     // Re-use recent identical query if it exists
     if (this.useCache) {
@@ -966,6 +968,7 @@ export abstract class QueryRunner<
             query: copiedCachedDoc.id,
             status: copiedCachedDoc.status,
             queryType,
+            resultMetricIds,
           };
         }
       } catch (e) {
@@ -1018,6 +1021,7 @@ export abstract class QueryRunner<
       query: doc.id,
       status: doc.status,
       queryType,
+      resultMetricIds,
     };
   }
 

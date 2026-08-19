@@ -7,7 +7,12 @@ import {
   getQueryFailureError,
 } from "back-end/src/queryRunners/QueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
-import { getQueriesByIds, updateQuery } from "back-end/src/models/QueryModel";
+import {
+  createNewQueryFromCached,
+  getQueriesByIds,
+  getRecentQuery,
+  updateQuery,
+} from "back-end/src/models/QueryModel";
 
 jest.mock("back-end/src/models/QueryModel");
 
@@ -148,6 +153,46 @@ describe("getQueryFailureError", () => {
 });
 
 describe("QueryRunner", () => {
+  describe("startQuery", () => {
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it("uses result metric ownership from the current cached invocation", async () => {
+      const existing = createMockQuery("qry_existing", "succeeded");
+      const copied = createMockQuery("qry_copied", "succeeded");
+      (getRecentQuery as jest.Mock).mockResolvedValue(existing);
+      (createNewQueryFromCached as jest.Mock).mockResolvedValue(copied);
+      const runner = new TestQueryRunner(
+        createMockContext(),
+        {
+          id: "test-model",
+          organization: "test-org",
+          queries: [],
+          runStarted: null,
+        },
+        createMockIntegration(),
+      );
+
+      const pointer = await runner.startQuery({
+        name: "group_0",
+        resultMetricIds: ["metric_a", "metric_b"],
+        query: "SELECT 1",
+        dependencies: [],
+        run: async () => ({ rows: [] }),
+        queryType: "experimentMultiMetric",
+      });
+
+      expect(pointer).toEqual({
+        name: "group_0",
+        query: copied.id,
+        status: copied.status,
+        queryType: "experimentMultiMetric",
+        resultMetricIds: ["metric_a", "metric_b"],
+      });
+    });
+  });
+
   describe("startReadyQueries", () => {
     let mockContext: ReqContext;
     let mockIntegration: SourceIntegrationInterface;

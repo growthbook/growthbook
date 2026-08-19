@@ -54,6 +54,7 @@ import {
   SnapshotSettingsVariation,
 } from "shared/types/experiment-snapshot";
 import { BanditResult } from "shared/types/experiment";
+import type { Queries } from "shared/types/query";
 import { checkSrm, chi2pvalue } from "back-end/src/util/stats";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { logger } from "back-end/src/util/logger";
@@ -72,6 +73,7 @@ import { splitFunnelMetricBlock } from "back-end/src/services/experimentQueries/
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { statsServerPool } from "back-end/src/services/python";
 import { metrics } from "back-end/src/util/metrics";
+import { getFailedExperimentMetricErrors } from "back-end/src/queryRunners/experimentResultErrors";
 
 export const MAX_DIMENSIONS = 20;
 
@@ -358,15 +360,34 @@ export function getMetricsAndQueryDataForStatsEngine(
   queryData: QueryMap,
   metricMap: Map<string, ExperimentMetricInterface>,
   settings: ExperimentSnapshotSettings,
+  queryFailureContext?: {
+    queries: Queries;
+    allQueryData: QueryMap;
+  },
 ) {
   const queryResults: QueryResultsForStatsEngine[] = [];
   const metricSettings: Record<string, MetricSettingsForStatsEngine> = {};
   let unknownVariations: string[] = [];
+  const queryMetricErrors = queryFailureContext
+    ? getFailedExperimentMetricErrors({
+        queryData: filterParentQueryMap(queryData),
+        allQueryData: queryFailureContext.allQueryData,
+        queries: queryFailureContext.queries,
+      })
+    : new Map<string, string>();
   // Everything done in a single query (Mixpanel, Google Analytics)
   // Need to convert to the same format as SQL rows
   if (queryData.has("results")) {
     const results = queryData.get("results");
     if (!results) throw new Error("Empty experiment results");
+    if (results.status === "failed") {
+      return {
+        queryResults,
+        metricSettings,
+        unknownVariations,
+        queryMetricErrors,
+      };
+    }
     const data = results.result as ExperimentResults;
 
     unknownVariations = data.unknownVariations;
@@ -410,6 +431,9 @@ export function getMetricsAndQueryDataForStatsEngine(
       // Skip precomputed unit dimension queries
       // while they are executed here, they are used by per–unit-dimension analyses
       if (parseUnitDimQueryName(key)) {
+        return;
+      }
+      if (query.status === "failed") {
         return;
       }
       // Multi-metric query
@@ -502,6 +526,7 @@ export function getMetricsAndQueryDataForStatsEngine(
     queryResults,
     metricSettings,
     unknownVariations,
+    queryMetricErrors,
   };
 }
 
@@ -561,12 +586,14 @@ export function parseStatsEngineResult({
   snapshotSettings,
   queryResults,
   unknownVariations,
+  queryMetricErrors,
   result,
 }: {
   analysisSettings: ExperimentSnapshotAnalysisSettings[];
   snapshotSettings: Pick<ExperimentSnapshotSettings, "variations">;
   queryResults: QueryResultsForStatsEngine[];
   unknownVariations: string[];
+  queryMetricErrors?: ReadonlyMap<string, string>;
   result: ExperimentMetricAnalysis;
 }): ExperimentReportResults[] {
   let unknownVariationsCopy = [...unknownVariations];
@@ -584,13 +611,14 @@ export function parseStatsEngineResult({
   analysisSettings.forEach((_, i) => {
     const dimensionMap: Map<string, ExperimentReportResultDimension> =
       new Map();
-    const metricErrors = new Map<string, string>();
+    const metricErrors = new Map(queryMetricErrors);
     result.forEach(({ metric, analyses, error }) => {
       const metricError = error ?? null;
       if (metricError !== null) {
         metricErrors.set(metric, metricError);
         return;
       }
+      metricErrors.delete(metric);
 
       // each result can have multiple analyses (a set of computations that
       // use the same snapshot)
@@ -708,7 +736,7 @@ export async function writeSnapshotAnalyses(
 
     const { snapshot, snapshotSettings } = params.context;
     const { analyses, queryResults } = params.params;
-    const { analysisObj, unknownVariations } = params.data;
+    const { analysisObj, unknownVariations, queryMetricErrors } = params.data;
 
     if (result.error) {
       analysisObj.results = [];
@@ -721,6 +749,7 @@ export async function writeSnapshotAnalyses(
           snapshotSettings,
           queryResults,
           unknownVariations,
+          queryMetricErrors,
           result: result.results,
         });
 
@@ -748,12 +777,16 @@ export async function analyzeExperimentResults({
   snapshotSettings,
   variationNames,
   metricMap,
+  queries,
+  allQueryData,
 }: {
   queryData: QueryMap;
   analysisSettings: ExperimentSnapshotAnalysisSettings[];
   snapshotSettings: ExperimentSnapshotSettings;
   variationNames: string[];
   metricMap: Map<string, ExperimentMetricInterface>;
+  queries: Queries;
+  allQueryData?: QueryMap;
 }): Promise<{
   results: ExperimentReportResults[];
   banditResult?: BanditResult;
@@ -763,8 +796,12 @@ export async function analyzeExperimentResults({
     parentQueryData,
     metricMap,
     snapshotSettings,
+    {
+      queries,
+      allQueryData: allQueryData ?? queryData,
+    },
   );
-  const { queryResults, metricSettings } = mdat;
+  const { queryResults, metricSettings, queryMetricErrors } = mdat;
   const { unknownVariations } = mdat;
 
   const params: ExperimentMetricAnalysisParams = {
@@ -791,6 +828,7 @@ export async function analyzeExperimentResults({
     snapshotSettings,
     queryResults,
     unknownVariations,
+    queryMetricErrors,
     result: analysis,
   });
   return { results, banditResult };

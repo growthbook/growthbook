@@ -15,6 +15,7 @@ export const queriesSchema = [
     status: String,
     name: String,
     queryType: String,
+    resultMetricIds: [String],
   },
 ];
 

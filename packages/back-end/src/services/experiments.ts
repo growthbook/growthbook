@@ -2657,12 +2657,21 @@ async function getSnapshotAnalyses(
       queryMap,
       expandedMetricMap,
       snapshot.settings,
+      {
+        queries: snapshot.queries,
+        allQueryData: queryMap,
+      },
     );
     const id = `${i}_${experiment.id}_${snapshot.id}`;
     const variationNames = getLatestPhaseVariations(experiment).map(
       (v) => v.name,
     );
-    const { queryResults, metricSettings, unknownVariations } = mdat;
+    const {
+      queryResults,
+      metricSettings,
+      unknownVariations,
+      queryMetricErrors,
+    } = mdat;
 
     analysisParamsMap.set(id, {
       params: {
@@ -2689,6 +2698,7 @@ async function getSnapshotAnalyses(
       },
       data: {
         unknownVariations: unknownVariations,
+        queryMetricErrors,
         analysisObj: analysis,
       },
     });
@@ -2811,6 +2821,8 @@ export async function createSnapshotAnalysis(
     analysisSettings: [analysisSettings],
     variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
     metricMap: metricMap,
+    queries: snapshot.queries,
+    allQueryData: fullQueryMap,
   });
   analysis.results = results[0]?.dimensions || [];
   analysis.status = "success";
@@ -2882,6 +2894,8 @@ export async function createSnapshotAnalysesBatched(
       analysisSettings: analysisSettingsList,
       variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
       metricMap,
+      queries: snapshot.queries,
+      allQueryData: fullQueryMap,
     });
 
     completedAnalyses = analyses.map((analysis, i) => ({

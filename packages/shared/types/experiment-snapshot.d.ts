@@ -325,6 +325,7 @@ export type ExperimentMetricAnalysisContext = {
 export type ExperimentMetricAnalysisData = {
   analysisObj: ExperimentSnapshotAnalysis;
   unknownVariations: string[];
+  queryMetricErrors?: ReadonlyMap<string, string>;
 };
 
 export type ExperimentAnalysisParamsContextData = {

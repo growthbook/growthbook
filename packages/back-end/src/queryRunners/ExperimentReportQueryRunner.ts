@@ -96,6 +96,7 @@ export class ExperimentReportQueryRunner extends QueryRunner<
         metricMap: this.metricMap,
         snapshotSettings,
         analysisSettings: [analysisSettings],
+        queries: this.model.queries,
       });
       return results[0];
     }
