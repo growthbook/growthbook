@@ -16,6 +16,7 @@ import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Callout from "@/ui/Callout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import {
   DropdownMenu,
@@ -142,6 +143,21 @@ export default function ApprovalFlowSettings() {
     setActiveTab(ALL_PROJECTS_TAB);
   };
 
+  const overlappingProjects = (() => {
+    const counts = new Map<string, number>();
+    [
+      ...flagRules.map((r) => r.projects),
+      ...savedGroupRules.map((r) => r.projects),
+    ].forEach((claimed) =>
+      (claimed ?? []).forEach((id) =>
+        counts.set(id, (counts.get(id) ?? 0) + 1),
+      ),
+    );
+    return [...counts.entries()]
+      .filter(([, n]) => n > 1)
+      .map(([id]) => projects.find((p) => p.id === id)?.name ?? id);
+  })();
+
   const availableProjects = projects.filter(
     (p) => !allTabs.some((t) => scopeProjects(t.scope).includes(p.id)),
   );
@@ -163,6 +179,14 @@ export default function ApprovalFlowSettings() {
               Approval requirements apply per Project. Everything inside the
               panel below belongs to the selected Project scope.
             </Text>
+            {overlappingProjects.length > 0 && (
+              <Callout status="warning" mb="3">
+                {overlappingProjects.join(", ")}{" "}
+                {overlappingProjects.length === 1 ? "appears" : "appear"} in
+                more than one rule. Only the first matching rule applies, so
+                remove the duplicates to make the outcome unambiguous.
+              </Callout>
+            )}
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <Flex align="center" justify="between" gap="3" wrap="wrap">
                 <TabsList>
@@ -218,7 +242,7 @@ export default function ApprovalFlowSettings() {
                       <Flex align="start" justify="between" gap="3" mb="4">
                         <Text size="sm" color="text-low">
                           {scope
-                            ? 'These settings override the base settings in the "All Projects" tab, and do not follow later changes to it. Each Project belongs to a single override.'
+                            ? 'These settings override the base settings in the "All Projects" tab. Each Project belongs to a single override.'
                             : "Applies to every Project without an override of its own."}
                         </Text>
                         {scope ? (
