@@ -40,12 +40,15 @@ export default function addRefreshStaleSdkConnectionsJob(agenda: Agenda) {
       if (!organization) return;
       hasAnyStaleSdkConnection(organization)
         .then((stale) => {
-          // A write landing mid-run marked new staleness; run again for it.
+          // A write came in and marked the org as stale while the job was running,
+          // so we need to kick off a new job to process the new stale connections.
           if (stale) return scheduleOrgRefreshJob(organization);
         })
         .catch((e) => {
-          // Either the re-check or the reschedule failed — reschedule (again)
-          // to be safe: a no-op pass is cheap, a stranded stale mark isn't.
+          // The re-check or reschedule failed (e.g. a transient DB error) — we
+          // can't tell if the org is actually stale, so reschedule anyway. A
+          // no-op pass is cheap; skipping it could leave a real stale mark with
+          // no job to clear it.
           logger.error(
             e,
             `Error rescheduling stale SDK connection refresh for org ${organization}; retrying the reschedule`,
