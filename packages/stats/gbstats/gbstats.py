@@ -1413,13 +1413,20 @@ def process_experiment_results(
                             )
                         )
                     else:
-                        results.append(
-                            process_single_metric(
-                                rows=rows,
-                                metric=this_metric,
-                                analyses=d.analyses,
+                        try:
+                            results.append(
+                                process_single_metric(
+                                    rows=rows,
+                                    metric=this_metric,
+                                    analyses=d.analyses,
+                                )
                             )
-                        )
+                        except Exception as e:
+                            results.append(
+                                ExperimentMetricAnalysis(
+                                    metric=metric, analyses=[], error=str(e)
+                                )
+                            )
 
     if d.bandit_settings and bandit_result is None:
         bandit_result = get_error_bandit_result(

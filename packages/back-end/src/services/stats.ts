@@ -512,7 +512,51 @@ const getFormattedCI = (
   return [ci[0] ?? -Infinity, ci[1] ?? Infinity];
 };
 
-function parseStatsEngineResult({
+export function addMetricErrorsToDimensions(
+  dimensions: readonly ExperimentReportResultDimension[],
+  metricErrors: ReadonlyMap<string, string>,
+  variationCount: number,
+): ExperimentReportResultDimension[] {
+  const result: ExperimentReportResultDimension[] =
+    dimensions.length > 0
+      ? dimensions.map((dimension) => ({
+          ...dimension,
+          variations: dimension.variations.map((variation) => ({
+            ...variation,
+            metrics: { ...variation.metrics },
+          })),
+        }))
+      : metricErrors.size > 0
+        ? [
+            {
+              name: "All",
+              srm: 1,
+              variations: Array.from({ length: variationCount }, () => ({
+                users: 0,
+                metrics: {},
+              })),
+            },
+          ]
+        : [];
+
+  result.forEach((dimension) => {
+    dimension.variations.forEach((variation) => {
+      metricErrors.forEach((errorMessage, metric) => {
+        variation.metrics[metric] = {
+          users: 0,
+          value: 0,
+          cr: 0,
+          buckets: [],
+          errorMessage,
+        };
+      });
+    });
+  });
+
+  return result;
+}
+
+export function parseStatsEngineResult({
   analysisSettings,
   snapshotSettings,
   queryResults,
@@ -520,7 +564,7 @@ function parseStatsEngineResult({
   result,
 }: {
   analysisSettings: ExperimentSnapshotAnalysisSettings[];
-  snapshotSettings: ExperimentSnapshotSettings;
+  snapshotSettings: Pick<ExperimentSnapshotSettings, "variations">;
   queryResults: QueryResultsForStatsEngine[];
   unknownVariations: string[];
   result: ExperimentMetricAnalysis;
@@ -540,7 +584,14 @@ function parseStatsEngineResult({
   analysisSettings.forEach((_, i) => {
     const dimensionMap: Map<string, ExperimentReportResultDimension> =
       new Map();
-    result.forEach(({ metric, analyses }) => {
+    const metricErrors = new Map<string, string>();
+    result.forEach(({ metric, analyses, error }) => {
+      const metricError = error ?? null;
+      if (metricError !== null) {
+        metricErrors.set(metric, metricError);
+        return;
+      }
+
       // each result can have multiple analyses (a set of computations that
       // use the same snapshot)
       // we loop over the analyses requested and pull out the results for each one
@@ -613,20 +664,27 @@ function parseStatsEngineResult({
       });
     });
 
-    const dimensions = Array.from(dimensionMap.values());
-    if (!dimensions.length) {
-      dimensions.push({
-        name: "All",
-        srm: 1,
-        variations: [],
-      });
-    } else {
+    let dimensions = Array.from(dimensionMap.values());
+    if (dimensions.length > 0) {
       dimensions.forEach((dimension) => {
         // Calculate SRM
         dimension.srm = checkSrm(
           dimension.variations.map((v) => v.users),
           snapshotSettings.variations.map((v) => v.weight),
         );
+      });
+    }
+
+    dimensions = addMetricErrorsToDimensions(
+      dimensions,
+      metricErrors,
+      snapshotSettings.variations.length,
+    );
+    if (dimensions.length === 0) {
+      dimensions.push({
+        name: "All",
+        srm: 1,
+        variations: [],
       });
     }
     experimentReportResults.push({

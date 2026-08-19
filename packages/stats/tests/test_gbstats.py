@@ -1,6 +1,7 @@
 import dataclasses
 from functools import partial
 from unittest import TestCase, main as unittest_main
+from unittest.mock import patch
 import numpy as np
 import pandas as pd
 import copy
@@ -18,6 +19,7 @@ from gbstats.gbstats import (
     get_bandit_result,
     create_bandit_statistics,
     preprocess_bandits,
+    process_multiple_experiment_results,
 )
 from gbstats.bayesian.bandits import BanditsSimple, BanditConfig
 
@@ -29,6 +31,8 @@ from gbstats.models.statistics import (
 from gbstats.models.results import (
     BaselineResponse,
     BayesianVariationResponseIndividual,
+    ExperimentMetricAnalysis,
+    ExperimentMetricAnalysisResult,
     FrequentistVariationResponseIndividual,
     MetricStats,
     FrequentistVariationResponse,
@@ -382,6 +386,60 @@ BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
     weight_by_period=True,
     top_two=True,
 )
+
+
+class TestProcessMultipleExperimentResults(TestCase):
+    def test_isolates_single_metric_failure(self):
+        good_metric = dataclasses.replace(COUNT_METRIC, id="good_metric")
+        bad_metric = dataclasses.replace(COUNT_METRIC, id="bad_metric")
+        good_result = ExperimentMetricAnalysis(
+            metric=good_metric.id,
+            analyses=[
+                ExperimentMetricAnalysisResult(
+                    unknownVariations=[],
+                    multipleExposures=0,
+                    dimensions=[],
+                )
+            ],
+        )
+
+        def process_metric(**kwargs):
+            metric = kwargs["metric"]
+            if metric.id == bad_metric.id:
+                raise ValueError("bad metric data")
+            return good_result
+
+        data = [
+            {
+                "id": "experiment",
+                "data": {
+                    "metrics": {
+                        good_metric.id: dataclasses.asdict(good_metric),
+                        bad_metric.id: dataclasses.asdict(bad_metric),
+                    },
+                    "analyses": [dataclasses.asdict(DEFAULT_ANALYSIS)],
+                    "query_results": [
+                        {
+                            "rows": [{"dimension": "All"}],
+                            "metrics": [good_metric.id, bad_metric.id],
+                        }
+                    ],
+                },
+            }
+        ]
+
+        with patch(
+            "gbstats.gbstats.process_single_metric",
+            side_effect=process_metric,
+        ):
+            experiment_result = process_multiple_experiment_results(data)[0]
+
+        self.assertIsNone(experiment_result.error)
+        self.assertEqual(len(experiment_result.results), 2)
+        self.assertEqual(experiment_result.results[0], good_result)
+        self.assertEqual(experiment_result.results[1].metric, bad_metric.id)
+        self.assertEqual(experiment_result.results[1].analyses, [])
+        self.assertEqual(experiment_result.results[1].error, "bad metric data")
 
 
 class TestBanditMinVariationWeightFloor(TestCase):
