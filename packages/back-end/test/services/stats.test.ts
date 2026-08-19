@@ -160,7 +160,7 @@ describe("parseStatsEngineResult", () => {
     });
   });
 
-  it("includes the stats traceback in the metric error message", () => {
+  it("keeps the stats traceback out of the persisted metric error message", () => {
     const [result] = parseStatsEngineResult({
       analysisSettings: [analysisSettings],
       snapshotSettings: { variations },
@@ -174,10 +174,8 @@ describe("parseStatsEngineResult", () => {
       ],
     });
 
-    expect(
-      result.dimensions[0].variations[0].metrics.failed.errorMessage,
-    ).toBe(
-      "metric analysis failed\n\nTraceback line one\nTraceback line two",
+    expect(result.dimensions[0].variations[0].metrics.failed.errorMessage).toBe(
+      "metric analysis failed",
     );
   });
 
