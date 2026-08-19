@@ -16,6 +16,7 @@ export const queryPointerValidator = z
     status: queryStatusValidator,
     name: z.string(),
     queryType: z.string().optional(),
+    resultMetricIds: z.array(z.string()).optional(),
   })
   .strict();
 

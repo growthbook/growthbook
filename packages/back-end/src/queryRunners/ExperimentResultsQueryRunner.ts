@@ -67,7 +67,8 @@ import {
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
-import { getExperimentResultStatus } from "./experimentResultStatus";
+import { getParentExperimentResultStatus } from "./experimentResultStatus";
+import { getExperimentResultMetricIds } from "./experimentResultMetricIds";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
 import { getUnitDimQueryName } from "./unitDimensionQueryNaming";
 export type SnapshotResult = {
@@ -293,6 +294,7 @@ export const startExperimentResultQueries = async (
     queries.push(
       await startQuery({
         name: m.id,
+        resultMetricIds: [m.id],
         query: integration.getSnapshotMetricQuery(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
         run: (query, setExternalId, queryMetadata) =>
@@ -334,6 +336,7 @@ export const startExperimentResultQueries = async (
     queries.push(
       await startQuery({
         name: `group_${i}`,
+        resultMetricIds: getExperimentResultMetricIds(m),
         query: integration.getExperimentFactMetricsQuery(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
         run: (query, setExternalId, queryMetadata) =>
@@ -375,6 +378,7 @@ export const startExperimentResultQueries = async (
         queries.push(
           await startQuery({
             name: getUnitDimQueryName(dimensionId, `group_${i}`),
+            resultMetricIds: getExperimentResultMetricIds(m),
             query: integration.getExperimentFactMetricsQuery(queryParams),
             dependencies: [unitQuery.query],
             run: (query, setExternalId, queryMetadata) =>
@@ -421,6 +425,7 @@ export const startExperimentResultQueries = async (
         queries.push(
           await startQuery({
             name: getUnitDimQueryName(dimensionId, m.id),
+            resultMetricIds: [m.id],
             query: integration.getSnapshotMetricQuery(queryParams),
             dependencies: [unitQuery.query],
             run: (query, setExternalId, queryMetadata) =>
@@ -511,7 +516,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
 
   protected override getOverallQueryStatus(): QueryStatus {
-    return getExperimentResultStatus(this.model.queries);
+    return getParentExperimentResultStatus(this.model.queries);
   }
 
   async startQueries(params: ExperimentResultsQueryParams): Promise<Queries> {
@@ -544,6 +549,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         analysisSettings: this.model.analyses.map((a) => a.settings),
         variationNames: this.variationNames,
         metricMap: this.metricMap,
+        queries: this.model.queries,
       });
 
     const result: SnapshotResult = {
@@ -727,6 +733,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       await this.startQuery({
         queryType: "experimentResults",
         name: "results",
+        resultMetricIds: getExperimentResultMetricIds(selectedMetrics),
         query: query,
         dependencies: [],
         run: async () => {

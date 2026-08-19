@@ -1,10 +1,14 @@
 import type {
   ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotSettings,
   SnapshotSettingsVariation,
 } from "shared/types/experiment-snapshot";
 import type { ExperimentMetricAnalysis } from "shared/types/stats";
+import type { QueryInterface } from "shared/types/query";
+import type { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import {
   addMetricErrorsToDimensions,
+  getMetricsAndQueryDataForStatsEngine,
   parseStatsEngineResult,
 } from "back-end/src/services/stats";
 
@@ -24,6 +28,33 @@ const variations: SnapshotSettingsVariation[] = [
   { id: "control", weight: 0.5 },
   { id: "treatment", weight: 0.5 },
 ];
+
+const snapshotSettings: ExperimentSnapshotSettings = {
+  manual: false,
+  dimensions: [],
+  metricSettings: [],
+  goalMetrics: [],
+  secondaryMetrics: [],
+  guardrailMetrics: [],
+  activationMetric: null,
+  defaultMetricPriorSettings: {
+    override: false,
+    proper: false,
+    mean: 0,
+    stddev: 0,
+  },
+  regressionAdjustmentEnabled: false,
+  attributionModel: "firstExposure",
+  experimentId: "experiment",
+  queryFilter: "",
+  segment: "",
+  skipPartialData: false,
+  datasourceId: "datasource",
+  exposureQueryId: "exposure",
+  startDate: new Date("2024-01-01"),
+  endDate: new Date("2024-01-31"),
+  variations,
+};
 
 const survivorResult: ExperimentMetricAnalysis[number] = {
   metric: "survivor",
@@ -60,6 +91,126 @@ const failedResult: ExperimentMetricAnalysis[number] = {
   analyses: [],
   error: "metric analysis failed",
 };
+
+function warehouseQuery({
+  id,
+  status,
+  error,
+}: {
+  id: string;
+  status: QueryInterface["status"];
+  error?: string;
+}): QueryInterface {
+  return {
+    id,
+    organization: "org",
+    datasource: "datasource",
+    language: "sql",
+    query: "SELECT 1",
+    status,
+    error,
+    createdAt: new Date(),
+    heartbeat: new Date(),
+  };
+}
+
+describe("partial warehouse results", () => {
+  it("preserves a failed group's metrics as errors beside surviving results", () => {
+    const failedGroup = warehouseQuery({
+      id: "failed_group",
+      status: "failed",
+      error: "Warehouse query timed out",
+    });
+    const survivingGroup = warehouseQuery({
+      id: "surviving_group",
+      status: "succeeded",
+    });
+    const queryData: QueryMap = new Map([
+      ["group_0", failedGroup],
+      ["group_1", survivingGroup],
+    ]);
+    const { queryResults, unknownVariations, queryMetricErrors } =
+      getMetricsAndQueryDataForStatsEngine(
+        queryData,
+        new Map(),
+        snapshotSettings,
+        {
+          queries: [
+            {
+              name: "group_0",
+              query: failedGroup.id,
+              status: "failed",
+              resultMetricIds: ["failed"],
+            },
+            {
+              name: "group_1",
+              query: survivingGroup.id,
+              status: "succeeded",
+              resultMetricIds: ["survivor"],
+            },
+          ],
+          allQueryData: queryData,
+        },
+      );
+
+    const [result] = parseStatsEngineResult({
+      analysisSettings: [analysisSettings],
+      snapshotSettings,
+      queryResults,
+      unknownVariations,
+      queryMetricErrors,
+      result: [survivorResult],
+    });
+
+    result.dimensions[0].variations.forEach((variation) => {
+      expect(variation.metrics.survivor).toBeDefined();
+      expect(variation.metrics.failed.errorMessage).toBe(
+        "Warehouse query timed out",
+      );
+    });
+  });
+
+  it("does not leak unit-dimension failures into parent results", () => {
+    const parentGroup = warehouseQuery({
+      id: "parent_group",
+      status: "succeeded",
+    });
+    const failedUnitDimensionGroup = warehouseQuery({
+      id: "unit_dimension_group",
+      status: "failed",
+      error: "Unit dimension query failed",
+    });
+    const queryData: QueryMap = new Map([
+      ["group_0", parentGroup],
+      ["unitdim:dimension:group_0", failedUnitDimensionGroup],
+    ]);
+
+    const { queryMetricErrors } = getMetricsAndQueryDataForStatsEngine(
+      queryData,
+      new Map(),
+      snapshotSettings,
+      {
+        queries: [
+          {
+            name: "group_0",
+            query: parentGroup.id,
+            status: "succeeded",
+            resultMetricIds: ["metric"],
+          },
+          {
+            name: "unitdim:dimension:group_0",
+            query: failedUnitDimensionGroup.id,
+            status: "failed",
+            resultMetricIds: ["metric"],
+          },
+        ],
+        allQueryData: queryData,
+      },
+    );
+
+    expect(queryMetricErrors).toEqual(new Map());
+  });
+});
 
 describe("addMetricErrorsToDimensions", () => {
   it("adds errors without mutating surviving dimensions", () => {
@@ -125,6 +276,44 @@ describe("addMetricErrorsToDimensions", () => {
 });
 
 describe("parseStatsEngineResult", () => {
+  it("attaches warehouse query errors alongside surviving metrics", () => {
+    const [result] = parseStatsEngineResult({
+      analysisSettings: [analysisSettings],
+      snapshotSettings: { variations },
+      queryResults: [],
+      unknownVariations: [],
+      queryMetricErrors: new Map([["failed", "Warehouse query timed out"]]),
+      result: [survivorResult],
+    });
+
+    result.dimensions[0].variations.forEach((variation) => {
+      expect(variation.metrics.survivor).toBeDefined();
+      expect(variation.metrics.failed).toEqual({
+        value: 0,
+        cr: 0,
+        users: 0,
+        buckets: [],
+        errorMessage: "Warehouse query timed out",
+      });
+    });
+  });
+
+  it("does not overwrite a successful metric with a query error", () => {
+    const [result] = parseStatsEngineResult({
+      analysisSettings: [analysisSettings],
+      snapshotSettings: { variations },
+      queryResults: [],
+      unknownVariations: [],
+      queryMetricErrors: new Map([["survivor", "Stale warehouse query error"]]),
+      result: [survivorResult],
+    });
+
+    expect(
+      result.dimensions[0].variations[0].metrics.survivor,
+    ).not.toHaveProperty("errorMessage");
+    expect(result.dimensions[0].variations[0].metrics.survivor.value).toBe(5);
+  });
+
   it("attaches a failed metric to every surviving variation", () => {
     const [result] = parseStatsEngineResult({
       analysisSettings: [analysisSettings],

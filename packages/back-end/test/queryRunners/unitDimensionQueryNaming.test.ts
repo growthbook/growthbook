@@ -1,6 +1,8 @@
 import {
   buildUnitDimensionQueryMap,
   filterParentQueryMap,
+  filterParentQueryPointers,
+  filterUnitDimensionQueryPointers,
   getUnitDimQueryName,
   parseUnitDimQueryName,
 } from "back-end/src/queryRunners/unitDimensionQueryNaming";
@@ -67,5 +69,24 @@ describe("unitDimensionQueryNaming", () => {
 
     expect(Array.from(result.keys())).toEqual(["met_1"]);
     expect(result.get("met_1")).toBe(parentMetricQuery);
+  });
+
+  it("filters query pointers to parent or one unit dimension", () => {
+    const pointers = [
+      { name: "group_0", query: "qry_parent" },
+      {
+        name: "unitdim:dim_country:group_0",
+        query: "qry_country",
+      },
+      {
+        name: "unitdim:dim_browser:group_0",
+        query: "qry_browser",
+      },
+    ];
+
+    expect(filterParentQueryPointers(pointers)).toEqual([pointers[0]]);
+    expect(filterUnitDimensionQueryPointers(pointers, "dim_country")).toEqual([
+      pointers[1],
+    ]);
   });
 });
