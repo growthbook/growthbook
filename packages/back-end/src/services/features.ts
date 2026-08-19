@@ -1211,13 +1211,19 @@ export async function refreshSDKPayloadCache({
   // Batch the promises in chunks of 4 at a time to avoid overloading Mongo
   await promiseAllChunks(promises, 4);
 
+  const failed = new Set(failedConnectionKeys);
+  const refreshedConnections = connectionsUpdated.filter(
+    (c) => !failed.has(c.key),
+  );
+
   const durationMs = Math.round(performance.now() - refreshStartedAt);
   recordSdkPayloadRefreshMetrics(durationMs);
   logger.info(
     {
       orgId: context.org.id,
-      connectionKeys: connectionsUpdated.map((c) => c.key),
-      connectionCount: connectionsUpdated.length,
+      connectionKeys: refreshedConnections.map((c) => c.key),
+      connectionCount: refreshedConnections.length,
+      failedConnectionKeys,
       payloadKeys,
       cacheLocation: storageLocation,
       auditContext: initialAuditContext,
@@ -1226,7 +1232,8 @@ export async function refreshSDKPayloadCache({
     "[sdk-payload] refresh completed",
   );
 
-  triggerWebhookJobs(context, payloadKeys, connectionsUpdated, true).catch(
+  // Delivering a failed connection would publish its stale cached payload; the retry delivers it.
+  triggerWebhookJobs(context, payloadKeys, refreshedConnections, true).catch(
     (e) => {
       logger.error(e, "Error triggering webhook jobs");
     },

@@ -85,6 +85,7 @@ const scheduleOrgRefreshJob = jest.requireMock(
   "back-end/src/jobs/refreshStaleSdkConnections",
 ).scheduleOrgRefreshJob as jest.Mock;
 const updateAllJobsMock = jest.requireMock("back-end/src/jobs/updateAllJobs");
+const triggerWebhookJobs = updateAllJobsMock.triggerWebhookJobs as jest.Mock;
 const triggerLegacyWebhookJobs =
   updateAllJobsMock.triggerLegacyWebhookJobs as jest.Mock;
 const purgeCDNCacheForEnvironments =
@@ -350,5 +351,13 @@ describe("refreshStaleSdkConnectionsForOrg", () => {
     expect(clearStaleSdkConnections).toHaveBeenCalledWith("org-1", [
       { key: "sdk-good", staleSince: staleGood },
     ]);
+    // Delivery skips the failed connection — publishing it would push its
+    // stale cached payload; the retry delivers it after a successful rebuild.
+    expect(triggerWebhookJobs).toHaveBeenCalledWith(
+      expect.anything(),
+      [],
+      [expect.objectContaining({ key: "sdk-good" })],
+      true,
+    );
   });
 });
