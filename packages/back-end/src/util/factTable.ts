@@ -165,9 +165,9 @@ export function columnsHaveAutoSlices(
 }
 
 export function columnsNeedDetection(
-  columns?: Array<{ datatype?: string }>,
+  columns?: Array<{ datatype?: string; deleted?: boolean }>,
 ): boolean {
-  return (columns ?? []).some((c) => !c.datatype);
+  return (columns ?? []).some((c) => !c.datatype && !c.deleted);
 }
 
 function isValidIanaTimezone(timezone: string): boolean {

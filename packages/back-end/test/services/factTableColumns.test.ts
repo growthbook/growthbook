@@ -3,10 +3,10 @@ import { DataSourceInterface } from "shared/types/datasource";
 import { TestQueryResult } from "shared/types/integrations";
 import {
   mergeRefreshedTopValues,
-  populateColumnTopValues,
+  refreshColumnTopValues,
   runColumnDetectionQuery,
   selectColumnsForTopValues,
-} from "back-end/src/jobs/refreshFactTableColumns";
+} from "back-end/src/services/factTableColumns";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { ReqContext } from "back-end/types/request";
@@ -202,7 +202,7 @@ describe("selectColumnsForTopValues", () => {
   });
 });
 
-describe("populateColumnTopValues", () => {
+describe("refreshColumnTopValues", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -233,7 +233,7 @@ describe("populateColumnTopValues", () => {
     // @ts-expect-error - this test only needs a datasource type
     const datasource: DataSourceInterface = { type: "bigquery" };
 
-    const refreshedColumns = await populateColumnTopValues(
+    const refreshedColumns = await refreshColumnTopValues(
       context,
       datasource,
       {
@@ -370,7 +370,7 @@ describe("mergeRefreshedTopValues", () => {
         }),
         makeCol("plan", {
           isAutoSliceColumn: true,
-          // populateColumnTopValues already derived these from the new top
+          // refreshColumnTopValues already derived these from the new top
           // values, since the current column had none.
           autoSlices: ["free", "pro"],
           topValues: ["free", "pro"],

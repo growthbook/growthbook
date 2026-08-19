@@ -46,13 +46,13 @@ import {
   getIntegrationIdentifierQuote,
 } from "back-end/src/services/datasource";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
 import {
   runColumnDetectionQuery,
-  populateColumnTopValues,
+  refreshColumnTopValues,
   runColumnsTopValuesQuery,
   populateAutoSlices,
-  queueFactTableColumnsRefresh,
-} from "back-end/src/jobs/refreshFactTableColumns";
+} from "back-end/src/services/factTableColumns";
 import {
   deriveUserIdTypesFromColumns,
   validateAggregatedFactTableSettings,
@@ -357,7 +357,7 @@ export async function refreshColumns(
       datasource,
       factTable,
     );
-    await populateColumnTopValues(context, datasource, factTable, columns);
+    await refreshColumnTopValues(context, datasource, factTable, columns);
     return { columns, needsBackgroundRefresh: false };
   }
 }

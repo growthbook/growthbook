@@ -310,8 +310,7 @@ async function ensureDemoFactTables(
           datatype: "string",
         },
       ],
-      // Datatypes are supplied above, so column detection is not pending. The
-      // refresh queued below only enriches topValues for filter autocomplete.
+      // Datatypes are known, so it is not pending detection.
       columnRefreshPending: false,
     });
 
@@ -355,8 +354,7 @@ async function ensureDemoFactTables(
           alwaysInlineFilter: true,
         },
       ],
-      // Datatypes are supplied above, so column detection is not pending. The
-      // refresh queued below only enriches topValues for filter autocomplete.
+      // Datatypes are known, so it is not pending detection.
       columnRefreshPending: false,
     });
 

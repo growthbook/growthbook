@@ -1273,28 +1273,33 @@ export async function deleteFactFilter(
 export function toFactTableApiInterface(
   factTable: FactTableInterface,
 ): ApiFactTable {
-  return {
-    id: factTable.id,
-    name: factTable.name,
-    description: factTable.description,
-    owner: factTable.owner,
-    projects: factTable.projects,
-    tags: factTable.tags,
-    datasource: factTable.datasource,
-    userIdTypes: factTable.userIdTypes,
-    aggregatedFactTableSettings:
-      factTable.aggregatedFactTableSettings ?? undefined,
-    sql: factTable.sql,
-    eventName: factTable.eventName,
-    columns: factTable.columns.map(toFactTableColumnApiInterface),
-    columnsError: factTable.columnsError,
-    columnRefreshPending: factTable.columnRefreshPending ?? false,
-    archived: factTable.archived,
-    autoSliceUpdatesEnabled: factTable.autoSliceUpdatesEnabled,
-    managedBy: factTable.managedBy || "",
-    dateCreated: factTable.dateCreated?.toISOString() || "",
-    dateUpdated: factTable.dateUpdated?.toISOString() || "",
-  };
+  const apiFactTable: { [K in keyof Required<ApiFactTable>]: ApiFactTable[K] } =
+    {
+      id: factTable.id,
+      name: factTable.name,
+      description: factTable.description,
+      owner: factTable.owner,
+      // Populated downstream by resolveOwnerEmail; listed here so the exhaustive
+      // type stays satisfied.
+      ownerEmail: undefined,
+      projects: factTable.projects,
+      tags: factTable.tags,
+      datasource: factTable.datasource,
+      userIdTypes: factTable.userIdTypes,
+      aggregatedFactTableSettings:
+        factTable.aggregatedFactTableSettings ?? undefined,
+      sql: factTable.sql,
+      eventName: factTable.eventName,
+      columns: factTable.columns.map(toFactTableColumnApiInterface),
+      columnsError: factTable.columnsError,
+      columnRefreshPending: factTable.columnRefreshPending ?? false,
+      archived: factTable.archived,
+      autoSliceUpdatesEnabled: factTable.autoSliceUpdatesEnabled,
+      managedBy: factTable.managedBy || "",
+      dateCreated: factTable.dateCreated?.toISOString() || "",
+      dateUpdated: factTable.dateUpdated?.toISOString() || "",
+    };
+  return apiFactTable;
 }
 
 export function toFactTableColumnApiInterface(
