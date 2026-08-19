@@ -30,7 +30,7 @@
         "description": "Propose a change on GitHub",
         "icon": "pencil",
         "href": {
-          "base": "https://github.com/growthbook/growthbook/edit/an/mintlify-docs/docs$path.mdx"
+          "base": "https://github.com/growthbook/growthbook/edit/main/docs$path.mdx"
         }
       },
       "chatgpt",
