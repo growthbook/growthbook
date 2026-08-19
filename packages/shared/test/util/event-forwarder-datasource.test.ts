@@ -738,6 +738,27 @@ describe("getUserIdTypesToAdd", () => {
     expect(getUserIdTypesToAdd(existing, built)).toEqual([]);
   });
 
+  it("does not re-add an attribute an older record already models", () => {
+    // No marker and a name that shares nothing with the attribute, so only its
+    // Linked Hash Attributes say it already covers user_id.
+    const existing = [
+      {
+        userIdType: "ef_user_id",
+        description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+        attributes: ["user_id"],
+      },
+    ];
+    const built = [
+      {
+        userIdType: "user_id",
+        managedBy: "api" as const,
+        sourceAttribute: "user_id",
+      },
+    ];
+
+    expect(getUserIdTypesToAdd(existing, built)).toEqual([]);
+  });
+
   it("treats userIdType names as case insensitive", () => {
     const existing = [
       { userIdType: "User_ID", description: "Existing", attributes: ["id"] },
