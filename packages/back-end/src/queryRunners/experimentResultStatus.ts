@@ -1,4 +1,5 @@
 import type { QueryStatus, QueryType } from "shared/types/query";
+import { filterParentQueryPointers } from "./unitDimensionQueryNaming";
 
 const EXPERIMENT_METRIC_QUERY_TYPES: ReadonlySet<string> = new Set([
   "experimentMetric",
@@ -34,4 +35,15 @@ export function getExperimentResultStatus(
   }
 
   return "succeeded";
+}
+
+export function getParentExperimentResultStatus(
+  queries: readonly (ExperimentResultQuery & { name: string })[],
+): QueryStatus {
+  if (
+    queries.some(({ status }) => status === "queued" || status === "running")
+  ) {
+    return "running";
+  }
+  return getExperimentResultStatus(filterParentQueryPointers(queries));
 }

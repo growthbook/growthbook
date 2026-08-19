@@ -672,6 +672,15 @@ describe("createSnapshotAnalysesBatched", () => {
         experiment: makeExperiment(),
         snapshot: {
           ...makeSnapshot(),
+          queries: [
+            ...makeSnapshot().queries,
+            {
+              query: "qry_unit_country",
+              name: "unitdim:dim_country:met_1",
+              status: "succeeded",
+              queryType: "experimentMetric",
+            },
+          ],
           settings: {
             ...makeSnapshot().settings,
             precomputedUnitDimensionIds: ["dim_country"],
@@ -718,6 +727,15 @@ describe("createSnapshotAnalysis", () => {
       experiment: makeExperiment(),
       snapshot: {
         ...makeSnapshot(),
+        queries: [
+          ...makeSnapshot().queries,
+          {
+            query: "qry_unit_country",
+            name: "unitdim:dim_country:met_1",
+            status: "succeeded",
+            queryType: "experimentMetric",
+          },
+        ],
         settings: {
           ...makeSnapshot().settings,
           precomputedUnitDimensionIds: ["dim_country"],
@@ -733,5 +751,125 @@ describe("createSnapshotAnalysis", () => {
       .queryData as Map<string, unknown>;
     expect(Array.from(queryData.keys())).toEqual(["met_1"]);
     expect(queryData.get("met_1")).toBe(unitQuery);
+  });
+
+  it("does not let a unit-dimension analysis borrow parent success", async () => {
+    (getQueryMap as jest.Mock).mockResolvedValue(
+      new Map([
+        ["met_1", { id: "qry_parent" }],
+        ["unitdim:dim_country:met_1", { id: "qry_unit_country" }],
+      ]),
+    );
+    const snapshot = {
+      ...makeSnapshot(),
+      queries: [
+        ...makeSnapshot().queries,
+        {
+          query: "qry_unit_country",
+          name: "unitdim:dim_country:met_1",
+          status: "failed" as const,
+          queryType: "experimentMetric",
+        },
+      ],
+      settings: {
+        ...makeSnapshot().settings,
+        precomputedUnitDimensionIds: ["dim_country"],
+      },
+    };
+
+    await expect(
+      createSnapshotAnalysis({ org: { id: "org_1" } } as never, {
+        experiment: makeExperiment(),
+        snapshot,
+        metricMap: new Map(),
+        analysisSettings: makeAnalysisSettings({
+          dimensions: ["dim_country"],
+        }),
+      }),
+    ).rejects.toThrow("Snapshot queries not available for analysis");
+    expect(analyzeExperimentResults).not.toHaveBeenCalled();
+  });
+
+  it("does not let a parent analysis borrow unit-dimension success", async () => {
+    (getQueryMap as jest.Mock).mockResolvedValue(
+      new Map([
+        ["met_1", { id: "qry_parent" }],
+        ["unitdim:dim_country:met_1", { id: "qry_unit_country" }],
+      ]),
+    );
+    const snapshot = {
+      ...makeSnapshot(),
+      queries: [
+        {
+          query: "qry_parent",
+          name: "met_1",
+          status: "failed" as const,
+          queryType: "experimentMetric",
+        },
+        {
+          query: "qry_unit_country",
+          name: "unitdim:dim_country:met_1",
+          status: "succeeded" as const,
+          queryType: "experimentMetric",
+        },
+      ],
+      settings: {
+        ...makeSnapshot().settings,
+        precomputedUnitDimensionIds: ["dim_country"],
+      },
+    };
+
+    await expect(
+      createSnapshotAnalysis({ org: { id: "org_1" } } as never, {
+        experiment: makeExperiment(),
+        snapshot,
+        metricMap: new Map(),
+        analysisSettings: makeAnalysisSettings(),
+      }),
+    ).rejects.toThrow("Snapshot queries not available for analysis");
+    expect(analyzeExperimentResults).not.toHaveBeenCalled();
+  });
+
+  it("hydrates legacy query types after applying parent scope", async () => {
+    (getQueryMap as jest.Mock).mockResolvedValue(
+      new Map([
+        ["met_1", { id: "qry_parent", queryType: "experimentMetric" }],
+        [
+          "unitdim:dim_country:met_1",
+          { id: "qry_unit_country", queryType: "experimentMetric" },
+        ],
+      ]),
+    );
+    (analyzeExperimentResults as jest.Mock).mockResolvedValue({
+      results: [{ dimensions: [] }],
+    });
+    const snapshot = {
+      ...makeSnapshot(),
+      queries: [
+        {
+          query: "qry_parent",
+          name: "met_1",
+          status: "succeeded" as const,
+        },
+        {
+          query: "qry_unit_country",
+          name: "unitdim:dim_country:met_1",
+          status: "failed" as const,
+        },
+      ],
+      settings: {
+        ...makeSnapshot().settings,
+        precomputedUnitDimensionIds: ["dim_country"],
+      },
+    };
+
+    await expect(
+      createSnapshotAnalysis({ org: { id: "org_1" } } as never, {
+        experiment: makeExperiment(),
+        snapshot,
+        metricMap: new Map(),
+        analysisSettings: makeAnalysisSettings(),
+      }),
+    ).resolves.toEqual(expect.objectContaining({ status: "success" }));
   });
 });

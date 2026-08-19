@@ -53,6 +53,21 @@ export function buildUnitDimensionQueryMap(
   return unitDimensionQueryMap;
 }
 
+export function filterUnitDimensionQueryPointers<T extends { name: string }>(
+  queries: readonly T[],
+  dimensionId: string,
+): T[] {
+  return queries.filter(
+    ({ name }) => parseUnitDimQueryName(name)?.dimensionId === dimensionId,
+  );
+}
+
+export function filterParentQueryPointers<T extends { name: string }>(
+  queries: readonly T[],
+): T[] {
+  return queries.filter(({ name }) => parseUnitDimQueryName(name) === null);
+}
+
 /** Query map for the parent snapshot's dimensionless gbstats pass. */
 export function filterParentQueryMap(queryMap: QueryMap): QueryMap {
   const parentQueryMap: QueryMap = new Map();

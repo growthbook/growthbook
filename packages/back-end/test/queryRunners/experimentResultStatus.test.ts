@@ -1,4 +1,7 @@
-import { getExperimentResultStatus } from "back-end/src/queryRunners/experimentResultStatus";
+import {
+  getExperimentResultStatus,
+  getParentExperimentResultStatus,
+} from "back-end/src/queryRunners/experimentResultStatus";
 
 describe("getExperimentResultStatus", () => {
   it("succeeds when every metric query succeeds", () => {
@@ -140,5 +143,58 @@ describe("getExperimentResultStatus", () => {
         },
       ]),
     ).toBe("partially-succeeded");
+  });
+});
+
+describe("getParentExperimentResultStatus", () => {
+  it("fails when parent metrics fail even if a unit dimension succeeds", () => {
+    expect(
+      getParentExperimentResultStatus([
+        {
+          name: "group_0",
+          status: "failed",
+          queryType: "experimentMultiMetric",
+        },
+        {
+          name: "unitdim:dim_country:group_0",
+          status: "succeeded",
+          queryType: "experimentMultiMetric",
+        },
+      ]),
+    ).toBe("failed");
+  });
+
+  it("succeeds when parent metrics succeed even if a unit dimension fails", () => {
+    expect(
+      getParentExperimentResultStatus([
+        {
+          name: "group_0",
+          status: "succeeded",
+          queryType: "experimentMultiMetric",
+        },
+        {
+          name: "unitdim:dim_country:group_0",
+          status: "failed",
+          queryType: "experimentMultiMetric",
+        },
+      ]),
+    ).toBe("succeeded");
+  });
+
+  it("waits for unit-dimension queries before completing the snapshot", () => {
+    expect(
+      getParentExperimentResultStatus([
+        {
+          name: "group_0",
+          status: "succeeded",
+          queryType: "experimentMultiMetric",
+        },
+        {
+          name: "unitdim:dim_country:group_0",
+          status: "running",
+          queryType: "experimentMultiMetric",
+        },
+      ]),
+    ).toBe("running");
   });
 });

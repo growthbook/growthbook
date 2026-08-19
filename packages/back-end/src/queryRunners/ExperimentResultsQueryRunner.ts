@@ -67,7 +67,7 @@ import {
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
-import { getExperimentResultStatus } from "./experimentResultStatus";
+import { getParentExperimentResultStatus } from "./experimentResultStatus";
 import { getExperimentResultMetricIds } from "./experimentResultMetricIds";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
 import { getUnitDimQueryName } from "./unitDimensionQueryNaming";
@@ -516,7 +516,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
 
   protected override getOverallQueryStatus(): QueryStatus {
-    return getExperimentResultStatus(this.model.queries);
+    return getParentExperimentResultStatus(this.model.queries);
   }
 
   async startQueries(params: ExperimentResultsQueryParams): Promise<Queries> {

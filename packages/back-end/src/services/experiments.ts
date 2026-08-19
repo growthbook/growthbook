@@ -191,7 +191,9 @@ import { QueryMap, getQueryMap } from "back-end/src/queryRunners/QueryRunner";
 import { getExperimentResultStatus } from "back-end/src/queryRunners/experimentResultStatus";
 import {
   buildUnitDimensionQueryMap,
+  filterParentQueryPointers,
   filterParentQueryMap,
+  filterUnitDimensionQueryPointers,
 } from "back-end/src/queryRunners/unitDimensionQueryNaming";
 import {
   FactTableMap,
@@ -2625,9 +2627,13 @@ async function getSnapshotAnalyses(
       return;
     }
 
+    const queryScope = getExperimentAnalysisQueryScope(snapshot, [
+      analysisSettings,
+    ]);
     const queryStatus = getExperimentSnapshotResultStatus(
       snapshot.queries,
       queryMap,
+      queryScope,
     );
 
     if (queryStatus !== "succeeded" && queryStatus !== "partially-succeeded") {
@@ -2653,8 +2659,9 @@ async function getSnapshotAnalyses(
       }),
     );
 
+    const scopedQueryMap = getQueryMapForAnalysis(queryScope, queryMap);
     const mdat = getMetricsAndQueryDataForStatsEngine(
-      queryMap,
+      scopedQueryMap,
       expandedMetricMap,
       snapshot.settings,
       {
@@ -2712,15 +2719,47 @@ async function getSnapshotAnalyses(
   return analysisParamsMap;
 }
 
+type ExperimentAnalysisQueryScope =
+  | { type: "parent" }
+  | { type: "unitDimension"; dimensionId: string };
+
+function getExperimentAnalysisQueryScope(
+  snapshot: ExperimentSnapshotInterface,
+  analysisSettingsList: ExperimentSnapshotAnalysisSettings[],
+): ExperimentAnalysisQueryScope {
+  const dimensionId = analysisSettingsList[0]?.dimensions[0];
+  return dimensionId &&
+    snapshot.settings.precomputedUnitDimensionIds?.includes(dimensionId)
+    ? { type: "unitDimension", dimensionId }
+    : { type: "parent" };
+}
+
+function getQueryPointersForAnalysis(
+  queries: Queries,
+  scope: ExperimentAnalysisQueryScope,
+): Queries {
+  switch (scope.type) {
+    case "parent":
+      return filterParentQueryPointers(queries);
+    case "unitDimension":
+      return filterUnitDimensionQueryPointers(queries, scope.dimensionId);
+    default: {
+      const exhaustive: never = scope;
+      return exhaustive;
+    }
+  }
+}
+
 function getExperimentSnapshotResultStatus(
   queries: Queries,
   queryMap: QueryMap,
+  scope: ExperimentAnalysisQueryScope,
 ): QueryStatus {
   const queryTypesById = new Map(
     Array.from(queryMap.values()).map(({ id, queryType }) => [id, queryType]),
   );
   return getExperimentResultStatus(
-    queries.map((query) => ({
+    getQueryPointersForAnalysis(queries, scope).map((query) => ({
       status: query.status,
       queryType: query.queryType ?? queryTypesById.get(query.query),
     })),
@@ -2732,31 +2771,33 @@ function getExperimentSnapshotResultStatus(
 // on the parent snapshot), the map is filtered + renamed so gbstats sees the
 // bare metric keys it expects.
 function getQueryMapForAnalysis(
-  snapshot: ExperimentSnapshotInterface,
-  analysisSettingsList: ExperimentSnapshotAnalysisSettings[],
+  scope: ExperimentAnalysisQueryScope,
   fullQueryMap: QueryMap,
 ): QueryMap {
-  const dimensionId = analysisSettingsList[0]?.dimensions[0];
-  if (
-    dimensionId &&
-    snapshot.settings.precomputedUnitDimensionIds?.includes(dimensionId)
-  ) {
-    const unitDimQueryMap = buildUnitDimensionQueryMap(
-      fullQueryMap,
-      dimensionId,
-    );
-    if (unitDimQueryMap.size === 0) {
-      // The parent snapshot lists this unit dimension in its settings but
-      // has no `unitdim:<id>:` query results — either the snapshot predates
-      // this feature or its unit-dim queries were pruned/failed. Refreshing
-      // the snapshot will repopulate them.
-      throw new Error(
-        `Snapshot is missing query results for unit dimension "${dimensionId}". Refresh the experiment results to recompute.`,
+  switch (scope.type) {
+    case "parent":
+      return filterParentQueryMap(fullQueryMap);
+    case "unitDimension": {
+      const unitDimQueryMap = buildUnitDimensionQueryMap(
+        fullQueryMap,
+        scope.dimensionId,
       );
+      if (unitDimQueryMap.size === 0) {
+        // The parent snapshot lists this unit dimension in its settings but
+        // has no `unitdim:<id>:` query results — either the snapshot predates
+        // this feature or its unit-dim queries were pruned/failed. Refreshing
+        // the snapshot will repopulate them.
+        throw new Error(
+          `Snapshot is missing query results for unit dimension "${scope.dimensionId}". Refresh the experiment results to recompute.`,
+        );
+      }
+      return unitDimQueryMap;
     }
-    return unitDimQueryMap;
+    default: {
+      const exhaustive: never = scope;
+      return exhaustive;
+    }
   }
-  return filterParentQueryMap(fullQueryMap);
 }
 
 export async function createSnapshotAnalyses(
@@ -2786,9 +2827,13 @@ export async function createSnapshotAnalysis(
   }
 
   const fullQueryMap = await getQueryMap(context, snapshot.queries);
+  const queryScope = getExperimentAnalysisQueryScope(snapshot, [
+    analysisSettings,
+  ]);
   const queryStatus = getExperimentSnapshotResultStatus(
     snapshot.queries,
     fullQueryMap,
+    queryScope,
   );
   if (queryStatus !== "succeeded" && queryStatus !== "partially-succeeded") {
     throw new Error("Snapshot queries not available for analysis");
@@ -2808,11 +2853,7 @@ export async function createSnapshotAnalysis(
   });
 
   // Format data correctly
-  const queryMap = getQueryMapForAnalysis(
-    snapshot,
-    [analysisSettings],
-    fullQueryMap,
-  );
+  const queryMap = getQueryMapForAnalysis(queryScope, fullQueryMap);
 
   // Run the analysis
   const { results } = await analyzeExperimentResults({
@@ -2860,9 +2901,14 @@ export async function createSnapshotAnalysesBatched(
   }
 
   const fullQueryMap = await getQueryMap(context, snapshot.queries);
+  const queryScope = getExperimentAnalysisQueryScope(
+    snapshot,
+    analysisSettingsList,
+  );
   const queryStatus = getExperimentSnapshotResultStatus(
     snapshot.queries,
     fullQueryMap,
+    queryScope,
   );
   if (queryStatus !== "succeeded" && queryStatus !== "partially-succeeded") {
     throw new Error("Snapshot queries not available for analysis");
@@ -2878,11 +2924,7 @@ export async function createSnapshotAnalysesBatched(
     }),
   );
 
-  const queryMap = getQueryMapForAnalysis(
-    snapshot,
-    analysisSettingsList,
-    fullQueryMap,
-  );
+  const queryMap = getQueryMapForAnalysis(queryScope, fullQueryMap);
 
   // Single gbstats call -- all analyses share the same queryResults and
   // metric settings, so we can use a single python process
