@@ -942,24 +942,34 @@ export default function ResultsTable({
                                             width: 220 * tableCellScale,
                                           }}
                                         >
-                                          <div
-                                            className={`d-flex align-items-center ml-2 ${
-                                              row.isChildRow
-                                                ? "pl-4"
-                                                : dimension
-                                                  ? "pl-2" // less padding because no expansion buttons
-                                                  : "pl-3"
-                                            }`}
-                                            style={{
-                                              width: 200 * tableCellScale,
-                                            }}
-                                          >
-                                            <VariationLabel
-                                              number={v.index}
-                                              name={v.name}
-                                              size="md"
-                                            />
-                                          </div>
+                                          {!compactResults ? (
+                                            <div
+                                              className={`d-flex align-items-center ml-2 ${
+                                                row.isChildRow
+                                                  ? "pl-4"
+                                                  : dimension
+                                                    ? "pl-2" // less padding because no expansion buttons
+                                                    : "pl-3"
+                                              }`}
+                                              style={{
+                                                width: 200 * tableCellScale,
+                                              }}
+                                            >
+                                              <VariationLabel
+                                                number={v.index}
+                                                name={v.name}
+                                                size="md"
+                                              />
+                                            </div>
+                                          ) : (
+                                            renderLabelColumn({
+                                              label: row.label,
+                                              metric: row.metric,
+                                              row,
+                                              maxRows: 3,
+                                              location: resultGroup,
+                                            })
+                                          )}
                                         </td>
                                       )}
                                       {errorColSpan > 0 && (
