@@ -280,11 +280,22 @@ export function getUserIdTypesToAdd(
   );
 }
 
-/** Drops the Event Forwarder link, keeping everything else. */
-function unlinkUserIdType(userIdType: UserIdType): UserIdType {
-  const unlinked = { ...userIdType };
-  delete unlinked.sourceAttribute;
-  return unlinked;
+/**
+ * Drops the Event Forwarder link and any claim of ownership, keeping everything
+ * else. Reconciliation never deletes an identifier type: whatever the entry is
+ * named, experiments, identity joins, and the Events fact table may still be
+ * reading it, and the user can delete it themselves once they are sure.
+ *
+ * `managedBy` is only written when it was `"api"`, so releasing an entry that
+ * predates the field is a no-op and repeated syncs write nothing.
+ */
+function releaseUserIdType(userIdType: UserIdType): UserIdType {
+  const released = { ...userIdType };
+  delete released.sourceAttribute;
+  if (released.managedBy === "api") {
+    released.managedBy = "";
+  }
+  return released;
 }
 
 /**
@@ -297,8 +308,9 @@ function unlinkUserIdType(userIdType: UserIdType): UserIdType {
  * - Uncovered attribute whose name is already taken → link that entry to it,
  *   without claiming ownership.
  * - Uncovered attribute with a free name → add it.
- * - Managed entry whose attribute is gone (archived, un-flagged, out of the
- *   datasource's Projects) → drop it.
+ * - Entry whose attribute is gone (archived, un-flagged, out of the
+ *   datasource's Projects) → release it: the link and the managed marker come
+ *   off and the entry stays, now the user's to keep or delete.
  */
 export function reconcileEventForwarderManagedUserIdTypes(
   existing: UserIdType[],
@@ -324,7 +336,9 @@ export function reconcileEventForwarderManagedUserIdTypes(
     if (isEventForwarderManagedUserIdType(entry)) {
       // Attribute gone, or an earlier entry already represents it. The second
       // case only arises from data written before legacy detection worked.
+      // Either way the entry is released, never deleted.
       if (!wanted || claimedSources.has(source)) {
+        result.push(releaseUserIdType(entry));
         continue;
       }
       claimedSources.add(source);
@@ -339,11 +353,10 @@ export function reconcileEventForwarderManagedUserIdTypes(
     }
 
     // A linked entry claims its attribute so we never add a second type for
-    // it. If the attribute is gone we unlink rather than delete: the entry is
-    // the user's, and whatever references its name still needs it.
+    // it. If the attribute is gone the link comes off and the entry stays.
     if ((entry.sourceAttribute ?? null) !== null) {
       if (!wanted) {
-        result.push(unlinkUserIdType(entry));
+        result.push(releaseUserIdType(entry));
         continue;
       }
       claimedSources.add(source);

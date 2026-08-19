@@ -400,7 +400,7 @@ describe("reconcileEventForwarderManagedUserIdTypes", () => {
     );
   });
 
-  it("drops managed types whose attribute is no longer eligible", () => {
+  it("releases managed types whose attribute is no longer eligible", () => {
     const existing = [
       {
         userIdType: "company_id",
@@ -409,9 +409,36 @@ describe("reconcileEventForwarderManagedUserIdTypes", () => {
       },
     ];
 
+    // Never deleted: identity joins, experiments, and the Events fact table may
+    // still read this name. The marker and the link come off and it is the
+    // user's to remove.
     expect(
       reconcileEventForwarderManagedUserIdTypes(existing, desired),
-    ).toEqual(desired);
+    ).toEqual([{ userIdType: "company_id", managedBy: "" }, ...desired]);
+  });
+
+  it("writes nothing on the sync after a type is released", () => {
+    const released = [{ userIdType: "company_id", managedBy: "" as const }];
+
+    expect(
+      reconcileEventForwarderManagedUserIdTypes(released, desired),
+    ).toEqual([...released, ...desired]);
+  });
+
+  it("releases a legacy type without writing to it", () => {
+    // Predates managedBy, so there is no marker to clear and no link to drop.
+    const legacy = [
+      {
+        userIdType: "ef_company_id",
+        description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+        attributes: ["company_id"],
+      },
+    ];
+
+    expect(reconcileEventForwarderManagedUserIdTypes(legacy, desired)).toEqual([
+      ...legacy,
+      ...desired,
+    ]);
   });
 
   it("passes user-created types through untouched", () => {
@@ -559,7 +586,7 @@ describe("reconcileEventForwarderManagedUserIdTypes", () => {
     ]);
   });
 
-  it("collapses a duplicate minted before legacy records were recognized", () => {
+  it("keeps the legacy entry managed and releases the duplicate beside it", () => {
     const existing = [
       {
         userIdType: "ef_user_id",
@@ -576,11 +603,19 @@ describe("reconcileEventForwarderManagedUserIdTypes", () => {
       },
     ];
 
-    // The legacy entry wins: it is the one the warehouse artifacts reference.
+    // The legacy entry wins the attribute: it is the one the warehouse artifacts
+    // reference. The duplicate is released rather than deleted, since anything
+    // created against it in the meantime still points at that name.
     expect(
       reconcileEventForwarderManagedUserIdTypes(existing, desired),
     ).toEqual([
       { ...existing[0], managedBy: "api", sourceAttribute: "user_id" },
+      {
+        userIdType: "user_id",
+        description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+        attributes: ["user_id"],
+        managedBy: "",
+      },
     ]);
   });
 

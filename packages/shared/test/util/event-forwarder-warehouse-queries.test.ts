@@ -481,7 +481,7 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
     expect(reconciled[0].managedBy).toBe("api");
   });
 
-  it("drops managed queries whose source attribute is gone", () => {
+  it("releases managed queries whose source attribute is gone", () => {
     const existing: ExposureQuery[] = [
       {
         id: "exq_legacy",
@@ -500,7 +500,39 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
       params: bigqueryParams,
     });
 
-    expect(reconciled).toEqual([]);
+    // Deleting it would orphan every experiment, report, safe rollout,
+    // template, and ramp schedule holding this id.
+    expect(reconciled).toEqual([
+      {
+        id: "exq_legacy",
+        userIdType: "legacy_id",
+        name: "legacy_id",
+        dimensions: [],
+        managedBy: "",
+        query: "SELECT legacy",
+      },
+    ]);
+  });
+
+  it("writes nothing on the sync after a query is released", () => {
+    const released: ExposureQuery[] = [
+      {
+        id: "exq_legacy",
+        userIdType: "legacy_id",
+        name: "legacy_id",
+        dimensions: [],
+        managedBy: "",
+        query: "SELECT legacy",
+      },
+    ];
+
+    expect(
+      reconcileEventForwarderManagedExposureQueries({
+        existing: released,
+        userIdTypes: [],
+        params: bigqueryParams,
+      }),
+    ).toEqual(released);
   });
 
   it("preserves queries without the managed marker", () => {

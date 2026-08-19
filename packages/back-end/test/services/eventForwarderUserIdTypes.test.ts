@@ -216,7 +216,7 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
     });
   });
 
-  it("removes stale managed identifiers and exposure queries while preserving custom entries", async () => {
+  it("releases stale managed identifiers and exposure queries while preserving custom entries", async () => {
     const raw = ds("ds_1", {
       userIdTypes: [
         {
@@ -267,7 +267,15 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
     );
 
     const settings = mockedUpdate.mock.calls[0][2].settings;
+    // legacy_id keeps its name and description and is simply handed back to the
+    // user; nothing the Event Forwarder created is ever deleted for them.
     expect(settings?.userIdTypes).toEqual([
+      {
+        userIdType: "legacy_id",
+        description: "",
+        attributes: ["legacy_id"],
+        managedBy: "",
+      },
       { userIdType: "custom_id", description: "Custom" },
       {
         userIdType: "device_id",
@@ -278,6 +286,14 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
       },
     ]);
     expect(settings?.queries?.exposure).toEqual([
+      {
+        id: "exq_legacy",
+        userIdType: "legacy_id",
+        name: "legacy_id",
+        dimensions: [],
+        managedBy: "",
+        query: "SELECT legacy_id",
+      },
       {
         id: "custom_query",
         userIdType: "custom_id",
@@ -545,7 +561,7 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
     expect(mockedUpdate).not.toHaveBeenCalled();
   });
 
-  it("removes managed identifiers and queries when no hash attributes remain", async () => {
+  it("releases managed identifiers and queries when no hash attributes remain", async () => {
     const raw = ds("ds_1", {
       userIdTypes: [
         {
@@ -579,10 +595,27 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
       [],
     );
 
-    expect(mockedUpdate.mock.calls[0][2].settings?.userIdTypes).toEqual([]);
-    expect(mockedUpdate.mock.calls[0][2].settings?.queries?.exposure).toEqual(
-      [],
-    );
+    // Everything survives, stripped of the marker and the link. Removing the
+    // last hash attribute must not silently delete the identifier type an
+    // identity join reads or the query id an experiment references.
+    expect(mockedUpdate.mock.calls[0][2].settings?.userIdTypes).toEqual([
+      {
+        userIdType: "legacy_id",
+        description: "",
+        attributes: ["legacy_id"],
+        managedBy: "",
+      },
+    ]);
+    expect(mockedUpdate.mock.calls[0][2].settings?.queries?.exposure).toEqual([
+      {
+        id: "exq_legacy",
+        userIdType: "legacy_id",
+        name: "legacy_id",
+        dimensions: [],
+        managedBy: "",
+        query: "SELECT legacy_id",
+      },
+    ]);
     expect(updateConfig).not.toHaveBeenCalled();
   });
 

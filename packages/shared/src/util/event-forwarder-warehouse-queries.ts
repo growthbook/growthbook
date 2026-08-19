@@ -295,6 +295,17 @@ function isUnmodifiedManagedExposureQuerySql({
 }
 
 /**
+ * Drops the managed marker and the link, keeping the id, name, and SQL exactly
+ * as stored. Reconciliation never deletes an exposure query — its id is what
+ * experiments, reports, safe rollouts, templates, and ramp schedules reference.
+ */
+function releaseManagedExposureQuery(query: ExposureQuery): ExposureQuery {
+  const released: ExposureQuery = { ...query, managedBy: "" };
+  delete released.sourceAttribute;
+  return released;
+}
+
+/**
  * Reconciles managed exposure queries against the datasource's Event Forwarder
  * linked identifier types, matching on `sourceAttribute` so each attribute ends
  * up with exactly one managed query.
@@ -311,8 +322,9 @@ function isUnmodifiedManagedExposureQuerySql({
  * edited before the modal did that, so it is handed over here instead of being
  * regenerated over.
  *
- * Non-managed queries pass through untouched. Managed queries whose source
- * attribute is no longer represented are dropped.
+ * Non-managed queries pass through untouched. A managed query whose source
+ * attribute is no longer represented is released, not deleted: the marker and
+ * the link come off and it stays as the user's own query.
  */
 export function reconcileEventForwarderManagedExposureQueries({
   existing,
@@ -352,6 +364,10 @@ export function reconcileEventForwarderManagedExposureQueries({
       getEventForwarderExposureQuerySourceAttribute(query);
     const source = normalizeUserIdTypeName(sourceAttribute);
     if (!desiredBySource.has(source)) {
+      // Attribute gone. The query is released rather than deleted — its id is
+      // referenced by experiments, reports, safe rollouts, templates, and ramp
+      // schedules, and deleting it would orphan every one of them.
+      result.push(releaseManagedExposureQuery(query));
       continue;
     }
 
@@ -366,9 +382,7 @@ export function reconcileEventForwarderManagedExposureQueries({
       // Hand-edited. Hand it to the user rather than overwriting, matching what
       // the edit modal does now; the loop below adds a fresh managed query
       // beside it. The source stays unclaimed so that query is generated.
-      const handedOff: ExposureQuery = { ...query, managedBy: "" };
-      delete handedOff.sourceAttribute;
-      result.push(handedOff);
+      result.push(releaseManagedExposureQuery(query));
       continue;
     }
 
