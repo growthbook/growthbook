@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiPlus, PiTrash } from "react-icons/pi";
@@ -14,6 +14,8 @@ import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationM
 import Frame from "@/ui/Frame";
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
+import MultiSelectField from "@/ui/MultiSelectField";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import {
   DropdownMenu,
@@ -26,6 +28,8 @@ import {
   clonedFlagRule,
   clonedSavedGroupRule,
   differsFromBase,
+  ruleForScope,
+  scopeKey,
   inheritedFlagRule,
   inheritedSavedGroupRule,
   scopeProjects,
@@ -41,6 +45,9 @@ export default function ApprovalFlowSettings() {
 
   const hasRequireApprovals = hasCommercialFeature("require-approvals");
 
+  // Radix treats "" as no value, so the base tab needs a real id of its own.
+  const ALL_PROJECTS_TAB = "all-projects";
+
   const rawRequireReviews = form.watch("requireReviews");
   const flagRules: RequireReview[] = Array.isArray(rawRequireReviews)
     ? rawRequireReviews
@@ -48,23 +55,31 @@ export default function ApprovalFlowSettings() {
   const savedGroupRules: ApprovalFlowConfiguration[] =
     form.watch("approvalFlows.savedGroups") ?? [];
 
-  // A tab the user just opened has no stored rule until they turn something on.
-  const [pendingScopes, setPendingScopes] = useState<string[]>([]);
-  // Controlled: the shared Tabs wrapper ties uncontrolled tabs to the URL hash,
-  // which the settings page's own tab strip already owns.
-  const [activeScope, setActiveScope] = useState(ALL_PROJECTS_SCOPE);
+  // Tabs carry an identity of their own rather than being keyed by the projects
+  // they name, so editing a tab's projects re-points its rule without
+  // remounting the panel.
+  const [tabs, setTabs] = useState<{ id: string; scope: string }[]>([]);
+  const nextTabId = useRef(0);
+  const newTabId = () => `override-${nextTabId.current++}`;
+  const [activeTab, setActiveTab] = useState(ALL_PROJECTS_TAB);
 
-  const scopes = [
-    ALL_PROJECTS_SCOPE,
-    ...new Set([
-      ...overrideScopes([flagRules, savedGroupRules]),
-      ...pendingScopes.filter((p) => !!p),
-    ]),
+  // Settings load after mount, so stored overrides get a tab when they arrive.
+  const storedScopes = overrideScopes([flagRules, savedGroupRules]);
+  useEffect(() => {
+    setTabs((prev) => {
+      const known = new Set(prev.map((t) => t.scope));
+      const missing = storedScopes.filter((scope) => !known.has(scope));
+      return missing.length
+        ? [...prev, ...missing.map((scope) => ({ id: newTabId(), scope }))]
+        : prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storedScopes.join("|")]);
+
+  const allTabs = [
+    { id: ALL_PROJECTS_TAB, scope: ALL_PROJECTS_SCOPE },
+    ...tabs,
   ];
-
-  // Radix treats "" as no value, so the all-projects scope needs a real tab id.
-  const ALL_PROJECTS_TAB = "all-projects";
-  const tabValue = (scope: string) => scope || ALL_PROJECTS_TAB;
 
   const scopeName = (scope: string) =>
     scope
@@ -83,24 +98,52 @@ export default function ApprovalFlowSettings() {
     );
 
   const addOverride = (project: string) => {
-    setPendingScopes((prev) => [...prev, project]);
-    setActiveScope(project);
+    const id = newTabId();
+    setTabs((prev) => [...prev, { id, scope: project }]);
+    setActiveTab(id);
     setFlagRule(project, clonedFlagRule(flagRules, project));
     setSavedGroupRule(project, clonedSavedGroupRule(savedGroupRules, project));
   };
 
-  const removeOverride = (scope: string) => {
-    form.setValue("requireReviews", withoutScope(flagRules, scope));
+  // Re-points both families' rules at a new set of projects, so a group of
+  // projects can share one rule instead of duplicating it.
+  const retargetTab = (tab: { id: string; scope: string }, next: string[]) => {
+    const nextScope = scopeKey(next);
+    if (!next.length || nextScope === tab.scope) return;
+    const flagOwn = ruleForScope(flagRules, tab.scope);
+    if (flagOwn) {
+      form.setValue(
+        "requireReviews",
+        withRuleForScope(flagRules, tab.scope, { ...flagOwn, projects: next }),
+      );
+    }
+    const savedGroupOwn = ruleForScope(savedGroupRules, tab.scope);
+    if (savedGroupOwn) {
+      form.setValue(
+        "approvalFlows.savedGroups",
+        withRuleForScope(savedGroupRules, tab.scope, {
+          ...savedGroupOwn,
+          projects: next,
+        }),
+      );
+    }
+    setTabs((prev) =>
+      prev.map((t) => (t.id === tab.id ? { ...t, scope: nextScope } : t)),
+    );
+  };
+
+  const removeOverride = (tab: { id: string; scope: string }) => {
+    form.setValue("requireReviews", withoutScope(flagRules, tab.scope));
     form.setValue(
       "approvalFlows.savedGroups",
-      withoutScope(savedGroupRules, scope),
+      withoutScope(savedGroupRules, tab.scope),
     );
-    setPendingScopes((prev) => prev.filter((p) => p !== scope));
-    setActiveScope(ALL_PROJECTS_SCOPE);
+    setTabs((prev) => prev.filter((t) => t.id !== tab.id));
+    setActiveTab(ALL_PROJECTS_TAB);
   };
 
   const availableProjects = projects.filter(
-    (p) => !scopes.some((scope) => scopeProjects(scope).includes(p.id)),
+    (p) => !allTabs.some((t) => scopeProjects(t.scope).includes(p.id)),
   );
 
   return (
@@ -120,17 +163,27 @@ export default function ApprovalFlowSettings() {
               Approval requirements apply per Project. Everything inside the
               panel below belongs to the selected Project scope.
             </Text>
-            <Tabs
-              value={tabValue(activeScope)}
-              onValueChange={(v) =>
-                setActiveScope(v === ALL_PROJECTS_TAB ? ALL_PROJECTS_SCOPE : v)
-              }
-            >
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
               <Flex align="center" justify="between" gap="3" wrap="wrap">
                 <TabsList>
-                  {scopes.map((scope) => (
-                    <TabsTrigger key={tabValue(scope)} value={tabValue(scope)}>
-                      {scopeName(scope)}
+                  {allTabs.map((tab) => (
+                    <TabsTrigger key={tab.id} value={tab.id}>
+                      <Tooltip
+                        body={scopeName(tab.scope)}
+                        shouldDisplay={!!tab.scope}
+                      >
+                        <span
+                          style={{
+                            display: "block",
+                            maxWidth: "160px",
+                            overflow: "hidden",
+                            whiteSpace: "nowrap",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {scopeName(tab.scope)}
+                        </span>
+                      </Tooltip>
                     </TabsTrigger>
                   ))}
                 </TabsList>
@@ -157,72 +210,99 @@ export default function ApprovalFlowSettings() {
                 )}
               </Flex>
 
-              {scopes.map((scope) => (
-                <TabsContent key={tabValue(scope)} value={tabValue(scope)}>
-                  <Frame p="4" mt="3" mb="0">
-                    <Flex align="start" justify="between" gap="3" mb="4">
-                      <Text size="sm" color="text-low">
-                        {scope
-                          ? `Applies to ${scopeName(scope)}, as a copy of the All Projects rule. Later changes to All Projects do not reach it.`
-                          : "Applies to every Project without an override of its own."}
-                      </Text>
-                      {scope ? (
-                        <Button
-                          variant="ghost"
-                          color="red"
-                          size="sm"
-                          onClick={() => removeOverride(scope)}
-                        >
-                          <PiTrash /> Remove override
-                        </Button>
-                      ) : null}
-                    </Flex>
+              {allTabs.map((tab) => {
+                const scope = tab.scope;
+                return (
+                  <TabsContent key={tab.id} value={tab.id}>
+                    <Frame p="4" mt="3" mb="0">
+                      <Flex align="start" justify="between" gap="3" mb="4">
+                        <Text size="sm" color="text-low">
+                          {scope
+                            ? "A copy of the All Projects rule. Later changes to All Projects do not reach it."
+                            : "Applies to every Project without an override of its own."}
+                        </Text>
+                        {scope ? (
+                          <Button
+                            variant="ghost"
+                            color="red"
+                            size="sm"
+                            onClick={() => removeOverride(tab)}
+                          >
+                            <PiTrash /> Remove override
+                          </Button>
+                        ) : null}
+                      </Flex>
 
-                    <ApprovalScopeSections
-                      idPrefix={tabValue(scope)}
-                      flagRule={clonedFlagRule(flagRules, scope)}
-                      onFlagChange={(next) => setFlagRule(scope, next)}
-                      onFlagReset={
-                        differsFromBase(
-                          clonedFlagRule(flagRules, scope),
-                          inheritedFlagRule(flagRules, scope),
-                        )
-                          ? () =>
-                              setFlagRule(
-                                scope,
-                                clonedFlagRule(
-                                  withoutScope(flagRules, scope),
-                                  scope,
-                                ),
+                      {scope ? (
+                        <Box mb="4" width="360px">
+                          <MultiSelectField
+                            legacyHeight
+                            id={`approval-scope-projects-${tab.id}`}
+                            label="Projects"
+                            labelClassName="font-weight-semibold"
+                            containerClassName="mb-0"
+                            value={scopeProjects(scope)}
+                            onChange={(next) => retargetTab(tab, next)}
+                            options={projects
+                              .filter(
+                                (p) =>
+                                  scopeProjects(scope).includes(p.id) ||
+                                  !allTabs.some((other) =>
+                                    scopeProjects(other.scope).includes(p.id),
+                                  ),
                               )
-                          : undefined
-                      }
-                      savedGroupRule={clonedSavedGroupRule(
-                        savedGroupRules,
-                        scope,
-                      )}
-                      onSavedGroupChange={(next) =>
-                        setSavedGroupRule(scope, next)
-                      }
-                      onSavedGroupReset={
-                        differsFromBase(
-                          clonedSavedGroupRule(savedGroupRules, scope),
-                          inheritedSavedGroupRule(savedGroupRules, scope),
-                        )
-                          ? () =>
-                              setSavedGroupRule(
-                                scope,
-                                clonedSavedGroupRule(
-                                  withoutScope(savedGroupRules, scope),
+                              .map((p) => ({ value: p.id, label: p.name }))}
+                            helpText="These Projects share this rule."
+                          />
+                        </Box>
+                      ) : null}
+
+                      <ApprovalScopeSections
+                        idPrefix={tab.id}
+                        flagRule={clonedFlagRule(flagRules, scope)}
+                        onFlagChange={(next) => setFlagRule(scope, next)}
+                        onFlagReset={
+                          differsFromBase(
+                            clonedFlagRule(flagRules, scope),
+                            inheritedFlagRule(flagRules, scope),
+                          )
+                            ? () =>
+                                setFlagRule(
                                   scope,
-                                ),
-                              )
-                          : undefined
-                      }
-                    />
-                  </Frame>
-                </TabsContent>
-              ))}
+                                  clonedFlagRule(
+                                    withoutScope(flagRules, scope),
+                                    scope,
+                                  ),
+                                )
+                            : undefined
+                        }
+                        savedGroupRule={clonedSavedGroupRule(
+                          savedGroupRules,
+                          scope,
+                        )}
+                        onSavedGroupChange={(next) =>
+                          setSavedGroupRule(scope, next)
+                        }
+                        onSavedGroupReset={
+                          differsFromBase(
+                            clonedSavedGroupRule(savedGroupRules, scope),
+                            inheritedSavedGroupRule(savedGroupRules, scope),
+                          )
+                            ? () =>
+                                setSavedGroupRule(
+                                  scope,
+                                  clonedSavedGroupRule(
+                                    withoutScope(savedGroupRules, scope),
+                                    scope,
+                                  ),
+                                )
+                            : undefined
+                        }
+                      />
+                    </Frame>
+                  </TabsContent>
+                );
+              })}
             </Tabs>
           </Box>
         )}
