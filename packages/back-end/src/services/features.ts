@@ -824,6 +824,7 @@ export async function refreshStaleSdkConnectionsForOrg(
     context,
     payloadKeys: [],
     sdkConnections: staleConnections,
+    skipDeliveryForFailedConnections: true,
   });
 
   await purgeCDNCacheForEnvironments(context.org.id, [
@@ -984,6 +985,7 @@ export async function refreshSDKPayloadCache({
   skipRefreshForProject,
   sdkConnections: sdkConnectionsToUpdate = [],
   treatEmptyProjectAsGlobal = false,
+  skipDeliveryForFailedConnections = false,
   auditContext: initialAuditContext,
   stackTrace,
 }: {
@@ -992,6 +994,9 @@ export async function refreshSDKPayloadCache({
   sdkConnections?: SDKConnectionInterface[];
   skipRefreshForProject?: string;
   treatEmptyProjectAsGlobal?: boolean;
+  // Stale-tracking job only: failed connections keep their mark and deliver on
+  // the retry. Inline paths have no retry, so they deliver like they always have.
+  skipDeliveryForFailedConnections?: boolean;
   auditContext?: { event: string; model: string; id?: string };
   stackTrace?: string;
 }): Promise<{ failedConnectionKeys: string[] }> {
@@ -1212,17 +1217,17 @@ export async function refreshSDKPayloadCache({
   await promiseAllChunks(promises, 4);
 
   const failed = new Set(failedConnectionKeys);
-  const refreshedConnections = connectionsUpdated.filter(
-    (c) => !failed.has(c.key),
-  );
+  const deliverableConnections = skipDeliveryForFailedConnections
+    ? connectionsUpdated.filter((c) => !failed.has(c.key))
+    : connectionsUpdated;
 
   const durationMs = Math.round(performance.now() - refreshStartedAt);
   recordSdkPayloadRefreshMetrics(durationMs);
   logger.info(
     {
       orgId: context.org.id,
-      connectionKeys: refreshedConnections.map((c) => c.key),
-      connectionCount: refreshedConnections.length,
+      connectionKeys: deliverableConnections.map((c) => c.key),
+      connectionCount: deliverableConnections.length,
       failedConnectionKeys,
       payloadKeys,
       cacheLocation: storageLocation,
@@ -1232,8 +1237,7 @@ export async function refreshSDKPayloadCache({
     "[sdk-payload] refresh completed",
   );
 
-  // Delivering a failed connection would publish its stale cached payload; the retry delivers it.
-  triggerWebhookJobs(context, payloadKeys, refreshedConnections, true).catch(
+  triggerWebhookJobs(context, payloadKeys, deliverableConnections, true).catch(
     (e) => {
       logger.error(e, "Error triggering webhook jobs");
     },

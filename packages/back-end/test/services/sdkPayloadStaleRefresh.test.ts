@@ -283,6 +283,29 @@ describe("queueSDKPayloadRefresh (stale tracking enabled)", () => {
     expect(scheduleOrgRefreshJob).not.toHaveBeenCalled();
     expect(upsert).toHaveBeenCalledTimes(1);
   });
+
+  it("inline (UI) refresh still delivers a connection whose rebuild failed — identical to pre-flag behavior", async () => {
+    const upsert = jest.fn().mockRejectedValue(new Error("write failed"));
+    const mockModels = mockRefreshDependencies(upsert);
+    const connF = conn("sdk-ui-fail");
+    findSDKConnectionsByOrganization.mockResolvedValue([connF]);
+
+    queueSDKPayloadRefresh({
+      context: minimalContext({
+        models: mockModels as ReqContext["models"],
+        isApiRequest: false,
+      }) as ReqContext,
+      payloadKeys: [{ environment: "production", project: "" }],
+    });
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(triggerWebhookJobs).toHaveBeenCalledWith(
+      expect.anything(),
+      [{ environment: "production", project: "" }],
+      [expect.objectContaining({ key: "sdk-ui-fail" })],
+      true,
+    );
+  });
 });
 
 describe("refreshStaleSdkConnectionsForOrg", () => {
