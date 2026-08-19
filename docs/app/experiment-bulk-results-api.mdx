@@ -1,0 +1,156 @@
+---
+title: Experiment Bulk Results API
+description: Snapshot-level export of every stored analysis for one experiment over a date window.
+sidebarTitle: Bulk Results API
+slug: /app/experiment-bulk-results-api
+unlisted: true
+---
+
+`GET /api/v1/experiments/{id}/bulk-results` returns every successful snapshot for one experiment generated inside a date window, flattened into `ExperimentBulkResult` items. Use it to mirror historical results into a warehouse or notebook; use `GET /experiments/{id}/results` when you only need the latest analysis.
+
+<Info>
+Off by default and excluded from the [REST API reference](/api). Self-hosted deployments opt in with `EXPERIMENT_BULK_RESULTS_ENABLED=true`. While disabled, every request answers `404 {"message": "Unknown API endpoint"}` — indistinguishable from an endpoint that does not exist. This choice is because this endpoint can possibly consume a lot of resources from the back-end deployment if the requested payload is enormous, so it should be used with caution.
+</Info>
+
+## Request
+
+Authenticate with a Personal Access Token or secret key that can read the experiment's Project.
+
+```bash
+curl -X GET 'https://api.growthbook.io/api/v1/experiments/exp_abc123/bulk-results?dateStart=2026-01-01T00:00:00Z&dateEnd=2026-02-01T00:00:00Z' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+| Param          | Required | Description                                                        |
+| -------------- | -------- | ------------------------------------------------------------------ |
+| `dateStart`    | yes      | ISO 8601 date-time. Snapshots generated on or after this instant.  |
+| `dateEnd`      | yes      | ISO 8601 date-time. Snapshots generated on or before this instant. |
+| `phase`        | no       | Zero-based phase index. Omit for all phases.                       |
+| `snapshotType` | no       | `standard`, `exploratory`, or `report`. Omit for all types.        |
+| `limit`        | no       | Snapshots per page, 1–100. Defaults to 10.                         |
+| `offset`       | no       | Snapshots to skip. Defaults to 0.                                  |
+
+The query is strict: an unrecognized param is a `400`. Other failures are `400` for a malformed `dateStart`/`dateEnd`/`phase` or an out-of-range `limit`, `404` for an unknown or unreadable experiment id, and `429` past the per-key cap (60 requests/minute, set by `EXPERIMENT_BULK_RESULTS_RATE_LIMIT_MAX`).
+
+## Response
+
+```json
+{
+  "results": [
+    {
+      "id": "snp_abc:overall",
+      "snapshotId": "snp_abc",
+      "experimentId": "exp_abc123",
+      "phase": "0",
+      "type": "standard",
+      "triggeredBy": "schedule",
+      "dateCreated": "2026-01-14T04:11:02.000Z",
+      "dateStart": "2026-01-01T00:00:00.000Z",
+      "dateEnd": "2026-01-14T00:00:00.000Z",
+      "dimension": { "type": "none", "precomputed": false },
+      "settings": {
+        "datasourceId": "ds_abc",
+        "assignmentQueryId": "user_id",
+        "experimentId": "homepage-cta",
+        "segmentId": "",
+        "queryFilter": "",
+        "inProgressConversions": "include",
+        "attributionModel": "firstExposure",
+        "statsEngine": "bayesian",
+        "regressionAdjustmentEnabled": true,
+        "goals": [
+          {
+            "metricId": "met_signup",
+            "effectiveSettings": {
+              "windowType": "conversion",
+              "windowValue": 72,
+              "windowUnit": "hours",
+              "delayValue": 0,
+              "delayUnit": "hours",
+              "properPrior": false,
+              "properPriorMean": 0,
+              "properPriorStdDev": 0.1,
+              "regressionAdjustmentEnabled": true,
+              "regressionAdjustmentDays": 14
+            }
+          }
+        ],
+        "secondaryMetrics": [],
+        "guardrails": []
+      },
+      "results": [
+        {
+          "dimensionValue": "",
+          "totalUsers": 41230,
+          "checks": { "srm": 0.62 },
+          "metrics": [
+            {
+              "metricId": "met_signup",
+              "metricName": "Signups",
+              "variations": [
+                {
+                  "variationIndex": 0,
+                  "variationKey": "0",
+                  "variationId": "var_control",
+                  "variationName": "Control",
+                  "users": 20604,
+                  "analyses": [
+                    {
+                      "engine": "bayesian",
+                      "differenceType": "relative",
+                      "numerator": 1834,
+                      "denominator": 20604,
+                      "mean": 0.089,
+                      "stddev": 0.284,
+                      "effect": null,
+                      "ciLow": null,
+                      "ciHigh": null,
+                      "chanceToBeatControl": null
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "limit": 10,
+  "offset": 0,
+  "count": 1,
+  "total": 37,
+  "hasMore": true,
+  "nextOffset": 10
+}
+```
+
+### Item fields
+
+| Field                   | Description                                                                                                                                                                                                                                                                                                              |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `id`                    | Unique per item: `{snapshotId}:overall`, or `{snapshotId}:dimension:{urlEncodedDimensionId}`.                                                                                                                                                                                                                            |
+| `snapshotId`            | Shared by all items expanded from the same snapshot.                                                                                                                                                                                                                                                                     |
+| `experimentId`          | Internal experiment id. Note `settings.experimentId` is the experiment tracking key instead.                                                                                                                                                                                                                             |
+| `phase`                 | Zero-based phase index, as a string.                                                                                                                                                                                                                                                                                     |
+| `type`                  | `standard`, `exploratory`, or `report`. `reportId` is present when `report`.                                                                                                                                                                                                                                             |
+| `triggeredBy`           | What ran the snapshot, when recorded. Either `manual` (manually triggered by a user in the UI or API), `schedule` (triggered by the scheduled cron job), `manual-dashboard` (triggered by a user in an Experiment Dashboard), or `update-dashboards` (triggered by the update job that refreshes Experiment Dashboards). |
+| `dateCreated`           | ISO date-time the snapshot was generated. Snapshots are returned newest first.                                                                                                                                                                                                                                           |
+| `dateStart` / `dateEnd` | Analysis window frozen at snapshot time.                                                                                                                                                                                                                                                                                 |
+| `dimension`             | `{ type, id?, precomputed }`. `type` is `none`, `experiment`, `user`, or a pre-exposure kind such as `date`.                                                                                                                                                                                                             |
+| `settings`              | Snapshot-authoritative analysis settings, including per-role metric lists (`goals`, `secondaryMetrics`, `guardrails`, `activationMetric`).                                                                                                                                                                               |
+| `results`               | One entry per dimension slice: `dimensionValue`, `totalUsers`, `checks.srm`, and `metrics`.                                                                                                                                                                                                                              |
+
+Each metric role entry is `{ metricId, effectiveSettings? }`, where `effectiveSettings` is the snapshot's computed metric settings (conversion window, delay, prior, regression adjustment, `targetMDE`). It is omitted for snapshots generated before those were captured.
+
+### Variation analyses
+
+Each variation carries `variationIndex` and `variationKey` — the authoritative join keys, taken from the snapshot's stored variation array — plus its `users` count and an `analyses` array holding one entry per stored difference type: `engine`, `differenceType` (`relative`, `absolute`, `scaled`), `numerator`, `denominator`, `mean`, `stddev`, `effect`, `ciLow`, `ciHigh`, `pValue`, and `chanceToBeatControl`. Every statistic is `null` when it is missing or non-finite, and `effect` is expressed according to `differenceType`.
+
+## Semantics
+
+**Snapshot-authoritative.** `settings`, the metric lists, `effectiveSettings`, the analysis window, and each variation's `variationKey`/`variationIndex` come from the stored snapshot and the analysis that produced the numbers. `variationId`, `variationName`, and `metricName` are best-effort current display metadata resolved by id, so they may reflect later renames or be absent entirely. Legacy snapshots fall back to current experiment values only where the stored field is absent.
+
+**One item per dimension.** A snapshot expands into one item per dimension, all sharing `snapshotId`. Only the snapshot's default analysis and its stored difference-type variants are returned; missing variants are not computed on the fly, and ad-hoc analyses with other settings (a different baseline or stats engine) are excluded.
+
+**Pagination is over snapshots.** `total` counts matching snapshots and `count` counts the snapshots on this page, so a page of `count: 1` can still return many `results` items. `hasMore` and `nextOffset` advance over snapshots too. Offsets are only stable once the window has closed: a snapshot generated inside the window while you page through it sorts ahead of older ones and shifts later pages.
