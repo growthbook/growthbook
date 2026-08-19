@@ -221,6 +221,23 @@ const legacyExperimentMetricBlockInterface = experimentMetricBlockInterface
     sliceTagsFilter: z.array(z.string()).nullable().optional(),
   });
 
+// Per-block opt-in for each dashboard-wide global filter. `true` follows the
+// dashboard, `false` is an explicit opt-out, `undefined` is undecided and gets
+// auto-enrolled the first time that filter is enabled.
+const explorationGlobalControlSettingsValidator = z
+  .object({ dateRange: z.boolean().optional() })
+  .strict();
+
+// Which block type actually honors which flag lives in
+// EXPERIMENT_BLOCK_FILTER_SUPPORT.
+const experimentGlobalControlSettingsValidator =
+  explorationGlobalControlSettingsValidator
+    .extend({
+      projects: z.boolean().optional(),
+      experimentSearchString: z.boolean().optional(),
+    })
+    .strict();
+
 const metricExperimentsBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("metric-experiments"),
@@ -243,6 +260,10 @@ const metricExperimentsBlockInterface = baseBlockInterface
     columns: z
       .array(z.object({ id: z.string(), visible: z.boolean() }))
       .optional(),
+    // Per-block opt-in for dashboard-wide global filters. Experiments with Lift
+    // does not support the dashboard Date Range filter (it has its own separate
+    // start/end phase-date windows), so `dateRange` is intentionally unused here.
+    globalControlSettings: experimentGlobalControlSettingsValidator.optional(),
   })
   .strict();
 
@@ -252,9 +273,11 @@ export type MetricExperimentsBlockInterface = z.infer<
 
 // Shared fields for the "Completed Experiments" block family (Scaled Impact,
 // Win Percentage, Experiment Status). Date range + project scoping mirror the
-// Executive Report controls. Kept per-block for now, but always read through
-// resolveCompletedExperimentsFilters so a future dashboard-wide filter bar can
-// override them (see resolveBlockComparison for the same pattern).
+// Executive Report controls. Stored per-block, but always read through
+// resolveCompletedExperimentsFilters so the dashboard global filter bar can
+// override them per the block's globalControlSettings opt-in (see
+// resolveBlockComparison for the same pattern).
+
 // Period comparison for a dashboard block. `enabled` turns the comparison on;
 // `mode` names how the previous period is derived and `previousTimeFrame` holds
 // the frozen window that only `mode: "custom"` uses — every other mode
@@ -285,6 +308,9 @@ const completedExperimentsBlockCommon = {
   // comparison". The previous window is derived from the current one on each
   // refresh (span-shift), so we don't persist `previousTimeFrame` here.
   comparison: blockComparisonValidator.optional(),
+  // Per-block opt-in for dashboard-wide global filters (date range, projects,
+  // experiment search).
+  globalControlSettings: experimentGlobalControlSettingsValidator.optional(),
 };
 
 const experimentsScaledImpactBlockInterface = baseBlockInterface
@@ -485,12 +511,6 @@ export type MetricExplorerBlockInterface = z.infer<
   typeof metricExplorerBlockInterface
 >;
 
-const globalControlSettingsValidator = z
-  .object({
-    dateRange: z.boolean().optional(),
-  })
-  .strict();
-
 // Fields shared by every product-analytics exploration block. `comparison` and
 // `comparisonExplorerAnalysisId` are optional so pre-existing blocks read as
 // "no comparison".
@@ -501,7 +521,7 @@ const explorationBlockCommon = {
     (value) => (value === null ? undefined : value),
     z.string().optional(),
   ),
-  globalControlSettings: globalControlSettingsValidator.optional(),
+  globalControlSettings: explorationGlobalControlSettingsValidator.optional(),
 };
 
 const metricExplorationBlockInterface = baseBlockInterface.extend({

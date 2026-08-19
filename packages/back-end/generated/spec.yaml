@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  version: 5.0.0
+  version: 5.0.1
   title: GrowthBook REST API
   description: >
     GrowthBook offers a full REST API for interacting with the application.
@@ -15492,6 +15492,48 @@ paths:
                 required:
                   - snapshot
                 additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    description: >-
+                      The Incremental Pipeline needs a Full Refresh of Overall
+                      Results before this request can be served
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - requires_full_refresh
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiErrorRequiresFullRefreshDetails
+                    required:
+                      - message
+                      - code
+                      - details
+                  - type: object
+                    description: >-
+                      The requested dimension was already computed from the
+                      latest Overall Results
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - dimension_already_up_to_date
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiErrorDimensionAlreadyUpToDateDetails
+                    required:
+                      - message
+                      - code
+                      - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -26182,6 +26224,15 @@ paths:
                   propertyNames:
                     type: string
                   additionalProperties: {}
+                originalFunctionArgs:
+                  description: >-
+                    State before the change. When supplied, the hook also runs
+                    against it and Incremental Changes Only suppression is
+                    applied to the result.
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties: {}
                 entityType:
                   type: string
                   enum:
@@ -26215,6 +26266,8 @@ paths:
                   log:
                     description: Captured console output
                     type: string
+                  suppressed:
+                    $ref: '#/components/schemas/suppressed'
                 required:
                   - success
                 additionalProperties: false
@@ -34257,6 +34310,12 @@ paths:
                         - week
                         - month
                         - year
+                    projects:
+                      type: array
+                      items:
+                        type: string
+                    experimentSearchString:
+                      type: string
                   additionalProperties: false
                 blocks:
                   type: array
@@ -34612,6 +34671,16 @@ paths:
                                     - id
                                     - visible
                                   additionalProperties: false
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  projects:
+                                    type: boolean
+                                  experimentSearchString:
+                                    type: boolean
+                                additionalProperties: false
                             required:
                               - type
                               - title
@@ -34757,6 +34826,16 @@ paths:
                                     additionalProperties: false
                                 required:
                                   - enabled
+                                additionalProperties: false
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  projects:
+                                    type: boolean
+                                  experimentSearchString:
+                                    type: boolean
                                 additionalProperties: false
                               metricId:
                                 type: string
@@ -34904,6 +34983,16 @@ paths:
                                 required:
                                   - enabled
                                 additionalProperties: false
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  projects:
+                                    type: boolean
+                                  experimentSearchString:
+                                    type: boolean
+                                additionalProperties: false
                               showProjectBreakdown:
                                 type: boolean
                             required:
@@ -35049,6 +35138,16 @@ paths:
                                     additionalProperties: false
                                 required:
                                   - enabled
+                                additionalProperties: false
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  projects:
+                                    type: boolean
+                                  experimentSearchString:
+                                    type: boolean
                                 additionalProperties: false
                               dateGranularity:
                                 type: string
@@ -37621,6 +37720,16 @@ paths:
                                     - id
                                     - visible
                                   additionalProperties: false
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  projects:
+                                    type: boolean
+                                  experimentSearchString:
+                                    type: boolean
+                                additionalProperties: false
                             required:
                               - organization
                               - id
@@ -37775,6 +37884,16 @@ paths:
                                     additionalProperties: false
                                 required:
                                   - enabled
+                                additionalProperties: false
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  projects:
+                                    type: boolean
+                                  experimentSearchString:
+                                    type: boolean
                                 additionalProperties: false
                               metricId:
                                 type: string
@@ -37931,6 +38050,16 @@ paths:
                                 required:
                                   - enabled
                                 additionalProperties: false
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  projects:
+                                    type: boolean
+                                  experimentSearchString:
+                                    type: boolean
+                                additionalProperties: false
                               showProjectBreakdown:
                                 type: boolean
                             required:
@@ -38085,6 +38214,16 @@ paths:
                                     additionalProperties: false
                                 required:
                                   - enabled
+                                additionalProperties: false
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  projects:
+                                    type: boolean
+                                  experimentSearchString:
+                                    type: boolean
                                 additionalProperties: false
                               dateGranularity:
                                 type: string
@@ -40575,6 +40714,12 @@ paths:
                         - week
                         - month
                         - year
+                    projects:
+                      type: array
+                      items:
+                        type: string
+                    experimentSearchString:
+                      type: string
                   additionalProperties: false
                 blocks:
                   type: array
@@ -40929,6 +41074,16 @@ paths:
                                 - id
                                 - visible
                               additionalProperties: false
+                          globalControlSettings:
+                            type: object
+                            properties:
+                              dateRange:
+                                type: boolean
+                              projects:
+                                type: boolean
+                              experimentSearchString:
+                                type: boolean
+                            additionalProperties: false
                         required:
                           - type
                           - title
@@ -41074,6 +41229,16 @@ paths:
                                 additionalProperties: false
                             required:
                               - enabled
+                            additionalProperties: false
+                          globalControlSettings:
+                            type: object
+                            properties:
+                              dateRange:
+                                type: boolean
+                              projects:
+                                type: boolean
+                              experimentSearchString:
+                                type: boolean
                             additionalProperties: false
                           metricId:
                             type: string
@@ -41221,6 +41386,16 @@ paths:
                             required:
                               - enabled
                             additionalProperties: false
+                          globalControlSettings:
+                            type: object
+                            properties:
+                              dateRange:
+                                type: boolean
+                              projects:
+                                type: boolean
+                              experimentSearchString:
+                                type: boolean
+                            additionalProperties: false
                           showProjectBreakdown:
                             type: boolean
                         required:
@@ -41366,6 +41541,16 @@ paths:
                                 additionalProperties: false
                             required:
                               - enabled
+                            additionalProperties: false
+                          globalControlSettings:
+                            type: object
+                            properties:
+                              dateRange:
+                                type: boolean
+                              projects:
+                                type: boolean
+                              experimentSearchString:
+                                type: boolean
                             additionalProperties: false
                           dateGranularity:
                             type: string
@@ -62160,6 +62345,12 @@ components:
                 - week
                 - month
                 - year
+            projects:
+              type: array
+              items:
+                type: string
+            experimentSearchString:
+              type: string
           additionalProperties: false
         comparison:
           type: object
@@ -62800,6 +62991,16 @@ components:
                         - id
                         - visible
                       additionalProperties: false
+                  globalControlSettings:
+                    type: object
+                    properties:
+                      dateRange:
+                        type: boolean
+                      projects:
+                        type: boolean
+                      experimentSearchString:
+                        type: boolean
+                    additionalProperties: false
                 required:
                   - organization
                   - id
@@ -62954,6 +63155,16 @@ components:
                         additionalProperties: false
                     required:
                       - enabled
+                    additionalProperties: false
+                  globalControlSettings:
+                    type: object
+                    properties:
+                      dateRange:
+                        type: boolean
+                      projects:
+                        type: boolean
+                      experimentSearchString:
+                        type: boolean
                     additionalProperties: false
                   metricId:
                     type: string
@@ -63110,6 +63321,16 @@ components:
                     required:
                       - enabled
                     additionalProperties: false
+                  globalControlSettings:
+                    type: object
+                    properties:
+                      dateRange:
+                        type: boolean
+                      projects:
+                        type: boolean
+                      experimentSearchString:
+                        type: boolean
+                    additionalProperties: false
                   showProjectBreakdown:
                     type: boolean
                 required:
@@ -63264,6 +63485,16 @@ components:
                         additionalProperties: false
                     required:
                       - enabled
+                    additionalProperties: false
+                  globalControlSettings:
+                    type: object
+                    properties:
+                      dateRange:
+                        type: boolean
+                      projects:
+                        type: boolean
+                      experimentSearchString:
+                        type: boolean
                     additionalProperties: false
                   dateGranularity:
                     type: string
@@ -68857,6 +69088,22 @@ components:
         - currentStatus
         - expectedStatuses
       additionalProperties: false
+    ApiErrorRequiresFullRefreshDetails:
+      type: object
+      properties:
+        reason:
+          type: string
+      required:
+        - reason
+      additionalProperties: false
+    ApiErrorDimensionAlreadyUpToDateDetails:
+      type: object
+      properties:
+        overallResultsAsOf:
+          type: string
+      required:
+        - overallResultsAsOf
+      additionalProperties: false
     bypassedGates:
       type: object
       properties:
@@ -70358,6 +70605,19 @@ components:
         - override
         - requiresPermission
         - resolution
+      additionalProperties: false
+    suppressed:
+      description: >-
+        Outcomes the previous state produced too, which Incremental Changes Only
+        would hide on a real save
+      type: object
+      properties:
+        error:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
       additionalProperties: false
     versions:
       type: object

@@ -7,6 +7,10 @@ import {
   SqlExplorationBlockInterface,
   blockHasFieldOfType,
   isDifferenceType,
+  isDashboardExperimentBlock,
+  getActiveBlockGlobalFilterKeys,
+  getCustomBlockGlobalFilterKeys,
+  withBlockGlobalFilterFollowing,
   BLOCK_CONFIG_ITEM_TYPES,
   DIFFERENCE_TYPE_OPTIONS,
 } from "shared/enterprise";
@@ -85,6 +89,7 @@ import ExperimentsScaledImpactSettings from "./ExperimentsScaledImpactSettings";
 import ExperimentsWinRateSettings from "./ExperimentsWinRateSettings";
 import ExperimentsStatusSettings from "./ExperimentsStatusSettings";
 import SqlExplorationExternalEditor from "./SqlExplorationExternalEditor";
+import DashboardFilterSummary from "./DashboardFilterSummary";
 
 type RequiredField = {
   field: string;
@@ -155,6 +160,17 @@ const REQUIRED_FIELDS: {
     },
   ],
 };
+
+// Whether a required field is still missing, keeping the block from being saved.
+// No global filter can stand in for one of these: every required field is the
+// block's own (a block's `metricId` is what it calculates, not a filter).
+function isBlockIncomplete(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+): boolean {
+  return !!(REQUIRED_FIELDS[block.type] || []).find(
+    ({ field, validation }) => !validation(block[field]),
+  );
+}
 
 interface Props {
   projects: string[];
@@ -833,18 +849,45 @@ export default function EditSingleBlock({
       )}
       {block && (
         <Flex direction="column" py="5" px="4" gap="5" width="100%">
-          <Text weight="medium" size="4">
-            <Avatar
-              radius="small"
-              color="indigo"
-              variant="soft"
-              mr="2"
-              size="sm"
-            >
-              {BLOCK_TYPE_INFO[block.type].icon}
-            </Avatar>
-            {BLOCK_TYPE_INFO[block.type].name}
-          </Text>
+          <Flex justify="between" align="center" gap="3">
+            <Text weight="medium" size="4">
+              <Avatar
+                radius="small"
+                color="indigo"
+                variant="soft"
+                mr="2"
+                size="sm"
+              >
+                {BLOCK_TYPE_INFO[block.type].icon}
+              </Avatar>
+              {BLOCK_TYPE_INFO[block.type].name}
+            </Text>
+          </Flex>
+
+          {/* Exploration blocks render their own summary in ExplorerSideBar, next
+              to the draft date state it has to revert. */}
+          {isDashboardExperimentBlock(block) &&
+            getActiveBlockGlobalFilterKeys(block, dashboardGlobalControls)
+              .length > 0 && (
+              <DashboardFilterSummary
+                customCount={
+                  getCustomBlockGlobalFilterKeys(block, dashboardGlobalControls)
+                    .length
+                }
+                onRevertAll={() =>
+                  setBlock(
+                    withBlockGlobalFilterFollowing(
+                      block,
+                      getActiveBlockGlobalFilterKeys(
+                        block,
+                        dashboardGlobalControls,
+                      ),
+                      true,
+                    ),
+                  )
+                }
+              />
+            )}
 
           <Flex gap="5" direction="column" flexGrow="1">
             {block.type === "experiment-metadata" && (
@@ -1711,6 +1754,7 @@ export default function EditSingleBlock({
                 block={block}
                 setBlock={setBlock}
                 projects={projects}
+                dashboardGlobalControls={dashboardGlobalControls}
               />
             )}
             {block.type === "experiments-scaled-impact" && (
@@ -1718,6 +1762,7 @@ export default function EditSingleBlock({
                 block={block}
                 setBlock={setBlock}
                 projects={projects}
+                dashboardGlobalControls={dashboardGlobalControls}
               />
             )}
             {block.type === "experiments-win-rate" && (
@@ -1725,6 +1770,7 @@ export default function EditSingleBlock({
                 block={block}
                 setBlock={setBlock}
                 projects={projects}
+                dashboardGlobalControls={dashboardGlobalControls}
               />
             )}
             {block.type === "experiments-status" && (
@@ -1732,6 +1778,7 @@ export default function EditSingleBlock({
                 block={block}
                 setBlock={setBlock}
                 projects={projects}
+                dashboardGlobalControls={dashboardGlobalControls}
               />
             )}
             {block.type === "metric-exploration" && (
@@ -1825,11 +1872,7 @@ export default function EditSingleBlock({
                   submit();
                 }
               }}
-              disabled={
-                !!(REQUIRED_FIELDS[block.type] || []).find(
-                  ({ field, validation }) => !validation(block[field]),
-                )
-              }
+              disabled={isBlockIncomplete(block)}
             >
               Save & Close
             </Button>

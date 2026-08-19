@@ -57,7 +57,7 @@ type MinimalFactTable = Pick<
 function toMinimalFactTable(factTable: FactTableInterface): MinimalFactTable {
   return {
     ...factTable,
-    timestampColumn: factTable.timestampColumn ?? "timestamp",
+    timestampColumn: "timestamp",
     quoteTimestampColumn: false,
   };
 }
