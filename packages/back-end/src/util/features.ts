@@ -592,18 +592,29 @@ export function getSDKPayloadKeysByDiff(
   return getSDKPayloadKeys(environments, projects);
 }
 
+export function experimentRefIds(
+  rules: FeatureRule[] | undefined,
+  { skipDisabled = false }: { skipDisabled?: boolean } = {},
+): string[] {
+  const ids = new Set<string>();
+  (rules ?? []).forEach((rule) => {
+    if (rule?.type !== "experiment-ref") return;
+    if (skipDisabled && rule.enabled === false) return;
+    ids.add(rule.experimentId);
+  });
+  return [...ids];
+}
+
 export function referencedExperimentIds(
   features: FeatureInterface[],
 ): string[] {
-  const ids = new Set<string>();
-  features.forEach((feature) => {
-    (feature.rules ?? []).forEach((rule) => {
-      if (rule.type === "experiment-ref" && rule.enabled !== false) {
-        ids.add(rule.experimentId);
-      }
-    });
-  });
-  return [...ids];
+  return [
+    ...new Set(
+      features.flatMap((f) =>
+        experimentRefIds(f.rules, { skipDisabled: true }),
+      ),
+    ),
+  ];
 }
 
 // An experiment a delivered feature references belongs in that feature's payload

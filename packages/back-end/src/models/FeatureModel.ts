@@ -103,6 +103,7 @@ import {
   buildInheritedChildrenByAncestor,
   expandRuleEnvsForInheritance,
   getAffectedSDKPayloadKeys,
+  experimentRefIds,
   getSDKPayloadKeysByDiff,
 } from "back-end/src/util/features";
 import {
@@ -4335,15 +4336,12 @@ export async function createAndPublishRevision({
 function getLinkedExperiments(feature: FeatureInterface) {
   // Keep existing links even when a rule is removed — past revisions need
   // them to render correctly.
-  const expIds: Set<string> = new Set(feature.linkedExperiments || []);
-
-  (feature.rules ?? []).forEach((rule) => {
-    if (rule?.type === "experiment-ref") {
-      expIds.add(rule.experimentId);
-    }
-  });
-
-  return [...expIds];
+  return [
+    ...new Set([
+      ...(feature.linkedExperiments || []),
+      ...experimentRefIds(feature.rules),
+    ]),
+  ];
 }
 
 export async function toggleNeverStale(
