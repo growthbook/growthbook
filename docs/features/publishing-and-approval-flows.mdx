@@ -17,7 +17,7 @@ When you change a feature's definition (e.g., the default value or rules), Growt
 
 Continue adding changes to the draft, and when you're ready, publish them all at once with an optional commit message.
 
-<Frame>![Draft Modal](/static/images/features/feature-publishing-2.png)</Frame>
+![Draft Modal](/static/images/features/feature-publishing-2.png)
 
 ## Revisions
 
@@ -51,7 +51,7 @@ With Approval flows, you can require approval before publishing any change to an
 
 Enable Approval Flows for your organization on the settings page. Select the environments that require approvals, or leave the field blank to require approvals on all environments. To force-reset the review when a change is made after approval, toggle on **Reset review on changes**.
 
-<Frame>![Approval flow organization settings](/static/images/features/approval-flows/org-settings.png)</Frame>
+![Approval flow organization settings](/static/images/features/approval-flows/org-settings.png)
 
 ### Requesting a Review
 
@@ -69,7 +69,10 @@ Requested reviews appear in the **Drafts** tab on the Features overview page wit
 
 ### Reviewing
 
-Anyone with "Edit" or "Add" permissions for feature flags (see [Permissions](/account/user-permissions)) can serve as a reviewer, except the user who created the request.
+A reviewer needs the **Review** permission for Feature Flags. The person who
+created the draft cannot approve it. If **Require approval from a non-editor** is
+enabled, anyone who contributed to the draft is also prevented from approving
+it. See [Permissions](/account/user-permissions) for details.
 
 Click the feature, then click **Review and Approve** to open the review modal.
 
@@ -101,7 +104,9 @@ Once the changes are **Approved**, they can be published.
 
 ### Publishing with Approvals
 
-Anyone with permission to add or edit feature flags can publish changes once they are marked as **Approved**. Admins can bypass the review requirement by selecting the checkbox at the top of the modal.
+After approval, anyone with **Publish** access to the affected environments can
+publish the draft. A user with **Bypass draft approvals** can publish without an
+approval.
 
 <Frame>
   <img src="/static/images/features/approval-flows/publish-with-admin-bypass.png" alt="Publishing approved changes with admin bypass option" width="600" />
@@ -109,13 +114,13 @@ Anyone with permission to add or edit feature flags can publish changes once the
 
 Once published, a green "Live" badge confirms the version is published and active.
 
-<Frame>![Green badge indicating the published version is live](/static/images/features/approval-flows/revision-live-badge.png)</Frame>
+![Green badge indicating the published version is live](/static/images/features/approval-flows/revision-live-badge.png)
 
 ### Visualize Changes with Compare Revisions
 
 Get a detailed diff of the changes between published and draft versions by clicking the **Compare Revisions** button.
 
-<Frame>![Compare Revisions button](/static/images/features/approval-flows/compare-revisions-diff.png)</Frame>
+![Compare Revisions button](/static/images/features/approval-flows/compare-revisions-diff.png)
 
 ## Saved Groups
 
@@ -151,10 +156,21 @@ Enable saved group approvals from **Settings → General → Approval Flows**. T
 
 #### Requesting and Reviewing
 
-When approvals are enabled, the **Review & Publish** button on a saved group draft becomes **Request Approval to Publish**. After you submit, reviewers see the request in the saved group's revision list with a **Pending Review** status and can open the **View Approval Request** modal to view the diff, leave comments, and choose **Comment**, **Request Changes**, or **Approve**. As with features, anyone with permission to edit saved groups can review — except the user who created the request when **Require approval from a non-editor** is enabled.
+When approvals are enabled, **Review & Publish** becomes **Request Approval to
+Publish**. The request appears in the Saved Group's revision list with a
+**Pending Review** status. A user with **Review** access can open the request,
+inspect the diff, comment, request changes, or approve it. The draft's creator
+cannot approve it. When **Require approval from a non-editor** is enabled, other
+contributors cannot approve it either.
 
-Once approved, anyone with permission to edit saved groups can publish the revision. Admins, and users with `bypassApprovalChecks` on every project the group belongs to, can publish without going through review.
+After approval, a user with **Publish** access in every Project assigned to the
+Saved Group can publish it. **Bypass draft approvals** allows the same user to
+publish without an approval.
 
 #### Archiving and Unarchiving
 
-Archiving (and unarchiving) a saved group always flows through the revision system. When approval flows are enabled, archive and unarchive actions create a revision that must be approved before it takes effect. Saved groups with active references in features, experiments, or other saved groups cannot be archived until those references are removed.
+Archiving and unarchiving a Saved Group always creates a revision. When approval
+flows are enabled, that revision must be approved before it takes effect.
+Archiving requires **Archive & delete** access; unarchiving requires **Publish**
+access. A Saved Group with active references from Feature Flags, experiments, or
+other Saved Groups cannot be archived until those references are removed.
