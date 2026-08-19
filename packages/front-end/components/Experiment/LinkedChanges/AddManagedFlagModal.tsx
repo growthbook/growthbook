@@ -58,7 +58,6 @@ export default function AddManagedFlagModal({
   focusVariationId,
 }: Props) {
   const { apiCall } = useAuth();
-  const [error, setError] = useState<string | null>(null);
   /** Set when the user accepts the suggested matching key/id pair. */
   const [renameTo, setRenameTo] = useState<string | null>(null);
   const [manualKey, setManualKey] = useState<string | null>(null);
@@ -88,9 +87,17 @@ export default function AddManagedFlagModal({
   function updateValuesOnTypeChange(next: FeatureValueType) {
     if (next === valueType) return;
     form.setValue("valueType", next);
-    const transform = (v: string) => {
-      if (next === "boolean")
-        return Boolean(v) && v !== "false" ? "true" : "false";
+    const transform = (v: string, i: number) => {
+      if (next === "boolean") {
+        // A naive Boolean(v) made every variation "true" (any non-empty string
+        // is truthy), leaving the experiment serving one value. Honour an
+        // explicit boolean-ish literal, otherwise fall back to position:
+        // control off, the rest on.
+        const t = v.trim().toLowerCase();
+        if (["", "0", "false"].includes(t)) return "false";
+        if (["1", "true"].includes(t)) return "true";
+        return i === 0 ? "false" : "true";
+      }
       if (next === "number") return String(Number(v) || 0);
       if (next === "json") {
         return valueType === "string"
@@ -103,7 +110,7 @@ export default function AddManagedFlagModal({
       "variations",
       form
         .getValues("variations")
-        .map((v) => ({ ...v, value: transform(v.value) })),
+        .map((v, i) => ({ ...v, value: transform(v.value, i) })),
     );
   }
 
@@ -147,9 +154,6 @@ export default function AddManagedFlagModal({
     return () => clearTimeout(timer);
   }, [focusVariationId, data, blocker]);
 
-  // What will actually be created: a manual override wins, then an accepted
-  // rename (whose id matches the new key), otherwise the derived id.
-  const resolvedFeatureId = manualKey ?? renameTo ?? keyPlan?.derivedId ?? "";
   const needsKeyChoice = !!keyPlan && !keyPlan.derivedIdAvailable;
   const keyUnresolved = needsKeyChoice && !renameTo && !manualKey;
 
@@ -168,38 +172,29 @@ export default function AddManagedFlagModal({
       header="Manage a Feature Flag from this Experiment"
       subheader="Creates one Feature Flag for this Experiment, set up and published entirely from this page."
       cta="Create Feature Flag"
-      ctaEnabled={!blocker && !keyUnresolved && !keyPlan?.regexError}
+      ctaEnabled={
+        !!keyPlan && !blocker && !keyUnresolved && !keyPlan.regexError
+      }
       submit={form.handleSubmit(async (values) => {
-        setError(null);
         const refVariations: ExperimentRefVariation[] = values.variations.map(
           (v) => ({ variationId: v.id, value: v.value }),
         );
-        try {
-          await apiCall(`/experiment/${experiment.id}/managed-flag`, {
-            method: "POST",
-            body: JSON.stringify({
-              valueType: values.valueType,
-              variations: refVariations,
-              ...(manualKey ? { featureId: manualKey } : {}),
-              ...(renameTo && !manualKey ? { trackingKey: renameTo } : {}),
-            }),
-          });
-          mutate();
-        } catch (e) {
-          setError(e instanceof Error ? e.message : "Something went wrong");
-          throw e;
-        }
+        // A throw here is surfaced by the modal's own error banner.
+        await apiCall(`/experiment/${experiment.id}/managed-flag`, {
+          method: "POST",
+          body: JSON.stringify({
+            valueType: values.valueType,
+            variations: refVariations,
+            ...(manualKey ? { featureId: manualKey } : {}),
+            ...(renameTo && !manualKey ? { trackingKey: renameTo } : {}),
+          }),
+        });
+        mutate();
       })}
     >
       {blocker && (
         <Callout status="warning" mb="3">
           {blocker}
-        </Callout>
-      )}
-
-      {error && (
-        <Callout status="error" mb="3">
-          {error}
         </Callout>
       )}
 
@@ -321,11 +316,9 @@ export default function AddManagedFlagModal({
             ))}
           </Flex>
 
-          {resolvedFeatureId && (
-            <Text size="sm" color="text-low">
-              Values go live when you start the Experiment.
-            </Text>
-          )}
+          <Text size="sm" color="text-low">
+            Values go live when you start the Experiment.
+          </Text>
         </>
       )}
     </ModalStandard>

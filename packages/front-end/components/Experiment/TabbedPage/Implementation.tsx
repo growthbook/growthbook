@@ -284,7 +284,10 @@ export default function Implementation({
           />
         )}
         {!isHoldout &&
-        (!showTrafficFunnel || hasLinkedChanges || canAddLinkedChanges) ? (
+        (!showTrafficFunnel ||
+          hasLinkedChanges ||
+          canAddLinkedChanges ||
+          canAdoptManagedFlag) ? (
           <LinkedChanges
             linkedFeatures={linkedFeatures}
             experiment={experiment}
