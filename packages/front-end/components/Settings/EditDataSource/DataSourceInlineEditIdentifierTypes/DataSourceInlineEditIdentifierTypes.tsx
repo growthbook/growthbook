@@ -144,15 +144,21 @@ export const DataSourceInlineEditIdentifierTypes: FC<
         The different units you use to split traffic in an experiment.
       </Text>
 
-      {userIdTypes.map(({ userIdType, description, attributes }, idx) => {
+      {userIdTypes.map((type, idx) => {
+        const { userIdType, description, attributes } = type;
+        const isManaged = isEventForwarderManagedUserIdType(type);
+
         return (
           <Card key={userIdType} mt="3">
             <Flex align="start" justify="between" py="2" px="3" gap="3">
               {/* region Identity Type text */}
               <Box>
-                <Heading size="sm" as="h3" mb="1">
-                  {userIdType}
-                </Heading>
+                <Flex align="center" gap="2" mb="1">
+                  <Heading size="sm" as="h3" mb="0">
+                    {userIdType}
+                  </Heading>
+                  {isManaged && <Badge label="Managed by Event Forwarder" />}
+                </Flex>
                 <Box mb="2">
                   <Metadata
                     label="Linked Hash Attributes"
