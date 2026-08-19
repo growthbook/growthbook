@@ -160,7 +160,7 @@ export default function ApprovalFlowSettings() {
                     <Flex align="start" justify="between" gap="3" mb="4">
                       <Text size="sm" color="text-low">
                         {scope
-                          ? `Applies to ${scopeName(scope)}. Anything left unset here follows All Projects.`
+                          ? `Applies to ${scopeName(scope)}. Greyed settings are inherited from All Projects — change one to override it here.`
                           : "Applies to every Project without an override of its own."}
                       </Text>
                       {scope ? (

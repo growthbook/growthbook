@@ -1,12 +1,6 @@
-import { ReactNode, useState } from "react";
+import { useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import {
-  PiArrowCounterClockwise,
-  PiCheckBold,
-  PiInfo,
-  PiPlus,
-  PiXBold,
-} from "react-icons/pi";
+import { PiArrowCounterClockwise, PiInfo, PiPlus } from "react-icons/pi";
 import {
   ApprovalFlowConfiguration,
   RequireReview,
@@ -29,12 +23,22 @@ type ScopeFieldsProps<T> = {
   inherited?: T;
 };
 
-function LabelWithHelp({ label, help }: { label: string; help?: string }) {
-  if (!help) return <>{label}</>;
+function LabelWithHelp({
+  label,
+  help,
+  muted,
+}: {
+  label: string;
+  help?: string;
+  // Muted means the field is still inheriting, so nothing here is an override.
+  muted?: boolean;
+}) {
+  const text = muted ? <Text color="text-low">{label}</Text> : label;
+  if (!help) return <>{text}</>;
   return (
     <Flex align="center" gap="1" asChild>
       <span>
-        {label}
+        {text}
         <span onClick={(e) => e.stopPropagation()}>
           <Tooltip body={help}>
             <PiInfo color="var(--color-text-low)" />
@@ -82,32 +86,9 @@ function fieldHandles<T extends object>(
   };
 }
 
-// Inherited rows carry no controls and no badge: the value is shown as it
-// resolves and doubles as the affordance that starts an override.
-function InheritedValue({
-  children,
-  onOverride,
-}: {
-  children: ReactNode;
-  onOverride: () => void;
-}) {
-  return (
-    <Tooltip body="Inherited from All Projects. Click to override for this Project.">
-      <span
-        role="button"
-        tabIndex={0}
-        onClick={onOverride}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") onOverride();
-        }}
-        style={{ cursor: "pointer", textDecoration: "underline dotted" }}
-      >
-        {children}
-      </span>
-    </Tooltip>
-  );
-}
-
+// Inheriting is the default state, so it carries no controls of its own: the
+// label is muted and there is no Revert. Editing the control writes a value,
+// which is what makes the field an override.
 function RevertLink({ onRevert }: { onRevert: () => void }) {
   return (
     <Link
@@ -136,32 +117,17 @@ function InheritableCheckbox({
   help?: string;
   field: FieldHandle<boolean>;
 }) {
-  if (!field.overridden) {
-    return (
-      <Flex align="center" gap="2">
-        <Text color="text-low">
-          {field.effective ? <PiCheckBold /> : <PiXBold />}
-        </Text>
-        <Text color="text-low">
-          <InheritedValue onOverride={field.override}>{label}</InheritedValue>
-        </Text>
-        {help ? (
-          <Tooltip body={help}>
-            <PiInfo color="var(--color-text-low)" />
-          </Tooltip>
-        ) : null}
-      </Flex>
-    );
-  }
   return (
     <Flex align="center" justify="between" gap="3">
       <Checkbox
         id={id}
-        label={<LabelWithHelp label={label} help={help} />}
+        label={
+          <LabelWithHelp label={label} help={help} muted={!field.overridden} />
+        }
         value={!!field.effective}
         setValue={field.set}
       />
-      <RevertLink onRevert={field.revert} />
+      {field.overridden ? <RevertLink onRevert={field.revert} /> : null}
     </Flex>
   );
 }
@@ -172,7 +138,6 @@ function InheritableMultiSelect({
   options,
   placeholder,
   help,
-  emptyLabel,
   field,
 }: {
   id: string;
@@ -180,36 +145,15 @@ function InheritableMultiSelect({
   options: { value: string; label: string }[];
   placeholder: string;
   help?: string;
-  // What an empty list means for this field, since [] is a real value.
-  emptyLabel: string;
   field: FieldHandle<string[]>;
 }) {
-  if (!field.overridden) {
-    const names = field.effective.map(
-      (v) => options.find((o) => o.value === v)?.label ?? v,
-    );
-    return (
-      <Box>
-        <Text as="label" size="md" weight="semibold">
-          <LabelWithHelp label={label} help={help} />
-        </Text>
-        <Box>
-          <Text color="text-low">
-            <InheritedValue onOverride={field.override}>
-              {names.length ? names.join(", ") : emptyLabel}
-            </InheritedValue>
-          </Text>
-        </Box>
-      </Box>
-    );
-  }
   return (
     <Box>
       <Flex align="center" justify="between" gap="3">
         <Text as="label" size="md" weight="semibold">
-          <LabelWithHelp label={label} help={help} />
+          <LabelWithHelp label={label} help={help} muted={!field.overridden} />
         </Text>
-        <RevertLink onRevert={field.revert} />
+        {field.overridden ? <RevertLink onRevert={field.revert} /> : null}
       </Flex>
       <MultiSelectField
         legacyHeight
@@ -254,7 +198,6 @@ export function FlagApprovalFields({
               label="Specific environments"
               options={environments.map((e) => ({ value: e.id, label: e.id }))}
               placeholder="All environments (leave blank to gate all)"
-              emptyLabel="All environments"
               field={envField}
             />
           ) : (
@@ -268,7 +211,6 @@ export function FlagApprovalFields({
             options={(teams ?? []).map((t) => ({ value: t.id, label: t.name }))}
             placeholder="Anyone who can review (leave blank)"
             help={REQUIRED_TEAMS_HELP}
-            emptyLabel="Anyone who can review"
             field={handle("requiredApproverTeams", [])}
           />
           <InheritableCheckbox
@@ -349,7 +291,6 @@ export function SavedGroupApprovalFields({
             options={(teams ?? []).map((t) => ({ value: t.id, label: t.name }))}
             placeholder="Anyone who can review (leave blank)"
             help={REQUIRED_TEAMS_HELP}
-            emptyLabel="Anyone who can review"
             field={handle("requiredApproverTeams", [])}
           />
           <InheritableCheckbox
