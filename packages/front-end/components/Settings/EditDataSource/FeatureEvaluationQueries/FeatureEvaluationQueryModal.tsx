@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
 import { FaExternalLinkAlt } from "react-icons/fa";
+import { isEventForwarderManagedFeatureUsageQuery } from "shared/util";
 import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Modal from "@/components/Modal";
@@ -46,7 +47,17 @@ export const FeatureEvaluationQueryModal: FC<FeatureEvaluationQueryProps> = ({
 
   const userEnteredQuery = form.watch("query");
 
+  const isEventForwarderManaged =
+    mode === "edit" &&
+    !!featureUsageQuery &&
+    isEventForwarderManagedFeatureUsageQuery(featureUsageQuery);
+
   const handleSubmit = form.handleSubmit(async (value) => {
+    // Editing hands the query to the user, matching assignment queries. It stops
+    // being an Event Forwarder resource rather than being overwritten later.
+    if (isEventForwarderManaged) {
+      value.managedBy = "";
+    }
     await onSave(value);
 
     form.reset({
@@ -111,6 +122,12 @@ export const FeatureEvaluationQueryModal: FC<FeatureEvaluationQueryProps> = ({
         ctaEnabled={saveEnabled}
       >
         <div className="my-2 ml-3 mr-3">
+          {isEventForwarderManaged ? (
+            <Callout status="info" mb="4">
+              The Event Forwarder manages this query. Saving any edit makes it
+              yours and it stops being managed.
+            </Callout>
+          ) : null}
           <div className="row">
             <div className="col-12">
               <div className="form-group">

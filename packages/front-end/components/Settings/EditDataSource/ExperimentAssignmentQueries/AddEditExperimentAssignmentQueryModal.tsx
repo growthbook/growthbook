@@ -41,10 +41,13 @@ export const AddEditExperimentAssignmentQueryModal: FC<
           exposureQuery ? exposureQuery.name : "Experiment Assignment"
         } query`;
 
-  // Event Forwarder managed queries are intentionally editable for now. Restore
-  // `mode === "edit" && !!exposureQuery &&
-  // isEventForwarderManagedExposureQuery(exposureQuery)` to lock them again.
+  // Event Forwarder managed queries are intentionally editable. Saving hands the
+  // query to the user rather than locking them out — see handleSubmit.
   const isManaged = false;
+  const isEventForwarderManaged =
+    mode === "edit" &&
+    !!exposureQuery &&
+    isEventForwarderManagedExposureQuery(exposureQuery);
 
   const userIdTypeOptions = dataSource?.settings?.userIdTypes?.map(
     ({ userIdType }) => ({
@@ -259,6 +262,14 @@ export const AddEditExperimentAssignmentQueryModal: FC<
         autoFocusSelector="#id-modal-identify-joins-heading"
       >
         <div className="my-2 ml-3 mr-3">
+          {isEventForwarderManaged ? (
+            <Callout status="info" mb="4">
+              The Event Forwarder manages this query and rewrites its SQL when
+              your hash attributes change. Saving any edit makes it yours: it
+              stops updating automatically, and a new managed query is created
+              alongside it.
+            </Callout>
+          ) : null}
           <div className="row">
             <div className="col-12">
               <Field

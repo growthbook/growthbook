@@ -402,6 +402,46 @@ describe("syncEventForwarderEventsFactTableMetadata", () => {
     );
   });
 
+  it("leaves a fact table the user took ownership of alone", async () => {
+    const ctx = context();
+    ctx.models.eventForwarderConfigs.getAll.mockResolvedValue([
+      {
+        datasourceId: "ds_1",
+        sinkType: "bigquery",
+      },
+    ]);
+
+    const ds = datasource({
+      settings: {
+        userIdTypes: [{ userIdType: "user_id", description: "" }],
+      },
+    });
+    // Editing in the UI clears the marker. This sync rewrites sql, columns, and
+    // userIdTypes wholesale, so it has to skip anything it no longer owns.
+    const ft = eventsFactTable({ managedBy: "", sql: "SELECT my_own_thing" });
+
+    mockedGetDataSourceById.mockResolvedValue(ds);
+    mockedGetFactTable.mockResolvedValue(ft);
+    mockedGetSourceIntegrationObject.mockReturnValue({
+      params: {
+        defaultProject: "my-project",
+      },
+    } as never);
+    mockedDecrypt.mockReturnValue({
+      dataset: "analytics_123",
+      tablePrefix: "gb",
+      serviceAccountKey: "{}",
+    });
+
+    await syncEventForwarderEventsFactTableMetadata(ctx as never, [
+      { property: "user_id", datatype: "string", hashAttribute: true },
+      { property: "age", datatype: "number" },
+    ]);
+
+    expect(mockedUpdateFactTable).not.toHaveBeenCalled();
+    expect(mockedQueueFactTableColumnsRefreshAt).not.toHaveBeenCalled();
+  });
+
   it("marks column refresh pending when metadata is already current", async () => {
     const ctx = context();
     ctx.models.eventForwarderConfigs.getAll.mockResolvedValue([

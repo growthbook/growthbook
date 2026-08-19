@@ -5,7 +5,10 @@ import {
 } from "shared/types/fact-table";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  isEventForwarderEventsFactTable,
+  isProjectListValidForProject,
+} from "shared/util";
 import { useEffect, useState } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import Collapsible from "react-collapsible";
@@ -88,6 +91,13 @@ export default function FactTableModal({
   });
 
   const selectedDataSource = getDatasourceById(form.watch("datasource"));
+
+  // Only the Events table the Event Forwarder generates, not every fact table
+  // carrying managedBy: "api".
+  const isEventForwarderManaged =
+    !!existing &&
+    !duplicate &&
+    isEventForwarderEventsFactTable(existing, existing.datasource);
 
   const datasourceHasIncrementalRefresh =
     selectedDataSource?.settings?.pipelineSettings?.allowWriting === true &&
@@ -181,7 +191,11 @@ export default function FactTableModal({
               sql: value.sql,
               userIdTypes: value.userIdTypes,
               eventName: value.eventName,
-              managedBy: value.managedBy,
+              // Editing hands the table to the user. The Event Forwarder
+              // rewrites the SQL, columns, and identifier types of every Events
+              // table it still owns on each attribute change, so keeping the
+              // marker would overwrite their edit.
+              managedBy: isEventForwarderManaged ? "" : value.managedBy,
               projects: value.projects,
               autoSliceUpdatesEnabled: value.autoSliceUpdatesEnabled,
             };
@@ -243,6 +257,14 @@ export default function FactTableModal({
           }
         })}
       >
+        {isEventForwarderManaged ? (
+          <Callout status="info" mb="4">
+            The Event Forwarder manages this Fact Table and rewrites its SQL,
+            columns, and identifier types when your attributes change. Saving
+            any edit makes it yours: it stops updating automatically.
+          </Callout>
+        ) : null}
+
         <Field size="legacy" label="Name" {...form.register("name")} required />
 
         {

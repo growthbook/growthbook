@@ -182,6 +182,13 @@ export async function syncEventForwarderEventsFactTableMetadata(
       continue;
     }
 
+    // Editing the table in the UI clears the marker, handing it to the user.
+    // This sync rewrites sql, columns, and userIdTypes wholesale, so anything it
+    // no longer owns has to be left alone or the edit is overwritten.
+    if (factTable.managedBy !== "api") {
+      continue;
+    }
+
     const userIdTypes = datasource.settings?.userIdTypes ?? [];
     const desiredUserIdTypeNames = userIdTypes.map((u) => u.userIdType);
     const desiredColumns = buildEventForwarderEventsFactTableColumns(
