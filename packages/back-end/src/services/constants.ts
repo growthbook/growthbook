@@ -50,10 +50,10 @@ export async function resolvableValueChanged(
   model: "constant" | "config" = "constant",
   changedKey?: string,
 ) {
+  // Full-access context for the reference scans below; the refresh calls get
+  // the original context, so REST writes keep their refresh buffer and take
+  // the stale-tracking path when enabled (the refresh re-wraps internally).
   const context = getContextForAgendaJobByOrgObject(baseContext.org);
-  // Carry the bulk publisher's refresh buffer across the context boundary so a
-  // buffered commit's constant/config side effects don't escape it.
-  context.sdkPayloadRefreshBuffer = baseContext.sdkPayloadRefreshBuffer;
 
   if (changedKey) {
     const features = await getFeaturesAffectedByResolvable(
@@ -70,7 +70,7 @@ export async function resolvableValueChanged(
     // No feature depends on this value — nothing to rebuild or notify.
     if (!payloadKeys.length) return;
     queueSDKPayloadRefresh({
-      context,
+      context: baseContext,
       payloadKeys,
       auditContext: {
         event,
@@ -81,7 +81,7 @@ export async function resolvableValueChanged(
   }
 
   queueSDKPayloadRefresh({
-    context,
+    context: baseContext,
     payloadKeys: getPayloadKeysForAllEnvs(context, [""]),
     treatEmptyProjectAsGlobal: true,
     auditContext: {

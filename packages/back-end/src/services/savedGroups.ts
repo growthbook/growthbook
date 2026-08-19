@@ -16,17 +16,16 @@ import { getContextForAgendaJobByOrgObject } from "./organizations";
 export async function savedGroupUpdated(
   baseContext: ReqContext | ApiReqContext,
 ) {
-  // This is a background job, so create a new context with full read permissions
+  // Full-access context for the org-wide key computation below.
   const context = getContextForAgendaJobByOrgObject(baseContext.org);
-  // Carry the bulk publisher's refresh buffer across the context boundary so a
-  // buffered commit's saved-group side effects don't escape it.
-  context.sdkPayloadRefreshBuffer = baseContext.sdkPayloadRefreshBuffer;
 
   // Saved groups can be nested recursively and may be referenced cross-project
   // To be safe, refresh all cache entries across all environments/projects
   // TODO: Optimize this later if performance becomes an issue
   queueSDKPayloadRefresh({
-    context,
+    // The original context, so REST writes keep their refresh buffer and take
+    // the stale-tracking path when enabled (the refresh re-wraps internally).
+    context: baseContext,
     payloadKeys: getPayloadKeysForAllEnvs(context, [""]),
     treatEmptyProjectAsGlobal: true,
     auditContext: {
