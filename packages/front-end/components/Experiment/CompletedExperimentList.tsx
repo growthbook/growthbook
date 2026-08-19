@@ -146,7 +146,7 @@ const CompletedExperimentList = ({
                   className="d-flex align-items-center ml-2"
                   body="Visual experiment"
                 >
-                  <RxDesktop className="text-blue" />
+                  <RxDesktop className="text-purple" />
                 </Tooltip>,
               );
             }
@@ -157,7 +157,7 @@ const CompletedExperimentList = ({
                   className="d-flex align-items-center ml-2"
                   body="Linked Feature Flag"
                 >
-                  <BsFlag className="text-blue" />
+                  <BsFlag className="text-purple" />
                 </Tooltip>,
               );
             }
@@ -168,7 +168,7 @@ const CompletedExperimentList = ({
                   className="d-flex align-items-center ml-2"
                   body="URL Redirect experiment"
                 >
-                  <PiShuffle className="text-blue" />
+                  <PiShuffle className="text-purple" />
                 </Tooltip>,
               );
             }
