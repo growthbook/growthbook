@@ -133,6 +133,8 @@ import {
   getHoldoutFeatureDefId,
   getParsedCondition,
   pairedWeightsToPositional,
+  experimentMapForFeatures,
+  referencedExperimentIds,
 } from "back-end/src/util/features";
 import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
@@ -1425,6 +1427,12 @@ export async function buildSDKPayloadForConnection(
         )
       : data.experimentMap;
 
+  const featureExperimentMap = experimentMapForFeatures(
+    data.experimentMap,
+    filteredFeatures,
+    projectList,
+  );
+
   // Fresh cache per connection (one env per connection); keyed by prereq id only
   const prereqStateCache: Record<string, PrerequisiteStateResult> = {};
 
@@ -1485,7 +1493,7 @@ export async function buildSDKPayloadForConnection(
     groupMap: data.groupMap,
     constants: data.constants,
     constantMap: data.constantMap,
-    experimentMap: filteredExperimentMap,
+    experimentMap: featureExperimentMap,
     prereqStateCache,
     safeRolloutMap: data.safeRolloutMap,
     holdoutsMap: holdoutsMapForConnection,
@@ -1612,7 +1620,11 @@ export async function getFeatureDefinitions(
     projects: projectFilter,
   });
   const groupMap = await getSavedGroupMap(context, allSavedGroups);
-  const experimentMap = await getAllPayloadExperiments(context, projectFilter);
+  const experimentMap = await getAllPayloadExperiments(
+    context,
+    projectFilter,
+    referencedExperimentIds(allFeatures),
+  );
   const safeRolloutMap =
     await context.models.safeRollout.getAllPayloadSafeRollouts();
   const holdoutsMap =

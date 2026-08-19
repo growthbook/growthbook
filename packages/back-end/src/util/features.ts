@@ -592,6 +592,36 @@ export function getSDKPayloadKeysByDiff(
   return getSDKPayloadKeys(environments, projects);
 }
 
+export function referencedExperimentIds(
+  features: FeatureInterface[],
+): string[] {
+  const ids = new Set<string>();
+  features.forEach((feature) => {
+    (feature.rules ?? []).forEach((rule) => {
+      if (rule.type === "experiment-ref" && rule.enabled !== false) {
+        ids.add(rule.experimentId);
+      }
+    });
+  });
+  return [...ids];
+}
+
+// An experiment a delivered feature references belongs in that feature's payload
+// even when the experiment itself lives in another project.
+export function experimentMapForFeatures(
+  experimentMap: Map<string, ExperimentInterface>,
+  features: FeatureInterface[],
+  projects: string[],
+): Map<string, ExperimentInterface> {
+  if (!projects.length) return experimentMap;
+  const referenced = new Set(referencedExperimentIds(features));
+  return new Map(
+    [...experimentMap.entries()].filter(
+      ([id, exp]) => projects.includes(exp.project || "") || referenced.has(id),
+    ),
+  );
+}
+
 export function getAffectedSDKPayloadKeys(
   features: FeatureInterface[],
   allowedEnvs: string[],
