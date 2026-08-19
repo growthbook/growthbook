@@ -79,7 +79,7 @@ export default function SaveFunnelMetricAction() {
               useTip={false}
               inheritColor
             />
-            Save as Metric
+            Save as metric
           </Flex>
         </Button>
       </Tooltip>
