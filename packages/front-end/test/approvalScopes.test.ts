@@ -7,8 +7,9 @@ import {
   ALL_PROJECTS_SCOPE,
   inheritedFlagRule,
   inheritedSavedGroupRule,
-  ownFlagRule,
-  ownSavedGroupRule,
+  clonedFlagRule,
+  clonedSavedGroupRule,
+  differsFromBase,
   overrideScopes,
   ruleForScope,
   scopeKey,
@@ -124,16 +125,34 @@ describe("what an override scope inherits", () => {
     expect(inherited?.autopublishOnApproval).toBe(true);
   });
 
-  // The switch does not inherit, so a fresh override must carry it explicitly
-  // or the tab would read as "approval off" for a scope that requires it.
-  it("seeds a fresh override's switch from what the scope resolves to", () => {
-    const inherited = { requireReviewOn: true, projects: [] } as RequireReview;
+  // An override is a copy, so a fresh scope starts equal to the base rather than
+  // half-set — otherwise a new tab would read as "approval off" for a scope that
+  // in fact requires it.
+  it("clones the base rule for a scope with no rule of its own", () => {
+    const base = {
+      requireReviewOn: true,
+      projects: [],
+      environments: ["production"],
+      requiredApproverTeams: ["t_sec"],
+    } as RequireReview;
 
-    expect(ownFlagRule([], "prj_a", inherited).requireReviewOn).toBe(true);
-    expect(ownFlagRule([], "prj_a", undefined).requireReviewOn).toBe(false);
-    expect(
-      ownSavedGroupRule([], "prj_a", { required: true, projects: [] }).required,
-    ).toBe(true);
+    const clone = clonedFlagRule([base], "prj_a");
+    expect(clone.requireReviewOn).toBe(true);
+    expect(clone.requiredApproverTeams).toEqual(["t_sec"]);
+    expect(clone.environments).toEqual(["production"]);
+    // Re-pointed at this scope, so saving it stores an override.
+    expect(clone.projects).toEqual(["prj_a"]);
+  });
+
+  it("clones a legacy saved-group row that predates the projects field", () => {
+    const legacy = [
+      { required: true, autopublishOnApproval: true },
+    ] as ApprovalFlowConfiguration[];
+
+    const clone = clonedSavedGroupRule(legacy, "prj_a");
+    expect(clone.required).toBe(true);
+    expect(clone.autopublishOnApproval).toBe(true);
+    expect(clone.projects).toEqual(["prj_a"]);
   });
 
   it("returns the stored rule untouched when the scope has one", () => {
@@ -143,6 +162,54 @@ describe("what an override scope inherits", () => {
       requiredApproverTeams: ["t_pay"],
     } as RequireReview;
 
-    expect(ownFlagRule([own], "prj_a", undefined)).toBe(own);
+    expect(clonedFlagRule([own], "prj_a")).toBe(own);
+  });
+});
+
+describe("differsFromBase", () => {
+  const base = {
+    requireReviewOn: true,
+    projects: [],
+    environments: ["production"],
+  } as RequireReview;
+
+  // A fresh clone matches the base, so a section offers no reset until edited.
+  it("is false for an untouched clone", () => {
+    expect(differsFromBase({ ...base, projects: ["prj_a"] }, base)).toBe(false);
+  });
+
+  it("ignores the selector, which is what names the scope", () => {
+    expect(
+      differsFromBase({ ...base, projects: ["prj_a", "prj_b"] }, base),
+    ).toBe(false);
+  });
+
+  it("is true once any governed field diverges", () => {
+    expect(
+      differsFromBase(
+        { ...base, projects: ["prj_a"], requireReviewOn: false },
+        base,
+      ),
+    ).toBe(true);
+    expect(
+      differsFromBase(
+        { ...base, projects: ["prj_a"], requiredApproverTeams: ["t_sec"] },
+        base,
+      ),
+    ).toBe(true);
+  });
+
+  // Nulls are the stored "unset" form, so they must not read as a difference.
+  it("treats a nulled field as absent", () => {
+    expect(
+      differsFromBase(
+        { ...base, projects: ["prj_a"], requiredApproverTeams: null },
+        base,
+      ),
+    ).toBe(false);
+  });
+
+  it("is false when there is no base to compare against", () => {
+    expect(differsFromBase(base, undefined)).toBe(false);
   });
 });

@@ -2,6 +2,7 @@ import {
   ApprovalFlowConfiguration,
   RequireReview,
 } from "shared/types/organization";
+import isEqual from "lodash/isEqual";
 import { getReviewSetting } from "shared/util";
 import { getApprovalFlowRules } from "shared/enterprise";
 
@@ -92,28 +93,44 @@ export function inheritedSavedGroupRule(
   )[0];
 }
 
-// The rule stored for this scope, or a fresh one whose non-inheriting switch is
-// seeded from what the scope resolves to today — so opening a tab never reads as
-// "approval off" when the scope in fact requires it.
-export function ownFlagRule(
+// An override starts as a full copy of the base rule, so a project's form shows
+// exactly what applies today and then diverges only where it is edited.
+export function clonedFlagRule(
   rules: RequireReview[],
   scope: string,
-  inherited: RequireReview | undefined,
 ): RequireReview {
   const own = ruleForScope(rules, scope);
   if (own) return own;
-  return {
-    ...flagRuleDefaults(scope),
-    requireReviewOn: !!inherited?.requireReviewOn,
-  };
+  const base = inheritedFlagRule(rules, scope);
+  return base
+    ? { ...base, projects: scopeProjects(scope) }
+    : flagRuleDefaults(scope);
 }
 
-export function ownSavedGroupRule(
+export function clonedSavedGroupRule(
   rules: ApprovalFlowConfiguration[],
   scope: string,
-  inherited: ApprovalFlowConfiguration | undefined,
 ): ApprovalFlowConfiguration {
   const own = ruleForScope(rules, scope);
   if (own) return own;
-  return { ...savedGroupRuleDefaults(scope), required: !!inherited?.required };
+  const base = inheritedSavedGroupRule(rules, scope);
+  return base
+    ? { ...base, projects: scopeProjects(scope) }
+    : savedGroupRuleDefaults(scope);
+}
+
+// Whether this scope's rule says anything different from the base it was copied
+// from. The selector is not part of the comparison — it is what names the scope.
+export function differsFromBase<T extends { projects?: string[] }>(
+  rule: T,
+  base: T | undefined,
+): boolean {
+  if (!base) return false;
+  const strip = (r: T) => {
+    const { projects: _projects, ...rest } = r;
+    return Object.fromEntries(
+      Object.entries(rest).filter(([, v]) => v !== null && v !== undefined),
+    );
+  };
+  return !isEqual(strip(rule), strip(base));
 }

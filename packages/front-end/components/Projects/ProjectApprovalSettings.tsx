@@ -14,10 +14,11 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import {
+  clonedFlagRule,
+  clonedSavedGroupRule,
+  differsFromBase,
   inheritedFlagRule,
   inheritedSavedGroupRule,
-  ownFlagRule,
-  ownSavedGroupRule,
   ruleForScope,
   withRuleForScope,
   withoutScope,
@@ -51,11 +52,11 @@ export default function ProjectApprovalSettings({
     project,
   );
   const [flagRule, setFlagRule] = useState<RequireReview>(() =>
-    ownFlagRule(storedFlagRules, project, inheritedFlags),
+    clonedFlagRule(storedFlagRules, project),
   );
   const [savedGroupRule, setSavedGroupRule] =
     useState<ApprovalFlowConfiguration>(() =>
-      ownSavedGroupRule(storedSavedGroupRules, project, inheritedSavedGroups),
+      clonedSavedGroupRule(storedSavedGroupRules, project),
     );
   const [saving, setSaving] = useState(false);
 
@@ -97,11 +98,31 @@ export default function ProjectApprovalSettings({
         <ApprovalScopeSections
           idPrefix="project"
           flagRule={flagRule}
-          inheritedFlagRule={inheritedFlags}
           onFlagChange={setFlagRule}
+          onFlagReset={
+            differsFromBase(flagRule, inheritedFlags)
+              ? () =>
+                  setFlagRule(
+                    clonedFlagRule(
+                      withoutScope(storedFlagRules, project),
+                      project,
+                    ),
+                  )
+              : undefined
+          }
           savedGroupRule={savedGroupRule}
-          inheritedSavedGroupRule={inheritedSavedGroups}
           onSavedGroupChange={setSavedGroupRule}
+          onSavedGroupReset={
+            differsFromBase(savedGroupRule, inheritedSavedGroups)
+              ? () =>
+                  setSavedGroupRule(
+                    clonedSavedGroupRule(
+                      withoutScope(storedSavedGroupRules, project),
+                      project,
+                    ),
+                  )
+              : undefined
+          }
           savedGroupDescription="Applies to Saved Groups belonging to this project. A group in several projects must satisfy each of their requirements."
         />
       </Frame>
@@ -129,10 +150,8 @@ export default function ProjectApprovalSettings({
                 withoutScope(storedFlagRules, project),
                 withoutScope(storedSavedGroupRules, project),
               );
-              setFlagRule(ownFlagRule([], project, inheritedFlags));
-              setSavedGroupRule(
-                ownSavedGroupRule([], project, inheritedSavedGroups),
-              );
+              setFlagRule(clonedFlagRule([], project));
+              setSavedGroupRule(clonedSavedGroupRule([], project));
             }}
           >
             <PiTrash /> Remove override

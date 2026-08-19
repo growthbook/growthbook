@@ -23,10 +23,11 @@ import {
 import {
   ALL_PROJECTS_SCOPE,
   overrideScopes,
+  clonedFlagRule,
+  clonedSavedGroupRule,
+  differsFromBase,
   inheritedFlagRule,
   inheritedSavedGroupRule,
-  ownFlagRule,
-  ownSavedGroupRule,
   scopeProjects,
   withRuleForScope,
   withoutScope,
@@ -84,6 +85,8 @@ export default function ApprovalFlowSettings() {
   const addOverride = (project: string) => {
     setPendingScopes((prev) => [...prev, project]);
     setActiveScope(project);
+    setFlagRule(project, clonedFlagRule(flagRules, project));
+    setSavedGroupRule(project, clonedSavedGroupRule(savedGroupRules, project));
   };
 
   const removeOverride = (scope: string) => {
@@ -160,7 +163,7 @@ export default function ApprovalFlowSettings() {
                     <Flex align="start" justify="between" gap="3" mb="4">
                       <Text size="sm" color="text-low">
                         {scope
-                          ? `Applies to ${scopeName(scope)}. Greyed settings are inherited from All Projects — change one to override it here.`
+                          ? `Applies to ${scopeName(scope)}, as a copy of the All Projects rule. Later changes to All Projects do not reach it.`
                           : "Applies to every Project without an override of its own."}
                       </Text>
                       {scope ? (
@@ -177,24 +180,44 @@ export default function ApprovalFlowSettings() {
 
                     <ApprovalScopeSections
                       idPrefix={tabValue(scope)}
-                      flagRule={ownFlagRule(
-                        flagRules,
-                        scope,
-                        inheritedFlagRule(flagRules, scope),
-                      )}
-                      inheritedFlagRule={inheritedFlagRule(flagRules, scope)}
+                      flagRule={clonedFlagRule(flagRules, scope)}
                       onFlagChange={(next) => setFlagRule(scope, next)}
-                      savedGroupRule={ownSavedGroupRule(
-                        savedGroupRules,
-                        scope,
-                        inheritedSavedGroupRule(savedGroupRules, scope),
-                      )}
-                      inheritedSavedGroupRule={inheritedSavedGroupRule(
+                      onFlagReset={
+                        differsFromBase(
+                          clonedFlagRule(flagRules, scope),
+                          inheritedFlagRule(flagRules, scope),
+                        )
+                          ? () =>
+                              setFlagRule(
+                                scope,
+                                clonedFlagRule(
+                                  withoutScope(flagRules, scope),
+                                  scope,
+                                ),
+                              )
+                          : undefined
+                      }
+                      savedGroupRule={clonedSavedGroupRule(
                         savedGroupRules,
                         scope,
                       )}
                       onSavedGroupChange={(next) =>
                         setSavedGroupRule(scope, next)
+                      }
+                      onSavedGroupReset={
+                        differsFromBase(
+                          clonedSavedGroupRule(savedGroupRules, scope),
+                          inheritedSavedGroupRule(savedGroupRules, scope),
+                        )
+                          ? () =>
+                              setSavedGroupRule(
+                                scope,
+                                clonedSavedGroupRule(
+                                  withoutScope(savedGroupRules, scope),
+                                  scope,
+                                ),
+                              )
+                          : undefined
                       }
                     />
                   </Frame>
