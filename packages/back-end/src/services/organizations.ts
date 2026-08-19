@@ -1,4 +1,5 @@
 import { randomBytes } from "crypto";
+import { z } from "zod";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
 import { Request } from "express";
@@ -888,7 +889,14 @@ export async function inviteUser({
 } & MemberRoleWithProjects) {
   organization.invites = organization.invites || [];
 
-  email = email.toLowerCase();
+  email = email
+    .toLowerCase()
+    .replace(/^[\s;,]+/, "")
+    .replace(/[\s;,]+$/, "");
+
+  if (!z.string().email().safeParse(email).success) {
+    throw new Error(`Invalid email address: ${email}`);
+  }
 
   // User is already invited (legacy invites may have been stored with
   // mixed case, so compare case-insensitively).
