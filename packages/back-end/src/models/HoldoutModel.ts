@@ -480,6 +480,7 @@ export class HoldoutModel extends BaseClass {
         (field) => body[field] !== undefined,
       ),
       isScheduleChange: (body.statusUpdateSchedule ?? null) !== null,
+      isRunning: experiment.status === "running",
     });
 
     const { holdout: updated, experiment: updatedExperiment } =
