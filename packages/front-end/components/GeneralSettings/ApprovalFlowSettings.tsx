@@ -218,7 +218,7 @@ export default function ApprovalFlowSettings() {
                       <Flex align="start" justify="between" gap="3" mb="4">
                         <Text size="sm" color="text-low">
                           {scope
-                            ? "These Projects use this rule instead of All Projects, and do not pick up later changes to it. Reset a section to re-sync it, or Remove override to follow All Projects again."
+                            ? 'These settings override the base settings in the "All Projects" tab, and do not follow later changes to it. Each Project belongs to a single override.'
                             : "Applies to every Project without an override of its own."}
                         </Text>
                         {scope ? (
