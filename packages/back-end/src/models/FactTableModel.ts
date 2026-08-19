@@ -1273,36 +1273,55 @@ export async function deleteFactFilter(
 export function toFactTableApiInterface(
   factTable: FactTableInterface,
 ): ApiFactTable {
-  return {
-    ...omit(factTable, [
-      "organization",
-      "filters",
-      "dateCreated",
-      "dateUpdated",
-    ]),
-    columns: factTable.columns.map((col) => ({
-      ...col,
-      alwaysInlineFilter: col.alwaysInlineFilter ?? false,
-      isAutoSliceColumn: col.isAutoSliceColumn ?? false,
-      dateCreated: col.dateCreated.toISOString(),
-      dateUpdated: col.dateUpdated.toISOString(),
-      topValuesDate: col.topValuesDate?.toISOString(),
-    })),
-    managedBy: factTable.managedBy || "",
-    aggregatedFactTableSettings:
-      factTable.aggregatedFactTableSettings ?? undefined,
-    dateCreated: factTable.dateCreated?.toISOString() || "",
-    dateUpdated: factTable.dateUpdated?.toISOString() || "",
-  };
+  const apiFactTable: { [K in keyof Required<ApiFactTable>]: ApiFactTable[K] } =
+    {
+      id: factTable.id,
+      name: factTable.name,
+      description: factTable.description,
+      owner: factTable.owner,
+      // Populated downstream by resolveOwnerEmail; listed here so the exhaustive
+      // type stays satisfied.
+      ownerEmail: undefined,
+      projects: factTable.projects,
+      tags: factTable.tags,
+      datasource: factTable.datasource,
+      userIdTypes: factTable.userIdTypes,
+      aggregatedFactTableSettings:
+        factTable.aggregatedFactTableSettings ?? undefined,
+      sql: factTable.sql,
+      eventName: factTable.eventName,
+      columns: factTable.columns.map(toFactTableColumnApiInterface),
+      columnsError: factTable.columnsError,
+      columnRefreshPending: factTable.columnRefreshPending ?? false,
+      archived: factTable.archived,
+      autoSliceUpdatesEnabled: factTable.autoSliceUpdatesEnabled,
+      managedBy: factTable.managedBy || "",
+      dateCreated: factTable.dateCreated?.toISOString() || "",
+      dateUpdated: factTable.dateUpdated?.toISOString() || "",
+    };
+  return apiFactTable;
 }
 
 export function toFactTableColumnApiInterface(
   column: ColumnInterface,
 ): ApiFactTableColumn {
   return {
-    ...omit(column, ["dateCreated", "dateUpdated", "topValuesDate"]),
+    column: column.column,
+    datatype: column.datatype,
+    dataTypeFromWarehouse: column.dataTypeFromWarehouse,
+    numberFormat: column.numberFormat,
+    jsonFields: column.jsonFields,
+    name: column.name,
+    description: column.description,
     alwaysInlineFilter: column.alwaysInlineFilter ?? false,
+    deleted: column.deleted,
     isAutoSliceColumn: column.isAutoSliceColumn ?? false,
+    autoSlices: column.autoSlices,
+    lockedAutoSlices: column.lockedAutoSlices,
+    isVirtual: column.isVirtual,
+    sql: column.sql,
+    topValues: column.topValues,
+    topValuesDate: column.topValuesDate?.toISOString(),
     dateCreated: column.dateCreated.toISOString(),
     dateUpdated: column.dateUpdated.toISOString(),
   };
