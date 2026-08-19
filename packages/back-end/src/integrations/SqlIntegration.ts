@@ -2187,7 +2187,7 @@ export default abstract class SqlIntegration
                 if (isFactFunnelMetric(data.metric)) {
                   return (data.metric.funnelSettings?.steps ?? [])
                     .map((step, stepIndex) => {
-                      if (step.factTable !== params.factTableId) return "";
+                      if (step.factTableId !== params.factTableId) return "";
                       const col = funnelStepTimestampColumn(
                         data.alias,
                         stepIndex,
@@ -2275,7 +2275,7 @@ export default abstract class SqlIntegration
                   const prefix = encodeMetricIdForColumnName(m.id);
                   return (m.metric.funnelSettings?.steps ?? [])
                     .map((step, stepIndex) => {
-                      if (step.factTable !== params.factTableId) return "";
+                      if (step.factTableId !== params.factTableId) return "";
                       const inCol = funnelStepTimestampColumn(
                         m.alias,
                         stepIndex,
@@ -2333,7 +2333,7 @@ export default abstract class SqlIntegration
                 const prefix = encodeMetricIdForColumnName(m.id);
                 return (m.metric.funnelSettings?.steps ?? [])
                   .map((step, stepIndex) => {
-                    if (step.factTable !== params.factTableId) return "";
+                    if (step.factTableId !== params.factTableId) return "";
                     const outCol =
                       stepIndex === 0 && step0Scalar
                         ? funnelStepResolvedTsColumn(prefix, 0)

@@ -40,7 +40,7 @@ export function getMetricSourceTableSchema(
       const prefix = encodeMetricIdForColumnName(metric.id);
       const step0Scalar = !funnelStep0NeedsExposureWindow(metric);
       (metric.funnelSettings?.steps ?? []).forEach((step, stepIndex) => {
-        if (step.factTable !== factTableId) return;
+        if (step.factTableId !== factTableId) return;
         if (stepIndex === 0 && step0Scalar) {
           schema.set(
             funnelStepResolvedTsColumn(prefix, 0),
