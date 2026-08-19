@@ -57,13 +57,19 @@
               "index",
               "overview",
               "quick-start",
+              "command-palette",
               {
                 "group": "Feature Flags",
                 "root": "app/features",
                 "pages": [
                   {
                     "group": "Core Concepts",
-                    "pages": ["features/basics", "features/environments"]
+                    "pages": [
+                      "features/basics",
+                      "features/environments",
+                      "features/constants",
+                      "features/configs"
+                    ]
                   },
                   {
                     "group": "Targeting & Rules",
@@ -71,6 +77,7 @@
                       "features/rules",
                       "features/targeting",
                       "features/safe-rollouts",
+                      "features/ramp-schedules",
                       "features/prerequisites"
                     ]
                   },
@@ -98,6 +105,7 @@
                     "root": "warehouses",
                     "pages": [
                       "warehouses/athena",
+                      "warehouses/adobe-experience-platform-query-service",
                       "guide/bigquery",
                       "warehouses/clickhouse",
                       "warehouses/databricks",
@@ -138,6 +146,7 @@
                     "root": "app/metrics",
                     "pages": [
                       "app/metrics",
+                      "app/metrics/funnel",
                       "app/metrics/examples",
                       "app/metrics/legacy"
                     ]
@@ -156,7 +165,6 @@
                   "feature-flag-experiments",
                   {
                     "group": "Visual Editor",
-                    "tag": "BETA",
                     "root": "app/visual",
                     "pages": [
                       "app/visual/install-and-connect",
@@ -182,7 +190,16 @@
                     "pages": [
                       "bandits/overview",
                       "bandits/config",
-                      "bandits/results"
+                      "bandits/results",
+                      {
+                        "group": "Contextual Bandits",
+                        "tag": "BETA",
+                        "pages": [
+                          "bandits/contextual",
+                          "bandits/contextual-config",
+                          "bandits/contextual-via-api"
+                        ]
+                      }
                     ]
                   },
                   "app/holdouts",
@@ -202,7 +219,8 @@
                       "statistics/sequential",
                       "statistics/multiple-corrections",
                       "statistics/aggregation",
-                      "statistics/power"
+                      "statistics/power",
+                      "statistics/contextual-bandit-technical"
                     ]
                   }
                 ]
