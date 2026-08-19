@@ -65825,6 +65825,12 @@ components:
           type: array
           items:
             type: string
+        statsEngine:
+          description: Statistics engine used to analyze this Holdout.
+          type: string
+          enum:
+            - bayesian
+            - frequentist
         variations:
           type: array
           items:

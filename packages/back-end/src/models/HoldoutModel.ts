@@ -187,6 +187,7 @@ export function toApiHoldout(
 ): ApiHoldoutInterface {
   const phase = experiment.phases[experiment.phases.length - 1];
   const firstPhase = experiment.phases[0];
+  const stage = getHoldoutStage(holdout, experiment);
 
   return {
     id: holdout.id,
@@ -198,7 +199,7 @@ export function toApiHoldout(
     owner: experiment.owner,
     tags: experiment.tags,
     archived: experiment.archived,
-    stage: getHoldoutStage(holdout, experiment),
+    stage,
     trackingKey: experiment.trackingKey,
     skipAsDefaultHoldout: holdout.skipAsDefaultHoldout ?? false,
 
@@ -211,6 +212,7 @@ export function toApiHoldout(
     assignmentQueryId: experiment.exposureQueryId,
     goalMetrics: experiment.goalMetrics,
     secondaryMetrics: experiment.secondaryMetrics,
+    statsEngine: experiment.statsEngine,
     variations: experiment.variations.map((v) => ({
       variationId: v.id,
       key: v.key,
@@ -234,7 +236,10 @@ export function toApiHoldout(
       dateAdded: e.dateAdded.toISOString(),
     })),
 
-    dateStarted: firstPhase?.dateStarted?.toISOString(),
+    // The phase carries a dateStarted from creation, but it is only meaningful
+    // once the Holdout has left draft.
+    dateStarted:
+      stage === "draft" ? undefined : firstPhase?.dateStarted?.toISOString(),
     analysisStartDate: holdout.analysisStartDate?.toISOString(),
     dateStopped:
       experiment.status === "stopped"
@@ -327,8 +332,11 @@ export class HoldoutModel extends BaseClass {
     const { projectId, datasourceId, stage, archived } = req.query;
 
     const holdouts = await this.getAll();
+
     const filteredByProject = projectId
-      ? holdouts.filter((h) => h.projects.includes(projectId))
+      ? holdouts.filter(
+          (h) => h.projects.length === 0 || h.projects.includes(projectId),
+        )
       : holdouts;
 
     // Batch the experiment lookup rather than one query per holdout.
