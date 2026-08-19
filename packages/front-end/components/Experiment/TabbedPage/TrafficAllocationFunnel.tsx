@@ -387,9 +387,16 @@ export default function TrafficAllocationFunnel({
                   ? addVariation
                   : undefined
               }
-              servedValues={servedValueFeature?.values}
+              servedValues={
+                servedValueFeature?.pendingDraft?.values ??
+                servedValueFeature?.values
+              }
               servedValueFeature={servedValueFeature?.feature}
-              servedValueSparse={servedValueFeature?.sparse}
+              servedValueSparse={
+                servedValueFeature?.pendingDraft?.sparse ??
+                servedValueFeature?.sparse
+              }
+              servedValueIsDraft={!!servedValueFeature?.pendingDraft}
               onEditServedValue={onEditServedValue}
             />
           </>

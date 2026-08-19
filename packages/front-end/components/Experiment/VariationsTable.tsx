@@ -162,10 +162,12 @@ interface Props {
   onEditTraffic?: (variationId?: string) => void;
   // When true, the grid is centered and capped at 3 columns.
   centered?: boolean;
-  /** Shows each variation's served value; see `soleLinkedFeature`. */
+  /** Each variation's served value, when the sole implementation is a flag. */
   servedValues?: { variationId: string; value: string }[];
   servedValueFeature?: FeatureInterface;
   servedValueSparse?: boolean;
+  /** The values shown are an unpublished draft, not what is live. */
+  servedValueIsDraft?: boolean;
   onEditServedValue?: (variationId: string) => void;
 }
 
@@ -234,6 +236,7 @@ export function VariationBox({
   servedValue,
   servedValueFeature,
   servedValueSparse,
+  servedValueIsDraft,
   onEditServedValue,
 }: {
   i: number;
@@ -260,6 +263,7 @@ export function VariationBox({
   servedValue?: string;
   servedValueFeature?: FeatureInterface;
   servedValueSparse?: boolean;
+  servedValueIsDraft?: boolean;
   onEditServedValue?: (variationId: string) => void;
 }) {
   const { blockFileUploads } = useOrgSettings();
@@ -389,16 +393,17 @@ export function VariationBox({
               </Flex>
             )}
           </Flex>
-          {servedValueFeature ? (
+          {servedValueFeature && (
             <VariationServedValue
               value={servedValue ?? ""}
               feature={servedValueFeature}
               sparse={servedValueSparse}
+              isDraft={servedValueIsDraft}
               onEdit={
                 onEditServedValue ? () => onEditServedValue(v.id) : undefined
               }
             />
-          ) : null}
+          )}
         </Box>
       </Flex>
     </Box>
@@ -422,6 +427,7 @@ const VariationsTable: FC<Props> = ({
   servedValues,
   servedValueFeature,
   servedValueSparse,
+  servedValueIsDraft,
   onEditServedValue,
 }) => {
   const { apiCall } = useAuth();
@@ -496,6 +502,7 @@ const VariationsTable: FC<Props> = ({
               }
               servedValueFeature={servedValueFeature}
               servedValueSparse={servedValueSparse}
+              servedValueIsDraft={servedValueIsDraft}
               onEditServedValue={onEditServedValue}
               showNoImage={
                 experiment.status === "draft" || someVariationHasImage

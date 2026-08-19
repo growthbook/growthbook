@@ -292,6 +292,27 @@ export interface LinkedFeatureInfo {
    * experiment.
    */
   liveHasMatchingRule?: boolean;
+  /** Live rule's variation values — the "before" side of a pending edit. */
+  liveValues?: ExperimentRefVariation[];
+  /**
+   * The unpublished draft of this experiment's rule, when one exists and isn't
+   * already identical to live.
+   *
+   * Populated regardless of `state`, which stays live-first: a running
+   * experiment with a pending edit reports `state: "live"`, so the sibling
+   * `draftRevision*` / `pendingApproval` / `hasMergeConflict` fields (all still
+   * gated on `state === "draft"` for their existing consumers) say nothing
+   * about it. This is the only field that does.
+   */
+  pendingDraft?: {
+    version: number;
+    status: RevisionStatus;
+    values: ExperimentRefVariation[];
+    sparse: boolean;
+    pendingApproval: boolean;
+    hasMergeConflict: boolean;
+    hasUnrelatedDraftChanges: boolean;
+  };
   /** True when the matching draft revision requires approval (regardless of whether it's been approved yet). */
   pendingApproval?: boolean;
   /** Version of the matching draft revision (present when state === "draft"). */

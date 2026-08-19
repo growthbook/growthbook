@@ -151,11 +151,15 @@ export default function TabbedPage({
     experiment,
     linkedFeatures,
   });
-  const managedFlagWithDraft =
-    managedFeature?.state === "draft" ? managedFeature : null;
+  // Keyed on `pendingDraft`, not `state`: a running experiment with an
+  // unpublished edit still reports state "live", and gating on "draft" left
+  // that case with no way to review or publish at all.
+  const managedFlagWithDraft = managedFeature?.pendingDraft
+    ? managedFeature
+    : null;
   const managedApprovalBlocking =
-    !!managedFlagWithDraft?.pendingApproval &&
-    managedFlagWithDraft.draftRevisionStatus !== "approved";
+    !!managedFlagWithDraft?.pendingDraft?.pendingApproval &&
+    managedFlagWithDraft.pendingDraft.status !== "approved";
   // Both gates have to appear together: on a draft experiment approval alone
   // doesn't publish anything, so naming only approval would leave someone
   // waiting for a launch that needs a separate action.
@@ -605,18 +609,17 @@ export default function TabbedPage({
             <Flex align="center" gap="2">
               This experiment has unpublished variation values.{" "}
               {managedNextStep}
-              {managedFlagWithDraft.pendingApproval &&
-                managedFlagWithDraft.draftRevisionStatus && (
-                  <Badge
-                    label={revisionStatusLabel(
-                      managedFlagWithDraft.draftRevisionStatus,
-                    )}
-                    color={revisionStatusColor(
-                      managedFlagWithDraft.draftRevisionStatus,
-                    )}
-                    radius="full"
-                  />
-                )}
+              {managedFlagWithDraft.pendingDraft?.pendingApproval && (
+                <Badge
+                  label={revisionStatusLabel(
+                    managedFlagWithDraft.pendingDraft.status,
+                  )}
+                  color={revisionStatusColor(
+                    managedFlagWithDraft.pendingDraft.status,
+                  )}
+                  radius="full"
+                />
+              )}
             </Flex>
           </Callout>
         )}

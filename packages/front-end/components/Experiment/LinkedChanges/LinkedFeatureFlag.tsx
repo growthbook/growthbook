@@ -194,7 +194,9 @@ export default function LinkedFeatureFlag({
         }
         actions={
           isManaged ? (
-            <Flex align="center" gap="2">
+            // Always set when managed, even if empty: falling back to the
+            // default cluster would offer Edit and Remove on a managed flag.
+            <>
               {canUpdateLinkedFeature && (
                 <DropdownMenu
                   trigger={
@@ -218,7 +220,7 @@ export default function LinkedFeatureFlag({
                   </DropdownMenuItem>
                 </DropdownMenu>
               )}
-            </Flex>
+            </>
           ) : undefined
         }
         additionalBadge={(() => {
@@ -228,8 +230,8 @@ export default function LinkedFeatureFlag({
           // Show the review status: the flag's live/draft state is implied by
           // the experiment, and "Draft" would disagree with the approval CTA.
           const revisionStatus =
-            isManaged && info.state === "draft" && info.draftRevisionStatus
-              ? info.draftRevisionStatus
+            isManaged && info.pendingDraft
+              ? info.pendingDraft.status
               : info.state === "live"
                 ? "live"
                 : info.state === "draft"

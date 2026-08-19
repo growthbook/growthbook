@@ -4980,9 +4980,17 @@ export async function getRefLinkedFeatureInfo({
         matches = lockedMatches;
       }
 
+      // A draft that actually changes this experiment's rule — either editing
+      // the live one or introducing it. `state` stays live-first for every
+      // existing consumer, so a RUNNING experiment's unpublished edit is only
+      // visible through this.
+      const hasPendingDraft =
+        !!matchedDraftRevision &&
+        (draftDiffersFromLive || liveRefRules.length === 0);
+
       // Feature-scope approval check: requires review AND draft not yet approved.
-      let pendingApproval: boolean | undefined;
-      if (state === "draft" && matchedDraftRevision) {
+      let reviewRequired = false;
+      if (hasPendingDraft) {
         const requiresReviews = context.org.settings?.requireReviews;
         const requireApprovalsLicensed =
           context.hasPremiumFeature("require-approvals");
@@ -4991,18 +4999,24 @@ export async function getRefLinkedFeatureInfo({
             ? getReviewSetting(requiresReviews, feature)
             : undefined
           : undefined;
-        const reviewRequired = requireApprovalsLicensed
+        reviewRequired = requireApprovalsLicensed
           ? requiresReviews === true ||
             (!!reviewSetting && reviewSetting.requireReviewOn)
           : false;
-        if (reviewRequired) {
-          pendingApproval = true;
-        }
       }
+      // Deliberately still keyed on `state`, not `hasPendingDraft`: the
+      // pre-launch checklist filters on this field WITHOUT a state gate, so
+      // widening it would hard-block a running experiment on a draft that has
+      // nothing to do with the transition. `pendingDraft` carries the wider
+      // answer for the surfaces that want it.
+      const pendingApproval =
+        state === "draft" && matchedDraftRevision && reviewRequired
+          ? true
+          : undefined;
 
-      let hasMergeConflict: boolean | undefined;
-      let hasUnrelatedDraftChanges: boolean | undefined;
-      if (state === "draft" && matchedDraftRevision) {
+      let draftHasMergeConflict = false;
+      let draftHasUnrelatedChanges = false;
+      if (hasPendingDraft && matchedDraftRevision) {
         try {
           const { live, base } = await getLiveAndBaseRevisionsForFeature({
             context,
@@ -5018,7 +5032,7 @@ export async function getRefLinkedFeatureInfo({
             {},
           );
           if (!mergeResult.success) {
-            hasMergeConflict = true;
+            draftHasMergeConflict = true;
           } else if (
             draftHasChangesOutsideTargetRef(
               matchedDraftRevision,
@@ -5026,7 +5040,7 @@ export async function getRefLinkedFeatureInfo({
               matchRule,
             )
           ) {
-            hasUnrelatedDraftChanges = true;
+            draftHasUnrelatedChanges = true;
           }
         } catch (e) {
           logger.warn(
@@ -5075,16 +5089,31 @@ export async function getRefLinkedFeatureInfo({
         rulesAbove: matches.some((m) => m.i > 0),
         inconsistentValues: uniqueValues.size > 1,
         liveHasMatchingRule: liveMatches.length > 0,
+        ...(liveMatches.length > 0 && {
+          liveValues: refRuleValues(liveMatches[0]?.rule),
+        }),
+        ...(hasPendingDraft &&
+          matchedDraftRevision && {
+            pendingDraft: {
+              version: matchedDraftRevision.version,
+              status: matchedDraftRevision.status,
+              values: refRuleValues(draftMatches[0]?.rule),
+              sparse: !!(draftMatches[0]?.rule as ExperimentRefRule)?.sparse,
+              pendingApproval: reviewRequired,
+              hasMergeConflict: draftHasMergeConflict,
+              hasUnrelatedDraftChanges: draftHasUnrelatedChanges,
+            },
+          }),
         ...(pendingApproval !== undefined && { pendingApproval }),
         ...(matchedDraftRevision &&
           state === "draft" && {
             draftRevisionVersion: matchedDraftRevision.version,
             draftRevisionStatus: matchedDraftRevision.status,
           }),
-        ...(hasMergeConflict !== undefined && { hasMergeConflict }),
-        ...(hasUnrelatedDraftChanges !== undefined && {
-          hasUnrelatedDraftChanges,
-        }),
+        ...(state === "draft" &&
+          draftHasMergeConflict && { hasMergeConflict: true }),
+        ...(state === "draft" &&
+          draftHasUnrelatedChanges && { hasUnrelatedDraftChanges: true }),
       };
 
       return info;
