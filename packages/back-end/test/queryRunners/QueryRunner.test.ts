@@ -430,6 +430,39 @@ describe("QueryRunner", () => {
       );
     });
 
+    it("invokes onFailure when a query is failed by a failed dependency", async () => {
+      const depFailed = createMockQuery("qry_dep_failed", "failed", []);
+      const queryA = createMockQuery("qry_A", "queued", ["qry_dep_failed"]);
+
+      const model: InterfaceWithQueries = {
+        id: "test-model",
+        organization: "test-org",
+        queries: [
+          { name: "dep_failed", query: "qry_dep_failed", status: "failed" },
+          { name: "A", query: "qry_A", status: "queued" },
+        ],
+        runStarted: new Date(),
+      };
+
+      const runner = new TestQueryRunner(mockContext, model, mockIntegration);
+
+      const onFailure = jest.fn();
+      runner.runCallbacks["qry_A"] = {
+        run: jest.fn().mockResolvedValue({ rows: [], statistics: {} }),
+        process: jest.fn((rows) => rows),
+        onFailure,
+      };
+
+      const queryMap: QueryMap = new Map([
+        ["dep_failed", depFailed],
+        ["A", queryA],
+      ]);
+
+      await runner.startReadyQueries(queryMap);
+
+      expect(onFailure).toHaveBeenCalledTimes(1);
+    });
+
     it("should execute queries when all dependencies succeed", async () => {
       const depSucceeded = createMockQuery("qry_dep_ok", "succeeded", []);
       const queryA = createMockQuery("qry_A", "queued", ["qry_dep_ok"]);

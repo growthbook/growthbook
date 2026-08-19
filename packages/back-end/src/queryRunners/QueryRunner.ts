@@ -503,6 +503,14 @@ export abstract class QueryRunner<
             (q) => q.query,
           )}`,
         });
+        const runCallbacks = this.runCallbacks[query.id];
+        if (runCallbacks?.onFailure) {
+          try {
+            await runCallbacks.onFailure();
+          } catch (failureError) {
+            logger.error(failureError);
+          }
+        }
         this.onQueryFinish();
         continue;
       }
