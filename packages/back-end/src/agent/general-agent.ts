@@ -13,11 +13,7 @@ import {
   type DispatchInput,
   type DispatchResult,
 } from "back-end/src/agent/dispatcher";
-import {
-  assembleSkillsIndexForPrompt,
-  getSkillByName,
-  getSkillNames,
-} from "back-end/src/agent/skills";
+import { listDomainSkills, readSkill } from "back-end/src/agent/skills";
 
 // =============================================================================
 // System prompt
@@ -193,10 +189,16 @@ IDs only for API calls or when constructing URLs.
 `.trim();
 
 function buildGeneralAgentSystemPrompt(): string {
-  const skillsIndex = assembleSkillsIndexForPrompt();
-  if (!skillsIndex) {
+  const domains = listDomainSkills();
+  if (!domains.length) {
     return GENERIC_PREAMBLE;
   }
+  const skillsIndex = domains
+    .map(
+      ({ name, description }) =>
+        `- **${name}** — ${description || "(no description)"}`,
+    )
+    .join("\n");
   return [
     GENERIC_PREAMBLE,
     "",
@@ -389,8 +391,7 @@ const LOAD_SKILL_DESCRIPTION =
   "you've decided which skill applies to the user's request — its return value " +
   "contains the detailed REST API workflow (endpoints, request bodies, " +
   "examples) for that capability area. Returns { status, name, description, " +
-  "body } on a hit, or { status: 'not_found', availableSkills } if the " +
-  "name doesn't match — in which case retry with a valid name.";
+  "body } on a hit, or { status: 'not_found' } if the name doesn't match.";
 
 // --- askUser ---------------------------------------------------------------
 
@@ -478,12 +479,11 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
         description: LOAD_SKILL_DESCRIPTION,
         inputSchema: loadSkillInputSchema,
         execute: async (input) => {
-          const skill = getSkillByName(input.name);
+          const skill = readSkill(input.name);
           if (!skill) {
             return {
               status: "not_found" as const,
-              message: `No skill named "${input.name}". Pick one from availableSkills and retry.`,
-              availableSkills: getSkillNames(),
+              message: `No skill named "${input.name}". Use an exact name from the system prompt or domain router.`,
             };
           }
           return {
