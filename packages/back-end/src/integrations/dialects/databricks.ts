@@ -75,6 +75,10 @@ export const databricksDialect: SqlDialect = {
         return "BINARY";
       case "quantileSketch":
         return "BINARY";
+      // Spark array type. Databricks isn't an incremental target today, so this
+      // is defined for exhaustiveness/forward-compat rather than active use.
+      case "arrayTimestamp":
+        return "ARRAY<TIMESTAMP>";
       default: {
         const _: never = dataType;
         throw new Error(`Unsupported data type: ${dataType}`);

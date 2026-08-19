@@ -77,6 +77,12 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
     );
   },
 
+  arrayConcatAgg: () => {
+    throw new Error(
+      "Merging arrays across rows is not supported by this data source.",
+    );
+  },
+
   getCurrentTimestamp: () => `CURRENT_TIMESTAMP`,
 
   ifElse: (condition: string, ifTrue: string, ifFalse: string) =>
@@ -100,6 +106,11 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
         return "VARBINARY";
       case "quantileSketch":
         return "VARBINARY";
+      // Trino/Presto/Athena array syntax (base dialect is Trino-flavored).
+      // Only used by the incremental funnel path; dialects with a different
+      // array syntax (BigQuery/Snowflake) override this below.
+      case "arrayTimestamp":
+        return "ARRAY(TIMESTAMP)";
       default: {
         const _: never = dataType;
         throw new Error(`Unsupported data type: ${dataType}`);

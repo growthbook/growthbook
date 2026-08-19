@@ -1865,6 +1865,10 @@ export default abstract class SqlIntegration
         return "VARBINARY";
       case "quantileSketch":
         return "VARBINARY";
+      case "arrayTimestamp":
+        // Trino/Presto/Athena array syntax (Trino-flavored default); dialects
+        // with different array syntax handle it in their own getDataType.
+        return "ARRAY(TIMESTAMP)";
       default: {
         const _: never = dataType;
         throw new Error(`Unsupported data type: ${dataType}`);

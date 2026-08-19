@@ -179,6 +179,9 @@ export const bigQueryDialect: SqlDialect = {
   // BigQuery uses `IGNORE NULLS` in aggregates rather than `FILTER (WHERE …)`.
   arrayAggSorted: (col: string) =>
     `ARRAY_AGG(${col} IGNORE NULLS ORDER BY ${col})`,
+  // Concatenate all per-row arrays in the group into one array (incremental
+  // funnel read-step merge of per-day step arrays).
+  arrayConcatAgg: (col: string) => `ARRAY_CONCAT_AGG(${col})`,
   // BQ supports `ANY_VALUE(x HAVING MIN y)` natively — picks an `x` value from
   // the row that has the minimum `y`. `IGNORE NULLS` is NOT valid in this form
   // (syntax error) and is unnecessary: aggregate functions ignore NULL inputs,
@@ -214,6 +217,8 @@ export const bigQueryDialect: SqlDialect = {
         return "BYTES";
       case "quantileSketch":
         return "BYTES";
+      case "arrayTimestamp":
+        return "ARRAY<TIMESTAMP>";
       default: {
         const _: never = dataType;
         throw new Error(`Unsupported data type: ${dataType}`);

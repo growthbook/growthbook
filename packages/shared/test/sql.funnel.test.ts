@@ -43,6 +43,7 @@ const helpers: SqlDialect = {
     const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
     return `(SELECT MIN(t) FROM unnest(${col}) AS t ${where})`;
   },
+  arrayConcatAgg: (col) => `ARRAY_CONCAT_AGG(${col})`,
   getCurrentTimestamp: () => `CURRENT_TIMESTAMP`,
   ifElse: (c, t, f) => `(CASE WHEN ${c} THEN ${t} ELSE ${f} END)`,
   getDataType: () => "VARCHAR",

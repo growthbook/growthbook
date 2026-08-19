@@ -34,6 +34,9 @@ export const prestoDialect: SqlDialect = {
   // operators and the native `min_by` aggregate.
   arrayAggSorted: (col: string) =>
     `array_sort(filter(array_agg(${col}), x -> x IS NOT NULL))`,
+  // Collect each row's array into an array-of-arrays (array_agg) then flatten
+  // → the group's concatenated array. Incremental funnel read-step merge.
+  arrayConcatAgg: (col: string) => `flatten(array_agg(${col}))`,
   argMinByTimestamp: (valueCol: string, tsCol: string) =>
     `min_by(${valueCol}, ${tsCol})`,
   arrayMinInRange: (col, lowerBound, upperBound) => {

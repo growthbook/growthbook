@@ -48,7 +48,8 @@ export type DataType =
   | "date"
   | "timestamp"
   | "hll"
-  | "quantileSketch";
+  | "quantileSketch"
+  | "arrayTimestamp";
 
 export type MetricAggregationType = "pre" | "post" | "noWindow";
 
