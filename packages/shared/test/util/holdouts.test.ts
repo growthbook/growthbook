@@ -1,6 +1,7 @@
 import {
   coverageToHoldoutSize,
   getAllowedHoldoutStageSources,
+  getEnabledHoldoutEnvironments,
   getHoldoutStage,
   holdoutSizeToCoverage,
   isHoldoutStageTransitionAllowed,
@@ -79,6 +80,46 @@ describe("getHoldoutStage", () => {
         getHoldoutStage({ analysisStartDate: "" }, { status: "running" }),
       ).toBe("running");
     });
+  });
+});
+
+describe("getEnabledHoldoutEnvironments", () => {
+  it("returns only the enabled environment ids", () => {
+    expect(
+      getEnabledHoldoutEnvironments({
+        production: { enabled: true },
+        staging: { enabled: false },
+        dev: { enabled: true },
+      }),
+    ).toEqual(["production", "dev"]);
+  });
+
+  it("returns an empty array when nothing is enabled", () => {
+    expect(
+      getEnabledHoldoutEnvironments({
+        production: { enabled: false },
+        staging: { enabled: false },
+      }),
+    ).toEqual([]);
+  });
+
+  it("returns an empty array for an empty map", () => {
+    expect(getEnabledHoldoutEnvironments({})).toEqual([]);
+  });
+
+  it("returns an empty array for undefined or null", () => {
+    expect(getEnabledHoldoutEnvironments(undefined)).toEqual([]);
+    expect(getEnabledHoldoutEnvironments(null)).toEqual([]);
+  });
+
+  it("treats missing or undefined enabled as disabled", () => {
+    expect(
+      getEnabledHoldoutEnvironments({
+        production: {},
+        staging: { enabled: undefined },
+        dev: { enabled: true },
+      }),
+    ).toEqual(["dev"]);
   });
 });
 
