@@ -564,6 +564,33 @@ export async function updateHoldoutWithExperiment(
     )[key];
   }
 
+  // Targeting/sizing (experiment phase) and environment changes both feed the
+  // SDK payload, so refresh it once the writes land (mirrors `setHoldoutStage`).
+  const affectsPayload = isTargetingChange || body.environments !== undefined;
+  const refreshPayload = (finalHoldout: HoldoutInterface) => {
+    if (!affectsPayload) return;
+    const orgEnvs = getEnvironmentIdsFromOrg(context.org);
+    const seen = new Set<string>();
+    const payloadKeys = [
+      ...getAffectedSDKPayloadKeys(holdout, orgEnvs),
+      ...getAffectedSDKPayloadKeys(finalHoldout, orgEnvs),
+    ].filter((key) => {
+      const s = JSON.stringify(key);
+      if (seen.has(s)) return false;
+      seen.add(s);
+      return true;
+    });
+    queueSDKPayloadRefresh({
+      context,
+      payloadKeys,
+      auditContext: {
+        event: "Holdout updated",
+        model: "holdout",
+        id: holdout.id,
+      },
+    });
+  };
+
   const experimentChanged = Object.keys(experimentChanges).length > 0;
   if (experimentChanged) {
     experiment = await updateExperiment({
@@ -574,6 +601,7 @@ export async function updateHoldoutWithExperiment(
   }
 
   if (!Object.keys(holdoutUpdates).length) {
+    refreshPayload(holdout);
     return { holdout, experiment };
   }
 
@@ -582,6 +610,7 @@ export async function updateHoldoutWithExperiment(
       holdout,
       holdoutUpdates,
     );
+    refreshPayload(updatedHoldout);
     return { holdout: updatedHoldout, experiment };
   } catch (e) {
     if (experimentChanged) {

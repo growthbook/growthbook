@@ -365,6 +365,21 @@ export class HoldoutModel extends BaseClass {
   ): Promise<ApiHoldoutInterface> {
     const body = apiCreateHoldoutBody.parse(req.body);
 
+    // Gate before creating the companion experiment; createExperiment enforces
+    // no permissions, so an unauthorized create would otherwise orphan one.
+    if (!this.hasPremiumFeature()) {
+      throw new Error(
+        "Your organization does not have access to this feature.",
+      );
+    }
+    if (
+      !this.context.permissions.canCreateHoldout({
+        projects: body.projects ?? [],
+      })
+    ) {
+      this.context.permissions.throwPermissionError();
+    }
+
     if (body.statusUpdateSchedule !== undefined) {
       assertCanRunHoldoutEnvironments(this.context, {
         enabledEnvironments: getEnabledHoldoutEnvironments(body.environments),
@@ -430,6 +445,14 @@ export class HoldoutModel extends BaseClass {
     const holdout = await this.getById(req.params.id);
     if (!holdout) req.context.throwNotFoundError();
     const experiment = await this.getExperimentOrThrow(holdout);
+
+    // Experiment-only updates never reach holdout.update, which is where the
+    // premium gate lives, so enforce it here too.
+    if (!this.hasPremiumFeature()) {
+      throw new Error(
+        "Your organization does not have access to this feature.",
+      );
+    }
 
     assertCanUpdateHoldout(this.context, {
       holdout,
