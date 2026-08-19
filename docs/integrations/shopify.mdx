@@ -1,9 +1,6 @@
----
-title: Shopify Integration
-description: Run Visual Editor A/B tests on your Shopify store: connect the SDK, add the snippet to theme.liquid, and launch experiments without custom code.
----
-
 import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
+
+# Shopify Integration
 
 Unleash the power of experimentation with GrowthBook to supercharge your Shopify store—no coding skills required!
 
@@ -15,7 +12,7 @@ Unleash the power of experimentation with GrowthBook to supercharge your Shopify
 
 To connect your GrowthBook account to Shopify, you'll need to create a new SDK Connection and select the `Shopify` option. Before saving, confirm that you've enabled the toggles for `Include visual experiments in endpoint's response?` and `Include draft experiments`.
 
-<Frame>![](/static/images/integrations/shopify/shopify-sdk-connection.png)</Frame>
+![](/static/images/integrations/shopify/shopify-sdk-connection.png)
 
 ### Step 2: Add GrowthBook to Your Shopify Theme
 
@@ -23,11 +20,11 @@ Once the SDK Connection is created, you should see a code snippet that you need 
 
 Log into your Shopify account, navigate to your online store, and edit your store's code.
 
-<Frame>![](/static/images/integrations/shopify/growthbook-shopify-edit-code.png)</Frame>
+![](/static/images/integrations/shopify/growthbook-shopify-edit-code.png)
 
 Once you're in the code editor, locate the `theme.liquid` file and add the snippet exactly as shown just before the closing `</head>` tag. Here's an example of how it should look:
 
-<Frame>![](/static/images/integrations/shopify/shopify-theme-editor.png)</Frame>
+![](/static/images/integrations/shopify/shopify-theme-editor.png)
 
 <Note>
 **Tracking experiment views**
@@ -38,15 +35,9 @@ When a user views an experiment, this script will fire an event that tracks whic
 
 Once added, click "Save" and navigate back to GrowthBook.
 
-### Step 3: Install the GrowthBook DevTools Browser Extension
+### Step 3: Install the GrowthBook Visual Editor
 
-The GrowthBook DevTools browser extension enables you to use the Visual Editor to update your Shopify website content. Install it from the [Chrome Web Store](https://chromewebstore.google.com/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) (Chrome) or from [addons.mozilla.org](https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/) (Firefox).
-
-Next, open the DevTools extension by clicking the extension icon.
-
-- Find and click on the cog icon ⚙️.
-- Enter your Personal Access Token (available in GrowthBook from the **main dropdown menu** → **Personal Access Tokens**).
-- Click "Save". The GrowthBook browser extension is all set up!
+Install the [GrowthBook Visual Editor](https://chromewebstore.google.com/detail/growthbook-visual-editor/nbomejknbpkcpjdagefhichaajpoempk) from the Chrome Web Store, then open the side panel and click **Connect with GrowthBook**. See [Install and connect](/app/visual/install-and-connect) for the full setup.
 
 ### Step 4: Create a GrowthBook Visual Editor Experiment
 
@@ -63,6 +54,6 @@ First, navigate to "Experiments" on the left-hand navigation menu and then click
 
 Once you've created your experiment, select "Visual Editor" as the editor type and enter the URL of your Shopify store.
 
-<Frame>![](/static/images/integrations/shopify/growthbook-shopify-open-visual-editor.png)</Frame>
+![](/static/images/integrations/shopify/growthbook-shopify-open-visual-editor.png)
 
 You'll then be redirected to your store, where you can use the Visual Editor to update your store's content.
