@@ -43,6 +43,7 @@ import {
   StartQueryParams,
 } from "./QueryRunner";
 import { SnapshotResult } from "./ExperimentResultsQueryRunner";
+import { getExperimentResultStatus } from "./experimentResultStatus";
 
 export type ExperimentIncrementalRefreshExploratoryQueryParams = {
   snapshotType: SnapshotType;
@@ -371,6 +372,10 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
           "Failed to refresh incremental refresh lock heartbeat",
         ),
       );
+  }
+
+  protected override getOverallQueryStatus(): QueryStatus {
+    return getExperimentResultStatus(this.model.queries);
   }
 
   async startQueries(
