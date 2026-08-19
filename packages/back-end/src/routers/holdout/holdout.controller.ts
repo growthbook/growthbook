@@ -299,6 +299,7 @@ export const updateHoldout = async (
       : undefined,
     isTargetingChange: false,
     isScheduleChange: (scheduleInput ?? null) !== null,
+    isRunning: experiment.status === "running",
   });
 
   // Only when the scope actually changes, so a Holdout already holding a

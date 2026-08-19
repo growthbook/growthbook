@@ -107,10 +107,14 @@ export function assertValidHoldoutEnvironments(
  * Update authorization shared by the REST API (`handleApiUpdate`) and the UI
  * endpoint (`updateHoldout`) so the two cannot drift. Update permission is
  * always required (on the current and, when moving the Holdout, destination
- * scope). Targeting/sizing and schedule changes reach live SDK payloads, so
- * they additionally require run permission on the union of current and
- * newly-requested environments; environment-only changes and clearing the
- * schedule do not. The UI never sends targeting here but still passes the flag.
+ * scope). Beyond that, a change needs run permission on the union of current and
+ * newly-requested environments when it authorizes a deployment:
+ *   - Schedule changes hand the agenda job authority to transition the Holdout's
+ *     status later (e.g. auto-start it), so they require it whatever the stage.
+ *   - Targeting/sizing and environment changes only reach live SDK payloads
+ *     while the Holdout is running, so they require it only then.
+ * Metadata-only changes and clearing the schedule do not. The UI never sends
+ * targeting here but still passes the flag.
  */
 export function assertCanUpdateHoldout(
   context: ReqContext | ApiReqContext,
@@ -120,12 +124,14 @@ export function assertCanUpdateHoldout(
     requestedEnabledEnvironments,
     isTargetingChange,
     isScheduleChange,
+    isRunning,
   }: {
     holdout: HoldoutInterface;
     updatedProjects?: string[];
     requestedEnabledEnvironments?: string[];
     isTargetingChange: boolean;
     isScheduleChange: boolean;
+    isRunning: boolean;
   },
 ): void {
   if (
@@ -136,7 +142,11 @@ export function assertCanUpdateHoldout(
     context.permissions.throwPermissionError();
   }
 
-  if (!isTargetingChange && !isScheduleChange) return;
+  const isEnvironmentChange = requestedEnabledEnvironments !== undefined;
+  const requiresRunPermission =
+    isScheduleChange ||
+    (isRunning && (isTargetingChange || isEnvironmentChange));
+  if (!requiresRunPermission) return;
 
   const enabledEnvironments = Array.from(
     new Set([
