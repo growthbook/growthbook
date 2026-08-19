@@ -371,14 +371,14 @@ export default function NPSSurvey() {
           <div className={styles.panel}>
             <Text
               as="p"
-              size="small"
+              size="sm"
               color="text-low"
               textTransform="uppercase"
               mb="2"
             >
               Quick question · ~15 sec
             </Text>
-            <Heading as="h2" size="small" mb="4" mr="3">
+            <Heading as="h2" size="sm" mb="4" mr="3">
               How likely are you to recommend GrowthBook to a friend or
               colleague?
             </Heading>
@@ -432,10 +432,10 @@ export default function NPSSurvey() {
               ))}
             </div>
             <Flex justify="between" mt="2">
-              <Text size="small" color="text-low">
+              <Text size="sm" color="text-low">
                 Not at all likely
               </Text>
-              <Text size="small" color="text-low">
+              <Text size="sm" color="text-low">
                 Extremely likely
               </Text>
             </Flex>
@@ -447,7 +447,7 @@ export default function NPSSurvey() {
             <Button
               variant="ghost"
               color="gray"
-              size="xs"
+              size="sm"
               icon={<PiArrowLeft />}
               mb="3"
               onClick={() => {
@@ -475,7 +475,7 @@ export default function NPSSurvey() {
             <Text
               as="label"
               htmlFor="gb-nps-feedback"
-              size="medium"
+              size="md"
               weight="semibold"
               color="text-high"
             >
@@ -509,10 +509,10 @@ export default function NPSSurvey() {
             <span className={styles.check}>
               <CheckMark />
             </span>
-            <Heading as="h2" size="small" align="center" mb="2">
+            <Heading as="h2" size="sm" align="center" mb="2">
               Thanks — that&apos;s really helpful.
             </Heading>
-            <Text as="p" size="medium" color="text-mid" align="center">
+            <Text as="p" size="md" color="text-mid" align="center">
               Your feedback shapes what we build next.
             </Text>
           </div>
