@@ -1,9 +1,8 @@
 ---
-title: Node.js
+title: Node.js SDK
 description: GrowthBook SDK for Node.js
 slug: node
 toc_max_heading_level: 5
-sidebarTitle: Node.js SDK
 ---
 
 import { ExternalLink } from "/snippets/ExternalLink.jsx";
@@ -18,24 +17,9 @@ We officially support Node 18 and above.
 
 Install with a package manager
 
-<CodeGroup>
-```bash npm
+```bash npm2yarn
 npm install --save @growthbook/growthbook
 ```
-
-```bash Yarn
-yarn add --save @growthbook/growthbook
-```
-
-```bash pnpm
-pnpm add --save @growthbook/growthbook
-```
-
-```bash bun
-bun add @growthbook/growthbook
-```
-
-</CodeGroup>
 
 ## Quick Usage
 
@@ -243,34 +227,19 @@ The GrowthBook SDK supports streaming with Server-Sent Events (SSE). When enable
 
 Node.js does not natively support SSE, but there is a small library you can install:
 
-<CodeGroup>
-```bash npm
+```bash npm2yarn
 npm install --save eventsource
 ```
-
-```bash Yarn
-yarn add --save eventsource
-```
-
-```bash pnpm
-pnpm add --save eventsource
-```
-
-```bash bun
-bun add eventsource
-```
-
-</CodeGroup>
 
 Then, configure the polyfill and enable streaming during init:
 
 ```js
 const { setPolyfills } = require("@growthbook/growthbook");
+// Note the destructuring - `eventsource` v3+ uses a named export
+const { EventSource } = require("eventsource");
 
 // Configure GrowthBook to use the eventsource library
-setPolyfills({
-  EventSource: require("eventsource"),
-});
+setPolyfills({ EventSource });
 
 const gbClient = new GrowthBookClient({
   clientKey: "sdk-abc123"
@@ -280,20 +249,50 @@ const gbClient = new GrowthBookClient({
 await gbClient.init({ streaming: true });
 ```
 
+<Warning>
+Which import form you need depends on the `eventsource` version you have installed. The snippet above is for v3 and up, which is what a fresh `npm install eventsource` gives you:
+
+| `eventsource`                                    | Import                                           |
+| ------------------------------------------------ | ------------------------------------------------ |
+| v3 and up (v3 needs Node 18+, v4 needs Node 20+) | `const { EventSource } = require("eventsource")` |
+| v2 and below                                     | `const EventSource = require("eventsource")`     |
+
+v3.0.0 moved the constructor from the default export to a named export. Using the wrong form for your version passes the module object rather than the constructor, which prevents streaming from starting — and the two forms fail in opposite directions, so match the form to the version you actually have rather than copying whichever one you saw first.
+
+If streaming is enabled but features never update, check this before anything else — the SDK logs a warning naming the reason whenever it detects that streaming could not be started.
+
+</Warning>
+
 This will make an initial network request to download the features payload from the GrowthBook API. Then, it will open a streaming connection to listen to updates.
 
 Every call to evaluate feature flags will use the latest available payload.
 
 ### Polling Updates
 
-If your environment doesn't support streaming updates or you want a simpler option, you can use a polling approach:
+If your environment doesn't support streaming updates or you want a simpler option, pass a `pollingInterval` (in milliseconds) into `init`. This requires no polyfills.
 
 ```js
-// Refresh once every 5 minutes
+const gbClient = new GrowthBookClient({
+  clientKey: "sdk-abc123"
+});
+
+// Refresh once per minute
+await gbClient.init({ pollingInterval: 60 * 1000 });
+```
+
+Polling is deduped per `clientKey`, so many instances sharing a key produce a single request per interval. Requests bypass the cache, so the interval you set is the interval used. Failed requests back off exponentially (capped at 5 minutes), and the timer never keeps a short-lived process alive.
+
+`pollingInterval` is ignored while streaming is active, so it is safe to set both — polling only runs when the stream isn't connected.
+
+We don't recommend polling more often than once per minute. If you need faster updates, use Streaming (above).
+
+You can also drive refreshes yourself instead:
+
+```js
 setInterval(() => gbClient.refreshFeatures(), 5*60*1000);
 ```
 
-We don't recommend polling more often than once per minute. If you need faster updates, use Streaming (above).
+Note that `refreshFeatures()` goes through the cache, so it will not issue a request if the payload is newer than `staleTTL` (60 seconds by default). Pass `skipCache: true` to force one.
 
 ## Caching
 
@@ -332,8 +331,8 @@ configureCache({
   cacheKey: "gbFeaturesCache",
   // Consider features stale after this much time (60 seconds default)
   staleTTL: 1000 * 60,
-  // Cached features older than this will be ignored (24 hours default)
-  maxAge: 1000 * 60 * 60 * 24,
+  // Cached features older than this will be ignored (4 hours default)
+  maxAge: 1000 * 60 * 60 * 4,
   // Set to `true` to completely disable both in-memory and persistent caching
   disableCache: false,
 })
@@ -351,7 +350,7 @@ You can specify this globally in your GrowthBookClient class and/or per-request 
 
 We recommend using a global callback if you plan to track events directly from Node and using a user context callback if you plan to send events to the front-end to fire.
 
-When specified globally, the callbacks will receive an additional argument with the user context that triggered the event.
+Starting in version 1.7.0, tracking callbacks receive a third `userContext` argument: a `TrackingUserContext` containing the `attributes` and optional `url` used when the experiment was evaluated. We recommend recording attributes from this argument so exposure events consistently reflect the attributes GrowthBook used for targeting and assignment.
 
 ```js
 // Callback configured globally
@@ -361,7 +360,8 @@ const gbClient = new GrowthBookClient({
 
     console.log("Viewed Experiment", userId, {
       experimentId: experiment.key,
-      variationId: result.key
+      variationId: result.key,
+      attributes: userContext.attributes,
     });
   }
 });
@@ -371,10 +371,11 @@ const userContext = {
   attributes: {
     id: req.user.id
   },
-  trackingCallback: (experiment, result) => {
-    console.log("Viewed Experiment", req.user.id, {
+  trackingCallback: (experiment, result, userContext) => {
+    console.log("Viewed Experiment", userContext.attributes.id, {
       experimentId: experiment.key,
-      variationId: result.key
+      variationId: result.key,
+      attributes: userContext.attributes,
     });
   }
 }
@@ -405,8 +406,8 @@ app.use((req, res, next) => {
   req.trackingData = [];
   const userContext = {
     attributes: {id: "123"},
-    trackingCallback: (experiment, result) => {
-      req.trackingData.push({experiment, result});
+    trackingCallback: (experiment, result, userContext) => {
+      req.trackingData.push({experiment, result, user: userContext});
     }
   }
   req.growthbook = gbClient.createScopedInstance(userContext);
@@ -421,11 +422,12 @@ app.get("/", (req, res) => {
       (function() {
         const data = ${JSON.stringify(req.trackingData)};
 
-        data.forEach(({experiment, result}) => {
+        data.forEach(({experiment, result, user}) => {
           // Example using Segment.io
           analytics.track("Experiment Viewed", {
             experimentId: experiment.key,
             variationId: result.key,
+            attributes: user.attributes,
           });
         })
       })();
@@ -523,7 +525,7 @@ Instead of defining the `AppFeatures` interface manually like above, you can aut
 
 ## Updating
 
-As a general philosophy, we aim to keep the SDK 100% backwards compatible at all times. View the [Changelog](https://github.com/growthbook/growthbook/blob/main/packages/sdk-js/CHANGELOG) for a complete list of all SDK changes.
+As a general philosophy, we aim to keep the SDK 100% backwards compatible at all times. View the [Changelog](https://github.com/growthbook/growthbook/blob/main/packages/sdk-js/CHANGELOG.md) for a complete list of all SDK changes.
 
 ## GrowthBook Instance (reference)
 
@@ -765,7 +767,6 @@ gbClient.runInlineExperiment({
   ]
 }, userContext);
 
-
 // Will include the other 40% of users - ones with a hash between 0.6 and 1
 gbClient.runInlineExperiment({
   key: "experiment-2",
@@ -883,6 +884,41 @@ The `hashUsed` flag will only be true if the user was randomly assigned a variat
 ## Implementing DevTools
 
 The DevTools plugins are designed to work both GrowthBookClient and GrowthBook (legacy) SDK instances. Your SDK must be in dev mode (`enableDevMode: true`) for the plugin to work.
+
+### Helper Functions
+
+The framework-specific sections below (Next.js, Express, and platform-agnostic Node.js) all rely on the same two helper functions, exported from `@growthbook/growthbook/plugins`, to send evaluation logs back to the DevTools extension.
+
+#### `getDebugScriptContents(gb, source?)`
+
+Returns a `<script>` body that pushes the SDK's current dev-mode logs (feature evaluations, experiment exposures, decrypted payload, and attributes) onto `window._gbdebugEvents`. The GrowthBook DevTools extension reads this array from the page to display back-end evaluation results. This is the only contract between your server and the extension for back-end logging.
+
+```ts
+import { getDebugScriptContents } from "@growthbook/growthbook/plugins";
+
+const scriptBody = getDebugScriptContents(growthbook, "my-service");
+// scriptBody === '(window._gbdebugEvents = (window._gbdebugEvents || [])).push({...});'
+```
+
+Notes:
+
+- Returns an **empty string** (not `null`/`undefined`) when `enableDevMode` is off, or when the instance has no evaluation logs yet. Always check for a non-empty result before injecting a `<script>` tag, to avoid emitting an empty `<script></script>`.
+- It snapshots `gb.logs` **at call time**. Call it _after_ you've finished evaluating every feature/experiment you want visible in DevTools for that request, not before.
+- `source` is a free-text label (e.g. `"nextjs"`, `"express"`, your service name) shown in the DevTools UI to identify which back-end emitted the event. It has no effect on behavior.
+- The returned string is raw JavaScript, not HTML. Wrap it in your own `<script>` tags:
+
+```ts
+const debugScript = getDebugScriptContents(growthbook, "my-service");
+if (debugScript) {
+  responseHtml += `<script>${debugScript}</script>`;
+}
+```
+
+- If your platform caches or shares rendered responses across requests/users (e.g. an edge/CDN worker), make sure this injection happens **after** any cache read/write step, not before. Otherwise one visitor's debug logs can end up baked into a response served to other visitors.
+
+#### `getDebugEvent(gb, source?)`
+
+The lower-level function `getDebugScriptContents` wraps. It returns the raw `LogEvent` object (`{ logs, sdkInfo }`) instead of a serialized script string. Use this directly if you want to transport the event yourself (e.g. via a response header, as shown in the Next.js middleware example below) rather than embedding it as an inline script.
 
 ### Next.js
 
@@ -1018,6 +1054,30 @@ type DevtoolsState = {
   features?: Record<string, any>;
   experiments?: Record<string, number>;
 };
+```
+
+Note: unlike the query param (already decoded by most URL parsers), the `_gbdebug` **cookie** value is percent-encoded. Decode it before parsing, or overrides will silently fail to apply:
+
+```ts
+import { devtoolsPlugin } from "@growthbook/growthbook/plugins";
+
+function getDevtoolsState(request): DevtoolsState {
+  try {
+    const raw =
+      new URL(request.url, "http://localhost").searchParams.get("_gbdebug") ??
+      decodeURIComponent(getCookie(request, "_gbdebug") ?? "");
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+const growthbook = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  enableDevMode: true,
+  plugins: [devtoolsPlugin(getDevtoolsState(request))],
+});
 ```
 
 Similar to the Express and Next.js middleware examples above, you can generate your own `_gbdebugEvents` payload using `getDebugEvent()`.
