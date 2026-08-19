@@ -45,7 +45,7 @@ export default function SaveFunnelMetricAction() {
     ? // Saving a loaded funnel as a *new* metric quietly creates a near
       // duplicate. Update-vs-save-as-new is Phase 3's job; until then a linked
       // funnel isn't a save candidate.
-      'Loaded from a saved metric. Choose "None — build a new funnel" to save a new one.'
+      'Loaded from a saved metric. Choose "Build a New Funnel" to save a new one.'
     : !canCreateFactMetric
       ? "You do not have permission to create Fact Metrics in this Project."
       : !isSubmittable
@@ -56,10 +56,14 @@ export default function SaveFunnelMetricAction() {
 
   return (
     <>
-      <Tooltip body={disabledReason} shouldDisplay={!!disabledReason}>
+      <Tooltip
+        body={disabledReason}
+        shouldDisplay={!!disabledReason}
+        style={{ display: "block", width: "100%" }}
+      >
         <Button
           size="md"
-          variant="soft"
+          style={{ width: "100%" }}
           disabled={!!disabledReason}
           onClick={() => {
             if (!hasFunnelMetricsFeature) {
@@ -75,7 +79,7 @@ export default function SaveFunnelMetricAction() {
               useTip={false}
               inheritColor
             />
-            Save as funnel metric
+            Save as Metric
           </Flex>
         </Button>
       </Tooltip>

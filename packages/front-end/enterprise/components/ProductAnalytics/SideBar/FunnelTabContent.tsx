@@ -6,7 +6,7 @@ import React, {
   useState,
 } from "react";
 import { Flex } from "@radix-ui/themes";
-import { PiPlus } from "react-icons/pi";
+import { PiFunnelBold, PiPlus } from "react-icons/pi";
 import { ExplorationConfig, FunnelDataset } from "shared/validators";
 import { isFactFunnelMetric } from "shared/experiments";
 import {
@@ -17,7 +17,7 @@ import {
 import { isProjectListValidForProject } from "shared/util";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
-import SelectField from "@/components/Forms/SelectField";
+import { Select, SelectItem, SelectSeparator } from "@/ui/Select";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import {
@@ -25,7 +25,15 @@ import {
   getFunnelUnitOptions,
   getInitialInlineFilters,
 } from "@/enterprise/components/ProductAnalytics/util";
+import Callout from "@/ui/Callout";
 import FunnelStepCard from "./FunnelStepCard";
+
+/**
+ * Sentinel for the "Build a New Funnel" entry. A Radix Select needs every item
+ * to carry a value, but this one is an action rather than a selection — it is
+ * never written to state, so the trigger returns to the placeholder.
+ */
+const NEW_FUNNEL_VALUE = "__new_funnel__";
 
 /** Per-step UI state owned by this parent (not the card) so we can
  *  auto-collapse non-user-expanded steps when a new step is added.
@@ -149,6 +157,10 @@ export default function FunnelTabContent() {
         .map((m) => ({ label: m.name, value: m.id })),
     [factMetrics, draftExploreState.datasource, project],
   );
+
+  const linkedFunnelMetricName =
+    funnelMetricOptions.find((o) => o.value === linkedFunnelMetricId)?.label ??
+    null;
 
   /**
    * Start over on a blank funnel, keeping the current data source.
@@ -340,24 +352,56 @@ export default function FunnelTabContent() {
   return (
     <Flex direction="column" gap="4">
       <Flex direction="column" gap="1">
-        <SelectField
-          label="Load from funnel metric"
-          value={linkedFunnelMetricId ?? ""}
-          onChange={handleLoadFunnelMetric}
-          options={funnelMetricOptions}
-          initialOption="None — build a new funnel"
-          disabled={funnelMetricOptions.length === 0}
-          helpText={
-            funnelMetricOptions.length === 0
-              ? "No saved funnel metrics on this data source yet."
-              : "Loads the metric's steps. Editing them here doesn't change the metric."
+        <Select
+          label="Funnel"
+          labelSize="sm"
+          placeholder="Select a funnel"
+          // Falls back to the placeholder when the linked metric isn't in the
+          // list (wrong project, deleted, archived) rather than showing a value
+          // the menu doesn't contain.
+          value={
+            linkedFunnelMetricName
+              ? (linkedFunnelMetricId ?? undefined)
+              : undefined
           }
-        />
-        {linkedFunnelMetricId && funnelLinkIsDirty && (
-          <Text size="sm" color="text-low">
-            Edited since loading — the metric itself is unchanged.
-          </Text>
-        )}
+          setValue={(value) => {
+            if (value === NEW_FUNNEL_VALUE) {
+              resetToNewFunnel();
+              return;
+            }
+            handleLoadFunnelMetric(value);
+          }}
+        >
+          {funnelMetricOptions.map((o) => (
+            <SelectItem key={o.value} value={o.value}>
+              <Flex align="center" gap="2">
+                <PiFunnelBold size={14} />
+                {o.label}
+              </Flex>
+            </SelectItem>
+          ))}
+          {funnelMetricOptions.length > 0 && <SelectSeparator />}
+          {/* An action, not a "none" option: it wipes the current funnel and
+              starts clean (§7 decision 7), so it reads as something you do.
+              Never stored as the value, so picking it returns the trigger to
+              the placeholder. */}
+          <SelectItem value={NEW_FUNNEL_VALUE}>
+            <Flex align="center" gap="2">
+              <PiPlus size={14} />
+              Build a New Funnel
+            </Flex>
+          </SelectItem>
+        </Select>
+        {/* A callout rather than plain help text: this explains a
+            non-obvious relationship (edits here don't touch the metric), so
+            it needs to read as something to notice, not page furniture. */}
+        <Callout status="info" size="sm" mt="1">
+          {funnelMetricOptions.length === 0
+            ? "No saved funnel metrics on this data source yet."
+            : linkedFunnelMetricId && funnelLinkIsDirty
+              ? "Edited since loading — the metric itself is unchanged."
+              : "Loads the metric's steps. Editing them here doesn't change the metric."}
+        </Callout>
       </Flex>
       {steps.map((step, index) => (
         <FunnelStepCard
