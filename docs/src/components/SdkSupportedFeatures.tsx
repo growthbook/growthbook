@@ -231,6 +231,18 @@ const capabilityDetails = {
     ),
     label: "Case Insensitive Membership",
   },
+  namespacesV2: {
+    icon: undefined,
+    label: "v2 Namespaces",
+  },
+  contextualBandits: {
+    icon: undefined,
+    label: "Contextual Bandits",
+  },
+  trackingPlugin: {
+    icon: undefined,
+    label: "Tracking Plugin",
+  },
 };
 
 export default function SdkSupportedFeatures({

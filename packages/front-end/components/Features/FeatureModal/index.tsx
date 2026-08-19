@@ -38,11 +38,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useWatching } from "@/services/WatchProvider";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
-import {
-  filterCustomFieldsForSectionAndProject,
-  useCustomFields,
-} from "@/hooks/useCustomFields";
-import { useUser } from "@/services/UserContext";
+import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
@@ -103,13 +99,11 @@ const genFormDefaultValues = ({
   permissions: permissionsUtil,
   featureToDuplicate,
   project,
-  customFields,
 }: {
   environments: ReturnType<typeof useEnvironments>;
   permissions: ReturnType<typeof usePermissionsUtil>;
   featureToDuplicate?: FeatureInterface;
   project: string;
-  customFields?: ReturnType<typeof useCustomFields>;
 }): Pick<
   FeatureInterface,
   | "valueType"
@@ -132,14 +126,7 @@ const genFormDefaultValues = ({
     permissions: permissionsUtil,
     project,
   });
-  const customFieldValues = customFields
-    ? Object.fromEntries(
-        customFields.map((field) => [
-          field.id,
-          featureToDuplicate?.customFields?.[field.id] ?? field.defaultValue,
-        ]),
-      )
-    : {};
+  const customFieldValues = featureToDuplicate?.customFields ?? {};
 
   return featureToDuplicate
     ? {
@@ -191,24 +178,13 @@ export default function FeatureModal({
   const environments = useEnvironments();
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
-  const { hasCommercialFeature } = useUser();
   const { requireProjectForFeatures } = useOrgSettings();
-
-  const allCustomFields = useCustomFields();
-  const initialCustomFields = filterCustomFieldsForSectionAndProject(
-    allCustomFields,
-    "feature",
-    project,
-  );
 
   const defaultValues = genFormDefaultValues({
     environments,
     permissions: permissionsUtil,
     featureToDuplicate,
     project,
-    customFields: hasCommercialFeature("custom-metadata")
-      ? initialCustomFields
-      : undefined,
   });
 
   const [showDescription, setShowDescription] = useState(
@@ -227,11 +203,13 @@ export default function FeatureModal({
   const canCreateWithoutProject =
     !requireProjectForFeatures && permissionsUtil.canViewFeatureModal();
   const selectedProject = form.watch("project");
-  const customFields = filterCustomFieldsForSectionAndProject(
-    allCustomFields,
-    "feature",
-    selectedProject,
-  );
+  const { availableFields: customFields, value: customFieldValues } =
+    useReconciledCustomFields({
+      section: "feature",
+      project: selectedProject,
+      value: form.watch("customFields"),
+      setValue: (value) => form.setValue("customFields", value),
+    });
   const { projectId: demoProjectId } = useDemoDataSourceProject();
   const creatingInDemoProject =
     !!demoProjectId && selectedProject === demoProjectId;
@@ -647,21 +625,15 @@ export default function FeatureModal({
           />
         </Box>
 
-        {hasCommercialFeature("custom-metadata") &&
-          customFields &&
-          customFields?.length > 0 && (
-            <div>
-              <CustomFieldInput
-                customFields={customFields}
-                setCustomFields={(value) => {
-                  form.setValue("customFields", value);
-                }}
-                currentCustomFields={form.watch("customFields") || {}}
-                section={"feature"}
-                project={selectedProject}
-              />
-            </div>
-          )}
+        {customFields.length > 0 && (
+          <div>
+            <CustomFieldInput
+              fields={customFields}
+              value={customFieldValues}
+              onChange={(value) => form.setValue("customFields", value)}
+            />
+          </div>
+        )}
 
         <Flex direction="column" mt="3">
           {showTags && (

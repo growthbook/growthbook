@@ -1833,11 +1833,6 @@
       "count": 1
     }
   },
-  "packages/front-end/enterprise/components/AIChat/ChatInputBar.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/enterprise/components/AIChat/ChatSearchModal.tsx": {
     "no-restricted-imports": {
       "count": 1
