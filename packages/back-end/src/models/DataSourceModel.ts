@@ -399,6 +399,7 @@ export async function createDataSource(
     settings,
     "all",
   );
+  datasource.settings = settings;
 
   validatePipelineSettingsInvariants(settings.pipelineSettings);
 
@@ -446,6 +447,10 @@ export async function validateExposureQueriesAndAddMissingIds(
         if (!exposure.id) {
           exposure.id = uniqid("exq_");
         }
+        if (!exposure.userIdTypes?.length) {
+          exposure.userIdTypes = [exposure.userIdType].filter(Boolean);
+        }
+        exposure.userIdType = exposure.userIdTypes[0] ?? exposure.userIdType;
         // Skip live validation while the warehouse can't serve queries — never
         // provisioned OR mid-migration (tables being recreated). Otherwise a
         // concurrent settings save would test-run against unavailable tables and
@@ -668,16 +673,22 @@ export function toDataSourceApiInterface(
       id: identifier.userIdType,
       description: identifier.description || "",
     })),
-    assignmentQueries: (settings?.queries?.exposure || []).map((q) => ({
-      id: q.id,
-      name: q.name,
-      description: q.description || "",
-      identifierType: q.userIdType,
-      sql: q.query,
-      includesNameColumns: !!q.hasNameCol,
-      dimensionColumns: q.dimensions,
-      error: q.error,
-    })),
+    assignmentQueries: (settings?.queries?.exposure || []).map((q) => {
+      const identifierTypes = q.userIdTypes?.length
+        ? q.userIdTypes
+        : [q.userIdType].filter(Boolean);
+      return {
+        id: q.id,
+        name: q.name,
+        description: q.description || "",
+        identifierTypes,
+        identifierType: identifierTypes[0] ?? q.userIdType,
+        sql: q.query,
+        includesNameColumns: !!q.hasNameCol,
+        dimensionColumns: q.dimensions,
+        error: q.error,
+      };
+    }),
     identifierJoinQueries: (settings?.queries?.identityJoins || []).map(
       (q) => ({
         identifierTypes: q.ids,

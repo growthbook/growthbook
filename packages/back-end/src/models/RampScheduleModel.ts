@@ -220,6 +220,41 @@ export function migrateRampScheduleStatus<T extends { status?: string }>(
   return doc;
 }
 
+// Translate an API monitoring config (which may carry a grouped `exposureQuery`
+// object) into the flat shape stored on the model. The object and the
+// deprecated flat exposureQueryId/exposureQueryIdentifierType are mutually
+// exclusive. exposureQueryId presence is enforced by the model's Zod schema.
+export function apiMonitoringConfigToInternal<
+  T extends {
+    exposureQuery?: { id: string; identifierType: string };
+    exposureQueryId?: string;
+    exposureQueryIdentifierType?: string;
+  },
+>(
+  mc: T | null | undefined,
+): (Omit<T, "exposureQuery"> & { exposureQueryId: string }) | null {
+  if (!mc) return null;
+  if (
+    mc.exposureQuery &&
+    (mc.exposureQueryId !== undefined ||
+      mc.exposureQueryIdentifierType !== undefined)
+  ) {
+    throw new Error(
+      "Cannot set exposureQuery together with the deprecated exposureQueryId or exposureQueryIdentifierType",
+    );
+  }
+  const { exposureQuery, ...rest } = mc;
+  // exposureQueryId presence is enforced by the model's Zod schema at write
+  // time; the API types it optional because exposureQuery is an alternative.
+  return {
+    ...rest,
+    exposureQueryId: exposureQuery?.id ?? mc.exposureQueryId,
+    ...(exposureQuery
+      ? { exposureQueryIdentifierType: exposureQuery.identifierType }
+      : {}),
+  } as Omit<T, "exposureQuery"> & { exposureQueryId: string };
+}
+
 export function rampScheduleToApiInterface(
   doc: RampScheduleInterface,
 ): ApiRampScheduleInterface {
@@ -257,6 +292,18 @@ export function rampScheduleToApiInterface(
       ? {
           ...doc.monitoringConfig,
           signalMetricIds: doc.monitoringConfig.signalMetricIds ?? [],
+          // Surface the grouped exposureQuery object alongside the deprecated
+          // flat fields. Present only when both are stored.
+          ...(doc.monitoringConfig.exposureQueryId &&
+          doc.monitoringConfig.exposureQueryIdentifierType
+            ? {
+                exposureQuery: {
+                  id: doc.monitoringConfig.exposureQueryId,
+                  identifierType:
+                    doc.monitoringConfig.exposureQueryIdentifierType,
+                },
+              }
+            : {}),
         }
       : doc.monitoringConfig,
     experimentHealthAction: doc.experimentHealthAction,

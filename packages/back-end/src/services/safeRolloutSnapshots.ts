@@ -368,6 +368,10 @@ export function getSafeRolloutSnapshotSettings({
     regressionAdjustmentEnabled: !!settings.regressionAdjusted,
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: safeRollout.exposureQueryId,
+    exposureQueryIdentifierType:
+      safeRollout.exposureQueryIdentifierType ??
+      exposureQuery?.userIdTypes?.[0] ??
+      exposureQuery?.userIdType,
     metricSettings,
     // SDK-emitted variation_id mapping depends on the safe rollout's mode:
     //   v1 (rule.type === "safe-rollout"):

@@ -1247,6 +1247,7 @@ export async function postExperiments(
     trackingKey: data.trackingKey || "",
     datasource: data.datasource || "",
     exposureQueryId: data.exposureQueryId || "",
+    exposureQueryIdentifierType: data.exposureQueryIdentifierType,
     userIdType: data.userIdType || "anonymous",
     name: data.name || "",
     phases: data.phases
@@ -1346,6 +1347,7 @@ export async function postExperiments(
         exposureQueryId:
           data.exposureQueryId ||
           datasource?.settings.queries?.exposure?.[0]?.id,
+        exposureQueryIdentifierType: data.exposureQueryIdentifierType,
         dimensionIds: data.precomputedUnitDimensionIds,
       });
     }
@@ -1834,6 +1836,7 @@ export async function postExperiment(
     "owner",
     "datasource",
     "exposureQueryId",
+    "exposureQueryIdentifierType",
     "userIdType",
     "hashAttribute",
     "fallbackAttribute",
@@ -1954,7 +1957,8 @@ export async function postExperiment(
   const shouldValidatePrecomputedUnitDimensionIds =
     changes.precomputedUnitDimensionIds !== undefined ||
     changes.datasource !== undefined ||
-    changes.exposureQueryId !== undefined;
+    changes.exposureQueryId !== undefined ||
+    changes.exposureQueryIdentifierType !== undefined;
   if (shouldValidatePrecomputedUnitDimensionIds) {
     const effectivePrecomputedUnitDimensionIds =
       changes.precomputedUnitDimensionIds ??
@@ -1964,6 +1968,9 @@ export async function postExperiment(
       changes.datasource ?? experiment.datasource ?? "";
     const effectiveExposureQueryId =
       changes.exposureQueryId ?? experiment.exposureQueryId;
+    const effectiveExposureQueryIdentifierType =
+      changes.exposureQueryIdentifierType ??
+      experiment.exposureQueryIdentifierType;
     if (effectivePrecomputedUnitDimensionIds.length > 0) {
       const effectiveDatasource = effectiveDatasourceId
         ? await getDataSourceById(context, effectiveDatasourceId)
@@ -1972,6 +1979,7 @@ export async function postExperiment(
         context,
         datasource: effectiveDatasource,
         exposureQueryId: effectiveExposureQueryId,
+        exposureQueryIdentifierType: effectiveExposureQueryIdentifierType,
         dimensionIds: effectivePrecomputedUnitDimensionIds,
       });
     }

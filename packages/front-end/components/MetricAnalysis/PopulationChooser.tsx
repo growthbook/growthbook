@@ -5,6 +5,7 @@ import { MetricAnalysisPopulationType } from "shared/types/metric-analysis";
 import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
+import { getExposureQueryIdentifierTypes } from "@/services/datasources";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
@@ -36,7 +37,7 @@ export default function PopulationChooser({
   const availableExposureQueries = (
     datasource?.settings?.queries?.exposure || []
   )
-    .filter((e) => e.userIdType === userIdType)
+    .filter((e) => getExposureQueryIdentifierTypes(e).includes(userIdType))
     .map((e) => ({
       label: `Experiment Exposed Units: ${e.name}`,
       value: `experiment_${e.id}`,

@@ -553,6 +553,7 @@ const makeComparable = (
   skipPartialData: false,
   datasourceId: "ds_123",
   exposureQueryId: "eq_1",
+  exposureQueryIdentifierType: "user_id",
   startDate: new Date("2024-01-01T00:00:00.000Z"),
   regressionAdjustmentEnabled: false,
   experimentId: "exp_1",
@@ -617,6 +618,15 @@ describe("getIncrementalFullRefreshReasons", () => {
         makeComparable({ exposureQueryId: "eq_1" }),
       ),
     ).toEqual(["Experiment assignment query changed"]);
+  });
+
+  it("returns a reason when exposureQueryIdentifierType changed", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({ exposureQueryIdentifierType: "anonymous_id" }),
+        makeComparable({ exposureQueryIdentifierType: "user_id" }),
+      ),
+    ).toEqual(["Experiment assignment identifier type changed"]);
   });
 
   it("returns a reason when startDate changed", () => {

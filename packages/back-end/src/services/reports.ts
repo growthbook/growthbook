@@ -140,6 +140,9 @@ export function reportArgsFromSnapshot(
     trackingKey: snapshot.settings.experimentId || experiment.trackingKey,
     datasource: snapshot.settings.datasourceId || experiment.datasource,
     exposureQueryId: experiment.exposureQueryId,
+    exposureQueryIdentifierType:
+      snapshot.settings.exposureQueryIdentifierType ??
+      experiment.exposureQueryIdentifierType,
     startDate: snapshot.settings.startDate,
     endDate: snapshot.settings.endDate,
     dimension: snapshot.dimension || undefined,
@@ -254,6 +257,7 @@ export function getSnapshotSettingsFromReportArgs(
     endDate: args.endDate || new Date(),
     experimentId: args.trackingKey,
     exposureQueryId: args.exposureQueryId,
+    exposureQueryIdentifierType: args.exposureQueryIdentifierType,
     segment: args.segment || "",
     queryFilter: args.queryFilter || "",
     skipPartialData: !!args.skipPartialData,
@@ -673,6 +677,10 @@ export function getReportSnapshotSettings({
   const exposureQuery = queries.find(
     (q) => q.id === report.experimentAnalysisSettings.exposureQueryId,
   );
+  const exposureQueryIdentifierType =
+    report.experimentAnalysisSettings.exposureQueryIdentifierType ??
+    exposureQuery?.userIdTypes?.[0] ??
+    exposureQuery?.userIdType;
 
   // expand metric groups and scrub unjoinable metrics
   const goalMetrics = expandMetricGroups(
@@ -798,6 +806,7 @@ export function getReportSnapshotSettings({
     regressionAdjustmentEnabled: !!analysisSettings.regressionAdjusted,
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: report.experimentAnalysisSettings.exposureQueryId,
+    exposureQueryIdentifierType,
     metricSettings,
     variations: report.experimentMetadata.variations.map((v, i) => ({
       id: v.key || i + "",

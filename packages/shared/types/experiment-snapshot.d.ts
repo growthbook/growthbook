@@ -205,6 +205,7 @@ export interface ExperimentSnapshotSettings {
   skipPartialData: boolean;
   datasourceId: string;
   exposureQueryId: string;
+  exposureQueryIdentifierType?: string;
   startDate: Date;
   endDate: Date;
   phase?: PhaseSQLVar;

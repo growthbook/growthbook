@@ -116,7 +116,9 @@ Help the user pick:
 
 Set `trackingKey` to the feature flag name so the SDK ties exposures to the flag. Each variation needs a stable string `key` (`"0"`, `"1"`, ...) and `name`. Variation values live on the flag rule (step 5), not on the experiment payload.
 
-**Template path** — do NOT also send `datasourceId` / `assignmentQueryId`; the template provides them and the API rejects the combination.
+**Template path** — do NOT also send `datasourceId` / `assignmentQuery`; the template provides them and the API rejects the combination.
+
+`assignmentQuery.id` is one of the datasource's assignment query IDs; `assignmentQuery.identifierType` must be one of the identifier types that query declares. The flat `assignmentQueryId` / `assignmentQueryIdentifierType` fields are deprecated but still accepted (mutually exclusive with `assignmentQuery`).
 
 ```json
 {
@@ -144,7 +146,10 @@ Set `trackingKey` to the feature flag name so the SDK ties exposures to the flag
   "path": "/api/v1/experiments",
   "body": {
     "datasourceId": "<DATASOURCE_ID>",
-    "assignmentQueryId": "<ASSIGNMENT_QUERY_ID>",
+    "assignmentQuery": {
+      "id": "<ASSIGNMENT_QUERY_ID>",
+      "identifierType": "<IDENTIFIER_TYPE>"
+    },
     "hashAttribute": "<HASH_ATTRIBUTE>",
     "trackingKey": "<flag-name>",
     "name": "<experiment name>",
@@ -335,7 +340,7 @@ Print a summary:
 - **At least one guardrail.** Push back if the user skips guardrails.
 - **`hashAttribute` and `assignmentQuery.identifierType` must match.** Mismatch is a real and recoverable error; surface the fix paths in step 2c.
 - **Metrics must live on the experiment's datasource.** Filter `/v1/metrics` and `/v1/fact-metrics` by `datasourceId` in step 2d.
-- **Do NOT mix `templateId` with `datasourceId`/`assignmentQueryId`.** The template path supplies those; the no-template path supplies them explicitly. Mixing yields a `400`.
+- **Do NOT mix `templateId` with `datasourceId`/`assignmentQuery`.** The template path supplies those; the no-template path supplies them explicitly. Mixing yields a `400`.
 - **Flag default = control value.** Variation values for flag-linked experiments are strings on the rule — `"false"`/`"true"` for booleans, `"42"` for numbers, JSON-encoded text for `json`.
 - **Reuse with care.** Always run the step 4 compatibility checks before reusing an existing flag. Silently attaching to a flag with the wrong `valueType`, wrong `project`, or a conflicting rule will break the experiment or step on a teammate's in-flight test.
 - **No manual revision publish.** The step 5 draft is published by `/start` in step 7. Do not call publish endpoints separately.

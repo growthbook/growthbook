@@ -20,7 +20,10 @@ import {
 } from "back-end/src/services/rampSchedule";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
+import {
+  apiMonitoringConfigToInternal,
+  rampScheduleToApiInterface,
+} from "back-end/src/models/RampScheduleModel";
 import { resolveRampTargets } from "back-end/src/util/flattenRules";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 
@@ -83,7 +86,24 @@ const postRampScheduleValidator = {
       monitoringConfig: z
         .object({
           datasourceId: z.string(),
-          exposureQueryId: z.string(),
+          exposureQuery: z
+            .object({ id: z.string(), identifierType: z.string() })
+            .describe(
+              "The exposure query to use, grouping its ID with the identifier type analyzed on. Mutually exclusive with the deprecated exposureQueryId.",
+            )
+            .optional(),
+          /** @deprecated use exposureQuery */
+          exposureQueryId: z
+            .string()
+            .describe("Deprecated: use exposureQuery instead.")
+            .optional()
+            .meta({ deprecated: true }),
+          /** @deprecated use exposureQuery.identifierType */
+          exposureQueryIdentifierType: z
+            .string()
+            .describe("Deprecated: use exposureQuery.identifierType instead.")
+            .optional()
+            .meta({ deprecated: true }),
           guardrailMetricIds: z.array(z.string()).min(1),
           signalMetricIds: z.array(z.string()).optional(),
           monitoringMode: z.enum(["auto", "manual"]).optional(),
@@ -387,7 +407,9 @@ export const postRampSchedule = createApiRequestHandler(
     startDate,
     cutoffDate: body.cutoffDate ? new Date(body.cutoffDate) : null,
     monitoringConfig: normalizeMonitoringConfig(
-      body.monitoringConfig ?? template?.monitoringConfig ?? null,
+      apiMonitoringConfigToInternal(body.monitoringConfig) ??
+        template?.monitoringConfig ??
+        null,
     ),
     lockdownConfig: body.lockdownConfig ?? template?.lockdownConfig,
     ...(body.experimentHealthAction

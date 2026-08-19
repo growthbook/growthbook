@@ -267,6 +267,7 @@ export const experimentAnalysisSettings = z
     trackingKey: z.string(),
     datasource: z.string(),
     exposureQueryId: z.string(),
+    exposureQueryIdentifierType: z.string().optional(),
     goalMetrics: z.array(z.string()),
     secondaryMetrics: z.array(z.string()),
     guardrailMetrics: z.array(z.string()),
@@ -691,13 +692,27 @@ const apiLookbackOverrideInput = z
     'Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required.',
   );
 
+// Groups an assignment query id with its chosen identifier type. Replaces the
+// deprecated flat assignmentQueryId/assignmentQueryIdentifierType fields.
+const apiAssignmentQueryRef = z.object({
+  id: z.string(),
+  identifierType: z.string(),
+});
+
 // Corresponds to schemas/ExperimentAnalysisSettings.yaml (API version)
 export const apiExperimentAnalysisSettingsValidator = namedSchema(
   "ExperimentAnalysisSettings",
   z
     .object({
       datasourceId: z.string(),
-      assignmentQueryId: z.string(),
+      assignmentQuery: apiAssignmentQueryRef.optional(),
+      /** @deprecated use assignmentQuery.id */
+      assignmentQueryId: z.string().meta({ deprecated: true }),
+      /** @deprecated use assignmentQuery.identifierType */
+      assignmentQueryIdentifierType: z
+        .string()
+        .optional()
+        .meta({ deprecated: true }),
       experimentId: z.string(),
       segmentId: z.string(),
       queryFilter: z.string(),
@@ -1112,7 +1127,14 @@ const apiBulkResultMetric = z.object({
 // Snapshot-authoritative analysis settings.
 const apiBulkResultSettings = z.object({
   datasourceId: z.string(),
-  assignmentQueryId: z.string(),
+  assignmentQuery: apiAssignmentQueryRef.optional(),
+  /** @deprecated use assignmentQuery.id */
+  assignmentQueryId: z.string().meta({ deprecated: true }),
+  /** @deprecated use assignmentQuery.identifierType */
+  assignmentQueryIdentifierType: z
+    .string()
+    .optional()
+    .meta({ deprecated: true }),
   experimentId: z.string(),
   segmentId: z.string(),
   queryFilter: z.string(),
@@ -1363,12 +1385,25 @@ const postExperimentBody = z
         "ID for the [DataSource](#tag/DataSource_model). Can only be set if a templateId is not provided.",
       )
       .optional(),
+    assignmentQuery: apiAssignmentQueryRef
+      .describe(
+        "The assignment query to use, grouping its ID with the identifier type to analyze on. The ID must be one of the assignment query objects associated with the datasource, and the identifier type must be one it declares. Can only be set if a templateId is not provided. Mutually exclusive with the deprecated assignmentQueryId/assignmentQueryIdentifierType.",
+      )
+      .optional(),
+    /** @deprecated use assignmentQuery */
     assignmentQueryId: z
       .string()
       .describe(
-        "The ID property of one of the assignment query objects associated with the datasource. Can only be set if a templateId is not provided.",
+        "Deprecated: use assignmentQuery instead. The ID property of one of the assignment query objects associated with the datasource. Can only be set if a templateId is not provided.",
       )
-      .optional(),
+      .optional()
+      .meta({ deprecated: true }),
+    /** @deprecated use assignmentQuery.identifierType */
+    assignmentQueryIdentifierType: z
+      .string()
+      .describe("Deprecated: use assignmentQuery.identifierType instead.")
+      .optional()
+      .meta({ deprecated: true }),
     trackingKey: z.string(),
     bypassDuplicateKeyCheck: z
       .boolean()
@@ -1492,7 +1527,23 @@ const updateExperimentBody = z
         "Can only be set if existing experiment does not have a datasource",
       )
       .optional(),
-    assignmentQueryId: z.string().optional(),
+    assignmentQuery: apiAssignmentQueryRef
+      .describe(
+        "The assignment query to use, grouping its ID with the identifier type to analyze on. Mutually exclusive with the deprecated assignmentQueryId/assignmentQueryIdentifierType.",
+      )
+      .optional(),
+    /** @deprecated use assignmentQuery */
+    assignmentQueryId: z
+      .string()
+      .describe("Deprecated: use assignmentQuery instead.")
+      .optional()
+      .meta({ deprecated: true }),
+    /** @deprecated use assignmentQuery.identifierType */
+    assignmentQueryIdentifierType: z
+      .string()
+      .describe("Deprecated: use assignmentQuery.identifierType instead.")
+      .optional()
+      .meta({ deprecated: true }),
     trackingKey: z.string().optional(),
     bypassDuplicateKeyCheck: z
       .boolean()

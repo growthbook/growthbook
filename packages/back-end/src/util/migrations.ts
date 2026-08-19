@@ -251,6 +251,7 @@ export function upgradeDatasourceObject(
           name: "Logged-in User Experiments",
           description: "",
           userIdType: "user_id",
+          userIdTypes: ["user_id"],
           dimensions: settings.experimentDimensions || [],
           query:
             settings.queries.experimentsQuery ||
@@ -261,6 +262,7 @@ export function upgradeDatasourceObject(
           name: "Anonymous Visitor Experiments",
           description: "",
           userIdType: "anonymous_id",
+          userIdTypes: ["anonymous_id"],
           dimensions: settings.experimentDimensions || [],
           query:
             settings.queries.experimentsQuery ||
@@ -268,6 +270,13 @@ export function upgradeDatasourceObject(
         },
       ];
     }
+  }
+
+  for (const query of settings.queries?.exposure ?? []) {
+    if (!query.userIdTypes?.length) {
+      query.userIdTypes = [query.userIdType].filter(Boolean);
+    }
+    query.userIdType = query.userIdTypes[0] ?? query.userIdType;
   }
 
   // mode field was added later -- default to ephemeral if missing

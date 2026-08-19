@@ -69,7 +69,16 @@ export function toReportApiInterface(
         attributionModel: settings.attributionModel,
         lookbackOverride: settings.lookbackOverride,
         trackingKey: settings.trackingKey || undefined,
+        exposureQuery:
+          settings.exposureQueryId && settings.exposureQueryIdentifierType
+            ? {
+                id: settings.exposureQueryId,
+                identifierType: settings.exposureQueryIdentifierType,
+              }
+            : undefined,
         exposureQueryId: settings.exposureQueryId || undefined,
+        exposureQueryIdentifierType:
+          settings.exposureQueryIdentifierType || undefined,
         segment: settings.segment || undefined,
         queryFilter: settings.queryFilter || undefined,
         skipPartialData: settings.skipPartialData,
@@ -121,7 +130,16 @@ export function toReportApiInterface(
         sequentialTestingTuningParameter: args.sequentialTestingTuningParameter,
         attributionModel: args.attributionModel,
         trackingKey: args.trackingKey || undefined,
+        exposureQuery:
+          args.exposureQueryId && args.exposureQueryIdentifierType
+            ? {
+                id: args.exposureQueryId,
+                identifierType: args.exposureQueryIdentifierType,
+              }
+            : undefined,
         exposureQueryId: args.exposureQueryId || undefined,
+        exposureQueryIdentifierType:
+          args.exposureQueryIdentifierType || undefined,
         segment: args.segment || undefined,
         queryFilter: args.queryFilter || undefined,
         skipPartialData: args.skipPartialData,
