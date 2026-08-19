@@ -512,7 +512,40 @@ const getFormattedCI = (
   return [ci[0] ?? -Infinity, ci[1] ?? Infinity];
 };
 
-function parseStatsEngineResult({
+export function addMetricErrorsToDimensions(
+  dimensions: ExperimentReportResultDimension[],
+  metricErrors: ReadonlyMap<string, string>,
+  variationCount: number,
+): void {
+  if (metricErrors.size === 0) return;
+
+  if (dimensions.length === 0) {
+    dimensions.push({
+      name: "All",
+      srm: 1,
+      variations: Array.from({ length: variationCount }, () => ({
+        users: 0,
+        metrics: {},
+      })),
+    });
+  }
+
+  dimensions.forEach((dimension) => {
+    dimension.variations.forEach((variation) => {
+      metricErrors.forEach((errorMessage, metric) => {
+        variation.metrics[metric] = {
+          users: 0,
+          value: 0,
+          cr: 0,
+          buckets: [],
+          errorMessage,
+        };
+      });
+    });
+  });
+}
+
+export function parseStatsEngineResult({
   analysisSettings,
   snapshotSettings,
   queryResults,
@@ -520,7 +553,7 @@ function parseStatsEngineResult({
   result,
 }: {
   analysisSettings: ExperimentSnapshotAnalysisSettings[];
-  snapshotSettings: ExperimentSnapshotSettings;
+  snapshotSettings: Pick<ExperimentSnapshotSettings, "variations">;
   queryResults: QueryResultsForStatsEngine[];
   unknownVariations: string[];
   result: ExperimentMetricAnalysis;
@@ -540,7 +573,23 @@ function parseStatsEngineResult({
   analysisSettings.forEach((_, i) => {
     const dimensionMap: Map<string, ExperimentReportResultDimension> =
       new Map();
-    result.forEach(({ metric, analyses }) => {
+    const metricErrors = new Map<string, string>();
+    result.forEach(({ metric, analyses, error, traceback }) => {
+      const metricError = error ?? null;
+      if (metricError !== null) {
+        const errorMessage = traceback
+          ? `${metricError}\n\n${traceback}`
+          : metricError;
+        // log once per metric, not once per requested analysis
+        if (i === 0) {
+          logger.error(
+            "Metric analysis failed in stats engine:\n" + errorMessage,
+          );
+        }
+        metricErrors.set(metric, errorMessage);
+        return;
+      }
+
       // each result can have multiple analyses (a set of computations that
       // use the same snapshot)
       // we loop over the analyses requested and pull out the results for each one
@@ -614,19 +663,24 @@ function parseStatsEngineResult({
     });
 
     const dimensions = Array.from(dimensionMap.values());
-    if (!dimensions.length) {
+    dimensions.forEach((dimension) => {
+      // Calculate SRM
+      dimension.srm = checkSrm(
+        dimension.variations.map((v) => v.users),
+        snapshotSettings.variations.map((v) => v.weight),
+      );
+    });
+
+    addMetricErrorsToDimensions(
+      dimensions,
+      metricErrors,
+      snapshotSettings.variations.length,
+    );
+    if (dimensions.length === 0) {
       dimensions.push({
         name: "All",
         srm: 1,
         variations: [],
-      });
-    } else {
-      dimensions.forEach((dimension) => {
-        // Calculate SRM
-        dimension.srm = checkSrm(
-          dimension.variations.map((v) => v.users),
-          snapshotSettings.variations.map((v) => v.weight),
-        );
       });
     }
     experimentReportResults.push({

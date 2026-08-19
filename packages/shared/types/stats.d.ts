@@ -167,6 +167,8 @@ export type ExperimentMetricAnalysis = {
     multipleExposures: number;
     dimensions: StatsEngineDimensionResponse[];
   }[];
+  error?: string;
+  traceback?: string;
 }[];
 
 export type SingleVariationResult = {

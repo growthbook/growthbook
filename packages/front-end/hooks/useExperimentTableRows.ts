@@ -40,6 +40,7 @@ const METRIC_SELECTOR_IDS = [
 import {
   applyMetricOverrides,
   ExperimentTableRow,
+  NO_DATA_ERROR_MESSAGE,
 } from "@/services/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useTableSorting } from "@/hooks/useTableSorting";
@@ -563,7 +564,7 @@ export function generateRowsForMetric({
           users: 0,
           value: 0,
           cr: 0,
-          errorMessage: "No data",
+          errorMessage: NO_DATA_ERROR_MESSAGE,
         }))
       : resultsArray[0].variations.map((v) => {
           return (
@@ -571,7 +572,7 @@ export function generateRowsForMetric({
               users: 0,
               value: 0,
               cr: 0,
-              errorMessage: "No data",
+              errorMessage: NO_DATA_ERROR_MESSAGE,
             }
           );
         }),
@@ -670,7 +671,7 @@ export function generateRowsForMetric({
               users: 0,
               value: 0,
               cr: 0,
-              errorMessage: "No data",
+              errorMessage: NO_DATA_ERROR_MESSAGE,
             }
           );
         }),
@@ -729,7 +730,7 @@ export function generateRowsForMetric({
               users: 0,
               value: 0,
               cr: 0,
-              errorMessage: "No data",
+              errorMessage: NO_DATA_ERROR_MESSAGE,
             },
         ),
         metricSnapshotSettings,

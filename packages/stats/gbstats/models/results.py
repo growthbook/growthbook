@@ -205,6 +205,8 @@ class ExperimentMetricAnalysisResult:
 class ExperimentMetricAnalysis:
     metric: str
     analyses: List[ExperimentMetricAnalysisResult]
+    error: Optional[str] = None
+    traceback: Optional[str] = None
 
 
 @dataclass

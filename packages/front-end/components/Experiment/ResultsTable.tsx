@@ -40,6 +40,7 @@ import { PiPencilSimpleFill } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import {
   ExperimentTableRow,
+  getComputeErrorMessage,
   getEffectLabel,
   getRowResults,
   RowResults,
@@ -163,6 +164,20 @@ export const RESULTS_TABLE_COLUMNS = [
 export enum RowError {
   QUANTILE_AGGREGATION_ERROR = "QUANTILE_AGGREGATION_ERROR",
 }
+
+// A per-variation stats-engine failure carrying the verbatim reason. Distinct
+// from "query error" (a warehouse query failed) and RowError (fixed copy): the
+// message comes straight from the stats engine.
+type MetricComputeError = { computeError: string };
+
+// Per-variation cell state: a normal result, one of the error markers, or null
+// for a skipped variation.
+type RowResultOrError =
+  | RowResults
+  | "query error"
+  | RowError
+  | MetricComputeError
+  | null;
 
 export default function ResultsTable({
   id,
@@ -434,96 +449,105 @@ export default function ResultsTable({
 
   const domain = useDomain(filteredVariations, rows, differenceType, oneSided);
 
-  const rowsResults: (RowResults | "query error" | RowError | null)[][] =
-    useMemo(() => {
-      const rr: (RowResults | "query error" | RowError | null)[][] = [];
-      rows.map((row, i) => {
-        rr.push([]);
-        const baseline = row.variations[baselineRow] || {
+  const rowsResults: RowResultOrError[][] = useMemo(() => {
+    const rr: RowResultOrError[][] = [];
+    rows.map((row, i) => {
+      rr.push([]);
+      const baseline = row.variations[baselineRow] || {
+        value: 0,
+        cr: 0,
+        users: 0,
+      };
+      orderedVariations.map((v) => {
+        let skipVariation = false;
+        if (variationFilter?.length && variationFilter?.includes(v.index)) {
+          skipVariation = true;
+        }
+        if (v.index === baselineRow) {
+          skipVariation = true;
+        }
+        if (skipVariation) {
+          rr[i].push(null);
+          return;
+        }
+        if (
+          queryStatusData?.status === "partially-succeeded" &&
+          queryStatusData?.failedNames?.includes(row.metric.id)
+        ) {
+          rr[i].push("query error");
+          return;
+        }
+
+        if (row.error) {
+          rr[i].push(row.error);
+          return;
+        }
+
+        const stats = row.variations[v.index] || {
           value: 0,
           cr: 0,
           users: 0,
         };
-        orderedVariations.map((v) => {
-          let skipVariation = false;
-          if (variationFilter?.length && variationFilter?.includes(v.index)) {
-            skipVariation = true;
-          }
-          if (v.index === baselineRow) {
-            skipVariation = true;
-          }
-          if (skipVariation) {
-            rr[i].push(null);
-            return;
-          }
-          if (
-            queryStatusData?.status === "partially-succeeded" &&
-            queryStatusData?.failedNames?.includes(row.metric.id)
-          ) {
-            rr[i].push("query error");
-            return;
-          }
 
-          if (row.error) {
-            rr[i].push(row.error);
-            return;
-          }
+        // Show a whole-row error only when this variation has no data to show.
+        // A per-variation code (e.g. ZERO_NEGATIVE_VARIANCE) keeps real
+        // users/value, so fall through and render the partial result.
+        const computeError =
+          getComputeErrorMessage(stats) || getComputeErrorMessage(baseline);
+        if (computeError && !stats.users) {
+          rr[i].push({ computeError });
+          return;
+        }
 
-          const stats = row.variations[v.index] || {
-            value: 0,
-            cr: 0,
-            users: 0,
-          };
-
-          const denominator =
-            !isFactMetric(row.metric) && row.metric.denominator
-              ? ((ssrPolyfills?.getExperimentMetricById?.(
-                  row.metric.denominator,
-                ) ||
-                  getExperimentMetricById(row.metric.denominator)) ??
-                undefined)
-              : undefined;
-          const rowResults = getRowResults({
-            stats,
-            baseline,
-            metric: row.metric,
-            denominator,
-            metricDefaults,
-            minSampleSize: getMinSampleSizeForMetric(row.metric),
-            statsEngine,
-            differenceType,
-            ciUpper,
-            ciLower,
-            pValueThreshold,
-            snapshotDate: getValidDate(dateCreated),
-            phaseStartDate: getValidDate(startDate),
-            isLatestPhase,
-            experimentStatus: status,
-          });
-          rr[i].push(rowResults);
+        const denominator =
+          !isFactMetric(row.metric) && row.metric.denominator
+            ? ((ssrPolyfills?.getExperimentMetricById?.(
+                row.metric.denominator,
+              ) ||
+                getExperimentMetricById(row.metric.denominator)) ??
+              undefined)
+            : undefined;
+        const rowResults = getRowResults({
+          stats,
+          baseline,
+          metric: row.metric,
+          denominator,
+          metricDefaults,
+          minSampleSize: getMinSampleSizeForMetric(row.metric),
+          statsEngine,
+          differenceType,
+          ciUpper,
+          ciLower,
+          pValueThreshold,
+          snapshotDate: getValidDate(dateCreated),
+          phaseStartDate: getValidDate(startDate),
+          isLatestPhase,
+          experimentStatus: status,
         });
+        rr[i].push(rowResults);
       });
-      return rr;
-    }, [
-      rows,
-      orderedVariations,
-      baselineRow,
-      variationFilter,
-      metricDefaults,
-      getMinSampleSizeForMetric,
-      statsEngine,
-      differenceType,
-      ciUpper,
-      ciLower,
-      pValueThreshold,
-      dateCreated,
-      startDate,
-      isLatestPhase,
-      status,
-      queryStatusData,
-      ssrPolyfills,
-      getExperimentMetricById,
-    ]);
+    });
+    return rr;
+  }, [
+    rows,
+    orderedVariations,
+    baselineRow,
+    variationFilter,
+    metricDefaults,
+    getMinSampleSizeForMetric,
+    statsEngine,
+    differenceType,
+    ciUpper,
+    ciLower,
+    pValueThreshold,
+    dateCreated,
+    startDate,
+    isLatestPhase,
+    status,
+    queryStatusData,
+    ssrPolyfills,
+    getExperimentMetricById,
+  ]);
 
   const noRows = rows.length === 0;
   const hasUnfilteredMetrics = (totalMetricsCount ?? 0) > 0;
@@ -894,6 +918,58 @@ export default function ResultsTable({
                                 const rowResults = rowsResults?.[i]?.[j];
                                 if (!rowResults) {
                                   return null;
+                                }
+                                if (
+                                  typeof rowResults === "object" &&
+                                  "computeError" in rowResults
+                                ) {
+                                  return drawEmptyRow({
+                                    key: j,
+                                    className:
+                                      "results-variation-row align-items-center error-row",
+                                    labelColSpan: includedLabelColumns.length,
+                                    renderLabel:
+                                      includedLabelColumns.length > 0,
+                                    renderGraph:
+                                      columnsToDisplay.includes("CI Graph"),
+                                    renderLastColumn:
+                                      columnsToDisplay.includes("Lift"),
+                                    label: (
+                                      <div
+                                        className={`d-flex align-items-center ml-2 ${
+                                          row.isChildRow
+                                            ? "pl-4"
+                                            : dimension
+                                              ? "pl-2"
+                                              : "pl-3"
+                                        }`}
+                                      >
+                                        <VariationLabel
+                                          number={v.index}
+                                          name={v.name}
+                                          size="md"
+                                        />
+                                        <HelperText
+                                          status="error"
+                                          size="sm"
+                                          mx="2"
+                                        >
+                                          {rowResults.computeError}
+                                        </HelperText>
+                                      </div>
+                                    ),
+                                    graphCellWidth: columnsToDisplay.includes(
+                                      "CI Graph",
+                                    )
+                                      ? graphCellWidth
+                                      : 0,
+                                    rowHeight: compactResults
+                                      ? ROW_HEIGHT + 10
+                                      : ROW_HEIGHT,
+                                    id,
+                                    domain,
+                                    ssrPolyfills,
+                                  });
                                 }
                                 if (
                                   rowResults === "query error" ||
