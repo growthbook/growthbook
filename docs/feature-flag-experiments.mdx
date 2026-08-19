@@ -1,7 +1,8 @@
 ---
 title: Feature Flag Experiments
 description: Run experiments using feature flags
-slug: feature-flag-experiments
+sidebarTitle: Feature Flag Experiments
+slug: /feature-flag-experiments
 ---
 
 GrowthBook allows you to run experiments using feature flags. This method of running experiments allows any feature to be
@@ -76,7 +77,7 @@ Users are randomly assigned a value from 0 to 1 for each namespace. Each experim
 that it includes. Users are only part of an experiment if their value falls within the experiment's range. As long
 as two experiment ranges do not overlap, users will only ever be in at most one of them.
 
-<Frame>![Namespaces](/static/images/namespaces.png)</Frame>
+![Namespaces](/static/images/namespaces.png)
 
 Before you can use namespaces, you must configure them under _Experimentation â†’ Namespaces_. It's essential to ensure that all experiments within a given namespace use the same hash attribute (assignment attribute).
 
@@ -84,4 +85,4 @@ Before you can use namespaces, you must configure them under _Experimentation â†
 
 Once you have the experiment rule saved and published the feature will start to apply these settings and randomize your
 users into the experiment. The results will flow into your data warehouse, as defined by your `trackingCallback`. There is
-a link to view experiment results on the bottom of each experiment override rule. Read more about [experiment results](app/experiment-results).
+a link to view experiment results on the bottom of each experiment override rule. Read more about [experiment results](/app/experiment-results).
