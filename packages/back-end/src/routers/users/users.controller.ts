@@ -127,14 +127,12 @@ export async function getUser(req: AuthRequest, res: Response) {
     // Only the date is sent: the client uses it for the re-survey window, and
     // nothing reads the status, so it stays server-side.
     npsSurveyAt: req.currentUser?.npsSurveyAt?.toISOString(),
-    // The account's own creation date. The survey's tenure gate needs this
-    // rather than the org-membership date carried on ExpandedMember, which is
-    // re-stamped every time the user is added to another organization.
+    // The survey's tenure gate needs the account's own date, not the
+    // org-membership date on ExpandedMember, which is re-stamped on every join.
     accountCreatedAt: req.currentUser?.dateCreated?.toISOString(),
-    // Whether this deployment can deliver an NPS response anywhere. Only ever a
-    // boolean: the webhook URL is a post-to-channel capability and must not
-    // reach the client. This is the survey's deployment gate, which is why it
-    // beats a hardcoded Cloud test — it tracks the thing actually required.
+    // Whether this deployment can deliver a response at all. A boolean only —
+    // the webhook URL is a post-to-channel capability and must not reach the
+    // client.
     npsSurveyEnabled: !!NPS_SLACK_WEBHOOK,
     organizations: validOrgs.map((org) => {
       return {
@@ -269,13 +267,12 @@ export async function postNpsResponse(
   const { userId } = getContextFromReq(req);
 
   // `preview` decides whether this response consumes the caller's re-survey
-  // window, so it can't be taken on trust from the body: any caller could set it
-  // and replay indefinitely without ever recording state. Honour it for staff
-  // only; everyone else records as normal whatever they claim.
+  // window, so it can't be trusted from the body — otherwise any caller could
+  // set it and replay forever without recording state. Staff only.
   const isPreview = preview === true && !!req.superAdmin;
 
-  // A staff preview (`?show-nps`) still forwards to Slack so the path stays
-  // testable, but must not consume the previewer's own re-survey window.
+  // A preview still forwards to Slack so the path stays testable, but must not
+  // consume the previewer's own window.
   if (!isPreview) {
     await updateUser(userId, {
       npsSurveyStatus: status,
@@ -283,15 +280,10 @@ export async function postNpsResponse(
     });
   }
 
-  // Forward actual responses to Slack. Gated solely on the private webhook env
-  // var, which only GrowthBook Cloud sets, so a self-hosted install has nowhere
-  // to forward to even if it somehow produced a response. (It is no longer true
-  // that the front-end is isCloud()-gated — that check was removed — so the
-  // webhook is the whole gate on this path.) Feedback text is only forwarded on an explicit
-  // "submitted" exit, matching the client contract. The 90-day re-survey window
-  // is a display concern (the client just stops showing the survey), so every
-  // response that arrives is forwarded. Fire-and-forget — a Slack failure must
-  // never affect the user's request.
+  // The webhook is the whole gate here: no webhook, nowhere to forward. Feedback
+  // text only rides an explicit "submitted" exit, matching the client. The 90-day
+  // window is a display concern, so every response that arrives is forwarded.
+  // Fire-and-forget — a Slack failure must never affect the user's request.
   if (status === "responded" && score !== undefined && NPS_SLACK_WEBHOOK) {
     void sendNpsResponseToSlack({
       score,

@@ -1,7 +1,5 @@
-// Standard NPS bands, defined once for both packages: 0-6 detractor,
-// 7-8 passive, 9-10 promoter. The front-end uses these for the survey UI and
-// telemetry; the back-end uses them for the Slack message, so keeping one
-// definition stops the two from disagreeing on a boundary score.
+// Standard NPS bands, defined once so the survey UI, telemetry and the Slack
+// message can't disagree on a boundary score.
 export type NpsCategory = "detractor" | "passive" | "promoter";
 
 export function npsCategoryOf(score: number): NpsCategory {
@@ -14,7 +12,6 @@ export const NPS_CATEGORY_META: Record<
     label: string;
     // NPS contribution: +1 promoter, -1 detractor, 0 passive.
     npsValue: number;
-    // Slack attachment bar colour, so sentiment reads at a glance.
     slackColor: string;
   }
 > = {
@@ -23,11 +20,9 @@ export const NPS_CATEGORY_META: Record<
   promoter: { label: "Promoter", npsValue: 1, slackColor: "#2eb67d" },
 };
 
-// Longest comment the survey accepts. The client caps its textarea at this and
-// the back-end truncates to it when building the Slack message, so one
-// definition keeps the two from drifting. It also keeps the response body well
-// clear of the ~64KB ceiling browsers put on `keepalive` requests, which throw
-// before sending and would skip the cross-device suppression write.
+// Longest comment the survey accepts, shared so the textarea cap and the Slack
+// truncation can't drift. Also keeps the body clear of the ~64KB ceiling on
+// `keepalive` requests, which throw before sending rather than truncating.
 export const NPS_MAX_FEEDBACK_LENGTH = 1500;
 
 export function npsValueOf(score: number): number {

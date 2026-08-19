@@ -8,13 +8,9 @@ const router = express.Router();
 
 const usersController = wrapController(usersControllerRaw);
 
-// One survey produces at most a couple of posts per 90-day cycle, and every
-// valid response is relayed to an internal Slack channel, so the cap is sized
-// for that rather than for general API traffic. A per-minute window still let a
-// scripted client through ~28k messages a day; an hour-long window keeps ample
-// headroom for staff re-testing via ?show-nps while cutting that by two orders
-// of magnitude. Note this is express-rate-limit's default in-process
-// MemoryStore, so the ceiling is per replica and resets on deploy.
+// Every valid response is relayed to an internal Slack channel, and one survey
+// is a couple of posts per 90-day cycle, so this is sized for that rather than
+// for general API traffic. Per replica: the default MemoryStore isn't shared.
 const npsResponseRateLimit = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 10,
