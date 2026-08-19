@@ -400,11 +400,6 @@ ul.sidebar-group > li[data-title="GrowthBook Guide"] {
   max-width: 100%;
 }
 
-/* Nested group links inherit the parent row's 1rem left padding. */
-#sidebar-content li[data-title] ul a {
-  padding-left: 1rem !important;
-}
-
 /* Legacy v1 feature/metric routes: grey method + struck name, no Deprecated chip. */
 #sidebar-content a[href^="/api/features/operation/"],
 #sidebar-content a[href^="/api/feature-revisions/operation/"],
