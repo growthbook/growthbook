@@ -1,5 +1,3 @@
-import { hash } from "@growthbook/growthbook";
-
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const RESURVEY_DAYS = 90;
@@ -73,11 +71,21 @@ export function parseSurveyConfig(value: unknown): NpsSurveyConfig {
   };
 }
 
-// The SDK's own v2 bucketing, so sampling buckets behave like feature rollouts.
-function hashToUnitInterval(seed: string, value: string): number {
-  // Only null for an unknown version; fail closed rather than bucketing at 0,
-  // which would put everyone in the cohort.
-  return hash(seed, value, 2) ?? 1;
+// Copy of `hashFnv32a` + v2 bucketing from sdk-js/src/util.ts, so sampling
+// buckets match feature rollouts. Copied rather than imported because the SDK
+// doesn't export it; safe because the algorithm is frozen. HASH_GOLDEN pins it.
+function fnv32a(str: string): number {
+  let hval = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    hval ^= str.charCodeAt(i);
+    hval +=
+      (hval << 1) + (hval << 4) + (hval << 7) + (hval << 8) + (hval << 24);
+  }
+  return hval >>> 0;
+}
+
+export function hashToUnitInterval(seed: string, value: string): number {
+  return (fnv32a(fnv32a(seed + value) + "") % 10000) / 10000;
 }
 
 // Cycles match the re-survey window, so the cohort re-rolls rather than becoming
