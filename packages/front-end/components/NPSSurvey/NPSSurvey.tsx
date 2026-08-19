@@ -59,11 +59,11 @@ const CATEGORY_UI: Record<NpsCategory, { prompt: string; className: string }> =
 // `nps-survey-preview` flag, which is targeted to the GrowthBook org in
 // GrowthBook — so org targeting lives in the flag, not in hardcoded host/role
 // checks. Devs enable the flag locally to test.
-function forceShowRequested(previewFlagOn: boolean): boolean {
+function forceShowRequested(isStaff: boolean): boolean {
   if (typeof window === "undefined") return false;
   if (!new URLSearchParams(window.location.search).has("show-nps"))
     return false;
-  return previewFlagOn;
+  return isStaff;
 }
 
 // "shown" records that the card was displayed but never acted on, so ignoring
@@ -137,8 +137,14 @@ export default function NPSSurvey() {
   const surveyConfig: unknown = useFeatureValue("nps-survey", 0);
   const { rate: sampleRate, minTenureDays } = parseSurveyConfig(surveyConfig);
   const { apiCall } = useAuth();
-  const { npsSurveyAt, accountCreatedAt, orgSuspended, userId, superAdmin } =
-    useUser();
+  const {
+    npsSurveyAt,
+    accountCreatedAt,
+    npsSurveyEnabled,
+    orgSuspended,
+    userId,
+    superAdmin,
+  } = useUser();
   // Per-user localStorage key: the server half of this cooldown is per-account,
   // so a shared key let one person's impression suppress the next account signed
   // in on the same browser for the whole cycle.
@@ -208,15 +214,21 @@ export default function NPSSurvey() {
       if (!sentRef.current) setVisible(true);
       return;
     }
-    // No deployment check here, deliberately: a hardcoded Cloud test also
-    // blocked every dev environment. Be clear about what that leaves, though.
-    // Self-hosted installs evaluate this flag against GrowthBook's own SDK key,
-    // so the only thing keeping the card off them is the targeting rule on the
-    // feature — the NPS_SLACK_WEBHOOK gates forwarding, not display. Any rule
-    // added here needs a `cloud = true` condition. Comment text is withheld from
-    // telemetry off-Cloud (see emitResponse) so a mis-targeted rule can't leak
-    // a customer's prose even if the card does appear.
-    if (!eligible || suppressed || withinCooldown(readStored(storageKey)?.date))
+    // Deployment gate: NPS_SLACK_WEBHOOK is configured, surfaced as a boolean.
+    // The webhook is the opt-in. Cloud sets it; a self-hosted operator who wants
+    // the survey for their own users can set their own and the responses go to
+    // their Slack. Keying on it rather than a hardcoded Cloud test gates on the
+    // thing actually required to deliver a response, keeps the card working in
+    // dev, and means an install that hasn't opted in can't show it even though
+    // it evaluates GrowthBook's own feature against our SDK key. Comment text is
+    // still withheld from our telemetry off-Cloud (see emitResponse), so a
+    // self-hosted org's feedback stays with that org.
+    if (
+      !npsSurveyEnabled ||
+      !eligible ||
+      suppressed ||
+      withinCooldown(readStored(storageKey)?.date)
+    )
       return;
     const t = window.setTimeout(() => {
       // A background tab still fires this timer. Recording an impression there
@@ -227,7 +239,14 @@ export default function NPSSurvey() {
       setVisible(true);
     }, SHOW_DELAY);
     return () => window.clearTimeout(t);
-  }, [eligible, suppressed, forceShow, orgSuspended, storageKey]);
+  }, [
+    eligible,
+    npsSurveyEnabled,
+    suppressed,
+    forceShow,
+    orgSuspended,
+    storageKey,
+  ]);
 
   // Tabs opened together each evaluate the gate before any of them records an
   // impression, so without this they all show the card and each can answer:

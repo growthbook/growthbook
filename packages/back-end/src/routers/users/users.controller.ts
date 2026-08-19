@@ -131,6 +131,11 @@ export async function getUser(req: AuthRequest, res: Response) {
     // rather than the org-membership date carried on ExpandedMember, which is
     // re-stamped every time the user is added to another organization.
     accountCreatedAt: req.currentUser?.dateCreated?.toISOString(),
+    // Whether this deployment can deliver an NPS response anywhere. Only ever a
+    // boolean: the webhook URL is a post-to-channel capability and must not
+    // reach the client. This is the survey's deployment gate, which is why it
+    // beats a hardcoded Cloud test — it tracks the thing actually required.
+    npsSurveyEnabled: !!NPS_SLACK_WEBHOOK,
     organizations: validOrgs.map((org) => {
       return {
         id: org.id,

@@ -106,6 +106,7 @@ export interface UserContextValue {
   superAdmin?: boolean;
   npsSurveyAt?: string;
   accountCreatedAt?: string;
+  npsSurveyEnabled?: boolean;
   license?: Partial<LicenseInterface> | null;
   installationName?: string;
   subscription: SubscriptionInfo | null;
@@ -154,6 +155,7 @@ interface UserResponse {
   superAdmin: boolean;
   npsSurveyAt?: string;
   accountCreatedAt?: string;
+  npsSurveyEnabled?: boolean;
   organizations?: UserOrganizations;
   currentUserPermissions: UserPermissions;
 }
@@ -551,6 +553,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         superAdmin: data?.superAdmin,
         npsSurveyAt: data?.npsSurveyAt,
         accountCreatedAt: data?.accountCreatedAt,
+        npsSurveyEnabled: data?.npsSurveyEnabled,
         updateUser,
         user,
         users,
