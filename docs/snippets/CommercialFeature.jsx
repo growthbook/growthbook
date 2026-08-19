@@ -80,6 +80,10 @@ export const CommercialFeature = ({ feature, description }) => {
       plan: "enterprise",
       displayName: "Feature Configs",
     },
+    "funnel-metrics": {
+      plan: "pro",
+      displayName: "Funnel Metrics",
+    },
     "hash-secure-attributes": {
       plan: "pro",
       displayName: "Hash Secure Attributes",
