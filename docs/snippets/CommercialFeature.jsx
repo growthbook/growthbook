@@ -208,6 +208,10 @@ export const CommercialFeature = ({ feature, description }) => {
       plan: "pro",
       displayName: "CUPED",
     },
+    releases: {
+      plan: "enterprise",
+      displayName: "Releases",
+    },
     "remote-evaluation": {
       plan: "pro",
       displayName: "Remote Evaluation",

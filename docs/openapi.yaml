@@ -230,6 +230,17 @@ tags:
       (`/items/add`, `/items/remove`, single-field PUTs) instead of authoring
       JSON Patch ops directly. Pass `version: "new"` on edit endpoints to
       auto-create a draft.
+  - name: releases
+    x-displayName: Releases
+    description: >-
+      **Beta** — these endpoints are new and may change in
+      backwards-incompatible ways.
+
+
+      Coordinated multi-entity publishing: publish a set of revisions across
+      Feature Flags, Saved Groups, configs, and constants as one all-or-nothing
+      operation, validated against the combined end-state instead of each
+      in-between state. Requires the `releases` commercial feature.
   - name: organizations
     x-displayName: Organizations
     description: >-
@@ -17288,6 +17299,163 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/revert'
             \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/releases/publish-revisions:
+    post:
+      operationId: postReleasePublishRevisions
+      summary: Atomically publish revisions across multiple entities
+      description: >-
+        Publishes a set of revisions — at most one per entity — across Feature
+        Flags, Saved Groups, configs, and constants as a single all-or-nothing
+        operation.
+
+
+        Validation, guards, and custom hooks run against the combined end-state
+        of the whole set, so interdependent changes (e.g. a config schema change
+        plus the values that depend on it) publish together even when the
+        in-between states would be invalid.
+
+
+        A blocked publish returns one 422 listing every gate across every item
+        and the flag that clears each. A concurrent change to any target aborts
+        with a 409 and nothing publishes. A failure after the commit starts
+        rolls everything back and emits `revision.publishFailed` for each
+        revision in the set. SDK payloads refresh once per request. Pass
+        `dryRun: true` for the full gate report with zero writes.
+
+
+        Requires the `releases` commercial feature.
+      tags:
+        - releases
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                revisions:
+                  description: The revisions to publish, at most one per entity.
+                  minItems: 1
+                  maxItems: 50
+                  type: array
+                  items:
+                    anyOf:
+                      - $ref: '#/components/schemas/FeatureRevisionRef'
+                      - $ref: '#/components/schemas/SavedGroupRevisionRef'
+                      - $ref: '#/components/schemas/ConfigRevisionRef'
+                      - $ref: '#/components/schemas/ConstantRevisionRef'
+                      - $ref: '#/components/schemas/RevisionIdRef'
+                dryRun:
+                  description: Report every gate and outcome without writing anything.
+                  type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge warnings from experiment guards,
+                    schema changes, or archives. It can also force-publish an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access for that resource.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Set to true to publish despite schema or invariant failures.
+                    Validation still runs and the response still reports each
+                    failure. The caller must have Bypass draft approvals access
+                    for Feature Flags, Configs, and Constants in every Project.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to publish despite Custom Hook rejections. The
+                    caller must have Bypass draft approvals access for Feature
+                    Flags, Configs, and Constants in every Project.
+                  type: boolean
+                comment:
+                  description: >-
+                    An optional publish comment recorded on every revision in
+                    this release — it appears in each entity's revision history
+                    and is passed to any custom validation hooks that run for
+                    the publish.
+                  type: string
+              required:
+                - revisions
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dryRun:
+                    type: boolean
+                  bulkPublishId:
+                    description: >-
+                      Correlation token (`pub_…`) stamped on every event this
+                      publish emitted. Absent on dry runs.
+                    type: string
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/results'
+                  gates:
+                    description: >-
+                      Dry runs report every gate, cleared and blocking. Real
+                      publishes return an empty list — blocking gates fail with
+                      a 422 instead.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/gates'
+                  bypassedGates:
+                    description: >-
+                      Gates bypassed by the caller's flags or authority — what
+                      this publish overrode.
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        entityType:
+                          type: string
+                          enum:
+                            - feature
+                            - saved-group
+                            - config
+                            - constant
+                        id:
+                          type: string
+                        version:
+                          type: integer
+                        type:
+                          type: string
+                        via:
+                          description: >-
+                            How the gate was bypassed: a request field, the
+                            caller's permissions, or the organization's REST API
+                            approval-bypass setting.
+                          type: string
+                      required:
+                        - entityType
+                        - id
+                        - version
+                        - type
+                        - via
+                      additionalProperties: false
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - dryRun
+                  - results
+                  - gates
+                  - bypassedGates
+                  - warnings
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/releases/publish-revisions' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/organizations:
     get:
@@ -38483,6 +38651,187 @@ components:
         - dateCreated
         - dateUpdated
         - name
+      additionalProperties: false
+    FeatureRevisionRef:
+      type: object
+      properties:
+        entityType:
+          type: string
+          const: feature
+        id:
+          description: Feature Flag id.
+          type: string
+        version:
+          description: Revision version to publish.
+          type: integer
+      required:
+        - entityType
+        - id
+        - version
+      additionalProperties: false
+    SavedGroupRevisionRef:
+      type: object
+      properties:
+        entityType:
+          type: string
+          const: saved-group
+        id:
+          description: Saved Group id.
+          type: string
+        version:
+          description: Revision version to publish.
+          type: integer
+      required:
+        - entityType
+        - id
+        - version
+      additionalProperties: false
+    ConfigRevisionRef:
+      type: object
+      properties:
+        entityType:
+          type: string
+          const: config
+        key:
+          description: Config key.
+          type: string
+        version:
+          description: Revision version to publish.
+          type: integer
+      required:
+        - entityType
+        - key
+        - version
+      additionalProperties: false
+    ConstantRevisionRef:
+      type: object
+      properties:
+        entityType:
+          type: string
+          const: constant
+        key:
+          description: Constant key.
+          type: string
+        version:
+          description: Revision version to publish.
+          type: integer
+      required:
+        - entityType
+        - key
+        - version
+      additionalProperties: false
+    RevisionIdRef:
+      type: object
+      properties:
+        entityType:
+          type: string
+          enum:
+            - feature
+            - saved-group
+            - config
+            - constant
+        revisionId:
+          description: >-
+            A revision id from this API or the revision webhooks (`rev_…` /
+            `frev_…`). Alternative to identifier + version.
+          type: string
+      required:
+        - entityType
+        - revisionId
+      additionalProperties: false
+    results:
+      type: object
+      properties:
+        entityType:
+          type: string
+          enum:
+            - feature
+            - saved-group
+            - config
+            - constant
+        id:
+          description: The identifier used in the request.
+          type: string
+        version:
+          type: integer
+        revisionId:
+          description: The revision's id (`rev_…` or `frev_…`).
+          type: string
+        status:
+          type: string
+          enum:
+            - published
+            - would-publish
+      required:
+        - entityType
+        - id
+        - version
+        - revisionId
+        - status
+      additionalProperties: false
+    gates:
+      type: object
+      properties:
+        entityType:
+          type: string
+          enum:
+            - feature
+            - saved-group
+            - config
+            - constant
+        id:
+          description: The identifier used in the request.
+          type: string
+        version:
+          type: integer
+        type:
+          description: Gate kind, e.g. "approval-required".
+          type: string
+        severity:
+          type: string
+          enum:
+            - blocker
+            - warning
+        messages:
+          type: array
+          items:
+            type: string
+        override:
+          description: Request flag that clears this gate on retry, if any.
+          anyOf:
+            - type: string
+            - type: 'null'
+        requiresPermission:
+          anyOf:
+            - type: string
+            - type: 'null'
+        resolution:
+          description: A route that resolves the gate without an override flag.
+          anyOf:
+            - type: object
+              properties:
+                action:
+                  type: string
+                method:
+                  type: string
+                path:
+                  type: string
+              required:
+                - action
+                - method
+                - path
+              additionalProperties: false
+            - type: 'null'
+      required:
+        - entityType
+        - id
+        - version
+        - type
+        - severity
+        - messages
+        - override
+        - requiresPermission
+        - resolution
       additionalProperties: false
     SavedGroupRevision:
       type: object

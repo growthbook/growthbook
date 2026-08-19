@@ -763,6 +763,11 @@
                 ]
               },
               {
+                "group": "Releases",
+                "tag": "BETA",
+                "pages": ["api/releases/operation/postReleasePublishRevisions"]
+              },
+              {
                 "group": "Organizations",
                 "pages": [
                   "api/organizations/operation/listOrganizations",
