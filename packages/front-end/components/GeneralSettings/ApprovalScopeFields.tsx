@@ -101,6 +101,23 @@ function HelpMultiSelect({
   );
 }
 
+function CollapsibleMultiSelect({
+  revealLabel,
+  ...props
+}: Parameters<typeof HelpMultiSelect>[0] & { revealLabel: string }) {
+  const [shown, setShown] = useState(() => props.value.length > 0);
+  if (!shown) {
+    return (
+      <Box>
+        <Link onClick={() => setShown(true)}>
+          <PiPlus /> {revealLabel}
+        </Link>
+      </Box>
+    );
+  }
+  return <HelpMultiSelect {...props} />;
+}
+
 export function FlagApprovalFields({
   idPrefix,
   value,
@@ -110,9 +127,6 @@ export function FlagApprovalFields({
   const environments = useEnvironments();
   const set = (patch: Partial<RequireReview>) =>
     onChange({ ...value, ...patch });
-  const [showEnvScope, setShowEnvScope] = useState(
-    () => !!value.environments?.length,
-  );
 
   return (
     <>
@@ -124,21 +138,17 @@ export function FlagApprovalFields({
       />
       {value.requireReviewOn && (
         <Flex direction="column" gap="3" mt="2" ml="5">
-          {showEnvScope ? (
-            <HelpMultiSelect
-              id={`${idPrefix}-environments`}
-              label="Specific environments"
-              options={environments.map((e) => ({ value: e.id, label: e.id }))}
-              placeholder="All environments (leave blank to gate all)"
-              value={value.environments ?? []}
-              onChange={(v) => set({ environments: v })}
-            />
-          ) : (
-            <Link onClick={() => setShowEnvScope(true)}>
-              <PiPlus /> For specific environments
-            </Link>
-          )}
-          <HelpMultiSelect
+          <CollapsibleMultiSelect
+            revealLabel="For specific environments"
+            id={`${idPrefix}-environments`}
+            label="Specific environments"
+            options={environments.map((e) => ({ value: e.id, label: e.id }))}
+            placeholder="All environments (leave blank to gate all)"
+            value={value.environments ?? []}
+            onChange={(v) => set({ environments: v })}
+          />
+          <CollapsibleMultiSelect
+            revealLabel="Require approval from specific teams"
             id={`${idPrefix}-required-approver-teams`}
             label="Required approver teams"
             options={(teams ?? []).map((t) => ({ value: t.id, label: t.name }))}
@@ -224,7 +234,8 @@ export function SavedGroupApprovalFields({
       />
       {value.required && (
         <Flex direction="column" gap="3" mt="2" ml="5">
-          <HelpMultiSelect
+          <CollapsibleMultiSelect
+            revealLabel="Require approval from specific teams"
             id={`${idPrefix}-saved-group-required-approver-teams`}
             label="Required approver teams"
             options={(teams ?? []).map((t) => ({ value: t.id, label: t.name }))}
