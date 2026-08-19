@@ -110,11 +110,16 @@ export function featurePublishFootprint({
   if (holdoutEnvs === HOLDOUT_ENVS_UNRESOLVED) return [...environmentIds];
 
   const changedRules = changes.rules;
+  // A rule change is only observable where the flag serves, so intersect with
+  // `serving` — an `allEnvironments` rule otherwise demands authority over disabled
+  // environments it can never reach. An env this draft ENABLES stays covered by the
+  // unnarrowed `environmentsEnabled` contribution below.
   const changedRuleEnvs =
     changedRules === undefined
       ? []
       : environmentIds.filter(
           (env) =>
+            serving.includes(env) &&
             !isEqual(
               getRulesForEnvironment(liveRules, env),
               getRulesForEnvironment(changedRules, env),

@@ -96,6 +96,21 @@ describe("featurePublishFootprint", () => {
     ]);
   });
 
+  // A rule marked `allEnvironments` structurally touches every applicable
+  // environment, including ones the flag is disabled in. The footprint must stay
+  // the serving set — demanding authority over a disabled environment the change
+  // can never reach blocked a feature owner from publishing their own draft.
+  it("counts an allEnvironments rule only where the flag actually serves", () => {
+    const allEnvRule = {
+      ...rule("r1"),
+      allEnvironments: true,
+    } as unknown as FeatureRule;
+    expect(footprint({ rules: [allEnvRule] }, { liveRules: [] })).toEqual([
+      "dev",
+      "staging",
+    ]);
+  });
+
   // A global field is felt everywhere, so the footprint is everything the change
   // REACHES — including an environment this same draft switches on. Returning
   // only the already-serving set let a draft that enabled production and edited
