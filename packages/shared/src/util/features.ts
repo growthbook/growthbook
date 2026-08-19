@@ -2778,12 +2778,13 @@ export function checkEnvironmentsMatch(
   environments: string[],
   reviewSetting: RequireReview,
 ) {
-  for (const env of reviewSetting.environments) {
+  const gated = reviewSetting.environments ?? [];
+  for (const env of gated) {
     if (environments.includes(env)) {
       return true;
     }
   }
-  return reviewSetting.environments.length === 0;
+  return gated.length === 0;
 }
 export function featureRequiresReview(
   feature: FeatureInterface,
@@ -2884,11 +2885,15 @@ export function reviewScopesRequiringTeam(
 
   const scopes: ReviewScope[] = [];
   const base = demandingRule({});
-  if (base) scopes.push({ project: null, environments: base.environments });
+  if (base) {
+    scopes.push({ project: null, environments: base.environments ?? [] });
+  }
   const overridden = projectsWithOwnRule(requireReviews);
   for (const project of overridden) {
     const rule = demandingRule({ project });
-    if (rule) scopes.push({ project, environments: rule.environments });
+    if (rule) {
+      scopes.push({ project, environments: rule.environments ?? [] });
+    }
   }
   return scopes;
 }
@@ -3495,7 +3500,7 @@ export function getNewDraftExperimentsToPublish({
 
 // Only the field per-rule policy hangs off, so both the flag family's
 // RequireReview and a saved group's ApprovalFlowConfiguration fit.
-export type PolicyRule = { requiredApproverTeams?: string[] };
+export type PolicyRule = { requiredApproverTeams?: string[] | null };
 
 // `required` can be true with no rules: the legacy boolean setting has none.
 export type ReviewRequirement = {
@@ -3624,7 +3629,7 @@ export function getRevisionReviewRequirement({
     }
     if (affected.length === 0) return false;
 
-    const gatedEnvs = reviewSetting.environments;
+    const gatedEnvs = reviewSetting.environments ?? [];
 
     if (archiveEnvs.length > 0) {
       if (gatedEnvs.length === 0) return true;

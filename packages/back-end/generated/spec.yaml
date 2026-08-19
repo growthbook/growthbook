@@ -58436,26 +58436,42 @@ components:
             properties:
               requireReviewOn:
                 type: boolean
-              resetReviewOnChange:
-                type: boolean
-              environments:
-                type: array
-                items:
-                  type: string
               projects:
                 type: array
                 items:
                   type: string
+              resetReviewOnChange:
+                anyOf:
+                  - type: boolean
+                  - type: 'null'
+              environments:
+                anyOf:
+                  - type: array
+                    items:
+                      type: string
+                  - type: 'null'
               featureRequireEnvironmentReview:
-                type: boolean
+                anyOf:
+                  - type: boolean
+                  - type: 'null'
               featureRequireMetadataReview:
-                type: boolean
+                anyOf:
+                  - type: boolean
+                  - type: 'null'
+              blockSelfApproval:
+                anyOf:
+                  - type: boolean
+                  - type: 'null'
               autopublishOnApproval:
-                type: boolean
+                anyOf:
+                  - type: boolean
+                  - type: 'null'
               requiredApproverTeams:
-                type: array
-                items:
-                  type: string
+                anyOf:
+                  - type: array
+                    items:
+                      type: string
+                  - type: 'null'
             additionalProperties: false
         targetingReviewMode:
           type: array

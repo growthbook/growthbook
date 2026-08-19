@@ -29,8 +29,9 @@ export function resolveProjectScopedRule<T extends ProjectScopedRule>(
 
   const merged: T = { ...winner };
   for (const field of inheritable) {
-    const source = layers.find((l) => l[field] !== undefined);
-    if (source) Object.assign(merged, { [field]: source[field] });
+    // null counts as unset, so clearing a field on an override inherits it.
+    const source = layers.find((l) => (l[field] ?? null) !== null);
+    Object.assign(merged, { [field]: source ? source[field] : undefined });
   }
   return merged;
 }
@@ -41,4 +42,32 @@ export function projectsWithOwnRule<T extends ProjectScopedRule>(
   rules: T[],
 ): string[] {
   return [...new Set(rules.flatMap((r) => r.projects ?? []))];
+}
+
+// `null` is the API's "unset this field" signal; what gets stored simply omits
+// it, so a cleared override reads as inherited rather than as an explicit null.
+function dropUnsetFields<T extends object>(rule: T): T {
+  return Object.fromEntries(
+    Object.entries(rule).filter(([, value]) => value !== null),
+  ) as T;
+}
+
+// Applied on the way in, so both rule families store cleared fields the same way.
+export function normalizeApprovalRuleSettings<
+  T extends {
+    requireReviews?: boolean | ProjectScopedRule[];
+    approvalFlows?: { savedGroups?: ProjectScopedRule[] };
+  },
+>(settings: T): T {
+  const next: T = { ...settings };
+  if (Array.isArray(next.requireReviews)) {
+    next.requireReviews = next.requireReviews.map(dropUnsetFields);
+  }
+  if (next.approvalFlows?.savedGroups) {
+    next.approvalFlows = {
+      ...next.approvalFlows,
+      savedGroups: next.approvalFlows.savedGroups.map(dropUnsetFields),
+    };
+  }
+  return next;
 }

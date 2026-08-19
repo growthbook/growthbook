@@ -163,7 +163,7 @@ export interface ReviewAndPublishTabProps<T> {
   // metadata-only shortcut).
   requiresApproval: boolean;
   // The caller already resolves these for `requiresApproval`.
-  reviewRules?: { requiredApproverTeams?: string[] }[];
+  reviewRules?: { requiredApproverTeams?: string[] | null }[];
   // The viewer can edit the underlying entity (manage drafts / review).
   canEditEntity: boolean;
   // Reverting is its own authority, so a revert-only role holds no edit rights.

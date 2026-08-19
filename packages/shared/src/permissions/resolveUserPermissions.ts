@@ -329,7 +329,7 @@ export function assessRequiredApproverTeams({
   org,
   teams,
 }: {
-  rules: { requiredApproverTeams?: string[] }[];
+  rules: { requiredApproverTeams?: string[] | null }[];
   coveringApproverIds: string[];
   org: { members?: { id: string; teams?: string[] }[] };
   teams: { id: string; name: string }[];

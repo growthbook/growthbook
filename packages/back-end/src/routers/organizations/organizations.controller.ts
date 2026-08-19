@@ -6,6 +6,7 @@ import {
   getNamespaceRanges,
   getRulesForEnvironment,
   parseIntWithDefaultCapped,
+  normalizeApprovalRuleSettings,
 } from "shared/util";
 import {
   getRoles,
@@ -1804,7 +1805,7 @@ export async function putOrganization(
     if (settings) {
       updates.settings = {
         ...org.settings,
-        ...settings,
+        ...normalizeApprovalRuleSettings(settings),
       };
       orig.settings = org.settings;
     }

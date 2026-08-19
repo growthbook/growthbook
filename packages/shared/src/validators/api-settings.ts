@@ -66,13 +66,16 @@ export const apiSettingsValidator = namedSchema(
       requireReviews: z.array(
         z.object({
           requireReviewOn: z.boolean().optional(),
-          resetReviewOnChange: z.boolean().optional(),
-          environments: z.array(z.string()).optional(),
           projects: z.array(z.string()).optional(),
-          featureRequireEnvironmentReview: z.boolean().optional(),
-          featureRequireMetadataReview: z.boolean().optional(),
-          autopublishOnApproval: z.boolean().optional(),
-          requiredApproverTeams: z.array(z.string()).optional(),
+          // Nullable fields inherit from the all-projects rule when unset, so
+          // `null` is how a caller removes one from a project override.
+          resetReviewOnChange: z.boolean().nullable().optional(),
+          environments: z.array(z.string()).nullable().optional(),
+          featureRequireEnvironmentReview: z.boolean().nullable().optional(),
+          featureRequireMetadataReview: z.boolean().nullable().optional(),
+          blockSelfApproval: z.boolean().nullable().optional(),
+          autopublishOnApproval: z.boolean().nullable().optional(),
+          requiredApproverTeams: z.array(z.string()).nullable().optional(),
         }),
       ),
       targetingReviewMode: z

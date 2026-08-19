@@ -11,7 +11,7 @@ import { useUser } from "@/services/UserContext";
 
 type Reviewer = { id: string; status: "approved" | "changes-requested" };
 
-const NO_RULES: { requiredApproverTeams?: string[] }[] = [];
+const NO_RULES: { requiredApproverTeams?: string[] | null }[] = [];
 
 export interface ApprovalCoverage {
   uncoveredApprovers: Set<string>;
@@ -40,7 +40,7 @@ export function useApprovalCoverage({
   footprint: ReviewAuthorityFootprint;
   envIds: string[];
   // The rules that demanded review — where required teams are declared.
-  reviewRules?: { requiredApproverTeams?: string[] }[];
+  reviewRules?: { requiredApproverTeams?: string[] | null }[];
   model: RevisionModel;
   projects: string[];
 }): ApprovalCoverage {
