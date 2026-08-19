@@ -169,9 +169,9 @@ export default function AddManagedFlagModal({
       }}
       size="lg"
       close={close}
-      header="Manage a Feature Flag from this Experiment"
-      subheader="Creates one Feature Flag for this Experiment, set up and published entirely from this page."
-      cta="Create Feature Flag"
+      header="Automatic Implementation"
+      subheader="Set the value each variation serves. This Experiment creates and manages a Feature Flag for you, and review and publishing stay on this page."
+      cta="Create implementation"
       ctaEnabled={
         !!keyPlan && !blocker && !keyUnresolved && !keyPlan.regexError
       }

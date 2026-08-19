@@ -39,7 +39,7 @@ export default function AddManagedFlagOption({
           </Box>
           <Box flexGrow="1" minWidth="0">
             <Text color="text-low">
-              Set the value each variation serves and this experiment creates
+              Set the value each variation serves and this Experiment creates
               the Feature Flag for you. Review and publishing stay on this page
               — no separate Feature Flag workflow.
             </Text>
