@@ -259,7 +259,7 @@ function Body({ children }: { children: ReactNode }) {
       scrollbars="vertical"
       className={styles.bodyScrollArea}
     >
-      <Box pr="7" pl="1" className={styles.body}>
+      <Box pr="7" pl="1" pb="1" className={styles.body}>
         {error && <ErrorDisplay error={error} mb="5" />}
         {children}
       </Box>

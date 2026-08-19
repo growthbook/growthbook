@@ -106,16 +106,30 @@ While editing, the schema editor shows live pass/fail per rule, but a draft can 
 
 Because publishing a config changes every descendant's resolved value, the publish also re-checks each descendant against its effective rules. Only violations **introduced by that publish** block it: a pre-existing violation elsewhere in the family never blocks an unrelated edit.
 
-Schema errors, validation-rule failures, and **downstream schema breaks** (a change that makes a dependent config or config-backed feature value violate its schema) are governed by the **Block publishing on JSON schema errors** organization setting (on by default):
+The **Block publishing on JSON schema errors** organization setting controls what
+happens when a value fails its schema or a validation rule, or when a schema
+change makes a dependent Config or Feature Flag invalid:
 
-- **On (default)** — these are **validation-class** failures. `"ignoreWarnings": true` does **not** clear them (that flag only acknowledges soft warnings, like a running experiment reading a value or dependents dropped by an archive). To force one past, a caller with org-wide bypass authority (the **bypass-approvals** permission) sets `"skipSchemaValidation": true` in the request body; it is ignored for anyone else.
-- **Off (warn mode)** — these are demoted to soft warnings: any caller proceeds with `"ignoreWarnings": true`, and in the app the publish shows a "Save anyway" prompt.
+- **On (default)** — publishing is blocked. A REST API caller with **Bypass draft
+  approvals** in every Project can send `"skipSchemaValidation": true` to
+  continue.
+- **Off** — GrowthBook returns a warning instead. Confirm the warning in the app,
+  or send `"ignoreWarnings": true` through the REST API.
 
-Either way the editor surfaces these inline as you edit — the failing field rows are flagged so you see them before publishing. (Custom-hook rejections are separate — see below — and are not affected by this setting.)
+The editor shows these problems on the affected fields before publishing. This
+setting does not apply to Custom Hook errors.
 
 ## Custom validation hooks
 
-Beyond schema conformance and validation rules, you can run your own validation logic with **Custom Hooks** — sandboxed JavaScript that GrowthBook executes on config save and publish. The `validateConfig` hook runs when a config is created or updated, and `validateConfigRevision` runs on every publish path; either can hard-block the change with a custom error message (forced past only with `"skipHooks": true` by a bypass-approvals caller — a hook failure is not a schema error, so `"skipSchemaValidation"` does not clear it), or raise a soft warning that anyone can review and bypass with `"ignoreWarnings": true`.
+You can add your own validation with **Custom Hooks**, which are sandboxed
+JavaScript functions that run when a Config is saved or published.
+`validateConfig` runs when a Config is created or updated, and
+`validateConfigRevision` runs whenever a revision is published.
+
+A hook can return a warning or reject the change. Anyone can acknowledge a
+warning with `"ignoreWarnings": true`. To publish after a rejection, a REST API
+caller with **Bypass draft approvals** in every Project must send
+`"skipHooks": true`. The `"skipSchemaValidation"` field does not bypass hooks.
 
 Hooks are scoped Global, Project, or Config; a config-scoped hook automatically covers the whole family (the scoped config and everything that inherits from it). Manage them from a config's **Validation** tab or under **Settings → Custom Hooks**.
 
@@ -139,7 +153,9 @@ Every config tracks where its keys are consumed. On the config's page — and ov
 
 Changing a config value that a **running experiment** depends on can distort that experiment's results. You can opt a config into a guard — an organization-wide default, overridable per config — that **blocks publishing** a change to any key currently used by a running experiment or contextual bandit. The guard is computed live, so it clears on its own once the experiment stops; there's nothing to unlock.
 
-When you genuinely need to publish anyway, acknowledge the block: in the app, confirm the warning; over the REST API, pass `"ignoreWarnings": true` in the body of the publish request. Turning the guard _off_ for a config requires the **bypass-approvals** permission.
+To publish anyway, confirm the warning in the app or send
+`"ignoreWarnings": true` in the REST API request. Disabling the guard for a
+Config requires **Bypass draft approvals** access.
 
 ## Import and export
 

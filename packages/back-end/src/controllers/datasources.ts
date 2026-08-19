@@ -294,7 +294,7 @@ export async function postDataSources(
 }
 
 export async function postManagedWarehouse(
-  req: AuthRequest,
+  req: AuthRequest<{ region?: string }>,
   res: Response<
     | {
         status: 200;
@@ -323,6 +323,9 @@ export async function postManagedWarehouse(
     context.permissions.throwPermissionError();
   }
 
+  const region: GrowthbookClickhouseSettings["region"] =
+    req.body?.region === "eu-west-1" ? "eu-west-1" : "us-east-1";
+
   const params: ClickHouseConnectionParams = {
     url: "https://managed-warehouse-placeholder.invalid",
     port: 443,
@@ -334,7 +337,7 @@ export async function postManagedWarehouse(
   // queries are derived from the org's hashAttribute attributes.
   const datasourceSettings = getManagedWarehouseJsonSettings(
     context.org.settings?.attributeSchema,
-    { hasBeenProvisioned: false },
+    { hasBeenProvisioned: false, region },
   );
 
   const datasource = await createDataSource(

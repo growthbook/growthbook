@@ -4,7 +4,10 @@ import { MetricSnapshotSettings } from "shared/types/report";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { groupBy } from "lodash";
 import { getValidDate } from "shared/dates";
-import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  funnelStepMetricId,
+  getLatestPhaseVariations,
+} from "shared/experiments";
 import ExperimentMetricTimeSeriesGraphWrapper from "@/components/Experiment/ExperimentMetricTimeSeriesGraphWrapper";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
@@ -114,7 +117,7 @@ export default function ExperimentTimeSeriesBlock({
     }
     // When no filter, filter out slice rows that aren't expanded
     return rows.filter((row) => {
-      if (!row.isSliceRow) return true; // Always include parent rows
+      if (!row.isChildRow) return true; // Always include parent rows
       // For slice rows, check if parent metric is expanded
       if (row.parentRowId) {
         const expandedKey = `${row.parentRowId}:${row.resultGroup}`;
@@ -154,7 +157,12 @@ export default function ExperimentTimeSeriesBlock({
               const appliedPValueCorrection =
                 resultGroup === "goal" ? (pValueCorrection ?? null) : null;
 
-              const variations = getLatestPhaseVariations(experiment);
+              const variations = getLatestPhaseVariations(experiment).map(
+                (variation) => ({
+                  ...variation,
+                  experimentVariationId: variation.id,
+                }),
+              );
               const showVariations = variations.map(
                 (v) => variationIds.length === 0 || variationIds.includes(v.id),
               );
@@ -208,6 +216,12 @@ export default function ExperimentTimeSeriesBlock({
                         pValueAdjustmentEnabled={!!appliedPValueCorrection}
                         firstDateToRender={phaseStartDate}
                         sliceId={row.sliceId}
+                        funnelStepId={
+                          row.childRowType === "funnelStep" &&
+                          row.funnelStepIndex !== undefined
+                            ? funnelStepMetricId(metric.id, row.funnelStepIndex)
+                            : undefined
+                        }
                       />
                     )}
                   </div>

@@ -376,12 +376,17 @@ export async function getResetPassword(
   });
 }
 
-export async function getSSOConnectionFromDomain(req: Request, res: Response) {
+export async function getSSOConnectionFromDomain(
+  // eslint-disable-next-line
+  req: Request<any, any, { domain: unknown }>,
+  res: Response,
+) {
   const { domain } = req.body;
+  if (!domain || typeof domain !== "string") {
+    throw new Error("Invalid domain");
+  }
 
-  const connections = await _dangerousGetSSOConnectionsByEmailDomain(
-    domain as string,
-  );
+  const connections = await _dangerousGetSSOConnectionsByEmailDomain(domain);
 
   // Connections whose organization has been disabled cannot be used to log in
   const active: typeof connections = [];

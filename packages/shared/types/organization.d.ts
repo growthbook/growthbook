@@ -18,7 +18,7 @@ import {
   OrgLimits,
   SubscriptionInfo,
 } from "shared/enterprise";
-import { AIModel, EmbeddingModel } from "shared/ai";
+import { AIModel, AIProvider, EmbeddingModel } from "shared/ai";
 import {
   AgreementType,
   environment,
@@ -53,10 +53,22 @@ export type Permission =
 
 export type PermissionsObject = Partial<Record<Permission, boolean>>;
 
+/** A principal's permissions in one scope, merged across their roles. */
 export type UserPermission = {
+  /** Union across roles. Legacy fallback — check environments via `envsAllowedBy`. */
   environments: string[];
   limitAccessByEnvironment: boolean;
   permissions: PermissionsObject;
+  /**
+   * Per role: its env-scoped permissions with its own env restriction, so one
+   * role's permission can't borrow another's environments. Absent for roles
+   * granting nothing env-scoped, and for payloads predating the field.
+   */
+  envGrants?: {
+    environments: string[];
+    limitAccessByEnvironment: boolean;
+    permissions: Permission[];
+  }[];
 };
 
 export type UserPermissions = {
@@ -369,6 +381,32 @@ export interface OrganizationSettings {
   postStratificationDisabled?: boolean;
   postStratificationEnabled?: boolean;
   approvalFlows?: ApprovalFlowConfigurations;
+  learningStatuses?: LearningStatus[];
+  // When true, members can't create user-attributed API tokens and existing
+  // ones are rejected at authentication. Covers Personal Access Tokens and
+  // OAuth-issued access tokens; app-issued Visual Editor keys are unaffected.
+  disablePersonalAccessTokens?: boolean;
+}
+
+export type LearningStatusColor =
+  | "gray"
+  | "blue"
+  | "cyan"
+  | "indigo"
+  | "violet"
+  | "purple"
+  | "amber"
+  | "orange"
+  | "yellow"
+  | "green"
+  | "teal"
+  | "red"
+  | "pink";
+
+export interface LearningStatus {
+  id: string;
+  label: string;
+  color?: LearningStatusColor;
 }
 
 export interface OrganizationConnections {
@@ -496,6 +534,9 @@ export type GetOrganizationResponse = {
     features: string[];
   };
   usage: OrganizationUsage;
+  // Providers with a usable key, stored or inherited from the environment.
+  // Non-secret, and rides along here so AI gating needs no separate request.
+  aiKeyProviders: AIProvider[];
 };
 
 export type DailyUsage = {

@@ -2,15 +2,16 @@ import { ReactNode } from "react";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import {
-  FactMetricInterface,
   FactTableDefinition,
   RowFilter,
+  StandardFactMetricInterface,
 } from "shared/types/fact-table";
 import {
   ExperimentMetricDefinition,
   getAggregateFilters,
   isBinomialMetric,
   isFactMetric,
+  isFactFunnelMetric,
   isRatioMetric,
   getRowFilterSQL,
 } from "shared/experiments";
@@ -90,7 +91,7 @@ interface DataItem {
 }
 
 function buildNumeratorData(
-  factMetric: FactMetricInterface,
+  factMetric: StandardFactMetricInterface,
   factTable: FactTableDefinition | null,
 ): DataItem[] {
   const userFilters = getAggregateFilters({
@@ -163,7 +164,7 @@ function buildNumeratorData(
 }
 
 function buildDenominatorData(
-  factMetric: FactMetricInterface,
+  factMetric: StandardFactMetricInterface,
   denominatorFactTable: FactTableDefinition | null,
 ): DataItem[] {
   if (
@@ -213,7 +214,7 @@ export default function MetricDrilldownMetricCard({
   type,
 }: MetricDrilldownMetricCardProps) {
   const { getFactTableById } = useDefinitions();
-  if (!isFactMetric(metric)) {
+  if (!isFactMetric(metric) || isFactFunnelMetric(metric)) {
     return null;
   }
 

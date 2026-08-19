@@ -43,7 +43,7 @@ export async function _dangerousGetSSOConnectionById(
   id: string,
 ): Promise<null | SSOConnectionInterface> {
   if (!id) return null;
-  const doc = await SSOConnectionModel.findOne({ id });
+  const doc = await SSOConnectionModel.findOne({ id: { $eq: String(id) } });
 
   return doc ? toInterface(doc) : null;
 }
@@ -60,7 +60,7 @@ export async function _dangerousGetSSOConnectionsByEmailDomain(
 ): Promise<SSOConnectionInterface[]> {
   if (!emailDomain) return [];
   const docs = await SSOConnectionModel.find({
-    emailDomains: emailDomain,
+    emailDomains: { $eq: String(emailDomain) },
     disabled: { $ne: true },
   });
 

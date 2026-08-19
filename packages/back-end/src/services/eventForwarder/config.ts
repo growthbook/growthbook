@@ -342,6 +342,7 @@ export function toEventForwarderConfigDraft(
       >(config.config);
       return {
         sinkType: "bigquery",
+        region: config.region,
         config: {
           projectId: decrypted.projectId || "",
           dataset: decrypted.dataset || "",
@@ -356,6 +357,7 @@ export function toEventForwarderConfigDraft(
       );
       return {
         sinkType: "snowflake",
+        region: config.region,
         config: {
           database: decrypted.database || "",
           schema: decrypted.schema || "",
@@ -508,6 +510,7 @@ export async function syncEventForwarderConfigFromDatasource({
       // Provisioning resolves the current registry schema id after the topic exists.
       schemaId: 0,
       sinkType: draft.sinkType,
+      region: draft.region ?? "us-east-1",
       config: encryptSinkConfig(normalizedPayload),
       status: "pending",
       connectorName: "",

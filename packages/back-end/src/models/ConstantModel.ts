@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { isEqual, omit } from "lodash";
 import { ConstantInterface, ConstantWithoutValue } from "shared/types/constant";
 import {
@@ -11,7 +12,13 @@ import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
 import { resolvableValueChanged } from "back-end/src/services/constants";
 import { assertConstantArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
-import { emitOrDeferBulkPublishEvent } from "back-end/src/events/bulkPublishCorrelation";
+import {
+  captureEventBuffer,
+  emitOrDeferBulkPublishEvent,
+  entityKey,
+} from "back-end/src/events/bulkPublishCorrelation";
+import { canLandEntityUpdate } from "back-end/src/revisions/archiveTransition";
+import { archiveServeFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import {
   logConstantCreatedEvent,
   logConstantUpdatedEvent,
@@ -103,11 +110,24 @@ export class ConstantModel extends BaseClass {
     _updates: UpdateProps<ConstantInterface>,
     newDoc: ConstantInterface,
   ): boolean {
-    return this.context.permissions.canUpdateConstant(existing, newDoc);
+    return canLandEntityUpdate({
+      permissions: this.context.permissions,
+      model: "constant",
+      existing,
+      newDoc,
+      // Archive flips use the destination serving scope for environment checks.
+      environments:
+        !!existing.archived !== !!newDoc.archived
+          ? archiveServeFootprint(this.context, newDoc)
+          : NO_ENVIRONMENT_BINDING,
+    });
   }
 
   protected canDelete(doc: ConstantInterface): boolean {
-    return this.context.permissions.canDeleteConstant(doc);
+    return this.context.permissions.canDeleteConstant(
+      doc,
+      NO_ENVIRONMENT_BINDING,
+    );
   }
 
   // Reject cyclic values at the model layer so every write is covered, including
@@ -198,6 +218,18 @@ export class ConstantModel extends BaseClass {
 
   protected async afterCreate(doc: ConstantInterface) {
     this.invalidateAllSnapshot();
+    // A new constant can satisfy a `@const:` ref a feature already embeds
+    // (deletes leave refs unresolved, so re-creating a key is ordinary), so
+    // refresh the SDK payload — same as `ConfigModel.afterCreate`. No-ops when
+    // nothing references the key.
+    resolvableValueChanged(this.context, "updated", "constant", doc.key).catch(
+      (e) => {
+        this.context.logger.error(
+          e,
+          "Error refreshing SDK Payload on constant create",
+        );
+      },
+    );
     await logConstantCreatedEvent(this.context, this.toApiInterface(doc));
   }
 
@@ -234,8 +266,10 @@ export class ConstantModel extends BaseClass {
     if (
       !isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
     ) {
-      await emitOrDeferBulkPublishEvent(this.context, () =>
-        logConstantUpdatedEvent(this.context, previous, current),
+      await emitOrDeferBulkPublishEvent(
+        () => logConstantUpdatedEvent(this.context, previous, current),
+        entityKey("constant", newDoc.id),
+        captureEventBuffer(this.context),
       );
     }
   }
@@ -293,5 +327,17 @@ export class ConstantModel extends BaseClass {
     for (const constant of affected) {
       await this.dangerousUpdateBypassPermission(constant, { project: "" });
     }
+  }
+  /**
+   * Project scope only, for the given ids, with heavy value fields projected
+   * out; read-filtered like any other find. Same contract as
+   * SavedGroupModel.getReadScopesByIds.
+   */
+  public async getReadScopesByIds(ids: string[]) {
+    if (!ids.length) return [];
+    return this._find(
+      { id: { $in: ids } } as Parameters<typeof this._find>[0],
+      { projection: { value: 0, environmentValues: 0 } },
+    );
   }
 }

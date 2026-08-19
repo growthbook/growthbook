@@ -33,6 +33,7 @@ import {
   ExperimentMetricDefinition,
   ExperimentSortBy,
   SetExperimentSortBy,
+  funnelStepMetricId,
   isFactMetric,
 } from "shared/experiments";
 import { PiPencilSimpleFill } from "react-icons/pi";
@@ -57,6 +58,7 @@ import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import HelperText from "@/ui/HelperText";
 import VariationLabel from "@/ui/VariationLabel";
 import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
+import { getTimeSeriesGraphVariations } from "@/services/timeSeriesVariations";
 import { DrilldownTooltip, isInteractiveElement } from "./DrilldownTooltip";
 import AlignedGraph from "./AlignedGraph";
 import ExperimentMetricTimeSeriesGraphWrapper from "./ExperimentMetricTimeSeriesGraphWrapper";
@@ -424,6 +426,7 @@ export default function ResultsTable({
   const showVariations = orderedVariations.map(
     (v) => !variationFilter?.includes(v.index),
   );
+  const timeSeriesVariations = getTimeSeriesGraphVariations(orderedVariations);
   const filteredVariations = orderedVariations.filter(
     (v) => !variationFilter?.includes(v.index),
   );
@@ -779,6 +782,12 @@ export default function ResultsTable({
                     ? `${id}-${row.metric.id}-${row.sliceId}`
                     : `${id}-${row.metric.id}-${i}`;
 
+                  const funnelStepId =
+                    row.childRowType === "funnelStep" &&
+                    row.funnelStepIndex !== undefined
+                      ? funnelStepMetricId(row.metric.id, row.funnelStepIndex)
+                      : undefined;
+
                   const timeSeriesButton = showTimeSeriesButton ? (
                     <TimeSeriesButton
                       onClick={() => toggleVisibleTimeSeriesRowId(rowId)}
@@ -803,7 +812,7 @@ export default function ResultsTable({
                           {/* Render the main results tbody */}
                           <tbody
                             className={clsx("results-group-row", {
-                              "slice-row": row.isSliceRow,
+                              "child-row": row.isChildRow,
                               [styles.clickableRow]: !!effectiveOnRowClick,
                             })}
                             key={`${rowId}-tbody`}
@@ -1017,7 +1026,7 @@ export default function ResultsTable({
                                         {!compactResults ? (
                                           <div
                                             className={`d-flex align-items-center ml-2 ${
-                                              row.isSliceRow
+                                              row.isChildRow
                                                 ? "pl-4"
                                                 : dimension
                                                   ? "pl-2" // less padding because no expansion buttons
@@ -1310,7 +1319,7 @@ export default function ResultsTable({
                                           phase={phase}
                                           metric={row.metric}
                                           differenceType={differenceType}
-                                          variations={orderedVariations}
+                                          variations={timeSeriesVariations}
                                           showVariations={showVariations}
                                           statsEngine={statsEngine}
                                           pValueAdjustmentEnabled={
@@ -1320,6 +1329,7 @@ export default function ResultsTable({
                                             startDate,
                                           )}
                                           sliceId={row.sliceId}
+                                          funnelStepId={funnelStepId}
                                           baselineRow={baselineRow}
                                           unavailableMessage={timeSeriesMessage}
                                           preloadedTimeSeries={

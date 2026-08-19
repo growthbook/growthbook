@@ -109,7 +109,7 @@ const publishRevisionsBypassedGate = z.object({
   via: z
     .string()
     .describe(
-      "What bypassed the gate: an override flag, the bypass-approval permission, or the REST-bypass org setting.",
+      "How the gate was bypassed: a request field, the caller's permissions, or the organization's REST API approval-bypass setting.",
     ),
 });
 
@@ -141,19 +141,19 @@ export const postReleasePublishRevisionsValidator = {
         .boolean()
         .optional()
         .describe(
-          "Acknowledge warning-class gates: experiment guards, schema-break and archive warnings, stale-base force-merge (needs the bypass-approval permission).",
+          "Set to true to acknowledge warnings from experiment guards, schema changes, or archives. It can also force-publish an out-of-date draft when the caller has Bypass draft approvals access for that resource.",
         ),
       skipSchemaValidation: z
         .boolean()
         .optional()
         .describe(
-          "Force past schema and invariant failures. Only honored with the `bypassApprovalChecks` permission; validation still runs and is reported.",
+          "Set to true to publish despite schema or invariant failures. Validation still runs and the response still reports each failure. The caller must have Bypass draft approvals access for Feature Flags, Configs, and Constants in every Project.",
         ),
       skipHooks: z
         .boolean()
         .optional()
         .describe(
-          "Force past custom validation-hook rejections. Only honored with the `bypassApprovalChecks` permission.",
+          "Set to true to publish despite Custom Hook rejections. The caller must have Bypass draft approvals access for Feature Flags, Configs, and Constants in every Project.",
         ),
       comment: z
         .string()

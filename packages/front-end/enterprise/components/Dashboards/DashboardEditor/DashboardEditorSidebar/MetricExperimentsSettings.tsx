@@ -1,8 +1,12 @@
 import {
   DashboardBlockInterfaceOrData,
+  DashboardInterface,
   MetricExperimentsBlockInterface,
   isDifferenceType,
   DIFFERENCE_TYPE_OPTIONS,
+  blockUsesGlobalFilter,
+  globalFilterIsSet,
+  withBlockGlobalFilterFollowing,
 } from "shared/enterprise";
 import { ExplorationDateRange } from "shared/validators";
 import React, { useState } from "react";
@@ -15,15 +19,17 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperiments } from "@/hooks/useExperiments";
 import SidebarExperimentFilters, {
   ExtraFilter,
+  experimentSearchIsActive,
 } from "@/components/Search/SidebarExperimentFilters";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import { resolveMetricExperimentColumns } from "@/components/MetricExperiments/MetricExperiments";
+import { DATE_RANGE_PREDEFINED_LABELS } from "@/enterprise/components/ProductAnalytics/dateRangeLabels";
 import MetricExperimentsColumnSettings from "./MetricExperimentsColumnSettings";
-import BlockDateRangePicker, {
-  PREDEFINED_LABELS,
-} from "./BlockDateRangePicker";
+import BlockDateRangePicker from "./BlockDateRangePicker";
+import SidebarSettingField from "./SidebarSettingField";
+import DashboardFilterInheritTag from "./DashboardFilterInheritTag";
 
 // Short human-readable label for a date range, shown on the filter pill.
 function formatDateRange(dr: ExplorationDateRange): string {
@@ -38,7 +44,7 @@ function formatDateRange(dr: ExplorationDateRange): string {
   if (dr.predefined === "customDateRange") {
     return `${dr.startDate ?? "…"} – ${dr.endDate ?? "…"}`;
   }
-  return PREDEFINED_LABELS[dr.predefined];
+  return DATE_RANGE_PREDEFINED_LABELS[dr.predefined];
 }
 
 const DEFAULT_DATE_RANGE: ExplorationDateRange = { predefined: "last30Days" };
@@ -49,22 +55,52 @@ interface Props {
     DashboardBlockInterfaceOrData<MetricExperimentsBlockInterface>
   >;
   projects: string[];
+  dashboardGlobalControls?: DashboardInterface["globalControls"];
 }
 
 export default function MetricExperimentsSettings({
   block,
   setBlock,
   projects,
+  dashboardGlobalControls,
 }: Props) {
   const { projects: allProjects } = useDefinitions();
   const { experiments } = useExperiments();
   const [columnsOpen, setColumnsOpen] = useState(false);
+
+  // A field inherits only if the block opted in AND the dashboard has a value.
+  const projectsSet = globalFilterIsSet(dashboardGlobalControls, "projects");
+  const searchSet = globalFilterIsSet(
+    dashboardGlobalControls,
+    "experimentSearchString",
+  );
+
+  const projectsInherited =
+    blockUsesGlobalFilter(block, "projects") && projectsSet;
+  const searchInherited =
+    blockUsesGlobalFilter(block, "experimentSearchString") && searchSet;
+
+  // Keys in `claim` stop following the dashboard in the same update as the patch.
+  const patchBlock = (
+    patch: Partial<MetricExperimentsBlockInterface>,
+    claim: ("projects" | "experimentSearchString")[] = [],
+  ) =>
+    setBlock(
+      withBlockGlobalFilterFollowing({ ...block, ...patch }, claim, false),
+    );
+
+  const revert = (key: "projects" | "experimentSearchString") =>
+    setBlock(withBlockGlobalFilterFollowing(block, [key], true));
+
+  const dashboardProjects = dashboardGlobalControls?.projects ?? [];
 
   const projectOptions = (
     projects.length > 0
       ? allProjects.filter((p) => projects.includes(p.id))
       : allProjects
   ).map((p) => ({ label: p.name, value: p.id }));
+
+  const projectsValue = projectsInherited ? dashboardProjects : block.projects;
 
   const resolvedColumns = resolveMetricExperimentColumns(
     block.columns,
@@ -76,9 +112,29 @@ export default function MetricExperimentsSettings({
   const hiddenCount = resolvedColumns.length - visibleLabels.length;
   const columnsSummary = ["Experiment", ...visibleLabels].join(", ");
 
-  const searchValue = block.experimentSearchString;
+  // The displayed string is already the dashboard's, so an edit keeps whichever
+  // inherited tokens the user left alone.
+  const searchValue = searchInherited
+    ? (dashboardGlobalControls?.experimentSearchString ?? "")
+    : block.experimentSearchString;
   const setSearchValue = (value: string) =>
-    setBlock({ ...block, experimentSearchString: value });
+    patchBlock(
+      { experimentSearchString: value },
+      searchInherited ? ["experimentSearchString"] : [],
+    );
+
+  // While inheriting, Revert is the way back — so no Clear all.
+  const showClearAll =
+    !searchInherited &&
+    (experimentSearchIsActive(searchValue) ||
+      !!block.startDateRange ||
+      !!block.endDateRange);
+  const clearAllFilters = () =>
+    patchBlock({
+      experimentSearchString: "",
+      startDateRange: undefined,
+      endDateRange: undefined,
+    });
 
   // Start Date filters on the experiment's phase start (so running experiments
   // can be included); End Date filters on the phase end date.
@@ -123,16 +179,17 @@ export default function MetricExperimentsSettings({
 
   return (
     <Flex direction="column" gap="5">
-      <MetricSelector
-        label="Metric"
-        labelClassName="font-weight-bold"
-        containerClassName="mb-0"
-        value={block.metricId}
-        onChange={(metricId) => setBlock({ ...block, metricId })}
-        includeFacts={true}
-        projects={projects}
-        placeholder="Select a metric..."
-      />
+      {/* What this block calculates, not a filter — always the block's own. */}
+      <SidebarSettingField label="Metric">
+        <MetricSelector
+          containerClassName="mb-0"
+          value={block.metricId}
+          onChange={(metricId) => patchBlock({ metricId })}
+          includeFacts={true}
+          projects={projects}
+          placeholder="Select a metric..."
+        />
+      </SidebarSettingField>
 
       <SelectField
         label="Difference Type"
@@ -149,22 +206,51 @@ export default function MetricExperimentsSettings({
         sort={false}
       />
 
-      <Box>
-        <Box mb="2">
-          <Text weight="semibold">Projects Filter</Text>
-        </Box>
+      <SidebarSettingField
+        label="Projects"
+        accessory={
+          projectsSet ? (
+            <DashboardFilterInheritTag
+              label="Projects"
+              inherited={projectsInherited}
+              onRevert={() => revert("projects")}
+            />
+          ) : undefined
+        }
+      >
         <MultiSelectField
-          value={block.projects}
+          value={projectsValue}
           options={projectOptions}
-          onChange={(v) => setBlock({ ...block, projects: v })}
+          onChange={(v) =>
+            patchBlock({ projects: v }, projectsInherited ? ["projects"] : [])
+          }
           placeholder="All projects"
         />
-      </Box>
+      </SidebarSettingField>
 
-      <Box>
-        <Box mb="2">
-          <Text weight="semibold">Filter Experiments</Text>
-        </Box>
+      <SidebarSettingField
+        label="Experiment filters"
+        accessory={
+          showClearAll || searchSet ? (
+            <Flex align="center" gap="3">
+              {showClearAll ? (
+                <Link size="sm" color="red" onClick={clearAllFilters}>
+                  Clear all
+                </Link>
+              ) : null}
+              {searchSet ? (
+                <DashboardFilterInheritTag
+                  label="Experiment filters"
+                  inherited={searchInherited}
+                  onRevert={() => revert("experimentSearchString")}
+                />
+              ) : null}
+            </Flex>
+          ) : undefined
+        }
+      >
+        {/* The start/end phase-date windows are this block's own — the dashboard
+            filter never drives them. */}
         <SidebarExperimentFilters
           searchValue={searchValue}
           setSearchValue={setSearchValue}
@@ -172,7 +258,7 @@ export default function MetricExperimentsSettings({
           extraFilters={dateFilters}
           showProjectFilter={false}
         />
-      </Box>
+      </SidebarSettingField>
 
       <Box>
         <Box mb="2">

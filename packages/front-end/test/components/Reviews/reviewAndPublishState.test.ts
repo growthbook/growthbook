@@ -8,12 +8,15 @@ function base(overrides: Partial<RnPStateInput> = {}): RnPStateInput {
   return {
     requireReviews: false,
     status: "draft",
+    // Default to the FEATURE engine, which is what most of these cases model.
+    editsResetStatus: true,
     mergeSuccess: true,
     hasChanges: true,
     hasReviewPermission: false,
     canManageDraft: false,
     isReviewRequester: false,
     isContributor: false,
+    isDraftOwner: false,
     isReviewer: false,
     adminPublish: false,
     hasSelectedExperiments: false,
@@ -21,7 +24,9 @@ function base(overrides: Partial<RnPStateInput> = {}): RnPStateInput {
     experimentsStep: false,
     featureLockedByRamp: false,
     featureLockedBySchedule: false,
+    checklistIncomplete: false,
     checklistBlocked: false,
+    checklistAcknowledged: false,
     governanceCanPublish: true,
     ...overrides,
   };
@@ -239,10 +244,132 @@ describe("getReviewAndPublishState", () => {
           status: "approved",
           hasSelectedExperiments: true,
           experimentsStep: true,
-          checklistBlocked: true,
+          checklistIncomplete: true,
         }),
       );
       expect(s.ctaEnabled).toBe(false);
+    });
+  });
+
+  describe("checklist acknowledgment", () => {
+    const softBlocked = {
+      hasSelectedExperiments: true,
+      experimentsStep: true,
+      checklistIncomplete: true,
+      checklistBlocked: false,
+    } as const;
+
+    it("offers acknowledgment for soft-only blockers (direct-publish path)", () => {
+      const s = getReviewAndPublishState(base(softBlocked));
+      expect(s.submitAction).toBe("publish");
+      expect(s.ctaEnabled).toBe(false);
+      expect(s.showChecklistAcknowledgment).toBe(true);
+    });
+
+    it("offers acknowledgment for soft-only blockers (review path)", () => {
+      const s = getReviewAndPublishState(
+        base({ ...softBlocked, requireReviews: true, status: "approved" }),
+      );
+      expect(s.submitAction).toBe("publish");
+      expect(s.ctaEnabled).toBe(false);
+      expect(s.showChecklistAcknowledgment).toBe(true);
+    });
+
+    it("enables the primary CTA after acknowledging soft blockers", () => {
+      const direct = getReviewAndPublishState(
+        base({ ...softBlocked, checklistAcknowledged: true }),
+      );
+      expect(direct.ctaEnabled).toBe(true);
+      expect(direct.showChecklistAcknowledgment).toBe(true);
+
+      const review = getReviewAndPublishState(
+        base({
+          ...softBlocked,
+          checklistAcknowledged: true,
+          requireReviews: true,
+          status: "approved",
+        }),
+      );
+      expect(review.ctaEnabled).toBe(true);
+      expect(review.showChecklistAcknowledgment).toBe(true);
+    });
+
+    it("never offers acknowledgment when a hard blocker exists", () => {
+      const direct = getReviewAndPublishState(
+        base({
+          ...softBlocked,
+          checklistBlocked: true,
+          checklistAcknowledged: true,
+        }),
+      );
+      expect(direct.ctaEnabled).toBe(false);
+      expect(direct.showChecklistAcknowledgment).toBe(false);
+
+      const review = getReviewAndPublishState(
+        base({
+          ...softBlocked,
+          checklistBlocked: true,
+          requireReviews: true,
+          status: "approved",
+        }),
+      );
+      expect(review.ctaEnabled).toBe(false);
+      expect(review.showChecklistAcknowledgment).toBe(false);
+    });
+
+    it("never offers acknowledgment while the checklist is loading", () => {
+      const s = getReviewAndPublishState(
+        base({ ...softBlocked, checklistBlocked: true }),
+      );
+      expect(s.showChecklistAcknowledgment).toBe(false);
+    });
+
+    it("does not offer acknowledgment outside the experiments step", () => {
+      const s = getReviewAndPublishState(
+        base({
+          hasSelectedExperiments: true,
+          experimentsStep: false,
+          checklistIncomplete: true,
+        }),
+      );
+      expect(s.submitAction).toBe("next-experiments");
+      expect(s.showChecklistAcknowledgment).toBe(false);
+    });
+
+    it("admin bypass clears soft blockers without acknowledgment", () => {
+      const s = getReviewAndPublishState(
+        base({ ...softBlocked, adminPublish: true }),
+      );
+      expect(s.ctaEnabled).toBe(true);
+      expect(s.showChecklistAcknowledgment).toBe(false);
+    });
+
+    it("admin bypass does NOT clear a hard blocker", () => {
+      const direct = getReviewAndPublishState(
+        base({ ...softBlocked, checklistBlocked: true, adminPublish: true }),
+      );
+      expect(direct.ctaEnabled).toBe(false);
+      expect(direct.showChecklistAcknowledgment).toBe(false);
+
+      const review = getReviewAndPublishState(
+        base({
+          ...softBlocked,
+          checklistBlocked: true,
+          adminPublish: true,
+          requireReviews: true,
+          status: "approved",
+        }),
+      );
+      expect(review.ctaEnabled).toBe(false);
+      expect(review.showChecklistAcknowledgment).toBe(false);
+    });
+
+    it("does not offer acknowledgment when publishing is otherwise blocked", () => {
+      const s = getReviewAndPublishState(
+        base({ ...softBlocked, featureLockedByRamp: true }),
+      );
+      expect(s.ctaEnabled).toBe(false);
+      expect(s.showChecklistAcknowledgment).toBe(false);
     });
   });
 
@@ -270,9 +397,30 @@ describe("getReviewAndPublishState", () => {
       expect(s.canRecallReview).toBe(false);
     });
 
-    it("blocks a contributor without draft-manage permission", () => {
+    it("blocks a contributor who is not the draft's owner", () => {
+      // The generic engine's rule: only the AUTHOR gets the free pass, so a
+      // contributor without draft-manage authority is refused there.
       const s = getReviewAndPublishState(
         base({ ...pending, isContributor: true }),
+      );
+      expect(s.canRecallReview).toBe(false);
+    });
+
+    it("allows the draft's owner with no permissions at all", () => {
+      // Both engines short-circuit for the owner before any permission check —
+      // withdrawing a request you made is not authority over the entity. The
+      // dashboard used to require draft-manage of them too, so an author who lost
+      // that authority could recall over REST but had no button.
+      const s = getReviewAndPublishState(
+        base({ ...pending, isDraftOwner: true }),
+      );
+      expect(s.canRecallReview).toBe(true);
+    });
+
+    it("still refuses the owner once the revision is out of review", () => {
+      // The owner pass widens WHO, never WHEN.
+      const s = getReviewAndPublishState(
+        base({ requireReviews: true, status: "draft", isDraftOwner: true }),
       );
       expect(s.canRecallReview).toBe(false);
     });
@@ -330,5 +478,66 @@ describe("waitingForReview", () => {
   it("is never set on the direct-publish path", () => {
     const s = getReviewAndPublishState(base({ status: "pending-review" }));
     expect(s.waitingForReview).toBe(false);
+  });
+});
+
+/**
+ * The two revision engines disagree about what an edit does to a
+ * `changes-requested` draft, and this state has to model both.
+ *
+ * Feature edits demote the revision to `draft`, so its author naturally lands back
+ * on "Request Review" — and the feature request-review endpoint only accepts
+ * `draft`. The generic engine leaves the status alone and its `submitForReview`
+ * explicitly accepts `changes-requested` as the re-submit path. Assuming feature
+ * semantics on the generic tab dead-ended the draft: no CTA at all until a reviewer
+ * retracted their own verdict.
+ */
+describe("changes-requested depends on whether edits reset the status", () => {
+  const changesRequested = (editsResetStatus: boolean) =>
+    getReviewAndPublishState(
+      base({
+        requireReviews: true,
+        status: "changes-requested",
+        editsResetStatus,
+      }),
+    );
+
+  it("offers a re-submit CTA on the generic engine", () => {
+    const s = changesRequested(false);
+    expect({
+      hasSubmit: s.hasSubmit,
+      submitAction: s.submitAction,
+      ctaLabel: s.ctaLabel,
+    }).toEqual({
+      hasSubmit: true,
+      submitAction: "request-review",
+      ctaLabel: "Re-request Review",
+    });
+  });
+
+  it("offers none on the feature engine, whose endpoint would refuse it", () => {
+    const s = changesRequested(true);
+    expect({ hasSubmit: s.hasSubmit, submitAction: s.submitAction }).toEqual({
+      hasSubmit: false,
+      submitAction: "none",
+    });
+  });
+
+  it("leaves the OTHER in-review status alone on both engines", () => {
+    // A canary: a fix that simply un-gated `isPendingReview` would hand
+    // pending-review a CTA too, which is someone else's ball on either engine.
+    for (const editsResetStatus of [true, false]) {
+      const s = getReviewAndPublishState(
+        base({
+          requireReviews: true,
+          status: "pending-review",
+          editsResetStatus,
+        }),
+      );
+      expect({ editsResetStatus, submitAction: s.submitAction }).toEqual({
+        editsResetStatus,
+        submitAction: "none",
+      });
+    }
   });
 });

@@ -21,11 +21,15 @@ let mockFailConstantRestore = false;
 let mockFailConstantReleaseClaim = false;
 let mockFeatureClaimConflict = false;
 let mockFeatureReleaseNoop = false;
-let mockConstantBaselineUnavailable = false;
+let mockConstantAppliedNothing = false;
 let mockFailConstantApply = false;
 let mockFeatureSafeRolloutPoison: unknown = null;
 let mockFeatureCreatedRampScheduleIds: string[] | null = null;
 let mockBeforeFeatureApply: (() => Promise<void>) | null = null;
+// The no-op self-heal replay: a real durable write, and a way to make a later one
+// throw so the run aborts after that write has landed.
+let mockConstantNoOpReplay: ((context: unknown) => Promise<void>) | null = null;
+let mockFailConstantNoOpMerge = false;
 jest.mock("back-end/src/revisions/bulkPublish/registry", () => {
   return new Proxy(
     {},
@@ -82,19 +86,13 @@ jest.mock("back-end/src/revisions/bulkPublish/registry", () => {
                 if (mockFailConstantApply) {
                   throw new Error("simulated constant apply failure");
                 }
-                const result = await adapter.applyPrecomputed(...args);
-                // Simulate the post-apply baseline read failing: the real apply
-                // persisted (maybe normalized), but writtenEntity couldn't be
-                // captured, so compensation has no trustworthy ownership baseline.
-                if (mockConstantBaselineUnavailable) {
-                  const ref = args[2] as {
-                    writtenEntity?: unknown;
-                    writtenEntityUnavailable?: boolean;
-                  };
-                  ref.writtenEntity = undefined;
-                  ref.writtenEntityUnavailable = true;
+                // Simulate an apply that fails BEFORE its entity write: the
+                // adapter reports what it persisted at the write itself, so
+                // "no baseline" now means nothing of ours is live.
+                if (mockConstantAppliedNothing) {
+                  throw new Error("simulated failure before the entity write");
                 }
-                return result;
+                return await adapter.applyPrecomputed(...args);
               },
               restorePreImage: async (...args: unknown[]) => {
                 if (mockFailConstantRestore) {
@@ -107,6 +105,16 @@ jest.mock("back-end/src/revisions/bulkPublish/registry", () => {
                   throw new Error("simulated release-claim failure");
                 }
                 return adapter.releaseClaim(...args);
+              },
+              prepareNoOpMerge: async (...args: unknown[]) => {
+                if (mockFailConstantNoOpMerge) {
+                  throw new Error("simulated no-op self-heal failure");
+                }
+                if (mockConstantNoOpReplay) {
+                  await mockConstantNoOpReplay(args[0]);
+                  return;
+                }
+                return adapter.prepareNoOpMerge?.(...args);
               },
             };
           }
@@ -144,12 +152,14 @@ const { app, setReqContext } = setupApp();
 
 describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
   afterEach(() => {
+    mockConstantNoOpReplay = null;
+    mockFailConstantNoOpMerge = false;
     mockFailFeatureApply = false;
     mockFailConstantRestore = false;
     mockFailConstantReleaseClaim = false;
     mockFeatureClaimConflict = false;
     mockFeatureReleaseNoop = false;
-    mockConstantBaselineUnavailable = false;
+    mockConstantAppliedNothing = false;
     mockFailConstantApply = false;
     mockFeatureSafeRolloutPoison = null;
     mockFeatureCreatedRampScheduleIds = null;
@@ -713,16 +723,22 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
     expect(byId["noop-feat"]).toBe("published");
     expect(byId["noop-reopen"]).toBe("rolled-back");
 
-    // No publishFailed for the still-merged feature; only the rolled-back
-    // constant gets one.
+    // BOTH items notify, and the stuck one says so. It used to emit nothing at
+    // all, which made the single incident-worthy outcome the only silent one while
+    // its cleanly-reverted neighbour notified. The reason distinguishes them, so no
+    // new event type is needed — and the single-entity path already re-emits for
+    // this situation, so the two publish surfaces now agree.
     const failed = await mongoose.connection
       .collection("events")
       .find({ organizationId: ORG_ID, event: /revision\.publishFailed/ })
       .toArray();
-    expect(
-      failed.some((e) => e.data?.data?.object?.featureId === "noop-feat"),
-    ).toBe(false);
-    expect(failed.length).toBe(1);
+    expect(failed.length).toBe(2);
+    const stuck = failed.find(
+      (e) => e.data?.data?.object?.featureId === "noop-feat",
+    );
+    expect(stuck).toBeDefined();
+    // Not the plain "rolled back" reason — its state is the opposite.
+    expect(JSON.stringify(stuck)).toContain("could NOT be rolled back");
   });
 
   it("does not clobber a generic revision re-published concurrently during compensation", async () => {
@@ -851,12 +867,12 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
     );
   });
 
-  it("reports a generic item published when its post-apply baseline is unavailable", async () => {
-    // The constant applies (possibly normalized), but the post-apply read that
-    // captures the ownership baseline fails. Compensation then has no
-    // trustworthy baseline — restoring against desiredState could silently skip
-    // a normalized field — so the item must be reported published (left whole
-    // at the publish state), not a clean rollback.
+  it("reports a generic item not-applied when its apply wrote nothing", async () => {
+    // The apply fails before its entity write, so it reports no persisted doc.
+    // That is now unambiguous — the adapter reports AT the write — so there is
+    // nothing of ours live to restore and the item rolls back cleanly. (The old
+    // "unavailable baseline" state came from re-reading after the failure, which
+    // could observe a concurrent writer; the report replaced it.)
     setReqContext(makeContext());
     const now = new Date();
 
@@ -915,7 +931,7 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
       },
     ]);
 
-    mockConstantBaselineUnavailable = true;
+    mockConstantAppliedNothing = true;
     mockFailFeatureApply = true;
     const res = await request(app)
       .post("/api/v1/releases/publish-revisions")
@@ -934,15 +950,17 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
         item.status,
       ]),
     );
-    // No trustworthy baseline → reported published, not rolled-back.
-    expect(byId["nobaseline"]).toBe("published");
-    expect(byId["nobaseline-feat"]).toBe("rolled-back");
+    // Neither item is left "published", which is the property that matters: the
+    // constant's apply threw before writing, so its compensation had nothing to
+    // undo and completes cleanly, and the feature behind it never applied at all.
+    expect(byId["nobaseline"]).toBe("rolled-back");
+    expect(byId["nobaseline-feat"]).toBe("not-applied");
 
-    // Left whole at the publish state: value NOT restored to the pre-image.
+    // Live state never moved off the pre-image.
     const constant = await mongoose.connection
       .collection("constants")
       .findOne({ organization: ORG_ID, key: "nobaseline" });
-    expect(constant?.value).toBe("after");
+    expect(constant?.value).toBe("before");
   });
 
   it("leaves a feature whole at published when a satellite reversal fails", async () => {
@@ -1092,5 +1110,264 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
       .collection("rampschedules")
       .findOne({ organization: ORG_ID, id: "rs_sat" });
     expect(rampSchedule).not.toBeNull();
+
+    // The POSITIVE direction of event ownership, which nothing else pins: this
+    // feature is durably published, so its `feature.updated` has to survive
+    // compensation. Dropping every deferred event — the behaviour before ownership
+    // was tracked — leaves consumers permanently behind live state, and passed the
+    // whole suite. The constant rolled back, so its event must NOT appear.
+    const events = await mongoose.connection
+      .collection("events")
+      .find({ organizationId: ORG_ID })
+      .toArray();
+    const updated = events.filter((e) => /\.updated$/.test(e.event));
+    expect(updated.map((e) => e.event)).toEqual(["feature.updated"]);
+  });
+
+  // A cleanly rolled-back FEATURE must not announce the value it just took back.
+  //
+  // The feature adapter restores through its own path rather than the generic funnel,
+  // so it has to record the restore itself; without that every feature looked durable
+  // and its apply-phase event was emitted over a document holding its pre-image — with
+  // no corrective event ever following, because restore-phase events are dropped.
+  it("emits nothing for a feature that rolled back cleanly", async () => {
+    setReqContext(makeContext());
+    const now = new Date();
+
+    await mongoose.connection.collection("constants").insertOne({
+      id: "const_clean-const",
+      organization: ORG_ID,
+      key: "clean-const",
+      name: "clean-const",
+      owner: "",
+      type: "string",
+      value: "before",
+      dateCreated: now,
+      dateUpdated: now,
+    });
+    const staged = await request(app)
+      .put(`/api/v1/constants-revisions/clean-const/new/value`)
+      .send({ value: "after" })
+      .set("Authorization", "Bearer foo");
+    expect(staged.status).toBe(200);
+    const constVersion = staged.body.revision.version;
+
+    await mongoose.connection.collection("features").insertOne({
+      id: "clean-feat",
+      organization: ORG_ID,
+      owner: "",
+      valueType: "string",
+      defaultValue: "live",
+      version: 1,
+      environmentSettings: {},
+      dateCreated: now,
+      dateUpdated: now,
+    });
+    await mongoose.connection.collection("featurerevisions").insertMany([
+      {
+        organization: ORG_ID,
+        featureId: "clean-feat",
+        version: 1,
+        baseVersion: 0,
+        status: "published",
+        defaultValue: "live",
+        rules: [],
+        dateCreated: now,
+        dateUpdated: now,
+        datePublished: now,
+      },
+      {
+        organization: ORG_ID,
+        featureId: "clean-feat",
+        version: 2,
+        baseVersion: 1,
+        status: "draft",
+        defaultValue: "new-value",
+        rules: [],
+        dateCreated: now,
+        dateUpdated: now,
+      },
+    ]);
+
+    // FEATURE FIRST so its apply really lands and defers an event; the constant then
+    // fails, and compensation restores the feature in full.
+    mockFailConstantApply = true;
+    const res = await request(app)
+      .post("/api/v1/releases/publish-revisions")
+      .send({
+        revisions: [
+          { entityType: "feature", id: "clean-feat", version: 2 },
+          { entityType: "constant", key: "clean-const", version: constVersion },
+        ],
+      })
+      .set("Authorization", "Bearer foo");
+    expect(res.status).toBe(500);
+
+    // The feature really did go back.
+    const feature = await mongoose.connection
+      .collection("features")
+      .findOne({ organization: ORG_ID, id: "clean-feat" });
+    expect(feature?.defaultValue).toBe("live");
+    expect(feature?.version).toBe(1);
+    const byId = Object.fromEntries(
+      (res.body.items as { id: string; status: string }[]).map((item) => [
+        item.id,
+        item.status,
+      ]),
+    );
+    expect(byId["clean-feat"]).toBe("rolled-back");
+
+    // So nothing may have been announced about it.
+    const events = await mongoose.connection
+      .collection("events")
+      .find({ organizationId: ORG_ID })
+      .toArray();
+    expect(events.filter((e) => /\.updated$/.test(e.event))).toEqual([]);
+  });
+
+  // The context must not carry a release's buffers past the request, whichever way the
+  // release ended. An OPEN buffer surviving is the worst case: capture hands it out,
+  // every later event is pushed somewhere nobody will flush, and the leaked refresh
+  // buffer stops the next landing installing its own to recover.
+  //
+  // This pins the END STATE, which is what consumers of the context depend on. It does
+  // not distinguish the two mechanisms that produce it: removing the `finally`
+  // backstop alone leaves this green, because the terminals are exhaustive on every
+  // reachable path today — that is exactly what makes it a backstop. Removing a
+  // terminal clear turns it red, which is the regression it is here to catch.
+  it.each([
+    ["a rolled-back release", true],
+    ["a release that stood", false],
+  ])(
+    "leaves no buffers on the context after %s",
+    async (_label, shouldFail) => {
+      // Held by reference: the harness mutates the context in place, so assertions after
+      // the request see what the release left behind.
+      const context = makeContext();
+      setReqContext(context);
+      const now = new Date();
+
+      await mongoose.connection.collection("constants").insertOne({
+        id: "const_leak",
+        organization: ORG_ID,
+        key: "leak-const",
+        name: "leak-const",
+        owner: "",
+        type: "string",
+        value: "before",
+        dateCreated: now,
+        dateUpdated: now,
+      });
+      const staged = await request(app)
+        .put(`/api/v1/constants-revisions/leak-const/new/value`)
+        .send({ value: "after" })
+        .set("Authorization", "Bearer foo");
+      expect(staged.status).toBe(200);
+
+      mockFailConstantRestore = shouldFail;
+      mockFailConstantApply = shouldFail;
+      await request(app)
+        .post("/api/v1/releases/publish-revisions")
+        .send({
+          revisions: [
+            {
+              entityType: "constant",
+              key: "leak-const",
+              version: staged.body.revision.version,
+            },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(context.bulkPublishDeferredEvents ?? null).toBeNull();
+      expect(context.bulkPublishRestoredEntities ?? null).toBeNull();
+      expect(context.sdkPayloadRefreshBuffer ?? null).toBeNull();
+    },
+  );
+
+  // The ABORT path's durable emission, which had no coverage: a no-op item's self-heal
+  // replay is a real live write that nothing later restores, so its event must survive
+  // an abort that happens after it. Dropping the whole buffer there was silent.
+  it("emits a self-heal replay's event when a later item aborts the release", async () => {
+    setReqContext(makeContext());
+    const now = new Date();
+
+    // Two no-op revisions: staging the value the constant already has means the
+    // release reaches the no-op branch, which is where the replay runs.
+    const keys = ["noop-a", "noop-b"];
+    const versions: number[] = [];
+    for (const key of keys) {
+      await mongoose.connection.collection("constants").insertOne({
+        id: `const_${key}`,
+        organization: ORG_ID,
+        key,
+        name: key,
+        owner: "",
+        type: "string",
+        value: "same",
+        dateCreated: now,
+        dateUpdated: now,
+      });
+      const staged = await request(app)
+        .put(`/api/v1/constants-revisions/${key}/new/value`)
+        .send({ value: "same" })
+        .set("Authorization", "Bearer foo");
+      expect(staged.status).toBe(200);
+      versions.push(staged.body.revision.version);
+    }
+
+    // The document the replay heals — a stand-in for the descendant a Config cascade
+    // reconciles. It is never entered into `applied`, so nothing restores it.
+    await mongoose.connection.collection("constants").insertOne({
+      id: "const_healed",
+      organization: ORG_ID,
+      key: "healed",
+      name: "healed",
+      owner: "",
+      type: "string",
+      value: "stale",
+      dateCreated: now,
+      dateUpdated: now,
+    });
+
+    let replayCalls = 0;
+    mockConstantNoOpReplay = async (context) => {
+      replayCalls++;
+      if (replayCalls > 1) {
+        // The second item aborts the release, after the first one's write landed.
+        throw new Error("simulated no-op self-heal failure");
+      }
+      const ctx = context as ReqContextClass;
+      const healed = await ctx.models.constants.getByKey("healed");
+      if (!healed) throw new Error("fixture: healed constant missing");
+      await ctx.models.constants.update(healed, { value: "healed" });
+    };
+
+    const res = await request(app)
+      .post("/api/v1/releases/publish-revisions")
+      .send({
+        revisions: keys.map((key, i) => ({
+          entityType: "constant",
+          key,
+          version: versions[i],
+        })),
+      })
+      .set("Authorization", "Bearer foo");
+    expect(res.status).not.toBe(200);
+    expect(replayCalls).toBe(2);
+
+    // The heal is live and nothing rolled it back.
+    const healed = await mongoose.connection
+      .collection("constants")
+      .findOne({ organization: ORG_ID, key: "healed" });
+    expect(healed?.value).toBe("healed");
+
+    // So its event has to reach consumers. Dropping the buffer wholesale on abort —
+    // the behaviour before this — left a durable change permanently unannounced.
+    const events = await mongoose.connection
+      .collection("events")
+      .find({ organizationId: ORG_ID })
+      .toArray();
+    expect(events.filter((e) => /\.updated$/.test(e.event)).length).toBe(1);
   });
 });

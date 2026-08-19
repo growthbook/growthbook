@@ -30,26 +30,30 @@ There is one exception that overrides the rule above. A first-class GrowthBook r
 
 The glossary:
 
-| Term                          | Plural               | Notes                                                                                                                       |
-| ----------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| GrowthBook                    | —                    | The product. Never "Growthbook" or "growthbook".                                                                            |
-| Visual Editor                 | —                    | The product feature.                                                                                                        |
-| North Star                    | North Stars          | The metric concept.                                                                                                         |
-| Bandit                        | Bandits              |                                                                                                                             |
-| Data Source                   | Data Sources         |                                                                                                                             |
-| Fact Metric                   | Fact Metrics         | Lowercase "metric" only when not referring to the Fact Metric resource.                                                     |
-| Feature Flag                  | Feature Flags        | Use the full "Feature Flag" in user-facing copy. Do not use the shorthand "Feature" or "Flag" as the term.                  |
-| Saved Group                   | Saved Groups         |                                                                                                                             |
-| SDK Connection                | SDK Connections      |                                                                                                                             |
-| Experiment Template           | Experiment Templates | The full compound is a named resource. Bare "template" stays a lowercase common noun ("select a template", "New template"). |
-| Experiment Decision Framework | -                    | Title Case. Abbreviated as "EDF".                                                                                           |
-| Metric Slices                 | —                    | The metric-slicing feature (overall).                                                                                       |
-| Auto Slice                    | Auto Slices          | Automatically populates and manages Metric Slices. The word "levels" in "Auto Slice levels" stays a lowercase common noun.  |
-| Project                       | Projects             | A first-class resource with its own sidebar entry and page. "All Projects" is the fixed scope label meaning every Project.  |
+| Term                          | Plural               | Notes                                                                                                                                  |
+| ----------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| GrowthBook                    | —                    | The product. Never "Growthbook" or "growthbook".                                                                                       |
+| Visual Editor                 | —                    | The product feature.                                                                                                                   |
+| North Star                    | North Stars          | The metric concept.                                                                                                                    |
+| Bandit                        | Bandits              |                                                                                                                                        |
+| Data Source                   | Data Sources         |                                                                                                                                        |
+| Fact Metric                   | Fact Metrics         | Lowercase "metric" only when not referring to the Fact Metric resource.                                                                |
+| Feature Flag                  | Feature Flags        | Use the full "Feature Flag" in user-facing copy. Do not use the shorthand "Feature" or "Flag" as the term.                             |
+| Saved Group                   | Saved Groups         |                                                                                                                                        |
+| SDK Connection                | SDK Connections      |                                                                                                                                        |
+| Experiment Template           | Experiment Templates | The full compound is a named resource. Bare "template" stays a lowercase common noun ("select a template", "New template").            |
+| Experiment Decision Framework | -                    | Title Case. Abbreviated as "EDF".                                                                                                      |
+| Metric Slices                 | —                    | The metric-slicing feature (overall).                                                                                                  |
+| Auto Slice                    | Auto Slices          | Automatically populates and manages Metric Slices. The word "levels" in "Auto Slice levels" stays a lowercase common noun.             |
+| Project                       | Projects             | A first-class resource with its own sidebar entry and page. "All Projects" is the fixed scope label meaning every Project.             |
+| Constant                      | Constants            | A first-class resource with its own sidebar entry and page.                                                                            |
+| Config                        | Configs              | A first-class resource with its own sidebar entry and page. A configuration object, file, or another product's config stays lowercase. |
 
 So a sentence-case label still reads "Require approval to modify Saved Groups", and body copy still reads "users will only be able to create Fact Metrics".
 
 A common noun that is not a named resource stays lowercase mid-sentence. "experiment", "metric", "dimension", "segment", "environment". Only the terms in the glossary above are promoted to proper nouns. "Project" is a named resource and is Title Case everywhere ("Select a Project", "All Projects"), but a "project" belonging to another product (a BigQuery, GCP, or Amplitude project) is that product's common noun and stays lowercase. Hyphenated modifiers like "per-project" and "project-level" stay lowercase. "All Environments" is a fixed scope label and uses Title Case, but bare "environment" or "environments" remains lowercase.
+
+"Config" and "Constant" carry the same caveat as "Project": Title Case when naming the GrowthBook resource, lowercase in the ordinary sense. A configuration object, an SDK config, a `config.yml` file, or another product's config is not a Config; a value that does not change is not a Constant.
 
 Technical identifiers stay lowercase in prose — "experiment key", "experiment tracking key", "API key", "attribute", "token". These are technical concepts, not named resources, and follow the same convention as, e.g., a personal access token: lowercase unless a word starts the sentence.
 

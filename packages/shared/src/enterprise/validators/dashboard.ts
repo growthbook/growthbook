@@ -52,6 +52,10 @@ export const dashboardGlobalControlsValidator = z
   .object({
     dateRange: baseExplorationConfigValidator.shape.dateRange.optional(),
     dateGranularity: z.enum(dateGranularity).optional(),
+    // Experiment-block filters, applied per-block via globalControlSettings.
+    // `projects: []` means all projects; absent means no dashboard-wide filter.
+    projects: z.array(z.string()).optional(),
+    experimentSearchString: z.string().optional(),
   })
   .strict();
 export type DashboardGlobalControls = z.infer<
@@ -74,9 +78,9 @@ export const dashboardInterface = z
     title: z.string(),
     blocks: z.array(dashboardBlockInterface),
     globalControls: dashboardGlobalControlsValidator.optional(),
-    // Dashboard-wide period comparison. Currently set only per exploration
-    // block; this is the seam for a future dashboard-level compare toggle
-    // (see resolveBlockComparison) and is honored on refresh/render already.
+    // Dashboard-wide period comparison, set from the dashboard date controls.
+    // Takes precedence over a block's own setting (see resolveBlockComparison)
+    // and is honored on refresh and render.
     comparison: blockComparisonValidator.optional(),
     grid: dashboardGridConfig.optional(),
     projects: z.array(z.string()).optional(), // General dashboards only, experiment dashboards use the experiment's projects
