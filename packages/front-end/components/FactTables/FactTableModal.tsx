@@ -6,8 +6,10 @@ import {
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import {
+  EVENT_FORWARDER_MANAGED_EVENTS_FACT_TABLE_DESCRIPTION,
   isEventForwarderEventsFactTable,
   isProjectListValidForProject,
+  releaseEventForwarderManagedDescription,
 } from "shared/util";
 import { useEffect, useState } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
@@ -35,6 +37,7 @@ import { getAutoSliceUpdateFrequencyHours } from "@/services/env";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
+import { EventForwarderManagedCallout } from "@/components/Settings/EditDataSource/EventForwarder/EventForwarderManagedCallout";
 
 export interface Props {
   existing?: FactTableInterface;
@@ -186,15 +189,16 @@ export default function FactTableModal({
 
           if (existing && !duplicate) {
             const data: UpdateFactTableProps = {
-              description: value.description,
+              description: isEventForwarderManaged
+                ? releaseEventForwarderManagedDescription(
+                    value.description,
+                    EVENT_FORWARDER_MANAGED_EVENTS_FACT_TABLE_DESCRIPTION,
+                  )
+                : value.description,
               name: value.name,
               sql: value.sql,
               userIdTypes: value.userIdTypes,
               eventName: value.eventName,
-              // Editing hands the table to the user. The Event Forwarder
-              // rewrites the SQL, columns, and identifier types of every Events
-              // table it still owns on each attribute change, so keeping the
-              // marker would overwrite their edit.
               managedBy: isEventForwarderManaged ? "" : value.managedBy,
               projects: value.projects,
               autoSliceUpdatesEnabled: value.autoSliceUpdatesEnabled,
@@ -257,12 +261,7 @@ export default function FactTableModal({
           }
         })}
       >
-        {isEventForwarderManaged ? (
-          <Callout status="info" mb="4">
-            Managed by the Event Forwarder. Saving any edit takes ownership and
-            stops automatic updates.
-          </Callout>
-        ) : null}
+        <EventForwarderManagedCallout show={isEventForwarderManaged} />
 
         <Field size="legacy" label="Name" {...form.register("name")} required />
 

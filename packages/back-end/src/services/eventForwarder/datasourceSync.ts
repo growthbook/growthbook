@@ -85,13 +85,10 @@ export async function reconcileEventForwarderDatasourceUserIdTypesAndExposureQue
   );
   const existingUserIdTypes = datasource.settings?.userIdTypes ?? [];
   const existingExposure = datasource.settings?.queries?.exposure ?? [];
-  // Matches on the source attribute, so each hash attribute ends up with exactly
-  // one identifier type and existing entries keep their names.
   const updatedUserIdTypes = reconcileEventForwarderManagedUserIdTypes(
     existingUserIdTypes,
     desiredUserIdTypes,
   );
-  // Managed types plus user-created ones linked to a hash attribute.
   const linkedUserIdTypes = updatedUserIdTypes.filter(
     isEventForwarderLinkedUserIdType,
   );
@@ -171,15 +168,5 @@ export async function reconcileAllEventForwarderDatasourceUserIdTypesAndExposure
         );
       }
     }),
-  );
-}
-
-export async function syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema(
-  context: ReqContext,
-  attributeSchema: SDKAttributeSchema,
-): Promise<void> {
-  await reconcileAllEventForwarderDatasourceUserIdTypesAndExposureQueries(
-    context,
-    attributeSchema,
   );
 }

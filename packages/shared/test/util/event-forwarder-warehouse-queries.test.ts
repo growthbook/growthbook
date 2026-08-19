@@ -8,15 +8,17 @@ import {
   buildEventForwarderFeatureUsageTableReference,
   EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
   EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
-  EVENT_FORWARDER_RELEASED_DESCRIPTION,
   eventForwarderManagedFeatureUsageQueryExists,
   generateEventForwarderExposureQueries,
   getActiveFeatureUsageQuery,
   isEventForwarderManagedExposureQuery,
   isEventForwarderManagedFeatureUsageQuery,
   reconcileEventForwarderManagedExposureQueries,
-  releaseEventForwarderManagedDescription,
 } from "../../src/util/event-forwarder-warehouse-queries";
+import {
+  EVENT_FORWARDER_RELEASED_DESCRIPTION,
+  releaseEventForwarderManagedDescription,
+} from "../../src/util/event-forwarder-datasource";
 import {
   buildEventForwarderPropertyValueSql,
   EVENT_FORWARDER_AVRO_PARTITION_FIELD,

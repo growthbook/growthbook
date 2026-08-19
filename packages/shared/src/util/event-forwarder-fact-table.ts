@@ -77,15 +77,12 @@ export function resolveEventForwarderAttributeLookupKeys(
   return [sanitizeEventForwarderAvroFieldName(property)];
 }
 
-/**
- * EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY — delay after connector ready or
- * attribute metadata changes before refreshing fact table columns. Increase
- * here if warehouse tables need longer to materialize (currently 1 min).
- */
 export const EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS = 1 * 60 * 1000;
 
 export const EVENT_FORWARDER_EVENTS_FACT_TABLE_ID_SUFFIX = "_events";
 export const EVENT_FORWARDER_EVENTS_FACT_TABLE_NAME_SUFFIX = " Events";
+export const EVENT_FORWARDER_MANAGED_EVENTS_FACT_TABLE_DESCRIPTION =
+  "This fact table was auto-generated when the Event Forwarder was enabled. As you make changes to attributes, we'll automatically update the Fact Table's SQL to reflect the changes.";
 
 export function getEventForwarderEventsFactTableId(
   datasourceId: string,
@@ -389,9 +386,6 @@ function buildEventForwarderEventsFactTableSelect({
   const attributeColumns: string[] = [];
 
   for (const userIdType of userIdTypes) {
-    // The projected column (alias / join key) is the identifier type name, which
-    // users may rename; the value is always extracted from the linked source
-    // attribute. Non-managed identifier types resolve to themselves.
     const fieldName = sanitizeEventForwarderAvroFieldName(
       userIdType.userIdType,
     );
@@ -535,8 +529,6 @@ export function buildEventForwarderEventsFactTableColumns(
       continue;
     }
     seen.add(key);
-    // Keep the column datatype aligned with the SELECT: the identifier column
-    // inherits the datatype of its linked source attribute.
     const sourceAttribute =
       getEventForwarderUserIdTypeSourceAttribute(userIdType);
     const matchingAttribute = findEventForwarderEventsFactTableAttribute(

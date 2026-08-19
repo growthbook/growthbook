@@ -13,10 +13,12 @@ import { EventForwarderConfigInterface } from "shared/validators";
 import {
   buildEventForwarderEventsFactTableColumns,
   buildEventForwarderEventsFactTableSql,
+  EVENT_FORWARDER_MANAGED_EVENTS_FACT_TABLE_DESCRIPTION,
   EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
   getEventForwarderEventsFactTableId,
   getEventForwarderEventsFactTableName,
   getEventForwarderSinkTypeForDatasource,
+  isEventForwarderEventsFactTable,
 } from "shared/util";
 import type { DataSourceInterface } from "shared/types/datasource";
 import {
@@ -182,10 +184,7 @@ export async function syncEventForwarderEventsFactTableMetadata(
       continue;
     }
 
-    // Editing the table in the UI clears the marker, handing it to the user.
-    // This sync rewrites sql, columns, and userIdTypes wholesale, so anything it
-    // no longer owns has to be left alone or the edit is overwritten.
-    if (factTable.managedBy !== "api") {
+    if (!isEventForwarderEventsFactTable(factTable, datasource.id)) {
       continue;
     }
 
@@ -220,9 +219,6 @@ export async function syncEventForwarderEventsFactTableMetadata(
       datatype: column.datatype,
       jsonFields: column.jsonFields,
     }));
-    // The fact table's own userIdTypes list gates which identifiers can join
-    // against it, so a newly added hash attribute is unusable until its name
-    // lands here, and an archived one lingers as a dangling reference.
     const hasUserIdTypeChanges =
       JSON.stringify(factTable.userIdTypes ?? []) !==
       JSON.stringify(desiredUserIdTypeNames);
@@ -400,8 +396,7 @@ export async function ensureEventForwarderEventsFactTable(
   const factTable = await createFactTable(context, {
     id: getEventForwarderEventsFactTableId(datasource.id),
     name: getEventForwarderEventsFactTableName(datasource.name),
-    description:
-      "This fact table was auto-generated when the Event Forwarder was enabled. As you make changes to attributes, we'll automatically update the Fact Table's SQL to reflect the changes.",
+    description: EVENT_FORWARDER_MANAGED_EVENTS_FACT_TABLE_DESCRIPTION,
     owner: "",
     tags: [],
     projects: datasource.projects ?? [],

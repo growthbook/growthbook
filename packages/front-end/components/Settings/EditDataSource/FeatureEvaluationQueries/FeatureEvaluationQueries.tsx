@@ -38,18 +38,8 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
     [dataSource.settings?.queries?.featureUsage],
   );
 
-  // The Event Forwarder managed feature usage query is intentionally editable
-  // and deletable for now. Restore
-  // `isEventForwarderManagedFeatureUsageQuery(featureUsageQuery)` to lock it
-  // again.
-  const isManagedQuery = false;
-
   const handleActionDeleteClicked = useCallback(
     () => async () => {
-      if (isManagedQuery) {
-        return;
-      }
-
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
       const existing = copy.settings.queries?.featureUsage ?? [];
       const next = existing.filter(
@@ -64,7 +54,7 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
 
       await onSave(copy);
     },
-    [dataSource, featureUsageQuery?.id, isManagedQuery, onSave],
+    [dataSource, featureUsageQuery?.id, onSave],
   );
 
   const handleSave = useCallback(
@@ -142,20 +132,18 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
                   Edit Query
                 </DropdownMenuItem>
 
-                {!isManagedQuery && (
-                  <DropdownMenuItem
-                    color="red"
-                    confirmation={{
-                      submit: handleActionDeleteClicked(),
-                      confirmationTitle: "Delete Feature Usage Query",
-                      cta: "Delete",
-                      getConfirmationContent: async () =>
-                        "Are you sure you want to delete this feature usage query?",
-                    }}
-                  >
-                    Delete
-                  </DropdownMenuItem>
-                )}
+                <DropdownMenuItem
+                  color="red"
+                  confirmation={{
+                    submit: handleActionDeleteClicked(),
+                    confirmationTitle: "Delete Feature Usage Query",
+                    cta: "Delete",
+                    getConfirmationContent: async () =>
+                      "Are you sure you want to delete this feature usage query?",
+                  }}
+                >
+                  Delete
+                </DropdownMenuItem>
               </DropdownMenu>
             )}
           </Flex>

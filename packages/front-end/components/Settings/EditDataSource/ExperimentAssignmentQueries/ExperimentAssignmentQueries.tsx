@@ -148,11 +148,6 @@ export const ExperimentAssignmentQueries: FC<
 
       {experimentExposureQueries.map((query, idx) => {
         const isOpen = openIndexes[idx] || false;
-        // Event Forwarder managed queries are intentionally editable and
-        // deletable for now. Restore
-        // `isEventForwarderManagedExposureQuery(query)` here (and in the delete
-        // handler above) to lock them again.
-        const isManaged = false;
 
         return (
           <Card mt="3" key={query.id}>
@@ -203,7 +198,7 @@ export const ExperimentAssignmentQueries: FC<
                         >
                           Check it again.
                         </Button>
-                        {canEdit && !isManaged && (
+                        {canEdit && (
                           <Button
                             color="inherit"
                             onClick={handleActionClicked(idx, "edit")}
@@ -252,20 +247,18 @@ export const ExperimentAssignmentQueries: FC<
                         Edit Dimensions
                       </DropdownMenuItem>
                     ) : null}
-                    {!isManaged && (
-                      <DropdownMenuItem
-                        color="red"
-                        confirmation={{
-                          submit: handleActionDeleteClicked(idx),
-                          confirmationTitle: `Delete ${query.name}`,
-                          cta: "Delete",
-                          getConfirmationContent: async () =>
-                            `Are you sure you want to delete experiment assignment query ${query.name}?`,
-                        }}
-                      >
-                        Delete
-                      </DropdownMenuItem>
-                    )}
+                    <DropdownMenuItem
+                      color="red"
+                      confirmation={{
+                        submit: handleActionDeleteClicked(idx),
+                        confirmationTitle: `Delete ${query.name}`,
+                        cta: "Delete",
+                        getConfirmationContent: async () =>
+                          `Are you sure you want to delete experiment assignment query ${query.name}?`,
+                      }}
+                    >
+                      Delete
+                    </DropdownMenuItem>
                   </DropdownMenu>
                 )}
 

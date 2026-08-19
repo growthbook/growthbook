@@ -12,7 +12,7 @@ import { FaExternalLinkAlt } from "react-icons/fa";
 import {
   EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
   isEventForwarderManagedExposureQuery,
-  releaseEventForwarderManagedDescription,
+  releaseEventForwarderManagedRecord,
 } from "shared/util";
 import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -24,6 +24,7 @@ import SelectField from "@/components/Forms/SelectField";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
+import { EventForwarderManagedCallout } from "@/components/Settings/EditDataSource/EventForwarder/EventForwarderManagedCallout";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -45,9 +46,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<
           exposureQuery ? exposureQuery.name : "Experiment Assignment"
         } query`;
 
-  // Event Forwarder managed queries are intentionally editable. Saving hands the
-  // query to the user rather than locking them out — see handleSubmit.
-  const isManaged = false;
   const isEventForwarderManaged =
     mode === "edit" &&
     !!exposureQuery &&
@@ -86,19 +84,14 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const userEnteredHasNameCol = form.watch("hasNameCol");
 
   const handleSubmit = form.handleSubmit(async (value) => {
-    // Editing a managed query hands it to the user. GrowthBook regenerates the
-    // SQL of every query it still owns on each sync, so keeping managedBy: "api"
-    // would overwrite their edit. Reconciliation adds a fresh managed query
-    // beside theirs instead.
-    if (exposureQuery && isEventForwarderManagedExposureQuery(exposureQuery)) {
-      value.managedBy = "";
-      delete value.sourceAttribute;
-      value.description = releaseEventForwarderManagedDescription(
-        value.description,
-        EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
-      );
-    }
-    await onSave(value);
+    await onSave(
+      isEventForwarderManaged
+        ? releaseEventForwarderManagedRecord(
+            value,
+            EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
+          )
+        : value,
+    );
 
     form.reset({
       id: undefined,
@@ -270,12 +263,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
         autoFocusSelector="#id-modal-identify-joins-heading"
       >
         <div className="my-2 ml-3 mr-3">
-          {isEventForwarderManaged ? (
-            <Callout status="info" mb="4">
-              Managed by the Event Forwarder. Saving any edit takes ownership
-              and stops automatic updates.
-            </Callout>
-          ) : null}
+          <EventForwarderManagedCallout show={isEventForwarderManaged} />
           <div className="row">
             <div className="col-12">
               <Field
@@ -294,25 +282,12 @@ export const AddEditExperimentAssignmentQueryModal: FC<
               />
               <SelectField
                 size="legacy"
-                label={
-                  <>
-                    Identifier Type
-                    {isManaged ? (
-                      <Tooltip body="Identifier type is fixed for queries created by Event Forwarder and cannot be changed." />
-                    ) : null}
-                  </>
-                }
+                label="Identifier Type"
                 options={identityTypes.map((i) => ({
                   value: i.userIdType,
                   label: i.userIdType,
                 }))}
                 required
-                disabled={isManaged}
-                helpText={
-                  isManaged
-                    ? "Managed by Event Forwarder for this identifier."
-                    : undefined
-                }
                 value={form.watch("userIdType")}
                 onChange={(value) => form.setValue("userIdType", value)}
               />
@@ -332,26 +307,19 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                   />
                 )}
                 <div>
-                  <Tooltip
-                    body="SQL is managed by Event Forwarder and cannot be customized."
-                    shouldDisplay={isManaged}
+                  <button
+                    className="btn btn-primary mt-2"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setUiMode("sql");
+                    }}
                   >
-                    <button
-                      className="btn btn-primary mt-2"
-                      type="button"
-                      disabled={isManaged}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        if (isManaged) return;
-                        setUiMode("sql");
-                      }}
-                    >
-                      <div className="d-flex align-items-center">
-                        Customize SQL
-                        <FaExternalLinkAlt className="ml-2" />
-                      </div>
-                    </button>
-                  </Tooltip>
+                    <div className="d-flex align-items-center">
+                      Customize SQL
+                      <FaExternalLinkAlt className="ml-2" />
+                    </div>
+                  </button>
                 </div>
               </div>
 

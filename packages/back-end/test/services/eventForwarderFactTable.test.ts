@@ -416,8 +416,6 @@ describe("syncEventForwarderEventsFactTableMetadata", () => {
         userIdTypes: [{ userIdType: "user_id", description: "" }],
       },
     });
-    // Editing in the UI clears the marker. This sync rewrites sql, columns, and
-    // userIdTypes wholesale, so it has to skip anything it no longer owns.
     const ft = eventsFactTable({ managedBy: "", sql: "SELECT my_own_thing" });
 
     mockedGetDataSourceById.mockResolvedValue(ds);

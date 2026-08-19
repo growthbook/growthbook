@@ -349,8 +349,7 @@ export async function deleteAllDataSourcesForAProject({
 }
 
 // Identifier type names become warehouse column aliases, so two names differing
-// only in case would collide as one column. `existing` grandfathers collisions
-// already stored — see findNewDuplicateUserIdTypeName.
+// only in case would collide as one column.
 function assertUniqueUserIdTypeNames(
   settings: DataSourceSettings | undefined,
   existing?: DataSourceSettings,

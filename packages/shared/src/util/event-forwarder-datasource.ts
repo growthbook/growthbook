@@ -18,24 +18,14 @@ export type EventForwarderDatasourceParams =
 
 export const EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION =
   "Managed by Event Forwarder.";
+export const EVENT_FORWARDER_RELEASED_DESCRIPTION = "Managed by User";
 
-/**
- * Identifier types the Event Forwarder owns. Ownership is explicit and is only
- * ever taken at creation — nothing an earlier version wrote, and nothing a user
- * wrote, is promoted into it. Records that predate the field are linked instead,
- * which gives them their warehouse queries while leaving them fully editable.
- */
 export function isEventForwarderManagedUserIdType(
   userIdType: UserIdType,
 ): boolean {
   return userIdType.managedBy === "api";
 }
 
-/**
- * Identifier types the Event Forwarder feeds warehouse queries for: the ones it
- * created, plus user-created ones already linked to a hash attribute. Linking is
- * not ownership — only `managedBy` entries are ever deleted here.
- */
 export function isEventForwarderLinkedUserIdType(
   userIdType: UserIdType,
 ): boolean {
@@ -45,18 +35,7 @@ export function isEventForwarderLinkedUserIdType(
   );
 }
 
-/**
- * Resolves the SDK attribute an identifier type reads its value from.
- *
- * An explicit link wins. Failing that the Linked Hash Attributes answer it: one
- * identifier type models one hash attribute, so a lone entry there *is* the
- * source. That is what recovers records written before the link existed —
- * including the `ef_`-prefixed ones, which always carried their attribute in
- * `attributes`. Nothing reads meaning from the name.
- *
- * An entry listing several attributes is a user's own construct rather than a
- * model of one attribute, so it falls through to its name.
- */
+// Explicit link, else sole Linked Hash Attribute, else name.
 export function getEventForwarderUserIdTypeSourceAttribute(
   userIdType: UserIdType,
 ): string {
@@ -71,14 +50,10 @@ export function getEventForwarderUserIdTypeSourceAttribute(
   return userIdType.userIdType;
 }
 
-// Case-insensitive: identifier type names are compared case-insensitively
-// everywhere (warehouse column aliases and the sync paths both fold case), so
-// "User_Id" and "user_id" are the same name for collision purposes.
 export function normalizeUserIdTypeName(userIdType: string): string {
   return userIdType.trim().toLowerCase();
 }
 
-/** Returns the name colliding with `candidate`, or null when it is free. */
 export function findCollidingUserIdTypeName(
   userIdTypes: UserIdType[],
   candidate: string,
@@ -90,7 +65,6 @@ export function findCollidingUserIdTypeName(
   return collision?.userIdType ?? null;
 }
 
-/** Maps each case-insensitively duplicated name to the colliding entry's name. */
 function collectDuplicateUserIdTypeNames(
   userIdTypes: UserIdType[],
 ): Map<string, string> {
@@ -106,7 +80,6 @@ function collectDuplicateUserIdTypeNames(
   return duplicates;
 }
 
-/** Returns a name that collides case-insensitively within the list, or null. */
 export function findDuplicateUserIdTypeName(
   userIdTypes: UserIdType[],
 ): string | null {
@@ -114,13 +87,7 @@ export function findDuplicateUserIdTypeName(
   return first ?? null;
 }
 
-/**
- * Returns a name `updated` collides on that `existing` did not, or null.
- *
- * Collisions already stored are grandfathered. A datasource that predates the
- * uniqueness check would otherwise fail every later save — including the Event
- * Forwarder sync, which runs unattended — until someone fixed it by hand.
- */
+// Grandfather pre-existing collisions so unattended syncs still save.
 export function findNewDuplicateUserIdTypeName(
   existing: UserIdType[],
   updated: UserIdType[],
@@ -229,9 +196,6 @@ export function getUserIdTypesToAdd(
   const existingNames = new Set(
     existing.map((u) => normalizeUserIdTypeName(u.userIdType)),
   );
-  // Any entry already modelling the attribute counts as present, whoever owns
-  // it, so a renamed identifier is never re-added under its original name and a
-  // record written before the marker existed never gains a twin.
   const existingSources = new Set(
     existing.map((u) =>
       normalizeUserIdTypeName(getEventForwarderUserIdTypeSourceAttribute(u)),
@@ -246,50 +210,46 @@ export function getUserIdTypesToAdd(
   );
 }
 
-/**
- * Drops the Event Forwarder link and any claim of ownership, keeping everything
- * else. Reconciliation never deletes an identifier type: whatever the entry is
- * named, experiments, identity joins, and the Events fact table may still be
- * reading it, and the user can delete it themselves once they are sure.
- *
- * `managedBy` is only written when it was `"api"`, so releasing an entry that
- * predates the field is a no-op and repeated syncs write nothing.
- */
-function releaseUserIdType(userIdType: UserIdType): UserIdType {
-  const released = { ...userIdType };
-  delete released.sourceAttribute;
+export function releaseEventForwarderManagedDescription(
+  description: string,
+  managedDescription: string,
+): string;
+export function releaseEventForwarderManagedDescription(
+  description: string | undefined,
+  managedDescription: string,
+): string | undefined;
+export function releaseEventForwarderManagedDescription(
+  description: string | undefined,
+  managedDescription: string,
+): string | undefined {
+  return description === managedDescription
+    ? EVENT_FORWARDER_RELEASED_DESCRIPTION
+    : description;
+}
+
+export function releaseEventForwarderManagedRecord<
+  T extends {
+    managedBy?: string;
+    sourceAttribute?: string;
+    description?: string;
+  },
+>(record: T, managedDescription: string): T {
+  const released = { ...record };
   if (released.managedBy === "api") {
     released.managedBy = "";
   }
+  delete released.sourceAttribute;
+  released.description = releaseEventForwarderManagedDescription(
+    released.description,
+    managedDescription,
+  );
   return released;
 }
 
-/**
- * Reconciles Event Forwarder identifier types against the hash attributes the
- * org's schema calls for. One identifier type per hash attribute, and one hash
- * attribute per identifier type.
- *
- * An attribute is matched to an entry that already models it, in this order:
- * an explicit `sourceAttribute`, then Linked Hash Attributes, then the name.
- * Only an attribute nothing models gets a new managed entry — reconciliation
- * does not mint a second identifier type for a unit the datasource already has
- * just to own one.
- *
- * Matching an entry writes the link, and the attribute into Linked Hash
- * Attributes if missing. It never writes `managedBy`: ownership is taken at
- * creation and never afterwards, so an entry a user created stays theirs, fully
- * editable and deletable, whatever it is called.
- *
- * Nothing is deleted. An entry whose attribute is gone (archived, un-flagged,
- * out of the datasource's Projects) is released — link and managed marker off,
- * record kept — for the user to clean up if they want it gone.
- */
 export function reconcileEventForwarderManagedUserIdTypes(
   existing: UserIdType[],
   desired: UserIdType[],
 ): UserIdType[] {
-  // Insertion order is attribute-schema order, which makes every tie below
-  // resolve the same way on every sync.
   const desiredBySource = new Map<string, UserIdType>();
   for (const entry of desired) {
     const source = normalizeUserIdTypeName(
@@ -303,8 +263,7 @@ export function reconcileEventForwarderManagedUserIdTypes(
   const claimedSources = new Set<string>();
   const result: UserIdType[] = [];
 
-  // An explicit link is the strongest claim, so it is settled before anything
-  // competes for the same attribute by name or by Linked Hash Attributes.
+  // Claim explicit sourceAttribute links first.
   for (const entry of existing) {
     if ((entry.sourceAttribute ?? null) === null) {
       result.push(entry);
@@ -312,7 +271,12 @@ export function reconcileEventForwarderManagedUserIdTypes(
     }
     const source = normalizeUserIdTypeName(entry.sourceAttribute as string);
     if (!desiredBySource.has(source) || claimedSources.has(source)) {
-      result.push(releaseUserIdType(entry));
+      result.push(
+        releaseEventForwarderManagedRecord(
+          entry,
+          EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+        ),
+      );
       continue;
     }
     claimedSources.add(source);
@@ -327,9 +291,7 @@ export function reconcileEventForwarderManagedUserIdTypes(
     const sourceAttribute = wanted.sourceAttribute ?? wanted.userIdType;
     const isUnlinked = (entry: UserIdType) =>
       (entry.sourceAttribute ?? null) === null;
-    // Linked Hash Attributes first: an entry already modelling the attribute is
-    // the one the warehouse is wired to, so matching it keeps the existing
-    // column, query, and id in place.
+    // Prefer attributes[] match over name match.
     const hostIndex = (() => {
       const byAttribute = result.findIndex(
         (entry) =>

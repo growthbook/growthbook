@@ -10,13 +10,14 @@ import { FaExternalLinkAlt } from "react-icons/fa";
 import {
   EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
   isEventForwarderManagedFeatureUsageQuery,
-  releaseEventForwarderManagedDescription,
+  releaseEventForwarderManagedRecord,
 } from "shared/util";
 import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Modal from "@/components/Modal";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Callout from "@/ui/Callout";
+import { EventForwarderManagedCallout } from "@/components/Settings/EditDataSource/EventForwarder/EventForwarderManagedCallout";
 
 type FeatureEvaluationQueryProps = {
   featureUsageQuery?: FeatureUsageQuery;
@@ -57,16 +58,14 @@ export const FeatureEvaluationQueryModal: FC<FeatureEvaluationQueryProps> = ({
     isEventForwarderManagedFeatureUsageQuery(featureUsageQuery);
 
   const handleSubmit = form.handleSubmit(async (value) => {
-    // Editing hands the query to the user, matching assignment queries. It stops
-    // being an Event Forwarder resource rather than being overwritten later.
-    if (isEventForwarderManaged) {
-      value.managedBy = "";
-      value.description = releaseEventForwarderManagedDescription(
-        value.description,
-        EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
-      );
-    }
-    await onSave(value);
+    await onSave(
+      isEventForwarderManaged
+        ? releaseEventForwarderManagedRecord(
+            value,
+            EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
+          )
+        : value,
+    );
 
     form.reset({
       id: undefined,
@@ -130,12 +129,7 @@ export const FeatureEvaluationQueryModal: FC<FeatureEvaluationQueryProps> = ({
         ctaEnabled={saveEnabled}
       >
         <div className="my-2 ml-3 mr-3">
-          {isEventForwarderManaged ? (
-            <Callout status="info" mb="4">
-              Managed by the Event Forwarder. Saving any edit takes ownership
-              and stops automatic updates.
-            </Callout>
-          ) : null}
+          <EventForwarderManagedCallout show={isEventForwarderManaged} />
           <div className="row">
             <div className="col-12">
               <div className="form-group">

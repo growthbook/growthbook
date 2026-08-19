@@ -2,12 +2,15 @@ import { FC, useMemo } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { findCollidingUserIdTypeName } from "shared/util";
+import {
+  attributeMatchesDatasourceProjects,
+  findCollidingUserIdTypeName,
+} from "shared/util";
 import MultiSelectField from "@/ui/MultiSelectField";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
-import Callout from "@/ui/Callout";
+import { EventForwarderManagedCallout } from "@/components/Settings/EditDataSource/EventForwarder/EventForwarderManagedCallout";
 
 type EditIdentifierTypeProps = {
   dataSource: DataSourceInterfaceWithParams;
@@ -16,7 +19,6 @@ type EditIdentifierTypeProps = {
   userIdType: string;
   description?: string;
   attributes?: string[];
-  /** Event Forwarder provisions hash-attribute identifier types. Editable — saving hands the record over. */
   isEventForwarderManagedType?: boolean;
   onSave: (
     name: string,
@@ -44,16 +46,11 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
 
   const hashAttributes = useMemo(() => {
     return attributeSchema
-      ?.filter((attribute) => {
-        const isInProjects =
-          dataSource.projects?.length && attribute.projects?.length
-            ? attribute.projects.some((project) =>
-                dataSource.projects?.includes(project),
-              )
-            : true;
-        const isHashAttribute = attribute.hashAttribute;
-        return isInProjects && isHashAttribute;
-      })
+      ?.filter(
+        (attribute) =>
+          attribute.hashAttribute &&
+          attributeMatchesDatasourceProjects(attribute, dataSource.projects),
+      )
       .map((attribute) => attribute.property);
   }, [attributeSchema, dataSource.projects]);
 
@@ -81,9 +78,6 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
 
   const userEnteredUserIdType = form.watch("idType");
 
-  // Names are fixed once created, so this only guards new entries. Case-insensitive
-  // to match the back-end check: two names differing only in case would collide as
-  // one warehouse column.
   const collidingUserIdType = useMemo(() => {
     if (mode !== "add" || !userEnteredUserIdType) {
       return null;
@@ -96,11 +90,9 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
 
   const saveEnabled = useMemo(() => {
     if (!userEnteredUserIdType) {
-      // Disable if empty
       return false;
     }
 
-    // Disable if duplicate
     return (collidingUserIdType ?? null) === null;
   }, [collidingUserIdType, userEnteredUserIdType]);
 
@@ -121,19 +113,14 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
       ctaEnabled={saveEnabled}
     >
       <>
-        {isEventForwarderManagedType ? (
-          <Callout status="info" mb="4">
-            Managed by the Event Forwarder. Saving any edit takes ownership and
-            stops automatic updates.
-          </Callout>
-        ) : null}
+        <EventForwarderManagedCallout show={isEventForwarderManagedType} />
 
         <Field
           size="legacy"
           label="Identifier Type"
           {...form.register("idType")}
           pattern="^[a-z_]+$"
-          readOnly={mode === "edit" || isEventForwarderManagedType}
+          readOnly={mode === "edit"}
           required
           error={fieldError}
           helpText="Only lowercase letters and underscores allowed. For example, 'user_id' or 'device_cookie'."

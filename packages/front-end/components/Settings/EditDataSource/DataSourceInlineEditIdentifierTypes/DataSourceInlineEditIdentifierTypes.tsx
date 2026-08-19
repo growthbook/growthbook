@@ -7,7 +7,7 @@ import {
 import {
   EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
   isEventForwarderManagedUserIdType,
-  releaseEventForwarderManagedDescription,
+  releaseEventForwarderManagedRecord,
 } from "shared/util";
 import { PiPlus } from "react-icons/pi";
 import { Box, Card, Flex } from "@radix-ui/themes";
@@ -43,8 +43,6 @@ export const DataSourceInlineEditIdentifierTypes: FC<
     return userIdTypes[editingIndex] || null;
   }, [editingIndex, userIdTypes]);
 
-  // Names are fixed once created. For Event Forwarder managed types only the
-  // description is editable; the linked hash attribute is managed for them.
   const isEditingEventForwarderManagedType = recordEditing
     ? isEventForwarderManagedUserIdType(recordEditing)
     : false;
@@ -99,19 +97,12 @@ export const DataSourceInlineEditIdentifierTypes: FC<
             description,
             attributes,
           };
-          if (editingManagedType) {
-            // Editing hands the record to the user, matching assignment and
-            // feature usage queries. Dropping the link lets reconciliation
-            // re-match it if it still models the attribute, or provision a new
-            // identifier type for that attribute if it no longer does.
-            updated.managedBy = "";
-            delete updated.sourceAttribute;
-            updated.description = releaseEventForwarderManagedDescription(
-              description,
-              EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
-            );
-          }
-          types[idx] = updated;
+          types[idx] = editingManagedType
+            ? releaseEventForwarderManagedRecord(
+                updated,
+                EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+              )
+            : updated;
         }
 
         if (!copy.settings) {
@@ -162,7 +153,6 @@ export const DataSourceInlineEditIdentifierTypes: FC<
         return (
           <Card key={userIdType} mt="3">
             <Flex align="start" justify="between" py="2" px="3" gap="3">
-              {/* region Identity Type text */}
               <Box>
                 <Heading size="sm" as="h3" mb="1">
                   {userIdType}
@@ -177,9 +167,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
                   {description || "(no description)"}
                 </Text>
               </Box>
-              {/* endregion Identity Type text */}
 
-              {/* region Identity Type actions */}
               {canEdit && (
                 <Flex gap="2">
                   <Button
@@ -198,21 +186,17 @@ export const DataSourceInlineEditIdentifierTypes: FC<
                   />
                 </Flex>
               )}
-              {/* endregion Identity Type actions */}
             </Flex>
           </Card>
         );
       })}
 
-      {/* region Identity Type empty state */}
       {userIdTypes.length === 0 ? (
         <Callout status="info" mb="0">
           No user identifier types.
         </Callout>
       ) : null}
-      {/* endregion Identity Type empty state */}
 
-      {/* region Add/Edit modal */}
       {uiMode === "edit" || uiMode === "add" ? (
         <EditIdentifierType
           mode={uiMode}
@@ -225,7 +209,6 @@ export const DataSourceInlineEditIdentifierTypes: FC<
           isEventForwarderManagedType={isEditingEventForwarderManagedType}
         />
       ) : null}
-      {/* endregion Add/Edit modal */}
     </Box>
   );
 };

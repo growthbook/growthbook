@@ -1,5 +1,6 @@
 import {
   EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+  EVENT_FORWARDER_RELEASED_DESCRIPTION,
   attributeMatchesDatasourceProjects,
   buildUserIdTypesFromAttributeSchema,
   findCollidingUserIdTypeName,
@@ -12,6 +13,7 @@ import {
   isEventForwarderManagedUserIdType,
   mergeUserIdTypes,
   reconcileEventForwarderManagedUserIdTypes,
+  releaseEventForwarderManagedRecord,
   supportsEventForwarder,
 } from "../../src/util/event-forwarder-datasource";
 
@@ -188,8 +190,6 @@ describe("isEventForwarderManagedUserIdType", () => {
     );
   });
 
-  // Ownership is taken at creation and never afterwards. A record written before
-  // the marker existed is linked, not owned, so it stays the user's to edit.
   it("does not promote a record that predates the marker", () => {
     expect(
       isEventForwarderManagedUserIdType({
@@ -251,8 +251,6 @@ describe("getEventForwarderUserIdTypeSourceAttribute", () => {
     ).toBe("device_id");
   });
 
-  // The old builder always wrote the attribute into Linked Hash Attributes, so
-  // that is what recovers it. The name is never read, prefixed or not.
   it("recovers the attribute from a lone linked hash attribute", () => {
     expect(
       getEventForwarderUserIdTypeSourceAttribute({
@@ -416,15 +414,20 @@ describe("reconcileEventForwarderManagedUserIdTypes", () => {
         userIdType: "company_id",
         managedBy: "api" as const,
         sourceAttribute: "company_id",
+        description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
       },
     ];
 
-    // Never deleted: identity joins, experiments, and the Events fact table may
-    // still read this name. The marker and the link come off and it is the
-    // user's to remove.
     expect(
       reconcileEventForwarderManagedUserIdTypes(existing, desired),
-    ).toEqual([{ userIdType: "company_id", managedBy: "" }, ...desired]);
+    ).toEqual([
+      {
+        userIdType: "company_id",
+        managedBy: "",
+        description: EVENT_FORWARDER_RELEASED_DESCRIPTION,
+      },
+      ...desired,
+    ]);
   });
 
   it("writes nothing on the sync after a type is released", () => {
@@ -436,7 +439,6 @@ describe("reconcileEventForwarderManagedUserIdTypes", () => {
   });
 
   it("releases a legacy type without writing to it", () => {
-    // Predates managedBy, so there is no marker to clear and no link to drop.
     const legacy = [
       {
         userIdType: "ef_company_id",
@@ -771,6 +773,41 @@ describe("getUserIdTypesToAdd", () => {
     expect(getUserIdTypesToAdd(existing, built)).toEqual([
       { userIdType: "device_id", description: "", attributes: ["device_id"] },
     ]);
+  });
+});
+
+describe("releaseEventForwarderManagedRecord", () => {
+  it("clears ownership and swaps the generated description", () => {
+    expect(
+      releaseEventForwarderManagedRecord(
+        {
+          userIdType: "user_id",
+          managedBy: "api" as const,
+          sourceAttribute: "user_id",
+          description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+        },
+        EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+      ),
+    ).toEqual({
+      userIdType: "user_id",
+      managedBy: "",
+      description: EVENT_FORWARDER_RELEASED_DESCRIPTION,
+    });
+  });
+
+  it("leaves a user-written description and unmanaged marker alone", () => {
+    expect(
+      releaseEventForwarderManagedRecord(
+        {
+          userIdType: "user_id",
+          description: "Mine",
+        },
+        EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+      ),
+    ).toEqual({
+      userIdType: "user_id",
+      description: "Mine",
+    });
   });
 });
 

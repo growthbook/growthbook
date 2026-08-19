@@ -1,5 +1,6 @@
 export {
   EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+  EVENT_FORWARDER_RELEASED_DESCRIPTION,
   EVENT_FORWARDER_SUPPORTED_DATASOURCE_TYPES,
   attributeMatchesDatasourceProjects,
   buildUserIdTypesFromAttributeSchema,
@@ -13,6 +14,8 @@ export {
   isEventForwarderManagedUserIdType,
   mergeUserIdTypes,
   reconcileEventForwarderManagedUserIdTypes,
+  releaseEventForwarderManagedDescription,
+  releaseEventForwarderManagedRecord,
   supportsEventForwarder,
 } from "./event-forwarder-datasource";
 export type { EventForwarderDatasourceParams } from "./event-forwarder-datasource";

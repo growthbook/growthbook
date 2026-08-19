@@ -1,6 +1,7 @@
 import type { DataSourceInterface } from "shared/types/datasource";
 import {
   buildEventForwarderExposureQuerySql,
+  EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
   generateEventForwarderExposureQueries,
 } from "shared/util";
 import {
@@ -11,9 +12,6 @@ import {
 import * as DataSourceModel from "back-end/src/models/DataSourceModel";
 import * as EventForwarderExposureQueries from "back-end/src/services/eventForwarder/sinkParams";
 import * as DataSourceService from "back-end/src/services/datasource";
-
-const EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION =
-  "Managed by Event Forwarder.";
 
 jest.mock("back-end/src/models/DataSourceModel", () => ({
   getDataSourceById: jest.fn(),
