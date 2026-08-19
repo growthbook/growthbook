@@ -1,9 +1,8 @@
 ---
-title: React Native
+title: React Native SDK
 description: GrowthBook SDK for React Native
 slug: react-native
 toc_max_heading_level: 5
-sidebarTitle: React Native SDK
 ---
 
 import { ExternalLink } from "/snippets/ExternalLink.jsx";
@@ -18,24 +17,9 @@ This is a thin wrapper on top of the [Javascript Library](/lib/js), so you might
 
 Install with a package manager
 
-<CodeGroup>
-```bash npm
+```bash npm2yarn
 npm install --save @growthbook/growthbook-react
 ```
-
-```bash Yarn
-yarn add --save @growthbook/growthbook-react
-```
-
-```bash pnpm
-pnpm add --save @growthbook/growthbook-react
-```
-
-```bash bun
-bun add @growthbook/growthbook-react
-```
-
-</CodeGroup>
 
 ## Quick Usage
 
@@ -51,10 +35,11 @@ const gb = new GrowthBook({
   clientKey: "sdk-abc123",
   // Only required for A/B testing
   // Called every time a user is put into an experiment
-  trackingCallback: (experiment, result) => {
+  trackingCallback: (experiment, result, user) => {
     console.log("Experiment Viewed", {
       experimentId: experiment.key,
       variationId: result.key,
+      attributes: user?.attributes,
     });
   },
 });
@@ -251,24 +236,9 @@ The GrowthBook SDK supports streaming with Server-Sent Events (SSE). When enable
 
 React Native does not support SSE out-of-the-box, but there is a small helper library you can install:
 
-<CodeGroup>
-```bash npm
+```bash npm2yarn
 npm install --save react-native-sse
 ```
-
-```bash Yarn
-yarn add --save react-native-sse
-```
-
-```bash pnpm
-pnpm add --save react-native-sse
-```
-
-```bash bun
-bun add react-native-sse
-```
-
-</CodeGroup>
 
 The, tell GrowthBook to use this polyfill:
 
@@ -330,24 +300,9 @@ In order to use persistent storage, you must provide a polyfill with the same me
 
 Here's an example using AsyncStorage
 
-<CodeGroup>
-```bash npm
+```bash npm2yarn
 npm install --save @react-native-async-storage/async-storage
 ```
-
-```bash Yarn
-yarn add --save @react-native-async-storage/async-storage
-```
-
-```bash pnpm
-pnpm add --save @react-native-async-storage/async-storage
-```
-
-```bash bun
-bun add @react-native-async-storage/async-storage
-```
-
-</CodeGroup>
 
 ```jsx
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -393,15 +348,18 @@ In order to run A/B tests, you need to set up a tracking callback function. This
 const gb = new GrowthBook({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
-  trackingCallback: (experiment, result) => {
+  trackingCallback: (experiment, result, user) => {
     // Example using Segment
     analytics.track("Experiment Viewed", {
       experimentId: experiment.key,
       variationId: result.key,
+      attributes: user?.attributes,
     });
   },
 });
 ```
+
+Starting in version 1.7.0, the callback receives a third `user` argument: a `TrackingUserContext` containing the `attributes` and optional `url` used when the experiment was evaluated. We recommend recording attributes from this argument so exposure events consistently reflect the attributes GrowthBook used for targeting and assignment.
 
 This same tracking callback is used for both feature flag experiments and Visual Editor experiments.
 
