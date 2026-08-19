@@ -264,10 +264,8 @@ export const AddEditExperimentAssignmentQueryModal: FC<
         <div className="my-2 ml-3 mr-3">
           {isEventForwarderManaged ? (
             <Callout status="info" mb="4">
-              The Event Forwarder manages this query and rewrites its SQL when
-              your hash attributes change. Saving any edit makes it yours: it
-              stops updating automatically, and a new managed query is created
-              alongside it.
+              Managed by the Event Forwarder. Saving any edit takes ownership
+              and stops automatic updates.
             </Callout>
           ) : null}
           <div className="row">

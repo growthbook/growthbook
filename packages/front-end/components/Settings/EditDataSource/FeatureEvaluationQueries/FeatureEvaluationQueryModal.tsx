@@ -124,8 +124,8 @@ export const FeatureEvaluationQueryModal: FC<FeatureEvaluationQueryProps> = ({
         <div className="my-2 ml-3 mr-3">
           {isEventForwarderManaged ? (
             <Callout status="info" mb="4">
-              The Event Forwarder manages this query. Saving any edit makes it
-              yours and it stops being managed.
+              Managed by the Event Forwarder. Saving any edit takes ownership
+              and stops automatic updates.
             </Callout>
           ) : null}
           <div className="row">

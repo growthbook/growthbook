@@ -259,9 +259,8 @@ export default function FactTableModal({
       >
         {isEventForwarderManaged ? (
           <Callout status="info" mb="4">
-            The Event Forwarder manages this Fact Table and rewrites its SQL,
-            columns, and identifier types when your attributes change. Saving
-            any edit makes it yours: it stops updating automatically.
+            Managed by the Event Forwarder. Saving any edit takes ownership and
+            stops automatic updates.
           </Callout>
         ) : null}
 
