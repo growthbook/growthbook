@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { RequireReview } from "shared/types/organization";
+import {
+  ApprovalFlowConfiguration,
+  RequireReview,
+} from "shared/types/organization";
 import {
   ALL_PROJECTS_SCOPE,
+  displayedFlagRule,
+  displayedSavedGroupRule,
   overrideScopes,
   ruleForScope,
   scopeKey,
@@ -75,5 +80,62 @@ describe("approval scope keys", () => {
       "prj_a",
       "prj_a,prj_b",
     ]);
+  });
+});
+
+// Regression: your dev org stores savedGroups as [{required:true}] with no
+// `projects` field, so an override tab found no rule and rendered "off".
+describe("displayed rule for a scope with no rule of its own", () => {
+  it("shows the inherited flag rule, not an empty one", () => {
+    const rules = [
+      {
+        requireReviewOn: true,
+        resetReviewOnChange: false,
+        environments: ["production"],
+        projects: [],
+        requiredApproverTeams: ["t_sec"],
+      } as RequireReview,
+    ];
+
+    const shown = displayedFlagRule(rules, "prj_a");
+    expect(shown.requireReviewOn).toBe(true);
+    expect(shown.requiredApproverTeams).toEqual(["t_sec"]);
+    // Re-pointed at this scope, so editing it writes an override.
+    expect(shown.projects).toEqual(["prj_a"]);
+  });
+
+  it("shows the inherited saved-group rule when the stored row predates projects", () => {
+    const legacy = [
+      { required: true, autopublishOnApproval: true },
+    ] as ApprovalFlowConfiguration[];
+
+    const shown = displayedSavedGroupRule(legacy, "prj_a");
+    expect(shown.required).toBe(true);
+    expect(shown.autopublishOnApproval).toBe(true);
+    expect(shown.projects).toEqual(["prj_a"]);
+  });
+
+  it("falls back to off when nothing governs the scope", () => {
+    expect(displayedFlagRule([], "prj_a").requireReviewOn).toBe(false);
+    expect(displayedSavedGroupRule([], "prj_a").required).toBe(false);
+  });
+
+  it("prefers the scope's own rule over anything inherited", () => {
+    const rules = [
+      {
+        requireReviewOn: true,
+        resetReviewOnChange: false,
+        environments: [],
+        projects: [],
+      } as RequireReview,
+      {
+        requireReviewOn: false,
+        resetReviewOnChange: false,
+        environments: [],
+        projects: ["prj_a"],
+      } as RequireReview,
+    ];
+
+    expect(displayedFlagRule(rules, "prj_a").requireReviewOn).toBe(false);
   });
 });

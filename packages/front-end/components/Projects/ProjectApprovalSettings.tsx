@@ -15,6 +15,8 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import {
+  displayedFlagRule,
+  displayedSavedGroupRule,
   flagRuleDefaults,
   ruleForScope,
   savedGroupRuleDefaults,
@@ -47,14 +49,12 @@ export default function ProjectApprovalSettings({
     : [];
   const storedSavedGroupRules = settings.approvalFlows?.savedGroups ?? [];
 
-  const [flagRule, setFlagRule] = useState<RequireReview>(
-    () => ruleForScope(storedFlagRules, project) ?? flagRuleDefaults(project),
+  const [flagRule, setFlagRule] = useState<RequireReview>(() =>
+    displayedFlagRule(storedFlagRules, project),
   );
   const [savedGroupRule, setSavedGroupRule] =
-    useState<ApprovalFlowConfiguration>(
-      () =>
-        ruleForScope(storedSavedGroupRules, project) ??
-        savedGroupRuleDefaults(project),
+    useState<ApprovalFlowConfiguration>(() =>
+      displayedSavedGroupRule(storedSavedGroupRules, project),
     );
   const [saving, setSaving] = useState(false);
 

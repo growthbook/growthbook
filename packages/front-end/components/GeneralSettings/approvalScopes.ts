@@ -2,6 +2,8 @@ import {
   ApprovalFlowConfiguration,
   RequireReview,
 } from "shared/types/organization";
+import { getReviewSetting } from "shared/util";
+import { getApprovalFlowRules } from "shared/enterprise";
 
 // A scope is a rule's selector, flattened: "" is all projects, otherwise the
 // rule's project ids sorted and comma-joined. Keying on the whole selector (not
@@ -63,4 +65,38 @@ export function overrideScopes(families: Scoped[][]): string[] {
     }),
   );
   return [...scopes];
+}
+
+// What a scope's fields should SHOW when it has no stored rule of its own: the
+// rule it inherits, not an empty one. Falling back to defaults would render an
+// inherited "approval required" as off — the opposite of what governs.
+export function displayedFlagRule(
+  rules: RequireReview[],
+  scope: string,
+): RequireReview {
+  const own = ruleForScope(rules, scope);
+  if (own) return own;
+  const inherited = getReviewSetting(rules, {
+    project: scopeProjects(scope)[0],
+  });
+  return inherited
+    ? { ...inherited, projects: scopeProjects(scope) }
+    : flagRuleDefaults(scope);
+}
+
+export function displayedSavedGroupRule(
+  rules: ApprovalFlowConfiguration[],
+  scope: string,
+): ApprovalFlowConfiguration {
+  const own = ruleForScope(rules, scope);
+  if (own) return own;
+  // The rules, not the combined policy: only these carry requiredApproverTeams.
+  const inherited = getApprovalFlowRules(
+    { savedGroups: rules },
+    "saved-group",
+    scopeProjects(scope),
+  )[0];
+  return inherited
+    ? { ...inherited, projects: scopeProjects(scope) }
+    : savedGroupRuleDefaults(scope);
 }

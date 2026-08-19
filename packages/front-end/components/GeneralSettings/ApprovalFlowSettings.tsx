@@ -18,10 +18,9 @@ import SelectField from "@/components/Forms/SelectField";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import {
   ALL_PROJECTS_SCOPE,
-  flagRuleDefaults,
   overrideScopes,
-  ruleForScope,
-  savedGroupRuleDefaults,
+  displayedFlagRule,
+  displayedSavedGroupRule,
   scopeProjects,
   withRuleForScope,
   withoutScope,
@@ -160,10 +159,7 @@ export default function ApprovalFlowSettings() {
                       </Text>
                       <FlagApprovalFields
                         idPrefix={`flags-${scope || "all"}`}
-                        value={
-                          ruleForScope(flagRules, scope) ??
-                          flagRuleDefaults(scope)
-                        }
+                        value={displayedFlagRule(flagRules, scope)}
                         onChange={(next) => setFlagRule(scope, next)}
                       />
                     </Frame>
@@ -179,10 +175,7 @@ export default function ApprovalFlowSettings() {
                       </Text>
                       <SavedGroupApprovalFields
                         idPrefix={`saved-groups-${scope || "all"}`}
-                        value={
-                          ruleForScope(savedGroupRules, scope) ??
-                          savedGroupRuleDefaults(scope)
-                        }
+                        value={displayedSavedGroupRule(savedGroupRules, scope)}
                         onChange={(next) => setSavedGroupRule(scope, next)}
                       />
                     </Frame>
