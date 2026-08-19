@@ -916,53 +916,65 @@ export default function ResultsTable({
                                   typeof rowResults === "object" &&
                                   "computeError" in rowResults
                                 ) {
-                                  return drawEmptyRow({
-                                    key: j,
-                                    className:
-                                      "results-variation-row align-items-center error-row",
-                                    labelColSpan: includedLabelColumns.length,
-                                    renderLabel:
-                                      includedLabelColumns.length > 0,
-                                    renderGraph:
-                                      columnsToDisplay.includes("CI Graph"),
-                                    renderLastColumn:
-                                      columnsToDisplay.includes("Lift"),
-                                    label: (
-                                      <div
-                                        className={`d-flex align-items-center ml-2 ${
-                                          row.isChildRow
-                                            ? "pl-4"
-                                            : dimension
-                                              ? "pl-2"
-                                              : "pl-3"
-                                        }`}
-                                      >
-                                        <VariationLabel
-                                          number={v.index}
-                                          name={v.name}
-                                          size="md"
-                                        />
-                                        <HelperText
-                                          status="error"
-                                          size="sm"
-                                          mx="2"
-                                        >
-                                          {rowResults.computeError}
-                                        </HelperText>
-                                      </div>
-                                    ),
-                                    graphCellWidth: columnsToDisplay.includes(
-                                      "CI Graph",
+                                  const errorColSpan =
+                                    columnsToDisplay.length -
+                                    (columnsToDisplay.includes(
+                                      "Metric & Variation Names",
                                     )
-                                      ? graphCellWidth
-                                      : 0,
-                                    rowHeight: compactResults
-                                      ? ROW_HEIGHT + 10
-                                      : ROW_HEIGHT,
-                                    id,
-                                    domain,
-                                    ssrPolyfills,
-                                  });
+                                      ? 1
+                                      : 0);
+                                  return (
+                                    <tr
+                                      key={j}
+                                      className="results-variation-row align-items-center error-row"
+                                      style={{
+                                        height: compactResults
+                                          ? ROW_HEIGHT + 10
+                                          : ROW_HEIGHT,
+                                      }}
+                                    >
+                                      {columnsToDisplay.includes(
+                                        "Metric & Variation Names",
+                                      ) && (
+                                        <td
+                                          className="variation position-relative"
+                                          style={{
+                                            width: 220 * tableCellScale,
+                                          }}
+                                        >
+                                          <div
+                                            className={`d-flex align-items-center ml-2 ${
+                                              row.isChildRow
+                                                ? "pl-4"
+                                                : dimension
+                                                  ? "pl-2" // less padding because no expansion buttons
+                                                  : "pl-3"
+                                            }`}
+                                            style={{
+                                              width: 200 * tableCellScale,
+                                            }}
+                                          >
+                                            <VariationLabel
+                                              number={v.index}
+                                              name={v.name}
+                                              size="md"
+                                            />
+                                          </div>
+                                        </td>
+                                      )}
+                                      {errorColSpan > 0 && (
+                                        <td colSpan={errorColSpan}>
+                                          <HelperText
+                                            status="error"
+                                            size="sm"
+                                            mx="2"
+                                          >
+                                            {rowResults.computeError}
+                                          </HelperText>
+                                        </td>
+                                      )}
+                                    </tr>
+                                  );
                                 }
                                 if (
                                   rowResults === "query error" ||

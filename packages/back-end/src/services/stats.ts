@@ -577,16 +577,13 @@ export function parseStatsEngineResult({
     result.forEach(({ metric, analyses, error, traceback }) => {
       const metricError = error ?? null;
       if (metricError !== null) {
-        const errorMessage = traceback
-          ? `${metricError}\n\n${traceback}`
-          : metricError;
-        // log once per metric, not once per requested analysis
         if (i === 0) {
           logger.error(
-            "Metric analysis failed in stats engine:\n" + errorMessage,
+            "Metric analysis failed in stats engine:\n" +
+              (traceback ? `${metricError}\n\n${traceback}` : metricError),
           );
         }
-        metricErrors.set(metric, errorMessage);
+        metricErrors.set(metric, metricError);
         return;
       }
 

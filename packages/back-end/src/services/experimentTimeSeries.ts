@@ -233,6 +233,11 @@ export async function updateExperimentAnalysisTimeSeries({
     );
 
     for (const metricId of allMetricIds) {
+      const metricHasError = baseResult.variations.some(
+        (variation) => variation.metrics[metricId]?.errorMessage !== undefined,
+      );
+      if (metricHasError) continue;
+
       const variations: MetricTimeSeriesVariation[] = variationIds.map(
         (v, variationIndex) => {
           const relativeMetric =
