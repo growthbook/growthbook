@@ -324,8 +324,7 @@ export function ApprovalScopeSections({
         <Text as="p" size="md" mb="4" color="text-low">
           All changes to Feature Flags, Configs and Constants are tracked as
           revisions. Requiring approvals adds a review step before any change
-          goes live. Kill switch changes always prompt a confirmation regardless
-          of approval settings.
+          goes live.
         </Text>
         <FlagApprovalFields
           idPrefix={`flags-${idPrefix}`}
