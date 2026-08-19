@@ -128,6 +128,30 @@ export async function getQueryMap(
   return map;
 }
 
+export async function fetchQueriesByIdMap(
+  context: ReqContext,
+  ids: readonly string[],
+): Promise<Map<string, QueryInterface>> {
+  const uniqueIds = Array.from(new Set(ids));
+  if (uniqueIds.length === 0) return new Map();
+  const queryDocs = await getQueriesByIds(context, uniqueIds);
+  return new Map(queryDocs.map((query) => [query.id, query]));
+}
+
+export function buildQueryMapFromPointers(
+  pointers: Queries,
+  queriesById: ReadonlyMap<string, QueryInterface>,
+): QueryMap {
+  const queryMap: QueryMap = new Map();
+  pointers.forEach((pointer) => {
+    const query = queriesById.get(pointer.query);
+    if (query) {
+      queryMap.set(pointer.name, query);
+    }
+  });
+  return queryMap;
+}
+
 export abstract class QueryRunner<
   Model extends InterfaceWithQueries,
   Params,

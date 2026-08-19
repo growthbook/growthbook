@@ -4,6 +4,8 @@ import {
   QueryRunner,
   QueryMap,
   InterfaceWithQueries,
+  buildQueryMapFromPointers,
+  fetchQueriesByIdMap,
   getQueryFailureError,
 } from "back-end/src/queryRunners/QueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
@@ -144,6 +146,77 @@ describe("getQueryFailureError", () => {
   it("returns the generic message when no failed query has an error", () => {
     const error = getQueryFailureError(makeFailedQueryMap(["a", { id: "q1" }]));
     expect(error).toBe("Failed to run a majority of the database queries");
+  });
+});
+
+describe("batched query hydration", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("fetches each query id once and indexes hydrated documents", async () => {
+    const queryA = createMockQuery("qry_a", "succeeded");
+    const queryB = createMockQuery("qry_b", "failed");
+    (getQueriesByIds as jest.Mock).mockResolvedValue([queryA, queryB]);
+
+    const queriesById = await fetchQueriesByIdMap(createMockContext(), [
+      queryA.id,
+      queryB.id,
+      queryA.id,
+    ]);
+
+    expect(getQueriesByIds).toHaveBeenCalledWith(expect.anything(), [
+      queryA.id,
+      queryB.id,
+    ]);
+    expect(queriesById).toEqual(
+      new Map([
+        [queryA.id, queryA],
+        [queryB.id, queryB],
+      ]),
+    );
+  });
+
+  it("does not fetch when there are no query ids", async () => {
+    await expect(fetchQueriesByIdMap(createMockContext(), [])).resolves.toEqual(
+      new Map(),
+    );
+    expect(getQueriesByIds).not.toHaveBeenCalled();
+  });
+
+  it("builds isolated name maps for snapshots with colliding names", () => {
+    const queryA = createMockQuery("qry_a", "succeeded");
+    const queryB = createMockQuery("qry_b", "succeeded");
+    const queriesById = new Map([
+      [queryA.id, queryA],
+      [queryB.id, queryB],
+    ]);
+
+    const snapshotA = buildQueryMapFromPointers(
+      [{ name: "group_0", query: queryA.id, status: "succeeded" }],
+      queriesById,
+    );
+    const snapshotB = buildQueryMapFromPointers(
+      [{ name: "group_0", query: queryB.id, status: "succeeded" }],
+      queriesById,
+    );
+
+    expect(snapshotA.get("group_0")).toBe(queryA);
+    expect(snapshotB.get("group_0")).toBe(queryB);
+  });
+
+  it("supports multiple pointer names for one hydrated query", () => {
+    const query = createMockQuery("qry_shared", "succeeded");
+    const queryMap = buildQueryMapFromPointers(
+      [
+        { name: "group_0", query: query.id, status: "succeeded" },
+        { name: "metric", query: query.id, status: "succeeded" },
+      ],
+      new Map([[query.id, query]]),
+    );
+
+    expect(queryMap.get("group_0")).toBe(query);
+    expect(queryMap.get("metric")).toBe(query);
   });
 });
 
