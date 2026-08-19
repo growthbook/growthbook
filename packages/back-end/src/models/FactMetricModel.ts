@@ -463,8 +463,6 @@ export class FactMetricModel extends BaseClass {
     const factTableId = steps[0].factTableId;
     const factTable = factTableMap.get(factTableId);
     if (!factTable) {
-      // Unreachable — the rules above resolve every step's fact table — but
-      // this narrows the type for the saved-filter check below.
       throw new Error("Could not find funnel fact table");
     }
 

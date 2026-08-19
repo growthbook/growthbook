@@ -113,8 +113,7 @@ export interface ExplorerContextValue {
    *  so it survives a refresh and travels with a shared link. */
   linkedFunnelMetricId: string | null;
   setLinkedFunnelMetricId: (metricId: string | null) => void;
-  /** True when a metric is linked and its steps have since been edited, so
-   *  callers can offer "update the metric" alongside "save as new". Always
+  /** True when a metric is linked and its steps have since been edited,
    *  false when nothing is linked. */
   funnelLinkIsDirty: boolean;
 }
@@ -142,8 +141,6 @@ interface ExplorerProviderProps {
   children: ReactNode;
   initialConfig: ExplorerDraftConfig;
   initialSubmittedConfig?: ExplorerDraftConfig;
-  /** Funnel metric this exploration was opened from (`?funnelMetricId=`), so a
-   *  shared link or a refresh keeps the link rather than resetting to "None". */
   initialLinkedFunnelMetricId?: string | null;
   hasExistingResults?: boolean;
   onRunComplete?: (
@@ -212,9 +209,6 @@ export function ExplorerProvider({
     };
   });
   const [isStale, setIsStale] = useState(false);
-  // Funnel fact metric the current funnel was loaded from. Session state
-  // rather than part of ExplorationConfig: adding a field to the (strict)
-  // funnel dataset schema would also change dashboard blocks and share links.
   const [linkedFunnelMetricId, setLinkedFunnelMetricId] = useState<
     string | null
   >(initialLinkedFunnelMetricId);

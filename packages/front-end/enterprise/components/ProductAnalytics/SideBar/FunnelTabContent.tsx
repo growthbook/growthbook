@@ -70,10 +70,7 @@ export default function FunnelTabContent() {
 
   const [uiState, setUiState] = useState<StepUiState[]>(() => {
     // When the page initializes from a URL/saved config, steps already
-    // have fact tables and filters — show them collapsed so the user
-    // sees the funnel shape, not a wall of expanded editors. The "fresh"
-    // case (single step with no fact table) starts expanded so there's
-    // a ready-to-edit form.
+    // have fact tables and filters
     const initialSteps = isFunnel
       ? (draftExploreState.dataset as FunnelDataset).steps
       : [];
@@ -145,9 +142,6 @@ export default function FunnelTabContent() {
     });
   }, [factTables, funnelStepFactTablesKey, setDraftExploreState]);
 
-  // Funnel fact metrics that can be loaded into this builder. Scoped to the
-  // exploration's datasource (steps can only reference its fact tables) and
-  // the active project, matching every other metric picker.
   const funnelMetricOptions = useMemo(
     () =>
       factMetrics
@@ -172,16 +166,7 @@ export default function FunnelTabContent() {
     setUiState([{ collapsed: false, userExpanded: false }]);
   }, [clearAllDatasets, draftExploreState.datasource]);
 
-  // Switching project clears the funnel outright — steps included, linked or
-  // not. A funnel is defined by fact tables and metrics that are themselves
-  // project-scoped, so carrying one across a project switch means showing (and
-  // being able to Analyze) another project's data under the new project's
-  // heading. Clearing the link alone isn't enough: the steps are the funnel.
-  //
-  // Deliberately unconditional. A hand-built funnel on an All-Projects fact
-  // table would technically still be valid, but "sometimes it survives" is a
-  // worse rule to hold than "changing project starts fresh", and exploration
-  // is cheap to redo by design (§7 decision 7).
+  // Switching project clears the funnel outright — steps included, linked or not.
   const previousProjectRef = useRef(project);
   useEffect(() => {
     if (previousProjectRef.current === project) return;
@@ -189,16 +174,7 @@ export default function FunnelTabContent() {
     resetToNewFunnel();
   }, [project, resetToNewFunnel]);
 
-  // The funnel outlives its own definitions in more ways than a project
-  // switch. Switching *organization* is the sharpest: the config survives in
-  // `?config=` while every fact table it names belongs to the org you left, so
-  // the steps render raw ids like `ftb_19wub…` and nothing can resolve. The
-  // same happens if a fact table is deleted underneath you.
-  //
-  // So rather than watching identity (project, org), watch the thing that
-  // actually matters: can every step still resolve its fact table? That covers
-  // org switches, deleted fact tables, and any future scope change, without
-  // needing to know which one happened.
+  // prevents steps from presisting if switching orgs/datasources changes what fact tables are accessible
   const hasUnresolvableStep = useMemo(() => {
     if (!ready || draftExploreState.dataset?.type !== "funnel") return false;
     return draftExploreState.dataset.steps.some(
@@ -218,8 +194,7 @@ export default function FunnelTabContent() {
     if (funnelMetricOptions.some((o) => o.value === linkedFunnelMetricId)) {
       return;
     }
-    // The link is optional metadata; the funnel itself can remain valid after
-    // the source metric is archived, deleted, or moves out of scope.
+
     setLinkedFunnelMetricId(null);
   }, [
     ready,
@@ -257,8 +232,6 @@ export default function FunnelTabContent() {
       } as ExplorationConfig;
     });
     setLinkedFunnelMetricId(metricId);
-    // Loaded steps are already configured, so show the funnel's shape rather
-    // than a stack of open editors (same rationale as initializing from a URL).
     setInstantCollapseTransition(true);
     setUiState(
       metric.funnelSettings.steps.map(() => ({
@@ -381,10 +354,6 @@ export default function FunnelTabContent() {
             </SelectItem>
           ))}
           {funnelMetricOptions.length > 0 && <SelectSeparator />}
-          {/* An action, not a "none" option: it wipes the current funnel and
-              starts clean (§7 decision 7), so it reads as something you do.
-              Never stored as the value, so picking it returns the trigger to
-              the placeholder. */}
           <SelectItem value={NEW_FUNNEL_VALUE}>
             <Flex align="center" gap="2">
               <PiPlus size={14} />
@@ -392,9 +361,6 @@ export default function FunnelTabContent() {
             </Flex>
           </SelectItem>
         </Select>
-        {/* A callout rather than plain help text: this explains a
-            non-obvious relationship (edits here don't touch the metric), so
-            it needs to read as something to notice, not page furniture. */}
         <Callout status="info" size="sm" mt="1">
           {funnelMetricOptions.length === 0
             ? "No saved funnel metrics on this data source yet."
