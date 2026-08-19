@@ -8,6 +8,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import {
   getApplicableEnvIds,
+  getEnabledHoldoutEnvironments,
   HoldoutStage,
   PermissionError,
 } from "shared/util";
@@ -25,6 +26,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   setHoldoutStage,
+  assertCanUpdateHoldout,
   assertHoldoutScopeCoversLinked,
   createHoldoutWithExperiment,
   deleteHoldoutAndExperiment,
@@ -98,9 +100,7 @@ export const getHoldout = async (
     experiment: holdoutExperiment,
     linkedFeatures,
     linkedExperiments,
-    envs: Object.keys(holdout.environmentSettings).filter(
-      (e) => holdout.environmentSettings[e].enabled,
-    ),
+    envs: getEnabledHoldoutEnvironments(holdout.environmentSettings),
   });
 };
 
@@ -268,8 +268,21 @@ export const updateHoldout = async (
     updates.nextScheduledStatusUpdate = nextScheduledStatusUpdate;
   }
 
-  // Only when the scope actually changes — a Holdout already holding a stranded
-  // link (created before this guard existed) must stay editable so it can be fixed.
+  // Shared with the REST update handler. The UI never sends targeting through
+  // this path (it lives on the companion experiment), but the gate still takes
+  // the flag so both callers stay identical.
+  assertCanUpdateHoldout(context, {
+    holdout,
+    updatedProjects: updates.projects,
+    requestedEnabledEnvironments: updates.environmentSettings
+      ? getEnabledHoldoutEnvironments(updates.environmentSettings)
+      : undefined,
+    isTargetingChange: false,
+    isScheduleChange: (req.body.statusUpdateSchedule ?? null) !== null,
+  });
+
+  // Only when the scope actually changes, so a Holdout already holding a
+  // stranded link stays editable to be fixed.
   if (updates.projects && !isEqual(updates.projects, holdout.projects)) {
     await assertHoldoutScopeCoversLinked(context, holdout, updates.projects);
   }
@@ -320,6 +333,20 @@ export const editStatus = async (
     stage = "running";
   } else {
     stage = req.body.holdoutRunningStatus ?? "running";
+  }
+
+  // Starting the holdout (draft -> running) publishes to its enabled
+  // environments, so it needs run permission, mirroring the REST start path.
+  if (stage === "running" && experiment.status === "draft") {
+    const enabledEnvs = getEnabledHoldoutEnvironments(
+      holdout.environmentSettings,
+    );
+    if (
+      enabledEnvs.length > 0 &&
+      !context.permissions.canRunHoldout(holdout, enabledEnvs)
+    ) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   await setHoldoutStage(context, { holdout, experiment, stage });

@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   coverageToHoldoutSize,
   getAllowedHoldoutStageSources,
+  getEnabledHoldoutEnvironments,
   getHoldoutStage,
   HoldoutStage,
   isHoldoutStageTransitionAllowed,
@@ -34,6 +35,8 @@ import {
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import { ApiRequest } from "back-end/src/util/handler";
 import {
+  assertCanRunHoldoutEnvironments,
+  assertCanUpdateHoldout,
   createHoldoutWithExperiment,
   normalizeHoldoutScheduleUpdates,
   setHoldoutStage,
@@ -362,6 +365,13 @@ export class HoldoutModel extends BaseClass {
   ): Promise<ApiHoldoutInterface> {
     const body = apiCreateHoldoutBody.parse(req.body);
 
+    if (body.statusUpdateSchedule !== undefined) {
+      assertCanRunHoldoutEnvironments(this.context, {
+        enabledEnvironments: getEnabledHoldoutEnvironments(body.environments),
+        projects: body.projects ?? [],
+      });
+    }
+
     const owner = await resolveOwnerForCreate(body.owner, this.context);
 
     const { holdout, experiment } = await createHoldoutWithExperiment(
@@ -421,58 +431,17 @@ export class HoldoutModel extends BaseClass {
     if (!holdout) req.context.throwNotFoundError();
     const experiment = await this.getExperimentOrThrow(holdout);
 
-    // Gate every path explicitly. Writes to the companion experiment go through
-    // `updateExperiment`, which does no permission checking of its own, and a
-    // body touching only experiment-side fields never reaches `this.update`.
-    if (
-      !this.context.permissions.canUpdateHoldout(holdout, {
-        projects: body.projects ?? holdout.projects,
-      })
-    ) {
-      this.context.permissions.throwPermissionError();
-    }
-
-    // Targeting, sizing, and environment changes reach live SDK payloads, so
-    // they additionally require run permission on the Holdout's environments —
-    // the same bar the internal targeting endpoint applies. The environment map
-    // is replaced wholesale by the write below, so authorize the union of the
-    // currently enabled environments and the ones this request would enable;
-    // otherwise a request could deploy targeting to an environment the caller
-    // lacks run permission on.
-    const isTargetingChange = HOLDOUT_API_TARGETING_UPDATE_FIELDS.some(
-      (field) => body[field] !== undefined,
-    );
-    const isEnvironmentChange = body.environments !== undefined;
-    if (isTargetingChange || isEnvironmentChange) {
-      const currentlyEnabledEnvs = Object.keys(
-        holdout.environmentSettings,
-      ).filter((env) => holdout.environmentSettings[env]?.enabled);
-      const requestedEnabledEnvs = body.environments
-        ? Object.keys(body.environments).filter(
-            (env) => body.environments?.[env]?.enabled,
-          )
-        : [];
-      const envs = Array.from(
-        new Set([...currentlyEnabledEnvs, ...requestedEnabledEnvs]),
-      );
-      // Authorize against the current project scope and, when the request moves
-      // the Holdout, the destination scope too — otherwise a request could
-      // deploy targeting under a project the caller lacks run permission on.
-      // Each scope is checked separately because an empty projects array means
-      // global scope, which merging into one array would silently drop.
-      const projectScopes = [holdout.projects];
-      if (body.projects !== undefined) {
-        projectScopes.push(body.projects);
-      }
-      if (
-        envs.length > 0 &&
-        !projectScopes.every((projects) =>
-          this.context.permissions.canRunHoldout({ projects }, envs),
-        )
-      ) {
-        this.context.permissions.throwPermissionError();
-      }
-    }
+    assertCanUpdateHoldout(this.context, {
+      holdout,
+      updatedProjects: body.projects,
+      requestedEnabledEnvironments: body.environments
+        ? getEnabledHoldoutEnvironments(body.environments)
+        : undefined,
+      isTargetingChange: HOLDOUT_API_TARGETING_UPDATE_FIELDS.some(
+        (field) => body[field] !== undefined,
+      ),
+      isScheduleChange: (body.statusUpdateSchedule ?? null) !== null,
+    });
 
     const { holdout: updated, experiment: updatedExperiment } =
       await updateHoldoutWithExperiment(this.context, {

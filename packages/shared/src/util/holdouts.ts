@@ -9,6 +9,23 @@ export const MAX_HOLDOUT_SIZE = 0.5;
 
 export const DEFAULT_HOLDOUT_SIZE = 0.05;
 
+/**
+ * Enabled environment ids from a holdout-style environment map. Accepts both the
+ * internal `environmentSettings` shape and the REST `environments` shape since
+ * both expose `enabled`.
+ */
+export function getEnabledHoldoutEnvironments(
+  environmentSettings:
+    | Record<string, { enabled?: boolean } | undefined>
+    | undefined
+    | null,
+): string[] {
+  if (!environmentSettings) return [];
+  return Object.keys(environmentSettings).filter(
+    (env) => environmentSettings[env]?.enabled,
+  );
+}
+
 export function holdoutSizeToCoverage(holdoutSize: number): number {
   return holdoutSize * 2;
 }

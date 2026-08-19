@@ -1,9 +1,11 @@
 import { v4 as uuidv4 } from "uuid";
+import isEqual from "lodash/isEqual";
 import { getValidDate } from "shared/dates";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import {
   DEFAULT_HOLDOUT_SIZE,
   generateVariationId,
+  getEnabledHoldoutEnvironments,
   getHoldoutStage,
   holdoutSizeToCoverage,
   HoldoutStage,
@@ -52,6 +54,69 @@ import {
   validateExperimentData,
   validateVariationIds,
 } from "back-end/src/services/experiments";
+
+export function assertCanRunHoldoutEnvironments(
+  context: ReqContext | ApiReqContext,
+  {
+    enabledEnvironments,
+    projects,
+  }: {
+    enabledEnvironments: string[];
+    projects: string[];
+  },
+): void {
+  if (enabledEnvironments.length === 0) return;
+  if (!context.permissions.canRunHoldout({ projects }, enabledEnvironments)) {
+    context.permissions.throwPermissionError();
+  }
+}
+
+/**
+ * Update authorization shared by the REST API (`handleApiUpdate`) and the UI
+ * endpoint (`updateHoldout`) so the two cannot drift. Update permission is
+ * always required (on the current and, when moving the Holdout, destination
+ * scope). Targeting/sizing and schedule changes reach live SDK payloads, so
+ * they additionally require run permission on the union of current and
+ * newly-requested environments; environment-only changes and clearing the
+ * schedule do not. The UI never sends targeting here but still passes the flag.
+ */
+export function assertCanUpdateHoldout(
+  context: ReqContext | ApiReqContext,
+  {
+    holdout,
+    updatedProjects,
+    requestedEnabledEnvironments,
+    isTargetingChange,
+    isScheduleChange,
+  }: {
+    holdout: HoldoutInterface;
+    updatedProjects?: string[];
+    requestedEnabledEnvironments?: string[];
+    isTargetingChange: boolean;
+    isScheduleChange: boolean;
+  },
+): void {
+  if (
+    !context.permissions.canUpdateHoldout(holdout, {
+      projects: updatedProjects ?? holdout.projects,
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  if (!isTargetingChange && !isScheduleChange) return;
+
+  const enabledEnvironments = Array.from(
+    new Set([
+      ...getEnabledHoldoutEnvironments(holdout.environmentSettings),
+      ...(requestedEnabledEnvironments ?? []),
+    ]),
+  );
+  assertCanRunHoldoutEnvironments(context, {
+    enabledEnvironments,
+    projects: updatedProjects ?? holdout.projects,
+  });
+}
 
 export async function canLinkExperimentToHoldoutFromFeatures(
   context: ReqContext | ApiReqContext,
@@ -368,6 +433,16 @@ export async function updateHoldoutWithExperiment(
     body: ApiUpdateHoldoutBody;
   },
 ): Promise<{ holdout: HoldoutInterface; experiment: ExperimentInterface }> {
+  // Narrowing the scope must not strand linked entities (matches the internal
+  // update endpoint). Only when it actually changes, so a Holdout already
+  // holding a stranded link stays editable to be fixed.
+  if (
+    body.projects !== undefined &&
+    !isEqual(body.projects, holdout.projects)
+  ) {
+    await assertHoldoutScopeCoversLinked(context, holdout, body.projects);
+  }
+
   const experimentChanges: Partial<ExperimentInterface> = {};
 
   // 1. Phase-level targeting and sizing.
