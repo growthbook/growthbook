@@ -164,6 +164,12 @@ export function columnsHaveAutoSlices(
   return (columns ?? []).some((c) => !!c.isAutoSliceColumn || !!c.autoSlices);
 }
 
+export function columnsNeedDetection(
+  columns?: Array<{ datatype?: string }>,
+): boolean {
+  return (columns ?? []).some((c) => !c.datatype);
+}
+
 function isValidIanaTimezone(timezone: string): boolean {
   try {
     Intl.DateTimeFormat(undefined, { timeZone: timezone });

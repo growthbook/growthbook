@@ -116,30 +116,60 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
   const datasource = await getDataSourceById(context, factTable.datasource);
   if (!datasource) return;
 
-  const updates: Partial<
+  const columnDetectionChanges: Partial<
     Pick<
       FactTableInterface,
       "columns" | "columnsError" | "columnRefreshPending" | "userIdTypes"
     >
   > = {};
+  let detectedColumns: ColumnInterface[] | null = null;
 
   try {
-    const columns = await runRefreshColumnsQuery(
+    detectedColumns = await runColumnDetectionQuery(
       context,
       datasource,
       factTable,
     );
-    updates.columns = columns;
-    updates.columnsError = null;
-
-    updates.userIdTypes = deriveUserIdTypesFromColumns(datasource, columns);
+    columnDetectionChanges.columns = detectedColumns;
+    columnDetectionChanges.columnsError = null;
+    columnDetectionChanges.userIdTypes = deriveUserIdTypesFromColumns(
+      datasource,
+      detectedColumns,
+    );
   } catch (e) {
-    updates.columnsError = e.message;
+    columnDetectionChanges.columnsError = e.message;
   }
 
-  // Always set columnRefreshPending to false - job is done (even if it failed)
-  updates.columnRefreshPending = false;
-  await updateFactTableColumns(factTable, updates, context);
+  // Column types are now known (or detection failed). Clear pending status before the slow top-values
+  // scan so metric creation unblocks as soon as types are available.
+  columnDetectionChanges.columnRefreshPending = false;
+  await updateFactTableColumns(factTable, columnDetectionChanges, context);
+
+  // Top values can take minutes on large tables. Run
+  // and persist them after column detection is complete.
+  if (detectedColumns) {
+    const refreshedColumns = await populateColumnTopValues(
+      context,
+      datasource,
+      factTable,
+      detectedColumns,
+    );
+    if (refreshedColumns.length === 0) return;
+
+    const currentFactTable = await getFactTable(context, factTableId);
+    if (!currentFactTable) return;
+
+    const updatedColumns = mergeRefreshedTopValues({
+      currentColumns: currentFactTable.columns,
+      currentUserIdTypes: currentFactTable.userIdTypes,
+      refreshedColumns,
+    });
+    await updateFactTableColumns(
+      currentFactTable,
+      { columns: updatedColumns },
+      context,
+    );
+  }
 };
 
 export async function runColumnsTopValuesQuery(
@@ -220,7 +250,50 @@ export function populateAutoSlices(
   return autoSlices;
 }
 
-export async function runRefreshColumnsQuery(
+export function mergeRefreshedTopValues({
+  currentColumns,
+  currentUserIdTypes,
+  refreshedColumns,
+}: {
+  currentColumns: ColumnInterface[];
+  currentUserIdTypes: string[];
+  refreshedColumns: ColumnInterface[];
+}): ColumnInterface[] {
+  const refreshedColumnsById = new Map(
+    refreshedColumns.map((column) => [column.column, column]),
+  );
+  const eligibleCurrentColumnIds = new Set(
+    selectColumnsForTopValues({
+      columns: currentColumns,
+      userIdTypes: currentUserIdTypes,
+    }).map((column) => column.column),
+  );
+
+  return currentColumns.map((currentColumn) => {
+    if (!eligibleCurrentColumnIds.has(currentColumn.column)) {
+      return currentColumn;
+    }
+
+    const refreshedColumn = refreshedColumnsById.get(currentColumn.column);
+    if (!refreshedColumn) {
+      return currentColumn;
+    }
+
+    const updatedColumn = {
+      ...currentColumn,
+      topValues: refreshedColumn.topValues,
+      topValuesDate: refreshedColumn.topValuesDate,
+    };
+
+    if (currentColumn.isAutoSliceColumn) {
+      updatedColumn.autoSlices = refreshedColumn.autoSlices;
+    }
+
+    return updatedColumn;
+  });
+}
+
+export async function runColumnDetectionQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
   factTable: Pick<
@@ -383,6 +456,17 @@ export async function runRefreshColumnsQuery(
     Object.assign(col, normalizePersistedColumn(col));
   }
 
+  return columns;
+}
+
+/** Mutates the supplied columns and returns those enriched successfully. */
+export async function populateColumnTopValues(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  factTable: Pick<FactTableInterface, "sql" | "eventName" | "userIdTypes">,
+  columns: ColumnInterface[],
+): Promise<ColumnInterface[]> {
+  const refreshedColumns: ColumnInterface[] = [];
   const columnsNeedingTopValues = selectColumnsForTopValues({
     columns,
     userIdTypes: factTable.userIdTypes,
@@ -416,6 +500,7 @@ export async function runRefreshColumnsQuery(
               context.org.settings?.maxMetricSliceLevels,
             );
           }
+          refreshedColumns.push(col);
         }
       } catch (e) {
         logger.error(
@@ -429,7 +514,7 @@ export async function runRefreshColumnsQuery(
     }
   }
 
-  return columns;
+  return refreshedColumns;
 }
 
 let agenda: Agenda;

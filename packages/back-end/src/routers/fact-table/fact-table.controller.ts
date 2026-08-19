@@ -47,7 +47,8 @@ import {
 } from "back-end/src/services/datasource";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
-  runRefreshColumnsQuery,
+  runColumnDetectionQuery,
+  populateColumnTopValues,
   runColumnsTopValuesQuery,
   populateAutoSlices,
   queueFactTableColumnsRefresh,
@@ -350,12 +351,13 @@ export async function refreshColumns(
 
     return { columns, needsBackgroundRefresh: true };
   } else {
-    // Slow path: Full LIMIT 20 query (existing behavior)
-    const columns = await runRefreshColumnsQuery(
+    // Slow path runs full detection plus top values inline
+    const columns = await runColumnDetectionQuery(
       context,
       datasource,
       factTable,
     );
+    await populateColumnTopValues(context, datasource, factTable, columns);
     return { columns, needsBackgroundRefresh: false };
   }
 }

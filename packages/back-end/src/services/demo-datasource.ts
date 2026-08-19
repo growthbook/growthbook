@@ -310,7 +310,9 @@ async function ensureDemoFactTables(
           datatype: "string",
         },
       ],
-      columnRefreshPending: true,
+      // Datatypes are supplied above, so column detection is not pending. The
+      // refresh queued below only enriches topValues for filter autocomplete.
+      columnRefreshPending: false,
     });
 
     // Kick off a column refresh so string columns get topValues populated
@@ -353,7 +355,9 @@ async function ensureDemoFactTables(
           alwaysInlineFilter: true,
         },
       ],
-      columnRefreshPending: true,
+      // Datatypes are supplied above, so column detection is not pending. The
+      // refresh queued below only enriches topValues for filter autocomplete.
+      columnRefreshPending: false,
     });
 
     await queueFactTableColumnsRefresh(demoPageViewsFactTable);
