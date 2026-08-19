@@ -94,6 +94,8 @@ type FormValues = { variations: VariationRow[] };
 
 /** Upper bound on waiting for the dynamically-imported value editor to mount. */
 const FOCUS_WAIT_MS = 2000;
+/** Timers, not rAF: rAF is suspended while the tab is in the background. */
+const FOCUS_POLL_MS = 50;
 
 function SplitField({
   index,
@@ -276,7 +278,7 @@ export default function EditFeatureFlagValuesModal({
   // — so poll for the field rather than guessing at either boundary.
   useEffect(() => {
     if (!focusVariationId || !data) return;
-    let frame = 0;
+    let timer: ReturnType<typeof setTimeout>;
     const giveUpAt = Date.now() + FOCUS_WAIT_MS;
     const tryFocus = () => {
       const row = document.getElementById(
@@ -286,14 +288,29 @@ export default function EditFeatureFlagValuesModal({
         "textarea, input:not([type='hidden']), [contenteditable='true']",
       );
       if (field) {
-        row?.scrollIntoView({ block: "center" });
-        field.focus();
-        return;
+        if (document.activeElement === field) return;
+        // Suppressing Radix's open-autofocus leaves focus on the trigger that
+        // opened the modal, and Radix also re-targets focus as the dialog
+        // mounts, so a single call gets dropped. Re-apply until a control
+        // INSIDE the dialog holds focus — that is the only thing that means
+        // the user chose somewhere else.
+        const active = document.activeElement as HTMLElement | null;
+        const dialog = row?.closest("[role='dialog']");
+        const userMovedFocus =
+          !!active &&
+          !!dialog?.contains(active) &&
+          active.matches(
+            "input, textarea, select, button, a[href], [contenteditable='true']",
+          );
+        if (!userMovedFocus) {
+          row?.scrollIntoView({ block: "center" });
+          field.focus();
+        }
       }
-      if (Date.now() < giveUpAt) frame = requestAnimationFrame(tryFocus);
+      if (Date.now() < giveUpAt) timer = setTimeout(tryFocus, FOCUS_POLL_MS);
     };
-    frame = requestAnimationFrame(tryFocus);
-    return () => cancelAnimationFrame(frame);
+    tryFocus();
+    return () => clearTimeout(timer);
   }, [focusVariationId, data, fields.length]);
 
   // On first render `useApi` hasn't resolved yet, so `revisionList` is empty
@@ -555,6 +572,11 @@ export default function EditFeatureFlagValuesModal({
       cta="Save to draft"
       close={close}
       open={true}
+      // This modal focuses the clicked variation itself; without this Radix
+      // focuses the close button on mount and steals it back.
+      onOpenAutoFocus={(e) => {
+        if (focusVariationId) e.preventDefault();
+      }}
       size={"lg"}
     >
       {error ? (

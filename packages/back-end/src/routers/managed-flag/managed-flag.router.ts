@@ -16,6 +16,11 @@ const router = express.Router({ mergeParams: true });
 const experimentsController = wrapController(rawExperimentsController);
 const featuresController = wrapController(rawFeaturesController);
 
+// Adoption: an existing draft experiment with no implementations takes on a
+// managed flag. The key plan is a read so the modal can describe collisions
+// before anything is written.
+router.get("/key-plan", experimentsController.getExperimentManagedFlagKeyPlan);
+router.post("/", experimentsController.postExperimentManagedFlag);
 router.post("/eject", experimentsController.postExperimentManagedFlagEject);
 
 router.post(

@@ -169,6 +169,7 @@ interface Props {
   /** The values shown are an unpublished draft, not what is live. */
   servedValueIsDraft?: boolean;
   onEditServedValue?: (variationId: string) => void;
+  onAddServedValue?: (variationId: string) => void;
 }
 
 function AddVariationButton({ onClick }: { onClick: () => void }) {
@@ -238,6 +239,7 @@ export function VariationBox({
   servedValueSparse,
   servedValueIsDraft,
   onEditServedValue,
+  onAddServedValue,
 }: {
   i: number;
   v: Variation;
@@ -265,6 +267,8 @@ export function VariationBox({
   servedValueSparse?: boolean;
   servedValueIsDraft?: boolean;
   onEditServedValue?: (variationId: string) => void;
+  /** Offered instead of a value when there is no Feature Flag yet. */
+  onAddServedValue?: (variationId: string) => void;
 }) {
   const { blockFileUploads } = useOrgSettings();
   const isBandit = experiment.type === "multi-armed-bandit";
@@ -393,7 +397,7 @@ export function VariationBox({
               </Flex>
             )}
           </Flex>
-          {servedValueFeature && (
+          {servedValueFeature ? (
             <VariationServedValue
               value={servedValue ?? ""}
               feature={servedValueFeature}
@@ -403,7 +407,9 @@ export function VariationBox({
                 onEditServedValue ? () => onEditServedValue(v.id) : undefined
               }
             />
-          )}
+          ) : onAddServedValue ? (
+            <VariationServedValue onAdd={() => onAddServedValue(v.id)} />
+          ) : null}
         </Box>
       </Flex>
     </Box>
@@ -429,6 +435,7 @@ const VariationsTable: FC<Props> = ({
   servedValueSparse,
   servedValueIsDraft,
   onEditServedValue,
+  onAddServedValue,
 }) => {
   const { apiCall } = useAuth();
   const variations = getLatestPhaseVariations(experiment);
@@ -504,6 +511,7 @@ const VariationsTable: FC<Props> = ({
               servedValueSparse={servedValueSparse}
               servedValueIsDraft={servedValueIsDraft}
               onEditServedValue={onEditServedValue}
+              onAddServedValue={onAddServedValue}
               showNoImage={
                 experiment.status === "draft" || someVariationHasImage
               }

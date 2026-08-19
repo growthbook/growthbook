@@ -7,8 +7,10 @@ import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 
 /**
- * The Feature Flag value a variation serves. Only meaningful when the
- * experiment's sole implementation is a Feature Flag; callers decide that.
+ * The Feature Flag value a variation serves — or, when the experiment has no
+ * implementation yet and `onAdd` is given, the prompt to set one up. Only
+ * meaningful when the experiment's sole implementation is a Feature Flag;
+ * callers decide that.
  */
 export default function VariationServedValue({
   value,
@@ -16,14 +18,31 @@ export default function VariationServedValue({
   sparse,
   isDraft,
   onEdit,
+  onAdd,
 }: {
-  value: string;
-  feature: FeatureInterface;
+  value?: string;
+  feature?: FeatureInterface;
   sparse?: boolean;
   /** The value shown is an unpublished draft, not what is live. */
   isDraft?: boolean;
   onEdit?: () => void;
+  /** Renders the empty-state prompt instead of a value. */
+  onAdd?: () => void;
 }) {
+  if (!feature) {
+    if (!onAdd) return null;
+    return (
+      <>
+        <Separator size="4" my="3" />
+        <Link onClick={onAdd}>
+          <Text size="sm" weight="semibold">
+            Add variation value
+          </Text>
+        </Link>
+      </>
+    );
+  }
+
   return (
     <>
       <Separator size="4" my="3" />
@@ -48,7 +67,7 @@ export default function VariationServedValue({
             value={
               // Not ForceSummary — its "SERVE" prefix would double the label.
               <ValueDisplay
-                value={value}
+                value={value ?? ""}
                 type={feature.valueType}
                 sparse={sparse}
                 defaultValue={feature.defaultValue}

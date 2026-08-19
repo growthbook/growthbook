@@ -695,6 +695,22 @@ export async function getFeature(
     : null;
 }
 
+/**
+ * Existence only, and deliberately NOT permission-filtered: the unique index is
+ * org-wide, so a key held by a feature the caller cannot read is still taken.
+ * `getFeature` would report it free and the insert would then fail.
+ */
+export async function featureIdExists(
+  context: ReqContext | ApiReqContext,
+  id: string,
+): Promise<boolean> {
+  const count = await FeatureModel.countDocuments({
+    organization: context.org.id,
+    id,
+  });
+  return count > 0;
+}
+
 export async function migrateDraft(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,

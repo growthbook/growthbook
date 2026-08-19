@@ -13,6 +13,7 @@ import { Flex } from "@radix-ui/themes";
 import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
 import { useManagedExperimentFlags } from "@/hooks/useManagedExperimentFlags";
 import EditFeatureFlagValuesModal from "@/components/Experiment/LinkedChanges/EditFeatureFlagValuesModal";
+import AddManagedFlagModal from "@/components/Experiment/LinkedChanges/AddManagedFlagModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import EditVariationMetadataModal from "@/components/Experiment/EditVariationMetadataModal";
@@ -129,6 +130,24 @@ export default function Implementation({
       ? linkedFeatures[0]
       : null;
 
+  // Adoption: an experiment with nothing wired up yet can take on a managed
+  // flag. Keyed on the resolved implementation count, so a flag deleted out of
+  // band leaves the experiment back in the empty state rather than stuck.
+  const hasNoImplementations =
+    linkedFeatures.length === 0 &&
+    !experiment.hasVisualChangesets &&
+    !experiment.hasURLRedirects;
+  const canAdoptManagedFlag =
+    !isManaged &&
+    hasNoImplementations &&
+    canEditExperiment &&
+    experiment.status === "draft" &&
+    !experiment.archived &&
+    !experiment.nextScheduledStatusUpdate &&
+    permissionsUtil.canViewFeatureModal(experiment.project);
+  const [addManagedOpen, setAddManagedOpen] = useState(false);
+  const [addManagedFocus, setAddManagedFocus] = useState<string | null>(null);
+
   // Owned here so the variation cards and the flag card open the same editor.
   const [editValuesOpen, setEditValuesOpen] = useState(false);
   const [editValuesFocus, setEditValuesFocus] = useState<string | null>(null);
@@ -184,6 +203,21 @@ export default function Implementation({
           mutate={mutate}
         />
       )}
+      {addManagedOpen && (
+        <AddManagedFlagModal
+          experiment={experiment}
+          focusVariationId={addManagedFocus}
+          close={() => {
+            setAddManagedOpen(false);
+            setAddManagedFocus(null);
+          }}
+          mutate={() => {
+            setAddManagedOpen(false);
+            setAddManagedFocus(null);
+            mutate();
+          }}
+        />
+      )}
       {editValuesOpen && soleLinkedFeature && (
         <EditFeatureFlagValuesModal
           feature={soleLinkedFeature.feature}
@@ -232,6 +266,14 @@ export default function Implementation({
                   }
                 : undefined
             }
+            onAddServedValue={
+              canAdoptManagedFlag
+                ? (variationId) => {
+                    setAddManagedFocus(variationId);
+                    setAddManagedOpen(true);
+                  }
+                : undefined
+            }
           />
         ) : (
           <TrafficAndTargeting
@@ -261,6 +303,9 @@ export default function Implementation({
             setEditVariationIndex={setEditMetadataIndex}
             hideVariations={showTrafficFunnel}
             managedMode={managedMode}
+            onAddManagedFlag={
+              canAdoptManagedFlag ? () => setAddManagedOpen(true) : undefined
+            }
             valuesShownOnVariations={!!soleLinkedFeature && showTrafficFunnel}
           />
         ) : null}

@@ -46,7 +46,11 @@ import {
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
 import isEqual from "lodash/isEqual";
-import { FeatureInterface } from "shared/validators";
+import {
+  ExperimentRefVariation,
+  FeatureInterface,
+  FeatureValueType,
+} from "shared/validators";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   AuthRequest,
@@ -152,7 +156,12 @@ import {
 import { getLinkageSyncRevisionSummaries } from "back-end/src/models/FeatureRevisionModel";
 import {
   clearManagedMarker,
+  createManagedFeatureForExperiment,
   createManagedFlagForNewExperiment,
+  managedFlagAdoptionBlocker,
+  planManagedFlagKey,
+  staleLinkedFeatureIds,
+  type ManagedFlagKeyPlan,
   ejectManagedFeature,
   getManagedFeatureForExperiment,
   publishManagedDraft,
@@ -4563,6 +4572,110 @@ export async function deleteExperimentLinkedFeature(
   await unlinkFeatureFromExperiment(context, id, featureId);
 
   res.status(200).json({ status: 200 });
+}
+
+export async function getExperimentManagedFlagKeyPlan(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{
+    status: 200;
+    blocker: string | null;
+    keyPlan: ManagedFlagKeyPlan;
+  }>,
+) {
+  const context = getContextFromReq(req);
+  const experiment = await getExperimentById(context, req.params.id);
+  if (!experiment) {
+    throw new NotFoundError("Experiment not found");
+  }
+
+  res.status(200).json({
+    status: 200,
+    blocker: await managedFlagAdoptionBlocker(context, experiment),
+    keyPlan: await planManagedFlagKey({ context, experiment }),
+  });
+}
+
+export async function postExperimentManagedFlag(
+  req: AuthRequest<
+    {
+      valueType: FeatureValueType;
+      variations: ExperimentRefVariation[];
+      sparse?: boolean;
+      /** Create under this exact key instead of the derived one. */
+      featureId?: string;
+      /** Rename the experiment to this key first, so the pair matches. */
+      trackingKey?: string;
+    },
+    { id: string }
+  >,
+  res: Response<
+    { status: 200; feature: FeatureInterface; version: number },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { valueType, variations, sparse, featureId, trackingKey } = req.body;
+
+  let experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    throw new NotFoundError("Experiment not found");
+  }
+
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
+
+  const blocker = await managedFlagAdoptionBlocker(context, experiment);
+  if (blocker) throw new BadRequestError(blocker);
+
+  const existing = await getManagedFeatureForExperiment(context, experiment);
+  if (existing) {
+    throw new BadRequestError(
+      `This experiment already manages Feature Flag "${existing.id}".`,
+    );
+  }
+
+  // Rename first: the flag's key is derived from the tracking key at creation
+  // and a feature cannot be renamed afterwards, so the order is load-bearing.
+  if (trackingKey && trackingKey !== experiment.trackingKey) {
+    if (context.org.settings?.requireUniqueExperimentTrackingKeys) {
+      const keyOwner = await getExperimentByTrackingKey(context, trackingKey);
+      if (keyOwner && keyOwner.id !== experiment.id) {
+        throw new BadRequestError(
+          `An experiment with tracking key "${trackingKey}" already exists. Your organization requires unique experiment tracking keys.`,
+        );
+      }
+    }
+    experiment = await updateExperiment({
+      context,
+      experiment,
+      changes: { trackingKey },
+    });
+  }
+
+  // A flag deleted out of band leaves its id behind; drop it now that we are
+  // writing anyway, so the experiment stops carrying a dangling link.
+  const stale = await staleLinkedFeatureIds(context, experiment);
+  for (const staleId of stale) {
+    await unlinkFeatureFromExperiment(context, experiment.id, staleId);
+  }
+  if (stale.length) {
+    experiment = (await getExperimentById(context, id)) ?? experiment;
+  }
+
+  const { feature, version } = await createManagedFeatureForExperiment({
+    context,
+    experiment,
+    valueType,
+    variations,
+    sparse,
+    featureId,
+    eventAudit: res.locals.eventAudit,
+    audit: req.audit,
+  });
+
+  res.status(200).json({ status: 200, feature, version });
 }
 
 export async function postExperimentManagedFlagPublish(

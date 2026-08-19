@@ -22,6 +22,7 @@ import { OpenApiRoute, runApiHandler } from "back-end/src/util/handler";
 import {
   createFeature,
   deleteFeature,
+  featureIdExists,
   getFeature,
   publishRevision,
   updateFeature,
@@ -31,7 +32,10 @@ import {
   getRevision,
   markRevisionAsReviewRequested,
 } from "back-end/src/models/FeatureRevisionModel";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import {
+  getExperimentById,
+  getExperimentByTrackingKey,
+} from "back-end/src/models/ExperimentModel";
 import { ManagedFeatureError, NotFoundError } from "back-end/src/util/errors";
 import {
   getContextFromReq,
@@ -86,9 +90,143 @@ export type CreateManagedFeatureInput = {
   /** One value per experiment variation, in variation order. */
   variations: ExperimentRefVariation[];
   sparse?: boolean;
+  /**
+   * Create the flag under exactly this id instead of deriving one from the
+   * tracking key. A collision surfaces as a conflict instead of being suffixed
+   * away: the caller that passes this (adding a managed flag to an existing
+   * experiment) has UI to resolve it, whereas experiment creation has none.
+   */
+  featureId?: string;
   eventAudit: EventUser;
   audit: (data: AuditInterfaceInput) => Promise<void>;
 };
+
+/** Mirrors the charset `postFeatures` enforces, for ids a user typed. */
+const FEATURE_KEY_PATTERN = /^[a-zA-Z0-9_.:|-]+$/;
+
+/**
+ * Ids in `linkedFeatures` that no longer resolve to a feature — left behind when
+ * a flag is deleted out of band. Unfiltered on purpose: a feature the caller
+ * cannot read still exists and is still linked.
+ */
+export async function staleLinkedFeatureIds(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<string[]> {
+  const ids = experiment.linkedFeatures ?? [];
+  const stale: string[] = [];
+  for (const id of ids) {
+    if (!(await featureIdExists(context, id))) stale.push(id);
+  }
+  return stale;
+}
+
+/**
+ * Whether this experiment can still adopt a managed flag. Managed mode owns the
+ * experiment's whole delivery, so it can only be taken on while nothing else is
+ * wired up and nothing is live yet.
+ *
+ * Counts linked features that actually exist rather than trusting the array: a
+ * flag deleted out of band leaves its id behind, and that must not permanently
+ * bar the experiment from adopting a new one.
+ */
+export async function managedFlagAdoptionBlocker(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<string | null> {
+  if (experiment.archived) return "This experiment is archived.";
+  if (experiment.status !== "draft") {
+    return "Only a draft experiment can start managing a Feature Flag.";
+  }
+  if (experiment.hasVisualChangesets) {
+    return "This experiment already has Visual Editor changes.";
+  }
+  if (experiment.hasURLRedirects) {
+    return "This experiment already has URL Redirects.";
+  }
+  const linkedIds = experiment.linkedFeatures ?? [];
+  if (linkedIds.length) {
+    const stale = new Set(await staleLinkedFeatureIds(context, experiment));
+    if (linkedIds.some((id) => !stale.has(id))) {
+      return "This experiment already has a linked Feature Flag.";
+    }
+  }
+  return null;
+}
+
+export type ManagedFlagKeyPlan = {
+  /** The id the tracking key sanitizes to — what gets created if it is free. */
+  derivedId: string;
+  derivedIdAvailable: boolean;
+  /** True when sanitizing changed the key, so the two cannot match exactly. */
+  sanitized: boolean;
+  /**
+   * A free key/id pair, offered only when `derivedId` is taken. Adopting it
+   * renames the experiment's tracking key so the two match character for
+   * character.
+   */
+  suggestedPair: { trackingKey: string; featureId: string } | null;
+  /** Set when the org's feature key format rejects `derivedId`. */
+  regexError: string | null;
+};
+
+const MAX_PAIR_SUGGESTIONS = 25;
+
+/**
+ * What the adoption modal needs to describe the key situation before any write.
+ * Availability is authoritative for the feature id (unique index) but advisory
+ * for the tracking key: its uniqueness is not indexed and the lookup is
+ * read-scoped, so a key held in a project the caller cannot see reads as free.
+ */
+export async function planManagedFlagKey({
+  context,
+  experiment,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+}): Promise<ManagedFlagKeyPlan> {
+  const derivedId = managedFeatureKeyCandidate({
+    trackingKey: experiment.trackingKey,
+    experimentId: experiment.id,
+    attempt: 0,
+  });
+  const derivedIdAvailable = !(await featureIdExists(context, derivedId));
+
+  const regexValidator = context.org.settings?.featureRegexValidator;
+  const regexError =
+    regexValidator && !new RegExp(regexValidator).test(derivedId)
+      ? `Your organization requires Feature Flag keys to match ${regexValidator}`
+      : null;
+
+  let suggestedPair: ManagedFlagKeyPlan["suggestedPair"] = null;
+  if (!derivedIdAvailable) {
+    for (let attempt = 1; attempt < MAX_PAIR_SUGGESTIONS; attempt++) {
+      const candidate = managedFeatureKeyCandidate({
+        trackingKey: experiment.trackingKey,
+        experimentId: experiment.id,
+        attempt,
+      });
+      if (regexValidator && !new RegExp(regexValidator).test(candidate)) {
+        continue;
+      }
+      if (await featureIdExists(context, candidate)) continue;
+      const keyOwner = await getExperimentByTrackingKey(context, candidate);
+      if (keyOwner && keyOwner.id !== experiment.id) continue;
+      // The candidate is already a sanitized feature key, so using it verbatim
+      // as the tracking key makes the pair match exactly.
+      suggestedPair = { trackingKey: candidate, featureId: candidate };
+      break;
+    }
+  }
+
+  return {
+    derivedId,
+    derivedIdAvailable,
+    sanitized: derivedId !== experiment.trackingKey,
+    suggestedPair,
+    regexError,
+  };
+}
 
 /**
  * Creates the flag disabled everywhere and stages its experiment-ref rule as a
@@ -101,6 +239,7 @@ export async function createManagedFeatureForExperiment({
   valueType,
   variations,
   sparse,
+  featureId,
   eventAudit,
   audit,
 }: CreateManagedFeatureInput): Promise<{
@@ -170,19 +309,30 @@ export async function createManagedFeatureForExperiment({
     context.permissions.throwPermissionError();
   }
 
+  if (featureId !== undefined && !FEATURE_KEY_PATTERN.test(featureId)) {
+    throw new Error(
+      "Feature Flag keys can only include letters, numbers, and the characters _-.:|",
+    );
+  }
+
   let created: FeatureInterface | null = null;
   let lastCandidate = "";
-  for (let attempt = 0; attempt < MAX_KEY_ATTEMPTS; attempt++) {
-    const id = managedFeatureKeyCandidate({
-      trackingKey: experiment.trackingKey,
-      experimentId: experiment.id,
-      attempt,
-    });
+  const maxAttempts = featureId === undefined ? MAX_KEY_ATTEMPTS : 1;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const id =
+      featureId ??
+      managedFeatureKeyCandidate({
+        trackingKey: experiment.trackingKey,
+        experimentId: experiment.id,
+        attempt,
+      });
     lastCandidate = id;
 
     if (regexValidator && !new RegExp(regexValidator).test(id)) {
       throw new Error(
-        `The Feature Flag key derived from this experiment ("${id}") does not match your organization's feature key format (${regexValidator}). Rename the experiment tracking key, or turn off managed mode for this experiment.`,
+        featureId === undefined
+          ? `The Feature Flag key derived from this experiment ("${id}") does not match your organization's feature key format (${regexValidator}). Rename the experiment tracking key, or turn off managed mode for this experiment.`
+          : `Feature Flag key "${id}" does not match your organization's feature key format (${regexValidator}).`,
       );
     }
 
@@ -194,6 +344,12 @@ export async function createManagedFeatureForExperiment({
     } catch (e) {
       // The index is the arbiter; take the next candidate rather than racing.
       if (!isDuplicateKeyError(e)) throw e;
+      // An explicitly chosen id has a caller who can pick another one.
+      if (featureId !== undefined) {
+        throw new Error(
+          `Feature Flag "${id}" already exists. Choose a different key.`,
+        );
+      }
     }
   }
 
