@@ -421,7 +421,6 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
       userIdType: "ef_user_id",
       description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
       attributes: ["user_id"],
-      managedBy: "api" as const,
     };
     const legacyExposure = {
       id: "ef_user_id",
@@ -451,7 +450,7 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
     // One identifier type for the attribute — no unprefixed twin beside it — and
     // the exposure query keeps the id every experiment already references.
     expect(settings?.userIdTypes).toEqual([
-      { ...legacyUserIdType, sourceAttribute: "user_id" },
+      { ...legacyUserIdType, managedBy: "api", sourceAttribute: "user_id" },
     ]);
     expect(settings?.queries?.exposure).toEqual([
       {

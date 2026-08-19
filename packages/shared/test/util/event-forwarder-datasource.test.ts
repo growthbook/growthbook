@@ -170,14 +170,49 @@ describe("buildUserIdTypesFromAttributeSchema", () => {
 });
 
 describe("isEventForwarderManagedUserIdType", () => {
-  it("identifies managed types by the marker, not by the name", () => {
+  it("identifies current managed types by the marker", () => {
     expect(
-      isEventForwarderManagedUserIdType({ managedBy: "api" as const }),
+      isEventForwarderManagedUserIdType({
+        userIdType: "user_id",
+        managedBy: "api",
+      }),
     ).toBe(true);
-    expect(isEventForwarderManagedUserIdType({ managedBy: "" as const })).toBe(
+    expect(
+      isEventForwarderManagedUserIdType({
+        userIdType: "user_id",
+        managedBy: "",
+      }),
+    ).toBe(false);
+    expect(isEventForwarderManagedUserIdType({ userIdType: "user_id" })).toBe(
       false,
     );
-    expect(isEventForwarderManagedUserIdType({})).toBe(false);
+  });
+
+  // Records written before `managedBy` existed carry no marker at all, so they
+  // are identified by the shape the old builder always emitted.
+  it("identifies a legacy type by its name and linked attribute", () => {
+    expect(
+      isEventForwarderManagedUserIdType({
+        userIdType: "ef_id",
+        description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+        attributes: ["id"],
+      }),
+    ).toBe(true);
+  });
+
+  it("leaves an ef_ name that links something else alone", () => {
+    expect(
+      isEventForwarderManagedUserIdType({
+        userIdType: "ef_id",
+        attributes: ["something_else"],
+      }),
+    ).toBe(false);
+    expect(
+      isEventForwarderManagedUserIdType({
+        userIdType: "ef_id",
+        attributes: [],
+      }),
+    ).toBe(false);
   });
 });
 
@@ -507,6 +542,46 @@ describe("reconcileEventForwarderManagedUserIdTypes", () => {
     expect(reconcileEventForwarderManagedUserIdTypes(once, desired)).toEqual(
       once,
     );
+  });
+
+  // Exactly what the old builder wrote: no managedBy, attribute in `attributes`.
+  it("adopts a real legacy record and claims its attribute", () => {
+    const legacy = [
+      {
+        userIdType: "ef_user_id",
+        description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+        attributes: ["user_id"],
+      },
+    ];
+
+    expect(reconcileEventForwarderManagedUserIdTypes(legacy, desired)).toEqual([
+      { ...legacy[0], managedBy: "api", sourceAttribute: "user_id" },
+    ]);
+  });
+
+  it("collapses a duplicate minted before legacy records were recognized", () => {
+    const existing = [
+      {
+        userIdType: "ef_user_id",
+        description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+        attributes: ["user_id"],
+      },
+      // Spawned because the legacy entry above was mistaken for a user's own.
+      {
+        userIdType: "user_id",
+        description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+        attributes: ["user_id"],
+        managedBy: "api" as const,
+        sourceAttribute: "user_id",
+      },
+    ];
+
+    // The legacy entry wins: it is the one the warehouse artifacts reference.
+    expect(
+      reconcileEventForwarderManagedUserIdTypes(existing, desired),
+    ).toEqual([
+      { ...existing[0], managedBy: "api", sourceAttribute: "user_id" },
+    ]);
   });
 
   it("does not adopt a user-created ef_-prefixed type", () => {

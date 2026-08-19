@@ -19,12 +19,19 @@ export type EventForwarderDatasourceParams =
 export const EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION =
   "Managed by Event Forwarder.";
 
-// Managed identifier types carry the link to their hash attribute on
-// `sourceAttribute`. Nothing is encoded in the name.
+/**
+ * Identifier types the Event Forwarder created. Current ones carry
+ * `managedBy: "api"`; ones written before that field existed are recognized by
+ * the shape they were always written with — see
+ * isLegacyEventForwarderManagedUserIdType.
+ */
 export function isEventForwarderManagedUserIdType(
-  userIdType: Pick<UserIdType, "managedBy">,
+  userIdType: UserIdType,
 ): boolean {
-  return userIdType.managedBy === "api";
+  return (
+    userIdType.managedBy === "api" ||
+    isLegacyEventForwarderManagedUserIdType(userIdType)
+  );
 }
 
 /**
@@ -44,10 +51,33 @@ export function isEventForwarderLinkedUserIdType(
 const LEGACY_EVENT_FORWARDER_MANAGED_NAME_PREFIX = "ef_";
 
 /**
+ * Identifier types the Event Forwarder wrote before `managedBy` existed. It only
+ * ever emitted `{ userIdType: "ef_<attribute>", attributes: ["<attribute>"] }`,
+ * so the name and the linked attribute together identify them. Both are required
+ * — a user-created `ef_` name that links something else is left alone.
+ */
+function isLegacyEventForwarderManagedUserIdType(
+  userIdType: UserIdType,
+): boolean {
+  if (
+    !userIdType.userIdType.startsWith(
+      LEGACY_EVENT_FORWARDER_MANAGED_NAME_PREFIX,
+    )
+  ) {
+    return false;
+  }
+  const recovered = normalizeUserIdTypeName(
+    resolveLegacyEventForwarderManagedSourceAttribute(userIdType.userIdType),
+  );
+  return (userIdType.attributes ?? []).some(
+    (attribute) => normalizeUserIdTypeName(attribute) === recovered,
+  );
+}
+
+/**
  * Recovers the attribute of a managed resource written before `sourceAttribute`
  * existed, which encoded it as `ef_<attribute>`. Exactly one prefix was ever
- * applied. Read-only — nothing writes prefixed names any more, and gating on
- * `managedBy: "api"` keeps a user-created `ef_` name from being reinterpreted.
+ * applied. Read-only — nothing writes prefixed names any more.
  */
 export function resolveLegacyEventForwarderManagedSourceAttribute(
   name: string,
@@ -286,39 +316,39 @@ export function reconcileEventForwarderManagedUserIdTypes(
   const result: UserIdType[] = [];
 
   for (const entry of existing) {
-    if (!isEventForwarderManagedUserIdType(entry)) {
-      // A linked entry claims its attribute so we never add a second type for
-      // it. If the attribute is gone we unlink rather than delete: the entry is
-      // the user's, and whatever references its name still needs it.
-      if ((entry.sourceAttribute ?? null) !== null) {
-        const linkedSource = normalizeUserIdTypeName(
-          getEventForwarderUserIdTypeSourceAttribute(entry),
-        );
-        if (!desiredBySource.has(linkedSource)) {
-          result.push(unlinkUserIdType(entry));
-          continue;
-        }
-        claimedSources.add(linkedSource);
-      }
-      result.push(entry);
-      continue;
-    }
-
     const source = normalizeUserIdTypeName(
       getEventForwarderUserIdTypeSourceAttribute(entry),
     );
     const wanted = desiredBySource.get(source);
-    if (!wanted) {
+
+    if (isEventForwarderManagedUserIdType(entry)) {
+      // Attribute gone, or an earlier entry already represents it. The second
+      // case only arises from data written before legacy detection worked.
+      if (!wanted || claimedSources.has(source)) {
+        continue;
+      }
+      claimedSources.add(source);
+      // Backfill the markers on legacy entries. Never touch the name.
+      result.push({
+        ...entry,
+        managedBy: "api",
+        sourceAttribute:
+          entry.sourceAttribute ?? wanted.sourceAttribute ?? source,
+      });
       continue;
     }
 
-    claimedSources.add(source);
-    // Backfill the link on legacy entries. Never touch the name.
-    result.push(
-      (entry.sourceAttribute ?? null) === null
-        ? { ...entry, sourceAttribute: wanted.sourceAttribute ?? source }
-        : entry,
-    );
+    // A linked entry claims its attribute so we never add a second type for
+    // it. If the attribute is gone we unlink rather than delete: the entry is
+    // the user's, and whatever references its name still needs it.
+    if ((entry.sourceAttribute ?? null) !== null) {
+      if (!wanted) {
+        result.push(unlinkUserIdType(entry));
+        continue;
+      }
+      claimedSources.add(source);
+    }
+    result.push(entry);
   }
 
   for (const [source, wanted] of desiredBySource) {
