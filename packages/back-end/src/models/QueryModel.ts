@@ -14,6 +14,7 @@ export const queriesSchema = [
     query: String,
     status: String,
     name: String,
+    queryType: String,
   },
 ];
 

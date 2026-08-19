@@ -67,6 +67,7 @@ import {
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
+import { getExperimentResultStatus } from "./experimentResultStatus";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
 import { getUnitDimQueryName } from "./unitDimensionQueryNaming";
 export type SnapshotResult = {
@@ -507,6 +508,10 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     return this.context.permissions.canRunExperimentQueries(
       this.integration.datasource,
     );
+  }
+
+  protected override getOverallQueryStatus(): QueryStatus {
+    return getExperimentResultStatus(this.model.queries);
   }
 
   async startQueries(params: ExperimentResultsQueryParams): Promise<Queries> {
