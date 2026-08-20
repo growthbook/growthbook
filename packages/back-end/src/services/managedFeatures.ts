@@ -26,7 +26,7 @@ import {
   deleteFeature,
   featureIdExists,
   getFeature,
-  getFeatureIdsManagedByExperiment,
+  getManagedFlagIdsUnfiltered,
   publishRevision,
   updateFeature,
 } from "back-end/src/models/FeatureModel";
@@ -82,8 +82,8 @@ const MAX_KEY_ATTEMPTS = 10;
 
 /**
  * Best-effort removal of a flag that was inserted but never became usable.
- * Swallows its own failure: the caller is already unwinding a create and the
- * original error is the one worth reporting.
+ * Swallows its own failure — the caller is unwinding a create and the original
+ * error is the one worth reporting.
  */
 async function discardOrphanedManagedFlag(
   context: ReqContext | ApiReqContext,
@@ -275,9 +275,8 @@ export async function createManagedFeatureForExperiment({
     );
   }
 
-  // The rule authored here is the only one the flag will ever have, and the
-  // flag is locked afterwards — a short or mismatched set would have to be
-  // repaired through the experiment UI.
+  // The only rule this flag will ever have, and it is locked afterwards, so a
+  // short or mismatched set is not repairable except through the experiment.
   const expectedIds = experiment.variations.map((v) => v.id);
   const givenIds = new Set(variations.map((v) => v.variationId));
   if (
@@ -377,8 +376,7 @@ export async function createManagedFeatureForExperiment({
     try {
       await createFeature(context, { ...baseFeature, id });
       // createFeature writes the document before its initial revision, so a
-      // throw past this point leaves a flag marked `managedBy` with no owner —
-      // unwritable and un-ejectable. Undo it here, not just around the link.
+      // throw past this point leaves a flag marked `managedBy` with no owner.
       created = await getFeature(context, id);
       if (!created) {
         await discardOrphanedManagedFlag(context, id);
@@ -721,16 +719,15 @@ export async function ejectManagedFeature({
 }
 
 /**
- * Clears the marker on every flag this experiment owns, resolved without the
- * read filter so an unreadable flag still gets released. Used by experiment
- * deletion, which must never leave a flag pointing at an experiment that no
- * longer exists — nothing could write to it or eject it again.
+ * Clears the marker on every flag this experiment owns, including ones the
+ * caller cannot read: experiment deletion must never leave a flag pointing at
+ * an experiment that no longer exists.
  */
 export async function clearManagedMarkersForExperiment(
   context: ReqContext | ApiReqContext,
   experimentId: string,
 ): Promise<void> {
-  const ids = await getFeatureIdsManagedByExperiment(context, experimentId);
+  const ids = await getManagedFlagIdsUnfiltered(context, experimentId);
   for (const id of ids) {
     const feature = await getFeature(context, id);
     // Unreadable here means the marker cannot be cleared through the model's
@@ -751,7 +748,7 @@ export async function clearManagedMarkersForExperiment(
  * their own authority use this — notably experiment deletion, which must never
  * be blocked into leaving an unrecoverable flag behind.
  */
-export async function clearManagedMarker(
+async function clearManagedMarker(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
 ): Promise<FeatureInterface> {

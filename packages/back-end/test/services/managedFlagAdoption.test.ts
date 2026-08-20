@@ -9,14 +9,14 @@ import {
 import {
   featureIdExists,
   getFeature,
-  getFeatureIdsManagedByExperiment,
+  getManagedFlagIdsUnfiltered,
   updateFeature,
 } from "back-end/src/models/FeatureModel";
 import { getExperimentByTrackingKey } from "back-end/src/models/ExperimentModel";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
   featureIdExists: jest.fn(),
-  getFeatureIdsManagedByExperiment: jest.fn(),
+  getManagedFlagIdsUnfiltered: jest.fn(),
   createFeature: jest.fn(),
   deleteFeature: jest.fn(),
   getFeature: jest.fn(),
@@ -29,7 +29,7 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
 }));
 
 const mockExists = featureIdExists as jest.Mock;
-const mockManagedIds = getFeatureIdsManagedByExperiment as jest.Mock;
+const mockManagedIds = getManagedFlagIdsUnfiltered as jest.Mock;
 const mockGetFeature = getFeature as jest.Mock;
 const mockUpdateFeature = updateFeature as jest.Mock;
 const mockByTrackingKey = getExperimentByTrackingKey as jest.Mock;

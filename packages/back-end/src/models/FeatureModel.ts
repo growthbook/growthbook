@@ -4551,12 +4551,11 @@ export async function getFeatureMetaInfoByIds(
 }
 
 /**
- * Ids of the flags an experiment manages, resolved WITHOUT the usual read
- * filter. Ownership must be answerable even when the caller cannot read the
- * flag — otherwise a flag whose experiment moved project becomes invisible and
- * its marker can never be cleared, leaving it permanently unwritable.
+ * Ids of the flags an experiment manages, deliberately NOT read-filtered:
+ * ownership has to be answerable even for a flag the caller cannot read, or its
+ * marker can never be cleared. Callers must not leak the ids themselves.
  */
-export async function getFeatureIdsManagedByExperiment(
+export async function getManagedFlagIdsUnfiltered(
   context: ReqContext | ApiReqContext,
   experimentId: string,
 ): Promise<string[]> {

@@ -4989,10 +4989,9 @@ export async function getRefLinkedFeatureInfo({
         (draftDiffersFromLive || liveRefRules.length === 0);
 
       // Feature-scope approval check: requires review AND draft not yet approved.
-      // Also when `state` is "draft" without a pending diff: the sibling
-      // fields below are still keyed on `state`, and a live rule scoped to a
-      // deleted environment yields no `liveMatches` while `liveRefRules` is
-      // non-empty, which would otherwise drop them.
+      // Also when `state` is "draft": the sibling fields below are keyed on
+      // `state`, and the two conditions can disagree (a live rule scoped to a
+      // deleted environment matches nothing yet still exists).
       const needsDraftFacts = hasPendingDraft || state === "draft";
       let reviewRequired = false;
       if (needsDraftFacts) {

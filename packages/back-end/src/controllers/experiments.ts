@@ -149,7 +149,7 @@ import {
 import { legacyDocDescribesPhase } from "back-end/src/enterprise/services/data-pipeline";
 import {
   getFeature,
-  getFeatureIdsManagedByExperiment,
+  getManagedFlagIdsUnfiltered,
   getFeaturesByIds,
   getManagedFlagsByExperiment,
   publishRevision,
@@ -4584,7 +4584,7 @@ export async function deleteExperimentLinkedFeature(
   // Unlinking would strand a locked-down flag with no experiment to edit it.
   // Resolved unfiltered: an unreadable flag is still managed, and skipping the
   // check would detach it from the only surface that can write to it.
-  const managedIds = await getFeatureIdsManagedByExperiment(context, id);
+  const managedIds = await getManagedFlagIdsUnfiltered(context, id);
   if (managedIds.includes(featureId)) {
     throw new Error(
       "This Feature Flag is managed by the experiment. Eject it first to unlink it.",
@@ -4689,8 +4689,8 @@ export async function postExperimentManagedFlag(
     experiment = (await getExperimentById(context, id)) ?? experiment;
   }
 
-  // The rename above is already committed, so a failed create would leave the
-  // experiment renamed for a flag that does not exist. Put it back.
+  // The rename is already committed, so a failed create would leave the
+  // experiment renamed for a flag that does not exist.
   const renamedFrom =
     trackingKey && trackingKey !== originalTrackingKey
       ? originalTrackingKey
