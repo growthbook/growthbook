@@ -182,14 +182,15 @@ export default function NPSSurvey() {
   // Cooldown is checked cross-device via the user record and per-device via
   // localStorage.
   useEffect(() => {
-    // A suspended org's POST is rejected, which would silently drop the answer.
-    if (orgSuspended) return;
+    // Admin override: shows regardless of the feature, the webhook, sampling,
+    // tenure, cooldown or org state. Preview records no suppression, so guard on
+    // sentRef or the card returns frozen on the thanks panel.
     if (forceShow) {
-      // Preview records no suppression, so without this the card returns on any
-      // dependency flip still frozen on the thanks panel.
       if (!sentRef.current) setVisible(true);
       return;
     }
+    // A suspended org's POST is rejected, which would silently drop the answer.
+    if (orgSuspended) return;
     // Deployment gate: NPS_SLACK_WEBHOOK configured, as a boolean. The webhook
     // is the opt-in — a self-hosted operator can set their own and responses go
     // to their Slack. Gating on it rather than isCloud() keys on the thing
