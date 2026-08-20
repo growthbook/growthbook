@@ -1,7 +1,11 @@
 import { z } from "zod";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
-import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
+import {
+  apiPaginationFieldsValidator,
+  booleanQueryField,
+  paginationQueryFields,
+} from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
 
@@ -720,6 +724,9 @@ export const listMetricsValidator = {
       ...paginationQueryFields,
       projectId: z.string().describe("Filter by project id").optional(),
       datasourceId: z.string().describe("Filter by Data Source").optional(),
+      includeArchived: booleanQueryField.describe(
+        "Whether to include archived metrics. Defaults to `true`. Pass `false` to return only non-archived metrics.",
+      ),
     })
     .strict(),
   paramsSchema: z.never(),

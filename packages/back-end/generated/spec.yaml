@@ -16712,6 +16712,7 @@ paths:
         - $ref: '#/components/parameters/offset'
         - $ref: '#/components/parameters/projectId'
         - $ref: '#/components/parameters/datasourceId'
+        - $ref: '#/components/parameters/includeArchived'
       responses:
         '200':
           description: Successful response
@@ -28881,6 +28882,11 @@ paths:
                   type: number
                   minimum: 0
                 targetMDE:
+                  description: >-
+                    The percentage change that you want to reliably detect
+                    before ending an experiment, as a proportion (e.g. put 0.1
+                    for 10%). This is used to estimate the "Days Left" for
+                    running experiments.
                   type: number
                   minimum: 0
                 managedBy:
@@ -28890,8 +28896,6 @@ paths:
                     - ''
                     - api
                     - admin
-                archived:
-                  type: boolean
                 metricAutoSlices:
                   description: >-
                     Array of slice column names that will be automatically
@@ -28899,6 +28903,12 @@ paths:
                   type: array
                   items:
                     type: string
+                archived:
+                  description: >-
+                    Set to true to archive the metric. Archived metrics are
+                    hidden by default in the UI and excluded from new
+                    experiments.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -29048,6 +29058,11 @@ paths:
     post:
       operationId: postBulkImportFacts
       summary: Bulk import fact tables, filters, and metrics
+      description: >-
+        Creates or updates Fact Tables, Fact Table filters, and Fact Metrics.
+        Resources upsert by `id`. Pass `dryRun: true` to validate with zero
+        writes. Not transactional: a live mid-loop failure returns HTTP 400 with
+        write counts and `errors`.
       tags:
         - fact-tables
       requestBody:
@@ -29057,6 +29072,19 @@ paths:
             schema:
               type: object
               properties:
+                defaultManagedBy:
+                  description: >-
+                    Fallback `managedBy` for Fact Tables and Fact Metrics that
+                    omit the field. Defaults to `"api"`. Filters inherit `"api"`
+                    only when the parent Fact Table is api-managed.
+                  type: string
+                  enum:
+                    - ''
+                    - api
+                    - admin
+                dryRun:
+                  description: Validate with zero writes.
+                  type: boolean
                 factTables:
                   type: array
                   items:
@@ -29072,6 +29100,7 @@ paths:
                           description:
                             description: Description of the fact table
                             type: string
+                            maxLength: 10000
                           owner:
                             description: >-
                               The userId or email address of the owner. If an
@@ -29100,6 +29129,42 @@ paths:
                             type: array
                             items:
                               type: string
+                          aggregatedFactTableSettings:
+                            description: >-
+                              Settings for maintaining shared daily aggregated
+                              tables (a subset of userIdTypes plus the daily
+                              update time and restate lookback window) used to
+                              speed up CUPED. Requires the data pipeline
+                              (pipeline-mode) feature.
+                            type: object
+                            properties:
+                              idTypes:
+                                type: array
+                                items:
+                                  type: string
+                              updateTime:
+                                type: object
+                                properties:
+                                  time:
+                                    type: string
+                                  timezone:
+                                    type: string
+                                required:
+                                  - time
+                                  - timezone
+                                additionalProperties: false
+                              lookbackWindow:
+                                type: integer
+                                exclusiveMinimum: 0
+                              restateChunkDays:
+                                type: integer
+                                minimum: 1
+                                maximum: 7
+                            required:
+                              - idTypes
+                              - updateTime
+                              - lookbackWindow
+                            additionalProperties: false
                           sql:
                             description: The SQL query for this fact table
                             type: string
@@ -29159,6 +29224,7 @@ paths:
                           description:
                             description: Description of the fact table filter
                             type: string
+                            maxLength: 10000
                           value:
                             description: The SQL expression for this filter.
                             example: country = 'US'
@@ -29195,6 +29261,7 @@ paths:
                             type: string
                           description:
                             type: string
+                            maxLength: 10000
                           owner:
                             description: >-
                               The userId or email address of the owner. If an
@@ -29220,129 +29287,135 @@ paths:
                               - quantile
                               - ratio
                               - dailyParticipation
+                              - funnel
                           numerator:
-                            type: object
-                            properties:
-                              factTableId:
-                                type: string
-                              column:
-                                description: >-
-                                  Must be empty for proportion metrics and
-                                  dailyParticipation metrics. Otherwise, the
-                                  column name or one of the special values:
-                                  '$$distinctUsers' or '$$count' (or
-                                  '$$distinctDates' if metricType is 'mean' or
-                                  'ratio' or 'quantile' and
-                                  quantileSettings.type is 'unit')
-                                type: string
-                              aggregation:
-                                description: >-
-                                  User aggregation of selected column. Either
-                                  sum or max for numeric columns; count distinct
-                                  for string columns; hll merge / kll merge for
-                                  pre-built sketch columns (requires data-source
-                                  support); ignored for special columns.
-                                  Default: sum. If you specify a string column
-                                  you must explicitly specify count distinct.
-                                  Not used for proportion metrics; for event
-                                  quantile metrics only kll merge is applicable.
-                                type: string
-                                enum:
-                                  - sum
-                                  - max
-                                  - count distinct
-                                  - hll merge
-                                  - kll merge
-                              filters:
-                                deprecated: true
-                                description: >-
-                                  Array of Fact Table Filter Ids. Deprecated,
-                                  use rowFilters instead.
-                                type: array
-                                items:
-                                  type: string
-                              inlineFilters:
-                                deprecated: true
-                                description: >-
-                                  Inline filters to apply to the fact table.
-                                  Keys are column names, values are arrays of
-                                  values to filter by. Deprecated, use
-                                  rowFilters instead.
-                                type: object
-                                propertyNames:
-                                  type: string
-                                additionalProperties:
-                                  type: array
-                                  items:
+                            anyOf:
+                              - type: object
+                                properties:
+                                  factTableId:
                                     type: string
-                              rowFilters:
-                                description: >-
-                                  Filters to apply to the rows of the fact table
-                                  before aggregation.
-                                type: array
-                                items:
-                                  type: object
-                                  properties:
-                                    operator:
+                                  column:
+                                    description: >-
+                                      Must be empty for proportion metrics and
+                                      dailyParticipation metrics. Otherwise, the
+                                      column name or one of the special values:
+                                      '$$distinctUsers' or '$$count' (or
+                                      '$$distinctDates' if metricType is 'mean'
+                                      or 'ratio' or 'quantile' and
+                                      quantileSettings.type is 'unit')
+                                    type: string
+                                  aggregation:
+                                    description: >-
+                                      User aggregation of selected column.
+                                      Either sum or max for numeric columns;
+                                      count distinct for string columns; hll
+                                      merge / kll merge for pre-built sketch
+                                      columns (requires data-source support);
+                                      ignored for special columns. Default: sum.
+                                      If you specify a string column you must
+                                      explicitly specify count distinct. Not
+                                      used for proportion metrics; for event
+                                      quantile metrics only kll merge is
+                                      applicable.
+                                    type: string
+                                    enum:
+                                      - sum
+                                      - max
+                                      - count distinct
+                                      - hll merge
+                                      - kll merge
+                                  filters:
+                                    deprecated: true
+                                    description: >-
+                                      Array of Fact Table Filter Ids.
+                                      Deprecated, use rowFilters instead.
+                                    type: array
+                                    items:
                                       type: string
-                                      enum:
-                                        - '='
-                                        - '!='
-                                        - '>'
-                                        - <
-                                        - '>='
-                                        - <=
-                                        - between
-                                        - not_between
-                                        - in
-                                        - not_in
-                                        - is_null
-                                        - not_null
-                                        - is_true
-                                        - is_false
-                                        - contains
-                                        - not_contains
-                                        - starts_with
-                                        - ends_with
-                                        - sql_expr
-                                        - saved_filter
-                                    values:
-                                      description: >-
-                                        Not required for is_null, not_null,
-                                        is_true, is_false operators. The between
-                                        and not_between operators take at most
-                                        two values, a lower and an upper bound
-                                        in that order; leave a bound as an empty
-                                        string for an open-ended range.
+                                  inlineFilters:
+                                    deprecated: true
+                                    description: >-
+                                      Inline filters to apply to the fact table.
+                                      Keys are column names, values are arrays
+                                      of values to filter by. Deprecated, use
+                                      rowFilters instead.
+                                    type: object
+                                    propertyNames:
+                                      type: string
+                                    additionalProperties:
                                       type: array
                                       items:
                                         type: string
-                                    column:
-                                      description: >-
-                                        Required for all operators except
-                                        sql_expr and saved_filter.
-                                      type: string
-                                  required:
-                                    - operator
-                                  additionalProperties: false
-                              aggregateFilterColumn:
-                                description: >-
-                                  Column to use to filter users after
-                                  aggregation. Either '$$count' of rows or the
-                                  name of a numeric column that will be summed
-                                  by user. Must specify `aggregateFilter` if
-                                  using this. Only can be used with 'retention'
-                                  and 'proportion' metrics.
-                                type: string
-                              aggregateFilter:
-                                description: >-
-                                  Simple comparison operator and value to apply
-                                  after aggregation (e.g. '= 10' or '>= 1').
-                                  Requires `aggregateFilterColumn`.
-                                type: string
-                            required:
-                              - factTableId
-                            additionalProperties: false
+                                  rowFilters:
+                                    description: >-
+                                      Filters to apply to the rows of the fact
+                                      table before aggregation.
+                                    type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        operator:
+                                          type: string
+                                          enum:
+                                            - '='
+                                            - '!='
+                                            - '>'
+                                            - <
+                                            - '>='
+                                            - <=
+                                            - between
+                                            - not_between
+                                            - in
+                                            - not_in
+                                            - is_null
+                                            - not_null
+                                            - is_true
+                                            - is_false
+                                            - contains
+                                            - not_contains
+                                            - starts_with
+                                            - ends_with
+                                            - sql_expr
+                                            - saved_filter
+                                        values:
+                                          description: >-
+                                            Not required for is_null, not_null,
+                                            is_true, is_false operators. The between
+                                            and not_between operators take at most
+                                            two values, a lower and an upper bound
+                                            in that order; leave a bound as an empty
+                                            string for an open-ended range.
+                                          type: array
+                                          items:
+                                            type: string
+                                        column:
+                                          description: >-
+                                            Required for all operators except
+                                            sql_expr and saved_filter.
+                                          type: string
+                                      required:
+                                        - operator
+                                      additionalProperties: false
+                                  aggregateFilterColumn:
+                                    description: >-
+                                      Column to use to filter users after
+                                      aggregation. Either '$$count' of rows or
+                                      the name of a numeric column that will be
+                                      summed by user. Must specify
+                                      `aggregateFilter` if using this. Only can
+                                      be used with 'retention' and 'proportion'
+                                      metrics.
+                                    type: string
+                                  aggregateFilter:
+                                    description: >-
+                                      Simple comparison operator and value to
+                                      apply after aggregation (e.g. '= 10' or
+                                      '>= 1'). Requires `aggregateFilterColumn`.
+                                    type: string
+                                required:
+                                  - factTableId
+                                additionalProperties: false
+                              - type: 'null'
                           denominator:
                             description: Only when metricType is 'ratio'
                             type: object
@@ -29494,6 +29567,136 @@ paths:
                               - type
                               - ignoreZeros
                               - quantile
+                            additionalProperties: false
+                          funnelSettings:
+                            description: >-
+                              Funnel metric settings (required when metricType
+                              is "funnel")
+                            type: object
+                            properties:
+                              steps:
+                                description: >-
+                                  Ordered list of funnel steps. Minimum 2 steps
+                                  required.
+                                minItems: 2
+                                maxItems: 20
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    name:
+                                      description: Display name for the funnel step
+                                      type: string
+                                    factTableId:
+                                      description: >-
+                                        The fact table this step draws events
+                                        from
+                                      type: string
+                                    rowFilters:
+                                      description: >-
+                                        Filters that decide whether an event row
+                                        counts as this step
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          operator:
+                                            type: string
+                                            enum:
+                                              - '='
+                                              - '!='
+                                              - '>'
+                                              - <
+                                              - '>='
+                                              - <=
+                                              - between
+                                              - not_between
+                                              - in
+                                              - not_in
+                                              - is_null
+                                              - not_null
+                                              - is_true
+                                              - is_false
+                                              - contains
+                                              - not_contains
+                                              - starts_with
+                                              - ends_with
+                                              - sql_expr
+                                              - saved_filter
+                                          values:
+                                            description: >-
+                                              Not required for is_null, not_null,
+                                              is_true, is_false operators. The between
+                                              and not_between operators take at most
+                                              two values, a lower and an upper bound
+                                              in that order; leave a bound as an empty
+                                              string for an open-ended range.
+                                            type: array
+                                            items:
+                                              type: string
+                                          column:
+                                            description: >-
+                                              Required for all operators except
+                                              sql_expr and saved_filter.
+                                            type: string
+                                        required:
+                                          - operator
+                                        additionalProperties: false
+                                    optional:
+                                      description: >-
+                                        When true, this step still counts for
+                                        its own conversion but does not anchor
+                                        later steps. Later steps window off the
+                                        nearest prior required step (or
+                                        exposure, for experiment funnel metrics,
+                                        when every prior step is optional).
+                                      type: boolean
+                                    conversionWindow:
+                                      anyOf:
+                                        - description: >-
+                                            Bounds how long after the nearest prior
+                                            required step (or exposure, for the
+                                            first step / after only-optional priors
+                                            of an experiment funnel metric) this
+                                            step's event can occur.
+                                          type: object
+                                          properties:
+                                            unit:
+                                              type: string
+                                              enum:
+                                                - weeks
+                                                - days
+                                                - hours
+                                                - minutes
+                                            value:
+                                              type: number
+                                              exclusiveMinimum: 0
+                                          required:
+                                            - unit
+                                            - value
+                                          additionalProperties: false
+                                        - type: 'null'
+                                  required:
+                                    - name
+                                    - factTableId
+                                    - rowFilters
+                                    - optional
+                                  additionalProperties: false
+                              ordering:
+                                description: >-
+                                  Step ordering mode. Only 'sequential' is
+                                  supported in v1.
+                                type: string
+                                enum:
+                                  - sequential
+                              concurrencyWindowSeconds:
+                                description: >-
+                                  Out-of-order tolerance between adjacent steps
+                                  in seconds. Defaults to 0.
+                                type: integer
+                                minimum: 0
+                            required:
+                              - steps
                             additionalProperties: false
                           cappingSettings:
                             description: Controls how outliers are handled
@@ -29683,12 +29886,6 @@ paths:
                               - ''
                               - api
                               - admin
-                          archived:
-                            description: >-
-                              Set to true to archive the metric. Archived
-                              metrics are hidden by default in the UI and
-                              excluded from new experiments.
-                            type: boolean
                           metricAutoSlices:
                             description: >-
                               Array of slice column names that will be
@@ -29697,10 +29894,15 @@ paths:
                             type: array
                             items:
                               type: string
+                          archived:
+                            description: >-
+                              Set to true to archive the metric. Archived
+                              metrics are hidden by default in the UI and
+                              excluded from new experiments.
+                            type: boolean
                         required:
                           - name
                           - metricType
-                          - numerator
                         additionalProperties: false
                     required:
                       - id
@@ -29717,6 +29919,18 @@ paths:
                 properties:
                   success:
                     type: boolean
+                  dryRun:
+                    type: boolean
+                  defaultManagedBy:
+                    description: >-
+                      Fallback `managedBy` for Fact Tables and Fact Metrics that
+                      omit the field. Defaults to `"api"`. Filters inherit
+                      `"api"` only when the parent Fact Table is api-managed.
+                    type: string
+                    enum:
+                      - ''
+                      - api
+                      - admin
                   factTablesAdded:
                     type: integer
                   factTablesUpdated:
@@ -29729,14 +29943,24 @@ paths:
                     type: integer
                   factMetricsUpdated:
                     type: integer
+                  managedByWritten:
+                    $ref: '#/components/schemas/BulkImportManagedByWritten'
+                  errors:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BulkImportError'
                 required:
                   - success
+                  - dryRun
+                  - defaultManagedBy
                   - factTablesAdded
                   - factTablesUpdated
                   - factTableFiltersAdded
                   - factTableFiltersUpdated
                   - factMetricsAdded
                   - factMetricsUpdated
+                  - managedByWritten
+                  - errors
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
@@ -49522,6 +49746,26 @@ components:
           Required when the rule hasn't been published yet — omitting it targets
           the live revision, which has nothing to remove.
         type: integer
+    includeArchived:
+      name: includeArchived
+      in: query
+      description: >-
+        Whether to include archived metrics. Defaults to `true`. Pass `false` to
+        return only non-archived metrics.
+      schema:
+        description: >-
+          Whether to include archived metrics. Defaults to `true`. Pass `false`
+          to return only non-archived metrics.
+        anyOf:
+          - type: string
+            const: 'true'
+          - type: string
+            const: 'false'
+          - type: string
+            const: '0'
+          - type: string
+            const: '1'
+          - type: boolean
     type:
       name: type
       in: query
@@ -58808,6 +59052,39 @@ components:
       required:
         - id
         - status
+      additionalProperties: false
+    BulkImportManagedByWritten:
+      type: object
+      properties:
+        api:
+          type: integer
+        admin:
+          type: integer
+        none:
+          description: Count of resources written with managedBy ""
+          type: integer
+      required:
+        - api
+        - admin
+        - none
+      additionalProperties: false
+    BulkImportError:
+      type: object
+      properties:
+        resourceType:
+          type: string
+          enum:
+            - factTable
+            - factTableFilter
+            - factMetric
+        id:
+          type: string
+        message:
+          type: string
+      required:
+        - resourceType
+        - id
+        - message
       additionalProperties: false
     CodeRef:
       type: object

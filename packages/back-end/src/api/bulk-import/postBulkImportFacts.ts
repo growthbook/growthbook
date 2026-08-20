@@ -1,6 +1,12 @@
-import { postBulkImportFactsValidator } from "shared/validators";
+import { omit } from "lodash";
+import { PermissionError } from "shared/util";
+import {
+  BulkImportError,
+  postBulkImportFactsValidator,
+} from "shared/validators";
 import { DataSourceInterface } from "shared/types/datasource";
 import {
+  AggregatedFactTableSettings,
   CreateFactTableProps,
   FactMetricInterface,
 } from "shared/types/fact-table";
@@ -21,13 +27,19 @@ import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable
 import {
   columnsHaveAutoSlices,
   columnsNeedDetection,
+  validateAggregatedFactTableSettings,
   validateVirtualColumnProps,
 } from "back-end/src/util/factTable";
 import { resolveOwnerToUserId } from "back-end/src/services/owner";
+import { BulkImportPartialFailureError } from "back-end/src/util/errors";
+import { resolveFilterManagedBy } from "./bulkImportFacts.util";
 
 export const postBulkImportFacts = createApiRequestHandler(
   postBulkImportFactsValidator,
 )(async (req) => {
+  const dryRun = req.body.dryRun === true;
+  const defaultManagedBy = req.body.defaultManagedBy ?? "api";
+
   const numCreated = {
     factTables: 0,
     factTableFilters: 0,
@@ -37,6 +49,55 @@ export const postBulkImportFacts = createApiRequestHandler(
     factTables: 0,
     factTableFilters: 0,
     factMetrics: 0,
+  };
+  const managedByWritten = { api: 0, admin: 0, none: 0 };
+  const errors: BulkImportError[] = [];
+  const tagsToAdd = new Set<string>();
+
+  const writeCounts = () => ({
+    factTablesAdded: numCreated.factTables,
+    factTablesUpdated: numUpdated.factTables,
+    factTableFiltersAdded: numCreated.factTableFilters,
+    factTableFiltersUpdated: numUpdated.factTableFilters,
+    factMetricsAdded: numCreated.factMetrics,
+    factMetricsUpdated: numUpdated.factMetrics,
+  });
+
+  const registerTagsIfNeeded = async () => {
+    const writtenCount =
+      numCreated.factTables +
+      numUpdated.factTables +
+      numCreated.factTableFilters +
+      numUpdated.factTableFilters +
+      numCreated.factMetrics +
+      numUpdated.factMetrics;
+    if (!dryRun && tagsToAdd.size && writtenCount > 0) {
+      await req.context.registerTags([...tagsToAdd]);
+    }
+  };
+
+  const onItemError = async (
+    resourceType: BulkImportError["resourceType"],
+    id: string,
+    err: unknown,
+  ) => {
+    if (err instanceof PermissionError) throw err;
+    const message = err instanceof Error ? err.message : String(err);
+    errors.push({
+      resourceType,
+      id,
+      message,
+    });
+    if (!dryRun) {
+      await registerTagsIfNeeded();
+      throw new BulkImportPartialFailureError(message, writeCounts(), errors);
+    }
+  };
+
+  const tally = (managedBy: "" | "api" | "admin") => {
+    if (managedBy === "api") managedByWritten.api++;
+    else if (managedBy === "admin") managedByWritten.admin++;
+    else managedByWritten.none++;
   };
 
   const factTableMap = await getFactTableMap(req.context);
@@ -50,8 +111,6 @@ export const postBulkImportFacts = createApiRequestHandler(
   const dataSourceMap = new Map<string, DataSourceInterface>(
     allDataSources.map((s) => [s.id, s]),
   );
-
-  const tagsToAdd = new Set<string>();
 
   const projects = await req.context.models.projects.getAll();
   const projectIds = new Set(projects.map((p) => p.id));
@@ -76,253 +135,353 @@ export const postBulkImportFacts = createApiRequestHandler(
     }
   }
 
+  function validateAggregatedSettings(
+    settings: AggregatedFactTableSettings,
+    userIdTypes: string[],
+    datasourceId: string,
+  ) {
+    if (!req.context.hasPremiumFeature("pipeline-mode")) {
+      throw new Error(
+        "Maintaining shared daily aggregated tables requires the data pipeline feature.",
+      );
+    }
+    const datasource = dataSourceMap.get(datasourceId);
+    if (!datasource) {
+      throw new Error("Could not find datasource");
+    }
+    if (!req.context.permissions.canUpdateDataSourceSettings(datasource)) {
+      req.context.permissions.throwPermissionError();
+    }
+    validateAggregatedFactTableSettings(settings, userIdTypes);
+  }
+
   // Import fact tables
   if (req.body.factTables) {
     for (const { data, id } of req.body.factTables) {
-      data.tags?.forEach((t) => tagsToAdd.add(t));
-      if (data.projects) validateProjectIds(data.projects);
+      try {
+        data.tags?.forEach((t) => tagsToAdd.add(t));
+        if (data.projects) validateProjectIds(data.projects);
 
-      // This bulk endpoint is mostly used to sync from version control
-      // So default these resources to only be managed by API and not the UI
-      if (data.managedBy === undefined) {
-        data.managedBy = "api";
-      }
+        const managedBy =
+          data.managedBy !== undefined ? data.managedBy : defaultManagedBy;
 
-      // Bulk-import is not transactional, so gate slices before any write.
-      if (
-        columnsHaveAutoSlices(data.columns) &&
-        !req.context.hasPremiumFeature("metric-slices")
-      ) {
-        throw new Error("Metric slices require an enterprise license");
-      }
+        // Bulk-import is not transactional, so gate slices before any write.
+        if (
+          columnsHaveAutoSlices(data.columns) &&
+          !req.context.hasPremiumFeature("metric-slices")
+        ) {
+          throw new Error("Metric slices require an enterprise license");
+        }
 
-      const existing = factTableMap.get(id);
+        const existing = factTableMap.get(id);
 
-      // Enforce virtual-column rules on any incoming columns. Bulk import can
-      // create and preserve virtual (computed) columns — used to sync them
-      // from version control — but must not create an invalid one or flip an
-      // existing column's origin (a SQL-detected column becoming virtual or
-      // vice versa).
-      if (data.columns) {
-        for (const col of data.columns) {
-          const existingCol = existing?.columns.find(
-            (c) => c.column === col.column,
+        if (data.aggregatedFactTableSettings) {
+          validateAggregatedSettings(
+            data.aggregatedFactTableSettings,
+            data.userIdTypes ?? existing?.userIdTypes ?? [],
+            existing?.datasource ?? data.datasource,
           );
-          if (
-            existingCol &&
-            Boolean(col.isVirtual) !== Boolean(existingCol.isVirtual)
-          ) {
-            throw new Error(
-              `Cannot change whether column "${col.column}" is a virtual column`,
+        }
+
+        // Enforce virtual-column rules on any incoming columns. Bulk import can
+        // create and preserve virtual (computed) columns — used to sync them
+        // from version control — but must not create an invalid one or flip an
+        // existing column's origin (a SQL-detected column becoming virtual or
+        // vice versa).
+        if (data.columns) {
+          for (const col of data.columns) {
+            const existingCol = existing?.columns.find(
+              (c) => c.column === col.column,
             );
-          }
-          if (col.isVirtual) {
-            validateVirtualColumnProps(col);
-            // A virtual column carries raw SQL, so importing one into an
-            // existing fact table needs the same gate as the dedicated
-            // virtual-column endpoints.
             if (
-              existing &&
-              !req.context.permissions.canManageFactTableVirtualColumn(existing)
+              existingCol &&
+              Boolean(col.isVirtual) !== Boolean(existingCol.isVirtual)
             ) {
-              req.context.permissions.throwPermissionError();
+              throw new Error(
+                `Cannot change whether column "${col.column}" is a virtual column`,
+              );
+            }
+            if (col.isVirtual) {
+              validateVirtualColumnProps(col);
+              // A virtual column carries raw SQL, so importing one into an
+              // existing fact table needs the same gate as the dedicated
+              // virtual-column endpoints.
+              if (
+                existing &&
+                !req.context.permissions.canManageFactTableVirtualColumn(
+                  existing,
+                )
+              ) {
+                req.context.permissions.throwPermissionError();
+              }
             }
           }
         }
-      }
 
-      // Update existing fact table
-      if (existing) {
-        if (!req.context.permissions.canUpdateFactTable(existing, data)) {
-          req.context.permissions.throwPermissionError();
-        }
-        if (data.userIdTypes) {
-          validateUserIdTypes(existing.datasource, data.userIdTypes);
-        }
+        // Update existing fact table
+        if (existing) {
+          const updateData = { ...data, managedBy };
+          if (
+            !req.context.permissions.canUpdateFactTable(existing, updateData)
+          ) {
+            req.context.permissions.throwPermissionError();
+          }
+          if (updateData.userIdTypes) {
+            validateUserIdTypes(existing.datasource, updateData.userIdTypes);
+          }
 
-        // Cannot change data source
-        if (data.datasource && existing.datasource !== data.datasource) {
-          throw new Error("Cannot change data source for existing fact table");
-        }
+          // Cannot change data source
+          if (
+            updateData.datasource &&
+            existing.datasource !== updateData.datasource
+          ) {
+            throw new Error(
+              "Cannot change data source for existing fact table",
+            );
+          }
 
-        if (data.owner !== undefined) {
-          data.owner =
-            (await resolveOwnerToUserId(data.owner, req.context)) ?? "";
-        }
+          if (updateData.owner !== undefined) {
+            updateData.owner =
+              (await resolveOwnerToUserId(updateData.owner, req.context)) ?? "";
+          }
 
-        if (data.columns) {
-          await upsertColumns({
-            context: req.context,
-            factTable: existing,
-            columns: data.columns,
+          if (!dryRun && updateData.columns) {
+            await upsertColumns({
+              context: req.context,
+              factTable: existing,
+              columns: updateData.columns,
+            });
+            delete updateData.columns;
+          }
+
+          const willRefresh =
+            needsColumnRefresh(existing, updateData) ||
+            columnsNeedDetection(existing.columns);
+          if (!dryRun) {
+            await updateFactTable(
+              req.context,
+              existing,
+              willRefresh
+                ? { ...updateData, columnRefreshPending: true }
+                : updateData,
+            );
+            if (willRefresh) {
+              await queueFactTableColumnsRefresh(existing);
+            }
+          }
+          factTableMap.set(existing.id, {
+            ...existing,
+            ...updateData,
+            columns: existing.columns,
+            columnRefreshPending: willRefresh
+              ? true
+              : existing.columnRefreshPending,
           });
-          delete data.columns;
+          numUpdated.factTables++;
+          tally(managedBy);
         }
+        // Create new fact table
+        else {
+          const newOwner =
+            (await resolveOwnerToUserId(data.owner, req.context)) ?? "";
+          const factTable: CreateFactTableProps = {
+            eventName: "",
+            id: id,
+            description: "",
+            projects: [],
+            tags: [],
+            ...data,
+            managedBy,
+            owner: newOwner,
+          };
 
-        const willRefresh =
-          needsColumnRefresh(existing, data) ||
-          columnsNeedDetection(existing.columns);
-        await updateFactTable(
-          req.context,
-          existing,
-          willRefresh ? { ...data, columnRefreshPending: true } : data,
-        );
-        if (willRefresh) {
-          await queueFactTableColumnsRefresh(existing);
+          if (!req.context.permissions.canCreateFactTable(factTable)) {
+            req.context.permissions.throwPermissionError();
+          }
+
+          if (!dataSourceMap.has(factTable.datasource)) {
+            throw new Error("Could not find datasource");
+          }
+
+          if (factTable.userIdTypes) {
+            validateUserIdTypes(factTable.datasource, factTable.userIdTypes);
+          }
+
+          factTable.columnRefreshPending =
+            !factTable.columns?.length ||
+            columnsNeedDetection(factTable.columns);
+
+          if (!dryRun) {
+            const newFactTable = await createFactTable(req.context, factTable);
+            await queueFactTableColumnsRefresh(newFactTable);
+            factTableMap.set(newFactTable.id, newFactTable);
+          } else {
+            factTableMap.set(id, {
+              ...omit(factTable, "columns"),
+              id,
+              organization: req.organization.id,
+              dateCreated: new Date(),
+              dateUpdated: new Date(),
+              filters: [],
+              columns: [],
+            });
+          }
+          numCreated.factTables++;
+          tally(managedBy);
         }
-        factTableMap.set(existing.id, {
-          ...existing,
-          ...data,
-          columns: existing.columns,
-          columnRefreshPending: willRefresh
-            ? true
-            : existing.columnRefreshPending,
-        });
-        numUpdated.factTables++;
-      }
-      // Create new fact table
-      else {
-        const newOwner =
-          (await resolveOwnerToUserId(data.owner, req.context)) ?? "";
-        const factTable: CreateFactTableProps = {
-          eventName: "",
-          id: id,
-          description: "",
-          projects: [],
-          tags: [],
-          ...data,
-          owner: newOwner,
-        };
-
-        if (!req.context.permissions.canCreateFactTable(factTable)) {
-          req.context.permissions.throwPermissionError();
-        }
-
-        if (!dataSourceMap.has(factTable.datasource)) {
-          throw new Error("Could not find datasource");
-        }
-
-        if (factTable.userIdTypes) {
-          validateUserIdTypes(factTable.datasource, factTable.userIdTypes);
-        }
-
-        factTable.columnRefreshPending =
-          !factTable.columns?.length || columnsNeedDetection(factTable.columns);
-
-        const newFactTable = await createFactTable(req.context, factTable);
-        await queueFactTableColumnsRefresh(newFactTable);
-        factTableMap.set(newFactTable.id, newFactTable);
-        numCreated.factTables++;
+      } catch (e) {
+        await onItemError("factTable", id, e);
       }
     }
   }
   // Import filters
   if (req.body.factTableFilters) {
     for (const { factTableId, data, id } of req.body.factTableFilters) {
-      const factTable = factTableMap.get(factTableId);
-      if (!factTable) {
-        throw new Error(
-          `Could not find fact table ${factTableId} for filter ${id}`,
-        );
-      }
-      if (!req.context.permissions.canCreateAndUpdateFactFilter(factTable)) {
-        req.context.permissions.throwPermissionError();
-      }
+      try {
+        const factTable = factTableMap.get(factTableId);
+        if (!factTable) {
+          throw new Error(
+            `Could not find fact table ${factTableId} for filter ${id}`,
+          );
+        }
+        if (!req.context.permissions.canCreateAndUpdateFactFilter(factTable)) {
+          req.context.permissions.throwPermissionError();
+        }
 
-      // This bulk endpoint is mostly used to sync from version control
-      // So default these resources to only be managed by API and not the UI
-      if (factTable.managedBy === "api" && data.managedBy === undefined) {
-        data.managedBy = "api";
-      }
-
-      const existingFactFilter = factTable.filters.find((f) => f.id === id);
-      // Update existing filter
-      if (existingFactFilter) {
-        await updateFactFilter(
-          req.context,
-          factTable,
-          existingFactFilter.id,
-          data,
+        const managedBy = resolveFilterManagedBy(
+          data.managedBy,
+          factTable.managedBy,
         );
-        Object.assign(existingFactFilter, data);
-        numUpdated.factTableFilters++;
-      }
-      // Create new filter
-      else {
-        const newFilter = await createFactFilter(factTable, {
-          description: "",
+        const filterPayload = {
           ...data,
-          id: id,
-        });
-        factTable.filters.push(newFilter);
-        numCreated.factTableFilters++;
+          ...(managedBy !== undefined ? { managedBy } : {}),
+        };
+
+        const existingFactFilter = factTable.filters.find((f) => f.id === id);
+        // Update existing filter
+        if (existingFactFilter) {
+          if (!dryRun) {
+            await updateFactFilter(
+              req.context,
+              factTable,
+              existingFactFilter.id,
+              filterPayload,
+            );
+          }
+          Object.assign(existingFactFilter, filterPayload);
+          numUpdated.factTableFilters++;
+          tally(managedBy ?? existingFactFilter.managedBy ?? "");
+        }
+        // Create new filter
+        else {
+          if (!dryRun) {
+            const newFilter = await createFactFilter(factTable, {
+              description: "",
+              ...filterPayload,
+              id: id,
+            });
+            factTable.filters.push(newFilter);
+          } else {
+            factTable.filters.push({
+              id,
+              description: "",
+              ...filterPayload,
+              dateCreated: new Date(),
+              dateUpdated: new Date(),
+            });
+          }
+          numCreated.factTableFilters++;
+          tally(managedBy ?? "");
+        }
+      } catch (e) {
+        await onItemError("factTableFilter", id, e);
       }
     }
   }
   // Fact metrics
   if (req.body.factMetrics) {
     for (const { id: origId, data } of req.body.factMetrics) {
-      data.tags?.forEach((t) => tagsToAdd.add(t));
-      if (data.projects) validateProjectIds(data.projects);
-
       const id = origId.match(/^fact__/) ? origId : `fact__${origId}`;
+      try {
+        data.tags?.forEach((t) => tagsToAdd.add(t));
+        if (data.projects) validateProjectIds(data.projects);
 
-      // This bulk endpoint is mostly used to sync from version control
-      // So default these resources to only be managed by API and not the UI
-      if (data.managedBy === undefined) {
-        data.managedBy = "api";
-      }
+        const managedBy =
+          data.managedBy !== undefined ? data.managedBy : defaultManagedBy;
 
-      const lookupFactTable = async (id: string) =>
-        factTableMap.get(id) || null;
+        if (
+          data.metricAutoSlices &&
+          data.metricAutoSlices.length > 0 &&
+          !req.context.hasPremiumFeature("metric-slices")
+        ) {
+          throw new Error("Metric slices require an enterprise license");
+        }
 
-      const existing = factMetricMap.get(id);
-      // Update existing fact metric
-      if (existing) {
-        const changes = await getUpdateFactMetricPropsFromBody(
-          data,
-          existing,
-          lookupFactTable,
-        );
+        if (
+          data.metricType === "funnel" &&
+          !req.context.hasPremiumFeature("funnel-metrics")
+        ) {
+          throw new Error("Funnel metrics are a premium feature");
+        }
 
-        const newFactMetric = await req.context.models.factMetrics.update(
-          existing,
-          changes,
-        );
-        factMetricMap.set(existing.id, newFactMetric);
+        const lookupFactTable = async (factTableId: string) =>
+          factTableMap.get(factTableId) || null;
 
-        numUpdated.factMetrics++;
-      }
-      // Create new fact metric
-      else {
-        const createProps = await getCreateMetricPropsFromBody(
-          data,
-          req.organization,
-          lookupFactTable,
-        );
-        createProps.id = id;
+        const metricData = {
+          ...data,
+          managedBy,
+        };
 
-        const newFactMetric =
-          await req.context.models.factMetrics.create(createProps);
-        factMetricMap.set(newFactMetric.id, newFactMetric);
+        const existing = factMetricMap.get(id);
+        // Update existing fact metric
+        if (existing) {
+          const changes = await getUpdateFactMetricPropsFromBody(
+            metricData,
+            existing,
+            lookupFactTable,
+          );
 
-        numCreated.factMetrics++;
+          if (!dryRun) {
+            const newFactMetric = await req.context.models.factMetrics.update(
+              existing,
+              changes,
+            );
+            factMetricMap.set(existing.id, newFactMetric);
+          }
+          numUpdated.factMetrics++;
+          tally(managedBy);
+        }
+        // Create new fact metric
+        else {
+          const createProps = await getCreateMetricPropsFromBody(
+            metricData,
+            req.organization,
+            lookupFactTable,
+          );
+          createProps.id = id;
+
+          if (!dryRun) {
+            const newFactMetric =
+              await req.context.models.factMetrics.create(createProps);
+            factMetricMap.set(newFactMetric.id, newFactMetric);
+          }
+          numCreated.factMetrics++;
+          tally(managedBy);
+        }
+      } catch (e) {
+        await onItemError("factMetric", id, e);
       }
     }
   }
 
-  // Update tags
-  if (tagsToAdd.size) {
-    await req.context.registerTags([...tagsToAdd]);
-  }
+  await registerTagsIfNeeded();
 
   return {
-    success: true,
-    factTablesAdded: numCreated.factTables,
-    factTablesUpdated: numUpdated.factTables,
-    factTableFiltersAdded: numCreated.factTableFilters,
-    factTableFiltersUpdated: numUpdated.factTableFilters,
-    factMetricsAdded: numCreated.factMetrics,
-    factMetricsUpdated: numUpdated.factMetrics,
+    success: errors.length === 0,
+    dryRun,
+    defaultManagedBy,
+    ...writeCounts(),
+    managedByWritten,
+    errors,
   };
 });

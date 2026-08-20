@@ -178,12 +178,13 @@ describe("getMetricsByOrganization includeArchived", () => {
 
   it("excludes archived metrics from the database when includeArchived is false", async () => {
     mockedUsingFileConfig.mockReturnValue(false);
-    await mongoose.connection.db!.collection("metrics").insertMany([
-      makeMetric({ id: "met_active", status: "active" }),
-      makeMetric({ id: "met_archived", status: "archived" }),
-      // Metrics with no status should be kept (matches the $ne semantics)
-      makeMetric({ id: "met_nostatus", status: undefined }),
-    ]);
+    await mongoose.connection
+      .db!.collection("metrics")
+      .insertMany([
+        makeMetric({ id: "met_active", status: "active" }),
+        makeMetric({ id: "met_archived", status: "archived" }),
+        makeMetric({ id: "met_nostatus", status: undefined }),
+      ]);
 
     const metrics = await getMetricsByOrganization(context, {
       includeArchived: false,
@@ -219,6 +220,25 @@ describe("getMetricsByOrganization includeArchived", () => {
       ]);
 
     const metrics = await getMetricsByOrganization(context);
+
+    expect(metrics.map((m) => m.id).sort()).toEqual([
+      "met_active",
+      "met_archived",
+    ]);
+  });
+
+  it("includes archived metrics when includeArchived is true", async () => {
+    mockedUsingFileConfig.mockReturnValue(false);
+    await mongoose.connection
+      .db!.collection("metrics")
+      .insertMany([
+        makeMetric({ id: "met_active", status: "active" }),
+        makeMetric({ id: "met_archived", status: "archived" }),
+      ]);
+
+    const metrics = await getMetricsByOrganization(context, {
+      includeArchived: true,
+    });
 
     expect(metrics.map((m) => m.id).sort()).toEqual([
       "met_active",
