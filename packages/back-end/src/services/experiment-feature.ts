@@ -391,13 +391,22 @@ function assessRevisionApprovalForAutoPublish(
   revision: FeatureRevisionInterface,
   live: FeatureRevisionInterface,
   base: FeatureRevisionInterface,
+  mergeResult: AutoMergeResult,
 ) {
+  const filledLive = { ...live, ...liveRevisionFromFeature(live, feature) };
   return assessRevisionApproval({
     context,
     feature,
     revision,
-    effectiveRevision: revision,
-    filledLive: { ...live, ...liveRevisionFromFeature(live, feature) },
+    // What will land, not the raw draft: a diverged live moves the answer.
+    effectiveRevision: mergeResult.success
+      ? {
+          ...filledLive,
+          ...mergeResult.result,
+          rampActions: revision.rampActions,
+        }
+      : revision,
+    filledLive,
     base,
     environmentIds: context.environments,
   });
@@ -505,6 +514,13 @@ export async function publishPendingFeatureDraftsForExperiment(
       feature,
       revision,
     });
+    const { mergeResult, rebaseRequired } = mergeDraftForAutoPublish(
+      context,
+      feature,
+      revision,
+      live,
+      base,
+    );
     // The same question the publish button and the REST endpoint ask, so an
     // autostart can never land a draft either of those would refuse.
     const approval = assessRevisionApprovalForAutoPublish(
@@ -513,6 +529,7 @@ export async function publishPendingFeatureDraftsForExperiment(
       revision,
       live,
       base,
+      mergeResult,
     );
     if (!approval.satisfied) {
       logger.warn(
@@ -530,13 +547,6 @@ export async function publishPendingFeatureDraftsForExperiment(
       continue;
     }
 
-    const { mergeResult, rebaseRequired } = mergeDraftForAutoPublish(
-      context,
-      feature,
-      revision,
-      live,
-      base,
-    );
     if (rebaseRequired) {
       logger.warn(
         { experimentId: experiment.id, featureId, revisionVersion },
@@ -755,6 +765,8 @@ export async function publishPendingFeatureDraftsForContextualBandit(
       revision,
       live,
       base,
+      mergeDraftForAutoPublish(context, feature, revision, live, base)
+        .mergeResult,
     );
     if (!approval.satisfied) {
       logger.warn(
