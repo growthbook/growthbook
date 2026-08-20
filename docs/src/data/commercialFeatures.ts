@@ -9,6 +9,10 @@ export default {
     plan: "pro",
     displayName: "Advanced Permissions",
   },
+  "ai-byok": {
+    plan: "enterprise",
+    displayName: "Ai Byok",
+  },
   "ai-suggestions": {
     plan: "enterprise",
     displayName: "AI Suggestions",
@@ -80,6 +84,10 @@ export default {
   "feature-configs": {
     plan: "enterprise",
     displayName: "Feature Configs",
+  },
+  "funnel-metrics": {
+    plan: "pro",
+    displayName: "Funnel Metrics",
   },
   "hash-secure-attributes": {
     plan: "pro",

@@ -279,6 +279,12 @@ export default {
             },
             {
               type: "doc",
+              id: "metrics/funnel-metrics",
+              label: "Funnel Metrics",
+              className: "pill-new",
+            },
+            {
+              type: "doc",
               id: "metrics/metric-examples",
               label: "Metric Examples and Use Cases",
             },

@@ -1,4 +1,4 @@
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useMemo, useState, useEffect } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import {
   Revision,
@@ -7,7 +7,13 @@ import {
   getRevisionNumberById,
 } from "shared/enterprise";
 import { dateNoYear } from "shared/dates";
+import {
+  archiveFootprintForControl,
+  canLandArchiveToggle,
+} from "shared/permissions";
 import { useAuth } from "@/services/auth";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useEnvironments } from "@/services/features";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import Text from "@/ui/Text";
@@ -24,8 +30,14 @@ import { useRevisionDiff, RevisionDiffConfig } from "./useRevisionDiff";
 import { RevisionDiff } from "./RevisionDiff";
 
 // Entities the revert flow supports carry an `archived` flag (optional) that is
-// handled separately from the generic revertable fields.
-type RevertableEntity = { id: string; archived?: boolean };
+// handled separately from the generic revertable fields, plus the project
+// ownership the permission check reads (scalar or array, depending on entity).
+type RevertableEntity = {
+  id: string;
+  archived?: boolean;
+  project?: string;
+  projects?: string[];
+};
 
 export interface Props<T extends RevertableEntity> {
   // The live entity (the revert target's "before" state).
@@ -33,6 +45,8 @@ export interface Props<T extends RevertableEntity> {
   // Fields a revert can restore (mirrors the live + ops merge semantics).
   // `archived` is handled separately via an explicit opt-in.
   revertableFields: readonly (keyof T)[];
+  /** Fields that serialize absence as `null` when restored. */
+  clearableFields?: readonly (keyof T)[];
   // PUT endpoint base for the entity (e.g. "/saved-groups", "/constants").
   apiPathBase: string;
   // The revision the revert was triggered from — the default "Reverting to".
@@ -46,6 +60,23 @@ export interface Props<T extends RevertableEntity> {
   // Viewer can bypass approval (admin) — can publish a revert even when the
   // org doesn't allow reverts to bypass approval.
   canBypassApproval: boolean;
+  // Revert authority: landing a revert is its own atom, not publish. Alone it's
+  // enough to both propose and land one.
+  canRevert: boolean;
+  // Revert authority over the environments a landed restore would touch. Absent
+  // for entities with no environment footprint, where it equals `canRevert`.
+  canLandRevert?: boolean;
+  // Preferred over `canLandRevert` when the footprint depends on WHICH target is
+  // selected: the picker can change the target after mount, and a value computed
+  // once from the displayed revision then authorizes the wrong environments.
+  canLandRevertForTarget?: (targetRevision: {
+    target: { snapshot: unknown; proposedChanges: unknown };
+  }) => boolean;
+  // Delete authority over the environments an archive would take the entity out
+  // of. Staging an archive publishes nothing and stays project-scoped.
+  canLandArchive?: boolean;
+  // Draft authority: enough to PROPOSE a revert as a draft, never to land it.
+  canDraft: boolean;
   // Renders the entity's DraftSelectorForChanges (publish-now vs. create-draft
   // picker). Supplied by the thin per-entity wrappers so the revert modal reuses
   // the same component features use, instead of re-implementing the control.
@@ -59,15 +90,10 @@ export interface Props<T extends RevertableEntity> {
   onRevisionCreated: (revision: Revision) => void;
 }
 
-// Entity-agnostic analogue of the feature RevertModal
-// (components/Reviews/Feature/RevertModal.tsx): pick a previously-published
-// revision to restore, preview the diff against the live entity, optionally
-// add a comment, and either publish immediately or create a revert draft.
-// Thin per-entity wrappers (SavedGroupRevertModal, ConstantRevertModal) supply
-// the entity-specific revertable fields, API path, and diff config.
 export default function RevertModal<T extends RevertableEntity>({
   liveEntity,
   revertableFields,
+  clearableFields,
   apiPathBase,
   revision,
   allRevisions,
@@ -75,12 +101,19 @@ export default function RevertModal<T extends RevertableEntity>({
   revertsBypassApproval,
   approvalRequired,
   canBypassApproval,
+  canRevert,
+  canLandRevert: canLandRevertEntity,
+  canLandRevertForTarget,
+  canLandArchive: canLandArchiveEntity,
+  canDraft,
   renderDraftSelector,
   close,
   onRevisionCreated,
 }: Props<T>) {
   const { apiCall } = useAuth();
   const { getUserDisplay } = useUser();
+  const permissionsUtil = usePermissionsUtil();
+  const environments = useEnvironments();
 
   // Revision-number map (stored version, else position by creation date) so
   // the dropdown and revert title read like the rest of the page.
@@ -127,21 +160,69 @@ export default function RevertModal<T extends RevertableEntity>({
   // Archive drift: only offer to flip `archived` when it differs from live.
   const targetArchived = !!targetState.archived;
   const liveArchived = !!liveEntity.archived;
-  const archiveDrifts = targetArchived !== liveArchived;
-  const willUnarchive = archiveDrifts && liveArchived && !targetArchived;
+  const willUnarchive = liveArchived && !targetArchived;
+  // Re-archiving takes the entity out of service, so the server gates it on the
+  // delete atom even inside a revert — revert authority covers restoring the
+  // values, not the elevation. Don't offer the opt-in without it.
+  const canReArchive = permissionsUtil.canRevisionAction(
+    revision.target.type,
+    "delete",
+    liveEntity,
+  );
+  const archiveDrifts =
+    targetArchived !== liveArchived && (willUnarchive || canReArchive);
+  // Staging the flip is project-scoped; LANDING it takes delete over the
+  // environments the entity serves, so the two are not the same question. The
+  // fallback asks about every environment rather than reusing the project-scoped
+  // answer: an omitted footprint SKIPS the environment check, which offered a
+  // dev-limited deleter a re-archive the endpoint refuses.
+  const canLandArchive =
+    canLandArchiveEntity ??
+    canLandArchiveToggle(
+      permissionsUtil,
+      revision.target.type,
+      liveEntity,
+      // The SERVE footprint, narrowed to the entity's projects — the raw org-env
+      // list over-demands, since an environment scoped away from those projects
+      // never serves the entity.
+      archiveFootprintForControl({ environments, entity: liveEntity }),
+    );
   // Default the opt-in to the recovery direction (un-archive), opt-in for the
-  // more disruptive re-archive direction.
+  // more disruptive re-archive direction. Re-derived when the target changes: a
+  // lazy initializer runs once, so switching targets used to keep the previous
+  // one's answer — including leaving the box ticked for a target that no longer
+  // drifts.
   const [includeArchive, setIncludeArchive] = useState<boolean>(
     () => archiveDrifts && liveArchived && !targetArchived,
   );
+  useEffect(() => {
+    setIncludeArchive(archiveDrifts && liveArchived && !targetArchived);
+  }, [targetId, archiveDrifts, liveArchived, targetArchived]);
 
   // Reverts restore an already-reviewed state, so when the org allows it (or
   // doesn't require approval at all, or the viewer is an admin who can bypass)
   // the modal defaults to publishing; the draft option stays available for
   // those who still want a review step. Mirrors the feature RevertModal's
   // `canAutoPublish` gate.
+  // Landing a revert takes revert authority; approvals add the bypass term on
+  // top. Mirrors the feature RevertModal — without the authority term a
+  // draft-only viewer was offered "Publish now" and refused by the server.
+  //
+  // Landing answers for the environments the restore touches; proposing
+  // publishes nothing and is project-scoped. The server splits the two, so one
+  // boolean for both left an environment-limited reverter either unable to
+  // propose or wrongly offered "Publish now".
+  const canLandRevert = canLandRevertForTarget
+    ? canLandRevertForTarget(targetRevision)
+    : (canLandRevertEntity ?? canRevert);
   const canPublishNow =
-    !approvalRequired || revertsBypassApproval || canBypassApproval;
+    (!approvalRequired || revertsBypassApproval
+      ? canLandRevert
+      : canLandRevert && canBypassApproval) &&
+    // Carrying a re-archive into the publish makes it delete-class as well.
+    (!includeArchive || willUnarchive || canLandArchive);
+  // Proposing one only takes draft authority (or revert, which subsumes it).
+  const canCreateDraft = canDraft || canRevert;
   // Effective approval requirement for THIS revert. When the org lets reverts
   // bypass approval, publishing the revert isn't bypassing anything — so the
   // picker shows a plain "Publish now" instead of the red "Bypass approvals and
@@ -180,6 +261,12 @@ export default function RevertModal<T extends RevertableEntity>({
       close={close}
       closeCta="Cancel"
       cta={publishNow ? "Publish Now" : "Create Revert Draft"}
+      // Each route has its own authority, so the CTA reflects the one selected.
+      // A target matching live has no diff to apply, so the endpoint refuses it —
+      // the modal says so above and the button follows.
+      ctaEnabled={
+        visibleDiffs.length > 0 && (publishNow ? canPublishNow : canCreateDraft)
+      }
       size="lg"
       submit={async () => {
         // Diff the chosen target state against the live entity; only send the
@@ -188,9 +275,15 @@ export default function RevertModal<T extends RevertableEntity>({
         revertableFields.forEach((key) => {
           const targetValue = targetState[key];
           const currentValue = liveEntity[key];
-          if (JSON.stringify(targetValue) !== JSON.stringify(currentValue)) {
-            revertChanges[key as string] = targetValue;
+          if (JSON.stringify(targetValue) === JSON.stringify(currentValue)) {
+            return;
           }
+          // JSON drops undefined, so supported clears serialize as null.
+          const isClear =
+            targetValue === undefined &&
+            currentValue !== undefined &&
+            clearableFields?.includes(key);
+          revertChanges[key as string] = isClear ? null : targetValue;
         });
         if (archiveDrifts && includeArchive) {
           revertChanges.archived = targetArchived;

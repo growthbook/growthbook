@@ -1,4 +1,6 @@
-import { FC, Fragment } from "react";
+import { FC, Fragment, useState } from "react";
+import { IconButton } from "@radix-ui/themes";
+import { PiCaretCircleRight, PiCaretCircleDown } from "react-icons/pi";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -36,6 +38,8 @@ import ResultsTable, {
 } from "@/components/Experiment/ResultsTable";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
+import FunnelStepLabel from "@/components/Experiment/FunnelStepLabel";
+import RadixTooltip from "@/ui/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useExperimentDimensionRows } from "@/hooks/useExperimentDimensionRows";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -166,6 +170,14 @@ const BreakDownResults: FC<{
   // Detect drilldown context for automatic row click handling
   const drilldownContext = useMetricDrilldownContext();
 
+  // Funnel step child rows nest under their dimension-value parent and stay
+  // collapsed until the parent's chevron is toggled. The key matches the
+  // `parentRowId` (`metricId:dimensionValue`) each child row carries.
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
+  const toggleExpandedRow = (parentRowId: string) => {
+    setExpandedRows((prev) => ({ ...prev, [parentRowId]: !prev[parentRowId] }));
+  };
+
   const dimension =
     ssrPolyfills?.getDimensionById?.(dimensionId)?.name ||
     getDimensionById(dimensionId)?.name ||
@@ -204,7 +216,9 @@ const BreakDownResults: FC<{
   // Wrap drilldown to include dimension info
   const handleRowClick = drilldownContext
     ? (row: ExperimentTableRow) => {
-        const rawValue = typeof row.label === "string" ? row.label : "";
+        const rawValue =
+          row.dimensionValue ??
+          (typeof row.label === "string" ? row.label : "");
         const value = formatDimensionValueForDisplay(rawValue);
         drilldownContext.openDrilldown(row, {
           dimensionInfo: { id: dimensionId, name: dimension, value, rawValue },
@@ -247,6 +261,13 @@ const BreakDownResults: FC<{
       </div>
 
       {tables.map((table, i) => {
+        // Hide funnel step child rows whose dimension-value parent is collapsed.
+        const visibleRows = table.rows.filter(
+          (row) =>
+            !row.isChildRow ||
+            !row.parentRowId ||
+            !!expandedRows[row.parentRowId],
+        );
         return (
           <Fragment key={table.metric.id + "_" + i}>
             <h4
@@ -277,7 +298,7 @@ const BreakDownResults: FC<{
               setVariationFilter={setVariationFilter}
               baselineRow={baselineRow}
               columnsFilter={columnsFilter}
-              rows={table.rows}
+              rows={visibleRows}
               onRowClick={handleRowClick}
               dimension={dimension}
               id={(idPrefix ? `${idPrefix}_` : "") + table.metric.id}
@@ -301,28 +322,78 @@ const BreakDownResults: FC<{
               pValueCorrection={pValueCorrection}
               differenceType={differenceType}
               setDifferenceType={setDifferenceType}
-              renderLabelColumn={({ label }) => (
-                <div
-                  className="pl-3 font-weight-bold"
-                  style={{
-                    display: "-webkit-box",
-                    WebkitLineClamp: 1,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden",
-                    color: "var(--color-text-mid)",
-                  }}
-                >
-                  {label ? (
-                    label === NULL_DIMENSION_VALUE ? (
-                      <em>{formatDimensionValueForDisplay(label)}</em>
-                    ) : (
-                      label
-                    )
-                  ) : (
-                    <em>unknown</em>
-                  )}
-                </div>
-              )}
+              renderLabelColumn={({ label, row }) => {
+                if (row?.childRowType === "funnelStep") {
+                  return <FunnelStepLabel label={label} row={row} />;
+                }
+
+                const hasSteps = !!row?.numChildren;
+                const parentRowId = `${row?.metric?.id}:${row?.label ?? ""}`;
+                const isExpanded = !!expandedRows[parentRowId];
+                return (
+                  <div
+                    className="pl-3 font-weight-bold"
+                    style={{
+                      display: "-webkit-box",
+                      WebkitLineClamp: 1,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                      color: "var(--color-text-mid)",
+                    }}
+                  >
+                    {hasSteps ? (
+                      <span
+                        style={{
+                          position: "absolute",
+                          left: 7,
+                          top: 0,
+                          bottom: 0,
+                          display: "flex",
+                          alignItems: "center",
+                        }}
+                      >
+                        <RadixTooltip
+                          content={
+                            isExpanded
+                              ? "Collapse funnel steps"
+                              : "Expand funnel steps"
+                          }
+                          side="top"
+                        >
+                          <IconButton
+                            size="1"
+                            variant="ghost"
+                            radius="full"
+                            aria-label={
+                              isExpanded
+                                ? "Collapse funnel steps"
+                                : "Expand funnel steps"
+                            }
+                            onClick={() => toggleExpandedRow(parentRowId)}
+                          >
+                            {isExpanded ? (
+                              <PiCaretCircleDown size={16} />
+                            ) : (
+                              <PiCaretCircleRight size={16} />
+                            )}
+                          </IconButton>
+                        </RadixTooltip>
+                      </span>
+                    ) : null}
+                    <span className={hasSteps ? "ml-2" : undefined}>
+                      {label ? (
+                        label === NULL_DIMENSION_VALUE ? (
+                          <em>{formatDimensionValueForDisplay(label)}</em>
+                        ) : (
+                          label
+                        )
+                      ) : (
+                        <em>unknown</em>
+                      )}
+                    </span>
+                  </div>
+                );
+              }}
               isTabActive={true}
               isBandit={isBandit}
               ssrPolyfills={ssrPolyfills}

@@ -1,4 +1,5 @@
 import { putSavedGroupRevisionMetadataValidator } from "shared/validators";
+import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
@@ -28,9 +29,6 @@ export const putSavedGroupRevisionMetadata = createApiRequestHandler(
 
   const { name, owner, description, projects } = req.body;
 
-  // Mass-assignment guard: only fields in the explicit allowlist are
-  // forwarded to the patch builder. New fields that should be editable via
-  // metadata MUST also extend the validator body schema.
   const fieldsToUpdate: Record<string, unknown> = {};
   if (typeof name !== "undefined") fieldsToUpdate.groupName = name;
   if (typeof owner !== "undefined") fieldsToUpdate.owner = owner;
@@ -38,24 +36,36 @@ export const putSavedGroupRevisionMetadata = createApiRequestHandler(
     assertValidDescription(description);
     fieldsToUpdate.description = description;
   }
+  // Authorize both scopes before checking project existence.
+  if (
+    !req.context.permissions.canRevisionAction(
+      "saved-group",
+      "draft",
+      savedGroup,
+    )
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
+  if (
+    !holdsMoveDestination({
+      permissions: req.context.permissions,
+      model: "saved-group",
+      action: "draft",
+      existing: savedGroup,
+      proposed: {
+        ...savedGroup,
+        ...(projects === undefined ? {} : { projects }),
+      },
+    })
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
+
   if (typeof projects !== "undefined") {
     if (projects.length > 0) {
       await req.context.models.projects.ensureProjectsExist(projects);
     }
     fieldsToUpdate.projects = projects;
-  }
-
-  // Re-check edit permission against the merged change set so a `projects`
-  // move requires edit on both old AND new project sets — matches the
-  // internal controller. canUpdateSavedGroup's second arg accepts a partial
-  // update; the model union gives us both projection sets here.
-  if (
-    !req.context.permissions.canUpdateSavedGroup(savedGroup, {
-      ...savedGroup,
-      ...fieldsToUpdate,
-    })
-  ) {
-    req.context.permissions.throwPermissionError();
   }
 
   await ensureLiveRevisionExists(
@@ -83,10 +93,7 @@ export const putSavedGroupRevisionMetadata = createApiRequestHandler(
     }
 
     if (Object.keys(fieldsToUpdate).length === 0) {
-      // No-op: drop any auto-created draft so we don't leave one stranded.
       await discardIfJustCreated(req.context, revision, created);
-      // Re-fetch the revision so the returned status reflects the actual
-      // DB state ("discarded") rather than the stale in-memory "draft".
       const closed =
         (await req.context.models.revisions.getById(revision.id)) ?? revision;
       return {

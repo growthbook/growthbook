@@ -19,7 +19,10 @@ import type {
 } from "shared/validators";
 import { isEqual } from "lodash";
 import { createParser } from "nuqs";
-import { canInlineFilterColumn } from "shared/experiments";
+import {
+  canInlineFilterColumn,
+  getFactMetricPrimaryFactTableId,
+} from "shared/experiments";
 import {
   encodeExplorationConfig,
   calculateProductAnalyticsDateRange,
@@ -488,7 +491,9 @@ export function getCommonColumns(
 
       const factMetric = getFactMetricById(metricId);
       if (factMetric) {
-        const ft = getFactTableById(factMetric.numerator.factTableId);
+        const ft = getFactTableById(
+          getFactMetricPrimaryFactTableId(factMetric),
+        );
         valueColumns = ft?.columns || [];
         ft?.userIdTypes?.forEach((u) => userIdTypes.add(u));
 
@@ -578,7 +583,10 @@ export function getColumnTopValues(
     const topValues = new Set<string>();
     dataset.values.forEach((value) => {
       const metric = getFactMetricById(value.metricId);
-      const ft = metric ? getFactTableById(metric.numerator.factTableId) : null;
+      const ft =
+        metric && metric.numerator
+          ? getFactTableById(metric.numerator.factTableId)
+          : null;
       if (ft) {
         getColumnInfo(ft, column).topValues.forEach((v) => topValues.add(v));
       }
@@ -732,7 +740,7 @@ export function fillMissingUnits(
     if (v.unit || !v.metricId) return v;
     const metric = getFactMetricById(v.metricId);
     if (!metric) return v;
-    const factTable = getFactTableById(metric.numerator.factTableId);
+    const factTable = getFactTableById(getFactMetricPrimaryFactTableId(metric));
     const defaultUnit = factTable?.userIdTypes?.[0];
     if (!defaultUnit) return v;
     changed = true;

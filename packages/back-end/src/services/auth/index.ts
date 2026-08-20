@@ -1,8 +1,6 @@
-import { createHash } from "crypto";
 import { NextFunction, Request, Response } from "express";
 import { SSO_CONFIG } from "shared/enterprise";
 import { ExpressCookieStickyBucketService } from "@growthbook/growthbook";
-import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { userHasPermission } from "shared/permissions";
 import { AuditInterface } from "shared/types/audit";
 import { Permission } from "shared/types/organization";
@@ -47,6 +45,7 @@ import {
   getGrowthBookClient,
   getGrowthBookRequestUrl,
   getGrowthBookTrackingAttributes,
+  hashOrganizationId,
 } from "back-end/src/services/growthbook";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { AuthConnection } from "./AuthConnection";
@@ -329,11 +328,7 @@ export async function processJWT(
       const build = getBuild();
       const org = req.organization;
       const orgId = org?.id || "";
-      const hashedOrganizationId = orgId
-        ? createHash("sha256")
-            .update(GROWTHBOOK_SECURE_ATTRIBUTE_SALT + orgId)
-            .digest("hex")
-        : "";
+      const hashedOrganizationId = hashOrganizationId(orgId);
 
       // Create sticky bucket service for Express
       const stickyBucketService = new ExpressCookieStickyBucketService({

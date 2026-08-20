@@ -1,4 +1,5 @@
 import { randomBytes } from "crypto";
+import { z } from "zod";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
 import { Request } from "express";
@@ -21,7 +22,18 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_TARGET_MDE,
 } from "shared/constants";
-import { AIModel, EmbeddingModel } from "shared/ai";
+import {
+  AIModel,
+  AIModelKind,
+  AIProvider,
+  AI_PROVIDERS,
+  CLOUD_MANAGED_AI_MODEL,
+  CLOUD_MANAGED_IMAGE_MODEL,
+  CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
+  DEFAULT_EMBEDDING_MODEL,
+  EmbeddingModel,
+  getProviderForAIModel,
+} from "shared/ai";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import {
   MetricCappingSettings,
@@ -63,6 +75,11 @@ import {
   IS_CLOUD,
   IS_MULTI_ORG,
 } from "back-end/src/util/secrets";
+import {
+  AIKeySource,
+  canOrgChooseProviderModels,
+  getResolvedAIKeys,
+} from "back-end/src/services/aiCredentials";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext, ExperimentOverride } from "back-end/types/api";
@@ -268,16 +285,19 @@ export async function getSignificanceSettingsForProject(
   };
 }
 
-export function getAISettingsForOrg(
+export async function getAISettingsForOrg(
   context: ReqContext,
   includeKey: boolean = false,
-): {
+): Promise<{
   aiEnabled: boolean;
   openAIAPIKey: string;
   anthropicAPIKey: string;
   xaiAPIKey: string;
   mistralAPIKey: string;
   googleAPIKey: string;
+  // Where each provider's key came from. Non-secret, so returned regardless of
+  // `includeKey`.
+  keySource: Record<AIProvider, AIKeySource>;
   defaultAIModel: AIModel;
   embeddingModel: EmbeddingModel;
   // Resolved Visual Editor overrides — both already fall back to a
@@ -286,69 +306,95 @@ export function getAISettingsForOrg(
   visualEditorImageModel: string;
   // Free-text brand guidelines appended to the AI system prompt.
   visualEditorAIContext: string;
-} {
-  const openAIKey = process.env.OPENAI_API_KEY || "";
-  const anthropicKey = process.env.ANTHROPIC_API_KEY || "";
-  const xaiKey = process.env.XAI_API_KEY || "";
-  const mistralKey = process.env.MISTRAL_API_KEY || "";
-  // GEMINI_API_KEY is the legacy name; GOOGLE_AI_API_KEY is preferred.
-  const googleKey =
-    process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY || "";
+}> {
+  // Cloud: a stored key beats the env var. Self-hosted: the env var wins.
+  // Either way it only counts while the plan allows it — see getResolvedAIKeys.
+  // Memoized per request, so repeated calls cost one query.
+  const resolvedKeys = await getResolvedAIKeys(context);
 
-  const hasValidKey = !!(
-    openAIKey ||
-    anthropicKey ||
-    xaiKey ||
-    mistralKey ||
-    googleKey
+  const keySource = AI_PROVIDERS.reduce(
+    (acc, provider) => {
+      acc[provider] = resolvedKeys[provider].source;
+      return acc;
+    },
+    {} as Record<AIProvider, AIKeySource>,
   );
 
+  const hasValidKey = AI_PROVIDERS.some((p) => !!resolvedKeys[p].key);
+
+  // Cloud ships with GrowthBook's own managed keys, so AI only needs the org
+  // toggle. Self-hosted additionally needs a key from somewhere.
   const aiEnabled = IS_CLOUD
     ? !!context.org.settings?.aiEnabled
     : !!(context.org.settings?.aiEnabled && hasValidKey);
 
-  const defaultAIModel: AIModel = IS_CLOUD
-    ? "claude-haiku-4-5-20251001"
-    : context.org.settings?.defaultAIModel ||
-      context.org.settings?.openAIDefaultModel ||
-      "gpt-5.4-mini";
+  // Cloud pins the cheap managed model because GrowthBook pays for it; an org on
+  // its own key for that model's provider picks its own.
+  const orgDefaultAIModel = getAllowedAIModel(
+    "text",
+    context.org.settings?.defaultAIModel ||
+      context.org.settings?.openAIDefaultModel,
+    keySource,
+  );
+  const defaultAIModel: AIModel =
+    orgDefaultAIModel || (IS_CLOUD ? CLOUD_MANAGED_AI_MODEL : "gpt-5.4-mini");
 
-  // Visual editor AI. An explicit per-surface override always wins.
-  // Otherwise: on Cloud, default to Sonnet — the visual editor's
-  // structured-output + vision workload (mutations schema, figma-to-
-  // variant) needs more capability than the cheap managed default
-  // (Haiku), which fails schema adherence too often here. Self-hosted
-  // keeps falling back to the org's general default model so admins stay
-  // in control of cost/model.
+  // Cloud stays on Sonnet unless the Visual Editor's own setting overrides it:
+  // its structured-output + vision workload fails schema adherence on Haiku.
   const visualEditorAIModel: AIModel =
-    context.org.settings?.visualEditorAIModel ||
-    (IS_CLOUD ? "claude-sonnet-4-5-20250929" : defaultAIModel);
-  // On Cloud, default the visual editor's image model to Gemini 3 Pro Image:
-  // it honors the requested aspect ratio (so replacements aren't center-
-  // cropped/clipped) and renders at higher resolution, while still supporting
-  // reference images for img2img. Self-hosted keeps the stable nano-banana
-  // default (GEMINI_IMAGE_MODEL, env-overridable) rather than a preview model.
-  // An explicit org setting always wins.
+    getAllowedAIModel(
+      "text",
+      context.org.settings?.visualEditorAIModel,
+      keySource,
+    ) || (IS_CLOUD ? CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL : defaultAIModel);
+  // Managed Cloud gets Gemini 3 Pro Image for aspect-ratio fidelity. An org on
+  // its own Google key gets the stable default, since a preview model isn't
+  // enabled on every account.
   const visualEditorImageModel: string =
-    context.org.settings?.visualEditorImageModel ||
-    (IS_CLOUD ? "gemini-3-pro-image-preview" : GEMINI_IMAGE_MODEL);
+    getAllowedAIModel(
+      "image",
+      context.org.settings?.visualEditorImageModel,
+      keySource,
+    ) ||
+    (IS_CLOUD && !canOrgChooseProviderModels(keySource, "google")
+      ? CLOUD_MANAGED_IMAGE_MODEL
+      : GEMINI_IMAGE_MODEL);
 
   return {
     aiEnabled,
-    openAIAPIKey: includeKey ? openAIKey : "",
-    anthropicAPIKey: includeKey ? anthropicKey : "",
-    xaiAPIKey: includeKey ? xaiKey : "",
-    mistralAPIKey: includeKey ? mistralKey : "",
-    googleAPIKey: includeKey ? googleKey : "",
+    openAIAPIKey: includeKey ? resolvedKeys.openai.key : "",
+    anthropicAPIKey: includeKey ? resolvedKeys.anthropic.key : "",
+    xaiAPIKey: includeKey ? resolvedKeys.xai.key : "",
+    mistralAPIKey: includeKey ? resolvedKeys.mistral.key : "",
+    googleAPIKey: includeKey ? resolvedKeys.google.key : "",
+    keySource,
     defaultAIModel,
     embeddingModel:
-      context.org.settings?.embeddingModel || "text-embedding-ada-002",
+      getAllowedAIModel(
+        "embedding",
+        context.org.settings?.embeddingModel,
+        keySource,
+      ) || DEFAULT_EMBEDDING_MODEL,
     visualEditorAIModel,
     visualEditorImageModel,
     visualEditorAIContext: (
       context.org.settings?.visualEditorAIContext || ""
     ).trim(),
   };
+}
+
+// Stored and request-level model choices use the same runtime entitlement rule.
+// A disallowed legacy value reads as unset so callers fall back safely.
+export function getAllowedAIModel<T extends string>(
+  kind: AIModelKind,
+  model: T | undefined,
+  keySource: Record<AIProvider, AIKeySource>,
+): T | undefined {
+  if (!model) return undefined;
+  const provider = getProviderForAIModel(kind, model);
+  return provider && canOrgChooseProviderModels(keySource, provider)
+    ? model
+    : undefined;
 }
 
 export function getMetricDefaultsForOrg(context: ReqContext): MetricDefaults {
@@ -843,7 +889,14 @@ export async function inviteUser({
 } & MemberRoleWithProjects) {
   organization.invites = organization.invites || [];
 
-  email = email.toLowerCase();
+  email = email
+    .toLowerCase()
+    .replace(/^[\s;,]+/, "")
+    .replace(/[\s;,]+$/, "");
+
+  if (!z.string().email().safeParse(email).success) {
+    throw new Error(`Invalid email address: ${email}`);
+  }
 
   // User is already invited (legacy invites may have been stored with
   // mixed case, so compare case-insensitively).
@@ -1332,7 +1385,8 @@ export async function addMemberFromSSOConnection(
 
     organization = orgs[0];
   }
-  if (!organization) return null;
+  // Never auto-join users into a disabled organization
+  if (!organization || organization.disabled) return null;
 
   // If the org has explicitly disabled autoApproveMembers, add the user as a pending member
   // This differs from the non-SSO path (`undefined` is auto-approved there) to preserve existing behavior

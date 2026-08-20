@@ -20,7 +20,13 @@ export const postSavedGroupRevision = createApiRequestHandler(
 
   // Permission check delegates to canUpdate so it tracks the same edit gate
   // as every other write path on this entity.
-  if (!req.context.permissions.canUpdateSavedGroup(savedGroup, savedGroup)) {
+  if (
+    !req.context.permissions.canRevisionAction(
+      "saved-group",
+      "draft",
+      savedGroup,
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 

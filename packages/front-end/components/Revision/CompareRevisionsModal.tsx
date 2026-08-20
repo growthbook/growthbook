@@ -332,6 +332,8 @@ function activityLabel(item: ActivityTimelineItem): string {
       return "Discarded";
     case "reopened":
       return "Reopened";
+    case "recalled":
+      return "Review recalled";
     default:
       return item.action;
   }

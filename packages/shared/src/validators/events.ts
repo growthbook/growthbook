@@ -33,6 +33,9 @@ import {
   featureRevisionCommentedPayload,
   featureRevisionDiscardedPayload,
   featureRevisionReopenedPayload,
+  featureRevisionRecalledPayload,
+  featureRevisionReviewRetractedPayload,
+  featureRevisionPublishScheduleChangedPayload,
   featureRevisionRebasedPayload,
   featureRevisionPublishedPayload,
   featureRevisionRevertedPayload,
@@ -59,6 +62,9 @@ import {
   savedGroupRevisionPublishedPayload,
   savedGroupRevisionRevertedPayload,
   savedGroupRevisionReopenedPayload,
+  savedGroupRevisionRecalledPayload,
+  savedGroupRevisionReviewRetractedPayload,
+  savedGroupRevisionPublishScheduleChangedPayload,
   savedGroupRevisionPublishFailedPayload,
 } from "./saved-group-revision-notifications";
 import { apiConstantValidator } from "./constant";
@@ -74,6 +80,9 @@ import {
   constantRevisionPublishedPayload,
   constantRevisionRevertedPayload,
   constantRevisionReopenedPayload,
+  constantRevisionRecalledPayload,
+  constantRevisionReviewRetractedPayload,
+  constantRevisionPublishScheduleChangedPayload,
   constantRevisionPublishFailedPayload,
 } from "./constant-revision-notifications";
 import { apiConfigValidator } from "./config";
@@ -89,6 +98,9 @@ import {
   configRevisionPublishedPayload,
   configRevisionRevertedPayload,
   configRevisionReopenedPayload,
+  configRevisionRecalledPayload,
+  configRevisionReviewRetractedPayload,
+  configRevisionPublishScheduleChangedPayload,
   configRevisionPublishFailedPayload,
 } from "./config-revision-notifications";
 
@@ -231,6 +243,21 @@ export const notificationEvents = {
       description:
         "Triggered when a discarded draft revision is reopened as a draft",
     },
+    "revision.recalled": {
+      schema: featureRevisionRecalledPayload,
+      description:
+        "Triggered when the author (or an editor) recalls a review request, returning the revision to `draft`. Distinct from `revision.reopened`, which restores a discarded revision.",
+    },
+    "revision.reviewRetracted": {
+      schema: featureRevisionReviewRetractedPayload,
+      description:
+        "Triggered when a reviewer retracts their own verdict. The status is recomputed from the verdicts that remain, so the revision may end up `pending-review`, or stay `approved` or `changes-requested` when another reviewer's verdict still stands. Carries no content change — the revision's proposed changes are untouched.",
+    },
+    "revision.publishScheduleChanged": {
+      schema: featureRevisionPublishScheduleChangedPayload,
+      description:
+        "Triggered when a deferred publish is armed, re-armed, or cancelled on a revision. Carries no content change.",
+    },
     "revision.rebased": {
       schema: featureRevisionRebasedPayload,
       description:
@@ -356,6 +383,21 @@ export const notificationEvents = {
       schema: savedGroupRevisionReopenedPayload,
       description: "Triggered when a discarded revision is reopened",
     },
+    "revision.recalled": {
+      schema: savedGroupRevisionRecalledPayload,
+      description:
+        "Triggered when the author (or an editor) recalls a review request, returning the revision to `draft`. Distinct from `revision.reopened`, which restores a discarded revision.",
+    },
+    "revision.reviewRetracted": {
+      schema: savedGroupRevisionReviewRetractedPayload,
+      description:
+        "Triggered when a reviewer retracts their own verdict. The status is recomputed from the verdicts that remain, so the revision may end up `pending-review`, or stay `approved` or `changes-requested` when another reviewer's verdict still stands. Carries no content change — the revision's proposed changes are untouched.",
+    },
+    "revision.publishScheduleChanged": {
+      schema: savedGroupRevisionPublishScheduleChangedPayload,
+      description:
+        "Triggered when a deferred publish is armed, re-armed, or cancelled on a revision. Carries no content change.",
+    },
     "revision.publishFailed": {
       schema: savedGroupRevisionPublishFailedPayload,
       description:
@@ -425,6 +467,21 @@ export const notificationEvents = {
     "revision.reopened": {
       schema: constantRevisionReopenedPayload,
       description: "Triggered when a discarded revision is reopened",
+    },
+    "revision.recalled": {
+      schema: constantRevisionRecalledPayload,
+      description:
+        "Triggered when the author (or an editor) recalls a review request, returning the revision to `draft`. Distinct from `revision.reopened`, which restores a discarded revision.",
+    },
+    "revision.reviewRetracted": {
+      schema: constantRevisionReviewRetractedPayload,
+      description:
+        "Triggered when a reviewer retracts their own verdict. The status is recomputed from the verdicts that remain, so the revision may end up `pending-review`, or stay `approved` or `changes-requested` when another reviewer's verdict still stands. Carries no content change — the revision's proposed changes are untouched.",
+    },
+    "revision.publishScheduleChanged": {
+      schema: constantRevisionPublishScheduleChangedPayload,
+      description:
+        "Triggered when a deferred publish is armed, re-armed, or cancelled on a revision. Carries no content change.",
     },
     "revision.publishFailed": {
       schema: constantRevisionPublishFailedPayload,
@@ -496,6 +553,21 @@ export const notificationEvents = {
       schema: configRevisionReopenedPayload,
       description: "Triggered when a discarded revision is reopened",
     },
+    "revision.recalled": {
+      schema: configRevisionRecalledPayload,
+      description:
+        "Triggered when the author (or an editor) recalls a review request, returning the revision to `draft`. Distinct from `revision.reopened`, which restores a discarded revision.",
+    },
+    "revision.reviewRetracted": {
+      schema: configRevisionReviewRetractedPayload,
+      description:
+        "Triggered when a reviewer retracts their own verdict. The status is recomputed from the verdicts that remain, so the revision may end up `pending-review`, or stay `approved` or `changes-requested` when another reviewer's verdict still stands. Carries no content change — the revision's proposed changes are untouched.",
+    },
+    "revision.publishScheduleChanged": {
+      schema: configRevisionPublishScheduleChangedPayload,
+      description:
+        "Triggered when a deferred publish is armed, re-armed, or cancelled on a revision. Carries no content change.",
+    },
     "revision.publishFailed": {
       schema: configRevisionPublishFailedPayload,
       description:
@@ -542,9 +614,11 @@ export const notificationEventNames = (
   [] as NotificationEventName[],
 );
 
-// Only use this for zod validations!
-export const zodNotificationEventNamesEnum =
-  notificationEventNames as UnionToTuple<NotificationEventName>;
+/** Non-empty tuple for z.enum that avoids recursive union-to-tuple instantiation. */
+export const zodNotificationEventNamesEnum = notificationEventNames as [
+  NotificationEventName,
+  ...NotificationEventName[],
+];
 
 export const notificationEventPayloadData = <
   Resource extends NotificationEventResource,
