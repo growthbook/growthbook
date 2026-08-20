@@ -34,6 +34,7 @@ import { CustomHookInterface } from "../validators/custom-hooks";
 import { ContextualBanditInterface } from "../validators/contextual-bandit";
 import { EventForwarderConfigInterface } from "../validators/event-forwarder-config";
 import { HoldoutInterface } from "../validators/holdout";
+import type { ExplorationDataset } from "../validators/product-analytics";
 import { PermissionError, isEventForwarderEventsFactTable } from "../util/";
 // Specific module, not the util barrel: the barrel imports back from
 // shared/permissions, and the require cycle leaves re-exports uninitialized.
@@ -1332,6 +1333,20 @@ export class Permissions {
       datasource,
       "runSqlExplorerQueries",
     );
+  };
+
+  public canRunProductAnalyticsExplorationQueries = (
+    datasource: Pick<DataSourceInterface, "projects">,
+    datasetType: ExplorationDataset["type"],
+  ): boolean => {
+    if (
+      datasetType === "metric" ||
+      datasetType === "fact_table" ||
+      datasetType === "funnel"
+    ) {
+      return this.canRunMetricAnalysisQueries(datasource);
+    }
+    return this.canRunSqlExplorerQueries(datasource);
   };
 
   public canCreateGeneralDashboards = (

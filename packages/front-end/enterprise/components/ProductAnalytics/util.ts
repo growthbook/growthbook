@@ -8,6 +8,7 @@ import type {
   MetricValue,
   FactTableValue,
   DataSourceValue,
+  SqlValue,
   ProductAnalyticsValue,
   DatasetType,
   ExplorationDataset,
@@ -17,7 +18,7 @@ import type {
   ExplorationDateRange,
   ComparisonMode,
 } from "shared/validators";
-import { isEqual } from "lodash";
+import { isEqual, omit } from "lodash";
 import { createParser } from "nuqs";
 import {
   canInlineFilterColumn,
@@ -357,6 +358,15 @@ export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
         valueColumn: null,
         unit: null,
       } as DataSourceValue;
+    case "sql":
+      return {
+        ...base,
+        name: "Count",
+        type: "sql",
+        valueType: "count",
+        valueColumn: null,
+        unit: null,
+      } as SqlValue;
     case "funnel":
       // The funnel sidebar manages steps directly; nothing in the codebase
       // should ask for a "value" on a funnel dataset.
@@ -364,6 +374,44 @@ export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
     default:
       throw new Error(`Invalid dataset type: ${type}`);
   }
+}
+
+/** Seed Count and line-vs-table when entering Explore Dataset, not when a test query first returns columns. */
+export function withDefaultSqlCountValue(
+  config: ExplorerDraftConfig,
+): ExplorerDraftConfig {
+  if (config.dataset.type !== "sql") return config;
+  if (config.dataset.values.length > 0) return config;
+  if (
+    !config.dataset.sql.trim() ||
+    Object.keys(config.dataset.columnTypes).length === 0
+  ) {
+    return config;
+  }
+
+  const hasTimestamp = config.dataset.timestampColumn !== null;
+  const dimensions =
+    hasTimestamp &&
+    !config.dimensions.some((dimension) => dimension.dimensionType === "date")
+      ? [
+          {
+            dimensionType: "date" as const,
+            column: "date",
+            dateGranularity: "auto" as const,
+          },
+          ...config.dimensions,
+        ]
+      : config.dimensions;
+
+  return {
+    ...config,
+    chartType: hasTimestamp ? "line" : "table",
+    dimensions,
+    dataset: {
+      ...config.dataset,
+      values: [createEmptyValue("sql") as SqlValue],
+    },
+  } as ExplorerDraftConfig;
 }
 
 /** Builds an empty funnel step. `factTableId` is optional so the "Add step"
@@ -447,6 +495,14 @@ export function createEmptyDataset(type: DatasetType): ExplorationDataset {
       timestampColumn: "",
       columnTypes: {},
     };
+  } else if (type === "sql") {
+    return {
+      type,
+      values: [],
+      sql: "",
+      timestampColumn: null,
+      columnTypes: {},
+    };
   } else if (type === "funnel") {
     return {
       type,
@@ -522,7 +578,7 @@ export function getCommonColumns(
         columns = columns.filter((c) => valueColumnNames.has(c.column));
       }
     }
-  } else if (dataset.type === "data_source") {
+  } else if (dataset.type === "data_source" || dataset.type === "sql") {
     columns = Object.entries(dataset.columnTypes).map(([name, datatype]) => ({
       column: name,
       name,
@@ -812,6 +868,18 @@ export function removeIncompleteInputs(
         })
         .map(cleanRowFilters),
     };
+  } else if (dataset.type === "sql") {
+    return {
+      ...dataset,
+      values: dataset.values
+        .filter((v) => {
+          if (v.valueType === "count" || v.valueType === "unit_count") {
+            return true;
+          }
+          return !!v.valueColumn;
+        })
+        .map(cleanRowFilters),
+    };
   } else if (dataset.type === "funnel") {
     return {
       ...dataset,
@@ -825,7 +893,9 @@ export function removeIncompleteInputs(
 export function cleanConfigForSubmission(
   config: ExplorerDraftConfig,
 ): ExplorationConfig {
-  const configWithoutPrevious = stripExplorerDraftFields(config);
+  const configWithoutPrevious = stripExplorerDraftFields(
+    normalizeTimelessSqlConfig(config),
+  );
   const cleanedDataset = removeIncompleteInputs(configWithoutPrevious.dataset);
   const cleanedDimensions = configWithoutPrevious.dimensions.filter((d) => {
     if (d.dimensionType === "date" || d.dimensionType === "slice") return true;
@@ -852,6 +922,47 @@ const CUMULATIVE_CHART_TYPES: Set<string> = new Set([
   "table",
 ]);
 
+export function isTimeSeriesChart(
+  chartType: ExplorationConfig["chartType"],
+): boolean {
+  return TIMESERIES_CHART_TYPES.has(chartType);
+}
+
+export function isTimelessSqlExploration(
+  config: Pick<ExplorationConfig, "dataset">,
+): boolean {
+  return (
+    config.dataset.type === "sql" && config.dataset.timestampColumn === null
+  );
+}
+
+export function normalizeTimelessSqlConfig(
+  config: ExplorerDraftConfig,
+): ExplorerDraftConfig {
+  if (!isTimelessSqlExploration(config)) return config;
+
+  const chartType = isTimeSeriesChart(config.chartType)
+    ? "bar"
+    : config.chartType;
+  const dimensions = config.dimensions.filter(
+    (dimension) => dimension.dimensionType !== "date",
+  );
+
+  if (
+    chartType === config.chartType &&
+    dimensions.length === config.dimensions.length &&
+    config.previousTimeFrame === undefined
+  ) {
+    return config;
+  }
+
+  return {
+    ...stripExplorerDraftFields(config),
+    chartType,
+    dimensions,
+  };
+}
+
 /** Returns the category of a chart type (timeseries or cumulative).
  *  Used to determine if a fetch or local update is needed. */
 function getChartCategory(chartType: ExplorationConfig["chartType"]): string {
@@ -870,6 +981,17 @@ export function toFetchKey(
       : config;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { showAs, ...rest } = base;
+  if (isTimelessSqlExploration(base) && base.dataset.type === "sql") {
+    return {
+      ...rest,
+      dateRange: null,
+      chartType: getChartCategory(base.chartType),
+      dataset: {
+        ...base.dataset,
+        values: base.dataset.values.map((value) => omit(value, "name")),
+      },
+    };
+  }
   if (base.dataset.type === "funnel") {
     // yAxisScale only affects how counts are rendered (percent vs raw);
     // same rows as chart-type-only changes — omit from the fetch identity.
@@ -891,8 +1013,7 @@ export function toFetchKey(
     chartType: getChartCategory(base.chartType),
     dataset: {
       ...base.dataset,
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      values: base.dataset.values.map(({ name, ...rest }) => rest),
+      values: base.dataset.values.map((value) => omit(value, "name")),
     },
   };
 }
@@ -943,7 +1064,7 @@ export function hasUnsatisfiedInlineFilters(
 }
 
 /** Checks if a config is minimally complete in order to be submitted.
- *  - metric/fact_table/data_source: need at least 1 value
+ *  - metric/fact_table/data_source/sql: need at least 1 value
  *  - fact_table: also needs a fact table id
  *  - data_source: also needs a table + timestamp column
  *  - funnel: needs ≥2 steps with fact tables, a `unit`, and the unit must
@@ -974,7 +1095,7 @@ export function isSubmittableConfig(
     if (!Array.isArray(cleanedConfig.dataset.values)) return false;
     if (cleanedConfig.dataset.values.length === 0) return false;
     if (
-      cleanedConfig.dataset.type == "fact_table" &&
+      cleanedConfig.dataset.type === "fact_table" &&
       cleanedConfig.dataset.factTableId === null
     )
       return false;
@@ -983,6 +1104,16 @@ export function isSubmittableConfig(
       (!cleanedConfig.dataset.table || !cleanedConfig.dataset.timestampColumn)
     )
       return false;
+  }
+
+  if (cleanedConfig.dataset.type === "sql") {
+    const { sql, timestampColumn, columnTypes } = cleanedConfig.dataset;
+    const hasSql = sql.trim().length > 0;
+    const hasColumnTypes = Object.keys(columnTypes).length > 0;
+    const timestampIsDate =
+      timestampColumn === null || columnTypes[timestampColumn] === "date";
+    // Config is not submittable without sql, columns, or if timestamp column is not a date
+    if (!hasSql || !hasColumnTypes || !timestampIsDate) return false;
   }
 
   if (
@@ -1023,10 +1154,9 @@ export function compareConfig(
   const newMode = previousWindows?.newComparisonMode ?? null;
 
   if (!lastSubmittedConfig) {
-    const hasInputs =
-      newConfig.dataset.type === "funnel"
-        ? newConfig.dataset.steps.length > 0
-        : newConfig.dataset.values.length > 0;
+    // Placeholder seeds (e.g. default Count before a fact table / table is
+    // chosen) are not fetchable yet — don't treat them as pending changes.
+    const hasInputs = isSubmittableConfig(newConfig);
     return { needsFetch: hasInputs, needsUpdate: hasInputs };
   }
 

@@ -9,6 +9,7 @@ import {
   encodeExplorationConfig,
   isFunnelSupportedDatasourceType,
 } from "shared/enterprise";
+import { isReadOnlySQL } from "shared/sql";
 import {
   FactMetricInterface,
   FactTableInterface,
@@ -58,6 +59,16 @@ export async function runProductAnalyticsExploration(
 ): Promise<ProductAnalyticsExploration | null> {
   config = explorationConfigValidator.parse(config);
 
+  const dataset = config.dataset;
+  if (!dataset) {
+    throw new BadRequestError("Dataset is required");
+  }
+
+  const datasource = await getDataSourceById(context, config.datasource);
+  if (!datasource) {
+    throw new NotFoundError("Datasource not found");
+  }
+
   if (options.cache !== "never") {
     const existing =
       await context.models.analyticsExplorations.findLatestByConfig(config);
@@ -73,16 +84,6 @@ export async function runProductAnalyticsExploration(
   // If no existing exploration, create a new one
   const metricMap: Map<string, FactMetricInterface> = new Map();
   const factTableMap: Map<string, FactTableInterface> = new Map();
-  const datasource = await getDataSourceById(context, config.datasource);
-  if (!datasource) {
-    throw new NotFoundError("Datasource not found");
-  }
-
-  // Parse and validate dataset settings
-  const dataset = config.dataset;
-  if (!dataset) {
-    throw new BadRequestError("Dataset is required");
-  }
 
   if (dataset.type === "fact_table") {
     if (!dataset.factTableId) {
@@ -138,6 +139,42 @@ export async function runProductAnalyticsExploration(
     }
   } else if (dataset.type === "data_source") {
     // Nothing to fetch or verify
+  } else if (dataset.type === "sql") {
+    if (!dataset.sql.trim()) {
+      throw new BadRequestError("SQL query is required");
+    }
+    if (!isReadOnlySQL(dataset.sql)) {
+      throw new BadRequestError("Only SELECT queries are allowed");
+    }
+    if (dataset.timestampColumn !== null) {
+      if (!dataset.columnTypes[dataset.timestampColumn]) {
+        throw new BadRequestError(
+          "Timestamp column must exist in query results",
+        );
+      }
+      if (dataset.columnTypes[dataset.timestampColumn] !== "date") {
+        throw new BadRequestError(
+          "Timestamp column must be a date or timestamp",
+        );
+      }
+    } else {
+      if (
+        config.chartType === "line" ||
+        config.chartType === "area" ||
+        config.chartType === "timeseries-table"
+      ) {
+        throw new BadRequestError(
+          "Time-series charts require a timestamp column",
+        );
+      }
+      if (
+        config.dimensions.some(
+          (dimension) => dimension.dimensionType === "date",
+        )
+      ) {
+        throw new BadRequestError("Date dimensions require a timestamp column");
+      }
+    }
   } else if (dataset.type === "funnel") {
     if (dataset.steps.length < 2) {
       throw new BadRequestError("Funnels require at least two steps");
@@ -267,6 +304,7 @@ const DATASET_TYPE_PATH: Record<ExplorationConfig["dataset"]["type"], string> =
     metric: "metrics",
     fact_table: "fact-table",
     data_source: "data-source",
+    sql: "sql",
     funnel: "funnel",
   };
 

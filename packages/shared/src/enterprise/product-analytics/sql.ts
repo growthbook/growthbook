@@ -30,6 +30,7 @@ import {
   FactTableDataset,
   ExplorationConfig,
   DataSourceDataset,
+  SqlDataset,
   ProductAnalyticsResult,
   ProductAnalyticsResultRow,
   FunnelDataset,
@@ -46,7 +47,37 @@ import {
 type MinimalFactTable = Pick<
   FactTableInterface,
   "sql" | "columns" | "filters" | "userIdTypes"
-> & { timestampColumn?: string };
+> & {
+  // SQL explorations may omit a timestamp (non-time-series). Fact tables
+  // still default missing columns to "timestamp" in toMinimalFactTable.
+  timestampColumn: string | null;
+  quoteTimestampColumn: boolean;
+};
+
+function toMinimalFactTable(factTable: FactTableInterface): MinimalFactTable {
+  return {
+    ...factTable,
+    timestampColumn: "timestamp",
+    quoteTimestampColumn: false,
+  };
+}
+
+function getTimestampColumnExpression(
+  factTable: MinimalFactTable,
+  helpers: SqlDialect,
+): string | null {
+  if (!factTable.timestampColumn) {
+    return factTable.quoteTimestampColumn ? null : "timestamp";
+  }
+  if (!factTable.quoteTimestampColumn) return factTable.timestampColumn;
+
+  const quote = helpers.identifierQuote;
+  const escapedColumn = factTable.timestampColumn
+    .split(quote)
+    .join(`${quote}${quote}`);
+  return `${quote}${escapedColumn}${quote}`;
+}
+
 // Funnel fact metrics are excluded: product-analytics explorations describe
 // their own funnels through the funnel dataset, and a funnel fact metric has no
 // numerator column to roll up.
@@ -126,7 +157,10 @@ function getMetricAliases(index: number) {
 
 // Helpers to convert to internal types
 function getMetricsAndUnitsFromValues(
-  values: FactTableDataset["values"] | DataSourceDataset["values"],
+  values:
+    | FactTableDataset["values"]
+    | DataSourceDataset["values"]
+    | SqlDataset["values"],
 ): { metrics: MetricWithMetadata[]; units: string[] } {
   const units = new Set<string>();
 
@@ -191,6 +225,19 @@ function getFactTableGroups({
         },
       ];
     }
+    case "sql":
+      return [
+        {
+          index: 0,
+          factTable: createStubFactTable(
+            config.dataset.sql.replace(/;\s*$/, "").trim(),
+            config.dataset.timestampColumn,
+            config.dataset.columnTypes,
+            datasourceSettings,
+          ),
+          ...getMetricsAndUnitsFromValues(config.dataset.values),
+        },
+      ];
     case "fact_table":
       return (() => {
         if (!config.dataset.factTableId) {
@@ -203,7 +250,7 @@ function getFactTableGroups({
         return [
           {
             index: 0,
-            factTable,
+            factTable: toMinimalFactTable(factTable),
             ...getMetricsAndUnitsFromValues(config.dataset.values),
           },
         ];
@@ -262,7 +309,7 @@ function getFactTableGroups({
           if (!groups[factTable.id]) {
             groups[factTable.id] = {
               index: Object.keys(groups).length,
-              factTable,
+              factTable: toMinimalFactTable(factTable),
               metrics: [],
               units: [],
             };
@@ -289,7 +336,7 @@ function getFactTableGroups({
             if (!groups[denominatorFactTable.id]) {
               groups[denominatorFactTable.id] = {
                 index: Object.keys(groups).length,
-                factTable: denominatorFactTable,
+                factTable: toMinimalFactTable(denominatorFactTable),
                 metrics: [],
                 units: [],
               };
@@ -552,14 +599,15 @@ export function generateDimensionExpression(
   const factTable = factTableGroup.factTable;
   switch (dimension.dimensionType) {
     case "date": {
+      const timestampColumn = getTimestampColumnExpression(factTable, helpers);
+      if (!timestampColumn) {
+        throw new Error("Date dimensions require a timestamp column");
+      }
       const granularity = getDateGranularity(
         dimension.dateGranularity,
         dateRange,
       );
-      return `${helpers.dateTrunc(
-        factTable.timestampColumn || "timestamp",
-        granularity,
-      )}`;
+      return `${helpers.dateTrunc(timestampColumn, granularity)}`;
     }
     case "dynamic": {
       const topCTE = `_dimension${dimensionIndex}_top`;
@@ -676,10 +724,11 @@ function getEventValueExpr(
   } else if (columnRef.column === "$$count") {
     rawValue = "1";
   } else if (columnRef.column === "$$distinctDates") {
-    rawValue = helpers.dateTrunc(
-      factTable.timestampColumn || "timestamp",
-      "day",
-    );
+    const timestampColumn = getTimestampColumnExpression(factTable, helpers);
+    if (!timestampColumn) {
+      throw new Error("Distinct date values require a timestamp column");
+    }
+    rawValue = helpers.dateTrunc(timestampColumn, "day");
   } else {
     // Expand virtual (computed) columns into their SQL expression, and resolve
     // JSON columns. A plain column just returns its own name here.
@@ -890,7 +939,7 @@ function getMetricData(
 // Create a stub fact table from SQL dataset column types
 function createStubFactTable(
   sql: string,
-  timestampColumn: string,
+  timestampColumn: string | null,
   columnTypes: Record<
     string,
     "string" | "number" | "date" | "boolean" | "other"
@@ -932,6 +981,7 @@ function createStubFactTable(
     columns,
     userIdTypes,
     timestampColumn,
+    quoteTimestampColumn: true,
     filters: [],
   };
 }
@@ -1005,8 +1055,6 @@ function generateFactTableCTE(
 ): CTE {
   const factTable = factTableGroup.factTable;
 
-  const timestampColumn = factTable.timestampColumn || "timestamp";
-
   const baseSql = factTable.sql;
 
   // Get a de-duped list of all filters across all metrics
@@ -1029,10 +1077,12 @@ function generateFactTableCTE(
 
   const whereClauses: string[] = [];
 
-  // Date range filter
-  whereClauses.push(
-    `${timestampColumn} >= ${helpers.toTimestamp(dateRange.startDate)} AND ${timestampColumn} <= ${helpers.toTimestamp(dateRange.endDate)}`,
-  );
+  const timestampColumn = getTimestampColumnExpression(factTable, helpers);
+  if (timestampColumn) {
+    whereClauses.push(
+      `${timestampColumn} >= ${helpers.toTimestamp(dateRange.startDate)} AND ${timestampColumn} <= ${helpers.toTimestamp(dateRange.endDate)}`,
+    );
+  }
 
   const metricsFilter = buildMinimalOrCondition(allMetricFilters);
   if (metricsFilter) {
@@ -1047,9 +1097,13 @@ function generateFactTableCTE(
     SELECT * FROM (
       -- Raw fact table SQL
       ${baseSql}
-    ) t
-    WHERE 
-      ${whereClauses.join("\n  AND ")}
+    ) t${
+      whereClauses.length
+        ? `
+    WHERE
+      ${whereClauses.join("\n  AND ")}`
+        : ""
+    }
   `,
   };
 }
@@ -1314,7 +1368,7 @@ function groupFunnelStepsByFactTable(
     }
     groups.set(step.factTableId, {
       index: groups.size,
-      factTable,
+      factTable: toMinimalFactTable(factTable),
       stepIndexes: [idx + 1],
     });
   });
@@ -1411,7 +1465,7 @@ export function buildFunnelSql(
   }
   const initialFactTableGroup: FactTableGroup = {
     index: 0,
-    factTable: initialFactTable,
+    factTable: toMinimalFactTable(initialFactTable),
     metrics: [],
     units: [],
   };

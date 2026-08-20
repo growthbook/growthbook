@@ -40,14 +40,19 @@ import {
   getCommonColumns,
   getInitialInlineFilters,
   hasUnsatisfiedInlineFilters,
+  isTimelessSqlExploration,
+  isTimeSeriesChart,
   isSubmittableConfig,
+  normalizeTimelessSqlConfig,
   stripExplorerDraftFields,
   toFetchKey,
   validateDimensions,
+  withDefaultSqlCountValue,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { SqlEditorProvider } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
 import { useExploreData, CacheOption } from "./useExploreData";
 
 const MAX_TRACKED_ERROR_LENGTH = 500;
@@ -85,8 +90,6 @@ export interface ExplorerContextValue {
   /** Comparison leg failed but the primary succeeded. Kept off `error`, which
    * would hide the results the user did get. */
   comparisonError: string | null;
-  setCompareEnabled: (value: boolean) => void;
-  setComparisonMode: (mode: ComparisonMode) => void;
 
   // ─── Modifiers ─────────────────────────────────────────────────────────
   setDraftExploreState: (action: SetDraftStateAction) => void;
@@ -96,9 +99,10 @@ export interface ExplorerContextValue {
     setDraft?: boolean;
   }) => Promise<void>;
   addValueToDataset: (datasetType: DatasetType) => void;
+  ensureDefaultSqlValue: () => void;
   updateValueInDataset: (index: number, value: ProductAnalyticsValue) => void;
   deleteValueFromDataset: (index: number) => void;
-  updateTimestampColumn: (column: string) => void;
+  updateTimestampColumn: (column: string | null) => void;
   changeChartType: (chartType: ExplorationConfig["chartType"]) => void;
   clearAllDatasets: (newDatasourceId?: string) => void;
   /** Funnel sidebar registers a handler; main empty-state CTA invokes before analyze. */
@@ -129,6 +133,8 @@ interface ExplorerProviderProps {
   children: ReactNode;
   initialConfig: ExplorerDraftConfig;
   initialSubmittedConfig?: ExplorerDraftConfig;
+  initialExploration?: ProductAnalyticsExploration | null;
+  initialComparisonExploration?: ProductAnalyticsExploration | null;
   hasExistingResults?: boolean;
   onRunComplete?: (
     exploration: ProductAnalyticsExploration,
@@ -143,6 +149,8 @@ export function ExplorerProvider({
   children,
   initialConfig,
   initialSubmittedConfig,
+  initialExploration = null,
+  initialComparisonExploration = null,
   hasExistingResults = false,
   onRunComplete,
   trackingSource,
@@ -172,24 +180,27 @@ export function ExplorerProvider({
       getFactTableById,
       getFactMetricById,
     );
-    const normalizedInitial = clearInapplicableShowAs(
-      withUnits,
-      getFactMetricById,
+    const normalizedInitial = withDefaultSqlCountValue(
+      normalizeTimelessSqlConfig(
+        clearInapplicableShowAs(withUnits, getFactMetricById),
+      ),
     );
     const normalizedSubmitted = initialSubmittedConfig
-      ? clearInapplicableShowAs(
-          fillMissingUnits(
-            initialSubmittedConfig,
-            getFactTableById,
+      ? normalizeTimelessSqlConfig(
+          clearInapplicableShowAs(
+            fillMissingUnits(
+              initialSubmittedConfig,
+              getFactTableById,
+              getFactMetricById,
+            ),
             getFactMetricById,
           ),
-          getFactMetricById,
         )
       : normalizedInitial;
     return {
       draftState: normalizedInitial,
       submittedState: hasExistingResults ? normalizedSubmitted : null,
-      exploration: null,
+      exploration: initialExploration,
       error: null,
       query: null,
     };
@@ -206,7 +217,7 @@ export function ExplorerProvider({
     };
   }, []);
   const [comparisonExploration, setComparisonExploration] =
-    useState<ProductAnalyticsExploration | null>(null);
+    useState<ProductAnalyticsExploration | null>(initialComparisonExploration);
   const [comparisonQuery, setComparisonQuery] = useState<QueryInterface | null>(
     null,
   );
@@ -251,7 +262,7 @@ export function ExplorerProvider({
           getFactMetricById,
         );
         const validatedState = validateDimensions(
-          showAsNormalized,
+          normalizeTimelessSqlConfig(showAsNormalized),
           getFactTableById,
           getFactMetricById,
         );
@@ -278,7 +289,9 @@ export function ExplorerProvider({
         getFactTableById,
         getFactMetricById,
       );
-      const normalized = clearInapplicableShowAs(filled, getFactMetricById);
+      const normalized = normalizeTimelessSqlConfig(
+        clearInapplicableShowAs(filled, getFactMetricById),
+      );
       if (normalized === prev.draftState) return prev;
       return { ...prev, draftState: normalized };
     });
@@ -340,48 +353,6 @@ export function ExplorerProvider({
     setDraftExploreState,
   ]);
 
-  const setCompareEnabled = useCallback(
-    (value: boolean) => {
-      if (value) {
-        setDraftExploreState((prev) => ({
-          ...prev,
-          comparisonMode: "previousPeriod",
-          previousTimeFrame: buildComparisonDateRangeForMode(
-            prev.dateRange,
-            "previousPeriod",
-          ),
-        }));
-      } else {
-        setDraftExploreState((prev) => {
-          const { previousTimeFrame: _, comparisonMode: __, ...rest } = prev;
-          return rest;
-        });
-        setComparisonExploration(null);
-        setComparisonQuery(null);
-        setComparisonComputed(null);
-        setComparisonError(null);
-      }
-    },
-    [setDraftExploreState],
-  );
-
-  const setComparisonMode = useCallback(
-    (mode: ComparisonMode) => {
-      setDraftExploreState((prev) => ({
-        ...prev,
-        comparisonMode: mode,
-        // Seeding `custom` from the window already on screen keeps the manual
-        // field from jumping the moment it becomes editable.
-        previousTimeFrame: buildComparisonDateRangeForMode(
-          prev.dateRange,
-          mode,
-          prev.previousTimeFrame ?? null,
-        ),
-      }));
-    },
-    [setDraftExploreState],
-  );
-
   const commonColumns = useMemo(() => {
     return getCommonColumns(
       draftExploreState.dataset,
@@ -426,7 +397,9 @@ export function ExplorerProvider({
     async (options?: { cache?: CacheOption; config?: ExplorerDraftConfig }) => {
       const sourceConfig = options?.config ?? draftExploreState;
       const configToSubmit = cleanConfigForSubmission(sourceConfig);
-      const previousForRequest = sourceConfig.previousTimeFrame ?? null;
+      const previousForRequest = isTimelessSqlExploration(sourceConfig)
+        ? null
+        : (sourceConfig.previousTimeFrame ?? null);
       const modeForRequest = previousForRequest
         ? (sourceConfig.comparisonMode ??
           resolveLegacyExplorerComparisonMode(sourceConfig.dateRange))
@@ -874,6 +847,10 @@ export function ExplorerProvider({
     [createDefaultValue, setDraftExploreState, getFactTableById],
   );
 
+  const ensureDefaultSqlValue = useCallback(() => {
+    setDraftExploreState((prev) => withDefaultSqlCountValue(prev));
+  }, [setDraftExploreState]);
+
   const updateValueInDataset = useCallback(
     (index: number, value: ProductAnalyticsValue) => {
       setDraftExploreState((prev) => {
@@ -920,22 +897,57 @@ export function ExplorerProvider({
   );
 
   const updateTimestampColumn = useCallback(
-    (column: string) => {
+    (column: string | null) => {
       setDraftExploreState((prev) => {
-        if (!prev.dataset) {
+        if (
+          prev.dataset.type !== "sql" &&
+          prev.dataset.type !== "data_source"
+        ) {
           return prev;
         }
+        if (prev.dataset.type === "data_source" && column === null) return prev;
+        const shouldDefaultToLine =
+          prev.dataset.type === "sql" &&
+          prev.dataset.timestampColumn === null &&
+          column !== null &&
+          (prev.chartType === "bar" || prev.chartType === "table");
         return {
           ...prev,
+          chartType: shouldDefaultToLine ? "line" : prev.chartType,
+          dimensions:
+            shouldDefaultToLine &&
+            !prev.dimensions.some(
+              (dimension) => dimension.dimensionType === "date",
+            )
+              ? [
+                  {
+                    dimensionType: "date",
+                    column: "date",
+                    dateGranularity: "auto",
+                  },
+                  ...prev.dimensions,
+                ]
+              : prev.dimensions,
           dataset: { ...prev.dataset, timestampColumn: column },
         } as ExplorationConfig;
       });
+      if (column === null) {
+        setComparisonExploration(null);
+        setComparisonQuery(null);
+        setComparisonComputed(null);
+      }
     },
     [setDraftExploreState],
   );
 
   const changeChartType = useCallback(
     (chartType: ExplorationConfig["chartType"]) => {
+      if (
+        isTimelessSqlExploration(draftExploreState) &&
+        isTimeSeriesChart(chartType)
+      ) {
+        return;
+      }
       if (trackingSource && draftExploreState.chartType !== chartType) {
         track("Product Analytics Explorer: Chart Type Changed", {
           source: trackingSource,
@@ -965,12 +977,12 @@ export function ExplorerProvider({
           }
         } else {
           // Time-series charts (line, area) need date dimensions
-          const isTimeSeriesChart =
+          const timeSeriesChart =
             chartType === "line" ||
             chartType === "area" ||
             chartType === "timeseries-table";
 
-          if (!isTimeSeriesChart) {
+          if (!timeSeriesChart) {
             dimensions = dimensions.filter((d) => d.dimensionType !== "date");
           } else if (!dimensions.some((d) => d.dimensionType === "date")) {
             dimensions = [
@@ -986,12 +998,7 @@ export function ExplorerProvider({
         return { ...prev, chartType, dimensions, dataset } as ExplorationConfig;
       });
     },
-    [
-      setDraftExploreState,
-      trackingSource,
-      draftExploreState.chartType,
-      draftExploreState.type,
-    ],
+    [setDraftExploreState, trackingSource, draftExploreState],
   );
 
   const clearAllDatasets = useCallback(
@@ -1024,12 +1031,11 @@ export function ExplorerProvider({
       setExplorerState((prev) => {
         const type = prev.draftState.dataset.type;
         const emptyDataset = createEmptyDataset(type);
-        // Funnel datasets manage their own initial state (a single empty
-        // step) inside createEmptyDataset and have no `values`. For the
-        // other dataset types we still want to seed one default value so
-        // the sidebar opens with a ready-to-edit row.
+        // Funnel datasets seed their first step in createEmptyDataset. SQL
+        // starts without a value so raw query previews do not also run an
+        // exploration query.
         const dataset =
-          type === "funnel"
+          type === "funnel" || type === "sql"
             ? emptyDataset
             : ({
                 ...emptyDataset,
@@ -1071,6 +1077,7 @@ export function ExplorerProvider({
       setDraftExploreState,
       handleSubmit,
       addValueToDataset,
+      ensureDefaultSqlValue,
       updateValueInDataset,
       deleteValueFromDataset,
       updateTimestampColumn,
@@ -1093,18 +1100,16 @@ export function ExplorerProvider({
       comparisonQuery,
       comparisonComputed,
       comparisonError,
-      setCompareEnabled,
-      setComparisonMode,
     }),
     [
       addValueToDataset,
+      ensureDefaultSqlValue,
       changeChartType,
       clearAllDatasets,
       commonColumns,
       compareEnabled,
       comparisonMode,
       submittedComparisonMode,
-      setComparisonMode,
       comparisonComputed,
       comparisonError,
       comparisonExploration,
@@ -1122,7 +1127,6 @@ export function ExplorerProvider({
       needsFetch,
       needsUpdate,
       query,
-      setCompareEnabled,
       setDraftExploreState,
       submittedExploreState,
       submittedPreviousTimeFrame,
@@ -1136,7 +1140,22 @@ export function ExplorerProvider({
 
   return (
     <ExplorerContext.Provider value={value}>
-      {children}
+      {draftExploreState.dataset.type === "sql" ? (
+        <SqlEditorProvider
+          datasourceId={draftExploreState.datasource}
+          sql={draftExploreState.dataset.sql}
+          initialViewMode={
+            draftExploreState.dataset.sql.trim().length > 0 &&
+            Object.keys(draftExploreState.dataset.columnTypes).length > 0
+              ? "explore"
+              : "dataset"
+          }
+        >
+          {children}
+        </SqlEditorProvider>
+      ) : (
+        children
+      )}
     </ExplorerContext.Provider>
   );
 }

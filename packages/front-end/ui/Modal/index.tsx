@@ -24,7 +24,7 @@ import { Size as SharedSize } from "@/ui/sizes";
 import ErrorDisplay from "../ErrorDisplay";
 import styles from "./Modal.module.scss";
 
-export type Size = SharedSize<"md" | "lg">;
+export type Size = SharedSize<"md" | "lg"> | "fill";
 
 // Modal does not use the shared Radix map. Radix Dialog's size drives padding
 // and border radius rather than a step on the control scale, its own default is
@@ -36,6 +36,8 @@ function getRadixSize(size: Size): Responsive<"3" | "4"> {
       return "3";
     case "lg":
       return "4";
+    case "fill":
+      return "4";
   }
 }
 
@@ -45,6 +47,8 @@ function getMaxWidth(size: Size) {
       return "500px";
     case "lg":
       return "800px";
+    case "fill":
+      return "calc(100vw - 32px)";
   }
 }
 
@@ -179,7 +183,7 @@ function Root({
         ref={contentRef}
         size={getRadixSize(size)}
         maxWidth={getMaxWidth(size)}
-        maxHeight="85vh"
+        maxHeight={size === "fill" ? "calc(100vh - 32px)" : "85vh"}
         {...ariaDescribedBy}
         onEscapeKeyDown={(e) => {
           if (!dismissible) e.preventDefault();
@@ -192,10 +196,16 @@ function Root({
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
-            paddingTop: "32px",
-            paddingLeft: "40px",
+            paddingTop: size === "fill" ? "0" : "32px",
+            paddingLeft: size === "fill" ? "0" : "40px",
             paddingRight: "0",
-            paddingBottom: "20px",
+            paddingBottom: size === "fill" ? "0" : "20px",
+            ...(size === "fill"
+              ? {
+                  width: "calc(100vw - 32px)",
+                  height: "calc(100vh - 32px)",
+                }
+              : {}),
             "--inset-padding-left": "40px",
           } as CSSProperties
         }

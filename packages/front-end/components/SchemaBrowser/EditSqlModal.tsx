@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaPlay, FaExclamationTriangle } from "react-icons/fa";
-import {
-  InformationSchemaInterfaceWithPaths,
-  TestQueryRow,
-} from "shared/types/integrations";
+import { TestQueryRow } from "shared/types/integrations";
 import { TemplateVariables } from "shared/types/sql";
 import { Flex, Text, Box, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -13,9 +10,8 @@ import { parseIntWithDefault } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
-import CodeTextArea, { AceCompletion } from "@/components/Forms/CodeTextArea";
+import CodeTextArea from "@/components/Forms/CodeTextArea";
 import Modal from "@/components/Modal";
-import { CursorData } from "@/components/Segments/SegmentForm";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/components/Button";
 import RadixButton from "@/ui/Button";
@@ -32,12 +28,11 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
-import { getAutoCompletions } from "@/services/sqlAutoComplete";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Checkbox from "@/ui/Checkbox";
+import AreaWithHeader from "./AreaWithHeader";
 import SchemaBrowser from "./SchemaBrowser";
-import { AreaWithHeader } from "./SqlExplorerModal";
+import useSqlAutocomplete from "./useSqlAutocomplete";
 import styles from "./EditSqlModal.module.scss";
 
 export type TestQueryResults = {
@@ -90,14 +85,6 @@ export default function EditSqlModal({
     useState<TestQueryResults | null>(null);
   const [testQueryBeforeSaving, setTestQueryBeforeSaving] = useState(true);
   const [apply5RowLimit, setApply5RowLimit] = useState(true);
-  const [autoCompletions, setAutoCompletions] = useState<AceCompletion[]>([]);
-  const [informationSchema, setInformationSchema] = useState<
-    InformationSchemaInterfaceWithPaths | undefined
-  >();
-  const [isAutocompleteEnabled, setIsAutocompleteEnabled] = useLocalStorage(
-    "sql-editor-autocomplete-enabled",
-    true,
-  );
   const form = useForm({
     defaultValues: {
       sql: value,
@@ -106,7 +93,17 @@ export default function EditSqlModal({
 
   const { getDatasourceById } = useDefinitions();
   const { apiCall } = useAuth();
-  const [cursorData, setCursorData] = useState<null | CursorData>(null);
+  const {
+    autoCompletions,
+    cursorData,
+    isAutocompleteEnabled,
+    setCursorData,
+    setIsAutocompleteEnabled,
+  } = useSqlAutocomplete({
+    datasourceId,
+    source: "EditSqlModal",
+    eventName: templateVariables?.eventName,
+  });
   const [testingQuery, setTestingQuery] = useState(false);
   const permissionsUtil = usePermissionsUtil();
   const [formatError, setFormatError] = useState<string | null>(null);
@@ -191,63 +188,6 @@ export default function EditSqlModal({
 
   const hasEventName = usesEventName(form.watch("sql"));
   const hasValueCol = usesValueColumn(form.watch("sql"));
-
-  // Update autocompletions when cursor or schema changes
-  useEffect(() => {
-    const fetchCompletions = async () => {
-      if (!isAutocompleteEnabled) {
-        setAutoCompletions([]);
-        return;
-      }
-      try {
-        const completions = await getAutoCompletions(
-          cursorData,
-          informationSchema,
-          datasource?.type,
-          apiCall,
-          "EditSqlModal",
-          templateVariables?.eventName,
-        );
-        setAutoCompletions(completions);
-      } catch (error) {
-        console.error("Failed to fetch autocompletions:", error);
-        setAutoCompletions([]);
-      }
-    };
-
-    // // Debounce: wait 300ms after last change before fetching
-    const timeoutId = setTimeout(fetchCompletions, 200);
-
-    // // Cleanup: cancel if dependencies change again
-    return () => clearTimeout(timeoutId);
-  }, [
-    cursorData,
-    informationSchema,
-    datasource?.type,
-    apiCall,
-    templateVariables?.eventName,
-    isAutocompleteEnabled,
-  ]);
-
-  useEffect(() => {
-    const fetchSchema = async () => {
-      if (!isAutocompleteEnabled) {
-        setInformationSchema(undefined);
-        return;
-      }
-      try {
-        const response = await apiCall<{
-          informationSchema: InformationSchemaInterfaceWithPaths;
-        }>(`/datasource/${datasourceId}/schema`);
-        setInformationSchema(response.informationSchema);
-      } catch (error) {
-        console.error("Failed to fetch schema:", error);
-        setInformationSchema(undefined);
-      }
-    };
-
-    fetchSchema();
-  }, [datasourceId, apiCall, isAutocompleteEnabled]);
 
   const handleFormatClick = () => {
     const result = formatSql(form.watch("sql"), datasource?.type);
