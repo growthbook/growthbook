@@ -659,13 +659,20 @@ at all.
       non-project selector (tags, per-flag) joins the set without touching the gate
 - [x] Saved Groups excluded per decision 0 — `approvalFlows` carries no rules
 - [x] Surfaced on both review panels, the team page, and the project page
-- [ ] Known gap: an org on the LEGACY BOOLEAN `requireReviews` form has no rule
-      object, so required approver teams stored over the REST API silently never
-      gate. Either reject them there or migrate the org to the array form.
+- [~] Partly closed: the UI now reads a legacy boolean as the all-projects rule it
+  means (`flagRulesFromSettings`), so the settings form no longer shows
+  "not required" and no longer writes `requireReviewOn: false` on save. The
+  STORED boolean still cannot carry required teams.
+  Known gap: an org on the LEGACY BOOLEAN `requireReviews` form has no rule
+  object, so required approver teams stored over the REST API silently never
+  gate. Either reject them there or migrate the org to the array form.
 - [ ] Known gap: a rule whose named teams have all been deleted stops gating
       rather than failing closed (it cannot be satisfied OR explained). Needs a
       settings-side warning rather than a publish-time one.
-- [ ] Not built: editing required teams from the project page. **Decided: keep the
+- [x] Project page is READ-ONLY, rendering the editor's own fields in a disabled
+      state so the two cannot drift. A rule can govern several projects, so editing
+      one from a single project's page would silently change the others or fork the
+      rule. Earlier note: **Decided: keep the
       rules in org settings and make `getReviewSetting` most-specific-plus-inherited**
       (option B), rather than storing governance on the project (option C).
 
@@ -692,17 +699,14 @@ at all.
       per field: an override naming only `requiredApproverTeams` must inherit
       `resetReviewOnChange` and the rest from the layer above.
 
-- [ ] Must be fixed WITH the project-page editor, because both only become
-      reachable once project-scoped rules can be created from the UI: - `reviewRulesRequiringTeam` filters RAW rules, so the team page will
-      under-report a project that only INHERITS the team requirement, and
-      over-report a project whose override replaces it. Resolve per candidate
-      project instead of filtering. - `requiresMetadataReview` (features.ts) is a raw `.some()` across all rules
-      and feeds the review-authority footprint, so it can disagree with the
-      resolved per-project answer. - `ApprovalFlowSettings` reads raw `form.watch` values, so with two rules the
-      settings screen shows a rule's own (possibly unset) value while the
-      effective value is inherited. The screen has no way to express precedence.
+- [x] All three raw-rule readers fixed: `reviewScopesRequiringTeam` resolves per
+      candidate project, `requiresMetadataReview` takes the governing projects, and
+      the settings screen shows one rule per scope (an override is a full copy, so
+      there is no own-versus-inherited ambiguity to express).
 
-- [ ] Duplication carries governance ASYMMETRICALLY, and B needs an explicit step for
+- [x] MOOT for now: neither project nor team duplication exists in the product, so
+      there is nothing to hook. Decision recorded for whenever one lands.
+      Duplication carries governance ASYMMETRICALLY, and B needs an explicit step for
       it because rules reference projects and teams BY ID — a clone is a new id no
       rule mentions, so nothing carries by default (under C a project's would, being
       a field on the copied doc). - **Project clone: carry it.** Add the new project id to the matching rules.
