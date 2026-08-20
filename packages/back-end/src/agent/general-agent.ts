@@ -491,7 +491,6 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
 
   buildSystemPrompt: async () => buildGeneralAgentSystemPrompt(),
 
-  // Slash commands resolve against the same index the menu is built from.
   resolveSkill: loadSkillResult,
 
   buildTools: (ctx, buffer, _params, emit) => {

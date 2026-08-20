@@ -31,8 +31,6 @@ export default function ExplorerAIChat() {
   const prevLoadingRef = useRef(false);
   const composerRef = useRef<ChatComposerHandle>(null);
 
-  // Handed over from the empty state, which stashes the message rather than
-  // sending it. Read once, on mount.
   const initialMessageRef = useRef<PAInitialChatMessage | null>(
     takeInitialChatMessage(),
   );
@@ -44,8 +42,6 @@ export default function ExplorerAIChat() {
   const permissionsUtil = usePermissionsUtil();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
   const { draftExploreState } = useExplorerContext();
-  // Scoped to the active datasource — PA queries run against it, so offering a
-  // metric from another datasource would build a chart that can't run.
   const { items: mentionItems, ready: mentionItemsReady } =
     useMetricMentionItems(draftExploreState.datasource);
 
@@ -61,8 +57,6 @@ export default function ExplorerAIChat() {
     conversationIdRef: feedbackConversationIdRef,
   } = useChatFeedback();
 
-  // Set just before sendMessage and consumed by buildRequestBody, so a set of
-  // mentions rides along with exactly one request.
   const pendingMentionsRef = useRef<AIChatMention[]>([]);
 
   const buildRequestBody = useCallback(

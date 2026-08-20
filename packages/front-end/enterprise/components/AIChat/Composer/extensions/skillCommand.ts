@@ -3,24 +3,16 @@ import type { SkillKind } from "shared/ai-chat";
 
 export const SKILL_COMMAND_NAME = "skillCommand";
 
-/** One selectable row in the `/` command menu. */
 export interface SkillItem {
-  /** The skill's name, which is also what the agent resolves it by. */
   id: string;
   label: string;
   description: string;
   kind: SkillKind;
-  /** Parent domain for leaf skills; equals `id` for domain routers. */
+  /** Parent domain for leaf skills; same as `id` for domain routers. */
   group?: string;
 }
 
-/**
- * `/` commands for agent skills.
- *
- * Built on the Mention node because a slash command is the same interaction —
- * a trigger character, a filtered menu, and an atomic token — just with a
- * different trigger and a different payload.
- */
+/** Slash commands, built on Mention with a `/` trigger. */
 export const SkillCommand = Mention.extend<
   Parameters<typeof Mention.configure>[0],
   { items: SkillItem[] }
@@ -32,16 +24,7 @@ export const SkillCommand = Mention.extend<
   },
 });
 
-/**
- * Matches on name first, then description, so typing "targeting" surfaces
- * `flag-targeting` above skills that merely mention targeting.
- *
- * With no query the list is domains first, then leaves. Taking the head of the
- * natural (domain-then-its-own-leaves) order would bury the later domain
- * routers behind the first domain's leaves — with 22 leaves across 4 domains,
- * two of the four entry points would never be seen by someone just pressing
- * "/" to browse.
- */
+/** Name matches first, then description. With no query, domains before leaves. */
 export function filterSkillItems(
   items: SkillItem[],
   query: string,

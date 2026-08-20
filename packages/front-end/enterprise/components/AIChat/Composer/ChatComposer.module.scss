@@ -1,14 +1,3 @@
-// Tiptap-backed chat composer. Every variant is a bordered box holding the
-// editor and a send button; they differ in chrome and in how the button is
-// placed:
-//   compact — pill-rounded box filling the narrow site-wide agent panel
-//   wide    — centered, max-width bar for the PA Explorer chat
-//   hero    — tall entry composer on the PA empty state
-
-// --- Shared editor surface ---------------------------------------------------
-
-// `.editor` is the wrapper we control; `:global(.ProseMirror)` is the
-// contenteditable Tiptap renders inside it.
 .editor {
   flex: 1;
   min-width: 0;
@@ -27,9 +16,6 @@
       margin: 0;
     }
 
-    // Mention and slash-command nodes. Both read as chips so they're clearly
-    // atomic tokens rather than typed text; the command is tinted differently
-    // since it changes how the turn is handled, not just what it refers to.
     span[data-type="metricMention"],
     span[data-type="skillCommand"] {
       padding: 1px 4px;
@@ -42,9 +28,6 @@
       color: var(--violet-11);
     }
 
-    // Stranded by a Data Source switch — the metric is no longer on the `@`
-    // menu, so the chip drops its accent for neutral gray and picks up a red
-    // "!". The mention still reads as itself; it just stops looking resolved.
     span[data-type="metricMention"][data-stale="true"] {
       background: var(--gray-a4);
       color: var(--gray-11);
@@ -64,8 +47,6 @@
       font-size: 0.9em;
     }
 
-    // Placeholder decoration: the extension tags the empty paragraph with
-    // `is-empty` and stashes the text in `data-placeholder`.
     p:global(.is-empty):first-child::before {
       content: attr(data-placeholder);
       float: left;
@@ -75,8 +56,6 @@
     }
   }
 
-  // While streaming the editor is read-only. Mute the text rather than
-  // painting a disabled box over it.
   &.readOnly :global(.ProseMirror) {
     color: var(--gray-a11);
     cursor: default;

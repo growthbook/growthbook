@@ -39,10 +39,6 @@ function buildContextPrefix(
     );
   }
   if (mentions && mentions.length) {
-    // The composer already wrote "@Name" into the text; this line resolves each
-    // name to the id the agent should act on. A stale one is still listed —
-    // the user did reference it, and saying so is more useful than dropping it
-    // silently and answering as though they never mentioned it.
     const rendered = mentions
       .map(
         (m) =>

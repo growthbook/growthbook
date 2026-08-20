@@ -1357,7 +1357,6 @@ interface PAParams {
   datasourceId: string;
 }
 
-/** The datasource an @-mentioned entity belongs to, or undefined if it's gone. */
 async function mentionDatasource(
   ctx: ReqContext,
   mention: AIChatMention,
@@ -1371,22 +1370,11 @@ async function mentionDatasource(
   return (await getMetricById(ctx, mention.id))?.datasource;
 }
 
-/**
- * Flags mentions that don't belong to the datasource this chat runs against.
- *
- * The composer scopes its `@` menu to the active Data Source, but the menu is
- * only a filter at insert time — switching Data Sources afterwards strands a
- * mention the user already placed, and the message is still sent with it. This
- * is the authoritative check, so a client can't assert that a metric is usable
- * here. An id that no longer resolves counts as stale too: deleted since it was
- * picked is the same problem from the model's point of view.
- */
 async function resolveProductAnalyticsMentions(
   ctx: ReqContext,
   mentions: AIChatMention[],
   datasourceId: string,
 ): Promise<AIChatMention[]> {
-  // Nothing to judge against — an unscoped chat can use anything.
   if (!datasourceId) return mentions;
 
   return Promise.all(

@@ -27,16 +27,8 @@ router.post(
         // the LLM as a `[Page context: …]` prefix; not displayed in the
         // chat UI. Skills document the URL → entity mapping.
         currentPage: z.string().max(2048).optional(),
-        // Optional preselected product analytics datasource. The eval runner
-        // uses this to keep generic-agent PA cases deterministic.
         datasourceId: z.string().min(1).optional(),
-        // Entities the user @-mentioned in the composer. Persisted on the user
-        // message and surfaced to the LLM as a `[Referenced metrics: …]`
-        // prefix so it resolves names to ids without searching.
-        mentions: aiChatMentionValidator.array().max(20).optional(),
-        // Skills invoked explicitly via slash commands. Each body is seeded
-        // into the turn as a completed `loadSkill` call, in order. Unknown
-        // names are ignored server-side, so this needs no enum here.
+        mentions: aiChatMentionValidator.array().optional(),
         skills: aiChatSkillsValidator.optional(),
         // Deterministic mutation-confirmation gate: when the user responds to
         // a parked mutation, the UI sends the action id and their decision so

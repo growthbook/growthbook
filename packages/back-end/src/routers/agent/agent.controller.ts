@@ -18,13 +18,6 @@ export {
 
 export const listChats = makeListChats("general");
 
-/**
- * The skill index, for the composer's slash-command menu.
- *
- * `SkillSummary` lives in `shared` so the composer's hook consumes exactly this
- * shape. The list is the same for everyone in the deploy — it describes the
- * product, not the org's data — so session auth is gate enough.
- */
 export const listSkills = async (
   req: AuthRequest,
   res: Response<{ status: 200; skills: SkillSummary[] }>,

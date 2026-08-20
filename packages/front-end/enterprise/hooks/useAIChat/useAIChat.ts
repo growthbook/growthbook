@@ -341,8 +341,6 @@ export function useAIChat({
           id: `msg_${messageCounterRef.current++}`,
           content: trimmed,
           ts: Date.now(),
-          // Carried on the optimistic bubble too, so the mention renders as a
-          // chip immediately rather than only after the conversation reloads.
           ...(options?.mentions?.length ? { mentions: options.mentions } : {}),
           ...(options?.skills?.length ? { skills: options.skills } : {}),
         };

@@ -42,8 +42,7 @@ router.post(
         conversationId: z.string().min(1),
         datasourceId: z.string(),
         model: aiModelValidator,
-        // Entities the user @-mentioned in the composer — see the agent router.
-        mentions: aiChatMentionValidator.array().max(20).optional(),
+        mentions: aiChatMentionValidator.array().optional(),
       })
       .strict(),
   }),

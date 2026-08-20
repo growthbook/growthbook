@@ -56,11 +56,6 @@ export {
 // Public types
 // =============================================================================
 
-/**
- * A successful `loadSkill` result, as the agent's own tool returns it. Declared
- * here because `seedSkillLoad` records it verbatim; the agent that owns the
- * tool is what builds it, so the two can't drift.
- */
 export interface SkillLoadResult {
   status: "ok";
   name: string;
@@ -105,23 +100,14 @@ export interface AgentConfig<TParams = unknown> {
   ) => ToolSet;
 
   /**
-   * Resolves a slash-command skill name to the `loadSkill` result to seed.
-   * Returning the tool's own result shape rather than a bare body is what keeps
-   * a seeded call indistinguishable from one the model made itself — the model
-   * is told the turn may open with completed `loadSkill` calls, so both paths
-   * have to read the same way. Agents without skills (e.g. PA chat) leave this
-   * unset, which makes any `skill` on the body a no-op rather than an error.
+   * Slash-command resolver. Seeded calls use the same shape as a real
+   * `loadSkill` result. Unset (PA chat) makes any `skill` on the body a no-op.
    */
   resolveSkill?: (name: string) => SkillLoadResult | undefined;
 
   /**
-   * Checks the user's @-mentions against what this turn can actually use,
-   * returning them annotated with `stale` (see `AIChatMention`). Only agents
-   * that are genuinely scoped implement this — the general agent reaches
-   * metrics across the whole org, so nothing it is handed can be out of scope.
-   *
-   * Mentions are never dropped here: a stale one still reaches the model, which
-   * is told to say it is unavailable rather than answer around it.
+   * Annotate @-mentions with `stale` when they're out of scope for this turn.
+   * Stale mentions still reach the model so it can say they're unavailable.
    */
   resolveMentions?: (
     ctx: ReqContext,
@@ -182,17 +168,7 @@ type AgentRequestBody = {
    * message as a soft `datasourceHint` (see `AIChatUserMessage`).
    */
   datasourceId?: string;
-  /**
-   * Entities the user @-mentioned in the composer. Persisted on the user
-   * message and surfaced to the LLM via a `[Referenced metrics: …]` prefix in
-   * `toModelMessages`, so it resolves a name to an id without searching.
-   */
   mentions?: AIChatMention[];
-  /**
-   * Skills the user invoked explicitly via slash commands. When the agent
-   * config can resolve them, each body is seeded into the turn as a completed
-   * `loadSkill` tool call so the model starts with them already in context.
-   */
   skills?: string[];
 } & Record<string, unknown>;
 
@@ -388,10 +364,7 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
         config.injectDatasourceHint && typeof body.datasourceId === "string"
           ? body.datasourceId
           : undefined;
-      // Duplicates would seed the same body twice for no benefit.
       const skills = Array.from(new Set(body.skills ?? []));
-      // Resolved before persisting, so the staleness stored on the message is
-      // the verdict for the turn it was actually sent in.
       const mentions =
         config.resolveMentions && body.mentions?.length
           ? await config.resolveMentions(context, body.mentions, params)
@@ -404,10 +377,6 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
         mentions,
         skills,
       );
-      // Seeded after the user message so the transcript reads in the order it
-      // happened: the user asked, then the skills were loaded. One pair each,
-      // in the order they appeared, which is the shape the model would have
-      // produced itself had it loaded them.
       if (config.resolveSkill) {
         for (const name of skills) {
           seedSkillLoad(buffer, emit, name, config.resolveSkill);
@@ -571,18 +540,6 @@ function appendUserMessage(
   buffer.appendMessages([userMessage]);
 }
 
-/**
- * Seed an already-completed `loadSkill` call for a slash command.
- *
- * The user picked the skill explicitly, so there is nothing for the model to
- * decide — replaying it as a synthetic tool-call/result pair (the same shape
- * `resolvePendingAction` builds) puts the body in context without spending a
- * turn on the round-trip, and the UI renders it as an ordinary tool step.
- *
- * An unknown name is ignored rather than surfaced: the menu is built from this
- * same list, so a mismatch means a stale client, and failing the whole message
- * over it would be worse than just letting the model route normally.
- */
 function seedSkillLoad(
   buffer: ConversationBuffer,
   emit: AgentEmit,

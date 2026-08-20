@@ -47,15 +47,10 @@ export default function EmptyState() {
     useState<null | Partial<DataSourceInterfaceWithParams>>(null);
 
   const isDataSourceEmpty = datasources.length === 0;
-  // Scoped like the chat page's composer: this message is replayed there
-  // against this datasource, so offering another one's metrics would attach
-  // entities that chat can't resolve.
   const { draftExploreState } = useExplorerContext();
   const { items: mentionItems, ready: mentionItemsReady } =
     useMetricMentionItems(draftExploreState.datasource);
 
-  // The message isn't sent here — it's stashed and replayed by the chat page
-  // after navigation, so the mentions have to travel with it.
   const handleSubmit = useCallback(
     (
       { text, mentions }: ComposerSubmission = {

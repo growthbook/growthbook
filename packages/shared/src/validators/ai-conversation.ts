@@ -50,11 +50,6 @@ export const aiChatToolResultPartValidator = z
   })
   .passthrough();
 
-/**
- * An @-mentioned entity — see AIChatMention in shared/ai-chat.ts. Exported so
- * the chat routers can validate the same shape on the request body. Lengths are
- * capped since the values are echoed into the model prompt.
- */
 export const aiChatMentionValidator = z
   .object({
     type: z.enum(["metric", "factMetric", "metricGroup"]),
@@ -63,22 +58,12 @@ export const aiChatMentionValidator = z
   })
   .strict();
 
-/**
- * The persisted form, which additionally carries the server's staleness
- * verdict. Deliberately not the wire shape above: whether a mention resolves
- * against the turn's Data Source is the server's call, so a client cannot
- * assert it.
- */
+/** Stored form. `stale` is server-set — the client cannot assert it. */
 export const aiChatStoredMentionValidator = aiChatMentionValidator.extend({
   stale: z.boolean().optional(),
 });
 
-/**
- * Skills invoked via `/` commands. Exported so the agent router validates the
- * same shape on the request body. Capped because each one seeds a full skill
- * body into the turn, and that body stays in the transcript afterwards.
- */
-export const aiChatSkillsValidator = z.array(z.string().min(1).max(64)).max(5);
+export const aiChatSkillsValidator = z.array(z.string().min(1).max(64));
 
 // ---------------------------------------------------------------------------
 // Message validators (discriminated on role)
@@ -108,15 +93,9 @@ const aiChatUserMessageValidator = z
         ]),
       ),
     ]),
-    // Optional URL the user was on when sending this message — see
-    // AIChatUserMessage in shared/ai-chat.ts. Cap matches the agent router.
     currentPage: z.string().max(2048).optional(),
-    // Optional soft datasource hint — see AIChatUserMessage in
-    // shared/ai-chat.ts. Cap matches the agent router's datasourceId.
     datasourceHint: z.string().max(256).optional(),
-    // Entities the user @-mentioned — see AIChatMention in shared/ai-chat.ts.
-    mentions: aiChatStoredMentionValidator.array().max(20).optional(),
-    // Skills invoked via `/` commands — see AIChatUserMessage.
+    mentions: aiChatStoredMentionValidator.array().optional(),
     skills: aiChatSkillsValidator.optional(),
   })
   .passthrough();

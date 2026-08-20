@@ -75,17 +75,11 @@ export { mapDatabaseTypeToEnum };
 export const PA_AI_CHAT_INITIAL_MESSAGE_KEY = "pa-ai-chat-initial-message";
 export const PA_AI_CHAT_INITIAL_MODEL_KEY = "pa-ai-chat-initial-model";
 
-/**
- * The first message, handed from the PA empty state to the chat page across a
- * navigation. Mentions ride along so an @-referenced metric isn't reduced to
- * plain text on the very message most likely to contain one.
- */
 export interface PAInitialChatMessage {
   text: string;
   mentions: AIChatMention[];
 }
 
-/** Reads and clears the stashed first message; null when there isn't one. */
 export function takeInitialChatMessage(): PAInitialChatMessage | null {
   const stored = sessionStorage.getItem(PA_AI_CHAT_INITIAL_MESSAGE_KEY);
   if (!stored) return null;
@@ -95,10 +89,6 @@ export function takeInitialChatMessage(): PAInitialChatMessage | null {
   return parsed && parsed.text ? parsed : null;
 }
 
-/**
- * Exported for tests. Tolerates a bare string so a message stashed by an older
- * build (before mentions existed) still opens the chat instead of being lost.
- */
 export function parseInitialChatMessage(
   stored: string,
 ): PAInitialChatMessage | null {
@@ -112,7 +102,6 @@ export function parseInitialChatMessage(
         mentions: Array.isArray(mentions) ? mentions : [],
       };
     }
-    // Valid JSON but not our shape (e.g. a plain quoted string).
     return typeof parsed === "string"
       ? { text: parsed.trim(), mentions: [] }
       : null;

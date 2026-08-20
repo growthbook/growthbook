@@ -30,9 +30,6 @@ const EXTENSIONS = [
   TextNode,
   HardBreak,
   MetricMention,
-  // Configured with its trigger char as the composer does: the node resolves
-  // its prefix from the extension's suggestion list, so an unconfigured
-  // instance would serialize commands with the default "@".
   SkillCommand.configure({ suggestion: { char: "/" } }),
 ];
 
@@ -51,7 +48,6 @@ function mentionNode(
   return { type: "metricMention", attrs: { id, label, metricType } };
 }
 
-/** A paragraph of mixed text and mention nodes. */
 function makeMentionEditor(content: JSONContent[]) {
   return new Editor({
     extensions: EXTENSIONS,
@@ -138,8 +134,6 @@ describe("chat composer serialization", () => {
       editor.destroy();
     });
 
-    // The decoration is what the stale styling hangs off, and it reads the
-    // metric list out of storage, which nothing else in the editor observes.
     it("marks mentions the @ menu no longer offers with data-stale", () => {
       const element = document.createElement("div");
       const editor = new Editor({
@@ -160,7 +154,6 @@ describe("chat composer serialization", () => {
         },
       });
 
-      // What the composer dispatches to make the view recompute decorations.
       const sync = (items: MentionItem[], ready: boolean) => {
         editor.storage[METRIC_MENTION_NAME].items = items;
         editor.storage[METRIC_MENTION_NAME].ready = ready;
@@ -177,16 +170,11 @@ describe("chat composer serialization", () => {
         typeLabel: "Revenue",
       };
 
-      // Nothing is judged before the definitions load, however empty the list.
       expect(sync([], false)).toEqual([]);
       expect(sync([revenue], true)).toEqual(["met_2"]);
-      // The red "!" is a pseudo-element, so the reason has to be spelled out
-      // for assistive tech — including the name it replaces.
       expect(
         element.querySelector("[data-stale]")?.getAttribute("aria-label"),
       ).toBe("@Signups, not available in the selected Data Source");
-      // A loaded-but-empty list is a Data Source with no metrics of its own,
-      // which strands every mention rather than none.
       expect(sync([], true)).toEqual(["met_1", "met_2"]);
 
       editor.destroy();
@@ -240,8 +228,6 @@ describe("chat composer serialization", () => {
   });
 
   describe("slash commands", () => {
-    // Mirrors what the composer's `command` inserts, including the trigger
-    // char the node serializes with.
     const skillNode = (id: string): JSONContent => ({
       type: "skillCommand",
       attrs: { id, label: id, mentionSuggestionChar: "/" },
@@ -389,12 +375,9 @@ describe("chat composer serialization", () => {
 
 describe("stripDanglingTriggers", () => {
   it.each([
-    // An "@" abandoned by pressing space, then typing on.
     ["@ what about revenue", "what about revenue"],
-    // Abandoned at the end and sent with Enter.
     ["what about revenue @", "what about revenue"],
     ["@", ""],
-    // "@" is stripped mid-message too — a bare one is never content.
     ["a @ b", "a b"],
   ])("strips a standalone @ in %j", (input, expected) => {
     expect(stripDanglingTriggers(input).trim()).toBe(expected);
@@ -413,7 +396,6 @@ describe("stripDanglingTriggers", () => {
     ["the @Revenue metric", "the @Revenue metric"],
     ["handle @someone", "handle @someone"],
     ["/feature-flags what do I have?", "/feature-flags what do I have?"],
-    // Mid-message "/" is prose, not an abandoned trigger.
     ["what is A / B testing", "what is A / B testing"],
     ["ship it and / or revert", "ship it and / or revert"],
   ])("leaves %j alone", (input, expected) => {

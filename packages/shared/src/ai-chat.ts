@@ -162,43 +162,25 @@ export type AIChatSystemMessage = {
   content: string;
 };
 
-/** Kinds of entity a user can @-mention in the chat composer. */
 export type AIChatMentionType = "metric" | "factMetric" | "metricGroup";
 
-/**
- * An entity the user @-mentioned. The composer writes the readable form
- * ("@Revenue") into the message text and sends the resolved id alongside it, so
- * the agent never has to guess which metric a name refers to.
- */
+/** An @-mentioned metric. The text keeps "@Revenue"; this carries the id. */
 export type AIChatMention = {
   type: AIChatMentionType;
   id: string;
   name: string;
-  /**
-   * The entity doesn't belong to the Data Source this turn runs against (or no
-   * longer exists). Set by the server at send time, never accepted from the
-   * client, and persisted so the transcript keeps what was true when the
-   * message was sent. The reference is still passed to the model, which is told
-   * to say so rather than act on it — see `toModelMessages`.
-   */
+  /** Set by the server when the metric isn't in this turn's Data Source. */
   stale?: boolean;
 };
 
-/** Domain routers are the browsable entry points; leaves sit under them. */
 export type SkillKind = "domain" | "leaf";
 
-/**
- * One agent skill as the `/agent/skills` index describes it — the wire shape
- * behind the composer's `/` command menu.
- *
- * Deliberately omits the skill's `body`: those are large prompt payloads the UI
- * has no use for, and the agent loads them itself.
- */
+/** Skill index entry for the `/` menu. Omits the prompt body — the agent loads that. */
 export interface SkillSummary {
   name: string;
   description: string;
   kind: SkillKind;
-  /** Parent domain name for leaf skills; equals `name` for domain routers. */
+  /** Parent domain for leaf skills; same as `name` for domain routers. */
   group?: string;
 }
 
@@ -207,18 +189,7 @@ export type AIChatUserMessage = {
   id: string;
   ts: number;
   content: string | AIChatUserContentPart[];
-  /**
-   * Entities the user @-mentioned in this message. Persisted so the reference
-   * survives a reload, and injected by `toModelMessages` as a
-   * `[Referenced metrics: …]` prefix carrying the ids.
-   */
   mentions?: AIChatMention[];
-  /**
-   * Skills invoked via `/` commands, in the order they appear in the message.
-   * The agent receives each as a pre-loaded `loadSkill` result rather than from
-   * here — these are persisted so the chat log can render the commands the
-   * message was sent with.
-   */
   skills?: string[];
   /**
    * URL path (+ search) the user was on when they sent this message.

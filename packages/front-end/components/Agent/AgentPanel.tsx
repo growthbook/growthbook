@@ -174,8 +174,6 @@ export default function AgentPanel({
   // Holds the decision to attach to the next outgoing message. Consumed (and
   // cleared) by buildRequestBody so it only rides along with one request.
   const pendingDecisionRef = useRef<ConfirmDecisionBody | null>(null);
-  // Same one-shot pattern as the decision above: set just before sendMessage,
-  // consumed by buildRequestBody so it rides along with exactly one request.
   const pendingSubmissionRef = useRef<ComposerSubmission>({
     text: "",
     mentions: [],
@@ -184,7 +182,6 @@ export default function AgentPanel({
 
   const { items: mentionItems, ready: mentionItemsReady } =
     useMetricMentionItems();
-  // Slash commands are agent-panel only — the PA chat's agent has no skills.
   const skillItems = useSkillCommandItems();
 
   const {

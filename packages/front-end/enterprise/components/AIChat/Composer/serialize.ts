@@ -9,16 +9,7 @@ import type { AIChatMention, AIChatMentionType } from "shared/ai-chat";
 import { METRIC_MENTION_NAME } from "./extensions/metricMention";
 import { SKILL_COMMAND_NAME } from "./extensions/skillCommand";
 
-/**
- * Conversion between the composer's editor document and the plain string the
- * chat hook / API contract works in.
- *
- * - One paragraph per line. Shift+Enter inserts a `hardBreak`, whose
- *   `renderText` is "\n", so both shapes serialize back identically.
- * - ProseMirror rejects empty text nodes, so a blank line becomes a paragraph
- *   with no content rather than one holding "".
- */
-
+/** One paragraph per line. Blank lines stay empty — ProseMirror rejects empty text nodes. */
 export function textToContent(text: string): JSONContent {
   return {
     type: "doc",
@@ -29,14 +20,7 @@ export function textToContent(text: string): JSONContent {
   };
 }
 
-/**
- * Mention and command nodes serialize through their extension's `renderText`,
- * so they land in the string as "@Name" / "/skill" — readable in the chat
- * bubble and in history.
- *
- * Works from the document rather than the editor so a ProseMirror key handler
- * can call it with its own `view.state.doc`.
- */
+/** Mention/command nodes render as "@Name" / "/skill". */
 export function docToText(doc: ProseMirrorNode): string {
   return getText(doc, {
     blockSeparator: "\n",
@@ -49,43 +33,21 @@ export function editorToText(editor: Editor): string {
 }
 
 /**
- * Drop an abandoned trigger — one the user typed to open a menu, then dismissed
- * with a space or Enter without picking anything. A real mention or command is
- * a node by then, not loose text, so only stray characters are in scope.
- *
- * The two triggers get different rules because they collide with prose
- * differently:
- *
- * - "@" goes wherever it stands alone. A bare "@" as content is vanishingly
- *   rare, and "me@example.com" is untouched since the "@" isn't standalone.
- * - "/" goes only at the very start or end of the message — the positions a
- *   command is actually abandoned in. Mid-message it is left alone, because
- *   "what is A / B testing" is ordinary prose that stripping would corrupt.
+ * Drop an "@" or "/" typed to open a menu, then dismissed without picking.
+ * Standalone "@" is stripped; "@word" is kept (that's also how real mentions
+ * serialize). "/" only at the start or end, so "A / B" stays.
  */
 export function stripDanglingTriggers(text: string): string {
-  return (
-    text
-      .replace(
-        /(^|[ \t])@([ \t]|$)/g,
-        (_match, before: string, after: string) => before || after,
-      )
-      // Leading "/", plus the whitespace it left behind.
-      .replace(/^\/(?=[ \t]|$)[ \t]*/, "")
-      // Trailing "/", plus the whitespace before it.
-      .replace(/[ \t]+\/$/, "")
-  );
+  return text
+    .replace(
+      /(^|[ \t])@([ \t]|$)/g,
+      (_match, before: string, after: string) => before || after,
+    )
+    .replace(/^\/(?=[ \t]|$)[ \t]*/, "")
+    .replace(/[ \t]+\/$/, "");
 }
 
-/**
- * The mentions currently in the document, in document order and de-duplicated
- * by id — mentioning the same metric twice is one reference, not two.
- *
- * Sent alongside the text so the agent can resolve each "@Name" to an exact id
- * instead of searching for it.
- *
- * Takes the document rather than the editor so a ProseMirror key handler can
- * call it with its own `view.state.doc`.
- */
+/** Mentions in document order, de-duplicated by id. */
 export function collectMentions(doc: ProseMirrorNode): AIChatMention[] {
   const seen = new Set<string>();
   const mentions: AIChatMention[] = [];
@@ -106,13 +68,7 @@ export function collectMentions(doc: ProseMirrorNode): AIChatMention[] {
   return mentions;
 }
 
-/**
- * Skills invoked by `/` commands, in document order and de-duplicated.
- *
- * All of them, not just the first: chaining several in one message is
- * supported, and each is seeded into the turn as its own completed `loadSkill`
- * call.
- */
+/** Slash-command skills in document order, de-duplicated. */
 export function collectSkills(doc: ProseMirrorNode): string[] {
   const seen = new Set<string>();
 
