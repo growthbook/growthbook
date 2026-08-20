@@ -722,12 +722,16 @@ at all.
       (`/settings/role/duplicate/[rid]`, which correctly copies `policies`). This is
       a constraint on whoever builds them, not current work.
 
-### 5. Settings unification
+### 5. Settings unification — DONE
 
 - [x] SKIP `targetingReviewMode` → Constants and Configs: neither entity has
       targeting projects, so there is nothing to apply.
 - [~] `maxConcurrentDrafts` → the other three entities: PARKED.
-- [~] One draft-cap policy across both UI surfaces: PARKED with the item above.
+- [x] BY DESIGN, not an inconsistency to fix: the cap exists to add friction to
+      creating drafts, so surfaces differ on purpose — some remove the option
+      outright while an escape hatch with a warning stays available elsewhere
+      (the modal's acknowledge, REST's `?overrideDraftLimit=true`). Do not
+      "unify" these into one policy.
 - [x] Deleted `ApprovalFlowConfiguration.canBypassReview` — genuinely unread.
       `.resetReviewOnChange` on the SAME type is now LIVE (the saved-group
       "reset review on changes" toggle, read via `getApprovalFlowSettings`), so
