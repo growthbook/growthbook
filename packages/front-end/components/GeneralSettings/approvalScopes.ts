@@ -6,10 +6,8 @@ import isEqual from "lodash/isEqual";
 import { getReviewSetting } from "shared/util";
 import { getApprovalFlowRules } from "shared/enterprise";
 
-// A scope is a rule's selector, flattened: "" is all projects, otherwise the
-// rule's project ids sorted and comma-joined. Keying on the whole selector (not
-// a single id) means an API-authored rule naming two projects still gets a tab
-// rather than disappearing from the UI.
+// A scope is a rule's selector flattened: "" = all projects, else sorted ids
+// comma-joined. Keying on the whole selector keeps multi-project rules visible.
 export const ALL_PROJECTS_SCOPE = "";
 
 export const scopeKey = (projects: string[] | undefined): string =>
@@ -68,9 +66,7 @@ export function overrideScopes(families: Scoped[][]): string[] {
   return [...scopes];
 }
 
-// What this scope would resolve to with its own rule taken out of the stack —
-// i.e. what each unset field falls back to. The all-projects scope is the base,
-// so nothing sits above it to inherit from.
+// What the scope resolves to with its own rule removed. The base inherits nothing.
 export function inheritedFlagRule(
   rules: RequireReview[],
   scope: string,
@@ -93,8 +89,7 @@ export function inheritedSavedGroupRule(
   )[0];
 }
 
-// An override starts as a full copy of the base rule, so a project's form shows
-// exactly what applies today and then diverges only where it is edited.
+// An override starts as a full copy, so the form shows what applies today.
 export function clonedFlagRule(
   rules: RequireReview[],
   scope: string,
@@ -119,8 +114,8 @@ export function clonedSavedGroupRule(
     : savedGroupRuleDefaults(scope);
 }
 
-// Whether this scope's rule says anything different from the base it was copied
-// from. The selector is not part of the comparison — it is what names the scope.
+// Whether the rule differs from its base. The selector names the scope, so it
+// is not compared.
 export function differsFromBase<T extends { projects?: string[] }>(
   rule: T,
   base: T | undefined,

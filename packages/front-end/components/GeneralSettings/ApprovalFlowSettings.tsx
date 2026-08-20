@@ -55,26 +55,24 @@ export default function ApprovalFlowSettings() {
   const savedGroupRules: ApprovalFlowConfiguration[] =
     form.watch("approvalFlows.savedGroups") ?? [];
 
-  // Tabs carry an identity of their own rather than being keyed by the projects
-  // they name, so editing a tab's projects re-points its rule without
-  // remounting the panel.
+  // Tabs carry their own id, so editing their projects does not remount them.
   const [tabs, setTabs] = useState<{ id: string; scope: string }[]>([]);
   const nextTabId = useRef(0);
   const newTabId = () => `override-${nextTabId.current++}`;
   const [activeTab, setActiveTab] = useState(ALL_PROJECTS_TAB);
 
   // Settings load after mount, so stored overrides get a tab when they arrive.
-  const storedScopes = overrideScopes([flagRules, savedGroupRules]);
+  const storedScopeKey = overrideScopes([flagRules, savedGroupRules]).join("|");
   useEffect(() => {
+    const stored = storedScopeKey ? storedScopeKey.split("|") : [];
     setTabs((prev) => {
       const known = new Set(prev.map((t) => t.scope));
-      const missing = storedScopes.filter((scope) => !known.has(scope));
+      const missing = stored.filter((scope) => !known.has(scope));
       return missing.length
         ? [...prev, ...missing.map((scope) => ({ id: newTabId(), scope }))]
         : prev;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storedScopes.join("|")]);
+  }, [storedScopeKey]);
 
   const allTabs = [
     { id: ALL_PROJECTS_TAB, scope: ALL_PROJECTS_SCOPE },
@@ -105,8 +103,7 @@ export default function ApprovalFlowSettings() {
     setSavedGroupRule(project, clonedSavedGroupRule(savedGroupRules, project));
   };
 
-  // Re-points both families' rules at a new set of projects, so a group of
-  // projects can share one rule instead of duplicating it.
+  // Re-points both families' rules so a group of projects can share one rule.
   const retargetTab = (tab: { id: string; scope: string }, next: string[]) => {
     const nextScope = scopeKey(next);
     if (!next.length || nextScope === tab.scope) return;

@@ -32,16 +32,14 @@ import {
   RuleCombiners,
 } from "../util/projectScopedRules";
 
-// The projects a revision snapshot belongs to: one for a constant or config,
-// several for a saved group.
+// One project for a constant or config, several for a saved group.
 export const entityProjects = (snapshot: unknown): string[] => {
   const entity = (snapshot ?? {}) as { project?: string; projects?: string[] };
   if (entity.projects?.length) return entity.projects;
   return entity.project ? [entity.project] : [];
 };
 
-// Same folding as the flag family: stricter wins, autopublish takes agreement,
-// and team lists union into one OR-group.
+// Stricter wins; autopublish takes agreement; team lists union into one OR-group.
 const APPROVAL_FLOW_COMBINERS: RuleCombiners<ApprovalFlowConfiguration> = {
   required: (vals) => vals.some(Boolean),
   requireMetadataReview: (vals) => vals.some((v) => v !== false),
@@ -84,11 +82,7 @@ const approvalFlowRulesFor = (
   }
 };
 
-/**
- * One resolved rule per governing project. A saved group can belong to several
- * projects, and each project's rule is its own requirement — so this returns
- * the set rather than picking a winner.
- */
+// One rule per governing project: each is its own requirement, so no winner.
 export const getApprovalFlowRules = (
   approvalFlows: ApprovalFlowConfigurations | undefined,
   entityType: RevisionTargetType,
@@ -110,8 +104,7 @@ export const getApprovalFlowRules = (
       (r) => !!r.required,
     );
     if (!rule) continue;
-    // By content: projects inheriting the same layer resolve to equal but
-    // distinct objects, so identity would not dedupe them.
+    // By content: inherited layers resolve to equal but distinct objects.
     const key = JSON.stringify(rule);
     if (seen.has(key)) continue;
     seen.add(key);
@@ -120,14 +113,8 @@ export const getApprovalFlowRules = (
   return resolved;
 };
 
-/**
- * What the toggles resolve to for one entity. Where several projects govern it,
- * the stricter answer wins — except `autopublishOnApproval`, which loosens the
- * flow and so needs every governing project to allow it.
- *
- * Returns `undefined` when no rule governs (treat the same as "no approval flow
- * features enabled").
- */
+// The toggles for one entity: stricter wins across governing projects, except
+// autopublish, which loosens the flow and so needs all of them to agree.
 export const getApprovalFlowSettings = (
   approvalFlows: ApprovalFlowConfigurations | undefined,
   entityType: RevisionTargetType,
@@ -377,8 +364,7 @@ export const isUserBlockedFromApproving = ({
 export const isAutopublishOnApprovalEnabled = (
   settings: OrganizationSettings | undefined,
   entityType: RevisionTargetType,
-  // The entity's projects: one for a constant or config, several for a saved
-  // group. Both families match their rules on it.
+  // Both families match their rules on this.
   projects: string[] = [],
 ): boolean => {
   if (entityType === "constant" || entityType === "config") {
@@ -754,8 +740,7 @@ const VERDICT_BASE: Record<string, "approved" | "changes-requested"> = {
   "request-changes": "changes-requested",
 };
 
-// Stored verdicts as custom hooks see them: latest per reviewer, comments
-// dropped, and `decision` + `stale` collapsed into the feature flow's `status`.
+// As hooks see them: latest per reviewer, `decision` + `stale` collapsed.
 export function toHookReviewerVerdicts<U, T>(
   reviews: {
     userId: string;

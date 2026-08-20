@@ -2751,9 +2751,8 @@ const INHERITABLE_FIELDS = [
   "requiredApproverTeams",
 ] as const;
 
-// Folding several rules that govern one project: the stricter answer wins, so
-// the outcome never depends on their order. `autopublishOnApproval` loosens the
-// flow, so it takes agreement rather than one vote.
+// Stricter wins, so the outcome never depends on rule order. Autopublish loosens
+// the flow, so it takes agreement rather than one vote.
 const REVIEW_COMBINERS: RuleCombiners<RequireReview> = {
   requireReviewOn: (vals) => vals.some(Boolean),
   resetReviewOnChange: (vals) => vals.some(Boolean),
@@ -2762,14 +2761,13 @@ const REVIEW_COMBINERS: RuleCombiners<RequireReview> = {
   featureRequireEnvironmentReview: (vals) => vals.some((v) => v !== false),
   featureRequireMetadataReview: (vals) => vals.some((v) => v !== false),
   autopublishOnApproval: (vals) => vals.every(Boolean),
-  // No list means every environment, so it swallows any narrower list. Sorted so
-  // the fold is canonical rather than merely set-equal.
+  // No list means every environment, so it swallows narrower ones. Sorted so the
+  // fold is canonical rather than merely set-equal.
   environments: (vals) =>
     vals.some((v) => !v?.length)
       ? []
       : [...new Set(vals.flatMap((v) => v ?? []))].sort(),
-  // Unioned into one OR-group: any one of the named teams satisfies the rule.
-  // Keeping the lists separate would demand an approver from each.
+  // One OR-group: separate lists would demand an approver from each.
   requiredApproverTeams: (vals) =>
     [...new Set(vals.flatMap((v) => v ?? []))].sort(),
 };
@@ -2893,8 +2891,7 @@ export function constantRequiresReview(
 
 export type ReviewScope = { project: string | null; environments: string[] };
 
-// What a team gates, for its own page. Resolved, not raw: a project override
-// inherits the base rule's teams, and can also replace them.
+// What a team gates, resolved not raw: an override inherits or replaces teams.
 export function reviewScopesRequiringTeam(
   teamId: string,
   settings?: OrganizationSettings,
@@ -3524,8 +3521,7 @@ export function getNewDraftExperimentsToPublish({
   return [...new Set(draftExperiments)];
 }
 
-// Only the field per-rule policy hangs off, so both the flag family's
-// RequireReview and a saved group's ApprovalFlowConfiguration fit.
+// Only the field per-rule policy hangs off, so both rule families fit.
 export type PolicyRule = { requiredApproverTeams?: string[] | null };
 
 // `required` can be true with no rules: the legacy boolean setting has none.
@@ -3534,8 +3530,8 @@ export type ReviewRequirement = {
   rules: PolicyRule[];
 };
 
-// Primary + strict-mode targeting over the current+staged union, so adding and
-// removing a project are both governed. All-projects uses the rule-named ones.
+// Primary + strict targeting over current+staged, so adds and removes are both
+// governed. All-projects uses the rule-named ones.
 export function governingReviewProjectsForFeature({
   feature,
   revision,
@@ -4438,8 +4434,7 @@ export type ReviewAuthorityFootprint =
   // Unbound metadata: an empty environment list would pass vacuously.
   | { scope: "unbound" };
 
-// Per governing project, not across every rule: an unrelated project's rule must
-// not make a metadata change demand authority no environment limit restricts.
+// Per governing project: an unrelated rule must not widen a metadata change.
 function requiresMetadataReview(
   settings?: OrganizationSettings,
   governingProjects?: string[],
@@ -4455,13 +4450,11 @@ function requiresMetadataReview(
   });
 }
 
-// `bases` unions live and the draft's base, which can disagree — so drift can
-// only ever demand more authority, never less.
+// `bases` unions live and the draft's base, so drift only ever demands more.
 //
-// Deliberately NOT narrowed to serving environments the way `featurePublishFootprint`
-// is. A rule edited while an environment is off still applies there once it is
-// switched on, and the enabling draft's diff no longer shows that rule — so an
-// approver with authority there must sign it while it is still visible.
+// Deliberately NOT narrowed to serving environments the way publish is: a rule
+// edited while an environment is off still applies once it is switched on, and
+// the enabling draft's diff no longer shows it.
 export function getReviewAuthorityFootprint({
   revision,
   bases,

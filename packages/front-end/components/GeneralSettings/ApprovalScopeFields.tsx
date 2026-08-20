@@ -14,15 +14,12 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import { useEnvironments } from "@/services/features";
 
-// An override is a full copy of the base rule, so a scope's fields are just a
-// form over that copy. Diverging from the base is a per-section reset, not a
-// per-field state.
+// An override is a full copy of the base, so this is just a form over that copy.
 type ScopeFieldsProps<T> = {
   idPrefix: string;
   value: T;
   onChange: (next: T) => void;
-  // Read-only renders the same fields rather than a parallel summary, so a new
-  // field can never appear in the editor and go missing from the read-only view.
+  // Read-only renders these same fields, so the two views cannot drift.
   readOnly?: boolean;
 };
 
@@ -317,8 +314,7 @@ export function SavedGroupApprovalFields({
   );
 }
 
-// Both families for one scope, in the order the org settings and the project
-// page both present them. Shared so the two surfaces cannot drift.
+// Both families for one scope, shared so the two surfaces cannot drift.
 export function ApprovalScopeSections({
   idPrefix,
   flagRule,
@@ -336,8 +332,7 @@ export function ApprovalScopeSections({
   savedGroupRule: ApprovalFlowConfiguration;
   onSavedGroupChange: (next: ApprovalFlowConfiguration) => void;
   savedGroupDescription?: string;
-  // Present only on an override scope, and only while that section differs from
-  // the All Projects rule it was copied from.
+  // Only on an override scope, and only while that section differs from base.
   onFlagReset?: () => void;
   onSavedGroupReset?: () => void;
   readOnly?: boolean;
