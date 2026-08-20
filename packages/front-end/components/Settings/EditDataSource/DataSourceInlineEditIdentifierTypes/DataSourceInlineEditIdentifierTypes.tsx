@@ -171,7 +171,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
               {canEdit && (
                 <Flex gap="2">
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     onClick={handleActionEditClicked(idx)}
                   >
                     Edit
