@@ -3834,23 +3834,47 @@ export function filterProjectsByEnvironmentWithNull(
   return filteredProjects;
 }
 
+export type EnvironmentApplicabilityScope = {
+  project?: string;
+  targetingProjects?: string[];
+  targetingAllProjects?: boolean;
+};
+
+// The one definition of which environments can serve an entity: the union of
+// its primary and targeting projects, held against each environment's project
+// restriction. Every publish/review path expands "all environments" against
+// this set — a path using the org's full list answers a different question.
+export function environmentAppliesToScope(
+  environment: Environment,
+  scope: EnvironmentApplicabilityScope,
+): boolean {
+  if (scope.targetingAllProjects) return true;
+  const projects = [scope.project, ...(scope.targetingProjects ?? [])].filter(
+    (p): p is string => !!p,
+  );
+  if (projects.length === 0) return true;
+  return filterProjectsByEnvironment(projects, environment, true).length > 0;
+}
+
+export function getApplicableEnvIds(
+  orgEnvs: Environment[],
+  // A single project id (legacy callers) or a full targeting scope.
+  scope?: string | EnvironmentApplicabilityScope,
+): string[] {
+  const resolved =
+    typeof scope === "string" || scope == null
+      ? { project: scope ?? undefined }
+      : scope;
+  return orgEnvs
+    .filter((env) => environmentAppliesToScope(env, resolved))
+    .map((env) => env.id);
+}
+
 export function featureHasEnvironment(
   feature: FeatureInterface,
   environment: Environment,
 ): boolean {
-  // Allowed envs = union across every project the feature delivers to (all when targeting all projects).
-  if (feature.targetingAllProjects) return true;
-  const featureProjects = [
-    feature.project,
-    ...(feature.targetingProjects ?? []),
-  ].filter((p): p is string => !!p);
-  if (featureProjects.length === 0) return true;
-  const filteredProjects = filterProjectsByEnvironment(
-    featureProjects,
-    environment,
-    true,
-  );
-  return filteredProjects.length > 0;
+  return environmentAppliesToScope(environment, feature);
 }
 
 export function filterEnvironmentsByExperiment(

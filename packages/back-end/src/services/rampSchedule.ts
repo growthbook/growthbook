@@ -19,13 +19,14 @@ import {
 } from "shared/validators";
 import { ResourceEvents } from "shared/types/events/base-types";
 import {
+  MergeResultChanges,
+  filterEnvironmentsByFeature,
+  getApplicableEnvIds,
+  getEnvsFromRampSchedule,
+  isRampScheduleServing,
+  rampRuleEnvKey,
   rampTargetFootprint,
   rampTargetRuleIds,
-  rampRuleEnvKey,
-  getEnvsFromRampSchedule,
-  filterEnvironmentsByFeature,
-  MergeResultChanges,
-  isRampScheduleServing,
 } from "shared/util";
 import uniqid from "uniqid";
 import {
@@ -52,7 +53,6 @@ import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import {
   resolveRampTargets,
   ruleFootprint,
-  getApplicableEnvIds,
 } from "back-end/src/util/flattenRules";
 import { logger } from "back-end/src/util/logger";
 import {

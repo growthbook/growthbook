@@ -15,37 +15,38 @@ import {
   SDKLanguage,
 } from "shared/types/sdk-connection";
 import {
-  draftRevertedFromVersion,
-  autoMerge,
-  filterEnvironmentsByFeature,
-  filterProjectsByEnvironmentWithNull,
+  IsFeatureStaleResult,
   MergeResultChanges,
-  mergeResultHasChanges,
   MergeStrategy,
+  assertSchemaMatchesValueType,
+  autoMerge,
   checkIfRevisionNeedsReview,
+  draftRevertedFromVersion,
   evaluatePublishGovernance,
   featureMetadataEnvelope,
-  resetReviewOnChange,
+  fillRevisionFromFeature,
+  filterEnvironmentsByFeature,
+  filterProjectsByEnvironmentWithNull,
   getAffectedEnvsForExperiment,
+  getApplicableEnvIds,
   getDependentExperiments,
   getDependentFeatures,
-  getRevertValueValidationWarnings,
-  getRulesForEnvironment,
-  getEnvsFromRampSchedule,
-  isFeatureStale,
-  IsFeatureStaleResult,
-  mergeRevision,
-  liveRevisionFromFeature,
-  fillRevisionFromFeature,
-  reconcileMergeBaselines,
-  getReviewSetting,
-  normalizeTargetingProjects,
-  normalizeTargetingInUpdates,
-  namespacesToMap,
-  pruneOrphanedRampActions,
-  assertSchemaMatchesValueType,
   getEffectiveRevisionHoldout,
+  getEnvsFromRampSchedule,
   getRevertTargetHoldout,
+  getRevertValueValidationWarnings,
+  getReviewSetting,
+  getRulesForEnvironment,
+  isFeatureStale,
+  liveRevisionFromFeature,
+  mergeResultHasChanges,
+  mergeRevision,
+  namespacesToMap,
+  normalizeTargetingInUpdates,
+  normalizeTargetingProjects,
+  pruneOrphanedRampActions,
+  reconcileMergeBaselines,
+  resetReviewOnChange,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -92,7 +93,6 @@ import {
   PutFeatureRuleBody,
 } from "shared/types/feature-rule";
 import { getValidDate } from "shared/dates";
-import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
 import { isArmedWithAuthorizedPublisher } from "back-end/src/revisions/approveAndPublish";
 import {
@@ -2175,7 +2175,6 @@ export async function postFeaturePublish(
       effectiveRevision,
       filledLive,
       base,
-      environmentIds,
       liveRampScheduleEnvs,
     });
 

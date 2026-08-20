@@ -8,20 +8,10 @@ import {
   parseIntWithDefaultCapped,
   normalizeApprovalRuleSettings,
 } from "shared/util";
-import {
-  getRoles,
-  areProjectRolesValid,
-  isRoleValid,
-  getDefaultRole,
-} from "shared/permissions";
+import { getRoles, getDefaultRole } from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
-import {
-  DUPLICATE_PROJECT_ROLES_MESSAGE,
-  hasNoDuplicateProjects,
-  AgreementType,
-  updateSdkWebhookValidator,
-} from "shared/validators";
+import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
 import { entityTypes } from "shared/constants";
 import { AI_PROVIDERS } from "shared/ai";
 import { UpdateSdkWebhookProps } from "shared/types/webhook";
@@ -42,7 +32,6 @@ import {
 import { ExperimentRule, NamespaceValue } from "shared/types/feature";
 import { TeamInterface } from "shared/types/team";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
-import { validateRoleAndEnvs } from "back-end/src/api/members/updateMemberRole";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -51,6 +40,7 @@ import {
   acceptInvite,
   addMemberToOrg,
   addPendingMemberToOrg,
+  assertMemberRoleInfoValid,
   assertRoleAssignmentAllowed,
   assertRoleChangeAllowed,
   expandOrgMembers,
@@ -459,22 +449,18 @@ export async function putMemberRole(
     });
   }
 
-  if (!isRoleValid(role, org)) {
-    return res.status(400).json({
-      status: 400,
-      message: "Invalid role",
+  try {
+    assertMemberRoleInfoValid(org, {
+      role,
+      limitAccessByEnvironment,
+      environments,
+      additionalRoles,
+      projectRoles,
     });
-  }
-  if (!hasNoDuplicateProjects(projectRoles)) {
+  } catch (e) {
     return res.status(400).json({
       status: 400,
-      message: DUPLICATE_PROJECT_ROLES_MESSAGE,
-    });
-  }
-  if (!areProjectRolesValid(projectRoles, org)) {
-    return res.status(400).json({
-      status: 400,
-      message: "Invalid role",
+      message: e.message,
     });
   }
 
@@ -563,18 +549,13 @@ export async function putMemberProjectRole(
     });
   }
 
-  // Validate the project role
-  const { memberIsValid, reason } = validateRoleAndEnvs(
-    org,
-    projectRole.role,
-    projectRole.limitAccessByEnvironment || false,
-    projectRole.environments,
-  );
-
-  if (!memberIsValid) {
+  try {
+    // The whole rule, additional roles included — nothing rides in unchecked.
+    assertMemberRoleInfoValid(org, projectRole);
+  } catch (e) {
     return res.status(400).json({
       status: 400,
-      message: reason,
+      message: e.message,
     });
   }
   const updatedProjectRole: ProjectMemberRole = {
@@ -833,22 +814,18 @@ export async function putInviteRole(
   const { key } = req.params;
   const originalInvites: Invite[] = cloneDeep(org.invites);
 
-  if (!isRoleValid(role, org)) {
-    return res.status(400).json({
-      status: 400,
-      message: "Invalid role",
+  try {
+    assertMemberRoleInfoValid(org, {
+      role,
+      limitAccessByEnvironment,
+      environments,
+      additionalRoles,
+      projectRoles,
     });
-  }
-  if (!hasNoDuplicateProjects(projectRoles)) {
+  } catch (e) {
     return res.status(400).json({
       status: 400,
-      message: DUPLICATE_PROJECT_ROLES_MESSAGE,
-    });
-  }
-  if (!areProjectRolesValid(projectRoles, org)) {
-    return res.status(400).json({
-      status: 400,
-      message: "Invalid role",
+      message: e.message,
     });
   }
 
@@ -1457,22 +1434,18 @@ export async function postInvite(
   } = req.body;
 
   // Make sure role is valid
-  if (!isRoleValid(role, org)) {
-    return res.status(400).json({
-      status: 400,
-      message: "Invalid role",
+  try {
+    assertMemberRoleInfoValid(org, {
+      role,
+      limitAccessByEnvironment,
+      environments,
+      additionalRoles,
+      projectRoles,
     });
-  }
-  if (!hasNoDuplicateProjects(projectRoles)) {
+  } catch (e) {
     return res.status(400).json({
       status: 400,
-      message: DUPLICATE_PROJECT_ROLES_MESSAGE,
-    });
-  }
-  if (!areProjectRolesValid(projectRoles, org)) {
-    return res.status(400).json({
-      status: 400,
-      message: "Invalid role",
+      message: e.message,
     });
   }
 
@@ -2382,22 +2355,17 @@ export async function addOrphanedUser(
   }
 
   // Make sure role is valid
-  if (!isRoleValid(role, org)) {
-    return res.status(400).json({
-      status: 400,
-      message: "Invalid role",
+  try {
+    assertMemberRoleInfoValid(org, {
+      role,
+      limitAccessByEnvironment,
+      environments,
+      projectRoles,
     });
-  }
-  if (!hasNoDuplicateProjects(projectRoles)) {
+  } catch (e) {
     return res.status(400).json({
       status: 400,
-      message: DUPLICATE_PROJECT_ROLES_MESSAGE,
-    });
-  }
-  if (!areProjectRolesValid(projectRoles, org)) {
-    return res.status(400).json({
-      status: 400,
-      message: "Invalid role",
+      message: e.message,
     });
   }
 
@@ -2578,31 +2546,7 @@ export async function putDefaultRole(
   // Only gate a change so an existing non-admin default keeps working
   assertRoleChangeAllowed(org, getDefaultRole(org).role, defaultRole.role);
 
-  const { memberIsValid, reason } = validateRoleAndEnvs(
-    org,
-    defaultRole.role,
-    defaultRole.limitAccessByEnvironment,
-    defaultRole.environments,
-  );
-
-  if (!memberIsValid) {
-    throw new Error(reason);
-  }
-
-  if (defaultRole.projectRoles?.length) {
-    defaultRole.projectRoles.forEach((p) => {
-      const { memberIsValid, reason } = validateRoleAndEnvs(
-        org,
-        p.role,
-        p.limitAccessByEnvironment,
-        p.environments,
-      );
-
-      if (!memberIsValid) {
-        throw new Error(reason);
-      }
-    });
-  }
+  assertMemberRoleInfoValid(org, defaultRole);
 
   updateOrganization(org.id, {
     settings: {

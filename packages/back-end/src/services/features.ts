@@ -10,31 +10,32 @@ import {
   GrowthBook,
 } from "@growthbook/growthbook";
 import {
+  MergeResultChanges,
+  NodeHandler,
+  PrerequisiteStateResult,
   buildReverseDependencyIndex,
+  checkIfRevisionNeedsReview,
+  entityTargetsProject,
   evalDeterministicPrereqValue,
   evaluatePrerequisiteState,
+  fillRevisionFromFeature,
+  filterEnvironmentsByFeature,
   filterProjectsByEnvironmentWithNull,
+  getApplicableEnvIds,
+  getConfigBackingKey,
+  getConfigBackingPatch,
   getDependentFeatures,
+  getSavedGroupsValuesFromGroupMap,
+  getSavedGroupsValuesFromInterfaces,
   isDefined,
-  MergeResultChanges,
-  PrerequisiteStateResult,
+  namespacesToMap,
+  recursiveWalk,
+  ruleAppliesToEnv,
+  stemRuleId,
+  stripConfigExtends,
   toApiNamespace,
   validateCondition,
   validateFeatureValue,
-  getSavedGroupsValuesFromGroupMap,
-  getSavedGroupsValuesFromInterfaces,
-  NodeHandler,
-  recursiveWalk,
-  checkIfRevisionNeedsReview,
-  fillRevisionFromFeature,
-  ruleAppliesToEnv,
-  namespacesToMap,
-  stemRuleId,
-  getConfigBackingKey,
-  getConfigBackingPatch,
-  stripConfigExtends,
-  entityTargetsProject,
-  filterEnvironmentsByFeature,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -141,7 +142,6 @@ import {
   experimentMapForFeatures,
   getReferenceIdsInFeatures,
 } from "back-end/src/util/features";
-import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
 import { ReqContext } from "back-end/types/request";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";

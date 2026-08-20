@@ -1,7 +1,10 @@
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { Context } from "back-end/src/models/BaseModel";
-import { assessRevisionApproval } from "back-end/src/services/featurePublishGates";
+import {
+  assessRevisionApproval,
+  featurePublishEnvironmentIds,
+} from "back-end/src/services/featurePublishGates";
 
 // The contract four publish flows depend on: the app endpoint, the REST
 // endpoint, bulk publish, and the two autostart paths.
@@ -83,15 +86,18 @@ function makeContext({
   } as unknown as Context;
 }
 
-const assess = (context: Context, draft: FeatureRevisionInterface) =>
+const assess = (
+  context: Context,
+  draft: FeatureRevisionInterface,
+  forFeature: FeatureInterface = feature,
+) =>
   assessRevisionApproval({
     context,
-    feature,
+    feature: forFeature,
     revision: draft,
     effectiveRevision: draft,
     filledLive: live,
     base: live,
-    environmentIds: ENVS,
   });
 
 describe("assessRevisionApproval", () => {
@@ -167,4 +173,126 @@ describe("assessRevisionApproval", () => {
     expect(result.requiredApproverTeams.satisfied).toBe(true);
     expect(result.satisfied).toBe(true);
   });
+});
+
+// The environment set is derived from the feature, never caller-supplied. A
+// feature whose project excludes an environment must not have changes judged
+// against that environment — the autostart path once passed the org's full
+// list and disagreed with manual publish on both questions below.
+describe("environment applicability drives the answer", () => {
+  // production is reserved for another project; only dev can serve prj_mine.
+  const scopedEnvContext = (ruleEnvs: string[], approverEnvs?: string[]) => {
+    const context = makeContext({ approverEnvs: approverEnvs ?? ENVS });
+    (
+      context.org.settings as {
+        environments: { id: string; projects?: string[] }[];
+      }
+    ).environments = [
+      { id: "dev" },
+      { id: "production", projects: ["prj_other"] },
+    ];
+    (
+      context.org.settings as {
+        requireReviews: { environments: string[] }[];
+      }
+    ).requireReviews[0].environments = ruleEnvs;
+    return context;
+  };
+  const scopedFeature = {
+    id: "feat_scoped",
+    project: "prj_mine",
+  } as unknown as FeatureInterface;
+  const openFeature = {
+    id: "feat_open",
+    project: "",
+  } as unknown as FeatureInterface;
+
+  it("derives the same set the shared filter produces", () => {
+    const context = scopedEnvContext([]);
+    expect(featurePublishEnvironmentIds(context.org, scopedFeature)).toEqual([
+      "dev",
+    ]);
+    expect(featurePublishEnvironmentIds(context.org, openFeature)).toEqual([
+      "dev",
+      "production",
+    ]);
+    expect(
+      featurePublishEnvironmentIds(context.org, {
+        id: "feat_targeted",
+        project: "prj_mine",
+        targetingProjects: ["prj_other"],
+      } as unknown as FeatureInterface),
+    ).toEqual(["dev", "production"]);
+  });
+
+  // A kill-switch flip on an environment the feature cannot serve is not a
+  // change at all — but judged against the org's full list it demanded review.
+  const killSwitchDraft = () =>
+    revision({
+      environmentsEnabled: { dev: true, production: false },
+    } as Partial<FeatureRevisionInterface>);
+
+  const requirementPermutations: [string, FeatureInterface, boolean][] = [
+    [
+      "scoped feature: flip is outside its world, no review",
+      scopedFeature,
+      false,
+    ],
+    ["open feature: same flip requires review", openFeature, true],
+    [
+      "targeting projects widen the world back, review again",
+      {
+        id: "feat_targeted",
+        project: "prj_mine",
+        targetingProjects: ["prj_other"],
+      } as unknown as FeatureInterface,
+      true,
+    ],
+  ];
+  it.each(requirementPermutations)("%s", (_name, forFeature, expected) => {
+    const result = assess(scopedEnvContext([]), killSwitchDraft(), forFeature);
+    expect(result.requiresReview).toBe(expected);
+  });
+
+  // A global change footprints as "everywhere" — a sentinel, deliberately NOT
+  // narrowed to the feature's world. An env-limited approver never covers it,
+  // even on a feature whose world matches their limit. Pinned so nobody
+  // "fixes" the sentinel by expanding it through the applicable set.
+  const approvedGlobalDraft = () =>
+    revision({
+      defaultValue: "true",
+      status: "approved",
+      reviews: [{ userId: "u_rev", status: "approved" }],
+    } as Partial<FeatureRevisionInterface>);
+
+  const coveragePermutations: [string, FeatureInterface, string[], boolean][] =
+    [
+      [
+        "a dev-limited approver never covers a global change, even on a dev-only feature",
+        scopedFeature,
+        ["dev"],
+        false,
+      ],
+      ["nor on an open feature", openFeature, ["dev"], false],
+      [
+        "an unlimited approver covers it on the scoped feature",
+        scopedFeature,
+        ENVS,
+        true,
+      ],
+      ["and on the open feature", openFeature, ENVS, true],
+    ];
+  it.each(coveragePermutations)(
+    "%s",
+    (_name, forFeature, approverEnvs, expected) => {
+      const result = assess(
+        scopedEnvContext([], approverEnvs),
+        approvedGlobalDraft(),
+        forFeature,
+      );
+      expect(result.requiresReview).toBe(true);
+      expect(result.hasCoveringApproval).toBe(expected);
+      expect(result.satisfied).toBe(expected);
+    },
+  );
 });

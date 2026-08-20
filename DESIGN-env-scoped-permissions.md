@@ -772,6 +772,42 @@ at all.
       — both panels, plus the team and project pages
       — design settled, see "Marking an approval as insufficient"; blocked on 2
 
+### 7. One answer per question (post-review sweep)
+
+Greptile's findings and most of this PR's review feedback shared one shape:
+the same question answered in more than one place, with the copies drifting.
+Closed generically:
+
+- [x] **Environment applicability has one definition.** `getApplicableEnvIds`
+      moved to shared; `featureHasEnvironment` / `filterEnvironmentsByFeature`
+      answer through the same predicate (back-end had a second implementation).
+      `assessRevisionApproval` now derives its environment set from the feature
+      itself — the parameter is gone, so no caller can pass a wider or narrower
+      one. Fixed deviants: the experiment/bandit autostart path (judged review
+      against every org environment), REST revert, and REST feature creation
+      (authority checked against unfiltered envs; the interactive twin filters).
+- [x] **Member-role payloads have one validator.** `assertMemberRoleInfoValid`
+      covers base rule, additional rules, project overrides, and additional
+      rules nested in overrides — plan gates and environment ids included. All
+      seven human-payload writers call it: putMemberRole, putInviteRole,
+      postInvite, putMemberProjectRole, putDefaultRole, addOrphanedUser, and
+      REST updateMemberRole. Previously each validated a different subset;
+      three persisted `additionalRoles` with no content validation at all.
+      (`addMemberToOrg` / `addPendingMemberToOrg` keep their soft gate by
+      design — automated joins must not throw.)
+- [x] Permutation tests: `shared/test/applicableEnvIds.test.ts` (scope × env
+      matrix + the three public spellings pinned equal),
+      `assessRevisionApproval.test.ts` (env set drives requirement and the
+      "everywhere" sentinel deliberately does not narrow),
+      `memberRoleValidation.test.ts` (4 rule slots × defect matrix + plan
+      gates). Mutation-checked: unfiltered env set and skipped nested rules
+      both fail tests.
+- [ ] Known remaining divergence, deliberate: REST feature creation does not
+      scrub env settings to applicable envs the way interactive creation does
+      (changing that silently alters REST payload semantics); the generic
+      revision engine (configs/constants/saved groups) uniformly uses org-wide
+      environments — uniform, so no drift, but project-filtering it is open.
+
 ### Parked
 
 - [ ] Environment-scope the bypass atoms — all four, not just features

@@ -408,7 +408,6 @@ function assessRevisionApprovalForAutoPublish(
       : revision,
     filledLive,
     base,
-    environmentIds: context.environments,
   });
 }
 

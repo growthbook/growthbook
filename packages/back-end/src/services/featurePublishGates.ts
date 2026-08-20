@@ -92,6 +92,18 @@ export type RevisionApprovalState = {
   satisfied: boolean;
 };
 
+// The environment set every feature publish/review decision expands "all"
+// markers against: the org's environments filtered to the feature's projects.
+// One definition, so no flow can quietly answer against a wider or narrower set.
+export function featurePublishEnvironmentIds(
+  org: Context["org"],
+  feature: FeatureInterface,
+): string[] {
+  return filterEnvironmentsByFeature(getEnvironments(org), feature).map(
+    (e) => e.id,
+  );
+}
+
 // The approval half of a publish decision, without the merge or ramp lookups a
 // full plan needs. Every publish flow — manual or automatic — asks this.
 export function assessRevisionApproval({
@@ -101,7 +113,6 @@ export function assessRevisionApproval({
   effectiveRevision,
   filledLive,
   base,
-  environmentIds,
   liveRampScheduleEnvs,
 }: {
   context: Context;
@@ -110,9 +121,12 @@ export function assessRevisionApproval({
   effectiveRevision: FeatureRevisionInterface;
   filledLive: FeatureRevisionInterface;
   base: FeatureRevisionInterface;
-  environmentIds: string[];
   liveRampScheduleEnvs?: Map<string, string[] | "all">;
 }): RevisionApprovalState {
+  // Derived here, not taken from the caller: the autostart path once passed
+  // the org's full list and judged review against environments the feature
+  // cannot serve.
+  const environmentIds = featurePublishEnvironmentIds(context.org, feature);
   const reviewRequirement = getRevisionReviewRequirement({
     feature,
     baseRevision: filledLive,
@@ -190,11 +204,7 @@ export async function planFeatureRevisionMerge({
   feature: FeatureInterface;
   revision: FeatureRevisionInterface;
 }): Promise<FeatureMergePlan> {
-  const allEnvironments = getEnvironments(context.org);
-  const environmentIds = filterEnvironmentsByFeature(
-    allEnvironments,
-    feature,
-  ).map((e) => e.id);
+  const environmentIds = featurePublishEnvironmentIds(context.org, feature);
 
   const { live, base } = await getLiveAndBaseRevisionsForFeature({
     context,
@@ -276,7 +286,6 @@ export async function planFeatureRevisionMerge({
     effectiveRevision,
     filledLive,
     base,
-    environmentIds,
     liveRampScheduleEnvs,
   });
 
