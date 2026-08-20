@@ -46,10 +46,6 @@ describe("rowFilterValidator", () => {
   });
 });
 
-// The bulk-import body re-declares the row filter shape inline (twice — once per
-// column ref), so the range rule has to be wired into each copy rather than
-// inherited. Assert through the real body schema so a new copy that forgets it
-// fails here instead of silently accepting a three-bound range.
 describe("postBulkImportFacts rowFilters", () => {
   const parse = (values: string[]) =>
     postBulkImportFactsValidator.bodySchema.safeParse({

@@ -174,6 +174,30 @@ export class BulkPublishCommitError extends Error {
   }
 }
 
+export class BulkImportPartialFailureError extends Error {
+  status = 400;
+  counts: {
+    factTablesAdded: number;
+    factTablesUpdated: number;
+    factTableFiltersAdded: number;
+    factTableFiltersUpdated: number;
+    factMetricsAdded: number;
+    factMetricsUpdated: number;
+  };
+  errors: { resourceType: string; id: string; message: string }[];
+
+  constructor(
+    message: string,
+    counts: BulkImportPartialFailureError["counts"],
+    errors: BulkImportPartialFailureError["errors"],
+  ) {
+    super(message);
+    this.name = "BulkImportPartialFailureError";
+    this.counts = counts;
+    this.errors = errors;
+  }
+}
+
 export class SoftWarningError extends Error {
   status = 422;
   warnings: string[];

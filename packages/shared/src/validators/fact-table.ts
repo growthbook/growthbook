@@ -787,7 +787,7 @@ export type ApiAggregatedFactTable = z.infer<
 >;
 
 // Corresponds to payload-schemas/PostFactTablePayload.yaml
-const postFactTableBody = z
+export const postFactTableBody = z
   .object({
     name: z.string(),
     description: z
@@ -876,48 +876,30 @@ const updateFactTableBody = z
   .strict();
 
 // Corresponds to payload-schemas/PostFactTableFilterPayload.yaml
-const postFactTableFilterBody = z
-  .object({
-    name: z.string(),
-    description: z
-      .string()
-      .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the fact table filter")
-      .optional(),
-    value: z
-      .string()
-      .describe("The SQL expression for this filter.")
-      .meta({ example: "country = 'US'" }),
-    managedBy: z
-      .enum(["", "api"])
-      .describe(
-        'Set this to "api" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as "api"',
-      )
-      .optional(),
-  })
-  .strict();
+export const postFactTableFilterBodyFields = z.object({
+  name: z.string(),
+  description: z
+    .string()
+    .max(MAX_DESCRIPTION_LENGTH)
+    .describe("Description of the fact table filter")
+    .optional(),
+  value: z
+    .string()
+    .describe("The SQL expression for this filter.")
+    .meta({ example: "country = 'US'" }),
+  managedBy: z
+    .enum(["", "api"])
+    .describe(
+      'Set this to "api" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as "api"',
+    )
+    .optional(),
+});
+
+export const postFactTableFilterBody = postFactTableFilterBodyFields.strict();
 
 // Corresponds to payload-schemas/UpdateFactTableFilterPayload.yaml
-const updateFactTableFilterBody = z
-  .object({
-    name: z.string().optional(),
-    description: z
-      .string()
-      .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the fact table filter")
-      .optional(),
-    value: z
-      .string()
-      .describe("The SQL expression for this filter.")
-      .meta({ example: "country = 'US'" })
-      .optional(),
-    managedBy: z
-      .enum(["", "api"])
-      .describe(
-        'Set this to "api" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as "api"',
-      )
-      .optional(),
-  })
+const updateFactTableFilterBody = postFactTableFilterBodyFields
+  .partial()
   .strict();
 
 const idParams = z
