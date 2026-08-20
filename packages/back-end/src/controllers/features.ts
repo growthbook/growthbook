@@ -5,8 +5,6 @@ import {
   holdsMoveDestination,
   projectScopeChanged,
   NO_ENVIRONMENT_BINDING,
-  assessApprovalCoverage,
-  assessRequiredApproverTeams,
 } from "shared/permissions";
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
@@ -25,11 +23,8 @@ import {
   mergeResultHasChanges,
   MergeStrategy,
   checkIfRevisionNeedsReview,
-  getRevisionReviewRequirement,
   evaluatePublishGovernance,
   featureMetadataEnvelope,
-  getReviewAuthorityFootprint,
-  governingReviewProjectsForFeature,
   resetReviewOnChange,
   getAffectedEnvsForExperiment,
   getDependentExperiments,
@@ -160,6 +155,7 @@ import {
   assertCanAutoPublish,
   revisionRequiresReview,
 } from "back-end/src/services/features";
+import { assessRevisionApproval } from "back-end/src/services/featurePublishGates";
 import { linkFeatureToContextualBandit } from "back-end/src/enterprise/services/contextualBandits";
 import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
 import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
@@ -2171,45 +2167,18 @@ export async function postFeaturePublish(
     }
   }
 
-  const reviewRequirement = getRevisionReviewRequirement({
-    feature,
-    baseRevision: filledLive,
-    revision: effectiveRevision,
-    allEnvironments: environmentIds,
-    settings: org.settings,
-    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
-    liveRampScheduleEnvs,
-  });
-  const requiresReview = reviewRequirement.required;
-  // "approved" was decided when the approval was given. Re-check that a standing
-  // approver still covers what the draft changes, so a draft approved while
-  // dev-only cannot publish after growing to touch production.
-  const { hasCoveringApproval, uncoveredApprovers } = assessApprovalCoverage({
-    org,
-    teams: context.teams,
-    model: "feature",
-    projects: feature.project ? [feature.project] : [],
-    footprint: getReviewAuthorityFootprint({
-      revision: effectiveRevision,
-      bases: [filledLive, base],
-      allEnvironments: environmentIds,
-      settings: org.settings,
-      governingProjects: governingReviewProjectsForFeature({
-        feature,
-        revision: effectiveRevision,
-        settings: org.settings,
-      }),
+  const { requiresReview, hasCoveringApproval, requiredApproverTeams } =
+    assessRevisionApproval({
+      context,
+      feature,
+      revision,
+      effectiveRevision,
+      filledLive,
+      base,
+      environmentIds,
       liveRampScheduleEnvs,
-    }),
-    approvers: (revision.reviews ?? [])
-      .filter((r) => r.status === "approved")
-      .map((r) => r.userId)
-      .filter((id): id is string => !!id)
-      .map((id) => ({
-        id,
-        roleInfo: org.members.find((m) => m.id === id) ?? null,
-      })),
-  });
+    });
+
   if (!adminOverride && requiresReview && !hasCoveringApproval) {
     throw new Error(
       revision.status === "approved"
@@ -2217,27 +2186,14 @@ export async function postFeaturePublish(
         : "needs review before publishing",
     );
   }
-  if (!adminOverride && requiresReview) {
-    const { satisfied, unmet } = assessRequiredApproverTeams({
-      rules: reviewRequirement.rules,
-      coveringApproverIds: (revision.reviews ?? [])
-        .filter((r) => r.status === "approved")
-        .map((r) => r.userId)
-        .filter((id): id is string => !!id)
-        .filter((id) => !uncoveredApprovers.includes(id)),
-      org,
-      teams: context.teams,
-    });
-    if (!satisfied) {
-      throw new Error(
-        unmet
-          .map(
-            (t) =>
-              `Requires approval from ${t.map((x) => x.name).join(" or ")}.`,
-          )
-          .join(" "),
-      );
-    }
+  if (!adminOverride && requiresReview && !requiredApproverTeams.satisfied) {
+    throw new Error(
+      requiredApproverTeams.unmet
+        .map(
+          (t) => `Requires approval from ${t.map((x) => x.name).join(" or ")}.`,
+        )
+        .join(" "),
+    );
   }
   if (requiresReview && !reviewStatuses.includes(revision.status)) {
     throw new Error("Can only publish Draft revisions");
