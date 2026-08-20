@@ -747,6 +747,24 @@ const apiExperimentVariation = z.object({
   screenshots: z.array(z.string()),
 });
 
+const apiPhaseSavedGroupTargeting = z
+  .array(
+    z.object({
+      matchType: z.enum(["all", "any", "none"]),
+      savedGroups: z.array(z.string()),
+    }),
+  )
+  .optional();
+
+const phaseSavedGroupInput = {
+  savedGroups: z.array(savedGroupTargeting).optional(),
+  savedGroupTargeting: apiPhaseSavedGroupTargeting
+    .describe(
+      "Deprecated — use `savedGroups`. Accepted so a GET response can be posted back unchanged; `savedGroups` takes precedence if both are sent.",
+    )
+    .meta({ deprecated: true }),
+};
+
 // Phase sub-schema for API responses
 const apiExperimentPhase = z.object({
   name: z.string(),
@@ -779,14 +797,7 @@ const apiExperimentPhase = z.object({
       }),
     )
     .optional(),
-  savedGroupTargeting: z
-    .array(
-      z.object({
-        matchType: z.enum(["all", "any", "none"]),
-        savedGroups: z.array(z.string()),
-      }),
-    )
-    .optional(),
+  savedGroupTargeting: apiPhaseSavedGroupTargeting,
 });
 
 // Result summary sub-schema
@@ -1331,14 +1342,7 @@ const apiPhaseInput = z.object({
     .string()
     .describe("Targeting condition as a JSON string. Mirrors the GET response.")
     .optional(),
-  savedGroupTargeting: z
-    .array(
-      z.object({
-        matchType: z.enum(["all", "any", "none"]),
-        savedGroups: z.array(z.string()),
-      }),
-    )
-    .optional(),
+  ...phaseSavedGroupInput,
   variationWeights: z
     .array(z.number())
     .describe("Deprecated: use `trafficSplit`. Takes precedence if set.")
@@ -1618,14 +1622,7 @@ const updateExperimentBody = z
               "Targeting condition as a JSON string. Mirrors the GET response.",
             )
             .optional(),
-          savedGroupTargeting: z
-            .array(
-              z.object({
-                matchType: z.enum(["all", "any", "none"]),
-                savedGroups: z.array(z.string()),
-              }),
-            )
-            .optional(),
+          ...phaseSavedGroupInput,
           variationWeights: z
             .array(z.number())
             .describe(
@@ -2229,6 +2226,10 @@ export const postExperimentSnapshotValidator = {
   method: "post" as const,
   path: "/experiments/:id/snapshot",
   exampleRequest: { body: { triggeredBy: "schedule" } } as const,
+  possibleErrors: [
+    "requires_full_refresh",
+    "dimension_already_up_to_date",
+  ] as const,
 };
 
 export const postVariationImageUploadValidator = {
