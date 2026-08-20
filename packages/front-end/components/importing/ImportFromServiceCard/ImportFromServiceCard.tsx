@@ -21,7 +21,7 @@ export const ImportFromServiceCard: FC<ImportFromServiceCardProps> = ({
   children,
 }) => {
   return (
-    <div className="card p-3">
+    <div className="appbox p-3 mb-0">
       <div className="d-flex align-items-center">
         <div
           className="d-flex justify-content-center align-items-center mr-3"
