@@ -1,5 +1,5 @@
 import { createHmac } from "crypto";
-import Agenda, { Job } from "agenda";
+import type { Agenda, Job } from "agenda";
 import md5 from "md5";
 import { Promise as BluebirdPromise } from "bluebird";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";

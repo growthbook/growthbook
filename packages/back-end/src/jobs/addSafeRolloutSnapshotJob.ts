@@ -1,4 +1,4 @@
-import Agenda, { Job } from "agenda";
+import type { Agenda, Job } from "agenda";
 import { SafeRolloutInterface } from "shared/validators";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";

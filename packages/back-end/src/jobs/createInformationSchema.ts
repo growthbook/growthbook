@@ -1,4 +1,4 @@
-import Agenda, { Job } from "agenda";
+import type { Agenda, Job } from "agenda";
 import { InformationSchemaError } from "shared/types/integrations";
 import { formatQueryExecutionErrorForApi } from "shared/util";
 import {

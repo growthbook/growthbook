@@ -1,4 +1,4 @@
-import Agenda, { Job } from "agenda";
+import type { Agenda, Job } from "agenda";
 import { isAwaitingStartApproval } from "shared/validators";
 import { isRampScheduleServing } from "shared/util";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";

@@ -7,7 +7,7 @@ import authenticateApiRequestMiddleware from "back-end/src/middleware/authentica
 import app from "back-end/src/app";
 import mongoInit from "back-end/src/init/mongo";
 import { queueInit } from "back-end/src/init/queue";
-import { getAgendaInstance } from "back-end/src/services/queueing";
+import { stopAgenda } from "back-end/src/services/queueing";
 import { waitForIndexes } from "back-end/src/models/BaseModel";
 import { ReqContextClass } from "back-end/src/services/context";
 
@@ -107,7 +107,7 @@ export const setupApp = () => {
     }, 60000); // Increase timeout to 60s for CI environment
 
     afterAll(async () => {
-      await getAgendaInstance().stop();
+      await stopAgenda();
       await mongoose.connection.close();
       await mongodb.stop();
       process.env = OLD_ENV;

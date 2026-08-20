@@ -3,7 +3,7 @@ import "./init/dotenv";
 import "./instrumentation";
 import app from "./app";
 import { logger } from "./util/logger";
-import { getAgendaInstance } from "./services/queueing";
+import { stopAgenda } from "./services/queueing";
 import { uploadsInit } from "./init/uploads";
 import {
   initializeGrowthBookClient,
@@ -55,10 +55,12 @@ function onClose() {
     // Cleanup GrowthBook client
     destroyGrowthBookClient();
 
-    // Gracefully close Agenda
-    const agenda = getAgendaInstance();
-    await agenda.stop();
-    logger.info("Agenda closed");
+    try {
+      await stopAgenda();
+      logger.info("Agenda closed");
+    } catch (err) {
+      logger.error(err, "Error while stopping Agenda");
+    }
     process.exit(0);
   });
 }

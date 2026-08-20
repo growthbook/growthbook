@@ -1,4 +1,4 @@
-import Agenda, { Job } from "agenda";
+import type { Agenda, Job } from "agenda";
 import { Column } from "shared/types/integrations";
 import { fetchTableData } from "back-end/src/services/informationSchema";
 import { logger } from "back-end/src/util/logger";

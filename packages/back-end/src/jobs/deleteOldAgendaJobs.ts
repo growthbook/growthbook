@@ -1,15 +1,19 @@
-import Agenda from "agenda";
-import { getAgendaInstance } from "back-end/src/services/queueing";
+import type { Agenda } from "agenda";
+import {
+  getAgendaInstance,
+  getAgendaJobsCollection,
+} from "back-end/src/services/queueing";
 import { logger } from "back-end/src/util/logger";
 const JOB_NAME = "deleteOldAgendaJobs";
 
 // Delete old agenda jobs that finished over one week ago and are not going to be repeated
 const deleteOldAgendaJobs = async () => {
   const agenda = getAgendaInstance();
+  const collection = getAgendaJobsCollection(agenda);
 
   const startDate = Date.now();
 
-  const res = await agenda._collection
+  const res = await collection
     .find(
       {
         lastFinishedAt: { $lt: new Date(Date.now() - 7 * 24 * 3600 * 1000) },
@@ -24,7 +28,7 @@ const deleteOldAgendaJobs = async () => {
 
   const ids = res.map((r) => r._id);
 
-  const deleteRes = await agenda._collection.deleteMany({ _id: { $in: ids } });
+  const deleteRes = await collection.deleteMany({ _id: { $in: ids } });
 
   logger.debug(
     `Deleted ${deleteRes.deletedCount} old agenda jobs in ` +

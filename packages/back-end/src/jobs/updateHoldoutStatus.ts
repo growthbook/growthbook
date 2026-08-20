@@ -1,4 +1,4 @@
-import Agenda, { Job } from "agenda";
+import type { Agenda, Job } from "agenda";
 import { ExperimentPhase } from "shared/validators";
 import { Changeset } from "shared/types/experiment";
 import {

@@ -1,4 +1,4 @@
-import Agenda, { Job } from "agenda";
+import type { Agenda, Job } from "agenda";
 import { OrganizationInterface } from "shared/types/organization";
 import { getOrganizationsWithNorthStars } from "back-end/src/models/OrganizationModel";
 import {

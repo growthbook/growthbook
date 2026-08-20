@@ -1,13 +1,16 @@
-import { Job, JobAttributesData } from "agenda";
+import type { Job } from "agenda";
 import { logger } from "back-end/src/util/logger";
 import { JOB_TIMEOUT_MS } from "back-end/src/util/secrets";
 
+/** Job payload constraint; replaces agenda v5's JobAttributesData. */
+export type AgendaJobData = Record<string, unknown>;
+
 const TOUCH_INTERVAL_MS = 9 * 60 * 1000;
 
-//This prevents the lockLifetime being reached as long as the job is running, and hence stops other servers from picking up the job.
+//This prevents the lock lifetime being reached as long as the job is running, and hence stops other servers from picking up the job.
 //This also adds a timeout which allows the job to keep running but marks it as failed, which frees up the "slot" for another job to run, in case the defaultLockLimit is reached, and also prevents other jobs from picking it up unless they have retry logic.
 export const addJobLifecycleChecks =
-  <T extends JobAttributesData>(fn: (job: Job<T>) => Promise<void>) =>
+  <T extends AgendaJobData>(fn: (job: Job<T>) => Promise<void>) =>
   async (job: Job<T>) => {
     let touchTimer: NodeJS.Timeout | null = null;
     let timeoutTimer: NodeJS.Timeout | null = null;

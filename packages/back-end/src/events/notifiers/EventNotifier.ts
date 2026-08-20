@@ -1,4 +1,4 @@
-import { Agenda, Job, JobAttributesData } from "agenda";
+import type { Agenda, Job } from "agenda";
 import { EventInterface } from "shared/types/events/event";
 import { getAgendaInstance } from "back-end/src/services/queueing";
 import { webHooksEventHandler } from "back-end/src/events/handlers/webhooks/webHooksEventHandler";
@@ -13,7 +13,7 @@ interface Notifier {
   perform(): void;
 }
 
-interface EventNotificationData extends JobAttributesData {
+interface EventNotificationData {
   eventId: string;
 }
 

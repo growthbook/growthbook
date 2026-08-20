@@ -1,4 +1,4 @@
-import { Agenda, Job, JobAttributesData } from "agenda";
+import type { Agenda, Job } from "agenda";
 import {
   EventWebHookInterface,
   EventWebHookMethod,
@@ -40,10 +40,9 @@ type EventWebHookNotificationHandlerOptions = {
   eventWebHookId: string;
 };
 
-type EventWebHookJobData = JobAttributesData &
-  EventWebHookNotificationHandlerOptions & {
-    retryCount: number;
-  };
+type EventWebHookJobData = EventWebHookNotificationHandlerOptions & {
+  retryCount: number;
+};
 
 export class EventWebHookNotifier implements Notifier {
   constructor(

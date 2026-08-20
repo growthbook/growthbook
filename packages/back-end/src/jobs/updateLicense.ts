@@ -4,7 +4,7 @@
  * a day may have had their connection to us blocked, and their license would then be
  * void within a week if something is not done to unblock the connection.
  */
-import Agenda from "agenda";
+import type { Agenda } from "agenda";
 import { getSelfHostedOrganization } from "back-end/src/models/OrganizationModel";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {

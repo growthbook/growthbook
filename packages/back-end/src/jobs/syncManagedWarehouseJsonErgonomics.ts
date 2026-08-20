@@ -1,4 +1,4 @@
-import Agenda, { Job } from "agenda";
+import type { Agenda, Job } from "agenda";
 import {
   isManagedWarehouseAwaitingProvisioning,
   MANAGED_WAREHOUSE_JSON_ERGONOMICS_VERSION,
@@ -169,11 +169,10 @@ const sweepManagedWarehouseJsonErgonomics = async () => {
 
 export default async function (ag: Agenda) {
   agenda = ag;
-  agenda.define(
-    SYNC_JOB,
-    { concurrency: SYNC_CONCURRENCY, lockLimit: SYNC_CONCURRENCY },
-    syncManagedWarehouseJsonErgonomics,
-  );
+  agenda.define(SYNC_JOB, syncManagedWarehouseJsonErgonomics, {
+    concurrency: SYNC_CONCURRENCY,
+    lockLimit: SYNC_CONCURRENCY,
+  });
   agenda.define(SWEEP_JOB, sweepManagedWarehouseJsonErgonomics);
 
   // Always schedule; the sweep body no-ops unless the feature flag is on, so

@@ -1,4 +1,4 @@
-import type Agenda from "agenda";
+import type { Agenda } from "agenda";
 import type {
   SnapshotTriggeredBy,
   SnapshotType,

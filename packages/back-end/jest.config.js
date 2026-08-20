@@ -1,10 +1,13 @@
 module.exports = {
   moduleFileExtensions: ["ts", "js", "node", "json"],
   transform: {
-    "^.+\\.(ts|tsx|js|mjs)$": "@swc/jest",
+    "^.+\\.(ts|tsx)$": "@swc/jest",
+    "^.+\\.(js|mjs)$": "<rootDir>/test/jest-strip-import-attrs.cjs",
   },
-  // uuid@14+ ships ESM-only. Let swc transpile it for the Jest CJS runtime.
-  transformIgnorePatterns: ["node_modules/(?!\\.pnpm/uuid@|uuid/)"],
+  // uuid@14+ and agenda@6 ship ESM-only. Let swc transpile them for Jest CJS.
+  transformIgnorePatterns: [
+    "node_modules/(?!\\.pnpm/(uuid@|agenda@|@agendajs\\+)|uuid/|agenda/|@agendajs/)",
+  ],
   testMatch: ["**/test/**/*.test.(ts|js)"],
   moduleNameMapper: {
     "^axios$": "axios/dist/axios.js",

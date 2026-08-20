@@ -1,7 +1,8 @@
 import { performance } from "node:perf_hooks";
-import { Job, JobAttributesData } from "agenda";
+import type { Job } from "agenda";
 import { logger } from "back-end/src/util/logger";
 import { metrics, Counter, Histogram } from "back-end/src/util/metrics";
+import type { AgendaJobData } from "back-end/src/services/jobLifecycle";
 
 const disableJobLogs = process.env.GB_DISABLE_JOB_LOGS === "1";
 
@@ -14,7 +15,7 @@ const normalizeJobName = (jobName: string) => {
 };
 
 export const trackJob =
-  <T extends JobAttributesData>(
+  <T extends AgendaJobData>(
     jobNameRaw: string,
     fn: (job: Job<T>) => Promise<void>,
   ) =>

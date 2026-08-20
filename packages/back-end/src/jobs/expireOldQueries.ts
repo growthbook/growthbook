@@ -1,4 +1,4 @@
-import Agenda from "agenda";
+import type { Agenda } from "agenda";
 import { Queries } from "shared/types/query";
 import {
   AggregatedFactTableInterface,

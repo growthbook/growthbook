@@ -1,4 +1,4 @@
-import Agenda, { Job } from "agenda";
+import type { Agenda, Job } from "agenda";
 import { getScopedSettings } from "shared/settings";
 import {
   getExperimentById,
