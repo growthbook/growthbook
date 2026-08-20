@@ -139,14 +139,12 @@ export async function assessRevisionApproval({
   filledLive: FeatureRevisionInterface;
   base: FeatureRevisionInterface;
 }): Promise<RevisionApprovalState> {
-  // Loaded here, not caller-supplied: the autostart path once omitted it, so a
-  // ramp update removing an environment escaped approval coverage there.
+  // Both derived here, never caller-supplied: the autostart path once passed
+  // the org's full environment list and omitted the live ramp-schedule map.
   const liveRampScheduleEnvs = await loadLiveRampScheduleEnvs(
     context,
     revision,
   );
-  // Derived, not caller-supplied: the autostart path once passed the org's
-  // full list and judged review against environments the feature cannot serve.
   const environmentIds = featurePublishEnvironmentIds(context.org, feature);
   const reviewRequirement = getRevisionReviewRequirement({
     feature,

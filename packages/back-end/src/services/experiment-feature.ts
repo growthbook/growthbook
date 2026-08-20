@@ -383,8 +383,8 @@ type ResolvedDraft = { featureId: string; revisionVersion: number };
 // followed by the same publish governance. `rebaseRequired` is only set for
 // the mergeable-but-blocked case (org requires rebase-before-publish or the
 // approval went stale) — true conflicts are reported via `mergeResult`.
-// An autostart carries no ramp overlay, so the live revision is both the merge
-// baseline and the review baseline.
+// The live revision is both the merge baseline and the review baseline; any
+// ramp actions on the draft are judged by the shared assessment like any other.
 async function assessRevisionApprovalForAutoPublish(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,

@@ -67,9 +67,8 @@ export function useApprovalCoverage({
     );
   }, [reviewers, organization, teams, model, projects, footprint, users]);
 
-  // Resolved the same way the coverage decision resolves it — teams, project
-  // roles and additional rules included — so the explanation cannot name
-  // environments the decision did not actually consider.
+  // Resolved like the coverage decision — teams, project roles and additional
+  // rules included — so the explanation cannot contradict the decision.
   const heldEnvsFor = useMemo(() => {
     const reviewPermission = revisionActionPermission(
       model,

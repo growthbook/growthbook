@@ -304,8 +304,7 @@ describe("environment applicability drives the answer", () => {
 });
 
 // The live schedule's environments are loaded inside the function, so a ramp
-// update that REMOVES an environment cannot escape approval coverage on any
-// path — the autostart path once omitted the lookup.
+// update that REMOVES an environment cannot escape approval coverage anywhere.
 describe("ramp updates count the live schedule's environments", () => {
   const liveSchedule = {
     startActions: [],
