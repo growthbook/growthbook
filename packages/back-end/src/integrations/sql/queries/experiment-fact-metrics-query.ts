@@ -22,12 +22,16 @@ import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/
 import { getExperimentUnitsQuery } from "back-end/src/integrations/sql/queries/experiment-units-query";
 import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
 import {
+  FunnelMetricForResolution,
   FunnelMetricSteps,
-  FunnelMetricWithSources,
   getFunnelResolutionCTEs,
   getFunnelUserMetricAggColumns,
-  getFunnelUsersCTE,
 } from "back-end/src/integrations/sql/ctes/funnel-resolution-cte";
+import { getFlattenedUnitMetricsCTE } from "back-end/src/integrations/sql/ctes/flattened-unit-metrics-cte";
+import {
+  AggColumn,
+  renderAggColumns,
+} from "back-end/src/integrations/sql/columns/agg-column";
 import { funnelStepTimestampColumn } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
 import { getFactMetricQuantileData } from "back-end/src/integrations/sql/columns/fact-metric-quantile-data";
 import { getFactTablesForMetrics } from "back-end/src/integrations/sql/fact-metrics/fact-tables-for-metrics";
@@ -100,6 +104,21 @@ export function getExperimentFactMetricsQuery(
     throw new Error("Unable to determine user id type from exposureQuery");
   }
 
+  const banditDates = getBanditDates(settings.banditSettings);
+  const hasFunnelMetrics = metricsWithIndices.some((m) =>
+    isFactFunnelMetric(m.metric),
+  );
+  // A funnel's steps can live on different fact tables and can only be windowed
+  // against each other once every candidate timestamp sits on one row, so those
+  // sources are gathered into __unitMetricsBase before resolution. Every other
+  // metric column rides along.
+  const flattenUnitMetrics =
+    hasFunnelMetrics && factTablesWithIndices.length > 1;
+  // With everything on one table the statistics CTE joins no source a second
+  // time, so the per-source `m{i}` aliases collapse to `m`. The bandit CTE
+  // still joins per source, so it keeps the unflattened aliases.
+  const flattenedSources = flattenUnitMetrics && !banditDates?.length;
+
   const metricData = metricsWithIndices.map((metric) =>
     getMetricData(
       dialect,
@@ -109,6 +128,7 @@ export function getExperimentFactMetricsQuery(
       factTablesWithIndices,
       "m",
       `m${metric.index}`,
+      flattenedSources,
     ),
   );
 
@@ -156,8 +176,6 @@ export function getExperimentFactMetricsQuery(
 
   // Get date range for experiment and analysis
   const endDate: Date = getExperimentEndDate(settings, maxHoursToConvert);
-
-  const banditDates = getBanditDates(settings.banditSettings);
 
   const dimensionCols: DimensionColumnData[] = params.dimensions.map((d) =>
     getDimensionCol(dialect, d),
@@ -232,20 +250,23 @@ export function getExperimentFactMetricsQuery(
     );
   }
 
-  const funnelMetricsWithSources: FunnelMetricWithSources[] =
-    metricData.flatMap((d) =>
-      isFactFunnelMetric(d.metric)
-        ? [
-            {
-              metric: d.metric,
-              alias: d.alias,
-              stepSourceIndices: d.funnelStepSourceIndices,
-            },
-          ]
-        : [],
-    );
-  const funnelUsersTable = "__funnelUsers";
-  const funnelMetricTable = "__funnelMetric";
+  const funnelMetrics: FunnelMetricForResolution[] = metricData.flatMap((d) =>
+    isFactFunnelMetric(d.metric) ? [{ metric: d.metric, alias: d.alias }] : [],
+  );
+  const userMetricAggTablePrefix = "__userMetricAgg";
+  const unitMetricsBaseTable = "__unitMetricsBase";
+  const unitMetricsTable = "__unitMetrics";
+  // Funnel resolution reads from the flattened join when sources were combined,
+  // and straight from source 0's aggregate when there is only one.
+  const funnelResolutionSource = flattenUnitMetrics
+    ? unitMetricsBaseTable
+    : userMetricAggTablePrefix;
+  // Resolution passes every other metric column through untouched and appends
+  // the funnel step flags, so its terminal CTE is the complete per-unit table.
+  // Without funnels there is no chain and statistics read the aggregate.
+  const statisticsSourceTable = funnelMetrics.length
+    ? unitMetricsTable
+    : userMetricAggTablePrefix;
 
   const regressionAdjustedMetrics = metricData.filter(
     (m) => m.regressionAdjusted,
@@ -258,6 +279,151 @@ export function getExperimentFactMetricsQuery(
       regressionAdjustedTableIndices.add(m.denominatorSourceIndex);
     }
   });
+
+  // Only the steps a fact table hosts. A funnel whose steps span several tables
+  // contributes candidates to each of them, and they are stitched back together
+  // in __unitMetricsBase.
+  const funnelStepsForSource = (sourceIndex: number): FunnelMetricSteps[] =>
+    metricData.flatMap((d) => {
+      if (!isFactFunnelMetric(d.metric)) return [];
+      const stepIndices = d.funnelStepSourceIndices.flatMap(
+        (stepSourceIndex, stepIndex) =>
+          stepSourceIndex === sourceIndex ? [stepIndex] : [],
+      );
+      return stepIndices.length
+        ? [{ metric: d.metric, alias: d.alias, stepIndices }]
+        : [];
+    });
+
+  const kllMergeMetricsForSource = (sourceIndex: number) =>
+    metricData.filter(
+      (d) =>
+        d.metric.numerator?.aggregation === "kll merge" &&
+        d.numeratorSourceIndex === sourceIndex,
+    );
+
+  // Metric columns a source's per-user aggregate emits, as name/expression
+  // pairs so __unitMetrics can project them by name without restating the
+  // expressions.
+  const getSourceAggMetricColumns = (sourceIndex: number): AggColumn[] => {
+    const columns: AggColumn[] = [];
+
+    metricData.forEach((data) => {
+      const isKllMergeNumerator =
+        data.metric.numerator?.aggregation === "kll merge" &&
+        data.numeratorSourceIndex === sourceIndex;
+
+      if (isKllMergeNumerator) {
+        columns.push({
+          name: `${data.alias}_user_sketch`,
+          expr: dialect.quantileSketchMergePartial(`umj.${data.alias}_value`),
+        });
+      } else if (
+        data.numeratorSourceIndex === sourceIndex &&
+        !isFactFunnelMetric(data.metric)
+      ) {
+        columns.push({
+          name: `${data.alias}_value`,
+          expr: data.aggregatedValueTransformation({
+            column: data.numeratorAggFns.fullAggregationFunction(
+              `umj.${data.alias}_value`,
+              `qm.${data.alias}_quantile`,
+            ),
+            initialTimestampColumn: "MIN(umj.timestamp)",
+            analysisEndDate: params.settings.endDate,
+          }),
+        });
+      }
+
+      if (data.ratioMetric && data.denominatorSourceIndex === sourceIndex) {
+        columns.push({
+          name: `${data.alias}_denominator`,
+          expr: data.aggregatedValueTransformation({
+            column: data.denominatorAggFns.fullAggregationFunction(
+              `umj.${data.alias}_denominator`,
+              `qm.${data.alias}_quantile`,
+            ),
+            initialTimestampColumn: "MIN(umj.timestamp)",
+            analysisEndDate: params.settings.endDate,
+          }),
+        });
+      }
+    });
+
+    eventQuantileData.forEach((data) => {
+      columns.push({
+        name: `${data.alias}_n_events`,
+        expr: data.isKllMerge
+          ? `SUM(COALESCE(umj.${data.alias}_n_events, 0))`
+          : `COUNT(umj.${data.alias}_value)`,
+      });
+    });
+
+    columns.push(
+      ...getFunnelUserMetricAggColumns(
+        dialect,
+        funnelStepsForSource(sourceIndex),
+      ),
+    );
+
+    if (regressionAdjustedTableIndices.has(sourceIndex)) {
+      regressionAdjustedMetrics.forEach((metric) => {
+        if (metric.numeratorSourceIndex === sourceIndex) {
+          columns.push({
+            name: `${metric.alias}_covariate_value`,
+            expr: metric.covariateNumeratorAggFns.fullAggregationFunction(
+              `umj.${metric.alias}_covariate_value`,
+            ),
+          });
+        }
+        if (
+          metric.ratioMetric &&
+          metric.denominatorSourceIndex === sourceIndex
+        ) {
+          columns.push({
+            name: `${metric.alias}_covariate_denominator`,
+            expr: metric.covariateDenominatorAggFns.fullAggregationFunction(
+              `umj.${metric.alias}_covariate_denominator`,
+            ),
+          });
+        }
+      });
+    }
+
+    return columns;
+  };
+
+  // 'kll merge' metrics recover their scalar value in the __userMetricAgg
+  // wrapper, after the per-user GROUP BY, so those columns are not part of the
+  // aggregate select above.
+  const getSourceKllResolvedColumns = (sourceIndex: number): AggColumn[] =>
+    kllMergeMetricsForSource(sourceIndex).map((data) => ({
+      name: `${data.alias}_value`,
+      expr: dialect.quantileSketchRankApprox(
+        `base.${data.alias}_user_sketch`,
+        `qm.${data.alias}_quantile`,
+        `base.${data.alias}_n_events`,
+        100,
+      ),
+    }));
+
+  // <alias>_n_events is emitted by every source rather than only the one owning
+  // the metric (see the "error if event quantiles have two tables" TODO above),
+  // so take it from source 0 to keep the flattened projection unambiguous.
+  const eventQuantileColumnNames = new Set(
+    eventQuantileData.map((d) => `${d.alias}_n_events`),
+  );
+  const flattenedSourceColumns = flattenUnitMetrics
+    ? factTablesWithIndices.map((f) => ({
+        index: f.index,
+        columns: [
+          ...getSourceAggMetricColumns(f.index),
+          ...getSourceKllResolvedColumns(f.index),
+        ]
+          .map((c) => c.name)
+          .filter((name) => !eventQuantileColumnNames.has(name)),
+      }))
+    : [];
 
   return format(
     `-- ${queryName}
@@ -312,29 +478,11 @@ export function getExperimentFactMetricsQuery(
         const suffix = f.index === 0 ? "" : f.index;
         const userMetricJoinTable = `__userMetricJoin${suffix}`;
         const userMetricAggBaseTable = `__userMetricAggBase${suffix}`;
-        const userMetricAggTable = `__userMetricAgg${suffix}`;
+        const userMetricAggTable = `${userMetricAggTablePrefix}${suffix}`;
         const eventQuantileMetricTable = `__eventQuantileMetric${suffix}`;
 
-        const factTableKllMergeMetrics = metricData.filter(
-          (d) =>
-            d.metric.numerator?.aggregation === "kll merge" &&
-            d.numeratorSourceIndex === f.index,
-        );
-
-        // Only the steps this fact table hosts. A funnel whose steps span
-        // several tables contributes candidates to each of them, and they are
-        // stitched back together in __funnelUsers after this loop.
-        const funnelMetrics: FunnelMetricSteps[] = metricData.flatMap((d) => {
-          if (!isFactFunnelMetric(d.metric)) return [];
-          const stepIndices = d.funnelStepSourceIndices.flatMap(
-            (sourceIndex, stepIndex) =>
-              sourceIndex === f.index ? [stepIndex] : [],
-          );
-          return stepIndices.length
-            ? [{ metric: d.metric, alias: d.alias, stepIndices }]
-            : [];
-        });
-        const hasKllMerge = factTableKllMergeMetrics.length > 0;
+        const factTableFunnelMetrics = funnelStepsForSource(f.index);
+        const hasKllMerge = kllMergeMetricsForSource(f.index).length > 0;
         const hasEventQuantile = eventQuantileData.length > 0;
         const hasNonKllEventQuantile = eventQuantileData.some(
           (d) => !d.isKllMerge,
@@ -380,83 +528,15 @@ export function getExperimentFactMetricsQuery(
             ${banditDates?.length ? `, umj.bandit_period` : ""}
             , umj.${baseIdType}
             ${
-              // __funnelUsers drives off source 0, which holds every exposed
-              // unit, and reads the exposure timestamp funnel steps resolve
-              // against from there.
-              funnelMetricsWithSources.length && f.index === 0
+              // Funnel resolution anchors exposure-relative windows on this,
+              // and reads it from source 0 because that is what
+              // __unitMetricsBase (or __userMetricAgg, for a single source)
+              // drives off.
+              hasFunnelMetrics && f.index === 0
                 ? `, MIN(umj.timestamp) AS timestamp`
                 : ""
             }
-            ${metricData
-              .map((data) => {
-                const isKllMergeNumerator =
-                  data.metric.numerator?.aggregation === "kll merge" &&
-                  data.numeratorSourceIndex === f.index;
-
-                const kllMergeColumns = isKllMergeNumerator
-                  ? `, ${dialect.quantileSketchMergePartial(`umj.${data.alias}_value`)} AS ${data.alias}_user_sketch`
-                  : "";
-
-                const numeratorValueColumn =
-                  data.numeratorSourceIndex === f.index &&
-                  !isKllMergeNumerator &&
-                  !isFactFunnelMetric(data.metric)
-                    ? `, ${data.aggregatedValueTransformation({
-                        column: data.numeratorAggFns.fullAggregationFunction(
-                          `umj.${data.alias}_value`,
-                          `qm.${data.alias}_quantile`,
-                        ),
-                        initialTimestampColumn: "MIN(umj.timestamp)",
-                        analysisEndDate: params.settings.endDate,
-                      })} AS ${data.alias}_value`
-                    : "";
-
-                return `${numeratorValueColumn}${kllMergeColumns}
-              ${
-                data.ratioMetric && data.denominatorSourceIndex === f.index
-                  ? `, ${data.aggregatedValueTransformation({
-                      column: data.denominatorAggFns.fullAggregationFunction(
-                        `umj.${data.alias}_denominator`,
-                        `qm.${data.alias}_quantile`,
-                      ),
-                      initialTimestampColumn: "MIN(umj.timestamp)",
-                      analysisEndDate: params.settings.endDate,
-                    })} AS ${data.alias}_denominator`
-                  : ""
-              }`;
-              })
-              .join("\n")}
-            ${eventQuantileData
-              .map((data) =>
-                data.isKllMerge
-                  ? `, SUM(COALESCE(umj.${data.alias}_n_events, 0)) AS ${data.alias}_n_events`
-                  : `, COUNT(umj.${data.alias}_value) AS ${data.alias}_n_events`,
-              )
-              .join("\n")}
-            ${getFunnelUserMetricAggColumns(dialect, funnelMetrics)}
-            ${
-              regressionAdjustedTableIndices.has(f.index)
-                ? regressionAdjustedMetrics
-                    .map(
-                      (metric) =>
-                        `${
-                          metric.numeratorSourceIndex === f.index
-                            ? `, ${metric.covariateNumeratorAggFns.fullAggregationFunction(
-                                `umj.${metric.alias}_covariate_value`,
-                              )} AS ${metric.alias}_covariate_value`
-                            : ""
-                        }${
-                          metric.ratioMetric &&
-                          metric.denominatorSourceIndex === f.index
-                            ? `, ${metric.covariateDenominatorAggFns.fullAggregationFunction(
-                                `umj.${metric.alias}_covariate_denominator`,
-                              )} AS ${metric.alias}_covariate_denominator`
-                            : ""
-                        }`,
-                    )
-                    .join("\n")
-                : ""
-            }
+            ${renderAggColumns(getSourceAggMetricColumns(f.index))}
           FROM
             ${userMetricJoinTable} umj
           ${
@@ -540,21 +620,10 @@ export function getExperimentFactMetricsQuery(
         //     post-GROUP-BY (recovers the per-user "count below threshold"
         //     using the per-user sketch and the variation-level quantile).
         //   - Without KLL merge: just the per-user aggregation directly.
-        const kllMergeResolutionCols = factTableKllMergeMetrics
-          .map(
-            (data) =>
-              `, ${dialect.quantileSketchRankApprox(
-                `base.${data.alias}_user_sketch`,
-                `qm.${data.alias}_quantile`,
-                `base.${data.alias}_n_events`,
-                100,
-              )} AS ${data.alias}_value`,
-          )
-          .join("\n");
         const userMetricAggCte = hasKllMerge
           ? `
       , ${userMetricAggTable} as (
-        SELECT base.* ${kllMergeResolutionCols}
+        SELECT base.* ${renderAggColumns(getSourceKllResolvedColumns(f.index))}
         FROM ${userMetricAggBaseTable} base
         LEFT JOIN ${eventQuantileMetricTable} qm
         ON (qm.variation = base.variation ${dimensionCols
@@ -594,7 +663,9 @@ export function getExperimentFactMetricsQuery(
           ${
             // Pass through event_timestamp to enable certain dialects (Redshift)
             // to order by it for array sorting
-            funnelMetrics.length ? `, m.timestamp AS event_timestamp` : ""
+            factTableFunnelMetrics.length
+              ? `, m.timestamp AS event_timestamp`
+              : ""
           }
           ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
           ${banditDates?.length ? `, d.bandit_period AS bandit_period` : ""}
@@ -736,22 +807,25 @@ export function getExperimentFactMetricsQuery(
       })
       .join("\n")}    
     ${
+      flattenUnitMetrics
+        ? getFlattenedUnitMetricsCTE({
+            tableName: unitMetricsBaseTable,
+            perUserAggTableName: userMetricAggTablePrefix,
+            sourceColumns: flattenedSourceColumns,
+            baseIdType,
+          })
+        : ""
+    }
+    ${
       // Funnel resolution runs once per query rather than once per fact table:
       // a funnel's steps can be spread across several tables, and a step can
       // only be windowed against a predecessor after every candidate timestamp
       // has been gathered into one row per unit.
-      funnelMetricsWithSources.length
-        ? getFunnelUsersCTE({
-            funnelMetrics: funnelMetricsWithSources,
-            tableName: funnelUsersTable,
-            perUserAggTableName: "__userMetricAgg",
-            baseIdType,
-            exposureColumn: "timestamp",
-          }) +
-          getFunnelResolutionCTEs(dialect, {
-            funnelMetrics: funnelMetricsWithSources,
-            sourceTableName: funnelUsersTable,
-            terminalTableName: funnelMetricTable,
+      funnelMetrics.length
+        ? getFunnelResolutionCTEs(dialect, {
+            funnelMetrics,
+            sourceTableName: funnelResolutionSource,
+            terminalTableName: unitMetricsTable,
             resolveTablePrefix: "__funnelResolve_",
             exposureColumn: "timestamp",
           })
@@ -774,10 +848,12 @@ export function getExperimentFactMetricsQuery(
       metricData,
       eventQuantileData,
       baseIdType,
-      joinedMetricTableName: "__userMetricAgg",
+      joinedMetricTableName: userMetricAggTablePrefix,
+      statisticsSourceTableName: statisticsSourceTable,
+      flattenedSources,
+      funnelsResolvedOnSource: funnelMetrics.length > 0,
       eventQuantileTableName: "__eventQuantileMetric",
       capValueTableName: "__capValue",
-      funnelMetricTableName: funnelMetricTable,
       factTablesWithIndices,
       percentileTableIndices,
     })}

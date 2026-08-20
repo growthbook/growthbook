@@ -162,6 +162,11 @@ function flatten(sql: string): string {
   return sql.replace(/\s+/g, " ").trim();
 }
 
+/** The final statistics SELECT, i.e. everything after the last CTE. */
+function statisticsSelect(sql: string): string {
+  return sql.slice(sql.lastIndexOf("One row per variation/dimension"));
+}
+
 const threeStepFunnel = buildFunnelMetric({
   steps: [
     buildStep("view"),
@@ -337,6 +342,14 @@ describe("funnel fact metric SQL", () => {
     expect(sql).toContain("m1_step_2_sum");
   });
 
+  it("resolves a single-source funnel in place, with nothing to flatten", () => {
+    const sql = flatten(buildSql([threeStepFunnel]));
+
+    expect(sql).not.toContain("__unitMetricsBase");
+    expect(sql).toMatch(/FROM __userMetricAgg r/);
+    expect(statisticsSelect(sql)).toContain("FROM __unitMetrics m");
+  });
+
   it("rejects dialects that cannot express funnel resolution", () => {
     expect(() => buildSql([threeStepFunnel], bigQueryDialect, "mysql")).toThrow(
       /not supported for mysql/,
@@ -371,10 +384,38 @@ describe("funnel fact metric SQL", () => {
       // Step 1's candidates live in the orders per-user aggregate, so
       // resolution can only run after both aggregates are joined.
       expect(sql).toMatch(
-        /__funnelUsers AS \([\s\S]*m1\.m0_step_1_arr[\s\S]*LEFT JOIN __userMetricAgg1 m1/,
+        /__unitMetricsBase AS \([\s\S]*m1\.m0_step_1_arr[\s\S]*LEFT JOIN __userMetricAgg1 m1/,
       );
-      expect(sql).toMatch(/FROM __funnelUsers r/);
-      expect(sql).toContain("LEFT JOIN __funnelMetric fm");
+      expect(sql).toMatch(/FROM __unitMetricsBase r/);
+    });
+
+    it("joins each source once, leaving statistics nothing to re-join", () => {
+      const statistics = statisticsSelect(
+        flatten(buildSql([crossFactTableFunnel])),
+      );
+
+      expect(statistics).toContain("FROM __unitMetrics m");
+      expect(statistics).not.toContain("LEFT JOIN __userMetricAgg");
+      expect(statistics).not.toContain("LEFT JOIN __unitMetrics");
+    });
+
+    it("reads a cross-fact-table ratio's columns off the flattened table", () => {
+      // The ratio's denominator lives on source 1. Once every source is
+      // flattened onto one row per unit, statistics read it from `m` rather
+      // than joining __userMetricAgg1 again under an `m1` alias.
+      const crossFactTableRatio = factMetricFactory.build({
+        id: "fact__cross_ratio",
+        metricType: "ratio",
+        numerator: { factTableId: "events", column: "amount" },
+        denominator: { factTableId: "orders", column: "amount" },
+      });
+      const statistics = statisticsSelect(
+        flatten(buildSql([crossFactTableFunnel, crossFactTableRatio])),
+      );
+
+      expect(statistics).toContain("m.m1_denominator");
+      expect(statistics).not.toContain("m1.m1_denominator");
+      expect(statistics).not.toContain("LEFT JOIN __userMetricAgg1");
     });
 
     it("labels the query with every fact table it reads", () => {

@@ -22,9 +22,11 @@ export function getExperimentFactMetricStatisticsCTE(
     eventQuantileData,
     baseIdType,
     joinedMetricTableName,
+    statisticsSourceTableName,
+    flattenedSources = false,
+    funnelsResolvedOnSource = false,
     eventQuantileTableName,
     capValueTableName,
-    funnelMetricTableName,
     factTablesWithIndices,
     percentileTableIndices,
   }: {
@@ -32,21 +34,30 @@ export function getExperimentFactMetricStatisticsCTE(
     metricData: FactMetricData[];
     eventQuantileData: FactMetricQuantileData[];
     baseIdType: string;
+    /** Per-source per-user aggregate; source i is suffixed with `i` (0 is bare). */
     joinedMetricTableName: string;
+    /** Table read as `m`. Defaults to source 0's per-user aggregate. */
+    statisticsSourceTableName?: string;
+    /**
+     * Set when the source table already carries every source's columns, so no
+     * source needs joining a second time.
+     */
+    flattenedSources?: boolean;
+    /** Set when the source table carries resolved funnel step values. */
+    funnelsResolvedOnSource?: boolean;
     eventQuantileTableName: string;
     capValueTableName: string;
-    // Per-unit table holding the resolved funnel step values. Funnels resolve
-    // across every fact table their steps come from, so their columns live
-    // outside the per-source per-user aggregates.
-    funnelMetricTableName?: string;
     factTablesWithIndices: { factTable: FactTableInterface; index: number }[];
     percentileTableIndices: Set<number>;
   },
 ): string {
   const useArrayQuantileGrid = dialect.hasArrayQuantileGrid();
-  const funnelTableAlias = "fm";
+  const sourceTableName = statisticsSourceTableName ?? joinedMetricTableName;
+  // Funnels resolve across every fact table their steps come from, so their
+  // step values are appended by the resolution chain rather than produced by a
+  // per-source aggregate.
   const hasFunnelMetrics = metricData.some((d) => isFactFunnelMetric(d.metric));
-  if (hasFunnelMetrics && !funnelMetricTableName) {
+  if (hasFunnelMetrics && !funnelsResolvedOnSource) {
     throw new Error(
       "ImplementationError: funnel metrics require a resolved funnel table",
     );
@@ -64,7 +75,7 @@ export function getExperimentFactMetricStatisticsCTE(
             ${data.metric.funnelSettings.steps
               .map(
                 (step, stepIndex) => `-- ${step.name}
-            , SUM(COALESCE(${funnelTableAlias}.${funnelStepValueColumn(data.alias, stepIndex)}, 0)) AS ${funnelStepSumColumn(data.alias, stepIndex)}`,
+            , SUM(COALESCE(m.${funnelStepValueColumn(data.alias, stepIndex)}, 0)) AS ${funnelStepSumColumn(data.alias, stepIndex)}`,
               )
               .join("\n            ")}
           `;
@@ -211,7 +222,7 @@ export function getExperimentFactMetricStatisticsCTE(
           })
           .join("\n")}
       FROM
-        ${joinedMetricTableName} m
+        ${sourceTableName} m
         ${
           eventQuantileData.length // TODO(sql): error if event quantiles have two tables
             ? `LEFT JOIN ${eventQuantileTableName} qm ON (
@@ -222,19 +233,12 @@ export function getExperimentFactMetricStatisticsCTE(
             )`
             : ""
         }
-        ${
-          hasFunnelMetrics
-            ? `LEFT JOIN ${funnelMetricTableName} ${funnelTableAlias} ON (
-          ${funnelTableAlias}.${baseIdType} = m.${baseIdType}
-        )`
-            : ""
-        }
       ${factTablesWithIndices
         .map(({ factTable: _, index }) => {
           const suffix = `${index === 0 ? "" : index}`;
           return `
         ${
-          index === 0
+          index === 0 || flattenedSources
             ? ""
             : `LEFT JOIN ${joinedMetricTableName}${suffix} m${suffix} ON (
           m${suffix}.${baseIdType} = m.${baseIdType}
