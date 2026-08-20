@@ -1,7 +1,9 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { ApiContextualBanditInterface } from "shared/validators";
 import Text from "@/ui/Text";
+import Button from "@/ui/Button";
 import Table, {
   TableBody,
   TableCell,
@@ -15,8 +17,8 @@ import { getVariationColor } from "@/services/features";
 
 const numberFormatter = new Intl.NumberFormat();
 
-/** Only the top variations by overall mean are shown, to keep the table concise. */
-const MAX_ROWS = 5;
+/** Number of variations shown before the "Show more" toggle is needed. */
+const DEFAULT_VISIBLE_ROWS = 5;
 
 type OverviewRow = {
   id: string;
@@ -116,6 +118,8 @@ export default function ContextualBanditOverviewTable({
   formatMean: (value: number) => string;
   formatWeight: (value: number) => string;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   const rows: OverviewRow[] = useMemo(
     () =>
       variations
@@ -127,16 +131,17 @@ export default function ContextualBanditOverviewTable({
           weight: weights[index] ?? null,
           units: units[index] ?? 0,
         }))
-        .sort((a, b) => (b.mean ?? -Infinity) - (a.mean ?? -Infinity))
-        .slice(0, MAX_ROWS),
+        .sort((a, b) => (b.mean ?? -Infinity) - (a.mean ?? -Infinity)),
     [variations, means, weights, units],
   );
 
   if (!rows.length) return null;
 
-  const meanColumn = rows.map((r) => r.mean);
-  const weightColumn = rows.map((r) => r.weight);
-  const truncated = variations.length > MAX_ROWS;
+  const visibleRows = expanded ? rows : rows.slice(0, DEFAULT_VISIBLE_ROWS);
+  const hiddenCount = rows.length - DEFAULT_VISIBLE_ROWS;
+
+  const meanColumn = visibleRows.map((r) => r.mean);
+  const weightColumn = visibleRows.map((r) => r.weight);
 
   return (
     <Box>
@@ -144,15 +149,15 @@ export default function ContextualBanditOverviewTable({
         <TableHeader>
           <TableRow>
             <TableColumnHeader>Variation</TableColumnHeader>
-            <TableColumnHeader>Mean {goalMetricName}</TableColumnHeader>
             <TableColumnHeader>Weight</TableColumnHeader>
+            <TableColumnHeader>Mean {goalMetricName}</TableColumnHeader>
             <TableColumnHeader justify="end">
               {unitDisplayName}
             </TableColumnHeader>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.map((row) => (
+          {visibleRows.map((row) => (
             <TableRow key={row.id}>
               <TableRowHeaderCell style={{ minWidth: 160 }}>
                 <VariationLabel
@@ -164,18 +169,18 @@ export default function ContextualBanditOverviewTable({
               </TableRowHeaderCell>
               <TableCell>
                 <DataBarCell
-                  value={row.mean}
-                  index={row.index}
-                  columnValues={meanColumn}
-                  formatValue={formatMean}
-                />
-              </TableCell>
-              <TableCell>
-                <DataBarCell
                   value={row.weight}
                   index={row.index}
                   columnValues={weightColumn}
                   formatValue={formatWeight}
+                />
+              </TableCell>
+              <TableCell>
+                <DataBarCell
+                  value={row.mean}
+                  index={row.index}
+                  columnValues={meanColumn}
+                  formatValue={formatMean}
                 />
               </TableCell>
               <TableCell justify="end">
@@ -187,11 +192,16 @@ export default function ContextualBanditOverviewTable({
           ))}
         </TableBody>
       </Table>
-      {truncated ? (
-        <Text size="sm" color="text-low" as="div" mt="2">
-          Showing the {MAX_ROWS} variations with the highest overall mean of{" "}
-          {variations.length} total.
-        </Text>
+      {hiddenCount > 0 ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          mt="2"
+          icon={expanded ? <PiCaretDown /> : <PiCaretRight />}
+          onClick={() => setExpanded((prev) => !prev)}
+        >
+          {expanded ? "Show less" : `Show ${hiddenCount} more`}
+        </Button>
       ) : null}
     </Box>
   );

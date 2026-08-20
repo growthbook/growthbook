@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import type { ContextualBanditSseStep } from "shared/experiments";
 import Text from "@/ui/Text";
+import Button from "@/ui/Button";
 import Table, {
   TableBody,
   TableCell,
@@ -74,25 +76,33 @@ function AttributeSplitsModal({
   );
 }
 
+/** Number of attributes shown before the "Show more" toggle is needed. */
+const DEFAULT_VISIBLE_ROWS = 5;
+
 /**
  * Ranks context attributes by the total SSE (within-context error) reduction
- * their splits contributed while the tree was built, showing the top few plus
- * an "Other" bucket. Selecting a row opens a modal describing each split for
- * that attribute in the same format as the SSE plot tooltip.
+ * their splits contributed while the tree was built.
  */
 export default function ContextualBanditAttributeTable({
   steps,
 }: {
   steps: ContextualBanditSseStep[];
 }) {
-  const rows = useMemo(() => attributeSseReductions(steps, 3), [steps]);
+  const rows = useMemo(
+    () => attributeSseReductions(steps, Number.MAX_SAFE_INTEGER),
+    [steps],
+  );
   const rootSse = useMemo(
     () => Math.max(...steps.map((s) => s.totalSse), 0),
     [steps],
   );
   const [selected, setSelected] = useState<AttributeSseReduction | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   if (!rows.length) return null;
+
+  const visibleRows = expanded ? rows : rows.slice(0, DEFAULT_VISIBLE_ROWS);
+  const hiddenCount = rows.length - DEFAULT_VISIBLE_ROWS;
 
   return (
     <>
@@ -104,7 +114,7 @@ export default function ContextualBanditAttributeTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.map((row) => (
+          {visibleRows.map((row) => (
             <TableRow
               key={row.key}
               role="button"
@@ -134,6 +144,18 @@ export default function ContextualBanditAttributeTable({
           ))}
         </TableBody>
       </Table>
+
+      {hiddenCount > 0 ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          mt="2"
+          icon={expanded ? <PiCaretDown /> : <PiCaretRight />}
+          onClick={() => setExpanded((prev) => !prev)}
+        >
+          {expanded ? "Show less" : `Show ${hiddenCount} more`}
+        </Button>
+      ) : null}
 
       {selected ? (
         <AttributeSplitsModal

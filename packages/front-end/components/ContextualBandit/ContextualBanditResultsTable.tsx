@@ -1,6 +1,7 @@
 // TODO(holdout-v1.5): attach holdout-vs-bandit comparison view and EDF recommendations here.
 import { ReactNode, useMemo, useState } from "react";
 import { Box, Flex, SegmentedControl } from "@radix-ui/themes";
+import { PiInfo } from "react-icons/pi";
 import { startCase } from "lodash";
 import { getValidDate } from "shared/dates";
 import { ApiContextualBanditInterface } from "shared/validators";
@@ -369,9 +370,22 @@ export default function ContextualBanditResultsTable({
   return (
     <Box>
       <Flex justify="between" align="center" mb="1" gap="4" wrap="wrap">
-        <Heading as="h3" size="sm">
-          Most informative attributes
-        </Heading>
+        <Flex align="center" gap="1">
+          <Heading as="h3" size="sm" mb="0">
+            Attribute Importance
+          </Heading>
+          <Tooltip content="Attributes ranked by proportion of error removed.">
+            <span
+              style={{
+                display: "inline-flex",
+                color: "var(--color-text-low)",
+                cursor: "help",
+              }}
+            >
+              <PiInfo />
+            </span>
+          </Tooltip>
+        </Flex>
         {headerActions}
       </Flex>
 
@@ -389,9 +403,6 @@ export default function ContextualBanditResultsTable({
 
       {hasTableData ? (
         <>
-          <Text size="sm" color="text-low" as="div" mb="3">
-            Attributes ranked by proportion of error removed.
-          </Text>
           {hasSplitMetadata ? (
             <Box mb="5">
               <ContextualBanditAttributeTable steps={sseTrajectory} />
@@ -403,15 +414,24 @@ export default function ContextualBanditResultsTable({
             </Text>
           )}
 
-          <Heading as="h3" size="sm" mb="1">
-            Overall Means and Weights by Variation
-          </Heading>
-          <Text size="sm" color="text-low" as="div" mb="3">
-            Mean {goalMetricName} if all traffic were allocated to a single
-            variation (i.e., which variation is optimal) alongside the share of
-            traffic each is currently receiving, and the number of units
-            historically allocated.
-          </Text>
+          <Flex align="center" gap="1" mb="3">
+            <Heading as="h3" size="sm" mb="0">
+              Variation Performance
+            </Heading>
+            <Tooltip
+              content={`Mean ${goalMetricName} if all traffic were allocated to a single variation (i.e., which variation is optimal) alongside the share of traffic each is currently receiving, and the number of units historically allocated.`}
+            >
+              <span
+                style={{
+                  display: "inline-flex",
+                  color: "var(--color-text-low)",
+                  cursor: "help",
+                }}
+              >
+                <PiInfo />
+              </span>
+            </Tooltip>
+          </Flex>
           <ContextualBanditOverviewTable
             variations={variations}
             means={overallVariationMeans}
@@ -432,7 +452,7 @@ export default function ContextualBanditResultsTable({
             wrap="wrap"
           >
             <Heading as="h3" size="sm">
-              Comparison
+              Bandit Breakdown
             </Heading>
             <SegmentedControl.Root
               size="1"
