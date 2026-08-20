@@ -142,7 +142,11 @@ import {
   ApiFeatureEnvSettings,
   ApiFeatureEnvSettingsRules,
 } from "back-end/src/api/features/postFeature";
-import { triggerWebhookJobs } from "back-end/src/jobs/updateAllJobs";
+import {
+  purgeCDNCacheForEnvironments,
+  triggerLegacyWebhookJobs,
+  triggerWebhookJobs,
+} from "back-end/src/jobs/updateAllJobs";
 import {
   createRevision,
   featureRevisionId,
@@ -761,57 +765,87 @@ async function markAffectedSdkConnectionsStale(
     skipRefreshForProject?: string;
     treatEmptyProjectAsGlobal?: boolean;
   },
-): Promise<string[]> {
-  let affected: SDKConnectionInterface[];
-  if (data.sdkConnections?.length) {
-    affected = data.sdkConnections;
-  } else {
-    const payloadKeys = data.skipRefreshForProject
-      ? data.payloadKeys.filter((k) => k.project !== data.skipRefreshForProject)
-      : data.payloadKeys;
-    if (!payloadKeys.length) return [];
+): Promise<{ connectionKeys: string[]; payloadKeys: SDKPayloadKey[] }> {
+  // Full-access context, like refreshSDKPayloadCache — project-scoped callers
+  // must not hide affected connections.
+  const scanContext = getContextForAgendaJobByOrgObject(context.org);
 
-    const allConnections = await findSDKConnectionsByOrganization(context);
-    affected = allConnections.filter((c) =>
-      payloadKeys.some((k) =>
-        isSDKConnectionAffectedByPayloadKey(
-          c,
-          k,
-          data.treatEmptyProjectAsGlobal,
-        ),
-      ),
+  const allowedEnvs = new Set(getEnvironmentIdsFromOrg(scanContext.org));
+  let payloadKeys = data.payloadKeys.filter((k) =>
+    allowedEnvs.has(k.environment),
+  );
+  if (data.skipRefreshForProject) {
+    payloadKeys = payloadKeys.filter(
+      (k) => k.project !== data.skipRefreshForProject,
     );
   }
 
-  if (!affected.length) return [];
-  const keys = affected.map((c) => c.key);
-  await markSdkConnectionsStale(context.org.id, keys);
-  return keys;
+  const affected = new Map<string, SDKConnectionInterface>();
+  data.sdkConnections?.forEach((c) => affected.set(c.key, c));
+  if (payloadKeys.length) {
+    const allConnections = await findSDKConnectionsByOrganization(scanContext);
+    allConnections.forEach((c) => {
+      if (
+        payloadKeys.some((k) =>
+          isSDKConnectionAffectedByPayloadKey(
+            c,
+            k,
+            data.treatEmptyProjectAsGlobal,
+          ),
+        )
+      ) {
+        affected.set(c.key, c);
+      }
+    });
+  }
+
+  const connectionKeys = [...affected.keys()];
+  if (connectionKeys.length) {
+    await markSdkConnectionsStale(context.org.id, connectionKeys);
+  }
+  return { connectionKeys, payloadKeys };
 }
 
-// Rebuild currently-stale connections, then clear only marks that predate the
-// read so a concurrent write's staleness survives.
+// Rebuild currently-stale connections, then clear only marks unchanged since
+// the read so a concurrent write's staleness survives.
 export async function refreshStaleSdkConnectionsForOrg(
   baseContext: ReqContext | ApiReqContext,
 ): Promise<void> {
   const context = getContextForAgendaJobByOrgObject(baseContext.org);
-  const readStartedAt = new Date();
   const staleConnections = await findStaleSdkConnectionsByOrganization(
     context.org.id,
   );
   if (!staleConnections.length) return;
 
-  await refreshSDKPayloadCache({
+  const { failedConnectionKeys } = await refreshSDKPayloadCache({
     context,
     payloadKeys: [],
     sdkConnections: staleConnections,
+    skipDeliveryForFailedConnections: true,
   });
 
+  await purgeCDNCacheForEnvironments(context.org.id, [
+    ...new Set(staleConnections.map((c) => c.environment)),
+  ]).catch((e) => {
+    logger.error(e, "Error purging CDN cache for stale SDK connections");
+  });
+
+  // Failed rebuilds keep their mark so the fail-listener retry picks them up.
+  const failed = new Set(failedConnectionKeys);
   await clearStaleSdkConnections(
     context.org.id,
-    staleConnections.map((c) => c.key),
-    readStartedAt,
+    staleConnections.flatMap((c) =>
+      !failed.has(c.key) && c.staleSince
+        ? [{ key: c.key, staleSince: c.staleSince }]
+        : [],
+    ),
   );
+
+  if (failed.size) {
+    throw new Error(
+      `Failed to rebuild ${failed.size} stale SDK connection(s) for org ${context.org.id}`,
+    );
+  }
 }
 
 // Synchronous wrapper around refreshSDKPayloadCache — callers usually don't
@@ -857,25 +891,28 @@ export function queueSDKPayloadRefresh(data: {
   }
 
   (async () => {
-    const affectedKeys = await markAffectedSdkConnectionsStale(
-      data.context,
-      data,
-    );
-    if (!affectedKeys.length) return;
+    const { connectionKeys, payloadKeys } =
+      await markAffectedSdkConnectionsStale(data.context, data);
+    if (!connectionKeys.length) return;
 
     logger.info(
       {
         orgId: data.context.org.id,
-        connectionKeys: affectedKeys,
+        connectionKeys,
         auditContext: data.auditContext,
       },
       "[sdk-payload] marked SDK connections stale",
     );
 
+    // Enqueue now while payload keys are still known (see triggerLegacyWebhookJobs).
+    await triggerLegacyWebhookJobs(
+      getContextForAgendaJobByOrgObject(data.context.org),
+      payloadKeys,
+    );
+
     await scheduleOrgRefreshJob(data.context.org.id);
   })().catch((e) => {
-    // Fall back to an immediate refresh. A leftover stale mark (if scheduling
-    // failed after marking) is cleared by the next write's bump + reschedule.
+    // Leftover marks (if we failed after marking) clear on the next write or sweep.
     logger.error(e, "Error tracking stale SDK connections");
     runRefresh();
   });
@@ -941,6 +978,7 @@ export async function refreshSDKPayloadCache({
   skipRefreshForProject,
   sdkConnections: sdkConnectionsToUpdate = [],
   treatEmptyProjectAsGlobal = false,
+  skipDeliveryForFailedConnections = false,
   auditContext: initialAuditContext,
   stackTrace,
 }: {
@@ -949,9 +987,12 @@ export async function refreshSDKPayloadCache({
   sdkConnections?: SDKConnectionInterface[];
   skipRefreshForProject?: string;
   treatEmptyProjectAsGlobal?: boolean;
+  // Stale-tracking job only: failed connections keep their mark and deliver on
+  // the retry. Inline paths have no retry, so they deliver like they always have.
+  skipDeliveryForFailedConnections?: boolean;
   auditContext?: { event: string; model: string; id?: string };
   stackTrace?: string;
-}) {
+}): Promise<{ failedConnectionKeys: string[] }> {
   // This is a background job, so switch to using a background context
   // This is required so that we have full read access to the entire org's data
   const context = getContextForAgendaJobByOrgObject(baseContext.org);
@@ -979,7 +1020,7 @@ export async function refreshSDKPayloadCache({
       { orgId: context.org.id, auditContext: initialAuditContext },
       "[sdk-payload] refresh skipped — no environments affected",
     );
-    return;
+    return { failedConnectionKeys: [] };
   }
 
   const storageLocation = getSDKPayloadCacheLocation();
@@ -1056,6 +1097,7 @@ export async function refreshSDKPayloadCache({
   }
 
   const connectionsUpdated: SDKConnectionInterface[] = [];
+  const failedConnectionKeys: string[] = [];
   const promises: (() => Promise<void>)[] = [];
 
   sdkConnections.forEach((connection) => {
@@ -1141,6 +1183,7 @@ export async function refreshSDKPayloadCache({
           );
         }
       } catch (e) {
+        failedConnectionKeys.push(connection.key);
         logger.error(e, "Error updating SDK connection cache");
       }
     });
@@ -1159,20 +1202,26 @@ export async function refreshSDKPayloadCache({
       },
       "[sdk-payload] refresh skipped — no matching SDK connections",
     );
-    return;
+    return { failedConnectionKeys };
   }
 
   // There may be many SDK connection caches to update
   // Batch the promises in chunks of 4 at a time to avoid overloading Mongo
   await promiseAllChunks(promises, 4);
 
+  const failed = new Set(failedConnectionKeys);
+  const deliverableConnections = skipDeliveryForFailedConnections
+    ? connectionsUpdated.filter((c) => !failed.has(c.key))
+    : connectionsUpdated;
+
   const durationMs = Math.round(performance.now() - refreshStartedAt);
   recordSdkPayloadRefreshMetrics(durationMs);
   logger.info(
     {
       orgId: context.org.id,
-      connectionKeys: connectionsUpdated.map((c) => c.key),
-      connectionCount: connectionsUpdated.length,
+      connectionKeys: deliverableConnections.map((c) => c.key),
+      connectionCount: deliverableConnections.length,
+      failedConnectionKeys,
       payloadKeys,
       cacheLocation: storageLocation,
       auditContext: initialAuditContext,
@@ -1181,11 +1230,13 @@ export async function refreshSDKPayloadCache({
     "[sdk-payload] refresh completed",
   );
 
-  triggerWebhookJobs(context, payloadKeys, connectionsUpdated, true).catch(
+  triggerWebhookJobs(context, payloadKeys, deliverableConnections, true).catch(
     (e) => {
       logger.error(e, "Error triggering webhook jobs");
     },
   );
+
+  return { failedConnectionKeys };
 }
 
 export type FeatureDefinitionsResponseArgs = {

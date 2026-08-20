@@ -24,6 +24,12 @@ import {
 import * as FeatureModel from "back-end/src/models/FeatureModel";
 import * as ExperimentModel from "back-end/src/models/ExperimentModel";
 
+// Pin the default explicitly so an ambient env var can't flip this suite's
+// flag-off behavior.
+jest.mock("back-end/src/util/secrets", () => ({
+  ...jest.requireActual("back-end/src/util/secrets"),
+  SDK_PAYLOAD_REFRESH_STALE_TRACKING_ENABLED: false,
+}));
 jest.mock("back-end/src/models/SdkConnectionModel", () => ({
   findSDKConnectionByKey: jest.fn(),
   findSDKConnectionsByOrganization: jest.fn(),
@@ -68,6 +74,8 @@ jest.mock("back-end/src/services/organizations", () => ({
 }));
 jest.mock("back-end/src/jobs/updateAllJobs", () => ({
   triggerWebhookJobs: jest.fn().mockResolvedValue(undefined),
+  triggerLegacyWebhookJobs: jest.fn().mockResolvedValue(undefined),
+  purgeCDNCacheForEnvironments: jest.fn().mockResolvedValue(undefined),
 }));
 
 const getSDKPayloadCacheLocationMock = jest.requireMock(

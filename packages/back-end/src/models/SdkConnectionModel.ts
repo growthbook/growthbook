@@ -482,8 +482,8 @@ export async function markSDKConnectionUsed(key: string) {
   );
 }
 
-// Always bumps staleSince — a write during an in-flight rebuild must advance
-// the timestamp so clearStaleSdkConnections' `< clearBefore` guard keeps it.
+// Always bumps staleSince — a write during an in-flight rebuild must change
+// the value so clearStaleSdkConnections' exact-match clear keeps it.
 export async function markSdkConnectionsStale(
   organization: string,
   keys: string[],
@@ -516,22 +516,31 @@ export async function findStaleSdkConnectionsByOrganization(
   return docs.map(toInterface);
 }
 
-// Clears only marks that strictly predate `clearBefore`, so a write that re-marks
-// during the rebuild is not dropped.
+// Clears each mark only when it still equals the value read at rebuild time —
+// a concurrent re-mark (from any server, regardless of clock skew) changes the
+// value and survives.
 export async function clearStaleSdkConnections(
   organization: string,
-  keys: string[],
-  clearBefore: Date,
+  marks: { key: string; staleSince: Date }[],
 ): Promise<void> {
-  if (!keys.length) return;
-  await SDKConnectionModel.updateMany(
-    {
-      organization,
-      key: { $in: keys },
-      staleSince: { $lt: clearBefore },
-    },
-    { $set: { staleSince: null } },
+  if (!marks.length) return;
+  await SDKConnectionModel.bulkWrite(
+    marks.map(({ key, staleSince }) => ({
+      updateOne: {
+        filter: { organization, key, staleSince },
+        update: { $set: { staleSince: null } },
+      },
+    })),
+    { ordered: false },
   );
+}
+
+export async function findOrganizationsWithStaleSdkConnections(
+  staleBefore: Date,
+): Promise<string[]> {
+  return SDKConnectionModel.distinct("organization", {
+    staleSince: { $lt: staleBefore },
+  });
 }
 
 export async function setProxyError(
