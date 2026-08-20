@@ -82,13 +82,6 @@ const upcomingServices = [
     text: "Migrate your settings, targeting rules, and percentage rollouts.",
   },
   {
-    service: "VWO",
-    slug: "vwo",
-    icon: "vwo",
-    accentColor: "#000",
-    text: "Migrate your feature flags and experiments.",
-  },
-  {
     service: "Firebase Remote Config",
     slug: "firebase",
     icon: "firebase",
