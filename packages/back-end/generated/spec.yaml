@@ -694,6 +694,14 @@ tags:
   - name: Report_model
     x-displayName: Report
     description: <SchemaDefinition schemaRef="#/components/schemas/Report" />
+  - name: RequireReviewRule_model
+    x-displayName: Require Review Rule
+    description: <SchemaDefinition schemaRef="#/components/schemas/RequireReviewRule" />
+  - name: RequireReviewRuleInput_model
+    x-displayName: Require Review Rule Input
+    description: >-
+      <SchemaDefinition schemaRef="#/components/schemas/RequireReviewRuleInput"
+      />
   - name: RevisionIdRef_model
     x-displayName: Revision Id Ref
     description: <SchemaDefinition schemaRef="#/components/schemas/RevisionIdRef" />
@@ -703,6 +711,11 @@ tags:
   - name: SavedGroup_model
     x-displayName: Saved Group
     description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroup" />
+  - name: SavedGroupApprovalRule_model
+    x-displayName: Saved Group Approval Rule
+    description: >-
+      <SchemaDefinition schemaRef="#/components/schemas/SavedGroupApprovalRule"
+      />
   - name: SavedGroupReferences_model
     x-displayName: Saved Group References
     description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroupReferences" />
@@ -30090,6 +30103,60 @@ paths:
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/settings' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/settings/approvals:
+    put:
+      operationId: putApprovalSettings
+      summary: >-
+        Replace the approval requirements for feature flags, configs and
+        constants, and for saved groups. Each family is replaced wholesale when
+        supplied; omit one to leave it unchanged.
+      tags:
+        - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                requireReviews:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/RequireReviewRuleInput'
+                approvalFlows:
+                  type: object
+                  properties:
+                    savedGroups:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/SavedGroupApprovalRule'
+                  required:
+                    - savedGroups
+                  additionalProperties: false
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  requireReviews:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RequireReviewRule'
+                  approvalFlows:
+                    $ref: '#/components/schemas/approvalFlows'
+                required:
+                  - requireReviews
+                  - approvalFlows
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X PUT 'https://api.growthbook.io/api/v1/settings/approvals' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/version:
     get:
       operationId: getVersion
@@ -59219,33 +59286,17 @@ components:
         requireReviews:
           type: array
           items:
-            type: object
-            properties:
-              requireReviewOn:
-                type: boolean
-              projects:
-                type: array
-                items:
-                  type: string
-              resetReviewOnChange:
-                type: boolean
-              environments:
-                type: array
-                items:
-                  type: string
-              featureRequireEnvironmentReview:
-                type: boolean
-              featureRequireMetadataReview:
-                type: boolean
-              blockSelfApproval:
-                type: boolean
-              autopublishOnApproval:
-                type: boolean
-              requiredApproverTeams:
-                type: array
-                items:
-                  type: string
-            additionalProperties: false
+            $ref: '#/components/schemas/RequireReviewRule'
+        approvalFlows:
+          type: object
+          properties:
+            savedGroups:
+              type: array
+              items:
+                $ref: '#/components/schemas/SavedGroupApprovalRule'
+          required:
+            - savedGroups
+          additionalProperties: false
         targetingReviewMode:
           type: array
           items:
@@ -59335,6 +59386,7 @@ components:
         - secureAttributeSalt
         - killswitchConfirmation
         - requireReviews
+        - approvalFlows
         - featureKeyExample
         - featureRegexValidator
         - banditScheduleValue
@@ -59342,6 +59394,88 @@ components:
         - banditBurnInValue
         - banditBurnInUnit
         - experimentMinLengthDays
+      additionalProperties: false
+    RequireReviewRule:
+      type: object
+      properties:
+        requireReviewOn:
+          type: boolean
+        projects:
+          type: array
+          items:
+            type: string
+        resetReviewOnChange:
+          type: boolean
+        environments:
+          type: array
+          items:
+            type: string
+        featureRequireEnvironmentReview:
+          type: boolean
+        featureRequireMetadataReview:
+          type: boolean
+        blockSelfApproval:
+          type: boolean
+        autopublishOnApproval:
+          type: boolean
+        requiredApproverTeams:
+          type: array
+          items:
+            type: string
+      additionalProperties: false
+    SavedGroupApprovalRule:
+      type: object
+      properties:
+        required:
+          type: boolean
+        projects:
+          type: array
+          items:
+            type: string
+        resetReviewOnChange:
+          type: boolean
+        requireMetadataReview:
+          type: boolean
+        blockSelfApproval:
+          type: boolean
+        autopublishOnApproval:
+          type: boolean
+        requiredApproverTeams:
+          type: array
+          items:
+            type: string
+      required:
+        - required
+      additionalProperties: false
+    RequireReviewRuleInput:
+      type: object
+      properties:
+        requireReviewOn:
+          type: boolean
+        projects:
+          type: array
+          items:
+            type: string
+        resetReviewOnChange:
+          type: boolean
+        environments:
+          type: array
+          items:
+            type: string
+        featureRequireEnvironmentReview:
+          type: boolean
+        featureRequireMetadataReview:
+          type: boolean
+        blockSelfApproval:
+          type: boolean
+        autopublishOnApproval:
+          type: boolean
+        requiredApproverTeams:
+          type: array
+          items:
+            type: string
+      required:
+        - requireReviewOn
       additionalProperties: false
     InformationSchemaTable:
       type: object
@@ -68272,6 +68406,16 @@ components:
         - environments
         - limitAccessByEnvironment
       additionalProperties: false
+    approvalFlows:
+      type: object
+      properties:
+        savedGroups:
+          type: array
+          items:
+            $ref: '#/components/schemas/SavedGroupApprovalRule'
+      required:
+        - savedGroups
+      additionalProperties: false
     monitoring:
       type: object
       properties:
@@ -68999,9 +69143,12 @@ x-tagGroups:
       - RampSchedule_model
       - RampScheduleTemplate_model
       - Report_model
+      - RequireReviewRule_model
+      - RequireReviewRuleInput_model
       - RevisionIdRef_model
       - Safe Rollout Rule_model
       - SavedGroup_model
+      - SavedGroupApprovalRule_model
       - SavedGroupReferences_model
       - SavedGroupRevision_model
       - SavedGroupRevisionActivityLogEntry_model
