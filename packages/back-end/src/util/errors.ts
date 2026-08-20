@@ -176,20 +176,12 @@ export class BulkPublishCommitError extends Error {
 
 export class BulkImportPartialFailureError extends Error {
   status = 400;
-  counts: {
-    factTablesAdded: number;
-    factTablesUpdated: number;
-    factTableFiltersAdded: number;
-    factTableFiltersUpdated: number;
-    factMetricsAdded: number;
-    factMetricsUpdated: number;
-  };
-  errors: { resourceType: string; id: string; message: string }[];
-
+  counts: Record<string, number>;
+  errors: unknown[];
   constructor(
     message: string,
-    counts: BulkImportPartialFailureError["counts"],
-    errors: BulkImportPartialFailureError["errors"],
+    counts: Record<string, number>,
+    errors: unknown[],
   ) {
     super(message);
     this.name = "BulkImportPartialFailureError";

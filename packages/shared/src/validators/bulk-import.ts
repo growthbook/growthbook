@@ -7,12 +7,6 @@ import {
 import { postFactTableBody, postFactTableFilterBodyFields } from "./fact-table";
 import { componentSchema } from "./openapi-helpers";
 
-const resourceManagedByEnum = z
-  .enum(["", "api", "admin"])
-  .describe(
-    'Fallback `managedBy` for Fact Tables and Fact Metrics that omit the field. Defaults to `"api"`. Filters inherit `"api"` only when the parent Fact Table is api-managed.',
-  );
-
 const bulkFactTableData = postFactTableBody
   .extend({
     columns: postFactTableBody.shape.columns.describe(
@@ -46,23 +40,14 @@ const bulkImportError = componentSchema(
 
 export type BulkImportError = z.infer<typeof bulkImportError>;
 
-const managedByWritten = componentSchema(
-  "BulkImportManagedByWritten",
-  z
-    .object({
-      api: z.coerce.number().int(),
-      admin: z.coerce.number().int(),
-      none: z.coerce
-        .number()
-        .int()
-        .describe('Count of resources written with managedBy ""'),
-    })
-    .strict(),
-);
-
 const postBulkImportFactsBody = z
   .object({
-    defaultManagedBy: resourceManagedByEnum.optional(),
+    defaultManagedBy: z
+      .enum(["", "api", "admin"])
+      .optional()
+      .describe(
+        'Fallback `managedBy` for Fact Tables and Fact Metrics that omit the field. Defaults to `"api"`. Filters inherit `"api"` only when the parent Fact Table is api-managed.',
+      ),
     dryRun: z.boolean().optional().describe("Validate with zero writes."),
     factTables: z
       .array(
@@ -100,14 +85,12 @@ export const postBulkImportFactsValidator = {
     .object({
       success: z.boolean(),
       dryRun: z.boolean(),
-      defaultManagedBy: resourceManagedByEnum,
       factTablesAdded: z.coerce.number().int(),
       factTablesUpdated: z.coerce.number().int(),
       factTableFiltersAdded: z.coerce.number().int(),
       factTableFiltersUpdated: z.coerce.number().int(),
       factMetricsAdded: z.coerce.number().int(),
       factMetricsUpdated: z.coerce.number().int(),
-      managedByWritten,
       errors: z.array(bulkImportError),
     })
     .strict(),

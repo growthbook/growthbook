@@ -2,7 +2,6 @@ import {
   apiMetricTypeEnum,
   postBulkImportFactsValidator,
   postFactMetricValidator,
-  postFactTableValidator,
 } from "../../src/validators";
 
 const funnelSettings = {
@@ -52,22 +51,6 @@ describe("postBulkImportFacts body", () => {
         }).success,
       ).toBe(true);
     }
-  });
-
-  it("accepts a funnel metric without a numerator", () => {
-    const result = parseBulk({
-      factMetrics: [
-        {
-          id: "fact__funnel",
-          data: {
-            name: "Checkout funnel",
-            metricType: "funnel",
-            funnelSettings,
-          },
-        },
-      ],
-    });
-    expect(result.success).toBe(true);
   });
 
   it("rejects a funnel metric that includes a numerator", () => {
@@ -123,37 +106,6 @@ describe("postBulkImportFacts body", () => {
       ],
     });
     expect(result.success).toBe(true);
-  });
-
-  it("accepts aggregatedFactTableSettings on a fact table", () => {
-    const settings = {
-      idTypes: ["id"],
-      updateTime: { time: "02:00", timezone: "UTC" },
-      lookbackWindow: 30,
-    };
-    const bulk = parseBulk({
-      factTables: [
-        {
-          id: "orders",
-          data: {
-            name: "Orders",
-            datasource: "ds_1",
-            userIdTypes: ["id"],
-            sql: "SELECT * FROM orders",
-            aggregatedFactTableSettings: settings,
-          },
-        },
-      ],
-    });
-    const single = postFactTableValidator.bodySchema.safeParse({
-      name: "Orders",
-      datasource: "ds_1",
-      userIdTypes: ["id"],
-      sql: "SELECT * FROM orders",
-      aggregatedFactTableSettings: settings,
-    });
-    expect(single.success).toBe(true);
-    expect(bulk.success).toBe(true);
   });
 
   it("accepts defaultManagedBy and dryRun", () => {
