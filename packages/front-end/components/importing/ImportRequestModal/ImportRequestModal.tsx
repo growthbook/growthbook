@@ -50,7 +50,9 @@ export const ImportRequestModal: FC<ImportRequestModalProps> = ({
       </Modal.Body>
       <Modal.Footer>
         <Modal.Close>
-          <Button variant="ghost">Cancel</Button>
+          <Button variant="ghost" onClick={close}>
+            Cancel
+          </Button>
         </Modal.Close>
         <Button
           onClick={() => {
@@ -60,6 +62,7 @@ export const ImportRequestModal: FC<ImportRequestModalProps> = ({
             window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(
               subject,
             )}&body=${encodeURIComponent(body)}`;
+            close();
           }}
         >
           Email {SUPPORT_EMAIL}
