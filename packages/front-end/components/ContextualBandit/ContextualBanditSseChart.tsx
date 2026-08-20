@@ -13,7 +13,10 @@ import {
 } from "@visx/tooltip";
 import { CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE } from "shared/constants";
 import { conditionFromLeafClauses } from "shared/experiments";
-import type { ContextualBanditSseStep } from "shared/experiments";
+import type {
+  ContextualBanditSseStep,
+  ContextualLeafClause,
+} from "shared/experiments";
 import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
@@ -37,6 +40,48 @@ function displayLevels(levels: string[]): string {
   return levels.map(displayLevel).join(", ");
 }
 
+/** Human-readable description of a leaf node's targeting condition. */
+function describeClauses(clauses: ContextualLeafClause[]): string {
+  if (!clauses.length) return "all contexts";
+  return clauses
+    .map((clause) => {
+      const levels = clause.levels.map(displayLevel);
+      if (clause.operator === "in" && levels.length === 1) {
+        return `${clause.attribute} = ${levels[0]}`;
+      }
+      return `${clause.attribute} ${clause.operator} (${levels.join(", ")})`;
+    })
+    .join(" and ");
+}
+
+/**
+ * Describes the splits that removed the most total error (the largest
+ * single-step SSE reductions).
+ */
+export function topGainSplitDescriptions(
+  steps: ContextualBanditSseStep[],
+  limit = 3,
+): string[] {
+  const sorted = [...steps].sort((a, b) => a.numSplits - b.numSplits);
+  const entries: { gain: number; step: ContextualBanditSseStep }[] = [];
+  for (let i = 1; i < sorted.length; i++) {
+    const step = sorted[i];
+    if (!step.split) continue;
+    entries.push({ gain: sorted[i - 1].totalSse - step.totalSse, step });
+  }
+  entries.sort((a, b) => b.gain - a.gain);
+
+  return entries.slice(0, limit).map(({ step }) => {
+    const { leafClauses, attribute, leftLevels, rightLevels } = step.split!;
+    const where = leafClauses.length
+      ? `leaf where ${describeClauses(leafClauses)}`
+      : "root leaf (all contexts)";
+    return `Split the ${where} on ${attribute} (${displayLevels(
+      leftLevels,
+    )} vs ${displayLevels(rightLevels)}).`;
+  });
+}
+
 function SseTooltipContent({ step }: { step: ContextualBanditSseStep }) {
   const isRoot = step.numSplits === 0;
   const condition = useMemo(
@@ -53,7 +98,7 @@ function SseTooltipContent({ step }: { step: ContextualBanditSseStep }) {
         {leafCount(step)} {leafCount(step) === 1 ? "leaf" : "leaves"}
       </Text>
       <Text size="sm" color="text-low" as="div" mb="2">
-        SSE {numberFormatter.format(step.totalSse)}
+        Total error {numberFormatter.format(step.totalSse)}
       </Text>
 
       {step.split ? (
@@ -92,7 +137,7 @@ function SseTooltipContent({ step }: { step: ContextualBanditSseStep }) {
   );
 }
 
-const margin = { top: 20, right: 24, bottom: 48, left: 64 };
+const margin = { top: 20, right: 24, bottom: 48, left: 88 };
 
 function SseChartInner({
   steps,
@@ -171,9 +216,9 @@ function SseChartInner({
 
           <AxisLeft
             scale={yScale}
-            label="SSE"
+            label="Sum of squared error"
             labelClassName={styles.label}
-            labelOffset={44}
+            labelOffset={64}
             numTicks={5}
             tickFormat={(v) => numberFormatter.format(Number(v))}
             tickLabelProps={() => ({

@@ -4,7 +4,7 @@ import { Group } from "@visx/group";
 import { GridColumns } from "@visx/grid";
 import { scaleBand, scaleLinear } from "@visx/scale";
 import { Bar } from "@visx/shape";
-import { AxisBottom, AxisLeft } from "@visx/axis";
+import { AxisBottom } from "@visx/axis";
 import {
   useTooltip,
   TooltipWithBounds,
@@ -12,13 +12,10 @@ import {
 } from "@visx/tooltip";
 import { ApiContextualBanditInterface } from "shared/validators";
 import Text from "@/ui/Text";
+import VariationLabel from "@/ui/VariationLabel";
 import { getVariationColor } from "@/services/features";
 
 const numberFormatter = new Intl.NumberFormat();
-
-function truncate(label: string, max = 18): string {
-  return label.length > max ? `${label.slice(0, max - 1)}…` : label;
-}
 
 type BarDatum = {
   id: string;
@@ -84,14 +81,10 @@ function BarChartInner({
     [minValue, maxValue, innerWidth],
   );
 
-  const nameById = useMemo(
-    () => new Map(data.map((d) => [d.id, d.name])),
-    [data],
-  );
-
   if (innerWidth < 10 || innerHeight < 10) return null;
 
   const baseline = xScale(0);
+  const labelWidth = margin.left - 10;
 
   return (
     <div style={{ position: "relative" }}>
@@ -106,19 +99,6 @@ function BarChartInner({
             strokeWidth={1}
           />
 
-          <AxisLeft
-            scale={yScale}
-            hideAxisLine
-            hideTicks
-            tickFormat={(id) => truncate(nameById.get(id) ?? id)}
-            tickLabelProps={() => ({
-              fill: "var(--text-color-table)",
-              fontSize: 12,
-              textAnchor: "end",
-              verticalAnchor: "middle",
-              dx: -6,
-            })}
-          />
           <AxisBottom
             scale={xScale}
             top={innerHeight}
@@ -136,54 +116,77 @@ function BarChartInner({
             const barHeight = yScale.bandwidth();
             const cy = y + barHeight / 2;
 
-            if (d.value === null) {
-              return (
-                <text
-                  key={d.id}
-                  x={baseline + 6}
-                  y={cy}
-                  dominantBaseline="middle"
-                  fontSize={12}
-                  fill="var(--text-color-table)"
-                >
-                  —
-                </text>
-              );
-            }
-
-            const valueX = xScale(d.value);
+            const valueX = d.value === null ? baseline : xScale(d.value);
             const barX = Math.min(baseline, valueX);
             const barWidth = Math.abs(valueX - baseline);
-            const isNegative = d.value < 0;
+            const isNegative = (d.value ?? 0) < 0;
+
             return (
               <Group key={d.id}>
-                <Bar
-                  x={barX}
+                <foreignObject
+                  x={-margin.left}
                   y={y}
-                  width={barWidth}
+                  width={labelWidth}
                   height={barHeight}
-                  rx={3}
-                  fill={getVariationColor(d.index, true)}
-                  onPointerMove={() =>
-                    showTooltip({
-                      tooltipData: d,
-                      tooltipLeft: isNegative ? barX : valueX,
-                      tooltipTop: cy,
-                    })
-                  }
-                  onPointerLeave={hideTooltip}
-                  style={{ cursor: "pointer" }}
-                />
-                <text
-                  x={isNegative ? valueX - 6 : valueX + 6}
-                  y={cy}
-                  dominantBaseline="middle"
-                  textAnchor={isNegative ? "end" : "start"}
-                  fontSize={12}
-                  fill="var(--text-color-table)"
                 >
-                  {formatValue(d.value)}
-                </text>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "flex-end",
+                      height: "100%",
+                    }}
+                  >
+                    <VariationLabel
+                      number={d.index}
+                      name={d.name}
+                      size="sm"
+                      maxWidth={`${labelWidth}px`}
+                    />
+                  </div>
+                </foreignObject>
+
+                {d.value === null ? (
+                  <text
+                    x={baseline + 6}
+                    y={cy}
+                    dominantBaseline="middle"
+                    fontSize={12}
+                    fill="var(--text-color-table)"
+                  >
+                    —
+                  </text>
+                ) : (
+                  <>
+                    <Bar
+                      x={barX}
+                      y={y}
+                      width={barWidth}
+                      height={barHeight}
+                      rx={3}
+                      fill={getVariationColor(d.index, true)}
+                      onPointerMove={() =>
+                        showTooltip({
+                          tooltipData: d,
+                          tooltipLeft: isNegative ? barX : valueX,
+                          tooltipTop: cy,
+                        })
+                      }
+                      onPointerLeave={hideTooltip}
+                      style={{ cursor: "pointer" }}
+                    />
+                    <text
+                      x={isNegative ? valueX - 6 : valueX + 6}
+                      y={cy}
+                      dominantBaseline="middle"
+                      textAnchor={isNegative ? "end" : "start"}
+                      fontSize={12}
+                      fill="var(--text-color-table)"
+                    >
+                      {formatValue(d.value)}
+                    </text>
+                  </>
+                )}
               </Group>
             );
           })}

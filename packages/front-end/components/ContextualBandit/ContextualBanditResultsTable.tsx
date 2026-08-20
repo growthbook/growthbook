@@ -18,7 +18,6 @@ import HelperText from "@/ui/HelperText";
 import Metadata from "@/ui/Metadata";
 import Heading from "@/ui/Heading";
 import Heatmap, { HeatmapColumn, HeatmapRow } from "@/ui/Heatmap";
-import VariationLabel from "@/ui/VariationLabel";
 import VariationNumber from "@/ui/VariationNumber";
 import Tooltip from "@/ui/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -26,7 +25,9 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useContextualBanditResults } from "@/hooks/useContextualBandits";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
-import ContextualBanditSseChart from "@/components/ContextualBandit/ContextualBanditSseChart";
+import ContextualBanditSseChart, {
+  topGainSplitDescriptions,
+} from "@/components/ContextualBandit/ContextualBanditSseChart";
 import ContextualBanditBarChart from "@/components/ContextualBandit/ContextualBanditBarChart";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
@@ -121,63 +122,6 @@ function formatModeValue(value: number, mode: ComparisonMode): string {
   }).format(value);
 }
 
-function OverallCards({
-  variations,
-  values,
-  units,
-  unitDisplayName,
-  ariaLabel,
-  formatValue,
-}: {
-  variations: ApiContextualBanditInterface["variations"];
-  values: (number | null)[];
-  units: number[];
-  unitDisplayName: string;
-  ariaLabel: string;
-  formatValue: (value: number) => string;
-}) {
-  const cards = variations
-    .map((v, index) => ({
-      id: v.id,
-      index,
-      name: v.name,
-      value: values[index] ?? null,
-      units: units[index] ?? 0,
-    }))
-    .sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity));
-
-  return (
-    <Flex
-      align="stretch"
-      style={{ overflowX: "auto" }}
-      role="list"
-      aria-label={ariaLabel}
-    >
-      {cards.map((card, i) => (
-        <Box
-          key={card.id}
-          role="listitem"
-          px="3"
-          py="1"
-          style={{
-            minWidth: 110,
-            flex: "1 1 0",
-            borderLeft: i === 0 ? undefined : "1px solid var(--gray-a4)",
-          }}
-        >
-          <VariationLabel number={card.index} name={card.name} />
-          <Heading as="h4" size="xl" weight="medium" mt="2">
-            {card.value === null ? "—" : formatValue(card.value)}
-          </Heading>
-          <Text size="sm" color="text-low">
-            {numberFormatter.format(card.units)} {unitDisplayName.toLowerCase()}
-          </Text>
-        </Box>
-      ))}
-    </Flex>
-  );
-}
-
 export default function ContextualBanditResultsTable({
   cb,
   mutate,
@@ -236,6 +180,10 @@ export default function ContextualBanditResultsTable({
   const sseTrajectory = useMemo(
     () => results?.sseTrajectory ?? [],
     [results?.sseTrajectory],
+  );
+  const topSplitDescriptions = useMemo(
+    () => topGainSplitDescriptions(sseTrajectory, 3),
+    [sseTrajectory],
   );
 
   const leavesBySampleSize = useMemo(
@@ -418,7 +366,7 @@ export default function ContextualBanditResultsTable({
     <Box>
       <Flex justify="between" align="center" mb="1" gap="4" wrap="wrap">
         <Heading as="h3" size="sm">
-          Overall Means
+          Most informative context splits
         </Heading>
         {headerActions}
       </Flex>
@@ -437,32 +385,72 @@ export default function ContextualBanditResultsTable({
 
       {hasTableData ? (
         <>
+          <Text size="sm" color="text-low" as="div" mb="2">
+            The splits that explained the most variability, ranked by how much
+            they improved the fit.
+          </Text>
+          {topSplitDescriptions.length ? (
+            <Box mb="5" asChild>
+              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                {topSplitDescriptions.map((description) => (
+                  <li key={description}>
+                    <Text size="sm" color="text-low">
+                      {description}
+                    </Text>
+                  </li>
+                ))}
+              </ul>
+            </Box>
+          ) : (
+            <Text size="sm" color="text-low" as="div" mb="5">
+              Split details aren&apos;t available yet. Refresh results to
+              compute them.
+            </Text>
+          )}
+
+          {sseTrajectory.length >= 2 ? (
+            <Box mb="5">
+              <Heading as="h3" size="sm" mb="1">
+                Total Error by Number of Leaves
+              </Heading>
+              <Text size="sm" color="text-low" as="div" mb="3">
+                How much within-context error the tree removes as it adds
+                leaves. Hover a point to see the leaf it split and how.
+              </Text>
+              <ContextualBanditSseChart steps={sseTrajectory} />
+            </Box>
+          ) : null}
+
+          <Heading as="h3" size="sm" mb="1">
+            Overall Means by Variation
+          </Heading>
           <Text size="sm" color="text-low" as="div" mb="3">
             Mean outcome if all traffic were allocated to a single variation.
-            Answers which single variation is optimal.
+            Illustrates which single variation is optimal. Hover a bar for
+            units.
           </Text>
-          <OverallCards
+          <ContextualBanditBarChart
             variations={variations}
             values={overallVariationMeans}
             units={overallVariationUnits}
             unitDisplayName={unitDisplayName}
-            ariaLabel="Overall means by variation"
+            valueLabel="mean"
             formatValue={(value) => formatModeValue(value, "means")}
           />
 
           <Heading as="h3" size="sm" mt="5" mb="1">
-            Overall Weights
+            Overall Weights by Variation
           </Heading>
           <Text size="sm" color="text-low" as="div" mb="3">
-            Share of traffic each variation is currently receiving across all
-            contexts.
+            Share of traffic each variation is currently receiving. Hover a bar
+            for units.
           </Text>
-          <OverallCards
+          <ContextualBanditBarChart
             variations={variations}
             values={overallVariationWeights}
             units={overallVariationUnits}
             unitDisplayName={unitDisplayName}
-            ariaLabel="Overall weights by variation"
+            valueLabel="weight"
             formatValue={formatWeight}
           />
 
@@ -509,55 +497,6 @@ export default function ContextualBanditResultsTable({
             stickyHeader
             formatValue={(value) => formatModeValue(value, mode)}
           />
-
-          {sseTrajectory.length >= 2 ? (
-            <Box mt="5">
-              <Heading as="h3" size="sm" mb="1">
-                SSE by Number of Leaves
-              </Heading>
-              <Text size="sm" color="text-low" as="div" mb="3">
-                How much within-context error the tree removes as it adds
-                leaves. Hover a point to see the leaf it split and how.
-              </Text>
-              <ContextualBanditSseChart steps={sseTrajectory} />
-            </Box>
-          ) : null}
-
-          <Box mt="5">
-            <Heading as="h3" size="sm" mb="1">
-              Overall Means by Variation
-            </Heading>
-            <Text size="sm" color="text-low" as="div" mb="3">
-              Mean outcome if all traffic were allocated to a single variation.
-              Hover a bar for units.
-            </Text>
-            <ContextualBanditBarChart
-              variations={variations}
-              values={overallVariationMeans}
-              units={overallVariationUnits}
-              unitDisplayName={unitDisplayName}
-              valueLabel="mean"
-              formatValue={(value) => formatModeValue(value, "means")}
-            />
-          </Box>
-
-          <Box mt="5">
-            <Heading as="h3" size="sm" mb="1">
-              Overall Weights by Variation
-            </Heading>
-            <Text size="sm" color="text-low" as="div" mb="3">
-              Share of traffic each variation is currently receiving across all
-              contexts. Hover a bar for units.
-            </Text>
-            <ContextualBanditBarChart
-              variations={variations}
-              values={overallVariationWeights}
-              units={overallVariationUnits}
-              unitDisplayName={unitDisplayName}
-              valueLabel="weight"
-              formatValue={formatWeight}
-            />
-          </Box>
         </>
       ) : null}
 
