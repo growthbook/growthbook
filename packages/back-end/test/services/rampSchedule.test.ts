@@ -1545,6 +1545,33 @@ describe("featureEntityHandler.applyActions", () => {
     auditUser: { type: "system" },
   } as never;
 
+  it("refuses a Feature Flag an experiment manages", async () => {
+    // Every ramp write to a feature funnels through here and publishes with
+    // bypassLockdown, so this is the only place the managed check can cover
+    // the poller as well as the routes.
+    mockGetFeature.mockResolvedValue({
+      ...makeFeature(),
+      managedBy: { type: "experiment", experimentId: "exp_1" },
+    } as never);
+
+    await expect(
+      featureEntityHandler.applyActions(
+        ctx,
+        FEATURE_ID,
+        [
+          {
+            targetType: "feature-rule" as const,
+            targetId: TARGET_ID,
+            patch: { ruleId: RULE_ID, coverage: 0.5 },
+          },
+        ],
+        { stepLabel: "Ramp [1 of 3]: Test", user: { type: "system" } },
+      ),
+    ).rejects.toThrow(/managed by experiment/i);
+
+    expect(mockPublishRevision).not.toHaveBeenCalled();
+  });
+
   it("calls publishRevision with sparse-patched rules", async () => {
     const actions = [
       {

@@ -1,6 +1,7 @@
 import type { ExperimentInterface } from "shared/validators";
 import {
   clearManagedMarkersForExperiment,
+  createManagedFeatureForExperiment,
   managedFlagAdoptionBlocker,
   planManagedFlagKey,
   staleLinkedFeatureIds,
@@ -122,6 +123,58 @@ describe("managedFlagAdoptionBlocker", () => {
         experiment({ linkedFeatures: ["deleted-flag", "live-flag"] }),
       ),
     ).toMatch(/already has a linked Feature Flag/);
+  });
+});
+
+describe("createManagedFeatureForExperiment variation validation", () => {
+  const base = {
+    context,
+    experiment: experiment({
+      variations: [{ id: "var_0" }, { id: "var_1" }],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }) as any,
+    eventAudit: {},
+    audit: jest.fn(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any;
+
+  it("accepts a valid value for every variation", async () => {
+    // Regression: validateFeatureValue RETURNS the normalized value and throws
+    // on invalid input, so testing its result for truthiness rejected every
+    // valid value — including the string "false".
+    await expect(
+      createManagedFeatureForExperiment({
+        ...base,
+        valueType: "boolean",
+        variations: [
+          { variationId: "var_0", value: "false" },
+          { variationId: "var_1", value: "true" },
+        ],
+      }),
+    ).rejects.not.toThrow(/^false$/);
+  });
+
+  it("refuses a value that does not parse as the chosen type", async () => {
+    await expect(
+      createManagedFeatureForExperiment({
+        ...base,
+        valueType: "number",
+        variations: [
+          { variationId: "var_0", value: "abc" },
+          { variationId: "var_1", value: "2" },
+        ],
+      }),
+    ).rejects.toThrow(/valid number/i);
+  });
+
+  it("refuses a set that does not cover every variation", async () => {
+    await expect(
+      createManagedFeatureForExperiment({
+        ...base,
+        valueType: "string",
+        variations: [{ variationId: "var_0", value: "a" }],
+      }),
+    ).rejects.toThrow(/one value per experiment variation/i);
   });
 });
 

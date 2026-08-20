@@ -282,10 +282,10 @@ export async function createManagedFeatureForExperiment({
       "A managed Feature Flag requires exactly one value per experiment variation",
     );
   }
-  for (const v of variations) {
-    const invalid = validateFeatureValue({ valueType }, v.value);
-    if (invalid) throw new Error(invalid);
-  }
+  // Throws on an invalid value; the return is the normalized one, not an error.
+  variations.forEach((v, i) =>
+    validateFeatureValue({ valueType }, v.value, `Variation ${i}`),
+  );
 
   const allEnvironments = getEnvironments(org);
   if (!allEnvironments.length) {
