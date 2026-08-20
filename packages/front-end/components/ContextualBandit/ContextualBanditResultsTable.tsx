@@ -25,10 +25,9 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useContextualBanditResults } from "@/hooks/useContextualBandits";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
-import ContextualBanditSseChart, {
-  topGainSplitDescriptions,
-} from "@/components/ContextualBandit/ContextualBanditSseChart";
-import ContextualBanditBarChart from "@/components/ContextualBandit/ContextualBanditBarChart";
+import ContextualBanditSseChart from "@/components/ContextualBandit/ContextualBanditSseChart";
+import ContextualBanditAttributeTable from "@/components/ContextualBandit/ContextualBanditAttributeTable";
+import ContextualBanditOverviewTable from "@/components/ContextualBandit/ContextualBanditOverviewTable";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import RunQueriesButton, {
@@ -131,7 +130,8 @@ export default function ContextualBanditResultsTable({
 }) {
   const [mode, setMode] = useState<ComparisonMode>("weights");
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
-  const { getDatasourceById, metricGroups } = useDefinitions();
+  const { getDatasourceById, getExperimentMetricById, metricGroups } =
+    useDefinitions();
   const permissionsUtil = usePermissionsUtil();
 
   const {
@@ -154,6 +154,10 @@ export default function ContextualBanditResultsTable({
   const unitDisplayName = userIdType
     ? startCase(userIdType.split("_").join(" ")) + "s"
     : "Units";
+
+  const goalMetricName = cb.decisionMetric
+    ? (getExperimentMetricById(cb.decisionMetric)?.name ?? "outcome")
+    : "outcome";
 
   const queryLatest = latest;
   const { status } = getQueryStatus(
@@ -181,8 +185,8 @@ export default function ContextualBanditResultsTable({
     () => results?.sseTrajectory ?? [],
     [results?.sseTrajectory],
   );
-  const topSplitDescriptions = useMemo(
-    () => topGainSplitDescriptions(sseTrajectory, 3),
+  const hasSplitMetadata = useMemo(
+    () => sseTrajectory.some((step) => step.split),
     [sseTrajectory],
   );
 
@@ -366,7 +370,7 @@ export default function ContextualBanditResultsTable({
     <Box>
       <Flex justify="between" align="center" mb="1" gap="4" wrap="wrap">
         <Heading as="h3" size="sm">
-          Most informative context splits
+          Most informative attributes
         </Heading>
         {headerActions}
       </Flex>
@@ -385,21 +389,12 @@ export default function ContextualBanditResultsTable({
 
       {hasTableData ? (
         <>
-          <Text size="sm" color="text-low" as="div" mb="2">
-            The splits that explained the most variability, ranked by how much
-            they improved the fit.
+          <Text size="sm" color="text-low" as="div" mb="3">
+            Attributes ranked by proportion of error removed.
           </Text>
-          {topSplitDescriptions.length ? (
-            <Box mb="5" asChild>
-              <ul style={{ margin: 0, paddingLeft: 18 }}>
-                {topSplitDescriptions.map((description) => (
-                  <li key={description}>
-                    <Text size="sm" color="text-low">
-                      {description}
-                    </Text>
-                  </li>
-                ))}
-              </ul>
+          {hasSplitMetadata ? (
+            <Box mb="5">
+              <ContextualBanditAttributeTable steps={sseTrajectory} />
             </Box>
           ) : (
             <Text size="sm" color="text-low" as="div" mb="5">
@@ -408,50 +403,24 @@ export default function ContextualBanditResultsTable({
             </Text>
           )}
 
-          {sseTrajectory.length >= 2 ? (
-            <Box mb="5">
-              <Heading as="h3" size="sm" mb="1">
-                Total Error by Number of Leaves
-              </Heading>
-              <Text size="sm" color="text-low" as="div" mb="3">
-                How much within-context error the tree removes as it adds
-                leaves. Hover a point to see the leaf it split and how.
-              </Text>
-              <ContextualBanditSseChart steps={sseTrajectory} />
-            </Box>
-          ) : null}
-
           <Heading as="h3" size="sm" mb="1">
-            Overall Means by Variation
+            Overall Means and Weights by Variation
           </Heading>
           <Text size="sm" color="text-low" as="div" mb="3">
-            Mean outcome if all traffic were allocated to a single variation.
-            Illustrates which single variation is optimal. Hover a bar for
-            units.
+            Mean {goalMetricName} if all traffic were allocated to a single
+            variation (i.e., which variation is optimal) alongside the share of
+            traffic each is currently receiving, and the number of units
+            historically allocated.
           </Text>
-          <ContextualBanditBarChart
+          <ContextualBanditOverviewTable
             variations={variations}
-            values={overallVariationMeans}
+            means={overallVariationMeans}
+            weights={overallVariationWeights}
             units={overallVariationUnits}
             unitDisplayName={unitDisplayName}
-            valueLabel="mean"
-            formatValue={(value) => formatModeValue(value, "means")}
-          />
-
-          <Heading as="h3" size="sm" mt="5" mb="1">
-            Overall Weights by Variation
-          </Heading>
-          <Text size="sm" color="text-low" as="div" mb="3">
-            Share of traffic each variation is currently receiving. Hover a bar
-            for units.
-          </Text>
-          <ContextualBanditBarChart
-            variations={variations}
-            values={overallVariationWeights}
-            units={overallVariationUnits}
-            unitDisplayName={unitDisplayName}
-            valueLabel="weight"
-            formatValue={formatWeight}
+            goalMetricName={goalMetricName}
+            formatMean={(value) => formatModeValue(value, "means")}
+            formatWeight={formatWeight}
           />
 
           <Flex
@@ -497,6 +466,19 @@ export default function ContextualBanditResultsTable({
             stickyHeader
             formatValue={(value) => formatModeValue(value, mode)}
           />
+
+          {sseTrajectory.length >= 2 ? (
+            <Box mt="5">
+              <Heading as="h3" size="sm" mb="1">
+                Total Error by Number of Leaves
+              </Heading>
+              <Text size="sm" color="text-low" as="div" mb="3">
+                How much within-context error the tree removes as it adds
+                leaves. Hover a point to see the leaf it split and how.
+              </Text>
+              <ContextualBanditSseChart steps={sseTrajectory} />
+            </Box>
+          ) : null}
         </>
       ) : null}
 

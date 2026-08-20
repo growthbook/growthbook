@@ -13,10 +13,7 @@ import {
 } from "@visx/tooltip";
 import { CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE } from "shared/constants";
 import { conditionFromLeafClauses } from "shared/experiments";
-import type {
-  ContextualBanditSseStep,
-  ContextualLeafClause,
-} from "shared/experiments";
+import type { ContextualBanditSseStep } from "shared/experiments";
 import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
@@ -40,49 +37,75 @@ function displayLevels(levels: string[]): string {
   return levels.map(displayLevel).join(", ");
 }
 
-/** Human-readable description of a leaf node's targeting condition. */
-function describeClauses(clauses: ContextualLeafClause[]): string {
-  if (!clauses.length) return "all contexts";
-  return clauses
-    .map((clause) => {
-      const levels = clause.levels.map(displayLevel);
-      if (clause.operator === "in" && levels.length === 1) {
-        return `${clause.attribute} = ${levels[0]}`;
-      }
-      return `${clause.attribute} ${clause.operator} (${levels.join(", ")})`;
-    })
-    .join(" and ");
-}
+export type AttributeSseReduction = {
+  /** Stable key for React lists; the raw attribute name or a sentinel for "Other". */
+  key: string;
+  /** Display label: the attribute name, or "Other" for the combined bucket. */
+  label: string;
+  isOther: boolean;
+  totalReduction: number;
+  splitCount: number;
+  /** The split steps attributed to this row, for the detail modal. */
+  steps: ContextualBanditSseStep[];
+};
 
 /**
- * Describes the splits that removed the most total error (the largest
- * single-step SSE reductions).
+ * Aggregates the total SSE (within-context error) reduction each attribute
+ * contributed.
  */
-export function topGainSplitDescriptions(
+export function attributeSseReductions(
   steps: ContextualBanditSseStep[],
-  limit = 3,
-): string[] {
+  topN = 3,
+): AttributeSseReduction[] {
   const sorted = [...steps].sort((a, b) => a.numSplits - b.numSplits);
-  const entries: { gain: number; step: ContextualBanditSseStep }[] = [];
+  const byAttr = new Map<
+    string,
+    { reduction: number; steps: ContextualBanditSseStep[] }
+  >();
   for (let i = 1; i < sorted.length; i++) {
     const step = sorted[i];
     if (!step.split) continue;
-    entries.push({ gain: sorted[i - 1].totalSse - step.totalSse, step });
+    const gain = sorted[i - 1].totalSse - step.totalSse;
+    const attribute = step.split.attribute;
+    const entry = byAttr.get(attribute) ?? { reduction: 0, steps: [] };
+    entry.reduction += gain;
+    entry.steps.push(step);
+    byAttr.set(attribute, entry);
   }
-  entries.sort((a, b) => b.gain - a.gain);
 
-  return entries.slice(0, limit).map(({ step }) => {
-    const { leafClauses, attribute, leftLevels, rightLevels } = step.split!;
-    const where = leafClauses.length
-      ? `leaf where ${describeClauses(leafClauses)}`
-      : "root leaf (all contexts)";
-    return `Split the ${where} on ${attribute} (${displayLevels(
-      leftLevels,
-    )} vs ${displayLevels(rightLevels)}).`;
-  });
+  const ranked: AttributeSseReduction[] = Array.from(byAttr.entries())
+    .map(([attribute, { reduction, steps: attrSteps }]) => ({
+      key: attribute,
+      label: attribute,
+      isOther: false,
+      totalReduction: reduction,
+      splitCount: attrSteps.length,
+      steps: attrSteps,
+    }))
+    .sort((a, b) => b.totalReduction - a.totalReduction);
+
+  if (ranked.length <= topN) return ranked;
+
+  const rest = ranked.slice(topN);
+  return [
+    ...ranked.slice(0, topN),
+    {
+      key: "__other__",
+      label: "Other",
+      isOther: true,
+      totalReduction: rest.reduce((sum, r) => sum + r.totalReduction, 0),
+      splitCount: rest.reduce((sum, r) => sum + r.splitCount, 0),
+      steps: rest.flatMap((r) => r.steps),
+    },
+  ];
 }
 
-function SseTooltipContent({ step }: { step: ContextualBanditSseStep }) {
+/**
+ * Renders a single split's details in the format used by the SSE plot tooltip:
+ * the leaf count and total error at that growth stage, the leaf node that was
+ * split, and how it was partitioned. Reused by the attribute detail modal.
+ */
+export function SseSplitDetails({ step }: { step: ContextualBanditSseStep }) {
   const isRoot = step.numSplits === 0;
   const condition = useMemo(
     () =>
@@ -295,7 +318,7 @@ function SseChartInner({
               pointerEvents: "none",
             }}
           >
-            <SseTooltipContent step={tooltipData} />
+            <SseSplitDetails step={tooltipData} />
           </TooltipWithBounds>
         )}
     </div>
