@@ -158,7 +158,7 @@ importers:
     dependencies:
       '@agendajs/mongo-backend':
         specifier: 4.0.3
-        version: 4.0.3(agenda@6.2.6)(mongodb@6.21.0(@aws-sdk/credential-providers@3.1031.0)(kerberos@2.2.2)(socks@2.8.9))
+        version: 4.0.3(agenda@6.2.6)(mongodb@4.17.2)
       '@ai-sdk/anthropic':
         specifier: ^3.0.0
         version: 3.0.2(zod@4.1.12)
@@ -388,8 +388,8 @@ importers:
         specifier: ^2.2.3
         version: 2.2.3
       mongodb:
-        specifier: ^6.21.0
-        version: 6.21.0(@aws-sdk/credential-providers@3.1031.0)(kerberos@2.2.2)(socks@2.8.9)
+        specifier: ^4.17.2
+        version: 4.17.2
       mongoose:
         specifier: ^6.13.10
         version: 6.13.11
@@ -6598,9 +6598,6 @@ packages:
   '@types/node@22.8.6':
     resolution: {integrity: sha512-tosuJYKrIqjQIlVCM4PEGxOmyg3FCPa/fViuJChnGeEIhjA46oy8FMVoF9su1/v8PNs2a8Q0iFNyOx0uOF91nw==}
 
-  '@types/node@26.2.0':
-    resolution: {integrity: sha512-5IviulTZeRNp2vAJ514cc/HUlY5nZ9fCbq9DMyC52BrhFZACo3nI0R7qBxhQmo/d27NFe96ur/b7Wwxklda+kg==}
-
   '@types/nodemailer@8.0.1':
     resolution: {integrity: sha512-PxpaInm8V1JQDd4j0ds5HfvWQk8JupS1C0Picb96QJsrrRDjBH+DlK7L4ZdNSqNULhiZRQHc40nLVShaGxXAMw==}
 
@@ -6725,9 +6722,6 @@ packages:
 
   '@types/webidl-conversions@7.0.3':
     resolution: {integrity: sha512-CiJJvcRtIgzadHCYXw7dqEnMNRjhGZlYK05Mj9OyktqV8uVT8fD2BFOB7S1uwBE3Kj2Z+4UyPmFw/Ixgw/LAlA==}
-
-  '@types/whatwg-url@11.0.5':
-    resolution: {integrity: sha512-coYR071JRaHa+xoEvvYqvnIHaVqaYrLPbsufM9BF63HkwI5Lgmy2QR8Q5K/lYDYo5AK82wOvSOS0UsLTpTG7uQ==}
 
   '@types/whatwg-url@8.2.2':
     resolution: {integrity: sha512-FtQu10RWgn3D9U4aazdwIE2yzphmTJREDqNdODHrbrZmmMqI0vMheC/6NE/J1Yveaj8H+ela+YwWTjq5PGmuhA==}
@@ -7669,10 +7663,6 @@ packages:
   bson@5.5.1:
     resolution: {integrity: sha512-ix0EwukN2EpC0SRWIj/7B5+A6uQMQy6KMREI9qQqvgpkV2frH63T0UDVd1SYedL6dNCmDBYB3QtXi4ISk9YT+g==}
     engines: {node: '>=14.20.1'}
-
-  bson@6.10.4:
-    resolution: {integrity: sha512-WIsKqkSC0ABoBJuT1LEX+2HEvNmNKKgnTAyd0fL8qzK4SH2i9NXg+t08YtdZp/V9IZ33cxe3iV4yM0qg8lMQng==}
-    engines: {node: '>=16.20.1'}
 
   buffer-crc32@0.2.13:
     resolution: {integrity: sha512-VO9Ht/+p3SN7SKWqcrgEzjGbRSJYTx+Q1pTQC0wrWqHx0vpJraQ6GtHx8tvcg1rlK1byhU5gccxgOgj7B0TDkQ==}
@@ -11116,9 +11106,6 @@ packages:
   mongodb-connection-string-url@2.6.0:
     resolution: {integrity: sha512-WvTZlI9ab0QYtTYnuMLgobULWhokRjtC7db9LtcVfJ+Hsnyr5eo6ZtNAt3Ly24XZScGMelOcGtm7lSn0332tPQ==}
 
-  mongodb-connection-string-url@3.0.2:
-    resolution: {integrity: sha512-rMO7CGo/9BFwyZABcKAWL8UJwH/Kc2x0g72uhDWzG48URRax5TCIcJ7Rc3RZqffZzO/Gwff/jyKwCU9TN8gehA==}
-
   mongodb-memory-server-core@9.3.0:
     resolution: {integrity: sha512-8okAtOGWqSG37K7/TrvTfn43ORMh9LssIvd30XjHxvjWK7utmSTXr69XAhYvsDrHDwv7L23Ii6NJ4zMPpiFKuw==}
     engines: {node: '>=14.20.1'}
@@ -11150,33 +11137,6 @@ packages:
       mongodb-client-encryption:
         optional: true
       snappy:
-        optional: true
-
-  mongodb@6.21.0:
-    resolution: {integrity: sha512-URyb/VXMjJ4da46OeSXg+puO39XH9DeQpWCslifrRn9JWugy0D+DvvBvkm2WxmHe61O/H19JM66p1z7RHVkZ6A==}
-    engines: {node: '>=16.20.1'}
-    peerDependencies:
-      '@aws-sdk/credential-providers': ^3.188.0
-      '@mongodb-js/zstd': ^1.1.0 || ^2.0.0
-      gcp-metadata: ^5.2.0
-      kerberos: ^2.0.1
-      mongodb-client-encryption: '>=6.0.0 <7'
-      snappy: ^7.3.2
-      socks: ^2.8.9
-    peerDependenciesMeta:
-      '@aws-sdk/credential-providers':
-        optional: true
-      '@mongodb-js/zstd':
-        optional: true
-      gcp-metadata:
-        optional: true
-      kerberos:
-        optional: true
-      mongodb-client-encryption:
-        optional: true
-      snappy:
-        optional: true
-      socks:
         optional: true
 
   mongoose@6.13.11:
@@ -13353,10 +13313,6 @@ packages:
     resolution: {integrity: sha512-l7FvfAHlcmulp8kr+flpQZmVwtu7nfRV7NZujtN0OqES8EL4O4e0qqzL0DC5gAvx/ZC/9lk6rhcUwYvkBnBnYA==}
     engines: {node: '>=12'}
 
-  tr46@5.1.1:
-    resolution: {integrity: sha512-hdF5ZgjTqgAntKkklYw0R03MG2x/bSzTtkxmIRw/sTNV8YXsCJ1tfLAX23lhxhHJlEf3CRCOCGGWw3vI3GaSPw==}
-    engines: {node: '>=18'}
-
   tree-kill@1.2.2:
     resolution: {integrity: sha512-L0Orpi8qGpRG//Nd+H90vFB+3iHnue1zSSGmNOOCh1GLJ7rUKVwV2HvijphGQS2UmhUZewS9VgvxYIdgr+fG1A==}
     hasBin: true
@@ -13559,9 +13515,6 @@ packages:
 
   undici-types@6.19.8:
     resolution: {integrity: sha512-ve2KP6f/JnbPBFyobGHuerC9g1FYGn/F8n1LWTwNxCEzd6IfqTwUQcNXgEtmmQ6DlRrC1hrSrBnCZPokRrDHjw==}
-
-  undici-types@8.3.0:
-    resolution: {integrity: sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ==}
 
   unescape-js@1.1.4:
     resolution: {integrity: sha512-42SD8NOQEhdYntEiUQdYq/1V/YHwr1HLwlHuTJB5InVVdOSbgI6xu8jK5q65yIzuFCfczzyDF/7hbGzVbyCw0g==}
@@ -13908,10 +13861,6 @@ packages:
     resolution: {integrity: sha512-RKT8HExMpoYx4igMiVMY83lN6UeITKJlBQ+vR/8ZJ8OCdSiN3RwCq+9gH0+Xzj0+5IrM6i4j/6LuvzbZIQgEcQ==}
     engines: {node: '>=12'}
 
-  whatwg-url@14.2.0:
-    resolution: {integrity: sha512-De72GdQZzNTUBBChsXueQUnPKDkg/5A5zp7pFDuQAj5UFoENpiACU0wlCvzpAGnTkj++ihpKwKyYewn/XNUbKw==}
-    engines: {node: '>=18'}
-
   whatwg-url@5.0.0:
     resolution: {integrity: sha512-saE57nupxk6v3HY35+jzBwYa0rKSy0XR8JSxZPwgLr7ys0IBzhGviA1/TUGJLmSVqs8pb9AnvICXEuOHLprYTw==}
 
@@ -14143,11 +14092,11 @@ snapshots:
 
   '@adobe/css-tools@4.4.2': {}
 
-  '@agendajs/mongo-backend@4.0.3(agenda@6.2.6)(mongodb@6.21.0(@aws-sdk/credential-providers@3.1031.0)(kerberos@2.2.2)(socks@2.8.9))':
+  '@agendajs/mongo-backend@4.0.3(agenda@6.2.6)(mongodb@4.17.2)':
     dependencies:
       agenda: 6.2.6
       debug: 4.4.3(supports-color@8.1.1)
-      mongodb: 6.21.0(@aws-sdk/credential-providers@3.1031.0)(kerberos@2.2.2)(socks@2.8.9)
+      mongodb: 4.17.2
     transitivePeerDependencies:
       - supports-color
 
@@ -17376,6 +17325,7 @@ snapshots:
   '@mongodb-js/saslprep@1.5.0':
     dependencies:
       sparse-bitfield: 3.0.3
+    optional: true
 
   '@napi-rs/wasm-runtime@0.2.12':
     dependencies:
@@ -20808,7 +20758,7 @@ snapshots:
 
   '@types/cli-progress@3.11.0':
     dependencies:
-      '@types/node': 26.2.0
+      '@types/node': 22.8.6
 
   '@types/command-line-args@5.2.0': {}
 
@@ -21032,10 +20982,6 @@ snapshots:
     dependencies:
       undici-types: 6.19.8
 
-  '@types/node@26.2.0':
-    dependencies:
-      undici-types: 8.3.0
-
   '@types/nodemailer@8.0.1':
     dependencies:
       '@types/node': 22.8.6
@@ -21167,7 +21113,7 @@ snapshots:
 
   '@types/through@0.0.30':
     dependencies:
-      '@types/node': 26.2.0
+      '@types/node': 22.8.6
 
   '@types/tough-cookie@4.0.0': {}
 
@@ -21180,10 +21126,6 @@ snapshots:
   '@types/use-sync-external-store@0.0.6': {}
 
   '@types/webidl-conversions@7.0.3': {}
-
-  '@types/whatwg-url@11.0.5':
-    dependencies:
-      '@types/webidl-conversions': 7.0.3
 
   '@types/whatwg-url@8.2.2':
     dependencies:
@@ -22316,8 +22258,6 @@ snapshots:
       buffer: 5.7.1
 
   bson@5.5.1: {}
-
-  bson@6.10.4: {}
 
   buffer-crc32@0.2.13: {}
 
@@ -26849,11 +26789,6 @@ snapshots:
       '@types/whatwg-url': 8.2.2
       whatwg-url: 11.0.0
 
-  mongodb-connection-string-url@3.0.2:
-    dependencies:
-      '@types/whatwg-url': 11.0.5
-      whatwg-url: 14.2.0
-
   mongodb-memory-server-core@9.3.0(@aws-sdk/credential-providers@3.1031.0)(kerberos@2.2.2):
     dependencies:
       async-mutex: 0.4.1
@@ -26908,16 +26843,6 @@ snapshots:
       '@aws-sdk/credential-providers': 3.1031.0
       '@mongodb-js/saslprep': 1.5.0
       kerberos: 2.2.2
-
-  mongodb@6.21.0(@aws-sdk/credential-providers@3.1031.0)(kerberos@2.2.2)(socks@2.8.9):
-    dependencies:
-      '@mongodb-js/saslprep': 1.5.0
-      bson: 6.10.4
-      mongodb-connection-string-url: 3.0.2
-    optionalDependencies:
-      '@aws-sdk/credential-providers': 3.1031.0
-      kerberos: 2.2.2
-      socks: 2.8.9
 
   mongoose@6.13.11:
     dependencies:
@@ -29569,10 +29494,6 @@ snapshots:
     dependencies:
       punycode: 2.3.1
 
-  tr46@5.1.1:
-    dependencies:
-      punycode: 2.3.1
-
   tree-kill@1.2.2:
     optional: true
 
@@ -29793,8 +29714,6 @@ snapshots:
     optional: true
 
   undici-types@6.19.8: {}
-
-  undici-types@8.3.0: {}
 
   unescape-js@1.1.4:
     dependencies:
@@ -30161,11 +30080,6 @@ snapshots:
   whatwg-url@11.0.0:
     dependencies:
       tr46: 3.0.0
-      webidl-conversions: 7.0.0
-
-  whatwg-url@14.2.0:
-    dependencies:
-      tr46: 5.1.1
       webidl-conversions: 7.0.0
 
   whatwg-url@5.0.0:
