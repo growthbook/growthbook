@@ -2,6 +2,7 @@ import { useState } from "react";
 import { getLatestPhaseVariations } from "shared/experiments";
 import {
   ExperimentInterfaceStringDates,
+  LinkedFeatureEnvState,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { Box, Flex, Separator } from "@radix-ui/themes";
@@ -29,6 +30,32 @@ type Props = {
   onReAdd?: () => void;
   mutate?: () => void;
 };
+
+function getEnvironmentStateTooltip(
+  state: LinkedFeatureEnvState,
+  experimentRunning: boolean,
+): string {
+  switch (state) {
+    case "active":
+      return experimentRunning
+        ? "The experiment is active in this environment"
+        : "The experiment will be active in this environment once started";
+    case "disabled-env":
+      return experimentRunning
+        ? "The environment is disabled for this feature, so the experiment is not active"
+        : "The environment is disabled for this feature, so the experiment will not be active once started";
+    case "disabled-rule":
+      return experimentRunning
+        ? "The experiment is disabled in this environment and is not active"
+        : "The experiment is disabled in this environment and will not be active once started";
+    case "missing":
+      return "The experiment is not present in this environment";
+    default: {
+      const _exhaustiveCheck: never = state;
+      return _exhaustiveCheck;
+    }
+  }
+}
 
 export default function LinkedFeatureFlag({
   info,
@@ -110,14 +137,10 @@ export default function LinkedFeatureFlag({
       env,
       state,
       isActive: state === "active",
-      tooltip:
-        state === "active"
-          ? "The experiment is active in this environment"
-          : state === "disabled-env"
-            ? "The environment is disabled for this feature, so the experiment is not active"
-            : state === "disabled-rule"
-              ? "The experiment is disabled in this environment and is not active"
-              : "The experiment is not present in this environment",
+      tooltip: getEnvironmentStateTooltip(
+        state,
+        experiment.status === "running",
+      ),
     }),
   );
 
