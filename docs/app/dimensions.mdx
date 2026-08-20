@@ -141,7 +141,7 @@ For mixpanel, there is just a single type of dimension that is based on event pr
 
 For simple dimensions, you can just put the event property name directly. For example: `$browser`.
 
-We also support complex javascript expressions. For example:
+We also support complex JavaScript expressions. For example:
 
 ```
 event.properties.$browser.match(/chrome/i) ? "Chrome" : "Other"
@@ -156,7 +156,7 @@ For more complex expressions, you can wrap your code in an anonymous function:
 })()
 ```
 
-You can also reference the experiment start/end date in your javascript expression. For example, if you add a super event called `userRegistrationDate` that stores a unix timestamp, you could make a `New vs Existing` dimension like this:
+You can also reference the experiment start/end date in your JavaScript expression. For example, if you add a super event called `userRegistrationDate` that stores a unix timestamp, you could make a `New vs Existing` dimension like this:
 
 ```
 event.properties.userRegistrationDate >= {{ startDateUnix }} ? "new" : "existing"

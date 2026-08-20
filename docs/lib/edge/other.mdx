@@ -1,6 +1,6 @@
 ---
 title: "GrowthBook Edge App for other providers"
-description: GrowthBook SDK for other edge providers
+description: Use the GrowthBook Edge App pattern on other CDN or edge providers to evaluate flags and rewrite HTML before it reaches the browser.
 sidebarTitle: Other edge providers
 slug: other
 toc_max_heading_level: 5
@@ -314,7 +314,7 @@ If you must delay persisting the `gbuuid` cookie until a user consents, you can 
 
 This will still generate a UUID for the user, but will not persist it. That means, if the user refreshes the page, they will have a new random UUID generated.environment
 
-You have the option to manually persist this cookie at any time, for example when a user grants consent on your cookie banner. All you need to do is fire this custom event from javascript on the rendered page:
+You have the option to manually persist this cookie at any time, for example when a user grants consent on your cookie banner. All you need to do is fire this custom event from JavaScript on the rendered page:
 
 ```js
 document.dispatchEvent(new CustomEvent("growthbookpersist"));

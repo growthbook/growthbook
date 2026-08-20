@@ -1,6 +1,6 @@
 ---
 title: React SDK
-description: GrowthBook SDK for React
+description: Use the GrowthBook React SDK to evaluate feature flags and run A/B tests in React, including client and server components.
 sidebarTitle: React
 slug: react
 toc_max_heading_level: 5
@@ -10,7 +10,7 @@ import { ExternalLink } from "/snippets/ExternalLink.jsx";
 import { SdkResources } from "/snippets/SdkResources.jsx";
 import { SdkSupportedFeatures } from "/snippets/SdkSupportedFeatures.jsx";
 
-This is a thin wrapper on top of the [Javascript Library](/lib/js), so you might want to view those docs first to familiarize yourself with the basic classes and methods.
+This is a thin wrapper on top of the [JavaScript Library](/lib/js), so you might want to view those docs first to familiarize yourself with the basic classes and methods.
 
 This SDK supports both ReactJS and ReactNative environments and both client and server components.
 
@@ -624,7 +624,7 @@ export default function GrowthBookTracking({ data }: { data: TrackingData[] }) {
 }
 ```
 
-The React SDK relies on client-side Context, so for Server Components, you need to import our Javascript SDK `@growthbook/growthbook` instead.
+The React SDK relies on client-side Context, so for Server Components, you need to import our JavaScript SDK `@growthbook/growthbook` instead.
 
 ```tsx
 import { GrowthBook } from "@growthbook/growthbook";
@@ -1031,7 +1031,7 @@ Depending on how you configure feature flags, they may run A/B tests behind the 
 
 Sometimes though, you want to run an inline experiment without going through a feature flag first. For this, you can use either the `useExperiment` hook or the Higher Order Component `withRunExperiment`:
 
-View the [Javascript SDK Docs](/lib/js) for all of the options available for inline experiments
+View the [JavaScript SDK Docs](/lib/js) for all of the options available for inline experiments
 
 #### useExperiment hook
 

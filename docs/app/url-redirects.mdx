@@ -25,7 +25,7 @@ Setting up tests where the redirect URL only varies from the original by the que
 
 ## Implementation
 
-URL Redirect tests require integrating one of our [SDKs](/lib) into your application. Currently, URL Redirect tests are only supported in our [Script Tag](/lib/script-tag), [Javascript](/lib/js), and [ReactJS](/lib/js) SDKs—as well as natively supported in all [Edge SDKs](/lib/edge/cloudflare).
+URL Redirect tests require integrating one of our [SDKs](/lib) into your application. Currently, URL Redirect tests are only supported in our [Script Tag](/lib/script-tag), [JavaScript](/lib/js), and [ReactJS](/lib/js) SDKs—as well as natively supported in all [Edge SDKs](/lib/edge/cloudflare).
 
 Verify URL Redirect tests are enabled for your SDK Connection: Go to **SDK Connections**, select your SDK connection, click **Edit**, and ensure that "Enable URL Redirect experiments" is toggled on.
 
@@ -72,7 +72,7 @@ A small flicker will remain between page and SDK load (which usually happens asy
 
 ### Front-End JavaScript and React SDKs
 
-A more advanced integration involves using our [Javascript](/lib/js) or [ReactJS](/lib/js) client-side SDKs.
+A more advanced integration involves using our [JavaScript](/lib/js) or [ReactJS](/lib/js) client-side SDKs.
 
 Besides the standard implementation described in the SDK docs, there are additional settings to control redirect behavior.
 
@@ -119,7 +119,7 @@ We provide native support for edge redirect tests without screen flickering or t
 
 ### Node.js <Badge color="purple">BETA</Badge>
 
-It is possible to use our [Javascript](/lib/js) SDK to perform redirects on the back-end. You must implement your own `navigate` function.
+It is possible to use our [JavaScript](/lib/js) SDK to perform redirects on the back-end. You must implement your own `navigate` function.
 
 ## Sample Ratio Mismatch (SRM) Warnings on URL Redirect Tests
 

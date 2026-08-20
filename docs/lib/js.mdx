@@ -1,7 +1,7 @@
 ---
-title: Javascript SDK
-description: GrowthBook SDK for Javascript
-sidebarTitle: Javascript
+title: JavaScript SDK
+description: Install the GrowthBook JavaScript SDK to evaluate feature flags and run A/B tests in the browser with vanilla JS or TypeScript.
+sidebarTitle: JavaScript
 slug: js
 toc_max_heading_level: 5
 ---
@@ -418,11 +418,11 @@ function onRouteChange() {
 Visual Editor experiments are enabled by default, but can be disabled with various GrowthBook constructor settings:
 
 - **disableVisualExperiments** - If true, all visual editor experiments will be skipped
-- **disableJsInjection** - If true, any visual editor experiment that injects custom javascript will be skipped.
+- **disableJsInjection** - If true, any visual editor experiment that injects custom JavaScript will be skipped.
 
 #### Content Security Policy
 
-If you plan to use the Custom Javascript feature of the Visual Editor and you have a Content Security Policy on your site, there are two options:
+If you plan to use the Custom JavaScript feature of the Visual Editor and you have a Content Security Policy on your site, there are two options:
 
 1. Enable `unsafe-inline` script-src
 2. OR generate a unique nonce value, add it to your script-src directive, and pass it into the GrowthBook constructor as `jsInjectionNonce`

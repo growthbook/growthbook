@@ -1,6 +1,6 @@
 ---
 title: Fastly Compute Edge App & SDK
-description: GrowthBook SDK for Fastly Compute
+description: Evaluate GrowthBook feature flags and Visual Editor experiments at the edge on Fastly Compute to cut flicker before HTML ships.
 sidebarTitle: Fastly Compute
 slug: fastly
 toc_max_heading_level: 5
@@ -334,7 +334,7 @@ If you must delay persisting the `gbuuid` cookie until a user consents, you can 
 
 This will still generate a UUID for the user, but will not persist it. That means, if the user refreshes the page, they will have a new random UUID generated.environment
 
-You have the option to manually persist this cookie at any time, for example when a user grants consent on your cookie banner. All you need to do is fire this custom event from javascript on the rendered page:
+You have the option to manually persist this cookie at any time, for example when a user grants consent on your cookie banner. All you need to do is fire this custom event from JavaScript on the rendered page:
 
 ```js
 document.dispatchEvent(new CustomEvent("growthbookpersist"));
