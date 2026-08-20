@@ -3,12 +3,14 @@ on:
   pull_request:
     paths:
       - "docs/**"
+      - "scripts/check-docs-frontmatter.mjs"
       - ".github/workflows/docs.yml"
   push:
     branches:
       - "main"
     paths:
       - "docs/**"
+      - "scripts/check-docs-frontmatter.mjs"
       - ".github/workflows/docs.yml"
 jobs:
   # Mintlify hosts/deploys docs via their GitHub App; this job only validates content.
@@ -24,6 +26,9 @@ jobs:
           node-version: "24"
           # Root package.json declares pnpm; this job only needs npm for the Mintlify CLI.
           package-manager-cache: false
+
+      - name: Check YAML frontmatter quoting
+        run: node scripts/check-docs-frontmatter.mjs
 
       - name: Install Mintlify CLI
         run: npm install -g mint
