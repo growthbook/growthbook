@@ -1,4 +1,4 @@
-import type { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface, FeatureValueType } from "shared/types/feature";
 import type { OrganizationSettings } from "shared/types/organization";
 import type { ProjectInterface } from "../validators/projects";
 
@@ -68,14 +68,37 @@ export function managedFeatureKeyCandidate({
   return attempt === 0 ? base : `${base}-${attempt + 1}`;
 }
 
-/** Creation collects no values, so each variation starts serving its own key. */
+/** Creation collects no values, so each variation starts with a type-appropriate seed. */
 export function seedManagedVariationValues(
   variations: { id: string; key?: string }[],
+  valueType: FeatureValueType = "string",
 ): { variationId: string; value: string }[] {
   return variations.map((v, i) => ({
     variationId: v.id,
-    value: v.key || String(i),
+    value: seedValueForType(valueType, v.key, i),
   }));
+}
+
+/**
+ * A starting value the flag's field will accept for the chosen type. Boolean
+ * seeds control off and everything else on — a truthiness test on the variation
+ * key would make every value true and serve one value to everyone.
+ */
+function seedValueForType(
+  valueType: FeatureValueType,
+  key: string | undefined,
+  index: number,
+): string {
+  switch (valueType) {
+    case "boolean":
+      return index === 0 ? "false" : "true";
+    case "number":
+      return String(index);
+    case "json":
+      return `{\n  "value": ${JSON.stringify(key || String(index))}\n}`;
+    case "string":
+      return key || String(index);
+  }
 }
 
 /**
@@ -86,15 +109,18 @@ export function copyManagedVariationValues({
   sourceValues,
   sourceVariations,
   targetVariations,
+  valueType = "string",
 }: {
   sourceValues: { variationId: string; value: string }[];
   sourceVariations: { id: string }[];
   targetVariations: { id: string; key?: string }[];
+  /** The type being copied, so an uncovered position seeds to match it. */
+  valueType?: FeatureValueType;
 }): { variationId: string; value: string }[] {
   const byIndex = sourceVariations.map(
     (sv) => sourceValues.find((v) => v.variationId === sv.id)?.value,
   );
-  const seeded = seedManagedVariationValues(targetVariations);
+  const seeded = seedManagedVariationValues(targetVariations, valueType);
   return targetVariations.map((v, i) => ({
     variationId: v.id,
     value: byIndex[i] ?? seeded[i].value,

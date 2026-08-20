@@ -1182,7 +1182,10 @@ export async function postExperiments(
   req: AuthRequest<
     // A creation-time instruction, not a stored field — ownership lives on the
     // Feature Flag it creates.
-    Partial<ExperimentInterfaceStringDates> & { managedFlag?: boolean },
+    Partial<ExperimentInterfaceStringDates> & {
+      managedFlag?: boolean;
+      managedFlagValueType?: FeatureValueType;
+    },
     unknown,
     {
       allowDuplicateTrackingKey?: boolean;
@@ -1534,6 +1537,7 @@ export async function postExperiments(
           context,
           experiment,
           sourceExperiment: sourceManaged ? originalExperiment : null,
+          valueType: data.managedFlagValueType,
           eventAudit: res.locals.eventAudit,
           audit: req.audit,
         });

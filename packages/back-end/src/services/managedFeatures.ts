@@ -536,6 +536,7 @@ async function readManagedValuesForDuplicate({
           sourceValues: info.values,
           sourceVariations: sourceExperiment.variations,
           targetVariations: targetExperiment.variations,
+          valueType: before.valueType,
         }),
       };
     }
@@ -616,18 +617,21 @@ export async function createManagedFlagForNewExperiment({
   context,
   experiment,
   sourceExperiment,
+  valueType = "string",
   eventAudit,
   audit,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
   sourceExperiment: ExperimentInterface | null;
+  /** Chosen at creation. A duplicate inherits its source's type instead. */
+  valueType?: FeatureValueType;
   eventAudit: EventUser;
   audit: (data: AuditInterfaceInput) => Promise<void>;
 }): Promise<void> {
   const seeded = {
-    valueType: "string" as FeatureValueType,
-    variations: seedManagedVariationValues(experiment.variations),
+    valueType,
+    variations: seedManagedVariationValues(experiment.variations, valueType),
     sparse: false,
   };
   const copied = sourceExperiment

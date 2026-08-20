@@ -176,6 +176,43 @@ describe("seedManagedVariationValues", () => {
       { variationId: "v1", value: "1" },
     ]);
   });
+
+  const threeVariations = [
+    { id: "v0", key: "control" },
+    { id: "v1", key: "treatment" },
+    { id: "v2", key: "treatment-2" },
+  ];
+
+  it("seeds booleans with control off and the rest on", () => {
+    // A key-truthiness test would make every value true and serve one value to
+    // everyone, which is not an experiment.
+    expect(
+      seedManagedVariationValues(threeVariations, "boolean").map(
+        (v) => v.value,
+      ),
+    ).toEqual(["false", "true", "true"]);
+  });
+
+  it("seeds numbers by position", () => {
+    expect(
+      seedManagedVariationValues(threeVariations, "number").map((v) => v.value),
+    ).toEqual(["0", "1", "2"]);
+  });
+
+  it("seeds JSON the value field will parse", () => {
+    const seeded = seedManagedVariationValues(threeVariations, "json");
+    expect(seeded.map((v) => JSON.parse(v.value))).toEqual([
+      { value: "control" },
+      { value: "treatment" },
+      { value: "treatment-2" },
+    ]);
+  });
+
+  it("keeps the key for the default string type", () => {
+    expect(
+      seedManagedVariationValues(threeVariations, "string").map((v) => v.value),
+    ).toEqual(["control", "treatment", "treatment-2"]);
+  });
 });
 
 describe("copyManagedVariationValues", () => {
