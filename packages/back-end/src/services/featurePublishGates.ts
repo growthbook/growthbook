@@ -80,6 +80,107 @@ export type FeatureMergePlan = {
   rebaseBlockReason: string | null;
 };
 
+export type RevisionApprovalState = {
+  requiresReview: boolean;
+  uncoveredApprovers: string[];
+  hasCoveringApproval: boolean;
+  requiredApproverTeams: {
+    satisfied: boolean;
+    unmet: { id: string; name: string }[][];
+  };
+  /** Approved, covered, and every named team has signed. */
+  satisfied: boolean;
+};
+
+// The approval half of a publish decision, without the merge or ramp lookups a
+// full plan needs. Every publish flow — manual or automatic — asks this.
+export function assessRevisionApproval({
+  context,
+  feature,
+  revision,
+  effectiveRevision,
+  filledLive,
+  base,
+  environmentIds,
+  liveRampScheduleEnvs,
+}: {
+  context: Context;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  effectiveRevision: FeatureRevisionInterface;
+  filledLive: FeatureRevisionInterface;
+  base: FeatureRevisionInterface;
+  environmentIds: string[];
+  liveRampScheduleEnvs?: Map<string, string[] | "all">;
+}): RevisionApprovalState {
+  const reviewRequirement = getRevisionReviewRequirement({
+    feature,
+    baseRevision: filledLive,
+    revision: effectiveRevision,
+    allEnvironments: environmentIds,
+    settings: context.org.settings,
+    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
+    liveRampScheduleEnvs,
+  });
+  const requiresReview = reviewRequirement.required;
+
+  // Re-check standing approvals against what the draft changes NOW, using each
+  // approver's current permissions. Status was materialized at approval time.
+  const reviewFootprint = getReviewAuthorityFootprint({
+    revision: effectiveRevision,
+    bases: [filledLive, base],
+    allEnvironments: environmentIds,
+    settings: context.org.settings,
+    governingProjects: governingReviewProjectsForFeature({
+      feature,
+      revision: effectiveRevision,
+      settings: context.org.settings,
+    }),
+    liveRampScheduleEnvs,
+  });
+  const { hasCoveringApproval, uncoveredApprovers } = assessApprovalCoverage({
+    org: context.org,
+    teams: context.teams,
+    model: "feature",
+    projects: feature.project ? [feature.project] : [],
+    footprint: reviewFootprint,
+    approvers: (revision.reviews ?? [])
+      .filter((r) => r.status === "approved")
+      .map((r) => r.userId)
+      .filter((id): id is string => !!id)
+      .map((id) => ({
+        id,
+        roleInfo: context.org.members.find((m) => m.id === id) ?? null,
+      })),
+  });
+
+  const coveringApproverIds = (revision.reviews ?? [])
+    .filter((r) => r.status === "approved")
+    .map((r) => r.userId)
+    .filter((id): id is string => !!id)
+    .filter((id) => !uncoveredApprovers.includes(id));
+  const requiredTeams = assessRequiredApproverTeams({
+    rules: reviewRequirement.rules,
+    coveringApproverIds,
+    org: context.org,
+    teams: context.teams,
+  });
+
+  const satisfied =
+    !requiresReview ||
+    (revision.status === "approved" &&
+      hasCoveringApproval &&
+      requiredTeams.satisfied);
+
+  return {
+    requiresReview,
+    uncoveredApprovers,
+    hasCoveringApproval,
+    requiredApproverTeams: requiredTeams,
+    satisfied,
+  };
+}
+
 export async function planFeatureRevisionMerge({
   context,
   feature,
@@ -163,57 +264,20 @@ export async function planFeatureRevisionMerge({
     }
   }
 
-  const reviewRequirement = getRevisionReviewRequirement({
+  const {
+    requiresReview,
+    uncoveredApprovers,
+    hasCoveringApproval,
+    requiredApproverTeams: requiredTeams,
+  } = assessRevisionApproval({
+    context,
     feature,
-    baseRevision: filledLive,
-    revision: effectiveRevision,
-    allEnvironments: environmentIds,
-    settings: context.org.settings,
-    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
+    revision,
+    effectiveRevision,
+    filledLive,
+    base,
+    environmentIds,
     liveRampScheduleEnvs,
-  });
-  const requiresReview = reviewRequirement.required;
-
-  // Re-check standing approvals against what the draft changes NOW, using each
-  // approver's current permissions. Status was materialized at approval time.
-  const reviewFootprint = getReviewAuthorityFootprint({
-    revision: effectiveRevision,
-    bases: [filledLive, base],
-    allEnvironments: environmentIds,
-    settings: context.org.settings,
-    governingProjects: governingReviewProjectsForFeature({
-      feature,
-      revision: effectiveRevision,
-      settings: context.org.settings,
-    }),
-    liveRampScheduleEnvs,
-  });
-  const { hasCoveringApproval, uncoveredApprovers } = assessApprovalCoverage({
-    org: context.org,
-    teams: context.teams,
-    model: "feature",
-    projects: feature.project ? [feature.project] : [],
-    footprint: reviewFootprint,
-    approvers: (revision.reviews ?? [])
-      .filter((r) => r.status === "approved")
-      .map((r) => r.userId)
-      .filter((id): id is string => !!id)
-      .map((id) => ({
-        id,
-        roleInfo: context.org.members.find((m) => m.id === id) ?? null,
-      })),
-  });
-
-  const coveringApproverIds = (revision.reviews ?? [])
-    .filter((r) => r.status === "approved")
-    .map((r) => r.userId)
-    .filter((id): id is string => !!id)
-    .filter((id) => !uncoveredApprovers.includes(id));
-  const requiredTeams = assessRequiredApproverTeams({
-    rules: reviewRequirement.rules,
-    coveringApproverIds,
-    org: context.org,
-    teams: context.teams,
   });
 
   const hasLinkedPendingRamp =

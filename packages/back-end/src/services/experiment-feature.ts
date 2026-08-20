@@ -10,7 +10,6 @@ import {
   mergeResultHasChanges,
   reconcileMergeBaselines,
   resetReviewOnChange,
-  checkIfRevisionNeedsReview,
 } from "shared/util";
 import { isVariationWeightsSumValid } from "shared/experiments";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -27,6 +26,7 @@ import {
 } from "shared/validators";
 import { ApiReqContext } from "back-end/types/api";
 import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
+import { assessRevisionApproval } from "back-end/src/services/featurePublishGates";
 import {
   editFeatureRules,
   getFeature,
@@ -383,6 +383,26 @@ type ResolvedDraft = { featureId: string; revisionVersion: number };
 // followed by the same publish governance. `rebaseRequired` is only set for
 // the mergeable-but-blocked case (org requires rebase-before-publish or the
 // approval went stale) — true conflicts are reported via `mergeResult`.
+// An autostart carries no ramp overlay, so the live revision is both the merge
+// baseline and the review baseline.
+function assessRevisionApprovalForAutoPublish(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  live: FeatureRevisionInterface,
+  base: FeatureRevisionInterface,
+) {
+  return assessRevisionApproval({
+    context,
+    feature,
+    revision,
+    effectiveRevision: revision,
+    filledLive: { ...live, ...liveRevisionFromFeature(live, feature) },
+    base,
+    environmentIds: context.environments,
+  });
+}
+
 function mergeDraftForAutoPublish(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -485,18 +505,26 @@ export async function publishPendingFeatureDraftsForExperiment(
       feature,
       revision,
     });
-    const requiresReview = checkIfRevisionNeedsReview({
+    // The same question the publish button and the REST endpoint ask, so an
+    // autostart can never land a draft either of those would refuse.
+    const approval = assessRevisionApprovalForAutoPublish(
+      context,
       feature,
-      baseRevision: base,
       revision,
-      allEnvironments: context.environments,
-      settings: context.org.settings,
-      requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
-    });
-    if (requiresReview && revision.status !== "approved") {
+      live,
+      base,
+    );
+    if (!approval.satisfied) {
       logger.warn(
-        { experimentId: experiment.id, featureId, revisionVersion },
-        "Cannot auto-publish pending feature draft: approval required but not yet approved",
+        {
+          experimentId: experiment.id,
+          featureId,
+          revisionVersion,
+          status: revision.status,
+          hasCoveringApproval: approval.hasCoveringApproval,
+          requiredTeamsSatisfied: approval.requiredApproverTeams.satisfied,
+        },
+        "Cannot auto-publish pending feature draft: approval requirements not met",
       );
       failed.push({ featureId, revisionVersion, reason: "needs-approval" });
       continue;
@@ -716,23 +744,29 @@ export async function publishPendingFeatureDraftsForContextualBandit(
       continue;
     }
 
-    const { base } = await getLiveAndBaseRevisionsForFeature({
+    const { live, base } = await getLiveAndBaseRevisionsForFeature({
       context,
       feature,
       revision,
     });
-    const requiresReview = checkIfRevisionNeedsReview({
+    const approval = assessRevisionApprovalForAutoPublish(
+      context,
       feature,
-      baseRevision: base,
       revision,
-      allEnvironments: context.environments,
-      settings: context.org.settings,
-      requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
-    });
-    if (requiresReview && revision.status !== "approved") {
+      live,
+      base,
+    );
+    if (!approval.satisfied) {
       logger.warn(
-        { contextualBanditId: cb.id, featureId, revisionVersion },
-        "Cannot auto-publish pending feature draft: approval required but not yet approved",
+        {
+          contextualBanditId: cb.id,
+          featureId,
+          revisionVersion,
+          status: revision.status,
+          hasCoveringApproval: approval.hasCoveringApproval,
+          requiredTeamsSatisfied: approval.requiredApproverTeams.satisfied,
+        },
+        "Cannot auto-publish pending feature draft: approval requirements not met",
       );
       failed.push({ featureId, revisionVersion, reason: "needs-approval" });
       continue;
