@@ -1,8 +1,9 @@
 import type { Response } from "express";
+import type { SkillSummary } from "shared/ai-chat";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { postGeneralAgentChat } from "back-end/src/agent/general-agent";
 import { makeListChats } from "back-end/src/routers/utils/chat-controllers";
-import { getAllSkills, type SkillKind } from "back-end/src/agent/skills";
+import { getAllSkills } from "back-end/src/agent/skills";
 
 // The chat handler itself
 export const postChat = postGeneralAgentChat;
@@ -17,20 +18,12 @@ export {
 
 export const listChats = makeListChats("general");
 
-export interface SkillSummary {
-  name: string;
-  description: string;
-  kind: SkillKind;
-  group?: string;
-}
-
 /**
  * The skill index, for the composer's slash-command menu.
  *
- * Deliberately omits each skill's `body`: those are large prompt payloads the
- * UI has no use for, and the agent loads them itself. The list is the same for
- * everyone in the deploy — it describes the product, not the org's data — so
- * session auth is gate enough.
+ * `SkillSummary` lives in `shared` so the composer's hook consumes exactly this
+ * shape. The list is the same for everyone in the deploy — it describes the
+ * product, not the org's data — so session auth is gate enough.
  */
 export const listSkills = async (
   req: AuthRequest,

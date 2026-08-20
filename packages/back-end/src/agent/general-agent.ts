@@ -5,6 +5,7 @@ import { aiTool } from "back-end/src/enterprise/services/ai";
 import {
   createAgentHandler,
   type AgentConfig,
+  type SkillLoadResult,
 } from "back-end/src/enterprise/services/agent-handler";
 import { AWAITING_CONFIRMATION_RESULT } from "back-end/src/enterprise/services/stream-processor";
 import {
@@ -405,6 +406,22 @@ const LOAD_SKILL_DESCRIPTION =
   "body } on a hit, or { status: 'not_found', availableSkills } if the " +
   "name doesn't match — in which case retry with a valid name.";
 
+/**
+ * The `loadSkill` hit result, built in one place so a call the model makes and
+ * one seeded from a slash command are byte-identical — the model reads both in
+ * the same transcript, and the shape is what `LOAD_SKILL_DESCRIPTION` promises.
+ */
+function loadSkillResult(name: string): SkillLoadResult | undefined {
+  const skill = getSkillByName(name);
+  if (!skill) return undefined;
+  return {
+    status: "ok",
+    name: skill.name,
+    description: skill.description,
+    body: skill.body,
+  };
+}
+
 // --- askUser ---------------------------------------------------------------
 
 const askUserOptionSchema = z.object({
@@ -475,7 +492,7 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
   buildSystemPrompt: async () => buildGeneralAgentSystemPrompt(),
 
   // Slash commands resolve against the same index the menu is built from.
-  resolveSkill: (name) => getSkillByName(name)?.body,
+  resolveSkill: loadSkillResult,
 
   buildTools: (ctx, buffer, _params, emit) => {
     const stripQueryStrings = (
@@ -494,20 +511,15 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
         description: LOAD_SKILL_DESCRIPTION,
         inputSchema: loadSkillInputSchema,
         execute: async (input) => {
-          const skill = getSkillByName(input.name);
-          if (!skill) {
+          const result = loadSkillResult(input.name);
+          if (!result) {
             return {
               status: "not_found" as const,
               message: `No skill named "${input.name}". Pick one from availableSkills and retry.`,
               availableSkills: getSkillNames(),
             };
           }
-          return {
-            status: "ok" as const,
-            name: skill.name,
-            description: skill.description,
-            body: skill.body,
-          };
+          return result;
         },
       }),
 

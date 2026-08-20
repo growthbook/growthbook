@@ -1,4 +1,5 @@
 import Mention from "@tiptap/extension-mention";
+import type { SkillKind } from "shared/ai-chat";
 
 export const SKILL_COMMAND_NAME = "skillCommand";
 
@@ -8,8 +9,7 @@ export interface SkillItem {
   id: string;
   label: string;
   description: string;
-  /** Domain routers are the browsable entry points; leaves sit under them. */
-  kind: "domain" | "leaf";
+  kind: SkillKind;
   /** Parent domain for leaf skills; equals `id` for domain routers. */
   group?: string;
 }

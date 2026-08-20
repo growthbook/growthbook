@@ -1,13 +1,7 @@
 import { useMemo } from "react";
+import type { SkillSummary } from "shared/ai-chat";
 import useApi from "@/hooks/useApi";
 import type { SkillItem } from "./extensions/skillCommand";
-
-interface SkillSummary {
-  name: string;
-  description: string;
-  kind: "domain" | "leaf";
-  group?: string;
-}
 
 /**
  * Skills offered by the composer's `/` menu.

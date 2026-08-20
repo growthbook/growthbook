@@ -56,6 +56,18 @@ export {
 // Public types
 // =============================================================================
 
+/**
+ * A successful `loadSkill` result, as the agent's own tool returns it. Declared
+ * here because `seedSkillLoad` records it verbatim; the agent that owns the
+ * tool is what builds it, so the two can't drift.
+ */
+export interface SkillLoadResult {
+  status: "ok";
+  name: string;
+  description: string;
+  body: string;
+}
+
 export interface AgentConfig<TParams = unknown> {
   /** Unique key that scopes conversations to this agent (e.g. "product-analytics"). */
   agentType: string;
@@ -93,11 +105,14 @@ export interface AgentConfig<TParams = unknown> {
   ) => ToolSet;
 
   /**
-   * Resolves a slash-command skill name to its body. Agents without skills
-   * (e.g. PA chat) leave this unset, which makes any `skill` on the body a
-   * no-op rather than an error.
+   * Resolves a slash-command skill name to the `loadSkill` result to seed.
+   * Returning the tool's own result shape rather than a bare body is what keeps
+   * a seeded call indistinguishable from one the model made itself — the model
+   * is told the turn may open with completed `loadSkill` calls, so both paths
+   * have to read the same way. Agents without skills (e.g. PA chat) leave this
+   * unset, which makes any `skill` on the body a no-op rather than an error.
    */
-  resolveSkill?: (name: string) => string | undefined;
+  resolveSkill?: (name: string) => SkillLoadResult | undefined;
 
   /**
    * Checks the user's @-mentions against what this turn can actually use,
@@ -572,10 +587,10 @@ function seedSkillLoad(
   buffer: ConversationBuffer,
   emit: AgentEmit,
   name: string,
-  resolveSkill: (name: string) => string | undefined,
+  resolveSkill: (name: string) => SkillLoadResult | undefined,
 ): void {
-  const body = resolveSkill(name);
-  if (!body) {
+  const result = resolveSkill(name);
+  if (!result) {
     logger.warn(`Ignoring unknown slash-command skill "${name}"`);
     return;
   }
@@ -592,7 +607,7 @@ function seedSkillLoad(
     toolName: "loadSkill",
     toolCallId,
     input: serializeUnknownForSSE(args),
-    output: serializeUnknownForSSE(body),
+    output: serializeUnknownForSSE(result),
   });
 
   buffer.appendMessages([
@@ -611,7 +626,7 @@ function seedSkillLoad(
           type: "tool-result",
           toolCallId,
           toolName: "loadSkill",
-          result: stringifyToolResultForStorage(body),
+          result: stringifyToolResultForStorage(result),
         },
       ],
     },

@@ -184,6 +184,24 @@ export type AIChatMention = {
   stale?: boolean;
 };
 
+/** Domain routers are the browsable entry points; leaves sit under them. */
+export type SkillKind = "domain" | "leaf";
+
+/**
+ * One agent skill as the `/agent/skills` index describes it — the wire shape
+ * behind the composer's `/` command menu.
+ *
+ * Deliberately omits the skill's `body`: those are large prompt payloads the UI
+ * has no use for, and the agent loads them itself.
+ */
+export interface SkillSummary {
+  name: string;
+  description: string;
+  kind: SkillKind;
+  /** Parent domain name for leaf skills; equals `name` for domain routers. */
+  group?: string;
+}
+
 export type AIChatUserMessage = {
   role: "user";
   id: string;
