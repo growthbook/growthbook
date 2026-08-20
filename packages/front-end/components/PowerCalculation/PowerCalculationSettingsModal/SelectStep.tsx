@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
+  getFactMetricPrimaryFactTableId,
   isBinomialMetric,
   isFactMetric,
   quantileMetricType,
@@ -164,8 +165,9 @@ export const SelectStep = ({
         // drop if does not have user id type
         const userIdTypes = !isFactMetric(m)
           ? m.userIdTypes
-          : appFactTables.find((ft) => ft.id === m.numerator.factTableId)
-              ?.userIdTypes;
+          : appFactTables.find(
+              (ft) => ft.id === getFactMetricPrimaryFactTableId(m),
+            )?.userIdTypes;
         if (
           selectedIdType &&
           userIdTypes &&

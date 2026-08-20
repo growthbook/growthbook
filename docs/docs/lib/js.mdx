@@ -42,10 +42,11 @@ const gb = new GrowthBook({
   },
   // Only required for A/B testing
   // Called every time a user is put into an experiment
-  trackingCallback: (experiment, result) => {
+  trackingCallback: (experiment, result, user) => {
     console.log("Experiment Viewed", {
       experimentId: experiment.key,
       variationId: result.key,
+      attributes: user?.attributes,
     });
   },
 });
@@ -307,8 +308,8 @@ configureCache({
   cacheKey: "gbFeaturesCache",
   // Consider features stale after this much time (60 seconds default)
   staleTTL: 1000 * 60,
-  // Cached features older than this will be ignored (24 hours default)
-  maxAge: 1000 * 60 * 60 * 24,
+  // Cached features older than this will be ignored (4 hours default)
+  maxAge: 1000 * 60 * 60 * 4,
   // For Remote Eval only - limit the number of cache entries (~1 entry per user)
   maxEntries: 10,
   // When `false`, we add a `visibilitychange` listener to disable SSE when the page is idle
@@ -373,15 +374,18 @@ In order to run A/B tests, you need to set up a tracking callback function. This
 const gb = new GrowthBook({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
-  trackingCallback: (experiment, result) => {
+  trackingCallback: (experiment, result, user) => {
     // Example using Segment
     analytics.track("Experiment Viewed", {
       experimentId: experiment.key,
       variationId: result.key,
+      attributes: user?.attributes,
     });
   },
 });
 ```
+
+Starting in version 1.7.0, the callback receives a third `user` argument: a `TrackingUserContext` containing the `attributes` and optional `url` used when the experiment was evaluated. We recommend recording attributes from this argument so exposure events consistently reflect the attributes GrowthBook used for targeting and assignment.
 
 This same tracking callback is used for both feature flag experiments and Visual Editor experiments.
 
@@ -461,11 +465,13 @@ Sometimes, your analytics tracker is loaded after GrowthBook. In that case, you 
 
 There are some scenarios where you need to queue up tracking calls in one GrowthBook instance and fire them in another. For example, if your analytics tracker is only available on the front-end, but you are running experiments in Node.js.
 
-Export the queue tracking calls with the `getDeferredTrackingCalls()` method. The result is a serializable JSON object:
+Export the queued tracking calls with the `getDeferredTrackingCalls()` method. The result is a serializable JSON object containing the experiment, result, and `user` context captured during evaluation:
 
 ```ts
 const tracks = gb.getDeferredTrackingCalls();
 ```
+
+When these calls are serialized and sent between a server and client, the captured `user` context is passed as the third argument to the tracking callback. Deferred calls created by SDK versions earlier than 1.7.0 may not include `user`.
 
 Then, import with `setDeferredTrackingCalls`. This does not fire them automatically. You must call `fireDeferredTrackingCalls` after.
 

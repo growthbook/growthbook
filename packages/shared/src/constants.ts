@@ -162,6 +162,7 @@ export const SAFE_ROLLOUT_VARIATIONS = [
 
 export const UNSUPPORTED_METRIC_EXPLORER_TYPES: readonly FactMetricType[] = [
   "quantile",
+  "funnel",
 ] as const;
 
 export const MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID = "ch_events";
@@ -223,6 +224,7 @@ export const entityEvents = {
   approvalFlow: ["create", "update", "delete"],
   revision: ["create", "update", "delete"],
   aiPrompt: ["create", "update", "delete"],
+  aiCredential: ["create", "update", "delete"],
   attribute: ["create", "update", "delete"],
   experiment: [
     "create",

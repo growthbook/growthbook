@@ -1,3 +1,7 @@
+import {
+  canEnableEnvironmentOnCreate,
+  NO_ENVIRONMENT_BINDING,
+} from "shared/permissions";
 import { useForm, FormProvider } from "react-hook-form";
 import omit from "lodash/omit";
 import {
@@ -5,7 +9,7 @@ import {
   FeatureInterface,
   FeatureValueType,
 } from "shared/types/feature";
-import React, { ReactElement, useMemo, useState } from "react";
+import React, { ReactElement, useEffect, useMemo, useState } from "react";
 import {
   validateFeatureValue,
   getConfigBackingKey,
@@ -34,11 +38,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useWatching } from "@/services/WatchProvider";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
-import {
-  filterCustomFieldsForSectionAndProject,
-  useCustomFields,
-} from "@/hooks/useCustomFields";
-import { useUser } from "@/services/UserContext";
+import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
@@ -77,9 +77,13 @@ const genEnvironmentSettings = ({
   const envSettings: Record<string, FeatureEnvironment> = {};
 
   environments.forEach((e) => {
-    const canPublish = permissions.canPublishFeature({ project }, [e.id]);
-    const defaultEnabled = canPublish ? (e.defaultState ?? true) : false;
-    const enabled = canPublish
+    // The same rule the checkbox and the create endpoints apply: a flag that
+    // starts ENABLED in an environment is a publish there, so create authority
+    // alone must not default it on — the checkbox renders disabled, leaving the
+    // user unable to untick a default they never chose, and submit answers 403.
+    const mayEnable = canEnableEnvironmentOnCreate(permissions, project, e.id);
+    const defaultEnabled = mayEnable ? (e.defaultState ?? true) : false;
+    const enabled = mayEnable
       ? (featureToDuplicate?.environmentSettings?.[e.id]?.enabled ??
         defaultEnabled)
       : false;
@@ -95,13 +99,11 @@ const genFormDefaultValues = ({
   permissions: permissionsUtil,
   featureToDuplicate,
   project,
-  customFields,
 }: {
   environments: ReturnType<typeof useEnvironments>;
   permissions: ReturnType<typeof usePermissionsUtil>;
   featureToDuplicate?: FeatureInterface;
   project: string;
-  customFields?: ReturnType<typeof useCustomFields>;
 }): Pick<
   FeatureInterface,
   | "valueType"
@@ -124,14 +126,7 @@ const genFormDefaultValues = ({
     permissions: permissionsUtil,
     project,
   });
-  const customFieldValues = customFields
-    ? Object.fromEntries(
-        customFields.map((field) => [
-          field.id,
-          featureToDuplicate?.customFields?.[field.id] ?? field.defaultValue,
-        ]),
-      )
-    : {};
+  const customFieldValues = featureToDuplicate?.customFields ?? {};
 
   return featureToDuplicate
     ? {
@@ -183,50 +178,38 @@ export default function FeatureModal({
   const environments = useEnvironments();
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
-  const { hasCommercialFeature } = useUser();
   const { requireProjectForFeatures } = useOrgSettings();
-
-  const allCustomFields = useCustomFields();
-  const initialCustomFields = filterCustomFieldsForSectionAndProject(
-    allCustomFields,
-    "feature",
-    project,
-  );
 
   const defaultValues = genFormDefaultValues({
     environments,
     permissions: permissionsUtil,
     featureToDuplicate,
     project,
-    customFields: hasCommercialFeature("custom-metadata")
-      ? initialCustomFields
-      : undefined,
   });
 
   const [showDescription, setShowDescription] = useState(
     !!defaultValues.description?.length,
   );
   const [showTags, setShowTags] = useState(!!defaultValues.tags?.length);
-  // The default value is rarely changed at creation time (it falls back to the
-  // type default / bare config), so it's progressively disclosed behind a link.
-  const [showDefaultValue, setShowDefaultValue] = useState(false);
+  const [showConfigDefaultValue, setShowConfigDefaultValue] = useState(false);
 
   const form = useForm({ defaultValues });
 
   const projectOptions = useProjectOptions(
     (project) =>
-      permissionsUtil.canCreateFeature({ project }) &&
-      permissionsUtil.canManageFeatureDrafts({ project }),
+      permissionsUtil.canCreateFeature({ project }, NO_ENVIRONMENT_BINDING),
     project ? [project] : [],
   );
   const canCreateWithoutProject =
     !requireProjectForFeatures && permissionsUtil.canViewFeatureModal();
   const selectedProject = form.watch("project");
-  const customFields = filterCustomFieldsForSectionAndProject(
-    allCustomFields,
-    "feature",
-    selectedProject,
-  );
+  const { availableFields: customFields, value: customFieldValues } =
+    useReconciledCustomFields({
+      section: "feature",
+      project: selectedProject,
+      value: form.watch("customFields"),
+      setValue: (value) => form.setValue("customFields", value),
+    });
   const { projectId: demoProjectId } = useDemoDataSourceProject();
   const creatingInDemoProject =
     !!demoProjectId && selectedProject === demoProjectId;
@@ -238,6 +221,27 @@ export default function FeatureModal({
 
   const valueType = form.watch("valueType") as FeatureValueType;
   const environmentSettings = form.watch("environmentSettings");
+
+  // Changing the project changes which environments this user may enable —
+  // toggles switched on under the old project would otherwise sit enabled but
+  // uneditable (the checkbox disables) and 403 on submit. Force any environment
+  // the new project's rule refuses back off.
+  useEffect(() => {
+    const current = form.getValues("environmentSettings");
+    let changed = false;
+    const next = { ...current };
+    for (const envId of Object.keys(next)) {
+      if (
+        next[envId]?.enabled &&
+        !canEnableEnvironmentOnCreate(permissionsUtil, selectedProject, envId)
+      ) {
+        next[envId] = { ...next[envId], enabled: false };
+        changed = true;
+      }
+    }
+    if (changed) form.setValue("environmentSettings", next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProject]);
 
   // "config" is a UI authoring type: stored as valueType "json" but the default
   // value must be backed by a config. Tracked separately from the stored type.
@@ -282,16 +286,23 @@ export default function FeatureModal({
   let ctaEnabled = true;
   let disabledMessage: string | undefined;
 
+  // Create authority, not draft authority: this modal creates and publishes in
+  // one step, and a flag that enables no environment reaches no SDK. Enabling
+  // one is gated per environment by EnvironmentSelect.
   if (
-    !permissionsUtil.canManageFeatureDrafts({
-      project: featureToDuplicate?.project ?? selectedProject,
-    })
+    // The project the form will actually create in — duplicating into a different
+    // project is a create THERE, so the source feature's project is the wrong
+    // question.
+    !permissionsUtil.canCreateFeature(
+      { project: form.watch("project") ?? selectedProject },
+      NO_ENVIRONMENT_BINDING,
+    )
   ) {
     ctaEnabled = false;
     disabledMessage =
       !selectedProject && projectOptions.length > 0
         ? "Select a project to continue."
-        : "You don't have permission to create feature flag drafts.";
+        : "You don't have permission to create Feature Flags.";
   }
 
   return (
@@ -318,7 +329,7 @@ export default function FeatureModal({
 
         // A "config" flag must actually pick a base config.
         if (configType && !baseConfigKey) {
-          throw new Error("Select a base config for this config flag");
+          throw new Error("Select a base Config for this Feature Flag");
         }
 
         // When duplicating, skip JSON schema validation since the value is
@@ -464,11 +475,11 @@ export default function FeatureModal({
           configType &&
           eligibleBaseConfigs.length === 0 && (
             <Callout status="info" mb="3">
-              No configs available in this project yet.{" "}
+              No Configs available in this project yet.{" "}
               <Link href="/configs" target="_blank">
-                Create a config
+                Create a Config
               </Link>{" "}
-              to back this flag.
+              to back this Feature Flag.
             </Callout>
           )}
 
@@ -478,7 +489,7 @@ export default function FeatureModal({
             <SelectField
               label="Config"
               value={baseConfigKey ?? ""}
-              placeholder="Choose a config..."
+              placeholder="Choose a Config..."
               options={baseConfigOptions}
               formatOptionLabel={(option, meta) => {
                 const depth = (option as { depth?: number }).depth ?? 0;
@@ -520,8 +531,8 @@ export default function FeatureModal({
               required
               helpText={
                 <>
-                  The config that backs this flag. The default value and any
-                  rules override it with a patch.{" "}
+                  The Config that backs this Feature Flag. The default value and
+                  any rules override it with a patch.{" "}
                   <strong>Cannot be changed later!</strong>
                 </>
               }
@@ -533,62 +544,77 @@ export default function FeatureModal({
           decision of which rule to display (out of potentially many) in the
           modal is not deterministic.
         */}
-        {!featureToDuplicate && valueType && !showDefaultValue && (
-          <Box mb="5">
-            <Link onClick={() => setShowDefaultValue(true)}>
-              {configType ? "+ Choose default config" : "+ Set default value"}
-            </Link>
-          </Box>
-        )}
+        {!featureToDuplicate &&
+          valueType &&
+          configType &&
+          !showConfigDefaultValue && (
+            <Box mb="5">
+              <Link onClick={() => setShowConfigDefaultValue(true)}>
+                + Choose default Config
+              </Link>
+            </Box>
+          )}
 
-        {!featureToDuplicate && valueType && showDefaultValue && (
-          <FeatureValueField
-            label={
-              <>
-                Default Value when Enabled{" "}
-                <Tooltip
-                  body={
-                    <>
-                      After creating your feature, you will be able to add
-                      targeted rules such as <strong>A/B Tests</strong> and{" "}
-                      <strong>Percentage Rollouts</strong> to control exactly
-                      how it gets released to users.
-                    </>
-                  }
-                >
-                  <PiInfo style={{ color: "var(--violet-11)" }} />
-                </Tooltip>
-              </>
-            }
-            id="defaultValue"
-            value={form.watch("defaultValue")}
-            setValue={(v) => form.setValue("defaultValue", v)}
-            valueType={valueType}
-            // The feature doesn't exist yet, so scope the constant/config picker
-            // to the selected project instead of passing a `feature`.
-            project={selectedProject || undefined}
-            constantContext={{ project: selectedProject || undefined }}
-            useCodeInput={true}
-            showFullscreenButton={true}
-            // Config-backing is offered only for the "config" authoring type — a
-            // plain JSON flag can't extend a config (any manual `@config:` in its
-            // value is stripped on submit).
-            allowConfigBacking={configType}
-            // "config" type: the mainline picker chose the base; the default is
-            // exactly a config in that family — the base itself, or a descendant
-            // picked here. No inline overrides (config selection only), so no
-            // patch editor (configBackingShowPatch stays false).
-            configBackingOptionKeys={
-              configType && baseConfigKey
-                ? getConfigSubtree(baseConfigKey, configs)
-                : undefined
-            }
-            lockConfigBacking={configType}
-          />
-        )}
+        {!featureToDuplicate &&
+          valueType &&
+          (!configType || showConfigDefaultValue) && (
+            <FeatureValueField
+              label={
+                <>
+                  Default Value when Enabled{" "}
+                  <Tooltip
+                    body={
+                      <>
+                        After creating your feature, you will be able to add
+                        targeted rules such as <strong>A/B Tests</strong> and{" "}
+                        <strong>Percentage Rollouts</strong> to control exactly
+                        how it gets released to users.
+                      </>
+                    }
+                  >
+                    <PiInfo style={{ color: "var(--violet-11)" }} />
+                  </Tooltip>
+                </>
+              }
+              id="defaultValue"
+              value={form.watch("defaultValue")}
+              setValue={(v) => form.setValue("defaultValue", v)}
+              valueType={valueType}
+              // The feature doesn't exist yet, so scope the constant/config picker
+              // to the selected project instead of passing a `feature`.
+              project={selectedProject || undefined}
+              constantContext={{ project: selectedProject || undefined }}
+              useCodeInput={true}
+              showFullscreenButton={true}
+              // Config-backing is offered only for the "config" authoring type — a
+              // plain JSON flag can't extend a config (any manual `@config:` in its
+              // value is stripped on submit).
+              allowConfigBacking={configType}
+              // "config" type: the mainline picker chose the base; the default is
+              // exactly a config in that family — the base itself, or a descendant
+              // picked here. No inline overrides (config selection only), so no
+              // patch editor (configBackingShowPatch stays false).
+              configBackingOptionKeys={
+                configType && baseConfigKey
+                  ? getConfigSubtree(baseConfigKey, configs)
+                  : undefined
+              }
+              lockConfigBacking={configType}
+            />
+          )}
 
         <Box className="appbox bg-light" px="4" pt="4" pb="1" mb="3">
           <EnvironmentSelect
+            canEnableEnvironment={(environmentId) =>
+              canEnableEnvironmentOnCreate(
+                permissionsUtil,
+                // The FORM's project — the one the created flag will carry and
+                // the one the endpoint judges — not the workspace filter, which
+                // can differ once the user picks a project in the modal.
+                selectedProject,
+                environmentId,
+              )
+            }
             environmentSettings={environmentSettings}
             environments={environments}
             project={selectedProject}
@@ -599,21 +625,15 @@ export default function FeatureModal({
           />
         </Box>
 
-        {hasCommercialFeature("custom-metadata") &&
-          customFields &&
-          customFields?.length > 0 && (
-            <div>
-              <CustomFieldInput
-                customFields={customFields}
-                setCustomFields={(value) => {
-                  form.setValue("customFields", value);
-                }}
-                currentCustomFields={form.watch("customFields") || {}}
-                section={"feature"}
-                project={selectedProject}
-              />
-            </div>
-          )}
+        {customFields.length > 0 && (
+          <div>
+            <CustomFieldInput
+              fields={customFields}
+              value={customFieldValues}
+              onChange={(value) => form.setValue("customFields", value)}
+            />
+          </div>
+        )}
 
         <Flex direction="column" mt="3">
           {showTags && (

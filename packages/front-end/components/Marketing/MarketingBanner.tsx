@@ -15,8 +15,8 @@ const DISMISS_DURATION_MS = 90 * 24 * 60 * 60 * 1000;
 export type MarketingBannerProps = {
   /** Unique id — also used as the localStorage key for dismissal */
   id: string;
-  /** Short pill label, e.g. "New" or "Private beta" */
-  pill: string;
+  /** Optional short pill label, e.g. "New" or "Private beta"; hidden when empty */
+  pill?: string;
   title: string;
   /** Optional sub-line; hidden when empty */
   subheader?: string;
@@ -57,13 +57,15 @@ export default function MarketingBanner({
     <Callout status="info" icon={null} mb="5">
       <Flex align="center" gap="4" wrap="wrap">
         <Flex align="center" gap="3" flexGrow="1" style={{ minWidth: 0 }}>
-          <Badge
-            label={pill}
-            color="violet"
-            variant="soft"
-            radius="full"
-            size="sm"
-          />
+          {pill ? (
+            <Badge
+              label={pill}
+              color="violet"
+              variant="soft"
+              radius="full"
+              size="sm"
+            />
+          ) : null}
           <Box style={{ minWidth: 0, lineHeight: 1.4 }}>
             <Heading as="h6" size="xs" mb="1" color="text-high">
               {icon ? (
@@ -111,11 +113,15 @@ export default function MarketingBanner({
   );
 }
 
+// Flat on purpose: the flag's Simple Schema only supports primitive fields, so
+// a nested `button` object would force the raw-JSON editor. Keeping the CTA as
+// two top-level strings lets editors fill the banner in via form inputs.
 type MarketingBannerConfig = {
   title: string;
   subheader?: string;
-  pill: string;
-  button?: { copy: string; link: string };
+  pill?: string;
+  buttonCopy: string;
+  buttonLink: string;
   dismissible?: boolean;
 };
 
@@ -130,7 +136,10 @@ function slugify(value: string): string {
 
 /**
  * Reads the `home-marketing-banner` JSON feature flag and renders the banner.
- * Returns null when required fields are missing or the flag is unset.
+ * Requires a title and a complete button (both buttonCopy and buttonLink).
+ * Everything else — pill, subheader, dismissible — is optional and degrades
+ * gracefully.
+ * Returns null when a required field is missing or the flag is unset.
  */
 export function HomeMarketingBanner() {
   const config = useFeatureValue<MarketingBannerConfig | null>(
@@ -138,10 +147,12 @@ export function HomeMarketingBanner() {
     null,
   );
 
-  if (!config?.title || !config?.pill) return null;
-
   const cta =
-    config.button?.copy && config.button?.link ? config.button : undefined;
+    config?.buttonCopy && config?.buttonLink
+      ? { copy: config.buttonCopy, link: config.buttonLink }
+      : undefined;
+
+  if (!config?.title || !cta) return null;
 
   // Identity changes when the banner copy changes. The `key` forces a
   // remount so useLocalStorage re-reads the dismissed state from the new

@@ -5,6 +5,7 @@ import {
   FactFilterInterface,
 } from "shared/types/fact-table";
 import { IndexedPValue } from "shared/types/stats";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import {
   getColumnRefWhereClause,
   canInlineFilterColumn,
@@ -22,6 +23,11 @@ import {
   getRowFilterSQL,
   getEffectiveLookbackOverride,
   getIntersectionBaseMetricIds,
+  parseSliceQueryString,
+  parseSliceMetricId,
+  generateSliceString,
+  getAllExpandedMetricIdsFromExperiment,
+  ExperimentMetricInterface,
 } from "../src/experiments";
 import { createLikeStringMatchFn } from "../src/sql";
 import { LookbackOverride } from "../src/validators/experiments";
@@ -2299,6 +2305,107 @@ describe("getIntersectionBaseMetricIds", () => {
         ["m_b", "m_a?dim:x=y", "m_a"],
       ),
     ).toEqual(["m_b", "m_a"]);
+  });
+});
+
+describe("parseSliceQueryString", () => {
+  it("parses a simple slice query string", () => {
+    expect(parseSliceQueryString("dim:browser=Chrome&dim:country=AU")).toEqual([
+      { column: "browser", datatype: "string", levels: ["Chrome"] },
+      { column: "country", datatype: "string", levels: ["AU"] },
+    ]);
+  });
+
+  it("treats an empty value as no levels", () => {
+    expect(parseSliceQueryString("dim:browser=")).toEqual([
+      { column: "browser", datatype: "string", levels: [] },
+    ]);
+  });
+
+  it("round-trips values containing % and other special characters", () => {
+    const slices = {
+      promo: "50% off",
+      pattern: "%foo%",
+      "col%name": "a&b=c",
+    };
+    expect(parseSliceQueryString(generateSliceString(slices))).toEqual([
+      { column: "col%name", datatype: "string", levels: ["a&b=c"] },
+      { column: "pattern", datatype: "string", levels: ["%foo%"] },
+      { column: "promo", datatype: "string", levels: ["50% off"] },
+    ]);
+  });
+
+  it("parses slice metric ids with % in the level without throwing", () => {
+    const sliceString = generateSliceString({ query: "LIKE '%checkout%'" });
+    expect(parseSliceMetricId(`m_goal?${sliceString}`)).toEqual({
+      isSliceMetric: true,
+      baseMetricId: "m_goal",
+      sliceLevels: [
+        {
+          column: "query",
+          datatype: "string",
+          levels: ["LIKE '%checkout%'"],
+        },
+      ],
+    });
+  });
+});
+
+describe("getAllExpandedMetricIdsFromExperiment", () => {
+  // The collector only inspects ids, so the map values can be placeholders.
+  const mapOf = (...ids: string[]) =>
+    new Map(
+      ids.map((id) => [id, { id } as unknown as ExperimentMetricInterface]),
+    );
+
+  it("includes derived metrics of the metrics being analyzed", () => {
+    const ids = getAllExpandedMetricIdsFromExperiment({
+      exp: { goalMetrics: ["m_a"], guardrailMetrics: ["f_b"] },
+      expandedMetricMap: mapOf(
+        "m_a",
+        "m_a?dim:country=us",
+        "m_a?dim:country=",
+        "m_a?dim:a=1&dim:b=2",
+        "f_b",
+        "f_b?step=0",
+      ),
+    });
+    expect(ids.sort()).toEqual(
+      [
+        "m_a",
+        "m_a?dim:country=us",
+        "m_a?dim:country=",
+        "m_a?dim:a=1&dim:b=2",
+        "f_b",
+        "f_b?step=0",
+      ].sort(),
+    );
+  });
+
+  it("ignores derived metrics whose parent is not being analyzed", () => {
+    // e.g. the map was expanded before an unjoinable metric was scrubbed
+    const ids = getAllExpandedMetricIdsFromExperiment({
+      exp: { goalMetrics: ["m_a"] },
+      expandedMetricMap: mapOf(
+        "m_a",
+        "m_a?dim:country=us",
+        "m_orphan",
+        "m_orphan?dim:country=us",
+        "f_orphan?step=0",
+      ),
+    });
+    expect(ids.sort()).toEqual(["m_a", "m_a?dim:country=us"].sort());
+  });
+
+  it("resolves parents through metric groups", () => {
+    const ids = getAllExpandedMetricIdsFromExperiment({
+      exp: { goalMetrics: ["mg_1"] },
+      expandedMetricMap: mapOf("m_a", "m_a?dim:x=1"),
+      metricGroups: [
+        { id: "mg_1", metrics: ["m_a"] } as unknown as MetricGroupInterface,
+      ],
+    });
+    expect(ids.sort()).toEqual(["m_a", "m_a?dim:x=1"].sort());
   });
 });
 

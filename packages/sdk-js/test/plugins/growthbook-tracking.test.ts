@@ -50,7 +50,7 @@ describe("growthbookTrackingPlugin", () => {
     await sleep(75);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      `https://us1.gb-ingest.com/track?client_key=test`,
+      `https://us-east-1.gb-ingest.com/track?client_key=test`,
       {
         method: "POST",
         headers: {
@@ -300,7 +300,7 @@ describe("growthbookTrackingPlugin", () => {
     await sleep(150);
 
     expect(fetchMock.mock.calls[2][0]).toBe(
-      "https://us1.gb-ingest.com/track?client_key=test2",
+      "https://us-east-1.gb-ingest.com/track?client_key=test2",
     );
     const body3 = JSON.parse(fetchMock.mock.calls[2][1].body);
     expect(body3.length).toBe(1);
@@ -421,7 +421,7 @@ describe("growthbookTrackingPlugin", () => {
 
       expect(sendBeaconMock).toHaveBeenCalledTimes(1);
       const [url, blob] = sendBeaconMock.mock.calls[0];
-      expect(url).toBe("https://us1.gb-ingest.com/track?client_key=test");
+      expect(url).toBe("https://us-east-1.gb-ingest.com/track?client_key=test");
       // jsdom's Blob has no .text() - read via FileReader
       const text = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();

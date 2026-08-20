@@ -24,9 +24,16 @@ import Badge from "@/ui/Badge";
 import Switch from "@/ui/Switch";
 import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
 import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import styles from "./PreLaunchChecklist.module.scss";
 import { usePreLaunchChecklist } from "./PreLaunchChecklistProvider";
 import { CheckListItem, getChecklistItems } from "./PreLaunchChecklistItems";
+
+export type ChecklistReadyStatus = {
+  hasHardBlockers: boolean;
+  hasSoftBlockers: boolean;
+  loading: boolean;
+};
 
 function PreLaunchChecklistUI({
   experiment,
@@ -117,9 +124,9 @@ function PreLaunchChecklistUI({
             if (item.type === "manual" && updatingChecklist) return;
             updateTaskStatus(!!checked, item.key);
           }}
-          disabled={!canEditExperiment}
+          disabled={!canEditExperiment && item.type !== "auto"}
           disabledMessage={
-            !canEditExperiment
+            !canEditExperiment && item.type !== "auto"
               ? "You don't have permission to mark this as completed"
               : undefined
           }
@@ -139,8 +146,15 @@ function PreLaunchChecklistUI({
               })}
             >
               {item.display}
+              {item.hardBlock && item.status === "incomplete" && (
+                <Text size="sm" color="text-low" ml="1">
+                  (Required)
+                </Text>
+              )}
               {!item.required && (
-                <small className="text-muted ml-1">(optional)</small>
+                <Text size="sm" color="text-low" ml="1">
+                  (Optional)
+                </Text>
               )}
             </span>
           }
@@ -233,8 +247,11 @@ function PreLaunchChecklistFeatureExpRule({
   mutateExperiment: () => unknown | Promise<unknown>;
   checklist: CheckListItem[];
 }) {
-  const failedRequired = checklist.some(
-    (item) => item.status === "incomplete" && item.required,
+  const hasHardBlockers = checklist.some(
+    (item) => item.status === "incomplete" && item.hardBlock,
+  );
+  const hasSoftBlockers = checklist.some(
+    (item) => item.status === "incomplete" && item.required && !item.hardBlock,
   );
 
   return (
@@ -254,9 +271,15 @@ function PreLaunchChecklistFeatureExpRule({
           </Link>
         }
       />
-      {failedRequired ? (
+      {hasHardBlockers ? (
         <Callout status="error" my="3">
-          Please complete all required items before starting your experiment.
+          Please complete all required items to publish and start this
+          experiment.
+        </Callout>
+      ) : hasSoftBlockers ? (
+        <Callout status="warning" my="3">
+          Some recommended items are incomplete. Complete them first, or
+          acknowledge them to continue.
         </Callout>
       ) : (
         <Callout status="success" my="3">
@@ -276,7 +299,7 @@ export function PreLaunchChecklistForDraftFeature({
   experiment: ExperimentInterfaceStringDates;
   feature: FeatureInterface;
   mutateExperiment: () => unknown | Promise<unknown>;
-  onReady?: (failedRequired: boolean, loading: boolean) => void;
+  onReady?: (status: ChecklistReadyStatus) => void;
 }) {
   const { data: checklistData, isLoading: checklistLoading } = useApi<{
     checklist: ExperimentLaunchChecklistInterface;
@@ -307,15 +330,22 @@ export function PreLaunchChecklistForDraftFeature({
     [experiment, experimentData, checklistData, connections, feature.id],
   );
 
-  const failedRequired = checklist.some(
-    (item) => item.status === "incomplete" && item.required,
+  const hasHardBlockers = checklist.some(
+    (item) => item.status === "incomplete" && item.hardBlock,
+  );
+  const hasSoftBlockers = checklist.some(
+    (item) => item.status === "incomplete" && item.required && !item.hardBlock,
   );
 
   const onReadyRef = useRef(onReady);
   onReadyRef.current = onReady;
   useEffect(() => {
-    onReadyRef.current?.(failedRequired, !!isLoading);
-  }, [failedRequired, isLoading]);
+    onReadyRef.current?.({
+      hasHardBlockers,
+      hasSoftBlockers,
+      loading: isLoading,
+    });
+  }, [hasHardBlockers, hasSoftBlockers, isLoading]);
 
   if (isLoading) {
     return <LoadingSpinner />;

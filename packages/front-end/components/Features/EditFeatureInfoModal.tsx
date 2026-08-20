@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { getReviewSetting } from "shared/util";
+import { holdsFeatureMoveDestination } from "shared/permissions";
 import { Box } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import TagsInput from "@/components/Tags/TagsInput";
@@ -12,6 +13,7 @@ import SelectField from "@/components/Forms/SelectField";
 import TargetingProjectsField from "@/components/TargetingProjectsField";
 import Callout from "@/ui/Callout";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { getMetadataEditEnvs, useEnvironments } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
@@ -42,10 +44,14 @@ const EditFeatureInfoModal: FC<{
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
+  const allEnvironments = useEnvironments();
   const [showProjectWarningMsg, setShowProjectWarningMsg] = useState(false);
   const { requireProjectForFeatures } = settings;
 
-  const isAdmin = permissionsUtil.canBypassApprovalChecks(feature);
+  const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(
+    feature,
+    "feature",
+  );
 
   // Gated when requireReviewOn is true and featureRequireMetadataReview is not disabled
   const metadataGated: boolean = (() => {
@@ -56,18 +62,6 @@ const EditFeatureInfoModal: FC<{
     if (!reviewSetting?.requireReviewOn) return false;
     return reviewSetting.featureRequireMetadataReview !== false;
   })();
-
-  const canAutoPublish = isAdmin || !metadataGated;
-
-  const { mode: initialMode, defaultDraft } = useDefaultDraftMode(
-    revisionList,
-    canAutoPublish,
-  );
-
-  const [mode, setMode] = useState<DraftMode>(initialMode);
-  const [selectedDraft, setSelectedDraft] = useState<number | null>(
-    defaultDraft,
-  );
 
   const form = useForm({
     defaultValues: {
@@ -80,8 +74,39 @@ const EditFeatureInfoModal: FC<{
     },
   });
 
+  // Publishing metadata requires authority over its footprint and destination.
+  const moveDestination = form.watch("project");
+  const metadataEnvs = getMetadataEditEnvs({
+    feature,
+    proposed: {
+      project: moveDestination,
+      targetingAllProjects: form.watch("targetingAllProjects"),
+      targetingProjects: form.watch("targetingProjects"),
+    },
+    environments: allEnvironments,
+  });
+  const canPublishMetadata =
+    permissionsUtil.canPublishFeature(feature, metadataEnvs) &&
+    holdsFeatureMoveDestination(
+      permissionsUtil,
+      feature,
+      moveDestination,
+      metadataEnvs,
+    );
+  const canAutoPublish = (isAdmin || !metadataGated) && canPublishMetadata;
+
+  const { mode: initialMode, defaultDraft } = useDefaultDraftMode(
+    revisionList,
+    canAutoPublish,
+  );
+
+  const [mode, setMode] = useState<DraftMode>(initialMode);
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(
+    defaultDraft,
+  );
+
   const permissionRequired = (project) =>
-    permissionsUtil.canUpdateFeature(feature, { project });
+    permissionsUtil.canEditFeatureDrafts({ project });
   const initialOption =
     permissionRequired("") && !requireProjectForFeatures ? "None" : "";
 

@@ -45,7 +45,7 @@ import {
   clearAutoRefresh,
   configureCache,
   refreshFeatures,
-  startStreaming,
+  startBackgroundSync,
   unsubscribe,
 } from "./feature-repository";
 import {
@@ -57,6 +57,7 @@ import {
   getApiHosts,
   getExperimentDedupeKey,
   getStickyBucketAttributes,
+  getTrackingUserContext,
 } from "./core";
 import { StickyBucketServiceSync } from "./sticky-bucket-service";
 
@@ -278,7 +279,7 @@ export class GrowthBook<
 
     this.ready = true;
 
-    startStreaming(this, options);
+    startBackgroundSync(this, options);
 
     return this;
   }
@@ -293,7 +294,7 @@ export class GrowthBook<
 
     if (options.payload) {
       await this.setPayload(options.payload);
-      startStreaming(this, options);
+      startBackgroundSync(this, options);
       return {
         success: true,
         source: "init",
@@ -303,7 +304,7 @@ export class GrowthBook<
         ...options,
         allowStale: true,
       });
-      startStreaming(this, options);
+      startBackgroundSync(this, options);
       await this.setPayload(data || {});
       return res;
     }
@@ -1061,7 +1062,7 @@ export class GrowthBook<
         await this._options.eventLogger(
           eventName,
           properties || {},
-          this._getUserContext(),
+          getTrackingUserContext(this._getUserContext()),
         );
       } catch (e) {
         console.error(e);

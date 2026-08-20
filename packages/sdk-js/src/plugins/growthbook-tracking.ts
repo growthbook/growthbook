@@ -118,7 +118,7 @@ async function track({
   if (!events.length) return;
 
   const endpoint = `${
-    ingestorHost || "https://us1.gb-ingest.com"
+    ingestorHost || "https://us-east-1.gb-ingest.com"
   }/track?client_key=${clientKey}`;
   const body = JSON.stringify(events);
 

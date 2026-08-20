@@ -1,8 +1,12 @@
 import type { Response } from "express";
+import type { AIModel } from "shared/ai";
 import type { ReqContext } from "back-end/types/request";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { secondsUntilAICanBeUsedAgain } from "back-end/src/enterprise/services/ai";
+import {
+  secondsUntilAICanBeUsedAgainForEmbeddings,
+  secondsUntilAICanBeUsedAgainForModel,
+} from "back-end/src/enterprise/services/ai";
 import { NotFoundError, PlanDoesNotAllowError } from "back-end/src/util/errors";
 import type { AgentConfig } from "back-end/src/enterprise/services/agent-handler";
 
@@ -10,8 +14,8 @@ type OrgAIPromptConfig = Awaited<
   ReturnType<ReqContext["models"]["aiPrompts"]["getAIPrompt"]>
 >;
 
-// Thrown when the org is over its AI usage limit. `status` is read by the
-// external API handler to set a 429; `retryAfter` is surfaced to callers.
+export type AIUsageTarget = { model?: AIModel } | { embeddings: true };
+
 export class AIUsageLimitError extends Error {
   status = 429;
   constructor(public retryAfter: number) {
@@ -19,38 +23,44 @@ export class AIUsageLimitError extends Error {
   }
 }
 
-/**
- * Premium-feature, AI-enabled, and rate-limit checks. Throws on the first
- * failed gate. Shared by every AI entry point so they enforce the same
- * limits — call this (not just a plan-flag check) before any AI/embedding
- * work, including from external API handlers.
- */
-export async function assertAIAccess(context: ReqContext): Promise<void> {
+async function assertAIEnabled(context: ReqContext): Promise<void> {
   if (!orgHasPremiumFeature(context.org, "ai-suggestions")) {
     throw new PlanDoesNotAllowError("Your plan does not support AI features.");
   }
 
-  const { aiEnabled } = getAISettingsForOrg(context);
+  const { aiEnabled } = await getAISettingsForOrg(context);
   if (!aiEnabled) {
     throw new NotFoundError("AI configuration not set or enabled");
   }
+}
 
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+async function assertAIUsageCap(
+  context: ReqContext,
+  target: AIUsageTarget,
+): Promise<void> {
+  const secondsUntilReset =
+    "embeddings" in target
+      ? await secondsUntilAICanBeUsedAgainForEmbeddings(context)
+      : await secondsUntilAICanBeUsedAgainForModel(context, target.model);
   if (secondsUntilReset > 0) {
     throw new AIUsageLimitError(secondsUntilReset);
   }
 }
 
-/**
- * Express-controller wrapper around assertAIAccess. Returns false (and writes
- * the matching error response) if the request should be rejected.
- */
-export async function runAccessGates(
+export async function assertAIAccess(
   context: ReqContext,
+  target: AIUsageTarget = {},
+): Promise<void> {
+  await assertAIEnabled(context);
+  await assertAIUsageCap(context, target);
+}
+
+async function runGate(
   res: Response,
+  gate: () => Promise<void>,
 ): Promise<boolean> {
   try {
-    await assertAIAccess(context);
+    await gate();
     return true;
   } catch (e) {
     const status =
@@ -66,10 +76,29 @@ export async function runAccessGates(
   }
 }
 
-/**
- * Builds the final system prompt by combining the agent's prompt with
- * any org-level additional prompt configured in the DB.
- */
+export async function runAccessGates(
+  context: ReqContext,
+  res: Response,
+  target: AIUsageTarget = {},
+): Promise<boolean> {
+  return runGate(res, () => assertAIAccess(context, target));
+}
+
+export async function runAIEnabledGates(
+  context: ReqContext,
+  res: Response,
+): Promise<boolean> {
+  return runGate(res, () => assertAIEnabled(context));
+}
+
+export async function enforceAIUsageCap(
+  context: ReqContext,
+  res: Response,
+  model: AIModel,
+): Promise<boolean> {
+  return runGate(res, () => assertAIUsageCap(context, { model }));
+}
+
 export async function buildSystemPromptForRequest<TParams>(
   context: ReqContext,
   config: Pick<AgentConfig<TParams>, "buildSystemPrompt" | "promptType">,
