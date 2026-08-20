@@ -4,11 +4,7 @@ import {
   DataSourceInterfaceWithParams,
   UserIdType,
 } from "shared/types/datasource";
-import {
-  EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
-  isEventForwarderManagedUserIdType,
-  releaseEventForwarderManagedRecord,
-} from "shared/util";
+import { isEventForwarderManaged } from "shared/util";
 import { PiPlus } from "react-icons/pi";
 import { Box, Card, Flex } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
@@ -43,10 +39,6 @@ export const DataSourceInlineEditIdentifierTypes: FC<
     return userIdTypes[editingIndex] || null;
   }, [editingIndex, userIdTypes]);
 
-  const isEditingEventForwarderManagedType = recordEditing
-    ? isEventForwarderManagedUserIdType(recordEditing)
-    : false;
-
   const handleCancel = useCallback(() => {
     setUiMode("view");
     setEditingIndex(-1);
@@ -80,8 +72,6 @@ export const DataSourceInlineEditIdentifierTypes: FC<
       async (userIdType: string, description: string, attributes: string[]) => {
         const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
         const types = copy.settings?.userIdTypes ?? [];
-        const editingManagedType =
-          uiMode === "edit" && isEditingEventForwarderManagedType;
 
         if (idx >= types.length) {
           types.push({ userIdType, description, attributes });
@@ -90,19 +80,8 @@ export const DataSourceInlineEditIdentifierTypes: FC<
           if (!existing) {
             return;
           }
-          // Spread existing so linked types keep sourceAttribute across edits.
-          const updated = {
-            ...existing,
-            userIdType,
-            description,
-            attributes,
-          };
-          types[idx] = editingManagedType
-            ? releaseEventForwarderManagedRecord(
-                updated,
-                EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
-              )
-            : updated;
+          // Spread existing so fields the form does not own survive the edit.
+          types[idx] = { ...existing, userIdType, description, attributes };
         }
 
         if (!copy.settings) {
@@ -112,7 +91,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
 
         await onSave(copy);
       },
-    [dataSource, isEditingEventForwarderManagedType, onSave, uiMode],
+    [dataSource, onSave],
   );
 
   const handleAdd = useCallback(() => {
@@ -149,7 +128,10 @@ export const DataSourceInlineEditIdentifierTypes: FC<
         The different units you use to split traffic in an experiment.
       </Text>
 
-      {userIdTypes.map(({ userIdType, description, attributes }, idx) => {
+      {userIdTypes.map((type, idx) => {
+        const { userIdType, description, attributes } = type;
+        const isManaged = isEventForwarderManaged(type);
+
         return (
           <Card key={userIdType} mt="3">
             <Flex align="start" justify="between" py="2" px="3" gap="3">
@@ -168,7 +150,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
                 </Text>
               </Box>
 
-              {canEdit && (
+              {canEdit && !isManaged && (
                 <Flex gap="2">
                   <Button
                     variant="ghost"
@@ -179,8 +161,8 @@ export const DataSourceInlineEditIdentifierTypes: FC<
                   <DeleteButton
                     onClick={handleActionDeleteClicked(idx)}
                     useIcon={false}
-                    displayName={userIdTypes[idx]?.userIdType}
-                    deleteMessage={`Are you sure you want to delete identifier type ${userIdTypes[idx]?.userIdType}?`}
+                    displayName={userIdType}
+                    deleteMessage={`Are you sure you want to delete identifier type ${userIdType}?`}
                     title="Delete"
                     text="Delete"
                   />
@@ -206,7 +188,6 @@ export const DataSourceInlineEditIdentifierTypes: FC<
           attributes={recordEditing?.attributes}
           onSave={handleSave(editingIndex)}
           dataSource={dataSource}
-          isEventForwarderManagedType={isEditingEventForwarderManagedType}
         />
       ) : null}
     </Box>

@@ -196,7 +196,7 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
         {
           userIdType: "staff_member",
           managedBy: "api",
-          sourceAttribute: "employee_id",
+          attributes: ["employee_id"],
         },
       ],
       attributeSchema: [

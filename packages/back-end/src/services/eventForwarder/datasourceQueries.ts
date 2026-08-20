@@ -1,10 +1,7 @@
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { EventForwarderConfigInterface } from "shared/validators";
-import {
-  buildEventForwarderFeatureUsageQuery,
-  isEventForwarderManagedFeatureUsageQuery,
-} from "shared/util";
+import { buildEventForwarderFeatureUsageQuery } from "shared/util";
 import uniqid from "uniqid";
 import {
   getDataSourceById,
@@ -28,12 +25,11 @@ export async function ensureEventForwarderFeatureUsageQuery(
     return [];
   }
 
+  // One feature usage query per datasource, so a query the user wrote is never
+  // shadowed by a managed twin.
   const existing = datasource.settings?.queries?.featureUsage ?? [];
-  const existingManaged = existing.filter(
-    isEventForwarderManagedFeatureUsageQuery,
-  );
-  if (existingManaged.length > 0) {
-    return existingManaged.map((query) => query.id);
+  if (existing.length > 0) {
+    return existing.map((query) => query.id);
   }
 
   const connectionParams =
@@ -71,7 +67,7 @@ export async function ensureEventForwarderFeatureUsageQuery(
         ...datasource.settings,
         queries: {
           ...datasource.settings?.queries,
-          featureUsage: [...existing, managedQuery],
+          featureUsage: [managedQuery],
         },
       },
     },

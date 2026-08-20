@@ -7,6 +7,7 @@ import cloneDeep from "lodash/cloneDeep";
 import { PiCaretRight, PiDotsThreeVertical, PiPlus } from "react-icons/pi";
 import { Box, Card, Flex, Heading, IconButton } from "@radix-ui/themes";
 import { DimensionSlicesInterface } from "shared/types/dimension";
+import { isEventForwarderManaged } from "shared/util";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
@@ -148,6 +149,7 @@ export const ExperimentAssignmentQueries: FC<
 
       {experimentExposureQueries.map((query, idx) => {
         const isOpen = openIndexes[idx] || false;
+        const isManaged = isEventForwarderManaged(query);
 
         return (
           <Card mt="3" key={query.id}>
@@ -198,7 +200,7 @@ export const ExperimentAssignmentQueries: FC<
                         >
                           Check it again.
                         </Button>
-                        {canEdit && (
+                        {canEdit && !isManaged && (
                           <Button
                             color="inherit"
                             onClick={handleActionClicked(idx, "edit")}
@@ -218,7 +220,7 @@ export const ExperimentAssignmentQueries: FC<
               {/* region Actions*/}
 
               <Flex align="center">
-                {canEdit && (
+                {canEdit && !isManaged && (
                   <DropdownMenu
                     trigger={
                       <IconButton

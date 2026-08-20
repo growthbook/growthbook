@@ -7,17 +7,11 @@ import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import {
-  EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
-  isEventForwarderManagedFeatureUsageQuery,
-  releaseEventForwarderManagedRecord,
-} from "shared/util";
 import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Modal from "@/components/Modal";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Callout from "@/ui/Callout";
-import { EventForwarderManagedCallout } from "@/components/Settings/EditDataSource/EventForwarder/EventForwarderManagedCallout";
 
 type FeatureEvaluationQueryProps = {
   featureUsageQuery?: FeatureUsageQuery;
@@ -52,20 +46,8 @@ export const FeatureEvaluationQueryModal: FC<FeatureEvaluationQueryProps> = ({
 
   const userEnteredQuery = form.watch("query");
 
-  const isEventForwarderManaged =
-    mode === "edit" &&
-    !!featureUsageQuery &&
-    isEventForwarderManagedFeatureUsageQuery(featureUsageQuery);
-
   const handleSubmit = form.handleSubmit(async (value) => {
-    await onSave(
-      isEventForwarderManaged
-        ? releaseEventForwarderManagedRecord(
-            value,
-            EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
-          )
-        : value,
-    );
+    await onSave(value);
 
     form.reset({
       id: undefined,
@@ -129,7 +111,6 @@ export const FeatureEvaluationQueryModal: FC<FeatureEvaluationQueryProps> = ({
         ctaEnabled={saveEnabled}
       >
         <div className="my-2 ml-3 mr-3">
-          <EventForwarderManagedCallout show={isEventForwarderManaged} />
           <div className="row">
             <div className="col-12">
               <div className="form-group">

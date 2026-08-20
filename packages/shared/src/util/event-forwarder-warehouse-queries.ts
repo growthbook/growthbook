@@ -1,8 +1,4 @@
-import type {
-  ExposureQuery,
-  FeatureUsageQuery,
-  UserIdType,
-} from "shared/types/datasource";
+import type { ExposureQuery, FeatureUsageQuery } from "shared/types/datasource";
 import type {
   SDKAttribute,
   SDKAttributeSchema,
@@ -22,9 +18,11 @@ import {
   quoteBigQueryIdentifier,
 } from "./event-forwarder-fact-table";
 import {
-  getEventForwarderUserIdTypeSourceAttribute,
+  EventForwarderUserIdTypePair,
+  isEventForwarderManaged,
   normalizeUserIdTypeName,
-  releaseEventForwarderManagedRecord,
+  resolveEventForwarderManagedName,
+  toNormalizedNameSet,
 } from "./event-forwarder-datasource";
 
 export const EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION =
@@ -164,72 +162,14 @@ FROM ${tableRef}`;
 export type GenerateEventForwarderExposureQueriesParams =
   BuildEventForwarderExperimentViewedTableRefParams;
 
-export function generateEventForwarderExposureQueries(
-  userIdTypes: UserIdType[],
-  params: GenerateEventForwarderExposureQueriesParams,
-  attributeSchema?: SDKAttributeSchema,
-): ExposureQuery[] {
-  const tableRef = buildEventForwarderExperimentViewedTableReference(params);
-
-  return userIdTypes.map((userIdType) => {
-    const sourceAttribute =
-      getEventForwarderUserIdTypeSourceAttribute(userIdType);
-    const attribute = findHashAttributeBySourceAttribute(
-      sourceAttribute,
-      attributeSchema,
-    );
-
-    return {
-      // Empty id → model mints stable exq_; reconcile preserves it.
-      id: "",
-      userIdType: userIdType.userIdType,
-      name: userIdType.userIdType,
-      sourceAttribute,
-      description: EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
-      dimensions: [],
-      managedBy: "api" as const,
-      query: buildEventForwarderExposureQuerySql({
-        sinkType: params.sinkType,
-        tableRef,
-        userIdType: userIdType.userIdType,
-        sourceAttribute,
-        attributeDatatype: attribute?.datatype,
-      }),
-    };
-  });
-}
-
-export function isEventForwarderManagedExposureQuery(
-  query: ExposureQuery,
-): boolean {
-  return query.managedBy === "api";
-}
-
-// Backfill source from owning identifier type when missing.
-function getEventForwarderExposureQuerySourceAttribute(
-  query: ExposureQuery,
-  userIdTypesByName: Map<string, UserIdType>,
-): string {
-  const linked = query.sourceAttribute ?? null;
-  if (linked !== null) {
-    return linked;
-  }
-  const owner = userIdTypesByName.get(
-    normalizeUserIdTypeName(query.userIdType),
-  );
-  if (owner) {
-    return getEventForwarderUserIdTypeSourceAttribute(owner);
-  }
-  return query.userIdType;
-}
-
 function isEquivalentExposureQuerySql(a: string, b: string): boolean {
   const normalize = (sql: string) => sql.trim().replace(/\s+/g, " ");
   return normalize(a) === normalize(b);
 }
 
-// True if SQL matches any generated datatype variant (pre-modal edits).
-function isUnmodifiedManagedExposureQuerySql({
+// True for generator output under any datatype cast, so a query written before
+// an attribute's datatype changed still counts as unmodified.
+function isGeneratedExposureQuerySql({
   query,
   sinkType,
   tableRef,
@@ -258,112 +198,99 @@ function isUnmodifiedManagedExposureQuerySql({
   );
 }
 
-function releaseManagedExposureQuery(query: ExposureQuery): ExposureQuery {
-  return releaseEventForwarderManagedRecord(
-    query,
-    EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
-  );
-}
-
+/**
+ * Gives every paired identifier type a managed assignment query. A query
+ * already carrying generator output is left alone whoever owns it, so a user who
+ * wrote the same SQL themselves keeps their own query. Nothing is ever removed,
+ * and a managed query keeps its id, name and userIdType for the life of the
+ * record — those are referenced by experiments, reports, safe rollouts,
+ * templates and ramp schedules.
+ */
 export function reconcileEventForwarderManagedExposureQueries({
   existing,
-  userIdTypes,
+  pairs,
   params,
   attributeSchema,
 }: {
   existing: ExposureQuery[];
-  userIdTypes: UserIdType[];
+  pairs: EventForwarderUserIdTypePair[];
   params: GenerateEventForwarderExposureQueriesParams;
   attributeSchema?: SDKAttributeSchema;
 }): ExposureQuery[] {
   const tableRef = buildEventForwarderExperimentViewedTableReference(params);
-  const desired = generateEventForwarderExposureQueries(
-    userIdTypes,
-    params,
-    attributeSchema,
-  );
-  const userIdTypesByName = new Map(
-    userIdTypes.map((userIdType) => [
-      normalizeUserIdTypeName(userIdType.userIdType),
-      userIdType,
-    ]),
-  );
-  const desiredBySource = new Map(
-    desired.map((query) => [
-      normalizeUserIdTypeName(
-        getEventForwarderExposureQuerySourceAttribute(query, userIdTypesByName),
-      ),
+  const result = [...existing];
+  const takenNames = toNormalizedNameSet(existing.map((query) => query.name));
+
+  for (const { attribute, userIdType } of pairs) {
+    const attributeDatatype = findHashAttributeBySourceAttribute(
+      attribute,
+      attributeSchema,
+    )?.datatype;
+    const buildSql = (alias: string) =>
+      buildEventForwarderExposureQuerySql({
+        sinkType: params.sinkType,
+        tableRef,
+        userIdType: alias,
+        sourceAttribute: attribute,
+        attributeDatatype,
+      });
+
+    const onIdentifier = result
+      .map((query, index) => ({ query, index }))
+      .filter(
+        ({ query }) =>
+          normalizeUserIdTypeName(query.userIdType) ===
+          normalizeUserIdTypeName(userIdType.userIdType),
+      );
+
+    const regenerate = ({
       query,
-    ]),
-  );
-  const claimedSources = new Set<string>();
-  const result: ExposureQuery[] = [];
+      index,
+    }: {
+      query: ExposureQuery;
+      index: number;
+    }) => {
+      result[index] = { ...query, query: buildSql(query.userIdType) };
+    };
 
-  for (const query of existing) {
-    if (!isEventForwarderManagedExposureQuery(query)) {
-      result.push(query);
-      continue;
-    }
-
-    const sourceAttribute = getEventForwarderExposureQuerySourceAttribute(
-      query,
-      userIdTypesByName,
-    );
-    const source = normalizeUserIdTypeName(sourceAttribute);
-    if (!desiredBySource.has(source)) {
-      result.push(releaseManagedExposureQuery(query));
-      continue;
-    }
-
-    if (
-      !isUnmodifiedManagedExposureQuerySql({
+    const generated = onIdentifier.find(({ query }) =>
+      isGeneratedExposureQuerySql({
         query,
         sinkType: params.sinkType,
         tableRef,
-        sourceAttribute,
-      })
-    ) {
-      // Leave source unclaimed so a fresh managed query is generated.
-      result.push(releaseManagedExposureQuery(query));
-      continue;
-    }
-
-    claimedSources.add(source);
-    const attribute = findHashAttributeBySourceAttribute(
-      sourceAttribute,
-      attributeSchema,
-    );
-    result.push({
-      ...query,
-      sourceAttribute: query.sourceAttribute ?? sourceAttribute,
-      query: buildEventForwarderExposureQuerySql({
-        sinkType: params.sinkType,
-        tableRef,
-        userIdType: query.userIdType,
-        sourceAttribute,
-        attributeDatatype: attribute?.datatype,
+        sourceAttribute: attribute,
       }),
-    });
-  }
-
-  for (const [source, wanted] of desiredBySource) {
-    if (claimedSources.has(source)) {
-      continue;
-    }
-
-    // Skip a managed twin when a user query already has equivalent SQL.
-    const duplicatesUserQuery = existing.some(
-      (query) =>
-        !isEventForwarderManagedExposureQuery(query) &&
-        normalizeUserIdTypeName(query.userIdType) ===
-          normalizeUserIdTypeName(wanted.userIdType) &&
-        isEquivalentExposureQuerySql(query.query, wanted.query),
     );
-    if (duplicatesUserQuery) {
+    if (generated) {
+      if (isEventForwarderManaged(generated.query)) {
+        regenerate(generated);
+      }
       continue;
     }
 
-    result.push(wanted);
+    const managed = onIdentifier.find(({ query }) =>
+      isEventForwarderManaged(query),
+    );
+    if (managed) {
+      regenerate(managed);
+      continue;
+    }
+
+    const name = resolveEventForwarderManagedName(
+      userIdType.userIdType,
+      takenNames,
+    );
+    takenNames.add(normalizeUserIdTypeName(name));
+    result.push({
+      // Empty id → the model mints a stable exq_; reconcile preserves it after.
+      id: "",
+      userIdType: userIdType.userIdType,
+      name,
+      description: EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
+      dimensions: [],
+      managedBy: "api",
+      query: buildSql(userIdType.userIdType),
+    });
   }
 
   return result;
@@ -418,12 +345,6 @@ export function buildEventForwarderFeatureUsageQuery(
   };
 }
 
-export function isEventForwarderManagedFeatureUsageQuery(
-  query: FeatureUsageQuery,
-): boolean {
-  return query.managedBy === "api";
-}
-
 export function getActiveFeatureUsageQuery(
   queries: FeatureUsageQuery[] | undefined,
 ): FeatureUsageQuery | undefined {
@@ -431,11 +352,5 @@ export function getActiveFeatureUsageQuery(
     return undefined;
   }
 
-  return queries.find(isEventForwarderManagedFeatureUsageQuery) ?? queries[0];
-}
-
-export function eventForwarderManagedFeatureUsageQueryExists(
-  queries: FeatureUsageQuery[],
-): boolean {
-  return queries.some(isEventForwarderManagedFeatureUsageQuery);
+  return queries.find(isEventForwarderManaged) ?? queries[0];
 }

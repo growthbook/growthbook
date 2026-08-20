@@ -1,24 +1,27 @@
 export {
   EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
-  EVENT_FORWARDER_RELEASED_DESCRIPTION,
+  EVENT_FORWARDER_NAME_COLLISION_PREFIX,
   EVENT_FORWARDER_SUPPORTED_DATASOURCE_TYPES,
   attributeMatchesDatasourceProjects,
-  buildUserIdTypesFromAttributeSchema,
   findCollidingUserIdTypeName,
-  findDuplicateUserIdTypeName,
+  findEventForwarderManagedViolation,
   findNewDuplicateUserIdTypeName,
   getEventForwarderDatasourceParams,
+  getEventForwarderHashAttributes,
   getEventForwarderSinkTypeForDatasource,
-  getUserIdTypesToAdd,
-  isEventForwarderLinkedUserIdType,
-  isEventForwarderManagedUserIdType,
-  mergeUserIdTypes,
-  reconcileEventForwarderManagedUserIdTypes,
-  releaseEventForwarderManagedDescription,
-  releaseEventForwarderManagedRecord,
+  getEventForwarderUserIdTypeSourceAttribute,
+  isEventForwarderManaged,
+  normalizeUserIdTypeName,
+  resolveEventForwarderManagedName,
+  resolveEventForwarderManagedUserIdTypes,
   supportsEventForwarder,
+  toNormalizedNameSet,
 } from "./event-forwarder-datasource";
-export type { EventForwarderDatasourceParams } from "./event-forwarder-datasource";
+export type {
+  EventForwarderDatasourceParams,
+  EventForwarderUserIdTypePair,
+  EventForwarderUserIdTypeResolution,
+} from "./event-forwarder-datasource";
 
 export {
   secretParamKeys,

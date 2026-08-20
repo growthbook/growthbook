@@ -1,3 +1,4 @@
+import isEqual from "lodash/isEqual";
 import {
   DataSourceParams,
   DataSourceType,
@@ -18,40 +19,49 @@ export type EventForwarderDatasourceParams =
 
 export const EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION =
   "Managed by Event Forwarder.";
-export const EVENT_FORWARDER_RELEASED_DESCRIPTION = "Managed by User";
 
-export function isEventForwarderManagedUserIdType(
-  userIdType: UserIdType,
-): boolean {
-  return userIdType.managedBy === "api";
-}
+// Applied only to break a name collision. Nothing reads or strips it.
+export const EVENT_FORWARDER_NAME_COLLISION_PREFIX = "ef_";
 
-export function isEventForwarderLinkedUserIdType(
-  userIdType: UserIdType,
-): boolean {
-  return (
-    isEventForwarderManagedUserIdType(userIdType) ||
-    (userIdType.sourceAttribute ?? null) !== null
-  );
-}
-
-// Explicit link, else sole Linked Hash Attribute, else name.
-export function getEventForwarderUserIdTypeSourceAttribute(
-  userIdType: UserIdType,
-): string {
-  const linked = userIdType.sourceAttribute ?? null;
-  if (linked !== null) {
-    return linked;
-  }
-  const attributes = userIdType.attributes ?? [];
-  if (attributes.length === 1) {
-    return attributes[0];
-  }
-  return userIdType.userIdType;
+export function isEventForwarderManaged(record: {
+  managedBy?: string;
+}): boolean {
+  return record.managedBy === "api";
 }
 
 export function normalizeUserIdTypeName(userIdType: string): string {
   return userIdType.trim().toLowerCase();
+}
+
+export function toNormalizedNameSet(names: string[]): Set<string> {
+  return new Set(names.map(normalizeUserIdTypeName));
+}
+
+export function resolveEventForwarderManagedName(
+  desired: string,
+  taken: Set<string>,
+): string {
+  let name = desired;
+  // Every pass lengthens the name, so a free one is reached within taken.size + 1.
+  for (let i = 0; i <= taken.size; i++) {
+    if (!taken.has(normalizeUserIdTypeName(name))) {
+      return name;
+    }
+    name = `${EVENT_FORWARDER_NAME_COLLISION_PREFIX}${name}`;
+  }
+  return name;
+}
+
+/**
+ * The SDK hash attribute an identifier type models: its sole Linked Hash
+ * Attribute, or its own name when it has none. An entry linked to several
+ * attributes models none of them on its own.
+ */
+export function getEventForwarderUserIdTypeSourceAttribute(
+  userIdType: UserIdType,
+): string {
+  const attributes = userIdType.attributes ?? [];
+  return attributes.length === 1 ? attributes[0] : userIdType.userIdType;
 }
 
 export function findCollidingUserIdTypeName(
@@ -80,13 +90,6 @@ function collectDuplicateUserIdTypeNames(
   return duplicates;
 }
 
-export function findDuplicateUserIdTypeName(
-  userIdTypes: UserIdType[],
-): string | null {
-  const [first] = collectDuplicateUserIdTypeNames(userIdTypes).values();
-  return first ?? null;
-}
-
 // Grandfather pre-existing collisions so unattended syncs still save.
 export function findNewDuplicateUserIdTypeName(
   existing: UserIdType[],
@@ -96,6 +99,43 @@ export function findNewDuplicateUserIdTypeName(
   for (const [normalized, name] of collectDuplicateUserIdTypeNames(updated)) {
     if (!before.has(normalized)) {
       return name;
+    }
+  }
+  return null;
+}
+
+/**
+ * Rejects an update that removes or edits a record the Event Forwarder manages.
+ * The UI hides those actions; this is what makes the lock hold for direct API
+ * calls and stale browser tabs.
+ */
+export function findEventForwarderManagedViolation<
+  T extends { managedBy?: string },
+>({
+  before,
+  after,
+  identify,
+  label,
+}: {
+  before: T[] | undefined;
+  after: T[] | undefined;
+  identify: (record: T) => string;
+  label: string;
+}): string | null {
+  if (!before?.length) {
+    return null;
+  }
+  const afterByKey = new Map((after ?? []).map((r) => [identify(r), r]));
+  for (const record of before) {
+    if (!isEventForwarderManaged(record)) {
+      continue;
+    }
+    const updated = afterByKey.get(identify(record));
+    if (!updated) {
+      return `Cannot delete ${label} ${identify(record)} because it is managed by Event Forwarder`;
+    }
+    if (!isEqual(record, updated)) {
+      return `Cannot edit ${label} ${identify(record)} because it is managed by Event Forwarder`;
     }
   }
   return null;
@@ -173,173 +213,100 @@ export function attributeMatchesDatasourceProjects(
   return true;
 }
 
-export function buildUserIdTypesFromAttributeSchema(
+export function getEventForwarderHashAttributes(
   attributeSchema: SDKAttributeSchema,
   datasourceProjects?: string[],
-): UserIdType[] {
+): string[] {
   return attributeSchema
     .filter((a) => a.hashAttribute && !a.archived)
     .filter((a) => attributeMatchesDatasourceProjects(a, datasourceProjects))
-    .map((a) => ({
-      userIdType: a.property,
-      description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
-      attributes: [a.property],
-      managedBy: "api" as const,
-      sourceAttribute: a.property,
-    }));
+    .map((a) => a.property);
 }
 
-export function getUserIdTypesToAdd(
-  existing: UserIdType[],
-  built: UserIdType[],
-): UserIdType[] {
-  const existingNames = new Set(
-    existing.map((u) => normalizeUserIdTypeName(u.userIdType)),
-  );
-  const existingSources = new Set(
-    existing.map((u) =>
-      normalizeUserIdTypeName(getEventForwarderUserIdTypeSourceAttribute(u)),
-    ),
-  );
-  return built.filter(
-    (u) =>
-      !existingNames.has(normalizeUserIdTypeName(u.userIdType)) &&
-      !existingSources.has(
-        normalizeUserIdTypeName(getEventForwarderUserIdTypeSourceAttribute(u)),
-      ),
-  );
-}
+export type EventForwarderUserIdTypePair = {
+  attribute: string;
+  userIdType: UserIdType;
+};
 
-export function releaseEventForwarderManagedDescription(
-  description: string,
-  managedDescription: string,
-): string;
-export function releaseEventForwarderManagedDescription(
-  description: string | undefined,
-  managedDescription: string,
-): string | undefined;
-export function releaseEventForwarderManagedDescription(
-  description: string | undefined,
-  managedDescription: string,
-): string | undefined {
-  return description === managedDescription
-    ? EVENT_FORWARDER_RELEASED_DESCRIPTION
-    : description;
-}
+export type EventForwarderUserIdTypeResolution = {
+  userIdTypes: UserIdType[];
+  pairs: EventForwarderUserIdTypePair[];
+};
 
-export function releaseEventForwarderManagedRecord<
-  T extends {
-    managedBy?: string;
-    sourceAttribute?: string;
-    description?: string;
-  },
->(record: T, managedDescription: string): T {
-  const released = { ...record };
-  if (released.managedBy === "api") {
-    released.managedBy = "";
-  }
-  delete released.sourceAttribute;
-  released.description = releaseEventForwarderManagedDescription(
-    released.description,
-    managedDescription,
-  );
-  return released;
-}
+function findUserIdTypeModelling(
+  entries: UserIdType[],
+  attribute: string,
+  claimed: Set<number>,
+): { index: number; needsLink: boolean } {
+  const normalized = normalizeUserIdTypeName(attribute);
 
-export function reconcileEventForwarderManagedUserIdTypes(
-  existing: UserIdType[],
-  desired: UserIdType[],
-): UserIdType[] {
-  const desiredBySource = new Map<string, UserIdType>();
-  for (const entry of desired) {
-    const source = normalizeUserIdTypeName(
-      getEventForwarderUserIdTypeSourceAttribute(entry),
+  const linked = entries.findIndex((entry, i) => {
+    const attributes = entry.attributes ?? [];
+    return (
+      !claimed.has(i) &&
+      attributes.length === 1 &&
+      normalizeUserIdTypeName(attributes[0]) === normalized
     );
-    if (!desiredBySource.has(source)) {
-      desiredBySource.set(source, entry);
-    }
+  });
+  if (linked >= 0) {
+    return { index: linked, needsLink: false };
   }
 
-  const claimedSources = new Set<string>();
-  const result: UserIdType[] = [];
-
-  // Claim explicit sourceAttribute links first.
-  for (const entry of existing) {
-    if ((entry.sourceAttribute ?? null) === null) {
-      result.push(entry);
-      continue;
-    }
-    const source = normalizeUserIdTypeName(entry.sourceAttribute as string);
-    if (!desiredBySource.has(source) || claimedSources.has(source)) {
-      result.push(
-        releaseEventForwarderManagedRecord(
-          entry,
-          EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
-        ),
-      );
-      continue;
-    }
-    claimedSources.add(source);
-    result.push(entry);
-  }
-
-  for (const [source, wanted] of desiredBySource) {
-    if (claimedSources.has(source)) {
-      continue;
-    }
-
-    const sourceAttribute = wanted.sourceAttribute ?? wanted.userIdType;
-    const isUnlinked = (entry: UserIdType) =>
-      (entry.sourceAttribute ?? null) === null;
-    // Prefer attributes[] match over name match.
-    const hostIndex = (() => {
-      const byAttribute = result.findIndex(
-        (entry) =>
-          isUnlinked(entry) &&
-          (entry.attributes ?? []).some(
-            (attribute) => normalizeUserIdTypeName(attribute) === source,
-          ),
-      );
-      if (byAttribute >= 0) {
-        return byAttribute;
-      }
-      return result.findIndex(
-        (entry) =>
-          isUnlinked(entry) &&
-          normalizeUserIdTypeName(entry.userIdType) === source,
-      );
-    })();
-
-    if (hostIndex >= 0) {
-      const host = result[hostIndex];
-      const hasSourceAttribute = (host.attributes ?? []).some(
-        (attribute) => normalizeUserIdTypeName(attribute) === source,
-      );
-      result[hostIndex] = {
-        ...host,
-        sourceAttribute,
-        attributes: hasSourceAttribute
-          ? host.attributes
-          : [...(host.attributes ?? []), sourceAttribute],
-      };
-      claimedSources.add(source);
-      continue;
-    }
-
-    result.push(wanted);
-    claimedSources.add(source);
-  }
-
-  return result;
+  const named = entries.findIndex(
+    (entry, i) =>
+      !claimed.has(i) &&
+      (entry.attributes ?? []).length === 0 &&
+      normalizeUserIdTypeName(entry.userIdType) === normalized,
+  );
+  return { index: named, needsLink: named >= 0 };
 }
 
-export function mergeUserIdTypes(
+/**
+ * Pairs each live hash attribute with the identifier type that models it,
+ * creating one where nothing does. Existing names and ids are never rewritten
+ * and nothing is ever removed: an entry whose attribute is gone stays exactly as
+ * it is, so it resumes updating if that attribute comes back.
+ */
+export function resolveEventForwarderManagedUserIdTypes(
   existing: UserIdType[],
-  built: UserIdType[],
-): UserIdType[] {
-  const toAdd = getUserIdTypesToAdd(existing, built);
-  if (toAdd.length === 0) {
-    return existing;
+  attributes: string[],
+): EventForwarderUserIdTypeResolution {
+  const userIdTypes = existing.map((entry) => ({ ...entry }));
+  const takenNames = toNormalizedNameSet(
+    userIdTypes.map((entry) => entry.userIdType),
+  );
+  const claimed = new Set<number>();
+  const pairs: EventForwarderUserIdTypePair[] = [];
+
+  for (const attribute of attributes) {
+    const { index, needsLink } = findUserIdTypeModelling(
+      userIdTypes,
+      attribute,
+      claimed,
+    );
+
+    if (index >= 0) {
+      claimed.add(index);
+      userIdTypes[index] = {
+        ...userIdTypes[index],
+        ...(needsLink && { attributes: [attribute] }),
+        managedBy: "api",
+      };
+      pairs.push({ attribute, userIdType: userIdTypes[index] });
+      continue;
+    }
+
+    const created: UserIdType = {
+      userIdType: resolveEventForwarderManagedName(attribute, takenNames),
+      description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+      attributes: [attribute],
+      managedBy: "api",
+    };
+    takenNames.add(normalizeUserIdTypeName(created.userIdType));
+    claimed.add(userIdTypes.length);
+    userIdTypes.push(created);
+    pairs.push({ attribute, userIdType: created });
   }
-  return [...existing, ...toAdd];
+
+  return { userIdTypes, pairs };
 }

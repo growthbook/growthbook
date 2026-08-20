@@ -1,9 +1,7 @@
 import {
-  buildUserIdTypesFromAttributeSchema,
-  mergeUserIdTypes,
-  isEventForwarderLinkedUserIdType,
+  getEventForwarderHashAttributes,
   reconcileEventForwarderManagedExposureQueries,
-  reconcileEventForwarderManagedUserIdTypes,
+  resolveEventForwarderManagedUserIdTypes,
 } from "shared/util";
 import { SDKAttributeSchema } from "shared/types/organization";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
@@ -23,45 +21,6 @@ function hasChanges<T>(before: T, after: T): boolean {
   return !isEqual(before, after);
 }
 
-export async function initializeDatasourceUserIdTypesFromOrgAttributeSchema(
-  context: ReqContext,
-  datasourceId: string,
-  eventForwarderConfig?: EventForwarderConfigInterface,
-): Promise<void> {
-  if (eventForwarderConfig) {
-    await reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries(
-      context,
-      eventForwarderConfig,
-      context.org.settings?.attributeSchema ?? [],
-    );
-    return;
-  }
-
-  const datasource = await getDataSourceById(context, datasourceId);
-  if (!datasource) {
-    return;
-  }
-
-  const built = buildUserIdTypesFromAttributeSchema(
-    context.org.settings?.attributeSchema ?? [],
-    datasource.projects,
-  );
-
-  const existing = datasource.settings?.userIdTypes ?? [];
-  const merged = mergeUserIdTypes(existing, built);
-
-  if (merged.length === existing.length) {
-    return;
-  }
-
-  await updateDataSource(context, datasource, {
-    settings: {
-      ...datasource.settings,
-      userIdTypes: merged,
-    },
-  });
-}
-
 export async function reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries(
   context: ReqContext,
   config: EventForwarderConfigInterface,
@@ -79,19 +38,13 @@ export async function reconcileEventForwarderDatasourceUserIdTypesAndExposureQue
     return;
   }
 
-  const desiredUserIdTypes = buildUserIdTypesFromAttributeSchema(
-    attributeSchema,
-    datasource.projects,
-  );
   const existingUserIdTypes = datasource.settings?.userIdTypes ?? [];
   const existingExposure = datasource.settings?.queries?.exposure ?? [];
-  const updatedUserIdTypes = reconcileEventForwarderManagedUserIdTypes(
-    existingUserIdTypes,
-    desiredUserIdTypes,
-  );
-  const linkedUserIdTypes = updatedUserIdTypes.filter(
-    isEventForwarderLinkedUserIdType,
-  );
+  const { userIdTypes: updatedUserIdTypes, pairs } =
+    resolveEventForwarderManagedUserIdTypes(
+      existingUserIdTypes,
+      getEventForwarderHashAttributes(attributeSchema, datasource.projects),
+    );
 
   const connectionParams = getSourceIntegrationObject(context, datasource)
     .params as BigQueryConnectionParams | SnowflakeConnectionParams;
@@ -110,7 +63,7 @@ export async function reconcileEventForwarderDatasourceUserIdTypesAndExposureQue
   } else {
     updatedExposure = reconcileEventForwarderManagedExposureQueries({
       existing: existingExposure,
-      userIdTypes: linkedUserIdTypes,
+      pairs,
       params: sqlParams,
       attributeSchema,
     });

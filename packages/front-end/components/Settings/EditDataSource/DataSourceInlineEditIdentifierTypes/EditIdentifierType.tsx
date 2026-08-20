@@ -10,7 +10,6 @@ import MultiSelectField from "@/ui/MultiSelectField";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
-import { EventForwarderManagedCallout } from "@/components/Settings/EditDataSource/EventForwarder/EventForwarderManagedCallout";
 
 type EditIdentifierTypeProps = {
   dataSource: DataSourceInterfaceWithParams;
@@ -19,7 +18,6 @@ type EditIdentifierTypeProps = {
   userIdType: string;
   description?: string;
   attributes?: string[];
-  isEventForwarderManagedType?: boolean;
   onSave: (
     name: string,
     description: string,
@@ -33,7 +31,6 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
   userIdType,
   description,
   attributes,
-  isEventForwarderManagedType = false,
   onSave,
   onCancel,
 }) => {
@@ -113,8 +110,6 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
       ctaEnabled={saveEnabled}
     >
       <>
-        <EventForwarderManagedCallout show={isEventForwarderManagedType} />
-
         <Field
           size="legacy"
           label="Identifier Type"

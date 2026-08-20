@@ -111,12 +111,16 @@ function buildEventForwarderEventsFactTableSqlForDatasource(
   context: ReqContext,
   eventForwarderConfig: EventForwarderConfigInterface,
   datasource: DataSourceInterface,
-  attributeSchema: SDKAttributeSchema,
+  attributeSchema: SDKAttributeSchema | undefined,
+  datasourceParams?: BigQueryConnectionParams | SnowflakeConnectionParams,
 ): string | null {
+  const userIdTypes = datasource.settings?.userIdTypes ?? [];
+
   switch (eventForwarderConfig.sinkType) {
     case "bigquery": {
-      const bigqueryParams = getSourceIntegrationObject(context, datasource)
-        .params as BigQueryConnectionParams;
+      const bigqueryParams = (datasourceParams ??
+        getSourceIntegrationObject(context, datasource)
+          .params) as BigQueryConnectionParams;
       const projectId =
         bigqueryParams.defaultProject?.trim() ||
         bigqueryParams.projectId?.trim() ||
@@ -136,7 +140,7 @@ function buildEventForwarderEventsFactTableSqlForDatasource(
         tablePrefix: getBigQueryEventForwarderTablePrefix(decrypted),
         attributeSchema,
         datasourceProjects: datasource.projects,
-        userIdTypes: datasource.settings?.userIdTypes ?? [],
+        userIdTypes,
       });
     }
     case "snowflake": {
@@ -151,7 +155,7 @@ function buildEventForwarderEventsFactTableSqlForDatasource(
         tablePrefix: getSnowflakeEventForwarderTablePrefix(decrypted),
         attributeSchema,
         datasourceProjects: datasource.projects,
-        userIdTypes: datasource.settings?.userIdTypes ?? [],
+        userIdTypes,
       });
     }
     default:
@@ -327,64 +331,23 @@ export async function ensureEventForwarderEventsFactTable(
     return undefined;
   }
 
-  let sql: string;
-  switch (eventForwarderConfig.sinkType) {
-    case "bigquery": {
-      const bigqueryParams = datasourceParams as
-        | BigQueryConnectionParams
-        | undefined;
-      const projectId =
-        bigqueryParams?.defaultProject?.trim() ||
-        bigqueryParams?.projectId?.trim() ||
-        "";
-      if (!projectId) {
-        logger.warn(
-          {
-            datasourceId: datasource.id,
-            organizationId: context.org.id,
-          },
-          "Skipping event forwarder Events fact table: missing BigQuery project id",
-        );
-        return undefined;
-      }
-
-      const decrypted =
-        decryptEventForwarderConfigModel<BigQueryEventForwarderStoredConfig>(
-          eventForwarderConfig,
-        );
-
-      sql = buildEventForwarderEventsFactTableSql({
-        sinkType: "bigquery",
-        projectId,
-        dataset: decrypted.dataset.trim(),
-        tablePrefix: getBigQueryEventForwarderTablePrefix(decrypted),
-        attributeSchema: context.org.settings?.attributeSchema,
-        datasourceProjects: datasource.projects,
-        userIdTypes,
-      });
-      break;
-    }
-    case "snowflake": {
-      const decrypted =
-        decryptEventForwarderConfigModel<SnowflakeEventForwarderStoredConfig>(
-          eventForwarderConfig,
-        );
-
-      sql = buildEventForwarderEventsFactTableSql({
-        sinkType: "snowflake",
-        database: decrypted.database.trim(),
-        schema: decrypted.schema.trim(),
-        tablePrefix: getSnowflakeEventForwarderTablePrefix(decrypted),
-        attributeSchema: context.org.settings?.attributeSchema,
-        datasourceProjects: datasource.projects,
-        userIdTypes,
-      });
-      break;
-    }
-    default:
-      throw new Error(
-        `Unsupported event forwarder sink type for Events fact table: ${String(eventForwarderConfig.sinkType)}`,
-      );
+  const sql = buildEventForwarderEventsFactTableSqlForDatasource(
+    context,
+    eventForwarderConfig,
+    datasource,
+    context.org.settings?.attributeSchema,
+    datasourceParams,
+  );
+  if (sql === null) {
+    logger.warn(
+      {
+        datasourceId: datasource.id,
+        organizationId: context.org.id,
+        sinkType: eventForwarderConfig.sinkType,
+      },
+      "Skipping event forwarder Events fact table: missing sink connection params",
+    );
+    return undefined;
   }
 
   const columns = buildEventForwarderEventsFactTableColumns(

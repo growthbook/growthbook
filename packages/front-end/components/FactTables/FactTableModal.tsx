@@ -5,12 +5,7 @@ import {
 } from "shared/types/fact-table";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
-import {
-  EVENT_FORWARDER_MANAGED_EVENTS_FACT_TABLE_DESCRIPTION,
-  isEventForwarderEventsFactTable,
-  isProjectListValidForProject,
-  releaseEventForwarderManagedDescription,
-} from "shared/util";
+import { isProjectListValidForProject } from "shared/util";
 import { useEffect, useState } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import Collapsible from "react-collapsible";
@@ -37,7 +32,6 @@ import { getAutoSliceUpdateFrequencyHours } from "@/services/env";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
-import { EventForwarderManagedCallout } from "@/components/Settings/EditDataSource/EventForwarder/EventForwarderManagedCallout";
 
 export interface Props {
   existing?: FactTableInterface;
@@ -94,13 +88,6 @@ export default function FactTableModal({
   });
 
   const selectedDataSource = getDatasourceById(form.watch("datasource"));
-
-  // Only the Events table the Event Forwarder generates, not every fact table
-  // carrying managedBy: "api".
-  const isEventForwarderManaged =
-    !!existing &&
-    !duplicate &&
-    isEventForwarderEventsFactTable(existing, existing.datasource);
 
   const datasourceHasIncrementalRefresh =
     selectedDataSource?.settings?.pipelineSettings?.allowWriting === true &&
@@ -189,17 +176,12 @@ export default function FactTableModal({
 
           if (existing && !duplicate) {
             const data: UpdateFactTableProps = {
-              description: isEventForwarderManaged
-                ? releaseEventForwarderManagedDescription(
-                    value.description,
-                    EVENT_FORWARDER_MANAGED_EVENTS_FACT_TABLE_DESCRIPTION,
-                  )
-                : value.description,
+              description: value.description,
               name: value.name,
               sql: value.sql,
               userIdTypes: value.userIdTypes,
               eventName: value.eventName,
-              managedBy: isEventForwarderManaged ? "" : value.managedBy,
+              managedBy: value.managedBy,
               projects: value.projects,
               autoSliceUpdatesEnabled: value.autoSliceUpdatesEnabled,
             };
@@ -261,8 +243,6 @@ export default function FactTableModal({
           }
         })}
       >
-        <EventForwarderManagedCallout show={isEventForwarderManaged} />
-
         <Field size="legacy" label="Name" {...form.register("name")} required />
 
         {

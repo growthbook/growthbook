@@ -8,6 +8,7 @@ import type { UserIdType } from "shared/types/datasource";
 import {
   attributeMatchesDatasourceProjects,
   getEventForwarderUserIdTypeSourceAttribute,
+  isEventForwarderManaged,
 } from "./event-forwarder-datasource";
 import {
   resolveBigQueryEventForwarderTableNames,
@@ -101,7 +102,7 @@ export function isEventForwarderEventsFactTable(
   datasourceId: string,
 ): boolean {
   return (
-    factTable.managedBy === "api" &&
+    isEventForwarderManaged(factTable) &&
     factTable.id === getEventForwarderEventsFactTableId(datasourceId)
   );
 }

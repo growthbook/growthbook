@@ -9,11 +9,6 @@ import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import {
-  EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
-  isEventForwarderManagedExposureQuery,
-  releaseEventForwarderManagedRecord,
-} from "shared/util";
 import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
 import StringArrayField from "@/ui/StringArrayField";
@@ -24,7 +19,6 @@ import SelectField from "@/components/Forms/SelectField";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
-import { EventForwarderManagedCallout } from "@/components/Settings/EditDataSource/EventForwarder/EventForwarderManagedCallout";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -45,11 +39,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       : `Edit ${
           exposureQuery ? exposureQuery.name : "Experiment Assignment"
         } query`;
-
-  const isEventForwarderManaged =
-    mode === "edit" &&
-    !!exposureQuery &&
-    isEventForwarderManagedExposureQuery(exposureQuery);
 
   const userIdTypeOptions = dataSource?.settings?.userIdTypes?.map(
     ({ userIdType }) => ({
@@ -84,14 +73,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const userEnteredHasNameCol = form.watch("hasNameCol");
 
   const handleSubmit = form.handleSubmit(async (value) => {
-    await onSave(
-      isEventForwarderManaged
-        ? releaseEventForwarderManagedRecord(
-            value,
-            EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
-          )
-        : value,
-    );
+    await onSave(value);
 
     form.reset({
       id: undefined,
@@ -263,7 +245,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<
         autoFocusSelector="#id-modal-identify-joins-heading"
       >
         <div className="my-2 ml-3 mr-3">
-          <EventForwarderManagedCallout show={isEventForwarderManaged} />
           <div className="row">
             <div className="col-12">
               <Field

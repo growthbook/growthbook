@@ -5,7 +5,10 @@ import {
 } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { PiDotsThreeVertical, PiPlus } from "react-icons/pi";
-import { getActiveFeatureUsageQuery } from "shared/util";
+import {
+  getActiveFeatureUsageQuery,
+  isEventForwarderManaged,
+} from "shared/util";
 import { Box, Flex, Heading, IconButton } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -93,6 +96,9 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
     return null;
   }
 
+  const isManaged =
+    !!featureUsageQuery && isEventForwarderManaged(featureUsageQuery);
+
   return (
     <Box>
       <Flex align="center" gap="2" mb="3" justify="between">
@@ -111,7 +117,7 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
                 Add
               </Button>
             )}
-            {featureUsageQuery && (
+            {featureUsageQuery && !isManaged && (
               <DropdownMenu
                 trigger={
                   <IconButton

@@ -4,8 +4,8 @@ import { cloneDeep, isEqual } from "lodash";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import {
   DataRegion,
-  isEventForwarderManagedExposureQuery,
-  isEventForwarderManagedFeatureUsageQuery,
+  findEventForwarderManagedViolation,
+  isEventForwarderManaged,
   isManagedWarehouseAwaitingProvisioning,
   isManagedWarehouseUnavailable,
   findNewDuplicateUserIdTypeName,
@@ -368,6 +368,37 @@ function assertUniqueUserIdTypeNames(
   }
 }
 
+// Managed records have no Edit or Delete in the UI; this is what holds the line
+// for direct API calls and stale browser tabs.
+function assertEventForwarderManagedRecordsIntact(
+  updated: DataSourceSettings | undefined,
+  existing: DataSourceSettings | undefined,
+): void {
+  const violation =
+    findEventForwarderManagedViolation({
+      before: existing?.userIdTypes,
+      after: updated?.userIdTypes,
+      identify: (record) => record.userIdType,
+      label: "identifier type",
+    }) ??
+    findEventForwarderManagedViolation({
+      before: existing?.queries?.exposure,
+      after: updated?.queries?.exposure,
+      identify: (record) => record.id,
+      label: "experiment assignment query",
+    }) ??
+    findEventForwarderManagedViolation({
+      before: existing?.queries?.featureUsage,
+      after: updated?.queries?.featureUsage,
+      identify: (record) => record.id,
+      label: "feature usage query",
+    });
+
+  if (violation) {
+    throw new Error(violation);
+  }
+}
+
 export async function createDataSource(
   context: ReqContext,
   name: string,
@@ -482,7 +513,7 @@ export async function validateExposureQueriesAndAddMissingIds(
 
         if (
           skipEventForwarderManagedValidation &&
-          isEventForwarderManagedExposureQuery(exposure) &&
+          isEventForwarderManaged(exposure) &&
           validation !== "all"
         ) {
           exposure.error = undefined;
@@ -529,7 +560,7 @@ export async function validateExposureQueriesAndAddMissingIds(
 
         if (
           skipEventForwarderManagedValidation &&
-          isEventForwarderManagedFeatureUsageQuery(featureUsage) &&
+          isEventForwarderManaged(featureUsage) &&
           validation !== "all"
         ) {
           featureUsage.error = undefined;
@@ -636,6 +667,12 @@ export async function updateDataSource(
       skipEventForwarderManagedValidation,
     );
     assertUniqueUserIdTypeNames(updates.settings, datasource.settings);
+    if (!skipEventForwarderManagedValidation) {
+      assertEventForwarderManagedRecordsIntact(
+        updates.settings,
+        datasource.settings,
+      );
+    }
     validatePipelineSettingsInvariants(updates.settings.pipelineSettings);
   }
   if (!hasActualChanges(datasource, updates)) {

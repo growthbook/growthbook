@@ -186,13 +186,6 @@ export interface ExposureQuery {
   error?: string;
   /** Set to "api" for queries auto-created by Event Forwarder. */
   managedBy?: "" | "api";
-  /**
-   * SDK hash attribute this Event Forwarder query reads. `userIdType` references
-   * the Identifier Type the query runs against, which resolves the attribute
-   * only while that record is still linked — recording it here keeps matching
-   * working once the Identifier Type is released or deleted.
-   */
-  sourceAttribute?: string;
 }
 
 export interface FeatureUsageQuery {
@@ -210,12 +203,6 @@ export interface UserIdType {
   attributes?: string[];
   /** Set to "api" for identifier types auto-created by Event Forwarder. */
   managedBy?: "" | "api";
-  /**
-   * SDK hash attribute this identifier reads. Set on the ones the Event
-   * Forwarder created and on any entry it matched to an attribute — by Linked
-   * Hash Attributes or by name. Match on this, not on `userIdType`.
-   */
-  sourceAttribute?: string;
 }
 
 export type DataSourceEvents = {
