@@ -129,3 +129,15 @@ export function differsFromBase<T extends { projects?: string[] }>(
   };
   return !isEqual(strip(rule), strip(base));
 }
+
+// A legacy boolean setting means "review required, everywhere" with no rule to
+// hang policy off. Surfacing it as a real rule keeps the form honest — read as
+// `[]`, saving the form would write `requireReviewOn: false` and quietly turn
+// review off for the whole org.
+export function flagRulesFromSettings(
+  requireReviews: boolean | RequireReview[] | undefined,
+): RequireReview[] {
+  if (Array.isArray(requireReviews)) return requireReviews;
+  if (!requireReviews) return [];
+  return [{ ...flagRuleDefaults(ALL_PROJECTS_SCOPE), requireReviewOn: true }];
+}

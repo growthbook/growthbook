@@ -11,6 +11,7 @@ import Link from "@/ui/Link";
 import { ApprovalScopeSections } from "@/components/GeneralSettings/ApprovalScopeFields";
 import {
   flagRuleDefaults,
+  flagRulesFromSettings,
   savedGroupRuleDefaults,
 } from "@/components/GeneralSettings/approvalScopes";
 
@@ -30,9 +31,9 @@ export default function ProjectApprovalSettings({
 
   if (!hasCommercialFeature("require-approvals")) return null;
 
-  const flagRules: RequireReview[] = Array.isArray(settings.requireReviews)
-    ? settings.requireReviews
-    : [];
+  const flagRules: RequireReview[] = flagRulesFromSettings(
+    settings.requireReviews,
+  );
   const savedGroupRules = settings.approvalFlows?.savedGroups ?? [];
 
   // What actually applies here, folded the same way the publish gate folds it.

@@ -28,6 +28,7 @@ import {
   clonedFlagRule,
   clonedSavedGroupRule,
   differsFromBase,
+  flagRulesFromSettings,
   ruleForScope,
   scopeKey,
   inheritedFlagRule,
@@ -48,10 +49,9 @@ export default function ApprovalFlowSettings() {
   // Radix treats "" as no value, so the base tab needs a real id of its own.
   const ALL_PROJECTS_TAB = "all-projects";
 
-  const rawRequireReviews = form.watch("requireReviews");
-  const flagRules: RequireReview[] = Array.isArray(rawRequireReviews)
-    ? rawRequireReviews
-    : [];
+  const flagRules: RequireReview[] = flagRulesFromSettings(
+    form.watch("requireReviews"),
+  );
   const savedGroupRules: ApprovalFlowConfiguration[] =
     form.watch("approvalFlows.savedGroups") ?? [];
 

@@ -10,6 +10,7 @@ import {
   clonedFlagRule,
   clonedSavedGroupRule,
   differsFromBase,
+  flagRulesFromSettings,
   overrideScopes,
   ruleForScope,
   scopeKey,
@@ -211,5 +212,29 @@ describe("differsFromBase", () => {
 
   it("is false when there is no base to compare against", () => {
     expect(differsFromBase(base, undefined)).toBe(false);
+  });
+});
+
+// A legacy boolean setting read as `[]` showed "approval not required", and
+// saving that form wrote requireReviewOn:false — turning review off org-wide.
+describe("flagRulesFromSettings", () => {
+  it("surfaces a legacy true as an all-projects rule that requires review", () => {
+    const rules = flagRulesFromSettings(true);
+
+    expect(rules).toHaveLength(1);
+    expect(rules[0].requireReviewOn).toBe(true);
+    expect(rules[0].projects).toEqual([]);
+  });
+
+  it("treats a legacy false, and an absent setting, as no rules", () => {
+    expect(flagRulesFromSettings(false)).toEqual([]);
+    expect(flagRulesFromSettings(undefined)).toEqual([]);
+  });
+
+  it("passes a real rule array through untouched", () => {
+    const rules = [
+      { requireReviewOn: true, projects: ["prj_a"] } as RequireReview,
+    ];
+    expect(flagRulesFromSettings(rules)).toBe(rules);
   });
 });
