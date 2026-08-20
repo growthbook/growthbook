@@ -394,7 +394,7 @@ export default {
   },
   python: {
     name: "Python SDK",
-    version: "2.3.1",
+    version: "2.4.0",
     github: "https://github.com/growthbook/growthbook-python",
     examples: [],
     packageRepos: [
@@ -511,7 +511,7 @@ export default {
   },
   rust: {
     name: "Rust SDK",
-    version: "0.2.0",
+    version: "0.2.1",
     github: "https://github.com/growthbook/growthbook-rust",
     examples: [
       {
@@ -735,7 +735,7 @@ export default {
   },
   kotlin: {
     name: "Kotlin SDK",
-    version: "7.3.0",
+    version: "7.6.0",
     github: "https://github.com/growthbook/growthbook-kotlin",
     examples: [],
     packageRepos: [
@@ -788,7 +788,7 @@ export default {
   },
   swift: {
     name: "Swift SDK",
-    version: "1.1.12",
+    version: "1.2.0",
     github: "https://github.com/growthbook/growthbook-swift",
     examples: [],
     packageRepos: [

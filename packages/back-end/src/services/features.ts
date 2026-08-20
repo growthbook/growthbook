@@ -133,6 +133,8 @@ import {
   getHoldoutFeatureDefId,
   getParsedCondition,
   pairedWeightsToPositional,
+  experimentMapForFeatures,
+  getReferenceIdsInFeatures,
 } from "back-end/src/util/features";
 import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
@@ -1425,6 +1427,12 @@ export async function buildSDKPayloadForConnection(
         )
       : data.experimentMap;
 
+  const featureExperimentMap = experimentMapForFeatures(
+    data.experimentMap,
+    filteredFeatures,
+    projectList,
+  );
+
   // Fresh cache per connection (one env per connection); keyed by prereq id only
   const prereqStateCache: Record<string, PrerequisiteStateResult> = {};
 
@@ -1458,16 +1466,10 @@ export async function buildSDKPayloadForConnection(
   }
 
   let cbMap: Map<string, ContextualBanditInterface> | undefined;
-  const cbIdsFromRules: string[] = [];
-  for (const feature of filteredFeatures) {
-    const rules = feature.rules ?? [];
-    for (const rule of rules) {
-      if (rule.type === "contextual-bandit-ref" && rule.contextualBanditId) {
-        cbIdsFromRules.push(rule.contextualBanditId);
-      }
-    }
-  }
-  const cbIds = Array.from(new Set(cbIdsFromRules));
+  const cbIds = getReferenceIdsInFeatures(
+    filteredFeatures,
+    "contextual-bandit-ref",
+  );
   if (cbIds.length > 0) {
     const cbDocs = await Promise.all(
       cbIds.map((id) => context.models.contextualBandits.getById(id)),
@@ -1485,7 +1487,7 @@ export async function buildSDKPayloadForConnection(
     groupMap: data.groupMap,
     constants: data.constants,
     constantMap: data.constantMap,
-    experimentMap: filteredExperimentMap,
+    experimentMap: featureExperimentMap,
     prereqStateCache,
     safeRolloutMap: data.safeRolloutMap,
     holdoutsMap: holdoutsMapForConnection,
@@ -1612,7 +1614,11 @@ export async function getFeatureDefinitions(
     projects: projectFilter,
   });
   const groupMap = await getSavedGroupMap(context, allSavedGroups);
-  const experimentMap = await getAllPayloadExperiments(context, projectFilter);
+  const experimentMap = await getAllPayloadExperiments(
+    context,
+    projectFilter,
+    getReferenceIdsInFeatures(allFeatures, "experiment-ref"),
+  );
   const safeRolloutMap =
     await context.models.safeRollout.getAllPayloadSafeRollouts();
   const holdoutsMap =

@@ -1,7 +1,9 @@
 import { z } from "zod";
 import {
   apiFactTableColumnValidator,
+  apiFactTableValidator,
   rowFilterValidator,
+  updateFactTablePropsValidator,
   updateFactTableValidator,
 } from "../../src/validators/fact-table";
 import { postBulkImportFactsValidator } from "../../src/validators/bulk-import";
@@ -88,6 +90,18 @@ function isResponseOnly(schema: z.ZodType): boolean {
 }
 
 describe("updateFactTableValidator", () => {
+  it("keeps columnsError response-only", () => {
+    expect(isResponseOnly(apiFactTableValidator.shape.columnsError)).toBe(true);
+  });
+
+  it("rejects the response-only fact table field columnsError", () => {
+    const result = updateFactTableValidator.bodySchema.safeParse({
+      columnsError: "SQL compilation error",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it("excludes every response-only column field", () => {
     const updateColumnShape =
       updateFactTableValidator.bodySchema.shape.columns.unwrap().element.shape;
@@ -114,6 +128,16 @@ describe("updateFactTableValidator", () => {
           [field]: value,
         },
       ],
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("updateFactTablePropsValidator", () => {
+  it("rejects the server-owned field columnsError", () => {
+    const result = updateFactTablePropsValidator.safeParse({
+      columnsError: "SQL compilation error",
     });
 
     expect(result.success).toBe(false);

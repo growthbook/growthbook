@@ -52,6 +52,22 @@ export const apiErrorRegistry = {
       expectedStatuses: z.array(z.string()),
     }),
   },
+  requires_full_refresh: {
+    status: 409,
+    description:
+      "The Incremental Pipeline needs a Full Refresh of Overall Results before this request can be served",
+    detailsSchema: z.object({
+      reason: z.string(),
+    }),
+  },
+  dimension_already_up_to_date: {
+    status: 409,
+    description:
+      "The requested dimension was already computed from the latest Overall Results",
+    detailsSchema: z.object({
+      overallResultsAsOf: z.string(),
+    }),
+  },
 } satisfies Record<
   string,
   { status: number; description: string; detailsSchema: z.ZodTypeAny }
