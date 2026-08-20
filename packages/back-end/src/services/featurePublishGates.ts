@@ -105,14 +105,32 @@ export function featurePublishEnvironmentIds(
 
 // The approval half of a publish decision, without the merge or ramp lookups a
 // full plan needs. Every publish flow — manual or automatic — asks this.
-export function assessRevisionApproval({
+// A ramp `update` replaces the live schedule, whose step patches may touch
+// environments the new version drops — those live only on the stored schedule.
+async function loadLiveRampScheduleEnvs(
+  context: Context,
+  revision: FeatureRevisionInterface,
+): Promise<Map<string, string[] | "all">> {
+  const map = new Map<string, string[] | "all">();
+  for (const action of revision.rampActions ?? []) {
+    if (action.mode !== "update") continue;
+    const liveSchedule = await context.models.rampSchedules.getById(
+      action.rampScheduleId,
+    );
+    if (liveSchedule) {
+      map.set(action.rampScheduleId, getEnvsFromRampSchedule(liveSchedule));
+    }
+  }
+  return map;
+}
+
+export async function assessRevisionApproval({
   context,
   feature,
   revision,
   effectiveRevision,
   filledLive,
   base,
-  liveRampScheduleEnvs,
 }: {
   context: Context;
   feature: FeatureInterface;
@@ -120,8 +138,13 @@ export function assessRevisionApproval({
   effectiveRevision: FeatureRevisionInterface;
   filledLive: FeatureRevisionInterface;
   base: FeatureRevisionInterface;
-  liveRampScheduleEnvs?: Map<string, string[] | "all">;
-}): RevisionApprovalState {
+}): Promise<RevisionApprovalState> {
+  // Loaded here, not caller-supplied: the autostart path once omitted it, so a
+  // ramp update removing an environment escaped approval coverage there.
+  const liveRampScheduleEnvs = await loadLiveRampScheduleEnvs(
+    context,
+    revision,
+  );
   // Derived, not caller-supplied: the autostart path once passed the org's
   // full list and judged review against environments the feature cannot serve.
   const environmentIds = featurePublishEnvironmentIds(context.org, feature);
@@ -255,36 +278,18 @@ export async function planFeatureRevisionMerge({
     rampActions: revision.rampActions,
   };
 
-  // For ramp `update` actions, the live schedule's step patches may include
-  // environments that the new draft removes. Build a map so the review check
-  // can union old+new environments and catch the "removing env" direction.
-  const liveRampScheduleEnvs = new Map<string, string[] | "all">();
-  for (const action of revision.rampActions ?? []) {
-    if (action.mode !== "update") continue;
-    const liveSchedule = await context.models.rampSchedules.getById(
-      action.rampScheduleId,
-    );
-    if (liveSchedule) {
-      liveRampScheduleEnvs.set(
-        action.rampScheduleId,
-        getEnvsFromRampSchedule(liveSchedule),
-      );
-    }
-  }
-
   const {
     requiresReview,
     uncoveredApprovers,
     hasCoveringApproval,
     requiredApproverTeams: requiredTeams,
-  } = assessRevisionApproval({
+  } = await assessRevisionApproval({
     context,
     feature,
     revision,
     effectiveRevision,
     filledLive,
     base,
-    liveRampScheduleEnvs,
   });
 
   const hasLinkedPendingRamp =

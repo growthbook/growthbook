@@ -32,7 +32,6 @@ import {
   getDependentExperiments,
   getDependentFeatures,
   getEffectiveRevisionHoldout,
-  getEnvsFromRampSchedule,
   getRevertTargetHoldout,
   getRevertValueValidationWarnings,
   getReviewSetting,
@@ -2158,32 +2157,14 @@ export async function postFeaturePublish(
       }
     : { ...revision, ...fillRevisionFromFeature(revision, feature) };
 
-  // For ramp `update` actions, the live schedule may have step patches that
-  // target environments the draft removes. Build a lookup so the review check
-  // can catch the "removing env" direction as well as adding.
-  const liveRampScheduleEnvs = new Map<string, string[] | "all">();
-  for (const action of revision.rampActions ?? []) {
-    if (action.mode !== "update") continue;
-    const liveSchedule = await context.models.rampSchedules.getById(
-      action.rampScheduleId,
-    );
-    if (liveSchedule) {
-      liveRampScheduleEnvs.set(
-        action.rampScheduleId,
-        getEnvsFromRampSchedule(liveSchedule),
-      );
-    }
-  }
-
   const { requiresReview, hasCoveringApproval, requiredApproverTeams } =
-    assessRevisionApproval({
+    await assessRevisionApproval({
       context,
       feature,
       revision,
       effectiveRevision,
       filledLive,
       base,
-      liveRampScheduleEnvs,
     });
 
   if (!adminOverride && requiresReview && !hasCoveringApproval) {

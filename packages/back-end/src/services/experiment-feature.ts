@@ -385,7 +385,7 @@ type ResolvedDraft = { featureId: string; revisionVersion: number };
 // approval went stale) — true conflicts are reported via `mergeResult`.
 // An autostart carries no ramp overlay, so the live revision is both the merge
 // baseline and the review baseline.
-function assessRevisionApprovalForAutoPublish(
+async function assessRevisionApprovalForAutoPublish(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
@@ -522,7 +522,7 @@ export async function publishPendingFeatureDraftsForExperiment(
     );
     // The same question the publish button and the REST endpoint ask, so an
     // autostart can never land a draft either of those would refuse.
-    const approval = assessRevisionApprovalForAutoPublish(
+    const approval = await assessRevisionApprovalForAutoPublish(
       context,
       feature,
       revision,
@@ -758,7 +758,7 @@ export async function publishPendingFeatureDraftsForContextualBandit(
       feature,
       revision,
     });
-    const approval = assessRevisionApprovalForAutoPublish(
+    const approval = await assessRevisionApprovalForAutoPublish(
       context,
       feature,
       revision,
