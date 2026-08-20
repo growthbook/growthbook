@@ -155,6 +155,12 @@ export default function Implementation({
     !!soleLinkedFeature &&
     canEditExperiment &&
     permissionsUtil.canEditFeatureDrafts(soleLinkedFeature.feature) &&
+    // Every sibling control on this card freezes for a scheduled start.
+    !experiment.nextScheduledStatusUpdate &&
+    // A managed flag can be reviewed and published from this page at any time.
+    // A plain linked flag cannot, so editing it once the experiment is running
+    // would open drafts with no way to land them.
+    (isManaged || experiment.status === "draft") &&
     soleLinkedFeature.state !== "locked" &&
     soleLinkedFeature.state !== "archived" &&
     soleLinkedFeature.state !== "discarded";
@@ -258,6 +264,7 @@ export default function Implementation({
             mutate={mutate}
             phaseIndex={phases.length - 1}
             servedValueFeature={soleLinkedFeature}
+            servedValuePreferDraft={isManaged}
             onEditServedValue={
               canEditServedValues
                 ? (variationId) => {

@@ -4989,8 +4989,13 @@ export async function getRefLinkedFeatureInfo({
         (draftDiffersFromLive || liveRefRules.length === 0);
 
       // Feature-scope approval check: requires review AND draft not yet approved.
+      // Also when `state` is "draft" without a pending diff: the sibling
+      // fields below are still keyed on `state`, and a live rule scoped to a
+      // deleted environment yields no `liveMatches` while `liveRefRules` is
+      // non-empty, which would otherwise drop them.
+      const needsDraftFacts = hasPendingDraft || state === "draft";
       let reviewRequired = false;
-      if (hasPendingDraft) {
+      if (needsDraftFacts) {
         const requiresReviews = context.org.settings?.requireReviews;
         const requireApprovalsLicensed =
           context.hasPremiumFeature("require-approvals");
@@ -5016,7 +5021,7 @@ export async function getRefLinkedFeatureInfo({
 
       let draftHasMergeConflict = false;
       let draftHasUnrelatedChanges = false;
-      if (hasPendingDraft && matchedDraftRevision) {
+      if (needsDraftFacts && matchedDraftRevision) {
         try {
           const { live, base } = await getLiveAndBaseRevisionsForFeature({
             context,

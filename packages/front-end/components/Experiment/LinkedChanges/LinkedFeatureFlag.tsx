@@ -25,6 +25,7 @@ import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 
 type Props = {
   info: LinkedFeatureInfo;
@@ -46,6 +47,7 @@ export default function LinkedFeatureFlag({
 }: Props) {
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
+  const allEnvironments = useEnvironments();
   const [removing, setRemoving] = useState(false);
   const [ejecting, setEjecting] = useState(false);
   const [ejectConfirm, setEjectConfirm] = useState(false);
@@ -56,6 +58,15 @@ export default function LinkedFeatureFlag({
 
   const canUpdateLinkedFeature =
     canEditExperiment && permissionsUtil.canEditFeatureDrafts(info.feature);
+
+  // Eject hands back control of what a running experiment serves, so the
+  // server takes publish authority — mirror it or the menu offers a 403.
+  const canEject =
+    canEditExperiment &&
+    permissionsUtil.canPublishFeature(
+      info.feature,
+      getEnabledEnvironments(info.feature, allEnvironments),
+    );
 
   const canEditFeatureDraft =
     canUpdateLinkedFeature &&
@@ -147,10 +158,14 @@ export default function LinkedFeatureFlag({
 
   // With the values on the variation cards, this only earns space when one of
   // the warnings below has something to say.
-  const showValueSection =
-    !valuesShownOnVariations ||
-    ((info.state === "live" || info.state === "draft") &&
-      (info.inconsistentValues || info.rulesAbove));
+  const hasValueWarnings =
+    (info.state === "live" || info.state === "draft") &&
+    (info.inconsistentValues || info.rulesAbove);
+  // A managed flag never renders the value rows here, so without a warning to
+  // show the section would be an empty padded band.
+  const showValueSection = isManaged
+    ? hasValueWarnings
+    : !valuesShownOnVariations || hasValueWarnings;
 
   const showEditButton =
     canEditFeatureDraft &&
@@ -197,7 +212,7 @@ export default function LinkedFeatureFlag({
             // Always set when managed, even if empty: falling back to the
             // default cluster would offer Edit and Remove on a managed flag.
             <>
-              {canUpdateLinkedFeature && (
+              {canEject && (
                 <DropdownMenu
                   trigger={
                     <IconButton

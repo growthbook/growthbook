@@ -18,7 +18,7 @@ export type ManagedBy = z.infer<typeof managedByValidator>;
 // is made from the experiment page. Direct feature writes — internal or REST —
 // are refused while this marker is set. Clearing it ("ejecting") returns the
 // flag to ordinary standalone editing.
-export const managedByExperimentValidator = z
+const managedByExperimentValidator = z
   .object({
     type: z.literal("experiment"),
     experimentId: z.string(),
@@ -31,5 +31,3 @@ export const managedByExperimentValidator = z
 export const featureManagedByValidator = z.discriminatedUnion("type", [
   managedByExperimentValidator,
 ]);
-
-export type FeatureManagedBy = z.infer<typeof featureManagedByValidator>;

@@ -69,7 +69,7 @@ export type ExperimentFeatureLinkResult = {
   ruleId: string;
 };
 
-export type ExperimentFeatureLinkOptions = {
+type ExperimentFeatureLinkOptions = {
   context: ReqContext | ApiReqContext;
   experiment: ExperimentInterface;
   feature: FeatureInterface;

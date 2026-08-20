@@ -252,10 +252,9 @@ export default function EditFeatureFlagValuesModal({
     linkedFeatureInfo.liveHasMatchingRule === false &&
     linkedFeatureInfo.draftRevisionVersion != null;
 
-  // A managed flag has exactly one draft by construction, but
-  // `draftRevisionVersion` is only populated while the EXPERIMENT is a draft.
-  // On a running managed experiment this modal would otherwise open in "new
-  // draft" mode and open a second one alongside the pending edit.
+  // `draftRevisionVersion` is only set while the EXPERIMENT is a draft, so a
+  // running managed experiment would otherwise open a second draft alongside
+  // its pending edit.
   const targetDraftVersion =
     linkedFeatureInfo.draftRevisionVersion ??
     (isManaged ? (linkedFeatureInfo.pendingDraft?.version ?? null) : null);
@@ -270,12 +269,9 @@ export default function EditFeatureFlagValuesModal({
   );
   const [isEditingVariations, setIsEditingVariations] = useState(false);
 
-  // Jump straight to the variation whose Edit link was clicked.
-  //
-  // The field is not in the DOM when this first runs: the modal body renders a
-  // loading overlay until `data` resolves. JSON values add a second wait — they
-  // render in Ace behind `next/dynamic`, whose input is `textarea.ace_text-input`
-  // — so poll for the field rather than guessing at either boundary.
+  // Focus the variation whose Edit link was clicked. The field mounts behind
+  // two async boundaries — the body waits on `data`, and JSON values render in
+  // a dynamically imported editor — so poll for it.
   useEffect(() => {
     if (!focusVariationId || !data) return;
     let timer: ReturnType<typeof setTimeout>;
@@ -289,11 +285,9 @@ export default function EditFeatureFlagValuesModal({
       );
       if (field) {
         if (document.activeElement === field) return;
-        // Suppressing Radix's open-autofocus leaves focus on the trigger that
-        // opened the modal, and Radix also re-targets focus as the dialog
-        // mounts, so a single call gets dropped. Re-apply until a control
-        // INSIDE the dialog holds focus — that is the only thing that means
-        // the user chose somewhere else.
+        // Radix re-targets focus while the dialog mounts, so one call gets
+        // dropped. Re-apply until a control inside the dialog holds focus —
+        // anything else means the user has not chosen yet.
         const active = document.activeElement as HTMLElement | null;
         const dialog = row?.closest("[role='dialog']");
         const userMovedFocus =
@@ -572,8 +566,7 @@ export default function EditFeatureFlagValuesModal({
       cta="Save to draft"
       close={close}
       open={true}
-      // This modal focuses the clicked variation itself; without this Radix
-      // focuses the close button on mount and steals it back.
+      // This modal places focus itself; Radix would take the close button.
       onOpenAutoFocus={(e) => {
         if (focusVariationId) e.preventDefault();
       }}

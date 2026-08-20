@@ -171,9 +171,6 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                               : "Linked Feature Flag"
                           }
                         >
-                          {/* Filled and violet, so ownership survives a glance
-                              rather than resting on colour alone. Violet is the
-                              same "managed" accent used on the experiment. */}
                           {getManagedFlag(e.id) ? (
                             <BsFlagFill className="text-purple" />
                           ) : (

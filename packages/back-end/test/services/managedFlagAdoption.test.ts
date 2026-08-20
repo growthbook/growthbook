@@ -1,14 +1,21 @@
 import type { ExperimentInterface } from "shared/validators";
 import {
+  clearManagedMarkersForExperiment,
   managedFlagAdoptionBlocker,
   planManagedFlagKey,
   staleLinkedFeatureIds,
 } from "back-end/src/services/managedFeatures";
-import { featureIdExists } from "back-end/src/models/FeatureModel";
+import {
+  featureIdExists,
+  getFeature,
+  getFeatureIdsManagedByExperiment,
+  updateFeature,
+} from "back-end/src/models/FeatureModel";
 import { getExperimentByTrackingKey } from "back-end/src/models/ExperimentModel";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
   featureIdExists: jest.fn(),
+  getFeatureIdsManagedByExperiment: jest.fn(),
   createFeature: jest.fn(),
   deleteFeature: jest.fn(),
   getFeature: jest.fn(),
@@ -21,6 +28,9 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
 }));
 
 const mockExists = featureIdExists as jest.Mock;
+const mockManagedIds = getFeatureIdsManagedByExperiment as jest.Mock;
+const mockGetFeature = getFeature as jest.Mock;
+const mockUpdateFeature = updateFeature as jest.Mock;
 const mockByTrackingKey = getExperimentByTrackingKey as jest.Mock;
 
 const experiment = (over: Partial<ExperimentInterface> = {}) =>
@@ -112,6 +122,27 @@ describe("managedFlagAdoptionBlocker", () => {
         experiment({ linkedFeatures: ["deleted-flag", "live-flag"] }),
       ),
     ).toMatch(/already has a linked Feature Flag/);
+  });
+});
+
+describe("clearManagedMarkersForExperiment", () => {
+  it("releases every flag the experiment owns, resolved without the read filter", async () => {
+    // A flag whose project the deleter cannot read must still be released, or
+    // it survives pointing at a deleted experiment and can never be written.
+    mockManagedIds.mockResolvedValue(["flag-a", "flag-b"]);
+    mockGetFeature.mockImplementation(async (_c, id: string) =>
+      id === "flag-a" ? { id, managedBy: { type: "experiment" } } : null,
+    );
+
+    await clearManagedMarkersForExperiment(context, "exp_1");
+
+    expect(mockUpdateFeature).toHaveBeenCalledTimes(1);
+    expect(mockUpdateFeature).toHaveBeenCalledWith(
+      context,
+      expect.objectContaining({ id: "flag-a" }),
+      {},
+      { unsetManagedBy: true },
+    );
   });
 });
 

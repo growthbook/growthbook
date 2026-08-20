@@ -305,10 +305,18 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     !hashAttributeLinkedToIdentifier &&
     !wouldAutoSelectExposureQuery;
 
-  const managedDefault = managedExperimentFlagsDefault({
-    settings,
-    project: projects.find((p) => p.id === selectedProject) ?? null,
-  });
+  // The server creates the flag as part of the experiment and deletes the
+  // experiment again if that fails, so offering Automatic to someone who can't
+  // create a Feature Flag here would block them from creating any experiment.
+  const canManageFlag =
+    permissionsUtil.canViewFeatureModal(selectedProject || undefined) &&
+    !(settings?.requireProjectForFeatures && !selectedProject);
+  const managedDefault =
+    canManageFlag &&
+    managedExperimentFlagsDefault({
+      settings,
+      project: projects.find((p) => p.id === selectedProject) ?? null,
+    });
   const [managedFlag, setManagedFlag] = useState(managedDefault);
   // Re-resolve on Project change until the user touches the control.
   const [managedTouched, setManagedTouched] = useState(false);
@@ -572,29 +580,31 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         {...form.register("hypothesis")}
       />
 
-      <Flex direction="column" gap="1" mb="3">
-        <Text weight="semibold">Implementation</Text>
-        <RadioGroup
-          value={managedFlag ? "managed" : "manual"}
-          setValue={(v) => {
-            setManagedTouched(true);
-            setManagedFlag(v === "managed");
-          }}
-          options={[
-            {
-              value: "managed",
-              label: "Automatic",
-              description:
-                "Feature Flag set up and published from this experiment",
-            },
-            {
-              value: "manual",
-              label: "Manual",
-              description: "Feature Flag, Visual Editor or URL Redirect",
-            },
-          ]}
-        />
-      </Flex>
+      {canManageFlag && (
+        <Flex direction="column" gap="1" mb="3">
+          <Text weight="semibold">Implementation</Text>
+          <RadioGroup
+            value={managedFlag ? "managed" : "manual"}
+            setValue={(v) => {
+              setManagedTouched(true);
+              setManagedFlag(v === "managed");
+            }}
+            options={[
+              {
+                value: "managed",
+                label: "Automatic",
+                description:
+                  "Feature Flag set up and published from this experiment",
+              },
+              {
+                value: "manual",
+                label: "Manual",
+                description: "Feature Flag, Visual Editor or URL Redirect",
+              },
+            ]}
+          />
+        </Flex>
+      )}
 
       <SelectField
         required

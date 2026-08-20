@@ -3,9 +3,9 @@ import {
   copyManagedVariationValues,
   isManagedByExperiment,
   checkIfRevisionNeedsReview,
-  isManagedFeature,
   managedFeatureKeyCandidate,
   seedManagedVariationValues,
+  validateFeatureValue,
 } from "shared/util";
 import {
   ExperimentInterface,
@@ -24,6 +24,7 @@ import {
   deleteFeature,
   featureIdExists,
   getFeature,
+  getFeatureIdsManagedByExperiment,
   publishRevision,
   updateFeature,
 } from "back-end/src/models/FeatureModel";
@@ -35,8 +36,10 @@ import {
 import {
   getExperimentById,
   getExperimentByTrackingKey,
+  unlinkFeatureFromExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { ManagedFeatureError, NotFoundError } from "back-end/src/util/errors";
+import { NotFoundError } from "back-end/src/util/errors";
+import { assertLoadedFeatureNotManaged } from "back-end/src/util/managedFeatureGuard";
 import {
   getContextFromReq,
   getEnvironments,
@@ -56,16 +59,7 @@ import {
 // dispatcher), not the model layer: the model can't tell a direct user edit from
 // the experiment's own start/stop/holdout/ramp writes, which must keep working.
 
-export function assertLoadedFeatureNotManaged(feature: FeatureInterface): void {
-  if (!isManagedFeature(feature)) return;
-  throw new ManagedFeatureError({
-    featureId: feature.id,
-    experimentId:
-      feature.managedBy?.type === "experiment"
-        ? feature.managedBy.experimentId
-        : "",
-  });
-}
+export { assertLoadedFeatureNotManaged };
 
 export async function assertFeatureNotManaged(
   context: ReqContext | ApiReqContext,
@@ -79,11 +73,31 @@ export async function assertFeatureNotManaged(
 
 const MAX_KEY_ATTEMPTS = 10;
 
+/**
+ * Best-effort removal of a flag that was inserted but never became usable.
+ * Swallows its own failure: the caller is already unwinding a create and the
+ * original error is the one worth reporting.
+ */
+async function discardOrphanedManagedFlag(
+  context: ReqContext | ApiReqContext,
+  id: string,
+): Promise<void> {
+  try {
+    const orphan = await getFeature(context, id);
+    if (orphan) await deleteFeature(context, orphan);
+  } catch (err) {
+    logger.warn(
+      { featureId: id, err },
+      "Could not clean up a half-created managed Feature Flag",
+    );
+  }
+}
+
 function isDuplicateKeyError(e: unknown): boolean {
   return (e as { code?: number } | null)?.code === 11000;
 }
 
-export type CreateManagedFeatureInput = {
+type CreateManagedFeatureInput = {
   context: ReqContext | ApiReqContext;
   experiment: ExperimentInterface;
   valueType: FeatureValueType;
@@ -254,6 +268,25 @@ export async function createManagedFeatureForExperiment({
     );
   }
 
+  // The rule authored here is the only one the flag will ever have, and the
+  // flag is locked afterwards — a short or mismatched set would have to be
+  // repaired through the experiment UI.
+  const expectedIds = experiment.variations.map((v) => v.id);
+  const givenIds = new Set(variations.map((v) => v.variationId));
+  if (
+    givenIds.size !== variations.length ||
+    expectedIds.length !== variations.length ||
+    expectedIds.some((id) => !givenIds.has(id))
+  ) {
+    throw new Error(
+      "A managed Feature Flag requires exactly one value per experiment variation",
+    );
+  }
+  for (const v of variations) {
+    const invalid = validateFeatureValue({ valueType }, v.value);
+    if (invalid) throw new Error(invalid);
+  }
+
   const allEnvironments = getEnvironments(org);
   if (!allEnvironments.length) {
     throw new Error(
@@ -268,8 +301,6 @@ export async function createManagedFeatureForExperiment({
     );
   }
 
-  // The key is derived, not typed, so an org key regex can reject something the
-  // user never chose — say so rather than failing on the insert.
   const regexValidator = org.settings?.featureRegexValidator;
 
   const baseFeature: Omit<FeatureInterface, "id"> = {
@@ -338,12 +369,23 @@ export async function createManagedFeatureForExperiment({
 
     try {
       await createFeature(context, { ...baseFeature, id });
-      // createFeature also writes the initial revision; re-read the stored doc.
+      // createFeature writes the document before its initial revision, so a
+      // throw past this point leaves a flag marked `managedBy` with no owner —
+      // unwritable and un-ejectable. Undo it here, not just around the link.
       created = await getFeature(context, id);
+      if (!created) {
+        await discardOrphanedManagedFlag(context, id);
+        throw new Error(
+          `Created Feature Flag "${id}" could not be read back; nothing was kept.`,
+        );
+      }
       break;
     } catch (e) {
+      if (!isDuplicateKeyError(e)) {
+        await discardOrphanedManagedFlag(context, id);
+        throw e;
+      }
       // The index is the arbiter; take the next candidate rather than racing.
-      if (!isDuplicateKeyError(e)) throw e;
       // An explicitly chosen id has a caller who can pick another one.
       if (featureId !== undefined) {
         throw new Error(
@@ -381,15 +423,13 @@ export async function createManagedFeatureForExperiment({
       },
       eventAudit,
       audit,
-      // Managed flags always start as a draft; the experiment's start publishes
-      // it, and later edits go through a new draft the same way.
+      // The experiment's start publishes it; later edits get their own draft.
       autoPublish: false,
       forceNewDraft: true,
     });
 
-    // Inside the compensation boundary: a throw here (event dispatch, revision
-    // re-read) would otherwise strand a created, linked, permanently locked flag
-    // while the caller deletes the experiment.
+    // Inside the compensation boundary: a throw here would otherwise strand a
+    // created, linked, permanently locked flag.
     await requestReviewForManagedDraft({
       context,
       feature: created,
@@ -397,7 +437,10 @@ export async function createManagedFeatureForExperiment({
       eventAudit,
     });
   } catch (e) {
+    // `created` was read before the link landed, so its `linkedExperiments` is
+    // empty and `deleteFeature` cannot unlink the experiment side itself.
     await deleteFeature(context, created);
+    await unlinkFeatureFromExperiment(context, experiment.id, created.id);
     throw e;
   }
 
@@ -410,7 +453,7 @@ const MAX_SOURCE_READ_ATTEMPTS = 3;
  * Null when there is nothing safe to copy — no managed source, or the source
  * kept changing while we read it. Callers seed a fresh flag instead of failing.
  */
-export async function readManagedValuesForDuplicate({
+async function readManagedValuesForDuplicate({
   context,
   sourceExperiment,
   targetExperiment,
@@ -421,6 +464,7 @@ export async function readManagedValuesForDuplicate({
 }): Promise<{
   valueType: FeatureValueType;
   variations: ExperimentRefVariation[];
+  sparse: boolean;
 } | null> {
   for (let attempt = 0; attempt < MAX_SOURCE_READ_ATTEMPTS; attempt++) {
     const before = await getManagedFeatureForExperiment(
@@ -444,6 +488,8 @@ export async function readManagedValuesForDuplicate({
       r ? `${r.version}:${r.dateUpdated.getTime()}` : "none";
     if (stamp(draftBefore) === stamp(draftAfter)) {
       return {
+        // Without `sparse` the copy would read patch values as full values.
+        sparse: !!info.sparse,
         valueType: before.valueType,
         variations: copyManagedVariationValues({
           sourceValues: info.values,
@@ -541,6 +587,7 @@ export async function createManagedFlagForNewExperiment({
   const seeded = {
     valueType: "string" as FeatureValueType,
     variations: seedManagedVariationValues(experiment.variations),
+    sparse: false,
   };
   const copied = sourceExperiment
     ? await readManagedValuesForDuplicate({
@@ -556,6 +603,7 @@ export async function createManagedFlagForNewExperiment({
       experiment,
       valueType: plan.valueType,
       variations: plan.variations,
+      sparse: plan.sparse,
       eventAudit,
       audit,
     });
@@ -606,8 +654,7 @@ export async function publishManagedDraft({
     live,
     base,
   );
-  // Neither state has a remedy on this surface — the managed flag has no rebase
-  // or conflict UI — so both messages name the way out.
+  // This surface has no rebase or conflict UI, so both messages name the way out.
   if (!mergeResult.success) {
     throw new Error(
       "This Feature Flag's draft conflicts with its live version. Switch to a manual implementation to resolve the conflict on the Feature Flag page.",
@@ -664,6 +711,32 @@ export async function ejectManagedFeature({
     context.permissions.throwPermissionError();
   }
   return clearManagedMarker(context, feature);
+}
+
+/**
+ * Clears the marker on every flag this experiment owns, resolved without the
+ * read filter so an unreadable flag still gets released. Used by experiment
+ * deletion, which must never leave a flag pointing at an experiment that no
+ * longer exists — nothing could write to it or eject it again.
+ */
+export async function clearManagedMarkersForExperiment(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+): Promise<void> {
+  const ids = await getFeatureIdsManagedByExperiment(context, experimentId);
+  for (const id of ids) {
+    const feature = await getFeature(context, id);
+    // Unreadable here means the marker cannot be cleared through the model's
+    // own read path; log rather than fail the delete.
+    if (!feature) {
+      logger.warn(
+        { featureId: id, experimentId },
+        "Managed flag is not readable by the deleter; marker left in place",
+      );
+      continue;
+    }
+    await clearManagedMarker(context, feature);
+  }
 }
 
 /**

@@ -40,6 +40,7 @@ import {
   getFeatureProjectsByIds,
   publishRevision,
 } from "back-end/src/models/FeatureModel";
+import { assertLoadedFeatureNotManaged } from "back-end/src/util/managedFeatureGuard";
 // NOTE: rampScheduleEvaluator also imports from this module (advanceStep, etc).
 // The cycle is safe: every cross-module reference is a hoisted function
 // declaration used only at call time, never at module top-level.
@@ -648,6 +649,11 @@ export const featureEntityHandler: EntityHandler = {
 
     const feature = await getFeature(ctx, entityId);
     if (!feature) throw new Error(`Feature not found: ${entityId}`);
+    // Every ramp write to a feature lands here — manual advance, the poller,
+    // rollback — and it publishes with `bypassLockdown`, so the managed check
+    // has to be explicit. A managed flag's single rule belongs to its
+    // experiment; a ramp would rewrite coverage and targeting underneath it.
+    assertLoadedFeatureNotManaged(feature);
 
     const updatedRules: FeatureRule[] = (feature.rules ?? []).map((r) => ({
       ...r,

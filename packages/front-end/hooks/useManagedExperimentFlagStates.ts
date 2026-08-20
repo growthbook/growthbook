@@ -10,9 +10,9 @@ import {
 import { useAuth } from "@/services/auth";
 
 /** experiment id -> the Feature Flag key it manages */
-export type ManagedFlagMap = Record<string, string>;
+type ManagedFlagMap = Record<string, string>;
 
-export interface UseManagedExperimentFlagStatesReturn {
+interface UseManagedExperimentFlagStatesReturn {
   /** Loads the ids not already known; safe to call on every visible-row change. */
   fetchSome: (experimentIds: string[]) => Promise<void>;
   /** The flag an experiment manages, or undefined if it manages none. */
@@ -23,13 +23,12 @@ const ManagedFlagsContext =
   createContext<UseManagedExperimentFlagStatesReturn | null>(null);
 
 /**
- * JIT enrichment for experiment lists, mirroring `FeatureStaleStatesProvider`:
- * ownership lives on the Feature Flag, so a row cannot tell whether it manages
- * one without asking. Fetching is driven by the rows actually on screen, so a
- * long list costs no more than a short one.
+ * Ownership lives on the Feature Flag, so a list row cannot tell whether it
+ * manages one without asking. Follows `FeatureStaleStatesProvider`: the caller
+ * passes the rows on screen, so a long list costs no more than a short one.
  *
- * No TTL refresh, unlike the stale-state provider — managed mode only changes
- * when someone adopts or ejects on the experiment page, which remounts this.
+ * No TTL refresh — managed mode only changes on adopt or eject, which happen on
+ * the experiment page and remount this.
  */
 export function ManagedExperimentFlagsProvider({
   children,
@@ -59,6 +58,11 @@ export function ManagedExperimentFlagsProvider({
         // flag — otherwise they would be re-fetched on every scroll.
         toFetch.forEach((id) => resolvedIds.current.add(id));
         setManaged((prev) => ({ ...prev, ...(res.managed ?? {}) }));
+      } catch (e) {
+        // Swallowed on purpose: this only decorates an icon, and the ids stay
+        // unresolved so the next visible-row change retries. Rethrowing would
+        // surface an unhandled rejection from the effect that calls this.
+        console.error("Could not resolve managed experiments", e);
       } finally {
         inflightKey.current = null;
       }

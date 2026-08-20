@@ -24,6 +24,15 @@ export function isManagedByExperiment(
   );
 }
 
+/** The experiment that manages this flag, or null when nothing does. */
+export function managedByExperimentId(
+  feature: Pick<FeatureInterface, "managedBy">,
+): string | null {
+  return feature.managedBy?.type === "experiment"
+    ? feature.managedBy.experimentId
+    : null;
+}
+
 /** Project setting wins when set; absent everywhere reads as off. */
 export function managedExperimentFlagsDefault({
   settings,

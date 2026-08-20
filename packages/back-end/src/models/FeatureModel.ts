@@ -14,6 +14,7 @@ import {
   resolveTargetingProjectIds,
   computeHoldoutExperimentLinkageDelta,
   getExperimentIdsFromRules,
+  managedByExperimentId,
 } from "shared/util";
 import {
   SafeRolloutInterface,
@@ -4550,6 +4551,27 @@ export async function getFeatureMetaInfoByIds(
 }
 
 /**
+ * Ids of the flags an experiment manages, resolved WITHOUT the usual read
+ * filter. Ownership must be answerable even when the caller cannot read the
+ * flag — otherwise a flag whose experiment moved project becomes invisible and
+ * its marker can never be cleared, leaving it permanently unwritable.
+ */
+export async function getFeatureIdsManagedByExperiment(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+): Promise<string[]> {
+  const features = await FeatureModel.find(
+    {
+      organization: context.org.id,
+      "managedBy.type": "experiment",
+      "managedBy.experimentId": experimentId,
+    },
+    { id: 1 },
+  );
+  return features.map((f) => f.id);
+}
+
+/**
  * Of the given experiments, the ones that manage a Feature Flag, mapped to the
  * flag they own. Served by the partial `managedBy.experimentId` index, and the
  * caller passes only the rows it is about to render, so the cost tracks what is
@@ -4580,9 +4602,7 @@ export async function getManagedFlagsByExperiment(
   features
     .filter((f) => context.permissions.canReadTargetingScopedResource(f))
     .forEach((f) => {
-      const experimentId = (
-        f.managedBy as { experimentId?: string } | undefined
-      )?.experimentId;
+      const experimentId = managedByExperimentId(f);
       if (experimentId) byExperiment[experimentId] = f.id;
     });
   return byExperiment;

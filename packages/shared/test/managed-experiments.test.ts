@@ -2,6 +2,7 @@ import {
   copyManagedVariationValues,
   isManagedByExperiment,
   isManagedFeature,
+  managedByExperimentId,
   managedExperimentFlagsDefault,
   managedFeatureKeyCandidate,
   seedManagedVariationValues,
@@ -140,6 +141,17 @@ describe("isManagedFeature / isManagedByExperiment", () => {
     expect(isManagedByExperiment({ managedBy: undefined }, "exp_1")).toBe(
       false,
     );
+  });
+});
+
+describe("managedByExperimentId", () => {
+  it("returns the owning experiment, or null when nothing owns it", () => {
+    expect(
+      managedByExperimentId({
+        managedBy: { type: "experiment", experimentId: "exp_1" },
+      }),
+    ).toBe("exp_1");
+    expect(managedByExperimentId({ managedBy: undefined })).toBeNull();
   });
 });
 

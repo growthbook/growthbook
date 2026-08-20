@@ -11,7 +11,6 @@ import {
   autoMerge,
   reconcileMergeBaselines,
   includeExperimentInPayload,
-  isManagedByExperiment,
   isManagedFeature,
 } from "shared/util";
 import {
@@ -150,13 +149,14 @@ import {
 import { legacyDocDescribesPhase } from "back-end/src/enterprise/services/data-pipeline";
 import {
   getFeature,
+  getFeatureIdsManagedByExperiment,
   getFeaturesByIds,
   getManagedFlagsByExperiment,
   publishRevision,
 } from "back-end/src/models/FeatureModel";
 import { getLinkageSyncRevisionSummaries } from "back-end/src/models/FeatureRevisionModel";
 import {
-  clearManagedMarker,
+  clearManagedMarkersForExperiment,
   createManagedFeatureForExperiment,
   createManagedFlagForNewExperiment,
   managedFlagAdoptionBlocker,
@@ -3344,10 +3344,7 @@ export async function deleteExperiment(
   // Release the managed flag first. Without this it survives pointing at a
   // deleted experiment, and every write path refuses it while the only eject
   // route 404s — an unrecoverable state outside direct database access.
-  const managed = await getManagedFeatureForExperiment(context, experiment);
-  if (managed) {
-    await clearManagedMarker(context, managed);
-  }
+  await clearManagedMarkersForExperiment(context, experiment.id);
 
   const promises = [
     // note: we might want to change this to change the status to
@@ -4585,7 +4582,10 @@ export async function deleteExperimentLinkedFeature(
   }
 
   // Unlinking would strand a locked-down flag with no experiment to edit it.
-  if (feature && isManagedByExperiment(feature, id)) {
+  // Resolved unfiltered: an unreadable flag is still managed, and skipping the
+  // check would detach it from the only surface that can write to it.
+  const managedIds = await getFeatureIdsManagedByExperiment(context, id);
+  if (managedIds.includes(featureId)) {
     throw new Error(
       "This Feature Flag is managed by the experiment. Eject it first to unlink it.",
     );
@@ -4651,6 +4651,8 @@ export async function postExperimentManagedFlag(
   const blocker = await managedFlagAdoptionBlocker(context, experiment);
   if (blocker) throw new BadRequestError(blocker);
 
+  const originalTrackingKey = experiment.trackingKey;
+
   const existing = await getManagedFeatureForExperiment(context, experiment);
   if (existing) {
     throw new BadRequestError(
@@ -4658,8 +4660,8 @@ export async function postExperimentManagedFlag(
     );
   }
 
-  // Rename first: the flag's key is derived from the tracking key at creation
-  // and a feature cannot be renamed afterwards, so the order is load-bearing.
+  // Rename first: the key is derived at creation and a feature cannot be
+  // renamed afterwards, so the order is load-bearing.
   if (trackingKey && trackingKey !== experiment.trackingKey) {
     if (context.org.settings?.requireUniqueExperimentTrackingKeys) {
       const keyOwner = await getExperimentByTrackingKey(context, trackingKey);
@@ -4676,8 +4678,9 @@ export async function postExperimentManagedFlag(
     });
   }
 
-  // A flag deleted out of band leaves its id behind; drop it now that we are
-  // writing anyway, so the experiment stops carrying a dangling link.
+  const keyPlan = await planManagedFlagKey({ context, experiment });
+
+  // A flag deleted out of band leaves its id behind; drop it while we write.
   const stale = await staleLinkedFeatureIds(context, experiment);
   for (const staleId of stale) {
     await unlinkFeatureFromExperiment(context, experiment.id, staleId);
@@ -4686,18 +4689,42 @@ export async function postExperimentManagedFlag(
     experiment = (await getExperimentById(context, id)) ?? experiment;
   }
 
-  const { feature, version } = await createManagedFeatureForExperiment({
-    context,
-    experiment,
-    valueType,
-    variations,
-    sparse,
-    featureId,
-    eventAudit: res.locals.eventAudit,
-    audit: req.audit,
-  });
+  // The rename above is already committed, so a failed create would leave the
+  // experiment renamed for a flag that does not exist. Put it back.
+  const renamedFrom =
+    trackingKey && trackingKey !== originalTrackingKey
+      ? originalTrackingKey
+      : null;
+  let created: { feature: FeatureInterface; version: number };
+  try {
+    created = await createManagedFeatureForExperiment({
+      context,
+      experiment,
+      valueType,
+      variations,
+      sparse,
+      // Always explicit: without it a racing duplicate would be suffixed away
+      // silently, leaving the experiment owning two flags.
+      featureId: featureId ?? keyPlan.derivedId,
+      eventAudit: res.locals.eventAudit,
+      audit: req.audit,
+    });
+  } catch (e) {
+    if (renamedFrom !== null) {
+      await updateExperiment({
+        context,
+        experiment,
+        changes: { trackingKey: renamedFrom },
+      });
+    }
+    throw e;
+  }
 
-  res.status(200).json({ status: 200, feature, version });
+  res.status(200).json({
+    status: 200,
+    feature: created.feature,
+    version: created.version,
+  });
 }
 
 export async function postExperimentManagedFlagPublish(

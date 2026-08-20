@@ -89,10 +89,8 @@ export default function AddManagedFlagModal({
     form.setValue("valueType", next);
     const transform = (v: string, i: number) => {
       if (next === "boolean") {
-        // A naive Boolean(v) made every variation "true" (any non-empty string
-        // is truthy), leaving the experiment serving one value. Honour an
-        // explicit boolean-ish literal, otherwise fall back to position:
-        // control off, the rest on.
+        // Position is the fallback, control off: a truthiness test would make
+        // every seeded value true and serve one value to everyone.
         const t = v.trim().toLowerCase();
         if (["", "0", "false"].includes(t)) return "false";
         if (["1", "true"].includes(t)) return "true";
@@ -130,11 +128,9 @@ export default function AddManagedFlagModal({
       );
       if (field) {
         if (document.activeElement === field) return;
-        // Suppressing Radix's open-autofocus leaves focus on the trigger that
-        // opened the modal, and Radix also re-targets focus as the dialog
-        // mounts, so a single call gets dropped. Re-apply until a control
-        // INSIDE the dialog holds focus — that is the only thing that means
-        // the user chose somewhere else.
+        // Radix re-targets focus while the dialog mounts, so one call gets
+        // dropped. Re-apply until a control inside the dialog holds focus —
+        // anything else means the user has not chosen yet.
         const active = document.activeElement as HTMLElement | null;
         const dialog = row?.closest("[role='dialog']");
         const userMovedFocus =
@@ -154,16 +150,15 @@ export default function AddManagedFlagModal({
     return () => clearTimeout(timer);
   }, [focusVariationId, data, blocker]);
 
-  const needsKeyChoice = !!keyPlan && !keyPlan.derivedIdAvailable;
-  const keyUnresolved = needsKeyChoice && !renameTo && !manualKey;
+  const keyUnresolved =
+    !!keyPlan && !keyPlan.derivedIdAvailable && !renameTo && !manualKey;
 
   return (
     <ModalStandard
       trackingEventModalType="add-managed-flag"
       trackingEventModalSource="experiment-implementation"
       open={true}
-      // This modal focuses the clicked variation itself; without this Radix
-      // focuses the close button on mount and steals it back.
+      // This modal places focus itself; Radix would take the close button.
       onOpenAutoFocus={(e) => {
         if (focusVariationId) e.preventDefault();
       }}

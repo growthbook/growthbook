@@ -40,6 +40,8 @@ export interface Props {
   onEditServedValue?: (variationId: string) => void;
   /** Offered when the experiment has no implementation yet; adopts a managed flag. */
   onAddServedValue?: (variationId: string) => void;
+  /** Show the unpublished draft's values. Only a managed flag can publish them here. */
+  servedValuePreferDraft?: boolean;
   canEditExperiment?: boolean;
   safeToEdit: boolean;
   mutate?: () => void;
@@ -192,6 +194,7 @@ export default function TrafficAllocationFunnel({
   servedValueFeature,
   onEditServedValue,
   onAddServedValue,
+  servedValuePreferDraft,
   canEditExperiment = false,
   safeToEdit = false,
   mutate,
@@ -391,15 +394,19 @@ export default function TrafficAllocationFunnel({
                   : undefined
               }
               servedValues={
-                servedValueFeature?.pendingDraft?.values ??
-                servedValueFeature?.values
+                (servedValuePreferDraft
+                  ? servedValueFeature?.pendingDraft?.values
+                  : undefined) ?? servedValueFeature?.values
               }
               servedValueFeature={servedValueFeature?.feature}
               servedValueSparse={
-                servedValueFeature?.pendingDraft?.sparse ??
-                servedValueFeature?.sparse
+                (servedValuePreferDraft
+                  ? servedValueFeature?.pendingDraft?.sparse
+                  : undefined) ?? servedValueFeature?.sparse
               }
-              servedValueIsDraft={!!servedValueFeature?.pendingDraft}
+              servedValueIsDraft={
+                !!servedValuePreferDraft && !!servedValueFeature?.pendingDraft
+              }
               onEditServedValue={onEditServedValue}
               onAddServedValue={onAddServedValue}
             />

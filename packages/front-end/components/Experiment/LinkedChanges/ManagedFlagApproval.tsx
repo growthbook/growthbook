@@ -37,6 +37,7 @@ import { TextChangedField } from "@/components/AuditHistoryExplorer/DiffRenderUt
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import useApi from "@/hooks/useApi";
 
 type ReviewDecision = "Comment" | "Requested Changes" | "Approved";
@@ -69,6 +70,7 @@ export default function ManagedFlagApproval({
   const { apiCall } = useAuth();
   const { userId, users } = useUser();
   const permissionsUtil = usePermissionsUtil();
+  const allEnvironments = useEnvironments();
   const [open, setOpen] = useState(false);
   const [comment, setComment] = useState("");
   const [decision, setDecision] = useState<ReviewDecision>("Comment");
@@ -78,8 +80,7 @@ export default function ManagedFlagApproval({
   const [error, setError] = useState<string | null>(null);
 
   const version = info.pendingDraft?.version;
-  // Not gated on `open`: the trigger's label depends on who authored the draft,
-  // so the author saw "Review" — an action they can't take — until they clicked.
+  // Not gated on `open`: the trigger's label depends on who authored the draft.
   const { data, mutate: mutateRevisions } = useApi<{
     revisions: FeatureRevisionInterface[];
   }>(`/feature/${info.feature.id}`, {
@@ -134,6 +135,15 @@ export default function ManagedFlagApproval({
     !!revision &&
     revision.createdBy?.id !== userId;
 
+  // `getReviewAndPublishState` deliberately carries no authority — the full
+  // Review & Publish tab gates its CTA separately, and so must this one, or a
+  // viewer without rights gets an enabled button that 403s.
+  const canPublish = permissionsUtil.canPublishFeature(
+    info.feature,
+    getEnabledEnvironments(info.feature, allEnvironments),
+  );
+  const canManage = permissionsUtil.canEditFeatureDrafts(info.feature);
+
   // Starting the experiment is the publish, so only publish is launch-gated.
   // Request-review has to stay reachable: a draft can land back in `draft` or
   // `changes-requested` after the auto-request, and without this CTA that state
@@ -142,12 +152,20 @@ export default function ManagedFlagApproval({
     state.submitAction === "publish" && publishIsLaunch
       ? "none"
       : state.submitAction;
-  const showSubmit = state.hasSubmit && submitAction !== "none";
+  const submitAuthorized =
+    submitAction === "publish"
+      ? canPublish
+      : submitAction === "request-review"
+        ? canManage
+        : true;
+  const showSubmit =
+    state.hasSubmit && submitAction !== "none" && submitAuthorized;
 
   async function post(
     path: string,
     body: Record<string, unknown> = {},
     method: "POST" | "PUT" = "POST",
+    { keepOpen = false }: { keepOpen?: boolean } = {},
   ) {
     setSubmitting(true);
     setError(null);
@@ -157,10 +175,11 @@ export default function ManagedFlagApproval({
         body: JSON.stringify(body),
       });
       setComment("");
-      setOpen(false);
-      // The parent mutate only refreshes /experiment/:id. Without these two the
-      // popover keeps its pre-action revision, so the actor's own verdict and
-      // comment disappear from it until a page reload.
+      // Editing a comment or retracting a review happens inside the
+      // conversation; closing would hide both the result and any error.
+      if (!keepOpen) setOpen(false);
+      // The parent mutate only refreshes /experiment/:id; the popover's own
+      // fetches need revalidating or it keeps its pre-action revision.
       await Promise.all([mutate(), mutateRevisions(), mutateLog()]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
@@ -366,9 +385,8 @@ export default function ManagedFlagApproval({
           <Separator size="4" />
           <Flex direction="column" gap="3">
             {reviewComments.map((l, i) => {
-              // Same visual vocabulary as the Review & Publish tab, so an
-              // approval, a change request and a plain comment stay
-              // distinguishable rather than collapsing into one card style.
+              // The Review & Publish tab's vocabulary, so an approval, a
+              // change request and a comment stay distinguishable.
               const visual = rowVisual(l.action);
               const verdictColor =
                 l.action === "Approved"
@@ -422,7 +440,11 @@ export default function ManagedFlagApproval({
                         {isActiveVerdict && state.canUndoReview && (
                           <DropdownMenuItem
                             color="red"
-                            onClick={() => post("undo-review")}
+                            onClick={() =>
+                              post("undo-review", {}, "POST", {
+                                keepOpen: true,
+                              })
+                            }
                           >
                             Retract review
                           </DropdownMenuItem>
@@ -450,6 +472,7 @@ export default function ManagedFlagApproval({
                                 `log/${l.id}`,
                                 { comment: editText, version },
                                 "PUT",
+                                { keepOpen: true },
                               );
                               setEditingLogId(null);
                             }}
@@ -477,11 +500,8 @@ export default function ManagedFlagApproval({
   );
 
   const content = (
-    // The variation list and the comment thread both grow unbounded, so cap the
-    // popover and scroll. The scroll sits on this wrapper rather than the Flex:
-    // on the Flex, `align-items: stretch` would size the separator to the
-    // clamped height instead of the content height and it would stop partway
-    // down as you scroll.
+    // Scroll on this wrapper, not the Flex: `align-items: stretch` would size
+    // the separator to the clamped height and it would stop partway down.
     <Box
       width="620px"
       style={{ maxHeight: "min(60vh, 520px)", overflowY: "auto" }}
