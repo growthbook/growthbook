@@ -4269,7 +4269,7 @@ export async function createAndPublishRevision({
     feature,
     baseRevision: liveBase,
     revision: preparedRevision,
-    allEnvironments,
+    orgEnvironments: getEnvironments(org),
     settings: org.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });

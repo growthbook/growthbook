@@ -3913,8 +3913,6 @@ export async function revisionRequiresReview(
     treatUnresolvedBaseAsReview = false,
   }: { treatUnresolvedBaseAsReview?: boolean } = {},
 ): Promise<boolean> {
-  const allEnvironments = getEnvironmentIdsFromOrg(context.org);
-
   const baseRevision = await getRevision({
     context,
     organization: feature.organization,
@@ -3935,7 +3933,7 @@ export async function revisionRequiresReview(
       ...fillRevisionFromFeature(baseRevision, feature),
     },
     revision: draft,
-    allEnvironments,
+    orgEnvironments: getEnvironments(context.org),
     settings: context.org.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });

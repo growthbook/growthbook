@@ -711,11 +711,18 @@ export default function ReviewAndPublish({
         ...liveRevisionFromFeature(liveRevision, feature),
       },
       revision,
-      allEnvironments: envIds,
+      orgEnvironments: environments,
       settings,
       requireApprovalsLicensed: hasCommercialFeature("require-approvals"),
     }).rules;
-  }, [revision, liveRevision, feature, envIds, settings, hasCommercialFeature]);
+  }, [
+    revision,
+    liveRevision,
+    feature,
+    environments,
+    settings,
+    hasCommercialFeature,
+  ]);
 
   const {
     uncoveredApprovers,
@@ -1768,7 +1775,7 @@ export default function ReviewAndPublish({
       feature,
       baseRevision: effectiveBase,
       revision: effectiveRevision,
-      allEnvironments: envIds,
+      orgEnvironments: environments,
       settings,
       requireApprovalsLicensed: hasCommercialFeature("require-approvals"),
       liveRampScheduleEnvs,

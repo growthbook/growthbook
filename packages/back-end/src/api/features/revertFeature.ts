@@ -40,7 +40,6 @@ import { getEnvironments } from "back-end/src/services/organizations";
 import { NotFoundError, SoftWarningError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getEnabledEnvironments } from "back-end/src/util/features";
-import { featurePublishEnvironmentIds } from "back-end/src/services/featurePublishGates";
 import { assertValidHoldout } from "./v2Shared";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
@@ -325,8 +324,7 @@ export async function revertFeatureCore(
     feature,
     baseRevision: liveRevision,
     revision: { ...liveRevision, ...changes } as typeof liveRevision,
-    // The feature's own environments, matching every other publish path.
-    allEnvironments: featurePublishEnvironmentIds(organization, feature),
+    orgEnvironments: getEnvironments(organization),
     settings: organization.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });

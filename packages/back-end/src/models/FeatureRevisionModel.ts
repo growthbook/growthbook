@@ -1158,7 +1158,7 @@ export async function createRevision({
     feature,
     baseRevision,
     revision,
-    allEnvironments: environments,
+    orgEnvironments: getEnvironments(org),
     settings: org.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });

@@ -3567,7 +3567,7 @@ export function getRevisionReviewRequirement({
   feature,
   baseRevision,
   revision,
-  allEnvironments,
+  orgEnvironments,
   settings,
   requireApprovalsLicensed = true,
   liveRampScheduleEnvs,
@@ -3575,11 +3575,17 @@ export function getRevisionReviewRequirement({
   feature: FeatureInterface;
   baseRevision: FeatureRevisionInterface;
   revision: FeatureRevisionInterface;
-  allEnvironments: string[];
+  orgEnvironments: Environment[];
   settings?: OrganizationSettings;
   requireApprovalsLicensed?: boolean;
   liveRampScheduleEnvs?: Map<string, string[] | "all">;
 }): ReviewRequirement {
+  // Filtered here, not by the caller: several paths once judged review against
+  // environments the feature cannot serve.
+  const allEnvironments = filterEnvironmentsByFeature(
+    orgEnvironments,
+    feature,
+  ).map((e) => e.id);
   const none: ReviewRequirement = { required: false, rules: [] };
   if (!requireApprovalsLicensed) return none;
   const requireReviews = settings?.requireReviews;

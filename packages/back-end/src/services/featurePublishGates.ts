@@ -129,7 +129,7 @@ export function assessRevisionApproval({
     feature,
     baseRevision: filledLive,
     revision: effectiveRevision,
-    allEnvironments: environmentIds,
+    orgEnvironments: getEnvironments(context.org),
     settings: context.org.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
     liveRampScheduleEnvs,

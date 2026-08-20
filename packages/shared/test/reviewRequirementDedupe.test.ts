@@ -2,6 +2,8 @@ import { getRevisionReviewRequirement } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 
+const toEnvs = (ids: string[]) => ids.map((id) => ({ id, description: "" }));
+
 // Two governing projects both falling through to the all-projects rule must not
 // produce the same requirement twice, or the gate repeats its message.
 it("dedupes equivalent rules across governing projects", () => {
@@ -33,7 +35,7 @@ it("dedupes equivalent rules across governing projects", () => {
     feature,
     baseRevision: base,
     revision,
-    allEnvironments: ["production"],
+    orgEnvironments: toEnvs(["production"]),
     settings,
   });
 

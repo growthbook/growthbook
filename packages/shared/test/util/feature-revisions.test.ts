@@ -19,6 +19,8 @@ import {
   reconcileMergeBaselines,
 } from "../../src/util";
 
+const toEnvs = (ids: string[]) => ids.map((id) => ({ id, description: "" }));
+
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
@@ -96,7 +98,7 @@ describe("checkIfRevisionNeedsReview", () => {
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings,
       }),
     ).toBe(false);
@@ -122,7 +124,7 @@ describe("checkIfRevisionNeedsReview", () => {
           feature: baseFeature,
           baseRevision: base,
           revision,
-          allEnvironments,
+          orgEnvironments: toEnvs(allEnvironments),
           settings,
         }),
       ).toBe(false);
@@ -147,7 +149,7 @@ describe("checkIfRevisionNeedsReview", () => {
           feature: baseFeature,
           baseRevision: base,
           revision,
-          allEnvironments,
+          orgEnvironments: toEnvs(allEnvironments),
           settings,
         }),
       ).toBe(true);
@@ -172,7 +174,7 @@ describe("checkIfRevisionNeedsReview", () => {
           feature: baseFeature,
           baseRevision: base,
           revision,
-          allEnvironments,
+          orgEnvironments: toEnvs(allEnvironments),
           settings,
         }),
       ).toBe(false);
@@ -194,7 +196,7 @@ describe("checkIfRevisionNeedsReview", () => {
           feature: baseFeature,
           baseRevision: base,
           revision,
-          allEnvironments,
+          orgEnvironments: toEnvs(allEnvironments),
           settings,
         }),
       ).toBe(true);
@@ -216,7 +218,7 @@ describe("checkIfRevisionNeedsReview", () => {
           feature: baseFeature,
           baseRevision: base,
           revision,
-          allEnvironments,
+          orgEnvironments: toEnvs(allEnvironments),
           settings,
         }),
       ).toBe(false);
@@ -243,7 +245,7 @@ describe("checkIfRevisionNeedsReview", () => {
           feature: baseFeature,
           baseRevision: base,
           revision,
-          allEnvironments,
+          orgEnvironments: toEnvs(allEnvironments),
           settings,
         }),
       ).toBe(true);
@@ -263,7 +265,7 @@ describe("checkIfRevisionNeedsReview", () => {
           feature: baseFeature,
           baseRevision: base,
           revision,
-          allEnvironments,
+          orgEnvironments: toEnvs(allEnvironments),
           settings,
         }),
       ).toBe(false);
@@ -300,7 +302,7 @@ describe("checkIfRevisionNeedsReview", () => {
           feature: baseFeature,
           baseRevision: base,
           revision,
-          allEnvironments: allEnvs,
+          orgEnvironments: toEnvs(allEnvs),
           settings,
         }),
       ).toBe(false);
@@ -332,7 +334,7 @@ describe("checkIfRevisionNeedsReview", () => {
           feature: baseFeature,
           baseRevision: base,
           revision,
-          allEnvironments: allEnvs,
+          orgEnvironments: toEnvs(allEnvs),
           settings,
         }),
       ).toBe(true);
@@ -376,7 +378,7 @@ describe("checkIfRevisionNeedsReview", () => {
           feature: baseFeature,
           baseRevision: base,
           revision,
-          allEnvironments: allEnvs,
+          orgEnvironments: toEnvs(allEnvs),
           settings,
         }),
       ).toBe(true);
@@ -400,7 +402,7 @@ describe("checkIfRevisionNeedsReview", () => {
           feature: baseFeature,
           baseRevision: base,
           revision,
-          allEnvironments: allEnvs,
+          orgEnvironments: toEnvs(allEnvs),
           settings,
         }),
       ).toBe(false);
@@ -426,7 +428,7 @@ describe("checkIfRevisionNeedsReview", () => {
           feature: baseFeature,
           baseRevision: base,
           revision,
-          allEnvironments: allEnvs,
+          orgEnvironments: toEnvs(allEnvs),
           settings,
         }),
       ).toBe(true);
@@ -924,7 +926,7 @@ describe("backward compatibility — old revisions without envelopes", () => {
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments: ["production", "staging"],
+        orgEnvironments: toEnvs(["production", "staging"]),
         settings,
       }),
     ).toBe(false);
@@ -1884,7 +1886,7 @@ describe("checkIfRevisionNeedsReview — holdout changes", () => {
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings,
       }),
     ).toBe(true);
@@ -1901,7 +1903,7 @@ describe("checkIfRevisionNeedsReview — holdout changes", () => {
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings,
       }),
     ).toBe(true);
@@ -1920,7 +1922,7 @@ describe("checkIfRevisionNeedsReview — holdout changes", () => {
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings,
       }),
     ).toBe(false);
@@ -1947,7 +1949,7 @@ describe("checkIfRevisionNeedsReview — archived changes", () => {
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings,
       }),
     ).toBe(true);
@@ -1971,7 +1973,7 @@ describe("checkIfRevisionNeedsReview — archived changes", () => {
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings,
       }),
     ).toBe(false);
@@ -1995,7 +1997,7 @@ describe("checkIfRevisionNeedsReview — archived changes", () => {
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments: ["production", "dev"],
+        orgEnvironments: toEnvs(["production", "dev"]),
         settings: makeSettings(
           makeReviewSetting({ environments: ["production"] }),
         ),
@@ -2011,7 +2013,7 @@ describe("checkIfRevisionNeedsReview — archived changes", () => {
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings,
       }),
     ).toBe(false);
@@ -2072,7 +2074,7 @@ describe("checkIfRevisionNeedsReview — legacy/sparse base revision (no false p
         feature: baseFeature,
         baseRevision: filledBase,
         revision: filledDraft,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings,
       }),
     ).toBe(false);
@@ -2121,7 +2123,7 @@ describe("checkIfRevisionNeedsReview — legacy/sparse base revision (no false p
         feature: baseFeature,
         baseRevision: filledBase,
         revision: filledDraft,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings,
       }),
     ).toBe(true);
@@ -2145,7 +2147,7 @@ describe("checkIfRevisionNeedsReview — metadata normalization (no false positi
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings,
       }),
     ).toBe(false);
@@ -2162,7 +2164,7 @@ describe("checkIfRevisionNeedsReview — metadata normalization (no false positi
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings,
       }),
     ).toBe(false);
@@ -2179,7 +2181,7 @@ describe("checkIfRevisionNeedsReview — metadata normalization (no false positi
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings,
       }),
     ).toBe(true);
@@ -2204,7 +2206,7 @@ describe("checkIfRevisionNeedsReview — metadata-only vs non-metadata global ch
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings: settingsNoMetaReview,
       }),
     ).toBe(false);
@@ -2214,7 +2216,7 @@ describe("checkIfRevisionNeedsReview — metadata-only vs non-metadata global ch
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings: settingsWithMetaReview,
       }),
     ).toBe(true);
@@ -2235,7 +2237,7 @@ describe("checkIfRevisionNeedsReview — metadata-only vs non-metadata global ch
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings,
       }),
     ).toBe(true);

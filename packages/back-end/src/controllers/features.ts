@@ -4353,7 +4353,7 @@ export async function putSafeRolloutStatus(
     feature,
     baseRevision: base,
     revision,
-    allEnvironments: environmentIds,
+    orgEnvironments: allEnvironments,
     settings: org.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });
