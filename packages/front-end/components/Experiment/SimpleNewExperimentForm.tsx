@@ -611,10 +611,13 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
                 label: "Automatic",
                 description:
                   "Feature Flag set up and published from this experiment",
+                // Outside the item: a `<label>`-wrapped dropdown re-toggles the
+                // radio on every click, so the two cancel each other out.
+                renderOutsideItem: true,
                 // Only the type. The values themselves are seeded and edited on
                 // the experiment, where every variation is on screen.
                 renderOnSelect: (
-                  <Box mt="2">
+                  <Box pl="5" pt="1">
                     <ValueTypeField
                       value={managedValueType}
                       order={VALUE_TYPE_ORDER}
