@@ -2588,6 +2588,28 @@ export function isMetricJoinable(
   return false;
 }
 
+/**
+ * Whether every fact table the metric reads from (funnel steps included) can
+ * reach the given id type — the same rule the back-end uses to scrub
+ * unjoinable metrics from snapshots, so UI checks stay in sync with it.
+ */
+export function isFactMetricJoinable(
+  metric: FactMetricInterface,
+  userIdType: string,
+  getFactTable: (
+    id: string,
+  ) => Pick<FactTableInterface, "userIdTypes"> | null | undefined,
+  settings?: DataSourceSettings,
+): boolean {
+  return getFactMetricFactTableIds(metric).every((factTableId) =>
+    isMetricJoinable(
+      getFactTable(factTableId)?.userIdTypes ?? [],
+      userIdType,
+      settings,
+    ),
+  );
+}
+
 export function adjustPValuesBenjaminiHochberg(
   indexedPValues: IndexedPValue[],
 ): IndexedPValue[] {

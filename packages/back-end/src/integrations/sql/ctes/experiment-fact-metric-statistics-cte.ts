@@ -53,9 +53,8 @@ export function getExperimentFactMetricStatisticsCTE(
 ): string {
   const useArrayQuantileGrid = dialect.hasArrayQuantileGrid();
   const sourceTableName = statisticsSourceTableName ?? joinedMetricTableName;
-  // Funnels resolve across every fact table their steps come from, so their
-  // step values are appended by the resolution chain rather than produced by a
-  // per-source aggregate.
+  // Funnel step values come from the resolution chain, not a per-source
+  // aggregate.
   const hasFunnelMetrics = metricData.some((d) => isFactFunnelMetric(d.metric));
   if (hasFunnelMetrics && !funnelsResolvedOnSource) {
     throw new Error(
@@ -224,7 +223,8 @@ export function getExperimentFactMetricStatisticsCTE(
       FROM
         ${sourceTableName} m
         ${
-          eventQuantileData.length // TODO(sql): error if event quantiles have two tables
+          // Event quantiles never span sources (enforced by the query builder)
+          eventQuantileData.length
             ? `LEFT JOIN ${eventQuantileTableName} qm ON (
           qm.variation = m.variation 
           ${dimensionCols

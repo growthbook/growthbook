@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
-  getFactMetricPrimaryFactTableId,
   isBinomialMetric,
   isFactMetric,
+  isFactMetricJoinable,
   quantileMetricType,
 } from "shared/experiments";
 import { config, FullModalPowerCalculationParams } from "shared/power";
@@ -163,17 +163,14 @@ export const SelectStep = ({
           return false;
 
         // drop if does not have user id type
-        const userIdTypes = !isFactMetric(m)
-          ? m.userIdTypes
-          : appFactTables.find(
-              (ft) => ft.id === getFactMetricPrimaryFactTableId(m),
-            )?.userIdTypes;
-        if (
-          selectedIdType &&
-          userIdTypes &&
-          !userIdTypes.includes(selectedIdType)
-        )
-          return false;
+        if (selectedIdType) {
+          const joinable = isFactMetric(m)
+            ? isFactMetricJoinable(m, selectedIdType, (id) =>
+                appFactTables.find((ft) => ft.id === id),
+              )
+            : !m.userIdTypes || m.userIdTypes.includes(selectedIdType);
+          if (!joinable) return false;
+        }
 
         return true;
       }),

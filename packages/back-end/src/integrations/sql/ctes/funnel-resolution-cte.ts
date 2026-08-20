@@ -73,7 +73,9 @@ export function getFunnelUserMetricAggColumns(
  * Every CTE in the chain selects `r.*`, so the terminal table is the source
  * table plus the funnel columns — including metric values that have nothing to
  * do with funnels. It is named for what it hands back, not for the funnel work
- * done along the way.
+ * done along the way. The terminal projects an explicit list so the candidate
+ * arrays (on Redshift, LISTAGG varchars of up to 64KB per user) die here
+ * instead of flowing into the statistics scan.
  *
  * Each `__funnelResolve` CTE resolves exactly one step: the earliest candidate
  * timestamp falling inside `[prev - concurrencyWindow, prev + conversionWindow]`,
@@ -93,6 +95,7 @@ export function getFunnelResolutionCTEs(
     terminalTableName,
     resolveTablePrefix,
     exposureColumn,
+    sourcePassthroughColumns,
   }: {
     funnelMetrics: FunnelMetricForResolution[];
     sourceTableName: string;
@@ -100,6 +103,12 @@ export function getFunnelResolutionCTEs(
     resolveTablePrefix: string;
     /** Per-user exposure timestamp column on the source table (e.g. `timestamp`). */
     exposureColumn: string;
+    /**
+     * Source-table columns the terminal CTE carries through; excludes the
+     * funnel working columns, whose resolved timestamps are re-projected
+     * per step.
+     */
+    sourcePassthroughColumns: string[];
   },
 ): string {
   const ctes: string[] = [];
@@ -175,18 +184,26 @@ export function getFunnelResolutionCTEs(
     prevTableName = name;
   }
 
+  const resolvedTsCols = funnelMetrics.flatMap(({ metric, alias }) =>
+    metric.funnelSettings.steps.map(
+      (_step, stepIndex) => `r.${funnelStepResolvedTsColumn(alias, stepIndex)}`,
+    ),
+  );
   const valueCols = funnelMetrics.flatMap(({ metric, alias }) =>
     metric.funnelSettings.steps.map(
       (_step, stepIndex) =>
-        `, CASE WHEN r.${funnelStepResolvedTsColumn(alias, stepIndex)} IS NOT NULL THEN 1 ELSE 0 END AS ${funnelStepValueColumn(alias, stepIndex)}`,
+        `CASE WHEN r.${funnelStepResolvedTsColumn(alias, stepIndex)} IS NOT NULL THEN 1 ELSE 0 END AS ${funnelStepValueColumn(alias, stepIndex)}`,
     ),
   );
 
   ctes.push(`
       , ${terminalTableName} AS (
         SELECT
-          r.*
-          ${valueCols.join("\n          ")}
+          ${[
+            ...sourcePassthroughColumns.map((col) => `r.${col}`),
+            ...resolvedTsCols,
+            ...valueCols,
+          ].join("\n          , ")}
         FROM ${prevTableName} r
       )`);
 

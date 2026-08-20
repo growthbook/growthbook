@@ -52,6 +52,7 @@ import {
   isFactFunnelMetric,
   isFactMetric,
   isFactMetricId,
+  isFactMetricJoinable,
   isMetricJoinable,
   isDimensionPrecomputed,
   parseFunnelStepMetricId,
@@ -61,7 +62,6 @@ import {
   getAllVariations,
   getLatestPhaseVariations,
   getPhaseVariations,
-  getFactMetricFactTableIds,
 } from "shared/experiments";
 import { getValidDate, hoursBetween, resolveScheduledStop } from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
@@ -551,16 +551,12 @@ export function isJoinableMetric({
     return true;
   }
 
-  // A metric can read from several fact tables (cross-table ratios, funnels
-  // with per-step tables), and every one of them has to reach the exposure
-  // query's id type for the metric's query to work.
   if (isFactMetric(metric)) {
-    return getFactMetricFactTableIds(metric).every((factTableId) =>
-      isMetricJoinable(
-        factTableMap.get(factTableId)?.userIdTypes ?? [],
-        experimentIdType,
-        datasource.settings,
-      ),
+    return isFactMetricJoinable(
+      metric,
+      experimentIdType,
+      (id) => factTableMap.get(id),
+      datasource.settings,
     );
   }
 

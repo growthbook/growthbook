@@ -215,8 +215,7 @@ export default function FunnelStepsInput({
 }) {
   const { factTables, getFactTableById } = useDefinitions();
 
-  // Steps can each read from a different fact table, but every one of them has
-  // to belong to the metric's data source. Clear the ones that no longer do.
+  // Clear steps whose fact table no longer belongs to the metric's data source.
   useEffect(() => {
     const isStale = (step: FunnelStep) => {
       const factTable = getFactTableById(step.factTableId);
@@ -254,8 +253,7 @@ export default function FunnelStepsInput({
   };
 
   const addStep = () => {
-    // New steps continue from where the funnel left off, which is right far
-    // more often than not, and can be repointed per step.
+    // Continuing from the last step's fact table is usually right.
     const previousFactTableId =
       value.steps[value.steps.length - 1]?.factTableId || "";
     const previousFactTable = getFactTableById(previousFactTableId);
@@ -284,8 +282,7 @@ export default function FunnelStepsInput({
           step={step}
           index={i}
           factTableOptions={factTableOptions}
-          // The metric is anchored to the fact table it was created from, so
-          // only later steps can be repointed.
+          // When created from a fact table, step 1 stays anchored to it.
           disableFactTableSelector={i === 0 && !!initialFactTable}
           canRemove={value.steps.length > 1}
           updateStep={updateStep}

@@ -57,9 +57,8 @@ export function getMetricData(
   covariateTableAlias: string = "m",
   alias: string,
   /**
-   * Set when every source's per-user columns have been gathered onto a single
-   * table, so value columns are read from the bare `m` alias instead of the
-   * per-source `m{i}` one.
+   * Set when every source's per-user columns sit on one table, so value
+   * columns read from the bare `m` alias instead of the per-source `m{i}`.
    */
   flattenSources: boolean = false,
 ): FactMetricData {
@@ -98,8 +97,6 @@ export function getMetricData(
   const denominatorSourceIndex = sourceIndexForFactTable(
     metric.denominator?.factTableId,
   );
-  // Funnel steps can each come from a different fact table, so a funnel isn't
-  // anchored to one source the way a numerator is.
   const funnelStepSourceIndices = isFactFunnelMetric(metric)
     ? metric.funnelSettings.steps.map((step) =>
         sourceIndexForFactTable(step.factTableId),

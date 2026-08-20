@@ -24,6 +24,7 @@ import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric
 import {
   FunnelMetricForResolution,
   FunnelMetricSteps,
+  funnelStep0NeedsExposureWindow,
   getFunnelResolutionCTEs,
   getFunnelUserMetricAggColumns,
 } from "back-end/src/integrations/sql/ctes/funnel-resolution-cte";
@@ -32,7 +33,11 @@ import {
   AggColumn,
   renderAggColumns,
 } from "back-end/src/integrations/sql/columns/agg-column";
-import { funnelStepTimestampColumn } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
+import {
+  funnelStepArrayColumn,
+  funnelStepResolvedTsColumn,
+  funnelStepTimestampColumn,
+} from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
 import { getFactMetricQuantileData } from "back-end/src/integrations/sql/columns/fact-metric-quantile-data";
 import { getFactTablesForMetrics } from "back-end/src/integrations/sql/fact-metrics/fact-tables-for-metrics";
 import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-cte";
@@ -108,16 +113,16 @@ export function getExperimentFactMetricsQuery(
   const hasFunnelMetrics = metricsWithIndices.some((m) =>
     isFactFunnelMetric(m.metric),
   );
-  // A funnel's steps can live on different fact tables and can only be windowed
-  // against each other once every candidate timestamp sits on one row, so those
-  // sources are gathered into __unitMetricsBase before resolution. Every other
-  // metric column rides along.
+  // The bandit statistics CTE has no funnel handling; the UI blocks the
+  // combination, this is the backstop.
+  if (hasFunnelMetrics && banditDates?.length) {
+    throw new Error("Funnel metrics are not supported in Bandit experiments");
+  }
+  // Funnel steps can only be windowed against each other once every candidate
+  // timestamp sits on one row, so multi-table sources are flattened into
+  // __unitMetricsBase and the per-source `m{i}` aliases collapse to `m`.
   const flattenUnitMetrics =
     hasFunnelMetrics && factTablesWithIndices.length > 1;
-  // With everything on one table the statistics CTE joins no source a second
-  // time, so the per-source `m{i}` aliases collapse to `m`. The bandit CTE
-  // still joins per source, so it keeps the unflattened aliases.
-  const flattenedSources = flattenUnitMetrics && !banditDates?.length;
 
   const metricData = metricsWithIndices.map((metric) =>
     getMetricData(
@@ -128,7 +133,7 @@ export function getExperimentFactMetricsQuery(
       factTablesWithIndices,
       "m",
       `m${metric.index}`,
-      flattenedSources,
+      flattenUnitMetrics,
     ),
   );
 
@@ -239,7 +244,13 @@ export function getExperimentFactMetricsQuery(
     });
 
   const eventQuantileData = getFactMetricQuantileData(metricData, "event");
-  // TODO(sql): error if event quantiles have two tables
+  // Event quantile columns are emitted under one unqualified name per source,
+  // so they cannot span sources; grouping already guarantees this.
+  if (eventQuantileData.length && factTablesWithIndices.length > 1) {
+    throw new Error(
+      "ImplementationError: event quantile metrics are not supported across multiple fact tables",
+    );
+  }
 
   if (
     params.dimensions.length > 1 &&
@@ -256,14 +267,11 @@ export function getExperimentFactMetricsQuery(
   const userMetricAggTablePrefix = "__userMetricAgg";
   const unitMetricsBaseTable = "__unitMetricsBase";
   const unitMetricsTable = "__unitMetrics";
-  // Funnel resolution reads from the flattened join when sources were combined,
-  // and straight from source 0's aggregate when there is only one.
   const funnelResolutionSource = flattenUnitMetrics
     ? unitMetricsBaseTable
     : userMetricAggTablePrefix;
-  // Resolution passes every other metric column through untouched and appends
-  // the funnel step flags, so its terminal CTE is the complete per-unit table.
-  // Without funnels there is no chain and statistics read the aggregate.
+  // Resolution's terminal CTE carries every metric column, so statistics read
+  // it whole; without funnels there is no chain.
   const statisticsSourceTable = funnelMetrics.length
     ? unitMetricsTable
     : userMetricAggTablePrefix;
@@ -280,9 +288,6 @@ export function getExperimentFactMetricsQuery(
     }
   });
 
-  // Only the steps a fact table hosts. A funnel whose steps span several tables
-  // contributes candidates to each of them, and they are stitched back together
-  // in __unitMetricsBase.
   const funnelStepsForSource = (sourceIndex: number): FunnelMetricSteps[] =>
     metricData.flatMap((d) => {
       if (!isFactFunnelMetric(d.metric)) return [];
@@ -302,9 +307,7 @@ export function getExperimentFactMetricsQuery(
         d.numeratorSourceIndex === sourceIndex,
     );
 
-  // Metric columns a source's per-user aggregate emits, as name/expression
-  // pairs so __unitMetrics can project them by name without restating the
-  // expressions.
+  // Metric columns a source's per-user aggregate emits.
   const getSourceAggMetricColumns = (sourceIndex: number): AggColumn[] => {
     const columns: AggColumn[] = [];
 
@@ -407,23 +410,52 @@ export function getExperimentFactMetricsQuery(
       ),
     }));
 
-  // <alias>_n_events is emitted by every source rather than only the one owning
-  // the metric (see the "error if event quantiles have two tables" TODO above),
-  // so take it from source 0 to keep the flattened projection unambiguous.
-  const eventQuantileColumnNames = new Set(
-    eventQuantileData.map((d) => `${d.alias}_n_events`),
+  // Computed once per source so the rendered CTEs and every downstream
+  // projection read the same names and can't drift.
+  const sourceColumnsByIndex = new Map(
+    factTablesWithIndices.map((f) => [
+      f.index,
+      {
+        agg: getSourceAggMetricColumns(f.index),
+        kllResolved: getSourceKllResolvedColumns(f.index),
+      },
+    ]),
   );
+  const columnsForSource = (sourceIndex: number) =>
+    sourceColumnsByIndex.get(sourceIndex) ?? { agg: [], kllResolved: [] };
+  const columnNamesForSource = (sourceIndex: number) => {
+    const { agg, kllResolved } = columnsForSource(sourceIndex);
+    return [...agg, ...kllResolved].map((c) => c.name);
+  };
+
+  // Source 0 drives the flattened join and arrives via `m.*`.
   const flattenedSourceColumns = flattenUnitMetrics
-    ? factTablesWithIndices.map((f) => ({
-        index: f.index,
-        columns: [
-          ...getSourceAggMetricColumns(f.index),
-          ...getSourceKllResolvedColumns(f.index),
-        ]
-          .map((c) => c.name)
-          .filter((name) => !eventQuantileColumnNames.has(name)),
-      }))
+    ? factTablesWithIndices
+        .filter((f) => f.index !== 0)
+        .map((f) => ({
+          index: f.index,
+          columns: columnNamesForSource(f.index),
+        }))
     : [];
+
+  // Candidate arrays and the step-0 MIN stop at the resolution chain; the
+  // terminal CTE re-projects resolved timestamps itself.
+  const funnelWorkingColumnNames = new Set(
+    funnelMetrics.flatMap(({ metric, alias }) =>
+      metric.funnelSettings.steps.map((_step, stepIndex) =>
+        stepIndex > 0 || funnelStep0NeedsExposureWindow(metric)
+          ? funnelStepArrayColumn(alias, stepIndex)
+          : funnelStepResolvedTsColumn(alias, 0),
+      ),
+    ),
+  );
+  const funnelPassthroughColumns = [
+    "variation",
+    ...dimensionCols.map((c) => c.alias),
+    baseIdType,
+    "timestamp",
+    ...factTablesWithIndices.flatMap((f) => columnNamesForSource(f.index)),
+  ].filter((name) => !funnelWorkingColumnNames.has(name));
 
   return format(
     `-- ${queryName}
@@ -482,7 +514,7 @@ export function getExperimentFactMetricsQuery(
         const eventQuantileMetricTable = `__eventQuantileMetric${suffix}`;
 
         const factTableFunnelMetrics = funnelStepsForSource(f.index);
-        const hasKllMerge = kllMergeMetricsForSource(f.index).length > 0;
+        const hasKllMerge = columnsForSource(f.index).kllResolved.length > 0;
         const hasEventQuantile = eventQuantileData.length > 0;
         const hasNonKllEventQuantile = eventQuantileData.some(
           (d) => !d.isKllMerge,
@@ -528,15 +560,13 @@ export function getExperimentFactMetricsQuery(
             ${banditDates?.length ? `, umj.bandit_period` : ""}
             , umj.${baseIdType}
             ${
-              // Funnel resolution anchors exposure-relative windows on this,
-              // and reads it from source 0 because that is what
-              // __unitMetricsBase (or __userMetricAgg, for a single source)
-              // drives off.
+              // Funnel resolution anchors exposure-relative windows on this;
+              // source 0 drives the per-unit table.
               hasFunnelMetrics && f.index === 0
                 ? `, MIN(umj.timestamp) AS timestamp`
                 : ""
             }
-            ${renderAggColumns(getSourceAggMetricColumns(f.index))}
+            ${renderAggColumns(columnsForSource(f.index).agg)}
           FROM
             ${userMetricJoinTable} umj
           ${
@@ -623,7 +653,7 @@ export function getExperimentFactMetricsQuery(
         const userMetricAggCte = hasKllMerge
           ? `
       , ${userMetricAggTable} as (
-        SELECT base.* ${renderAggColumns(getSourceKllResolvedColumns(f.index))}
+        SELECT base.* ${renderAggColumns(columnsForSource(f.index).kllResolved)}
         FROM ${userMetricAggBaseTable} base
         LEFT JOIN ${eventQuantileMetricTable} qm
         ON (qm.variation = base.variation ${dimensionCols
@@ -817,10 +847,8 @@ export function getExperimentFactMetricsQuery(
         : ""
     }
     ${
-      // Funnel resolution runs once per query rather than once per fact table:
-      // a funnel's steps can be spread across several tables, and a step can
-      // only be windowed against a predecessor after every candidate timestamp
-      // has been gathered into one row per unit.
+      // Resolution runs once per query, not per fact table: steps can only be
+      // windowed against a predecessor once every candidate is on one row.
       funnelMetrics.length
         ? getFunnelResolutionCTEs(dialect, {
             funnelMetrics,
@@ -828,6 +856,7 @@ export function getExperimentFactMetricsQuery(
             terminalTableName: unitMetricsTable,
             resolveTablePrefix: "__funnelResolve_",
             exposureColumn: "timestamp",
+            sourcePassthroughColumns: funnelPassthroughColumns,
           })
         : ""
     }
@@ -850,7 +879,7 @@ export function getExperimentFactMetricsQuery(
       baseIdType,
       joinedMetricTableName: userMetricAggTablePrefix,
       statisticsSourceTableName: statisticsSourceTable,
-      flattenedSources,
+      flattenedSources: flattenUnitMetrics,
       funnelsResolvedOnSource: funnelMetrics.length > 0,
       eventQuantileTableName: "__eventQuantileMetric",
       capValueTableName: "__capValue",

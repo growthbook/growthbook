@@ -1,5 +1,6 @@
 import { format } from "shared/sql";
 import { ExposureQuery } from "shared/types/datasource";
+import { SnapshotBanditSettings } from "shared/types/experiment-snapshot";
 import { SqlDialect } from "shared/types/sql";
 import {
   FunnelFactMetricInterface,
@@ -137,14 +138,16 @@ function buildSql(
   metrics: FunnelFactMetricInterface[],
   dialect: SqlDialect = bigQueryDialect,
   datasourceType: string = "bigquery",
+  banditSettings?: SnapshotBanditSettings,
 ): string {
+  const snapshotSettings = { ...settings, banditSettings };
   return getExperimentFactMetricsQuery(
     dialect,
     { ...bqIntegration.datasource, type: datasourceType as "bigquery" },
     {
-      settings,
+      settings: snapshotSettings,
       unitsSource: "exposureQuery",
-      unitsSettings: buildUnitsQuerySettingsFromSnapshot(settings, {
+      unitsSettings: buildUnitsQuerySettingsFromSnapshot(snapshotSettings, {
         query: testExposureQuery.query,
         userIdType: testExposureQuery.userIdType,
       }),
@@ -354,6 +357,22 @@ describe("funnel fact metric SQL", () => {
     expect(() => buildSql([threeStepFunnel], bigQueryDialect, "mysql")).toThrow(
       /not supported for mysql/,
     );
+  });
+
+  it("rejects funnel metrics in bandit experiments", () => {
+    const banditSettings: SnapshotBanditSettings = {
+      reweight: true,
+      decisionMetric: "fact__other",
+      seed: 1,
+      currentWeights: [0.5, 0.5],
+      historicalWeights: [
+        { date: startDate, weights: [0.5, 0.5], totalUsers: 100 },
+      ],
+    };
+
+    expect(() =>
+      buildSql([threeStepFunnel], bigQueryDialect, "bigquery", banditSettings),
+    ).toThrow(/not supported in Bandit experiments/);
   });
 
   describe("steps spanning several fact tables", () => {

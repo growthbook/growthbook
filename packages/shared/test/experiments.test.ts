@@ -1,6 +1,7 @@
 import normal from "@stdlib/stats/base/dists/normal";
 import {
   FactTableInterface,
+  FactMetricInterface,
   ColumnInterface,
   FactFilterInterface,
 } from "shared/types/fact-table";
@@ -22,6 +23,7 @@ import {
   getRowFilterSQL,
   getEffectiveLookbackOverride,
   getIntersectionBaseMetricIds,
+  isFactMetricJoinable,
 } from "../src/experiments";
 import { createLikeStringMatchFn } from "../src/sql";
 import { LookbackOverride } from "../src/validators/experiments";
@@ -2657,5 +2659,94 @@ describe("Virtual Columns", () => {
         '(m."price" * 2)',
       );
     });
+  });
+});
+
+describe("isFactMetricJoinable", () => {
+  const factTables = new Map<string, Pick<FactTableInterface, "userIdTypes">>([
+    ["ft_users", { userIdTypes: ["user_id"] }],
+    ["ft_anon", { userIdTypes: ["anonymous_id"] }],
+    ["ft_both", { userIdTypes: ["user_id", "anonymous_id"] }],
+  ]);
+  const getFactTable = (id: string) => factTables.get(id);
+
+  const funnelOnTables = (factTableIds: string[]) =>
+    ({
+      metricType: "funnel",
+      numerator: null,
+      denominator: null,
+      funnelSettings: {
+        steps: factTableIds.map((factTableId, i) => ({
+          name: `Step ${i + 1}`,
+          factTableId,
+          rowFilters: [],
+          optional: false,
+          conversionWindow: null,
+        })),
+      },
+    }) as unknown as FactMetricInterface;
+
+  const ratioOnTables = (numerator: string, denominator: string) =>
+    ({
+      metricType: "ratio",
+      numerator: { factTableId: numerator, column: "$$count" },
+      denominator: { factTableId: denominator, column: "$$count" },
+    }) as unknown as FactMetricInterface;
+
+  it("is joinable when every step's fact table reaches the id type", () => {
+    expect(
+      isFactMetricJoinable(
+        funnelOnTables(["ft_users", "ft_both"]),
+        "user_id",
+        getFactTable,
+      ),
+    ).toBe(true);
+  });
+
+  it("is not joinable when a later step's fact table cannot reach the id type", () => {
+    expect(
+      isFactMetricJoinable(
+        funnelOnTables(["ft_users", "ft_anon"]),
+        "user_id",
+        getFactTable,
+      ),
+    ).toBe(false);
+  });
+
+  it("is not joinable when a cross-table ratio's denominator cannot reach the id type", () => {
+    expect(
+      isFactMetricJoinable(
+        ratioOnTables("ft_users", "ft_anon"),
+        "user_id",
+        getFactTable,
+      ),
+    ).toBe(false);
+  });
+
+  it("treats a missing fact table as not joinable", () => {
+    expect(
+      isFactMetricJoinable(
+        funnelOnTables(["ft_users", "ft_deleted"]),
+        "user_id",
+        getFactTable,
+      ),
+    ).toBe(false);
+  });
+
+  it("honors identity joins from datasource settings", () => {
+    expect(
+      isFactMetricJoinable(
+        funnelOnTables(["ft_users", "ft_anon"]),
+        "user_id",
+        getFactTable,
+        {
+          queries: {
+            identityJoins: [
+              { ids: ["user_id", "anonymous_id"], query: "SELECT 1" },
+            ],
+          },
+        },
+      ),
+    ).toBe(true);
   });
 });

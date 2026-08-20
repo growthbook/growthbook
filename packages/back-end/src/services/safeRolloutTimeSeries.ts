@@ -1,9 +1,5 @@
 import md5 from "md5";
-import {
-  isFactMetricId,
-  expandMetricGroups,
-  getFactMetricPrimaryFactTableId,
-} from "shared/experiments";
+import { isFactMetricId, expandMetricGroups } from "shared/experiments";
 import { SAFE_ROLLOUT_VARIATIONS } from "shared/constants";
 import {
   CreateMetricTimeSeriesSingleDataPoint,
@@ -23,7 +19,7 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { logger } from "back-end/src/util/logger";
-import { getFiltersForHash } from "back-end/src/services/experimentTimeSeries";
+import { getFactMetricDefinitionForHash } from "back-end/src/services/experimentTimeSeries";
 
 export async function updateSafeRolloutTimeSeries({
   context,
@@ -177,35 +173,9 @@ function getSafeRolloutMetricSettingsHash(
   const factMetric = factMetrics?.find((metric) => metric.id === metricId);
   if (!factMetric) {
     return hashObject(metricSettings ?? { id: metricId });
-  } else {
-    // TODO(funnel): multi-fact table support for funnel metrics
-    const numeratorFactTableId = getFactMetricPrimaryFactTableId(factMetric);
-    const numeratorFactTable = numeratorFactTableId
-      ? factTableMap?.get(numeratorFactTableId)
-      : undefined;
-
-    const denominatorFactTableId = factMetric.denominator?.factTableId;
-    const denominatorFactTable = denominatorFactTableId
-      ? factTableMap?.get(denominatorFactTableId)
-      : undefined;
-
-    return hashObject({
-      ...metricSettings,
-      metricType: factMetric.metricType,
-      numerator: factMetric.numerator,
-      denominator: factMetric.denominator,
-      cappingSettings: factMetric.cappingSettings,
-      quantileSettings: factMetric.quantileSettings,
-      numeratorFactTable: {
-        sql: numeratorFactTable?.sql,
-        eventName: numeratorFactTable?.eventName,
-        filters: getFiltersForHash(numeratorFactTable, factMetric.numerator),
-      },
-      denominatorFactTable: {
-        sql: denominatorFactTable?.sql,
-        eventName: denominatorFactTable?.eventName,
-        // TODO: include denominator filters?
-      },
-    });
   }
+  return hashObject({
+    ...metricSettings,
+    ...getFactMetricDefinitionForHash(factMetric, factTableMap),
+  });
 }
