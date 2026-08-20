@@ -2586,6 +2586,39 @@ export const postExperimentVariationValuesValidator = {
   },
 };
 
+export const putExperimentVariationValuesValidator = {
+  bodySchema: z
+    .object({
+      values: z
+        .array(apiVariationValue)
+        .describe("One entry per experiment variation."),
+      sparse: z
+        .boolean()
+        .optional()
+        .describe("Serve the flag's default value for variations left unset."),
+    })
+    .strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: variationValuesResponse,
+  summary: "Update the values an experiment's variations serve",
+  description:
+    "Stages the new values on the experiment's Feature Flag. Adds them to the change already waiting to go live when there is one, and starts a new one otherwise, so the values never need to be published before they can be changed again. Publishing them is a separate call.",
+  operationId: "putExperimentVariationValues",
+  tags: ["experiments"],
+  method: "put" as const,
+  path: "/experiments/:id/variation-values",
+  exampleRequest: {
+    params: { id: "exp_abc123" },
+    body: {
+      values: [
+        { variationId: "var_control", value: "control" },
+        { variationId: "var_treatment", value: "treatment-b" },
+      ],
+    },
+  },
+};
+
 export const postExperimentVariationValuesApproveValidator = {
   bodySchema: commentBody,
   querySchema: z.never(),

@@ -52,13 +52,18 @@ import {
 } from "back-end/src/services/organizations";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { getLinkedFeatureInfo } from "back-end/src/services/experiments";
-import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
+import {
+  getDraftRevision,
+  getLiveAndBaseRevisionsForFeature,
+} from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { logger } from "back-end/src/util/logger";
 import {
   ExperimentFeatureLinkResult,
   linkFeatureToExperiment,
   mergeDraftForAutoPublish,
+  updateExperimentRefVariations,
+  validateExperimentFeatureUpdates,
 } from "back-end/src/services/experiment-feature";
 
 // Guards live at the request entry points (Express routes and the agent
@@ -107,6 +112,50 @@ async function discardOrphanedManagedFlag(
 
 function isDuplicateKeyError(e: unknown): boolean {
   return (e as { code?: number } | null)?.code === 11000;
+}
+
+/**
+ * Checks the value set a managed flag's single rule must carry and returns it
+ * normalized. Its rule is locked afterwards, so a short or mismatched set is not
+ * repairable except through the experiment — both create and update go through
+ * here before writing anything.
+ *
+ * The return value matters: `validateFeatureValue` REPAIRS rather than rejects
+ * for two of the four types — any non-`true`/`false` string becomes a boolean,
+ * and malformed JSON is re-parsed leniently — so discarding it would store a
+ * value the SDK reads differently than the caller meant.
+ */
+function normalizeManagedVariationValues({
+  experiment,
+  valueType,
+  variations,
+}: {
+  experiment: ExperimentInterface;
+  valueType: FeatureValueType;
+  variations: ExperimentRefVariation[];
+}): ExperimentRefVariation[] {
+  if (!variations.length) {
+    throw new BadRequestError(
+      "A managed Feature Flag requires a value for every variation",
+    );
+  }
+
+  const expectedIds = experiment.variations.map((v) => v.id);
+  const givenIds = new Set(variations.map((v) => v.variationId));
+  if (
+    givenIds.size !== variations.length ||
+    expectedIds.length !== variations.length ||
+    expectedIds.some((id) => !givenIds.has(id))
+  ) {
+    throw new BadRequestError(
+      "A managed Feature Flag requires exactly one value per experiment variation",
+    );
+  }
+
+  return variations.map((v, i) => ({
+    ...v,
+    value: validateFeatureValue({ valueType }, v.value, `Variation ${i}`),
+  }));
 }
 
 type CreateManagedFeatureInput = {
@@ -274,29 +323,11 @@ export async function createManagedFeatureForExperiment({
 }> {
   const { org, userId } = context;
 
-  if (!variations.length) {
-    throw new Error(
-      "A managed Feature Flag requires a value for every variation",
-    );
-  }
-
-  // The only rule this flag will ever have, and it is locked afterwards, so a
-  // short or mismatched set is not repairable except through the experiment.
-  const expectedIds = experiment.variations.map((v) => v.id);
-  const givenIds = new Set(variations.map((v) => v.variationId));
-  if (
-    givenIds.size !== variations.length ||
-    expectedIds.length !== variations.length ||
-    expectedIds.some((id) => !givenIds.has(id))
-  ) {
-    throw new Error(
-      "A managed Feature Flag requires exactly one value per experiment variation",
-    );
-  }
-  // Throws on an invalid value; the return is the normalized one, not an error.
-  variations.forEach((v, i) =>
-    validateFeatureValue({ valueType }, v.value, `Variation ${i}`),
-  );
+  const values = normalizeManagedVariationValues({
+    experiment,
+    valueType,
+    variations,
+  });
 
   const allEnvironments = getEnvironments(org);
   if (!allEnvironments.length) {
@@ -321,7 +352,7 @@ export async function createManagedFeatureForExperiment({
     project,
     tags: experiment.tags || [],
     valueType,
-    defaultValue: variations[0].value,
+    defaultValue: values[0].value,
     // Reaches no payload until the draft publishes, so create authority alone.
     environmentSettings: Object.fromEntries(
       allEnvironments.map((e) => [e.id, { enabled: false }]),
@@ -332,7 +363,7 @@ export async function createManagedFeatureForExperiment({
     dateCreated: new Date(),
     dateUpdated: new Date(),
     holdout: experiment.holdoutId
-      ? { id: experiment.holdoutId, value: variations[0].value }
+      ? { id: experiment.holdoutId, value: values[0].value }
       : undefined,
     managedBy: { type: "experiment", experimentId: experiment.id },
   };
@@ -428,7 +459,7 @@ export async function createManagedFeatureForExperiment({
         enabled: true,
         scheduleRules: [],
         experimentId: experiment.id,
-        variations,
+        variations: values,
         ...(sparse ? { sparse: true } : {}),
       },
       eventAudit,
@@ -705,14 +736,19 @@ export async function getManagedFlagState(
           values: pendingDraft.values,
           status: pendingDraft.status,
           approvalRequired: pendingDraft.pendingApproval,
-          // Approval is the only gate this surface exposes; conflicts and
-          // rebases are deliberately out of scope, so they read as not
-          // publishable rather than offering a fix here.
+          // Answers for THIS caller, bypass authority included — an admin who
+          // can publish an unapproved draft must not be told they cannot.
+          // Conflicts and rebases are deliberately out of scope for this
+          // surface, so they read as not publishable rather than offering a fix.
           canPublish:
             !pendingDraft.hasMergeConflict &&
             !pendingDraft.hasUnrelatedDraftChanges &&
             (!pendingDraft.pendingApproval ||
-              pendingDraft.status === "approved"),
+              pendingDraft.status === "approved" ||
+              context.permissions.canBypassFlagApprovalChecks(
+                feature,
+                "feature",
+              )),
           reviews,
         }
       : null,
@@ -822,6 +858,93 @@ export async function adoptManagedFlagForExperiment({
   }
 
   return created;
+}
+
+/**
+ * Stages new variation values on the managed flag. Appends to the open draft
+ * when there is one and starts a fresh one otherwise, so a caller never has to
+ * know whether an unpublished change is already waiting.
+ *
+ * No experiment-status gate, unlike `postExperimentFeatureValues`: that route
+ * sends a running experiment to the Feature Flag page to edit values, which is
+ * exactly what a managed flag forbids. Review and publish are available from the
+ * experiment at any time, so staging is too.
+ */
+export async function updateManagedVariationValues({
+  context,
+  experiment,
+  variations,
+  sparse,
+  eventAudit,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  variations: ExperimentRefVariation[];
+  sparse?: boolean;
+  eventAudit: EventUser;
+}): Promise<{ feature: FeatureInterface; version: number }> {
+  const feature = await getManagedFeatureForExperiment(context, experiment);
+  if (!feature) {
+    throw new NotFoundError("This experiment does not manage a Feature Flag.");
+  }
+
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const values = normalizeManagedVariationValues({
+    experiment,
+    valueType: feature.valueType,
+    variations,
+  });
+
+  const openDraft = await getActiveDraft(context, feature);
+  const plans = await validateExperimentFeatureUpdates({
+    context,
+    experiment,
+    linkedFeatures: [feature],
+    features: {
+      [feature.id]: {
+        variations: values,
+        ...(sparse === undefined ? {} : { sparse }),
+        revisionOptions: openDraft
+          ? { targetVersion: openDraft.version }
+          : { forceNewDraft: true },
+      },
+    },
+  });
+
+  // No plan means these values already match what the target revision serves.
+  // Report the revision they are on rather than opening an empty draft.
+  const plan = plans[0];
+  if (!plan) {
+    return { feature, version: openDraft?.version ?? feature.version };
+  }
+
+  const revision =
+    plan.existingRevision ??
+    (await getDraftRevision(context, feature, feature.version));
+
+  const updated = await updateExperimentRefVariations({
+    context,
+    feature,
+    revision,
+    matchingRules: plan.matchingRules,
+    updatedVariationValues: values,
+    sparse,
+    user: eventAudit,
+    orgSettings: context.org.settings,
+  });
+
+  // A managed flag has no separate "request review" step — editing is the request.
+  await requestReviewForManagedDraft({
+    context,
+    feature,
+    version: updated.version,
+    eventAudit,
+  });
+
+  return { feature, version: updated.version };
 }
 
 /**

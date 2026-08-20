@@ -8,6 +8,7 @@ import {
   postExperimentVariationValuesPublishValidator,
   postExperimentVariationValuesRequestChangesValidator,
   postExperimentVariationValuesValidator,
+  putExperimentVariationValuesValidator,
 } from "shared/validators";
 import { EventUser } from "shared/types/events/event-types";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -25,6 +26,7 @@ import {
   getManagedFeatureForExperiment,
   getManagedFlagState,
   publishManagedDraft,
+  updateManagedVariationValues,
 } from "back-end/src/services/managedFeatures";
 
 /** The one response shape every endpoint here returns. */
@@ -89,6 +91,26 @@ export const postExperimentVariationValues = createApiRequestHandler(
     req.context,
     await requireExperiment(req.context, experiment.id),
   );
+});
+
+export const putExperimentVariationValues = createApiRequestHandler(
+  putExperimentVariationValuesValidator,
+)(async (req) => {
+  const experiment = await requireExperiment(req.context, req.params.id);
+  if (!req.context.permissions.canUpdateExperiment(experiment, {})) {
+    req.context.permissions.throwPermissionError();
+  }
+  await requireManagedFlag(req.context, experiment);
+
+  await updateManagedVariationValues({
+    context: req.context,
+    experiment,
+    variations: req.body.values,
+    sparse: req.body.sparse,
+    eventAudit: req.eventAudit,
+  });
+
+  return respond(req.context, experiment);
 });
 
 /** approve / request-changes / comment all land on the same review write. */

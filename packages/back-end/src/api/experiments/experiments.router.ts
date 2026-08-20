@@ -26,6 +26,7 @@ import {
   postExperimentVariationValuesDetach,
   postExperimentVariationValuesPublish,
   postExperimentVariationValuesRequestChanges,
+  putExperimentVariationValues,
 } from "./variationValues";
 
 export const experimentsRoutes: OpenApiRoute[] = [
@@ -44,6 +45,7 @@ export const experimentsRoutes: OpenApiRoute[] = [
   postExperimentVariationValuesDetach,
   getExperimentVariationValues,
   postExperimentVariationValues,
+  putExperimentVariationValues,
   getExperimentResults,
   getExperimentBulkResults,
   updateExperiment,

@@ -11,6 +11,7 @@ import {
   autoMerge,
   reconcileMergeBaselines,
   includeExperimentInPayload,
+  isManagedByExperiment,
   isManagedFeature,
 } from "shared/util";
 import {
@@ -4336,7 +4337,26 @@ export async function postExperimentFeatureValues(
     return;
   }
 
-  if (experiment.status !== "draft") {
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  // Make sure features ids are valid for the experiment
+  Object.keys(features).forEach((featureId) => {
+    if (!linkedFeatureIds.includes(featureId)) {
+      throw new Error(`Feature ${featureId} is not linked to the experiment`);
+    }
+  });
+
+  const featureObjects = await getFeaturesByIds(context, Object.keys(features));
+
+  // A managed flag is read only on the Feature Flag page, so the message below
+  // has nowhere to send its caller — this route is the only way to change its
+  // values, and review and publish are available from the experiment at any
+  // time. Every other update still stops at draft.
+  const allManaged =
+    featureObjects.length > 0 &&
+    featureObjects.every((f) => isManagedByExperiment(f, experiment.id));
+
+  if (experiment.status !== "draft" && !allManaged) {
     res.status(400).json({
       status: 400,
       message:
@@ -4374,17 +4394,6 @@ export async function postExperimentFeatureValues(
   );
 
   const changes: Changeset = {};
-
-  const linkedFeatureIds = experiment.linkedFeatures || [];
-
-  // Make sure features ids are valid for the experiment
-  Object.keys(features).forEach((featureId) => {
-    if (!linkedFeatureIds.includes(featureId)) {
-      throw new Error(`Feature ${featureId} is not linked to the experiment`);
-    }
-  });
-
-  const featureObjects = await getFeaturesByIds(context, Object.keys(features));
 
   const envs = getAffectedEnvsForExperiment({
     experiment,

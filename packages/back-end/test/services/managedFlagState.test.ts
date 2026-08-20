@@ -30,8 +30,12 @@ const mockGetFeature = getFeature as jest.Mock;
 const mockGetRevision = getRevision as jest.Mock;
 const mockLinkedInfo = getLinkedFeatureInfo as jest.Mock;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const context = { org: { id: "org_1", settings: {} } } as any;
+const canBypass = jest.fn(() => false);
+const context = {
+  org: { id: "org_1", settings: {} },
+  permissions: { canBypassFlagApprovalChecks: canBypass },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+} as any;
 
 const experiment = (over: Partial<ExperimentInterface> = {}) =>
   ({
@@ -76,6 +80,7 @@ beforeEach(() => {
   mockGetFeature.mockResolvedValue(managedFeature());
   mockGetRevision.mockResolvedValue(null);
   mockLinkedInfo.mockResolvedValue([]);
+  canBypass.mockReturnValue(false);
 });
 
 describe("getManagedFlagState", () => {
@@ -274,5 +279,36 @@ describe("getManagedFlagState", () => {
     expect((await getManagedFlagState(context, experiment())).valueType).toBe(
       "boolean",
     );
+  });
+
+  it("offers publish to a caller who can bypass the approval", async () => {
+    mockLinkedInfo.mockResolvedValue([
+      {
+        feature: managedFeature(),
+        pendingDraft: pendingDraft({
+          pendingApproval: true,
+          status: "pending-review",
+        }),
+      },
+    ]);
+    canBypass.mockReturnValue(true);
+
+    const state = await getManagedFlagState(context, experiment());
+    expect(state.pending?.approvalRequired).toBe(true);
+    expect(state.pending?.canPublish).toBe(true);
+  });
+
+  it("does not let a bypass override a merge conflict", async () => {
+    mockLinkedInfo.mockResolvedValue([
+      {
+        feature: managedFeature(),
+        pendingDraft: pendingDraft({ hasMergeConflict: true }),
+      },
+    ]);
+    canBypass.mockReturnValue(true);
+
+    expect(
+      (await getManagedFlagState(context, experiment())).pending?.canPublish,
+    ).toBe(false);
   });
 });
