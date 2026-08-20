@@ -1,6 +1,6 @@
-import { FeatureInterface } from "shared/types/feature";
-import { OrganizationSettings } from "shared/types/organization";
-import { ProjectInterface } from "../validators/projects";
+import type { FeatureInterface } from "shared/types/feature";
+import type { OrganizationSettings } from "shared/types/organization";
+import type { ProjectInterface } from "../validators/projects";
 
 // Managed mode: the experiment owns one Feature Flag holding one experiment-ref
 // rule, edited only from the experiment page while the marker is set.
