@@ -33,7 +33,7 @@ import {
 
 export type QueryMap = Map<string, QueryInterface>;
 
-export type RunnerStatus = "pending" | "running" | "finished";
+export type RunnerStatus = "pending" | "running" | "finishing" | "finished";
 
 export type InterfaceWithQueries = {
   runStarted: Date | null;
@@ -267,6 +267,10 @@ export abstract class QueryRunner<
   }): Promise<Model>;
 
   private setTimer(id: string, timer: NodeJS.Timeout): void {
+    if (this.isStopping()) {
+      clearTimeout(timer);
+      return;
+    }
     this.pendingTimers[id] = timer;
   }
 
@@ -290,6 +294,10 @@ export abstract class QueryRunner<
 
   private isFinished(): boolean {
     return this.status === "finished";
+  }
+
+  private isStopping(): boolean {
+    return this.status === "finishing" || this.isFinished();
   }
 
   /**
@@ -337,7 +345,7 @@ export abstract class QueryRunner<
   }
 
   async onQueryFinish() {
-    if (this.status === "finished") {
+    if (this.isStopping()) {
       logger.debug(
         "Query finished for " + this.model.id + " after the runner concluded",
       );
@@ -386,6 +394,7 @@ export abstract class QueryRunner<
 
   /** Clear timers, persist the error, and finish the runner. */
   private async shutDownWithError(error: string): Promise<void> {
+    this.setStatus("finishing");
     this.stopRefreshWatchdog();
     if (this.timer) {
       clearTimeout(this.timer);
@@ -1000,7 +1009,7 @@ export abstract class QueryRunner<
           // Clear the timer and re-queue; a thrown concurrency check used to
           // leave a stale pendingTimers entry that permanently skipped the query.
           this.clearTimer(query.id);
-          if (this.status === "finished") return;
+          if (this.isStopping()) return;
           logger.warn(
             e,
             `${query.id}: Error while retrying queued query; re-queueing`,
@@ -1086,6 +1095,20 @@ export abstract class QueryRunner<
         "Skipping execution — query no longer pending (likely cancelled)",
       );
       this.onQueryFinish();
+      return;
+    }
+    if (this.isStopping()) {
+      clearInterval(timer);
+      await updateQueryIfRunning(this.context, doc, {
+        finishedAt: new Date(),
+        status: "failed",
+        error: "Query runner concluded before execution",
+      }).catch((e) =>
+        logger.warn(
+          e,
+          `${doc.id}: Failed to stop query claimed during shutdown`,
+        ),
+      );
       return;
     }
 

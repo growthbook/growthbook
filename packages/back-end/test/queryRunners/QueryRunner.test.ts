@@ -13,6 +13,8 @@ import {
   countRunningQueries,
   getQueriesByIds,
   updateQuery,
+  updateQueryIfPending,
+  updateQueryIfRunning,
 } from "back-end/src/models/QueryModel";
 
 jest.mock("back-end/src/models/QueryModel");
@@ -1395,7 +1397,7 @@ describe("QueryRunner", () => {
         }
 
         expect(runner.writeErrorSpy).toHaveBeenCalledTimes(1);
-        expect(runner.status).toBe("running");
+        expect(runner.status).toBe("finishing");
 
         resolveWrite();
 
@@ -1403,6 +1405,77 @@ describe("QueryRunner", () => {
         expect(runner.status).toBe("finished");
       } finally {
         resolveWrite();
+        await Promise.resolve();
+        jest.clearAllTimers();
+        jest.useRealTimers();
+      }
+    });
+
+    it("does not start a queued query after error shutdown begins", async () => {
+      jest.useFakeTimers();
+      let resolveCount: (count: number) => void = () => {
+        throw new Error("count promise was not initialized");
+      };
+      let resolveWrite: () => void = () => {
+        throw new Error("write promise was not initialized");
+      };
+      const countFinished = new Promise<number>((resolve) => {
+        resolveCount = resolve;
+      });
+      const writeFinished = new Promise<void>((resolve) => {
+        resolveWrite = resolve;
+      });
+      const randomSpy = jest.spyOn(Math, "random").mockReturnValue(0);
+      try {
+        class DeferredShutdownRunner extends StallTestQueryRunner {
+          public writeErrorSpy = jest.fn();
+
+          protected override async writeErrorIfStillActive(
+            error: string,
+          ): Promise<void> {
+            this.writeErrorSpy(error);
+            await writeFinished;
+          }
+        }
+
+        const query = createMockQuery("qry_late", "queued");
+        const run = jest.fn().mockResolvedValue({ rows: [] });
+        const runner = new DeferredShutdownRunner(
+          mockContext,
+          makeModel([]),
+          mockIntegration,
+        );
+        await runner.startAnalysis({
+          pointers: [{ name: "late", query: query.id, status: query.status }],
+        });
+        runner.runCallbacks[query.id] = { run, onFailure: jest.fn() };
+        jest.mocked(countRunningQueries).mockReturnValue(countFinished);
+        jest.mocked(updateQueryIfPending).mockResolvedValue(true);
+        jest.mocked(updateQueryIfRunning).mockResolvedValue(true);
+        jest.mocked(getQueriesByIds).mockRejectedValue(new Error("mongo down"));
+
+        runner.queueQueryExecution(query);
+        await jest.advanceTimersByTimeAsync(250);
+        for (let i = 0; i < 5; i++) {
+          await jest.advanceTimersByTimeAsync(302000);
+        }
+
+        expect(runner.writeErrorSpy).toHaveBeenCalledTimes(1);
+        expect(runner.status).toBe("finishing");
+
+        resolveCount(0);
+        await jest.advanceTimersByTimeAsync(0);
+
+        expect(run).not.toHaveBeenCalled();
+        expect(updateQueryIfRunning).toHaveBeenCalledWith(
+          mockContext,
+          query,
+          expect.objectContaining({ status: "failed" }),
+        );
+      } finally {
+        resolveCount(0);
+        resolveWrite();
+        randomSpy.mockRestore();
         await Promise.resolve();
         jest.clearAllTimers();
         jest.useRealTimers();
