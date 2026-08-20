@@ -31,7 +31,7 @@ function combineRules<T extends ProjectScopedRule>(
   );
   for (const key of keys) {
     const raw = rules.map((r) => r[key]);
-    const set = raw.filter((v) => (v ?? null) !== null);
+    const set = raw.filter((v) => v !== undefined);
     if (!set.length) continue;
     const fold = combine[key];
     Object.assign(merged, { [key]: fold ? fold(raw) : set[0] });
@@ -68,8 +68,8 @@ export function resolveProjectScopedRule<T extends ProjectScopedRule>(
 
   const merged: T = { ...winner };
   for (const field of inheritable) {
-    // null counts as unset, so clearing a field on an override inherits it.
-    const source = layers.find((l) => (l[field] ?? null) !== null);
+    // An override that doesn't carry the field takes the base's value.
+    const source = layers.find((l) => l[field] !== undefined);
     Object.assign(merged, { [field]: source ? source[field] : undefined });
   }
   return merged;
@@ -82,7 +82,8 @@ export function projectsWithOwnRule<T extends ProjectScopedRule>(
   return [...new Set(rules.flatMap((r) => r.projects ?? []))];
 }
 
-// `null` means unset, so what gets stored omits the field entirely.
+// Absence is the only "unset", so a caller sending null gets the field dropped
+// rather than storing a second way to say the same thing.
 function dropUnsetFields<T extends object>(rule: T): T {
   return Object.fromEntries(
     Object.entries(rule).filter(([, value]) => value !== null),

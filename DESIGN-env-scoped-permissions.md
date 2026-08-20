@@ -706,6 +706,14 @@ at all.
       per field: an override naming only `requiredApproverTeams` must inherit
       `resetReviewOnChange` and the rest from the layer above.
 
+- [x] REVERSED: inheritable fields were typed `T | null` so an override could
+      "clear" a field. Dropped — the resolver treated `null` and absent
+      identically, so it was a synonym rather than a second signal; the UI clones
+      the base on create and never authors one; and the single write path strips
+      nulls before storing, so none could exist. Absence remains the only unset,
+      which is what rows predating a field need anyway. Nulls sent by older
+      clients are still dropped on the way in.
+
 - [x] All three raw-rule readers fixed: `reviewScopesRequiringTeam` resolves per
       candidate project, `requiresMetadataReview` takes the governing projects, and
       the settings screen shows one rule per scope (an override is a full copy, so

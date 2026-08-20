@@ -3522,7 +3522,7 @@ export function getNewDraftExperimentsToPublish({
 }
 
 // Only the field per-rule policy hangs off, so both rule families fit.
-export type PolicyRule = { requiredApproverTeams?: string[] | null };
+export type PolicyRule = { requiredApproverTeams?: string[] };
 
 // `required` can be true with no rules: the legacy boolean setting has none.
 export type ReviewRequirement = {

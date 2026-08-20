@@ -75,22 +75,22 @@ export type UserPermissions = {
   global: UserPermission;
   projects: { [key: string]: UserPermission };
 };
-// Inheritable fields are nullable: `null` means "unset this field", so a project
-// override can drop back to the all-projects rule for it. The selector
-// (`projects`) and the rule's own switch (`requireReviewOn`) never inherit.
+// An absent inheritable field falls back to the all-projects rule, which is how
+// rows written before a field existed keep working. The selector (`projects`)
+// and the rule's own switch (`requireReviewOn`) never inherit.
 export type RequireReview = {
   requireReviewOn: boolean;
   projects: string[];
-  resetReviewOnChange?: boolean | null;
-  environments?: string[] | null;
-  featureRequireEnvironmentReview?: boolean | null;
-  featureRequireMetadataReview?: boolean | null;
+  resetReviewOnChange?: boolean;
+  environments?: string[];
+  featureRequireEnvironmentReview?: boolean;
+  featureRequireMetadataReview?: boolean;
   // When true, co-authors (contributors[]) are also blocked from approving, not just the original author.
-  blockSelfApproval?: boolean | null;
-  autopublishOnApproval?: boolean | null;
+  blockSelfApproval?: boolean;
+  autopublishOnApproval?: boolean;
   // A requirement on the approval SET, not on who may approve. Any ONE of these
   // teams satisfies the rule; a second rule is a separate requirement.
-  requiredApproverTeams?: string[] | null;
+  requiredApproverTeams?: string[];
 };
 
 // Whether secondary targeting projects impose their own review requirements
@@ -230,16 +230,16 @@ export type ApprovalFlowConfiguration = {
   // Selector; empty (or absent, on rows predating the field) = all projects.
   projects?: string[];
   required: boolean;
-  // Nullable for the same reason as RequireReview's: null unsets the field.
-  requireMetadataReview?: boolean | null;
+  // Inherited from the all-projects rule when absent, as in RequireReview.
+  requireMetadataReview?: boolean;
   // Same meaning as the flag family's: a requirement on the approval SET.
-  requiredApproverTeams?: string[] | null;
+  requiredApproverTeams?: string[];
   // When true, anyone listed in `revision.contributors` (including the author)
   // is blocked from approving the revision. A separate, non-contributor
   // reviewer is required.
-  blockSelfApproval?: boolean | null;
-  autopublishOnApproval?: boolean | null;
-  resetReviewOnChange?: boolean | null;
+  blockSelfApproval?: boolean;
+  autopublishOnApproval?: boolean;
+  resetReviewOnChange?: boolean;
 };
 
 export type ApprovalFlowConfigurations = {

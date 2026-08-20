@@ -59228,37 +59228,23 @@ components:
                 items:
                   type: string
               resetReviewOnChange:
-                anyOf:
-                  - type: boolean
-                  - type: 'null'
+                type: boolean
               environments:
-                anyOf:
-                  - type: array
-                    items:
-                      type: string
-                  - type: 'null'
+                type: array
+                items:
+                  type: string
               featureRequireEnvironmentReview:
-                anyOf:
-                  - type: boolean
-                  - type: 'null'
+                type: boolean
               featureRequireMetadataReview:
-                anyOf:
-                  - type: boolean
-                  - type: 'null'
+                type: boolean
               blockSelfApproval:
-                anyOf:
-                  - type: boolean
-                  - type: 'null'
+                type: boolean
               autopublishOnApproval:
-                anyOf:
-                  - type: boolean
-                  - type: 'null'
+                type: boolean
               requiredApproverTeams:
-                anyOf:
-                  - type: array
-                    items:
-                      type: string
-                  - type: 'null'
+                type: array
+                items:
+                  type: string
             additionalProperties: false
         targetingReviewMode:
           type: array

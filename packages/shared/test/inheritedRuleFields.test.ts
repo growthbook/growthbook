@@ -14,17 +14,19 @@ const rule = (over: Partial<RequireReview> = {}): RequireReview => ({
   ...over,
 });
 
-describe("null unsets an inherited field", () => {
-  it("inherits a field the override cleared with null", () => {
-    const resolved = getReviewSetting(
-      [rule(), rule({ projects: ["prj_a"], requiredApproverTeams: null })],
-      { project: "prj_a" },
-    );
+describe("an absent field inherits", () => {
+  it("takes the all-projects value for a field the override omits", () => {
+    const override = rule({ projects: ["prj_a"] });
+    delete override.requiredApproverTeams;
+
+    const resolved = getReviewSetting([rule(), override], {
+      project: "prj_a",
+    });
 
     expect(resolved?.requiredApproverTeams).toEqual(["t_sec"]);
   });
 
-  // Distinct from null: [] is a real value ("no teams required here").
+  // Distinct from absent: [] is a real value ("no teams required here").
   it("keeps an empty array as an explicit override", () => {
     const resolved = getReviewSetting(
       [rule(), rule({ projects: ["prj_a"], requiredApproverTeams: [] })],
@@ -34,12 +36,9 @@ describe("null unsets an inherited field", () => {
     expect(resolved?.requiredApproverTeams).toEqual([]);
   });
 
-  it("skips a null layer and keeps looking down the stack", () => {
+  it("keeps looking down the stack past a layer that omits the field", () => {
     const resolved = resolveProjectScopedRule(
-      [
-        { projects: [], blockSelfApproval: true },
-        { projects: ["prj_a"], blockSelfApproval: null },
-      ],
+      [{ projects: [], blockSelfApproval: true }, { projects: ["prj_a"] }],
       "prj_a",
       ["blockSelfApproval"],
     );
@@ -47,12 +46,9 @@ describe("null unsets an inherited field", () => {
     expect(resolved?.blockSelfApproval).toBe(true);
   });
 
-  it("leaves the field unset when every layer is null", () => {
+  it("leaves the field unset when no layer carries it", () => {
     const resolved = resolveProjectScopedRule(
-      [
-        { projects: [], blockSelfApproval: null },
-        { projects: ["prj_a"], blockSelfApproval: null },
-      ],
+      [{ projects: [] }, { projects: ["prj_a"] }],
       "prj_a",
       ["blockSelfApproval"],
     );
@@ -61,6 +57,8 @@ describe("null unsets an inherited field", () => {
   });
 });
 
+// Absence is the only unset form, so a null from an older client is dropped on
+// the way in rather than stored as a second way to say the same thing.
 describe("normalizeApprovalRuleSettings", () => {
   it("drops nulled fields from both rule families", () => {
     const normalized = normalizeApprovalRuleSettings({
@@ -74,7 +72,7 @@ describe("normalizeApprovalRuleSettings", () => {
       approvalFlows: {
         savedGroups: [{ projects: ["prj_a"], requireMetadataReview: null }],
       },
-    } as Parameters<typeof normalizeApprovalRuleSettings>[0]);
+    } as unknown as Parameters<typeof normalizeApprovalRuleSettings>[0]);
 
     const flagRule = (
       normalized.requireReviews as Record<string, unknown>[]

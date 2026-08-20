@@ -200,11 +200,16 @@ describe("differsFromBase", () => {
     ).toBe(true);
   });
 
-  // Nulls are the stored "unset" form, so they must not read as a difference.
-  it("treats a nulled field as absent", () => {
+  // Absence is the only unset form now, but a stray null from an older client
+  // must still not read as a difference.
+  it("treats a null field as absent", () => {
     expect(
       differsFromBase(
-        { ...base, projects: ["prj_a"], requiredApproverTeams: null },
+        {
+          ...base,
+          projects: ["prj_a"],
+          requiredApproverTeams: null,
+        } as unknown as RequireReview,
         base,
       ),
     ).toBe(false);
