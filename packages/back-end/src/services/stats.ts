@@ -72,6 +72,7 @@ import { splitFunnelMetricBlock } from "back-end/src/services/experimentQueries/
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { statsServerPool } from "back-end/src/services/python";
 import { metrics } from "back-end/src/util/metrics";
+import { getErrorMessage } from "back-end/src/util/errors";
 
 export const MAX_DIMENSIONS = 20;
 
@@ -570,34 +571,45 @@ export function parseStatsEngineResult({
     ),
   );
 
+  // A whole-metric failure is fanned into every analysis slot with the same
+  // message, so dedupe by metric+message to log each distinct failure once.
+  const loggedAnalysisErrors = new Set<string>();
+
   analysisSettings.forEach((_, i) => {
     const dimensionMap: Map<string, ExperimentReportResultDimension> =
       new Map();
     const metricErrors = new Map<string, string>();
-    result.forEach(({ metric, analyses, error, traceback }) => {
-      const metricError = error ?? null;
-      if (metricError !== null) {
-        if (i === 0) {
-          logger.error(
-            "Metric analysis failed in stats engine:\n" +
-              (traceback ? `${metricError}\n\n${traceback}` : metricError),
-          );
-        }
-        metricErrors.set(metric, metricError);
-        return;
-      }
-
+    const processMetricResult = ({
+      metric,
+      analyses,
+    }: ExperimentMetricAnalysis[number]) => {
       // each result can have multiple analyses (a set of computations that
       // use the same snapshot)
       // we loop over the analyses requested and pull out the results for each one
-      const result = analyses[i];
-      if (!result) return;
+      const analysisResult = analyses[i];
+      if (!analysisResult) return;
+
+      const analysisError = analysisResult.error ?? null;
+      if (analysisError !== null) {
+        const logKey = `${metric}\n${analysisError}`;
+        if (!loggedAnalysisErrors.has(logKey)) {
+          loggedAnalysisErrors.add(logKey);
+          logger.error(
+            "Metric analysis failed in stats engine:\n" +
+              (analysisResult.traceback
+                ? `${analysisError}\n\n${analysisResult.traceback}`
+                : analysisError),
+          );
+        }
+        metricErrors.set(metric, analysisError);
+        return;
+      }
 
       unknownVariationsCopy = unknownVariationsCopy.concat(
-        result.unknownVariations,
+        analysisResult.unknownVariations,
       );
 
-      result.dimensions.forEach((row) => {
+      analysisResult.dimensions.forEach((row) => {
         const dim = dimensionMap.get(row.dimension) || {
           name: row.dimension,
           srm: 1,
@@ -657,6 +669,20 @@ export function parseStatsEngineResult({
 
         dimensionMap.set(row.dimension, dim);
       });
+    };
+
+    result.forEach((metricResult) => {
+      // Isolate an unexpected failure to the metric it came from so one bad
+      // metric result does not discard every other metric's analysis.
+      try {
+        processMetricResult(metricResult);
+      } catch (e) {
+        const message = getErrorMessage(e);
+        logger.error(
+          `Failed to process stats engine result for metric ${metricResult.metric}: ${message}`,
+        );
+        metricErrors.set(metricResult.metric, message);
+      }
     });
 
     const dimensions = Array.from(dimensionMap.values());
@@ -735,6 +761,23 @@ export async function writeSnapshotAnalyses(
   }
 }
 
+export function getFirstResultError(
+  results: ExperimentReportResults[],
+  banditResult?: BanditResult,
+): string | null {
+  if (banditResult?.error) return banditResult.error;
+  for (const analysis of results) {
+    for (const dimension of analysis.dimensions) {
+      for (const variation of dimension.variations) {
+        for (const metric of Object.values(variation.metrics)) {
+          if (metric?.errorMessage) return metric.errorMessage;
+        }
+      }
+    }
+  }
+  return null;
+}
+
 export async function analyzeExperimentResults({
   queryData,
   analysisSettings,
@@ -786,6 +829,19 @@ export async function analyzeExperimentResults({
     unknownVariations,
     result: analysis,
   });
+
+  // Bandits are all-or-nothing when consuming stats output: a single errored
+  // metric or bandit result must not produce a partial reweight. Fail here so
+  // the snapshot errors and no bandit update is applied.
+  // TODO(bandit): prevent reweight only if decision metric fails, otherwise allow
+  // reweight if only secondary metrics fail.
+  if (snapshotSettings.banditSettings) {
+    const banditError = getFirstResultError(results, banditResult);
+    if (banditError) {
+      throw new Error(`Bandit analysis failed: ${banditError}`);
+    }
+  }
+
   return { results, banditResult };
 }
 

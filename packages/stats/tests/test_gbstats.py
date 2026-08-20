@@ -16,6 +16,7 @@ from gbstats.gbstats import (
     get_metric_dfs,
     variation_statistic_from_metric_row,
     process_analysis,
+    process_single_metric,
     get_bandit_result,
     create_bandit_statistics,
     preprocess_bandits,
@@ -31,6 +32,7 @@ from gbstats.models.statistics import (
 from gbstats.models.results import (
     BaselineResponse,
     BayesianVariationResponseIndividual,
+    DimensionResponse,
     ExperimentMetricAnalysis,
     ExperimentMetricAnalysisResult,
     FrequentistVariationResponseIndividual,
@@ -437,12 +439,167 @@ class TestProcessMultipleExperimentResults(TestCase):
         self.assertIsNone(experiment_result.error)
         self.assertEqual(len(experiment_result.results), 2)
         self.assertEqual(experiment_result.results[0], good_result)
-        self.assertEqual(experiment_result.results[1].metric, bad_metric.id)
-        self.assertEqual(experiment_result.results[1].analyses, [])
-        self.assertEqual(experiment_result.results[1].error, "bad metric data")
-        self.assertIn(
-            "ValueError: bad metric data", experiment_result.results[1].traceback
+
+        bad = experiment_result.results[1]
+        self.assertEqual(bad.metric, bad_metric.id)
+        # One error slot per requested analysis, not a metric-level error
+        self.assertEqual(len(bad.analyses), 1)
+        self.assertEqual(bad.analyses[0].dimensions, [])
+        self.assertEqual(bad.analyses[0].error, "bad metric data")
+        bad_traceback = bad.analyses[0].traceback
+        assert bad_traceback is not None
+        self.assertIn("ValueError: bad metric data", bad_traceback)
+
+    def test_unparseable_metric_does_not_discard_others(self):
+        good_metric = dataclasses.replace(COUNT_METRIC, id="good_metric")
+        good_result = ExperimentMetricAnalysis(
+            metric=good_metric.id,
+            analyses=[
+                ExperimentMetricAnalysisResult(
+                    unknownVariations=[],
+                    multipleExposures=0,
+                    dimensions=[],
+                )
+            ],
         )
+
+        data = [
+            {
+                "id": "experiment",
+                "data": {
+                    "metrics": {
+                        good_metric.id: dataclasses.asdict(good_metric),
+                        # missing required fields -> fails to parse
+                        "bad_metric": {"id": "bad_metric"},
+                    },
+                    "analyses": [dataclasses.asdict(DEFAULT_ANALYSIS)],
+                    "query_results": [
+                        {
+                            "rows": [{"dimension": "All"}],
+                            "metrics": [good_metric.id, "bad_metric"],
+                        }
+                    ],
+                },
+            }
+        ]
+
+        with patch(
+            "gbstats.gbstats.process_single_metric",
+            return_value=good_result,
+        ):
+            experiment_result = process_multiple_experiment_results(data)[0]
+
+        self.assertIsNone(experiment_result.error)
+        by_id = {r.metric: r for r in experiment_result.results}
+        self.assertEqual(by_id["good_metric"], good_result)
+        bad = by_id["bad_metric"]
+        self.assertEqual(len(bad.analyses), 1)
+        self.assertEqual(bad.analyses[0].dimensions, [])
+        self.assertIn("parse", (bad.analyses[0].error or "").lower())
+
+    def test_bandit_result_failure_is_contained(self):
+        # gbstats contains bandit failures like experiments: a bandit weight
+        # failure becomes an error bandit result rather than crashing the payload.
+        # The back end decides not to apply a bandit update when an error exists.
+        decision_metric = dataclasses.replace(COUNT_METRIC, id="decision")
+        good_result = ExperimentMetricAnalysis(
+            metric=decision_metric.id,
+            analyses=[
+                ExperimentMetricAnalysisResult(
+                    unknownVariations=[],
+                    multipleExposures=0,
+                    dimensions=[],
+                )
+            ],
+        )
+        analysis = dataclasses.replace(DEFAULT_ANALYSIS, dimension="")
+        bandit_settings = dataclasses.replace(
+            BANDIT_ANALYSIS, decision_metric=decision_metric.id
+        )
+        data = [
+            {
+                "id": "experiment",
+                "data": {
+                    "metrics": {
+                        decision_metric.id: dataclasses.asdict(decision_metric)
+                    },
+                    "analyses": [dataclasses.asdict(analysis)],
+                    "query_results": [
+                        {
+                            "rows": [{"dimension": "All"}],
+                            "metrics": [decision_metric.id],
+                        }
+                    ],
+                    "bandit_settings": dataclasses.asdict(bandit_settings),
+                },
+            }
+        ]
+
+        with patch(
+            "gbstats.gbstats.get_bandit_result", side_effect=ValueError("bandit boom")
+        ), patch("gbstats.gbstats.process_single_metric", return_value=good_result):
+            experiment_result = process_multiple_experiment_results(data)[0]
+
+        self.assertIsNone(experiment_result.error)
+        self.assertEqual(experiment_result.results, [good_result])
+        bandit_result = experiment_result.banditResult
+        assert bandit_result is not None
+        self.assertEqual(bandit_result.error, "bandit boom")
+
+
+class TestProcessSingleMetricAnalysisIsolation(TestCase):
+    def test_one_analysis_failure_does_not_discard_the_others(self):
+        good_analysis = dataclasses.replace(DEFAULT_ANALYSIS, dimension="All")
+        bad_analysis = dataclasses.replace(DEFAULT_ANALYSIS, dimension="country")
+        good_dimensions = [DimensionResponse(dimension="All", srm=1.0, variations=[])]
+
+        def process(**kwargs):
+            if kwargs["analysis"].dimension == "country":
+                raise ValueError("boom")
+            return good_dimensions
+
+        with patch("gbstats.gbstats.process_analysis", side_effect=process):
+            result = process_single_metric(
+                rows=QUERY_OUTPUT,
+                metric=COUNT_METRIC,
+                analyses=[good_analysis, bad_analysis],
+            )
+
+        # One aligned slot per requested analysis
+        self.assertEqual(len(result.analyses), 2)
+
+        self.assertIsNone(result.analyses[0].error)
+        self.assertEqual(result.analyses[0].dimensions, good_dimensions)
+
+        self.assertEqual(result.analyses[1].dimensions, [])
+        self.assertEqual(result.analyses[1].error, "boom")
+        analysis_traceback = result.analyses[1].traceback
+        assert analysis_traceback is not None
+        self.assertIn("ValueError: boom", analysis_traceback)
+
+    def test_quantile_skip_keeps_analyses_aligned(self):
+        quantile_metric = dataclasses.replace(
+            COUNT_METRIC, statistic_type="quantile_unit"
+        )
+        skipped_analysis = dataclasses.replace(DEFAULT_ANALYSIS, dimension="")
+        kept_analysis = dataclasses.replace(DEFAULT_ANALYSIS, dimension="country")
+        kept_dimensions = [
+            DimensionResponse(dimension="country", srm=1.0, variations=[])
+        ]
+
+        rows = [{**r, "dim_exp": r["dimension"]} for r in QUERY_OUTPUT]
+
+        with patch("gbstats.gbstats.process_analysis", return_value=kept_dimensions):
+            result = process_single_metric(
+                rows=rows,
+                metric=quantile_metric,
+                analyses=[skipped_analysis, kept_analysis],
+            )
+
+        self.assertEqual(len(result.analyses), 2)
+        self.assertEqual(result.analyses[0].dimensions, [])
+        self.assertIsNone(result.analyses[0].error)
+        self.assertEqual(result.analyses[1].dimensions, kept_dimensions)
 
 
 class TestBanditMinVariationWeightFloor(TestCase):

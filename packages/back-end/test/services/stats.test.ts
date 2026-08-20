@@ -2,10 +2,15 @@ import type {
   ExperimentSnapshotAnalysisSettings,
   SnapshotSettingsVariation,
 } from "shared/types/experiment-snapshot";
-import type { ExperimentReportResultDimension } from "shared/types/report";
+import type {
+  ExperimentReportResults,
+  ExperimentReportResultDimension,
+} from "shared/types/report";
 import type { ExperimentMetricAnalysis } from "shared/types/stats";
+import type { BanditResult } from "shared/types/experiment";
 import {
   addMetricErrorsToDimensions,
+  getFirstResultError,
   parseStatsEngineResult,
 } from "back-end/src/services/stats";
 
@@ -58,8 +63,14 @@ const survivorResult: ExperimentMetricAnalysis[number] = {
 
 const failedResult: ExperimentMetricAnalysis[number] = {
   metric: "failed",
-  analyses: [],
-  error: "metric analysis failed",
+  analyses: [
+    {
+      unknownVariations: [],
+      multipleExposures: 0,
+      dimensions: [],
+      error: "metric analysis failed",
+    },
+  ],
 };
 
 describe("addMetricErrorsToDimensions", () => {
@@ -168,8 +179,16 @@ describe("parseStatsEngineResult", () => {
       unknownVariations: [],
       result: [
         {
-          ...failedResult,
-          traceback: "Traceback line one\nTraceback line two",
+          metric: "failed",
+          analyses: [
+            {
+              unknownVariations: [],
+              multipleExposures: 0,
+              dimensions: [],
+              error: "metric analysis failed",
+              traceback: "Traceback line one\nTraceback line two",
+            },
+          ],
         },
       ],
     });
@@ -177,6 +196,82 @@ describe("parseStatsEngineResult", () => {
     expect(result.dimensions[0].variations[0].metrics.failed.errorMessage).toBe(
       "metric analysis failed",
     );
+  });
+
+  it("isolates a failed analysis without discarding the metric's other analyses", () => {
+    const goodSlot = survivorResult.analyses[0];
+    const results = parseStatsEngineResult({
+      analysisSettings: [analysisSettings, analysisSettings],
+      snapshotSettings: { variations },
+      queryResults: [],
+      unknownVariations: [],
+      result: [
+        {
+          metric: "partial",
+          analyses: [
+            {
+              unknownVariations: [],
+              multipleExposures: 0,
+              dimensions: [],
+              error: "analysis 0 failed",
+              traceback: "Traceback line one\nTraceback line two",
+            },
+            goodSlot,
+          ],
+        },
+      ],
+    });
+
+    // Analysis 0 failed: the error is attached to every variation cell
+    results[0].dimensions[0].variations.forEach((variation) => {
+      expect(variation.metrics.partial).toEqual({
+        users: 0,
+        value: 0,
+        cr: 0,
+        buckets: [],
+        errorMessage: "analysis 0 failed",
+      });
+    });
+
+    // Analysis 1 survived: real results, no error
+    results[1].dimensions[0].variations.forEach((variation) => {
+      expect(variation.metrics.partial.errorMessage).toBeUndefined();
+      expect(variation.metrics.partial.cr).toBeGreaterThan(0);
+    });
+  });
+
+  it("isolates an unexpected processing failure to the offending metric", () => {
+    const throwingResult = {
+      metric: "boom",
+      analyses: [
+        {
+          unknownVariations: [],
+          multipleExposures: 0,
+          dimensions: [
+            {
+              dimension: "All",
+              srm: 1,
+              // malformed: variations must be an array, forces a throw
+              // while processing this metric
+              variations: null as unknown as [],
+            },
+          ],
+        },
+      ],
+    };
+
+    const [result] = parseStatsEngineResult({
+      analysisSettings: [analysisSettings],
+      snapshotSettings: { variations },
+      queryResults: [],
+      unknownVariations: [],
+      result: [survivorResult, throwingResult],
+    });
+
+    result.dimensions[0].variations.forEach((variation) => {
+      expect(variation.metrics.survivor).toBeDefined();
+      expect(variation.metrics.boom.errorMessage).toBeTruthy();
+    });
   });
 
   it("creates variations for errors when no metric survives", () => {
@@ -206,5 +301,63 @@ describe("parseStatsEngineResult", () => {
         })),
       },
     ]);
+  });
+});
+
+describe("getFirstResultError", () => {
+  const cleanResults: ExperimentReportResults[] = [
+    {
+      unknownVariations: [],
+      multipleExposures: 0,
+      dimensions: [
+        {
+          name: "All",
+          srm: 1,
+          variations: [
+            { users: 10, metrics: { m1: { value: 5, cr: 0.5, users: 10 } } },
+          ],
+        },
+      ],
+    },
+  ];
+
+  it("returns null when nothing has an error", () => {
+    expect(getFirstResultError(cleanResults)).toBeNull();
+  });
+
+  it("returns a metric error message when a variation has one", () => {
+    const results: ExperimentReportResults[] = [
+      {
+        unknownVariations: [],
+        multipleExposures: 0,
+        dimensions: [
+          {
+            name: "All",
+            srm: 1,
+            variations: [
+              {
+                users: 0,
+                metrics: {
+                  m1: {
+                    value: 0,
+                    cr: 0,
+                    users: 0,
+                    errorMessage: "metric blew up",
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    expect(getFirstResultError(results)).toBe("metric blew up");
+  });
+
+  it("returns the bandit result error when present", () => {
+    const banditResult = { error: "bandit blew up" } as BanditResult;
+    expect(getFirstResultError(cleanResults, banditResult)).toBe(
+      "bandit blew up",
+    );
   });
 });
