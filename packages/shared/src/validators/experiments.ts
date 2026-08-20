@@ -2448,3 +2448,201 @@ export const getExperimentSnapshotValidator = {
   method: "get" as const,
   path: "/snapshots/:id",
 };
+
+// region Experiment variation values (the automatic implementation)
+//
+// Deliberately flat and unversioned: an experiment manages one Feature Flag with
+// one pending change at a time, so there is nothing to address by version. Kept
+// clear of revision vocabulary so a future experiment revision system can own
+// `/experiments/:id/revisions/...` without colliding with this.
+
+const apiVariationValue = namedSchema(
+  "ExperimentVariationValue",
+  z
+    .object({
+      variationId: z.string(),
+      value: z
+        .string()
+        .describe("Serialized value. JSON types are a JSON string."),
+    })
+    .strict(),
+);
+
+const apiVariationValueReview = namedSchema(
+  "ExperimentVariationValuesReview",
+  z
+    .object({
+      userId: z.string(),
+      status: z
+        .string()
+        .describe(
+          "approved or changes-requested, suffixed -stale once the values moved on",
+        ),
+      date: z.string(),
+    })
+    .strict(),
+);
+
+const apiPendingVariationValues = namedSchema(
+  "ExperimentPendingVariationValues",
+  z
+    .object({
+      values: z.array(apiVariationValue),
+      status: z
+        .string()
+        .describe("draft, pending-review, changes-requested or approved"),
+      approvalRequired: z.boolean(),
+      canPublish: z
+        .boolean()
+        .describe(
+          "Whether publish would succeed right now. False while approval is outstanding, or when the values need attention on the Feature Flag page.",
+        ),
+      reviews: z.array(apiVariationValueReview),
+    })
+    .strict(),
+);
+
+export const apiExperimentVariationValues = namedSchema(
+  "ExperimentVariationValues",
+  z
+    .object({
+      managed: z
+        .boolean()
+        .describe(
+          "Whether this experiment manages its own Feature Flag. Everything below is null or empty when false.",
+        ),
+      featureKey: z.string().nullable(),
+      valueType: z.enum(["string", "number", "boolean", "json"]).nullable(),
+      liveValues: z
+        .array(apiVariationValue)
+        .describe("What is serving now. Empty until the first publish."),
+      pending: apiPendingVariationValues
+        .nullable()
+        .describe("The change waiting to go live, or null when there is none."),
+    })
+    .strict(),
+);
+
+const variationValuesResponse = z
+  .object({ variationValues: apiExperimentVariationValues })
+  .strict();
+
+const commentBody = z
+  .object({
+    comment: z.string().optional().describe("Recorded with the verdict."),
+  })
+  .strict();
+
+export const getExperimentVariationValuesValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: variationValuesResponse,
+  summary: "Get the values an experiment's variations serve",
+  operationId: "getExperimentVariationValues",
+  tags: ["experiments"],
+  method: "get" as const,
+  path: "/experiments/:id/variation-values",
+};
+
+export const postExperimentVariationValuesValidator = {
+  bodySchema: z
+    .object({
+      valueType: z.enum(["string", "number", "boolean", "json"]),
+      values: z
+        .array(apiVariationValue)
+        .describe("One entry per experiment variation."),
+      featureKey: z
+        .string()
+        .optional()
+        .describe(
+          "Create the Feature Flag under this key instead of one derived from the experiment key.",
+        ),
+      trackingKey: z
+        .string()
+        .optional()
+        .describe(
+          "Rename the experiment to this key first, so the Feature Flag key can match it.",
+        ),
+    })
+    .strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: variationValuesResponse,
+  summary: "Start serving variation values automatically",
+  operationId: "postExperimentVariationValues",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/variation-values",
+  exampleRequest: {
+    params: { id: "exp_abc123" },
+    body: {
+      valueType: "string" as const,
+      values: [
+        { variationId: "var_control", value: "control" },
+        { variationId: "var_treatment", value: "treatment" },
+      ],
+    },
+  },
+};
+
+export const postExperimentVariationValuesApproveValidator = {
+  bodySchema: commentBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: variationValuesResponse,
+  summary: "Approve the pending variation values",
+  operationId: "postExperimentVariationValuesApprove",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/variation-values/approve",
+};
+
+export const postExperimentVariationValuesRequestChangesValidator = {
+  bodySchema: commentBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: variationValuesResponse,
+  summary: "Request changes to the pending variation values",
+  operationId: "postExperimentVariationValuesRequestChanges",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/variation-values/request-changes",
+};
+
+export const postExperimentVariationValuesCommentValidator = {
+  bodySchema: z.object({ comment: z.string().min(1) }).strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: variationValuesResponse,
+  summary: "Comment on the pending variation values",
+  operationId: "postExperimentVariationValuesComment",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/variation-values/comment",
+};
+
+export const postExperimentVariationValuesPublishValidator = {
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: variationValuesResponse,
+  summary: "Publish the pending variation values",
+  operationId: "postExperimentVariationValuesPublish",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/variation-values/publish",
+};
+
+export const postExperimentVariationValuesDetachValidator = {
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: variationValuesResponse,
+  summary: "Stop managing the Feature Flag from this experiment",
+  operationId: "postExperimentVariationValuesDetach",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/variation-values/detach",
+};
+// endregion Experiment variation values

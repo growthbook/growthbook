@@ -39,8 +39,13 @@ import {
   getExperimentById,
   getExperimentByTrackingKey,
   unlinkFeatureFromExperiment,
+  updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { ManagedFeatureError, NotFoundError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  ManagedFeatureError,
+  NotFoundError,
+} from "back-end/src/util/errors";
 import {
   getContextFromReq,
   getEnvironments,
@@ -623,6 +628,200 @@ export async function createManagedFlagForNewExperiment({
     );
     await create(seeded);
   }
+}
+
+export type ManagedFlagReview = {
+  userId: string;
+  status: string;
+  date: string;
+};
+
+export type ManagedFlagState = {
+  managed: boolean;
+  featureKey: string | null;
+  valueType: FeatureValueType | null;
+  /** What is serving now. Empty until the first publish. */
+  liveValues: ExperimentRefVariation[];
+  pending: {
+    values: ExperimentRefVariation[];
+    status: string;
+    approvalRequired: boolean;
+    /** Whether publishing is available right now, approvals included. */
+    canPublish: boolean;
+    reviews: ManagedFlagReview[];
+  } | null;
+};
+
+/**
+ * The whole managed-flag picture in one read: what serves now, what is waiting,
+ * and whether it can go live. Every action returns this so a caller never has
+ * to stitch two requests together.
+ */
+export async function getManagedFlagState(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<ManagedFlagState> {
+  const feature = await getManagedFeatureForExperiment(context, experiment);
+  if (!feature) {
+    return {
+      managed: false,
+      featureKey: null,
+      valueType: null,
+      liveValues: [],
+      pending: null,
+    };
+  }
+
+  const info = (
+    await getLinkedFeatureInfo(context as ReqContext, experiment)
+  ).find((f) => f.feature.id === feature.id);
+  const pendingDraft = info?.pendingDraft ?? null;
+
+  let reviews: ManagedFlagReview[] = [];
+  if (pendingDraft) {
+    const revision = await getRevision({
+      context,
+      organization: feature.organization,
+      featureId: feature.id,
+      feature,
+      version: pendingDraft.version,
+    });
+    // A verdict carries no body; the reviewer's comment lives in the revision
+    // log, which this surface deliberately does not expose.
+    reviews = (revision?.reviews ?? []).map((r) => ({
+      userId: r.userId,
+      status: r.status,
+      date: new Date(r.timestamp).toISOString(),
+    }));
+  }
+
+  return {
+    managed: true,
+    featureKey: feature.id,
+    valueType: feature.valueType,
+    liveValues: info?.liveValues ?? [],
+    pending: pendingDraft
+      ? {
+          values: pendingDraft.values,
+          status: pendingDraft.status,
+          approvalRequired: pendingDraft.pendingApproval,
+          // Approval is the only gate this surface exposes; conflicts and
+          // rebases are deliberately out of scope, so they read as not
+          // publishable rather than offering a fix here.
+          canPublish:
+            !pendingDraft.hasMergeConflict &&
+            !pendingDraft.hasUnrelatedDraftChanges &&
+            (!pendingDraft.pendingApproval ||
+              pendingDraft.status === "approved"),
+          reviews,
+        }
+      : null,
+  };
+}
+
+/**
+ * Takes on a managed flag for an experiment that has no implementation yet.
+ * Shared by the internal route and the REST surface so the rename ordering and
+ * its rollback stay in one place.
+ */
+export async function adoptManagedFlagForExperiment({
+  context,
+  experiment: startingExperiment,
+  valueType,
+  variations,
+  sparse,
+  featureId,
+  trackingKey,
+  eventAudit,
+  audit,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  valueType: FeatureValueType;
+  variations: ExperimentRefVariation[];
+  sparse?: boolean;
+  /** Create under this exact key instead of the derived one. */
+  featureId?: string;
+  /** Rename the experiment to this key first, so the pair matches. */
+  trackingKey?: string;
+  eventAudit: EventUser;
+  audit: (data: AuditInterfaceInput) => Promise<void>;
+}): Promise<{ feature: FeatureInterface; version: number }> {
+  let experiment = startingExperiment;
+  const blocker = await managedFlagAdoptionBlocker(context, experiment);
+  if (blocker) throw new BadRequestError(blocker);
+
+  const originalTrackingKey = experiment.trackingKey;
+
+  const existing = await getManagedFeatureForExperiment(context, experiment);
+  if (existing) {
+    throw new BadRequestError(
+      `This experiment already manages Feature Flag "${existing.id}".`,
+    );
+  }
+
+  // Rename first: the key is derived at creation and a feature cannot be
+  // renamed afterwards, so the order is load-bearing.
+  if (trackingKey && trackingKey !== experiment.trackingKey) {
+    if (context.org.settings?.requireUniqueExperimentTrackingKeys) {
+      const keyOwner = await getExperimentByTrackingKey(context, trackingKey);
+      if (keyOwner && keyOwner.id !== experiment.id) {
+        throw new BadRequestError(
+          `An experiment with tracking key "${trackingKey}" already exists. Your organization requires unique experiment tracking keys.`,
+        );
+      }
+    }
+    experiment = await updateExperiment({
+      context,
+      experiment,
+      changes: { trackingKey },
+    });
+  }
+
+  const keyPlan = await planManagedFlagKey({ context, experiment });
+
+  // A flag deleted out of band leaves its id behind; drop it while we write.
+  const stale = await staleLinkedFeatureIds(context, experiment);
+  for (const staleId of stale) {
+    await unlinkFeatureFromExperiment(context, experiment.id, staleId);
+  }
+  if (stale.length) {
+    experiment =
+      (await getExperimentById(context, experiment.id)) ?? experiment;
+  }
+
+  // The rename is already committed, so a failed create would leave the
+  // experiment renamed for a flag that does not exist.
+  const renamedFrom =
+    trackingKey && trackingKey !== originalTrackingKey
+      ? originalTrackingKey
+      : null;
+  let created: { feature: FeatureInterface; version: number };
+  try {
+    created = await createManagedFeatureForExperiment({
+      context,
+      experiment,
+      valueType,
+      variations,
+      sparse,
+      // Always explicit: without it a racing duplicate would be suffixed away
+      // silently, leaving the experiment owning two flags.
+      featureId: featureId ?? keyPlan.derivedId,
+      eventAudit: eventAudit,
+      audit: audit,
+    });
+  } catch (e) {
+    if (renamedFrom !== null) {
+      await updateExperiment({
+        context,
+        experiment,
+        changes: { trackingKey: renamedFrom },
+      });
+    }
+    throw e;
+  }
+
+  return created;
 }
 
 /**

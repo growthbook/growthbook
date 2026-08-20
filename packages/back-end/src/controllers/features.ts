@@ -183,6 +183,7 @@ import {
   getPublishedRevisionForEvents,
   recordRevisionUpdate,
 } from "back-end/src/services/featureRevisionEvents";
+import { submitFeatureRevisionReview } from "back-end/src/services/featureRevisionReview";
 import {
   cleanUpPreviousRevisions,
   createInitialRevision,
@@ -1363,133 +1364,19 @@ export async function postFeatureReviewOrComment(
 ) {
   const context = getContextFromReq(req);
   const { id, version } = req.params;
-  const { comment, review = "Comment" } = req.body;
   const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
 
-  // A verdict is the review atom; a plain comment is participation, so the
-  // comment atom carries it — review implies it but must not gate it. Uses the
-  // shared predicate so all four entities answer identically, narrowed to the
-  // primary project to match `canReviewFeatureDrafts`.
-  //
-  // Known structural divergence: the other three engines judge this on
-  // `revision.target.snapshot`; feature revisions carry no origin snapshot
-  // (`metadata.project` is the DESTINATION a draft stages), so this engine can
-  // only ask about live.
-  const canCommentHere = canCommentOnRevisionEntity(
-    context.permissions,
-    "feature",
-    null,
-    { project: feature.project },
-  );
-  if (
-    review === "Comment"
-      ? !canCommentHere
-      : !context.permissions.canReviewFeatureDrafts(feature)
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
-  const revision = await getRevision({
+  await submitFeatureRevisionReview({
     context,
-    organization: context.org.id,
-    featureId: feature.id,
     feature,
     version: parseInt(version),
+    review: req.body.review,
+    comment: req.body.comment,
+    eventAudit: res.locals.eventAudit,
   });
-  if (!revision) {
-    throw new Error("Could not find feature revision");
-  }
-  const createdByUser = revision.createdBy as EventUserLoggedIn;
-
-  // Verdicts may stand alone, but a plain comment must have a body.
-  if (review === "Comment" && !comment?.trim()) {
-    throw new Error("Comment cannot be empty");
-  }
-
-  if (createdByUser?.id === context.userId && review !== "Comment") {
-    throw Error("cannot submit a review for your self");
-  }
-
-  // Block contributors from self-approving when the org setting is enabled.
-  // Note: contributors[] is only populated on drafts created after contributor tracking was
-  // deployed. Legacy drafts with no contributors[] bypass this check — there is no way to
-  // retroactively determine co-authors without reading revision logs.
-  const requireReviews = context.org.settings?.requireReviews;
-  const blockSelfApproval = Array.isArray(requireReviews)
-    ? !!getReviewSetting(requireReviews, feature)?.blockSelfApproval
-    : false;
-  // The early, clear refusal. Re-applied inside the verdict's CAS against the row it
-  // writes, because this reads a copy the contributor list can outrun.
-  if (review === "Approved" && blockSelfApproval) {
-    const isSelfApproval = (revision.contributors ?? []).some(
-      (id) => id === context.userId,
-    );
-    if (isSelfApproval) {
-      throw new Error("You cannot approve a draft you contributed to.");
-    }
-  }
-  // dont allow review unless you are adding a comment
-  if (
-    !(
-      revision.status === "changes-requested" ||
-      revision.status === "pending-review" ||
-      revision.status === "approved"
-    ) &&
-    review !== "Comment"
-  ) {
-    throw new Error("Can only review if review is requested");
-  }
-  const { applied } = await submitReviewAndComments(
-    context,
-    revision,
-    res.locals.eventAudit,
-    review,
-    comment,
-    // Capture the live version the approval is made against so a later publish
-    // can detect when the approval has gone stale.
-    feature.version,
-    blockSelfApproval,
-  );
-  if (!applied) {
-    // The verdict did not persist: a concurrent recall, discard or publish moved
-    // the revision out of the review cycle. Refuse rather than log, notify and
-    // report success for a review the document does not carry.
-    throw new Error(
-      "This revision is no longer in review — it was recalled, published or discarded while the request was in flight.",
-    );
-  }
-
-  const updatedRevision = await getRevision({
-    context,
-    organization: context.org.id,
-    featureId: feature.id,
-    feature,
-    version: parseInt(version),
-  });
-  const finalRevision = updatedRevision ?? revision;
-
-  const auditUser = context.auditUser;
-  const reviewer =
-    auditUser && auditUser.type !== "system"
-      ? { id: auditUser.id, name: auditUser.name, email: auditUser.email }
-      : {};
-
-  await dispatchRevisionReviewEvent(
-    context,
-    feature,
-    revision,
-    finalRevision,
-    review,
-    comment,
-    reviewer,
-  );
-
-  if (review === "Approved") {
-    await maybeAutoPublishFeatureRevision(context, feature, finalRevision);
-  }
 
   res.status(200).json({
     status: 200,

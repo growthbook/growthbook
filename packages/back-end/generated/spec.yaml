@@ -536,6 +536,11 @@ tags:
     description: >-
       <SchemaDefinition
       schemaRef="#/components/schemas/ExperimentMetricOverrideEntry" />
+  - name: ExperimentPendingVariationValues_model
+    x-displayName: Experiment Pending Variation Values
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/ExperimentPendingVariationValues" />
   - name: ExperimentResults_model
     x-displayName: Experiment Results
     description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentResults" />
@@ -545,6 +550,21 @@ tags:
   - name: ExperimentTemplate_model
     x-displayName: Experiment Template
     description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentTemplate" />
+  - name: ExperimentVariationValue_model
+    x-displayName: Experiment Variation Value
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/ExperimentVariationValue" />
+  - name: ExperimentVariationValues_model
+    x-displayName: Experiment Variation Values
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/ExperimentVariationValues" />
+  - name: ExperimentVariationValuesReview_model
+    x-displayName: Experiment Variation Values Review
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/ExperimentVariationValuesReview" />
   - name: ExperimentWithEnhancedStatus_model
     x-displayName: Experiment With Enhanced Status
     description: >-
@@ -14931,6 +14951,287 @@ paths:
             'https://api.growthbook.io/api/v1/experiments/exp_abc123/start-checklist'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/variation-values/approve:
+    post:
+      operationId: postExperimentVariationValuesApprove
+      summary: Approve the pending variation values
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment:
+                  description: Recorded with the verdict.
+                  type: string
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variationValues:
+                    $ref: '#/components/schemas/ExperimentVariationValues'
+                required:
+                  - variationValues
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/variation-values/approve'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/variation-values/request-changes:
+    post:
+      operationId: postExperimentVariationValuesRequestChanges
+      summary: Request changes to the pending variation values
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment:
+                  description: Recorded with the verdict.
+                  type: string
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variationValues:
+                    $ref: '#/components/schemas/ExperimentVariationValues'
+                required:
+                  - variationValues
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/variation-values/request-changes'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/variation-values/comment:
+    post:
+      operationId: postExperimentVariationValuesComment
+      summary: Comment on the pending variation values
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment:
+                  type: string
+                  minLength: 1
+              required:
+                - comment
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variationValues:
+                    $ref: '#/components/schemas/ExperimentVariationValues'
+                required:
+                  - variationValues
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/variation-values/comment'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/variation-values/publish:
+    post:
+      operationId: postExperimentVariationValuesPublish
+      summary: Publish the pending variation values
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variationValues:
+                    $ref: '#/components/schemas/ExperimentVariationValues'
+                required:
+                  - variationValues
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/variation-values/publish'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/variation-values/detach:
+    post:
+      operationId: postExperimentVariationValuesDetach
+      summary: Stop managing the Feature Flag from this experiment
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variationValues:
+                    $ref: '#/components/schemas/ExperimentVariationValues'
+                required:
+                  - variationValues
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/variation-values/detach'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/variation-values:
+    get:
+      operationId: getExperimentVariationValues
+      summary: Get the values an experiment's variations serve
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variationValues:
+                    $ref: '#/components/schemas/ExperimentVariationValues'
+                required:
+                  - variationValues
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/experiments/{id}/variation-values'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: postExperimentVariationValues
+      summary: Start serving variation values automatically
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                valueType:
+                  type: string
+                  enum:
+                    - string
+                    - number
+                    - boolean
+                    - json
+                values:
+                  description: One entry per experiment variation.
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ExperimentVariationValue'
+                featureKey:
+                  description: >-
+                    Create the Feature Flag under this key instead of one
+                    derived from the experiment key.
+                  type: string
+                trackingKey:
+                  description: >-
+                    Rename the experiment to this key first, so the Feature Flag
+                    key can match it.
+                  type: string
+              required:
+                - valueType
+                - values
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variationValues:
+                    $ref: '#/components/schemas/ExperimentVariationValues'
+                required:
+                  - variationValues
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/exp_abc123/variation-values'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"valueType":"string","values":[{"variationId":"var_control","value":"control"},{"variationId":"var_treatment","value":"treatment"}]}'
   /v1/experiments/{id}/results:
     get:
       operationId: getExperimentResults
@@ -54706,6 +55007,102 @@ components:
                 - status
               additionalProperties: false
           additionalProperties: false
+    ExperimentVariationValues:
+      type: object
+      properties:
+        managed:
+          description: >-
+            Whether this experiment manages its own Feature Flag. Everything
+            below is null or empty when false.
+          type: boolean
+        featureKey:
+          anyOf:
+            - type: string
+            - type: 'null'
+        valueType:
+          anyOf:
+            - type: string
+              enum:
+                - string
+                - number
+                - boolean
+                - json
+            - type: 'null'
+        liveValues:
+          description: What is serving now. Empty until the first publish.
+          type: array
+          items:
+            $ref: '#/components/schemas/ExperimentVariationValue'
+        pending:
+          description: The change waiting to go live, or null when there is none.
+          anyOf:
+            - $ref: '#/components/schemas/ExperimentPendingVariationValues'
+            - type: 'null'
+      required:
+        - managed
+        - featureKey
+        - valueType
+        - liveValues
+        - pending
+      additionalProperties: false
+    ExperimentVariationValue:
+      type: object
+      properties:
+        variationId:
+          type: string
+        value:
+          description: Serialized value. JSON types are a JSON string.
+          type: string
+      required:
+        - variationId
+        - value
+      additionalProperties: false
+    ExperimentPendingVariationValues:
+      type: object
+      properties:
+        values:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExperimentVariationValue'
+        status:
+          description: draft, pending-review, changes-requested or approved
+          type: string
+        approvalRequired:
+          type: boolean
+        canPublish:
+          description: >-
+            Whether publish would succeed right now. False while approval is
+            outstanding, or when the values need attention on the Feature Flag
+            page.
+          type: boolean
+        reviews:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExperimentVariationValuesReview'
+      required:
+        - values
+        - status
+        - approvalRequired
+        - canPublish
+        - reviews
+      additionalProperties: false
+    ExperimentVariationValuesReview:
+      type: object
+      properties:
+        userId:
+          type: string
+        status:
+          description: >-
+            approved or changes-requested, suffixed -stale once the values moved
+            on
+          type: string
+        date:
+          type: string
+      required:
+        - userId
+        - status
+        - date
+      additionalProperties: false
     VisualChangeset:
       type: object
       properties:
@@ -68501,9 +68898,13 @@ x-tagGroups:
       - ExperimentDecisionFrameworkSettings_model
       - ExperimentMetric_model
       - ExperimentMetricOverrideEntry_model
+      - ExperimentPendingVariationValues_model
       - ExperimentResults_model
       - ExperimentSnapshot_model
       - ExperimentTemplate_model
+      - ExperimentVariationValue_model
+      - ExperimentVariationValues_model
+      - ExperimentVariationValuesReview_model
       - ExperimentWithEnhancedStatus_model
       - FactMetric_model
       - FactTable_model

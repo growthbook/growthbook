@@ -156,12 +156,11 @@ import {
 } from "back-end/src/models/FeatureModel";
 import { getLinkageSyncRevisionSummaries } from "back-end/src/models/FeatureRevisionModel";
 import {
+  adoptManagedFlagForExperiment,
   clearManagedMarkersForExperiment,
-  createManagedFeatureForExperiment,
   createManagedFlagForNewExperiment,
   managedFlagAdoptionBlocker,
   planManagedFlagKey,
-  staleLinkedFeatureIds,
   type ManagedFlagKeyPlan,
   ejectManagedFeature,
   getManagedFeatureForExperiment,
@@ -4636,10 +4635,8 @@ export async function postExperimentManagedFlag(
   >,
 ) {
   const context = getContextFromReq(req);
-  const { id } = req.params;
-  const { valueType, variations, sparse, featureId, trackingKey } = req.body;
 
-  let experiment = await getExperimentById(context, id);
+  const experiment = await getExperimentById(context, req.params.id);
   if (!experiment) {
     throw new NotFoundError("Experiment not found");
   }
@@ -4648,83 +4645,19 @@ export async function postExperimentManagedFlag(
     context.permissions.throwPermissionError();
   }
 
-  const blocker = await managedFlagAdoptionBlocker(context, experiment);
-  if (blocker) throw new BadRequestError(blocker);
-
-  const originalTrackingKey = experiment.trackingKey;
-
-  const existing = await getManagedFeatureForExperiment(context, experiment);
-  if (existing) {
-    throw new BadRequestError(
-      `This experiment already manages Feature Flag "${existing.id}".`,
-    );
-  }
-
-  // Rename first: the key is derived at creation and a feature cannot be
-  // renamed afterwards, so the order is load-bearing.
-  if (trackingKey && trackingKey !== experiment.trackingKey) {
-    if (context.org.settings?.requireUniqueExperimentTrackingKeys) {
-      const keyOwner = await getExperimentByTrackingKey(context, trackingKey);
-      if (keyOwner && keyOwner.id !== experiment.id) {
-        throw new BadRequestError(
-          `An experiment with tracking key "${trackingKey}" already exists. Your organization requires unique experiment tracking keys.`,
-        );
-      }
-    }
-    experiment = await updateExperiment({
-      context,
-      experiment,
-      changes: { trackingKey },
-    });
-  }
-
-  const keyPlan = await planManagedFlagKey({ context, experiment });
-
-  // A flag deleted out of band leaves its id behind; drop it while we write.
-  const stale = await staleLinkedFeatureIds(context, experiment);
-  for (const staleId of stale) {
-    await unlinkFeatureFromExperiment(context, experiment.id, staleId);
-  }
-  if (stale.length) {
-    experiment = (await getExperimentById(context, id)) ?? experiment;
-  }
-
-  // The rename is already committed, so a failed create would leave the
-  // experiment renamed for a flag that does not exist.
-  const renamedFrom =
-    trackingKey && trackingKey !== originalTrackingKey
-      ? originalTrackingKey
-      : null;
-  let created: { feature: FeatureInterface; version: number };
-  try {
-    created = await createManagedFeatureForExperiment({
-      context,
-      experiment,
-      valueType,
-      variations,
-      sparse,
-      // Always explicit: without it a racing duplicate would be suffixed away
-      // silently, leaving the experiment owning two flags.
-      featureId: featureId ?? keyPlan.derivedId,
-      eventAudit: res.locals.eventAudit,
-      audit: req.audit,
-    });
-  } catch (e) {
-    if (renamedFrom !== null) {
-      await updateExperiment({
-        context,
-        experiment,
-        changes: { trackingKey: renamedFrom },
-      });
-    }
-    throw e;
-  }
-
-  res.status(200).json({
-    status: 200,
-    feature: created.feature,
-    version: created.version,
+  const { feature, version } = await adoptManagedFlagForExperiment({
+    context,
+    experiment,
+    valueType: req.body.valueType,
+    variations: req.body.variations,
+    sparse: req.body.sparse,
+    featureId: req.body.featureId,
+    trackingKey: req.body.trackingKey,
+    eventAudit: res.locals.eventAudit,
+    audit: req.audit,
   });
+
+  res.status(200).json({ status: 200, feature, version });
 }
 
 export async function postExperimentManagedFlagPublish(
