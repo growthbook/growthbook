@@ -283,8 +283,7 @@ describe("SDK payload stale tracking persistence (real SDKConnectionModel)", () 
     const original = new Date(Date.now() - 60_000);
     await insertConnection({ id: "c1", key: "sdk-skew", staleSince: original });
 
-    // The re-marking server's clock is behind the job runner's: the new mark
-    // predates the job's read. An exact-match clear must still preserve it.
+    // Writer clock behind job runner — exact-match clear must still keep the mark.
     const skewed = new Date(Date.now() - 120_000);
     const upsert = jest.fn().mockImplementation(async () => {
       await rawCollection().updateOne(
@@ -349,7 +348,6 @@ describe("SDK payload stale tracking persistence (real SDKConnectionModel)", () 
       expect.any(String),
       undefined,
     );
-    // Mark left set on purpose; next write bumps + reschedules anyway.
     const doc = await rawCollection().findOne({ key: "sdk-fallback" });
     expect(doc?.staleSince).toBeInstanceOf(Date);
   });

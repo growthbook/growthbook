@@ -535,12 +535,10 @@ export async function clearStaleSdkConnections(
   );
 }
 
-// Orgs with marks old enough to be stranded (a $lt Date match excludes nulls
-// and missing fields via BSON type bracketing).
 export async function findOrganizationsWithStaleSdkConnections(
   staleBefore: Date,
 ): Promise<string[]> {
-  return await SDKConnectionModel.distinct("organization", {
+  return SDKConnectionModel.distinct("organization", {
     staleSince: { $lt: staleBefore },
   });
 }

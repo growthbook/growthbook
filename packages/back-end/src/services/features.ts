@@ -766,11 +766,10 @@ async function markAffectedSdkConnectionsStale(
     treatEmptyProjectAsGlobal?: boolean;
   },
 ): Promise<{ connectionKeys: string[]; payloadKeys: SDKPayloadKey[] }> {
-  // Full-access context, like refreshSDKPayloadCache uses — the caller's
-  // (possibly project-scoped) permissions must not hide affected connections.
+  // Full-access context, like refreshSDKPayloadCache — project-scoped callers
+  // must not hide affected connections.
   const scanContext = getContextForAgendaJobByOrgObject(context.org);
 
-  // Mirror refreshSDKPayloadCache's payloadKey filtering.
   const allowedEnvs = new Set(getEnvironmentIdsFromOrg(scanContext.org));
   let payloadKeys = data.payloadKeys.filter((k) =>
     allowedEnvs.has(k.environment),
@@ -781,8 +780,6 @@ async function markAffectedSdkConnectionsStale(
     );
   }
 
-  // Union of the explicit list and payloadKey matches, mirroring
-  // refreshSDKPayloadCache's connection selection.
   const affected = new Map<string, SDKConnectionInterface>();
   data.sdkConnections?.forEach((c) => affected.set(c.key, c));
   if (payloadKeys.length) {
@@ -907,9 +904,7 @@ export function queueSDKPayloadRefresh(data: {
       "[sdk-payload] marked SDK connections stale",
     );
 
-    // Legacy webhooks rebuild their payload from source at fire time, so they
-    // don't depend on the deferred rebuild — enqueue them now, while the exact
-    // payload keys are still known.
+    // Enqueue now while payload keys are still known (see triggerLegacyWebhookJobs).
     await triggerLegacyWebhookJobs(
       getContextForAgendaJobByOrgObject(data.context.org),
       payloadKeys,
@@ -917,9 +912,7 @@ export function queueSDKPayloadRefresh(data: {
 
     await scheduleOrgRefreshJob(data.context.org.id);
   })().catch((e) => {
-    // Fall back to an immediate refresh. A leftover stale mark (if scheduling
-    // failed after marking) is cleared by the next write's bump + reschedule,
-    // or by the periodic sweep job.
+    // Leftover marks (if we failed after marking) clear on the next write or sweep.
     logger.error(e, "Error tracking stale SDK connections");
     runRefresh();
   });

@@ -84,8 +84,6 @@ describe("refreshStaleSdkConnections (real Agenda lifecycle)", () => {
   });
 
   it("reschedules itself via the complete event when more staleness exists when it finishes — a write landing mid-run isn't dropped", async () => {
-    // First check (after the first run) says "yes, more arrived"; second
-    // check (after the resulting second run) says "no more, stop".
     hasAnyStaleSdkConnectionMock
       .mockResolvedValueOnce(true)
       .mockResolvedValueOnce(false);
@@ -106,9 +104,6 @@ describe("refreshStaleSdkConnections (real Agenda lifecycle)", () => {
   }, 20000);
 
   it("reschedules anyway when the completion-time recheck itself errors, so a real stale mark isn't stranded", async () => {
-    // The recheck fails transiently after the first run; we can't tell if the
-    // org is actually stale, so it should reschedule as a safe fallback. The
-    // second run's recheck succeeds and reports no more staleness, so it stops.
     hasAnyStaleSdkConnectionMock
       .mockRejectedValueOnce(new Error("mongo blip"))
       .mockResolvedValueOnce(false);
@@ -136,7 +131,6 @@ describe("refreshStaleSdkConnections (real Agenda lifecycle)", () => {
     const enqueuedAt = Date.now();
     await scheduleOrgRefreshJob("org_fail");
 
-    // Wait for the failing run to happen.
     await new Promise((resolve) => {
       const check = setInterval(() => {
         if (refreshStaleSdkConnectionsForOrgMock.mock.calls.length >= 1) {
@@ -147,8 +141,7 @@ describe("refreshStaleSdkConnections (real Agenda lifecycle)", () => {
     });
     await settle();
 
-    // The fail listener rescheduled the same unique doc into the future
-    // (first failure → 10s backoff), so no immediate second run happened.
+    // Fail listener rescheduled with backoff — no immediate second run.
     expect(refreshStaleSdkConnectionsForOrgMock).toHaveBeenCalledTimes(1);
     const doc = await mongoose.connection
       .db!.collection("agendaJobs")

@@ -218,7 +218,6 @@ describe("queueSDKPayloadRefresh (stale tracking enabled)", () => {
     const upsert = jest.fn().mockResolvedValue(undefined);
     const mockModels = mockRefreshDependencies(upsert);
 
-    // Connection is in a different environment, so it doesn't match.
     findSDKConnectionsByOrganization.mockResolvedValue([
       { ...conn("sdk-C"), environment: "staging" },
     ]);
@@ -242,8 +241,7 @@ describe("queueSDKPayloadRefresh (stale tracking enabled)", () => {
     const mockModels = mockRefreshDependencies(upsert);
     const connD = conn("sdk-D");
 
-    // First call (inside stale-tracking) fails; the fallback's own bulk-path
-    // call to the same function should succeed normally.
+    // Stale-tracking call fails; fallback refresh's find should succeed.
     findSDKConnectionsByOrganization
       .mockRejectedValueOnce(new Error("mongo blip"))
       .mockResolvedValue([connD]);
@@ -340,12 +338,10 @@ describe("refreshStaleSdkConnectionsForOrg", () => {
     );
 
     expect(upsert).toHaveBeenCalledTimes(2);
-    // Cleared by exact read value, so a concurrent re-mark always survives.
     expect(clearStaleSdkConnections).toHaveBeenCalledWith("org-1", [
       { key: "sdk-F", staleSince: staleF },
       { key: "sdk-G", staleSince: staleG },
     ]);
-    // Env-level surrogate keys (legacy API-key CDN entries) get purged too.
     expect(purgeCDNCacheForEnvironments).toHaveBeenCalledWith("org-1", [
       "production",
     ]);
@@ -374,8 +370,6 @@ describe("refreshStaleSdkConnectionsForOrg", () => {
     expect(clearStaleSdkConnections).toHaveBeenCalledWith("org-1", [
       { key: "sdk-good", staleSince: staleGood },
     ]);
-    // Delivery skips the failed connection — publishing it would push its
-    // stale cached payload; the retry delivers it after a successful rebuild.
     expect(triggerWebhookJobs).toHaveBeenCalledWith(
       expect.anything(),
       [],

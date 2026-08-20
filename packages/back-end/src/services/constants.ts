@@ -50,9 +50,8 @@ export async function resolvableValueChanged(
   model: "constant" | "config" = "constant",
   changedKey?: string,
 ) {
-  // Full-access context for the reference scans below; the refresh calls get
-  // the original context, so REST writes keep their refresh buffer and take
-  // the stale-tracking path when enabled (the refresh re-wraps internally).
+  // Full-access for the reference scans; pass baseContext into the refresh so
+  // REST writes keep their buffer and stale-tracking path (refresh re-wraps).
   const context = getContextForAgendaJobByOrgObject(baseContext.org);
 
   if (changedKey) {

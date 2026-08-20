@@ -16,15 +16,14 @@ import { getContextForAgendaJobByOrgObject } from "./organizations";
 export async function savedGroupUpdated(
   baseContext: ReqContext | ApiReqContext,
 ) {
-  // Full-access context for the org-wide key computation below.
+  // Full-access for the org-wide key scan; pass baseContext into the refresh so
+  // REST writes keep their buffer and stale-tracking path (refresh re-wraps).
   const context = getContextForAgendaJobByOrgObject(baseContext.org);
 
   // Saved groups can be nested recursively and may be referenced cross-project
   // To be safe, refresh all cache entries across all environments/projects
   // TODO: Optimize this later if performance becomes an issue
   queueSDKPayloadRefresh({
-    // The original context, so REST writes keep their refresh buffer and take
-    // the stale-tracking path when enabled (the refresh re-wraps internally).
     context: baseContext,
     payloadKeys: getPayloadKeysForAllEnvs(context, [""]),
     treatEmptyProjectAsGlobal: true,
