@@ -6,7 +6,10 @@ import {
   FeatureInterface,
   FeatureValueType,
 } from "shared/types/feature";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import {
+  FeatureRevisionInterface,
+  MinimalFeatureRevisionInterface,
+} from "shared/types/feature-revision";
 import { useEffect, useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { PiArrowSquareOut } from "react-icons/pi";
@@ -20,6 +23,8 @@ import {
   ensureConfigBacking,
   setConfigBacking,
   valueHasConfigExtends,
+  liveRevisionFromFeature,
+  buildEffectiveDraft,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import Callout from "@/ui/Callout";
@@ -217,10 +222,11 @@ export default function FeatureFromExperimentModal({
   const { data: existingFeatureData } = useApi<{
     status: 200;
     feature: FeatureInterface;
-    revisions: MinimalFeatureRevisionInterface[];
+    revisionList: MinimalFeatureRevisionInterface[];
+    revisions: FeatureRevisionInterface[];
   }>(`/feature/${existing}`, { shouldRun: () => !!existing });
   const existingFeature = existingFeatureData?.feature;
-  const existingRevisionList = existingFeatureData?.revisions ?? [];
+  const existingRevisionList = existingFeatureData?.revisionList ?? [];
 
   // Sparse patch mode for the experiment-ref rule. Only coherent when linking an
   // EXISTING JSON feature with a plain-object default — a brand-new feature's
@@ -249,6 +255,121 @@ export default function FeatureFromExperimentModal({
       }
     });
   }, [isConfigBacked, defaultConfigKey, form]);
+
+  // Enabled environments of the destination state the rule will land in: the
+  // selected draft (overlaid on live) when saving to an existing draft, or the
+  // live feature otherwise (new draft / apply now).
+  const enabledEnvsForDestination = useMemo<string[] | null>(() => {
+    if (!existing || !existingFeature) return null;
+
+    let enabledMap: Record<string, boolean> = Object.fromEntries(
+      Object.entries(existingFeature.environmentSettings ?? {}).map(
+        ([env, val]) => [env, val.enabled],
+      ),
+    );
+
+    if (draftMode === "existing" && selectedDraft !== null) {
+      const revisions = existingFeatureData?.revisions ?? [];
+      const liveRevision = revisions.find(
+        (r) => r.version === existingFeature.version,
+      );
+      const draftRevision = revisions.find((r) => r.version === selectedDraft);
+      if (liveRevision && draftRevision) {
+        const filledLive = liveRevisionFromFeature(
+          liveRevision,
+          existingFeature,
+        );
+        enabledMap =
+          buildEffectiveDraft(draftRevision, filledLive).environmentsEnabled ??
+          enabledMap;
+      }
+    }
+
+    return environments.map((e) => e.id).filter((id) => enabledMap[id]);
+  }, [
+    existing,
+    existingFeature,
+    existingFeatureData?.revisions,
+    draftMode,
+    selectedDraft,
+    environments,
+  ]);
+
+  // Re-initialize the rule scope only when the destination changes (feature or
+  // draft target), not on every render, so manual edits to the selector stick.
+  const destinationKey =
+    existing && existingFeature
+      ? `${existing}:${draftMode}:${draftMode === "existing" ? selectedDraft : ""}`
+      : "";
+  // Tracks the destination the rule scope was last initialized for. State (not a
+  // ref) so the warning below can render only once the scope matches the current
+  // destination — otherwise it flashes stale selection against fresh env state.
+  const [initializedScopeKey, setInitializedScopeKey] = useState<string | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!existing) {
+      setInitializedScopeKey(null);
+      return;
+    }
+    if (enabledEnvsForDestination === null) return;
+    if (initializedScopeKey === destinationKey) return;
+    setInitializedScopeKey(destinationKey);
+    // Every available environment enabled → keep the simpler "All Environments".
+    const allEnabled =
+      environments.length > 0 &&
+      enabledEnvsForDestination.length === environments.length;
+    setRuleAllEnvironments(allEnabled);
+    setRuleSelectedEnvironments(enabledEnvsForDestination);
+  }, [
+    existing,
+    destinationKey,
+    enabledEnvsForDestination,
+    environments,
+    initializedScopeKey,
+  ]);
+
+  // Rule-footprint environments not yet enabled on the destination. Publishing
+  // this rule flips them on for the feature (the back end enables any footprint
+  // env that's currently off), so warn the user before they commit.
+  const envsEnabledByPublish = useMemo<string[]>(() => {
+    if (!existing || enabledEnvsForDestination === null) return [];
+    // Wait until the scope has been initialized for this exact destination;
+    // otherwise the selection still reflects the previous feature/draft.
+    if (initializedScopeKey !== destinationKey) return [];
+    const enabledSet = new Set(enabledEnvsForDestination);
+    const footprint = ruleAllEnvironments
+      ? environments.map((e) => e.id)
+      : ruleSelectedEnvironments;
+    return footprint.filter(
+      (id) => environments.some((e) => e.id === id) && !enabledSet.has(id),
+    );
+  }, [
+    existing,
+    enabledEnvsForDestination,
+    ruleAllEnvironments,
+    ruleSelectedEnvironments,
+    environments,
+    initializedScopeKey,
+    destinationKey,
+  ]);
+
+  // For an existing draft the baseline is that draft's staged env state, which
+  // may already differ from the live feature.
+  const enableOnPublishWarning = useMemo<React.ReactNode>(() => {
+    if (envsEnabledByPublish.length === 0) return null;
+    const envNames = <strong>{envsEnabledByPublish.join(", ")}</strong>;
+    const scope =
+      draftMode === "existing" ? "in the selected draft" : "for this feature";
+    const verb = envsEnabledByPublish.length === 1 ? "is" : "are";
+    const pronoun = envsEnabledByPublish.length === 1 ? "it" : "them";
+    return (
+      <>
+        {envNames} {verb} not enabled {scope}. Publishing will enable {pronoun}{" "}
+        so the rule can take effect.
+      </>
+    );
+  }, [envsEnabledByPublish, draftMode]);
 
   // Pessimistic default ("all") until the FF loads so publish-now stays gated.
   const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
@@ -631,15 +752,22 @@ export default function FeatureFromExperimentModal({
             </Box>
           </HelperText>
 
-          <RuleEnvironmentScopeField
-            environments={environments}
-            allEnvironments={ruleAllEnvironments}
-            setAllEnvironments={setRuleAllEnvironments}
-            selectedEnvironments={ruleSelectedEnvironments}
-            setSelectedEnvironments={setRuleSelectedEnvironments}
-            label="Environments"
-            my="5"
-          />
+          <Box my="5">
+            <RuleEnvironmentScopeField
+              environments={environments}
+              allEnvironments={ruleAllEnvironments}
+              setAllEnvironments={setRuleAllEnvironments}
+              selectedEnvironments={ruleSelectedEnvironments}
+              setSelectedEnvironments={setRuleSelectedEnvironments}
+              label="Environments"
+            />
+
+            {enableOnPublishWarning && (
+              <Callout status="warning" mt="3">
+                {enableOnPublishWarning}
+              </Callout>
+            )}
+          </Box>
         </>
       )}
 
