@@ -187,8 +187,10 @@ export interface ExposureQuery {
   /** Set to "api" for queries auto-created by Event Forwarder. */
   managedBy?: "" | "api";
   /**
-   * SDK hash attribute this Event Forwarder query reads. Stable link —
-   * `userIdType` is a display name users can rename.
+   * SDK hash attribute this Event Forwarder query reads. `userIdType` references
+   * the Identifier Type the query runs against, which resolves the attribute
+   * only while that record is still linked — recording it here keeps matching
+   * working once the Identifier Type is released or deleted.
    */
   sourceAttribute?: string;
 }
@@ -209,8 +211,9 @@ export interface UserIdType {
   /** Set to "api" for identifier types auto-created by Event Forwarder. */
   managedBy?: "" | "api";
   /**
-   * SDK hash attribute this identifier reads. Set on EF-managed types and on
-   * user-created types EF reuses by name. Match on this, not on `userIdType`.
+   * SDK hash attribute this identifier reads. Set on the ones the Event
+   * Forwarder created and on any entry it matched to an attribute — by Linked
+   * Hash Attributes or by name. Match on this, not on `userIdType`.
    */
   sourceAttribute?: string;
 }
