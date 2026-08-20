@@ -32,7 +32,6 @@ import {
 } from "back-end/src/util/factTable";
 import { resolveOwnerToUserId } from "back-end/src/services/owner";
 import { BulkImportPartialFailureError } from "back-end/src/util/errors";
-import { resolveFilterManagedBy } from "./bulkImportFacts.util";
 
 export const postBulkImportFacts = createApiRequestHandler(
   postBulkImportFactsValidator,
@@ -50,7 +49,6 @@ export const postBulkImportFacts = createApiRequestHandler(
     factTableFilters: 0,
     factMetrics: 0,
   };
-  const managedByWritten = { api: 0, admin: 0, none: 0 };
   const errors: BulkImportError[] = [];
   const tagsToAdd = new Set<string>();
 
@@ -64,14 +62,11 @@ export const postBulkImportFacts = createApiRequestHandler(
   });
 
   const registerTagsIfNeeded = async () => {
-    const writtenCount =
-      numCreated.factTables +
-      numUpdated.factTables +
-      numCreated.factTableFilters +
-      numUpdated.factTableFilters +
-      numCreated.factMetrics +
-      numUpdated.factMetrics;
-    if (!dryRun && tagsToAdd.size && writtenCount > 0) {
+    if (
+      !dryRun &&
+      tagsToAdd.size &&
+      Object.values(writeCounts()).some((n) => n > 0)
+    ) {
       await req.context.registerTags([...tagsToAdd]);
     }
   };
@@ -92,12 +87,6 @@ export const postBulkImportFacts = createApiRequestHandler(
       await registerTagsIfNeeded();
       throw new BulkImportPartialFailureError(message, writeCounts(), errors);
     }
-  };
-
-  const tally = (managedBy: "" | "api" | "admin") => {
-    if (managedBy === "api") managedByWritten.api++;
-    else if (managedBy === "admin") managedByWritten.admin++;
-    else managedByWritten.none++;
   };
 
   const factTableMap = await getFactTableMap(req.context);
@@ -278,7 +267,6 @@ export const postBulkImportFacts = createApiRequestHandler(
               : existing.columnRefreshPending,
           });
           numUpdated.factTables++;
-          tally(managedBy);
         }
         // Create new fact table
         else {
@@ -327,7 +315,6 @@ export const postBulkImportFacts = createApiRequestHandler(
             });
           }
           numCreated.factTables++;
-          tally(managedBy);
         }
       } catch (e) {
         await onItemError("factTable", id, e);
@@ -348,13 +335,11 @@ export const postBulkImportFacts = createApiRequestHandler(
           req.context.permissions.throwPermissionError();
         }
 
-        const managedBy = resolveFilterManagedBy(
-          data.managedBy,
-          factTable.managedBy,
-        );
         const filterPayload = {
           ...data,
-          ...(managedBy !== undefined ? { managedBy } : {}),
+          ...(data.managedBy === undefined && factTable.managedBy === "api"
+            ? { managedBy: "api" as const }
+            : {}),
         };
 
         const existingFactFilter = factTable.filters.find((f) => f.id === id);
@@ -370,7 +355,6 @@ export const postBulkImportFacts = createApiRequestHandler(
           }
           Object.assign(existingFactFilter, filterPayload);
           numUpdated.factTableFilters++;
-          tally(managedBy ?? existingFactFilter.managedBy ?? "");
         }
         // Create new filter
         else {
@@ -391,7 +375,6 @@ export const postBulkImportFacts = createApiRequestHandler(
             });
           }
           numCreated.factTableFilters++;
-          tally(managedBy ?? "");
         }
       } catch (e) {
         await onItemError("factTableFilter", id, e);
@@ -449,7 +432,6 @@ export const postBulkImportFacts = createApiRequestHandler(
             factMetricMap.set(existing.id, newFactMetric);
           }
           numUpdated.factMetrics++;
-          tally(managedBy);
         }
         // Create new fact metric
         else {
@@ -466,7 +448,6 @@ export const postBulkImportFacts = createApiRequestHandler(
             factMetricMap.set(newFactMetric.id, newFactMetric);
           }
           numCreated.factMetrics++;
-          tally(managedBy);
         }
       } catch (e) {
         await onItemError("factMetric", id, e);
@@ -479,9 +460,7 @@ export const postBulkImportFacts = createApiRequestHandler(
   return {
     success: errors.length === 0,
     dryRun,
-    defaultManagedBy,
     ...writeCounts(),
-    managedByWritten,
     errors,
   };
 });

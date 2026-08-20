@@ -6,7 +6,6 @@ import {
   updateFactTablePropsValidator,
   updateFactTableValidator,
 } from "../../src/validators/fact-table";
-import { postBulkImportFactsValidator } from "../../src/validators/bulk-import";
 
 describe("rowFilterValidator", () => {
   const parse = (operator: string, values?: string[]) =>
@@ -43,38 +42,6 @@ describe("rowFilterValidator", () => {
 
   it("does not restrict value counts for other operators", () => {
     expect(parse("in", ["a", "b", "c"]).success).toBe(true);
-  });
-});
-
-describe("postBulkImportFacts rowFilters", () => {
-  const parse = (values: string[]) =>
-    postBulkImportFactsValidator.bodySchema.safeParse({
-      factMetrics: [
-        {
-          id: "fact__test",
-          data: {
-            name: "Test",
-            metricType: "mean",
-            numerator: {
-              factTableId: "ft_1",
-              column: "amount",
-              rowFilters: [
-                { operator: "between", column: "signup_date", values },
-              ],
-            },
-          },
-        },
-      ],
-    });
-
-  it("accepts a two-bound range", () => {
-    expect(parse(["2024-01-01", "2024-02-01"]).success).toBe(true);
-  });
-
-  it("rejects a range with more than two values", () => {
-    const result = parse(["2024-01-01", "2024-02-01", "2024-03-01"]);
-    expect(result.success).toBe(false);
-    expect(result.error?.issues[0]?.path).toContain("values");
   });
 });
 

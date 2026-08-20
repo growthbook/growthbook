@@ -29921,16 +29921,6 @@ paths:
                     type: boolean
                   dryRun:
                     type: boolean
-                  defaultManagedBy:
-                    description: >-
-                      Fallback `managedBy` for Fact Tables and Fact Metrics that
-                      omit the field. Defaults to `"api"`. Filters inherit
-                      `"api"` only when the parent Fact Table is api-managed.
-                    type: string
-                    enum:
-                      - ''
-                      - api
-                      - admin
                   factTablesAdded:
                     type: integer
                   factTablesUpdated:
@@ -29943,8 +29933,6 @@ paths:
                     type: integer
                   factMetricsUpdated:
                     type: integer
-                  managedByWritten:
-                    $ref: '#/components/schemas/BulkImportManagedByWritten'
                   errors:
                     type: array
                     items:
@@ -29952,14 +29940,12 @@ paths:
                 required:
                   - success
                   - dryRun
-                  - defaultManagedBy
                   - factTablesAdded
                   - factTablesUpdated
                   - factTableFiltersAdded
                   - factTableFiltersUpdated
                   - factMetricsAdded
                   - factMetricsUpdated
-                  - managedByWritten
                   - errors
                 additionalProperties: false
       x-codeSamples:
@@ -59052,21 +59038,6 @@ components:
       required:
         - id
         - status
-      additionalProperties: false
-    BulkImportManagedByWritten:
-      type: object
-      properties:
-        api:
-          type: integer
-        admin:
-          type: integer
-        none:
-          description: Count of resources written with managedBy ""
-          type: integer
-      required:
-        - api
-        - admin
-        - none
       additionalProperties: false
     BulkImportError:
       type: object
