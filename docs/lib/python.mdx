@@ -585,24 +585,17 @@ Any time an experiment is run to determine the value of a feature, you want to t
 <Tabs>
 <Tab title="Async Client">
 
-For the async client, you can set up experiment tracking through the `Options`:
+For the async client, you can set up experiment tracking through the `Options`. Starting in version 2.4.0, the callback may be a coroutine. It is scheduled on the event loop without blocking evaluation, and a tracking callback that raises is retried on the next evaluation of the same experiment/user pair:
 
 ```python
 import asyncio
 from growthbook import GrowthBookClient, Options, UserContext, Experiment, Result
 
-def on_experiment_viewed(experiment: Experiment, result: Result, user_context: UserContext):
-    """Synchronous callback for experiment tracking (Fire-and-Forget)"""
+async def on_experiment_viewed(experiment: Experiment, result: Result, user_context: UserContext):
+    """Async callback for experiment tracking (runs in the background)"""
     # Use whatever event tracking system you want
     user_id = result.hash_attribute or "anonymous"
 
-    # For async analytics, you must schedule the task on the loop
-    # without awaiting it (Fire-and-Forget)
-    loop = asyncio.get_running_loop()
-    loop.create_task(track_async(user_id, experiment, result))
-
-async def track_async(user_id, experiment, result):
-    # This runs in the background
     await analytics.track_async(user_id, "Experiment Viewed", {
         'experimentId': experiment.key,
         'variationId': result.key,
@@ -618,7 +611,6 @@ async def main():
         Options(
             api_host="https://cdn.growthbook.io",
             client_key="sdk-abc123",
-            # Callback must be synchronous
             on_experiment_viewed=on_experiment_viewed
         )
     )
@@ -650,7 +642,7 @@ asyncio.run(main())
 You can also use synchronous callbacks with the async client:
 
 ```python
-def sync_experiment_tracker(experiment: Experiment, result: Result):
+def sync_experiment_tracker(experiment: Experiment, result: Result, user_context: UserContext):
     """Synchronous callback that works with async client"""
     # Send to synchronous analytics service
     analytics.track("Experiment Viewed", {
@@ -667,6 +659,8 @@ client = GrowthBookClient(
     )
 )
 ```
+
+The same applies to `on_feature_usage` and callbacks registered via `client.subscribe()`. Both accept plain functions or coroutines starting in version 2.4.0. On earlier versions, callbacks must be synchronous; schedule async work manually with `asyncio.get_running_loop().create_task(...)`.
 
 </Tab>
 <Tab title="Legacy Client">
@@ -959,33 +953,42 @@ The attributeName/attributeValue combo is the primary key.
 <Tabs>
 <Tab title="Async Client">
 
-**Note**: The Async Client currently uses the synchronous sticky bucket interface. This means sticky bucket operations running in the main event loop may block. We recommend using a fast, local store (like the default in-memory one) or an optimized synchronous store.
+**Async sticky bucket services available starting in version 2.4.0**
+
+The async client supports network-backed sticky bucket stores (Redis, DynamoDB, etc.) without blocking the event loop. Subclass `AbstractAsyncStickyBucketService` and implement `async` versions of `get_assignments` and `save_assignments`. Optionally override `get_all_assignments` to batch all lookups for a user into a single round trip (e.g. one Redis `MGET`):
 
 ```python
-import asyncio
-from growthbook import GrowthBookClient, Options, UserContext
-# AbstractStickyBucketService is synchronous
-from growthbook import AbstractStickyBucketService
+import json
+from growthbook import AbstractAsyncStickyBucketService, GrowthBookClient, Options, UserContext
 
-class MyStickyBucketService(AbstractStickyBucketService):
-    def get_assignments(self, attributeName, attributeValue):
-        # Implementation must be synchronous
-        return None
+class RedisStickyBucketService(AbstractAsyncStickyBucketService):
+    def __init__(self, redis):  # e.g. redis.asyncio.Redis
+        self.redis = redis
 
-    def save_assignments(self, doc):
-        # Implementation must be synchronous
-        pass
+    async def get_assignments(self, attributeName, attributeValue):
+        raw = await self.redis.get(self.get_key(attributeName, attributeValue))
+        return json.loads(raw) if raw else None
+
+    async def save_assignments(self, doc):
+        key = self.get_key(doc["attributeName"], doc["attributeValue"])
+        await self.redis.set(key, json.dumps(doc))
+
+    # Optional: batch all lookups for a user into a single MGET
+    async def get_all_assignments(self, attributes):
+        keys = [self.get_key(k, v) for k, v in attributes.items()]
+        docs = {}
+        for raw in await self.redis.mget(keys):
+            if raw:
+                doc = json.loads(raw)
+                docs[self.get_key(doc["attributeName"], doc["attributeValue"])] = doc
+        return docs
 
 async def main():
-    # Create sticky bucket service
-    sticky_service = MyStickyBucketService()
-
-    # Create client with sticky bucketing
     client = GrowthBookClient(
         Options(
             api_host="https://cdn.growthbook.io",
             client_key="sdk-abc123",
-            sticky_bucket_service=sticky_service
+            sticky_bucket_service=RedisStickyBucketService(redis)
         )
     )
 
@@ -997,8 +1000,25 @@ async def main():
 
         # ...
     finally:
+        # close() waits for any in-flight assignment writes to persist
         await client.close()
 ```
+
+Existing synchronous `AbstractStickyBucketService` implementations also work with the async client without changes. Their blocking calls are offloaded to a thread pool so the event loop is never blocked. They share the event loop's default thread pool, so for network-backed stores an async service is preferred.
+
+A few behaviors worth understanding before choosing a store:
+
+- **Reads happen per evaluation.** Assignments are fetched from your service for the supplied `UserContext` on each evaluation (matching the JavaScript SDK's multi-user client), so assignment changes made by other processes are picked up promptly. Concurrent evaluations for the same user share a single in-flight lookup. If your service lookups are expensive and your traffic concentrates on hot users, you can opt into a small bounded cache with `Options(sticky_bucket_cache_ttl=30, sticky_bucket_cache_size=1000)` (seconds / max users; disabled by default). The trade-off is that cross-process assignment changes may not be seen until the TTL expires.
+- **Writes are fire-and-forget.** Evaluation never waits for persistence, and new assignments are immediately visible to later evaluations in the same process. The trade-off is a small durability window: if the process crashes before a background write completes, that assignment is lost. Long-running web services don't need to do anything; short-lived processes (serverless functions, scripts) should flush before exit:
+
+  ```python
+  # Wait for all pending assignment writes to persist
+  await client.flush_sticky_bucket_saves()
+  ```
+
+  `await client.close()` flushes automatically.
+
+- **Async services must subclass `AbstractAsyncStickyBucketService`.** The client dispatches on the class, so a duck-typed object with `async` methods that doesn't inherit from it is treated as a synchronous service and will not work. The synchronous `GrowthBook` class accepts only synchronous services and raises `ValueError` if given an async one.
 
 </Tab>
 <Tab title="Legacy Client">
