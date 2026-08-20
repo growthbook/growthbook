@@ -14,6 +14,7 @@ import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import Link from "@/ui/Link";
 import EnvironmentAccessCell from "@/components/Settings/EnvironmentAccessCell";
+import RoleRuleLabel from "@/components/Settings/Team/RoleRuleLabel";
 import Callout from "@/ui/Callout";
 import { usingSSO } from "@/services/env";
 import { useEnvironments } from "@/services/features";
@@ -234,7 +235,7 @@ const MemberList: FC<{
                 </TableColumnHeader>
               )}
               <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.environments}>
-                <Tooltip body="Environments this member can publish, create, delete and revert in. Hover a value for the full breakdown.">
+                <Tooltip body="Environments where this member has environment-scoped authority, from their own roles and any teams they're on. Hover a value to see what they can do in each and which role grants it.">
                   Environments
                 </Tooltip>
               </TableColumnHeader>
@@ -254,24 +255,32 @@ const MemberList: FC<{
                 project || null,
                 teams || [],
               );
-              const effectiveByRole: { role: string; sources: string[] }[] = [];
+              // Keyed by the rule, not just the role: the same role can apply
+              // with different environment restrictions.
+              const effectiveByRule: {
+                key: string;
+                role: string;
+                limitAccessByEnvironment: boolean;
+                environments: string[];
+                sources: string[];
+              }[] = [];
               effectiveRoles.forEach((er) => {
                 const src =
                   er.sourceType === "user"
                     ? "Direct"
                     : `Team: ${er.sourceName}`;
-                const existing = effectiveByRole.find(
-                  (e) => e.role === er.role,
-                );
+                const key = `${er.role}|${er.limitAccessByEnvironment}|${er.environments.join(",")}`;
+                const existing = effectiveByRule.find((e) => e.key === key);
                 if (existing) existing.sources.push(src);
-                else effectiveByRole.push({ role: er.role, sources: [src] });
+                else
+                  effectiveByRule.push({
+                    key,
+                    role: er.role,
+                    limitAccessByEnvironment: er.limitAccessByEnvironment,
+                    environments: er.environments,
+                    sources: [src],
+                  });
               });
-              const effectiveLabel = effectiveByRole
-                .map((e) => getRoleDisplayName(e.role, organization))
-                .join(", ");
-              const effectiveFromTeam = effectiveRoles.some(
-                (er) => er.sourceType === "team",
-              );
               return (
                 <TableRow key={member.id}>
                   <TableCell>{member.name}</TableCell>
@@ -304,26 +313,19 @@ const MemberList: FC<{
                     {member.lastLoginDate && date(member.lastLoginDate)}
                   </TableCell>
                   <TableCell>
-                    {effectiveFromTeam || effectiveByRole.length > 1 ? (
-                      <Tooltip
-                        body={
-                          <>
-                            {effectiveByRole.map((e) => (
-                              <div key={e.role}>
-                                {getRoleDisplayName(e.role, organization)} —{" "}
-                                {e.sources.join(", ")}
-                              </div>
-                            ))}
-                          </>
-                        }
-                      >
-                        <span style={{ textDecoration: "underline dotted" }}>
-                          {effectiveLabel}
-                        </span>
-                      </Tooltip>
-                    ) : (
-                      effectiveLabel
-                    )}
+                    {effectiveByRule.map((e) => (
+                      <div key={e.key}>
+                        <RoleRuleLabel
+                          {...e}
+                          organization={organization}
+                          sources={
+                            e.sources.some((s) => s !== "Direct")
+                              ? e.sources.join(", ")
+                              : undefined
+                          }
+                        />
+                      </div>
+                    ))}
                   </TableCell>
                   {!project && (
                     <TableCell>
@@ -387,6 +389,7 @@ const MemberList: FC<{
                       environments={environments}
                       organization={organization}
                       project={project}
+                      teams={teams || []}
                     />
                   </TableCell>
 

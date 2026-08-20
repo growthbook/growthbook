@@ -11,6 +11,7 @@ import ProjectBadges from "@/components/ProjectBadges";
 import { useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import EnvironmentAccessCell from "@/components/Settings/EnvironmentAccessCell";
+import RoleRuleLabel from "@/components/Settings/Team/RoleRuleLabel";
 import { PermissionsModal } from "@/components/Settings/Teams/PermissionModal";
 import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -30,6 +31,25 @@ import {
   DropdownMenuItem,
 } from "@/ui/DropdownMenu";
 
+// Everything a scope grants: its base role plus any additional rules, each
+// carrying its own environment restriction.
+function teamRules(scope: {
+  role: string;
+  limitAccessByEnvironment?: boolean;
+  environments?: string[];
+  additionalRoles?: {
+    role: string;
+    limitAccessByEnvironment: boolean;
+    environments: string[];
+  }[];
+}) {
+  return [scope, ...(scope.additionalRoles ?? [])].map((rule) => ({
+    role: rule.role,
+    limitAccessByEnvironment: !!rule.limitAccessByEnvironment,
+    environments: rule.environments ?? [],
+  }));
+}
+
 const TeamsList: FC<{ onDuplicate?: (team: Team) => void }> = ({
   onDuplicate,
 }) => {
@@ -38,8 +58,8 @@ const TeamsList: FC<{ onDuplicate?: (team: Team) => void }> = ({
     null,
   );
   const { projects } = useDefinitions();
-  const router = useRouter();
   const environments = useEnvironments();
+  const router = useRouter();
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const canManageTeam = permissionsUtil.canManageTeam();
@@ -111,22 +131,33 @@ const TeamsList: FC<{ onDuplicate?: (team: Team) => void }> = ({
                     {t.description}
                   </TableCell>
                   <TableCell>{date(t.dateUpdated)}</TableCell>
-                  <TableCell>{t.role}</TableCell>
+                  <TableCell>
+                    {teamRules(t).map((rule, i) => (
+                      <div key={i}>
+                        <RoleRuleLabel {...rule} organization={organization} />
+                      </div>
+                    ))}
+                  </TableCell>
                   <TableCell>
                     {t.projectRoles?.map((pr) => {
                       const p = projects.find((p) => p.id === pr.project);
-                      if (p?.name) {
-                        return (
-                          <div key={`project-tags-${p.id}`}>
-                            <ProjectBadges
-                              resourceType="team"
-                              projectIds={[p.id]}
-                            />{" "}
-                            — {pr.role}
-                          </div>
-                        );
-                      }
-                      return null;
+                      if (!p?.name) return null;
+                      return (
+                        <div key={`project-tags-${p.id}`}>
+                          <ProjectBadges
+                            resourceType="team"
+                            projectIds={[p.id]}
+                          />{" "}
+                          {teamRules(pr).map((rule, i) => (
+                            <div key={i}>
+                              <RoleRuleLabel
+                                {...rule}
+                                organization={organization}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      );
                     })}
                   </TableCell>
                   <TableCell>

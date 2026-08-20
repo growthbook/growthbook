@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiPencilSimple } from "react-icons/pi";
 import {
+  envScopeLabels,
   envScopedPermissionsForRole,
   getRoleDisplayName,
 } from "shared/permissions";
@@ -13,25 +14,6 @@ import MultiSelectField from "@/ui/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 const ALL_ENVIRONMENTS = "__all_environments__";
-
-const ACTION_LABELS: Record<string, string> = {
-  createFeatures: "create",
-  createConfigs: "create",
-  createConstants: "create",
-  deleteFeatures: "delete",
-  deleteConfigs: "delete",
-  deleteConstants: "delete",
-  publishFeatures: "publish",
-  publishConfigs: "publish",
-  publishConstants: "publish",
-  revertFeatures: "revert",
-  revertConfigs: "revert",
-  revertConstants: "revert",
-  manageEnvironments: "manage environments",
-  manageSDKConnections: "manage SDK connections",
-  manageSDKWebhooks: "manage SDK webhooks",
-  runExperiments: "run experiments",
-};
 
 function joinActions(actions: string[]): string {
   if (actions.length <= 1) return actions[0] ?? "";
@@ -48,7 +30,7 @@ export default function EnvironmentCell({
   role: string;
   environments: string[];
   limitAccessByEnvironment: boolean;
-  onChange: (next: {
+  onChange?: (next: {
     environments: string[];
     limitAccessByEnvironment: boolean;
   }) => void;
@@ -61,16 +43,17 @@ export default function EnvironmentCell({
     value: e.id,
   }));
 
+  const editable = !disabled && !!onChange;
   const scopedPermissions = envScopedPermissionsForRole(role, organization);
-  const blockedActions = joinActions([
-    ...new Set(scopedPermissions.map((p) => ACTION_LABELS[p] ?? p)),
-  ]);
+  const blockedActions = joinActions(envScopeLabels(role, organization));
 
   if (!scopedPermissions.length) {
     return (
-      <Tooltip body="This role grants nothing that is environment-scoped, so limiting environments would have no effect.">
-        <Text color="text-low">Not applicable</Text>
-      </Tooltip>
+      <Flex align="center" minHeight={editable ? "32px" : undefined}>
+        <Tooltip body="This role grants nothing that is environment-scoped, so limiting environments would have no effect.">
+          <Text color="text-low">Not applicable</Text>
+        </Tooltip>
+      </Flex>
     );
   }
 
@@ -88,9 +71,9 @@ export default function EnvironmentCell({
     );
 
     return (
-      <Flex align="center" gap="2" minHeight="32px">
+      <Flex align="center" gap="2" minHeight={editable ? "32px" : undefined}>
         {label}
-        {!disabled && (
+        {editable && (
           <IconButton
             variant="ghost"
             radius="full"
@@ -118,7 +101,7 @@ export default function EnvironmentCell({
         onChange={(next) => {
           const pickedAll =
             next.includes(ALL_ENVIRONMENTS) && limitAccessByEnvironment;
-          onChange(
+          onChange?.(
             pickedAll
               ? { environments: [], limitAccessByEnvironment: false }
               : {
