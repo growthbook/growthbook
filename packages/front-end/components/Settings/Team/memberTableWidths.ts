@@ -8,9 +8,8 @@ export const MEMBER_COLUMN_WIDTHS = {
   emailNoName: "26%",
   date: "10%",
   dateOnly: "18%",
-  role: "16%",
-  projectRoles: "9%",
-  environments: "12%",
+  role: "22%",
+  projectRoles: "15%",
   teams: "10%",
   actions: "50px",
 } as const;

@@ -3,9 +3,7 @@ import {
   OrganizationInterface,
 } from "../../types/organization";
 import {
-  EffectiveRoleSource,
   envScopedPermissionsForRole,
-  getEffectiveRolesForProject,
   roleSupportsEnvLimit,
 } from "./permissions.utils";
 import { REVISION_PERMISSIONS, RevisionAction } from "./revisionPermissions";
@@ -96,95 +94,4 @@ export function roleHasAccessToEnv(
   if (results.includes("yes")) return "yes";
   if (results.includes("no")) return "no";
   return "N/A";
-}
-
-type EnvAccessPrincipal = MemberRoleInfo & {
-  projectRoles?: (MemberRoleInfo & { project: string })[];
-};
-
-type EnvAccessTeam = Parameters<typeof getEffectiveRolesForProject>[2][number];
-
-export type EnvAccessSource = EffectiveRoleSource & {
-  access: "yes" | "no" | "N/A";
-};
-
-export type EnvAccess = {
-  access: "yes" | "no" | "N/A";
-  outsideProject: boolean;
-  sources: EnvAccessSource[];
-};
-
-const sourceKey = (s: EffectiveRoleSource) =>
-  [
-    s.sourceType,
-    s.sourceName,
-    s.role,
-    s.limitAccessByEnvironment,
-    s.environments.join(","),
-  ].join("|");
-
-// Every project someone wrote a rule for, so the all-projects view still sees
-// access that only a project override grants.
-function projectsWithRules(
-  principal: EnvAccessPrincipal,
-  teams: EnvAccessTeam[],
-): string[] {
-  const own = (principal.projectRoles ?? []).map((r) => r.project);
-  const fromTeams = (principal.teams ?? []).flatMap((teamId) =>
-    (teams.find((t) => t.id === teamId)?.projectRoles ?? []).map(
-      (r) => r.project,
-    ),
-  );
-  return [...new Set([...own, ...fromTeams])];
-}
-
-/**
- * Resolves effective environment access for one project or across all projects,
- * keeping the rule behind each answer. Shares `getEffectiveRolesForProject` with
- * the Role column so the two can't disagree about which roles apply.
- */
-export function memberEnvAccess(
-  principal: EnvAccessPrincipal,
-  environment: { id: string; projects?: string[] },
-  org: Partial<OrganizationInterface>,
-  project: string,
-  teams: EnvAccessTeam[] = [],
-): EnvAccess {
-  const envProjects = environment.projects?.length
-    ? environment.projects
-    : null;
-
-  const contributing: EffectiveRoleSource[] = [];
-  if (project) {
-    if (envProjects && !envProjects.includes(project)) {
-      return { access: "N/A", outsideProject: true, sources: [] };
-    }
-    contributing.push(
-      ...getEffectiveRolesForProject(principal, project, teams),
-    );
-  } else {
-    contributing.push(...getEffectiveRolesForProject(principal, null, teams));
-    projectsWithRules(principal, teams).forEach((p) => {
-      if (!envProjects || envProjects.includes(p)) {
-        contributing.push(...getEffectiveRolesForProject(principal, p, teams));
-      }
-    });
-  }
-
-  const seen = new Set<string>();
-  const sources: EnvAccessSource[] = [];
-  contributing.forEach((s) => {
-    const key = sourceKey(s);
-    if (seen.has(key)) return;
-    seen.add(key);
-    sources.push({ ...s, access: ruleHasAccessToEnv(s, environment.id, org) });
-  });
-
-  const access = sources.some((s) => s.access === "yes")
-    ? "yes"
-    : sources.some((s) => s.access === "no")
-      ? "no"
-      : "N/A";
-
-  return { access, outsideProject: false, sources };
 }

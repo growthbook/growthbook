@@ -3,13 +3,10 @@ import { Invite, MemberRoleInfo } from "shared/types/organization";
 import { PiX } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { date, datetime } from "shared/dates";
-import { getRoleDisplayName } from "shared/permissions";
 import { Box, IconButton } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
-import EnvironmentAccessCell from "@/components/Settings/EnvironmentAccessCell";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import { RoleRuleLines } from "@/components/Settings/Team/RoleRuleLabel";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { useEnvironments } from "@/services/features";
 import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -50,7 +47,6 @@ const InviteList: FC<{
   const { organization } = useUser();
 
   const { projects } = useDefinitions();
-  const environments = useEnvironments();
 
   const onResend = async (key: string, email: string) => {
     if (resending) return;
@@ -153,11 +149,6 @@ const InviteList: FC<{
                 Project Roles
               </TableColumnHeader>
             )}
-            <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.environments}>
-              <Tooltip body="Environments this member can publish, create, delete and revert in. Hover a value for the full breakdown.">
-                Environments
-              </Tooltip>
-            </TableColumnHeader>
             <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.teams} />
             <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.actions} />
           </TableRow>
@@ -175,7 +166,7 @@ const InviteList: FC<{
                   {date(dateCreated)}
                 </TableCell>
                 <TableCell>
-                  {getRoleDisplayName(roleInfo.role, organization)}
+                  <RoleRuleLines scope={roleInfo} organization={organization} />
                 </TableCell>
                 {!project && (
                   <TableCell>
@@ -187,8 +178,11 @@ const InviteList: FC<{
                             <ProjectBadges
                               resourceType="member"
                               projectIds={[p.id]}
-                            />{" "}
-                            — {getRoleDisplayName(pr.role, organization)}
+                            />
+                            <RoleRuleLines
+                              scope={pr}
+                              organization={organization}
+                            />
                           </div>
                         );
                       }
@@ -196,14 +190,6 @@ const InviteList: FC<{
                     })}
                   </TableCell>
                 )}
-                <TableCell>
-                  <EnvironmentAccessCell
-                    principal={member}
-                    environments={environments}
-                    organization={organization}
-                    project={project}
-                  />
-                </TableCell>
                 <TableCell />
                 <TableCell>
                   <DropdownMenu

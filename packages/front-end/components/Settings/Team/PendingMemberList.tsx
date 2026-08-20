@@ -6,10 +6,8 @@ import { date, datetime } from "shared/dates";
 import { getRoleDisplayName } from "shared/permissions";
 import { Box, IconButton } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
-import EnvironmentAccessCell from "@/components/Settings/EnvironmentAccessCell";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import { RoleRuleLines } from "@/components/Settings/Team/RoleRuleLabel";
 import ProjectBadges from "@/components/ProjectBadges";
-import { useEnvironments } from "@/services/features";
 import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ChangeRoleModal from "@/components/Settings/Team/ChangeRoleModal";
@@ -39,7 +37,6 @@ const PendingMemberList: FC<{
     null,
   );
   const { projects } = useDefinitions();
-  const environments = useEnvironments();
   const { organization } = useUser();
 
   return (
@@ -89,11 +86,6 @@ const PendingMemberList: FC<{
                 Project Roles
               </TableColumnHeader>
             )}
-            <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.environments}>
-              <Tooltip body="Environments this member can publish, create, delete and revert in. Hover a value for the full breakdown.">
-                Environments
-              </Tooltip>
-            </TableColumnHeader>
             <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.teams} />
             <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.actions} />
           </TableRow>
@@ -118,7 +110,7 @@ const PendingMemberList: FC<{
                   {member.dateCreated && date(member.dateCreated)}
                 </TableCell>
                 <TableCell>
-                  {getRoleDisplayName(roleInfo.role, organization)}
+                  <RoleRuleLines scope={roleInfo} organization={organization} />
                 </TableCell>
                 {!project && (
                   <TableCell>
@@ -140,14 +132,6 @@ const PendingMemberList: FC<{
                     })}
                   </TableCell>
                 )}
-                <TableCell>
-                  <EnvironmentAccessCell
-                    principal={member}
-                    environments={environments}
-                    organization={organization}
-                    project={project}
-                  />
-                </TableCell>
                 <TableCell>
                   <Button
                     variant="outline"

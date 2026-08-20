@@ -44,3 +44,37 @@ export default function RoleRuleLabel({
     </>
   );
 }
+
+type Rule = {
+  role: string;
+  limitAccessByEnvironment?: boolean;
+  environments?: string[];
+};
+
+/** Every rule a scope grants: its base role plus any additional rules. */
+export function scopeRules(scope: Rule & { additionalRoles?: Rule[] }) {
+  return [scope, ...(scope.additionalRoles ?? [])].map((rule) => ({
+    role: rule.role,
+    limitAccessByEnvironment: !!rule.limitAccessByEnvironment,
+    environments: rule.environments ?? [],
+  }));
+}
+
+/** One line per rule, the standard way to show what a scope grants. */
+export function RoleRuleLines({
+  scope,
+  organization,
+}: {
+  scope: Rule & { additionalRoles?: Rule[] };
+  organization: Partial<OrganizationInterface>;
+}) {
+  return (
+    <>
+      {scopeRules(scope).map((rule, i) => (
+        <div key={i}>
+          <RoleRuleLabel {...rule} organization={organization} />
+        </div>
+      ))}
+    </>
+  );
+}

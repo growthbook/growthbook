@@ -8,10 +8,8 @@ import Link from "@/ui/Link";
 import { Team, useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
-import { useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
-import EnvironmentAccessCell from "@/components/Settings/EnvironmentAccessCell";
-import RoleRuleLabel from "@/components/Settings/Team/RoleRuleLabel";
+import { RoleRuleLines } from "@/components/Settings/Team/RoleRuleLabel";
 import { PermissionsModal } from "@/components/Settings/Teams/PermissionModal";
 import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -31,25 +29,6 @@ import {
   DropdownMenuItem,
 } from "@/ui/DropdownMenu";
 
-// Everything a scope grants: its base role plus any additional rules, each
-// carrying its own environment restriction.
-function teamRules(scope: {
-  role: string;
-  limitAccessByEnvironment?: boolean;
-  environments?: string[];
-  additionalRoles?: {
-    role: string;
-    limitAccessByEnvironment: boolean;
-    environments: string[];
-  }[];
-}) {
-  return [scope, ...(scope.additionalRoles ?? [])].map((rule) => ({
-    role: rule.role,
-    limitAccessByEnvironment: !!rule.limitAccessByEnvironment,
-    environments: rule.environments ?? [],
-  }));
-}
-
 const TeamsList: FC<{ onDuplicate?: (team: Team) => void }> = ({
   onDuplicate,
 }) => {
@@ -58,7 +37,6 @@ const TeamsList: FC<{ onDuplicate?: (team: Team) => void }> = ({
     null,
   );
   const { projects } = useDefinitions();
-  const environments = useEnvironments();
   const router = useRouter();
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
@@ -91,11 +69,6 @@ const TeamsList: FC<{ onDuplicate?: (team: Team) => void }> = ({
               </TableColumnHeader>
               <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.projectRoles}>
                 Project Roles
-              </TableColumnHeader>
-              <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.environments}>
-                <Tooltip body="Environments this team can publish, create, delete and revert in. Hover a value for the full breakdown.">
-                  Environments
-                </Tooltip>
               </TableColumnHeader>
               <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.teams}>
                 Members
@@ -132,11 +105,7 @@ const TeamsList: FC<{ onDuplicate?: (team: Team) => void }> = ({
                   </TableCell>
                   <TableCell>{date(t.dateUpdated)}</TableCell>
                   <TableCell>
-                    {teamRules(t).map((rule, i) => (
-                      <div key={i}>
-                        <RoleRuleLabel {...rule} organization={organization} />
-                      </div>
-                    ))}
+                    <RoleRuleLines scope={t} organization={organization} />
                   </TableCell>
                   <TableCell>
                     {t.projectRoles?.map((pr) => {
@@ -148,25 +117,13 @@ const TeamsList: FC<{ onDuplicate?: (team: Team) => void }> = ({
                             resourceType="team"
                             projectIds={[p.id]}
                           />{" "}
-                          {teamRules(pr).map((rule, i) => (
-                            <div key={i}>
-                              <RoleRuleLabel
-                                {...rule}
-                                organization={organization}
-                              />
-                            </div>
-                          ))}
+                          <RoleRuleLines
+                            scope={pr}
+                            organization={organization}
+                          />
                         </div>
                       );
                     })}
-                  </TableCell>
-                  <TableCell>
-                    <EnvironmentAccessCell
-                      principal={t}
-                      environments={environments}
-                      organization={organization}
-                      project=""
-                    />
                   </TableCell>
                   <TableCell>{t.members?.length ?? 0}</TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>

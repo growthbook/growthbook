@@ -6,18 +6,16 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import router from "next/router";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
+  EffectiveRoleSource,
   getEffectiveRolesForProject,
-  getRoleDisplayName,
 } from "shared/permissions";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import Link from "@/ui/Link";
-import EnvironmentAccessCell from "@/components/Settings/EnvironmentAccessCell";
 import RoleRuleLabel from "@/components/Settings/Team/RoleRuleLabel";
 import Callout from "@/ui/Callout";
 import { usingSSO } from "@/services/env";
-import { useEnvironments } from "@/services/features";
 import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
 import InviteModal from "@/components/Settings/Team/InviteModal";
 import AdminSetPasswordModal from "@/components/Settings/Team/AdminSetPasswordModal";
@@ -41,6 +39,59 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
 } from "@/ui/DropdownMenu";
+
+// Keyed by the rule, not just the role: the same role can apply with different
+// environment restrictions.
+function rulesWithSources(roles: EffectiveRoleSource[]) {
+  const out: {
+    key: string;
+    role: string;
+    limitAccessByEnvironment: boolean;
+    environments: string[];
+    sources: string[];
+  }[] = [];
+  roles.forEach((er) => {
+    const src = er.sourceType === "user" ? "Direct" : `Team: ${er.sourceName}`;
+    const key = `${er.role}|${er.limitAccessByEnvironment}|${er.environments.join(",")}`;
+    const existing = out.find((e) => e.key === key);
+    if (existing) existing.sources.push(src);
+    else
+      out.push({
+        key,
+        role: er.role,
+        limitAccessByEnvironment: er.limitAccessByEnvironment,
+        environments: er.environments,
+        sources: [src],
+      });
+  });
+  return out;
+}
+
+function RuleLines({
+  roles,
+  organization,
+}: {
+  roles: EffectiveRoleSource[];
+  organization: Parameters<typeof RoleRuleLabel>[0]["organization"];
+}) {
+  return (
+    <>
+      {rulesWithSources(roles).map((e) => (
+        <div key={e.key}>
+          <RoleRuleLabel
+            {...e}
+            organization={organization}
+            sources={
+              e.sources.some((src) => src !== "Direct")
+                ? e.sources.join(", ")
+                : undefined
+            }
+          />
+        </div>
+      ))}
+    </>
+  );
+}
 
 const MemberList: FC<{
   mutate: () => void;
@@ -67,7 +118,6 @@ const MemberList: FC<{
   const [passwordResetModal, setPasswordResetModal] =
     useState<ExpandedMember | null>(null);
   const { projects } = useDefinitions();
-  const environments = useEnvironments();
 
   const openInviteModal = !!router.query["just-subscribed"];
 
@@ -234,11 +284,6 @@ const MemberList: FC<{
                   Project Roles
                 </TableColumnHeader>
               )}
-              <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.environments}>
-                <Tooltip body="Environments where this member has environment-scoped authority, from their own roles and any teams they're on. Hover a value to see what they can do in each and which role grants it.">
-                  Environments
-                </Tooltip>
-              </TableColumnHeader>
               <SortableTableColumnHeader
                 field="numTeams"
                 style={{ width: MEMBER_COLUMN_WIDTHS.teams }}
@@ -255,32 +300,6 @@ const MemberList: FC<{
                 project || null,
                 teams || [],
               );
-              // Keyed by the rule, not just the role: the same role can apply
-              // with different environment restrictions.
-              const effectiveByRule: {
-                key: string;
-                role: string;
-                limitAccessByEnvironment: boolean;
-                environments: string[];
-                sources: string[];
-              }[] = [];
-              effectiveRoles.forEach((er) => {
-                const src =
-                  er.sourceType === "user"
-                    ? "Direct"
-                    : `Team: ${er.sourceName}`;
-                const key = `${er.role}|${er.limitAccessByEnvironment}|${er.environments.join(",")}`;
-                const existing = effectiveByRule.find((e) => e.key === key);
-                if (existing) existing.sources.push(src);
-                else
-                  effectiveByRule.push({
-                    key,
-                    role: er.role,
-                    limitAccessByEnvironment: er.limitAccessByEnvironment,
-                    environments: er.environments,
-                    sources: [src],
-                  });
-              });
               return (
                 <TableRow key={member.id}>
                   <TableCell>{member.name}</TableCell>
@@ -313,19 +332,10 @@ const MemberList: FC<{
                     {member.lastLoginDate && date(member.lastLoginDate)}
                   </TableCell>
                   <TableCell>
-                    {effectiveByRule.map((e) => (
-                      <div key={e.key}>
-                        <RoleRuleLabel
-                          {...e}
-                          organization={organization}
-                          sources={
-                            e.sources.some((s) => s !== "Direct")
-                              ? e.sources.join(", ")
-                              : undefined
-                          }
-                        />
-                      </div>
-                    ))}
+                    <RuleLines
+                      roles={effectiveRoles}
+                      organization={organization}
+                    />
                   </TableCell>
                   {!project && (
                     <TableCell>
@@ -337,61 +347,21 @@ const MemberList: FC<{
                           projectId,
                           teams || [],
                         );
-                        const label = [
-                          ...new Set(
-                            roles.map((r) =>
-                              getRoleDisplayName(r.role, organization),
-                            ),
-                          ),
-                        ].join(", ");
-                        const fromTeam = roles.some(
-                          (r) => r.sourceType === "team",
-                        );
                         return (
                           <div key={`project-tags-${p.id}`}>
                             <ProjectBadges
                               resourceType="member"
                               projectIds={[p.id]}
-                            />{" "}
-                            —{" "}
-                            {fromTeam ? (
-                              <Tooltip
-                                body={roles
-                                  .map(
-                                    (r) =>
-                                      `${getRoleDisplayName(r.role, organization)} — ${
-                                        r.sourceType === "team"
-                                          ? `Team: ${r.sourceName}`
-                                          : "Direct"
-                                      }`,
-                                  )
-                                  .join("\n")}
-                              >
-                                <span
-                                  style={{
-                                    textDecoration: "underline dotted",
-                                  }}
-                                >
-                                  {label}
-                                </span>
-                              </Tooltip>
-                            ) : (
-                              label
-                            )}
+                            />
+                            <RuleLines
+                              roles={roles}
+                              organization={organization}
+                            />
                           </div>
                         );
                       })}
                     </TableCell>
                   )}
-                  <TableCell>
-                    <EnvironmentAccessCell
-                      principal={member}
-                      environments={environments}
-                      organization={organization}
-                      project={project}
-                      teams={teams || []}
-                    />
-                  </TableCell>
 
                   <TableCell>
                     {(member.teams ?? []).map((teamId) => {
@@ -507,7 +477,7 @@ const MemberList: FC<{
             {!items.length && isFiltered && (
               <TableRow>
                 <TableCell
-                  colSpan={8 + environments.length + (project ? 0 : 1)}
+                  colSpan={7 + (project ? 0 : 1)}
                   style={{ textAlign: "center" }}
                 >
                   No matching members found.
