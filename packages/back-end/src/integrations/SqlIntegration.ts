@@ -138,7 +138,11 @@ import {
   funnelStepArrayColumn,
   funnelStepResolvedTsColumn,
 } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
-import { funnelStep0NeedsExposureWindow } from "back-end/src/integrations/sql/ctes/funnel-resolution-cte";
+import {
+  funnelStep0NeedsExposureWindow,
+  getFunnelResolutionCTEs,
+  type FunnelMetricForResolution,
+} from "back-end/src/integrations/sql/ctes/funnel-resolution-cte";
 import { getDimensionCTE } from "back-end/src/integrations/sql/ctes/dimension-cte";
 import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension-col";
 import { getDimensionInStatement } from "back-end/src/integrations/sql/fact-metrics/dimension-in-statement";
@@ -2557,6 +2561,22 @@ export default abstract class SqlIntegration
             (data.ratioMetric && data.denominatorSourceIndex === i),
         )
         .map((data) => {
+          if (isFactFunnelMetric(data.metric)) {
+            const prefix = encodeMetricIdForColumnName(data.metric.id);
+            const alias = data.alias;
+            const step0Scalar = !funnelStep0NeedsExposureWindow(data.metric);
+            return (data.metric.funnelSettings?.steps ?? [])
+              .map((step, stepIndex) => {
+                if (step.factTableId !== sources[i].factTable.id) return "";
+                if (stepIndex === 0 && step0Scalar) {
+                  return `, MIN(umj.${funnelStepResolvedTsColumn(prefix, 0)}) AS ${funnelStepResolvedTsColumn(alias, 0)}`;
+                }
+                return `, ${this.getSqlDialect().arrayConcatAgg(
+                  `umj.${funnelStepArrayColumn(prefix, stepIndex)}`,
+                )} AS ${funnelStepArrayColumn(alias, stepIndex)}`;
+              })
+              .join("\n");
+          }
           const isNumeratorSide = data.numeratorSourceIndex === i;
           const isDenominatorSide =
             data.ratioMetric && data.denominatorSourceIndex === i;
@@ -2717,6 +2737,23 @@ export default abstract class SqlIntegration
                 data.ratioMetric && data.denominatorSourceIndex === i;
               if (!numeratorHere && !denominatorHere) return "";
 
+              if (isFactFunnelMetric(data.metric)) {
+                const alias = data.alias;
+                const step0Scalar = !funnelStep0NeedsExposureWindow(
+                  data.metric,
+                );
+                return (data.metric.funnelSettings?.steps ?? [])
+                  .map((step, stepIndex) => {
+                    if (step.factTableId !== sources[i].factTable.id) return "";
+                    const col =
+                      stepIndex === 0 && step0Scalar
+                        ? funnelStepResolvedTsColumn(alias, 0)
+                        : funnelStepArrayColumn(alias, stepIndex);
+                    return `, ${localAlias}.${col} AS ${col}`;
+                  })
+                  .join("\n");
+              }
+
               // Event quantiles are non-ratio and always live entirely in a
               // single source — the kllRankApprox path needs `qm` (the
               // sketch threshold), which only the source 0 CTE joins in.
@@ -2842,8 +2879,22 @@ export default abstract class SqlIntegration
                   )`
               : "";
 
-          return `
-        , __joinedData${sourceSuffix(i)} AS (
+          const funnelMetricsForSource: FunnelMetricForResolution[] =
+            metricData.flatMap((data) =>
+              isFactFunnelMetric(data.metric) && data.numeratorSourceIndex === i
+                ? [{ metric: data.metric, alias: data.alias }]
+                : [],
+            );
+          const hasFunnel = funnelMetricsForSource.length > 0;
+          const joinedTableName = hasFunnel
+            ? `__joinedDataSteps${sourceSuffix(i)}`
+            : `__joinedData${sourceSuffix(i)}`;
+          const exposureCol = hasFunnel
+            ? `, u.first_exposure_timestamp AS first_exposure_timestamp`
+            : "";
+
+          const joinCte = `
+        , ${joinedTableName} AS (
             SELECT
               u.${baseIdType}
               ${
@@ -2852,6 +2903,7 @@ export default abstract class SqlIntegration
               , u.variation`
                   : ""
               }
+              ${exposureCol}
               ${metricColumns}
               ${covariateColumns}
             FROM __experimentUnits u
@@ -2859,6 +2911,17 @@ export default abstract class SqlIntegration
             ${covariateJoin}
             ${eventQuantileJoin}
         )`;
+
+          return hasFunnel
+            ? joinCte +
+                getFunnelResolutionCTEs(this.getSqlDialect(), {
+                  funnelMetrics: funnelMetricsForSource,
+                  sourceTableName: joinedTableName,
+                  terminalTableName: `__joinedData${sourceSuffix(i)}`,
+                  resolveTablePrefix: `__funnelResolveInc${sourceSuffix(i)}_`,
+                  exposureColumn: "first_exposure_timestamp",
+                })
+            : joinCte;
         })
         .join("\n")}
       ${sources

@@ -1,4 +1,8 @@
-import { isRatioMetric, isRegressionAdjusted } from "shared/experiments";
+import {
+  getFactMetricPrimaryFactTableId,
+  isRatioMetric,
+  isRegressionAdjusted,
+} from "shared/experiments";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import cloneDeep from "lodash/cloneDeep";
@@ -101,7 +105,7 @@ export function planMetricFanOut(metrics: FactMetricInterface[]): MetricFanOut {
   };
 
   metrics.forEach((metric) => {
-    const numeratorFactTableId = metric.numerator?.factTableId;
+    const numeratorFactTableId = getFactMetricPrimaryFactTableId(metric);
     if (!numeratorFactTableId) {
       throw new Error(
         `Fact metric "${metric.id}" is missing a numerator fact table.`,

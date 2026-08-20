@@ -1,6 +1,7 @@
 import { tabulateCovariateImbalance } from "shared/health";
 import {
   ExperimentMetricInterface,
+  getFactMetricPrimaryFactTableId,
   isFactMetric,
   isRatioMetric,
   isRegressionAdjusted,
@@ -641,7 +642,7 @@ const startExperimentIncrementalRefreshQueries = async (
     // half-populated columns.
     const sameFtMetrics = group.metrics.filter(
       (m) =>
-        m.numerator?.factTableId === group.factTableId &&
+        getFactMetricPrimaryFactTableId(m) === group.factTableId &&
         (!isRatioMetric(m) || m.denominator?.factTableId === group.factTableId),
     );
 

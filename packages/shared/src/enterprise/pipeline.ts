@@ -2,7 +2,6 @@ import { getValidDate } from "shared/dates";
 import {
   getExperimentOutdatedReasonLabel,
   isFactMetric,
-  isFactFunnelMetric,
   isExperimentOutdatedReasonField,
   quantileMetricType,
   ExperimentMetricDefinition,
@@ -182,10 +181,6 @@ export function getIncrementalPipelineUnsupportedReason(params: {
 
   if (params.metrics.some((m) => !isFactMetric(m))) {
     return "Legacy metrics aren't supported with Incremental Pipeline mode. Convert them or remove non-Fact Metrics.";
-  }
-
-  if (params.metrics.some((m) => isFactFunnelMetric(m))) {
-    return "Funnel metrics are not supported with Incremental Pipeline mode while in beta. Please remove any funnel metrics from the experiment.";
   }
 
   // Unit quantiles store a float and re-aggregate via SUM, so they work on
