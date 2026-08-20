@@ -192,7 +192,7 @@ growthbookAdapter.setStickyBucketService(redisStickyBucketService);
 
 ### `.growthbook`
 
-You may access the underlying GrowthBook instance. Specifically, our Flags SDK adapter wraps the `GrowthBookClient` class [read more](/lib/js#). All user evaluation options (attributes, tracking callbacks, sticky buckets) are applied at the `userContext` level (not globally).
+You may access the underlying GrowthBook instance. Specifically, our Flags SDK adapter wraps the `GrowthBookClient` class. See the [JavaScript SDK](/lib/js). All user evaluation options (attributes, tracking callbacks, sticky buckets) are applied at the `userContext` level (not globally).
 
 ### `.stickyBucketService`
 
@@ -230,7 +230,7 @@ Under the hood, the webhook is being configured with the following properties. I
 <Note>
 **Vercel Edge Config limitations**
 
-Vercel's Edge Config is subject to storage size limitations. If your SDK payload is excessively large, you may not be able to populate the your Edge Config. Read more about limitations [here](https://vercel.com/docs/edge-config/edge-config-limits).
+Vercel's Edge Config is subject to storage size limitations. If your SDK payload is excessively large, you may not be able to populate the your Edge Config. See [Vercel Edge Config limits](https://vercel.com/docs/edge-config/edge-config-limits).
 
 </Note>
 

@@ -34,10 +34,10 @@ For example, suppose your MDE is 2%. If you feel like your feature could drive a
 
 4. On the second page you specify your Expected Effect Size and can customize the traffic and metric values used in the power analysis.
 
-- For each metric, enter the "Expected Effect Size" for each metric. Effect size is the percentage improvement in your metric (i.e., the lift) you anticipate your feature will cause. Inputting your effect size can require care - see [here](#how-should-i-pick-my-effect-size).
+- For each metric, enter the "Expected Effect Size" for each metric. Effect size is the percentage improvement in your metric (i.e., the lift) you anticipate your feature will cause. Inputting your effect size can require care. See [how to pick your effect size](#how-should-i-pick-my-effect-size).
 - For each metric and for the users per week, we pre-populate the data with values from your selected population, but you can also customize the, if you wish.
 
-5. Now you have results! Please see the results interpretation [here](#how-do-i-interpret-power-analysis-results).
+5. Now you have results! See [how to interpret power analysis results](#how-do-i-interpret-power-analysis-results).
 6. You can modify the number of variations you intend to test, as well as clicking "Edit" in the Analysis Setting box if you want to change your statistics engine or statistics settings.
 7. If you want to modify your inputs, click the "Edit" button next to "New Calculation" in the top right corner.
 
@@ -53,7 +53,7 @@ When we click next, a query kicks off using the last 8 weeks of data to estimate
 
 As you can see, the query estimates about 2,195 users per week and a 14.41\% of those that Created a Feature in the 72 hours after first appearing in our population (this 72 hour window comes from our metric definition; these kinds of settings on your own metrics will also be applied to make the power calculation more accurate).
 
-We also selected a 20\% expected effect size. This is large, but not unattainable based on our past experiments and so it is our best guess for our expected metric improvement. We provide guidance for effect size selection [here](#how-should-i-pick-my-effect-size). For our feature we anticipate a 20% improvement in users creating a feature. We then submit our data.
+We also selected a 20\% expected effect size. This is large, but not unattainable based on our past experiments and so it is our best guess for our expected metric improvement. We provide [guidance for effect size selection](#how-should-i-pick-my-effect-size). For our feature we anticipate a 20% improvement in users creating a feature. We then submit our data.
 
 Now we can see the results!
 
@@ -81,7 +81,7 @@ We advocate running power analysis for multiple effect sizes. The following ques
 2. Suppose your feature is amazing - what do you think the lift would be?
 3. Suppose your feature impact is smaller than you think - how small could it be?
 
-Ideally your experiment has high power (see [here](#what-is-a-high-powered-experiment)) across a range of effect sizes.
+Ideally your experiment has [high power](#what-is-a-high-powered-experiment) across a range of effect sizes.
 
 ## What is a high-powered experiment?
 
@@ -91,7 +91,7 @@ That being said, running an experiment with less than 80% power can still help y
 
 ## How do I run Bayesian power analysis?
 
-For Bayesian power analysis, you specify the prior distribution of the treatment effect (see [here](/statistics/details#bayesian-engine)) for guidance regarding prior selection). We then estimate Bayesian power, which is the probability that the $(1 - \alpha)$ credible interval does not contain 0.
+For Bayesian power analysis, you specify the prior distribution of the treatment effect (see the [Bayesian engine](/statistics/details#bayesian-engine) for guidance regarding prior selection). We then estimate Bayesian power, which is the probability that the $(1 - \alpha)$ credible interval does not contain 0.
 
 If your organizational default is Bayesian, then Bayesian will be your default power analysis. You can switch to and from frequentist and Bayesian power calculations by toggling "Statistics Engine" under "Settings" on the Power Results page.
 
@@ -113,7 +113,7 @@ For both Bayesian and frequentist engines, we produce two key estimates:
 1. Power - After running the experiment for a given number of weeks and for a hypothesized effect size, what is the probability of a statistically significant result?
 2. Minimum Detectable Effect (MDE) - After running an experiment for a given number of weeks, what is the smallest effect that we can detect as statistically significant 80% of the time?
 
-Each engine arrives at these values differently. Below we describe high-level technical details of our implementation. All technical details can be found [here](/statistics/power-technical).
+Each engine arrives at these values differently. Below we describe high-level technical details of our implementation. See [technical power details](/statistics/power-technical) for the full implementation.
 
 ### Frequentist implementation
 
@@ -160,14 +160,14 @@ The **frequentist MDE** is the solution for $\Delta$ when solving for $\pi$ in t
 
 $$\pi = 1 - \Phi\left(Z_{1-\alpha/2}-\frac{\Delta}{\hat{\sigma}_{\Delta}}\right).$$
 
-Inverting this equation requires some care, as the uncertainty estimate $\hat{\sigma}_{\Delta}$ depends upon $\Delta$. Details can be found [here](/statistics/power-technical).
+Inverting this equation requires some care, as the uncertainty estimate $\hat{\sigma}_{\Delta}$ depends upon $\Delta$. See [technical power details](/statistics/power-technical).
 
 To estimate power under [sequential testing](/statistics/sequential), we adjust the variance term $\hat{\sigma}_{\Delta}^{2}$ to account for sequential testing, and then input this adjusted variance into our power formula. We assume that you look at the data only once, so our power estimate below is a lower bound for the actual power under sequential testing.
 Otherwise we would have to make assumptions about the temporal correlation of the data generating process.
 
 ### Bayesian implementation
 
-For Bayesian power analysis, we let users specify the prior distribution of the treatment effect (see [here](/statistics/details#bayesian-engine) for guidance regarding prior selection). We then estimate Bayesian power, which is the probability that the $(1 - \alpha)$ credible interval does not contain 0.
+For Bayesian power analysis, we let users specify the prior distribution of the treatment effect (see the [Bayesian engine](/statistics/details#bayesian-engine) for guidance regarding prior selection). We then estimate Bayesian power, which is the probability that the $(1 - \alpha)$ credible interval does not contain 0.
 
 At GrowthBook, **Bayesian power** is
 
