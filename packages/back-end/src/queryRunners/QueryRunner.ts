@@ -965,6 +965,7 @@ export abstract class QueryRunner<
             name,
             query: copiedCachedDoc.id,
             status: copiedCachedDoc.status,
+            queryType,
           };
         }
       } catch (e) {
@@ -1016,6 +1017,7 @@ export abstract class QueryRunner<
       name,
       query: doc.id,
       status: doc.status,
+      queryType,
     };
   }
 
@@ -1081,6 +1083,11 @@ export abstract class QueryRunner<
       if (pointer.status !== query.status) {
         hasChanges = true;
         pointer.status = query.status;
+      }
+
+      if (pointer.queryType === undefined && query.queryType !== undefined) {
+        hasChanges = true;
+        pointer.queryType = query.queryType;
       }
 
       // If the query succeeded, add it to the cache
