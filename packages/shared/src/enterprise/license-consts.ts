@@ -12,6 +12,7 @@ export const accountPlans: Set<AccountPlan> = new Set([
 
 export type CommercialFeature =
   | "ai-suggestions"
+  | "ai-byok"
   | "scim"
   | "sso"
   | "advanced-permissions"
@@ -49,6 +50,7 @@ export type CommercialFeature =
   | "custom-roles"
   | "quantile-metrics"
   | "retention-metrics"
+  | "funnel-metrics"
   | "custom-markdown"
   | "experiment-impact"
   | "metric-populations"
@@ -225,6 +227,7 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "multiple-sdk-webhooks",
   "quantile-metrics",
   "retention-metrics",
+  "funnel-metrics",
   "metric-populations",
   "multi-armed-bandits",
   "historical-power",
@@ -244,6 +247,7 @@ const commercialFeaturesProSso: CommercialFeature[] = [
 
 const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "ai-suggestions",
+  "ai-byok",
   "scim",
   "audit-logging",
   "custom-metadata",

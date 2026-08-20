@@ -183,7 +183,6 @@ export const updateFactTablePropsValidator = z
     eventName: z.string().optional(),
     columns: z.array(createColumnPropsValidator).optional(),
     managedBy: z.enum(["", "api", "admin"]).optional(),
-    columnsError: z.string().nullable().optional(),
     archived: z.boolean().optional(),
     autoSliceUpdatesEnabled: z.boolean().optional(),
     aggregatedFactTableSettings: aggregatedFactTableSettingsValidator
@@ -324,6 +323,62 @@ export const priorSettingsValidator = z.object({
   stddev: z.number().gt(0),
 });
 
+// ---------------------------------------------------------------------------
+// Funnel step / settings validators
+// ---------------------------------------------------------------------------
+// Defined here (rather than in product-analytics.ts) so factMetricValidator can
+// reference funnelStepValidator without a circular import: funnelStepValidator
+// needs rowFilterValidator (defined above in this file), and factMetricValidator
+// needs funnelStepValidator. product-analytics.ts imports these from here.
+
+export const conversionWindowValidator = z.object({
+  unit: conversionWindowUnitValidator,
+  value: z.number().positive(),
+});
+export type ConversionWindow = z.infer<typeof conversionWindowValidator>;
+
+export const funnelStepValidator = z.object({
+  // Display name shown in the sidebar / chart / table.
+  name: z.string(),
+  factTableId: z.string(),
+  rowFilters: z.array(rowFilterValidator),
+  // When true, the step still resolves for its own conversion but does not
+  // anchor later steps' windows (those use the nearest prior required step,
+  // or exposure for experiment metrics when every prior step is optional).
+  optional: z.boolean(),
+  // Bounds how long after the nearest prior required step (or exposure, for
+  // step 0 / after only-optional priors in experiment funnel metrics) this
+  // step's event can occur.
+  conversionWindow: conversionWindowValidator.nullish(),
+});
+export type FunnelStep = z.infer<typeof funnelStepValidator>;
+
+// Step ordering for funnel metrics. v1 supports "sequential" only; "strict"
+// and "unordered" are modeled now (locked in FactMetricModel.customValidation)
+// so the fast-follows need no schema migration.
+export const funnelOrderingValidator = z.enum([
+  "sequential",
+  "strict",
+  "unordered",
+]);
+export type FunnelOrdering = z.infer<typeof funnelOrderingValidator>;
+
+export const MAX_FACT_METRIC_FUNNEL_STEPS = 20;
+
+// Funnel-as-experiment-metric settings. Mirrors the quantileSettings pattern:
+// a nullable sub-object on the fact metric. Statistically a proportion.
+export const funnelSettingsValidator = z.object({
+  steps: z.array(funnelStepValidator).min(2).max(MAX_FACT_METRIC_FUNNEL_STEPS),
+  ordering: funnelOrderingValidator.optional(),
+  // Out-of-order tolerance between adjacent steps (seconds). Optional; only
+  // meaningful for ordered modes (ignored for "unordered").
+  concurrencyWindowSeconds: z.number().int().min(0).optional(),
+  // Session-scoped funnels: fast-follow, locked to false by
+  // FactMetricModel.customValidation.
+  sessionBased: z.boolean().optional(),
+});
+export type FunnelSettings = z.infer<typeof funnelSettingsValidator>;
+
 export const metricTypeValidator = z.enum([
   "ratio",
   "mean",
@@ -331,9 +386,10 @@ export const metricTypeValidator = z.enum([
   "retention",
   "quantile",
   "dailyParticipation",
+  "funnel",
 ]);
 
-export const factMetricValidator = z
+const factMetricObjectValidator = z
   .object({
     id: z.string(),
     organization: z.string(),
@@ -350,7 +406,10 @@ export const factMetricValidator = z
     archived: z.boolean().optional(),
 
     metricType: metricTypeValidator,
-    numerator: columnRefValidator,
+    // Null only for funnel metrics, which describe their events through
+    // funnelSettings.steps instead. Cross-field rules live in
+    // FactMetricModel.customValidation.
+    numerator: columnRefValidator.nullable(),
     denominator: columnRefValidator.nullable(),
 
     cappingSettings: cappingSettingsValidator,
@@ -373,8 +432,51 @@ export const factMetricValidator = z
     metricAutoSlices: z.array(z.string()).optional(),
 
     quantileSettings: quantileSettingsValidator.nullable(),
+
+    funnelSettings: funnelSettingsValidator.nullable(),
   })
   .strict();
+
+type FactMetricFields = z.infer<typeof factMetricObjectValidator>;
+type FactMetricSharedFields = Omit<
+  FactMetricFields,
+  "metricType" | "numerator" | "funnelSettings"
+>;
+
+/** Every metric type except "funnel": describes its events with a ColumnRef. */
+export type StandardFactMetric = FactMetricSharedFields & {
+  metricType: Exclude<FactMetricFields["metricType"], "funnel">;
+  numerator: z.infer<typeof columnRefValidator>;
+  // Required-null (like quantileSettings) rather than optional: this keeps the
+  // member a subtype of the flat schema output, which MakeModelClass's
+  // BaseSchemaWithPrimaryKey constraint intersects with the union.
+  funnelSettings: null;
+};
+
+/** Describes its events with an ordered list of funnel steps instead. */
+export type FunnelFactMetric = FactMetricSharedFields & {
+  metricType: "funnel";
+  numerator: null;
+  funnelSettings: z.infer<typeof funnelSettingsValidator>;
+};
+
+/**
+ * The runtime schema stays a plain ZodObject so MakeModelClass can call
+ * `.omit()` / `.partial()` / `.shape` on it, but the declared output is
+ * narrowed to a discriminated union. That makes `numerator` non-null wherever
+ * the metric type has been narrowed away from "funnel", instead of forcing
+ * every reader into optional chaining. The `metricType` / `numerator` /
+ * `funnelSettings` combinations are enforced at runtime by
+ * FactMetricModel.customValidation.
+ *
+ * `z.infer` of this intersection is `flatObjectOutput & (Standard | Funnel)`.
+ * Both union members are deliberately kept as subtypes of the flat output
+ * (see StandardFactMetric.funnelSettings), so the intersection distributes to
+ * exactly the union instead of re-widening or over-requiring fields.
+ */
+export const factMetricValidator =
+  factMetricObjectValidator as typeof factMetricObjectValidator &
+    z.ZodType<StandardFactMetric | FunnelFactMetric>;
 
 export const createFactFilterPropsValidator = z
   .object({
@@ -492,6 +594,19 @@ export const apiFactTableColumnValidator = namedSchema(
           "For virtual columns, the SQL expression that computes the column value. Only valid on a virtual column; when omitted from an update, the existing expression is preserved.",
         )
         .optional(),
+      topValues: z
+        .array(z.string())
+        .describe(
+          "The most common values for this column, sampled from the warehouse to populate filter pickers and auto slices. Read-only.",
+        )
+        .readonly()
+        .optional(),
+      topValuesDate: z
+        .string()
+        .meta({ format: "date-time" })
+        .describe("When topValues was last refreshed for this column.")
+        .readonly()
+        .optional(),
       dateCreated: z
         .string()
         .meta({ format: "date-time" })
@@ -513,6 +628,8 @@ export const apiFactTableColumnInputValidator = componentSchema(
       dataTypeFromWarehouse: true,
       dateCreated: true,
       dateUpdated: true,
+      topValues: true,
+      topValuesDate: true,
     })
     .extend({
       datatype: apiFactTableColumnValidator.shape.datatype
@@ -556,8 +673,21 @@ export const apiFactTableValidator = namedSchema(
         .string()
         .nullable()
         .describe("Error message if there was an issue parsing the SQL schema")
+        .readonly()
+        .optional(),
+      columnRefreshPending: z
+        .boolean()
+        .describe(
+          "True while the fact table's column schema is being detected in the background. While true, `columns` may be empty or incomplete and metrics referencing not-yet-detected columns cannot be created.",
+        )
         .optional(),
       archived: z.boolean().optional(),
+      autoSliceUpdatesEnabled: z
+        .boolean()
+        .describe(
+          "Whether Auto Slice values for this fact table's columns are refreshed automatically in the background.",
+        )
+        .optional(),
       managedBy: z
         .enum(["", "api", "admin"])
         .describe(
@@ -737,11 +867,6 @@ const updateFactTableBody = z
       .describe(
         'Optional array of columns to upsert by `column`: existing columns are patched, new columns are created, and columns not included are left unchanged. Omit `datatype` to leave an existing column\'s type untouched; send "" to reset it for auto-detection; new columns are auto-detected when `datatype` is omitted or "". Slice-related properties require an enterprise license.',
       )
-      .optional(),
-    columnsError: z
-      .string()
-      .nullable()
-      .describe("Error message if there was an issue parsing the SQL schema")
       .optional(),
     managedBy: z
       .enum(["", "api", "admin"])

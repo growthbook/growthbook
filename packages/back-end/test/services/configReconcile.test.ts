@@ -62,7 +62,7 @@ describe("assertConfigSchemaChangeSafeForDescendants", () => {
     );
 
     expect(err).toBeInstanceOf(SoftWarningError);
-    expect(err.message).toContain("1 descendant config(s)");
+    expect(err.message).toContain("1 descendant Config(s)");
     expect(err.message).toContain(
       '"Prod API" (child): overrides removed field(s) "retries"',
     );

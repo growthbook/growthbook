@@ -863,9 +863,6 @@
   "packages/front-end/components/GeneralSettings/AISettings.tsx": {
     "no-restricted-imports": {
       "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 4
     }
   },
   "packages/front-end/components/GeneralSettings/BanditSettings.tsx": {
@@ -1816,11 +1813,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Teams/Roles/RoleForm.tsx": {
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
   "packages/front-end/components/Teams/TeamModal.tsx": {
     "no-restricted-syntax": {
       "count": 3
@@ -1837,11 +1829,6 @@
     }
   },
   "packages/front-end/enterprise/components/AIChat/AIChatModelSelect.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/enterprise/components/AIChat/ChatInputBar.tsx": {
     "no-restricted-syntax": {
       "count": 1
     }

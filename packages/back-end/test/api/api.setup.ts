@@ -38,6 +38,14 @@ const defaultLimits = {
 };
 
 export const setupApp = () => {
+  // These specs boot the real Express app against an in-memory Mongo, so a
+  // single test is app setup plus several round trips. Jest's 5s default is a
+  // unit-test budget and several of these files legitimately run for 40s+, so
+  // individual tests overshoot it on a loaded machine without anything being
+  // racy. Measured, not guessed: at the default, timeouts land on a different
+  // spec each run.
+  jest.setTimeout(20000);
+
   let mongodb;
   let reqContext;
   const auditMock = jest.fn();
@@ -59,6 +67,10 @@ export const setupApp = () => {
         // auth middleware sets this; under this mock we give each request a
         // unique key so the limiter never crosses test boundaries.
         req.apiKey = randomUUID();
+        // The real middleware sets this on every path. Without it, writes that
+        // record an audit user fail validation — and because several are
+        // fire-and-forget, the failure is swallowed and the specs cannot see it.
+        req.eventAudit = { type: "api_key", apiKey: req.apiKey, name: "test" };
         next();
       });
 

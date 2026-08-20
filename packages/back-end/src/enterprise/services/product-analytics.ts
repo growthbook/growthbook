@@ -111,7 +111,7 @@ export async function runProductAnalyticsExploration(
     // Populate fact table map
     const factTableIds = new Set<string>();
     factMetrics.forEach((fm) => {
-      if (fm.numerator.factTableId) {
+      if (fm.numerator?.factTableId) {
         factTableIds.add(fm.numerator.factTableId);
       }
       if (fm.metricType === "ratio" && fm.denominator?.factTableId) {

@@ -32,14 +32,12 @@ export interface Props {
   // group) instead of rendering inline. The verdict-retraction scan still
   // runs over the full log so review-state badges stay correct.
   collapseFilter?: (log: RevisionLog) => boolean;
+  // Whether the viewer can retract their active verdict.
+  canRetractVerdict?: boolean;
 }
 
-// Feature wrapper around the shared <RevisionTimeline>: owns the feature log
-// fetch and wires the feature's own endpoints (edit/delete a log entry, undo a
-// review) as callbacks. The rendering and all timeline behavior live in the
-// shared component.
 const Revisionlog: React.ForwardRefRenderFunction<MutateLog, Props> = (
-  { feature, revision, onRevisionMutate, collapseFilter },
+  { feature, revision, onRevisionMutate, collapseFilter, canRetractVerdict },
   ref,
 ) => {
   const { data, error, mutate } = useApi<{ log: RevisionLog[] }>(
@@ -82,16 +80,20 @@ const Revisionlog: React.ForwardRefRenderFunction<MutateLog, Props> = (
         );
         await mutate();
       }}
-      onRetractVerdict={async () => {
-        await apiCall(
-          `/feature/${feature.id}/${revision.version}/undo-review`,
-          {
-            method: "POST",
-          },
-        );
-        await mutate();
-        await onRevisionMutate?.();
-      }}
+      onRetractVerdict={
+        canRetractVerdict
+          ? async () => {
+              await apiCall(
+                `/feature/${feature.id}/${revision.version}/undo-review`,
+                {
+                  method: "POST",
+                },
+              );
+              await mutate();
+              await onRevisionMutate?.();
+            }
+          : undefined
+      }
     />
   );
 };

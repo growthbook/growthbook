@@ -23,3 +23,10 @@ export type {
   ParamClassification,
   ParamSensitivity,
 } from "./datasource-params";
+
+export type { DataRegion } from "./data-regions";
+
+export {
+  getDefaultMaxConcurrentQueries,
+  getMaxConcurrentQueriesLimit,
+} from "./datasource-concurrency";

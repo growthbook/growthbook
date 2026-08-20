@@ -62,7 +62,7 @@ export function isGrowthBookTelemetryDebug(): boolean {
 }
 
 export function getIngestorHost(): string {
-  return INGESTOR_HOST || "https://us1.gb-ingest.com";
+  return INGESTOR_HOST || "https://us-east-1.gb-ingest.com";
 }
 
 // Default to true
@@ -347,7 +347,15 @@ if ((prod || !IS_LOCALHOST) && secretAPIKey === "dev") {
 }
 export const SECRET_API_KEY = secretAPIKey;
 
+// Fallback provider API keys, so a self-hosted install can be configured
+// entirely from the environment. See services/aiCredentials.ts for precedence.
+export const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
+export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
+export const XAI_API_KEY = process.env.XAI_API_KEY || "";
+export const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY || "";
+export const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY || "";
 // Gemini (Google AI Studio) — used by the visual editor's image-gen endpoint.
+// GEMINI_API_KEY is the legacy name for GOOGLE_AI_API_KEY.
 export const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 // Pin a specific model ID — if your key returns 404, hit
 // /v1beta/models to find an ID your account has access to and override.

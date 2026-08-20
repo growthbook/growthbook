@@ -68,7 +68,7 @@ export default function PrerequisiteStatusRow({
   colWidth = 120,
 }: Props) {
   const permissionsUtil = usePermissionsUtil();
-  const canEdit = permissionsUtil.canViewFeatureModal(feature.project);
+  const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);

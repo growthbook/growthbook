@@ -1,12 +1,12 @@
-import type { AIModel, AIProvider } from "shared/ai";
-import { AI_PROVIDER_MODEL_MAP } from "shared/ai";
+import type { AIModel, AIProvider, EmbeddingModel } from "shared/ai";
 import {
-  hasOpenAIKey,
-  hasAnthropicKey,
-  hasXaiKey,
-  hasMistralKey,
-  hasGoogleAIKey,
-} from "@/services/env";
+  AI_IMAGE_MODELS,
+  AI_PROVIDER_MODEL_MAP,
+  DEFAULT_EMBEDDING_MODEL,
+  getImageModelMeta,
+  getProviderForAIModel,
+} from "shared/ai";
+import { ensureValuesExactlyMatchUnion } from "shared/util";
 
 type FlatOption = { value: string; label: string };
 type GroupedOption = { label: string; options: FlatOption[] };
@@ -82,46 +82,185 @@ export const AI_MODEL_DISPLAY_LABELS: Record<AIModel, string> = {
   "gemini-pro-latest": "Gemini Pro Latest",
 };
 
-function hasKeyForProvider(provider: AIProvider): boolean {
-  if (provider === "openai") return hasOpenAIKey();
-  if (provider === "anthropic") return hasAnthropicKey();
-  if (provider === "xai") return hasXaiKey();
-  if (provider === "mistral") return hasMistralKey();
-  if (provider === "google") return hasGoogleAIKey();
-  return false;
+/** Embedding models, labeled with the provider that serves them. */
+export const EMBEDDING_MODEL_OPTIONS =
+  ensureValuesExactlyMatchUnion<EmbeddingModel>()([
+    // OpenAI embeddings
+    {
+      value: "text-embedding-3-small",
+      label: "OpenAI: text-embedding-3-small",
+    },
+    {
+      value: "text-embedding-3-large",
+      label: "OpenAI: text-embedding-3-large",
+    },
+    {
+      value: "text-embedding-ada-002",
+      label: "OpenAI: text-embedding-ada-002",
+    },
+    // Mistral embeddings
+    { value: "mistral-embed", label: "Mistral: mistral-embed" },
+    { value: "codestral-embed", label: "Mistral: codestral-embed" },
+    // Google embeddings
+    { value: "text-embedding-005", label: "Google: text-embedding-005" },
+    {
+      value: "text-multilingual-embedding-002",
+      label: "Google: text-multilingual-embedding-002",
+    },
+    { value: "gemini-embedding-001", label: "Google: gemini-embedding-001" },
+  ]);
+
+function withSelectedOption<T extends FlatOption | GroupedOption>(
+  options: T[],
+  selected: string | undefined,
+  label: (value: string) => string,
+): (T | GroupedOption)[] {
+  if (!selected) return options;
+  const present = options.some((o) =>
+    "options" in o
+      ? o.options.some((s) => s.value === selected)
+      : o.value === selected,
+  );
+  if (present) return options;
+  return [
+    {
+      label: "Selected, no API key",
+      options: [{ value: selected, label: label(selected) }],
+    },
+    ...options,
+  ];
+}
+
+export function getAvailableAIModelOptions(
+  availableProviders: readonly AIProvider[] | undefined,
+  selectedModel?: string,
+): (FlatOption | GroupedOption)[] {
+  const allProviders = Object.keys(AI_PROVIDER_MODEL_MAP) as AIProvider[];
+
+  const filtered =
+    availableProviders === undefined
+      ? allProviders
+      : allProviders.filter((p) => availableProviders.includes(p));
+
+  const providers = filtered.length > 0 ? filtered : allProviders;
+
+  const groups = providers
+    .map((provider) => ({
+      label: PROVIDER_DISPLAY_NAMES[provider],
+      options: AI_PROVIDER_MODEL_MAP[provider].map((value) => ({
+        value,
+        label: AI_MODEL_DISPLAY_LABELS[value as AIModel] ?? value,
+      })),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  return withSelectedOption(
+    groups,
+    selectedModel,
+    (value) => AI_MODEL_DISPLAY_LABELS[value as AIModel] ?? value,
+  );
 }
 
 /**
- * Returns model options filtered to providers with configured API keys, always
- * grouped by provider. Falls back to showing all models if no keys are configured yet.
+ * "Leave this unset and inherit the default" — the same entry, worded the same
+ * way, in every model picker. What it inherits differs by field (the org
+ * default, or GrowthBook's managed model for the org default itself), but to
+ * the person choosing it always means "I'm not picking one".
  */
-export function getAvailableAIModelOptions(): GroupedOption[] {
-  const allProviders = Object.keys(AI_PROVIDER_MODEL_MAP) as AIProvider[];
-  const availableProviders = allProviders.filter(hasKeyForProvider);
+export const USE_DEFAULT_MODEL_OPTION = {
+  value: "",
+  label: "Use default AI model",
+};
 
-  // Fall back to all providers if none have keys yet (e.g., during initial setup)
-  const providers =
-    availableProviders.length > 0 ? availableProviders : allProviders;
+/** Names the embedding fallback: "default AI model" reads as the chat model. */
+export const USE_DEFAULT_EMBEDDING_MODEL_OPTION = {
+  value: "",
+  label: `Use default (${DEFAULT_EMBEDDING_MODEL})`,
+};
 
-  return providers.map((provider) => ({
-    label: PROVIDER_DISPLAY_NAMES[provider],
-    options: AI_PROVIDER_MODEL_MAP[provider].map((value) => ({
-      value,
-      label: AI_MODEL_DISPLAY_LABELS[value as AIModel] ?? value,
-    })),
-  }));
+/**
+ * Clears the org's own default and hands the choice back to GrowthBook. Always
+ * offered on Cloud — it is the only way back once a model is pinned, or once
+ * the pinned one's provider key is removed.
+ */
+export const GROWTHBOOK_DEFAULT_MODEL_OPTION = {
+  value: "",
+  label: "GrowthBook default model",
+};
+
+/** Display name for any model id — text, image or embedding. */
+export function getModelDisplayLabel(model: string): string {
+  return (
+    AI_MODEL_DISPLAY_LABELS[model as AIModel] ??
+    getImageModelMeta(model)?.label ??
+    EMBEDDING_MODEL_OPTIONS.find((o) => o.value === model)?.label ??
+    model
+  );
 }
 
 /**
  * Per-prompt model override options with an "org default" sentinel prepended.
  * Filtered and grouped the same way as getAvailableAIModelOptions().
  */
-export function getAvailablePromptModelOptions(): (
-  | FlatOption
-  | GroupedOption
-)[] {
+export function getAvailablePromptModelOptions(
+  availableProviders: readonly AIProvider[] | undefined,
+  selectedModel?: string,
+): (FlatOption | GroupedOption)[] {
   return [
-    { value: "", label: "-- Use Default AI Model --" },
-    ...getAvailableAIModelOptions(),
+    USE_DEFAULT_MODEL_OPTION,
+    ...getAvailableAIModelOptions(availableProviders, selectedModel),
   ];
+}
+
+/**
+ * Image-generation model options, filtered like getAvailableAIModelOptions().
+ * Grouped by reference-image support rather than by provider: that capability
+ * decides whether the Visual Editor's "use current image" flow works at all.
+ * The leading "use default" entry always stays — it needs no key of its own.
+ */
+export function getAvailableImageModelOptions(
+  availableProviders: readonly AIProvider[] | undefined,
+  selectedModel?: string,
+): (FlatOption | GroupedOption)[] {
+  const models =
+    availableProviders === undefined
+      ? AI_IMAGE_MODELS
+      : AI_IMAGE_MODELS.filter((m) => availableProviders.includes(m.provider));
+
+  const group = (label: string, supportsReferenceImage: boolean) => {
+    const options = models
+      .filter((m) => m.supportsReferenceImage === supportsReferenceImage)
+      .map((m) => ({ value: m.id, label: m.label }));
+    return options.length ? [{ label, options }] : [];
+  };
+
+  return withSelectedOption(
+    [
+      { value: "", label: "Use default (Gemini 2.5 Flash Image)" },
+      ...group("Supports reference image", true),
+      ...group("Text prompt only", false),
+    ],
+    selectedModel,
+    (value) => getImageModelMeta(value)?.label ?? value,
+  );
+}
+
+export function getAvailableEmbeddingModelOptions(
+  availableProviders: readonly AIProvider[] | undefined,
+  selectedModel?: string,
+): (FlatOption | GroupedOption)[] {
+  const options =
+    availableProviders === undefined
+      ? EMBEDDING_MODEL_OPTIONS
+      : EMBEDDING_MODEL_OPTIONS.filter((o) => {
+          const provider = getProviderForAIModel("embedding", o.value);
+          return provider === null || availableProviders.includes(provider);
+        });
+
+  return withSelectedOption(
+    [USE_DEFAULT_EMBEDDING_MODEL_OPTION, ...options],
+    selectedModel,
+    (value) =>
+      EMBEDDING_MODEL_OPTIONS.find((o) => o.value === value)?.label ?? value,
+  );
 }
