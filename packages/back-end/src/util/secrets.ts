@@ -119,17 +119,6 @@ if (MONGODB_URI.match(/:27017(\/)?$/)) {
 }
 export { MONGODB_URI };
 
-export const MONGODB_SOCKET_TIMEOUT_MS = parseEnvInt(
-  process.env.MONGODB_SOCKET_TIMEOUT_MS,
-  0,
-  { min: 0, name: "MONGODB_SOCKET_TIMEOUT_MS" },
-);
-export const MONGODB_WAIT_QUEUE_TIMEOUT_MS = parseEnvInt(
-  process.env.MONGODB_WAIT_QUEUE_TIMEOUT_MS,
-  0,
-  { min: 0, name: "MONGODB_WAIT_QUEUE_TIMEOUT_MS" },
-);
-
 const RAW_APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
 export const APP_ORIGIN = RAW_APP_ORIGIN.replace(/\/+$/, "");
 export const IS_LOCALHOST = APP_ORIGIN.startsWith("http://localhost:");
