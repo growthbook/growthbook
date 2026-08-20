@@ -1,10 +1,33 @@
 ---
-title: Setting up Heap as an event tracker
-description: This document outlines the steps needed to add your Heap to GrowthBook.
+title: Setting Up Heap as an Event Tracker
+description: Send experiment exposure events to Heap, export Heap to a warehouse, then connect that warehouse to GrowthBook for analysis.
 sidebarTitle: Heap
 slug: heap
 ---
 
-import { MissingEventTrackerDocs } from "/snippets/event-trackers/missing-event-tracker-docs.mdx";
+import DefaultInstructions from "/snippets/event-trackers/_default-event-instructions.mdx";
 
-<MissingEventTrackerDocs eventTracker="Heap" slug="heap" />
+GrowthBook does not query Heap directly. Track experiment exposure in Heap, export those events to a warehouse, then connect the warehouse as a data source.
+
+## Exposure tracking
+
+Fire an `experiment_viewed` event from the GrowthBook SDK `trackingCallback`. Heap's default SQL in GrowthBook looks for a table with that name.
+
+```js
+trackingCallback: (experiment, result) => {
+  heap.track("experiment_viewed", {
+    experiment_id: experiment.key,
+    variation_id: result.key,
+  });
+};
+```
+
+If you use a different event name, set **Experiment exposure event name** when you add the data source in GrowthBook.
+
+## Export Heap to a warehouse
+
+Heap syncs to BigQuery, Redshift, Snowflake, Presto, Athena, and Databricks. See [Heap's data warehouse integrations](https://help.heap.io/category/integrations/data-warehouses/).
+
+After the export is running, add that warehouse in GrowthBook and choose **Heap** as the event tracker so default assignment SQL is generated for you.
+
+<DefaultInstructions eventTracker="Heap" slug="heap" />

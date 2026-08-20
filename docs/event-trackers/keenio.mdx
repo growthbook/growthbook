@@ -1,10 +1,31 @@
 ---
-title: Setting up KeenIO as an event tracker
-description: This document outlines the steps needed to add your KeenIO to GrowthBook.
-sidebarTitle: KeenIO
+title: Setting Up Keen IO as an Event Tracker
+description: Stream Keen IO events to S3 or a warehouse, send experiment exposure from the SDK, then connect that warehouse to GrowthBook.
+sidebarTitle: Keen IO
 slug: keenio
 ---
 
-import { MissingEventTrackerDocs } from "/snippets/event-trackers/missing-event-tracker-docs.mdx";
+import DefaultInstructions from "/snippets/event-trackers/_default-event-instructions.mdx";
 
-<MissingEventTrackerDocs eventTracker="KeenIO" slug="keenio" />
+GrowthBook does not query Keen IO directly. Track experiment exposure with the Keen SDK, export the event stream to a warehouse GrowthBook can query, then connect that warehouse as a data source.
+
+## Exposure tracking
+
+Record an experiment exposure event from the GrowthBook SDK `trackingCallback`.
+
+```js
+trackingCallback: (experiment, result) => {
+  keenClient.recordEvent("experiment_viewed", {
+    experiment_id: experiment.key,
+    variation_id: result.key,
+  });
+};
+```
+
+## Export Keen IO to a warehouse
+
+Keen IO can stream events to Amazon S3. From there, query the files with Athena, Presto, or Databricks. See [Keen IO's Amazon S3 streaming](https://keen.io/docs/streams/extended-functionality/amazon-s3/).
+
+After the export is running, add Athena, Presto, or Databricks in GrowthBook and choose **Keen IO** as the event tracker. You will likely need to edit the assignment SQL to match your S3 table layout.
+
+<DefaultInstructions eventTracker="Keen IO" slug="keenio" />

@@ -1,10 +1,35 @@
 ---
-title: Setting up MParticle as an event tracker
-description: This document outlines the steps needed to add your MParticle to GrowthBook.
-sidebarTitle: MParticle
+title: Setting Up mParticle as an Event Tracker
+description: Export mParticle events to a warehouse, send experiment exposure from the SDK, then connect that warehouse to GrowthBook for analysis.
+sidebarTitle: mParticle
 slug: mparticle
 ---
 
-import { MissingEventTrackerDocs } from "/snippets/event-trackers/missing-event-tracker-docs.mdx";
+import DefaultInstructions from "/snippets/event-trackers/_default-event-instructions.mdx";
 
-<MissingEventTrackerDocs eventTracker="MParticle" slug="mparticle" />
+GrowthBook does not query mParticle directly. Track experiment exposure in mParticle, export those events to a warehouse, then connect the warehouse as a data source.
+
+## Exposure tracking
+
+Log an experiment exposure event from the GrowthBook SDK `trackingCallback`.
+
+```js
+trackingCallback: (experiment, result) => {
+  window.mParticle.logEvent(
+    "Experiment Viewed",
+    window.mParticle.EventType.Other,
+    {
+      experiment_id: experiment.key,
+      variation_id: result.key,
+    },
+  );
+};
+```
+
+## Export mParticle to a warehouse
+
+mParticle forwards events to BigQuery, Snowflake, Presto, Athena, Redshift, and Databricks. See [mParticle's business intelligence integrations](https://docs.mparticle.com/integrations/?category=Business%20Intelligence).
+
+After the export is running, add that warehouse in GrowthBook and choose **mParticle** as the event tracker. You may need to adjust the generated SQL to match your mParticle output tables.
+
+<DefaultInstructions eventTracker="mParticle" slug="mparticle" />

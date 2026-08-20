@@ -1,10 +1,33 @@
 ---
-title: Setting up Jitsu as an event tracker
-description: This document outlines the steps needed to add your Jitsu to GrowthBook.
+title: Setting Up Jitsu as an Event Tracker
+description: Send experiment exposure events through Jitsu to your warehouse, then connect that warehouse to GrowthBook for analysis.
 sidebarTitle: Jitsu
 slug: jitsu
 ---
 
-import { MissingEventTrackerDocs } from "/snippets/event-trackers/missing-event-tracker-docs.mdx";
+import DefaultInstructions from "/snippets/event-trackers/_default-event-instructions.mdx";
 
-<MissingEventTrackerDocs eventTracker="Jitsu" slug="jitsu" />
+GrowthBook does not query Jitsu directly. Track experiment exposure with the Jitsu SDK, land those events in a warehouse, then connect the warehouse as a data source.
+
+## Exposure tracking
+
+Jitsu uses the same event shape as Segment. Fire `experiment_viewed` from the GrowthBook SDK `trackingCallback`.
+
+```js
+trackingCallback: (experiment, result) => {
+  jitsu.track("experiment_viewed", {
+    experiment_id: experiment.key,
+    variation_id: result.key,
+  });
+};
+```
+
+If you use a different event name, set **Experiment event name** when you add the data source in GrowthBook.
+
+## Send Jitsu events to a warehouse
+
+Jitsu can write to BigQuery, Snowflake, Athena, Redshift, Postgres, Vertica, ClickHouse, MySQL, and Databricks. See [Jitsu warehouse destinations](https://docs.jitsu.com/category/warehouses).
+
+After events land in the warehouse, add that warehouse in GrowthBook and choose **Jitsu** as the event tracker. GrowthBook generates Segment-style assignment SQL for Jitsu.
+
+<DefaultInstructions eventTracker="Jitsu" slug="jitsu" />
