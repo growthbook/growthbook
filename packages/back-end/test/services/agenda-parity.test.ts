@@ -125,6 +125,7 @@ describe("agenda v5 vs v6 parity", () => {
 
   afterAll(async () => {
     await mongod.stop();
+    await new Promise((r) => setTimeout(r, 200));
   });
 
   const versions: AgendaVersion[] = ["v5", "v6"];
@@ -160,7 +161,7 @@ describe("agenda v5 vs v6 parity", () => {
     });
 
     it("dedupes with unique() on a top-level key", async () => {
-      const { agenda, db } = factory!;
+      const { agenda, db } = factory;
       agenda.define("parity-uniq-top", async () => undefined);
       const a = agenda.create("parity-uniq-top", { experimentId: "e1" });
       a.unique({ experimentId: "e1" });
@@ -177,7 +178,7 @@ describe("agenda v5 vs v6 parity", () => {
     });
 
     it("dedupes with unique() on a data.* key", async () => {
-      const { agenda, db } = factory!;
+      const { agenda, db } = factory;
       agenda.define("parity-uniq-data", async () => undefined);
       const a = agenda.create("parity-uniq-data", { experimentId: "e2" });
       a.unique({ "data.experimentId": "e2" });
@@ -194,7 +195,7 @@ describe("agenda v5 vs v6 parity", () => {
     });
 
     it("creates a single repeating job with unique({}) + repeatEvery", async () => {
-      const { agenda, db } = factory!;
+      const { agenda, db } = factory;
       agenda.define("parity-repeat", async () => undefined);
       const job = agenda.create("parity-repeat", {});
       job.unique({});
@@ -215,7 +216,7 @@ describe("agenda v5 vs v6 parity", () => {
     });
 
     it("emits fail:<name> with job.attrs", async () => {
-      const { agenda } = factory!;
+      const { agenda } = factory;
       let failJob: { attrs?: { name?: string; data?: unknown } } | null = null;
       agenda.define("parity-boom", async () => {
         throw new Error("nope");
@@ -233,7 +234,7 @@ describe("agenda v5 vs v6 parity", () => {
     });
 
     it("accepts define with concurrency/lockLimit options", async () => {
-      const { agenda } = factory!;
+      const { agenda } = factory;
       const seen: number[] = [];
       if (version === "v5") {
         agenda.define(
@@ -261,7 +262,7 @@ describe("agenda v5 vs v6 parity", () => {
     });
 
     it("supports createIndex for deleteOldAgendaJobs", async () => {
-      const { db } = factory!;
+      const { db } = factory;
       await db
         .collection("agendaJobs")
         .createIndex({ lastFinishedAt: 1, nextRunAt: 1 });
@@ -275,7 +276,7 @@ describe("agenda v5 vs v6 parity", () => {
     });
 
     it("deletes finished non-repeating jobs older than one week", async () => {
-      const { db } = factory!;
+      const { db } = factory;
       const collection = db.collection("agendaJobs");
       const old = new Date(Date.now() - 8 * 24 * 3600 * 1000);
       await collection.insertMany([

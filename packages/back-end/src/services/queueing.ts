@@ -73,9 +73,10 @@ export async function initAgenda(): Promise<Agenda> {
 
   initPromise = (async () => {
     const { Agenda } = await import("agenda");
-    const { MongoBackend } = await import("@agendajs/mongo-backend");
-    // Separate mongodb@6 client for Agenda (mongoose keeps its nested driver).
-    const { MongoClient } = await import("mongodb");
+    // MongoClient here is mongodb@6 (mongo-backend peer). App `mongodb` stays on v4.
+    const { MongoBackend, MongoClient } = await import(
+      "@agendajs/mongo-backend"
+    );
 
     if (!mongoose.connection.db) {
       throw new Error("initAgenda requires an established mongoose connection");
