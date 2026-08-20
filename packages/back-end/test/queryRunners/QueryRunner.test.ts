@@ -1107,6 +1107,65 @@ describe("QueryRunner", () => {
       expect(runner.updateModelSpy).not.toHaveBeenCalled();
     });
 
+    it("restores cached query statuses after an incomplete refresh reloads stale pointers", async () => {
+      jest.useFakeTimers();
+      try {
+        const persistedQueries: Queries = [
+          { name: "a", query: "qry_a", status: "running" },
+          { name: "b", query: "qry_b", status: "running" },
+          { name: "c", query: "qry_c", status: "succeeded" },
+        ];
+        const runner = new StallTestQueryRunner(
+          mockContext,
+          makeModel([]),
+          mockIntegration,
+        );
+        await runner.startAnalysis({
+          pointers: persistedQueries.map((pointer) => ({ ...pointer })),
+        });
+        runner.updateModelSpy.mockClear();
+        runner.getLatestModelImpl = () =>
+          Promise.resolve(
+            makeModel(persistedQueries.map((pointer) => ({ ...pointer }))),
+          );
+
+        const getQueriesByIdsMock = jest.mocked(getQueriesByIds);
+        getQueriesByIdsMock
+          .mockResolvedValueOnce([
+            createMockQuery("qry_a", "succeeded"),
+            createMockQuery("qry_b", "succeeded"),
+          ])
+          .mockResolvedValueOnce([createMockQuery("qry_c", "succeeded")]);
+
+        await jest.advanceTimersByTimeAsync(1000);
+
+        expect(runner.status).toBe("running");
+        expect(runner.runAnalysisSpy).not.toHaveBeenCalled();
+        expect(runner.updateModelSpy).not.toHaveBeenCalled();
+
+        await jest.advanceTimersByTimeAsync(300000);
+
+        expect(getQueriesByIdsMock).toHaveBeenNthCalledWith(2, mockContext, [
+          "qry_c",
+        ]);
+        expect(runner.runAnalysisSpy).toHaveBeenCalledTimes(1);
+        expect(runner.updateModelSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            status: "succeeded",
+            queries: expect.arrayContaining([
+              expect.objectContaining({ name: "a", status: "succeeded" }),
+              expect.objectContaining({ name: "b", status: "succeeded" }),
+              expect.objectContaining({ name: "c", status: "succeeded" }),
+            ]),
+          }),
+        );
+        expect(runner.status).toBe("finished");
+      } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+      }
+    });
+
     it("retries a dropped refresh via the watchdog and finalizes", async () => {
       jest.useFakeTimers();
       try {
@@ -1292,6 +1351,59 @@ describe("QueryRunner", () => {
             .filter((p) => p.status === "failed").length,
         ).toBe(0);
       } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+      }
+    });
+
+    it("waits for terminal error persistence before reporting completion", async () => {
+      jest.useFakeTimers();
+      let resolveWrite: () => void = () => {
+        throw new Error("write promise was not initialized");
+      };
+      const writeFinished = new Promise<void>((resolve) => {
+        resolveWrite = resolve;
+      });
+      try {
+        class DeferredWriteRunner extends StallTestQueryRunner {
+          public writeErrorSpy = jest.fn();
+
+          protected override async writeErrorIfStillActive(
+            error: string,
+          ): Promise<void> {
+            this.writeErrorSpy(error);
+            await writeFinished;
+          }
+        }
+
+        const runner = new DeferredWriteRunner(
+          mockContext,
+          makeModel([]),
+          mockIntegration,
+        );
+        await runner.startAnalysis({
+          pointers: [{ name: "a", query: "qry_a", status: "running" }],
+        });
+        jest.mocked(getQueriesByIds).mockRejectedValue(new Error("mongo down"));
+        const completion = runner.waitForResults().then(
+          () => "resolved",
+          () => "rejected",
+        );
+
+        for (let i = 0; i < 5; i++) {
+          await jest.advanceTimersByTimeAsync(302000);
+        }
+
+        expect(runner.writeErrorSpy).toHaveBeenCalledTimes(1);
+        expect(runner.status).toBe("running");
+
+        resolveWrite();
+
+        await expect(completion).resolves.toBe("rejected");
+        expect(runner.status).toBe("finished");
+      } finally {
+        resolveWrite();
+        await Promise.resolve();
         jest.clearAllTimers();
         jest.useRealTimers();
       }

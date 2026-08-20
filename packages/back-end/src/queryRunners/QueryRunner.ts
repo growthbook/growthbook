@@ -21,6 +21,7 @@ import {
   updateQueryIfRunning,
 } from "back-end/src/models/QueryModel";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { ReqContext } from "back-end/types/request";
@@ -383,20 +384,23 @@ export abstract class QueryRunner<
     });
   }
 
-  /** Clear timers, best-effort persist the error, and finish the runner. */
-  private shutDownWithError(error: string): void {
+  /** Clear timers, persist the error, and finish the runner. */
+  private async shutDownWithError(error: string): Promise<void> {
+    this.stopRefreshWatchdog();
     if (this.timer) {
       clearTimeout(this.timer);
       this.timer = null;
     }
     this.clearAllTimers();
     const fullError = "Error finalizing query results: " + error;
-    this.writeErrorIfStillActive(fullError).catch((writeErr) => {
+    try {
+      await this.writeErrorIfStillActive(fullError);
+    } catch (writeErr) {
       logger.error(
         writeErr,
         "Failed to persist error status for runner of " + this.model.id,
       );
-    });
+    }
     this.setStatus("finished", fullError);
   }
 
@@ -404,7 +408,7 @@ export abstract class QueryRunner<
   private queueRefreshPass(): void {
     this.refreshChain = this.refreshChain
       .then(() => this.runRefreshPass())
-      .catch((e) => {
+      .catch(async (e) => {
         // Keep the chain alive; count toward the failure budget.
         if (this.isFinished()) return;
         this.consecutiveRefreshFailures++;
@@ -415,7 +419,7 @@ export abstract class QueryRunner<
         if (
           this.consecutiveRefreshFailures >= MAX_CONSECUTIVE_REFRESH_FAILURES
         ) {
-          this.shutDownWithError(e instanceof Error ? e.message : String(e));
+          await this.shutDownWithError(getErrorMessage(e));
         }
       });
   }
@@ -482,7 +486,7 @@ export abstract class QueryRunner<
             return;
           }
           // Call updateModel so locks (e.g. aggregated fact tables) release.
-          this.shutDownWithError(e instanceof Error ? e.message : String(e));
+          await this.shutDownWithError(getErrorMessage(e));
           return;
         }
         logger.warn(
@@ -524,7 +528,7 @@ export abstract class QueryRunner<
           e,
           "Error refreshing query statuses for runner of " + this.model.id,
         );
-        this.shutDownWithError(e instanceof Error ? e.message : String(e));
+        await this.shutDownWithError(getErrorMessage(e));
       }
     } finally {
       this.refreshStartedAt = null;
@@ -1296,37 +1300,47 @@ export abstract class QueryRunner<
     hasChanges: boolean;
     queryMap: QueryMap;
   }> {
-    // No need to re-fetch finished queries
+    // Reuse matching result-bearing successes; re-fetch the rest so partial reads can recover.
+    const queryMap: QueryMap = new Map();
+    for (const pointer of this.model.queries) {
+      const queryId = pointer.query;
+      const cachedQuery = this.finishedQueryMapCache.get(pointer.name);
+      if (cachedQuery?.id === queryId) {
+        queryMap.set(pointer.name, cachedQuery);
+      }
+    }
+
     const idsToFetch = this.model.queries
-      .filter((p) => !this.finishedQueryMapCache.has(p.name))
+      .filter((pointer) => !queryMap.has(pointer.name))
       .map((p) => p.query);
 
     const queries = await getQueriesByIds(this.context, idsToFetch);
 
-    let hasChanges = false;
-    const queryMap: QueryMap = new Map(this.finishedQueryMapCache);
-    queries.forEach((query) => {
-      // Update pointer status to match query status
-      const pointer = this.model.queries.find((p) => p.query === query.id);
+    queries.forEach((queryDoc) => {
+      const pointer = this.model.queries.find((p) => p.query === queryDoc.id);
       if (!pointer) return;
 
-      // Build a query map based on the pointer name
-      queryMap.set(pointer.name, query);
-
-      if (pointer.status !== query.status) {
-        hasChanges = true;
-        pointer.status = query.status;
-      }
+      queryMap.set(pointer.name, queryDoc);
 
       // Cache succeeded queries that still carry their stored result. Partial
       // reads are left uncached so the next pass re-reads them.
       if (
-        query.status === "succeeded" &&
-        query.result !== undefined &&
-        query.result !== null
+        queryDoc.status === "succeeded" &&
+        queryDoc.result !== undefined &&
+        queryDoc.result !== null
       ) {
-        this.finishedQueryMapCache.set(pointer.name, query);
+        this.finishedQueryMapCache.set(pointer.name, queryDoc);
       }
+    });
+
+    let hasChanges = false;
+    this.model.queries.forEach((pointer) => {
+      const queryDoc = queryMap.get(pointer.name);
+      if (!queryDoc || pointer.status === queryDoc.status) {
+        return;
+      }
+      hasChanges = true;
+      pointer.status = queryDoc.status;
     });
 
     return {
