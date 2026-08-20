@@ -42,8 +42,7 @@ export function collectRevisionGovernanceGates({
     ? adapter.isApprovalRequiredForRevision(context, revision)
     : adapter.isApprovalRequired(context);
   // Coverage, not just status: an approval given while the change was narrower
-  // does not sanction what it would land now. Same predicate the sequential
-  // publish path uses, so the gate model and the backstop cannot disagree.
+  // does not sanction what it would land now. Same predicate as the backstop.
   const coverage = revisionApprovalsCoverChange(context, revision);
   const approvedAndCovered =
     revision.status === "approved" && coverage.hasCoveringApproval;

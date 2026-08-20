@@ -9,9 +9,8 @@ const ATOM_SUFFIX: Record<string, string> = {
 };
 
 describe("publish footprint covers every environment-scoped family", () => {
-  // resolvePublishFootprint returns [] both for a deliberate "unscoped" change
-  // and for an adapter that never implemented publishFootprint. [] skips the
-  // environment check, so the second case must stay impossible.
+  // [] means both "deliberately unscoped" and "adapter never implemented it", and
+  // [] skips the environment check — so the second case must stay impossible.
   it.each(revisionTargetType)(
     "%s: implements publishFootprint, or has no env-scoped permission",
     (type) => {

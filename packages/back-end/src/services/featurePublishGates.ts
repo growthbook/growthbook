@@ -92,9 +92,8 @@ export type RevisionApprovalState = {
   satisfied: boolean;
 };
 
-// The environment set every feature publish/review decision expands "all"
-// markers against: the org's environments filtered to the feature's projects.
-// One definition, so no flow can quietly answer against a wider or narrower set.
+// The set every feature publish/review decision expands "all" markers against:
+// org environments filtered to the feature. One definition, no drift.
 export function featurePublishEnvironmentIds(
   org: Context["org"],
   feature: FeatureInterface,
@@ -123,9 +122,8 @@ export function assessRevisionApproval({
   base: FeatureRevisionInterface;
   liveRampScheduleEnvs?: Map<string, string[] | "all">;
 }): RevisionApprovalState {
-  // Derived here, not taken from the caller: the autostart path once passed
-  // the org's full list and judged review against environments the feature
-  // cannot serve.
+  // Derived, not caller-supplied: the autostart path once passed the org's
+  // full list and judged review against environments the feature cannot serve.
   const environmentIds = featurePublishEnvironmentIds(context.org, feature);
   const reviewRequirement = getRevisionReviewRequirement({
     feature,

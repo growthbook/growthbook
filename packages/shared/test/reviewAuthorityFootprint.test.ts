@@ -196,9 +196,7 @@ describe("review authority footprint", () => {
 });
 
 // Publish drops environments the flag is off in; review must not. A rule edited
-// while production is off still applies there once production is switched on, and
-// the enabling draft's diff no longer contains that rule — so the environment has
-// to be in the review footprint while the rule is still reviewable.
+// while production is off still applies once it is on — review it while it shows.
 describe("review authority stays wider than publish", () => {
   const withProdOff = (over: Partial<RevisionFields> = {}) =>
     base({
@@ -220,9 +218,8 @@ describe("review authority stays wider than publish", () => {
     });
   });
 
-  // A rule spanning every environment reads as a global change, so review asks for
-  // authority everywhere — which covers the disabled environment too, where publish
-  // now asks only for dev and staging.
+  // A rule spanning every environment reads as global, so review asks for
+  // authority everywhere — the disabled environment included.
   it("asks for everywhere on a rule that spans on and off envs", () => {
     const spanning = {
       id: "r_all",

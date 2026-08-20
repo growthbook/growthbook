@@ -3116,9 +3116,8 @@ describe("reset review on change", () => {
         },
       ],
     };
-    // The second rule gates every environment (empty list), so staging is covered
-    // by it. This read `false` only because resolution stopped at the first
-    // matching rule; the fold now consults both.
+    // The second rule gates every environment (empty list), so staging is covered.
+    // It read `false` only because resolution stopped at the first matching rule.
     expect(
       resetReviewOnChange({
         feature,

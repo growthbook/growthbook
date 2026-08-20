@@ -15,10 +15,8 @@ import {
   savedGroupRuleDefaults,
 } from "@/components/GeneralSettings/approvalScopes";
 
-// Read-only on purpose. A rule can govern several Projects at once, so editing it
-// from one Project's page would either change the others silently or fork the
-// rule behind the reader's back. Rendered with the same fields as the editor so
-// the two cannot drift.
+// Read-only on purpose: a rule can govern several Projects, so editing it here
+// would change the others silently. Same fields as the editor, so no drift.
 export default function ProjectApprovalSettings({
   project,
   projectName,

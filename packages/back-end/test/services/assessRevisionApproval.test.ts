@@ -175,10 +175,8 @@ describe("assessRevisionApproval", () => {
   });
 });
 
-// The environment set is derived from the feature, never caller-supplied. A
-// feature whose project excludes an environment must not have changes judged
-// against that environment — the autostart path once passed the org's full
-// list and disagreed with manual publish on both questions below.
+// The environment set is derived from the feature, never caller-supplied — the
+// autostart path once passed the org's full list and disagreed with manual publish.
 describe("environment applicability drives the answer", () => {
   // production is reserved for another project; only dev can serve prj_mine.
   const scopedEnvContext = (ruleEnvs: string[], approverEnvs?: string[]) => {
@@ -254,10 +252,8 @@ describe("environment applicability drives the answer", () => {
     expect(result.requiresReview).toBe(expected);
   });
 
-  // A global change footprints as "everywhere" — a sentinel, deliberately NOT
-  // narrowed to the feature's world. An env-limited approver never covers it,
-  // even on a feature whose world matches their limit. Pinned so nobody
-  // "fixes" the sentinel by expanding it through the applicable set.
+  // A global change footprints as "everywhere" — deliberately never narrowed, so
+  // an env-limited approver cannot cover it even when the worlds match. Pinned.
   const approvedGlobalDraft = () =>
     revision({
       defaultValue: "true",

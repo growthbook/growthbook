@@ -3840,10 +3840,8 @@ export type EnvironmentApplicabilityScope = {
   targetingAllProjects?: boolean;
 };
 
-// The one definition of which environments can serve an entity: the union of
-// its primary and targeting projects, held against each environment's project
-// restriction. Every publish/review path expands "all environments" against
-// this set — a path using the org's full list answers a different question.
+// The one definition of which environments can serve an entity. Publish and
+// review expand "all environments" against this set, never the org's full list.
 export function environmentAppliesToScope(
   environment: Environment,
   scope: EnvironmentApplicabilityScope,
@@ -4475,10 +4473,8 @@ function requiresMetadataReview(
 }
 
 // `bases` unions live and the draft's base, so drift only ever demands more.
-//
 // Deliberately NOT narrowed to serving environments the way publish is: a rule
-// edited while an environment is off still applies once it is switched on, and
-// the enabling draft's diff no longer shows it.
+// edited while an environment is off still applies once it is switched on.
 export function getReviewAuthorityFootprint({
   revision,
   bases,

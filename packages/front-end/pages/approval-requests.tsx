@@ -372,9 +372,8 @@ const ApprovalRequests: FC = () => {
   const canReviewRow = useCallback(
     (row: ApprovalRow): boolean => {
       if (row.entityType === "feature") {
-        // "any" on purpose: this decides whether the row is visible, not whether
-        // it can be approved. Hiding a draft is worse than showing one you
-        // cannot fully approve — the review page states that per draft.
+        // "any" on purpose: this gates visibility, not approval. Hiding a draft
+        // is worse than showing one you cannot fully approve.
         return permissionsUtil.canReviewFeatureDrafts(
           { project: row.projects[0] ?? "" },
           { scope: "any" },

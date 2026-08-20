@@ -245,9 +245,8 @@ export type ApprovalFlowConfigurations = {
   savedGroups: ApprovalFlowConfiguration[];
 };
 
-// What the toggles resolve to for one entity. Team requirements are deliberately
-// absent: a multi-project entity is governed by several rules, and flattening
-// their team lists into one would turn "A and B" into "A or B".
+// Team requirements are deliberately absent here: a multi-project entity has
+// several governing rules, and flattening their teams turns "A and B" into "A or B".
 export type ApprovalFlowPolicy = Omit<
   ApprovalFlowConfiguration,
   "projects" | "requiredApproverTeams"

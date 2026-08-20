@@ -185,9 +185,8 @@ export async function publishFeatureRevision(
     }
   }
 
-  // Coverage, not just status — an approval given while the draft was narrower
-  // does not sanction what it changes now. Same condition the gate layer uses,
-  // so the backstop cannot disagree with it.
+  // Coverage, not just status: an approval given while the draft was narrower
+  // does not sanction what it changes now. Same condition as the gate layer.
   if (
     plan.requiresReview &&
     !(revision.status === "approved" && plan.hasCoveringApproval) &&

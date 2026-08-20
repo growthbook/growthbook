@@ -154,7 +154,6 @@ function mergeUserAndTeamPermissions(
     ...Object.keys(teamPermissions.projects),
   ]);
 
-  // Loop through that list of projects and merge the user and team permissions.
   // A project role beats a global one, so a principal without a project role
   // contributes nothing here rather than leaking its global permissions in.
   const noProjectRole = (): UserPermission => ({

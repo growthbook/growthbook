@@ -21,9 +21,8 @@ export const projectMemberRole = memberRoleInfo.safeExtend({
   project: z.string(),
 });
 
-// Two entries for the same project UNION rather than the second replacing the
-// first, so a duplicate grants more than whoever wrote it meant. `additionalRoles`
-// is how a scope carries more than one role.
+// Two entries for one project UNION rather than replace, granting more than was
+// meant. `additionalRoles` is how a scope carries more than one role.
 export const hasNoDuplicateProjects = (
   roles: { project: string }[] | undefined,
 ): boolean =>

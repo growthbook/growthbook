@@ -126,9 +126,8 @@ describe("what an override scope inherits", () => {
     expect(inherited?.autopublishOnApproval).toBe(true);
   });
 
-  // An override is a copy, so a fresh scope starts equal to the base rather than
-  // half-set — otherwise a new tab would read as "approval off" for a scope that
-  // in fact requires it.
+  // An override is a copy: a fresh scope starts equal to the base, otherwise a
+  // new tab reads as "approval off" for a scope that in fact requires it.
   it("clones the base rule for a scope with no rule of its own", () => {
     const base = {
       requireReviewOn: true,

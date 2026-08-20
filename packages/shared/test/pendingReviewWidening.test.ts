@@ -63,11 +63,8 @@ const coverageOf = (draft: RevisionFields, live: RevisionFields) =>
     approvers: [{ id: "u_sam", roleInfo: org.members[0] }],
   });
 
-/**
- * The sequence the older `resetReviewOnChange` / `clearReviews` machinery misses:
- * both act on a STATUS transition, and this edit never causes one. The refusal has
- * to come from re-deriving the footprint at publish instead.
- */
+// resetReviewOnChange and clearReviews both act on a STATUS transition, and this
+// edit never causes one — the refusal must come from re-deriving at publish.
 describe("a draft widened while already in pending-review", () => {
   const live = revision();
 

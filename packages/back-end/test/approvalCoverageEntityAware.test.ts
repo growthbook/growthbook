@@ -58,9 +58,8 @@ describe("coverage is judged by the entity's own review permission", () => {
 });
 
 describe("saved groups carry no environment requirement", () => {
-  // Saved-group review is declared scope: "project" because saved groups have no
-  // environment dimension. An unbound footprint must not demand unrestricted
-  // environment authority from them.
+  // Saved groups have no environment dimension (scope: "project"), so an unbound
+  // footprint must not demand unrestricted environment authority from them.
   it("counts an environment-limited approval on an unbound footprint", () => {
     const devOnly = org(["SavedGroupsReview", "FlagsReview"], ["dev"]);
 

@@ -1,7 +1,5 @@
-// These line the member tables up column-for-column, so a table missing Name
-// or Last Login hands that width to Email or its single date column instead.
-// Sums under 100% on purpose: the actions column is a fixed 50px, and a fixed
-// layout squeezes every column when the percentages leave it no room.
+// Lines the member tables up column-for-column. Sums under 100% on purpose:
+// actions is a fixed 50px, and a fixed layout squeezes when nothing is spare.
 export const MEMBER_COLUMN_WIDTHS = {
   name: "11%",
   email: "16%",

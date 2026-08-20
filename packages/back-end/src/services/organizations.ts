@@ -657,10 +657,8 @@ function assertRoleRuleValid(
   }
 }
 
-// The whole shape a member-role writer accepts: base rule, additional rules,
-// and project overrides with their own additional rules. Every writer —
-// member, invite, orphaned user, default role, REST — validates through here,
-// so no rule can ride in unchecked on one path that another path would refuse.
+// The whole shape a member-role writer accepts. Every human-payload writer
+// validates through here, so no rule rides in unchecked on just one path.
 export function assertMemberRoleInfoValid(
   organization: OrganizationInterface,
   roleInfo: RoleRuleInput & {

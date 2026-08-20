@@ -57,9 +57,8 @@ describe("one rule per project", () => {
   });
 });
 
-// The internal member/invite/default-role writes are AuthRequests with no zod
-// validation, so the schema refine above never runs on them. areProjectRolesValid
-// is the guard all three share.
+// The internal writers are AuthRequests with no zod validation, so the schema
+// refine never runs on them; assertMemberRoleInfoValid guards those paths now.
 describe("the internal write path rejects duplicates too", () => {
   const org = {
     customRoles: [

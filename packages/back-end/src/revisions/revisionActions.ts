@@ -129,7 +129,6 @@ export function canDoRevisionAction(
   // LIVE entity, because that is where the change lands. For draft/review prefer
   // `canRevisionOwnedAction`, which cannot be given the wrong one.
   snapshot: Record<string, unknown>,
-  // Review only; other actions resolve their own scope from the adapter.
   // Review only. `null` skips the env constraint for union checks that are not
   // sanctioning a change; omitted falls back to the adapter's own scope.
   environments?: string[] | null,

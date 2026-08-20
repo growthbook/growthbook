@@ -130,9 +130,8 @@ function HelpMultiSelect({
   disabled?: boolean;
   readOnly?: boolean;
 }) {
-  // A rule can name a team or environment that has since been deleted. The
-  // select drops unknown values silently, so the requirement stops applying with
-  // nothing on screen to say why.
+  // The select silently drops a team or environment that has been deleted, so
+  // the requirement stops applying with nothing on screen to say why.
   const missing = value.filter((v) => !options.some((o) => o.value === v));
   const chosen = value.map(
     (v) => options.find((o) => o.value === v)?.label ?? v,

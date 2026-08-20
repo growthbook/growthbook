@@ -34,10 +34,8 @@ Object.values(REVISION_PERMISSIONS).forEach((actions) =>
   }),
 );
 
-/**
- * What a role actually lets you do in an environment it covers. Empty for roles
- * that answer the environment question some other way, admins included.
- */
+// What a role lets you do in an environment it covers. Empty for roles that
+// answer the environment question some other way, admins included.
 export function envScopeLabels(
   roleId: string,
   org: Partial<OrganizationInterface>,
@@ -77,11 +75,8 @@ function ruleHasAccessToEnv(
   return "no";
 }
 
-/**
- * Additional rules grant alongside the base role, so access is the union: one
- * rule allowing the environment is enough, and the answer is only "not
- * applicable" when no rule is environment-scoped at all.
- */
+// Access is the union across base and additional rules: one rule allowing the
+// environment is enough, and "N/A" only when nothing is environment-scoped.
 export function roleHasAccessToEnv(
   role: MemberRoleInfo,
   env: string,
