@@ -2733,6 +2733,12 @@ describe("isFactMetricJoinable", () => {
     ).toBe(false);
   });
 
+  it("treats a metric with no resolvable fact tables as not joinable", () => {
+    expect(
+      isFactMetricJoinable(funnelOnTables(["", ""]), "user_id", getFactTable),
+    ).toBe(false);
+  });
+
   it("honors identity joins from datasource settings", () => {
     expect(
       isFactMetricJoinable(

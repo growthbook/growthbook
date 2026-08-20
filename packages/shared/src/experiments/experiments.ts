@@ -2601,7 +2601,10 @@ export function isFactMetricJoinable(
   ) => Pick<FactTableInterface, "userIdTypes"> | null | undefined,
   settings?: DataSourceSettings,
 ): boolean {
-  return getFactMetricFactTableIds(metric).every((factTableId) =>
+  const factTableIds = getFactMetricFactTableIds(metric);
+  // A malformed metric with no resolvable fact tables can't be queried.
+  if (!factTableIds.length) return false;
+  return factTableIds.every((factTableId) =>
     isMetricJoinable(
       getFactTable(factTableId)?.userIdTypes ?? [],
       userIdType,

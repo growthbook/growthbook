@@ -174,8 +174,16 @@ function getSafeRolloutMetricSettingsHash(
   if (!factMetric) {
     return hashObject(metricSettings ?? { id: metricId });
   }
+  // Unlike the experiment hash, this one never serialized funnelSettings, and
+  // standard metrics store null (which JSON.stringify keeps) — omit it so
+  // their hashes stay stable.
+  const { funnelSettings, ...definition } = getFactMetricDefinitionForHash(
+    factMetric,
+    factTableMap,
+  );
   return hashObject({
     ...metricSettings,
-    ...getFactMetricDefinitionForHash(factMetric, factTableMap),
+    ...definition,
+    ...(funnelSettings ? { funnelSettings } : {}),
   });
 }
