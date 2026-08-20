@@ -14,7 +14,6 @@ import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Portal from "@/components/Modal/Portal";
-import { useKeydown } from "@/hooks/useKeydown";
 import { isCloud } from "@/services/env";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
@@ -356,25 +355,6 @@ export default function NPSSurvey() {
     window.addEventListener("pagehide", flush);
     return () => window.removeEventListener("pagehide", flush);
   }, [visible, emitResponse, getValues]);
-
-  // Only dismiss when Escape isn't closing something else. Binding on window
-  // runs after overlays that preventDefault; the DOM check covers the ones that
-  // close on Escape without doing so.
-  useKeydown("Escape", (e) => {
-    if (!visible || e.defaultPrevented) return;
-    // The dismissed path drops unsent text, so Escape in the comment box would
-    // destroy the draft. For IME users Escape is just "cancel this conversion".
-    if (e.isComposing) return;
-    if ((e.target as HTMLElement | null)?.id === FEEDBACK_FIELD_ID) return;
-    if (
-      document.querySelector(
-        ".modal.show, [role=dialog][data-state=open], [role=menu][data-state=open]",
-      )
-    ) {
-      return;
-    }
-    handleClose();
-  });
 
   useEffect(
     () => () => {
