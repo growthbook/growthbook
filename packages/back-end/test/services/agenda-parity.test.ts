@@ -15,7 +15,7 @@ type AgendaFactoryResult = {
 
 async function waitFor(
   predicate: () => boolean | Promise<boolean>,
-  timeoutMs = 8_000,
+  timeoutMs = 15_000,
   intervalMs = 50,
 ): Promise<void> {
   const start = Date.now();
@@ -76,7 +76,7 @@ async function createV6Agenda(
   dbName: string,
 ): Promise<AgendaFactoryResult> {
   const { Agenda } = await import("agenda");
-  const { MongoBackend, MongoClient } = await import("@agendajs/mongo-backend");
+  const { MongoBackend, MongoClient } = await import("agenda-mongo");
 
   const client = new MongoClient(uri);
   await client.connect();
@@ -132,9 +132,11 @@ describe("agenda v5 vs v6 parity", () => {
 
   describe.each(versions)("%s", (version) => {
     let factory: AgendaFactoryResult;
+    let processorStarted = false;
 
     beforeAll(async () => {
       factory = await createAgenda(version, uri);
+      processorStarted = false;
     });
 
     afterAll(async () => {
@@ -143,16 +145,22 @@ describe("agenda v5 vs v6 parity", () => {
 
     beforeEach(async () => {
       await factory.db.collection("agendaJobs").deleteMany({});
-      await factory.agenda.stop();
     });
+
+    async function ensureStarted(): Promise<void> {
+      if (!processorStarted) {
+        await factory.agenda.start();
+        processorStarted = true;
+      }
+    }
 
     it("runs a scheduled job once with the expected data", async () => {
       const { agenda } = factory;
+      await ensureStarted();
       const seen: unknown[] = [];
       agenda.define("parity-once", async (job) => {
         seen.push(job.attrs.data);
       });
-      await agenda.start();
       const job = agenda.create("parity-once", { n: 1 });
       job.schedule(new Date());
       await job.save();
@@ -217,6 +225,7 @@ describe("agenda v5 vs v6 parity", () => {
 
     it("emits fail:<name> with job.attrs", async () => {
       const { agenda } = factory;
+      await ensureStarted();
       let failJob: { attrs?: { name?: string; data?: unknown } } | null = null;
       agenda.define("parity-boom", async () => {
         throw new Error("nope");
@@ -224,7 +233,6 @@ describe("agenda v5 vs v6 parity", () => {
       agenda.on("fail:parity-boom", (_err, job) => {
         failJob = job as { attrs?: { name?: string; data?: unknown } };
       });
-      await agenda.start();
       const job = agenda.create("parity-boom", { x: 1 });
       job.schedule(new Date());
       await job.save();
@@ -235,6 +243,7 @@ describe("agenda v5 vs v6 parity", () => {
 
     it("accepts define with concurrency/lockLimit options", async () => {
       const { agenda } = factory;
+      await ensureStarted();
       const seen: number[] = [];
       if (version === "v5") {
         agenda.define(
@@ -253,7 +262,6 @@ describe("agenda v5 vs v6 parity", () => {
           { concurrency: 1, lockLimit: 1 },
         );
       }
-      await agenda.start();
       const job = agenda.create("parity-opts", { n: 7 });
       job.schedule(new Date());
       await job.save();

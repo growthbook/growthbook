@@ -137,13 +137,6 @@
         "react-native"
       ]
     },
-    "packageExtensions": {
-      "@agendajs/mongo-backend": {
-        "dependencies": {
-          "mongodb": "6.21.0"
-        }
-      }
-    },
     "patchedDependencies": {
       "@types/presto-client@1.0.2": "patches/@types__presto-client@1.0.2.patch",
       "presto-client@1.1.0": "patches/presto-client@1.1.0.patch",

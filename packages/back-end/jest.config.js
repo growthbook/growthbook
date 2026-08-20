@@ -6,7 +6,7 @@ module.exports = {
   },
   // uuid@14+ and agenda@6 ship ESM-only. Let swc transpile them for Jest CJS.
   transformIgnorePatterns: [
-    "node_modules/(?!\\.pnpm/(uuid@|agenda@|@agendajs\\+)|uuid/|agenda/|@agendajs/)",
+    "node_modules/(?!\\.pnpm/(uuid@|agenda@|agenda-mongo@|@agendajs\\+)|uuid/|agenda/|agenda-mongo/|@agendajs/)",
   ],
   testMatch: ["**/test/**/*.test.(ts|js)"],
   moduleNameMapper: {

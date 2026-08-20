@@ -4,7 +4,7 @@ These restrictions are enforced by ESLint and must be strictly followed.
 
 ## Front-end Package
 
-- ✅ CAN import from: `shared` package, itself, `sdk-js`, and `sdk-react`
+- ✅ CAN import from: `shared` package, itself, `sdk-js`, and `agenda-mongo`, and `sdk-react`
 - ❌ CANNOT import from: `back-end`
 - ❌ DO NOT import Radix UI components directly - use design system wrappers from `@/ui/` instead
   - Bad: `import { Button } from "@radix-ui/themes"`
@@ -15,7 +15,7 @@ These restrictions are enforced by ESLint and must be strictly followed.
 
 ## Back-end Package
 
-- ✅ CAN import from: `shared` package, itself, `sdk-js`
+- ✅ CAN import from: `shared` package, itself, `sdk-js`, and `agenda-mongo`
 - ❌ CANNOT import from: `front-end`, `sdk-react`
 - ❌ DO NOT import `node-fetch` directly
   - Use `import { fetch } from "back-end/src/util/http.util"` instead

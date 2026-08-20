@@ -22,9 +22,15 @@ You are working on GrowthBook, an open-source feature flagging and A/B testing p
 - Runs on http://localhost:3100 in development
 - MongoDB as primary data store
 - Uses `back-end/` prefix for internal imports
+- Job scheduling via Agenda v6 through the `agenda-mongo` workspace package (mongodb@6 client isolated from mongoose's mongodb@4)
 - Serves two distinct APIs:
   1. **Internal API** - Used by the GrowthBook front-end application (controllers, routers in `src/controllers/`, `src/routers/`)
   2. **External REST API** - Public API for customers to integrate with GrowthBook (located in `src/api/` directory)
+
+### packages/agenda-mongo - Agenda MongoDB driver isolation
+
+- Thin re-export of `@agendajs/mongo-backend` pinned to mongodb@6
+- Lets back-end keep app `mongodb` on v4 for mongoose Collection types
 
 ### packages/shared - Shared TypeScript code
 

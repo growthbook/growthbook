@@ -1,0 +1,20 @@
+{
+  "name": "agenda-mongo",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js",
+      "default": "./index.js"
+    }
+  },
+  "dependencies": {
+    "@agendajs/mongo-backend": "4.0.3",
+    "agenda": "6.2.6",
+    "mongodb": "6.21.0"
+  }
+}

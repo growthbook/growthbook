@@ -60,13 +60,13 @@ pnpm --filter back-end test path/to/test.ts
 
 ### Import Boundaries (ESLint-enforced)
 
-| Package   | Can import from           |
-| --------- | ------------------------- |
-| front-end | shared, sdk-js, sdk-react |
-| back-end  | shared, sdk-js            |
-| shared    | sdk-js                    |
-| sdk-js    | nothing (zero deps)       |
-| sdk-react | sdk-js only (zero deps)   |
+| Package   | Can import from              |
+| --------- | ---------------------------- |
+| front-end | shared, sdk-js, sdk-react    |
+| back-end  | shared, sdk-js, agenda-mongo |
+| shared    | sdk-js                       |
+| sdk-js    | nothing (zero deps)          |
+| sdk-react | sdk-js only (zero deps)      |
 
 **Additional restrictions:**
 

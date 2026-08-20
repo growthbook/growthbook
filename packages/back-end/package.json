@@ -30,7 +30,6 @@
     "diff-features": "tsx src/scripts/diff-features.ts"
   },
   "dependencies": {
-    "@agendajs/mongo-backend": "4.0.3",
     "@ai-sdk/anthropic": "^3.0.0",
     "@ai-sdk/google": "^3.0.0",
     "@ai-sdk/mistral": "^3.0.0",
@@ -68,6 +67,7 @@
     "@types/handlebars": "^4.1.0",
     "@types/presto-client": "^1.0.2",
     "agenda": "6.2.6",
+    "agenda-mongo": "workspace:*",
     "ai": "^6.0.6",
     "asn1.js": "^5.4.1",
     "async": "^3.1.0",
