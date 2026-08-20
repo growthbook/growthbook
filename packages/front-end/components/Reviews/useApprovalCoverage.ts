@@ -2,6 +2,9 @@ import { useMemo } from "react";
 import {
   assessApprovalCoverage,
   assessRequiredApproverTeams,
+  getRolePermissions,
+  revisionActionPermission,
+  userHasPermission,
 } from "shared/permissions";
 import type { ReviewAuthorityFootprint } from "shared/util";
 import type { RevisionModel } from "shared/permissions";
@@ -64,18 +67,48 @@ export function useApprovalCoverage({
     );
   }, [reviewers, organization, teams, model, projects, footprint, users]);
 
+  // Resolved the same way the coverage decision resolves it — teams, project
+  // roles and additional rules included — so the explanation cannot name
+  // environments the decision did not actually consider.
+  const heldEnvsFor = useMemo(() => {
+    const reviewPermission = revisionActionPermission(
+      model,
+      "review",
+    ).permission;
+    const cache = new Map<string, string[]>();
+    return (approverId: string): string[] => {
+      const hit = cache.get(approverId);
+      if (hit) return hit;
+      const roleInfo = users.get(approverId);
+      if (!roleInfo) return [];
+      const perms = getRolePermissions(
+        roleInfo,
+        organization as OrganizationInterface,
+        (teams ?? []) as TeamInterface[],
+      );
+      const held = envIds.filter((env) =>
+        userHasPermission(
+          perms,
+          reviewPermission,
+          projects.length ? projects : undefined,
+          [env],
+        ),
+      );
+      cache.set(approverId, held);
+      return held;
+    };
+  }, [users, organization, teams, envIds, model, projects]);
+
   const uncoveredApproverReasons = useMemo(() => {
     const reason = (approverId: string): string => {
       const roleInfo = users.get(approverId);
       const who = roleInfo?.name || roleInfo?.email || "this reviewer";
       if (!roleInfo) return `${who} is no longer a member of this organization`;
-      const held = roleInfo.limitAccessByEnvironment
-        ? (roleInfo.environments ?? [])
-        : envIds;
-      const missing =
-        footprint.scope === "environments"
-          ? footprint.environments.filter((e) => !held.includes(e))
-          : envIds.filter((e) => !held.includes(e));
+      if (footprint.scope !== "environments") {
+        return `needs review access with no environment limit`;
+      }
+      const held = heldEnvsFor(approverId);
+      const missing = footprint.environments.filter((e) => !held.includes(e));
       return missing.length
         ? `cannot approve changes in ${missing.join(", ")}`
         : `cannot approve this change`;
@@ -83,23 +116,16 @@ export function useApprovalCoverage({
     return new Map(
       [...uncoveredApprovers].map((id) => [id, reason(id)] as const),
     );
-  }, [uncoveredApprovers, users, footprint, envIds]);
+  }, [uncoveredApprovers, users, footprint, heldEnvsFor]);
 
   const uncoveredFootprintEnvs = useMemo(() => {
     if (footprint.scope !== "environments") return [];
     const covered = new Set<string>();
     reviewers
       .filter((r) => r.status === "approved")
-      .forEach((r) => {
-        const roleInfo = users.get(r.id);
-        if (!roleInfo) return;
-        (roleInfo.limitAccessByEnvironment
-          ? (roleInfo.environments ?? [])
-          : envIds
-        ).forEach((e) => covered.add(e));
-      });
+      .forEach((r) => heldEnvsFor(r.id).forEach((e) => covered.add(e)));
     return footprint.environments.filter((e) => !covered.has(e));
-  }, [footprint, reviewers, users, envIds]);
+  }, [footprint, reviewers, heldEnvsFor]);
 
   const approvalsCoverFootprint = reviewers.some(
     (r) => r.status === "approved" && !uncoveredApprovers.has(r.id),

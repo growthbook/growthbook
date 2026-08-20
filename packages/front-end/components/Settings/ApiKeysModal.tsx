@@ -61,8 +61,7 @@ const ApiKeysModal: FC<{
     role: existingKey ? existingKey.role || "admin" : defaultRole,
     limitAccessByEnvironment: existingKey?.limitAccessByEnvironment ?? false,
     environments: existingKey?.environments ?? [],
-    // Leave undefined when absent (matches create): sending an empty array
-    // would trip the advanced-permissions premium gate in customValidation.
+    additionalRoles: existingKey?.additionalRoles,
     projectRoles: existingKey?.projectRoles,
   });
 

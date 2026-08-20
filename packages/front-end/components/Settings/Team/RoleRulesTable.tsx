@@ -48,7 +48,8 @@ export default function RoleRulesTable({
   setValue: (value: MemberRoleWithProjects) => void;
   teams?: TeamRuleSource[];
 }) {
-  const { organization } = useUser();
+  const { organization, hasCommercialFeature } = useUser();
+  const hasAdvancedPermissions = hasCommercialFeature("advanced-permissions");
   const { projects } = useDefinitions();
 
   const rules = useMemo(() => toRules(value, teams), [value, teams]);
@@ -143,7 +144,8 @@ export default function RoleRulesTable({
             role={rule.role}
             environments={rule.environments}
             limitAccessByEnvironment={rule.limitAccessByEnvironment}
-            disabled={fromTeam}
+            // Server-gated premium feature; read-only here when unlicensed.
+            disabled={fromTeam || !hasAdvancedPermissions}
             onChange={(next) => patch(rule.key, next)}
           />
         </TableCell>
@@ -280,7 +282,7 @@ export default function RoleRulesTable({
   return (
     <Box>
       {groups.map(renderGroup)}
-      {unusedProjects.length > 0 && (
+      {unusedProjects.length > 0 && hasAdvancedPermissions && (
         <Button variant="soft" onClick={() => addRule(unusedProjects[0].id)}>
           <PiPlus /> Add project override
         </Button>

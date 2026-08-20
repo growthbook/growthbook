@@ -81,6 +81,11 @@ export async function submitRevisionReview(
     revision.createdBy != null && "id" in revision.createdBy
       ? revision.createdBy.id
       : "";
+  if (action !== "comment" && !req.context.userId) {
+    throw new BadRequestError(
+      "Submitting a review requires a user identity. Use a Personal Access Token instead of an organization key.",
+    );
+  }
   if (
     action !== "comment" &&
     mayBeRevisionAuthor(creatorId, req.context.userId)

@@ -1385,6 +1385,14 @@ export async function postFeatureReviewOrComment(
   if (review === "Comment" && !canCommentHere) {
     context.permissions.throwPermissionError();
   }
+  // Coarse pre-fetch gate so callers without the review atom cannot probe
+  // which revision versions exist; the footprint check below still runs.
+  if (
+    review !== "Comment" &&
+    !context.permissions.canReviewFeatureDrafts(feature, { scope: "any" })
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const revision = await getRevision({
     context,

@@ -108,3 +108,51 @@ export function normalizeApprovalRuleSettings<
   }
   return next;
 }
+
+// Makes the settings UI's "Saving removes it" promise true: references to a
+// team or environment that no longer exists are dropped at the write chokepoint.
+export function pruneApprovalRuleReferences<
+  T extends {
+    requireReviews?:
+      | boolean
+      | { environments?: string[]; requiredApproverTeams?: string[] }[];
+    approvalFlows?: {
+      savedGroups?: { requiredApproverTeams?: string[] }[];
+    };
+  },
+>(settings: T, valid: { environments: string[]; teams: string[] }): T {
+  const environments = new Set(valid.environments);
+  const teams = new Set(valid.teams);
+  const next: T = { ...settings };
+  if (Array.isArray(next.requireReviews)) {
+    next.requireReviews = next.requireReviews.map((rule) => ({
+      ...rule,
+      ...(rule.environments
+        ? { environments: rule.environments.filter((e) => environments.has(e)) }
+        : {}),
+      ...(rule.requiredApproverTeams
+        ? {
+            requiredApproverTeams: rule.requiredApproverTeams.filter((t) =>
+              teams.has(t),
+            ),
+          }
+        : {}),
+    }));
+  }
+  if (next.approvalFlows?.savedGroups) {
+    next.approvalFlows = {
+      ...next.approvalFlows,
+      savedGroups: next.approvalFlows.savedGroups.map((rule) => ({
+        ...rule,
+        ...(rule.requiredApproverTeams
+          ? {
+              requiredApproverTeams: rule.requiredApproverTeams.filter((t) =>
+                teams.has(t),
+              ),
+            }
+          : {}),
+      })),
+    };
+  }
+  return next;
+}

@@ -5,8 +5,9 @@ import {
   experimentHasLinkedChanges,
   getNamespaceRanges,
   getRulesForEnvironment,
-  parseIntWithDefaultCapped,
   normalizeApprovalRuleSettings,
+  parseIntWithDefaultCapped,
+  pruneApprovalRuleReferences,
 } from "shared/util";
 import { getRoles, getDefaultRole } from "shared/permissions";
 import uniqid from "uniqid";
@@ -1778,7 +1779,15 @@ export async function putOrganization(
     if (settings) {
       updates.settings = {
         ...org.settings,
-        ...normalizeApprovalRuleSettings(settings),
+        // Drops rule references to deleted teams/environments, so the settings
+        // UI's "Saving removes it" note is true.
+        ...pruneApprovalRuleReferences(
+          normalizeApprovalRuleSettings(settings),
+          {
+            environments: (org.settings?.environments ?? []).map((e) => e.id),
+            teams: (context.teams ?? []).map((t) => t.id),
+          },
+        ),
       };
       orig.settings = org.settings;
     }
@@ -1907,6 +1916,7 @@ export async function postApiKey(
     type: string;
     limitAccessByEnvironment?: boolean;
     environments?: string[];
+    additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ProjectMemberRole[];
   }>,
   res: Response,
@@ -1918,6 +1928,7 @@ export async function postApiKey(
     type,
     limitAccessByEnvironment,
     environments,
+    additionalRoles,
     projectRoles,
   } = req.body;
 
@@ -1941,6 +1952,7 @@ export async function postApiKey(
       roleId: type,
       limitAccessByEnvironment,
       environments,
+      additionalRoles,
       projectRoles,
     });
   }
@@ -1968,6 +1980,7 @@ export async function putApiKey(
       description?: string;
       limitAccessByEnvironment?: boolean;
       environments?: string[];
+      additionalRoles?: ApiKeyInterface["additionalRoles"];
       projectRoles?: ProjectMemberRole[];
     },
     { id: string }
@@ -1981,6 +1994,7 @@ export async function putApiKey(
     description,
     limitAccessByEnvironment,
     environments,
+    additionalRoles,
     projectRoles,
   } = req.body;
 
@@ -2000,6 +2014,7 @@ export async function putApiKey(
       description,
       limitAccessByEnvironment,
       environments,
+      additionalRoles,
       projectRoles,
     });
 

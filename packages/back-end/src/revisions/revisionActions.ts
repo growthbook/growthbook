@@ -573,6 +573,13 @@ export async function approveRevision(
     context.permissions.throwPermissionError();
   }
 
+  // An approval is attributed to a member; an org key has none, so its
+  // approval could never satisfy coverage — refuse it instead of storing it.
+  if (!context.userId) {
+    throw new BadRequestError(
+      "Submitting a review requires a user identity. Use a Personal Access Token instead of an organization key.",
+    );
+  }
   if (mayBeRevisionAuthor(revision.authorId, context.userId)) {
     throw new BadRequestError("Cannot approve your own revision");
   }
@@ -1479,6 +1486,14 @@ export async function submitRevisionReview({
         ))
   ) {
     context.permissions.throwPermissionError();
+  }
+
+  // A verdict is attributed to a member; an org key has none, so its approval
+  // could never satisfy coverage — refuse it instead of storing it.
+  if (!isComment && !context.userId) {
+    throw new BadRequestError(
+      "Submitting a review requires a user identity. Use a Personal Access Token instead of an organization key.",
+    );
   }
 
   // The author may comment on their own draft, but not rule on it.

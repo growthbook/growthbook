@@ -17,6 +17,7 @@ import {
   getLiveRevision,
   getRevisionNumber,
   isSavedGroupRevisionMetadataOnly,
+  getApprovalFlowRules,
   getApprovalFlowSettings,
 } from "shared/enterprise";
 import { REVIEW_REQUESTED_STATUSES } from "shared/validators";
@@ -175,6 +176,13 @@ export default function EditSavedGroupPage() {
     "saved-group",
     savedGroup?.projects ?? [],
   );
+  // Raw governing rules, mirroring the server adapter: the resolved policy
+  // deliberately drops team requirements, but the review tab needs them.
+  const approvalFlowRules = getApprovalFlowRules(
+    settings.approvalFlows,
+    "saved-group",
+    savedGroup?.projects ?? [],
+  ).filter((r) => r.required);
   const approvalRequired = !!approvalFlow?.required;
   const metadataReviewRequired =
     approvalRequired && (approvalFlow?.requireMetadataReview ?? true);
@@ -1107,6 +1115,7 @@ export default function EditSavedGroupPage() {
             // the review dance when `requireMetadataReview` is off (matching
             // the server-side rule in the saved-group adapter).
             requiresApproval={selectedRevisionRequiresApproval}
+            reviewRules={approvalFlowRules}
             canEditEntity={permissionsUtil.canRevisionAction(
               "saved-group",
               "draft",

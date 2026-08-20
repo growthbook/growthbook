@@ -1,6 +1,7 @@
 import { RequireReview } from "shared/types/organization";
 import {
   normalizeApprovalRuleSettings,
+  pruneApprovalRuleReferences,
   resolveProjectScopedRule,
 } from "../src/util/projectScopedRules";
 import { getReviewSetting } from "../src/util/features";
@@ -90,5 +91,48 @@ describe("normalizeApprovalRuleSettings", () => {
   it("leaves the legacy boolean form alone", () => {
     const normalized = normalizeApprovalRuleSettings({ requireReviews: true });
     expect(normalized.requireReviews).toBe(true);
+  });
+});
+
+describe("pruneApprovalRuleReferences", () => {
+  const valid = { environments: ["dev"], teams: ["t_keep"] };
+
+  it("drops references to deleted teams and environments", () => {
+    const pruned = pruneApprovalRuleReferences(
+      {
+        requireReviews: [
+          {
+            requireReviewOn: true,
+            projects: [],
+            environments: ["dev", "gone_env"],
+            requiredApproverTeams: ["t_keep", "t_gone"],
+          },
+        ],
+        approvalFlows: {
+          savedGroups: [{ required: true, requiredApproverTeams: ["t_gone"] }],
+        },
+      },
+      valid,
+    );
+    const rule = (pruned.requireReviews as RequireReview[])[0];
+    expect(rule.environments).toEqual(["dev"]);
+    expect(rule.requiredApproverTeams).toEqual(["t_keep"]);
+    expect(
+      pruned.approvalFlows?.savedGroups?.[0].requiredApproverTeams,
+    ).toEqual([]);
+  });
+
+  it("leaves absent fields absent and the legacy boolean alone", () => {
+    const pruned = pruneApprovalRuleReferences(
+      { requireReviews: [{ requireReviewOn: true, projects: [] }] },
+      valid,
+    );
+    const rule = (pruned.requireReviews as RequireReview[])[0];
+    expect("environments" in rule).toBe(false);
+    expect("requiredApproverTeams" in rule).toBe(false);
+    expect(
+      pruneApprovalRuleReferences({ requireReviews: true }, valid)
+        .requireReviews,
+    ).toBe(true);
   });
 });
