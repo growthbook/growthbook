@@ -51,7 +51,7 @@ function formatValue(value: number, format: BigValueFormat, currency: string) {
         currencySign: "accounting",
         currencyDisplay: "narrowSymbol",
       }).format(value);
-    default:
+    case "shortNumber":
       return value.toFixed(0);
   }
 }

@@ -92,7 +92,12 @@ export function conditionToMongo(c: Condition): Record<string, unknown> {
       return { [c.field]: { $exists: false } };
     case "isNotNull":
       return { [c.field]: { $exists: true } };
-    default: {
+    case "==":
+    case "!=":
+    case "<=":
+    case "<":
+    case ">=":
+    case ">": {
       if (c.rhsKind === "field") {
         return { [c.field]: { [MONGO_OP[c.op]]: { $ref: c.rhs } } };
       }
