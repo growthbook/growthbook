@@ -1,6 +1,10 @@
 import mongoose, { ConnectOptions } from "mongoose";
 import bluebird from "bluebird";
-import { MONGODB_URI } from "back-end/src/util/secrets";
+import {
+  MONGODB_URI,
+  MONGODB_WAIT_QUEUE_TIMEOUT_MS,
+  MONGODB_SOCKET_TIMEOUT_MS,
+} from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { getConnectionStringWithDeprecatedKeysMigratedForV3to4 } from "back-end/src/util/mongo.util";
 
@@ -16,6 +20,8 @@ export default async (): Promise<void> => {
     bufferCommands: false,
     autoCreate: true,
     autoIndex: true,
+    waitQueueTimeoutMS: MONGODB_WAIT_QUEUE_TIMEOUT_MS,
+    socketTimeoutMS: MONGODB_SOCKET_TIMEOUT_MS,
   };
 
   // Connect to MongoDB

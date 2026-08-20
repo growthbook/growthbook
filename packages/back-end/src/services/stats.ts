@@ -144,10 +144,7 @@ export function getBanditSettingsForStatsEngine(
   };
 }
 
-// Generous upper bound for a single external stats-engine call. Without a
-// timeout, a hung connection leaves the analysis step (and therefore the
-// whole snapshot refresh) waiting forever. Configurable like the local
-// engine's GB_STATS_ENGINE_TIMEOUT_MS.
+/** Upper bound for one external stats-engine call; mirrors the local engine timeout. */
 const EXTERNAL_PYTHON_SERVER_TIMEOUT_MS = parseEnvInt(
   process.env.GB_EXTERNAL_STATS_TIMEOUT_MS,
   600_000,

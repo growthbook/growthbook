@@ -634,26 +634,17 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     return obj;
   }
 
-  // Refresh passes use this to stand down when another finalizer
-  // (e.g. the stalled-snapshot reaper erroring it, or a cancel) already
-  // concluded this snapshot — a late pass must not publish over that
-  // conclusion.
+  /** True once another finalizer (reaper, cancel) has concluded this snapshot. */
   protected override isModelTerminal(
     model: ExperimentSnapshotInterface,
   ): boolean {
     return model.status !== "running";
   }
 
-  // Shutdown error writes are conditional on the snapshot still running so
-  // a struggling runner's give-up can never clobber a conclusion another
-  // finalizer (e.g. the stalled-snapshot reaper erroring it, or a cancel)
-  // already published.
+  /** Persist error only while the snapshot is still running. */
   protected override async writeErrorIfStillActive(
     error: string,
   ): Promise<void> {
-    // this.model is deliberately left untouched here: the database record is
-    // authoritative and the finished-status guard prevents this runner from
-    // being reused after shutdown.
     await errorSnapshotIfStillRunning(this.context, this.model.id, {
       queries: this.model.queries,
       error,
