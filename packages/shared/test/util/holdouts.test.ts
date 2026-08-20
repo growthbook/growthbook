@@ -1,7 +1,10 @@
 import {
   coverageToHoldoutSize,
+  getAllowedHoldoutStageSources,
+  getEnabledHoldoutEnvironments,
   getHoldoutStage,
   holdoutSizeToCoverage,
+  isHoldoutStageTransitionAllowed,
   MAX_HOLDOUT_SIZE,
 } from "../../src/util/holdouts";
 
@@ -77,5 +80,108 @@ describe("getHoldoutStage", () => {
         getHoldoutStage({ analysisStartDate: "" }, { status: "running" }),
       ).toBe("running");
     });
+  });
+});
+
+describe("getEnabledHoldoutEnvironments", () => {
+  it("returns only the enabled environment ids", () => {
+    expect(
+      getEnabledHoldoutEnvironments({
+        production: { enabled: true },
+        staging: { enabled: false },
+        dev: { enabled: true },
+      }),
+    ).toEqual(["production", "dev"]);
+  });
+
+  it("returns an empty array when nothing is enabled", () => {
+    expect(
+      getEnabledHoldoutEnvironments({
+        production: { enabled: false },
+        staging: { enabled: false },
+      }),
+    ).toEqual([]);
+  });
+
+  it("returns an empty array for an empty map", () => {
+    expect(getEnabledHoldoutEnvironments({})).toEqual([]);
+  });
+
+  it("returns an empty array for undefined or null", () => {
+    expect(getEnabledHoldoutEnvironments(undefined)).toEqual([]);
+    expect(getEnabledHoldoutEnvironments(null)).toEqual([]);
+  });
+
+  it("treats missing or undefined enabled as disabled", () => {
+    expect(
+      getEnabledHoldoutEnvironments({
+        production: {},
+        staging: { enabled: undefined },
+        dev: { enabled: true },
+      }),
+    ).toEqual(["dev"]);
+  });
+
+  it("drops enabled ids missing from allowedEnvs", () => {
+    expect(
+      getEnabledHoldoutEnvironments(
+        {
+          production: { enabled: true },
+          staging: { enabled: true },
+          deleted: { enabled: true },
+        },
+        ["production", "staging"],
+      ),
+    ).toEqual(["production", "staging"]);
+  });
+
+  it("returns all enabled ids when allowedEnvs is omitted", () => {
+    expect(
+      getEnabledHoldoutEnvironments({
+        production: { enabled: true },
+        deleted: { enabled: true },
+      }),
+    ).toEqual(["production", "deleted"]);
+  });
+
+  it("returns an empty array when allowedEnvs excludes every enabled id", () => {
+    expect(
+      getEnabledHoldoutEnvironments({ deleted: { enabled: true } }, [
+        "production",
+      ]),
+    ).toEqual([]);
+  });
+});
+
+describe("holdout stage transitions", () => {
+  it("allows forward lifecycle transitions", () => {
+    expect(isHoldoutStageTransitionAllowed("draft", "running")).toBe(true);
+    expect(isHoldoutStageTransitionAllowed("running", "analysis-period")).toBe(
+      true,
+    );
+    expect(isHoldoutStageTransitionAllowed("running", "stopped")).toBe(true);
+    expect(isHoldoutStageTransitionAllowed("analysis-period", "stopped")).toBe(
+      true,
+    );
+  });
+
+  it("rejects repeated, skipped, and backward transitions", () => {
+    expect(isHoldoutStageTransitionAllowed("running", "running")).toBe(false);
+    expect(
+      isHoldoutStageTransitionAllowed("analysis-period", "analysis-period"),
+    ).toBe(false);
+    expect(isHoldoutStageTransitionAllowed("stopped", "stopped")).toBe(false);
+    expect(isHoldoutStageTransitionAllowed("draft", "stopped")).toBe(false);
+    expect(isHoldoutStageTransitionAllowed("draft", "analysis-period")).toBe(
+      false,
+    );
+    expect(isHoldoutStageTransitionAllowed("stopped", "running")).toBe(false);
+  });
+
+  it("lists the valid sources for stopping", () => {
+    expect(getAllowedHoldoutStageSources("stopped")).toEqual([
+      "running",
+      "analysis-period",
+    ]);
   });
 });

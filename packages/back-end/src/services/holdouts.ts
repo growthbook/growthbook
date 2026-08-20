@@ -1,19 +1,26 @@
 import { v4 as uuidv4 } from "uuid";
+import isEqual from "lodash/isEqual";
 import { getValidDate } from "shared/dates";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import {
   DEFAULT_HOLDOUT_SIZE,
   generateVariationId,
+  getEnabledHoldoutEnvironments,
   getHoldoutStage,
   holdoutSizeToCoverage,
   HoldoutStage,
   validateCondition,
 } from "shared/util";
 import {
+  ApiUpdateHoldoutBody,
   CreateHoldoutInput,
   HoldoutInterface,
   HoldoutNextScheduledStatusUpdate,
+  HOLDOUT_API_EXPERIMENT_UPDATE_FIELDS,
+  HOLDOUT_API_TARGETING_UPDATE_FIELDS,
+  HOLDOUT_API_UPDATE_FIELDS,
 } from "shared/validators";
+import { UpdateProps } from "shared/types/base-model";
 import {
   Changeset,
   ExperimentInterface,
@@ -21,6 +28,7 @@ import {
 } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
 import { DataSourceInterface } from "shared/types/datasource";
+import { resolveOwnerToUserId } from "back-end/src/services/owner";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -33,17 +41,124 @@ import {
   getFeaturesByIds,
   removeHoldoutFromFeature,
 } from "back-end/src/models/FeatureModel";
+import { CasConflictError } from "back-end/src/models/BaseModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { isHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
-import { BadRequestError, InternalServerError } from "back-end/src/util/errors";
+import { BadRequestError } from "back-end/src/util/errors";
+import { logger } from "back-end/src/util/logger";
 import {
   getChangesToStartExperiment,
   validateExperimentData,
   validateVariationIds,
 } from "back-end/src/services/experiments";
+
+export function assertCanRunHoldoutEnvironments(
+  context: ReqContext | ApiReqContext,
+  {
+    enabledEnvironments,
+    projects,
+  }: {
+    enabledEnvironments: string[];
+    projects: string[];
+  },
+): void {
+  // Ignore envs that no longer exist in the org: the holdout can't serve there,
+  // so requiring run permission on them would be a spurious denial.
+  const orgEnvs = new Set(getEnvironmentIdsFromOrg(context.org));
+  const envs = enabledEnvironments.filter((env) => orgEnvs.has(env));
+  if (envs.length === 0) return;
+  if (!context.permissions.canRunHoldout({ projects }, envs)) {
+    context.permissions.throwPermissionError();
+  }
+}
+
+/**
+ * Reject env ids that don't exist in the org. On update, ids already stored on
+ * the holdout are tolerated (pass `existingEnvironments`) so a client echoing
+ * settings that predate an environment deletion isn't blocked — only newly
+ * referenced ids are checked.
+ */
+export function assertValidHoldoutEnvironments(
+  context: ReqContext | ApiReqContext,
+  environments: Record<string, unknown> | undefined | null,
+  existingEnvironments?: Record<string, unknown>,
+): void {
+  if (!environments) return;
+  const orgEnvs = new Set(getEnvironmentIdsFromOrg(context.org));
+  const existing = new Set(
+    existingEnvironments ? Object.keys(existingEnvironments) : [],
+  );
+  const invalid = Object.keys(environments).filter(
+    (env) => !orgEnvs.has(env) && !existing.has(env),
+  );
+  if (invalid.length) {
+    throw new BadRequestError(
+      `Invalid environment${invalid.length > 1 ? "s" : ""}: ${invalid.join(
+        ", ",
+      )}`,
+    );
+  }
+}
+
+/**
+ * Update authorization shared by the REST API (`handleApiUpdate`) and the UI
+ * endpoint (`updateHoldout`) so the two cannot drift. Update permission is
+ * always required (on the current and, when moving the Holdout, destination
+ * scope). Beyond that, a change needs run permission on the union of current and
+ * newly-requested environments when it authorizes a deployment:
+ *   - Schedule changes hand the agenda job authority to transition the Holdout's
+ *     status later (e.g. auto-start it), so they require it whatever the stage.
+ *   - Targeting/sizing and environment changes only reach live SDK payloads
+ *     while the Holdout is running, so they require it only then.
+ * Metadata-only changes and clearing the schedule do not. The UI never sends
+ * targeting here but still passes the flag.
+ */
+export function assertCanUpdateHoldout(
+  context: ReqContext | ApiReqContext,
+  {
+    holdout,
+    updatedProjects,
+    requestedEnabledEnvironments,
+    isTargetingChange,
+    isScheduleChange,
+    isRunning,
+  }: {
+    holdout: HoldoutInterface;
+    updatedProjects?: string[];
+    requestedEnabledEnvironments?: string[];
+    isTargetingChange: boolean;
+    isScheduleChange: boolean;
+    isRunning: boolean;
+  },
+): void {
+  if (
+    !context.permissions.canUpdateHoldout(holdout, {
+      projects: updatedProjects ?? holdout.projects,
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const isEnvironmentChange = requestedEnabledEnvironments !== undefined;
+  const requiresRunPermission =
+    isScheduleChange ||
+    (isRunning && (isTargetingChange || isEnvironmentChange));
+  if (!requiresRunPermission) return;
+
+  const enabledEnvironments = Array.from(
+    new Set([
+      ...getEnabledHoldoutEnvironments(holdout.environmentSettings),
+      ...(requestedEnabledEnvironments ?? []),
+    ]),
+  );
+  assertCanRunHoldoutEnvironments(context, {
+    enabledEnvironments,
+    projects: updatedProjects ?? holdout.projects,
+  });
+}
 
 export async function canLinkExperimentToHoldoutFromFeatures(
   context: ReqContext | ApiReqContext,
@@ -196,6 +311,8 @@ export async function createHoldoutWithExperiment(
     await context.models.projects.ensureProjectsExist(data.projects);
   }
 
+  assertValidHoldoutEnvironments(context, data.environmentSettings);
+
   const variations = [
     {
       name: "Holdout",
@@ -295,11 +412,290 @@ export async function createHoldoutWithExperiment(
     linkedExperiments: {},
   });
 
-  if (!holdout) {
-    throw new InternalServerError("Failed to create holdout");
+  return { holdout, experiment, datasource, metricIds };
+}
+
+/**
+ * Roll an experiment back to a prior snapshot after its companion holdout write
+ * failed (the two documents share no transaction). Returns whether the restore
+ * succeeded so callers can gate follow-up work.
+ *
+ * The restore is guarded on the exact field values this operation wrote, not the
+ * whole-document `dateUpdated`. An unrelated edit to some other experiment field
+ * therefore no longer blocks compensation, while a concurrent write to one of the
+ * fields we set fails the guard — in that case we skip the rollback rather than
+ * clobber the newer value with our stale revert, and warn that the pair may need
+ * reconciling. On any other failure we log for manual reconciliation rather than
+ * masking the caller's original error.
+ */
+async function rollbackExperimentAfterHoldoutFailure(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  writtenChanges: Partial<ExperimentInterface>,
+  revertChanges: Partial<ExperimentInterface>,
+  logContext: string,
+): Promise<boolean> {
+  try {
+    await updateExperiment({
+      context,
+      experiment,
+      changes: revertChanges,
+      guard: writtenChanges,
+    });
+    return true;
+  } catch (revertError) {
+    if (revertError instanceof CasConflictError) {
+      logger.warn(
+        `Skipped rolling back experiment "${experiment.id}" ${logContext}; one of the fields it wrote was modified concurrently, so the other write is left intact and the holdout and experiment may need reconciling by hand`,
+      );
+      return false;
+    }
+    logger.error(
+      revertError,
+      `Failed to roll back experiment "${experiment.id}" ${logContext}; the holdout and experiment are now inconsistent and need reconciling by hand`,
+    );
+    return false;
+  }
+}
+
+/**
+ * Queue an SDK payload refresh for a holdout. When a write moves the holdout's
+ * environment or project footprint, pass its prior snapshot as `previousHoldout`
+ * too so keys for both the old and new footprint are invalidated. Callers decide
+ * when a change actually reaches the payload — only running holdouts are served.
+ */
+export function refreshHoldoutPayload(
+  context: ReqContext | ApiReqContext,
+  {
+    holdout,
+    previousHoldout,
+    event,
+  }: {
+    holdout: HoldoutInterface;
+    previousHoldout?: HoldoutInterface;
+    event: string;
+  },
+): void {
+  const orgEnvs = getEnvironmentIdsFromOrg(context.org);
+  const seen = new Set<string>();
+  const payloadKeys = [holdout, ...(previousHoldout ? [previousHoldout] : [])]
+    .flatMap((h) => getAffectedSDKPayloadKeys(h, orgEnvs))
+    .filter((key) => {
+      const s = JSON.stringify(key);
+      if (seen.has(s)) return false;
+      seen.add(s);
+      return true;
+    });
+  queueSDKPayloadRefresh({
+    context,
+    payloadKeys,
+    auditContext: { event, model: "holdout", id: holdout.id },
+  });
+}
+
+/**
+ * Applies a validated REST update body to a Holdout and its companion
+ * experiment. Splits the work across the three storage locations a Holdout
+ * spans — the current experiment phase (targeting/sizing), the experiment
+ * document (metadata and analysis settings), and the holdout document itself —
+ * and returns the refreshed pair. Permission gating is the caller's job.
+ */
+export async function updateHoldoutWithExperiment(
+  context: ReqContext | ApiReqContext,
+  {
+    holdout,
+    experiment,
+    body,
+  }: {
+    holdout: HoldoutInterface;
+    experiment: ExperimentInterface;
+    body: ApiUpdateHoldoutBody;
+  },
+): Promise<{ holdout: HoldoutInterface; experiment: ExperimentInterface }> {
+  assertValidHoldoutEnvironments(
+    context,
+    body.environments,
+    holdout.environmentSettings,
+  );
+
+  // Narrowing the scope must not strand linked entities (matches the internal
+  // update endpoint). Only when it actually changes, so a Holdout already
+  // holding a stranded link stays editable to be fixed.
+  if (
+    body.projects !== undefined &&
+    !isEqual(body.projects, holdout.projects)
+  ) {
+    await assertHoldoutScopeCoversLinked(context, holdout, body.projects);
   }
 
-  return { holdout, experiment, datasource, metricIds };
+  const experimentChanges: Partial<ExperimentInterface> = {};
+
+  // 1. Phase-level targeting and sizing.
+  const isTargetingChange = HOLDOUT_API_TARGETING_UPDATE_FIELDS.some(
+    (field) => body[field] !== undefined,
+  );
+  if (isTargetingChange) {
+    const phases = [...experiment.phases];
+    if (!phases.length) {
+      throw new Error("Holdout does not have a phase to target");
+    }
+
+    // Reject a malformed targeting condition up front rather than letting it
+    // break bucketing later. validateCondition treats undefined/"{}" as valid.
+    if (body.targetingCondition !== undefined) {
+      const conditionResult = validateCondition(body.targetingCondition);
+      if (!conditionResult.success) {
+        throw new Error(
+          `Invalid targeting condition: ${conditionResult.error}`,
+        );
+      }
+    }
+
+    const current = phases[phases.length - 1];
+    phases[phases.length - 1] = {
+      ...current,
+      condition: body.targetingCondition ?? current.condition,
+      savedGroups: body.savedGroupTargeting ?? current.savedGroups,
+      coverage:
+        body.holdoutSize === undefined
+          ? current.coverage
+          : holdoutSizeToCoverage(body.holdoutSize),
+    };
+
+    experimentChanges.phases = phases;
+    if (body.hashAttribute !== undefined) {
+      experimentChanges.hashAttribute = body.hashAttribute;
+    }
+  }
+
+  // 2. Metadata and analysis settings on the companion experiment.
+  for (const field of HOLDOUT_API_EXPERIMENT_UPDATE_FIELDS) {
+    if (body[field] !== undefined) {
+      (experimentChanges as Record<string, unknown>)[field] = body[field];
+    }
+  }
+  if (body.owner !== undefined) {
+    experimentChanges.owner = await resolveOwnerToUserId(body.owner, context);
+  }
+  // Validate analysis settings against the effective post-update values so a
+  // stale metric or exposure query (e.g. left behind when only the datasource
+  // changes) is rejected here rather than failing later at query time.
+  if (
+    body.datasourceId !== undefined ||
+    body.assignmentQueryId !== undefined ||
+    body.goalMetrics !== undefined ||
+    body.secondaryMetrics !== undefined
+  ) {
+    const { datasource } = await validateExperimentData(context, {
+      datasource: body.datasourceId ?? experiment.datasource,
+      goalMetrics: body.goalMetrics ?? experiment.goalMetrics,
+      secondaryMetrics: body.secondaryMetrics ?? experiment.secondaryMetrics,
+    });
+
+    assertValidAssignmentQuery(
+      datasource,
+      body.assignmentQueryId ?? experiment.exposureQueryId,
+    );
+
+    if (body.datasourceId !== undefined) {
+      experimentChanges.datasource = body.datasourceId;
+    }
+    if (body.assignmentQueryId !== undefined) {
+      experimentChanges.exposureQueryId = body.assignmentQueryId;
+    }
+  }
+  // The name is stored on both documents and must not drift.
+  if (body.name !== undefined) {
+    experimentChanges.name = body.name;
+  }
+
+  // 3. Fields on the holdout document itself.
+  const holdoutUpdates: UpdateProps<HoldoutInterface> = {};
+  for (const field of HOLDOUT_API_UPDATE_FIELDS) {
+    if (body[field] !== undefined) {
+      (holdoutUpdates as Record<string, unknown>)[field] = body[field];
+    }
+  }
+  if (body.name !== undefined) {
+    holdoutUpdates.name = body.name;
+  }
+  if (body.environments !== undefined) {
+    holdoutUpdates.environmentSettings = Object.fromEntries(
+      Object.entries(body.environments).map(([id, settings]) => [
+        id,
+        { enabled: settings.enabled },
+      ]),
+    );
+  }
+  if (body.statusUpdateSchedule !== undefined) {
+    Object.assign(
+      holdoutUpdates,
+      normalizeHoldoutScheduleUpdates({
+        holdout,
+        experiment,
+        scheduleInput: body.statusUpdateSchedule,
+      }),
+    );
+  }
+
+  // Persist the experiment first, then the holdout. With no cross-document
+  // transaction, a holdout failure after the experiment write is committed
+  // would leave the pair inconsistent, so snapshot the changed experiment
+  // fields and roll them back on failure (mirrors `setHoldoutStage`).
+  const originalExperimentValues: Partial<ExperimentInterface> = {};
+  for (const key of Object.keys(experimentChanges)) {
+    (originalExperimentValues as Record<string, unknown>)[key] = (
+      experiment as Record<string, unknown>
+    )[key];
+  }
+
+  const affectsPayload =
+    experiment.status === "running" &&
+    (isTargetingChange ||
+      body.environments !== undefined ||
+      body.archived !== undefined);
+  const refreshPayload = (finalHoldout: HoldoutInterface) => {
+    if (!affectsPayload) return;
+    refreshHoldoutPayload(context, {
+      holdout: finalHoldout,
+      previousHoldout: holdout,
+      event: "Holdout updated",
+    });
+  };
+
+  const experimentChanged = Object.keys(experimentChanges).length > 0;
+  if (experimentChanged) {
+    experiment = await updateExperiment({
+      context,
+      experiment,
+      changes: experimentChanges,
+    });
+  }
+
+  if (!Object.keys(holdoutUpdates).length) {
+    refreshPayload(holdout);
+    return { holdout, experiment };
+  }
+
+  try {
+    const updatedHoldout = await context.models.holdout.update(
+      holdout,
+      holdoutUpdates,
+    );
+    refreshPayload(updatedHoldout);
+    return { holdout: updatedHoldout, experiment };
+  } catch (e) {
+    if (experimentChanged) {
+      await rollbackExperimentAfterHoldoutFailure(
+        context,
+        experiment,
+        experimentChanges,
+        originalExperimentValues,
+        "after holdout update failed",
+      );
+    }
+    throw e;
+  }
 }
 
 export function normalizeHoldoutScheduleUpdates({
@@ -443,19 +839,46 @@ export async function setHoldoutStage(
   let phases = [...experiment.phases] as ExperimentPhase[];
   const changes: Changeset = {};
 
+  // Snapshot the only experiment fields any branch below mutates, before those
+  // mutations run, so a failed holdout write can be compensated by restoring
+  // them (see `commitTransition`).
+  const originalStatus = experiment.status;
+  const originalPhases = structuredClone(experiment.phases);
+
   const refreshPayload = (event: string) =>
-    queueSDKPayloadRefresh({
+    refreshHoldoutPayload(context, { holdout, event });
+
+  // Commit a stage transition across both documents. With no cross-document
+  // transaction, a holdout failure after the experiment write is committed
+  // rolls the experiment back to its pre-transition status and phases and
+  // rethrows, leaving the schedule pointer untouched so a retry re-selects the
+  // still-due holdout.
+  const commitTransition = async (
+    event: string,
+    holdoutChanges: UpdateProps<HoldoutInterface>,
+  ) => {
+    const updatedExperiment = await updateExperiment({
       context,
-      payloadKeys: getAffectedSDKPayloadKeys(
-        holdout,
-        getEnvironmentIdsFromOrg(context.org),
-      ),
-      auditContext: {
-        event,
-        model: "holdout",
-        id: holdout.id,
-      },
+      experiment,
+      changes,
     });
+    try {
+      await context.models.holdout.update(holdout, holdoutChanges);
+    } catch (e) {
+      const reverted = await rollbackExperimentAfterHoldoutFailure(
+        context,
+        updatedExperiment,
+        changes,
+        { status: originalStatus, phases: originalPhases },
+        `after holdout update failed during "${event}"`,
+      );
+      if (reverted) {
+        refreshPayload(`Reverted: ${event}`);
+      }
+      throw e;
+    }
+    refreshPayload(event);
+  };
 
   switch (stage) {
     case "stopped": {
@@ -466,9 +889,7 @@ export async function setHoldoutStage(
         phases[1].dateEnded = new Date();
       }
       Object.assign(changes, { phases, status: "stopped" });
-      await updateExperiment({ context, experiment, changes });
-      refreshPayload("Status changed to stopped");
-      await context.models.holdout.update(holdout, {
+      await commitTransition("Status changed to stopped", {
         nextScheduledStatusUpdate: getNextScheduledStatusUpdateForStage(
           holdout.statusUpdateSchedule,
           "stopped",
@@ -483,9 +904,7 @@ export async function setHoldoutStage(
       }
       phases[0].dateEnded = undefined;
       Object.assign(changes, { phases: [phases[0]], status: "draft" });
-      await updateExperiment({ context, experiment, changes });
-      refreshPayload("Status changed to draft");
-      await context.models.holdout.update(holdout, {
+      await commitTransition("Status changed to draft", {
         analysisStartDate: undefined,
       });
       return;
@@ -501,9 +920,7 @@ export async function setHoldoutStage(
           changes,
           await getChangesToStartExperiment(context, experiment),
         );
-        await updateExperiment({ context, experiment, changes });
-        refreshPayload("Status changed to running");
-        await context.models.holdout.update(holdout, {
+        await commitTransition("Status changed to running", {
           analysisStartDate: undefined,
           nextScheduledStatusUpdate: getNextScheduledStatusUpdateForStage(
             holdout.statusUpdateSchedule,
@@ -518,9 +935,7 @@ export async function setHoldoutStage(
         phases = [phases[0]];
       }
       Object.assign(changes, { phases, status: "running" });
-      await updateExperiment({ context, experiment, changes });
-      refreshPayload("Status changed to running");
-      await context.models.holdout.update(holdout, {
+      await commitTransition("Status changed to running", {
         analysisStartDate: undefined,
       });
       return;
@@ -543,9 +958,7 @@ export async function setHoldoutStage(
         name: "Analysis",
       };
       Object.assign(changes, { phases, status: "running" });
-      await updateExperiment({ context, experiment, changes });
-      refreshPayload("Status changed to analysis period");
-      await context.models.holdout.update(holdout, {
+      await commitTransition("Status changed to analysis period", {
         analysisStartDate,
         nextScheduledStatusUpdate: getNextScheduledStatusUpdateForStage(
           holdout.statusUpdateSchedule,
@@ -560,10 +973,12 @@ export async function setHoldoutStage(
   }
 }
 
-// Delete a holdout along with its underlying experiment, unlink it from its
-// linked features and experiments, and refresh affected SDK payloads. Callers
-// are responsible for experiment-level permission checks; deleting the holdout
-// itself enforces canDeleteHoldout.
+/**
+ * Delete a holdout along with its underlying experiment, unlink it from its
+ * linked features and experiments, and refresh affected SDK payloads. Callers
+ * are responsible for experiment-level permission checks; deleting the holdout
+ * itself enforces canDeleteHoldout.
+ */
 export async function deleteHoldoutAndExperiment(
   context: ReqContext,
   holdout: HoldoutInterface,
@@ -597,18 +1012,7 @@ export async function deleteHoldoutAndExperiment(
 
   await context.models.holdout.delete(holdout);
 
-  queueSDKPayloadRefresh({
-    context,
-    payloadKeys: getAffectedSDKPayloadKeys(
-      holdout,
-      getEnvironmentIdsFromOrg(context.org),
-    ),
-    auditContext: {
-      event: "deleted",
-      model: "holdout",
-      id: holdout.id,
-    },
-  });
+  refreshHoldoutPayload(context, { holdout, event: "deleted" });
 }
 
 // Mirror of `getHoldoutAvailableForProject`, applied from the Holdout side:
