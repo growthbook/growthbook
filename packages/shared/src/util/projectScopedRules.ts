@@ -68,7 +68,6 @@ export function resolveProjectScopedRule<T extends ProjectScopedRule>(
 
   const merged: T = { ...winner };
   for (const field of inheritable) {
-    // An override that doesn't carry the field takes the base's value.
     const source = layers.find((l) => l[field] !== undefined);
     Object.assign(merged, { [field]: source ? source[field] : undefined });
   }

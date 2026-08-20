@@ -75,9 +75,8 @@ export type UserPermissions = {
   global: UserPermission;
   projects: { [key: string]: UserPermission };
 };
-// An absent inheritable field falls back to the all-projects rule, which is how
-// rows written before a field existed keep working. The selector (`projects`)
-// and the rule's own switch (`requireReviewOn`) never inherit.
+// An absent inheritable field falls back to the all-projects rule. The selector
+// (`projects`) and the rule's own switch (`requireReviewOn`) never inherit.
 export type RequireReview = {
   requireReviewOn: boolean;
   projects: string[];

@@ -1,14 +1,14 @@
 import { putApprovalSettingsValidator } from "shared/validators";
-import {
-  ApprovalFlowConfigurations,
-  OrganizationInterface,
-  RequireReview,
-} from "shared/types/organization";
+import { OrganizationInterface } from "shared/types/organization";
 import { normalizeApprovalRuleSettings } from "shared/util";
 import { ApiReqContext } from "back-end/types/api";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import {
+  toApiRequireReviews,
+  toApiSavedGroupApprovals,
+} from "./approvalRuleShapes";
 
 // A rule naming something that does not exist gates nothing, so refuse it here
 // rather than storing a requirement that silently never applies.
@@ -107,11 +107,13 @@ export const putApprovalSettings = createApiRequestHandler(
 
   const stored = updates.settings ?? {};
   return {
-    requireReviews: (Array.isArray(stored.requireReviews)
-      ? stored.requireReviews
-      : []) as RequireReview[],
-    approvalFlows: (stored.approvalFlows ?? {
-      savedGroups: [],
-    }) as ApprovalFlowConfigurations,
+    requireReviews: Array.isArray(stored.requireReviews)
+      ? toApiRequireReviews(stored.requireReviews)
+      : [],
+    approvalFlows: {
+      savedGroups: toApiSavedGroupApprovals(
+        stored.approvalFlows?.savedGroups ?? [],
+      ),
+    },
   };
 });
