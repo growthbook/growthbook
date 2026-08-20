@@ -16,6 +16,7 @@ import {
   FeatureValueType,
 } from "shared/validators";
 import { EventUser } from "shared/types/events/event-types";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { AuditInterfaceInput } from "shared/types/audit";
 import { ApiReqContext } from "back-end/types/api";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -34,6 +35,7 @@ import {
   getActiveDraft,
   getRevision,
   markRevisionAsReviewRequested,
+  updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
   getExperimentById,
@@ -617,21 +619,19 @@ export async function createManagedFlagForNewExperiment({
   context,
   experiment,
   sourceExperiment,
-  valueType = "string",
   eventAudit,
   audit,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
   sourceExperiment: ExperimentInterface | null;
-  /** Chosen at creation. A duplicate inherits its source's type instead. */
-  valueType?: FeatureValueType;
   eventAudit: EventUser;
   audit: (data: AuditInterfaceInput) => Promise<void>;
 }): Promise<void> {
+  // Only reached when copying the source failed, so its type is unknown.
   const seeded = {
-    valueType,
-    variations: seedManagedVariationValues(experiment.variations, valueType),
+    valueType: "string" as FeatureValueType,
+    variations: seedManagedVariationValues(experiment.variations),
     sparse: false,
   };
   const copied = sourceExperiment
@@ -679,6 +679,8 @@ export type ManagedFlagState = {
   liveValues: ExperimentRefVariation[];
   pending: {
     values: ExperimentRefVariation[];
+    /** The type these values land as, which a re-type moves. */
+    valueType: FeatureValueType;
     status: string;
     approvalRequired: boolean;
     /** Whether publishing is available right now, approvals included. */
@@ -713,6 +715,7 @@ export async function getManagedFlagState(
   const pendingDraft = info?.pendingDraft ?? null;
 
   let reviews: ManagedFlagReview[] = [];
+  let pendingValueType = feature.valueType;
   if (pendingDraft) {
     const revision = await getRevision({
       context,
@@ -721,6 +724,7 @@ export async function getManagedFlagState(
       feature,
       version: pendingDraft.version,
     });
+    pendingValueType = revision?.metadata?.valueType ?? feature.valueType;
     // A verdict carries no body; the reviewer's comment lives in the revision
     // log, which this surface deliberately does not expose.
     reviews = (revision?.reviews ?? []).map((r) => ({
@@ -738,6 +742,7 @@ export async function getManagedFlagState(
     pending: pendingDraft
       ? {
           values: pendingDraft.values,
+          valueType: pendingValueType,
           status: pendingDraft.status,
           approvalRequired: pendingDraft.pendingApproval,
           // Answers for THIS caller, bypass authority included — an admin who
@@ -874,16 +879,74 @@ export async function adoptManagedFlagForExperiment({
  * exactly what a managed flag forbids. Review and publish are available from the
  * experiment at any time, so staging is too.
  */
+/**
+ * Stages the flag's value type on a draft, so the change is reviewed and
+ * published with the values expressed in it rather than landing on a live flag
+ * whose values still read as the old type.
+ *
+ * `defaultValue` moves with it: it is the flag's fallback and would otherwise
+ * be left reading as the type that just went away.
+ *
+ * A managed flag never carries a JSON schema or a backing Config — it is created
+ * without either and locked against the routes that would add one — so there is
+ * nothing type-specific left behind to clear.
+ */
+export async function stageManagedValueType({
+  context,
+  feature,
+  revision,
+  valueType,
+  defaultValue,
+  eventAudit,
+}: {
+  context: ReqContext;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  valueType: FeatureValueType;
+  defaultValue: string;
+  eventAudit: EventUser;
+}): Promise<FeatureRevisionInterface> {
+  const updated = await updateRevision(
+    context,
+    feature,
+    revision,
+    {
+      // Merged, not replaced: `updateRevision` writes `metadata` wholesale, so
+      // anything else already staged on this draft would be dropped.
+      metadata: { ...revision.metadata, valueType },
+      defaultValue,
+    },
+    {
+      user: eventAudit,
+      action: "change value type",
+      subject: `from ${feature.valueType} to ${valueType}`,
+      value: JSON.stringify({ valueType }),
+    },
+    // The type governs every value the flag serves, so a standing approval no
+    // longer covers what is about to publish.
+    true,
+  );
+  if (!updated) {
+    throw new Error(
+      `Could not stage the value type change on Feature Flag "${feature.id}"`,
+    );
+  }
+  return updated;
+}
+
 export async function updateManagedVariationValues({
   context,
   experiment,
   variations,
+  valueType,
   sparse,
   eventAudit,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
   variations: ExperimentRefVariation[];
+  /** Re-types the flag. Omit to keep the type it already has. */
+  valueType?: FeatureValueType;
   sparse?: boolean;
   eventAudit: EventUser;
 }): Promise<{ feature: FeatureInterface; version: number }> {
@@ -896,9 +959,13 @@ export async function updateManagedVariationValues({
     context.permissions.throwPermissionError();
   }
 
+  const targetType = valueType ?? feature.valueType;
+  const typeChanged = targetType !== feature.valueType;
+
+  // Against the type the values are landing as, not the one being replaced.
   const values = normalizeManagedVariationValues({
     experiment,
-    valueType: feature.valueType,
+    valueType: targetType,
     variations,
   });
 
@@ -911,6 +978,7 @@ export async function updateManagedVariationValues({
       [feature.id]: {
         variations: values,
         ...(sparse === undefined ? {} : { sparse }),
+        ...(typeChanged ? { valueType: targetType } : {}),
         revisionOptions: openDraft
           ? { targetVersion: openDraft.version }
           : { forceNewDraft: true },
@@ -918,18 +986,29 @@ export async function updateManagedVariationValues({
     },
   });
 
-  // No plan means these values already match what the target revision serves.
-  // Report the revision they are on rather than opening an empty draft.
+  // No plan means nothing is changing — neither the values nor the type. Report
+  // the revision they are on rather than opening an empty draft.
   const plan = plans[0];
   if (!plan) {
     return { feature, version: openDraft?.version ?? feature.version };
   }
 
-  const revision =
+  let revision =
     plan.existingRevision ??
     (await getDraftRevision(context, feature, feature.version));
 
-  const updated = await updateExperimentRefVariations({
+  if (typeChanged) {
+    revision = await stageManagedValueType({
+      context,
+      feature,
+      revision,
+      valueType: targetType,
+      defaultValue: values[0].value,
+      eventAudit,
+    });
+  }
+
+  revision = await updateExperimentRefVariations({
     context,
     feature,
     revision,
@@ -944,11 +1023,11 @@ export async function updateManagedVariationValues({
   await requestReviewForManagedDraft({
     context,
     feature,
-    version: updated.version,
+    version: revision.version,
     eventAudit,
   });
 
-  return { feature, version: updated.version };
+  return { feature, version: revision.version };
 }
 
 /**

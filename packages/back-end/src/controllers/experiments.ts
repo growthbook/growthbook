@@ -166,6 +166,7 @@ import {
   ejectManagedFeature,
   getManagedFeatureForExperiment,
   publishManagedDraft,
+  stageManagedValueType,
   requestReviewForManagedDraft,
 } from "back-end/src/services/managedFeatures";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
@@ -1182,10 +1183,7 @@ export async function postExperiments(
   req: AuthRequest<
     // A creation-time instruction, not a stored field — ownership lives on the
     // Feature Flag it creates.
-    Partial<ExperimentInterfaceStringDates> & {
-      managedFlag?: boolean;
-      managedFlagValueType?: FeatureValueType;
-    },
+    Partial<ExperimentInterfaceStringDates>,
     unknown,
     {
       allowDuplicateTrackingKey?: boolean;
@@ -1531,13 +1529,12 @@ export async function postExperiments(
       ? await getManagedFeatureForExperiment(context, originalExperiment)
       : null;
 
-    if (data.managedFlag ?? !!sourceManaged) {
+    if (sourceManaged) {
       try {
         await createManagedFlagForNewExperiment({
           context,
           experiment,
-          sourceExperiment: sourceManaged ? originalExperiment : null,
-          valueType: data.managedFlagValueType,
+          sourceExperiment: originalExperiment,
           eventAudit: res.locals.eventAudit,
           audit: req.audit,
         });
@@ -4480,9 +4477,28 @@ export async function postExperimentFeatureValues(
     const orgEnvIds = context.environments;
     const updatedVariationValues = features[feature.id].variations;
 
-    const revision = existingRevision
+    let revision = existingRevision
       ? existingRevision
       : await getDraftRevision(context, feature, feature.version);
+
+    // Staged before the values so both land on the same draft and publish
+    // together — the values below are already expressed in the new type.
+    const requestedType = features[feature.id].valueType;
+    if (requestedType && requestedType !== feature.valueType) {
+      if (!isManagedByExperiment(feature, experiment.id)) {
+        throw new Error(
+          `Feature ${feature.id}: only a Feature Flag managed by this experiment can change its value type here.`,
+        );
+      }
+      revision = await stageManagedValueType({
+        context,
+        feature,
+        revision,
+        valueType: requestedType,
+        defaultValue: updatedVariationValues[0].value,
+        eventAudit: res.locals.eventAudit,
+      });
+    }
 
     const updatedRevision = await updateExperimentRefVariations({
       context,

@@ -106,6 +106,7 @@ export const putExperimentVariationValues = createApiRequestHandler(
     context: req.context,
     experiment,
     variations: req.body.values,
+    valueType: req.body.valueType,
     sparse: req.body.sparse,
     eventAudit: req.eventAudit,
   });

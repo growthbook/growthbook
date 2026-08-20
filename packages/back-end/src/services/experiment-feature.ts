@@ -25,6 +25,7 @@ import {
   ExperimentInterface,
   ExperimentRefRule,
   ExperimentRefVariation,
+  FeatureValueType,
   FeatureInterface,
   FeatureRule,
 } from "shared/validators";
@@ -337,6 +338,12 @@ export type ExperimentLinkedFeatureValueUpdate = {
   // sparse flag (the variation values are partial objects merged onto the
   // feature default). Omitted = leave the rule's existing sparse flag untouched.
   sparse?: boolean;
+  /**
+   * Re-types the Feature Flag. Only a flag managed by this experiment may be
+   * re-typed here: on a shared flag every other rule's values would be left
+   * reading as the type that went away.
+   */
+  valueType?: FeatureValueType;
   revisionOptions: ExperimentFeatureValueRevisionOptions;
 };
 
@@ -552,7 +559,12 @@ export async function validateExperimentFeatureUpdates({
       return !isEqual(m.rule.variations, updatedVariationValues);
     });
 
-    if (!featureNeedsUpdate) continue;
+    // A type change is a change even when every value reads the same under both
+    // types ("0"/"1" as strings and as numbers), so it must not be skipped here
+    // — the caller stages the type on the plan's revision.
+    const typeChanging =
+      !!entry.valueType && entry.valueType !== feature.valueType;
+    if (!featureNeedsUpdate && !typeChanging) continue;
 
     if (autoPublish) {
       if (

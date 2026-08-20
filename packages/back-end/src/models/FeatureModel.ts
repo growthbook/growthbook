@@ -2005,6 +2005,10 @@ export function computeRevisionMergeChanges(
       changes.customFields = m.customFields as Record<string, unknown>;
     if (m.jsonSchema !== undefined) changes.jsonSchema = m.jsonSchema;
     if (m.baseConfig !== undefined) changes.baseConfig = m.baseConfig;
+    // Staged by a revert restoring an older type, and by a managed flag's own
+    // type change. Both stage every value alongside it, so the values landing
+    // here already read as the type landing with them.
+    if (m.valueType !== undefined) changes.valueType = m.valueType;
     hasChanges = true;
   }
 

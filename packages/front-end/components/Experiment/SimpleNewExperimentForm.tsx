@@ -1,22 +1,18 @@
-import { FC, useEffect, useState } from "react";
+import { FC, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { FeatureValueType } from "shared/types/feature";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getEqualWeights } from "shared/experiments";
 import {
   getManagedWarehouseExposureQueryIdForAttribute,
   isProjectListValidForProject,
-  managedExperimentFlagsDefault,
 } from "shared/util";
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import RadioGroup from "@/ui/RadioGroup";
-import ValueTypeField from "@/components/Features/FeatureModal/ValueTypeField";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import {
@@ -135,14 +131,6 @@ export function getAutoExposureQueryId({
   }
   return "";
 }
-
-/** Boolean is a poor fit for most experiments, so it sits last. */
-const VALUE_TYPE_ORDER: FeatureValueType[] = [
-  "string",
-  "json",
-  "number",
-  "boolean",
-];
 
 const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   onClose,
@@ -315,27 +303,6 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     !hashAttributeLinkedToIdentifier &&
     !wouldAutoSelectExposureQuery;
 
-  // The server creates the flag as part of the experiment and deletes the
-  // experiment again if that fails, so offering Automatic to someone who can't
-  // create a Feature Flag here would block them from creating any experiment.
-  const canManageFlag =
-    permissionsUtil.canViewFeatureModal(selectedProject || undefined) &&
-    !(settings?.requireProjectForFeatures && !selectedProject);
-  const managedDefault =
-    canManageFlag &&
-    managedExperimentFlagsDefault({
-      settings,
-      project: projects.find((p) => p.id === selectedProject) ?? null,
-    });
-  const [managedFlag, setManagedFlag] = useState(managedDefault);
-  const [managedValueType, setManagedValueType] =
-    useState<FeatureValueType>("string");
-  // Re-resolve on Project change until the user touches the control.
-  const [managedTouched, setManagedTouched] = useState(false);
-  useEffect(() => {
-    if (!managedTouched) setManagedFlag(managedDefault);
-  }, [managedDefault, managedTouched]);
-
   const onSubmit = form.handleSubmit(async (rawValue) => {
     const name = (rawValue.name || "").trim();
     if (name.length < 1) {
@@ -446,11 +413,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       | { duplicateTrackingKey: true; existingId: string }
     >("/experiments", {
       method: "POST",
-      body: JSON.stringify({
-        ...data,
-        managedFlag,
-        ...(managedFlag && { managedFlagValueType: managedValueType }),
-      }),
+      body: JSON.stringify(data),
     });
 
     if ("duplicateTrackingKey" in res) {
@@ -595,48 +558,6 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
         {...form.register("hypothesis")}
       />
-
-      {canManageFlag && (
-        <Flex direction="column" gap="1" mb="3">
-          <Text weight="semibold">Implementation</Text>
-          <RadioGroup
-            value={managedFlag ? "managed" : "manual"}
-            setValue={(v) => {
-              setManagedTouched(true);
-              setManagedFlag(v === "managed");
-            }}
-            options={[
-              {
-                value: "managed",
-                label: "Automatic",
-                description:
-                  "Feature Flag set up and published from this experiment",
-                // Outside the item: a `<label>`-wrapped dropdown re-toggles the
-                // radio on every click, so the two cancel each other out.
-                renderOutsideItem: true,
-                // Only the type. The values themselves are seeded and edited on
-                // the experiment, where every variation is on screen.
-                renderOnSelect: (
-                  <Box pl="5" pt="1">
-                    <ValueTypeField
-                      value={managedValueType}
-                      order={VALUE_TYPE_ORDER}
-                      onChange={(v) => {
-                        if (v !== "config") setManagedValueType(v);
-                      }}
-                    />
-                  </Box>
-                ),
-              },
-              {
-                value: "manual",
-                label: "Manual",
-                description: "Feature Flag, Visual Editor or URL Redirect",
-              },
-            ]}
-          />
-        </Flex>
-      )}
 
       <SelectField
         required

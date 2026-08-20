@@ -28,6 +28,7 @@ import {
   getMatchingRules,
   getNamespaceRanges,
   getReviewSetting,
+  isManagedFeature,
   getSnapshotAnalysis,
   isAnalysisAllowed,
   isDefined,
@@ -4938,7 +4939,17 @@ export async function getRefLinkedFeatureInfo({
         const m = getMatchingRules(feature, matchRule, environments, r);
         if (m.length === 0) continue;
         const draftRefRules = refRulesForEntity(r.rules);
-        if (liveRefRules.length > 0 && !isEqual(draftRefRules, liveRefRules)) {
+        // A managed flag's value type is part of what it serves, so re-typing it
+        // is an unpublished change even when every value reads the same under
+        // both types ("0"/"1" as strings and as numbers).
+        const draftRetypes =
+          isManagedFeature(feature) &&
+          r.metadata?.valueType !== undefined &&
+          r.metadata.valueType !== feature.valueType;
+        if (
+          liveRefRules.length > 0 &&
+          (draftRetypes || !isEqual(draftRefRules, liveRefRules))
+        ) {
           matchedDraftRevision = r;
           draftMatches = m;
           draftDiffersFromLive = true;
@@ -5038,6 +5049,11 @@ export async function getRefLinkedFeatureInfo({
           if (!mergeResult.success) {
             draftHasMergeConflict = true;
           } else if (
+            // A managed flag has nothing on it that is not the experiment's:
+            // its value type and default value move with its variation values.
+            // The check guards a SHARED flag, where someone else's edit could
+            // otherwise ride along in the draft this page publishes.
+            !isManagedFeature(feature) &&
             draftHasChangesOutsideTargetRef(
               matchedDraftRevision,
               filledLive,

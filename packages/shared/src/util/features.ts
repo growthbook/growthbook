@@ -285,6 +285,99 @@ export function validateJSONFeatureValue(
   }
 }
 
+/**
+ * Unwraps the `{ "value": X }` envelope `castFeatureValue` writes when moving a
+ * value into JSON, so a round trip through JSON returns what went in. Anything
+ * else is left alone.
+ */
+function unwrapCastEnvelope(value: string): string {
+  try {
+    const parsed = JSON.parse(value);
+    if (
+      parsed === null ||
+      typeof parsed !== "object" ||
+      Array.isArray(parsed) ||
+      Object.keys(parsed).length !== 1 ||
+      !("value" in parsed)
+    ) {
+      return value;
+    }
+    const inner = (parsed as { value: unknown }).value;
+    return typeof inner === "string" ? inner : JSON.stringify(inner);
+  } catch (e) {
+    return value;
+  }
+}
+
+/** The value shape `validateFeatureValue` accepts for a number. */
+const NUMBER_VALUE_PATTERN = /^-?[0-9]+(\.[0-9]+)?$/;
+
+/** A JSON literal for `value`, quoting whatever would not parse on its own. */
+function asJsonLiteral(plain: string, from: FeatureValueType): string {
+  if (from === "string") return JSON.stringify(plain);
+  try {
+    JSON.parse(plain);
+    return plain;
+  } catch (e) {
+    return JSON.stringify(plain);
+  }
+}
+
+/**
+ * Re-expresses one serialized feature value under a different value type,
+ * keeping what the old value meant wherever that is possible.
+ *
+ * `index` is the variation's position, used only when nothing about the old
+ * value survives the move: booleans then fall back to control-off/rest-on,
+ * because mapping every variation to the same value would stop the flag being
+ * an experiment at all.
+ */
+export function castFeatureValue({
+  value,
+  from,
+  to,
+  index = 0,
+}: {
+  value: string;
+  from: FeatureValueType;
+  to: FeatureValueType;
+  index?: number;
+}): string {
+  if (from === to) return value;
+
+  // A value that went into JSON as `{"value": X}` comes back out as X.
+  const plain = from === "json" ? unwrapCastEnvelope(value) : value;
+
+  switch (to) {
+    case "boolean": {
+      const t = plain.trim().toLowerCase();
+      if (["", "0", "false", "null", "undefined"].includes(t)) return "false";
+      if (["1", "true"].includes(t)) return "true";
+      return index === 0 ? "false" : "true";
+    }
+    case "number": {
+      const trimmed = plain.trim();
+      const n = Number(trimmed);
+      const candidate = String(n);
+      // Judged by the same shape `validateFeatureValue` accepts, so a reading
+      // JavaScript allows but the field rejects — "" as 0, or a magnitude that
+      // stringifies to exponential notation — falls back to the position.
+      return trimmed !== "" &&
+        Number.isFinite(n) &&
+        NUMBER_VALUE_PATTERN.test(candidate)
+        ? candidate
+        : String(index);
+    }
+    case "json": {
+      // Booleans and numbers are already JSON literals; anything else is
+      // quoted, including a literal that turns out not to parse.
+      return `{\n  "value": ${asJsonLiteral(plain, from)}\n}`;
+    }
+    case "string":
+      return plain;
+  }
+}
+
 export function validateFeatureValue(
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   value: string,

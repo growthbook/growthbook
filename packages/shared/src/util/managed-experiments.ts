@@ -1,6 +1,4 @@
 import type { FeatureInterface, FeatureValueType } from "shared/types/feature";
-import type { OrganizationSettings } from "shared/types/organization";
-import type { ProjectInterface } from "../validators/projects";
 
 // Managed mode: the experiment owns one Feature Flag holding one experiment-ref
 // rule, edited only from the experiment page while the marker is set.
@@ -31,19 +29,6 @@ export function managedByExperimentId(
   return feature.managedBy?.type === "experiment"
     ? feature.managedBy.experimentId
     : null;
-}
-
-/** Project setting wins when set; absent everywhere reads as off. */
-export function managedExperimentFlagsDefault({
-  settings,
-  project,
-}: {
-  settings?: OrganizationSettings;
-  project?: Pick<ProjectInterface, "settings"> | null;
-}): boolean {
-  const projectSetting = project?.settings?.managedExperimentFlags;
-  if (projectSetting !== undefined) return projectSetting;
-  return settings?.managedExperimentFlags ?? false;
 }
 
 /**

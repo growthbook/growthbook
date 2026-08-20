@@ -2488,6 +2488,9 @@ const apiPendingVariationValues = namedSchema(
   z
     .object({
       values: z.array(apiVariationValue),
+      valueType: z
+        .enum(["string", "number", "boolean", "json"])
+        .describe("The type these values land as, which a re-type moves."),
       status: z
         .string()
         .describe("draft, pending-review, changes-requested or approved"),
@@ -2592,6 +2595,12 @@ export const putExperimentVariationValuesValidator = {
       values: z
         .array(apiVariationValue)
         .describe("One entry per experiment variation."),
+      valueType: z
+        .enum(["string", "number", "boolean", "json"])
+        .optional()
+        .describe(
+          "Re-types the Feature Flag. Omit to keep the type it already has. The values sent with it must read as the new type.",
+        ),
       sparse: z
         .boolean()
         .optional()
@@ -2603,7 +2612,7 @@ export const putExperimentVariationValuesValidator = {
   responseSchema: variationValuesResponse,
   summary: "Update the values an experiment's variations serve",
   description:
-    "Stages the new values on the experiment's Feature Flag. Adds them to the change already waiting to go live when there is one, and starts a new one otherwise, so the values never need to be published before they can be changed again. Publishing them is a separate call.",
+    "Stages the new values on the experiment's Feature Flag. Adds them to the change already waiting to go live when there is one, and starts a new one otherwise, so the values never need to be published before they can be changed again. Pass `valueType` to re-type the flag at the same time. Publishing is a separate call.",
   operationId: "putExperimentVariationValues",
   tags: ["experiments"],
   method: "put" as const,

@@ -1,7 +1,10 @@
 import type { ExperimentInterface, FeatureInterface } from "shared/validators";
 import { updateManagedVariationValues } from "back-end/src/services/managedFeatures";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import { getActiveDraft } from "back-end/src/models/FeatureRevisionModel";
+import {
+  getActiveDraft,
+  updateRevision,
+} from "back-end/src/models/FeatureRevisionModel";
 import {
   updateExperimentRefVariations,
   validateExperimentFeatureUpdates,
@@ -21,6 +24,7 @@ jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
   getActiveDraft: jest.fn(),
   getRevision: jest.fn(),
   markRevisionAsReviewRequested: jest.fn(),
+  updateRevision: jest.fn(),
 }));
 jest.mock("back-end/src/services/experiment-feature", () => ({
   linkFeatureToExperiment: jest.fn(),
@@ -45,6 +49,7 @@ const mockActiveDraft = getActiveDraft as jest.Mock;
 const mockValidate = validateExperimentFeatureUpdates as jest.Mock;
 const mockUpdateRefs = updateExperimentRefVariations as jest.Mock;
 const mockDraftRevision = getDraftRevision as jest.Mock;
+const mockUpdateRevision = updateRevision as jest.Mock;
 
 const context = {
   org: { id: "org_1", settings: {} },
@@ -106,6 +111,7 @@ beforeEach(() => {
   ]);
   mockUpdateRefs.mockResolvedValue({ version: 8 });
   mockDraftRevision.mockResolvedValue({ version: 8 });
+  mockUpdateRevision.mockResolvedValue({ version: 8 });
 });
 
 describe("updateManagedVariationValues revision choice", () => {
@@ -226,5 +232,128 @@ describe("updateManagedVariationValues value handling", () => {
         ],
       }),
     ).rejects.toThrow(/one value per experiment variation/i);
+  });
+});
+
+describe("updateManagedVariationValues value type", () => {
+  /** The changes staged on the revision by the type change. */
+  const staged = () => mockUpdateRevision.mock.calls[0][3];
+
+  it("does nothing extra when the type is unchanged", async () => {
+    await update({ valueType: "string" });
+    expect(mockUpdateRevision).not.toHaveBeenCalled();
+  });
+
+  it("stages the type and the default value together", async () => {
+    await update({
+      valueType: "number",
+      variations: [
+        { variationId: "v0", value: "10" },
+        { variationId: "v1", value: "20" },
+      ],
+    });
+
+    expect(staged()).toEqual({
+      metadata: { valueType: "number" },
+      // The flag's fallback would otherwise be left reading as the old type.
+      defaultValue: "10",
+    });
+  });
+
+  it("keeps metadata already staged on the draft", async () => {
+    mockActiveDraft.mockResolvedValue({
+      version: 8,
+      metadata: { description: "staged earlier", owner: "u_1" },
+    });
+    mockValidate.mockResolvedValue([
+      {
+        feature: managedFeature(),
+        existingRevision: {
+          version: 8,
+          metadata: { description: "staged earlier" },
+        },
+        matchingRules: [],
+      },
+    ]);
+
+    await update({
+      valueType: "number",
+      variations: [
+        { variationId: "v0", value: "1" },
+        { variationId: "v1", value: "2" },
+      ],
+    });
+
+    expect(staged().metadata).toEqual({
+      description: "staged earlier",
+      valueType: "number",
+    });
+  });
+
+  it("resets the review, because the type governs every value", async () => {
+    await update({
+      valueType: "number",
+      variations: [
+        { variationId: "v0", value: "1" },
+        { variationId: "v1", value: "2" },
+      ],
+    });
+
+    expect(mockUpdateRevision.mock.calls[0][5]).toBe(true);
+  });
+
+  it("validates the values against the new type, not the old one", async () => {
+    // "true" is a fine string but not a number.
+    await expect(
+      update({
+        valueType: "number",
+        variations: [
+          { variationId: "v0", value: "true" },
+          { variationId: "v1", value: "2" },
+        ],
+      }),
+    ).rejects.toThrow(/valid number/i);
+    expect(mockUpdateRevision).not.toHaveBeenCalled();
+  });
+
+  it("tells the planner about the type so a type-only change is not skipped", async () => {
+    // "0"/"1" are byte-identical as strings and as numbers, so without this the
+    // planner sees no value delta and drops the whole update.
+    await update({
+      valueType: "number",
+      variations: [
+        { variationId: "v0", value: "0" },
+        { variationId: "v1", value: "1" },
+      ],
+    });
+
+    expect(
+      mockValidate.mock.calls[0][0].features["checkout-test"].valueType,
+    ).toBe("number");
+  });
+
+  it("does not mention a type that is not changing", async () => {
+    await update({ valueType: "string" });
+    expect(
+      mockValidate.mock.calls[0][0].features["checkout-test"],
+    ).not.toHaveProperty("valueType");
+  });
+
+  it("stages the type before the values, on the revision it returned", async () => {
+    mockUpdateRevision.mockResolvedValue({ version: 8, retyped: true });
+
+    await update({
+      valueType: "number",
+      variations: [
+        { variationId: "v0", value: "1" },
+        { variationId: "v1", value: "2" },
+      ],
+    });
+
+    // Passing the pre-type-change copy would fail updateRevision's CAS on the
+    // status the type change just moved.
+    expect(mockUpdateRefs).toHaveBeenCalledWith(
+      expect.objectContaining({ revision: { version: 8, retyped: true } }),
+    );
   });
 });

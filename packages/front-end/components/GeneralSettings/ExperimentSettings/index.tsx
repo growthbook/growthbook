@@ -139,33 +139,6 @@ export default function ExperimentSettings({
               </Flex>
             </Box>
 
-            {/* Managed experiment Feature Flags */}
-            <Box mb="6">
-              <Flex align="start" gap="3">
-                <Box>
-                  <Checkbox
-                    value={!!form.watch("managedExperimentFlags")}
-                    setValue={(v) => form.setValue("managedExperimentFlags", v)}
-                    id="toggle-managedExperimentFlags"
-                    mt="1"
-                  />
-                </Box>
-                <Flex direction="column">
-                  <Text size="3" className="font-weight-semibold">
-                    <label htmlFor="toggle-managedExperimentFlags">
-                      Manage Feature Flags from the experiment
-                    </label>
-                  </Text>
-                  <Text>
-                    New experiments deliver their variations through a Feature
-                    Flag that is set up, reviewed and published entirely from
-                    the experiment — no separate Feature Flag workflow. Can be
-                    turned off per experiment.
-                  </Text>
-                </Flex>
-              </Flex>
-            </Box>
-
             {/* import length */}
             <Box mb="6">
               <Flex mb="2">

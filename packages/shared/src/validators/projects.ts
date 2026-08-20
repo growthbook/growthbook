@@ -13,7 +13,6 @@ export const projectSettingsValidator = z.object({
   confidenceLevel: z.number().min(0.5).max(1).optional(),
   pValueThreshold: z.number().gt(0).max(0.5).optional(),
   // Overrides the org-level default when set; absent defers to the org.
-  managedExperimentFlags: z.boolean().optional(),
 });
 
 export const projectValidator = baseSchema
@@ -53,7 +52,6 @@ export const apiProjectValidator = namedSchema(
           statsEngine: z.string().optional(),
           confidenceLevel: z.number().optional(),
           pValueThreshold: z.number().optional(),
-          managedExperimentFlags: z.boolean().optional(),
         })
         .optional(),
     })
@@ -85,12 +83,6 @@ const postProjectBody = z
         pValueThreshold: z
           .number()
           .describe("Frequentist p-value threshold (e.g. 0.05).")
-          .optional(),
-        managedExperimentFlags: z
-          .boolean()
-          .describe(
-            "Whether new experiments in this project default to delivering their variations through an experiment-managed Feature Flag.",
-          )
           .optional(),
       })
       .describe(
@@ -125,12 +117,6 @@ const putProjectBody = z
         pValueThreshold: z
           .number()
           .describe("Frequentist p-value threshold (e.g. 0.05).")
-          .optional(),
-        managedExperimentFlags: z
-          .boolean()
-          .describe(
-            "Whether new experiments in this project default to delivering their variations through an experiment-managed Feature Flag.",
-          )
           .optional(),
       })
       .describe(

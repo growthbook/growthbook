@@ -138,6 +138,7 @@ describe("getManagedFlagState", () => {
     const state = await getManagedFlagState(context, experiment());
     expect(state.pending).toMatchObject({
       values: controlAndTreatment,
+      valueType: "string",
       status: "draft",
       approvalRequired: false,
       canPublish: true,
@@ -310,5 +311,31 @@ describe("getManagedFlagState", () => {
     expect(
       (await getManagedFlagState(context, experiment())).pending?.canPublish,
     ).toBe(false);
+  });
+
+  it("reports the type a re-typing draft lands as, not the live one", async () => {
+    mockLinkedInfo.mockResolvedValue([
+      { feature: managedFeature(), pendingDraft: pendingDraft() },
+    ]);
+    mockGetRevision.mockResolvedValue({ metadata: { valueType: "number" } });
+
+    const state = await getManagedFlagState(context, experiment());
+    expect(state.valueType).toBe("string");
+    expect(state.pending?.valueType).toBe("number");
+  });
+
+  it("reports the live type when the draft does not re-type", async () => {
+    mockLinkedInfo.mockResolvedValue([
+      {
+        feature: managedFeature({ valueType: "boolean" }),
+        pendingDraft: pendingDraft(),
+      },
+    ]);
+    mockGetFeature.mockResolvedValue(managedFeature({ valueType: "boolean" }));
+    mockGetRevision.mockResolvedValue({ metadata: {} });
+
+    expect(
+      (await getManagedFlagState(context, experiment())).pending?.valueType,
+    ).toBe("boolean");
   });
 });

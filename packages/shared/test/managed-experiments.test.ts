@@ -3,7 +3,6 @@ import {
   isManagedByExperiment,
   isManagedFeature,
   managedByExperimentId,
-  managedExperimentFlagsDefault,
   managedFeatureKeyCandidate,
   seedManagedVariationValues,
 } from "../src/util/managed-experiments";
@@ -76,50 +75,6 @@ describe("managedFeatureKeyCandidate", () => {
       });
       expect(key).toMatch(/^[a-zA-Z0-9_.:|-]+$/);
     }
-  });
-});
-
-describe("managedExperimentFlagsDefault", () => {
-  it("is off when neither org nor Project says anything", () => {
-    expect(managedExperimentFlagsDefault({ settings: {}, project: null })).toBe(
-      false,
-    );
-    expect(managedExperimentFlagsDefault({})).toBe(false);
-  });
-
-  it("follows the org setting when the Project is silent", () => {
-    expect(
-      managedExperimentFlagsDefault({
-        settings: { managedExperimentFlags: true },
-        project: { settings: {} },
-      }),
-    ).toBe(true);
-  });
-
-  it("lets the Project override the org in both directions", () => {
-    expect(
-      managedExperimentFlagsDefault({
-        settings: { managedExperimentFlags: true },
-        project: { settings: { managedExperimentFlags: false } },
-      }),
-    ).toBe(false);
-    expect(
-      managedExperimentFlagsDefault({
-        settings: { managedExperimentFlags: false },
-        project: { settings: { managedExperimentFlags: true } },
-      }),
-    ).toBe(true);
-  });
-
-  it("treats an absent Project setting as deferral, not as false", () => {
-    // The distinction that matters: `undefined` defers to the org, whereas an
-    // explicit `false` overrides it.
-    expect(
-      managedExperimentFlagsDefault({
-        settings: { managedExperimentFlags: true },
-        project: { settings: { managedExperimentFlags: undefined } },
-      }),
-    ).toBe(true);
   });
 });
 
