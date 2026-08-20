@@ -6,7 +6,10 @@ import { useRouter } from "next/router";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { OrganizationSettings } from "shared/types/organization";
 import {
+  coverageToHoldoutSize,
+  holdoutSizeToCoverage,
   isProjectListValidForProject,
+  MAX_HOLDOUT_SIZE,
   validateAndFixCondition,
 } from "shared/util";
 import { getScopedSettings } from "shared/settings";
@@ -564,18 +567,24 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                     isNaN(form.watch("phases.0.coverage") ?? 0)
                       ? ""
                       : decimalToPercent(
-                          (form.watch("phases.0.coverage") ?? 0) / 2,
+                          coverageToHoldoutSize(
+                            form.watch("phases.0.coverage") ?? 0,
+                          ),
                         )
                   }
                   onChange={(e) => {
-                    let decimal = percentToDecimal(e.target.value);
-                    if (decimal > 1) decimal = 1;
-                    if (decimal < 0) decimal = 0;
-                    form.setValue("phases.0.coverage", decimal * 2);
+                    let holdoutSize = percentToDecimal(e.target.value);
+                    if (holdoutSize > MAX_HOLDOUT_SIZE)
+                      holdoutSize = MAX_HOLDOUT_SIZE;
+                    if (holdoutSize < 0) holdoutSize = 0;
+                    form.setValue(
+                      "phases.0.coverage",
+                      holdoutSizeToCoverage(holdoutSize),
+                    );
                   }}
                   type="number"
                   min={0}
-                  max={100}
+                  max={decimalToPercent(MAX_HOLDOUT_SIZE)}
                   step="0.01"
                 />
                 <span>%</span>
