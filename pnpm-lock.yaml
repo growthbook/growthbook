@@ -59,7 +59,6 @@ overrides:
   nanoid@3: ^3.3.18
   js-yaml@4: ^4.3.1
   yaml@1: ^1.10.3
-  '@agendajs/mongo-backend>mongodb': 6.21.0
 
 packageExtensionsChecksum: sha256-ONFGne8DaYr3yl1nn8+J2aXpoi+cjtLj0p0yGa8trnw=
 
@@ -1385,7 +1384,7 @@ packages:
     engines: {node: '>=18.0.0'}
     peerDependencies:
       agenda: 6.2.6
-      mongodb: 6.21.0
+      mongodb: ^6.0.0 || ^7.0.0
 
   '@ai-sdk/anthropic@3.0.2':
     resolution: {integrity: sha512-D6iSsrOYryBSPsFtOiEDv54jnjVCU/flIuXdjuRY7LdikB0KGjpazN8Dt4ONXzL+ux69ds2nzFNKke/w/fgLAA==}

@@ -46,11 +46,14 @@ export class AIConversationModel extends BaseClass {
     id: string,
   ): Promise<{ isStreaming: boolean } | null> {
     const now = new Date();
-    const { value } = await this._dangerousGetCollection().findOneAndUpdate(
+    // Collection is typed as mongodb@6, but mongoose still runs the v4 driver
+    // which returns ModifyResult `{ value }` (not the document directly).
+    const result = (await this._dangerousGetCollection().findOneAndUpdate(
       { organization: this.context.org.id, id, userId: this.context.userId },
       { $set: { lastStreamedAt: now, dateUpdated: now } },
       { returnDocument: "after", projection: { isStreaming: 1 } },
-    );
+    )) as unknown as { value: { isStreaming?: boolean } | null } | null;
+    const value = result?.value;
     if (!value) return null;
 
     return { isStreaming: !!value.isStreaming };

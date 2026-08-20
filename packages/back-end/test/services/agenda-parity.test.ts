@@ -130,21 +130,23 @@ describe("agenda v5 vs v6 parity", () => {
   const versions: AgendaVersion[] = ["v5", "v6"];
 
   describe.each(versions)("%s", (version) => {
-    let factory: AgendaFactoryResult | undefined;
+    let factory: AgendaFactoryResult;
 
-    beforeEach(async () => {
+    beforeAll(async () => {
       factory = await createAgenda(version, uri);
     });
 
-    afterEach(async () => {
-      if (factory) {
-        await factory.close();
-        factory = undefined;
-      }
+    afterAll(async () => {
+      await factory.close();
+    });
+
+    beforeEach(async () => {
+      await factory.db.collection("agendaJobs").deleteMany({});
+      await factory.agenda.stop();
     });
 
     it("runs a scheduled job once with the expected data", async () => {
-      const { agenda } = factory!;
+      const { agenda } = factory;
       const seen: unknown[] = [];
       agenda.define("parity-once", async (job) => {
         seen.push(job.attrs.data);

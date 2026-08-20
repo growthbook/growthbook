@@ -16,6 +16,7 @@ import {
   statusFromStandingVerdicts,
 } from "shared/enterprise";
 import uniqid from "uniqid";
+import type { Document, UpdateFilter } from "mongodb";
 import { ACTIVE_DRAFT_STATUSES, ActiveDraftStatus } from "shared/validators";
 import type { CreateProps, UpdateProps } from "shared/types/base-model";
 import {
@@ -1920,7 +1921,9 @@ export class RevisionModel extends BaseClass {
     try {
       ({ matchedCount } = await this._dangerousGetCollection().updateOne(
         filter,
-        update(!!prior.scheduledPublishLockOthers),
+        update(
+          !!prior.scheduledPublishLockOthers,
+        ) as unknown as UpdateFilter<Document>,
       ));
     } catch (e) {
       // A sibling armed a lock-others schedule while we held the merge; restore
@@ -1928,7 +1931,7 @@ export class RevisionModel extends BaseClass {
       if (!isPublishLockIndexConflict(e)) throw e;
       ({ matchedCount } = await this._dangerousGetCollection().updateOne(
         filter,
-        update(false),
+        update(false) as unknown as UpdateFilter<Document>,
       ));
     }
     if (!matchedCount) return null;
@@ -2044,7 +2047,7 @@ export class RevisionModel extends BaseClass {
               dateCreated: now,
             },
           },
-        },
+        } as unknown as UpdateFilter<Document>,
       );
       // No throw when the guard misses, unlike the arm below: the schedule the
       // caller wanted withdrawn has already run or been thrown away, which is the
@@ -2110,7 +2113,7 @@ export class RevisionModel extends BaseClass {
               : { armAcknowledgments: 1 }),
           },
           $push: { activityLog: armEntry },
-        },
+        } as unknown as UpdateFilter<Document>,
       );
       if (!matchedCount) {
         // Covers both guards: a revision that left the active statuses, and one

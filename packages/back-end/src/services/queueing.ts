@@ -1,5 +1,5 @@
 import type { Agenda, Job } from "agenda";
-import type { Collection, MongoClient } from "mongodb";
+import type { Collection } from "mongodb";
 import mongoose from "mongoose";
 import { parseEnvInt } from "shared/util";
 import { MONGODB_URI } from "back-end/src/util/secrets";
@@ -14,8 +14,12 @@ type DefineOptions = {
 
 type Processor<T = unknown> = (job: Job<T>) => Promise<void>;
 
+type AgendaMongoClient = {
+  close: () => Promise<void>;
+};
+
 let agendaInstance: Agenda | undefined;
-let agendaMongoClient: MongoClient | undefined;
+let agendaMongoClient: AgendaMongoClient | undefined;
 let initPromise: Promise<Agenda> | undefined;
 
 function getAgendaMongoUri(): string {
@@ -36,7 +40,6 @@ function installDefineWrapper(agenda: Agenda): void {
     let processor: Processor<T>;
     let options: DefineOptions | undefined;
 
-    // Accept v5 (name, options, processor) and v6 (name, processor, options).
     if (typeof optionsOrProcessor === "function") {
       processor = optionsOrProcessor;
       options = processorOrOptions as DefineOptions | undefined;
@@ -71,6 +74,7 @@ export async function initAgenda(): Promise<Agenda> {
   initPromise = (async () => {
     const { Agenda } = await import("agenda");
     const { MongoBackend } = await import("@agendajs/mongo-backend");
+    // Separate mongodb@6 client for Agenda (mongoose keeps its nested driver).
     const { MongoClient } = await import("mongodb");
 
     if (!mongoose.connection.db) {
@@ -78,7 +82,8 @@ export async function initAgenda(): Promise<Agenda> {
     }
 
     const uri = getAgendaMongoUri();
-    const client = await MongoClient.connect(uri);
+    const client = new MongoClient(uri);
+    await client.connect();
     agendaMongoClient = client;
 
     const dbName =

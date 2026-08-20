@@ -6,6 +6,7 @@ import {
   AnyBulkWriteOperation,
   Collection,
   Document,
+  Filter,
   UpdateFilter,
 } from "mongodb";
 import omit from "lodash/omit";
@@ -846,7 +847,7 @@ export abstract class BaseModel<
         // Read raw so the guard describes the STORED doc while `compute` gets a
         // migrated one.
         const raw = (await this._dangerousGetCollection().findOne(
-          this.applyBaseQuery({ id }),
+          this.applyBaseQuery({ id }) as Filter<Document>,
         )) as Record<string, unknown> | null;
         if (!raw) return null;
 
@@ -1029,7 +1030,9 @@ export abstract class BaseModel<
 
       rawDocs = docs;
     } else {
-      const cursor = this._dangerousGetCollection().find(fullQuery);
+      const cursor = this._dangerousGetCollection().find(
+        fullQuery as Filter<Document>,
+      );
       if (projection) {
         cursor.project(projection);
         omittedFields = new Set(Object.keys(projection));
@@ -1080,7 +1083,9 @@ export abstract class BaseModel<
     const fullQuery = this.applyBaseQuery(query);
     const doc = this.useConfigFile()
       ? this.getConfigDocuments().find((doc) => evalCondition(doc, fullQuery))
-      : await this._dangerousGetCollection().findOne(fullQuery);
+      : await this._dangerousGetCollection().findOne(
+          fullQuery as Filter<Document>,
+        );
     if (!doc) return null;
 
     const migrated = this._stripLegacyNullFields(
@@ -1408,12 +1413,16 @@ export abstract class BaseModel<
   protected async _dangerousCountDocumentsCrossOrganization(
     filter: ScopedFilterQuery<T, PKey>,
   ) {
-    return this._dangerousGetCollection().countDocuments(filter);
+    return this._dangerousGetCollection().countDocuments(
+      filter as Filter<Document>,
+    );
   }
 
   protected async _countDocuments(filter: ScopedFilterQuery<T, PKey>) {
     const query = this.applyBaseQuery(filter);
-    return this._dangerousGetCollection().countDocuments(query);
+    return this._dangerousGetCollection().countDocuments(
+      query as Filter<Document>,
+    );
   }
 
   protected async _dangerousBulkWriteCrossOrganization(
@@ -1471,7 +1480,7 @@ export abstract class BaseModel<
         return this.context.throwInternalServerError(
           "Unsupported bulkWrite operation type in BaseModel#bulkWrite",
         );
-      }),
+      }) as AnyBulkWriteOperation<Document>[],
       { ignoreUndefined: true },
     );
     if (this.config.affectsDefinitionsVersion) {
@@ -1569,7 +1578,7 @@ export abstract class BaseModel<
   protected _dangerousGetCollection() {
     if (!this._collection) {
       // TODO: don't use Mongoose, use the native Mongo Driver instead
-      // mongoose 6 still ships mongodb@4 Collections; app types are mongodb@6.
+      // mongoose 6 still returns mongodb@4 Collections; app types are mongodb@6.
       this._collection = mongoose.connection.db.collection(
         this.config.collectionName,
       ) as unknown as Collection;

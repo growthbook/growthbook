@@ -1,4 +1,5 @@
 import mongoose, { FilterQuery } from "mongoose";
+import type { Document, Filter } from "mongodb";
 import { evalCondition } from "@growthbook/growthbook";
 import { ExperimentMetricInterface } from "shared/experiments";
 import isEqual from "lodash/isEqual";
@@ -385,7 +386,7 @@ async function findMetrics(
       {
         ...additionalQuery,
         organization: context.org.id,
-      },
+      } as Filter<Document>,
       { projection },
     )
     .toArray();
