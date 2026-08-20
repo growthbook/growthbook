@@ -4942,6 +4942,12 @@ export async function getRefLinkedFeatureInfo({
         // A managed flag's value type is part of what it serves, so re-typing it
         // is an unpublished change even when every value reads the same under
         // both types ("0"/"1" as strings and as numbers).
+        //
+        // Compared against live rather than the draft's own base, which every
+        // revision snapshots: a draft branched before some OTHER draft re-typed
+        // the flag reads as re-typing here while publishing it would not
+        // actually move the type back. Unreachable through this surface, which
+        // keeps one draft per managed flag.
         const draftRetypes =
           isManagedFeature(feature) &&
           r.metadata?.valueType !== undefined &&

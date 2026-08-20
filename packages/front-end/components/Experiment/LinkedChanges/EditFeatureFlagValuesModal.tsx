@@ -382,8 +382,11 @@ export default function EditFeatureFlagValuesModal({
   // JSON features whose default is a plain object. The toggle rewrites every
   // variation value (strip keys equal to the default ⇄ expand onto the default)
   // and the new flag is persisted alongside the values on save.
+  // Only while the flag STAYS a JSON flag: a draft that re-types it would
+  // otherwise carry `sparse` onto a rule whose values are no longer patches.
   const sparseEligible =
     feature.valueType === "json" &&
+    valueType === "json" &&
     parsePlainJSONObject(feature.defaultValue ?? "") !== null;
   // Config-backed JSON flags always merge object arm values onto the resolved
   // config, so they're inherently sparse patches that serve the default's
@@ -539,11 +542,17 @@ export default function EditFeatureFlagValuesModal({
         // The type being saved, not the one currently live: on a managed
         // flag both move together in one draft.
         const savingType = values.valueType;
+        const savingTypeChanged = savingType !== feature.valueType;
         const updatedRefVariations: ExperimentRefVariation[] = rows.map(
           (r) => ({
             variationId: r.id,
             value: validateFeatureValue(
-              { valueType: savingType, jsonSchema: feature.jsonSchema },
+              {
+                valueType: savingType,
+                // A schema describes the type it was written for, so it does
+                // not survive the move. (A managed flag never has one.)
+                jsonSchema: savingTypeChanged ? undefined : feature.jsonSchema,
+              },
               r.value ?? "",
               "",
             ),
@@ -595,7 +604,7 @@ export default function EditFeatureFlagValuesModal({
                 [feature.id]: {
                   variations: updatedRefVariations,
                   ...(sparseEligible && { sparse }),
-                  ...(typeChanged && { valueType: savingType }),
+                  ...(savingTypeChanged && { valueType: savingType }),
                   revisionOptions,
                 },
               },
@@ -606,7 +615,7 @@ export default function EditFeatureFlagValuesModal({
         track("Edit Feature Flag Values: Save", {
           draftMode: mode,
           valueType: savingType,
-          valueTypeChanged: typeChanged,
+          valueTypeChanged: savingTypeChanged,
           numVariations: rows.length,
           hasNewVariations: rows.some((r) => !existingVariationIds.has(r.id)),
           eligibleDraftCount: eligibleDraftVersions.size,
