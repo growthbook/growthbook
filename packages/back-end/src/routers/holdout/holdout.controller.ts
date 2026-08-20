@@ -62,7 +62,6 @@ import { validateExperimentChange } from "back-end/src/services/experimentChange
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
-import { assertLoadedFeatureNotManaged } from "back-end/src/services/managedFeatures";
 
 /**
  * GET /holdout/:id
@@ -774,10 +773,6 @@ export const deleteHoldoutFeature = async (
   // experiment would be left held-out with no feature gating it. Detach the
   // experiment (remove its rule, or remove it from the holdout) first.
   await assertNoLinkedHoldoutExperiments(context, holdout.id, feature.rules);
-  // The check above reads LIVE rules, which are empty for a managed flag whose
-  // experiment-ref rule is still staged in a draft — so it would not notice the
-  // experiment. The flag is the experiment's to change either way.
-  assertLoadedFeatureNotManaged(feature);
 
   await removeHoldoutFromFeature(context, feature);
 

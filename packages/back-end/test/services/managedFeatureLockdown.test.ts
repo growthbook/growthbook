@@ -1,10 +1,10 @@
 import type { FeatureInterface } from "shared/validators";
 import {
   assertFeatureNotManaged,
+  assertLoadedFeatureNotManaged,
   blockManagedFeatureWrites,
   guardManagedFeatureRoutes,
 } from "back-end/src/services/managedFeatures";
-import { assertLoadedFeatureNotManaged } from "back-end/src/util/managedFeatureGuard";
 import { ManagedFeatureError } from "back-end/src/util/errors";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getContextFromReq } from "back-end/src/services/organizations";

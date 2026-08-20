@@ -50,7 +50,6 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { ConflictError } from "back-end/src/util/errors";
-import { assertLoadedFeatureNotManaged } from "back-end/src/services/managedFeatures";
 import {
   resolveRampTargets,
   rampTargetsEquivalent,
@@ -526,8 +525,6 @@ export const addTargetRampSchedule = createApiRequestHandler({
   ) => {
     const feature = await getFeature(req.context, featureId);
     if (!feature) throw new Error(`Feature '${featureId}' not found`);
-    // Addressed by body, so the route-level managed guard cannot see it.
-    assertLoadedFeatureNotManaged(feature);
     // The schedule gate covered its existing targets; the flag being attached
     // needs the same authority, or a schedule anchored in one project becomes a
     // lever over flags in another.

@@ -1,6 +1,8 @@
 import { RequestHandler } from "express";
 import {
   copyManagedVariationValues,
+  isManagedFeature,
+  managedByExperimentId,
   isManagedByExperiment,
   checkIfRevisionNeedsReview,
   managedFeatureKeyCandidate,
@@ -38,8 +40,7 @@ import {
   getExperimentByTrackingKey,
   unlinkFeatureFromExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { NotFoundError } from "back-end/src/util/errors";
-import { assertLoadedFeatureNotManaged } from "back-end/src/util/managedFeatureGuard";
+import { ManagedFeatureError, NotFoundError } from "back-end/src/util/errors";
 import {
   getContextFromReq,
   getEnvironments,
@@ -59,7 +60,13 @@ import {
 // dispatcher), not the model layer: the model can't tell a direct user edit from
 // the experiment's own start/stop/holdout/ramp writes, which must keep working.
 
-export { assertLoadedFeatureNotManaged };
+export function assertLoadedFeatureNotManaged(feature: FeatureInterface): void {
+  if (!isManagedFeature(feature)) return;
+  throw new ManagedFeatureError({
+    featureId: feature.id,
+    experimentId: managedByExperimentId(feature) ?? "",
+  });
+}
 
 export async function assertFeatureNotManaged(
   context: ReqContext | ApiReqContext,

@@ -23,7 +23,6 @@ import { getFeature } from "back-end/src/models/FeatureModel";
 import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 import { resolveRampTargets } from "back-end/src/util/flattenRules";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import { assertLoadedFeatureNotManaged } from "back-end/src/services/managedFeatures";
 
 const postBodyAction = z.object({
   targetType: z.literal("feature-rule").optional(),
@@ -184,9 +183,6 @@ export const postRampSchedule = createApiRequestHandler(
     if (!feature) {
       throw new NotFoundError(`Feature '${body.featureId}' not found`);
     }
-    // The feature is addressed by body, not by URL param, so the route-level
-    // managed guard cannot see it.
-    assertLoadedFeatureNotManaged(feature);
   }
 
   if (hasTarget) {
