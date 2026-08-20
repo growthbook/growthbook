@@ -12,14 +12,15 @@ import {
   MAX_HOLDOUT_SIZE,
   validateAndFixCondition,
 } from "shared/util";
-import { getScopedSettings } from "shared/settings";
-import { generateTrackingKey } from "shared/experiments";
 import { kebabCase } from "lodash";
 import { Tooltip, Separator } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
 import { FeatureEnvironment } from "shared/types/feature";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import {
+  CreateHoldoutInput,
+  HoldoutInterfaceStringDates,
+} from "shared/validators";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
@@ -32,7 +33,6 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useIncrementer } from "@/hooks/useIncrementer";
-import { useUser } from "@/services/UserContext";
 import TagsInput from "@/components/Tags/TagsInput";
 import Page from "@/components/Modal/Page";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -49,7 +49,6 @@ import {
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
-import { useExperiments } from "@/hooks/useExperiments";
 import { decimalToPercent, percentToDecimal } from "@/services/utils";
 import variationInputStyles from "@/components/Features/VariationsInput.module.scss";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -73,7 +72,6 @@ export type NewHoldoutFormProps = {
   onClose?: () => void;
   onCreate?: (id: string) => void;
   inline?: boolean;
-  isNewHoldout?: boolean;
   mutate?: () => void;
 };
 
@@ -139,11 +137,8 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
   source,
   msg,
   inline,
-  isNewHoldout,
   mutate,
 }) => {
-  const { organization } = useUser();
-
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
 
@@ -157,16 +152,9 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
   } = useDefinitions();
 
   const environments = useEnvironments();
-  const { experiments } = useExperiments();
 
   const settings = useOrgSettings();
   const { statsEngine: orgStatsEngine } = useOrgSettings();
-  const { settings: scopedSettings } = getScopedSettings({
-    organization,
-    experiment: (initialExperiment ?? undefined) as
-      | ExperimentInterfaceStringDates
-      | undefined,
-  });
   const permissionsUtils = usePermissionsUtil();
 
   const { data: sdkConnectionsData } = useSDKConnections();
@@ -213,7 +201,6 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
         {
           coverage: initialExperiment?.phases?.[0]?.coverage || 0.1,
           dateStarted: new Date().toISOString().substr(0, 16),
-          dateEnded: new Date().toISOString().substr(0, 16),
           name: "Holdout",
           reason: "",
           variationWeights: [0.5, 0.5],
@@ -221,9 +208,6 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
           condition: initialExperiment?.phases?.[0]?.condition || "",
         },
       ],
-      status: "draft",
-      regressionAdjustmentEnabled:
-        scopedSettings.regressionAdjustmentEnabled.value,
       environmentSettings:
         initialHoldout?.environmentSettings ||
         genEnvironmentSettings({ environments }),
@@ -252,57 +236,60 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
   const onSubmit = form.handleSubmit(async (rawValue) => {
     const value = { ...rawValue, name: rawValue.name?.trim() };
 
-    // Make sure there's an experiment name
     if ((value.name?.length ?? 0) < 1) {
       setStep(0);
       throw new Error("Name must not be empty");
     }
 
-    const data = { ...value };
+    const phase = value.phases?.[0];
 
-    if (data.status !== "stopped" && data.phases?.[0]) {
-      data.phases[0].dateEnded = "";
-    }
-    // Turn phase dates into proper UTC timestamps
-    if (data.phases?.[0]) {
-      if (
-        data.phases[0].dateStarted &&
-        !data.phases[0].dateStarted.match(/Z$/)
-      ) {
-        data.phases[0].dateStarted += ":00Z";
-      }
-      if (data.phases[0].dateEnded && !data.phases[0].dateEnded.match(/Z$/)) {
-        data.phases[0].dateEnded += ":00Z";
-      }
+    validateSavedGroupTargeting(phase?.savedGroups);
 
-      validateSavedGroupTargeting(data.phases[0].savedGroups);
+    validateAndFixCondition(phase?.condition, (condition) => {
+      form.setValue("phases.0.condition", condition);
+      forceConditionRender();
+    });
 
-      validateAndFixCondition(data.phases[0].condition, (condition) => {
-        form.setValue("phases.0.condition", condition);
-        forceConditionRender();
-      });
-    }
-
-    const body = JSON.stringify(data);
+    const payload: CreateHoldoutInput = {
+      name: value.name ?? "",
+      description: value.description,
+      projects: value.projects,
+      tags: value.tags,
+      hashAttribute: value.hashAttribute,
+      holdoutSize:
+        phase?.coverage === undefined
+          ? undefined
+          : coverageToHoldoutSize(phase.coverage),
+      targetingCondition: phase?.condition,
+      savedGroups: phase?.savedGroups,
+      datasourceId: value.datasource,
+      assignmentQueryId: value.exposureQueryId,
+      goalMetrics: value.goalMetrics,
+      secondaryMetrics: value.secondaryMetrics,
+      environmentSettings: value.environmentSettings,
+      statsEngine: value.statsEngine,
+      customFields: value.customFields,
+    };
 
     const res = await apiCall<{
       experiment: ExperimentInterfaceStringDates;
       holdout: HoldoutInterfaceStringDates;
     }>("/holdout", {
       method: "POST",
-      body,
+      body: JSON.stringify(payload),
     });
     mutate?.();
 
     // TODO remove if data correlates
     track("Create Holdout", {
       source,
-      numTags: data.tags?.length || 0,
+      numTags: value.tags?.length || 0,
       numMetrics:
-        (data.goalMetrics?.length || 0) + (data.secondaryMetrics?.length || 0),
+        (value.goalMetrics?.length || 0) +
+        (value.secondaryMetrics?.length || 0),
     });
 
-    data.tags && refreshTags(data.tags);
+    value.tags && refreshTags(value.tags);
     if (onCreate) {
       onCreate(res.holdout.id);
     } else if (res.holdout) {
@@ -335,8 +322,6 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
       form.setValue("exposureQueryId", exposureQueries?.[0]?.id ?? "");
     }
   }, [form, exposureQueries, exposureQueryId]);
-
-  const [linkNameWithTrackingKey, _setLinkNameWithTrackingKey] = useState(true);
 
   let header = "Add new Holdout";
   if (duplicate) {
@@ -413,26 +398,6 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
               required
               minLength={2}
               {...nameFieldHandlers}
-              onChange={async (e) => {
-                // Ensure the name field is updated and then sync with trackingKey if possible
-                nameFieldHandlers.onChange(e);
-
-                if (!isNewHoldout) return;
-                if (!linkNameWithTrackingKey) return;
-                const val = e?.target?.value ?? form.watch("name");
-                if (!val) {
-                  form.setValue("trackingKey", "");
-                  return;
-                }
-                const trackingKey = await generateTrackingKey(
-                  { name: val },
-                  async (key: string) =>
-                    (experiments.find((exp) => exp.trackingKey === key) as
-                      | ExperimentInterfaceStringDates
-                      | undefined) ?? null,
-                );
-                form.setValue("trackingKey", trackingKey);
-              }}
             />
             {projects?.length > 0 && (
               <div className="form-group">

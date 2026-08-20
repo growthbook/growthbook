@@ -1,6 +1,7 @@
 import { HoldoutInterface, holdoutValidator } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { ExperimentInterface } from "shared/types/experiment";
+import { getHoldoutStage } from "shared/util";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { MakeModelClass } from "./BaseModel";
@@ -81,36 +82,28 @@ export class HoldoutModel extends BaseClass {
       updates.statusUpdateSchedule ?? {};
 
     const now = new Date();
+    const currentStage = getHoldoutStage(existing, holdoutExperiment);
 
     // Check if one of the scheduled dates is in the past
-    if (
-      startAt &&
-      holdoutExperiment.status === "draft" &&
-      new Date(startAt) < now
-    ) {
+    if (startAt && currentStage === "draft" && new Date(startAt) < now) {
       throw new BadRequestError("Scheduled start date cannot be in the past");
     }
     if (
       startAnalysisPeriodAt &&
-      holdoutExperiment.status === "running" &&
-      !existing.analysisStartDate &&
+      currentStage === "running" &&
       new Date(startAnalysisPeriodAt) < now
     ) {
       throw new BadRequestError(
         "Scheduled analysis start date cannot be in the past",
       );
     }
-    if (
-      stopAt &&
-      holdoutExperiment.status !== "stopped" &&
-      new Date(stopAt) < now
-    ) {
+    if (stopAt && currentStage !== "stopped" && new Date(stopAt) < now) {
       throw new BadRequestError("Scheduled stop date cannot be in the past");
     }
 
     // Check date dependencies
     if (
-      holdoutExperiment.status === "draft" &&
+      currentStage === "draft" &&
       stopAt &&
       (!startAt || !startAnalysisPeriodAt)
     ) {
@@ -118,22 +111,13 @@ export class HoldoutModel extends BaseClass {
         "To set a stop date, you must also set a start date and an analysis start date",
       );
     }
-    if (
-      holdoutExperiment.status === "draft" &&
-      startAnalysisPeriodAt &&
-      !startAt
-    ) {
+    if (currentStage === "draft" && startAnalysisPeriodAt && !startAt) {
       throw new BadRequestError(
         "To set an analysis start date, you must first set a start date",
       );
     }
 
-    if (
-      holdoutExperiment.status === "running" &&
-      !existing.analysisStartDate &&
-      stopAt &&
-      !startAnalysisPeriodAt
-    ) {
+    if (currentStage === "running" && stopAt && !startAnalysisPeriodAt) {
       throw new BadRequestError(
         "To set a stop date, you must first set an analysis start date",
       );
@@ -143,12 +127,9 @@ export class HoldoutModel extends BaseClass {
     const dateError =
       (startAt &&
         startAnalysisPeriodAt &&
-        holdoutExperiment.status === "draft" &&
+        currentStage === "draft" &&
         startAt > startAnalysisPeriodAt) ||
-      (startAt &&
-        stopAt &&
-        holdoutExperiment.status === "draft" &&
-        startAt > stopAt) ||
+      (startAt && stopAt && currentStage === "draft" && startAt > stopAt) ||
       (startAnalysisPeriodAt &&
         stopAt &&
         !existing.analysisStartDate &&
