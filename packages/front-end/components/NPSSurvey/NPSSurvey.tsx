@@ -4,7 +4,6 @@ import { Flex, IconButton, TextArea } from "@radix-ui/themes";
 import { PiArrowLeft, PiX } from "react-icons/pi";
 import { useForm } from "react-hook-form";
 import {
-  NPS_CATEGORY_META,
   NpsCategory,
   NPS_MAX_FEEDBACK_LENGTH,
   npsCategoryOf,
@@ -410,15 +409,6 @@ export default function NPSSurvey() {
 
         {panel === "question" && (
           <div className={styles.panel}>
-            <Text
-              as="p"
-              size="sm"
-              color="text-low"
-              textTransform="uppercase"
-              mb="2"
-            >
-              Quick question · ~15 sec
-            </Text>
             <Heading as="h2" size="sm" mb="4" mr="3">
               How likely are you to recommend GrowthBook to a friend or
               colleague?
@@ -508,11 +498,6 @@ export default function NPSSurvey() {
                 className={`${styles.scorebox} ${CATEGORY_UI[cat].className}`}
               >
                 {score}
-              </span>
-              <span
-                className={`${styles.category} ${CATEGORY_UI[cat].className}`}
-              >
-                {NPS_CATEGORY_META[cat].label}
               </span>
             </Flex>
             <Text
