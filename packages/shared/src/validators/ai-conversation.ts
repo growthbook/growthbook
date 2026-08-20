@@ -50,6 +50,21 @@ export const aiChatToolResultPartValidator = z
   })
   .passthrough();
 
+export const aiChatMentionValidator = z
+  .object({
+    type: z.enum(["metric", "factMetric", "metricGroup"]),
+    id: z.string().min(1).max(64),
+    name: z.string().min(1).max(200),
+  })
+  .strict();
+
+/** Stored form. `stale` is server-set — the client cannot assert it. */
+export const aiChatStoredMentionValidator = aiChatMentionValidator.extend({
+  stale: z.boolean().optional(),
+});
+
+export const aiChatSkillsValidator = z.array(z.string().min(1).max(64));
+
 // ---------------------------------------------------------------------------
 // Message validators (discriminated on role)
 // ---------------------------------------------------------------------------
@@ -78,12 +93,10 @@ const aiChatUserMessageValidator = z
         ]),
       ),
     ]),
-    // Optional URL the user was on when sending this message — see
-    // AIChatUserMessage in shared/ai-chat.ts. Cap matches the agent router.
     currentPage: z.string().max(2048).optional(),
-    // Optional soft datasource hint — see AIChatUserMessage in
-    // shared/ai-chat.ts. Cap matches the agent router's datasourceId.
     datasourceHint: z.string().max(256).optional(),
+    mentions: aiChatStoredMentionValidator.array().optional(),
+    skills: aiChatSkillsValidator.optional(),
   })
   .passthrough();
 
