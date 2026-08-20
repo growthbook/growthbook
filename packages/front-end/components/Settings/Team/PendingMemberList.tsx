@@ -3,7 +3,6 @@ import { PiUserCheck } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PendingMember } from "shared/types/organization";
 import { date, datetime } from "shared/dates";
-import { getRoleDisplayName } from "shared/permissions";
 import { Box, IconButton } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { RoleRuleLines } from "@/components/Settings/Team/RoleRuleLabel";
@@ -124,7 +123,10 @@ const PendingMemberList: FC<{
                               resourceType="member"
                               projectIds={[p.id]}
                             />
-                            — {getRoleDisplayName(pr.role, organization)}
+                            <RoleRuleLines
+                              scope={pr}
+                              organization={organization}
+                            />
                           </div>
                         );
                       }

@@ -232,11 +232,12 @@ export default function ApprovalFlowSettings() {
 
                       {scope ? (
                         <Box mb="4">
+                          <Text as="label" size="md" weight="semibold">
+                            Projects
+                          </Text>
                           <MultiSelectField
                             legacyHeight
                             id={`approval-scope-projects-${tab.id}`}
-                            label="Projects"
-                            labelClassName="font-weight-semibold"
                             containerClassName="mb-0"
                             value={scopeProjects(scope)}
                             onChange={(next) => retargetTab(tab, next)}

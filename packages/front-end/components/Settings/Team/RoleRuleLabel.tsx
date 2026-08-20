@@ -4,6 +4,7 @@ import {
   envScopedPermissionsForRole,
   getRoleDisplayName,
 } from "shared/permissions";
+import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function RoleRuleLabel({
@@ -36,10 +37,10 @@ export default function RoleRuleLabel({
         name
       )}
       {limited && (
-        <span className="text-muted">
+        <Text as="span" color="text-low">
           {" — "}
           {environments.length ? environments.join(", ") : "no environments"}
-        </span>
+        </Text>
       )}
     </>
   );

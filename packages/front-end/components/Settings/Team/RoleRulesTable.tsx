@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { MemberRoleWithProjects } from "shared/types/organization";
 import { getRoleDisplayName } from "shared/permissions";
-import { PiTrash, PiInfo, PiPlusBold } from "react-icons/pi";
+import { PiTrash, PiInfo, PiPlus, PiPlusBold } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Table, {
@@ -282,7 +282,7 @@ export default function RoleRulesTable({
       {groups.map(renderGroup)}
       {unusedProjects.length > 0 && (
         <Button variant="soft" onClick={() => addRule(unusedProjects[0].id)}>
-          + Add project override
+          <PiPlus /> Add project override
         </Button>
       )}
     </Box>

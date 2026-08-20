@@ -1,6 +1,6 @@
+import { PiDotsThreeVertical } from "react-icons/pi";
 import React, { FC, useEffect, useState } from "react";
 import router from "next/router";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import NextLink from "next/link";
 import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
@@ -207,7 +207,7 @@ const ProjectPage: FC = () => {
                 size="3"
                 highContrast
               >
-                <BsThreeDotsVertical size={18} />
+                <PiDotsThreeVertical size={18} />
               </IconButton>
             }
             menuPlacement="end"

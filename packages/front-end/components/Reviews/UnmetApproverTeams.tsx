@@ -19,8 +19,8 @@ export default function UnmetApproverTeams({
       <Text as="p" mb="1">
         Needs approval from each of:
       </Text>
-      <Box asChild>
-        <ul className="mb-0 pl-4">
+      <Box asChild mb="0" pl="4">
+        <ul>
           {unmet.map((teams) => (
             <li key={teams.map((t) => t.id).join(",")}>{describe(teams)}</li>
           ))}

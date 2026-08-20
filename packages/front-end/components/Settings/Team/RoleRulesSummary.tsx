@@ -1,6 +1,7 @@
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { MemberRoleWithProjects } from "shared/types/organization";
 import { getRoleDisplayName } from "shared/permissions";
+import Frame from "@/ui/Frame";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
@@ -47,7 +48,7 @@ export default function RoleRulesSummaryRow({
   disabled?: boolean;
 }) {
   return (
-    <Box className="appbox" px="3" py="2" mb="4">
+    <Frame px="3" py="2" mb="4">
       <Flex align="center" justify="between" gap="3">
         <Flex align="center" gap="2" wrap="wrap">
           <Text size="sm" color="text-low">
@@ -59,6 +60,6 @@ export default function RoleRulesSummaryRow({
           Edit
         </Button>
       </Flex>
-    </Box>
+    </Frame>
   );
 }

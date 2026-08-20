@@ -1,3 +1,4 @@
+import { Box } from "@radix-ui/themes";
 import { FC, useState } from "react";
 import { MemberRoleWithProjects } from "shared/types/organization";
 import { getDefaultRole } from "shared/permissions";
@@ -94,12 +95,13 @@ const AddOrphanedUserModal: FC<{
         <strong>{name}</strong> ({email})
       </div>
       <RoleRulesTable value={value} setValue={setValue} />
-      <UpgradeMessage
-        className="mt-3"
-        showUpgradeModal={() => setShowUpgradeModal(true)}
-        commercialFeature="advanced-permissions"
-        upgradeMessage="enable per-environment and per-project permissions"
-      />
+      <Box mt="3">
+        <UpgradeMessage
+          showUpgradeModal={() => setShowUpgradeModal(true)}
+          commercialFeature="advanced-permissions"
+          upgradeMessage="enable per-environment and per-project permissions"
+        />
+      </Box>
     </Modal>
   );
 };

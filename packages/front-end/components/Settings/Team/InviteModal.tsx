@@ -1,3 +1,4 @@
+import { Box } from "@radix-ui/themes";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import {
@@ -282,12 +283,13 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
               onEdit={() => setEditingRoles(true)}
             />
           )}
-          <UpgradeMessage
-            className="mt-3"
-            showUpgradeModal={() => setShowUpgradeModal(true)}
-            commercialFeature="advanced-permissions"
-            upgradeMessage="enable per-environment and per-project permissions"
-          />
+          <Box mt="3">
+            <UpgradeMessage
+              showUpgradeModal={() => setShowUpgradeModal(true)}
+              commercialFeature="advanced-permissions"
+              upgradeMessage="enable per-environment and per-project permissions"
+            />
+          </Box>
         </>
       )}
     </Modal>
