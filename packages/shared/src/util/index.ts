@@ -335,8 +335,14 @@ export function getMatchingRules(
     ruleEnvs.forEach((environmentId) => {
       if (!isValidEnvironment(environmentId, environments)) return;
 
-      const envSettings = feature.environmentSettings?.[environmentId];
-      const environmentEnabled = !!envSettings?.enabled;
+      // When matching against a revision, its `environmentsEnabled` snapshot is
+      // the source of truth so env states line up with the revision's rules.
+      // Fall back to the live feature setting for envs the revision doesn't
+      // record (legacy/sparse revisions predating this field).
+      const revisionEnabled = revision?.environmentsEnabled?.[environmentId];
+      const environmentEnabled =
+        revisionEnabled ??
+        !!feature.environmentSettings?.[environmentId]?.enabled;
       if (omitDisabledEnvironments && !environmentEnabled) return;
 
       matches.push({

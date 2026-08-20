@@ -52,6 +52,7 @@ import {
   stripDefaultsForSparse,
   expandSparseToFull,
   draftHasChangesOutsideTargetRef,
+  getMatchingRules,
 } from "../../src/util";
 import type { RampScheduleInterface } from "../../src/validators/ramp-schedule";
 
@@ -3233,6 +3234,78 @@ describe("ruleAppliesToEnv", () => {
     expect(ruleAppliesToEnv(rule, "production")).toBe(false);
     expect(ruleAppliesToEnv(rule, "dev")).toBe(false);
     expect(ruleAppliesToEnv(rule, "staging")).toBe(false);
+  });
+});
+
+describe("getMatchingRules environmentEnabled source", () => {
+  const environments = ["dev", "prod"];
+  const rule: FeatureRule = {
+    id: "rule-1",
+    type: "force",
+    description: "",
+    value: "x",
+    allEnvironments: true,
+  } as FeatureRule;
+
+  const featureWith = (enabled: Record<string, boolean>): FeatureInterface => ({
+    ...feature,
+    environmentSettings: Object.fromEntries(
+      Object.entries(enabled).map(([env, e]) => [env, { enabled: e }]),
+    ),
+    rules: [rule],
+  });
+
+  const revisionWith = (
+    environmentsEnabled: Record<string, boolean> | undefined,
+  ): FeatureRevisionInterface => ({
+    ...baseRevision,
+    rules: [rule],
+    ...(environmentsEnabled !== undefined && { environmentsEnabled }),
+  });
+
+  it("uses the revision's environmentsEnabled snapshot when a revision is provided", () => {
+    // Draft enables an env the live feature disables, and vice versa.
+    const feat = featureWith({ dev: false, prod: true });
+    const rev = revisionWith({ dev: true, prod: false });
+
+    const matches = getMatchingRules(feat, () => true, environments, rev);
+    const byEnv = Object.fromEntries(
+      matches.map((m) => [m.environmentId, m.environmentEnabled]),
+    );
+    expect(byEnv).toEqual({ dev: true, prod: false });
+  });
+
+  it("falls back to the live feature setting for envs the revision doesn't record", () => {
+    const feat = featureWith({ dev: true, prod: false });
+    const rev = revisionWith({ dev: false });
+
+    const matches = getMatchingRules(feat, () => true, environments, rev);
+    const byEnv = Object.fromEntries(
+      matches.map((m) => [m.environmentId, m.environmentEnabled]),
+    );
+    // dev comes from the revision; prod (absent from the revision) inherits live.
+    expect(byEnv).toEqual({ dev: false, prod: false });
+  });
+
+  it("uses live feature settings when a legacy revision has no environmentsEnabled", () => {
+    const feat = featureWith({ dev: true, prod: false });
+    const rev = revisionWith(undefined);
+
+    const matches = getMatchingRules(feat, () => true, environments, rev);
+    const byEnv = Object.fromEntries(
+      matches.map((m) => [m.environmentId, m.environmentEnabled]),
+    );
+    expect(byEnv).toEqual({ dev: true, prod: false });
+  });
+
+  it("uses live feature settings when no revision is provided", () => {
+    const feat = featureWith({ dev: true, prod: false });
+
+    const matches = getMatchingRules(feat, () => true, environments);
+    const byEnv = Object.fromEntries(
+      matches.map((m) => [m.environmentId, m.environmentEnabled]),
+    );
+    expect(byEnv).toEqual({ dev: true, prod: false });
   });
 });
 
