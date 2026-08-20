@@ -14,10 +14,10 @@ export function RoleRulesSummary({ value }: { value: MemberRoleWithProjects }) {
     (value.additionalRoles?.length || 0) + (value.projectRoles?.length || 0);
 
   const environments = !value.limitAccessByEnvironment
-    ? "all environments"
+    ? "All Environments"
     : value.environments?.length
       ? value.environments.join(", ")
-      : "no environments";
+      : "No environments";
 
   return (
     <Flex align="center" gap="2" wrap="wrap">

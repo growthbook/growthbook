@@ -77,13 +77,6 @@ export type RevisionActionKind =
   | "publish"
   | "delete";
 
-/**
- * Authority for a verb that belongs to the REVISION rather than the live entity:
- * drafting, reviewing, commenting. Always judged on `target.snapshot` — a later
- * move on the live entity does not change the revision's project — so there is
- * deliberately no scope argument to pass wrongly. Verbs that LAND on live keep
- * the explicit scope via `canDoRevisionAction`.
- */
 // The publish footprint of the same change: you cannot approve what you could
 // not publish. `[]` binds no environment, which the review branch fails closed.
 export function reviewFootprintFor(
@@ -103,6 +96,13 @@ export function reviewFootprintFor(
   );
 }
 
+/**
+ * Authority for a verb that belongs to the REVISION rather than the live entity:
+ * drafting, reviewing, commenting. Always judged on `target.snapshot` — a later
+ * move on the live entity does not change the revision's project — so there is
+ * deliberately no scope argument to pass wrongly. Verbs that LAND on live keep
+ * the explicit scope via `canDoRevisionAction`.
+ */
 export function canRevisionOwnedAction(
   context: Context,
   revision: Pick<Revision, "target">,

@@ -1,3 +1,4 @@
+import type { EventUser } from "shared/validators";
 import {
   CustomHookInterface,
   CustomHookType,
@@ -66,16 +67,16 @@ async function memberDirectory(context: Context) {
   const members = await expandOrgMembers(context.org.members ?? []);
   const byId = new Map(members.map((m) => [m.id, m]));
   return (userId: string) => {
-    const member = byId.get(userId);
+    const user: EventUser = byId.has(userId)
+      ? {
+          type: "dashboard",
+          id: userId,
+          name: byId.get(userId)?.name || "",
+          email: byId.get(userId)?.email || "",
+        }
+      : { type: "api_key", apiKey: userId };
     return {
-      user: member
-        ? {
-            type: "dashboard" as const,
-            id: member.id,
-            name: member.name || "",
-            email: member.email,
-          }
-        : { type: "api_key" as const, apiKey: userId },
+      user,
       teams: teamsForMember(userId, context.org, context.teams ?? []),
     };
   };
@@ -98,21 +99,23 @@ async function hookAuthorship(
 }
 
 // Copied onto the args, never onto the stored revision — teams are current state.
+// Feature reviews are STORED in the documented verdict shape ({ userId, user,
+// status, ... }); adding teams here lands them where the config-revision hooks
+// arrive via toHookReviewerVerdicts.
 async function withHookRevisionContext<
   T extends
     | {
         reviews?: { userId: string }[];
         contributors?: string[];
-        createdBy?: unknown;
+        createdBy?: { id?: string } | null;
       }
     | null
     | undefined,
 >(context: Context, revision: T): Promise<T> {
   if (!revision) return revision;
-  const authorId = (revision.createdBy as { id?: string } | null)?.id;
   const authorship = await hookAuthorship(
     context,
-    authorId,
+    revision.createdBy?.id,
     revision.contributors,
   );
   return {

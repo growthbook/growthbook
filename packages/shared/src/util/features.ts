@@ -4462,6 +4462,10 @@ export type ReviewAuthorityFootprint =
   // Unbound metadata: an empty environment list would pass vacuously.
   | { scope: "unbound" };
 
+// The non-sanctioning footprint: holds the review atom at all, anywhere. For
+// reads, comments, withdrawals, and coarse pre-fetch gates.
+export const ANY_REVIEW_FOOTPRINT: ReviewAuthorityFootprint = { scope: "any" };
+
 // Per governing project: an unrelated rule must not widen a metadata change.
 function requiresMetadataReview(
   settings?: OrganizationSettings,

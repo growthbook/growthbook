@@ -39,7 +39,7 @@ export default function RoleRuleLabel({
       {limited && (
         <Text as="span" color="text-low">
           {" — "}
-          {environments.length ? environments.join(", ") : "no environments"}
+          {environments.length ? environments.join(", ") : "No environments"}
         </Text>
       )}
     </>

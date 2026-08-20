@@ -15,6 +15,7 @@ import {
   SDKLanguage,
 } from "shared/types/sdk-connection";
 import {
+  ANY_REVIEW_FOOTPRINT,
   IsFeatureStaleResult,
   MergeResultChanges,
   MergeStrategy,
@@ -1388,7 +1389,7 @@ export async function postFeatureReviewOrComment(
   // which revision versions exist; the footprint check below still runs.
   if (
     review !== "Comment" &&
-    !context.permissions.canReviewFeatureDrafts(feature, { scope: "any" })
+    !context.permissions.canReviewFeatureDrafts(feature, ANY_REVIEW_FOOTPRINT)
   ) {
     context.permissions.throwPermissionError();
   }
@@ -1529,7 +1530,9 @@ export async function postFeatureApproveAndPublish(
   if (!feature) throw new Error("Could not find feature");
 
   // Coarse refusal first: no review rights should 403, not 404 on a bad version.
-  if (!context.permissions.canReviewFeatureDrafts(feature, { scope: "any" })) {
+  if (
+    !context.permissions.canReviewFeatureDrafts(feature, ANY_REVIEW_FOOTPRINT)
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -1887,7 +1890,9 @@ export async function postFeatureUndoReview(
   const { id, version } = req.params;
   const feature = await getFeature(context, id);
   if (!feature) throw new Error("Could not find feature");
-  if (!context.permissions.canReviewFeatureDrafts(feature, { scope: "any" })) {
+  if (
+    !context.permissions.canReviewFeatureDrafts(feature, ANY_REVIEW_FOOTPRINT)
+  ) {
     context.permissions.throwPermissionError();
   }
   const revision = await getRevision({
