@@ -10,6 +10,7 @@ import MultiSelectField from "@/ui/MultiSelectField";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import { useEnvironments } from "@/services/features";
@@ -88,6 +89,11 @@ function HelpMultiSelect({
   onChange: (next: string[]) => void;
   disabled?: boolean;
 }) {
+  // A rule can name a team or environment that has since been deleted. The
+  // select drops unknown values silently, so the requirement stops applying with
+  // nothing on screen to say why.
+  const missing = value.filter((v) => !options.some((o) => o.value === v));
+
   return (
     <Box>
       <Text as="label" size="md" weight="semibold">
@@ -103,6 +109,12 @@ function HelpMultiSelect({
         placeholder={placeholder}
         disabled={disabled}
       />
+      {missing.length > 0 && (
+        <Callout status="warning" size="sm" mt="1">
+          No longer exists, so this no longer applies: {missing.join(", ")}.
+          Saving removes it.
+        </Callout>
+      )}
     </Box>
   );
 }

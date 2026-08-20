@@ -666,7 +666,11 @@ at all.
   Known gap: an org on the LEGACY BOOLEAN `requireReviews` form has no rule
   object, so required approver teams stored over the REST API silently never
   gate. Either reject them there or migrate the org to the array form.
-- [ ] Known gap: a rule whose named teams have all been deleted stops gating
+- [x] A rule whose named teams have all been deleted still stops gating — the
+      permissive read is deliberate (a rule that can never be met must not block
+      publishing forever), so the fix was to stop it being SILENT: the approval
+      settings now warn when a rule names a team or environment that no longer
+      exists, and saving prunes it. Original note: a rule whose named teams have all been deleted stops gating
       rather than failing closed (it cannot be satisfied OR explained). Needs a
       settings-side warning rather than a publish-time one.
 - [x] Project page is READ-ONLY, rendering the editor's own fields in a disabled
