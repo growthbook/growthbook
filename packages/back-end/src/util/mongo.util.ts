@@ -161,7 +161,8 @@ export function removeMongooseFields<T>(
 }
 
 export function getCollection<T extends Document>(name: string) {
-  return mongoose.connection.db.collection<T>(name);
+  // mongoose 6 still returns mongodb@4 Collections; app types are mongodb@6.
+  return mongoose.connection.db.collection<T>(name) as unknown as Collection<T>;
 }
 
 /**

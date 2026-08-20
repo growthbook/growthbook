@@ -4,7 +4,7 @@ import mongoose from "mongoose";
 import { parseEnvInt } from "shared/util";
 import { MONGODB_URI } from "back-end/src/util/secrets";
 import { trackJob } from "./tracing";
-import { addJobLifecycleChecks } from "./jobLifecycle";
+import { addJobLifecycleChecks, type AgendaJobData } from "./jobLifecycle";
 
 type DefineOptions = {
   concurrency?: number;
@@ -49,7 +49,12 @@ function installDefineWrapper(agenda: Agenda): void {
 
     originalDefine(
       name,
-      trackJob(name, addJobLifecycleChecks(processor)) as Processor<T>,
+      trackJob(
+        name,
+        addJobLifecycleChecks(
+          processor as (job: Job<AgendaJobData>) => Promise<void>,
+        ),
+      ) as Processor<T>,
       options,
     );
   } as typeof agenda.define;
@@ -121,7 +126,7 @@ export function getAgendaInstance(): Agenda {
 }
 
 export function getAgendaJobsCollection(agenda: Agenda): Collection {
-  const repo = agenda.db as { collection: Collection };
+  const repo = agenda.db as unknown as { collection: Collection };
   return repo.collection;
 }
 

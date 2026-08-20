@@ -1,5 +1,5 @@
 import { createHmac } from "crypto";
-import type { Agenda, Job } from "agenda";
+import type { Agenda, Job, JobWithId } from "agenda";
 import md5 from "md5";
 import { Promise as BluebirdPromise } from "bluebird";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
@@ -73,12 +73,13 @@ export default function addSdkWebhooksJob(ag: Agenda) {
   // Fire webhooks
   agenda.define(SDK_WEBHOOKS_JOB_NAME, fireWebhooks);
   agenda.on(
-    "fail:" + SDK_WEBHOOKS_JOB_NAME,
-    async (error: Error, job: SDKWebhookJob) => {
-      if (!job.attrs.data) return;
+    `fail:${SDK_WEBHOOKS_JOB_NAME}`,
+    async (error: Error, job: JobWithId) => {
+      const webhookJob = job as unknown as SDKWebhookJob;
+      if (!webhookJob.attrs.data) return;
 
       // retry:
-      const retryCount = job.attrs.data.retryCount;
+      const retryCount = webhookJob.attrs.data.retryCount;
       let nextRunAt = Date.now();
       // Wait 30s after the first failure
       if (retryCount === 0) {
@@ -94,9 +95,9 @@ export default function addSdkWebhooksJob(ag: Agenda) {
         return;
       }
 
-      job.attrs.data.retryCount++;
-      job.attrs.nextRunAt = new Date(nextRunAt);
-      await job.save();
+      webhookJob.attrs.data.retryCount++;
+      webhookJob.attrs.nextRunAt = new Date(nextRunAt);
+      await webhookJob.save();
     },
   );
 }

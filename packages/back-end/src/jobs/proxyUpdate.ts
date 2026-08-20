@@ -1,5 +1,5 @@
 import { createHmac } from "crypto";
-import type { Agenda, Job } from "agenda";
+import type { Agenda, Job, JobWithId } from "agenda";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD } from "shared/constants";
 import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
@@ -120,12 +120,13 @@ export default function addProxyUpdateJob(ag: Agenda) {
   // Fire webhooks
   agenda.define(PROXY_UPDATE_JOB_NAME, proxyUpdate);
   agenda.on(
-    "fail:" + PROXY_UPDATE_JOB_NAME,
-    async (error: Error, job: ProxyUpdateJob) => {
-      if (!job.attrs.data) return;
+    `fail:${PROXY_UPDATE_JOB_NAME}`,
+    async (error: Error, job: JobWithId) => {
+      const proxyJob = job as unknown as ProxyUpdateJob;
+      if (!proxyJob.attrs.data) return;
 
       // retry:
-      const retryCount = job.attrs.data.retryCount;
+      const retryCount = proxyJob.attrs.data.retryCount;
       let nextRunAt = Date.now();
       // Try again after 5 seconds
       if (retryCount === 0) {
@@ -136,9 +137,9 @@ export default function addProxyUpdateJob(ag: Agenda) {
         return;
       }
 
-      job.attrs.data.retryCount++;
-      job.attrs.nextRunAt = new Date(nextRunAt);
-      await job.save();
+      proxyJob.attrs.data.retryCount++;
+      proxyJob.attrs.nextRunAt = new Date(nextRunAt);
+      await proxyJob.save();
     },
   );
 }

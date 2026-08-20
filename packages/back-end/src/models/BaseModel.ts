@@ -1569,9 +1569,10 @@ export abstract class BaseModel<
   protected _dangerousGetCollection() {
     if (!this._collection) {
       // TODO: don't use Mongoose, use the native Mongo Driver instead
+      // mongoose 6 still ships mongodb@4 Collections; app types are mongodb@6.
       this._collection = mongoose.connection.db.collection(
         this.config.collectionName,
-      );
+      ) as unknown as Collection;
     }
     return this._collection;
   }

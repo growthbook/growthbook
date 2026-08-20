@@ -76,10 +76,10 @@ async function createV6Agenda(
   dbName: string,
 ): Promise<AgendaFactoryResult> {
   const { Agenda } = await import("agenda");
-  const { MongoBackend } = await import("@agendajs/mongo-backend");
-  const { MongoClient } = await import("mongodb");
+  const { MongoBackend, MongoClient } = await import("@agendajs/mongo-backend");
 
-  const client = await MongoClient.connect(uri);
+  const client = new MongoClient(uri);
+  await client.connect();
   const db = client.db(dbName);
   const agenda = new Agenda({
     backend: new MongoBackend({
@@ -105,7 +105,9 @@ async function createAgenda(
   version: AgendaVersion,
   uri: string,
 ): Promise<AgendaFactoryResult> {
-  const dbName = `parity_${version}`;
+  const dbName = `parity_${version}_${Date.now()}_${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
   if (version === "v5") {
     return createV5Agenda(uri, dbName);
   }

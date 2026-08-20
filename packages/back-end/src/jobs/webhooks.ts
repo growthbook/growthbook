@@ -1,5 +1,5 @@
 import { createHmac } from "crypto";
-import type { Agenda, Job } from "agenda";
+import type { Agenda, Job, JobWithId } from "agenda";
 import { ReqContext } from "back-end/types/request";
 import {
   getContextForAgendaJobByOrgId,
@@ -108,12 +108,13 @@ export default function (ag: Agenda) {
   });
 
   agenda.on(
-    "fail:" + WEBHOOK_JOB_NAME,
-    async (error: Error, job: WebhookJob) => {
-      if (!job.attrs.data) return;
+    `fail:${WEBHOOK_JOB_NAME}`,
+    async (error: Error, job: JobWithId) => {
+      const webhookJob = job as unknown as WebhookJob;
+      if (!webhookJob.attrs.data) return;
 
       // retry:
-      const retryCount = job.attrs.data.retryCount;
+      const retryCount = webhookJob.attrs.data.retryCount;
       let nextRunAt = Date.now();
       // Wait 30s after the first failure
       if (retryCount === 0) {
@@ -129,9 +130,9 @@ export default function (ag: Agenda) {
         return;
       }
 
-      job.attrs.data.retryCount++;
-      job.attrs.nextRunAt = new Date(nextRunAt);
-      await job.save();
+      webhookJob.attrs.data.retryCount++;
+      webhookJob.attrs.nextRunAt = new Date(nextRunAt);
+      await webhookJob.save();
     },
   );
 }
