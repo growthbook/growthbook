@@ -1,13 +1,46 @@
 ---
 title: Visual Studio Code Extension
-description: GrowthBook's Visual Studio Code Extension
+description: Browse GrowthBook feature flags in VS Code, copy keys, and open flags in the dashboard after adding a .growthbook.json config file.
+sidebarTitle: VS Code Extension
 slug: vscode-extension
 ---
 
-import { ExternalLink } from "/snippets/ExternalLink.jsx";
+The GrowthBook [Visual Studio Code extension](https://marketplace.visualstudio.com/items?itemName=GrowthBook.growthbook) lists your project's feature flags in the editor so you can browse them, copy a key, and open a flag in the GrowthBook dashboard.
 
-The GrowthBook Visual Studio Code extension allows you to see your available feature definitions right in VS Code.
+Install it from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=GrowthBook.growthbook).
 
-It can be configured to work with your project in under a minute and makes it easier for developers who use VS Code to work with the GrowthBook SDK by making features browsable and conveniently surfacing common actions.
+## Features
 
-You [download it from the Visual Studio Marketplace <ExternalLink />](https://marketplace.visualstudio.com/items?itemName=GrowthBook.growthbook).
+After you install and configure the extension, a **Features** panel appears in the bottom left of VS Code.
+
+- **List flags.** Every feature for the configured project appears in the panel.
+- **See evaluation details.** The value type shows next to the flag name. Hover a flag to see its default value and targeting rules.
+- **Copy a feature key.** Hover a flag and use the copy action to put the key on the clipboard.
+- **Edit in GrowthBook.** Hover a flag and use the edit action to open that feature in your browser.
+
+## Configuration
+
+The extension reads a `.growthbook.json` file in your project. Create it in any of these ways:
+
+- Click **Add Configuration** in the Features panel.
+- Run **GrowthBook: Create a .growthbook.json configuration file** from the command palette (`Cmd`+`Shift`+`P` on macOS, `Ctrl`+`Shift`+`P` on Windows and Linux).
+- Create the file yourself:
+
+```json
+{
+  "featuresEndpoint": "https://cdn.growthbook.io/api/features/sdk-YOUR_CLIENT_KEY",
+  "appHost": "https://app.growthbook.io"
+}
+```
+
+- **`featuresEndpoint`:** The features API URL from **SDK Configuration** → **SDK Connections** in GrowthBook. Self-hosted instances typically look like `http://localhost:3100/api/features/sdk-YOUR_CLIENT_KEY`.
+- **`appHost`:** The GrowthBook app URL the edit-in-browser action should open. Use your Cloud app URL, or the URL of your self-hosted instance.
+
+Do not commit `.growthbook.json` if it contains a client key you do not want in version control. Check in a `.growthbook.json.example` instead and copy it locally.
+
+## Commands
+
+Open the command palette and type `GrowthBook` to run:
+
+- **Refresh features**
+- **Create a .growthbook.json configuration file**
