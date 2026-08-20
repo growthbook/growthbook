@@ -110,6 +110,45 @@ pre {
   border-top: 2px solid var(--border-color-100);
 }
 
+// Bootstrap's contextual row classes hard-code light pastel backgrounds
+.dark-theme {
+  .table-warning,
+  .table-warning > th,
+  .table-warning > td {
+    background-color: var(--amber-a2);
+  }
+
+  .table-hover .table-warning:hover,
+  .table-hover .table-warning:hover > th,
+  .table-hover .table-warning:hover > td {
+    background-color: var(--amber-a3);
+  }
+
+  .table-danger,
+  .table-danger > th,
+  .table-danger > td {
+    background-color: var(--red-a2);
+  }
+
+  .table-hover .table-danger:hover,
+  .table-hover .table-danger:hover > th,
+  .table-hover .table-danger:hover > td {
+    background-color: var(--red-a3);
+  }
+
+  .table-secondary,
+  .table-secondary > th,
+  .table-secondary > td {
+    background-color: var(--slate-a2);
+  }
+
+  .table-hover .table-secondary:hover,
+  .table-hover .table-secondary:hover > th,
+  .table-hover .table-secondary:hover > td {
+    background-color: var(--slate-a3);
+  }
+}
+
 // endregion Tables
 
 // region Surfaces
@@ -290,7 +329,7 @@ pre {
 .modal-content {
   background-color: var(--color-panel-solid);
   color: var(--text-color-main);
-  border-color: var(--slate-a4);
+  border-color: var(--slate-a2);
 }
 
 .modal-footer {
