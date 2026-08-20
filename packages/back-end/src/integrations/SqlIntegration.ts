@@ -1661,8 +1661,11 @@ export default abstract class SqlIntegration
     const lastMaxTimestampBinds =
       params.lastMaxTimestamp && params.lastMaxTimestamp > settings.startDate;
 
-    // TODO(incremental-refresh): What if "skip partial data" is true?
-    // Does the conversionWindowsHour need to be set different?
+    // Always collect every exposure up to the phase end, even when
+    // skipPartialData is on: the units cache must stay complete so units
+    // whose conversion window has not elapsed yet are analyzed on a later
+    // refresh. The "full conversion window" cutoff is applied at read time in
+    // getIncrementalRefreshStatisticsQuery instead.
     const endDate = getExperimentEndDate(settings, 0);
 
     // Segment and SQL filter only check against new exposures
@@ -2089,9 +2092,6 @@ export default abstract class SqlIntegration
       a.id.localeCompare(b.id),
     );
 
-    // TODO(incremental-refresh): use max hours to convert from here
-    // for eventual "skipPartialData" feature
-    //
     // Scope FT discovery to this insert's target FT so a pipeline with
     // multiple cross-FT ratios that share a hub (e.g. `[A/B, A/C]`)
     // doesn't trip the 2-FT cap inside `getFactTablesForMetrics` when we
@@ -2363,6 +2363,27 @@ export default abstract class SqlIntegration
       }
     }
 
+    // "Exclude in-progress conversions" (skipPartialData): only analyze units
+    // that have had a full conversion window since their first exposure.
+    // The metric caches already apply each metric's conversion window per
+    // event at insert time, so this is purely a read-time filter on the units
+    // table — the same filter the non-incremental path applies in
+    // experiment-fact-metrics-query.ts. The cutoff is the longest window in
+    // this slice, which matches the standard path because metrics are grouped
+    // by conversion window when skipPartialData is on (see
+    // getIncrementalRefreshMetricSources).
+    const maxHoursToConvert = Math.max(
+      0,
+      ...metricData.map((m) => m.maxHoursToConvert),
+    );
+    const unitsEndDate = getExperimentEndDate(
+      params.settings,
+      maxHoursToConvert,
+    );
+    const unitsWhere = params.settings.skipPartialData
+      ? `WHERE e.first_exposure_timestamp <= ${this.getSqlDialect().toTimestamp(unitsEndDate)}`
+      : "";
+
     // Every FT that hosts at least one side of an RA metric must also have
     // a covariate cache. The metric-data layer unconditionally references
     // `c.<alias>_covariate_value` (and `_covariate_denominator` for ratio
@@ -2555,6 +2576,7 @@ export default abstract class SqlIntegration
           )`,
             )
             .join("\n")}
+          ${unitsWhere}
           GROUP BY
             e.${baseIdType}
       `
@@ -2563,7 +2585,8 @@ export default abstract class SqlIntegration
           , e.variation AS variation
           , e.first_exposure_timestamp AS first_exposure_timestamp
           ${nonUnitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
-        FROM ${params.unitsSourceTableFullName} e`
+        FROM ${params.unitsSourceTableFullName} e
+        ${unitsWhere}`
       })
       ${sources
         .map(

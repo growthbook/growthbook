@@ -65,6 +65,7 @@ import { resolveCovariateInsertPath } from "back-end/src/integrations/sql/fact-m
 import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
+import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
 import {
   SnapshotResult,
   TRAFFIC_QUERY_NAME,
@@ -131,11 +132,22 @@ export function getIncrementalRefreshMetricSources({
   const fanOut = planMetricFanOut(metrics);
 
   // Each metric's group key — quantiles get their own cache, mirroring the
-  // experimentQueries grouping rule.
+  // experimentQueries grouping rule. When "exclude in-progress conversions"
+  // (skipPartialData) is on, metrics are also grouped by conversion window
+  // (same as getFactMetricGroup) so every metric in a statistics slice shares
+  // one "full conversion window" cutoff on the units table.
   const getMetricGroupKey = (
     factTableId: string,
     metric: FactMetricInterface,
-  ) => `${factTableId}${quantileMetricType(metric) ? "_qtile" : ""}`;
+  ) => {
+    let key = `${factTableId}${quantileMetricType(metric) ? "_qtile" : ""}`;
+    if (snapshotSettings.skipPartialData) {
+      const withOverrides = cloneDeep(metric);
+      applyMetricOverrides(withOverrides, snapshotSettings);
+      key += `_cw${getMaxHoursToConvert(false, [withOverrides], null)}`;
+    }
+    return key;
+  };
 
   // Metrics that map to a pre-existing cache table — keyed by that source's
   // groupId. Matching is done by (factTableId, metric id): a cross-FT ratio
