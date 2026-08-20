@@ -7,36 +7,6 @@ import {
   hasNoDuplicateProjects,
 } from "./organization";
 
-// Corresponds to schemas/Member.yaml
-export const apiMemberValidator = namedSchema(
-  "Member",
-  z
-    .object({
-      id: z.string(),
-      name: z.string().optional(),
-      email: z.string(),
-      globalRole: z.string(),
-      environments: z.array(z.string()).optional(),
-      limitAccessByEnvironment: z.boolean().optional(),
-      managedbyIdp: z.boolean().optional(),
-      teams: z.array(z.string()).optional(),
-      projectRoles: z
-        .array(
-          z.object({
-            project: z.string(),
-            role: z.string(),
-            limitAccessByEnvironment: z.boolean(),
-            environments: z.array(z.string()),
-          }),
-        )
-        .optional(),
-      lastLoginDate: z.string().meta({ format: "date-time" }).optional(),
-      dateCreated: z.string().meta({ format: "date-time" }).optional(),
-      dateUpdated: z.string().meta({ format: "date-time" }).optional(),
-    })
-    .strict(),
-);
-
 // Extra roles granted alongside the rule they sit on, for a member who needs more
 // than one role in the same scope.
 const apiAdditionalRoles = z
@@ -51,6 +21,38 @@ const apiAdditionalRoles = z
     "Additional roles granted alongside this one, in the same scope. Each is granted independently and environment access is the union across them.",
   )
   .optional();
+
+// Corresponds to schemas/Member.yaml
+export const apiMemberValidator = namedSchema(
+  "Member",
+  z
+    .object({
+      id: z.string(),
+      name: z.string().optional(),
+      email: z.string(),
+      globalRole: z.string(),
+      environments: z.array(z.string()).optional(),
+      limitAccessByEnvironment: z.boolean().optional(),
+      additionalRoles: apiAdditionalRoles,
+      managedbyIdp: z.boolean().optional(),
+      teams: z.array(z.string()).optional(),
+      projectRoles: z
+        .array(
+          z.object({
+            project: z.string(),
+            role: z.string(),
+            limitAccessByEnvironment: z.boolean(),
+            environments: z.array(z.string()),
+            additionalRoles: apiAdditionalRoles,
+          }),
+        )
+        .optional(),
+      lastLoginDate: z.string().meta({ format: "date-time" }).optional(),
+      dateCreated: z.string().meta({ format: "date-time" }).optional(),
+      dateUpdated: z.string().meta({ format: "date-time" }).optional(),
+    })
+    .strict(),
+);
 
 // Corresponds to payload-schemas/UpdateMemberRolePayload.yaml
 const updateMemberRoleBody = z
@@ -135,6 +137,7 @@ export const updateMemberRoleValidator = {
         role: z.string(),
         environments: z.array(z.string()),
         limitAccessByEnvironment: z.boolean(),
+        additionalRoles: apiAdditionalRoles,
         projectRoles: z
           .array(
             z.object({
@@ -142,6 +145,7 @@ export const updateMemberRoleValidator = {
               role: z.string(),
               limitAccessByEnvironment: z.boolean(),
               environments: z.array(z.string()),
+              additionalRoles: apiAdditionalRoles,
             }),
           )
           .optional(),

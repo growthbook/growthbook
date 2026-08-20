@@ -58961,6 +58961,27 @@ components:
             type: string
         limitAccessByEnvironment:
           type: boolean
+        additionalRoles:
+          description: >-
+            Additional roles granted alongside this one, in the same scope. Each
+            is granted independently and environment access is the union across
+            them.
+          type: array
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+              environments:
+                type: array
+                items:
+                  type: string
+              limitAccessByEnvironment:
+                type: boolean
+            required:
+              - role
+              - environments
+            additionalProperties: false
         managedbyIdp:
           type: boolean
         teams:
@@ -58982,6 +59003,27 @@ components:
                 type: array
                 items:
                   type: string
+              additionalRoles:
+                description: >-
+                  Additional roles granted alongside this one, in the same
+                  scope. Each is granted independently and environment access is
+                  the union across them.
+                type: array
+                items:
+                  type: object
+                  properties:
+                    role:
+                      type: string
+                    environments:
+                      type: array
+                      items:
+                        type: string
+                    limitAccessByEnvironment:
+                      type: boolean
+                  required:
+                    - role
+                    - environments
+                  additionalProperties: false
             required:
               - project
               - role
@@ -68175,6 +68217,27 @@ components:
             type: string
         limitAccessByEnvironment:
           type: boolean
+        additionalRoles:
+          description: >-
+            Additional roles granted alongside this one, in the same scope. Each
+            is granted independently and environment access is the union across
+            them.
+          type: array
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+              environments:
+                type: array
+                items:
+                  type: string
+              limitAccessByEnvironment:
+                type: boolean
+            required:
+              - role
+              - environments
+            additionalProperties: false
         projectRoles:
           type: array
           items:
@@ -68190,6 +68253,27 @@ components:
                 type: array
                 items:
                   type: string
+              additionalRoles:
+                description: >-
+                  Additional roles granted alongside this one, in the same
+                  scope. Each is granted independently and environment access is
+                  the union across them.
+                type: array
+                items:
+                  type: object
+                  properties:
+                    role:
+                      type: string
+                    environments:
+                      type: array
+                      items:
+                        type: string
+                    limitAccessByEnvironment:
+                      type: boolean
+                  required:
+                    - role
+                    - environments
+                  additionalProperties: false
             required:
               - project
               - role

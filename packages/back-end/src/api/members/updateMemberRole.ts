@@ -232,6 +232,7 @@ export const updateMemberRole = createApiRequestHandler(
       role: updatedMember.role,
       environments: updatedMember.environments,
       limitAccessByEnvironment: updatedMember.limitAccessByEnvironment,
+      additionalRoles: updatedMember.additionalRoles,
       projectRoles: updatedMember.projectRoles,
     },
   };
