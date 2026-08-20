@@ -239,8 +239,6 @@ export type ApprovalFlowConfiguration = {
   // reviewer is required.
   blockSelfApproval?: boolean | null;
   autopublishOnApproval?: boolean | null;
-  // TODO: Should we add support for these additional settings?
-  canBypassReview?: boolean;
   resetReviewOnChange?: boolean | null;
 };
 

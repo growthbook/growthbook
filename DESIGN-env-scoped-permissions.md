@@ -724,20 +724,21 @@ at all.
 
 ### 5. Settings unification
 
-- [ ] `targetingReviewMode` → Constants and Configs
-- [ ] `maxConcurrentDrafts` → the other three entities
-- [ ] One draft-cap policy across both UI surfaces (modal's warn+acknowledge);
-      drop the widget's `isAdmin` exemption
-- [ ] Delete `ApprovalFlowConfiguration.canBypassReview` /
-      `.resetReviewOnChange` (`organization.d.ts:231-233`, both read nowhere).
-      Name the type when doing it: `RequireReview.resetReviewOnChange` is a
-      different field and is live.
+- [x] SKIP `targetingReviewMode` → Constants and Configs: neither entity has
+      targeting projects, so there is nothing to apply.
+- [~] `maxConcurrentDrafts` → the other three entities: PARKED.
+- [~] One draft-cap policy across both UI surfaces: PARKED with the item above.
+- [x] Deleted `ApprovalFlowConfiguration.canBypassReview` — genuinely unread.
+      `.resetReviewOnChange` on the SAME type is now LIVE (the saved-group
+      "reset review on changes" toggle, read via `getApprovalFlowSettings`), so
+      the doc's claim that both were dead is out of date. `RequireReview.resetReviewOnChange`
+      is a third, separate, live field.
 - [x] Copy: `restApiBypassesReviews` now names all four entities and both bypass
       policies; the section heading is "Features, Configs, & Constants" and the
       Global blurb lists all four. Verified the public docs table and the agent
       skill docs were already accurate.
-- [ ] Copy still pending: `maxConcurrentDrafts` label (widen WITH the behaviour) and
-      `targetingReviewMode` (correct today, must move WITH the behaviour)
+- [x] Copy: nothing pending. Both items it was coupled to are skipped or parked,
+      and the wording is correct for what ships.
 - [ ] Leave `featureRegexValidator` / `featureKeyExample` feature-only
 
 ### 6. UI
