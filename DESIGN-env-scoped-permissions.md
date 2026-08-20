@@ -533,10 +533,13 @@ model rather than a carve-out.
 - [x] Teams: same two changes
 - [x] Replace assign-with-merge in both loops in `organization.util.ts` — fixes
       the silent-overwrite bug
-- [ ] Reject or dedupe duplicates at the API boundary — **still open, but
-      downgraded**: the merge is a union, so a duplicate rule is inert rather
-      than harmful, and the editor now marks it "Already covered". Data hygiene,
-      not correctness.
+- [ ] Reject or dedupe duplicates at the API boundary — **member and invite
+      surfaces done**, team surfaces open. `hasNoDuplicateProjects` guards
+      `putMemberRole`, `putInviteRole`, `postInvite` and `addOrphanedUser`;
+      `PUT /teams/:id` spreads `projectRoles` straight from the body with no
+      check. Still downgraded: the merge is a union, so a duplicate rule is
+      inert rather than harmful, and the editor marks it "Already covered".
+      Data hygiene, not correctness.
 - [x] Tests: one rule = identical to today; two rules union; duplicate project
       merges instead of vanishing — `back-end/test/additionalRoles.test.ts`
 
@@ -743,12 +746,18 @@ at all.
       skill docs were already accurate.
 - [x] Copy: nothing pending. Both items it was coupled to are skipped or parked,
       and the wording is correct for what ships.
-- [ ] Leave `featureRegexValidator` / `featureKeyExample` feature-only
+- [x] Leave `featureRegexValidator` / `featureKeyExample` feature-only — key
+      shape is a Feature Flag concern; Constants and Configs do not share it
 
 ### 6. UI
 
-- [ ] Effective-permissions view: per (project × environment), with the rule that
-      produced it
+- [x] SUPERSEDED — built as a resolved per-(project × environment) cell with the
+      producing rule in a tooltip, then removed: it restated what the Role column
+      already said. The member, team, invite and pending tables now show one line
+      per rule with that rule's own environment limit, which answers the same
+      question without a hover. Fixing it also closed a real bug: the resolved
+      cell had been computed from a member's own roles only, so access granted
+      through a team read as "not allowed".
 - [x] Multiple-rules editor on member, project and team
 - [ ] Footprint-widened warning at the moment of the edit
 - [x] Per-approval coverage and unmet required-approver rules on the review screen
