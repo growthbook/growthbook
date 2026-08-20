@@ -13,6 +13,7 @@ import { Box, Flex, Heading, IconButton } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
@@ -169,6 +170,11 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
 
       {featureUsageQuery && (
         <Box p="2">
+          {featureUsageQuery.description ? (
+            <Text as="p" color="text-mid">
+              {featureUsageQuery.description}
+            </Text>
+          ) : null}
           {featureUsageQuery.error ? (
             <Callout status="error" mb="3">
               This query had an error with it the last time it ran:{" "}

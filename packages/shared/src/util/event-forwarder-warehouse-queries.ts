@@ -199,11 +199,11 @@ function isGeneratedExposureQuerySql({
 }
 
 /**
- * Gives every paired identifier type a managed assignment query. A query
- * already carrying generator output is left alone whoever owns it, so a user who
- * wrote the same SQL themselves keeps their own query. Nothing is ever removed,
- * and a managed query keeps its id, name and userIdType for the life of the
- * record — those are referenced by experiments, reports, safe rollouts,
+ * Gives every paired identifier type a managed assignment query. An existing
+ * managed query is kept current; failing that, a query the user wrote carrying
+ * the same SQL stands on its own and nothing is added beside it. Nothing is ever
+ * removed, and a managed query keeps its id, name and userIdType for the life of
+ * the record — those are referenced by experiments, reports, safe rollouts,
  * templates and ramp schedules.
  */
 export function reconcileEventForwarderManagedExposureQueries({
@@ -253,6 +253,16 @@ export function reconcileEventForwarderManagedExposureQueries({
       result[index] = { ...query, query: buildSql(query.userIdType) };
     };
 
+    // Ours first: a look-alike query the user wrote must not stop the managed one
+    // from tracking the attribute's current datatype.
+    const managed = onIdentifier.find(({ query }) =>
+      isEventForwarderManaged(query),
+    );
+    if (managed) {
+      regenerate(managed);
+      continue;
+    }
+
     const generated = onIdentifier.find(({ query }) =>
       isGeneratedExposureQuerySql({
         query,
@@ -262,17 +272,6 @@ export function reconcileEventForwarderManagedExposureQueries({
       }),
     );
     if (generated) {
-      if (isEventForwarderManaged(generated.query)) {
-        regenerate(generated);
-      }
-      continue;
-    }
-
-    const managed = onIdentifier.find(({ query }) =>
-      isEventForwarderManaged(query),
-    );
-    if (managed) {
-      regenerate(managed);
       continue;
     }
 

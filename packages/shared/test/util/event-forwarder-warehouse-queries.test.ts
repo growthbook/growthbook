@@ -315,6 +315,39 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
     expect(result[1].managedBy).toBe("api");
   });
 
+  it("regenerates the managed query even when a user query has the same SQL", () => {
+    const userQuery: ExposureQuery = {
+      id: "exq_mine",
+      userIdType: "user_id",
+      name: "mine",
+      dimensions: [],
+      query: generatedSql("user_id"),
+    };
+    const managedQuery: ExposureQuery = {
+      id: "exq_managed",
+      userIdType: "user_id",
+      name: "user_id",
+      dimensions: [],
+      managedBy: "api",
+      query: generatedSql("user_id"),
+    };
+
+    // Whichever order they are stored in, the managed query tracks the datatype
+    // and the user's own query is left untouched.
+    for (const existing of [
+      [userQuery, managedQuery],
+      [managedQuery, userQuery],
+    ]) {
+      const result = reconcile(existing, [pair("user_id")], numberAttribute);
+
+      expect(result).toHaveLength(2);
+      expect(result.find((q) => q.id === "exq_managed")?.query).toBe(
+        generatedSql("user_id", "user_id", "number"),
+      );
+      expect(result.find((q) => q.id === "exq_mine")).toEqual(userQuery);
+    }
+  });
+
   it("keeps a managed query's id and name when it regenerates the SQL", () => {
     const existing: ExposureQuery[] = [
       {
