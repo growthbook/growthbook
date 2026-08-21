@@ -15,6 +15,7 @@ export function isInteractiveElement(target: HTMLElement): boolean {
 }
 
 interface DrilldownTooltipHandlers {
+  onMouseEnter: (e: React.MouseEvent) => void;
   onMouseMove: (e: React.MouseEvent) => void;
   onMouseLeave: () => void;
   onClick: () => void;
@@ -31,10 +32,22 @@ interface DrilldownTooltipProps {
  */
 export function DrilldownTooltip({ enabled, children }: DrilldownTooltipProps) {
   const { triggerProps, close, renderTooltip } = useHoverTooltip({
-    delayMs: 1500,
+    delayMs: 1250,
     enabled,
     positioning: "cursor",
   });
+
+  const onMouseEnter = useCallback(
+    (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (isInteractiveElement(target)) {
+        return;
+      }
+
+      triggerProps.onMouseEnter(e);
+    },
+    [triggerProps],
+  );
 
   const onMouseMove = useCallback(
     (e: React.MouseEvent) => {
@@ -44,7 +57,6 @@ export function DrilldownTooltip({ enabled, children }: DrilldownTooltipProps) {
         return;
       }
 
-      triggerProps.onMouseEnter(e);
       triggerProps.onMouseMove(e);
     },
     [triggerProps, close],
@@ -53,6 +65,7 @@ export function DrilldownTooltip({ enabled, children }: DrilldownTooltipProps) {
   return (
     <>
       {children({
+        onMouseEnter,
         onMouseMove,
         onMouseLeave: close,
         onClick: close,
