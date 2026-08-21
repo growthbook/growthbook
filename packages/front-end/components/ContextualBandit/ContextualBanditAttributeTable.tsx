@@ -31,10 +31,12 @@ function fractionRemoved(reduction: number, rootSse: number): number {
 function AttributeSplitsModal({
   entry,
   rootSse,
+  sseByNumSplits,
   close,
 }: {
   entry: AttributeSseReduction;
   rootSse: number;
+  sseByNumSplits: Map<number, number>;
   close: () => void;
 }) {
   const steps = useMemo(
@@ -59,18 +61,28 @@ function AttributeSplitsModal({
       size="lg"
     >
       <Flex direction="column" gap="3">
-        {steps.map((step) => (
-          <Box
-            key={`split-${step.numSplits}`}
-            p="3"
-            style={{
-              border: "1px solid var(--gray-a5)",
-              borderRadius: 6,
-            }}
-          >
-            <SseSplitDetails step={step} />
-          </Box>
-        ))}
+        {steps.map((step) => {
+          const prevSse = sseByNumSplits.get(step.numSplits - 1);
+          const gain = prevSse !== undefined ? prevSse - step.totalSse : 0;
+          return (
+            <Box
+              key={`split-${step.numSplits}`}
+              p="3"
+              style={{
+                border: "1px solid var(--gray-a5)",
+                borderRadius: 6,
+              }}
+            >
+              <SseSplitDetails
+                step={step}
+                variant="detail"
+                percentReducedLabel={percentFormatter.format(
+                  fractionRemoved(gain, rootSse),
+                )}
+              />
+            </Box>
+          );
+        })}
       </Flex>
     </ModalStandard>
   );
@@ -96,6 +108,11 @@ export default function ContextualBanditAttributeTable({
     () => Math.max(...steps.map((s) => s.totalSse), 0),
     [steps],
   );
+  const sseByNumSplits = useMemo(() => {
+    const map = new Map<number, number>();
+    steps.forEach((s) => map.set(s.numSplits, s.totalSse));
+    return map;
+  }, [steps]);
   const [selected, setSelected] = useState<AttributeSseReduction | null>(null);
   const [expanded, setExpanded] = useState(false);
 
@@ -161,6 +178,7 @@ export default function ContextualBanditAttributeTable({
         <AttributeSplitsModal
           entry={selected}
           rootSse={rootSse}
+          sseByNumSplits={sseByNumSplits}
           close={() => setSelected(null)}
         />
       ) : null}

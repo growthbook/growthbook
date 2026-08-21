@@ -101,11 +101,24 @@ export function attributeSseReductions(
 }
 
 /**
- * Renders a single split's details in the format used by the SSE plot tooltip:
- * the leaf count and total error at that growth stage, the leaf node that was
- * split, and how it was partitioned. Reused by the attribute detail modal.
+ * Renders a single split's details, reused by the SSE plot tooltip and the
+ * attribute detail modal.
+ *
+ * - `variant="tooltip"` (default): leads with the leaf count and total error at
+ *   that growth stage, matching the plot's axes, then the split.
+ * - `variant="detail"`: leads with the split, then a footer showing the percent
+ *   of error the split removed (`percentReducedLabel`) and the resulting leaf
+ *   count.
  */
-export function SseSplitDetails({ step }: { step: ContextualBanditSseStep }) {
+export function SseSplitDetails({
+  step,
+  variant = "tooltip",
+  percentReducedLabel,
+}: {
+  step: ContextualBanditSseStep;
+  variant?: "tooltip" | "detail";
+  percentReducedLabel?: string;
+}) {
   const isRoot = step.numSplits === 0;
   const condition = useMemo(
     () =>
@@ -115,6 +128,57 @@ export function SseSplitDetails({ step }: { step: ContextualBanditSseStep }) {
     [step.split],
   );
 
+  const splitBody = step.split ? (
+    <>
+      <Text size="sm" weight="medium" as="div">
+        Split node
+      </Text>
+      <Box mb="2">
+        {!condition || condition === "{}" ? (
+          <Text size="sm" color="text-low">
+            All contexts
+          </Text>
+        ) : (
+          <ConditionDisplay condition={condition} />
+        )}
+      </Box>
+      <Text size="sm" weight="medium" as="div">
+        Split on {step.split.attribute}
+      </Text>
+      <Text size="sm" color="text-low" as="div">
+        {displayLevels(step.split.leftLevels)} vs{" "}
+        {displayLevels(step.split.rightLevels)}
+      </Text>
+    </>
+  ) : isRoot ? (
+    <Text size="sm" color="text-low" as="div">
+      Root of the tree, before any splits.
+    </Text>
+  ) : (
+    <Text size="sm" color="text-low" as="div">
+      Split details are unavailable for this point. Refresh results to compute
+      them.
+    </Text>
+  );
+
+  if (variant === "detail") {
+    return (
+      <Box>
+        {splitBody}
+        <Box mt="3">
+          {percentReducedLabel !== undefined ? (
+            <Text size="sm" color="text-low" as="div">
+              Percent error reduced {percentReducedLabel}
+            </Text>
+          ) : null}
+          <Text size="sm" color="text-low" as="div">
+            {leafCount(step)} leaves in tree after split
+          </Text>
+        </Box>
+      </Box>
+    );
+  }
+
   return (
     <Box style={{ maxWidth: 320 }}>
       <Text size="sm" weight="medium" as="div">
@@ -123,39 +187,7 @@ export function SseSplitDetails({ step }: { step: ContextualBanditSseStep }) {
       <Text size="sm" color="text-low" as="div" mb="2">
         Total error {numberFormatter.format(step.totalSse)}
       </Text>
-
-      {step.split ? (
-        <>
-          <Text size="sm" weight="medium" as="div">
-            Split node
-          </Text>
-          <Box mb="2">
-            {!condition || condition === "{}" ? (
-              <Text size="sm" color="text-low">
-                All contexts
-              </Text>
-            ) : (
-              <ConditionDisplay condition={condition} />
-            )}
-          </Box>
-          <Text size="sm" weight="medium" as="div">
-            Split on {step.split.attribute}
-          </Text>
-          <Text size="sm" color="text-low" as="div">
-            {displayLevels(step.split.leftLevels)} vs{" "}
-            {displayLevels(step.split.rightLevels)}
-          </Text>
-        </>
-      ) : isRoot ? (
-        <Text size="sm" color="text-low" as="div">
-          Root of the tree, before any splits.
-        </Text>
-      ) : (
-        <Text size="sm" color="text-low" as="div">
-          Split details are unavailable for this point. Refresh results to
-          compute them.
-        </Text>
-      )}
+      {splitBody}
     </Box>
   );
 }
