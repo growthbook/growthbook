@@ -124,6 +124,20 @@ export const postBulkImportFacts = createApiRequestHandler(
     }
   }
 
+  function requireOfficialResourcesPlan(
+    managedBy: string,
+    kind: "fact tables" | "fact metrics",
+  ) {
+    if (
+      managedBy === "admin" &&
+      !req.context.hasPremiumFeature("manage-official-resources")
+    ) {
+      throw new Error(
+        `Your organization's plan does not support creating official ${kind}.`,
+      );
+    }
+  }
+
   function validateAggregatedSettings(
     settings: AggregatedFactTableSettings,
     userIdTypes: string[],
@@ -234,6 +248,7 @@ export const postBulkImportFacts = createApiRequestHandler(
               (await resolveOwnerToUserId(updateData.owner, req.context)) ?? "";
           }
 
+          let counted = false;
           if (!dryRun && updateData.columns) {
             await upsertColumns({
               context: req.context,
@@ -241,6 +256,8 @@ export const postBulkImportFacts = createApiRequestHandler(
               columns: updateData.columns,
             });
             delete updateData.columns;
+            numUpdated.factTables++;
+            counted = true;
           }
 
           const willRefresh =
@@ -254,9 +271,6 @@ export const postBulkImportFacts = createApiRequestHandler(
                 ? { ...updateData, columnRefreshPending: true }
                 : updateData,
             );
-            if (willRefresh) {
-              await queueFactTableColumnsRefresh(existing);
-            }
           }
           factTableMap.set(existing.id, {
             ...existing,
@@ -266,7 +280,10 @@ export const postBulkImportFacts = createApiRequestHandler(
               ? true
               : existing.columnRefreshPending,
           });
-          numUpdated.factTables++;
+          if (!counted) numUpdated.factTables++;
+          if (!dryRun && willRefresh) {
+            await queueFactTableColumnsRefresh(existing);
+          }
         }
         // Create new fact table
         else {
@@ -283,6 +300,7 @@ export const postBulkImportFacts = createApiRequestHandler(
             owner: newOwner,
           };
 
+          requireOfficialResourcesPlan(managedBy, "fact tables");
           if (!req.context.permissions.canCreateFactTable(factTable)) {
             req.context.permissions.throwPermissionError();
           }
@@ -301,8 +319,9 @@ export const postBulkImportFacts = createApiRequestHandler(
 
           if (!dryRun) {
             const newFactTable = await createFactTable(req.context, factTable);
-            await queueFactTableColumnsRefresh(newFactTable);
             factTableMap.set(newFactTable.id, newFactTable);
+            numCreated.factTables++;
+            await queueFactTableColumnsRefresh(newFactTable);
           } else {
             factTableMap.set(id, {
               ...omit(factTable, "columns"),
@@ -313,8 +332,8 @@ export const postBulkImportFacts = createApiRequestHandler(
               filters: [],
               columns: [],
             });
+            numCreated.factTables++;
           }
-          numCreated.factTables++;
         }
       } catch (e) {
         await onItemError("factTable", id, e);
@@ -435,6 +454,7 @@ export const postBulkImportFacts = createApiRequestHandler(
         }
         // Create new fact metric
         else {
+          requireOfficialResourcesPlan(managedBy, "fact metrics");
           const createProps = await getCreateMetricPropsFromBody(
             metricData,
             req.organization,
