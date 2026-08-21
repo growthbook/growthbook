@@ -1,4 +1,3 @@
-import { omit } from "lodash";
 import { PermissionError } from "shared/util";
 import {
   BulkImportError,
@@ -15,6 +14,7 @@ import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceMode
 import {
   createFactFilter,
   createFactTable,
+  createPropsToInterface,
   updateFactTable,
   updateFactFilter,
   upsertColumns,
@@ -324,15 +324,10 @@ export const postBulkImportFacts = createApiRequestHandler(
             numCreated.factTables++;
             await queueFactTableColumnsRefresh(newFactTable);
           } else {
-            factTableMap.set(id, {
-              ...omit(factTable, "columns"),
+            factTableMap.set(
               id,
-              organization: req.organization.id,
-              dateCreated: new Date(),
-              dateUpdated: new Date(),
-              filters: [],
-              columns: [],
-            });
+              createPropsToInterface(req.context, factTable),
+            );
             numCreated.factTables++;
           }
         }
