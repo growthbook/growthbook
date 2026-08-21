@@ -243,11 +243,13 @@ to select only the actions a role needs. For example, a role with **Edit** but
 not **Publish** can prepare drafts but cannot change live behavior.
 
 Feature Flags, Configs, and Constants share the same set of policies. Create,
-Publish, Revert, and Archive & delete respect a role's environment restrictions.
-GrowthBook checks only the environments affected by the action. For example,
-archiving a Feature Flag checks the environments where that flag is currently
-enabled. Permanently deleting an already archived resource does not require
-access to any environment.
+Review, Publish, Revert, and Archive & delete respect a role's environment
+restrictions. GrowthBook checks only the environments affected by the action.
+For example, archiving a Feature Flag checks the environments where that flag
+is currently enabled. Permanently deleting an already archived resource does
+not require access to any environment. For Review, an approval counts only for
+the environments the reviewer can review — see
+[Environment-scoped approvals](/features/publishing-and-approval-flows#environment-scoped-approvals).
 
 Some changes are not environment-specific at all. A Constant's base value and a
 Config that is not scoped to particular environments apply everywhere rather
