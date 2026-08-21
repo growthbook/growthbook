@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { NPS_MAX_FEEDBACK_LENGTH } from "../nps";
 
 export const npsSurveyStatusValidator = z.enum(["responded", "dismissed"]);
 export type NpsSurveyStatus = z.infer<typeof npsSurveyStatusValidator>;
@@ -20,7 +21,7 @@ export const npsResponseBodyValidator = z
   .object({
     status: npsSurveyStatusValidator,
     score: z.number().int().min(0).max(10).optional(),
-    feedback: z.string().max(10000).optional(),
+    feedback: z.string().max(NPS_MAX_FEEDBACK_LENGTH).optional(),
     disposition: npsDispositionValidator.optional(),
     // Set by the `?show-nps` staff preview: still forwards to Slack so the
     // path stays testable, but doesn't consume the re-survey window.
