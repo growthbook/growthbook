@@ -98,6 +98,12 @@ import { REVISION_SAVED_GROUP_DIFF_CONFIG } from "@/components/Revision/Revision
 import { useUser } from "@/services/UserContext";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import HelperText from "@/ui/HelperText";
+import ConflictCallout, {
+  ConflictProvider,
+  ConflictShell,
+} from "@/components/DraftConflicts/ConflictContext";
+import { useDraftConflict } from "@/components/DraftConflicts/useDraftConflict";
 import SavedGroupDraftSelectorForChanges, {
   DraftMode,
 } from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
@@ -135,6 +141,9 @@ export default function EditSavedGroupPage() {
   const [addItemsDraftSelectedId, setAddItemsDraftSelectedId] = useState<
     string | null
   >(null);
+  // Pinned when a list modal opens. `displayedValues` tracks revalidation, so
+  // reading it at submit time would compare the current list against itself.
+  const [listBaseline, setListBaseline] = useState<string[] | null>(null);
   const [deleteItemsModal, setDeleteItemsModal] = useState(false);
   const [deleteItemsDraftMode, setDeleteItemsDraftMode] =
     useState<DraftMode>("new");
@@ -284,6 +293,29 @@ export default function EditSavedGroupPage() {
     () => displayedSavedGroup?.values ?? [],
     [displayedSavedGroup],
   );
+
+  const pinnedList = listBaseline ?? displayedValues;
+
+  // A list can't merge item-by-item, so a contested one is flagged, not merged.
+  // One instance per modal, so an add conflict can't gate a later removal.
+  const addConflict = useDraftConflict<Record<string, unknown>>({
+    initial: { values: pinnedList },
+    labels: { values: "List items" },
+    applyField: (_field, value) => {
+      setImportOperation("replace");
+      setItemsToAdd((value as string[]) ?? []);
+    },
+    isNewDraft: addItemsDraftMode === "new",
+    entityNoun: "saved group",
+  });
+  // Removing by selection has nowhere to apply their list, so this one only
+  // reports the conflict and offers a reload.
+  const deleteConflict = useDraftConflict<Record<string, unknown>>({
+    initial: { values: pinnedList },
+    labels: { values: "List items" },
+    isNewDraft: deleteItemsDraftMode === "new",
+    entityNoun: "saved group",
+  });
 
   const filteredValues = displayedValues.filter((v) => v.match(filter));
   const sortedValues = sortNewestFirst
@@ -501,7 +533,14 @@ export default function EditSavedGroupPage() {
                   ? "Propose changes"
                   : "Create draft"
           }
+          ctaEnabled={!deleteConflict.hasConflict}
+          disabledMessage={
+            deleteConflict.hasConflict
+              ? "Reload to remove items from the current list."
+              : undefined
+          }
           submit={async () => {
+            if (deleteConflict.hasConflict) return;
             const newValues = displayedValues.filter((v) => !selected.has(v));
 
             const params = new URLSearchParams();
@@ -519,13 +558,24 @@ export default function EditSavedGroupPage() {
               params.set("forceCreateRevision", "1");
             }
 
-            const res = await apiCall<{
-              status: number;
-              revision?: Revision;
-            }>(`/saved-groups/${savedGroup.id}?${params.toString()}`, {
-              method: "PUT",
-              body: JSON.stringify({ values: newValues }),
-            });
+            const guard = deleteConflict.guard({ values: newValues });
+            const res = await deleteConflict.guarded(() =>
+              apiCall<{
+                status: number;
+                revision?: Revision;
+              }>(
+                `/saved-groups/${savedGroup.id}?${params.toString()}`,
+                {
+                  method: "PUT",
+                  body: JSON.stringify({
+                    values: newValues,
+                    baseline: { values: pinnedList },
+                  }),
+                },
+                guard.onError,
+              ),
+            );
+            deleteConflict.clear();
 
             if (res?.revision) {
               onRevisionCreated(res.revision);
@@ -547,7 +597,37 @@ export default function EditSavedGroupPage() {
             canAutoPublish={canAutoPublish}
             approvalRequired={approvalRequired}
             defaultExpanded={!canAutoPublish}
+            alert={
+              deleteConflict.hasConflict ? (
+                <HelperText status="warning" icon={null}>
+                  The list changed while you were editing, so this removal no
+                  longer matches it.
+                </HelperText>
+              ) : undefined
+            }
+            alertActive={deleteConflict.hasConflict}
           />
+          {deleteConflict.hasConflict && (
+            <ConflictShell
+              resolved={false}
+              message={
+                <Text>Reload to remove items from the current list.</Text>
+              }
+              choices={
+                <Button
+                  size="sm"
+                  onClick={async () => {
+                    deleteConflict.clear();
+                    setSelected(new Set());
+                    await mutate();
+                    setDeleteItemsModal(false);
+                  }}
+                >
+                  Reload
+                </Button>
+              }
+            />
+          )}
         </Modal>
       )}
       {addItems && (
@@ -578,7 +658,8 @@ export default function EditSavedGroupPage() {
           }
           ctaEnabled={
             itemsToAdd.length > 0 &&
-            (!listAboveSizeLimit || adminBypassSizeLimit)
+            (!listAboveSizeLimit || adminBypassSizeLimit) &&
+            addConflict.resolved
           }
           submit={async () => {
             const newValues =
@@ -601,14 +682,25 @@ export default function EditSavedGroupPage() {
               params.set("forceCreateRevision", "1");
             }
 
-            const res = await apiCall<{
-              status: number;
-              requiresApproval?: boolean;
-              revision?: Revision;
-            }>(`/saved-groups/${savedGroup.id}?${params.toString()}`, {
-              method: "PUT",
-              body: JSON.stringify({ values: newValues }),
-            });
+            const guard = addConflict.guard({ values: newValues });
+            const res = await addConflict.guarded(() =>
+              apiCall<{
+                status: number;
+                requiresApproval?: boolean;
+                revision?: Revision;
+              }>(
+                `/saved-groups/${savedGroup.id}?${params.toString()}`,
+                {
+                  method: "PUT",
+                  body: JSON.stringify({
+                    values: newValues,
+                    baseline: { values: pinnedList },
+                  }),
+                },
+                guard.onError,
+              ),
+            );
+            addConflict.clear();
 
             if (res?.revision) {
               onRevisionCreated(res.revision);
@@ -618,7 +710,7 @@ export default function EditSavedGroupPage() {
             setItemsToAdd([]);
           }}
         >
-          <>
+          <ConflictProvider {...addConflict.providerProps}>
             {addItemsDraftMode !== "publish" && (
               <Text as="p" mb="3" color="text-mid">
                 {approvalRequired
@@ -637,6 +729,8 @@ export default function EditSavedGroupPage() {
               canAutoPublish={canAutoPublish}
               approvalRequired={approvalRequired}
               defaultExpanded={!canAutoPublish}
+              alert={addConflict.alert}
+              alertActive={addConflict.alertActive}
             />
             <IdListItemInput
               values={itemsToAdd}
@@ -647,7 +741,8 @@ export default function EditSavedGroupPage() {
               setBypassSizeLimit={setAdminBypassSizeLimit}
               projects={savedGroup.projects}
             />
-          </>
+            <ConflictCallout field="values" />
+          </ConflictProvider>
         </Modal>
       )}
       {savedGroupForm && (
@@ -1391,6 +1486,8 @@ export default function EditSavedGroupPage() {
                             setDeleteItemsDraftSelectedId(
                               userOpenRevision?.id ?? null,
                             );
+                            setListBaseline(displayedValues);
+                            deleteConflict.clear();
                             setDeleteItemsModal(true);
                           }}
                         >
@@ -1429,6 +1526,8 @@ export default function EditSavedGroupPage() {
                           setAddItemsDraftSelectedId(
                             userOpenRevision?.id ?? null,
                           );
+                          setListBaseline(displayedValues);
+                          addConflict.clear();
                           setAddItems(true);
                         }}
                       >
@@ -1466,6 +1565,8 @@ export default function EditSavedGroupPage() {
                           setAddItemsDraftSelectedId(
                             userOpenRevision?.id ?? null,
                           );
+                          setListBaseline(displayedValues);
+                          addConflict.clear();
                           setAddItems(true);
                         }}
                       >

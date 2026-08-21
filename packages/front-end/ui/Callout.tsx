@@ -33,6 +33,7 @@ export default forwardRef<
     children: ReactNode;
     status: Status;
     size?: Size;
+    style?: React.CSSProperties;
     icon?: ReactNode | null;
     action?: ReactNode;
     role?: string;
@@ -43,6 +44,7 @@ export default forwardRef<
     children,
     status,
     size = "md",
+    style,
     icon,
     action,
     dismissible = false,
@@ -91,6 +93,7 @@ export default forwardRef<
           display: "flex",
           position: "relative",
           "--callout-line-height": lineHeight,
+          ...style,
         } as React.CSSProperties
       }
       variant="soft"
