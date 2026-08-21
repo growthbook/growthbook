@@ -72,13 +72,24 @@ const AttributeSearchFilters: FC<
     () =>
       customFields.flatMap((f) => {
         if (f.type === "boolean") {
-          return [{ field: f, values: ["yes", "no"] }];
+          // Display casing matches the Identifier filter on the same bar; the
+          // query value stays lowercase.
+          return [
+            {
+              field: f,
+              values: [
+                { name: "Yes", searchValue: "yes" },
+                { name: "No", searchValue: "no" },
+              ],
+            },
+          ];
         }
         if (f.type === "enum" || f.type === "multiselect") {
           const values = (f.values ?? "")
             .split(",")
             .map((v) => v.trim())
-            .filter(Boolean);
+            .filter(Boolean)
+            .map((v) => ({ name: v, searchValue: v }));
           return values.length ? [{ field: f, values }] : [];
         }
         return [];
@@ -142,10 +153,10 @@ const AttributeSearchFilters: FC<
           syntaxFilters={syntaxFilters}
           open={dropdownFilterOpen}
           setOpen={setDropdownFilterOpen}
-          items={values.map((v) => ({
-            name: v,
-            id: `${field.id}-${v}`,
-            searchValue: v,
+          items={values.map(({ name, searchValue }) => ({
+            name,
+            id: `${field.id}-${searchValue}`,
+            searchValue,
           }))}
           updateQuery={updateQuery}
         />

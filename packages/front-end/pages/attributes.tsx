@@ -40,7 +40,10 @@ import {
 import ColumnResizeHandle from "@/ui/ColumnResizeHandle";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import { useUser } from "@/services/UserContext";
-import { filterCustomFieldsForSectionAndProjects } from "@/services/customFields";
+import {
+  filterCustomFieldsForSection,
+  filterCustomFieldsForSectionAndProjects,
+} from "@/services/customFields";
 import {
   customFieldFilterValue,
   customFieldValueToText,
@@ -133,17 +136,18 @@ const FeatureAttributesPage = (): React.ReactElement => {
   // saved layout carried into another org just resolves away instead of breaking.
   const { hasCommercialFeature } = useUser();
   const allCustomFields = useCustomFields();
-  const attributeCustomFields = useMemo(
-    () =>
-      hasCommercialFeature("custom-metadata")
-        ? (filterCustomFieldsForSectionAndProjects(
-            allCustomFields,
-            "attribute",
-            project ? [project] : undefined,
-          ) ?? [])
-        : [],
-    [allCustomFields, hasCommercialFeature, project],
-  );
+  const attributeCustomFields = useMemo(() => {
+    if (!hasCommercialFeature("custom-metadata")) return [];
+    // Under "All Projects" the table lists attributes from every project, so
+    // scoping the columns to one project's fields would hide metadata that
+    // visible rows carry.
+    const fields = project
+      ? filterCustomFieldsForSectionAndProjects(allCustomFields, "attribute", [
+          project,
+        ])
+      : filterCustomFieldsForSection(allCustomFields, "attribute");
+    return fields ?? [];
+  }, [allCustomFields, hasCommercialFeature, project]);
 
   const attributesWithComputedFields = useAddComputedFields(
     attributeSchema,
