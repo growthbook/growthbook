@@ -142,17 +142,17 @@ const BaseClass = MakeModelClass({
     "scheduledPublishGaveUpAt",
     "armAcknowledgments",
   ],
+  // The first two are prefixes of longer indexes below, which give identical
+  // bounds — no query needs them. Nothing filters `authorId` without also
+  // constraining `target.type`, so the third can never be the selective choice.
+  indexesToRemove: [
+    "organization_1_target.type_1_target.id_1_status_1",
+    "organization_1_status_1",
+    "organization_1_authorId_1",
+  ],
   additionalIndexes: [
-    {
-      fields: {
-        organization: 1,
-        "target.type": 1,
-        "target.id": 1,
-        status: 1,
-      },
-    },
-    // Merge order, read on every landing. Extends the equality prefix above with
-    // the sort keys so the read is a one-row indexed walk, not an in-memory sort.
+    // Merge order, read on every landing. The equality filter plus both sort keys,
+    // so the read is a one-row indexed walk, not an in-memory sort.
     {
       fields: {
         organization: 1,
@@ -162,9 +162,6 @@ const BaseClass = MakeModelClass({
         "resolution.dateCreated": 1,
         version: 1,
       },
-    },
-    {
-      fields: { organization: 1, authorId: 1 },
     },
     // The listing sort `{dateCreated: -1, id: -1}` on the filter's prefix, so
     // paginated reads don't block-sort the whole match.
@@ -878,7 +875,7 @@ export class RevisionModel extends BaseClass {
         status: "merged",
       } as Record<string, unknown>,
       {
-        sort: { "resolution.dateCreated": -1, version: -1, id: -1 },
+        sort: { "resolution.dateCreated": -1, version: -1 },
         limit: 1,
         // NOT read-filtered: a consistency query, not a user-facing read. A
         // snapshot-basis null here reads to `assertLandingBaseline` as "no

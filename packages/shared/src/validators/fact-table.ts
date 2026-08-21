@@ -184,7 +184,6 @@ export const updateFactTablePropsValidator = z
     eventName: z.string().optional(),
     columns: z.array(createColumnPropsValidator).optional(),
     managedBy: z.enum(["", "api", "admin"]).optional(),
-    columnsError: z.string().nullable().optional(),
     archived: z.boolean().optional(),
     autoSliceUpdatesEnabled: z.boolean().optional(),
     aggregatedFactTableSettings: aggregatedFactTableSettingsValidator
@@ -594,6 +593,19 @@ export const apiFactTableColumnValidator = namedSchema(
           "For virtual columns, the SQL expression that computes the column value. Only valid on a virtual column; when omitted from an update, the existing expression is preserved.",
         )
         .optional(),
+      topValues: z
+        .array(z.string())
+        .describe(
+          "The most common values for this column, sampled from the warehouse to populate filter pickers and auto slices. Read-only.",
+        )
+        .readonly()
+        .optional(),
+      topValuesDate: z
+        .string()
+        .meta({ format: "date-time" })
+        .describe("When topValues was last refreshed for this column.")
+        .readonly()
+        .optional(),
       dateCreated: z
         .string()
         .meta({ format: "date-time" })
@@ -615,6 +627,8 @@ export const apiFactTableColumnInputValidator = componentSchema(
       dataTypeFromWarehouse: true,
       dateCreated: true,
       dateUpdated: true,
+      topValues: true,
+      topValuesDate: true,
     })
     .extend({
       datatype: apiFactTableColumnValidator.shape.datatype
@@ -658,8 +672,21 @@ export const apiFactTableValidator = namedSchema(
         .string()
         .nullable()
         .describe("Error message if there was an issue parsing the SQL schema")
+        .readonly()
+        .optional(),
+      columnRefreshPending: z
+        .boolean()
+        .describe(
+          "True while the fact table's column schema is being detected in the background. While true, `columns` may be empty or incomplete and metrics referencing not-yet-detected columns cannot be created.",
+        )
         .optional(),
       archived: z.boolean().optional(),
+      autoSliceUpdatesEnabled: z
+        .boolean()
+        .describe(
+          "Whether Auto Slice values for this fact table's columns are refreshed automatically in the background.",
+        )
+        .optional(),
       managedBy: z
         .enum(["", "api", "admin"])
         .describe(
@@ -839,11 +866,6 @@ const updateFactTableBody = z
       .describe(
         'Optional array of columns to upsert by `column`: existing columns are patched, new columns are created, and columns not included are left unchanged. Omit `datatype` to leave an existing column\'s type untouched; send "" to reset it for auto-detection; new columns are auto-detected when `datatype` is omitted or "". Slice-related properties require an enterprise license.',
       )
-      .optional(),
-    columnsError: z
-      .string()
-      .nullable()
-      .describe("Error message if there was an issue parsing the SQL schema")
       .optional(),
     managedBy: z
       .enum(["", "api", "admin"])

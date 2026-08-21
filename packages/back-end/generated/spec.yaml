@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  version: 5.0.0
+  version: 5.0.1
   title: GrowthBook REST API
   description: >
     GrowthBook offers a full REST API for interacting with the application.
@@ -26968,11 +26968,6 @@ paths:
                   type: array
                   items:
                     $ref: '#/components/schemas/FactTableColumnInput'
-                columnsError:
-                  description: Error message if there was an issue parsing the SQL schema
-                  anyOf:
-                    - type: string
-                    - type: 'null'
                 managedBy:
                   description: Set this to "api" to disable editing in the GrowthBook UI
                   type: string
@@ -57645,11 +57640,23 @@ components:
           items:
             $ref: '#/components/schemas/FactTableColumn'
         columnsError:
+          readOnly: true
           description: Error message if there was an issue parsing the SQL schema
           anyOf:
             - type: string
             - type: 'null'
+        columnRefreshPending:
+          description: >-
+            True while the fact table's column schema is being detected in the
+            background. While true, `columns` may be empty or incomplete and
+            metrics referencing not-yet-detected columns cannot be created.
+          type: boolean
         archived:
+          type: boolean
+        autoSliceUpdatesEnabled:
+          description: >-
+            Whether Auto Slice values for this fact table's columns are
+            refreshed automatically in the background.
           type: boolean
         managedBy:
           description: >-
@@ -57791,6 +57798,19 @@ components:
             For virtual columns, the SQL expression that computes the column
             value. Only valid on a virtual column; when omitted from an update,
             the existing expression is preserved.
+          type: string
+        topValues:
+          readOnly: true
+          description: >-
+            The most common values for this column, sampled from the warehouse
+            to populate filter pickers and auto slices. Read-only.
+          type: array
+          items:
+            type: string
+        topValuesDate:
+          readOnly: true
+          format: date-time
+          description: When topValues was last refreshed for this column.
           type: string
         dateCreated:
           readOnly: true

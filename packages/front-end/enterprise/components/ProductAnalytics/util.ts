@@ -17,6 +17,7 @@ import type {
   ExplorationDateRange,
   ComparisonMode,
 } from "shared/validators";
+import type { AIChatMention } from "shared/ai-chat";
 import { isEqual } from "lodash";
 import { createParser } from "nuqs";
 import {
@@ -73,6 +74,41 @@ export { mapDatabaseTypeToEnum };
 
 export const PA_AI_CHAT_INITIAL_MESSAGE_KEY = "pa-ai-chat-initial-message";
 export const PA_AI_CHAT_INITIAL_MODEL_KEY = "pa-ai-chat-initial-model";
+
+export interface PAInitialChatMessage {
+  text: string;
+  mentions: AIChatMention[];
+}
+
+export function takeInitialChatMessage(): PAInitialChatMessage | null {
+  const stored = sessionStorage.getItem(PA_AI_CHAT_INITIAL_MESSAGE_KEY);
+  if (!stored) return null;
+  sessionStorage.removeItem(PA_AI_CHAT_INITIAL_MESSAGE_KEY);
+
+  const parsed = parseInitialChatMessage(stored);
+  return parsed && parsed.text ? parsed : null;
+}
+
+export function parseInitialChatMessage(
+  stored: string,
+): PAInitialChatMessage | null {
+  try {
+    const parsed: unknown = JSON.parse(stored);
+    if (parsed && typeof parsed === "object" && "text" in parsed) {
+      const { text, mentions } = parsed as PAInitialChatMessage;
+      if (typeof text !== "string") return null;
+      return {
+        text: text.trim(),
+        mentions: Array.isArray(mentions) ? mentions : [],
+      };
+    }
+    return typeof parsed === "string"
+      ? { text: parsed.trim(), mentions: [] }
+      : null;
+  } catch {
+    return { text: stored.trim(), mentions: [] };
+  }
+}
 
 // Backoff (ms) for polling a still-running exploration, mirroring the shared
 // RunQueriesButton cadence (2s → 20s). Returns 0 to stop after ~10 min.
