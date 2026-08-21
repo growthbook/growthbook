@@ -79,6 +79,33 @@ Checked against the sidebar destinations, not detail pages.
 
 The newer flag-family pages (Configs, Constants) already look like the target. Attributes, Environments, Namespaces, and Fact Tables are close. Feature Flags and Experiments are the highest-traffic pages and still use raw `h1` plus Bootstrap filter rows.
 
+Settings list pages often use `<h2>` (Tags, Projects, Custom Fields) while API Keys uses `<h1>` and Team uses a different title per tab. Leave Settings out of the first pass, but new settings lists should still use `Heading as="h1" size="xl"`.
+
+### Sidebar label vs page title
+
+The in-page title should match the sidebar child label unless the extra words are a named resource. These currently disagree:
+
+| Sidebar | Page title |
+| --- | --- |
+| SQL Reports | Custom SQL Reports |
+| Dashboards | Product Analytics Dashboards |
+| Explore | Product Analytics |
+| Learnings | Experiment Learnings |
+| Timeline | Experiment Timeline |
+| Namespaces | Experiment Namespaces |
+| Billing | Plan Info |
+| Session Replay | Recorded Sessions (sidebar in the tool, not an h1) |
+
+Use the sidebar label as the `h1`. Put the extra context in the description.
+
+### Tables still on the old stack
+
+`@/ui/Table variant="list"` is the default. These top-level lists still render `table.appbox.gbtable`: SDK Connections, Archetypes, Contextual Bandits, Segments, Data Sources, SQL Reports, Dashboards, Tags, Events, Presentations (cards, plus Bootstrap buttons). Convert the table when that page gets `ListPageHeader`, not as a separate sweep.
+
+Holdouts tabs say **Draft** (singular). Experiments and Bandits say **Drafts**. Use **Drafts**.
+
+Namespaces has no empty state at all: title, description, and a blank page. Use `EmptyState`.
+
 ### Primary action copy
 
 The majority is `Add {Thing}`. Experiments broke that with a dropdown labeled `Add` whose items are `Create New Experiment` and `Import Existing Experiment`. SDK Connections uses `Add SDK Connection` in one branch and `Create New SDK Connection` in another. SQL Reports uses `New SQL Report` on the header and `Start Exploring` in the empty state. Copy guide: buttons are sentence case; named resources stay Title Case. `Add Feature` should be `Add Feature Flag`. `Create New Experiment` should be `Add Experiment` (or `Import experiment` for the secondary path).
@@ -91,7 +118,7 @@ Three implementations:
 - `PremiumEmptyState` (Bandits, Holdouts, Dashboards, Learnings)
 - Centered `appbox` with an `h2` (Metrics, Fact Tables, SQL Reports, Data Sources)
 
-The `appbox` empties are the ones that still say "Define What Success Looks Like" and skip `EmptyState`. They also use Title Case in body-ish headings that are not `Heading` components.
+The `appbox` empties are the ones that still say "Define What Success Looks Like" and skip `EmptyState`. They also use Title Case in body-ish headings that are not `Heading` components. Bandits uses a custom empty with a second `h1`. Environments and Attributes use a table row or a `<p>`. Segments uses a `Callout` only.
 
 Almost nobody distinguishes **no resources** from **filters matched nothing**. Experiments with search on and zero rows should say the filters hid everything and offer to clear them. Right now most tables just go blank.
 
@@ -155,7 +182,7 @@ These are the low-hanging fruits. Each one is a mechanical pass on top-level lis
 
 2. **Normalize the wrapper and the h1.** `pagecontents container-fluid` + `Heading as="h1" size="xl"`. Delete raw `h1` and Radix `size="7"` on these pages.
 
-3. **Normalize Add labels** to the copy glossary. `Add Feature Flag`, `Add Experiment`, `Add Bandit`, `Add Holdout`, `Add Config`, `Add Constant`, `Add SDK Connection`. Empty-state buttons use the same string as the header.
+3. **Match the sidebar label** and **normalize Add labels** to the copy glossary. `Add Feature Flag`, `Add Experiment`, `Add Bandit`, `Add Holdout`, `Add Config`, `Add Constant`, `Add SDK Connection`. Empty-state buttons use the same string as the header.
 
 4. **Replace leftover `appbox` empties** (Metrics, Fact Tables, SQL Reports) with `EmptyState`. Keep the illustrations. Title Case for the `EmptyState` title. Sentence case for the description.
 
