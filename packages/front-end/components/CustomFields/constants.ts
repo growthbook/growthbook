@@ -4,4 +4,5 @@ import { CustomFieldSection } from "shared/types/custom-fields";
 export const CUSTOM_FIELD_SECTION_LABELS: Record<CustomFieldSection, string> = {
   feature: "Features",
   experiment: "Experiments",
+  attribute: "Attributes",
 };

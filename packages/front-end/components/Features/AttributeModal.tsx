@@ -24,6 +24,8 @@ import useProjectOptions from "@/hooks/useProjectOptions";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
+import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import AttributeReferencesList from "./AttributeReferencesList";
 import SDKCapabilityWarning from "./SDKCapabilityWarning";
 import TagsField from "./FeatureModal/TagsField";
@@ -71,8 +73,17 @@ export default function AttributeModal({ close, attribute }: Props) {
       hashAttribute: !!current?.hashAttribute,
       disableEqualityConditions: current?.disableEqualityConditions || false,
       tags: current?.tags || [],
+      customFields: current?.customFields || {},
     },
   });
+
+  const { availableFields: availableCustomFields, value: customFieldValues } =
+    useReconciledCustomFields({
+      section: "attribute",
+      projects: form.watch("projects") || [],
+      value: form.watch("customFields"),
+      setValue: (value) => form.setValue("customFields", value),
+    });
 
   const title = attribute ? `Edit Attribute: ${attribute}` : `Create Attribute`;
 
@@ -192,6 +203,9 @@ export default function AttributeModal({ close, attribute }: Props) {
           hashAttribute: value.hashAttribute,
           disableEqualityConditions: value.disableEqualityConditions,
           tags: value.tags,
+          ...(availableCustomFields.length > 0 && {
+            customFields: value.customFields,
+          }),
         };
 
         // If the attribute name is changed, we need to pass in the original name
@@ -270,6 +284,16 @@ export default function AttributeModal({ close, attribute }: Props) {
             onChange={(v) => form.setValue("projects", v)}
             customClassName="label-overflow-ellipsis"
             helpText="Assign this attribute to specific projects"
+          />
+        </div>
+      )}
+      {availableCustomFields.length > 0 && (
+        <div className="form-group">
+          <label>Additional Fields</label>
+          <CustomFieldInput
+            fields={availableCustomFields}
+            value={customFieldValues}
+            onChange={(value) => form.setValue("customFields", value)}
           />
         </div>
       )}
