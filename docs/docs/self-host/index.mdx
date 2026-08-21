@@ -101,16 +101,7 @@ docker run --rm -it --pid=container:<container-name> --cap-add=SYS_PTRACE busybo
 
 ### Building from source requires `docker login dhi.io` {#building-from-source}
 
-Most deployments should use the published `growthbook/growthbook` image — it's the same image we run on GrowthBook Cloud, and it needs no DHI account. But if you build the `Dockerfile` yourself (a fork, an internal CI pipeline, an air-gapped rebuild), two build stages pull hardened base images from Docker's `dhi.io` registry:
-
-| Stage                           | Base image repository |
-| ------------------------------- | --------------------- |
-| `pybuild` (Python stats engine) | `dhi.io/python`       |
-| final runtime stage             | `dhi.io/node`         |
-
-(The exact tags are pinned in the `Dockerfile` via the `PYTHON_MAJOR` and `NODE_MAJOR` build args.)
-
-`dhi.io` requires authentication on **every** request, including image metadata reads, so an unauthenticated `docker build` fails at the manifest fetch:
+Most deployments should use the published `growthbook/growthbook` image — it's the same image we run on GrowthBook Cloud, and it needs no DHI account. But if you build the `Dockerfile` yourself (a fork, an internal CI pipeline, an air-gapped rebuild), you will need to log in to `dhi.io` to avoid the following error:
 
 ```
 failed to authorize: failed to fetch anonymous token: unexpected status from GET
