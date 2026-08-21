@@ -310,7 +310,8 @@ async function ensureDemoFactTables(
           datatype: "string",
         },
       ],
-      columnRefreshPending: true,
+      // Datatypes are known, so it is not pending detection.
+      columnRefreshPending: false,
     });
 
     // Kick off a column refresh so string columns get topValues populated
@@ -353,7 +354,8 @@ async function ensureDemoFactTables(
           alwaysInlineFilter: true,
         },
       ],
-      columnRefreshPending: true,
+      // Datatypes are known, so it is not pending detection.
+      columnRefreshPending: false,
     });
 
     await queueFactTableColumnsRefresh(demoPageViewsFactTable);

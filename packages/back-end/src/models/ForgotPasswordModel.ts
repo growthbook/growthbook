@@ -72,7 +72,7 @@ export async function getUserIdFromForgotPasswordToken(
   token: string,
 ): Promise<string> {
   const doc = await ForgotPasswordModel.findOne({
-    token,
+    token: { $eq: String(token) },
   });
 
   if (!doc) return "";
@@ -88,6 +88,6 @@ export async function getUserIdFromForgotPasswordToken(
 
 export async function deleteForgotPasswordToken(token: string) {
   return ForgotPasswordModel.deleteOne({
-    token,
+    token: { $eq: String(token) },
   });
 }
