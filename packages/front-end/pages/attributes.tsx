@@ -408,9 +408,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
         header: f.description ? (
           <>
             {f.name}{" "}
-            <Tooltip body={f.description}>
+            <RadixTooltip content={f.description}>
               <PiInfo style={{ position: "relative", top: "-1px" }} />
-            </Tooltip>
+            </RadixTooltip>
           </>
         ) : undefined,
         defaultWidth: 160,
@@ -420,11 +420,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
           const raw = v.customFields?.[f.id] ?? "";
           if (!raw) return null;
           return (
-            <Tooltip body={customFieldValueToText(f, raw)}>
-              <div className="text-truncate">
-                {renderCustomFieldValue(f, raw)}
-              </div>
-            </Tooltip>
+            <ClampedCell tooltip={customFieldValueToText(f, raw)}>
+              {renderCustomFieldValue(f, raw)}
+            </ClampedCell>
           );
         },
       })),
