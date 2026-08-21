@@ -41,7 +41,7 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { startCase } from "lodash";
-import { PiArrowSquareOut } from "react-icons/pi";
+import { PiArrowSquareOut, PiCaretDownFill } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultMoreMenu, {
   shouldOfferMenuRefresh,
@@ -73,6 +73,7 @@ import Metadata from "@/ui/Metadata";
 import ResultsFilter from "@/components/Experiment/ResultsFilter/ResultsFilter";
 import { filterMetricsByTags } from "@/hooks/useExperimentTableRows";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import MigrateResultsToDashboardModal from "@/components/Experiment/ResultsFilter/MigrateResultsToDashboardModal";
@@ -106,6 +107,10 @@ export interface Props {
   setSliceTagsFilter?: (tags: string[]) => void;
   sortBy?: "significance" | "change" | "custom" | null;
   sortDirection?: "asc" | "desc" | null;
+  dimensionSortBy?: "dimension-traffic" | "dimension-alpha" | null;
+  setDimensionSortBy?: (
+    s: "dimension-traffic" | "dimension-alpha" | null,
+  ) => void;
   onSnapshotSuccessfulUpdate?: () => void;
 }
 
@@ -132,6 +137,8 @@ export default function AnalysisSettingsSummary({
   setSliceTagsFilter,
   sortBy,
   sortDirection,
+  dimensionSortBy,
+  setDimensionSortBy,
   onSnapshotSuccessfulUpdate,
 }: Props) {
   const {
@@ -1024,13 +1031,44 @@ export default function AnalysisSettingsSummary({
                 userIdType={userIdType as "user" | "anonymous" | undefined}
                 analysis={analysis}
                 snapshot={snapshot}
-                // DimensionChooser appends a new analysis to the existing
-                // snapshot in place — pass `inPlace: true` so the heavy
-                // fetch refreshes (the id-keyed auto-upgrade won't fire).
                 mutate={() => mutate({ inPlace: true })}
                 setAnalysisSettings={setAnalysisSettings}
                 setSnapshotDimension={setSnapshotDimension}
               />
+            )}
+            {setDimensionSortBy && (
+              <>
+                <Separator orientation="vertical" ml="3" mr="2" />
+                <DropdownMenu
+                  trigger={
+                    <Link type="button">
+                      <Text weight="semibold" color="text-high" size="small">
+                        {dimensionSortBy === "dimension-alpha"
+                          ? "Sort: A-Z"
+                          : "Sort: Traffic"}
+                      </Text>
+                      <PiCaretDownFill />
+                    </Link>
+                  }
+                >
+                  <DropdownMenuItem
+                    onClick={() => setDimensionSortBy(null)}
+                    color={dimensionSortBy === null ? "default" : undefined}
+                  >
+                    Sort: Traffic
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setDimensionSortBy("dimension-alpha")}
+                    color={
+                      dimensionSortBy === "dimension-alpha"
+                        ? "default"
+                        : undefined
+                    }
+                  >
+                    Sort: A-Z
+                  </DropdownMenuItem>
+                </DropdownMenu>
+              </>
             )}
             {shouldRenderMetricFilter && (
               <>
