@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   tryParseToolResultJson,
   toolResultSnapshotId,
+  type AIChatMention,
   type AIChatToolResultPart,
 } from "shared/ai-chat";
 import {
@@ -38,6 +39,7 @@ import {
   getAllFactTablesForOrganization,
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getMetricById } from "back-end/src/models/MetricModel";
 import { runColumnsTopValuesQuery } from "back-end/src/services/factTableColumns";
 
 // =============================================================================
@@ -191,6 +193,14 @@ async function buildProductAnalyticsSystemPrompt(
       : "") +
     `There are ${metrics.length} metrics and ${allFactTables.length} fact tables available. ` +
     "Use the search tool to discover them — pass an empty query to browse, or a search term to filter.\n\n" +
+    "A user message may begin with an auto-injected line of the form\n" +
+    "  [Referenced by the user: Revenue (factMetric: fact__xyz)]\n" +
+    "The chat UI adds it when the user @-mentioned entities in the composer — it is " +
+    "not something they typed, so do not echo it. It maps each `@Name` already in " +
+    "their text to the exact id they picked, so use those ids directly rather than " +
+    "calling search to re-resolve the name. An entry marked STALE was picked under a " +
+    "different datasource and is not usable here — say so, name it, and ask the user " +
+    "to re-pick it rather than searching for a replacement.\n\n" +
     buildConfigSchemaSummary() +
     "\n\n" +
     PA_SYSTEM_INSTRUCTIONS
@@ -1347,6 +1357,36 @@ interface PAParams {
   datasourceId: string;
 }
 
+async function mentionDatasource(
+  ctx: ReqContext,
+  mention: AIChatMention,
+): Promise<string | undefined> {
+  if (mention.type === "factMetric") {
+    return (await ctx.models.factMetrics.getById(mention.id))?.datasource;
+  }
+  if (mention.type === "metricGroup") {
+    return (await ctx.models.metricGroups.getById(mention.id))?.datasource;
+  }
+  return (await getMetricById(ctx, mention.id))?.datasource;
+}
+
+async function resolveProductAnalyticsMentions(
+  ctx: ReqContext,
+  mentions: AIChatMention[],
+  datasourceId: string,
+): Promise<AIChatMention[]> {
+  if (!datasourceId) return mentions;
+
+  return Promise.all(
+    mentions.map(async (mention) => {
+      const datasource = await mentionDatasource(ctx, mention);
+      return datasource === datasourceId
+        ? mention
+        : { ...mention, stale: true };
+    }),
+  );
+}
+
 const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
   agentType: "product-analytics",
   promptType: "product-analytics-chat",
@@ -1357,6 +1397,9 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
 
   buildSystemPrompt: (ctx, { datasourceId }) =>
     buildProductAnalyticsSystemPrompt(ctx, datasourceId),
+
+  resolveMentions: (ctx, mentions, { datasourceId }) =>
+    resolveProductAnalyticsMentions(ctx, mentions, datasourceId),
 
   buildTools: (ctx, buffer, { datasourceId }) => {
     let metricsCache: FactMetricInterface[] | null = null;
