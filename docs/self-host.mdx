@@ -71,7 +71,9 @@ Lastly, if you need to reference the image for a specific git commit for any rea
 
 ## Hardened (non-root, shell-less) image
 
-The GrowthBook runtime image is a distroless [Docker Hardened Image](https://www.docker.com/products/hardened-images): it runs as a **non-root user (uid 1000)** and contains **no shell or package manager**. This removes a recurring class of OS-package CVEs. If you pull the image directly (`docker run`, Docker Compose, or a pinned `latest`/git-sha tag), there are two things to know.
+The GrowthBook runtime image is a distroless [Docker Hardened Image](https://www.docker.com/products/hardened-images) (DHI): it runs as a **non-root user (uid 1000)** and contains **no shell or package manager**. This removes a recurring class of OS-package CVEs.
+
+The published `growthbook/growthbook` image is an ordinary public image — `docker pull` needs no special credentials. The notes below cover the operational differences when you run it, plus the one extra step needed if you build the image from source yourself.
 
 ### Local file uploads must be writable by uid 1000
 
@@ -97,4 +99,46 @@ docker run --rm -it --pid=container:<container-name> --cap-add=SYS_PTRACE busybo
 #   ls /proc/1/root/usr/local/src/app
 ```
 
-`--cap-add=SYS_PTRACE` is required to read the target process's filesystem. Any image with a shell works (`busybox`, `debian`); the matching `dhi.io/node:<version>-debian12-dev` image gives you the same libraries for running the app's own binaries. On Kubernetes, use `kubectl debug -it <pod> --image=busybox --target=<container>`. One-off admin scripts (e.g. encryption-key migration) are run via `node` directly — see [Environment Variables](/self-host/env).
+`--cap-add=SYS_PTRACE` is required to read the target process's filesystem. Any image with a shell works (`busybox`, `debian`); the matching `dhi.io/node:<version>-debian12-dev` image gives you the same libraries for running the app's own binaries, though pulling that one needs the login described below. On Kubernetes, use `kubectl debug -it <pod> --image=busybox --target=<container>`. One-off admin scripts (e.g. encryption-key migration) are run via `node` directly — see [Environment Variables](/self-host/env).
+
+### Building from source requires `docker login dhi.io` {#building-from-source}
+
+Most deployments should use the published `growthbook/growthbook` image. It's the same image we run on GrowthBook Cloud, and it needs no DHI account. If you build the `Dockerfile` yourself (a fork, an internal CI pipeline, or an air-gapped rebuild), log in to `dhi.io` to avoid this error:
+
+```text
+failed to authorize: failed to fetch anonymous token: unexpected status from GET
+https://dhi.io/token?scope=repository:node:pull...: 401 Unauthorized
+```
+
+Any free Docker account fixes this. The [DHI Community catalog](https://docs.docker.com/dhi/) is free under Apache 2.0, with no paid subscription or separate entitlement to provision:
+
+```bash
+docker login dhi.io   # Docker ID + password or personal access token
+docker build -t growthbook .
+```
+
+In CI, add a login step before the build. With GitHub Actions:
+
+```yaml
+- uses: docker/login-action@v4
+  with:
+    registry: dhi.io
+    username: ${{ secrets.DOCKER_HUB_USERNAME }}
+    password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+```
+
+<Warning>
+**Registry mirrors and egress allowlists.** `dhi.io` is a distinct registry from `docker.io`. A pull-through mirror (Artifactory, Harbor, Nexus) configured for Docker Hub does **not** cover it, and neither does a firewall rule that only permits `docker.io` / `registry-1.docker.io`. Add `dhi.io` as its own upstream remote or allowlisted host.
+</Warning>
+
+If you only build from source to layer something on top (a CA certificate or an internal config file), extend the published image instead. This needs no DHI access at all:
+
+```dockerfile
+FROM growthbook/growthbook:latest
+COPY my-ca.crt /opt/certs/my-ca.crt
+ENV NODE_EXTRA_CA_CERTS=/opt/certs/my-ca.crt
+```
+
+Point `NODE_EXTRA_CA_CERTS` at the certificate rather than dropping it in `/usr/local/share/ca-certificates/`: the usual `update-ca-certificates` step needs a shell, which this image doesn't have, and Node wouldn't read the system bundle anyway. Node picks the variable up at startup, so it covers the back-end and front-end processes where GrowthBook makes its outbound connections.
+
+If `dhi.io` is a hard blocker in your environment, [open an issue](https://github.com/growthbook/growthbook/issues) or find us in [Slack](https://slack.growthbook.io). We'd like to hear about it.
