@@ -1046,6 +1046,22 @@
     {
       "source": "/GrowthBookStatsEngine.pdf",
       "destination": "/statistics/overview#bayesian-statistics"
+    },
+    {
+      "source": "/open-guide-to-ab-testing.v1.0.pdf",
+      "destination": "/static/open-guide-to-ab-testing.v1.0.pdf"
+    },
+    {
+      "source": "/features/feature-flag-experiments",
+      "destination": "/feature-flag-experiments"
+    },
+    {
+      "source": "/app/experiments",
+      "destination": "/experiments"
+    },
+    {
+      "source": "/api",
+      "destination": "/api/introduction"
     }
   ]
 }
