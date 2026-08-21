@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState } from "react";
+import React, { FC, useEffect, useMemo, useState } from "react";
 import router from "next/router";
 import NextLink from "next/link";
 import { useForm } from "react-hook-form";
@@ -36,6 +36,8 @@ import Metadata from "@/ui/Metadata";
 import ChanceToWinThresholdField from "@/components/GeneralSettings/ExperimentSettings/ChanceToWinThresholdField";
 import PValueThresholdField from "@/components/GeneralSettings/ExperimentSettings/PValueThresholdField";
 import Callout from "@/ui/Callout";
+import { useDashboards } from "@/hooks/useDashboards";
+import DashboardSelector from "@/enterprise/components/Dashboards/DashboardSelector";
 
 function emptyStringToUndefined(v: unknown): number | undefined {
   if (v === "" || v === null || v === undefined) return undefined;
@@ -83,6 +85,19 @@ const ProjectPage: FC = () => {
   }>(`/experiments/launch-checklist?projectId=${pid}`);
 
   const checklist = data?.checklist;
+
+  const canViewDashboards = hasCommercialFeature("dashboards");
+  const { dashboards, loading: dashboardsLoading } = useDashboards(
+    false,
+    () => canViewDashboards,
+  );
+  const projectDashboards = useMemo(
+    () =>
+      dashboards.filter((d) => !d.projects?.length || d.projects.includes(pid)),
+    [dashboards, pid],
+  );
+  const noProjectDashboards =
+    !dashboardsLoading && projectDashboards.length === 0;
 
   useEffect(() => {
     if (settings) {
@@ -393,6 +408,52 @@ const ProjectPage: FC = () => {
                     </Flex>
                   </Flex>
                 </Frame>
+                {canViewDashboards && (
+                  <Frame>
+                    <Flex gap="4" mb="4">
+                      <Box width="220px" flexShrink="0">
+                        <Heading as="h4" size="md">
+                          Home Page Dashboard
+                        </Heading>
+                      </Box>
+                      <Flex align="start" direction="column" flexGrow="1">
+                        <Box mb="3" width="100%">
+                          <Heading as="h5" size="sm">
+                            Default Dashboard
+                          </Heading>
+                          <Text as="p" mt="2">
+                            Members of this project see this dashboard on their
+                            home page by default. They can still pick a
+                            different one for themselves.
+                          </Text>
+                          {dashboardsLoading ? null : noProjectDashboards ? (
+                            <Callout status="info">
+                              No dashboards are available for this Project yet.{" "}
+                              <Link href="/product-analytics/dashboards/new">
+                                Create a dashboard
+                              </Link>{" "}
+                              scoped to this Project (or with no Project
+                              restriction) to set a default.
+                            </Callout>
+                          ) : (
+                            <DashboardSelector
+                              dashboards={projectDashboards}
+                              value={form.watch("defaultDashboardId") || ""}
+                              setValue={(v) =>
+                                form.setValue(
+                                  "defaultDashboardId",
+                                  v || undefined,
+                                )
+                              }
+                              allowClear
+                              clearLabel="No default"
+                            />
+                          )}
+                        </Box>
+                      </Flex>
+                    </Flex>
+                  </Frame>
+                )}
                 <div className="w-100 py-3" style={{ bottom: 0, height: 70 }}>
                   <div className="container-fluid pagecontents d-flex">
                     <div className="flex-grow-1 mr-4">
