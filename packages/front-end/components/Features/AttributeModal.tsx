@@ -288,14 +288,11 @@ export default function AttributeModal({ close, attribute }: Props) {
         </div>
       )}
       {availableCustomFields.length > 0 && (
-        <div className="form-group">
-          <label>Additional Fields</label>
-          <CustomFieldInput
-            fields={availableCustomFields}
-            value={customFieldValues}
-            onChange={(value) => form.setValue("customFields", value)}
-          />
-        </div>
+        <CustomFieldInput
+          fields={availableCustomFields}
+          value={customFieldValues}
+          onChange={(value) => form.setValue("customFields", value)}
+        />
       )}
       <SelectField
         size="legacy"
