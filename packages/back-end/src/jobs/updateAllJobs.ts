@@ -14,6 +14,38 @@ import {
 } from "./sdkWebhooks";
 import { queueLegacySdkWebhooks } from "./webhooks";
 
+// Legacy webhook payloads are rebuilt from source at fire time (on legacy
+// cache miss), so they can be enqueued without waiting for the deferred
+// connection-cache rebuild — as long as the legacy cache entries are
+// invalidated first. Used by the stale-tracking path, which loses the
+// payload keys before its rebuild runs.
+export const triggerLegacyWebhookJobs = async (
+  context: ReqContext | ApiReqContext,
+  payloadKeys: SDKPayloadKey[],
+) => {
+  if (!payloadKeys.length) return;
+  try {
+    await context.models.sdkConnectionCache.deleteAllLegacyCacheEntries();
+  } catch (e) {
+    logger.warn(e, "Failed to delete legacy cache entries");
+  }
+  await queueLegacySdkWebhooks(context, payloadKeys, true).catch((e) => {
+    logger.error(e, "Error queueing legacy webhooks");
+  });
+};
+
+// Env-level surrogate keys cover legacy API-key CDN entries, which the
+// per-connection purge in refreshSDKPayloadCache doesn't reach.
+export const purgeCDNCacheForEnvironments = async (
+  orgId: string,
+  environments: string[],
+) => {
+  await purgeCDNCache(
+    orgId,
+    getSurrogateKeysFromEnvironments(orgId, environments),
+  );
+};
+
 export const triggerWebhookJobs = async (
   context: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[],

@@ -82,6 +82,7 @@ const sdkConnectionSchema = new mongoose.Schema({
     type: String,
     unique: true,
   },
+  staleSince: Date,
   proxy: {
     enabled: Boolean,
     host: String,
@@ -479,6 +480,67 @@ export async function markSDKConnectionUsed(key: string) {
       },
     },
   );
+}
+
+// Always bumps staleSince — a write during an in-flight rebuild must change
+// the value so clearStaleSdkConnections' exact-match clear keeps it.
+export async function markSdkConnectionsStale(
+  organization: string,
+  keys: string[],
+): Promise<void> {
+  if (!keys.length) return;
+  await SDKConnectionModel.updateMany(
+    { organization, key: { $in: keys } },
+    { $set: { staleSince: new Date() } },
+  );
+}
+
+export async function hasAnyStaleSdkConnection(
+  organization: string,
+): Promise<boolean> {
+  return (
+    (await SDKConnectionModel.exists({
+      organization,
+      staleSince: { $ne: null },
+    })) !== null
+  );
+}
+
+export async function findStaleSdkConnectionsByOrganization(
+  organization: string,
+): Promise<SDKConnectionInterface[]> {
+  const docs = await SDKConnectionModel.find({
+    organization,
+    staleSince: { $ne: null },
+  });
+  return docs.map(toInterface);
+}
+
+// Clears each mark only when it still equals the value read at rebuild time —
+// a concurrent re-mark (from any server, regardless of clock skew) changes the
+// value and survives.
+export async function clearStaleSdkConnections(
+  organization: string,
+  marks: { key: string; staleSince: Date }[],
+): Promise<void> {
+  if (!marks.length) return;
+  await SDKConnectionModel.bulkWrite(
+    marks.map(({ key, staleSince }) => ({
+      updateOne: {
+        filter: { organization, key, staleSince },
+        update: { $set: { staleSince: null } },
+      },
+    })),
+    { ordered: false },
+  );
+}
+
+export async function findOrganizationsWithStaleSdkConnections(
+  staleBefore: Date,
+): Promise<string[]> {
+  return SDKConnectionModel.distinct("organization", {
+    staleSince: { $lt: staleBefore },
+  });
 }
 
 export async function setProxyError(

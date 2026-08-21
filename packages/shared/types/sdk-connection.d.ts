@@ -108,6 +108,10 @@ export interface SDKConnectionInterface {
   remoteEvalEnabled?: boolean;
   savedGroupReferencesEnabled?: boolean;
   managedBy?: ManagedBy;
+
+  // Set when a REST API write affected this connection's payload and a rebuild
+  // is still pending. Cleared after rebuild. See queueSDKPayloadRefresh.
+  staleSince?: Date | null;
 }
 
 export interface ProxyTestResult {

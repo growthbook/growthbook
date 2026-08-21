@@ -297,6 +297,13 @@ export const REMOTE_EVAL_EDGE_API_TOKEN =
 
 export const CRON_ENABLED = !stringToBoolean(process.env.CRON_DISABLED);
 
+// When true, REST API writes mark affected SDK connections stale and enqueue
+// a per-org Agenda job to rebuild (UI refreshes still run immediately).
+// Requires a cron-enabled instance to process the job.
+export const SDK_PAYLOAD_REFRESH_STALE_TRACKING_ENABLED = stringToBoolean(
+  process.env.SDK_PAYLOAD_REFRESH_STALE_TRACKING_ENABLED,
+);
+
 export const SENTRY_DSN = process.env.SENTRY_DSN || "";
 
 export const STORE_SEGMENTS_IN_MONGO = stringToBoolean(
