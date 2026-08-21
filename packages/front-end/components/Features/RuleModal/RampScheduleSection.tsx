@@ -1307,6 +1307,19 @@ export default function RampScheduleSection({
             tooltip:
               "Pending start: this is the next step once the ramp starts.",
           };
+        case "completed":
+          return {
+            borderColor: "var(--gray-8)",
+            textColor: "var(--gray-11)",
+            tooltip:
+              "Completed step: this step was the final step of the ramp.",
+          };
+        case "rolled-back":
+          return {
+            borderColor: "var(--gray-8)",
+            textColor: "var(--gray-11)",
+            tooltip: "Rolled back: the ramp was rolled back from this step.",
+          };
         default:
           return {
             borderColor: "var(--gray-8)",
