@@ -520,17 +520,19 @@ const SavedGroupForm: FC<{
           const guard = conflict.guard(
             payload as unknown as Record<string, unknown>,
           );
-          const res = await apiCall<{
-            status: number;
-            requiresApproval?: boolean;
-            revision?: Revision;
-          }>(
-            url,
-            {
-              method: "PUT",
-              body: JSON.stringify({ ...payload, baseline: guard.baseline }),
-            },
-            guard.onError,
+          const res = await conflict.guarded(() =>
+            apiCall<{
+              status: number;
+              requiresApproval?: boolean;
+              revision?: Revision;
+            }>(
+              url,
+              {
+                method: "PUT",
+                body: JSON.stringify({ ...payload, baseline: guard.baseline }),
+              },
+              guard.onError,
+            ),
           );
           conflict.clear();
 

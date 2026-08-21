@@ -117,16 +117,18 @@ export default function EditDefaultValueModal({
               : newDefaultValue;
 
           const guard = conflict.guard({ defaultValue: storedDefault });
-          const res = await apiCall<{ version: number }>(
-            `/feature/${feature.id}/${targetVersion}/defaultvalue`,
-            {
-              method: "POST",
-              body: JSON.stringify({
-                defaultValue: storedDefault,
-                baseline: guard.baseline,
-              }),
-            },
-            guard.onError,
+          const res = await conflict.guarded(() =>
+            apiCall<{ version: number }>(
+              `/feature/${feature.id}/${targetVersion}/defaultvalue`,
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  defaultValue: storedDefault,
+                  baseline: guard.baseline,
+                }),
+              },
+              guard.onError,
+            ),
           );
           conflict.clear();
           await mutate();

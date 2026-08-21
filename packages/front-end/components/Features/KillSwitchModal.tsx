@@ -457,23 +457,25 @@ export default function KillSwitchModal({
           : { forceNewDraft: true };
 
     const guard = conflict.guard(environments);
-    const res = await apiCall<{ status: 200; draftVersion?: number }>(
-      `/feature/${feature.id}/toggle`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          environments,
-          // Only the envs being changed; the rest are untouched either way.
-          baseline: Object.fromEntries(
-            Object.keys(environments).map((env) => [
-              env,
-              baseEnvEnabled[env] ?? false,
-            ]),
-          ),
-          ...modePayload,
-        }),
-      },
-      guard.onError,
+    const res = await conflict.guarded(() =>
+      apiCall<{ status: 200; draftVersion?: number }>(
+        `/feature/${feature.id}/toggle`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            environments,
+            // Only the envs being changed; the rest are untouched either way.
+            baseline: Object.fromEntries(
+              Object.keys(environments).map((env) => [
+                env,
+                baseEnvEnabled[env] ?? false,
+              ]),
+            ),
+            ...modePayload,
+          }),
+        },
+        guard.onError,
+      ),
     );
     conflict.clear();
 

@@ -38,7 +38,7 @@ export function useDraftConflict<T extends object>({
   form?: UseFormReturn<any>;
   // For editors that aren't react-hook-form backed (e.g. a set of toggles).
   applyField?: (field: string, value: unknown) => void;
-  // A new draft can't overwrite anyone, so nothing needs resolving.
+  // Whether the save targets a brand-new draft.
   isNewDraft: boolean;
   entityNoun: string;
 }) {
@@ -49,6 +49,7 @@ export function useDraftConflict<T extends object>({
   >(new Map());
   const [claimed, setClaimed] = useState<Set<string>>(new Set());
   const minesRef = useRef<Map<string, Record<string, unknown>>>(new Map());
+  const signaledRef = useRef(false);
 
   const claim = useCallback((key: string) => {
     setClaimed((s) => (s.has(key) ? s : new Set(s).add(key)));
@@ -127,8 +128,16 @@ export function useDraftConflict<T extends object>({
       ? contested.map((c) => c.key)
       : [WHOLE_KEY]
     : [];
+  // A new draft keeps both versions only when the other edit lives in a DRAFT:
+  // theirs stays there, mine goes elsewhere. Against a PUBLISHED change it
+  // protects nobody — the new draft forks off live and this edit overwrites
+  // theirs inside it, reverting their work when it publishes.
+  const newDraftAvoidsConflict =
+    isNewDraft && conflict?.draftVersion !== undefined;
   const resolved =
-    !conflict || isNewDraft || keysToResolve.every((k) => resolutions.has(k));
+    !conflict ||
+    newDraftAvoidsConflict ||
+    keysToResolve.every((k) => resolutions.has(k));
 
   /** Per-submit: the baseline to send, and the 409 handler. */
   const guard = useCallback(
@@ -136,6 +145,7 @@ export function useDraftConflict<T extends object>({
       baseline,
       onError: (responseData: { status?: number; conflict?: unknown }) => {
         if (responseData?.status !== 409 || !responseData?.conflict) return;
+        signaledRef.current = true;
         const payload = responseData.conflict as DraftConflict<T>;
         setConflict({ ...payload, baseAtConflict: baseline, attempted });
         setResolutions(new Map());
@@ -150,22 +160,39 @@ export function useDraftConflict<T extends object>({
     [baseline, setField],
   );
 
+  // The conflict renders its own banner, so a handled 409 must not also surface
+  // the request error. An empty message renders nothing.
+  const guarded = useCallback(async <R,>(call: () => Promise<R>) => {
+    signaledRef.current = false;
+    try {
+      return await call();
+    } catch (e) {
+      if (signaledRef.current) {
+        signaledRef.current = false;
+        throw new Error("");
+      }
+      throw e;
+    }
+  }, []);
+
   const clear = useCallback(() => setConflict(null), []);
 
   const alert = conflict ? (
     <HelperText status="warning" icon={null}>
       {!conflict.current
         ? `This ${entityNoun} was removed while you had it open. Saving re-adds it.`
-        : isNewDraft
+        : newDraftAvoidsConflict
           ? `This ${entityNoun} was modified while you were editing. Saving to a new draft keeps both versions.`
           : resolved
             ? `This ${entityNoun} was modified while you were editing.`
-            : `This ${entityNoun} was modified while you were editing. Resolve the conflicts below, or save to a new draft.`}
+            : isNewDraft
+              ? `This ${entityNoun} was modified while you were editing. Resolve the conflicts below.`
+              : `This ${entityNoun} was modified while you were editing. Resolve the conflicts below, or save to a new draft.`}
     </HelperText>
   ) : undefined;
 
   const callouts =
-    conflict && !isNewDraft ? (
+    conflict && !newDraftAvoidsConflict ? (
       contested.length ? (
         contested
           .filter((c) => !claimed.has(c.key))
@@ -191,6 +218,7 @@ export function useDraftConflict<T extends object>({
 
   return {
     guard,
+    guarded,
     clear,
     resolved,
     alert,
@@ -198,7 +226,7 @@ export function useDraftConflict<T extends object>({
     callouts,
     hasConflict: !!conflict,
     providerProps: {
-      contested,
+      contested: newDraftAvoidsConflict ? [] : contested,
       resolutions,
       resolve,
       format,

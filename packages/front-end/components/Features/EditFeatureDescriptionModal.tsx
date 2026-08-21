@@ -93,21 +93,23 @@ export default function EditFeatureDescriptionModal({
         close={close}
         submit={form.handleSubmit(async ({ description }) => {
           const guard = conflict.guard({ description });
-          const res = await apiCall<{ draftVersion?: number }>(
-            `/feature/${feature.id}`,
-            {
-              method: "PUT",
-              body: JSON.stringify({
-                description,
-                baseline: guard.baseline,
-                ...(mode === "publish"
-                  ? { autoPublish: true }
-                  : mode === "existing"
-                    ? { targetDraftVersion: selectedDraft }
-                    : { forceNewDraft: true }),
-              }),
-            },
-            guard.onError,
+          const res = await conflict.guarded(() =>
+            apiCall<{ draftVersion?: number }>(
+              `/feature/${feature.id}`,
+              {
+                method: "PUT",
+                body: JSON.stringify({
+                  description,
+                  baseline: guard.baseline,
+                  ...(mode === "publish"
+                    ? { autoPublish: true }
+                    : mode === "existing"
+                      ? { targetDraftVersion: selectedDraft }
+                      : { forceNewDraft: true }),
+                }),
+              },
+              guard.onError,
+            ),
           );
           conflict.clear();
           mutate();

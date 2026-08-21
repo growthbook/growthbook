@@ -146,21 +146,23 @@ const EditFeatureInfoModal: FC<{
           const guard = conflict.guard(
             data as unknown as Record<string, unknown>,
           );
-          const res = await apiCall<{ draftVersion?: number }>(
-            `/feature/${feature.id}`,
-            {
-              method: "PUT",
-              body: JSON.stringify({
-                ...data,
-                baseline: guard.baseline,
-                ...(mode === "publish"
-                  ? { autoPublish: true }
-                  : mode === "existing"
-                    ? { targetDraftVersion: selectedDraft }
-                    : { forceNewDraft: true }),
-              }),
-            },
-            guard.onError,
+          const res = await conflict.guarded(() =>
+            apiCall<{ draftVersion?: number }>(
+              `/feature/${feature.id}`,
+              {
+                method: "PUT",
+                body: JSON.stringify({
+                  ...data,
+                  baseline: guard.baseline,
+                  ...(mode === "publish"
+                    ? { autoPublish: true }
+                    : mode === "existing"
+                      ? { targetDraftVersion: selectedDraft }
+                      : { forceNewDraft: true }),
+                }),
+              },
+              guard.onError,
+            ),
           );
           conflict.clear();
           mutate();

@@ -773,9 +773,15 @@ export default function RuleModal({
       ? conflict.merge.contested.map((c) => c.key)
       : ["__rule__"]
     : [];
+  // A new draft only keeps both versions when the other edit lives in a DRAFT:
+  // theirs stays there, mine goes elsewhere. Against a PUBLISHED change it
+  // protects nobody — the new draft forks off live and my rule overwrites
+  // theirs inside it, reverting their work when it publishes.
+  const newDraftAvoidsConflict =
+    draftMode === "new" && conflict?.draftVersion !== undefined;
   const conflictResolved =
     !conflict ||
-    draftMode === "new" ||
+    newDraftAvoidsConflict ||
     contestedKeys.every((k) => conflictResolutions.has(k));
 
   const isRampType = scheduleType === "ramp";
@@ -1835,11 +1841,13 @@ export default function RuleModal({
     <HelperText status="warning" icon={null}>
       {!conflict.current
         ? "This rule was removed while you had it open. Saving re-adds it."
-        : draftMode === "new"
+        : newDraftAvoidsConflict
           ? "This rule was modified while you were editing. Saving to a new draft keeps both versions."
           : conflictResolved
             ? "This rule was modified while you were editing."
-            : "This rule was modified while you were editing. Resolve the conflicts below, or save to a new draft."}
+            : draftMode === "new"
+              ? "This rule was modified while you were editing. Resolve the conflicts below."
+              : "This rule was modified while you were editing. Resolve the conflicts below, or save to a new draft."}
     </HelperText>
   ) : undefined;
 
@@ -2210,8 +2218,8 @@ export default function RuleModal({
               alert={conflictAlert}
               alertActive={!conflictResolved}
             />
-            {draftMode !== "new" && conflictDetails}
-            {draftMode !== "new" && conflictCallouts}
+            {!newDraftAvoidsConflict && conflictDetails}
+            {!newDraftAvoidsConflict && conflictCallouts}
           </>
         }
       >
@@ -2453,7 +2461,7 @@ export default function RuleModal({
 
   return (
     <ConflictProvider
-      contested={draftMode === "new" ? [] : contestedChunks}
+      contested={newDraftAvoidsConflict ? [] : contestedChunks}
       resolutions={conflictResolutions}
       resolve={resolveConflict}
       format={formatConflictValue}
