@@ -14,16 +14,19 @@ import {
   ProductAnalyticsResultRow,
 } from "shared/validators";
 import {
-  FactMetricInterface,
-  FactTableInterface,
-} from "shared/types/fact-table";
-import {
+  dashboardGlobalControlsValidator,
+  proposeDashboardBlockValidator,
   clearInapplicableShowAs,
   getEffectiveShowAs,
   getIsRatioByIndex,
   buildExplorationColumns,
   getExplorationCellValue,
 } from "shared/enterprise";
+import {
+  FactMetricInterface,
+  FactTableInterface,
+} from "shared/types/fact-table";
+import { buildDashboardDraft } from "back-end/src/enterprise/services/dashboard-proposal";
 import type { ReqContext } from "back-end/types/request";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import {
@@ -70,20 +73,26 @@ For follow-up modifications ("break down by country", "change to last 90 days", 
 </workflow>
 
 <dashboards>
-Building or editing a dashboard is the one job here that does not run on the chart tools above. When the user asks to build a dashboard, save charts to a dashboard, or change an existing one:
+Building or editing a dashboard is a different job from building a chart, and it does NOT use the chart tools above.
 
-1. \`loadSkill('dashboards')\` — read the router, then load the leaf it points to (\`dashboard-create\` or \`dashboard-edit\`).
-2. Follow that leaf. It uses \`callApi\` for the REST calls and tells you exactly which endpoints to hit.
+1. Settle the brief. You MUST have a name for the dashboard — if the user hasn't given one, call \`askUser\` (or ask in one short sentence) and stop. Everything else has a default: take it, and say what you assumed.
+2. \`loadSkill('dashboards')\` — read the router, then the leaf it points to (\`dashboard-create\` or \`dashboard-edit\`).
+3. \`proposeDashboard\` — once, with every block. The server runs each query, lays out the grid, and shows the user a live preview with a Save button.
+
+Hard rules:
+- Do NOT call \`runExploration\` for a dashboard. Each call renders its own chart card, so a six-tile dashboard would spray six loose charts into the chat before the dashboard even appears. Pass the configs to \`proposeDashboard\` and let it run them.
+- Do NOT save the dashboard yourself. The user saves it from the preview.
+- After \`proposeDashboard\` returns, stop: one short sentence naming what's on it. They can change the layout, filters, name, and sharing in the preview, and ask you for anything else.
+- To change a proposed dashboard, call \`proposeDashboard\` again with the full revised block list. Adding or swapping metrics happens through you, not in the preview.
 
 \`loadSkill\` here only resolves the dashboard skills; there is nothing else to load.
-
-The one-chart-per-turn rule in <chart_rules> does NOT apply to a dashboard request — a dashboard has one exploration per chart block, and the skill tells you to run every one of them. Those runs go through \`callApi\` to the exploration endpoints, not \`runExploration\`, so they do not render a chart in the chat.
 </dashboards>
 
 <tools>
 Beyond the chart tools, you have:
 
 - \`loadSkill\` — read a dashboard workflow. See <dashboards>.
+- \`proposeDashboard\` — build or revise a dashboard. See <dashboards>.
 - \`callApi\` — call the GrowthBook REST API: { method, path (full, including version), query?, body?, summary? }. The response is { status, body }; treat 2xx as success. Only call paths documented in a skill you have loaded — never invent one. On a write, pass \`summary\`: one line naming what changes in the user's terms, because it is the only thing they read before approving, and the request body is collapsed. Writes are gated for confirmation automatically — just issue the call; do not ask permission first.
 - \`askUser\` — ask a multiple-choice question and stop, when the request is genuinely ambiguous and no sensible default exists. Emit no text after it; the reply arrives as the next message.
 </tools>
@@ -948,6 +957,42 @@ const RUN_EXPLORATION_DESCRIPTION =
   "Use config and resultCsv for analysis and follow-up modifications. Ignore the exploration field (internal use). " +
   "Call getSnapshot only for older or compacted snapshots.";
 
+const proposeDashboardInputSchema = z.object({
+  title: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe(
+      "The dashboard's name, as the user gave it. Ask for it before calling this if they haven't said.",
+    ),
+  dashboardId: z
+    .string()
+    .optional()
+    .describe(
+      "Only when revising a dashboard that already exists. Omit for a new one.",
+    ),
+  globalControls: dashboardGlobalControlsValidator
+    .optional()
+    .describe(
+      "Dashboard-wide filter bar: dateRange, dateGranularity, and (for experimentation blocks) projects and experimentSearchString.",
+    ),
+  blocks: proposeDashboardBlockValidator
+    .array()
+    .min(1)
+    .max(20)
+    .describe(
+      "The blocks, in reading order. Chart blocks carry only their `config` — the server runs each query and wires up the result, so do not run the charts yourself first.",
+    ),
+});
+
+const PROPOSE_DASHBOARD_DESCRIPTION =
+  "Propose a dashboard and show it to the user as a live, laid-out preview with " +
+  "a Save button. This is the ONLY way to build or revise a dashboard — do not " +
+  "run the charts with runExploration first, and do not POST to the dashboards " +
+  "API. The server runs every query, arranges the grid, and renders the result. " +
+  "The user can adjust the layout, filters, name, and sharing in the preview, " +
+  "then save. After calling this, stop and let them look at it.";
+
 const GET_SNAPSHOT_DESCRIPTION =
   "Retrieve configuration and result CSV for a snapshot by snapshotId from conversation history. " +
   "Prefer using the runExploration return value (especially resultCsv) for the run you just executed. " +
@@ -1074,6 +1119,36 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
         inputSchema: runExplorationInputSchema,
         execute: ({ config }, { abortSignal }) =>
           executeRunExploration(ctx, buffer, config, abortSignal),
+      }),
+
+      proposeDashboard: aiTool({
+        description: PROPOSE_DASHBOARD_DESCRIPTION,
+        inputSchema: proposeDashboardInputSchema,
+        execute: async (input) => {
+          const { draft, droppedBlocks } = await buildDashboardDraft(ctx, {
+            ...input,
+            globalControls: input.globalControls,
+          });
+          if (!draft.blocks.length) {
+            return {
+              status: "error" as const,
+              message:
+                "None of the proposed blocks could be built. Check the metric ids and " +
+                "date range, then try again — do not present this as a finished dashboard.",
+              droppedBlocks,
+            };
+          }
+          // The draft rides in the tool result rather than an SSE event so the
+          // preview re-renders from the transcript after a reload.
+          return {
+            status: "shown" as const,
+            message:
+              "Dashboard preview shown to the user with a Save button. Stop now — " +
+              "describe it in one short sentence and let them review it. Do not save it yourself.",
+            draft,
+            ...(droppedBlocks.length ? { droppedBlocks } : {}),
+          };
+        },
       }),
 
       getSnapshot: aiTool({

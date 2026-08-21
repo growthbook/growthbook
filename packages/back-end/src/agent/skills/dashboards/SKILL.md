@@ -12,6 +12,10 @@ dashboard is built from are `/api/v1/product-analytics/*`.
 **Workflow:** read this router → `loadSkill('<leaf>')` for the matching
 sub-skill below → follow that leaf's workflow.
 
+Both leaves end the same way: one `proposeDashboard` call, which runs every
+chart, lays out the grid, and shows the user a live preview with a Save button.
+You never run the charts yourself and you never save the dashboard.
+
 ## Sub-skills
 
 | Skill              | Use when                                                     |
@@ -107,11 +111,16 @@ the user can reject.
 - **Mutations:** non-GET `callApi` calls are gated automatically. Issue the call
   when ready — do not use `askUser` for write confirmation. Pass a `summary` on
   every write; it is all the user sees before approving.
-- **Every chart block needs a real analysis.** A `*-exploration` block whose
-  `explorerAnalysisId` is empty renders blank forever — refresh skips it. Always
-  run the exploration first and use the id it returns. The four
-  experimentation blocks are the exception: they compute from experiment data
-  and need no analysis id.
+- **Never run the charts yourself.** `runExploration` renders its own chart card
+  per call, so a six-tile dashboard would spray six loose charts into the chat
+  before the dashboard appeared. Hand the configs to `proposeDashboard`; it runs
+  them and wires up the results.
+- **Never save the dashboard.** The user saves from the preview. Saving for them
+  takes the choice away, and the preview is where they adjust the name, sharing,
+  filters, and layout.
+- **A name is required.** `proposeDashboard` needs a `title`; ask for it if the
+  user hasn't given one. Everything else has a default and is adjustable in the
+  preview, so don't ask about sharing, Project, or auto-refresh.
 - **Links:** `/product-analytics/dashboards/<id>`.
 - **Never guess a column value.** `POST /api/v1/product-analytics/column-values`
   first, for row filters and static dimension values alike.

@@ -8,7 +8,10 @@ import {
   _coerceBody,
   _requiresMutationConfirmation,
 } from "back-end/src/agent/shared-tools";
-import { assembleSkillsIndexForPrompt } from "back-end/src/agent/skills";
+import {
+  assembleSkillsIndexForPrompt,
+  isSurfaceScopedSkill,
+} from "back-end/src/agent/skills";
 
 // =============================================================================
 // System prompt
@@ -69,6 +72,10 @@ How to use skills:
 - Pick the narrowest leaf that matches; only load multiple leaves if the
   request genuinely spans workflows (e.g. create flag then target it).
 - If no domain fits, ask the user to clarify. Do not invent endpoints.
+- **Dashboards are built elsewhere.** You cannot create or edit an Analytics
+  dashboard from this panel. If the user asks for one, say so in a sentence and
+  point them at the AI chat on the Product Analytics page
+  ([Product analytics](/product-analytics)), which can build it for them.
 - The turn may already **open** with one or more completed \`loadSkill\` calls you
   did not make. Those are skills the user picked explicitly from the composer's
   slash-command menu, so treat them as their stated intent: follow them rather
@@ -229,7 +236,11 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
 
   buildSystemPrompt: async () => buildGeneralAgentSystemPrompt(),
 
-  resolveSkill: loadSkillResult,
+  // Everything except the skills that belong to another surface. Building a
+  // dashboard needs `proposeDashboard`, which only the Product Analytics chat
+  // has, so loading that skill here would strand the turn on a missing tool.
+  resolveSkill: (name) =>
+    isSurfaceScopedSkill(name) ? undefined : loadSkillResult(name),
 
   // Every tool the general agent has is a shared one — it is the agent with no
   // domain of its own, so it carries no extra tools and no skill restriction.

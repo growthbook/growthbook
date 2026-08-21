@@ -8,6 +8,7 @@ import {
   getSkillByName,
   getSkillNames,
   getSkillNamesForDomain,
+  isSurfaceScopedSkill,
 } from "back-end/src/agent/skills";
 
 describe("agent skills loader", () => {
@@ -148,5 +149,38 @@ describe("getSkillNamesForDomain", () => {
     expect(getSkillNamesForDomain("nope")).toEqual([]);
     // A leaf is not a domain router, so it scopes nothing.
     expect(getSkillNamesForDomain("dashboard-create")).toEqual([]);
+  });
+});
+
+describe("surface-scoped skills", () => {
+  beforeEach(() => {
+    _clearSkillCacheForTests();
+  });
+
+  it("treats the dashboards domain and its leaves as surface-scoped", () => {
+    // Building a dashboard needs `proposeDashboard`, which only the Product
+    // Analytics chat has.
+    expect(isSurfaceScopedSkill("dashboards")).toBe(true);
+    expect(isSurfaceScopedSkill("dashboard-create")).toBe(true);
+    expect(isSurfaceScopedSkill("dashboard-edit")).toBe(true);
+  });
+
+  it("leaves every other skill available to the general agent", () => {
+    expect(isSurfaceScopedSkill("feature-flags")).toBe(false);
+    expect(isSurfaceScopedSkill("flag-create")).toBe(false);
+    expect(isSurfaceScopedSkill("product-analytics")).toBe(false);
+    expect(isSurfaceScopedSkill("experiment-analyze")).toBe(false);
+  });
+
+  it("reports an unknown skill as not scoped", () => {
+    expect(isSurfaceScopedSkill("nope")).toBe(false);
+  });
+
+  it("keeps surface-scoped domains out of the general agent's prompt index", () => {
+    // Advertising a skill the agent cannot load just invites it to try.
+    const index = assembleSkillsIndexForPrompt();
+    expect(index.includes("dashboards")).toBe(false);
+    expect(index.includes("feature-flags")).toBe(true);
+    expect(index.includes("product-analytics")).toBe(true);
   });
 });

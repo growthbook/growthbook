@@ -181,12 +181,6 @@ Example call (metric exploration, line chart over last 30 days):
 }
 ```
 
-## re-reading an earlier exploration
-
-There is no REST endpoint that fetches an exploration by ID. If the user refers
-back to an earlier chart, use the exploration response already in conversation
-history, or re-run its config.
-
 </endpoints>
 
 <config_schema>

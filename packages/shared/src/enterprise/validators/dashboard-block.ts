@@ -746,3 +746,89 @@ export type DashboardBlockData<T extends DashboardBlockInterface> =
 export type DashboardBlockInterfaceOrData<T extends DashboardBlockInterface> =
   | T
   | DashboardBlockData<T>;
+
+// ---------------------------------------------------------------------------
+// AI-proposed dashboards
+//
+// The wire shape the agent's `proposeDashboard` tool accepts. Deliberately not
+// the create shape: the analysis ids that back every chart are the server's to
+// produce (it runs the exploration), and the grid coordinates are the packer's,
+// so the model supplies neither. It describes what it wants and nothing it
+// cannot know.
+// ---------------------------------------------------------------------------
+
+/** Coarse width intent; `packDashboardBlocks` turns it into grid coordinates. */
+export const dashboardBlockSizeHintValidator = z.enum([
+  "small",
+  "medium",
+  "full",
+]);
+export type DashboardBlockSizeHint = z.infer<
+  typeof dashboardBlockSizeHintValidator
+>;
+
+const sizeHintField = {
+  sizeHint: dashboardBlockSizeHintValidator
+    .describe(
+      "Width intent: `small` for a KPI tile (three across), `medium` to pair " +
+        "with a neighbour, `full` for a table, funnel, or section heading. " +
+        "Defaults to `full`.",
+    )
+    .optional(),
+};
+
+const proposeOmits = {
+  ...createOmits,
+  layout: true,
+  snapshotId: true,
+} as const;
+
+const explorationProposeOmits = {
+  ...proposeOmits,
+  explorerAnalysisId: true,
+  comparisonExplorerAnalysisId: true,
+  // Enrollment in the dashboard filter bar is decided when the draft is built,
+  // together with the config each chart actually runs. Letting the model set it
+  // independently is how a tile ends up enrolled in a date control it was never
+  // queried against — which renders as a "click Update" placeholder instead of
+  // a chart.
+  globalControlSettings: true,
+} as const;
+
+/**
+ * One block in a proposed dashboard. Experimentation blocks carry their full
+ * config because they compute client-side from experiment data; exploration
+ * blocks carry only the chart config, and the propose handler runs it.
+ */
+export const proposeDashboardBlockValidator = z.discriminatedUnion("type", [
+  markdownBlockInterface.omit(proposeOmits).extend(sizeHintField),
+  metricExperimentsBlockInterface.omit(proposeOmits).extend(sizeHintField),
+  experimentsScaledImpactBlockInterface
+    .omit(proposeOmits)
+    .extend(sizeHintField),
+  experimentsWinRateBlockInterface.omit(proposeOmits).extend(sizeHintField),
+  experimentsStatusBlockInterface.omit(proposeOmits).extend(sizeHintField),
+  metricExplorationBlockInterface
+    .omit(explorationProposeOmits)
+    .extend(sizeHintField),
+  factTableExplorationBlockInterface
+    .omit(explorationProposeOmits)
+    .extend(sizeHintField),
+  dataSourceExplorationBlockInterface
+    .omit(explorationProposeOmits)
+    .extend(sizeHintField),
+  funnelExplorationBlockInterface
+    .omit(explorationProposeOmits)
+    .extend(sizeHintField),
+]);
+
+export type ProposeDashboardBlock = z.infer<
+  typeof proposeDashboardBlockValidator
+>;
+
+/** True when this proposed block needs an exploration run before it can render. */
+export function proposedBlockNeedsExploration(
+  block: ProposeDashboardBlock,
+): block is Extract<ProposeDashboardBlock, { config: unknown }> {
+  return "config" in block;
+}

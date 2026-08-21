@@ -111,6 +111,12 @@ interface Props<DashboardBlock extends DashboardBlockInterface> {
   blockIndex?: number;
   isFocused: boolean;
   isEditing: boolean;
+  /**
+   * Allow dragging and resizing this block without entering edit mode. Set by
+   * the AI dashboard preview, where the layout is the user's to arrange but the
+   * block's contents are changed by prompting rather than by hand.
+   */
+  allowLayoutEditing?: boolean;
   editingBlock: boolean;
   canMoveBlock: boolean;
   disableBlock: "full" | "partial" | "none";
@@ -158,6 +164,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   dashboardComparison,
   blockIndex,
   isEditing,
+  allowLayoutEditing,
   isFocused,
   editingBlock,
   canMoveBlock,
@@ -468,21 +475,23 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
         ></div>
       )}
       <Flex align="center" mb="2">
-        {isEditing && canMoveBlock && disableBlock !== "full" && (
-          <IconButton
-            className="dashboard-block-drag-handle"
-            variant="ghost"
-            size="1"
-            mr="2"
-            aria-label="Drag to reorder block"
-            // Only swallow click (which would otherwise toggle title edit) -
-            // mousedown must bubble to RGL so the drag actually starts.
-            onClick={(e) => e.stopPropagation()}
-            style={{ cursor: "grab", touchAction: "none" }}
-          >
-            <PiDotsSixVertical />
-          </IconButton>
-        )}
+        {(isEditing || allowLayoutEditing) &&
+          canMoveBlock &&
+          disableBlock !== "full" && (
+            <IconButton
+              className="dashboard-block-drag-handle"
+              variant="ghost"
+              size="1"
+              mr="2"
+              aria-label="Drag to reorder block"
+              // Only swallow click (which would otherwise toggle title edit) -
+              // mousedown must bubble to RGL so the drag actually starts.
+              onClick={(e) => e.stopPropagation()}
+              style={{ cursor: "grab", touchAction: "none" }}
+            >
+              <PiDotsSixVertical />
+            </IconButton>
+          )}
         {canEditTitle && editTitle && setBlock ? (
           <Field
             size="legacy"

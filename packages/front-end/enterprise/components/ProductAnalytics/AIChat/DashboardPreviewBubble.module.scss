@@ -1,0 +1,24 @@
+// The preview is a dashboard, not a chat bubble: it breaks out of the message
+// column so a 24-column grid has room to read as one.
+.wrapper {
+  width: 100%;
+  padding: 16px;
+  border: 1px solid var(--gray-a5);
+  border-radius: var(--radius-4);
+  background: var(--color-panel-solid);
+}
+
+.icon {
+  color: var(--violet-11);
+  flex-shrink: 0;
+}
+
+.saved {
+  color: var(--green-11);
+}
+
+// Keep the inline rename from stretching to the full header width.
+.titleField {
+  max-width: 320px;
+  margin-bottom: 0;
+}

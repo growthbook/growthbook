@@ -238,7 +238,7 @@ export default function ExplorerAIChat() {
     const initial = initialMessageRef.current;
     if (!initial) return;
     initialMessageRef.current = null;
-    trackAndSend(initial.text, initial.mentions);
+    trackAndSend(initial.text, initial.mentions, initial.skills);
   }, [trackAndSend]);
 
   const handleAskOption = useCallback(

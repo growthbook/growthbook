@@ -11,6 +11,14 @@ import { skillDisplayName, type SkillItem } from "./extensions/skillCommand";
 export const PRODUCT_ANALYTICS_CHAT_SKILL_DOMAIN = "dashboards";
 
 /**
+ * Domains that belong to one chat surface rather than the site-wide assistant,
+ * mirroring `SURFACE_SCOPED_SKILL_DOMAINS` on the back end. The assistant panel
+ * cannot render a dashboard preview and its agent has no `proposeDashboard`
+ * tool, so listing these there would offer a dead end.
+ */
+const SURFACE_SCOPED_SKILL_DOMAINS = [PRODUCT_ANALYTICS_CHAT_SKILL_DOMAIN];
+
+/**
  * Every skill the agent can load, domain routers and leaves alike.
  *
  * This is the lookup catalogue, not the `/` menu — hovering a `/flag-create`
@@ -62,8 +70,20 @@ export function useSkillCommandItems(domain?: string): SkillItem[] {
  * loadSkill the leaf it points you to" — so picking `/feature-flags` and
  * describing the job still lands on the right leaf. Listing all 29 skills made
  * the menu a wall of near-duplicates to save one `loadSkill` call.
+ *
+ * With no `domain`, this is the site-wide assistant's menu, which additionally
+ * drops the surface-scoped domains its agent cannot load.
  */
 export function useSkillMenuItems(domain?: string): SkillItem[] {
   const items = useSkillCommandItems(domain);
-  return useMemo(() => items.filter((s) => s.kind === "domain"), [items]);
+  return useMemo(
+    () =>
+      items.filter(
+        (s) =>
+          s.kind === "domain" &&
+          (domain !== undefined ||
+            !SURFACE_SCOPED_SKILL_DOMAINS.includes(s.id)),
+      ),
+    [items, domain],
+  );
 }
