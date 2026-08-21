@@ -133,7 +133,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
         id: "property",
         label: "Attribute",
         sortField: "property",
-        locked: true,
+        hideable: false,
         defaultWidth: ATTRIBUTE_NAME_COLUMN_MAX_WIDTH,
         cellProps: () => ({ className: "text-gray font-weight-bold" }),
         render: (v) => (
@@ -350,7 +350,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                         id: c.id,
                         label: c.label,
                         visible: c.visible,
-                        locked: c.locked,
+                        alwaysVisible: c.locked || c.hideable === false,
                       }))}
                     hiddenCount={hiddenCount}
                     canReset={isCustomized}
