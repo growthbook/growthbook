@@ -183,18 +183,19 @@ export function buildScheduleRampAction(
   return action;
 }
 
-export const validateCustomFields = async (
-  customFieldValues: Record<string, unknown> | undefined,
+export const validateCustomFields = async <T>(
+  customFieldValues: Record<string, T> | undefined,
   context: ApiReqContext,
   project?: string,
-) => {
-  await validateCustomFieldsForSection({
+  existingCustomFieldValues?: Record<string, unknown>,
+) =>
+  validateCustomFieldsForSection({
     customFieldValues,
+    existingCustomFieldValues,
     customFieldsModel: context.models.customFields,
     section: "feature",
     project,
   });
-};
 
 // Verify saved-group and prerequisite references in a rule exist. Call on
 // the final rule — saved groups are loaded once.
