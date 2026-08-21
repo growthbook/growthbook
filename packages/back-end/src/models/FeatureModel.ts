@@ -1293,6 +1293,11 @@ export async function updateFeature(
     });
   }
 
+  // `buildFeatureUpdate` below scrubs `environmentSettings.{env}.rules` from
+  // any update that carries `environmentSettings`, on the invariant that the
+  // top-level v2 `rules` array is the only place rules live on disk. Neither
+  // half of that invariant holds on its own, so both are backfilled here.
+
   // Hygiene: when persisting a new top-level v2 `rules` array, also force-scrub
   // any legacy `environmentSettings.{env}.rules` from the doc. The JIT read
   // migration trusts top-level v2 rules over env.rules now (so this is no
@@ -1309,34 +1314,77 @@ export async function updateFeature(
     allUpdates.environmentSettings = { ...feature.environmentSettings };
   }
 
-  const normalizedUpdates = buildFeatureUpdate(allUpdates);
+  // The mirror, and load-bearing for correctness: an update carrying
+  // `environmentSettings` but no `rules` triggers the same scrub with nothing
+  // to replace it. On a still-v1-shaped doc those env rules ARE the live rules
+  // — the top-level array is empty on disk and only filled JIT on read by
+  // `migrateRawFeatureToV2` — so the scrub erases every rule the feature had.
+  // Publishing a revision hits this whenever the rules themselves didn't
+  // change: the merge reports no rule diff, so `computeRevisionMergeChanges`
+  // omits `changes.rules` while still writing `environmentSettings`, and
+  // enabling a feature in a new environment silently drops the rest.
+  // `feature.rules` is the migrated live state the reader already sees.
+  //
+  // Only docs that still need it get the backfill: rewriting a v2 doc's rules
+  // from the pre-image would revert whatever a concurrent publish landed in
+  // between (unguarded callers pass no `casOnDateUpdated`). So it rides a
+  // second attempt, reached only when the first — which claims v2-shaped docs
+  // alone — matches nothing. Exactly one of the two writes ever lands.
+  const rulesBackfill =
+    allUpdates.environmentSettings && allUpdates.rules === undefined
+      ? (feature.rules ?? [])
+      : null;
 
-  if (Array.isArray(normalizedUpdates.rules)) {
-    const { rules: dedupedRules, collisions } = ensureUniqueRuleIds(
-      normalizedUpdates.rules as FeatureRule[],
-    );
-    if (collisions.length > 0) {
-      logger.warn(
-        { featureId: feature.id, collisions },
-        "Duplicate rule ids auto-suffixed on feature update",
+  const mutation = (payload: typeof allUpdates) => {
+    const normalizedUpdates = buildFeatureUpdate(payload);
+
+    if (Array.isArray(normalizedUpdates.rules)) {
+      const { rules: dedupedRules, collisions } = ensureUniqueRuleIds(
+        normalizedUpdates.rules as FeatureRule[],
       );
-      normalizedUpdates.rules = dedupedRules;
+      if (collisions.length > 0) {
+        logger.warn(
+          { featureId: feature.id, collisions },
+          "Duplicate rule ids auto-suffixed on feature update",
+        );
+        normalizedUpdates.rules = dedupedRules;
+      }
     }
-  }
 
-  const writeResult = await FeatureModel.updateOne(
-    {
-      organization: feature.organization,
-      id: feature.id,
-      ...(options?.casOnDateUpdated
-        ? { dateUpdated: options.casOnDateUpdated }
-        : {}),
-    },
-    {
+    return {
       $set: normalizedUpdates,
       ...(options?.unsetHoldout ? { $unset: { holdout: "" } } : {}),
-    },
+    };
+  };
+
+  const filter = {
+    organization: feature.organization,
+    id: feature.id,
+    ...(options?.casOnDateUpdated
+      ? { dateUpdated: options.casOnDateUpdated }
+      : {}),
+  };
+
+  let writeResult = await FeatureModel.updateOne(
+    rulesBackfill
+      ? {
+          ...filter,
+          // Mirrors `topLevelRulesAreV2Shaped` on the read side: every rule we
+          // write carries `allEnvironments` or `environments`.
+          $or: [
+            { "rules.allEnvironments": { $exists: true } },
+            { "rules.environments": { $exists: true } },
+          ],
+        }
+      : filter,
+    mutation(allUpdates),
   );
+  if (rulesBackfill && writeResult.matchedCount === 0) {
+    writeResult = await FeatureModel.updateOne(
+      filter,
+      mutation({ ...allUpdates, rules: rulesBackfill }),
+    );
+  }
   if (options?.casOnDateUpdated && writeResult.matchedCount === 0) {
     throw new CasConflictError();
   }
