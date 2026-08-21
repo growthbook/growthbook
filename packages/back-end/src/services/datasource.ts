@@ -427,7 +427,7 @@ export async function testQueryValidity(
       if (columnNames.length === 0) {
         return "Unable to determine columns from query";
       }
-      columns = new Set(columnNames);
+      columns = new Set(columnNames.map((name) => name.toLowerCase()));
     } else {
       // For other datasources, extract from first row (requires LIMIT 1+)
       if (results.results.length === 0) {
@@ -438,7 +438,7 @@ export async function testQueryValidity(
 
     const missingColumns: string[] = [];
     for (const col of requiredColumns) {
-      if (!columns.has(col)) {
+      if (!columns.has(results.columns ? col.toLowerCase() : col)) {
         missingColumns.push(col);
       }
     }
