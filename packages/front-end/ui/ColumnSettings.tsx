@@ -84,26 +84,34 @@ function SortableColumnRow({
           {column.label}
         </Text>
       </Box>
-      <Tooltip
-        body={
-          column.locked
-            ? "This column is always shown"
-            : column.visible
-              ? "Hide column"
-              : "Show column"
-        }
-      >
-        <IconButton
-          size="1"
-          variant="ghost"
-          color={column.visible ? "violet" : "gray"}
-          disabled={column.locked}
-          aria-label={column.visible ? "Hide column" : "Show column"}
-          onClick={() => onToggle(!column.visible)}
-        >
-          {column.visible ? <PiEye size={16} /> : <PiEyeSlash size={16} />}
-        </IconButton>
-      </Tooltip>
+      {column.locked ? (
+        <Tooltip body="This column is always shown">
+          {/* Not a disabled button: Radix dims those, which reads as hidden. */}
+          <span
+            role="img"
+            aria-label={`${column.label} column is always shown`}
+            style={{
+              display: "flex",
+              padding: "0 var(--space-1)",
+              color: "var(--accent-11)",
+            }}
+          >
+            <PiEye size={16} />
+          </span>
+        </Tooltip>
+      ) : (
+        <Tooltip body={column.visible ? "Hide column" : "Show column"}>
+          <IconButton
+            size="1"
+            variant="ghost"
+            color={column.visible ? "violet" : "gray"}
+            aria-label={column.visible ? "Hide column" : "Show column"}
+            onClick={() => onToggle(!column.visible)}
+          >
+            {column.visible ? <PiEye size={16} /> : <PiEyeSlash size={16} />}
+          </IconButton>
+        </Tooltip>
+      )}
     </Flex>
   );
 }
