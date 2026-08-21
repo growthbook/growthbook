@@ -133,7 +133,8 @@ const featureRevisionSchema = new mongoose.Schema({
   revertedFromVersion: Number,
   defaultValue: String,
   rules: {},
-  // Revision envelopes — only present when explicitly changed
+  // Only present when explicitly changed, except `metadata`, which
+  // prepareFeatureRevision always writes as a complete snapshot.
   environmentsEnabled: {},
   prerequisites: [{}],
   archived: Boolean,

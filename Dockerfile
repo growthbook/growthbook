@@ -12,6 +12,11 @@
 # Pinned to debian-12 (bookworm) to match the glibc of node:24-slim, keeping the
 # gbstats venv and the kerberos native addon ABI-compatible. Do NOT move to
 # debian-13 without re-validating both.
+#
+# Building this file requires `docker login dhi.io` — that registry rejects
+# unauthenticated requests (even metadata reads) with a 401 that doesn't name
+# DHI. Any free Docker account works; see docs.growthbook.io/self-host#building-from-source.
+# Pulling the published growthbook/growthbook image needs no credentials.
 # ============================================================================
 
 ARG PYTHON_MAJOR=3.11

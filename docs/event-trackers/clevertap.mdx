@@ -1,0 +1,31 @@
+---
+title: Setting Up CleverTap as an Event Tracker
+description: Export CleverTap events to a warehouse, send experiment exposure from the SDK, then connect that warehouse to GrowthBook for analysis.
+sidebarTitle: CleverTap
+slug: clevertap
+---
+
+import DefaultInstructions from "/snippets/event-trackers/_default-event-instructions.mdx";
+
+GrowthBook does not query CleverTap directly. Track experiment exposure in CleverTap, export those events to a warehouse, then connect the warehouse as a data source.
+
+## Exposure tracking
+
+Push an experiment exposure event from the GrowthBook SDK `trackingCallback`.
+
+```js
+trackingCallback: (experiment, result) => {
+  clevertap.event.push("experiment_viewed", {
+    experiment_id: experiment.key,
+    variation_id: result.key,
+  });
+};
+```
+
+## Export CleverTap to a warehouse
+
+CleverTap can export to BigQuery, Presto, Athena, and Databricks. See [CleverTap export](https://docs.clevertap.com/docs/export).
+
+After the export is running, add that warehouse in GrowthBook and choose **CleverTap** as the event tracker. You may need to adjust the generated SQL to match your CleverTap export schema.
+
+<DefaultInstructions eventTracker="CleverTap" slug="clevertap" />
