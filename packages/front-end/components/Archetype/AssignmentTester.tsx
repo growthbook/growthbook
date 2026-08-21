@@ -249,7 +249,7 @@ export default function AssignmentTester({
                         {debugLog && (
                           <div className="mb-3">
                             <h5>Log</h5>
-                            <div className="appbox mb-0 p-3">
+                            <div className="bg-white border border-light rounded  p-3">
                               {debugLog.map((log, i) => (
                                 <div className="row my-2" key={i}>
                                   <div className="col">{log}</div>

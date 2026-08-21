@@ -83,7 +83,7 @@ export default function InAppHelp() {
               marginBottom: "-30px",
             }}
           >
-            <div className="appbox p-3 m-3 shadow">
+            <div className="bg-white border rounded p-3 m-3 shadow">
               <p className="mb-2">
                 <strong>Have a question?</strong>
               </p>
@@ -103,7 +103,7 @@ export default function InAppHelp() {
               </a>
             </div>
             {showUpgradeModal && (
-              <div className="appbox p-3 m-3 shadow">
+              <div className="bg-white border rounded p-3 m-3 shadow">
                 <p className="mb-2">
                   <strong>
                     Upgrade your account to unlock live chat support and access
