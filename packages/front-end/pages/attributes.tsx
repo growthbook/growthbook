@@ -396,6 +396,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
     setWidth,
     reset,
     colRefs,
+    minTableWidth,
     ColGroup,
   } = useTableColumns({ storageKey: "attributes", columns: columnDefs });
 
@@ -492,6 +493,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
             roundedCorners
             layout="fixed"
             scrollX
+            minTableWidth={minTableWidth}
           >
             <ColGroup />
             <TableHeader>

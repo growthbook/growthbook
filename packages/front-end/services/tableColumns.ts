@@ -69,6 +69,23 @@ export function columnWidthBounds<TRow>(def: TableColumnDef<TRow>): {
   return { min, max: Math.max(min, def.maxWidth ?? MAX_TABLE_COLUMN_WIDTH) };
 }
 
+/**
+ * Narrowest the table can get before a slack column starves.
+ *
+ * A `table-layout: fixed` column with no width takes only what the specified
+ * widths leave over, so once they exceed the container it collapses to zero and
+ * its content becomes unreachable. Flooring the table instead keeps the slack
+ * column absorbing spare space when there is any, and pushes the table into
+ * horizontal scroll when there isn't.
+ */
+export function minTableWidth<TRow>(
+  resolved: ResolvedTableColumn<TRow>[],
+): number {
+  return resolved
+    .filter((col) => col.visible)
+    .reduce((sum, col) => sum + (col.width ?? columnWidthBounds(col).min), 0);
+}
+
 function clampWidth<TRow>(
   def: TableColumnDef<TRow>,
   width: number | undefined,
