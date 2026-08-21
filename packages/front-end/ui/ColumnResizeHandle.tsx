@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import styles from "./Table.module.scss";
 
 const KEYBOARD_STEP = 16;
@@ -27,7 +27,11 @@ export default function ColumnResizeHandle({
     startWidth: number;
     pending: number;
     raf: number | null;
+    moved: boolean;
   } | null>(null);
+  // Only the slack column has no width to report. Measured on focus, which is
+  // when a screen reader announces the value.
+  const [focusWidth, setFocusWidth] = useState<number | undefined>();
 
   // Measured from the header cell, so it's truthful even for an auto-sized
   // column that has no width of its own.
@@ -54,6 +58,7 @@ export default function ColumnResizeHandle({
       startWidth,
       pending: clamp(startWidth),
       raf: null,
+      moved: false,
     };
     e.currentTarget.setPointerCapture(e.pointerId);
     e.currentTarget.dataset.active = "true";
@@ -64,6 +69,7 @@ export default function ColumnResizeHandle({
   const onPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
     const state = drag.current;
     if (!state) return;
+    state.moved = true;
     state.pending = clamp(state.startWidth + (e.clientX - state.startX));
     if (state.raf === null) state.raf = requestAnimationFrame(flush);
   };
@@ -72,13 +78,15 @@ export default function ColumnResizeHandle({
     const state = drag.current;
     if (!state) return;
     if (state.raf !== null) cancelAnimationFrame(state.raf);
-    flush();
+    if (state.moved) flush();
     drag.current = null;
     delete e.currentTarget.dataset.active;
     e.currentTarget
       .closest("[data-table-list]")
       ?.removeAttribute("data-resizing");
-    onCommit(state.pending);
+    // A click that never moved must not pin the column: committing there would
+    // freeze the slack column and mark the layout customized.
+    if (state.moved) onCommit(state.pending);
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
@@ -101,9 +109,10 @@ export default function ColumnResizeHandle({
       role="separator"
       aria-orientation="vertical"
       aria-label={`Resize ${label} column`}
-      aria-valuenow={width}
+      aria-valuenow={width ?? focusWidth}
       aria-valuemin={minWidth}
       aria-valuemax={maxWidth}
+      onFocus={() => setFocusWidth(Math.round(measure()) || undefined)}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
