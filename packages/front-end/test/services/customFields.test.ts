@@ -2,6 +2,7 @@ import { CustomField } from "shared/types/custom-fields";
 import {
   customFieldValuesEqual,
   filterCustomFieldsForSectionAndProject,
+  filterCustomFieldsForSectionAndProjects,
   getSeededCustomFieldDefaultValue,
   normalizeCustomFieldValues,
   reconcileCustomFieldValues,
@@ -83,6 +84,83 @@ describe("filterCustomFieldsForSectionAndProject", () => {
     );
 
     expect(result).toEqual([{ ...legacyGlobalField, projects: [] }]);
+  });
+});
+
+describe("filterCustomFieldsForSectionAndProjects", () => {
+  const attrField = (overrides: Partial<CustomField>) =>
+    makeField({ sections: ["attribute"], ...overrides });
+
+  it("returns only global fields for an org-wide entity", () => {
+    const global = attrField({ id: "cf_global" });
+    const scoped = attrField({ id: "cf_a", projects: ["proj_a"] });
+
+    expect(
+      filterCustomFieldsForSectionAndProjects(
+        [global, scoped],
+        "attribute",
+        [],
+      )?.map((f) => f.id),
+    ).toEqual(["cf_global"]);
+  });
+
+  it("treats undefined projects the same as an empty list", () => {
+    const global = attrField({ id: "cf_global" });
+    const scoped = attrField({ id: "cf_a", projects: ["proj_a"] });
+
+    expect(
+      filterCustomFieldsForSectionAndProjects(
+        [global, scoped],
+        "attribute",
+        undefined,
+      )?.map((f) => f.id),
+    ).toEqual(["cf_global"]);
+  });
+
+  it("includes a scoped field when it overlaps any of the entity's projects", () => {
+    const global = attrField({ id: "cf_global" });
+    const a = attrField({ id: "cf_a", projects: ["proj_a"] });
+    const b = attrField({ id: "cf_b", projects: ["proj_b"] });
+    const c = attrField({ id: "cf_c", projects: ["proj_c"] });
+
+    expect(
+      filterCustomFieldsForSectionAndProjects([global, a, b, c], "attribute", [
+        "proj_a",
+        "proj_b",
+      ])?.map((f) => f.id),
+    ).toEqual(["cf_global", "cf_a", "cf_b"]);
+  });
+
+  it("excludes scoped fields with no overlap", () => {
+    const a = attrField({ id: "cf_a", projects: ["proj_a"] });
+
+    expect(
+      filterCustomFieldsForSectionAndProjects([a], "attribute", ["proj_z"]),
+    ).toEqual([]);
+  });
+
+  it("ignores fields from other sections and inactive fields", () => {
+    const featureField = makeField({ id: "cf_feat", sections: ["feature"] });
+    const inactive = attrField({ id: "cf_off", active: false });
+    const ok = attrField({ id: "cf_on" });
+
+    expect(
+      filterCustomFieldsForSectionAndProjects(
+        [featureField, inactive, ok],
+        "attribute",
+        ["proj_a"],
+      )?.map((f) => f.id),
+    ).toEqual(["cf_on"]);
+  });
+
+  it("tolerates whitespace in project ids on both sides", () => {
+    const a = attrField({ id: "cf_a", projects: [" proj_a "] });
+
+    expect(
+      filterCustomFieldsForSectionAndProjects([a], "attribute", [
+        " proj_a ",
+      ])?.map((f) => f.id),
+    ).toEqual(["cf_a"]);
   });
 });
 
