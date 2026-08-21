@@ -5594,6 +5594,9 @@ export async function putFeature(
       incoming: pick((k) => (updates as unknown as Record<string, unknown>)[k]),
       liveVersion: feature.version,
       ...(targetDraft ? { draftVersion: targetDraft.version } : {}),
+      // Mutually exclusive, so merging them apart would target all projects and
+      // carry a list at the same time.
+      config: { chunks: [["targetingAllProjects", "targetingProjects"]] },
     });
     if (!resolution.ok) {
       return res.status(409).json({

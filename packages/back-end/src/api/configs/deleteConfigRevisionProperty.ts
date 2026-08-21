@@ -54,8 +54,7 @@ export const deleteConfigRevisionProperty = createApiRequestHandler(
     }
 
     // Derive and validate inside the write, so a CAS retry removes this property
-    // from the row it lost to and validates the value it then persists, rather
-    // than one computed against content that has since moved.
+    // from the row it lost to and validates the value it actually persists.
     const updated = await createOrUpdateRevision(
       req.context,
       "config",

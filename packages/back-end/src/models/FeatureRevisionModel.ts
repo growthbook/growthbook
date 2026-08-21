@@ -1387,10 +1387,8 @@ export async function updateRevision(
   // active (keeps the scheduled draft mergeable); all other edits are frozen.
   {
     bypassScheduleLock = false,
-    // Adds the caller's `dateUpdated` to the write filter, making the write a
-    // compare-and-set on content: a concurrent edit between this caller's read
-    // and its write loses instead of overwriting. Opt-in, so existing callers
-    // keep their status-only guard.
+    // Compare-and-set on content via the caller's `dateUpdated`: an edit that
+    // landed since their read wins. Opt-in, so other callers keep last-write-wins.
     guardDateUpdated = false,
   }: { bypassScheduleLock?: boolean; guardDateUpdated?: boolean } = {},
 ) {

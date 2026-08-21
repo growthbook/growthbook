@@ -30,15 +30,12 @@ export function useDraftConflict<T extends object>({
   isNewDraft,
   entityNoun,
 }: {
-  // The entity slice as the editor loaded it.
   initial: T;
-  // Field key -> the label its form control uses.
   labels?: Record<string, string>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   form?: UseFormReturn<any>;
   // For editors that aren't react-hook-form backed (e.g. a set of toggles).
   applyField?: (field: string, value: unknown) => void;
-  // Whether the save targets a brand-new draft.
   isNewDraft: boolean;
   entityNoun: string;
 }) {
@@ -50,8 +47,8 @@ export function useDraftConflict<T extends object>({
   const [claimed, setClaimed] = useState<Set<string>>(new Set());
   const minesRef = useRef<Map<string, Record<string, unknown>>>(new Map());
   const signaledRef = useRef(false);
-  // Bumped whenever a resolution writes into the form. Editors that seed their
-  // own state from a prop (the condition builder) need a remount to show it.
+  // Editors that seed their own state from a prop (the condition builder) need
+  // a remount to show an applied value.
   const [renderKey, setRenderKey] = useState(0);
 
   const claim = useCallback((key: string) => {

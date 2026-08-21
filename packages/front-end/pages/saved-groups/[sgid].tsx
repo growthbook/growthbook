@@ -294,12 +294,12 @@ export default function EditSavedGroupPage() {
     [displayedSavedGroup],
   );
 
-  // ID list values can't merge item-by-item, so a contested list is flagged
-  // rather than merged: pick theirs (loads it into the editor) or keep yours.
-  // One instance per modal, so a conflict raised while adding items can't gate
-  // a later removal.
+  const pinnedList = listBaseline ?? displayedValues;
+
+  // A list can't merge item-by-item, so a contested one is flagged, not merged.
+  // One instance per modal, so an add conflict can't gate a later removal.
   const addConflict = useDraftConflict<Record<string, unknown>>({
-    initial: { values: listBaseline ?? displayedValues },
+    initial: { values: pinnedList },
     labels: { values: "List items" },
     applyField: (_field, value) => {
       setImportOperation("replace");
@@ -311,7 +311,7 @@ export default function EditSavedGroupPage() {
   // Removing by selection has nowhere to apply their list, so this one only
   // reports the conflict and offers a reload.
   const deleteConflict = useDraftConflict<Record<string, unknown>>({
-    initial: { values: listBaseline ?? displayedValues },
+    initial: { values: pinnedList },
     labels: { values: "List items" },
     isNewDraft: deleteItemsDraftMode === "new",
     entityNoun: "saved group",
@@ -569,7 +569,7 @@ export default function EditSavedGroupPage() {
                   method: "PUT",
                   body: JSON.stringify({
                     values: newValues,
-                    baseline: { values: listBaseline ?? displayedValues },
+                    baseline: { values: pinnedList },
                   }),
                 },
                 guard.onError,
@@ -694,7 +694,7 @@ export default function EditSavedGroupPage() {
                   method: "PUT",
                   body: JSON.stringify({
                     values: newValues,
-                    baseline: { values: listBaseline ?? displayedValues },
+                    baseline: { values: pinnedList },
                   }),
                 },
                 guard.onError,

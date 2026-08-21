@@ -693,9 +693,8 @@ const resolveConfigOwnValue = async (
 };
 
 // Property-scoped writes, mirroring PUT/DELETE /configs-revisions/:key/:version/property.
-// Both compute the next value from the CURRENT draft, then delegate to
-// putConfig so permissions, validation, revision handling and events stay
-// identical to a whole-value write.
+// Both delegate to putConfig, so permissions, validation, revisions and events
+// stay identical to a whole-value write.
 export const putConfigProperty = async (
   req: PutConfigPropertyRequest,
   res: Response<PutConfigResponse | ApiErrorResponse>,

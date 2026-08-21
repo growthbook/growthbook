@@ -20,7 +20,6 @@ type ConflictContextValue = {
   resolutions: Map<string, ConflictResolution>;
   resolve: (chunk: ContestedChunk, choice: ConflictResolution) => void;
   format: (chunk: ContestedChunk, side: ConflictResolution) => string;
-  // Maps a chunk to the label its form control uses; falls back to the key.
   labelFor?: (chunk: ContestedChunk) => string;
   // Chunks a field renders inline; the rest fall back to the modal's callouts.
   claimed: Set<string>;
