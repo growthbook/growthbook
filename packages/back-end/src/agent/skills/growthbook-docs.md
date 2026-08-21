@@ -5,21 +5,27 @@ description: Answer how-to / SDK / setup / configuration / "how does X work?" qu
 
 # GrowthBook documentation
 
-You do NOT have a documentation search tool. For technical / how-to /
-SDK / setup / "how does X work?" questions about GrowthBook itself:
+For technical / how-to / SDK / setup / "how does X work?" questions about
+GrowthBook itself:
 
-1. If you're confident from your training knowledge, give a brief answer
-   (1-3 sentences). Always include a link into https://docs.growthbook.io/
-   so the user can verify and dig deeper.
-2. If you're uncertain or the question touches a recent feature you may
-   not know about, do NOT guess. Say so plainly and link to the most
-   relevant docs section.
-3. Never fabricate API endpoints, SDK method signatures, configuration
-   keys, or version numbers. If you don't know, say so and link.
+1. Call the `searchDocs` tool FIRST with a natural-language version of the
+   question. It searches the live GrowthBook docs and community Q&A.
+2. On `status: "ok"`, ground your answer in each source's `content`. Keep it
+   brief (1-3 sentences) and cite its `url` when present, otherwise the
+   `docs.growthbook.io` links embedded in the content, as Markdown links.
+   Prefer these results over your own training knowledge, which may be stale.
+3. If `searchDocs` returns `unavailable`, `no_results`, or `error`, fall back
+   to your own knowledge — but only if you're confident — and link to the most
+   relevant section from the list below. If you're not confident, say so
+   plainly and link rather than guessing.
+4. Never fabricate API endpoints, SDK method signatures, configuration keys,
+   or version numbers. If you don't know and the docs didn't say, say so and
+   link.
 
 ## Useful docs entry points
 
-Use these as starting points for your answers and links:
+Use these for fallback links when `searchDocs` is unavailable, and as
+additional "learn more" links alongside cited sources:
 
 - **Overview & quickstart**: https://docs.growthbook.io/
 - **Feature flags**: https://docs.growthbook.io/features/basics
