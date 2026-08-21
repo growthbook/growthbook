@@ -1142,8 +1142,8 @@ export function getFactMetricPrimaryFactTableId(
 /**
  * Every fact table the metric reads from, de-duplicated and in definition
  * order (funnel step order; numerator before denominator). Order is load
- * bearing: the SQL layer assigns source indices from it, and source 0 drives
- * the per-unit joins.
+ * bearing: the SQL layer assigns source indices from it and source 0 is
+ * privileged.
  */
 export function getFactMetricFactTableIds(m: FactMetricInterface): string[] {
   const ids = isFactFunnelMetric(m)
@@ -2593,11 +2593,6 @@ export function isMetricJoinable(
   return false;
 }
 
-/**
- * Whether every fact table the metric reads from (funnel steps included) can
- * reach the given id type — the same rule the back-end uses to scrub
- * unjoinable metrics from snapshots, so UI checks stay in sync with it.
- */
 export function isFactMetricJoinable(
   metric: FactMetricInterface,
   userIdType: string,

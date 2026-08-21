@@ -183,10 +183,8 @@ export default function FactMetricList({
   const metrics = useMemo(
     () =>
       providedMetrics ||
-      factMetrics.filter(
-        (m) =>
-          getFactMetricFactTableIds(m).includes(factTable.id) ||
-          (m.denominator && m.denominator.factTableId === factTable.id),
+      factMetrics.filter((m) =>
+        getFactMetricFactTableIds(m).includes(factTable.id),
       ),
     [providedMetrics, factMetrics, factTable.id],
   );

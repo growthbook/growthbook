@@ -876,12 +876,8 @@ export async function generateExperimentReportSSRData({
     {},
   );
 
-  // The raw denominator ref covers metrics whose type changed away from ratio.
   const factTableIds = uniq(
-    factMetrics.flatMap((m) => [
-      ...getFactMetricFactTableIds(m),
-      ...(m.denominator?.factTableId ? [m.denominator.factTableId] : []),
-    ]),
+    factMetrics.flatMap((m) => getFactMetricFactTableIds(m)),
   );
 
   const factTables = await getFactTablesByIds(context, factTableIds);

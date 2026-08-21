@@ -55,12 +55,8 @@ export function getMetricsForFactTable(
   factMetrics: FactMetricInterface[],
   factTable: string,
 ) {
-  // The raw denominator check catches metrics whose type changed away from
-  // ratio but still carry a denominator ref.
-  return factMetrics.filter(
-    (m) =>
-      getFactMetricFactTableIds(m).includes(factTable) ||
-      (m.denominator && m.denominator.factTableId === factTable),
+  return factMetrics.filter((m) =>
+    getFactMetricFactTableIds(m).includes(factTable),
   );
 }
 

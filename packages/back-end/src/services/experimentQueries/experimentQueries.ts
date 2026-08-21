@@ -277,9 +277,8 @@ export function getFactMetricGroup(
     : "";
 
   // Metrics group on the exact set of fact tables they read from — a ratio's
-  // numerator and denominator tables, or a funnel's per-step tables. Grouping
-  // metrics whose sets merely overlap would make every metric in the query pay
-  // for scanning and joining tables it doesn't use.
+  // numerator and denominator tables, or a funnel's per-step tables. Future
+  // optimizations are possible.
   const factTableIds = [...getFactMetricFactTableIds(metric)].sort();
   if (!factTableIds.length) return "";
 

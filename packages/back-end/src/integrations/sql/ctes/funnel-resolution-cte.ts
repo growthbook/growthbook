@@ -74,8 +74,7 @@ export function getFunnelUserMetricAggColumns(
  * table plus the funnel columns — including metric values that have nothing to
  * do with funnels. It is named for what it hands back, not for the funnel work
  * done along the way. The terminal projects an explicit list so the candidate
- * arrays (on Redshift, LISTAGG varchars of up to 64KB per user) die here
- * instead of flowing into the statistics scan.
+ * arrays die here instead of flowing into the statistics scan.
  *
  * Each `__funnelResolve` CTE resolves exactly one step: the earliest candidate
  * timestamp falling inside `[prev - concurrencyWindow, prev + conversionWindow]`,
