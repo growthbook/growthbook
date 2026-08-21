@@ -218,10 +218,20 @@ const gbClient = new GrowthBookClient().initSync({
 
 By default, the GrowthBookClient will only fetch features once during initialization. This works great for short-running processes (e.g. serverless functions).
 
-For long-running Node.js processes, there are 2 main approaches to keeping feature defintiions up-to-date.
+For long-running Node.js processes, there are 2 main approaches to keeping feature definitions up-to-date.
 
 1. Streaming
 2. Polling
+
+:::note Streaming vs cache refresh vs `backgroundSync`
+These are easy to mix up:
+
+- **Streaming** — GrowthBook (Cloud or Proxy) pushes a notification when features change. On Node, set up an `EventSource` polyfill and use `init({ streaming: true })` so this client subscribes to those updates (below).
+- **Cache refresh** — the SDK refetches the features payload (for example by calling `refreshFeatures()`). Cache settings like `staleTTL` only apply when a fetch already runs; they do **not** start fetches on their own.
+- **`backgroundSync`** — only controls whether a streaming connection is **allowed** (default `true`). Setting `cacheSettings: { backgroundSync: true }` alone does **not** enable auto-refresh on Node.
+
+A long-running process that never enables streaming and never calls `refreshFeatures()` (directly or on a timer) will keep the payload from `init` until restart.
+:::
 
 ### Streaming Updates
 
@@ -270,6 +280,8 @@ This will make an initial network request to download the features payload from 
 
 Every call to evaluate feature flags will use the latest available payload.
 
+To block streaming connections, call `configureCache({ backgroundSync: false })`. `GrowthBookClient` does not take a `backgroundSync` constructor option — that setting only lives on the cache config. `backgroundSync: true` (the default) does not turn streaming on by itself.
+
 ### Polling Updates
 
 If your environment doesn't support streaming updates or you want a simpler option, pass a `pollingInterval` (in milliseconds) into `init`. This requires no polyfills.
@@ -303,6 +315,8 @@ The JavaScript SDK has 2 caching layers:
 
 1. In-memory cache (enabled by default)
 2. Persistent localStorage cache (disabled by default, requires configuration)
+
+Caching controls how a features payload is stored and reused **when the SDK fetches**. It is not a substitute for [streaming or polling](#refreshing-features) in long-running Node processes.
 
 ### Configuring Local Storage
 
@@ -338,6 +352,9 @@ configureCache({
   maxAge: 1000 * 60 * 60 * 4,
   // Set to `true` to completely disable both in-memory and persistent caching
   disableCache: false,
+  // When false, do not open an SSE streaming connection (default true).
+  // This does not enable auto-refresh by itself — see Refreshing Features.
+  backgroundSync: true,
 })
 ```
 
