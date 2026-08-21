@@ -58,9 +58,9 @@ next-env.d.ts
 # Agent scratch space
 .context/
 
-# Canonical skills checkout used as Docker/CI input. Keep the placeholder.
+# Agent skills: keep the skills-src placeholder; ignore the local checkout
+# pointer and the assembled output.
 skills-src/*
 !skills-src/.gitkeep
-
-# Canonical and in-app-only skills assembled for local development and builds.
+packages/back-end/agent-skills.local.json
 packages/back-end/generated/agent-skills/

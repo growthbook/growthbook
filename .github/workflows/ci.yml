@@ -26,9 +26,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Checkout agent skills
-        uses: ./.github/actions/checkout-agent-skills
-
       - name: Install pnpm
         uses: pnpm/action-setup@v4
 

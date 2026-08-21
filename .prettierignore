@@ -14,5 +14,6 @@ packages/shared/types/*.js
 docs/static/scripts/reo.js
 eslint-suppressions.json
 
-# Assembled from canonical and in-app-only skills.
+# Agent skills: don't format the checkout or assembled output.
+skills-src/
 packages/back-end/generated/agent-skills/

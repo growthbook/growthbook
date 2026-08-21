@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 
 // Assembles the in-app assistant's skills from growthbook/skills plus the
-// checked-in skills-local tree.
+// checked-in skills-local tree. Canonical checkout, in order: $SKILLS_SRC,
+// agent-skills.local.json (gitignored; path relative to the repo root), then
+// skills-src/. Neighbor directories named "skills" are not probed.
 
 import {
   existsSync,
@@ -15,13 +17,13 @@ import {
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-const SCRIPT_SUBPATH = join("scripts", "assemble-agent-skills.mts");
+const SCRIPT_SUBPATH = join("scripts", "assemble-agent-skills.mjs");
 
-function resolveEntryPath(): string | null {
+function resolveEntryPath() {
   return process.argv[1] ? resolve(process.argv[1]) : null;
 }
 
-function resolvePackageRoot(): string {
+function resolvePackageRoot() {
   const entry = resolveEntryPath();
   const candidates = [
     ...(entry ? [resolve(dirname(entry), "..")] : []),
@@ -45,45 +47,68 @@ const outputDir = join(packageRoot, "generated", "agent-skills");
 const localSkillsDir = join(packageRoot, "src", "agent", "skills-local");
 
 const SKILLS_REPOSITORY = "https://github.com/growthbook/skills";
-const CANONICAL_SKILLS = ["feature-flags", "experiments", "analytics"] as const;
+const CANONICAL_SKILLS = ["feature-flags", "experiments", "analytics"];
+const LOCAL_CONFIG_NAME = "agent-skills.local.json";
+const localConfigPath = join(packageRoot, LOCAL_CONFIG_NAME);
+const skillsSrcDir = resolve(repoRoot, "skills-src");
 
-function isSkillsCheckout(dir: string): boolean {
+function isSkillsCheckout(dir) {
   return existsSync(join(dir, "skills"));
 }
 
-const SKILLS_SOURCE_CANDIDATES = [
-  resolve(repoRoot, "skills-src"),
-  resolve(repoRoot, "..", "skills"),
-  resolve(repoRoot, "..", "..", "skills"),
-];
-
-function resolveSkillsSource(): string | null {
-  if (process.env.SKILLS_SRC) {
-    const explicit = resolve(process.env.SKILLS_SRC);
-    if (!isSkillsCheckout(explicit)) {
-      process.stderr.write(
-        `Warning: SKILLS_SRC is set to ${explicit}, which has no skills/ directory. Point it at a ${SKILLS_REPOSITORY} checkout. Skipping canonical skills.\n`,
-      );
-      return null;
-    }
-    return explicit;
-  }
-  return SKILLS_SOURCE_CANDIDATES.find(isSkillsCheckout) ?? null;
+function warnInvalidCheckout(label, dir) {
+  process.stderr.write(
+    `Warning: ${label} is ${dir}, which has no skills/ directory. Point it at a ${SKILLS_REPOSITORY} checkout. Skipping canonical skills.\n`,
+  );
+  return null;
 }
 
-function markdownFiles(dir: string): string[] {
+function checkoutAt(label, dir) {
+  if (!isSkillsCheckout(dir)) {
+    return warnInvalidCheckout(label, dir);
+  }
+  return dir;
+}
+
+function pathFromLocalConfig(configPath) {
+  try {
+    const pathValue = JSON.parse(readFileSync(configPath, "utf8")).path;
+    if (typeof pathValue === "string" && pathValue.trim() !== "") {
+      return pathValue.trim();
+    }
+  } catch {
+    // Invalid JSON or unexpected shape; warn below.
+  }
+  process.stderr.write(
+    `Warning: ${configPath} must be { "path": "<growthbook/skills checkout>" } relative to the repository root. Skipping canonical skills.\n`,
+  );
+  return null;
+}
+
+function resolveSkillsSource() {
+  if (process.env.SKILLS_SRC) {
+    return checkoutAt("$SKILLS_SRC", resolve(process.env.SKILLS_SRC));
+  }
+  if (existsSync(localConfigPath)) {
+    const pathValue = pathFromLocalConfig(localConfigPath);
+    return pathValue
+      ? checkoutAt(localConfigPath, resolve(repoRoot, pathValue))
+      : null;
+  }
+  if (isSkillsCheckout(skillsSrcDir)) {
+    return skillsSrcDir;
+  }
+  return null;
+}
+
+function markdownFiles(dir) {
   if (!existsSync(dir)) return [];
   return readdirSync(dir)
     .filter((entry) => entry.endsWith(".md"))
     .sort();
 }
 
-function copySkillDirectory(
-  sourceDir: string,
-  skillName: string,
-  destination: string,
-  sourceLabel: string,
-): void {
+function copySkillDirectory(sourceDir, skillName, destination, sourceLabel) {
   const skillFile = join(sourceDir, "SKILL.md");
   if (!existsSync(skillFile)) {
     process.stderr.write(
@@ -115,13 +140,9 @@ function copySkillDirectory(
   }
 }
 
-function copyLocalSkills(
-  sourceRoot: string,
-  destination: string,
-  canonicalNames: ReadonlySet<string>,
-): string[] {
+function copyLocalSkills(sourceRoot, destination, canonicalNames) {
   if (!existsSync(sourceRoot)) return [];
-  const copied: string[] = [];
+  const copied = [];
   for (const name of readdirSync(sourceRoot).sort()) {
     const sourceDir = join(sourceRoot, name);
     if (!statSync(sourceDir).isDirectory()) continue;
@@ -137,12 +158,14 @@ function copyLocalSkills(
   return copied;
 }
 
-function assembleSkills(): void {
+function assembleSkills() {
   const source = resolveSkillsSource();
-  if (!source) {
+  const pointedExplicitly =
+    Boolean(process.env.SKILLS_SRC) || existsSync(localConfigPath);
+  if (!source && !pointedExplicitly) {
     process.stderr.write(
       `Warning: Skipping canonical agent skills: no ${SKILLS_REPOSITORY} checkout found.\n` +
-        `Looked for $SKILLS_SRC, ${SKILLS_SOURCE_CANDIDATES.join(", and ")}.\n` +
+        `Point at one with ${LOCAL_CONFIG_NAME} (gitignored; see ${LOCAL_CONFIG_NAME}.example) or $SKILLS_SRC. CI/Docker use skills-src.\n` +
         `Local-only skills will still be assembled.\n`,
     );
   }

@@ -7,7 +7,7 @@
   },
   "scripts": {
     "build:emails": "mkdir -p dist/templates && cp -r src/templates/* dist/templates",
-    "assemble:skills": "node scripts/assemble-agent-skills.mts",
+    "assemble:skills": "node scripts/assemble-agent-skills.mjs",
     "copy:skills": "rimraf -rf dist/agent/skills && mkdir -p dist/agent/skills && cp -r generated/agent-skills/. dist/agent/skills || echo 'Warning: No agent skills to copy'",
     "build:clean": "rimraf -rf dist",
     "build:typescript": "tsc",
@@ -18,7 +18,6 @@
     "start:with-tracing": "node --require ./dist/tracing.opentelemetry.js dist/server.js",
     "start:with-datadog": "node --require ./dist/tracing.datadog.js dist/server.js",
     "repl": "node --require ts-node/register/transpile-only --experimental-repl-await repl",
-    "pretest": "pnpm assemble:skills",
     "test": "DISABLE_PYTHON_MONITOR=true GB_STATS_ENGINE_MIN_POOL_SIZE=0 NODE_OPTIONS='--no-node-snapshot --max-old-space-size=8192' jest",
     "type-check": "tsgo --pretty --noEmit",
     "unused-export-check": "npx ts-unused-exports tsconfig.json --findCompletelyUnusedFiles --allowUnusedTypes --showLineNumber",

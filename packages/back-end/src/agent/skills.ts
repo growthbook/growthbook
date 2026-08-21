@@ -9,7 +9,7 @@ import { logger } from "back-end/src/util/logger";
  *
  * This module is the loader; the content is assembled at build time into
  * `generated/agent-skills` from a growthbook/skills checkout plus the
- * in-app-only `skills-local` tree (see `scripts/assemble-agent-skills.mts`).
+ * in-app-only `skills-local` tree (see `scripts/assemble-agent-skills.mjs`).
  *
  * Layout (one level deep):
  *
@@ -161,8 +161,7 @@ function toSummary({ name, description, kind, group }: Skill): SkillSummary {
 
 let cachedRegistry: SkillRegistry | null = null;
 
-function loadSkillsFromDisk(): SkillRegistry {
-  const dir = resolveSkillsDir();
+function loadSkillsFromDirectory(dir: string | null): SkillRegistry {
   if (!dir) {
     logger.warn(
       `No skills directory found near ${__dirname}; the generic agent will run without skill instructions.`,
@@ -209,10 +208,12 @@ function loadSkillsFromDisk(): SkillRegistry {
 
 function getSkillRegistry(): SkillRegistry {
   if (!cachedRegistry) {
-    cachedRegistry = loadSkillsFromDisk();
+    cachedRegistry = loadSkillsFromDirectory(resolveSkillsDir());
   }
   return cachedRegistry;
 }
+
+export const _loadSkillsFromDirectory = loadSkillsFromDirectory;
 
 /** Domain routers only — the compact index inlined into the system prompt. */
 export function listDomainSkills(): readonly SkillSummary[] {

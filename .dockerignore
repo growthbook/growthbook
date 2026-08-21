@@ -8,8 +8,6 @@ docker-compose.yml
 .eslint*
 .prettier*
 .husky
-# Root-level only: dockerignore patterns don't cross "/", so nested *.md
-# (skills-src, skills-local) reach the context untouched.
 *.md
 **/node_modules
 **/coverage
@@ -36,3 +34,8 @@ packages/front-end/test
 
 # Unneeded dev requirements that get caught in security scans
 packages/stats/dev-requirements.txt
+
+# Skill markdown for assemble:skills. These must follow *.md so the
+# exceptions win.
+!skills-src/**/*.md
+!packages/back-end/src/agent/skills-local/**/*.md
