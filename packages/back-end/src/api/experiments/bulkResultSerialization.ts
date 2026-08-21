@@ -158,25 +158,26 @@ function getPrecomputedDimensionIdsInAnalyses(
 }
 
 // Maps a single per-variation SnapshotMetric into a bulk-results API analysis
-// entry for a given stats engine + difference type. Missing/non-finite stats
-// are emitted as null.
+// entry for a given stats engine + difference type. Missing, non-finite, and
+// errored stats are emitted as null.
 export function toApiResultAnalysis(
   engine: StatsEngine,
   differenceType: DifferenceType,
   data: SnapshotMetric | undefined,
 ) {
+  const serializableData = data?.errorMessage === undefined ? data : undefined;
   return {
     engine,
     differenceType,
-    numerator: safeFloatOrNull(data?.value),
-    denominator: safeFloatOrNull(data?.denominator),
-    mean: safeFloatOrNull(data?.stats?.mean),
-    stddev: safeFloatOrNull(data?.stats?.stddev),
-    effect: safeFloatOrNull(data?.expected),
-    ciLow: safeFloatOrNull(data?.ci?.[0]),
-    ciHigh: safeFloatOrNull(data?.ci?.[1]),
-    pValue: safeFloatOrNull(data?.pValue),
-    chanceToBeatControl: safeFloatOrNull(data?.chanceToWin),
+    numerator: safeFloatOrNull(serializableData?.value),
+    denominator: safeFloatOrNull(serializableData?.denominator),
+    mean: safeFloatOrNull(serializableData?.stats?.mean),
+    stddev: safeFloatOrNull(serializableData?.stats?.stddev),
+    effect: safeFloatOrNull(serializableData?.expected),
+    ciLow: safeFloatOrNull(serializableData?.ci?.[0]),
+    ciHigh: safeFloatOrNull(serializableData?.ci?.[1]),
+    pValue: safeFloatOrNull(serializableData?.pValue),
+    chanceToBeatControl: safeFloatOrNull(serializableData?.chanceToWin),
   };
 }
 

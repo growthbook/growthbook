@@ -254,6 +254,63 @@ describe("toApiResultAnalysis", () => {
     expect(result.mean).toBeNull();
   });
 
+  it("returns null for every statistic on errored placeholders", () => {
+    expect(
+      toApiResultAnalysis("bayesian", "relative", {
+        value: 0,
+        cr: 0,
+        users: 0,
+        denominator: 0,
+        stats: { mean: 0, stddev: 0 },
+        expected: 0,
+        ci: [0, 0],
+        pValue: 0,
+        chanceToWin: 0,
+        errorMessage: "Warehouse query failed",
+      }),
+    ).toEqual({
+      engine: "bayesian",
+      differenceType: "relative",
+      numerator: null,
+      denominator: null,
+      mean: null,
+      stddev: null,
+      effect: null,
+      ciLow: null,
+      ciHigh: null,
+      pValue: null,
+      chanceToBeatControl: null,
+    });
+  });
+
+  it("preserves genuine zero statistics without an error", () => {
+    expect(
+      toApiResultAnalysis("frequentist", "absolute", {
+        value: 0,
+        cr: 0,
+        users: 10,
+        denominator: 0,
+        stats: { mean: 0, stddev: 0 },
+        expected: 0,
+        ci: [0, 0],
+        pValue: 0,
+        chanceToWin: 0,
+      }),
+    ).toEqual({
+      engine: "frequentist",
+      differenceType: "absolute",
+      numerator: 0,
+      denominator: 0,
+      mean: 0,
+      stddev: 0,
+      effect: 0,
+      ciLow: 0,
+      ciHigh: 0,
+      pValue: 0,
+      chanceToBeatControl: 0,
+    });
+  });
+
   it("passes the stored denominator through unchanged", () => {
     expect(
       toApiResultAnalysis("bayesian", "relative", {
@@ -314,13 +371,18 @@ describe("toSnapshotApiInterface (legacy contract)", () => {
     expect(result.results[0].metrics[0].variations[0].variationId).toBe("0");
   });
 
-  it("emits 0 (not null) for missing statistics to preserve its contract", () => {
+  it("keeps errored placeholders as zeros to preserve its contract", () => {
     const snapshot = makeSnapshot();
     snapshot.analyses = [
       makeSuccessAnalysis(
         makeAnalysisSettings({ dimensions: [""] }),
         makeOverallResult("met_1", [
-          { value: 5, cr: 0.5, users: 10 } as SnapshotMetric,
+          {
+            value: 0,
+            cr: 0,
+            users: 0,
+            errorMessage: "Warehouse query failed",
+          } as SnapshotMetric,
         ]),
       ),
     ];
