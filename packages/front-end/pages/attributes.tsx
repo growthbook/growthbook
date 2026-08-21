@@ -118,9 +118,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
   const [referencesProperty, setReferencesProperty] = useState<string | null>(
     null,
   );
-  const referencesAttribute = referencesProperty
-    ? attributeSchema.find((a) => a.property === referencesProperty)
-    : undefined;
+  const referencesAttribute =
+    referencesProperty !== null
+      ? attributeSchema.find((a) => a.property === referencesProperty)
+      : undefined;
 
   const drawRow = (v: SDKAttribute) => {
     const refs = references?.[v.property];
