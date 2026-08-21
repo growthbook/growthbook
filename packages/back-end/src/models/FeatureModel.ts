@@ -1323,40 +1323,68 @@ export async function updateFeature(
   // change: the merge reports no rule diff, so `computeRevisionMergeChanges`
   // omits `changes.rules` while still writing `environmentSettings`, and
   // enabling a feature in a new environment silently drops the rest.
-  // `feature.rules` is the migrated live state the reader already sees, so
-  // persisting it is a no-op on v2 docs and a repair on v1 ones.
-  if (allUpdates.environmentSettings && allUpdates.rules === undefined) {
-    allUpdates.rules = feature.rules ?? [];
-  }
+  // `feature.rules` is the migrated live state the reader already sees.
+  //
+  // Only docs that still need it get the backfill: rewriting a v2 doc's rules
+  // from the pre-image would revert whatever a concurrent publish landed in
+  // between (unguarded callers pass no `casOnDateUpdated`). So it rides a
+  // second attempt, reached only when the first — which claims v2-shaped docs
+  // alone — matches nothing. Exactly one of the two writes ever lands.
+  const rulesBackfill =
+    allUpdates.environmentSettings && allUpdates.rules === undefined
+      ? (feature.rules ?? [])
+      : null;
 
-  const normalizedUpdates = buildFeatureUpdate(allUpdates);
+  const mutation = (payload: typeof allUpdates) => {
+    const normalizedUpdates = buildFeatureUpdate(payload);
 
-  if (Array.isArray(normalizedUpdates.rules)) {
-    const { rules: dedupedRules, collisions } = ensureUniqueRuleIds(
-      normalizedUpdates.rules as FeatureRule[],
-    );
-    if (collisions.length > 0) {
-      logger.warn(
-        { featureId: feature.id, collisions },
-        "Duplicate rule ids auto-suffixed on feature update",
+    if (Array.isArray(normalizedUpdates.rules)) {
+      const { rules: dedupedRules, collisions } = ensureUniqueRuleIds(
+        normalizedUpdates.rules as FeatureRule[],
       );
-      normalizedUpdates.rules = dedupedRules;
+      if (collisions.length > 0) {
+        logger.warn(
+          { featureId: feature.id, collisions },
+          "Duplicate rule ids auto-suffixed on feature update",
+        );
+        normalizedUpdates.rules = dedupedRules;
+      }
     }
-  }
 
-  const writeResult = await FeatureModel.updateOne(
-    {
-      organization: feature.organization,
-      id: feature.id,
-      ...(options?.casOnDateUpdated
-        ? { dateUpdated: options.casOnDateUpdated }
-        : {}),
-    },
-    {
+    return {
       $set: normalizedUpdates,
       ...(options?.unsetHoldout ? { $unset: { holdout: "" } } : {}),
-    },
+    };
+  };
+
+  const filter = {
+    organization: feature.organization,
+    id: feature.id,
+    ...(options?.casOnDateUpdated
+      ? { dateUpdated: options.casOnDateUpdated }
+      : {}),
+  };
+
+  let writeResult = await FeatureModel.updateOne(
+    rulesBackfill
+      ? {
+          ...filter,
+          // Mirrors `topLevelRulesAreV2Shaped` on the read side: every rule we
+          // write carries `allEnvironments` or `environments`.
+          $or: [
+            { "rules.allEnvironments": { $exists: true } },
+            { "rules.environments": { $exists: true } },
+          ],
+        }
+      : filter,
+    mutation(allUpdates),
   );
+  if (rulesBackfill && writeResult.matchedCount === 0) {
+    writeResult = await FeatureModel.updateOne(
+      filter,
+      mutation({ ...allUpdates, rules: rulesBackfill }),
+    );
+  }
   if (options?.casOnDateUpdated && writeResult.matchedCount === 0) {
     throw new CasConflictError();
   }

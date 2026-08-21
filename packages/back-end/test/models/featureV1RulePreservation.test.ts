@@ -149,6 +149,43 @@ describe("updateFeature rule preservation on env-settings writes", () => {
     ]);
   });
 
+  it("does not revert a concurrent rules write on a v2 doc", async () => {
+    const v2Rule = {
+      ...devRule,
+      allEnvironments: false,
+      environments: ["dev"],
+    };
+    await seed({
+      id: "race-flag",
+      rules: [v2Rule],
+      environmentSettings: {
+        dev: { enabled: true },
+        production: { enabled: true },
+      },
+    });
+
+    const preImage = await load("race-flag");
+
+    // A publish lands new rules after the pre-image was read. The env-settings
+    // write below carries no `rules`, so it must leave them alone rather than
+    // backfilling the stale pre-image over them.
+    await mongoose.connection
+      .collection("features")
+      .updateOne(
+        { organization: ORG_ID, id: "race-flag" },
+        { $set: { rules: [{ ...v2Rule, id: "fr_published" }] } },
+      );
+
+    await updateFeature(context, preImage, {
+      environmentSettings: {
+        ...preImage.environmentSettings,
+        "self-hosted": { enabled: true },
+      },
+    });
+
+    expect(await rawRules("race-flag")).toMatchObject([{ id: "fr_published" }]);
+  });
+
   it("still lets a caller replace the rules outright", async () => {
     await seed({
       id: "replace-flag",
