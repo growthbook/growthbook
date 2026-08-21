@@ -184,7 +184,8 @@
   &[data-scroll-x="true"] {
     overflow: auto;
     max-height: calc(100vh - var(--table-sticky-top, 56px) - 24px);
-    border: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12));
+    // Matches the header's rounded top corners, so scrolled content is clipped
+    // to the same shape. No border: the wrapper's is `none !important` above.
     border-radius: var(--radius-4);
 
     :global(.rt-TableRootTable) {
