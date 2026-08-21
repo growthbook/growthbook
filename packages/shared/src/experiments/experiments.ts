@@ -1347,8 +1347,9 @@ export function parseSliceQueryString(
 
   for (const [key, value] of params.entries()) {
     if (key.startsWith("dim:")) {
-      const column = decodeURIComponent(key.substring(4)); // Remove 'dim:' prefix
-      const level = value === "" ? null : decodeURIComponent(value);
+      // URLSearchParams already percent-decodes keys and values
+      const column = key.substring(4); // Remove 'dim:' prefix
+      const level = value === "" ? null : value;
       // Look up datatype from factTableMap if available
       let datatype: "string" | "boolean" = "string";
       if (factTableMap) {
@@ -2170,12 +2171,16 @@ export function getAllExpandedMetricIdsFromExperiment({
 
   // Scoop up expanded metric ids that only exist in the map, not in the base
   // experiment: slice metrics (dim:, standard and custom) and funnel step
-  // metrics (step=).
+  // metrics (step=). The map is often expanded from a wider set of metrics than
+  // `exp` (e.g. before unjoinable metrics were scrubbed), so only take derived
+  // metrics whose parent is actually being analyzed.
   expandedMetricMap.forEach((_, metricId) => {
-    if (
-      /[?&]dim:/.test(metricId) ||
-      parseFunnelStepMetricId(metricId).isFunnelStepMetric
-    ) {
+    const step = parseFunnelStepMetricId(metricId);
+    if (!step.isFunnelStepMetric && !/[?&]dim:/.test(metricId)) return;
+    const parentId = step.isFunnelStepMetric
+      ? step.baseMetricId
+      : parseSliceMetricId(metricId).baseMetricId;
+    if (expandedMetricIds.has(parentId)) {
       expandedMetricIds.add(metricId);
     }
   });

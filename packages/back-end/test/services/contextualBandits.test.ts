@@ -386,6 +386,8 @@ describe("persistContextualBanditEvent", () => {
           create: createCbeMock,
         },
       },
+      auditLog: jest.fn().mockResolvedValue(undefined),
+      logger: { error: jest.fn() },
     } as unknown as ReqContext;
 
     const cbe = await persistContextualBanditEvent(context, cbs, result);

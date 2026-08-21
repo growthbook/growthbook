@@ -111,6 +111,16 @@ export class ApiKeyModel extends BaseClass {
     previousDoc?: ApiKeyInterface,
   ) {
     if (doc.userId) {
+      // Creation only — existing tokens are already rejected at authentication,
+      // and users must still be able to disable or delete the ones they have.
+      if (
+        !previousDoc &&
+        this.context.org.settings?.disablePersonalAccessTokens
+      ) {
+        this.context.throwBadRequestError(
+          "Personal access tokens are disabled for this organization.",
+        );
+      }
       // PATs inherit permissions from their user — scoping fields must not be set
       if (doc.limitAccessByEnvironment) {
         this.context.throwBadRequestError(

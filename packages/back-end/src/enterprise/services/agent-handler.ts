@@ -2,11 +2,12 @@ import { randomUUID } from "crypto";
 import type { Response } from "express";
 import type { ToolSet, TextStreamPart } from "ai";
 import type { AIModel, AIPromptType } from "shared/ai";
-import type { AIChatMessage } from "shared/ai-chat";
+import type { AIChatMention, AIChatMessage } from "shared/ai-chat";
 import { stringifyToolResultForStorage } from "shared/ai-chat";
 import type { AIAgentPendingAction } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AIConversationModel } from "back-end/src/models/AIConversationModel";
 import {
   dispatchInternal,
   type DispatchInput,
@@ -55,6 +56,13 @@ export {
 // Public types
 // =============================================================================
 
+export interface SkillLoadResult {
+  status: "ok";
+  name: string;
+  description: string;
+  body: string;
+}
+
 export interface AgentConfig<TParams = unknown> {
   /** Unique key that scopes conversations to this agent (e.g. "product-analytics"). */
   agentType: string;
@@ -90,6 +98,22 @@ export interface AgentConfig<TParams = unknown> {
     params: TParams,
     emit?: AgentEmit,
   ) => ToolSet;
+
+  /**
+   * Slash-command resolver. Seeded calls use the same shape as a real
+   * `loadSkill` result. Unset (PA chat) makes any `skill` on the body a no-op.
+   */
+  resolveSkill?: (name: string) => SkillLoadResult | undefined;
+
+  /**
+   * Annotate @-mentions with `stale` when they're out of scope for this turn.
+   * Stale mentions still reach the model so it can say they're unavailable.
+   */
+  resolveMentions?: (
+    ctx: ReqContext,
+    mentions: AIChatMention[],
+    params: TParams,
+  ) => Promise<AIChatMention[]>;
 
   temperature?: number;
   maxSteps?: number;
@@ -144,6 +168,8 @@ type AgentRequestBody = {
    * message as a soft `datasourceHint` (see `AIChatUserMessage`).
    */
   datasourceId?: string;
+  mentions?: AIChatMention[];
+  skills?: string[];
 } & Record<string, unknown>;
 
 type ErrorPart = Extract<AgentStreamPart, { type: "error" }>;
@@ -153,6 +179,64 @@ type ErrorPart = Extract<AgentStreamPart, { type: "error" }>;
 // =============================================================================
 
 const activeStreamControllers = new Map<string, AbortController>();
+
+const SSE_KEEPALIVE_MS = 15_000;
+// Keep this below the client's 60-second stale-stream threshold.
+const DB_HEARTBEAT_MS = 30_000;
+
+// SSE pings keep the connection open; Mongo updates support reloads and
+// cancellation handled by another server instance.
+function startStreamHeartbeats({
+  conversations,
+  conversationId,
+  emit,
+  onCancelled,
+}: {
+  conversations: AIConversationModel;
+  conversationId: string;
+  emit: AgentEmit;
+  onCancelled: () => void;
+}) {
+  const sseKeepalive = setInterval(
+    () => emit("keepalive", {}),
+    SSE_KEEPALIVE_MS,
+  );
+
+  let bumpInFlight = false;
+  const dbHeartbeat = setInterval(() => {
+    if (bumpInFlight) return;
+    bumpInFlight = true;
+    void conversations
+      .touchStreamedAt(conversationId)
+      .then((doc) => {
+        if (doc && !doc.isStreaming) {
+          stopSseKeepalive();
+          stopDbHeartbeat();
+          onCancelled();
+        }
+      })
+      .catch((err) => {
+        logger.debug(
+          `Keepalive bump failed for conversation ${conversationId}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      })
+      .finally(() => {
+        bumpInFlight = false;
+      });
+  }, DB_HEARTBEAT_MS);
+
+  const stopSseKeepalive = (): void => {
+    clearInterval(sseKeepalive);
+  };
+
+  const stopDbHeartbeat = (): void => {
+    clearInterval(dbHeartbeat);
+  };
+
+  return { stopSseKeepalive, stopDbHeartbeat };
+}
 
 /**
  * Abort the active LLM stream for a conversation. Called from the cancel
@@ -280,7 +364,24 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
         config.injectDatasourceHint && typeof body.datasourceId === "string"
           ? body.datasourceId
           : undefined;
-      appendUserMessage(buffer, message, body.currentPage, datasourceHint);
+      const skills = Array.from(new Set(body.skills ?? []));
+      const mentions =
+        config.resolveMentions && body.mentions?.length
+          ? await config.resolveMentions(context, body.mentions, params)
+          : body.mentions;
+      appendUserMessage(
+        buffer,
+        message,
+        body.currentPage,
+        datasourceHint,
+        mentions,
+        skills,
+      );
+      if (config.resolveSkill) {
+        for (const name of skills) {
+          seedSkillLoad(buffer, emit, name, config.resolveSkill);
+        }
+      }
     }
     buffer.setStreaming(true);
 
@@ -298,16 +399,30 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
     activeStreamControllers.set(conversationId, abortController);
     let cancelledExternally = false;
 
+    const markCancelledExternally = (): void => {
+      cancelledExternally = true;
+      abortController.abort();
+    };
+
     const checkCancellation = async (): Promise<boolean> => {
       if (cancelledExternally) return true;
       const doc = await context.models.aiConversations.getById(conversationId);
       if (doc && !doc.isStreaming) {
-        cancelledExternally = true;
-        abortController.abort();
+        markCancelledExternally();
         return true;
       }
       return false;
     };
+
+    const heartbeats = startStreamHeartbeats({
+      conversations: context.models.aiConversations,
+      conversationId,
+      emit,
+      onCancelled: markCancelledExternally,
+    });
+
+    // Continue the DB heartbeat so the result survives a disconnected client.
+    res.on("close", heartbeats.stopSseKeepalive);
 
     try {
       const stream = await streamingChatCompletion({
@@ -360,6 +475,8 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
 
       await titlePromise;
     } finally {
+      heartbeats.stopSseKeepalive();
+      heartbeats.stopDbHeartbeat();
       activeStreamControllers.delete(conversationId);
 
       try {
@@ -402,6 +519,8 @@ function appendUserMessage(
   message: string,
   currentPage?: string,
   datasourceHint?: string,
+  mentions?: AIChatMention[],
+  skills?: string[],
 ): void {
   const userMessage: AIChatMessage = {
     role: "user",
@@ -415,8 +534,60 @@ function appendUserMessage(
     ...(datasourceHint && datasourceHint.trim()
       ? { datasourceHint: datasourceHint.trim() }
       : {}),
+    ...(mentions && mentions.length ? { mentions } : {}),
+    ...(skills && skills.length ? { skills } : {}),
   };
   buffer.appendMessages([userMessage]);
+}
+
+function seedSkillLoad(
+  buffer: ConversationBuffer,
+  emit: AgentEmit,
+  name: string,
+  resolveSkill: (name: string) => SkillLoadResult | undefined,
+): void {
+  const result = resolveSkill(name);
+  if (!result) {
+    logger.warn(`Ignoring unknown slash-command skill "${name}"`);
+    return;
+  }
+
+  const toolCallId = randomUUID();
+  const args = { name };
+
+  emit("tool-call-input", {
+    toolCallId,
+    toolName: "loadSkill",
+    input: serializeUnknownForSSE(args),
+  });
+  emit("tool-call-end", {
+    toolName: "loadSkill",
+    toolCallId,
+    input: serializeUnknownForSSE(args),
+    output: serializeUnknownForSSE(result),
+  });
+
+  buffer.appendMessages([
+    {
+      role: "assistant",
+      id: randomUUID(),
+      ts: Date.now(),
+      content: [{ type: "tool-call", toolCallId, toolName: "loadSkill", args }],
+    },
+    {
+      role: "tool",
+      id: randomUUID(),
+      ts: Date.now(),
+      content: [
+        {
+          type: "tool-result",
+          toolCallId,
+          toolName: "loadSkill",
+          result: stringifyToolResultForStorage(result),
+        },
+      ],
+    },
+  ]);
 }
 
 /**
