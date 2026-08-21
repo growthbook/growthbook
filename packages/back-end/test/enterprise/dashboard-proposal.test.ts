@@ -193,4 +193,160 @@ describe("buildDashboardDraft", () => {
     expect("dashboardId" in draft).toBe(false);
     expect("globalControls" in draft).toBe(false);
   });
+
+  it("enrolls chart blocks in the dashboard date control", async () => {
+    // Without this the filter bar is inert for the tile and Update skips it.
+    mockRunExploration.mockResolvedValue({ id: "expl_1" });
+
+    const { draft } = await buildDashboardDraft(
+      ctx,
+      input([chartBlock("Revenue")], {
+        globalControls: { dateRange: { predefined: "last7Days" } },
+      }),
+    );
+
+    expect(draft.blocks[0]["globalControlSettings"]).toEqual({
+      dateRange: true,
+    });
+  });
+
+  it("does not enroll when the dashboard has no date control", async () => {
+    mockRunExploration.mockResolvedValue({ id: "expl_1" });
+
+    const { draft } = await buildDashboardDraft(
+      ctx,
+      input([chartBlock("Revenue")]),
+    );
+
+    expect("globalControlSettings" in draft.blocks[0]).toBe(false);
+  });
+
+  it("queries the config the dashboard date control produces, not the raw one", async () => {
+    // The tile recomputes this same effective config on render and compares its
+    // date fingerprint against what was queried. Querying the raw config leaves
+    // every tile showing "Global controls changed" on an untouched dashboard.
+    mockRunExploration.mockResolvedValue({ id: "expl_1" });
+
+    await buildDashboardDraft(
+      ctx,
+      input([chartBlock("Revenue")], {
+        globalControls: { dateRange: { predefined: "last90Days" } },
+      }),
+    );
+
+    const queriedConfig = mockRunExploration.mock.calls[0][1];
+    expect(queriedConfig.dateRange).toEqual({ predefined: "last90Days" });
+  });
+
+  it("queries the block's own range when the dashboard sets none", async () => {
+    mockRunExploration.mockResolvedValue({ id: "expl_1" });
+
+    await buildDashboardDraft(ctx, input([chartBlock("Revenue")]));
+
+    const queriedConfig = mockRunExploration.mock.calls[0][1];
+    expect(queriedConfig.dateRange).toEqual({ predefined: "last30Days" });
+  });
+
+  it("runs the previous period too when the block compares", async () => {
+    mockRunExploration
+      .mockResolvedValueOnce({ id: "expl_now" })
+      .mockResolvedValueOnce({ id: "expl_prev" });
+
+    const { draft } = await buildDashboardDraft(
+      ctx,
+      input([
+        {
+          ...chartBlock("Revenue"),
+          comparison: { enabled: true, mode: "previousPeriod" as const },
+        },
+      ]),
+    );
+
+    expect(mockRunExploration).toHaveBeenCalledTimes(2);
+    expect(draft.blocks[0]["explorerAnalysisId"]).toBe("expl_now");
+    expect(draft.blocks[0]["comparisonExplorerAnalysisId"]).toBe("expl_prev");
+  });
+
+  it("keeps the primary tile when only the comparison query fails", async () => {
+    mockRunExploration
+      .mockResolvedValueOnce({ id: "expl_now" })
+      .mockRejectedValueOnce(new Error("warehouse down"));
+
+    const { draft, droppedBlocks } = await buildDashboardDraft(
+      ctx,
+      input([
+        {
+          ...chartBlock("Revenue"),
+          comparison: { enabled: true, mode: "previousPeriod" as const },
+        },
+      ]),
+    );
+
+    expect(droppedBlocks).toEqual([]);
+    expect(draft.blocks[0]["explorerAnalysisId"]).toBe("expl_now");
+    expect("comparisonExplorerAnalysisId" in draft.blocks[0]).toBe(false);
+  });
+
+  it("does not run a previous period when comparison is off", async () => {
+    mockRunExploration.mockResolvedValue({ id: "expl_1" });
+
+    await buildDashboardDraft(
+      ctx,
+      input([{ ...chartBlock("Revenue"), comparison: { enabled: false } }]),
+    );
+
+    expect(mockRunExploration).toHaveBeenCalledTimes(1);
+  });
+
+  it("carries a dashboard-wide comparison through to the draft", async () => {
+    mockRunExploration
+      .mockResolvedValueOnce({ id: "expl_now" })
+      .mockResolvedValueOnce({ id: "expl_prev" });
+
+    const { draft } = await buildDashboardDraft(
+      ctx,
+      input([chartBlock("Revenue")], {
+        comparison: { enabled: true, mode: "previousPeriod" as const },
+      }),
+    );
+
+    expect(draft.comparison).toEqual({
+      enabled: true,
+      mode: "previousPeriod",
+    });
+    expect(draft.blocks[0]["comparisonExplorerAnalysisId"]).toBe("expl_prev");
+  });
+
+  it("lets a dashboard-wide comparison turn a block's own comparison off", async () => {
+    // resolveBlockComparison gives the dashboard precedence both ways, so the
+    // previous-period query must not run just because the block asked for one.
+    mockRunExploration.mockResolvedValue({ id: "expl_now" });
+
+    const { draft } = await buildDashboardDraft(
+      ctx,
+      input(
+        [
+          {
+            ...chartBlock("Revenue"),
+            comparison: { enabled: true, mode: "previousPeriod" as const },
+          },
+        ],
+        { comparison: { enabled: false } },
+      ),
+    );
+
+    expect(mockRunExploration).toHaveBeenCalledTimes(1);
+    expect("comparisonExplorerAnalysisId" in draft.blocks[0]).toBe(false);
+  });
+
+  it("omits comparison from the draft when none was asked for", async () => {
+    mockRunExploration.mockResolvedValue({ id: "expl_1" });
+
+    const { draft } = await buildDashboardDraft(
+      ctx,
+      input([chartBlock("Revenue")]),
+    );
+
+    expect("comparison" in draft).toBe(false);
+  });
 });

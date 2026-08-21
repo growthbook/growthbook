@@ -16,9 +16,3 @@
 .saved {
   color: var(--green-11);
 }
-
-// Keep the inline rename from stretching to the full header width.
-.titleField {
-  max-width: 320px;
-  margin-bottom: 0;
-}

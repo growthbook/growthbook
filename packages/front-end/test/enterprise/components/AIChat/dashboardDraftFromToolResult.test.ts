@@ -28,18 +28,23 @@ describe("dashboardDraftFromToolResult", () => {
     expect(parsed?.draft.title).toBe("Growth KPIs");
   });
 
-  it("carries globalControls and dashboardId when present", () => {
+  it("carries globalControls, comparison, and dashboardId when present", () => {
     const parsed = dashboardDraftFromToolResult({
       draft: {
         title: "Growth KPIs",
         blocks: [block],
         dashboardId: "dash_abc",
         globalControls: { dateRange: { predefined: "last90Days" } },
+        comparison: { enabled: true, mode: "previousPeriod" },
       },
     });
     expect(parsed?.draft.dashboardId).toBe("dash_abc");
     expect(parsed?.draft.globalControls).toEqual({
       dateRange: { predefined: "last90Days" },
+    });
+    expect(parsed?.draft.comparison).toEqual({
+      enabled: true,
+      mode: "previousPeriod",
     });
   });
 

@@ -14,6 +14,7 @@ import {
   ProductAnalyticsResultRow,
 } from "shared/validators";
 import {
+  blockComparisonValidator,
   dashboardGlobalControlsValidator,
   proposeDashboardBlockValidator,
   clearInapplicableShowAs,
@@ -975,6 +976,13 @@ const proposeDashboardInputSchema = z.object({
     .optional()
     .describe(
       "Dashboard-wide filter bar: dateRange, dateGranularity, and (for experimentation blocks) projects and experimentSearchString.",
+    ),
+  comparison: blockComparisonValidator
+    .optional()
+    .describe(
+      'Dashboard-wide compare-to-previous-period, e.g. { enabled: true, mode: "previousPeriod" }. ' +
+        "Use this when the user wants the whole dashboard compared against a prior window, " +
+        "rather than setting `comparison` on individual blocks.",
     ),
   blocks: proposeDashboardBlockValidator
     .array()

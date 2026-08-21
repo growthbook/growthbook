@@ -1,4 +1,5 @@
 import {
+  BlockComparison,
   buildComparisonExplorationConfig,
   CreateDashboardBlockInterface,
   DashboardGlobalControls,
@@ -7,6 +8,7 @@ import {
   packDashboardBlocks,
   ProposeDashboardBlock,
   proposedBlockNeedsExploration,
+  resolveBlockComparison,
   resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
 import type { ReqContext } from "back-end/types/request";
@@ -29,6 +31,8 @@ export interface DashboardDraft {
   dashboardId?: string;
   title: string;
   globalControls?: DashboardGlobalControls;
+  /** Dashboard-wide compare-to-previous-period; overrides any per-block setting. */
+  comparison?: BlockComparison;
   blocks: CreateDashboardBlockInterface[];
 }
 
@@ -36,6 +40,7 @@ export interface BuildDashboardDraftInput {
   dashboardId?: string;
   title: string;
   globalControls?: DashboardGlobalControls;
+  comparison?: BlockComparison;
   blocks: ProposeDashboardBlock[];
 }
 
@@ -46,15 +51,23 @@ export interface BuildDashboardDraftResult {
 }
 
 /**
+ * The block shape `getEffectiveExplorationConfig` reads: it only looks at
+ * `config` and `globalControlSettings`, but its parameter is typed as a stored
+ * block. A proposal has neither ids nor an analysis id yet, so this narrows to
+ * what the function actually touches rather than inventing placeholder ids.
+ */
+type EffectiveConfigInput = Parameters<typeof getEffectiveExplorationConfig>[0];
+
+/**
  * Kick off the explorations behind one chart block and return their ids.
  *
  * Two things here are load-bearing for the tile actually rendering:
  *
- * - It runs the *effective* config — the block's own config with the dashboard's
- *   date control applied — because the tile recomputes that same effective
- *   config on render and compares its date fingerprint against what was
- *   queried. Querying the raw config instead leaves every tile showing "Global
- *   controls changed, click Update" on a dashboard nobody has touched yet.
+ * - It queries the *effective* config — the block's own config with the
+ *   dashboard's date control applied — because the tile recomputes that same
+ *   effective config on render and compares its date fingerprint against what
+ *   was queried. Querying the raw config instead leaves every tile showing
+ *   "Global controls changed, click Update" on a dashboard nobody has touched.
  * - It runs the previous-period exploration too when the block compares, since
  *   that is a separate entity; without it a "vs prior period" tile renders
  *   primary-only.
@@ -65,24 +78,22 @@ export interface BuildDashboardDraftResult {
  */
 async function runBlockExplorations(
   context: ReqContext,
-  block: Extract<ProposeDashboardBlock, { config: unknown }>,
-  globalControls: DashboardGlobalControls | undefined,
+  blockType: string,
+  config: EffectiveConfigInput["config"],
+  comparison: BlockComparison | undefined,
 ): Promise<{
   explorerAnalysisId: string;
   comparisonExplorerAnalysisId?: string;
 } | null> {
   try {
-    const config = globalControls
-      ? getEffectiveExplorationConfig(block, { globalControls })
-      : block.config;
-
     const exploration = await runProductAnalyticsExploration(context, config, {
       cache: "preferred",
     });
     if (!exploration?.id) return null;
 
-    const comparison = block.comparison?.enabled ? block.comparison : null;
-    if (!comparison) return { explorerAnalysisId: exploration.id };
+    if (!comparison?.enabled) {
+      return { explorerAnalysisId: exploration.id };
+    }
 
     // A failed comparison must not cost the user the primary tile.
     try {
@@ -100,16 +111,13 @@ async function runBlockExplorations(
       };
     } catch (err) {
       logger.warn(
-        { err, blockType: block.type },
+        { err, blockType },
         "dashboard proposal: comparison exploration failed",
       );
       return { explorerAnalysisId: exploration.id };
     }
   } catch (err) {
-    logger.warn(
-      { err, blockType: block.type },
-      "dashboard proposal: exploration failed",
-    );
+    logger.warn({ err, blockType }, "dashboard proposal: exploration failed");
     return null;
   }
 }
@@ -135,10 +143,33 @@ export async function buildDashboardDraft(
         };
       }
 
+      // Enroll in the dashboard's date control first, matching the
+      // auto-enrollment a hand-built dashboard gets on save. Without it the
+      // filter bar is inert for this tile and Update skips it entirely — and
+      // the effective config below would come back unchanged.
+      const enrolled = {
+        ...block,
+        ...(input.globalControls?.dateRange
+          ? { globalControlSettings: { dateRange: true } }
+          : {}),
+      };
+
+      const config = input.globalControls
+        ? getEffectiveExplorationConfig(enrolled as EffectiveConfigInput, {
+            globalControls: input.globalControls,
+          })
+        : proposed.config;
+
       const ran = await runBlockExplorations(
         context,
-        proposed,
-        input.globalControls,
+        proposed.type,
+        config,
+        // The dashboard-wide setting wins over the block's own, in both
+        // directions — the same precedence the tiles apply when rendering, so
+        // the previous-period query we run is the one they look for.
+        resolveBlockComparison(proposed, {
+          comparison: input.comparison,
+        }) ?? undefined,
       );
       if (!ran) {
         droppedBlocks.push({
@@ -150,16 +181,7 @@ export async function buildDashboardDraft(
       }
 
       return {
-        block: {
-          ...block,
-          ...ran,
-          // Follow the dashboard's date control, matching the auto-enrollment a
-          // hand-built dashboard gets on save. Without this the filter bar is
-          // inert for this tile and Update skips it entirely.
-          ...(input.globalControls?.dateRange
-            ? { globalControlSettings: { dateRange: true } }
-            : {}),
-        } as CreateDashboardBlockInterface,
+        block: { ...enrolled, ...ran } as CreateDashboardBlockInterface,
         sizeHint,
       };
     }),
@@ -174,6 +196,7 @@ export async function buildDashboardDraft(
       ...(input.dashboardId ? { dashboardId: input.dashboardId } : {}),
       title: input.title,
       ...(input.globalControls ? { globalControls: input.globalControls } : {}),
+      ...(input.comparison ? { comparison: input.comparison } : {}),
       blocks: packed,
     },
     droppedBlocks,
