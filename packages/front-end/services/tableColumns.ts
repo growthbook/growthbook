@@ -57,6 +57,18 @@ function isHideable<TRow>(def: TableColumnDef<TRow>): boolean {
   return !def.locked && def.hideable !== false;
 }
 
+/** The effective resize bounds for a column, applying the shared defaults. */
+export function columnWidthBounds<TRow>(def: TableColumnDef<TRow>): {
+  min: number;
+  max: number;
+} {
+  const min = Math.max(
+    def.minWidth ?? MIN_TABLE_COLUMN_WIDTH,
+    HARD_MIN_TABLE_COLUMN_WIDTH,
+  );
+  return { min, max: Math.max(min, def.maxWidth ?? MAX_TABLE_COLUMN_WIDTH) };
+}
+
 function clampWidth<TRow>(
   def: TableColumnDef<TRow>,
   width: number | undefined,
@@ -64,12 +76,8 @@ function clampWidth<TRow>(
   if (width === undefined || !Number.isFinite(width) || width <= 0) {
     return undefined;
   }
-  const min = Math.max(
-    def.minWidth ?? MIN_TABLE_COLUMN_WIDTH,
-    HARD_MIN_TABLE_COLUMN_WIDTH,
-  );
-  const max = def.maxWidth ?? MAX_TABLE_COLUMN_WIDTH;
-  return Math.min(Math.max(width, min), Math.max(min, max));
+  const { min, max } = columnWidthBounds(def);
+  return Math.min(Math.max(width, min), max);
 }
 
 function defaultsFor<TRow>(

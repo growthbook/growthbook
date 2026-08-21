@@ -20,6 +20,13 @@ export type TableProps = Omit<
   stickyTopOffset?: number;
   /** When true (or when variant="list"), first header row gets rounded top corners */
   roundedCorners?: boolean;
+  /**
+   * Opt in to a bounded scroll region so wide tables scroll horizontally. The
+   * header then sticks to that region instead of the viewport — the list variant
+   * neutralises Radix's own scroll area to get viewport-sticky headers, and
+   * overflow-x can't scroll without overflow-y doing the same.
+   */
+  scrollX?: boolean;
 };
 
 export default function Table({
@@ -29,6 +36,7 @@ export default function Table({
   stickyHeader,
   stickyTopOffset = DEFAULT_STICKY_TOP_OFFSET_PX,
   roundedCorners,
+  scrollX,
   className,
   ...props
 }: TableProps) {
@@ -43,6 +51,12 @@ export default function Table({
     if (!isListVariant || !useStickyHeader) return;
     const wrapper = wrapperRef.current;
     if (!wrapper) return;
+    // In a scroll region the header is always stuck to the region's top, so
+    // there is no unstuck state to detect.
+    if (scrollX) {
+      wrapper.setAttribute("data-sticky-active", "true");
+      return;
+    }
     const header = wrapper.querySelector(".rt-TableHeader");
     if (!header) return;
 
@@ -59,7 +73,7 @@ export default function Table({
     check();
     window.addEventListener("scroll", check, { passive: true });
     return () => window.removeEventListener("scroll", check);
-  }, [isListVariant, useStickyHeader, stickyTopOffset]);
+  }, [isListVariant, useStickyHeader, stickyTopOffset, scrollX]);
 
   const radixVariant = variant === "list" ? "surface" : variant;
 
@@ -91,6 +105,7 @@ export default function Table({
       }
       data-table-list
       data-sticky-header={useStickyHeader ? "true" : "false"}
+      data-scroll-x={scrollX ? "true" : undefined}
     >
       {tableElement}
     </div>
