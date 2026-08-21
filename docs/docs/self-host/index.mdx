@@ -142,7 +142,10 @@ If you only build from source in order to layer something on top — a CA certif
 
 ```dockerfile
 FROM growthbook/growthbook:latest
-COPY my-ca.crt /usr/local/share/ca-certificates/
+COPY my-ca.crt /opt/certs/my-ca.crt
+ENV NODE_EXTRA_CA_CERTS=/opt/certs/my-ca.crt
 ```
 
-Substituting public bases (`python:3.11-slim`, `node:24-slim`) is possible, but it isn't a one-line swap: the final stage is built around the hardened layout — the stats engine venv is compiled against the DHI interpreter at `/opt/python`, there is no shell for `RUN` steps, and the process is non-root. A fork taking that route has to carry those adjustments itself, and we don't test that configuration. If `dhi.io` is a hard blocker in your environment, [open an issue](https://github.com/growthbook/growthbook/issues) or find us in [Slack](https://slack.growthbook.io) — we'd like to hear about it.
+Point `NODE_EXTRA_CA_CERTS` at the certificate rather than dropping it in `/usr/local/share/ca-certificates/`: the usual `update-ca-certificates` step needs a shell, which this image doesn't have, and Node wouldn't read the system bundle anyway. Node picks the variable up at startup, so it covers the back-end and front-end processes where GrowthBook makes its outbound connections.
+
+If `dhi.io` is a hard blocker in your environment, [open an issue](https://github.com/growthbook/growthbook/issues) or find us in [Slack](https://slack.growthbook.io) — we'd like to hear about it.

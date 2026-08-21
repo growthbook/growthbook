@@ -140,7 +140,7 @@ mongosh -u root
 
 ### Building the Docker image
 
-Day-to-day development uses `pnpm dev`, so you don't normally need to build the image. If you do change the `Dockerfile` and want to build it locally, run `docker login dhi.io` first: the hardened base images come from Docker's `dhi.io` registry, which rejects unauthenticated requests (including metadata reads) with a `401`. Any free Docker account works — see [Building from source](https://docs.growthbook.io/self-host#building-from-source) for details. CI does not build the image, so a PR won't fail for want of these credentials.
+Day-to-day development uses `pnpm dev`, so you don't normally need to build the image. If you do change the `Dockerfile` and want to build it locally, run `docker login dhi.io` first: the hardened base images come from Docker's `dhi.io` registry, which rejects unauthenticated requests (including metadata reads) with a `401`. Any free Docker account works — see [Building from source](https://docs.growthbook.io/self-host#building-from-source) for details. You don't need your own credentials for CI: the preview workflow builds `Dockerfile` changes for pull requests from a branch on this repo, using the repo's own credentials, and skips the build entirely for pull requests from forks.
 
 ### Working on docs
 
