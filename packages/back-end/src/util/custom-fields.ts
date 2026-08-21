@@ -208,3 +208,24 @@ export async function validateCustomFieldsForSection({
 
   validateCustomFieldValues(applicableCustomFields, customFieldValues ?? {});
 }
+
+/** Plural variant for entities scoped to several projects, such as attributes. */
+export async function validateCustomFieldsForSectionAndProjects({
+  customFieldValues,
+  projects,
+  section,
+  customFieldsModel,
+}: {
+  customFieldValues: Record<string, unknown> | undefined;
+  projects: string[] | undefined;
+  section: CustomFieldSection;
+  customFieldsModel: CustomFieldModel;
+}): Promise<void> {
+  const applicableCustomFields =
+    (await customFieldsModel.getCustomFieldsBySectionAndProjects({
+      section,
+      projects,
+    })) ?? [];
+
+  validateCustomFieldValues(applicableCustomFields, customFieldValues ?? {});
+}

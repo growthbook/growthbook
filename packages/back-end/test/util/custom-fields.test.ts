@@ -2,6 +2,7 @@ import { CustomField } from "shared/types/custom-fields";
 import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
+  validateCustomFieldsForSectionAndProjects,
 } from "back-end/src/util/custom-fields";
 
 const buildCustomField = (
@@ -19,6 +20,13 @@ const buildCustomField = (
 
 const buildCustomFieldsModel = (fields: CustomField[] | null | undefined) => ({
   getCustomFieldsBySectionAndProject: jest.fn().mockResolvedValue(fields),
+});
+
+// The plural variant is what multi-project entities (attributes) validate through.
+const buildPluralCustomFieldsModel = (
+  fields: CustomField[] | null | undefined,
+) => ({
+  getCustomFieldsBySectionAndProjects: jest.fn().mockResolvedValue(fields),
 });
 
 describe("custom fields validation", () => {
@@ -543,6 +551,62 @@ describe("custom fields validation", () => {
           customFieldValues: { cfd_owners: "team-a" },
           customFieldsModel: buildCustomFieldsModel([field]),
           section: "feature",
+        }),
+      ).resolves.toBeUndefined();
+    });
+  });
+
+  describe("validateCustomFieldsForSectionAndProjects", () => {
+    const attrField = (overrides: Partial<CustomField> = {}) =>
+      buildCustomField({ sections: ["attribute"], ...overrides });
+
+    it("passes the entity's projects through to the model", async () => {
+      const model = buildPluralCustomFieldsModel([]);
+      await validateCustomFieldsForSectionAndProjects({
+        customFieldValues: {},
+        projects: ["proj_a", "proj_b"],
+        section: "attribute",
+        customFieldsModel: model as never,
+      });
+      expect(model.getCustomFieldsBySectionAndProjects).toHaveBeenCalledWith({
+        section: "attribute",
+        projects: ["proj_a", "proj_b"],
+      });
+    });
+
+    it("rejects a value for a field that does not apply", async () => {
+      await expect(
+        validateCustomFieldsForSectionAndProjects({
+          customFieldValues: { cfd_test: "x" },
+          projects: [],
+          section: "attribute",
+          customFieldsModel: buildPluralCustomFieldsModel([]) as never,
+        }),
+      ).rejects.toThrow("No custom fields are available to be defined.");
+    });
+
+    it("validates an enum value against the field's allowed values", async () => {
+      const field = attrField({
+        id: "team",
+        name: "Team",
+        type: "enum",
+        values: "Platform,Growth",
+      });
+      await expect(
+        validateCustomFieldsForSectionAndProjects({
+          customFieldValues: { team: "Nope" },
+          projects: ["proj_a"],
+          section: "attribute",
+          customFieldsModel: buildPluralCustomFieldsModel([field]) as never,
+        }),
+      ).rejects.toThrow("Invalid enum value for custom field team");
+
+      await expect(
+        validateCustomFieldsForSectionAndProjects({
+          customFieldValues: { team: "Growth" },
+          projects: ["proj_a"],
+          section: "attribute",
+          customFieldsModel: buildPluralCustomFieldsModel([field]) as never,
         }),
       ).resolves.toBeUndefined();
     });

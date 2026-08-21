@@ -154,7 +154,7 @@ function CustomFieldsTable({
   );
 }
 
-const TAB_VALUES = ["all", "feature", "experiment"] as const;
+const TAB_VALUES = ["all", "feature", "experiment", "attribute"] as const;
 
 const CustomFields: FC = () => {
   const [activeFilter, setActiveFilter] = useURLHash(TAB_VALUES);
@@ -286,8 +286,8 @@ const CustomFields: FC = () => {
           )}
         </div>
         <p className="text-gray mb-4">
-          Add custom metadata to feature flags and experiments. Choose whether
-          each field applies to Features, Experiments, or both.
+          Add custom metadata to feature flags, experiments, and targeting
+          attributes. Choose which of those each field applies to.
         </p>
         <DndContext
           sensors={sensors}
@@ -305,6 +305,7 @@ const CustomFields: FC = () => {
                 <TabsTrigger value="all">All</TabsTrigger>
                 <TabsTrigger value="feature">Feature</TabsTrigger>
                 <TabsTrigger value="experiment">Experiment</TabsTrigger>
+                <TabsTrigger value="attribute">Attribute</TabsTrigger>
               </TabsList>
             </Box>
             <TabsContent value="all">
@@ -343,6 +344,22 @@ const CustomFields: FC = () => {
               <Box className="appbox">
                 <CustomFieldsTable
                   filter="experiment"
+                  items={items}
+                  duplicateIds={duplicateIds}
+                  showRequired={true}
+                  deleteCustomField={deleteCustomField}
+                  toggleCustomField={toggleCustomField}
+                  setModalOpen={setModalOpen}
+                  handleMoveUp={handleMoveUp}
+                  handleMoveDown={handleMoveDown}
+                  canManage={canManage}
+                />
+              </Box>
+            </TabsContent>
+            <TabsContent value="attribute">
+              <Box className="appbox">
+                <CustomFieldsTable
+                  filter="attribute"
                   items={items}
                   duplicateIds={duplicateIds}
                   showRequired={true}
