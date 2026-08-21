@@ -30,6 +30,9 @@ import CollapsedSteps, {
 } from "@/enterprise/components/AIChat/CollapsedSteps";
 import { useCollapsibleActiveTurnItems } from "@/enterprise/components/AIChat/useCollapsibleActiveTurnItems";
 import MessageTokens from "@/enterprise/components/AIChat/MessageTokens";
+import DashboardPreviewBubble, {
+  dashboardDraftFromToolResult,
+} from "./DashboardPreviewBubble";
 import ExplorationBubble, {
   chartDataFromToolResult,
   chartDataFromRecord,
@@ -41,6 +44,7 @@ export const TOOL_STATUS_LABELS: Record<string, string> = {
   search: "Searching...",
   getAvailableColumns: "Inspecting data shape...",
   getColumnValues: "Inspecting values...",
+  proposeDashboard: "Building dashboard...",
 };
 
 function groupIntoBlocks(
@@ -88,12 +92,14 @@ function classifyAssistantBlockMessages(msgs: AIChatMessage[]): {
     }
 
     if (msg.role === "tool") {
-      const hasChart = msg.content.some(
+      const hasArtifact = msg.content.some(
         (part) =>
-          part.toolName === "runExploration" &&
-          chartDataFromToolResult(part.result) !== null,
+          (part.toolName === "runExploration" &&
+            chartDataFromToolResult(part.result) !== null) ||
+          (part.toolName === "proposeDashboard" &&
+            dashboardDraftFromToolResult(part.result) !== null),
       );
-      if (hasChart) {
+      if (hasArtifact) {
         finalContent.push(msg);
         continue;
       }
@@ -128,6 +134,12 @@ interface ChatMessageListProps {
   scrollContainerRef: React.RefObject<HTMLDivElement>;
   messagesEndRef: React.RefObject<HTMLDivElement>;
   onScroll: () => void;
+  /**
+   * Rendered after the messages and inside the scroll area — for the prompts
+   * that end a turn (a question, a mutation awaiting approval), which belong
+   * at the foot of the transcript rather than pinned over the composer.
+   */
+  footer?: React.ReactNode;
 }
 
 export default function ChatMessageList({
@@ -145,6 +157,7 @@ export default function ChatMessageList({
   scrollContainerRef,
   messagesEndRef,
   onScroll,
+  footer,
 }: ChatMessageListProps) {
   const hasAnyContent = messages.length > 0 || activeTurnItems.length > 0;
   const messageBlocks = groupIntoBlocks(messages);
@@ -160,7 +173,8 @@ export default function ChatMessageList({
         item.kind === "tool-status" &&
         item.status === "done" &&
         !!item.toolResultData &&
-        chartDataFromRecord(item.toolResultData) !== null,
+        (chartDataFromRecord(item.toolResultData) !== null ||
+          dashboardDraftFromToolResult(item.toolResultData) !== null),
     },
   );
 
@@ -266,6 +280,31 @@ export default function ChatMessageList({
     }
 
     if (item.kind === "tool-status") {
+      const proposal =
+        item.status === "done" && item.toolResultData
+          ? dashboardDraftFromToolResult(item.toolResultData)
+          : null;
+      if (proposal) {
+        return (
+          <DashboardPreviewBubble
+            key={item.toolCallId}
+            draft={proposal.draft}
+            droppedBlocks={proposal.droppedBlocks}
+            toolTransparency={
+              <ToolUsageDetails
+                embedded
+                summaryLabel="Dashboard definition"
+                toolInput={item.toolInput}
+                argsTextPreview={item.argsTextPreview}
+                toolOutput={item.toolOutput}
+                toolCallId={item.toolCallId}
+                openStateRef={toolDetailsOpenRef}
+              />
+            }
+          />
+        );
+      }
+
       const chartData = item.toolResultData
         ? chartDataFromRecord(item.toolResultData)
         : null;
@@ -368,6 +407,29 @@ export default function ChatMessageList({
     if (msg.role === "tool") {
       return msg.content.map((part, i) => {
         const pairedCall = findToolCallPart(messages, part);
+
+        if (part.toolName === "proposeDashboard") {
+          const proposal = dashboardDraftFromToolResult(part.result);
+          if (proposal) {
+            return (
+              <DashboardPreviewBubble
+                key={`${msg.id}-r${i}`}
+                draft={proposal.draft}
+                droppedBlocks={proposal.droppedBlocks}
+                toolTransparency={
+                  <ToolUsageDetails
+                    embedded
+                    summaryLabel="Dashboard definition"
+                    toolInput={pairedCall?.args}
+                    toolOutput={part.result}
+                    toolCallId={part.toolCallId}
+                    openStateRef={toolDetailsOpenRef}
+                  />
+                }
+              />
+            );
+          }
+        }
 
         if (part.toolName === "runExploration") {
           const chartData = chartDataFromToolResult(part.result);
@@ -571,6 +633,8 @@ export default function ChatMessageList({
           <Text size="sm">{error}</Text>
         </ErrorBubble>
       )}
+
+      {footer}
 
       <div ref={messagesEndRef} />
     </Flex>

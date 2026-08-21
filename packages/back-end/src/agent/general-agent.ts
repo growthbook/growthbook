@@ -1,23 +1,16 @@
-import { randomUUID } from "crypto";
-import { z } from "zod";
-import type { AIAgentPendingAction } from "shared/validators";
-import { aiTool } from "back-end/src/enterprise/services/ai";
 import {
   createAgentHandler,
   type AgentConfig,
-  type SkillLoadResult,
 } from "back-end/src/enterprise/services/agent-handler";
-import { AWAITING_CONFIRMATION_RESULT } from "back-end/src/enterprise/services/stream-processor";
 import {
-  dispatchInternal,
-  normalizePath,
-  type DispatchInput,
-  type DispatchResult,
-} from "back-end/src/agent/dispatcher";
+  buildAgentApiTools,
+  loadSkillResult,
+  _coerceBody,
+  _requiresMutationConfirmation,
+} from "back-end/src/agent/shared-tools";
 import {
   assembleSkillsIndexForPrompt,
-  getSkillByName,
-  getSkillNames,
+  isSurfaceScopedSkill,
 } from "back-end/src/agent/skills";
 
 // =============================================================================
@@ -41,6 +34,11 @@ How to use the \`callApi\` tool:
 - When a write is the right next step, just issue the call. You do NOT need to
   ask the user to confirm writes before making them — issuing the call is how
   you propose the change.
+- On any write, pass \`summary\`: one line naming what changes, in the user's
+  terms rather than the API's. It is the only thing they read before approving —
+  the request body is collapsed — so "Create dashboard 'Growth KPIs' with 6
+  blocks: revenue KPI, signup trend, …" is useful and "Create a dashboard" is
+  not.
 
 How to use the \`askUser\` tool:
 - Use it ONLY when the request is genuinely ambiguous and you can't pick a
@@ -60,18 +58,24 @@ How to end a turn:
   user-visible content — emit no plain text after it).
 
 How to use skills:
-- The "Available skills" section lists **domain routers** only (\`feature-flags\`,
-  \`experiments\`, \`product-analytics\`, \`growthbook-docs\`). Full instructions
-  are NOT inlined — load them with \`loadSkill\`.
+- The "Available skills" section lists **domain routers** only. Full
+  instructions are NOT inlined — load them with \`loadSkill\`.
 - **Two-step workflow** for domain routers that have sub-skills:
   1. \`loadSkill('<domain>')\` — read orientation, page-context mapping, shared
      guardrails, and the **Sub-skills** table (leaf names + when to use each).
   2. \`loadSkill('<leaf>')\` — follow that leaf's detailed \`callApi\` workflow.
 - **Standalone domains** (\`product-analytics\`, \`growthbook-docs\`) have no
   children — one \`loadSkill\` is enough.
+- The composer's slash-command menu offers **domain routers only**, so a
+  user-picked skill is nearly always a router: read its sub-skill table and load
+  the leaf that matches what they actually asked for.
 - Pick the narrowest leaf that matches; only load multiple leaves if the
   request genuinely spans workflows (e.g. create flag then target it).
 - If no domain fits, ask the user to clarify. Do not invent endpoints.
+- **Dashboards are built elsewhere.** You cannot create or edit an Analytics
+  dashboard from this panel. If the user asks for one, say so in a sentence and
+  point them at the AI chat on the Product Analytics page
+  ([Product analytics](/product-analytics)), which can build it for them.
 - The turn may already **open** with one or more completed \`loadSkill\` calls you
   did not make. Those are skills the user picked explicitly from the composer's
   slash-command menu, so treat them as their stated intent: follow them rather
@@ -213,265 +217,6 @@ function buildGeneralAgentSystemPrompt(): string {
 }
 
 // =============================================================================
-// Path matchers & helpers
-// =============================================================================
-
-const EXPLORATION_PATH_RE =
-  /^\/api\/v[12]\/product-analytics\/(metric|fact-table|data-source)-exploration\/?$/;
-
-/** Read-only POST that looks up distinct column values for a fact table. The
- * product-analytics skill mandates calling this during normal chart building,
- * so it must be exempt from the mutation-confirmation gate. */
-const COLUMN_VALUES_PATH_RE =
-  /^\/api\/v[12]\/product-analytics\/column-values\/?$/;
-
-function isExplorationPath(path: string): boolean {
-  // Normalize first so we match the canonical `/api/v1/...` form the
-  // dispatcher routes to, regardless of the prefix shape the LLM sent
-  // (`/api/v1/...`, `/v1/...`, or `/...`). Also strips any query string.
-  return EXPLORATION_PATH_RE.test(normalizePath(path));
-}
-
-/**
- * Deterministic mutation gate. Any non-GET call mutates configuration and is
- * parked for explicit user confirmation, except a small allowlist of
- * read-only POSTs (experiment snapshot refreshes, product-analytics
- * explorations, and column-value lookups) that compute or read data without
- * changing configuration.
- *
- * The path is normalized first (via the dispatcher's `normalizePath`) so the
- * allowlist matches regardless of whether the LLM sends `/api/v1/...`,
- * `/v1/...`, or `/...` — the same forms the dispatcher accepts when routing.
- */
-function requiresMutationConfirmation(input: DispatchInput): boolean {
-  if (input.method === "GET") return false;
-  const path = normalizePath(input.path);
-  if (/^\/api\/v[12]\/experiments\/[^/]+\/snapshot\/?$/.test(path)) {
-    return false;
-  }
-  if (isExplorationPath(path)) {
-    return false;
-  }
-  if (COLUMN_VALUES_PATH_RE.test(path)) {
-    return false;
-  }
-  return true;
-}
-
-/**
- * Models occasionally serialize `body` as a JSON-encoded string ("the JSON")
- * instead of an object even when told not to. Detect that and parse it back
- * to an object so the underlying handler's schema validates cleanly.
- *
- * This is intentionally permissive — only triggers when the string starts
- * with `{` or `[` after trim. Anything else is passed through unchanged.
- */
-function coerceBody(body: unknown): unknown {
-  if (typeof body !== "string") return body;
-  const trimmed = body.trim();
-  if (!trimmed || (trimmed[0] !== "{" && trimmed[0] !== "[")) {
-    return body;
-  }
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    // Not valid JSON — let the handler reject it with a real error.
-    return body;
-  }
-}
-
-/**
- * Trim the response body the agent sees for two reasons: keep token usage
- * sane on big list endpoints, and keep the agent focused on actionable parts
- * (status, message, the relevant top-level fields).
- *
- * For successful exploration responses we elide `exploration.result.rows`
- * (which the chart UI uses but the agent doesn't read row-by-row) and
- * surface only summary fields.
- */
-const MAX_BODY_CHARS = 16_000;
-
-function summarizeResult(result: DispatchResult): {
-  status: number;
-  body: unknown;
-} {
-  const { status, body } = result;
-  if (
-    status >= 200 &&
-    status < 300 &&
-    body &&
-    typeof body === "object" &&
-    !Array.isArray(body)
-  ) {
-    const b = body as Record<string, unknown>;
-    if (b.exploration && typeof b.exploration === "object") {
-      const exp = b.exploration as Record<string, unknown>;
-      const result = exp.result as { rows?: unknown[] } | undefined;
-      const rowCount = Array.isArray(result?.rows) ? result.rows.length : 0;
-      // Keep config but elide row data — the chart UI gets the full body
-      // through the chart-result SSE event.
-      return {
-        status,
-        body: {
-          ...b,
-          exploration: {
-            ...exp,
-            result: {
-              ...(result ?? {}),
-              rows: undefined,
-              rowCount,
-            },
-          },
-        },
-      };
-    }
-  }
-
-  // Fall-through: cap body size as a guardrail against runaway responses.
-  const serialized = safeStringify(body);
-  if (serialized.length > MAX_BODY_CHARS) {
-    return {
-      status,
-      body: {
-        truncated: true,
-        message:
-          "Response was too large to include in full. Re-call with narrower filters or pagination params.",
-        preview: serialized.slice(0, MAX_BODY_CHARS),
-      },
-    };
-  }
-
-  return result;
-}
-
-function safeStringify(v: unknown): string {
-  try {
-    return JSON.stringify(v);
-  } catch {
-    return String(v);
-  }
-}
-
-// =============================================================================
-// Tool schemas & descriptions
-// =============================================================================
-
-// --- callApi ---------------------------------------------------------------
-
-const callApiInputSchema = z.object({
-  method: z
-    .enum(["GET", "POST", "PUT", "PATCH", "DELETE"])
-    .describe("HTTP method for the request"),
-  path: z
-    .string()
-    .describe(
-      "Full path including version prefix, e.g. '/api/v1/features/feat_abc'",
-    ),
-  query: z
-    .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
-    .optional()
-    .describe("Query string parameters as a flat object of strings"),
-  body: z
-    .unknown()
-    .optional()
-    .describe(
-      "Request body for POST/PUT/PATCH. Pass it as a JSON object/array " +
-        "directly — do NOT wrap it in a JSON-encoded string. Example: " +
-        '`{"foo": "bar"}`, not `"{\\"foo\\":\\"bar\\"}"`.',
-    ),
-});
-
-const CALL_API_DESCRIPTION =
-  "Make a request to the GrowthBook REST API. " +
-  "Use `loadSkill` first to get the workflow and endpoint details for the " +
-  "capability area you need. Returns { status, body }: 2xx is success, " +
-  "non-2xx contains an error message in body.message.";
-
-// --- loadSkill -------------------------------------------------------------
-
-const loadSkillInputSchema = z.object({
-  name: z
-    .string()
-    .min(1)
-    .describe(
-      "Name of the skill to load (must match one of the names in the 'Available skills' list in the system prompt).",
-    ),
-});
-
-const LOAD_SKILL_DESCRIPTION =
-  "Load the full instructions for a named skill. Call this when you've " +
-  "decided which skill applies to the user's request — its return value " +
-  "contains the detailed REST API workflow (endpoints, request bodies, " +
-  "examples) for that capability area. Returns { status, name, description, " +
-  "body } on a hit, or { status: 'not_found', availableSkills } if the " +
-  "name doesn't match — in which case retry with a valid name.";
-
-/**
- * The `loadSkill` hit result, built in one place so a call the model makes and
- * one seeded from a slash command are byte-identical — the model reads both in
- * the same transcript, and the shape is what `LOAD_SKILL_DESCRIPTION` promises.
- */
-function loadSkillResult(name: string): SkillLoadResult | undefined {
-  const skill = getSkillByName(name);
-  if (!skill) return undefined;
-  return {
-    status: "ok",
-    name: skill.name,
-    description: skill.description,
-    body: skill.body,
-  };
-}
-
-// --- askUser ---------------------------------------------------------------
-
-const askUserOptionSchema = z.object({
-  id: z
-    .string()
-    .min(1)
-    .describe(
-      "Stable identifier for the option (e.g. a datasource id). The agent will receive this back via the user's reply context.",
-    ),
-  label: z
-    .string()
-    .min(1)
-    .max(200)
-    .describe("Display text shown on the button — short and unambiguous."),
-  description: z
-    .string()
-    .max(300)
-    .optional()
-    .describe("Optional sub-line shown under the label for extra context."),
-});
-
-const askUserInputSchema = z.object({
-  question: z
-    .string()
-    .min(1)
-    .max(500)
-    .describe("Plain-language question to present to the user."),
-  options: z
-    .array(askUserOptionSchema)
-    .min(2)
-    .max(8)
-    .describe(
-      "Two to eight options the user can pick from. Order them by likelihood.",
-    ),
-  allowMultiple: z
-    .boolean()
-    .optional()
-    .default(false)
-    .describe(
-      "If true, the user can select multiple options. Default is single-select.",
-    ),
-});
-
-const ASK_USER_DESCRIPTION =
-  "Ask the user a multiple-choice question and stop. The chat UI renders the " +
-  "options as clickable buttons; the user's pick arrives as the next chat " +
-  "message. Use only when the request is ambiguous and you cannot pick a " +
-  "sensible default. After calling this, end your turn.";
-
-// =============================================================================
 // AgentConfig
 // =============================================================================
 
@@ -491,129 +236,16 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
 
   buildSystemPrompt: async () => buildGeneralAgentSystemPrompt(),
 
-  resolveSkill: loadSkillResult,
+  // Everything except the skills that belong to another surface. Building a
+  // dashboard needs `proposeDashboard`, which only the Product Analytics chat
+  // has, so loading that skill here would strand the turn on a missing tool.
+  resolveSkill: (name) =>
+    isSurfaceScopedSkill(name) ? undefined : loadSkillResult(name),
 
-  buildTools: (ctx, buffer, _params, emit) => {
-    const stripQueryStrings = (
-      query: Record<string, string | number | boolean> | undefined,
-    ): Record<string, string> | undefined => {
-      if (!query) return undefined;
-      const out: Record<string, string> = {};
-      for (const [k, v] of Object.entries(query)) {
-        out[k] = String(v);
-      }
-      return out;
-    };
-
-    return {
-      loadSkill: aiTool({
-        description: LOAD_SKILL_DESCRIPTION,
-        inputSchema: loadSkillInputSchema,
-        execute: async (input) => {
-          const result = loadSkillResult(input.name);
-          if (!result) {
-            return {
-              status: "not_found" as const,
-              message: `No skill named "${input.name}". Pick one from availableSkills and retry.`,
-              availableSkills: getSkillNames(),
-            };
-          }
-          return result;
-        },
-      }),
-
-      callApi: aiTool({
-        description: CALL_API_DESCRIPTION,
-        inputSchema: callApiInputSchema,
-        execute: async (input) => {
-          const query = stripQueryStrings(input.query);
-          const dispatchInput: DispatchInput = {
-            method: input.method,
-            path: input.path,
-            query,
-            body: coerceBody(input.body),
-          };
-
-          // Deterministic mutation gate: never execute a mutating call here.
-          // Park it on the conversation, surface a confirmation prompt, and
-          // return the awaiting-confirmation sentinel. The StreamProcessor
-          // drops this tool-call from the transcript and the handler ends the
-          // turn; the user's decision is replayed as a real call/result pair
-          // next turn, so the model never sees the gate.
-          if (requiresMutationConfirmation(dispatchInput)) {
-            const pendingAction: AIAgentPendingAction = {
-              id: randomUUID(),
-              method: dispatchInput.method,
-              path: dispatchInput.path,
-              ...(query ? { query } : {}),
-              ...(dispatchInput.body !== undefined
-                ? { body: dispatchInput.body }
-                : {}),
-              summary: `${dispatchInput.method} ${dispatchInput.path.split("?")[0]}`,
-              createdAt: Date.now(),
-            };
-            buffer.setPendingAction(pendingAction);
-            if (emit) {
-              emit("confirm-action", {
-                actionId: pendingAction.id,
-                method: pendingAction.method,
-                path: pendingAction.path,
-                summary: pendingAction.summary,
-                ...(pendingAction.query ? { query: pendingAction.query } : {}),
-                ...(pendingAction.body !== undefined
-                  ? { body: pendingAction.body }
-                  : {}),
-              });
-            }
-            return AWAITING_CONFIRMATION_RESULT;
-          }
-
-          const result = await dispatchInternal(ctx, dispatchInput, {
-            onSuccess: (i, res) => {
-              if (
-                emit &&
-                res.status >= 200 &&
-                res.status < 300 &&
-                isExplorationPath(i.path) &&
-                res.body &&
-                typeof res.body === "object" &&
-                "exploration" in (res.body as Record<string, unknown>) &&
-                (res.body as { exploration: unknown }).exploration
-              ) {
-                emit("chart-result", res.body);
-              }
-            },
-          });
-          return summarizeResult(result);
-        },
-      }),
-
-      askUser: aiTool({
-        description: ASK_USER_DESCRIPTION,
-        inputSchema: askUserInputSchema,
-        execute: async (input) => {
-          // Surface the question to the chat UI. The frontend renders the
-          // options as buttons; clicking one triggers a regular user message
-          // (the option's label) on the next turn.
-          if (emit) {
-            emit("ask-user", {
-              question: input.question,
-              options: input.options,
-              allowMultiple: input.allowMultiple ?? false,
-            });
-          }
-          // The tool result is mostly a marker for the agent that the
-          // question was delivered. We deliberately don't include the
-          // options here — the agent already knows them from the input.
-          return {
-            status: "asked",
-            message:
-              "Question shown to the user. Stop now — wait for their reply on the next turn.",
-          };
-        },
-      }),
-    };
-  },
+  // Every tool the general agent has is a shared one — it is the agent with no
+  // domain of its own, so it carries no extra tools and no skill restriction.
+  buildTools: (ctx, buffer, _params, emit) =>
+    buildAgentApiTools(ctx, buffer, emit),
 
   temperature: 0.1,
   maxSteps: 20,
@@ -627,5 +259,5 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
 export const postGeneralAgentChat = createAgentHandler(generalAgentConfig);
 
 // Exposed for unit tests — see test/agent/general-agent.test.ts
-export const _coerceBody = coerceBody;
-export const _requiresMutationConfirmation = requiresMutationConfirmation;
+// Re-exported from shared-tools so existing tests keep their import path.
+export { _coerceBody, _requiresMutationConfirmation };

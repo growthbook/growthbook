@@ -20,6 +20,7 @@ import {
 import {
   SkillCommand,
   filterSkillItems,
+  skillDisplayName,
   type SkillItem,
 } from "@/enterprise/components/AIChat/Composer/extensions/skillCommand";
 import { metricTypeLabel } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
@@ -292,17 +293,42 @@ describe("chat composer serialization", () => {
     });
   });
 
+  describe("skillDisplayName", () => {
+    it("opens up hyphens and capitalizes only the first word", () => {
+      expect(skillDisplayName("flag-default-value")).toBe("Flag default value");
+      expect(skillDisplayName("dashboard-create")).toBe("Dashboard create");
+    });
+
+    it("leaves a single-word id alone apart from the initial capital", () => {
+      expect(skillDisplayName("dashboards")).toBe("Dashboards");
+    });
+
+    it("tolerates stray and repeated hyphens", () => {
+      expect(skillDisplayName("-flag--create-")).toBe("Flag create");
+    });
+
+    it("returns an empty string for an empty id", () => {
+      expect(skillDisplayName("")).toBe("");
+    });
+
+    it("keeps the pinned spelling of a proper noun", () => {
+      expect(skillDisplayName("growthbook-docs")).toBe("GrowthBook docs");
+    });
+  });
+
   describe("filterSkillItems", () => {
     const items: SkillItem[] = [
       {
         id: "feature-flags",
         label: "feature-flags",
+        title: "Feature flags",
         description: "Read and modify flags",
         kind: "domain",
       },
       {
         id: "flag-targeting",
         label: "flag-targeting",
+        title: "Flag targeting",
         description: "Targeting rules",
         kind: "leaf",
         group: "feature-flags",
@@ -310,6 +336,7 @@ describe("chat composer serialization", () => {
       {
         id: "experiments",
         label: "experiments",
+        title: "Experiments",
         description: "Targeting an audience",
         kind: "domain",
       },

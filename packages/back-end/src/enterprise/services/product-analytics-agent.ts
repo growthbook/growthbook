@@ -14,33 +14,47 @@ import {
   ProductAnalyticsResultRow,
 } from "shared/validators";
 import {
-  ColumnInterface,
-  FactMetricInterface,
-  FactTableInterface,
-} from "shared/types/fact-table";
-import {
+  blockComparisonValidator,
+  dashboardGlobalControlsValidator,
+  proposeDashboardBlockValidator,
   clearInapplicableShowAs,
   getEffectiveShowAs,
   getIsRatioByIndex,
   buildExplorationColumns,
   getExplorationCellValue,
 } from "shared/enterprise";
+import {
+  FactMetricInterface,
+  FactTableInterface,
+} from "shared/types/fact-table";
+import { buildDashboardDraft } from "back-end/src/enterprise/services/dashboard-proposal";
 import type { ReqContext } from "back-end/types/request";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
+import {
+  createProductAnalyticsSearchLoaders,
+  discoveryResultToToolString,
+  getProductAnalyticsColumnValues,
+  getProductAnalyticsColumns,
+  runProductAnalyticsSearch,
+} from "back-end/src/enterprise/services/product-analytics-discovery";
 import { aiTool } from "back-end/src/enterprise/services/ai";
 import type { ConversationBuffer } from "back-end/src/enterprise/services/conversation-buffer";
 import {
   createAgentHandler,
   type AgentConfig,
+  type SkillLoadResult,
 } from "back-end/src/enterprise/services/agent-handler";
+import {
+  buildAgentApiTools,
+  loadSkillResult,
+} from "back-end/src/agent/shared-tools";
+import { getSkillNamesForDomain } from "back-end/src/agent/skills";
 import {
   getFactTable,
   getFactTablesForDatasource,
   getAllFactTablesForOrganization,
 } from "back-end/src/models/FactTableModel";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getMetricById } from "back-end/src/models/MetricModel";
-import { runColumnsTopValuesQuery } from "back-end/src/services/factTableColumns";
 
 // =============================================================================
 // Constants & system prompt
@@ -58,6 +72,31 @@ Standard workflow for building a chart:
 
 For follow-up modifications ("break down by country", "change to last 90 days", etc.), start from the config returned by the previous runExploration and apply the requested changes — do not rebuild from scratch.
 </workflow>
+
+<dashboards>
+Building or editing a dashboard is a different job from building a chart, and it does NOT use the chart tools above.
+
+1. Settle the brief. You MUST have a name for the dashboard — if the user hasn't given one, call \`askUser\` (or ask in one short sentence) and stop. Everything else has a default: take it, and say what you assumed.
+2. \`loadSkill('dashboards')\` — read the router, then the leaf it points to (\`dashboard-create\` or \`dashboard-edit\`).
+3. \`proposeDashboard\` — once, with every block. The server runs each query, lays out the grid, and shows the user a live preview with a Save button.
+
+Hard rules:
+- Do NOT call \`runExploration\` for a dashboard. Each call renders its own chart card, so a six-tile dashboard would spray six loose charts into the chat before the dashboard even appears. Pass the configs to \`proposeDashboard\` and let it run them.
+- Do NOT save the dashboard yourself. The user saves it from the preview.
+- After \`proposeDashboard\` returns, stop: one short sentence naming what's on it. They can change the layout, filters, name, and sharing in the preview, and ask you for anything else.
+- To change a proposed dashboard, call \`proposeDashboard\` again with the full revised block list. Adding or swapping metrics happens through you, not in the preview.
+
+\`loadSkill\` here only resolves the dashboard skills; there is nothing else to load.
+</dashboards>
+
+<tools>
+Beyond the chart tools, you have:
+
+- \`loadSkill\` — read a dashboard workflow. See <dashboards>.
+- \`proposeDashboard\` — build or revise a dashboard. See <dashboards>.
+- \`callApi\` — call the GrowthBook REST API: { method, path (full, including version), query?, body?, summary? }. The response is { status, body }; treat 2xx as success. Only call paths documented in a skill you have loaded — never invent one. On a write, pass \`summary\`: one line naming what changes in the user's terms, because it is the only thing they read before approving, and the request body is collapsed. Writes are gated for confirmation automatically — just issue the call; do not ask permission first.
+- \`askUser\` — ask a multiple-choice question and stop, when the request is genuinely ambiguous and no sensible default exists. Emit no text after it; the reply arrives as the next message.
+</tools>
 
 <chart_rules>
 Timeseries charts (line, area, timeseries-table): always include a date dimension.
@@ -435,218 +474,6 @@ function explorationConfigFromLatestRun(
   return null;
 }
 
-/**
- * Light singularization so queries like "page views" still match metrics
- * named "Page View" (and vice versa). Deliberately simple — this is a
- * heuristic, not a full stemmer.
- */
-function singularizeWord(word: string): string {
-  if (word.length <= 3) return word;
-  if (word.endsWith("ies") && word.length > 4) {
-    return word.slice(0, -3) + "y";
-  }
-  if (/(sses|shes|ches|xes|zes)$/.test(word)) {
-    return word.slice(0, -2);
-  }
-  if (
-    word.endsWith("s") &&
-    !word.endsWith("ss") &&
-    !word.endsWith("us") &&
-    !word.endsWith("is")
-  ) {
-    return word.slice(0, -1);
-  }
-  return word;
-}
-
-function normalizeForSearch(text: string): string {
-  return text
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean)
-    .map(singularizeWord)
-    .join(" ");
-}
-
-/**
- * Score a search query against a haystack string.
- * - Exact name/id match with the full query: 10
- * - Full query found as substring in haystack: 5
- * - Per-token: each token found in haystack adds 1 point
- * Matching is also performed on a singularized form of both the query and
- * the haystack so plural/singular differences don't hide results.
- * Returns 0 if no tokens match.
- */
-function scoreSearch(
-  q: string,
-  qNorm: string,
-  tokens: string[],
-  tokensNorm: string[],
-  haystack: string,
-  haystackNorm: string,
-  name: string,
-  id: string,
-): number {
-  const nameLower = name.toLowerCase();
-  const idLower = id.toLowerCase();
-  const exactMatch =
-    nameLower === q || idLower === q || normalizeForSearch(nameLower) === qNorm;
-  if (exactMatch) return 10;
-
-  const fullSubstring = haystack.includes(q) || haystackNorm.includes(qNorm);
-  let score = fullSubstring ? 5 : 0;
-
-  if (tokens.length > 1) {
-    for (let i = 0; i < tokens.length; i++) {
-      if (
-        haystack.includes(tokens[i]) ||
-        haystackNorm.includes(tokensNorm[i])
-      ) {
-        score += 1;
-      }
-    }
-  }
-
-  return score;
-}
-
-async function executeSearch(
-  getMetrics: () => Promise<FactMetricInterface[]>,
-  getFactTables: () => Promise<FactTableInterface[]>,
-  input: { query: string; limit: number; skip: number },
-): Promise<string> {
-  const { query, limit, skip } = input;
-  const q = query.trim().toLowerCase();
-  const isBlank = q.length === 0;
-  const tokens = q.split(/\s+/).filter(Boolean);
-  const qNorm = normalizeForSearch(q);
-  const tokensNorm = tokens.map(singularizeWord);
-
-  type ScoredResult = { score: number; name: string; result: unknown };
-  const all: ScoredResult[] = [];
-
-  const metrics = await getMetrics();
-  for (const m of metrics) {
-    const metricResult = {
-      kind: "metric" as const,
-      explorerType: "metric" as const,
-      id: m.id,
-      name: m.name,
-      type: m.metricType,
-      official: m.managedBy === "admin",
-      description: m.description ?? null,
-      owner: m.owner ?? null,
-      tags: m.tags ?? [],
-    };
-    if (isBlank) {
-      all.push({ score: 0, name: m.name, result: metricResult });
-      continue;
-    }
-    const haystack = [
-      m.id,
-      m.name,
-      m.description ?? "",
-      m.owner ?? "",
-      ...(m.tags ?? []),
-    ]
-      .join(" ")
-      .toLowerCase();
-    const haystackNorm = normalizeForSearch(haystack);
-    const score = scoreSearch(
-      q,
-      qNorm,
-      tokens,
-      tokensNorm,
-      haystack,
-      haystackNorm,
-      m.name,
-      m.id,
-    );
-    if (score > 0) {
-      all.push({ score, name: m.name, result: metricResult });
-    }
-  }
-
-  const factTables = await getFactTables();
-  for (const ft of factTables) {
-    const ftResult = {
-      kind: "fact_table" as const,
-      explorerType: "fact_table" as const,
-      id: ft.id,
-      name: ft.name,
-      official: ft.managedBy === "admin",
-      eventName: ft.eventName ?? null,
-      columnCount: (ft.columns ?? []).filter((c) => !c.deleted).length,
-    };
-    if (isBlank) {
-      all.push({ score: 0, name: ft.name, result: ftResult });
-      continue;
-    }
-    const haystack = [ft.id, ft.name, ft.eventName ?? ""]
-      .join(" ")
-      .toLowerCase();
-    const haystackNorm = normalizeForSearch(haystack);
-    const score = scoreSearch(
-      q,
-      qNorm,
-      tokens,
-      tokensNorm,
-      haystack,
-      haystackNorm,
-      ft.name,
-      ft.id,
-    );
-    if (score > 0) {
-      all.push({ score, name: ft.name, result: ftResult });
-    }
-  }
-
-  const sorted = isBlank
-    ? all.sort((a, b) => a.name.localeCompare(b.name))
-    : all.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
-
-  const totalMatches = sorted.length;
-  const matches = sorted.slice(skip, skip + limit).map((x) => x.result);
-
-  if (!matches.length) {
-    if (isBlank) {
-      return JSON.stringify(
-        {
-          matches: [],
-          totalMetrics: metrics.length,
-          totalFactTables: factTables.length,
-          totalMatches: 0,
-        },
-        null,
-        2,
-      );
-    }
-    return JSON.stringify(
-      {
-        matches: [],
-        totalMetrics: metrics.length,
-        totalFactTables: factTables.length,
-        totalMatches: 0,
-        message: `No results found for "${query}".`,
-      },
-      null,
-      2,
-    );
-  }
-  return JSON.stringify(
-    {
-      matches,
-      totalMetrics: metrics.length,
-      totalFactTables: factTables.length,
-      totalMatches,
-      skip,
-      limit,
-    },
-    null,
-    2,
-  );
-}
-
 type RunExplorationToolResult =
   | {
       summary: string;
@@ -1006,223 +833,6 @@ async function executeGetSnapshot(
   );
 }
 
-async function executeGetAvailableColumns(
-  ctx: ReqContext,
-  input: z.infer<typeof getAvailableColumnsInputSchema>,
-): Promise<string> {
-  switch (input.source) {
-    case "fact_table": {
-      const { factTableId } = input;
-      if (!factTableId) return "factTableId is required for fact_table source.";
-      const ft = await getFactTable(ctx, factTableId);
-      if (!ft) return `Fact table "${factTableId}" not found.`;
-      const columns = (ft.columns ?? [])
-        .filter((c) => !c.deleted)
-        .sort((a, b) => (a.name || a.column).localeCompare(b.name || b.column))
-        .map((c) => ({ column: c.column, name: c.name, datatype: c.datatype }));
-      return JSON.stringify(
-        {
-          columns,
-          userIdTypes: ft.userIdTypes ?? [],
-          unitNote: ft.userIdTypes?.length
-            ? `For valueType "unit_count", set unit to one of userIdTypes (default: "${ft.userIdTypes[0]}"). For "count" or "sum", set unit to null.`
-            : 'No userIdTypes configured — use valueType "count" or "sum" only; set unit to null.',
-        },
-        null,
-        2,
-      );
-    }
-
-    case "metric": {
-      const { metricIds } = input;
-      if (!metricIds?.length) return "metricIds is required for metric source.";
-      const metrics = await ctx.models.factMetrics.getByIds(metricIds);
-      let columns: FactTableInterface["columns"] | null = null;
-      let userIdTypes: string[] = [];
-      const metricUnitInfo: {
-        metricId: string;
-        metricType: string;
-        needsUnit: boolean;
-      }[] = [];
-
-      const ftIds = [
-        ...new Set(
-          metrics
-            .map((m) => m.numerator?.factTableId)
-            .filter((id): id is string => !!id),
-        ),
-      ];
-      const factTables = await Promise.all(
-        ftIds.map((id) => getFactTable(ctx, id)),
-      );
-      const ftMap = new Map(ftIds.map((id, i) => [id, factTables[i]] as const));
-
-      for (const m of metrics) {
-        const needsUnit =
-          m.metricType === "proportion" ||
-          m.metricType === "retention" ||
-          m.metricType === "dailyParticipation" ||
-          (m.metricType === "ratio" &&
-            m.numerator?.column === "$$distinctUsers");
-
-        metricUnitInfo.push({
-          metricId: m.id,
-          metricType: m.metricType,
-          needsUnit,
-        });
-
-        if (!m.numerator?.factTableId) continue;
-        const ft = ftMap.get(m.numerator.factTableId) ?? null;
-        if (!userIdTypes.length && ft?.userIdTypes?.length) {
-          userIdTypes = ft.userIdTypes;
-        }
-        const ftCols = (ft?.columns ?? []).filter((c) => !c.deleted);
-        if (columns === null) {
-          columns = ftCols;
-        } else {
-          const nameSet = new Set(ftCols.map((c) => c.column));
-          columns = columns.filter((c) => nameSet.has(c.column));
-        }
-      }
-
-      const result = (columns ?? [])
-        .sort((a, b) => (a.name || a.column).localeCompare(b.name || b.column))
-        .map((c) => ({ column: c.column, name: c.name, datatype: c.datatype }));
-
-      const unitNote = userIdTypes.length
-        ? `For metrics where needsUnit=true, set unit to one of userIdTypes (default: "${userIdTypes[0]}"). For others, set unit to null.`
-        : "No userIdTypes found — set unit to null for all metrics.";
-
-      return JSON.stringify(
-        { columns: result, userIdTypes, metrics: metricUnitInfo, unitNote },
-        null,
-        2,
-      );
-    }
-  }
-}
-
-async function executeGetColumnValues(
-  ctx: ReqContext,
-  input: z.infer<typeof getColumnValuesInputSchema>,
-): Promise<string> {
-  const { columns: requestedColumns, searchTerm, limit } = input;
-
-  type RawCol = { column: string; datatype: string };
-  let factTableSql: string;
-  let factTableEventName: string;
-  let datasourceId: string;
-  let availableColumns: RawCol[];
-
-  switch (input.source) {
-    case "fact_table": {
-      const { factTableId } = input;
-      if (!factTableId) return "factTableId is required for fact_table source.";
-      const ft = await getFactTable(ctx, factTableId);
-      if (!ft) return `Fact table "${factTableId}" not found.`;
-      factTableSql = ft.sql;
-      factTableEventName = ft.eventName ?? "";
-      datasourceId = ft.datasource;
-      availableColumns = (ft.columns ?? [])
-        .filter((c) => !c.deleted)
-        .map((c) => ({ column: c.column, datatype: c.datatype }));
-      break;
-    }
-
-    case "metric": {
-      const { metricIds } = input;
-      if (!metricIds?.length) return "metricIds is required for metric source.";
-      const metrics = await ctx.models.factMetrics.getByIds(metricIds);
-      const firstWithFt = metrics.find((m) => m.numerator?.factTableId);
-      if (!firstWithFt?.numerator?.factTableId) {
-        return "Could not resolve a fact table from the provided metric IDs.";
-      }
-      const ft = await getFactTable(ctx, firstWithFt.numerator.factTableId);
-      if (!ft) return `Fact table not found.`;
-      factTableSql = ft.sql;
-      factTableEventName = ft.eventName ?? "";
-      datasourceId = ft.datasource;
-      availableColumns = (ft.columns ?? [])
-        .filter((c) => !c.deleted)
-        .map((c) => ({ column: c.column, datatype: c.datatype }));
-      break;
-    }
-  }
-
-  const datasource = await getDataSourceById(ctx, datasourceId);
-  if (!datasource) return `Datasource not found.`;
-
-  // Separate requested columns into queryable (string-typed), skipped (wrong type), not-found
-  const colsToQuery: ColumnInterface[] = [];
-  const nonStringCols: string[] = [];
-  const notFoundCols: string[] = [];
-
-  for (const name of requestedColumns) {
-    const found = availableColumns.find((c) => c.column === name);
-    if (!found) {
-      notFoundCols.push(name);
-    } else if (found.datatype !== "string") {
-      nonStringCols.push(name);
-    } else {
-      colsToQuery.push({
-        column: name,
-        name,
-        datatype: "string",
-        numberFormat: "",
-        description: "",
-        deleted: false,
-        dateCreated: new Date(0),
-        dateUpdated: new Date(0),
-      });
-    }
-  }
-
-  const warnings: string[] = [];
-  if (nonStringCols.length)
-    warnings.push(`Skipped (non-string type): ${nonStringCols.join(", ")}`);
-  if (notFoundCols.length)
-    warnings.push(`Columns not found: ${notFoundCols.join(", ")}`);
-
-  if (colsToQuery.length === 0) {
-    return JSON.stringify(
-      { values: {}, warnings: warnings.length ? warnings : undefined },
-      null,
-      2,
-    );
-  }
-
-  let rawValues: Record<string, string[]>;
-  try {
-    rawValues = await runColumnsTopValuesQuery(
-      ctx,
-      datasource,
-      { sql: factTableSql, eventName: factTableEventName },
-      colsToQuery,
-    );
-  } catch (err) {
-    return `Failed to query column values on ${datasource.type}: ${
-      err instanceof Error ? err.message : "Unknown error"
-    }`;
-  }
-
-  // Apply searchTerm filter and respect limit
-  const values: Record<string, string[]> = {};
-  for (const col of Object.keys(rawValues)) {
-    let vals = rawValues[col];
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      vals = vals.filter((v) => v.toLowerCase().includes(term));
-    }
-    values[col] = vals.slice(0, limit);
-  }
-
-  return JSON.stringify(
-    { values, warnings: warnings.length ? warnings : undefined },
-    null,
-    2,
-  );
-}
-
 // =============================================================================
 // Tool schemas & wiring
 // =============================================================================
@@ -1348,6 +958,49 @@ const RUN_EXPLORATION_DESCRIPTION =
   "Use config and resultCsv for analysis and follow-up modifications. Ignore the exploration field (internal use). " +
   "Call getSnapshot only for older or compacted snapshots.";
 
+const proposeDashboardInputSchema = z.object({
+  title: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe(
+      "The dashboard's name, as the user gave it. Ask for it before calling this if they haven't said.",
+    ),
+  dashboardId: z
+    .string()
+    .optional()
+    .describe(
+      "Only when revising a dashboard that already exists. Omit for a new one.",
+    ),
+  globalControls: dashboardGlobalControlsValidator
+    .optional()
+    .describe(
+      "Dashboard-wide filter bar: dateRange, dateGranularity, and (for experimentation blocks) projects and experimentSearchString.",
+    ),
+  comparison: blockComparisonValidator
+    .optional()
+    .describe(
+      'Dashboard-wide compare-to-previous-period, e.g. { enabled: true, mode: "previousPeriod" }. ' +
+        "Use this when the user wants the whole dashboard compared against a prior window, " +
+        "rather than setting `comparison` on individual blocks.",
+    ),
+  blocks: proposeDashboardBlockValidator
+    .array()
+    .min(1)
+    .max(20)
+    .describe(
+      "The blocks, in reading order. Chart blocks carry only their `config` — the server runs each query and wires up the result, so do not run the charts yourself first.",
+    ),
+});
+
+const PROPOSE_DASHBOARD_DESCRIPTION =
+  "Propose a dashboard and show it to the user as a live, laid-out preview with " +
+  "a Save button. This is the ONLY way to build or revise a dashboard — do not " +
+  "run the charts with runExploration first, and do not POST to the dashboards " +
+  "API. The server runs every query, arranges the grid, and renders the result. " +
+  "The user can adjust the layout, filters, name, and sharing in the preview, " +
+  "then save. After calling this, stop and let them look at it.";
+
 const GET_SNAPSHOT_DESCRIPTION =
   "Retrieve configuration and result CSV for a snapshot by snapshotId from conversation history. " +
   "Prefer using the runExploration return value (especially resultCsv) for the run you just executed. " +
@@ -1387,6 +1040,27 @@ async function resolveProductAnalyticsMentions(
   );
 }
 
+/**
+ * The only skill domain this chat can load. Dashboards are the natural next
+ * step from a chart ("save these as a dashboard"), so the dashboard workflows
+ * belong here — but an analytics chat has no business publishing a Feature Flag,
+ * so everything else stays out. Scoping the resolver, not just the `/` menu,
+ * means the model cannot reach another domain's endpoints even if it guesses
+ * the skill name.
+ */
+export const PRODUCT_ANALYTICS_CHAT_SKILL_DOMAIN = "dashboards";
+
+function productAnalyticsSkillNames(): string[] {
+  return getSkillNamesForDomain(PRODUCT_ANALYTICS_CHAT_SKILL_DOMAIN);
+}
+
+function resolveProductAnalyticsSkill(
+  name: string,
+): SkillLoadResult | undefined {
+  if (!productAnalyticsSkillNames().includes(name)) return undefined;
+  return loadSkillResult(name);
+}
+
 const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
   agentType: "product-analytics",
   promptType: "product-analytics-chat",
@@ -1401,43 +1075,51 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
   resolveMentions: (ctx, mentions, { datasourceId }) =>
     resolveProductAnalyticsMentions(ctx, mentions, datasourceId),
 
-  buildTools: (ctx, buffer, { datasourceId }) => {
-    let metricsCache: FactMetricInterface[] | null = null;
-    const getMetrics = async (): Promise<FactMetricInterface[]> => {
-      if (metricsCache) return metricsCache;
-      const all = await ctx.models.factMetrics.getAll();
-      metricsCache = datasourceId
-        ? all.filter((m) => m.datasource === datasourceId)
-        : all;
-      return metricsCache;
-    };
+  resolveSkill: resolveProductAnalyticsSkill,
 
-    let factTablesCache: FactTableInterface[] | null = null;
-    const getFactTables = async (): Promise<FactTableInterface[]> => {
-      if (factTablesCache) return factTablesCache;
-      factTablesCache = datasourceId
-        ? await getFactTablesForDatasource(ctx, datasourceId)
-        : await getAllFactTablesForOrganization(ctx);
-      return factTablesCache;
-    };
+  buildTools: (ctx, buffer, { datasourceId }, emit) => {
+    // Memoized for the whole turn: a chat turn searches several times and each
+    // miss refetches every metric in the org.
+    const searchLoaders = createProductAnalyticsSearchLoaders(
+      ctx,
+      datasourceId,
+    );
 
     return {
+      // Chart building runs on the five purpose-built tools below; `loadSkill`
+      // / `callApi` / `askUser` are what let the same chat go on to save the
+      // charts as a dashboard. `callApi` writes only through the shared
+      // confirmation gate.
+      ...buildAgentApiTools(ctx, buffer, emit, {
+        resolveSkill: resolveProductAnalyticsSkill,
+        availableSkillNames: productAnalyticsSkillNames,
+      }),
+
       search: aiTool({
         description: SEARCH_DESCRIPTION,
         inputSchema: searchInputSchema,
-        execute: (input) => executeSearch(getMetrics, getFactTables, input),
+        execute: async (input) =>
+          discoveryResultToToolString(
+            await runProductAnalyticsSearch(searchLoaders, input),
+          ),
       }),
 
       getAvailableColumns: aiTool({
         description: GET_AVAILABLE_COLUMNS_DESCRIPTION,
         inputSchema: getAvailableColumnsInputSchema,
-        execute: (input) => executeGetAvailableColumns(ctx, input),
+        execute: async (input) =>
+          discoveryResultToToolString(
+            await getProductAnalyticsColumns(ctx, input),
+          ),
       }),
 
       getColumnValues: aiTool({
         description: GET_COLUMN_VALUES_DESCRIPTION,
         inputSchema: getColumnValuesInputSchema,
-        execute: (input) => executeGetColumnValues(ctx, input),
+        execute: async (input) =>
+          discoveryResultToToolString(
+            await getProductAnalyticsColumnValues(ctx, input),
+          ),
       }),
 
       runExploration: aiTool({
@@ -1445,6 +1127,36 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
         inputSchema: runExplorationInputSchema,
         execute: ({ config }, { abortSignal }) =>
           executeRunExploration(ctx, buffer, config, abortSignal),
+      }),
+
+      proposeDashboard: aiTool({
+        description: PROPOSE_DASHBOARD_DESCRIPTION,
+        inputSchema: proposeDashboardInputSchema,
+        execute: async (input) => {
+          const { draft, droppedBlocks } = await buildDashboardDraft(ctx, {
+            ...input,
+            globalControls: input.globalControls,
+          });
+          if (!draft.blocks.length) {
+            return {
+              status: "error" as const,
+              message:
+                "None of the proposed blocks could be built. Check the metric ids and " +
+                "date range, then try again — do not present this as a finished dashboard.",
+              droppedBlocks,
+            };
+          }
+          // The draft rides in the tool result rather than an SSE event so the
+          // preview re-renders from the transcript after a reload.
+          return {
+            status: "shown" as const,
+            message:
+              "Dashboard preview shown to the user with a Save button. Stop now — " +
+              "describe it in one short sentence and let them review it. Do not save it yourself.",
+            draft,
+            ...(droppedBlocks.length ? { droppedBlocks } : {}),
+          };
+        },
       }),
 
       getSnapshot: aiTool({

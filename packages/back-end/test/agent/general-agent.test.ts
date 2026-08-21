@@ -152,6 +152,32 @@ describe("requiresMutationConfirmation (deterministic mutation gate)", () => {
         path: "/api/v1/product-analytics/data-source-exploration",
       }),
     ).toBe(false);
+    expect(
+      _requiresMutationConfirmation({
+        method: "POST",
+        path: "/api/v1/product-analytics/funnel-exploration",
+      }),
+    ).toBe(false);
+  });
+
+  it("allows product analytics column-value lookups without confirmation", () => {
+    expect(
+      _requiresMutationConfirmation({
+        method: "POST",
+        path: "/api/v1/product-analytics/column-values",
+      }),
+    ).toBe(false);
+  });
+
+  it("still gates a dashboard create", () => {
+    // The dashboard builder's one write. It must reach the confirmation card —
+    // that card is the user's only review of a multi-block dashboard.
+    expect(
+      _requiresMutationConfirmation({
+        method: "POST",
+        path: "/api/v1/dashboards",
+      }),
+    ).toBe(true);
   });
 
   it("ignores query strings when matching the allowlist", () => {

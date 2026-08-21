@@ -227,7 +227,11 @@ export function getLeafSkillsForDomain(domainName: string): Skill[] {
  * Leaf bodies load on demand via `loadSkill` after reading the router.
  */
 export function assembleSkillsIndexForPrompt(): string {
-  const domains = getDomainSkills();
+  // Surface-scoped domains are left out: advertising a skill this agent cannot
+  // load just invites it to try.
+  const domains = getDomainSkills().filter(
+    (s) => !SURFACE_SCOPED_SKILL_DOMAINS.includes(s.name),
+  );
   if (!domains.length) return "";
   return domains
     .map((s) => `- **${s.name}** — ${s.description || "(no description)"}`)
@@ -242,4 +246,39 @@ export function getSkillNames(): string[] {
 /** Test-only: clears the cached skills so a fresh read happens next call. */
 export function _clearSkillCacheForTests(): void {
   cachedSkills = null;
+}
+
+/**
+ * Skill domains that belong to one chat surface rather than the site-wide
+ * assistant.
+ *
+ * `dashboards` needs the `proposeDashboard` tool, which only the Product
+ * Analytics chat has — the assistant panel cannot render a dashboard preview,
+ * so offering the skill there would advertise a workflow that dead-ends on a
+ * missing tool. Kept as data so the resolver, the prompt index, and the `/` menu
+ * all agree.
+ */
+export const SURFACE_SCOPED_SKILL_DOMAINS: readonly string[] = ["dashboards"];
+
+/** True when this skill belongs to a specific surface, not the general agent. */
+export function isSurfaceScopedSkill(name: string): boolean {
+  const skill = getSkillByName(name);
+  if (!skill) return false;
+  return SURFACE_SCOPED_SKILL_DOMAINS.includes(skill.group ?? skill.name);
+}
+
+/**
+ * Names of a domain router and every leaf beneath it.
+ *
+ * Used to scope an agent to one domain: the Product Analytics chat offers the
+ * dashboard skills but has no business loading the Feature Flag ones, and an
+ * agent that cannot load a skill never learns the endpoints it documents.
+ */
+export function getSkillNamesForDomain(domainName: string): string[] {
+  const domain = getSkillByName(domainName);
+  if (!domain || domain.kind !== "domain") return [];
+  return [
+    domain.name,
+    ...getLeafSkillsForDomain(domainName).map((s) => s.name),
+  ];
 }

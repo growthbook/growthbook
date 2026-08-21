@@ -30,6 +30,10 @@ import ChatComposer, {
   type ComposerSubmission,
 } from "@/enterprise/components/AIChat/Composer/ChatComposer";
 import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
+import {
+  PRODUCT_ANALYTICS_CHAT_SKILL_DOMAIN,
+  useSkillMenuItems,
+} from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
 import { PA_AI_CHAT_INITIAL_MESSAGE_KEY } from "./util";
 import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
 
@@ -50,10 +54,13 @@ export default function EmptyState() {
   const { draftExploreState } = useExplorerContext();
   const { items: mentionItems, ready: mentionItemsReady } =
     useMetricMentionItems(draftExploreState.datasource);
+  // Same scope as the chat this hands off to, so a skill picked here is one the
+  // agent on the other side can actually load.
+  const skillItems = useSkillMenuItems(PRODUCT_ANALYTICS_CHAT_SKILL_DOMAIN);
 
   const handleSubmit = useCallback(
     (
-      { text, mentions }: ComposerSubmission = {
+      { text, mentions, skills }: ComposerSubmission = {
         text: input,
         mentions: [],
         skills: [],
@@ -63,7 +70,7 @@ export default function EmptyState() {
       if (!trimmed) return;
       sessionStorage.setItem(
         PA_AI_CHAT_INITIAL_MESSAGE_KEY,
-        JSON.stringify({ text: trimmed, mentions }),
+        JSON.stringify({ text: trimmed, mentions, skills }),
       );
       router.push("/product-analytics/explore/ai-chat");
     },
@@ -209,6 +216,7 @@ export default function EmptyState() {
                   disabled={chatDisabled || isDataSourceEmpty}
                   mentionItems={mentionItems}
                   mentionItemsReady={mentionItemsReady}
+                  skillItems={skillItems}
                 />
               </Box>
 

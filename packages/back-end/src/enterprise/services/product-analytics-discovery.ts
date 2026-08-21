@@ -1,0 +1,538 @@
+import {
+  ColumnInterface,
+  FactMetricInterface,
+  FactTableInterface,
+} from "shared/types/fact-table";
+import { ProductAnalyticsColumnSource } from "shared/validators";
+import type { ReqContext } from "back-end/types/request";
+import {
+  getFactTable,
+  getFactTablesForDatasource,
+  getAllFactTablesForOrganization,
+} from "back-end/src/models/FactTableModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { runColumnsTopValuesQuery } from "back-end/src/services/factTableColumns";
+
+/**
+ * The three read-only lookups a caller needs before it can build a product
+ * analytics exploration: find a metric or fact table, list the columns it
+ * exposes, and read the real values in one of those columns.
+ *
+ * Extracted from the product-analytics chat agent so the REST endpoints and the
+ * agent's tools share one implementation — the agent's markdown skill documents
+ * these as `/api/v1/product-analytics/{search,columns,column-values}`, and two
+ * implementations would drift the moment either side changed.
+ */
+
+/**
+ * Lookups fail for reasons the caller wants to shape differently — a chat tool
+ * hands the model a sentence to recover from, a REST endpoint owes the client a
+ * 4xx — so failure is a value here rather than a thrown error or a bare string
+ * baked into the payload.
+ */
+export type ProductAnalyticsDiscoveryResult =
+  | { ok: true; data: Record<string, unknown> }
+  | { ok: false; message: string };
+
+const ok = (
+  data: Record<string, unknown>,
+): ProductAnalyticsDiscoveryResult => ({
+  ok: true,
+  data,
+});
+const fail = (message: string): ProductAnalyticsDiscoveryResult => ({
+  ok: false,
+  message,
+});
+
+export interface ProductAnalyticsSearchInput {
+  query: string;
+  limit: number;
+  skip: number;
+}
+
+export interface ProductAnalyticsColumnsInput {
+  source: ProductAnalyticsColumnSource;
+  factTableId?: string;
+  metricIds?: string[];
+}
+
+export interface ProductAnalyticsColumnValuesInput
+  extends ProductAnalyticsColumnsInput {
+  columns: string[];
+  searchTerm?: string;
+  limit: number;
+}
+
+// =============================================================================
+// search
+// =============================================================================
+
+/**
+ * Light singularization so queries like "page views" still match metrics
+ * named "Page View" (and vice versa). Deliberately simple — this is a
+ * heuristic, not a full stemmer.
+ */
+function singularizeWord(word: string): string {
+  if (word.length <= 3) return word;
+  if (word.endsWith("ies") && word.length > 4) {
+    return word.slice(0, -3) + "y";
+  }
+  if (/(sses|shes|ches|xes|zes)$/.test(word)) {
+    return word.slice(0, -2);
+  }
+  if (
+    word.endsWith("s") &&
+    !word.endsWith("ss") &&
+    !word.endsWith("us") &&
+    !word.endsWith("is")
+  ) {
+    return word.slice(0, -1);
+  }
+  return word;
+}
+
+function normalizeForSearch(text: string): string {
+  return text
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(singularizeWord)
+    .join(" ");
+}
+
+/**
+ * Score a search query against a haystack string.
+ * - Exact name/id match with the full query: 10
+ * - Full query found as substring in haystack: 5
+ * - Per-token: each token found in haystack adds 1 point
+ * Matching is also performed on a singularized form of both the query and
+ * the haystack so plural/singular differences don't hide results.
+ * Returns 0 if no tokens match.
+ */
+function scoreSearch(
+  q: string,
+  qNorm: string,
+  tokens: string[],
+  tokensNorm: string[],
+  haystack: string,
+  haystackNorm: string,
+  name: string,
+  id: string,
+): number {
+  const nameLower = name.toLowerCase();
+  const idLower = id.toLowerCase();
+  const exactMatch =
+    nameLower === q || idLower === q || normalizeForSearch(nameLower) === qNorm;
+  if (exactMatch) return 10;
+
+  const fullSubstring = haystack.includes(q) || haystackNorm.includes(qNorm);
+  let score = fullSubstring ? 5 : 0;
+
+  if (tokens.length > 1) {
+    for (let i = 0; i < tokens.length; i++) {
+      if (
+        haystack.includes(tokens[i]) ||
+        haystackNorm.includes(tokensNorm[i])
+      ) {
+        score += 1;
+      }
+    }
+  }
+
+  return score;
+}
+
+export interface ProductAnalyticsSearchLoaders {
+  getMetrics: () => Promise<FactMetricInterface[]>;
+  getFactTables: () => Promise<FactTableInterface[]>;
+}
+
+/**
+ * Datasource-scoped, lazily-memoized loaders for the search corpus. Memoized
+ * because a chat turn searches several times and each miss is a full fetch of
+ * every metric in the org.
+ */
+export function createProductAnalyticsSearchLoaders(
+  ctx: ReqContext,
+  datasourceId?: string,
+): ProductAnalyticsSearchLoaders {
+  let metricsCache: FactMetricInterface[] | null = null;
+  let factTablesCache: FactTableInterface[] | null = null;
+
+  return {
+    getMetrics: async () => {
+      if (metricsCache) return metricsCache;
+      const all = await ctx.models.factMetrics.getAll();
+      metricsCache = datasourceId
+        ? all.filter((m) => m.datasource === datasourceId)
+        : all;
+      return metricsCache;
+    },
+    getFactTables: async () => {
+      if (factTablesCache) return factTablesCache;
+      factTablesCache = datasourceId
+        ? await getFactTablesForDatasource(ctx, datasourceId)
+        : await getAllFactTablesForOrganization(ctx);
+      return factTablesCache;
+    },
+  };
+}
+
+export async function runProductAnalyticsSearch(
+  { getMetrics, getFactTables }: ProductAnalyticsSearchLoaders,
+  input: ProductAnalyticsSearchInput,
+): Promise<ProductAnalyticsDiscoveryResult> {
+  const { query, limit, skip } = input;
+  const q = query.trim().toLowerCase();
+  const isBlank = q.length === 0;
+  const tokens = q.split(/\s+/).filter(Boolean);
+  const qNorm = normalizeForSearch(q);
+  const tokensNorm = tokens.map(singularizeWord);
+
+  type ScoredResult = { score: number; name: string; result: unknown };
+  const all: ScoredResult[] = [];
+
+  const metrics = await getMetrics();
+  for (const m of metrics) {
+    const metricResult = {
+      kind: "metric" as const,
+      explorerType: "metric" as const,
+      id: m.id,
+      name: m.name,
+      type: m.metricType,
+      official: m.managedBy === "admin",
+      description: m.description ?? null,
+      owner: m.owner ?? null,
+      tags: m.tags ?? [],
+    };
+    if (isBlank) {
+      all.push({ score: 0, name: m.name, result: metricResult });
+      continue;
+    }
+    const haystack = [
+      m.id,
+      m.name,
+      m.description ?? "",
+      m.owner ?? "",
+      ...(m.tags ?? []),
+    ]
+      .join(" ")
+      .toLowerCase();
+    const haystackNorm = normalizeForSearch(haystack);
+    const score = scoreSearch(
+      q,
+      qNorm,
+      tokens,
+      tokensNorm,
+      haystack,
+      haystackNorm,
+      m.name,
+      m.id,
+    );
+    if (score > 0) {
+      all.push({ score, name: m.name, result: metricResult });
+    }
+  }
+
+  const factTables = await getFactTables();
+  for (const ft of factTables) {
+    const ftResult = {
+      kind: "fact_table" as const,
+      explorerType: "fact_table" as const,
+      id: ft.id,
+      name: ft.name,
+      official: ft.managedBy === "admin",
+      eventName: ft.eventName ?? null,
+      columnCount: (ft.columns ?? []).filter((c) => !c.deleted).length,
+    };
+    if (isBlank) {
+      all.push({ score: 0, name: ft.name, result: ftResult });
+      continue;
+    }
+    const haystack = [ft.id, ft.name, ft.eventName ?? ""]
+      .join(" ")
+      .toLowerCase();
+    const haystackNorm = normalizeForSearch(haystack);
+    const score = scoreSearch(
+      q,
+      qNorm,
+      tokens,
+      tokensNorm,
+      haystack,
+      haystackNorm,
+      ft.name,
+      ft.id,
+    );
+    if (score > 0) {
+      all.push({ score, name: ft.name, result: ftResult });
+    }
+  }
+
+  const sorted = isBlank
+    ? all.sort((a, b) => a.name.localeCompare(b.name))
+    : all.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+
+  const totalMatches = sorted.length;
+  const matches = sorted.slice(skip, skip + limit).map((x) => x.result);
+
+  if (!matches.length) {
+    return ok({
+      matches: [],
+      totalMetrics: metrics.length,
+      totalFactTables: factTables.length,
+      totalMatches: 0,
+      ...(isBlank ? {} : { message: `No results found for "${query}".` }),
+    });
+  }
+  return ok({
+    matches,
+    totalMetrics: metrics.length,
+    totalFactTables: factTables.length,
+    totalMatches,
+    skip,
+    limit,
+  });
+}
+
+// =============================================================================
+// columns
+// =============================================================================
+
+export async function getProductAnalyticsColumns(
+  ctx: ReqContext,
+  input: ProductAnalyticsColumnsInput,
+): Promise<ProductAnalyticsDiscoveryResult> {
+  switch (input.source) {
+    case "fact_table": {
+      const { factTableId } = input;
+      if (!factTableId) {
+        return fail("factTableId is required for fact_table source.");
+      }
+      const ft = await getFactTable(ctx, factTableId);
+      if (!ft) return fail(`Fact table "${factTableId}" not found.`);
+      const columns = (ft.columns ?? [])
+        .filter((c) => !c.deleted)
+        .sort((a, b) => (a.name || a.column).localeCompare(b.name || b.column))
+        .map((c) => ({ column: c.column, name: c.name, datatype: c.datatype }));
+      return ok({
+        columns,
+        userIdTypes: ft.userIdTypes ?? [],
+        unitNote: ft.userIdTypes?.length
+          ? `For valueType "unit_count", set unit to one of userIdTypes (default: "${ft.userIdTypes[0]}"). For "count" or "sum", set unit to null.`
+          : 'No userIdTypes configured — use valueType "count" or "sum" only; set unit to null.',
+      });
+    }
+
+    case "metric": {
+      const { metricIds } = input;
+      if (!metricIds?.length) {
+        return fail("metricIds is required for metric source.");
+      }
+      const metrics = await ctx.models.factMetrics.getByIds(metricIds);
+      let columns: FactTableInterface["columns"] | null = null;
+      let userIdTypes: string[] = [];
+      const metricUnitInfo: {
+        metricId: string;
+        metricType: string;
+        needsUnit: boolean;
+      }[] = [];
+
+      const ftIds = [
+        ...new Set(
+          metrics
+            .map((m) => m.numerator?.factTableId)
+            .filter((id): id is string => !!id),
+        ),
+      ];
+      const factTables = await Promise.all(
+        ftIds.map((id) => getFactTable(ctx, id)),
+      );
+      const ftMap = new Map(ftIds.map((id, i) => [id, factTables[i]] as const));
+
+      for (const m of metrics) {
+        const needsUnit =
+          m.metricType === "proportion" ||
+          m.metricType === "retention" ||
+          m.metricType === "dailyParticipation" ||
+          (m.metricType === "ratio" &&
+            m.numerator?.column === "$$distinctUsers");
+
+        metricUnitInfo.push({
+          metricId: m.id,
+          metricType: m.metricType,
+          needsUnit,
+        });
+
+        if (!m.numerator?.factTableId) continue;
+        const ft = ftMap.get(m.numerator.factTableId) ?? null;
+        if (!userIdTypes.length && ft?.userIdTypes?.length) {
+          userIdTypes = ft.userIdTypes;
+        }
+        const ftCols = (ft?.columns ?? []).filter((c) => !c.deleted);
+        if (columns === null) {
+          columns = ftCols;
+        } else {
+          const nameSet = new Set(ftCols.map((c) => c.column));
+          columns = columns.filter((c) => nameSet.has(c.column));
+        }
+      }
+
+      const result = (columns ?? [])
+        .sort((a, b) => (a.name || a.column).localeCompare(b.name || b.column))
+        .map((c) => ({ column: c.column, name: c.name, datatype: c.datatype }));
+
+      const unitNote = userIdTypes.length
+        ? `For metrics where needsUnit=true, set unit to one of userIdTypes (default: "${userIdTypes[0]}"). For others, set unit to null.`
+        : "No userIdTypes found — set unit to null for all metrics.";
+
+      return ok({
+        columns: result,
+        userIdTypes,
+        metrics: metricUnitInfo,
+        unitNote,
+      });
+    }
+  }
+}
+
+// =============================================================================
+// column values
+// =============================================================================
+
+export async function getProductAnalyticsColumnValues(
+  ctx: ReqContext,
+  input: ProductAnalyticsColumnValuesInput,
+): Promise<ProductAnalyticsDiscoveryResult> {
+  const { columns: requestedColumns, searchTerm, limit } = input;
+
+  type RawCol = { column: string; datatype: string };
+  let factTableSql: string;
+  let factTableEventName: string;
+  let datasourceId: string;
+  let availableColumns: RawCol[];
+
+  switch (input.source) {
+    case "fact_table": {
+      const { factTableId } = input;
+      if (!factTableId) {
+        return fail("factTableId is required for fact_table source.");
+      }
+      const ft = await getFactTable(ctx, factTableId);
+      if (!ft) return fail(`Fact table "${factTableId}" not found.`);
+      factTableSql = ft.sql;
+      factTableEventName = ft.eventName ?? "";
+      datasourceId = ft.datasource;
+      availableColumns = (ft.columns ?? [])
+        .filter((c) => !c.deleted)
+        .map((c) => ({ column: c.column, datatype: c.datatype }));
+      break;
+    }
+
+    case "metric": {
+      const { metricIds } = input;
+      if (!metricIds?.length) {
+        return fail("metricIds is required for metric source.");
+      }
+      const metrics = await ctx.models.factMetrics.getByIds(metricIds);
+      const firstWithFt = metrics.find((m) => m.numerator?.factTableId);
+      if (!firstWithFt?.numerator?.factTableId) {
+        return fail(
+          "Could not resolve a fact table from the provided metric IDs.",
+        );
+      }
+      const ft = await getFactTable(ctx, firstWithFt.numerator.factTableId);
+      if (!ft) return fail(`Fact table not found.`);
+      factTableSql = ft.sql;
+      factTableEventName = ft.eventName ?? "";
+      datasourceId = ft.datasource;
+      availableColumns = (ft.columns ?? [])
+        .filter((c) => !c.deleted)
+        .map((c) => ({ column: c.column, datatype: c.datatype }));
+      break;
+    }
+  }
+
+  const datasource = await getDataSourceById(ctx, datasourceId);
+  if (!datasource) return fail(`Datasource not found.`);
+
+  // Separate requested columns into queryable (string-typed), skipped (wrong type), not-found
+  const colsToQuery: ColumnInterface[] = [];
+  const nonStringCols: string[] = [];
+  const notFoundCols: string[] = [];
+
+  for (const name of requestedColumns) {
+    const found = availableColumns.find((c) => c.column === name);
+    if (!found) {
+      notFoundCols.push(name);
+    } else if (found.datatype !== "string") {
+      nonStringCols.push(name);
+    } else {
+      colsToQuery.push({
+        column: name,
+        name,
+        datatype: "string",
+        numberFormat: "",
+        description: "",
+        deleted: false,
+        dateCreated: new Date(0),
+        dateUpdated: new Date(0),
+      });
+    }
+  }
+
+  const warnings: string[] = [];
+  if (nonStringCols.length)
+    warnings.push(`Skipped (non-string type): ${nonStringCols.join(", ")}`);
+  if (notFoundCols.length)
+    warnings.push(`Columns not found: ${notFoundCols.join(", ")}`);
+
+  if (colsToQuery.length === 0) {
+    return ok({
+      values: {},
+      ...(warnings.length ? { warnings } : {}),
+    });
+  }
+
+  let rawValues: Record<string, string[]>;
+  try {
+    rawValues = await runColumnsTopValuesQuery(
+      ctx,
+      datasource,
+      { sql: factTableSql, eventName: factTableEventName },
+      colsToQuery,
+    );
+  } catch (err) {
+    return fail(
+      `Failed to query column values on ${datasource.type}: ${
+        err instanceof Error ? err.message : "Unknown error"
+      }`,
+    );
+  }
+
+  // Apply searchTerm filter and respect limit
+  const values: Record<string, string[]> = {};
+  for (const col of Object.keys(rawValues)) {
+    let vals = rawValues[col];
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      vals = vals.filter((v) => v.toLowerCase().includes(term));
+    }
+    values[col] = vals.slice(0, limit);
+  }
+
+  return ok({
+    values,
+    ...(warnings.length ? { warnings } : {}),
+  });
+}
+
+/**
+ * Render a lookup for a chat tool: the model gets indented JSON on success and
+ * a plain sentence on failure, which it can act on without a schema.
+ */
+export function discoveryResultToToolString(
+  result: ProductAnalyticsDiscoveryResult,
+): string {
+  return result.ok ? JSON.stringify(result.data, null, 2) : result.message;
+}
