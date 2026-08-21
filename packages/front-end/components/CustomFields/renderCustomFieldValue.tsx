@@ -1,6 +1,7 @@
 import React, { ReactNode } from "react";
 import { CustomField } from "shared/types/custom-fields";
 import Markdown from "@/components/Markdown/Markdown";
+import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import {
   isCustomFieldBooleanTrue,
@@ -29,15 +30,15 @@ export function renderCustomFieldValue(
     case "multiselect":
       return getMultiSelectValue(stringValue);
     case "markdown":
-      return <Markdown className="card-text">{stringValue}</Markdown>;
+      return <Markdown>{stringValue}</Markdown>;
     case "textarea":
       return <div style={{ whiteSpace: "pre" }}>{stringValue}</div>;
     case "url":
       if (stringValue !== "") {
         return (
-          <a href={stringValue} target="_blank" rel="noreferrer">
+          <Link href={stringValue} target="_blank" rel="noreferrer">
             {stringValue}
-          </a>
+          </Link>
         );
       }
       break;

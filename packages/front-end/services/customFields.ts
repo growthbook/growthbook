@@ -105,6 +105,21 @@ export function customFieldValuesEqual(
   return aKeys.every((key) => a[key] === b[key]);
 }
 
+/**
+ * Every active field for a section, ignoring project scope. For views that span
+ * projects — the attributes table under "All Projects" lists attributes from
+ * every project, so restricting its columns to global fields would hide
+ * project-scoped metadata that some visible rows actually carry.
+ */
+export function filterCustomFieldsForSection(
+  customFields: CustomField[] | undefined,
+  section: CustomFieldSection,
+) {
+  return customFields?.filter(
+    (v) => v.active !== false && v.sections?.includes(section),
+  );
+}
+
 export function filterCustomFieldsForSectionAndProject(
   customFields: CustomField[] | undefined,
   section: CustomFieldSection,
