@@ -24,7 +24,7 @@ export function getBanditStatisticsCTE(
     metricData,
     dimensionCols,
     hasRegressionAdjustment,
-    hasCapping,
+    hasNumeratorCapping,
     ignoreNulls,
     denominatorIsPercentileCapped,
   }: {
@@ -32,7 +32,7 @@ export function getBanditStatisticsCTE(
     metricData: BanditMetricData[];
     dimensionCols: DimensionColumnData[];
     hasRegressionAdjustment: boolean;
-    hasCapping: boolean;
+    hasNumeratorCapping: boolean;
     ignoreNulls?: boolean;
     denominatorIsPercentileCapped?: boolean;
   },
@@ -118,7 +118,7 @@ export function getBanditStatisticsCTE(
         `
         : ""
     }
-    ${hasCapping ? `CROSS JOIN __capValue cap` : ""}
+    ${hasNumeratorCapping ? `CROSS JOIN __capValue cap` : ""}
     ${ignoreNulls ? `WHERE m.value != 0` : ""}
     GROUP BY
       m.variation
