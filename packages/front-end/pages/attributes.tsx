@@ -356,7 +356,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                     canReset={isCustomized}
                     onReset={reset}
                     onChange={applySettings}
-                    lockedNote="The Attribute column is always shown."
+                    note="The Attribute column is always shown."
                   />
                 </Flex>
               </Flex>
