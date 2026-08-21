@@ -1665,17 +1665,6 @@ export default abstract class SqlIntegration
     // Does the conversionWindowsHour need to be set different?
     const endDate = getExperimentEndDate(settings, 0);
 
-    const newExposureCols = [
-      baseIdType,
-      "variation",
-      "timestamp",
-      ...(activationMetric ? ["activation_timestamp"] : []),
-      ...experimentDimensions.map((d) => `dim_exp_${d.id}`),
-    ];
-    const windowSourceCte = segment
-      ? "__segmentedNewExposures"
-      : "__filteredNewExposures";
-
     return format(
       `
       CREATE TABLE ${params.unitsTempTableFullName} 
@@ -1751,31 +1740,24 @@ export default abstract class SqlIntegration
             ${endDate ? `AND e.timestamp <= ${toTimestampWithMs(endDate)}` : ""}
             ${settings.queryFilter ? `AND (\n${settings.queryFilter}\n)` : ""}
         )
-        ${
-          segment
-            ? `, __segmentedNewExposures AS (
-          -- DISTINCT so segment fan-out cannot inflate MAX(timestamp) OVER ()
-          SELECT DISTINCT
-            ${newExposureCols.map((c) => `e.${c}`).join("\n            , ")}
-          FROM __filteredNewExposures e
-          JOIN __segment s ON (s.${baseIdType} = e.${baseIdType})
-          -- timestamp stays raw for UNION with the units table
-          WHERE s.date <= ${this.getSqlDialect().castUserDateCol("e.timestamp")}
-        )`
-            : ""
-        }
         , __jointExposures AS (
           SELECT * FROM __existingUnits
           UNION ALL
           (
             SELECT
-              ${baseIdType}
-              , variation
-              , timestamp
-              , MAX(timestamp) OVER () AS max_timestamp
-              ${activationMetric ? `, activation_timestamp` : ""}
-              ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join("\n")}
-            FROM ${windowSourceCte}
+              e.${baseIdType}
+              , e.variation
+              , e.timestamp
+              , MAX(e.timestamp) OVER () AS max_timestamp
+              ${activationMetric ? `, e.activation_timestamp` : ""}
+              ${experimentDimensions.map((d) => `, e.dim_exp_${d.id}`).join("\n")}
+            FROM __filteredNewExposures e
+            ${
+              segment
+                ? `JOIN __segment s ON (s.${baseIdType} = e.${baseIdType})
+            WHERE s.date <= ${this.getSqlDialect().castUserDateCol("e.timestamp")}`
+                : ""
+            }
           )
         )
         , __experimentUnits AS (

@@ -65,7 +65,7 @@ const baseSettings: ExperimentSnapshotSettings = {
 
 function newExposuresCte(sql: string): string {
   const start = sql.indexOf("__filteredNewExposures AS (");
-  const end = sql.indexOf("__jointExposures AS (");
+  const end = sql.indexOf("__experimentUnits AS (");
   expect(start).toBeGreaterThan(0);
   expect(end).toBeGreaterThan(start);
   return sql.slice(start, end);
@@ -109,10 +109,7 @@ describe("incremental refresh units query segment and query filter", () => {
     expect(cte).toMatch(
       /s\.date <= CAST\s*\(\s*e\.timestamp as DATETIME\s*\)/i,
     );
-    expect(cte).toMatch(/SELECT DISTINCT/i);
-    expect(sql).toMatch(
-      /MAX\s*\(\s*timestamp\s*\)\s+OVER\s*\(\s*\)[\s\S]*FROM\s+__segmentedNewExposures/i,
-    );
+    expect(cte).not.toMatch(/SELECT DISTINCT/i);
     expect(cte).not.toMatch(/EXISTS/i);
   });
 
@@ -124,7 +121,6 @@ describe("incremental refresh units query segment and query filter", () => {
     const cte = newExposuresCte(sql);
     expect(cte).toMatch(/WHERE[\s\S]*AND \(\s*e\.country = 'US'\s*\)/);
     expect(sql).not.toContain("__segment");
-    expect(sql).not.toContain("__segmentedNewExposures");
   });
 
   it("applies both the segment and the query filter to new exposures", () => {
@@ -144,7 +140,6 @@ describe("incremental refresh units query segment and query filter", () => {
     const sql = buildSql(baseSettings, null);
     const cte = newExposuresCte(sql);
     expect(sql).not.toContain("__segment");
-    expect(sql).not.toContain("__segmentedNewExposures");
     expect(cte).not.toContain("JOIN");
     expect(cte).not.toMatch(/EXISTS/i);
     expect(cte).not.toContain("s.date");
