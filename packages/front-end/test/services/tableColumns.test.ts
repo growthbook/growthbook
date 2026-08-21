@@ -188,6 +188,43 @@ describe("resolveTableColumns", () => {
     ]);
   });
 
+  // The stored value comes from localStorage, so it can be hand-edited or left
+  // behind by a different shape of this schema. None of these may throw — the
+  // page would white-screen with no way to recover from the UI.
+  it.each([
+    ["columns missing", { v: 1 }],
+    ["columns null", { v: 1, columns: null }],
+    ["columns a non-array object", { v: 1, columns: { a: true } }],
+    ["columns a string", { v: 1, columns: "nope" }],
+    ["a null entry", { v: 1, columns: [null, { id: "a", visible: true }] }],
+    ["an entry with no id", { v: 1, columns: [{ visible: true }] }],
+    ["an entry with a non-string id", { v: 1, columns: [{ id: 7 }] }],
+    ["the whole value a string", "garbage"],
+    ["the whole value an array", []],
+  ])("survives a malformed stored layout: %s", (_label, stored) => {
+    const defs = [col("a"), col("b")];
+    expect(() =>
+      resolveTableColumns(defs, stored as unknown as TableColumnLayout),
+    ).not.toThrow();
+    const resolved = resolveTableColumns(
+      defs,
+      stored as unknown as TableColumnLayout,
+    );
+    expect(resolved.map((c) => c.id)).toEqual(["a", "b"]);
+    expect(resolved.every((c) => c.visible)).toBe(true);
+  });
+
+  it("keeps the usable entries when only some are malformed", () => {
+    const defs = [col("a"), col("b")];
+    const resolved = resolveTableColumns(defs, {
+      v: 1,
+      columns: [null, { id: "b", visible: false }],
+    } as unknown as TableColumnLayout);
+    // "a" wasn't in the layout and has no saved predecessor, so it leads.
+    expect(resolved.map((c) => c.id)).toEqual(["a", "b"]);
+    expect(resolved.find((c) => c.id === "b")?.visible).toBe(false);
+  });
+
   it("falls back to defaults when no stored id is recognised", () => {
     const defs = [col("a"), col("b")];
     const resolved = resolveTableColumns(
@@ -231,6 +268,23 @@ describe("mergeLayoutForWrite", () => {
     const defs = [col("a")];
     const merged = mergeLayoutForWrite(resolveTableColumns(defs, null), null);
     expect(merged.v).toBe(1);
+  });
+
+  it("ignores a malformed stored value instead of throwing", () => {
+    const defs = [col("a")];
+    const stored = {
+      v: 1,
+      columns: [null, "x"],
+    } as unknown as TableColumnLayout;
+    expect(() =>
+      mergeLayoutForWrite(resolveTableColumns(defs, stored), stored),
+    ).not.toThrow();
+    expect(
+      mergeLayoutForWrite(
+        resolveTableColumns(defs, stored),
+        stored,
+      ).columns.map((c) => c.id),
+    ).toEqual(["a"]);
   });
 
   it("does not carry orphans across a version mismatch", () => {
