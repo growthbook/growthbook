@@ -35,6 +35,10 @@ export default forwardRef<
     size?: Size;
     icon?: ReactNode | null;
     action?: ReactNode;
+    // Aligns the icon against the body only, independent of the action's height.
+    align?: "start" | "center";
+    // "nowrap" keeps the action on the same line as the body always.
+    wrap?: "wrap" | "nowrap";
     role?: string;
   } & (DismissibleProps | UndismissibleProps) &
     MarginProps
@@ -45,6 +49,8 @@ export default forwardRef<
     size = "md",
     icon,
     action,
+    align = "start",
+    wrap = "wrap",
     dismissible = false,
     id,
     renderWhenDismissed,
@@ -89,35 +95,39 @@ export default forwardRef<
       style={
         {
           display: "flex",
+          alignItems: align === "center" ? "center" : "flex-start",
           position: "relative",
           "--callout-line-height": lineHeight,
         } as React.CSSProperties
       }
       variant="soft"
     >
-      {renderedIcon ? (
-        <RadixCallout.Icon style={{ height: lineHeight }}>
-          {renderedIcon}
-        </RadixCallout.Icon>
-      ) : null}
       <Flex
-        wrap="wrap"
-        align="start"
+        wrap={wrap}
+        align={align}
         gapX="3"
         gapY="3"
         flexGrow="1"
         minWidth="0"
         justify={action ? "between" : undefined}
       >
-        {/* Rendered as a div (not the default <p>) so block-level children
-            and nested layout don't produce invalid <div>-inside-<p> nesting. */}
-        <Text
-          as="div"
-          size={radixSize(size)}
-          className={clsx(styles.body, action && styles.bodyWithAction)}
-        >
-          {children}
-        </Text>
+        {/* Grouped so icon and body align to each other, not to the action. */}
+        <Flex align={align} gap="3" wrap="nowrap" flexGrow="1" minWidth="0">
+          {renderedIcon ? (
+            <RadixCallout.Icon style={{ height: lineHeight }}>
+              {renderedIcon}
+            </RadixCallout.Icon>
+          ) : null}
+          {/* Rendered as a div (not the default <p>) so block-level children
+              and nested layout don't produce invalid <div>-inside-<p> nesting. */}
+          <Text
+            as="div"
+            size={radixSize(size)}
+            className={clsx(styles.body, action && styles.bodyWithAction)}
+          >
+            {children}
+          </Text>
+        </Flex>
         {action ? <Box className={styles.firstLineSlot}>{action}</Box> : null}
       </Flex>
       {dismissible && id ? (
