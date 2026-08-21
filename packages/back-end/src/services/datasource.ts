@@ -418,6 +418,9 @@ export async function testQueryValidity(
   );
   try {
     const results = await integration.runTestQuery(sql, undefined, "testQuery");
+    const lowercaseMetadataColumnNames =
+      results.columns !== undefined &&
+      integration.lowercasesMetadataColumnNames === true;
 
     let columns: Set<string>;
 
@@ -427,7 +430,11 @@ export async function testQueryValidity(
       if (columnNames.length === 0) {
         return "Unable to determine columns from query";
       }
-      columns = new Set(columnNames.map((name) => name.toLowerCase()));
+      columns = new Set(
+        columnNames.map((name) =>
+          lowercaseMetadataColumnNames ? name.toLowerCase() : name,
+        ),
+      );
     } else {
       // For other datasources, extract from first row (requires LIMIT 1+)
       if (results.results.length === 0) {
@@ -438,7 +445,8 @@ export async function testQueryValidity(
 
     const missingColumns: string[] = [];
     for (const col of requiredColumns) {
-      if (!columns.has(results.columns ? col.toLowerCase() : col)) {
+      const columnName = lowercaseMetadataColumnNames ? col.toLowerCase() : col;
+      if (!columns.has(columnName)) {
         missingColumns.push(col);
       }
     }

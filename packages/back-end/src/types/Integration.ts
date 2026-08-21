@@ -115,6 +115,8 @@ export interface SourceIntegrationInterface<
   ): Promise<{ tableData: null | unknown[] }>;
   getInformationSchema?(): Promise<InformationSchema[]>;
   supportsLimitZeroColumnValidation?(): boolean;
+  /** Whether TestQueryResult.columns names are lowercased by the integration. */
+  readonly lowercasesMetadataColumnNames?: boolean;
   getTestValidityQuery?(
     query: string,
     testDays?: number,
