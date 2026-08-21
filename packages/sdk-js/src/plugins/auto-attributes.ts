@@ -3,6 +3,8 @@ import type {
   UserScopedGrowthBook,
   GrowthBookClient,
 } from "../GrowthBookClient";
+import { genUUID } from "../util";
+import { getOrCreateGbSessionId } from "./gb-session";
 
 export type AutoAttributeSettings = {
   uuidCookieName?: string;
@@ -13,6 +15,8 @@ export type AutoAttributeSettings = {
   // anonymous id is shared across subdomains. Without this the cookie is
   // host-only and a redirect to another subdomain mints a brand new id.
   uuidCookieDomain?: string;
+  // Hard time cap (ms) on the generic browser session. Defaults to 30 minutes.
+  maxDuration?: number;
 };
 
 function getBrowserDevice(ua: string): { browser: string; deviceType: string } {
@@ -99,8 +103,13 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     return {
       ...getDataLayerVariables(),
       [uuidKey]: _uuid,
+      gbSessionId: getOrCreateGbSessionId({
+        maxDuration: settings.maxDuration,
+      }),
       ...getURLAttributes(url),
       pageTitle: document.title,
+      viewportWidth: window.innerWidth || 0,
+      viewportHeight: window.innerHeight || 0,
       ...getBrowserDevice(ua),
       ...getUtmAttributes(url),
     };
@@ -166,21 +175,6 @@ function getCookie(name: string): string {
   const value = "; " + document.cookie;
   const parts = value.split(`; ${name}=`);
   return parts.length >= 2 ? parts[1].split(";")[0] : "";
-}
-
-// Use the browsers crypto.randomUUID if set to generate a UUID
-function genUUID(crypto?: Crypto) {
-  if (crypto && crypto.randomUUID) return crypto.randomUUID();
-  return ("" + 1e7 + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) => {
-    const n =
-      crypto && crypto.getRandomValues
-        ? crypto.getRandomValues(new Uint8Array(1))[0]
-        : Math.floor(Math.random() * 256);
-    return (
-      (c as unknown as number) ^
-      (n & (15 >> ((c as unknown as number) / 4)))
-    ).toString(16);
-  });
 }
 
 function getUtmAttributes(url: URL | Location | undefined) {
