@@ -14,6 +14,7 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { FaChartBar } from "react-icons/fa";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
+import { Flex } from "@radix-ui/themes";
 import {
   getAvailableMetricsFilters,
   getAvailableMetricTags,
@@ -43,6 +44,13 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import DashboardsTab from "@/enterprise/components/Dashboards/DashboardsTab";
 import { useExperimentDashboards } from "@/hooks/useDashboards";
 import Callout from "@/ui/Callout";
+import Badge from "@/ui/Badge";
+import {
+  revisionStatusColor,
+  revisionStatusLabel,
+} from "@/components/Reviews/RevisionStatusBadge";
+import { useManagedExperimentFlags } from "@/hooks/useManagedExperimentFlags";
+import ManagedFlagApproval from "@/components/Experiment/LinkedChanges/ManagedFlagApproval";
 import Link from "@/ui/Link";
 import CompareExperimentEventsModal from "@/components/Experiment/CompareExperimentEventsModal";
 import { PreLaunchChecklistProvider } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
@@ -136,6 +144,32 @@ export default function TabbedPage({
   const [watchersModal, setWatchersModal] = useState(false);
   const [visualEditorModal, setVisualEditorModal] = useState(false);
   const [featureModal, setFeatureModal] = useState(false);
+
+  // Review and publish for a managed flag is a page-level action, not something
+  // buried in the implementation card.
+  const { managedFeature } = useManagedExperimentFlags({
+    experiment,
+    linkedFeatures,
+  });
+  // Keyed on `pendingDraft`, not `state`: a running experiment with an
+  // unpublished edit still reports state "live", and gating on "draft" left
+  // that case with no way to review or publish at all.
+  const managedFlagWithDraft = managedFeature?.pendingDraft
+    ? managedFeature
+    : null;
+  const managedApprovalBlocking =
+    !!managedFlagWithDraft?.pendingDraft?.pendingApproval &&
+    managedFlagWithDraft.pendingDraft.status !== "approved";
+  // Both gates have to appear together: on a draft experiment approval alone
+  // doesn't publish anything, so naming only approval would leave someone
+  // waiting for a launch that needs a separate action.
+  const managedNextStep = managedApprovalBlocking
+    ? experiment.status === "draft"
+      ? "They need approval, then go live when the experiment starts."
+      : "They need approval before they go live."
+    : experiment.status === "draft"
+      ? "They go live when the experiment starts."
+      : "Publish them to go live.";
   const [urlRedirectModal, setUrlRedirectModal] = useState(false);
   const [healthNotificationCount, setHealthNotificationCount] = useState(0);
   const [showDashboardView, setShowDashboardView] = useState(
@@ -551,6 +585,44 @@ export default function TabbedPage({
           !showDashboardView && (
             <CustomMarkdown page={"experiment"} variables={variables} />
           )}
+        {managedFlagWithDraft && (
+          <Callout
+            // Warning only while approval is actually holding the publish back;
+            // approved (or an org that doesn't require approvals) is just info.
+            status={managedApprovalBlocking ? "warning" : "info"}
+            mt="3"
+            action={
+              <ManagedFlagApproval
+                experiment={experiment}
+                info={managedFlagWithDraft}
+                mutate={mutate}
+                // Starting the experiment is what publishes the draft, so
+                // before launch this is review only — same as the pre-launch
+                // checklist.
+                ctaLabel={
+                  experiment.status === "draft" ? "Review" : "Review & Publish"
+                }
+                triggerColor="inherit"
+              />
+            }
+          >
+            <Flex align="center" gap="2">
+              This experiment has unpublished variation values.{" "}
+              {managedNextStep}
+              {managedFlagWithDraft.pendingDraft?.pendingApproval && (
+                <Badge
+                  label={revisionStatusLabel(
+                    managedFlagWithDraft.pendingDraft.status,
+                  )}
+                  color={revisionStatusColor(
+                    managedFlagWithDraft.pendingDraft.status,
+                  )}
+                  radius="full"
+                />
+              )}
+            </Flex>
+          </Callout>
+        )}
         {showStoppedBanner && (
           <div className="pt-3">
             <StoppedExperimentBanner

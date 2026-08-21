@@ -23,7 +23,12 @@ import {
   PiClockFill,
 } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";
-import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
+import {
+  filterEnvironmentsByFeature,
+  getReviewSetting,
+  isManagedFeature,
+  managedByExperimentId,
+} from "shared/util";
 import {
   isScheduledPublishPending,
   isScheduledPublishLockActive,
@@ -522,14 +527,22 @@ export default function FeaturesOverview({
 
   // Judged on the LIVE flag, like the toggle endpoint — `feature` is the draft
   // projection, so a draft staging a project move judged the wrong project.
-  const canEditDrafts = permissionsUtil.canEditFeatureDrafts(baseFeature);
+  // Managed flags refuse every direct write server-side, so fold that into the
+  // atoms the page's controls key off. Not in `permissionsClass`: the
+  // experiment-side components ask the same questions and must keep working,
+  // and a caller passing a bare `{project}` literal would skip the check.
+  const isManagedFlag = isManagedFeature(baseFeature);
+  const managedExperimentId = managedByExperimentId(baseFeature) ?? "";
+  const canEditDrafts =
+    !isManagedFlag && permissionsUtil.canEditFeatureDrafts(baseFeature);
   // An env change can be staged in a draft or published straight out. Offer the
   // control when either route is open; the modal narrows it to the ones that are.
   const canChangeEnvironments =
-    canEditDrafts ||
-    envs.some((envId) =>
-      permissionsUtil.canPublishFeature(baseFeature, [envId]),
-    );
+    !isManagedFlag &&
+    (canEditDrafts ||
+      envs.some((envId) =>
+        permissionsUtil.canPublishFeature(baseFeature, [envId]),
+      ));
 
   const featureCustomFields = filterCustomFieldsForSectionAndProject(
     allCustomFields,
@@ -554,18 +567,20 @@ export default function FeaturesOverview({
   // between the revision card and sticky banner. Just a navigation affordance:
   // all lifecycle actions (review, publish, fix conflicts, discard) live on the
   // review tab, which evaluates the full policy matrix. Shown to everyone.
-  const draftCtaGroup = isDraft ? (
-    <Box>
-      <Button
-        icon={<FaArrowRight />}
-        iconPosition="right"
-        onClick={() => setTab("review")}
-        style={{ whiteSpace: "nowrap" as const }}
-      >
-        Review &amp; Publish
-      </Button>
-    </Box>
-  ) : null;
+  // Review & publish happens on the experiment.
+  const draftCtaGroup =
+    isDraft && !isManagedFlag ? (
+      <Box>
+        <Button
+          icon={<FaArrowRight />}
+          iconPosition="right"
+          onClick={() => setTab("review")}
+          style={{ whiteSpace: "nowrap" as const }}
+        >
+          Review &amp; Publish
+        </Button>
+      </Box>
+    ) : null;
 
   const renderRevisionInfo = () => {
     return (
@@ -637,6 +652,16 @@ export default function FeaturesOverview({
   return (
     <>
       <Box className="contents container-fluid pagecontents">
+        {isManagedFlag && (
+          <Callout status="info" mb="3">
+            This Feature Flag is managed by an{" "}
+            <Link href={`/experiment/${managedExperimentId}#overview`}>
+              experiment
+            </Link>
+            . Its values, review and publishing are handled there, so it is read
+            only here. Eject it from the experiment to edit it directly.
+          </Callout>
+        )}
         {(() => {
           const bannerProps =
             isDraft || isPendingReview

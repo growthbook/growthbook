@@ -1,6 +1,9 @@
 import { ReactNode } from "react";
 import clsx from "clsx";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "shared/types/experiment";
 import {
   getLatestPhaseVariations,
   hasAttributeCondition,
@@ -32,6 +35,13 @@ export interface Props {
   editNamespace?: (() => void) | null;
   addVariation?: (() => void) | null;
   setEditVariationIndex?: (index: number) => void;
+  /** The sole linked Feature Flag, when the cards can show its values. */
+  servedValueFeature?: LinkedFeatureInfo | null;
+  onEditServedValue?: (variationId: string) => void;
+  /** Offered when the experiment has no implementation yet; adopts a managed flag. */
+  onAddServedValue?: (variationId: string) => void;
+  /** Show the unpublished draft's values. Only a managed flag can publish them here. */
+  servedValuePreferDraft?: boolean;
   canEditExperiment?: boolean;
   safeToEdit: boolean;
   mutate?: () => void;
@@ -181,6 +191,10 @@ export default function TrafficAllocationFunnel({
   editNamespace,
   addVariation,
   setEditVariationIndex,
+  servedValueFeature,
+  onEditServedValue,
+  onAddServedValue,
+  servedValuePreferDraft,
   canEditExperiment = false,
   safeToEdit = false,
   mutate,
@@ -379,6 +393,22 @@ export default function TrafficAllocationFunnel({
                   ? addVariation
                   : undefined
               }
+              servedValues={
+                (servedValuePreferDraft
+                  ? servedValueFeature?.pendingDraft?.values
+                  : undefined) ?? servedValueFeature?.values
+              }
+              servedValueFeature={servedValueFeature?.feature}
+              servedValueSparse={
+                (servedValuePreferDraft
+                  ? servedValueFeature?.pendingDraft?.sparse
+                  : undefined) ?? servedValueFeature?.sparse
+              }
+              servedValueIsDraft={
+                !!servedValuePreferDraft && !!servedValueFeature?.pendingDraft
+              }
+              onEditServedValue={onEditServedValue}
+              onAddServedValue={onAddServedValue}
             />
           </>
         )}

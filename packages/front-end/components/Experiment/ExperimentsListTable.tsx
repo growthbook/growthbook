@@ -1,7 +1,7 @@
-import React, { FC, useEffect, useState } from "react";
+import React, { FC, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { RxDesktop } from "react-icons/rx";
-import { BsFlag } from "react-icons/bs";
+import { BsFlag, BsFlagFill } from "react-icons/bs";
 import { PiShuffle } from "react-icons/pi";
 import { ComputedExperimentInterface } from "shared/types/experiment";
 import { date, datetime } from "shared/dates";
@@ -10,6 +10,7 @@ import WatchButton from "@/components/WatchButton";
 import SortedTags from "@/components/Tags/SortedTags";
 import { ExperimentStatusDetailsWithDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Pagination from "@/ui/Pagination";
+import { useManagedExperimentFlagStates } from "@/hooks/useManagedExperimentFlagStates";
 import Table, {
   TableHeader,
   TableBody,
@@ -49,6 +50,24 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
   const NUM_PER_PAGE = 20;
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
+
+  // Managed-flag ownership lives on the Feature Flag, not the row, so it is
+  // fetched just-in-time for the page being rendered.
+  const { fetchSome, getManagedFlag } = useManagedExperimentFlagStates();
+  const visibleIdsKey = useMemo(
+    () =>
+      filtered
+        .slice(start, end)
+        .filter((e) => (e.linkedFeatures || []).length > 0)
+        .map((e) => e.id)
+        .join(","),
+    [filtered, start, end],
+  );
+  useEffect(() => {
+    if (!visibleIdsKey) return;
+    fetchSome(visibleIdsKey.split(","));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleIdsKey]);
 
   const needsStatusColumn = tab === "all" || tab === "running";
   const needsResultColumn =
@@ -135,7 +154,7 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                           }}
                           body="Visual experiment"
                         >
-                          <RxDesktop className="text-blue" />
+                          <RxDesktop className="text-purple" />
                         </Tooltip>
                       ) : null}
                       {(e.linkedFeatures || []).length > 0 ? (
@@ -146,9 +165,17 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                             alignItems: "center",
                             marginLeft: "var(--space-2)",
                           }}
-                          body="Linked Feature Flag"
+                          body={
+                            getManagedFlag(e.id)
+                              ? "Feature Flag managed by this experiment"
+                              : "Linked Feature Flag"
+                          }
                         >
-                          <BsFlag className="text-blue" />
+                          {getManagedFlag(e.id) ? (
+                            <BsFlagFill className="text-purple" />
+                          ) : (
+                            <BsFlag className="text-purple" />
+                          )}
                         </Tooltip>
                       ) : null}
                       {e.hasURLRedirects ? (
@@ -161,7 +188,7 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                           }}
                           body="URL Redirect experiment"
                         >
-                          <PiShuffle className="text-blue" />
+                          <PiShuffle className="text-purple" />
                         </Tooltip>
                       ) : null}
                     </div>

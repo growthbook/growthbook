@@ -149,7 +149,7 @@ function getRuleTypeLabel(type: FeatureRule["type"]): string {
   }
 }
 
-function formatValue(val: string | unknown): string {
+export function formatValue(val: string | unknown): string {
   if (typeof val === "string") {
     const trimmed = val.trim();
     if (

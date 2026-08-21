@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, ComponentProps } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
 import Modal, { Size, TrackingEventModalProps } from "@/ui/Modal";
@@ -35,6 +35,8 @@ export type Props = TrackingEventModalProps & {
   ctaColor?: "red" | "violet";
   ctaEnabled?: boolean;
   size?: Size;
+  /** Suppress Radix's open-autofocus when the modal places focus itself. */
+  onOpenAutoFocus?: ComponentProps<typeof Modal.Root>["onOpenAutoFocus"];
   submit?: () => void | Promise<void>;
   trackOnSubmit?: boolean;
   dismissible?: boolean;
@@ -58,6 +60,7 @@ export default function ModalStandard({
   cta = "Save",
   ctaColor = "violet",
   ctaEnabled = true,
+  onOpenAutoFocus,
   size = "md",
   submit,
   secondaryAction,
@@ -107,6 +110,7 @@ export default function ModalStandard({
       size={size}
       dismissible={dismissible ?? !submit}
       hasDescription={!!subheader}
+      onOpenAutoFocus={onOpenAutoFocus}
       trackingEventModalType={trackingEventModalType}
       trackingEventModalSource={trackingEventModalSource}
       allowlistedTrackingEventProps={allowlistedTrackingEventProps}

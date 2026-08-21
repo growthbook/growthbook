@@ -130,6 +130,28 @@ export class PlanDoesNotAllowError extends Error {
   }
 }
 
+// 403 rather than a permission error: no grant makes this allowed — ejecting
+// the flag is what makes it possible.
+export class ManagedFeatureError extends Error {
+  status = 403;
+  readonly featureId: string;
+  readonly experimentId: string;
+  constructor({
+    featureId,
+    experimentId,
+  }: {
+    featureId: string;
+    experimentId: string;
+  }) {
+    super(
+      `Feature Flag "${featureId}" is managed by experiment "${experimentId}". Make changes from the experiment, or eject the Feature Flag first to edit it directly.`,
+    );
+    this.name = "ManagedFeatureError";
+    this.featureId = featureId;
+    this.experimentId = experimentId;
+  }
+}
+
 export class NotFoundError extends Error {
   status = 404;
   constructor(message?: string) {

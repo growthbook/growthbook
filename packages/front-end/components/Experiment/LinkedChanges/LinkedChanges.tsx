@@ -22,6 +22,7 @@ import {
   type LinkedChange,
 } from "./constants";
 import AddLinkedChanges from "./AddLinkedChanges";
+import AddManagedFlagOption from "./AddManagedFlagOption";
 
 export default function LinkedChanges({
   linkedFeatures,
@@ -41,6 +42,9 @@ export default function LinkedChanges({
   canEditExperiment,
   setEditVariationIndex,
   hideVariations,
+  managedMode,
+  onAddManagedFlag,
+  valuesShownOnVariations,
 }: {
   linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
@@ -58,6 +62,12 @@ export default function LinkedChanges({
   onAddVariation?: () => void;
   canEditExperiment?: boolean;
   setEditVariationIndex?: (index: number) => void;
+  /** Withholds the add-a-change surfaces. */
+  managedMode?: boolean;
+  /** Offers the promoted managed-flag option above the manual ones. */
+  onAddManagedFlag?: () => void;
+  /** The variation cards above are already showing the flag's values. */
+  valuesShownOnVariations?: boolean;
   hideVariations?: boolean;
 }) {
   const numLinkedChanges =
@@ -142,6 +152,7 @@ export default function LinkedChanges({
               onReAdd={
                 setFeatureModal ? () => setFeatureModal(true) : undefined
               }
+              valuesShownOnVariations={valuesShownOnVariations}
             />
           ))}
           <VisualChangesetTable
@@ -161,7 +172,8 @@ export default function LinkedChanges({
               environmentStates={urlRedirectEnvStates}
             />
           ))}
-          {experiment.status === "draft" &&
+          {!managedMode &&
+            experiment.status === "draft" &&
             !experiment.nextScheduledStatusUpdate &&
             !experiment.archived &&
             numLinkedChanges > 0 &&
@@ -183,16 +195,23 @@ export default function LinkedChanges({
                 />
               </Flex>
             )}
-          {setFeatureModal && setVisualEditorModal && setUrlRedirectModal && (
-            <AddLinkedChanges
-              experiment={experiment}
-              numLinkedChanges={numLinkedChanges}
-              hasLinkedFeatures={linkedFeatures.length > 0}
-              setFeatureModal={setFeatureModal}
-              setVisualEditorModal={setVisualEditorModal}
-              setUrlRedirectModal={setUrlRedirectModal}
-            />
+          {/* Above the manual options, so the recommended path reads first. */}
+          {!managedMode && onAddManagedFlag && numLinkedChanges === 0 && (
+            <AddManagedFlagOption onClick={onAddManagedFlag} />
           )}
+          {!managedMode &&
+            setFeatureModal &&
+            setVisualEditorModal &&
+            setUrlRedirectModal && (
+              <AddLinkedChanges
+                experiment={experiment}
+                numLinkedChanges={numLinkedChanges}
+                hasLinkedFeatures={linkedFeatures.length > 0}
+                setFeatureModal={setFeatureModal}
+                setVisualEditorModal={setVisualEditorModal}
+                setUrlRedirectModal={setUrlRedirectModal}
+              />
+            )}
         </>
       )}
     </Frame>

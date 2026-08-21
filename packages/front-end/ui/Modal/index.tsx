@@ -17,6 +17,7 @@ import {
   useMemo,
   useRef,
   useState,
+  ComponentProps,
 } from "react";
 import { v4 as uuidv4 } from "uuid";
 import track, { TrackEventProps } from "@/services/track";
@@ -98,6 +99,12 @@ type RootProps = TrackingEventModalProps & {
   size?: Size;
   dismissible?: boolean;
   hasDescription?: boolean;
+  /**
+   * Radix focuses the first focusable element (usually the close button) once
+   * the dialog opens. A modal that places focus itself passes this and calls
+   * `e.preventDefault()`, otherwise its own focus is stolen on mount.
+   */
+  onOpenAutoFocus?: ComponentProps<typeof Dialog.Content>["onOpenAutoFocus"];
   children: ReactNode;
 };
 
@@ -107,6 +114,7 @@ function Root({
   size = "md",
   dismissible = false,
   hasDescription = true,
+  onOpenAutoFocus,
   trackingEventModalType,
   trackingEventModalSource,
   allowlistedTrackingEventProps = {},
@@ -181,6 +189,7 @@ function Root({
         maxWidth={getMaxWidth(size)}
         maxHeight="85vh"
         {...ariaDescribedBy}
+        onOpenAutoFocus={onOpenAutoFocus}
         onEscapeKeyDown={(e) => {
           if (!dismissible) e.preventDefault();
         }}

@@ -11,6 +11,9 @@ import { FeatureInterface } from "shared/types/feature";
 import { experimentHasLiveLinkedChanges } from "shared/util";
 import { Flex } from "@radix-ui/themes";
 import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
+import { useManagedExperimentFlags } from "@/hooks/useManagedExperimentFlags";
+import EditFeatureFlagValuesModal from "@/components/Experiment/LinkedChanges/EditFeatureFlagValuesModal";
+import AddManagedFlagModal from "@/components/Experiment/LinkedChanges/AddManagedFlagModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import EditVariationMetadataModal from "@/components/Experiment/EditVariationMetadataModal";
@@ -107,6 +110,61 @@ export default function Implementation({
     linkedFeatures.length > 0 ||
     experiment.hasURLRedirects;
 
+  // Keyed on the flag existing, not on the org default: a managed flag is only
+  // created at experiment creation, so an experiment without one chose manual.
+  // Suppressing the chooser there left it with no implementation and no way to
+  // add one.
+  const { isManaged } = useManagedExperimentFlags({
+    experiment,
+    linkedFeatures,
+  });
+  const managedMode = isManaged;
+
+  // The variation cards can only name "the" served value when there is one
+  // implementation and it is a Feature Flag; with several, or a flag alongside
+  // visual changes or a redirect, they'd be stating one arbitrarily.
+  const soleLinkedFeature =
+    linkedFeatures.length === 1 &&
+    !experiment.hasVisualChangesets &&
+    !experiment.hasURLRedirects
+      ? linkedFeatures[0]
+      : null;
+
+  // Adoption: an experiment with nothing wired up yet can take on a managed
+  // flag. Keyed on the resolved implementation count, so a flag deleted out of
+  // band leaves the experiment back in the empty state rather than stuck.
+  const hasNoImplementations =
+    linkedFeatures.length === 0 &&
+    !experiment.hasVisualChangesets &&
+    !experiment.hasURLRedirects;
+  const canAdoptManagedFlag =
+    !isManaged &&
+    hasNoImplementations &&
+    canEditExperiment &&
+    experiment.status === "draft" &&
+    !experiment.archived &&
+    !experiment.nextScheduledStatusUpdate &&
+    permissionsUtil.canViewFeatureModal(experiment.project);
+  const [addManagedOpen, setAddManagedOpen] = useState(false);
+  const [addManagedFocus, setAddManagedFocus] = useState<string | null>(null);
+
+  // Owned here so the variation cards and the flag card open the same editor.
+  const [editValuesOpen, setEditValuesOpen] = useState(false);
+  const [editValuesFocus, setEditValuesFocus] = useState<string | null>(null);
+  const canEditServedValues =
+    !!soleLinkedFeature &&
+    canEditExperiment &&
+    permissionsUtil.canEditFeatureDrafts(soleLinkedFeature.feature) &&
+    // Every sibling control on this card freezes for a scheduled start.
+    !experiment.nextScheduledStatusUpdate &&
+    // A managed flag can be reviewed and published from this page at any time.
+    // A plain linked flag cannot, so editing it once the experiment is running
+    // would open drafts with no way to land them.
+    (isManaged || experiment.status === "draft") &&
+    soleLinkedFeature.state !== "locked" &&
+    soleLinkedFeature.state !== "archived" &&
+    soleLinkedFeature.state !== "discarded";
+
   const holdoutHasLinkedExpOrFeatures =
     holdoutExperiments?.length || holdoutFeatures?.length;
 
@@ -151,6 +209,35 @@ export default function Implementation({
           mutate={mutate}
         />
       )}
+      {addManagedOpen && (
+        <AddManagedFlagModal
+          experiment={experiment}
+          focusVariationId={addManagedFocus}
+          close={() => {
+            setAddManagedOpen(false);
+            setAddManagedFocus(null);
+          }}
+          mutate={() => {
+            setAddManagedOpen(false);
+            setAddManagedFocus(null);
+            mutate();
+          }}
+        />
+      )}
+      {editValuesOpen && soleLinkedFeature && (
+        <EditFeatureFlagValuesModal
+          feature={soleLinkedFeature.feature}
+          experiment={experiment}
+          linkedFeatureInfo={soleLinkedFeature}
+          numLinkedChanges={linkedFeatures.length}
+          focusVariationId={editValuesFocus}
+          close={() => {
+            setEditValuesOpen(false);
+            setEditValuesFocus(null);
+          }}
+          mutate={mutate}
+        />
+      )}
       {editMetadataIndex !== null && canEditExperiment && (
         <EditVariationMetadataModal
           experiment={experiment}
@@ -176,6 +263,24 @@ export default function Implementation({
             safeToEdit={safeToEdit}
             mutate={mutate}
             phaseIndex={phases.length - 1}
+            servedValueFeature={soleLinkedFeature}
+            servedValuePreferDraft={isManaged}
+            onEditServedValue={
+              canEditServedValues
+                ? (variationId) => {
+                    setEditValuesFocus(variationId);
+                    setEditValuesOpen(true);
+                  }
+                : undefined
+            }
+            onAddServedValue={
+              canAdoptManagedFlag
+                ? (variationId) => {
+                    setAddManagedFocus(variationId);
+                    setAddManagedOpen(true);
+                  }
+                : undefined
+            }
           />
         ) : (
           <TrafficAndTargeting
@@ -186,7 +291,10 @@ export default function Implementation({
           />
         )}
         {!isHoldout &&
-        (!showTrafficFunnel || hasLinkedChanges || canAddLinkedChanges) ? (
+        (!showTrafficFunnel ||
+          hasLinkedChanges ||
+          canAddLinkedChanges ||
+          canAdoptManagedFlag) ? (
           <LinkedChanges
             linkedFeatures={linkedFeatures}
             experiment={experiment}
@@ -204,6 +312,11 @@ export default function Implementation({
             canEditExperiment={canEditExperiment}
             setEditVariationIndex={setEditMetadataIndex}
             hideVariations={showTrafficFunnel}
+            managedMode={managedMode}
+            onAddManagedFlag={
+              canAdoptManagedFlag ? () => setAddManagedOpen(true) : undefined
+            }
+            valuesShownOnVariations={!!soleLinkedFeature && showTrafficFunnel}
           />
         ) : null}
 

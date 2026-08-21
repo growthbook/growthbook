@@ -17,6 +17,9 @@ type Props = {
   changeType: "flag" | "visual" | "redirect";
   feature?: { id: string; valueType: FeatureValueType };
   additionalBadge?: ReactNode;
+  managedBadge?: ReactNode;
+  /** Replaces the Edit/Remove cluster when the change owns its controls. */
+  actions?: ReactNode;
   changes?: string[];
   vc?: VisualChangesetInterface;
   experiment?: ExperimentInterfaceStringDates;
@@ -60,6 +63,8 @@ export default function LinkedChange({
   experiment,
   canEdit = false,
   additionalBadge,
+  managedBadge,
+  actions,
   children,
   heading,
   headingLink,
@@ -100,6 +105,7 @@ export default function LinkedChange({
                 {heading}
               </Heading>
             )}
+            {managedBadge && <Box>{managedBadge}</Box>}
             {additionalBadge && <Box>{additionalBadge}</Box>}
             {changeType === "visual" && (
               <>
@@ -112,35 +118,39 @@ export default function LinkedChange({
               </>
             )}
           </Flex>
-          {canEdit && (
-            <Box>
-              {onDelete && (
-                <DeleteButton
-                  className="btn-sm ml-4"
-                  text="Remove"
-                  stopPropagation={true}
-                  onClick={() => onDelete()}
-                  displayName={CHANGE_TO_DELETE_DISPLAY_NAME[changeType]}
-                />
-              )}
-              {onEdit && (
-                <Button variant="ghost" onClick={() => onEdit()}>
-                  Edit
-                </Button>
-              )}
-              {vc &&
-                experiment?.status === "draft" &&
-                !experiment?.nextScheduledStatusUpdate && (
-                  <OpenVisualEditorLink
-                    useRadix={false}
-                    visualChangeset={vc}
-                    useLink={true}
-                    button={
-                      <Button variant="ghost">Launch Visual Editor</Button>
-                    }
+          {actions ? (
+            <Box>{actions}</Box>
+          ) : (
+            canEdit && (
+              <Box>
+                {onDelete && (
+                  <DeleteButton
+                    className="btn-sm ml-4"
+                    text="Remove"
+                    stopPropagation={true}
+                    onClick={() => onDelete()}
+                    displayName={CHANGE_TO_DELETE_DISPLAY_NAME[changeType]}
                   />
                 )}
-            </Box>
+                {onEdit && (
+                  <Button variant="ghost" onClick={() => onEdit()}>
+                    Edit
+                  </Button>
+                )}
+                {vc &&
+                  experiment?.status === "draft" &&
+                  !experiment?.nextScheduledStatusUpdate && (
+                    <OpenVisualEditorLink
+                      useRadix={false}
+                      visualChangeset={vc}
+                      useLink={true}
+                      button={
+                        <Button variant="ghost">Launch Visual Editor</Button>
+                      }
+                    />
+                  )}
+              </Box>
+            )
           )}
         </Flex>
       </Box>

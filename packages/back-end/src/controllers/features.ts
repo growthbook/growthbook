@@ -37,7 +37,6 @@ import {
   mergeRevision,
   liveRevisionFromFeature,
   fillRevisionFromFeature,
-  reconcileMergeBaselines,
   getReviewSetting,
   normalizeTargetingProjects,
   normalizeTargetingInUpdates,
@@ -144,7 +143,6 @@ import {
   evaluateAllFeatures,
   evaluateFeature,
   FeatureDefinitionSDKPayload,
-  generateRuleId,
   getFeatureDefinitions,
   getMergeResultPublishEnvs,
   getSavedGroupMap,
@@ -185,6 +183,7 @@ import {
   getPublishedRevisionForEvents,
   recordRevisionUpdate,
 } from "back-end/src/services/featureRevisionEvents";
+import { submitFeatureRevisionReview } from "back-end/src/services/featureRevisionReview";
 import {
   cleanUpPreviousRevisions,
   createInitialRevision,
@@ -256,6 +255,7 @@ import {
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import {
   formatPendingDraftFailureMessage,
+  linkFeatureToExperiment,
   PendingDraftPublishResult,
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
@@ -746,8 +746,13 @@ export async function postFeatures(
     holdout,
     customFields,
     jsonSchema,
-    ...otherProps
+    ...rest
   } = req.body;
+
+  // Never client-settable: declaring managedBy on the Mongoose schema removed
+  // the implicit strip, so accepting it here would let anyone create a flag
+  // locked to a nonexistent experiment with no way back.
+  const otherProps = omit(rest, ["managedBy"]);
 
   if (
     !context.permissions.canCreateFeature(
@@ -1359,133 +1364,19 @@ export async function postFeatureReviewOrComment(
 ) {
   const context = getContextFromReq(req);
   const { id, version } = req.params;
-  const { comment, review = "Comment" } = req.body;
   const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
 
-  // A verdict is the review atom; a plain comment is participation, so the
-  // comment atom carries it — review implies it but must not gate it. Uses the
-  // shared predicate so all four entities answer identically, narrowed to the
-  // primary project to match `canReviewFeatureDrafts`.
-  //
-  // Known structural divergence: the other three engines judge this on
-  // `revision.target.snapshot`; feature revisions carry no origin snapshot
-  // (`metadata.project` is the DESTINATION a draft stages), so this engine can
-  // only ask about live.
-  const canCommentHere = canCommentOnRevisionEntity(
-    context.permissions,
-    "feature",
-    null,
-    { project: feature.project },
-  );
-  if (
-    review === "Comment"
-      ? !canCommentHere
-      : !context.permissions.canReviewFeatureDrafts(feature)
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
-  const revision = await getRevision({
+  await submitFeatureRevisionReview({
     context,
-    organization: context.org.id,
-    featureId: feature.id,
     feature,
     version: parseInt(version),
+    review: req.body.review,
+    comment: req.body.comment,
+    eventAudit: res.locals.eventAudit,
   });
-  if (!revision) {
-    throw new Error("Could not find feature revision");
-  }
-  const createdByUser = revision.createdBy as EventUserLoggedIn;
-
-  // Verdicts may stand alone, but a plain comment must have a body.
-  if (review === "Comment" && !comment?.trim()) {
-    throw new Error("Comment cannot be empty");
-  }
-
-  if (createdByUser?.id === context.userId && review !== "Comment") {
-    throw Error("cannot submit a review for your self");
-  }
-
-  // Block contributors from self-approving when the org setting is enabled.
-  // Note: contributors[] is only populated on drafts created after contributor tracking was
-  // deployed. Legacy drafts with no contributors[] bypass this check — there is no way to
-  // retroactively determine co-authors without reading revision logs.
-  const requireReviews = context.org.settings?.requireReviews;
-  const blockSelfApproval = Array.isArray(requireReviews)
-    ? !!getReviewSetting(requireReviews, feature)?.blockSelfApproval
-    : false;
-  // The early, clear refusal. Re-applied inside the verdict's CAS against the row it
-  // writes, because this reads a copy the contributor list can outrun.
-  if (review === "Approved" && blockSelfApproval) {
-    const isSelfApproval = (revision.contributors ?? []).some(
-      (id) => id === context.userId,
-    );
-    if (isSelfApproval) {
-      throw new Error("You cannot approve a draft you contributed to.");
-    }
-  }
-  // dont allow review unless you are adding a comment
-  if (
-    !(
-      revision.status === "changes-requested" ||
-      revision.status === "pending-review" ||
-      revision.status === "approved"
-    ) &&
-    review !== "Comment"
-  ) {
-    throw new Error("Can only review if review is requested");
-  }
-  const { applied } = await submitReviewAndComments(
-    context,
-    revision,
-    res.locals.eventAudit,
-    review,
-    comment,
-    // Capture the live version the approval is made against so a later publish
-    // can detect when the approval has gone stale.
-    feature.version,
-    blockSelfApproval,
-  );
-  if (!applied) {
-    // The verdict did not persist: a concurrent recall, discard or publish moved
-    // the revision out of the review cycle. Refuse rather than log, notify and
-    // report success for a review the document does not carry.
-    throw new Error(
-      "This revision is no longer in review — it was recalled, published or discarded while the request was in flight.",
-    );
-  }
-
-  const updatedRevision = await getRevision({
-    context,
-    organization: context.org.id,
-    featureId: feature.id,
-    feature,
-    version: parseInt(version),
-  });
-  const finalRevision = updatedRevision ?? revision;
-
-  const auditUser = context.auditUser;
-  const reviewer =
-    auditUser && auditUser.type !== "system"
-      ? { id: auditUser.id, name: auditUser.name, email: auditUser.email }
-      : {};
-
-  await dispatchRevisionReviewEvent(
-    context,
-    feature,
-    revision,
-    finalRevision,
-    review,
-    comment,
-    reviewer,
-  );
-
-  if (review === "Approved") {
-    await maybeAutoPublishFeatureRevision(context, feature, finalRevision);
-  }
 
   res.status(200).json({
     status: 200,
@@ -3716,32 +3607,12 @@ export async function postFeatureExperimentRefRule(
   >,
 ) {
   const context = getContextFromReq(req);
-  const { org, environments } = context;
   const { id } = req.params;
   const { rule, autoPublish, draftVersion, forceNewDraft } = req.body;
-
-  if (
-    rule.type !== "experiment-ref" ||
-    !rule.experimentId ||
-    !rule.variations ||
-    !rule.variations.length
-  ) {
-    throw new Error("Invalid experiment rule");
-  }
-
-  if (!environments.length) {
-    throw new Error(
-      "Must have at least one environment configured to use Feature Flags",
-    );
-  }
 
   const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
-  }
-
-  if (!context.permissions.canEditFeatureDrafts(feature)) {
-    context.permissions.throwPermissionError();
   }
 
   const experiment = await getExperimentById(context, rule.experimentId);
@@ -3749,203 +3620,21 @@ export async function postFeatureExperimentRefRule(
     throw new Error("Invalid experiment selected");
   }
 
-  // allEnvironments:true strips any stale environments[]; false passes the
-  // explicit list through. Legacy callers that send neither default to every
-  // applicable org env.
-  let scopedRule: FeatureRule;
-  if (rule.allEnvironments === true) {
-    scopedRule = {
-      ...omit(rule, ["environments"]),
-      id: generateRuleId(),
-      allEnvironments: true,
-    } as FeatureRule;
-  } else if (
-    rule.allEnvironments === false &&
-    Array.isArray(rule.environments)
-  ) {
-    scopedRule = { ...rule, id: generateRuleId() } as FeatureRule;
-  } else {
-    scopedRule = stampRuleForEnvs(
-      { ...rule, id: generateRuleId() } as FeatureRule,
-      environments,
-    );
-  }
-
-  const ruleEnvFootprint = scopedRule.allEnvironments
-    ? environments
-    : (scopedRule.environments ?? []);
-
-  // Landing authority only when this call lands. Staging the rule into a draft
-  // is authoring, already gated above; the draft reaches no one until published.
-  if (
-    autoPublish &&
-    !context.permissions.canPublishFeature(feature, ruleEnvFootprint)
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
-  // Experiment/MAB-served values must satisfy the backing Config's schema +
-  // invariants, the same as a REST publish. No-op unless the feature is
-  // config-backed JSON.
-  await assertConfigBackedFeatureValuesValid(context, feature, {
-    rules: [scopedRule],
-  });
-
-  // autoPublish always starts from live so the merge stays clean.
-  const targetVersion = autoPublish
-    ? feature.version
-    : forceNewDraft
-      ? feature.version
-      : (draftVersion ?? feature.version);
-
-  const revision = await getDraftRevision(context, feature, targetVersion);
-
-  // If posting to a different revision, use the holdout from that revision
-  // to check compatibility
-  const effectiveHoldout = getEffectiveRevisionHoldout(revision, feature);
-
-  await resolveHoldoutExperimentToLink({
+  const { version, published } = await linkFeatureToExperiment({
     context,
-    feature,
     experiment,
-    effectiveHoldout,
-  });
-
-  // One-way: any rule-footprint env that's currently off flips on. We never
-  // turn envs off here.
-  const baseEnvEnabled: Record<string, boolean> = {
-    ...Object.fromEntries(
-      environments.map((e) => [
-        e,
-        feature.environmentSettings?.[e]?.enabled ?? false,
-      ]),
-    ),
-    ...(revision.environmentsEnabled ?? {}),
-  };
-  const envToggles: Record<string, boolean> = {};
-  for (const envId of ruleEnvFootprint) {
-    if (!environments.includes(envId)) continue;
-    if (!baseEnvEnabled[envId]) envToggles[envId] = true;
-  }
-
-  const existingRules = cloneDeep(revision.rules ?? []);
-  const nextRules = [...existingRules, scopedRule];
-
-  const combinedChanges: Partial<FeatureRevisionInterface> = {
-    rules: nextRules,
-  };
-  if (Object.keys(envToggles).length > 0) {
-    combinedChanges.environmentsEnabled = {
-      ...(revision.environmentsEnabled ?? {}),
-      ...envToggles,
-    };
-  }
-  // Title fresh drafts only — don't clobber a user's title on an existing draft.
-  const bundlingIntoExistingDraft =
-    !!draftVersion && !forceNewDraft && !autoPublish;
-  if (!bundlingIntoExistingDraft && !revision.title) {
-    combinedChanges.title =
-      experiment.type === "multi-armed-bandit"
-        ? "Publish bandit"
-        : "Publish experiment";
-  }
-
-  const resetReview = resetReviewOnChange({
     feature,
-    changedEnvironments: ruleEnvFootprint,
-    defaultValueChanged: false,
-    settings: org?.settings,
+    rule,
+    eventAudit: res.locals.eventAudit,
+    audit: req.audit,
+    autoPublish,
+    draftVersion,
+    forceNewDraft,
   });
-  const auditSubject = scopedRule.allEnvironments
-    ? "to all environments"
-    : `to ${ruleEnvFootprint.join(", ") || "no environments"}`;
-  const updatedRevision =
-    (await updateRevision(
-      context,
-      feature,
-      revision,
-      combinedChanges,
-      {
-        user: res.locals.eventAudit,
-        action: "add experiment rule",
-        subject: auditSubject,
-        value: JSON.stringify(scopedRule),
-      },
-      resetReview,
-    )) ?? revision;
-  await recordRevisionUpdate(context, feature, updatedRevision, "rule.add", {
-    environments: ruleEnvFootprint,
-  });
-
-  let published = false;
-  if (autoPublish) {
-    await assertCanAutoPublish(context, feature, updatedRevision);
-    const { live, base } = await getLiveAndBaseRevisionsForFeature({
-      context,
-      feature,
-      revision: updatedRevision,
-    });
-    const orgEnvIds = environments;
-    const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
-      feature,
-      live,
-      base,
-    );
-    const mergeResult = autoMerge(
-      mergeLive,
-      mergeBase,
-      updatedRevision,
-      orgEnvIds,
-      {},
-    );
-    if (!mergeResult.success) {
-      throw new Error(
-        `Unable to auto-publish: please resolve conflicts on draft #${updatedRevision.version} before publishing.`,
-      );
-    }
-    const updatedFeature = await publishRevision({
-      context,
-      feature,
-      revision: updatedRevision,
-      result: mergeResult.result,
-      comment: `Add experiment rule for "${experiment.name}"`,
-      bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
-        feature,
-        "feature",
-      ),
-    });
-    await req.audit({
-      event: "feature.publish",
-      entity: { object: "feature", id: feature.id },
-      details: auditDetailsUpdate(feature, updatedFeature, {
-        revision: updatedRevision.version,
-        comment: `Add experiment rule for "${experiment.name}"`,
-      }),
-    });
-    published = true;
-  } else {
-    // Queue the draft for auto-publish on `status -> running`.
-    await addPendingFeatureDraftToExperiment(
-      context,
-      rule.experimentId,
-      feature.id,
-      updatedRevision.version,
-    );
-  }
-
-  if (!feature.linkedExperiments?.includes(experiment.id)) {
-    await addLinkedExperiment(feature, experiment.id);
-  }
-  await addLinkedFeatureToExperiment(
-    context,
-    rule.experimentId,
-    feature.id,
-    experiment,
-  );
 
   res.status(200).json({
     status: 200,
-    version: updatedRevision.version,
+    version,
     published,
   });
 }

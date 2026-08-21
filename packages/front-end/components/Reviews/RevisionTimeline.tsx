@@ -138,7 +138,7 @@ function auditVerb(action: string): string {
 
 // Icons and colors mirror RevisionStatusBadge so the timeline and the
 // actions-column header speak the same visual language.
-function rowVisual(action: string): RowVisual {
+export function rowVisual(action: string): RowVisual {
   switch (action) {
     case "Comment":
       return {

@@ -11,6 +11,8 @@ import {
   autoMerge,
   reconcileMergeBaselines,
   includeExperimentInPayload,
+  isManagedByExperiment,
+  isManagedFeature,
 } from "shared/util";
 import {
   expandDerivedMetricsInMap,
@@ -44,6 +46,11 @@ import {
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
 import isEqual from "lodash/isEqual";
+import {
+  ExperimentRefVariation,
+  FeatureInterface,
+  FeatureValueType,
+} from "shared/validators";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   AuthRequest,
@@ -135,14 +142,33 @@ import { PastExperimentsQueryRunner } from "back-end/src/queryRunners/PastExperi
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
-import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  NotFoundError,
+  SoftWarningError,
+} from "back-end/src/util/errors";
 import { legacyDocDescribesPhase } from "back-end/src/enterprise/services/data-pipeline";
 import {
   getFeature,
+  getManagedFlagIdsUnfiltered,
   getFeaturesByIds,
+  getManagedFlagsByExperiment,
   publishRevision,
 } from "back-end/src/models/FeatureModel";
 import { getLinkageSyncRevisionSummaries } from "back-end/src/models/FeatureRevisionModel";
+import {
+  adoptManagedFlagForExperiment,
+  clearManagedMarkersForExperiment,
+  createManagedFlagForNewExperiment,
+  managedFlagAdoptionBlocker,
+  planManagedFlagKey,
+  type ManagedFlagKeyPlan,
+  ejectManagedFeature,
+  getManagedFeatureForExperiment,
+  publishManagedDraft,
+  stageManagedValueType,
+  requestReviewForManagedDraft,
+} from "back-end/src/services/managedFeatures";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 import {
@@ -170,6 +196,27 @@ import { canLinkExperimentToHoldoutFromFeatures } from "back-end/src/services/ho
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
+
+/**
+ * Which of the requested experiments manage a Feature Flag. Ownership lives on
+ * the flag, so a list row cannot answer this from its own document; callers
+ * pass the ids they are rendering rather than the whole list.
+ */
+export async function getManagedExperiments(
+  req: AuthRequest<unknown, unknown, { ids?: string }>,
+  res: Response<{ status: 200; managed: Record<string, string> }>,
+) {
+  const context = getContextFromReq(req);
+  const ids = (req.query?.ids || "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+
+  res.status(200).json({
+    status: 200,
+    managed: await getManagedFlagsByExperiment(context, ids),
+  });
+}
 
 export async function getExperiments(
   req: AuthRequest<
@@ -1134,6 +1181,8 @@ export async function getSnapshots(
  */
 export async function postExperiments(
   req: AuthRequest<
+    // A creation-time instruction, not a stored field — ownership lives on the
+    // Feature Flag it creates.
     Partial<ExperimentInterfaceStringDates>,
     unknown,
     {
@@ -1470,6 +1519,33 @@ export async function postExperiments(
       item: experiment.id,
       type: "experiments",
     });
+
+    // A duplicate gets its OWN flag, keyed off its own tracking key. Without
+    // this it lands with no implementation and no way to add one.
+    const originalExperiment = req.query.originalId
+      ? await getExperimentById(context, req.query.originalId)
+      : null;
+    const sourceManaged = originalExperiment
+      ? await getManagedFeatureForExperiment(context, originalExperiment)
+      : null;
+
+    if (sourceManaged) {
+      try {
+        await createManagedFlagForNewExperiment({
+          context,
+          experiment,
+          sourceExperiment: originalExperiment,
+          eventAudit: res.locals.eventAudit,
+          audit: req.audit,
+        });
+      } catch (e) {
+        // The flag half compensates itself; undo the experiment.
+        await deleteExperimentByIdForOrganization(context, experiment);
+        throw new Error(
+          `Could not create the managed Feature Flag for this experiment: ${e.message}`,
+        );
+      }
+    }
 
     res.status(200).json({
       status: 200,
@@ -3266,6 +3342,11 @@ export async function deleteExperiment(
     context.permissions.throwPermissionError();
   }
 
+  // Release the managed flag first. Without this it survives pointing at a
+  // deleted experiment, and every write path refuses it while the only eject
+  // route 404s — an unrecoverable state outside direct database access.
+  await clearManagedMarkersForExperiment(context, experiment.id);
+
   const promises = [
     // note: we might want to change this to change the status to
     // 'deleted' instead of actually deleting the document.
@@ -4257,7 +4338,26 @@ export async function postExperimentFeatureValues(
     return;
   }
 
-  if (experiment.status !== "draft") {
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  // Make sure features ids are valid for the experiment
+  Object.keys(features).forEach((featureId) => {
+    if (!linkedFeatureIds.includes(featureId)) {
+      throw new Error(`Feature ${featureId} is not linked to the experiment`);
+    }
+  });
+
+  const featureObjects = await getFeaturesByIds(context, Object.keys(features));
+
+  // A managed flag is read only on the Feature Flag page, so the message below
+  // has nowhere to send its caller — this route is the only way to change its
+  // values, and review and publish are available from the experiment at any
+  // time. Every other update still stops at draft.
+  const allManaged =
+    featureObjects.length > 0 &&
+    featureObjects.every((f) => isManagedByExperiment(f, experiment.id));
+
+  if (experiment.status !== "draft" && !allManaged) {
     res.status(400).json({
       status: 400,
       message:
@@ -4295,17 +4395,6 @@ export async function postExperimentFeatureValues(
   );
 
   const changes: Changeset = {};
-
-  const linkedFeatureIds = experiment.linkedFeatures || [];
-
-  // Make sure features ids are valid for the experiment
-  Object.keys(features).forEach((featureId) => {
-    if (!linkedFeatureIds.includes(featureId)) {
-      throw new Error(`Feature ${featureId} is not linked to the experiment`);
-    }
-  });
-
-  const featureObjects = await getFeaturesByIds(context, Object.keys(features));
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -4388,9 +4477,28 @@ export async function postExperimentFeatureValues(
     const orgEnvIds = context.environments;
     const updatedVariationValues = features[feature.id].variations;
 
-    const revision = existingRevision
+    let revision = existingRevision
       ? existingRevision
       : await getDraftRevision(context, feature, feature.version);
+
+    // Staged before the values so both land on the same draft and publish
+    // together — the values below are already expressed in the new type.
+    const requestedType = features[feature.id].valueType;
+    if (requestedType && requestedType !== feature.valueType) {
+      if (!isManagedByExperiment(feature, experiment.id)) {
+        throw new Error(
+          `Feature ${feature.id}: only a Feature Flag managed by this experiment can change its value type here.`,
+        );
+      }
+      revision = await stageManagedValueType({
+        context,
+        feature,
+        revision,
+        valueType: requestedType,
+        defaultValue: updatedVariationValues[0].value,
+        eventAudit: res.locals.eventAudit,
+      });
+    }
 
     const updatedRevision = await updateExperimentRefVariations({
       context,
@@ -4402,6 +4510,17 @@ export async function postExperimentFeatureValues(
       user: res.locals.eventAudit,
       orgSettings: org.settings,
     });
+
+    // A managed flag has no separate "request review" step — editing its values
+    // is the request.
+    if (!autoPublish && isManagedFeature(feature)) {
+      await requestReviewForManagedDraft({
+        context,
+        feature,
+        version: updatedRevision.version,
+        eventAudit: res.locals.eventAudit,
+      });
+    }
 
     if (autoPublish) {
       const { live, base } = await getLiveAndBaseRevisionsForFeature({
@@ -4490,7 +4609,139 @@ export async function deleteExperimentLinkedFeature(
     context.permissions.throwPermissionError();
   }
 
+  // Unlinking would strand a locked-down flag with no experiment to edit it.
+  // Resolved unfiltered: an unreadable flag is still managed, and skipping the
+  // check would detach it from the only surface that can write to it.
+  const managedIds = await getManagedFlagIdsUnfiltered(context, id);
+  if (managedIds.includes(featureId)) {
+    throw new Error(
+      "This Feature Flag is managed by the experiment. Eject it first to unlink it.",
+    );
+  }
+
   await unlinkFeatureFromExperiment(context, id, featureId);
 
   res.status(200).json({ status: 200 });
+}
+
+export async function getExperimentManagedFlagKeyPlan(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{
+    status: 200;
+    blocker: string | null;
+    keyPlan: ManagedFlagKeyPlan;
+  }>,
+) {
+  const context = getContextFromReq(req);
+  const experiment = await getExperimentById(context, req.params.id);
+  if (!experiment) {
+    throw new NotFoundError("Experiment not found");
+  }
+
+  res.status(200).json({
+    status: 200,
+    blocker: await managedFlagAdoptionBlocker(context, experiment),
+    keyPlan: await planManagedFlagKey({ context, experiment }),
+  });
+}
+
+export async function postExperimentManagedFlag(
+  req: AuthRequest<
+    {
+      valueType: FeatureValueType;
+      variations: ExperimentRefVariation[];
+      sparse?: boolean;
+      /** Create under this exact key instead of the derived one. */
+      featureId?: string;
+      /** Rename the experiment to this key first, so the pair matches. */
+      trackingKey?: string;
+    },
+    { id: string }
+  >,
+  res: Response<
+    { status: 200; feature: FeatureInterface; version: number },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+
+  const experiment = await getExperimentById(context, req.params.id);
+  if (!experiment) {
+    throw new NotFoundError("Experiment not found");
+  }
+
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { feature, version } = await adoptManagedFlagForExperiment({
+    context,
+    experiment,
+    valueType: req.body.valueType,
+    variations: req.body.variations,
+    sparse: req.body.sparse,
+    featureId: req.body.featureId,
+    trackingKey: req.body.trackingKey,
+    eventAudit: res.locals.eventAudit,
+    audit: req.audit,
+  });
+
+  res.status(200).json({ status: 200, feature, version });
+}
+
+export async function postExperimentManagedFlagPublish(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<
+    { status: 200; feature: FeatureInterface },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    throw new NotFoundError("Experiment not found");
+  }
+
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
+
+  const feature = await publishManagedDraft({ context, experiment });
+
+  res.status(200).json({ status: 200, feature });
+}
+
+export async function postExperimentManagedFlagEject(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<
+    { status: 200; feature: FeatureInterface },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    throw new NotFoundError("Experiment not found");
+  }
+
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
+
+  const managed = await getManagedFeatureForExperiment(context, experiment);
+  if (!managed) {
+    throw new Error("This experiment does not manage a Feature Flag.");
+  }
+
+  const feature = await ejectManagedFeature({
+    context,
+    feature: managed,
+    experimentId: id,
+  });
+
+  res.status(200).json({ status: 200, feature });
 }

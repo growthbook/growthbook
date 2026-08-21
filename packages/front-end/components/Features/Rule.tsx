@@ -16,6 +16,7 @@ import {
   getReviewSetting,
   getTargetingProjectIds,
   isRampScheduleServing,
+  isManagedFeature,
 } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { RxCircleBackslash } from "react-icons/rx";
@@ -433,15 +434,20 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const router = useRouter();
     const useDummyData = router.query["dummy"] === "true";
 
-    const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
+    // Managed flags refuse direct rule writes; the experiment owns them.
+    const isManagedFlag = isManagedFeature(feature);
+
+    const canEdit =
+      !isManagedFlag && permissionsUtil.canEditFeatureDrafts(feature);
 
     const canPublishFeatureEnvs = useMemo(
       () =>
+        !isManagedFlag &&
         permissionsUtil.canPublishFeature(
           feature,
           environments.map((e) => e.id),
         ),
-      [feature, permissionsUtil, environments],
+      [feature, permissionsUtil, environments, isManagedFlag],
     );
 
     const canControlRamp = useMemo(() => {

@@ -14,6 +14,7 @@ import {
   resolveTargetingProjectIds,
   computeHoldoutExperimentLinkageDelta,
   getExperimentIdsFromRules,
+  managedByExperimentId,
 } from "shared/util";
 import {
   SafeRolloutInterface,
@@ -223,11 +224,21 @@ const featureSchema = new mongoose.Schema({
     id: String,
     value: String,
   },
+  // Mixed: the discriminator key is named `type`, which Mongoose would read as
+  // a SchemaType declaration rather than a path.
+  managedBy: {},
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
 featureSchema.index({ organization: 1, project: 1 });
 featureSchema.index({ organization: 1, targetingProjects: 1 });
+// Partial, so it holds only the flags an experiment manages — a handful per
+// org. Lets a list resolve which experiments manage a flag without scanning
+// features.
+featureSchema.index(
+  { organization: 1, "managedBy.experimentId": 1 },
+  { partialFilterExpression: { "managedBy.type": "experiment" } },
+);
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
 
@@ -691,6 +702,22 @@ export async function getFeature(
   return context.permissions.canReadTargetingScopedResource(feature)
     ? toInterface(feature, context)
     : null;
+}
+
+/**
+ * Existence only, and deliberately NOT permission-filtered: the unique index is
+ * org-wide, so a key held by a feature the caller cannot read is still taken.
+ * `getFeature` would report it free and the insert would then fail.
+ */
+export async function featureIdExists(
+  context: ReqContext | ApiReqContext,
+  id: string,
+): Promise<boolean> {
+  const count = await FeatureModel.countDocuments({
+    organization: context.org.id,
+    id,
+  });
+  return count > 0;
 }
 
 export async function migrateDraft(
@@ -1242,6 +1269,9 @@ export async function updateFeature(
     // Remove the holdout pointer in the SAME write: splitting into two writes
     // opens a gap where a rival publish can land and be overwritten.
     unsetHoldout?: boolean;
+    // Needs $unset for the same reason as holdout: `managedBy: undefined` in a
+    // $set is dropped, not applied.
+    unsetManagedBy?: boolean;
     // The stamp this write PUTS on the document — fires only after Mongo
     // confirms the write ("this landed", never "this was attempted").
     // Compensation uses it as the ownership token; the returned doc is a
@@ -1264,6 +1294,7 @@ export async function updateFeature(
     ...allUpdates,
   };
   if (options?.unsetHoldout) delete projected.holdout;
+  if (options?.unsetManagedBy) delete projected.managedBy;
 
   // Refresh linkedExperiments if needed
   const linkedExperiments = getLinkedExperiments(projected);
@@ -1334,7 +1365,14 @@ export async function updateFeature(
     },
     {
       $set: normalizedUpdates,
-      ...(options?.unsetHoldout ? { $unset: { holdout: "" } } : {}),
+      ...(options?.unsetHoldout || options?.unsetManagedBy
+        ? {
+            $unset: {
+              ...(options?.unsetHoldout ? { holdout: "" } : {}),
+              ...(options?.unsetManagedBy ? { managedBy: "" } : {}),
+            },
+          }
+        : {}),
     },
   );
   if (options?.casOnDateUpdated && writeResult.matchedCount === 0) {
@@ -1968,6 +2006,10 @@ export function computeRevisionMergeChanges(
       changes.customFields = m.customFields as Record<string, unknown>;
     if (m.jsonSchema !== undefined) changes.jsonSchema = m.jsonSchema;
     if (m.baseConfig !== undefined) changes.baseConfig = m.baseConfig;
+    // Staged by a revert restoring an older type, and by a managed flag's own
+    // type change. Both stage every value alongside it, so the values landing
+    // here already read as the type landing with them.
+    if (m.valueType !== undefined) changes.valueType = m.valueType;
     hasChanges = true;
   }
 
@@ -4508,6 +4550,63 @@ export async function getFeatureMetaInfoByIds(
       neverStale: f.neverStale,
       revision: f.revision as FeatureMetaInfo["revision"],
     }));
+}
+
+/**
+ * Ids of the flags an experiment manages, deliberately NOT read-filtered:
+ * ownership has to be answerable even for a flag the caller cannot read, or its
+ * marker can never be cleared. Callers must not leak the ids themselves.
+ */
+export async function getManagedFlagIdsUnfiltered(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+): Promise<string[]> {
+  const features = await FeatureModel.find(
+    {
+      organization: context.org.id,
+      "managedBy.type": "experiment",
+      "managedBy.experimentId": experimentId,
+    },
+    { id: 1 },
+  );
+  return features.map((f) => f.id);
+}
+
+/**
+ * Of the given experiments, the ones that manage a Feature Flag, mapped to the
+ * flag they own. Served by the partial `managedBy.experimentId` index, and the
+ * caller passes only the rows it is about to render, so the cost tracks what is
+ * on screen rather than the size of either collection.
+ */
+export async function getManagedFlagsByExperiment(
+  context: ReqContext | ApiReqContext,
+  experimentIds: string[],
+): Promise<Record<string, string>> {
+  if (!experimentIds.length) return {};
+
+  const features = await FeatureModel.find(
+    {
+      organization: context.org.id,
+      "managedBy.type": "experiment",
+      "managedBy.experimentId": { $in: experimentIds },
+    },
+    {
+      id: 1,
+      project: 1,
+      targetingAllProjects: 1,
+      targetingProjects: 1,
+      managedBy: 1,
+    },
+  );
+
+  const byExperiment: Record<string, string> = {};
+  features
+    .filter((f) => context.permissions.canReadTargetingScopedResource(f))
+    .forEach((f) => {
+      const experimentId = managedByExperimentId(f);
+      if (experimentId) byExperiment[experimentId] = f.id;
+    });
+  return byExperiment;
 }
 
 export async function getFeatureEnvStatus(

@@ -12,6 +12,7 @@ export const projectSettingsValidator = z.object({
   statsEngine: statsEnginesValidator.optional(),
   confidenceLevel: z.number().min(0.5).max(1).optional(),
   pValueThreshold: z.number().gt(0).max(0.5).optional(),
+  // Overrides the org-level default when set; absent defers to the org.
 });
 
 export const projectValidator = baseSchema
@@ -85,7 +86,7 @@ const postProjectBody = z
           .optional(),
       })
       .describe(
-        "Project stats settings that, when set, override the organization settings.",
+        "Project settings that, when set, override the organization settings.",
       )
       .optional(),
   })
@@ -119,7 +120,7 @@ const putProjectBody = z
           .optional(),
       })
       .describe(
-        "Project stats settings that, when set, override the organization settings.",
+        "Project settings that, when set, override the organization settings.",
       )
       .optional(),
   })

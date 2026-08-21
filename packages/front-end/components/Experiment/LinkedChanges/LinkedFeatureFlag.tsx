@@ -4,8 +4,10 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiArrowSquareOut, PiGitMerge, PiXBold } from "react-icons/pi";
+import { isManagedByExperiment } from "shared/util";
 import LinkedChange from "@/components/Experiment/LinkedChanges/LinkedChange";
 import LinkedChangeVariationRows from "@/components/Experiment/LinkedChanges/LinkedChangeVariationRows";
 import ForceSummary from "@/components/Features/ForceSummary";
@@ -16,11 +18,14 @@ import {
   revisionStatusLabel,
 } from "@/components/Reviews/RevisionStatusBadge";
 import Badge from "@/ui/Badge";
+import ConfirmDialog from "@/ui/ConfirmDialog";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 
 type Props = {
   info: LinkedFeatureInfo;
@@ -28,6 +33,8 @@ type Props = {
   numLinkedChanges: number;
   onReAdd?: () => void;
   mutate?: () => void;
+  /** The variation cards are already showing these values. */
+  valuesShownOnVariations?: boolean;
 };
 
 export default function LinkedFeatureFlag({
@@ -36,10 +43,14 @@ export default function LinkedFeatureFlag({
   numLinkedChanges,
   onReAdd,
   mutate,
+  valuesShownOnVariations,
 }: Props) {
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
+  const allEnvironments = useEnvironments();
   const [removing, setRemoving] = useState(false);
+  const [ejecting, setEjecting] = useState(false);
+  const [ejectConfirm, setEjectConfirm] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
   const canEditExperiment =
@@ -47,6 +58,15 @@ export default function LinkedFeatureFlag({
 
   const canUpdateLinkedFeature =
     canEditExperiment && permissionsUtil.canEditFeatureDrafts(info.feature);
+
+  // Eject hands back control of what a running experiment serves, so the
+  // server takes publish authority — mirror it or the menu offers a 403.
+  const canEject =
+    canEditExperiment &&
+    permissionsUtil.canPublishFeature(
+      info.feature,
+      getEnabledEnvironments(info.feature, allEnvironments),
+    );
 
   const canEditFeatureDraft =
     canUpdateLinkedFeature &&
@@ -73,6 +93,21 @@ export default function LinkedFeatureFlag({
       mutate?.();
     } finally {
       setRemoving(false);
+    }
+  };
+
+  const isManaged = isManagedByExperiment(info.feature, experiment.id);
+
+  const handleEject = async () => {
+    setEjecting(true);
+    try {
+      await apiCall(`/experiment/${experiment.id}/managed-flag/eject`, {
+        method: "POST",
+      });
+      setEjectConfirm(false);
+      mutate?.();
+    } finally {
+      setEjecting(false);
     }
   };
 
@@ -121,6 +156,17 @@ export default function LinkedFeatureFlag({
     }),
   );
 
+  // With the values on the variation cards, this only earns space when one of
+  // the warnings below has something to say.
+  const hasValueWarnings =
+    (info.state === "live" || info.state === "draft") &&
+    (info.inconsistentValues || info.rulesAbove);
+  // A managed flag never renders the value rows here, so without a warning to
+  // show the section would be an empty padded band.
+  const showValueSection = isManaged
+    ? hasValueWarnings
+    : !valuesShownOnVariations || hasValueWarnings;
+
   const showEditButton =
     canEditFeatureDraft &&
     experiment.status === "draft" &&
@@ -131,6 +177,15 @@ export default function LinkedFeatureFlag({
 
   return (
     <>
+      {ejectConfirm && (
+        <ConfirmDialog
+          title="Switch to manual implementation?"
+          content="This Experiment keeps using the linked Feature Flag, but you'll manage and review it directly from its own page instead of from here."
+          yesText="Switch to manual"
+          onConfirm={handleEject}
+          onCancel={() => setEjectConfirm(false)}
+        />
+      )}
       {editModalOpen && (
         <EditFeatureFlagValuesModal
           feature={info.feature}
@@ -147,20 +202,60 @@ export default function LinkedFeatureFlag({
         feature={info.feature}
         canEdit={showEditButton}
         onEdit={showEditButton ? () => setEditModalOpen(true) : undefined}
+        managedBadge={
+          isManaged ? (
+            <Badge label="Managed by Experiment" radius="full" color="violet" />
+          ) : undefined
+        }
+        actions={
+          isManaged ? (
+            // Always set when managed, even if empty: falling back to the
+            // default cluster would offer Edit and Remove on a managed flag.
+            <>
+              {canEject && (
+                <DropdownMenu
+                  trigger={
+                    <IconButton
+                      variant="ghost"
+                      color="gray"
+                      radius="full"
+                      size="2"
+                      highContrast
+                    >
+                      <BsThreeDotsVertical size={16} />
+                    </IconButton>
+                  }
+                  menuPlacement="end"
+                >
+                  <DropdownMenuItem
+                    disabled={ejecting}
+                    onClick={() => setEjectConfirm(true)}
+                  >
+                    Switch to manual implementation
+                  </DropdownMenuItem>
+                </DropdownMenu>
+              )}
+            </>
+          ) : undefined
+        }
         additionalBadge={(() => {
           if (info.state === "archived") {
             return <Badge label="Archived" radius="full" color="gray" />;
           }
+          // Show the review status: the flag's live/draft state is implied by
+          // the experiment, and "Draft" would disagree with the approval CTA.
           const revisionStatus =
-            info.state === "live"
-              ? "live"
-              : info.state === "draft"
-                ? "draft"
-                : info.state === "locked"
-                  ? "published"
-                  : info.state === "discarded"
-                    ? "discarded"
-                    : null;
+            isManaged && info.pendingDraft
+              ? info.pendingDraft.status
+              : info.state === "live"
+                ? "live"
+                : info.state === "draft"
+                  ? "draft"
+                  : info.state === "locked"
+                    ? "published"
+                    : info.state === "discarded"
+                      ? "discarded"
+                      : null;
           if (!revisionStatus) return null;
           return (
             <Badge
@@ -233,7 +328,9 @@ export default function LinkedFeatureFlag({
               </Link>
             </Callout>
           )}
-        {info.state === "draft" &&
+        {/* A managed flag says this once, page-level, above the fold. */}
+        {!isManaged &&
+          info.state === "draft" &&
           !info.hasMergeConflict &&
           !info.hasUnrelatedDraftChanges && (
             <Callout
@@ -286,50 +383,55 @@ export default function LinkedFeatureFlag({
           )}
         {info.state !== "discarded" && info.state !== "archived" && (
           <Box className="appbox" style={{ backgroundColor: "transparent" }}>
-            <Flex width="100%" gap="4" py="4" px="5" direction="column">
-              <Box flexGrow="1">
-                <LinkedChangeVariationRows
-                  alignContent={
-                    info.feature.valueType === "json" ? "start" : "center"
-                  }
-                  experiment={experiment}
-                  renderContent={(j) =>
-                    !configuredVariationIds.has(variations[j].id) ? (
-                      <HelperText status="warning">
-                        Define missing values
-                      </HelperText>
-                    ) : (
-                      <ForceSummary
-                        value={orderedValues[j]}
-                        feature={info.feature}
-                        sparse={info.sparse}
-                        maxHeight={60}
-                      />
-                    )
-                  }
-                />
-              </Box>
+            {showValueSection && (
+              <Flex width="100%" gap="4" py="4" px="5" direction="column">
+                {!isManaged && (
+                  <Box flexGrow="1">
+                    <LinkedChangeVariationRows
+                      alignContent={
+                        info.feature.valueType === "json" ? "start" : "center"
+                      }
+                      experiment={experiment}
+                      renderContent={(j) =>
+                        !configuredVariationIds.has(variations[j].id) ? (
+                          <HelperText status="warning">
+                            Define missing values
+                          </HelperText>
+                        ) : (
+                          <ForceSummary
+                            value={orderedValues[j]}
+                            feature={info.feature}
+                            sparse={info.sparse}
+                            maxHeight={60}
+                          />
+                        )
+                      }
+                    />
+                  </Box>
+                )}
 
-              {(info.state === "live" || info.state === "draft") && (
-                <>
-                  {info.inconsistentValues && (
-                    <Callout status="warning">
-                      <strong>Warning:</strong> This experiment is included
-                      multiple times with different values. The values above are
-                      from the first matching experiment in{" "}
-                      <strong>{info.valuesFrom}</strong>.
-                    </Callout>
-                  )}
+                {(info.state === "live" || info.state === "draft") && (
+                  <>
+                    {info.inconsistentValues && (
+                      <Callout status="warning">
+                        <strong>Warning:</strong> This experiment is included
+                        multiple times with different values. The values above
+                        are from the first matching experiment in{" "}
+                        <strong>{info.valuesFrom}</strong>.
+                      </Callout>
+                    )}
 
-                  {info.rulesAbove && (
-                    <Callout status="info">
-                      <strong>Notice:</strong> There are Feature Flag rules
-                      above this experiment so some users might not be included.
-                    </Callout>
-                  )}
-                </>
-              )}
-            </Flex>
+                    {info.rulesAbove && (
+                      <Callout status="info">
+                        <strong>Notice:</strong> There are Feature Flag rules
+                        above this experiment so some users might not be
+                        included.
+                      </Callout>
+                    )}
+                  </>
+                )}
+              </Flex>
+            )}
 
             {info.state !== "locked" && (
               <>

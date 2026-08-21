@@ -29,6 +29,7 @@ import { useWatching } from "@/services/WatchProvider";
 import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import ExperimentsListTable from "@/components/Experiment/ExperimentsListTable";
+import { ManagedExperimentFlagsProvider } from "@/hooks/useManagedExperimentFlagStates";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import useURLHash from "@/hooks/useURLHash";
 
@@ -177,7 +178,9 @@ const ExperimentsPage = (): React.ReactElement => {
   );
 
   return (
-    <>
+    // Provided here rather than app-wide: only these lists need the managed
+    // lookup, and the cache should not outlive the page.
+    <ManagedExperimentFlagsProvider>
       <div className="contents experiments container-fluid pagecontents">
         <div className="my-3">
           <div className="filters md-form row align-items-center">
@@ -363,7 +366,7 @@ const ExperimentsPage = (): React.ReactElement => {
           source="experiment-list"
         />
       )}
-    </>
+    </ManagedExperimentFlagsProvider>
   );
 };
 
