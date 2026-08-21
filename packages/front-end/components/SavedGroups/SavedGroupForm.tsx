@@ -247,6 +247,10 @@ const SavedGroupForm: FC<{
     entityNoun: "saved group",
   });
 
+  const descriptionContested = conflict.providerProps.contested.some(
+    (c) => c.key === "description",
+  );
+
   // Update form values when selected revision changes OR when current prop updates
   useEffect(() => {
     let baseData: Partial<SavedGroupInterface>;
@@ -625,19 +629,22 @@ const SavedGroupForm: FC<{
             placeholder="e.g. beta-users or internal-team-members"
           />
           <ConflictCallout field="groupName" />
-          {showDescription ? (
-            <Field
-              size="legacy"
-              label="Description"
-              labelClassName="font-weight-bold"
-              required={false}
-              textarea
-              maxLength={100}
-              value={form.watch("description")}
-              onChange={(e) => {
-                form.setValue("description", e.target.value);
-              }}
-            />
+          {showDescription || descriptionContested ? (
+            <>
+              <Field
+                size="legacy"
+                label="Description"
+                labelClassName="font-weight-bold"
+                required={false}
+                textarea
+                maxLength={100}
+                value={form.watch("description")}
+                onChange={(e) => {
+                  form.setValue("description", e.target.value);
+                }}
+              />
+              <ConflictCallout field="description" />
+            </>
           ) : (
             <Link
               onClick={(e) => {
@@ -652,7 +659,6 @@ const SavedGroupForm: FC<{
               </Flex>
             </Link>
           )}
-          <ConflictCallout field="description" />
           <MultiSelectField
             legacyHeight
             label="Projects"
