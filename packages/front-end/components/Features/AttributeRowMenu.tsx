@@ -1,6 +1,6 @@
 import React, { FC, useState } from "react";
 import { IconButton } from "@radix-ui/themes";
-import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiDotsThreeVertical } from "react-icons/pi";
 import { SDKAttribute } from "shared/types/organization";
 import {
   DropdownMenu,
@@ -31,13 +31,15 @@ const AttributeRowMenu: FC<{
           radius="full"
           size="2"
           highContrast
+          aria-label={`Actions for attribute ${attribute.property}`}
         >
-          <BsThreeDotsVertical size={18} />
+          <PiDotsThreeVertical size={18} />
         </IconButton>
       }
       open={menuOpen}
       onOpenChange={setMenuOpen}
       menuPlacement="end"
+      variant="soft"
     >
       {!attribute.archived && (
         <DropdownMenuItem
@@ -84,8 +86,7 @@ const AttributeRowMenu: FC<{
             <>
               Are you sure you want to delete the{" "}
               {attribute.hashAttribute ? "identifier " : ""}
-              {attribute.datatype} attribute:{" "}
-              <code className="font-weight-bold">{attribute.property}</code>?
+              {attribute.datatype} attribute: <code>{attribute.property}</code>?
               <br />
               This action cannot be undone.
             </>
