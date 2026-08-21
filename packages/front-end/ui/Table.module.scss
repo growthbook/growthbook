@@ -198,6 +198,12 @@
     }
   }
 
+  // No-op until a caller sets the var. Applied to the table rather than the
+  // slack <col>, whose min-width the CSS Tables spec doesn't honour.
+  :global(.rt-TableRootTable) {
+    min-width: var(--table-min-width, 0);
+  }
+
   // Anchor for the absolutely positioned resize handle.
   :global(.rt-TableHeader .rt-TableRow .rt-TableColumnHeaderCell) {
     position: relative;

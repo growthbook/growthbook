@@ -269,6 +269,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
         id: "description",
         label: "Description",
         sortField: "description",
+        // No defaultWidth: absorbs the table's slack. minWidth is its floor
+        // once enough other columns are shown to consume that slack.
+        minWidth: 160,
         cellProps: () => ({ className: "text-gray" }),
         render: (v) =>
           v.description ? (
@@ -458,6 +461,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
     setWidth,
     reset,
     colRefs,
+    minTableWidth,
     ColGroup,
   } = useTableColumns({ storageKey: "attributes", columns: columnDefs });
 
@@ -548,6 +552,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
             roundedCorners
             layout="fixed"
             scrollX
+            minTableWidth={minTableWidth}
           >
             <ColGroup />
             <TableHeader>

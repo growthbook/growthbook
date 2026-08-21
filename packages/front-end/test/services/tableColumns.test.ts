@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isLayoutCustomized,
   mergeLayoutForWrite,
+  minTableWidth,
   resolveTableColumns,
   TableColumnDef,
   TableColumnLayout,
@@ -295,6 +296,63 @@ describe("mergeLayoutForWrite", () => {
       stored,
     );
     expect(merged.columns.map((c) => c.id)).toEqual(["a"]);
+  });
+});
+
+describe("minTableWidth", () => {
+  it("sums the widths of visible columns", () => {
+    const defs = [
+      col("a", { defaultWidth: 100 }),
+      col("b", { defaultWidth: 80 }),
+    ];
+    expect(minTableWidth(resolveTableColumns(defs, null))).toBe(180);
+  });
+
+  it("sums the clamped width, not the declared one", () => {
+    // 50 is below the shared minimum, so the column really occupies 64.
+    const defs = [
+      col("a", { defaultWidth: 100 }),
+      col("b", { defaultWidth: 50 }),
+    ];
+    expect(minTableWidth(resolveTableColumns(defs, null))).toBe(164);
+  });
+
+  it("ignores hidden columns", () => {
+    const defs = [
+      col("a", { defaultWidth: 100 }),
+      col("b", { defaultWidth: 50, defaultHidden: true }),
+    ];
+    expect(minTableWidth(resolveTableColumns(defs, null))).toBe(100);
+  });
+
+  it("floors a slack column at its minWidth rather than counting it as zero", () => {
+    // The bug this guards: a fixed-layout column with no width takes only the
+    // leftover space, so without a floor it collapses once the others fill up.
+    const defs = [
+      col("a", { defaultWidth: 100 }),
+      col("slack", { minWidth: 160 }),
+    ];
+    expect(minTableWidth(resolveTableColumns(defs, null))).toBe(260);
+  });
+
+  it("uses the shared minimum for a slack column that declares no minWidth", () => {
+    const defs = [col("a", { defaultWidth: 100 }), col("slack")];
+    expect(minTableWidth(resolveTableColumns(defs, null))).toBe(164);
+  });
+
+  it("counts a resized slack column at its committed width", () => {
+    const defs = [
+      col("a", { defaultWidth: 100 }),
+      col("slack", { minWidth: 160 }),
+    ];
+    const resolved = resolveTableColumns(
+      defs,
+      layout([
+        { id: "a", visible: true, width: 100 },
+        { id: "slack", visible: true, width: 400 },
+      ]),
+    );
+    expect(minTableWidth(resolved)).toBe(500);
   });
 });
 
