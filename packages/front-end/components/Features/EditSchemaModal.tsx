@@ -17,6 +17,8 @@ import {
 } from "shared/util";
 import { FaAngleDown, FaAngleRight, FaRegTrashAlt } from "react-icons/fa";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import { useDefaultDraftMode } from "@/hooks/useDefaultDraft";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -271,6 +273,7 @@ export default function EditSchemaModal({
   defaultEnable,
   onEnable,
 }: Props) {
+  const permissionsUtil = usePermissionsUtil();
   const valueType = feature.valueType;
   const defaultSimpleSchema: SimpleSchema = feature.jsonSchema?.simple?.fields
     ?.length
@@ -323,7 +326,15 @@ export default function EditSchemaModal({
     return envList.length === 0 ? "all" : new Set(envList);
   }, [settings?.requireReviews, feature]);
 
-  const canAutoPublish = gatedEnvSet === "none";
+  // Approval-gating and AUTHORITY are separate factors. A schema change lands
+  // on the feature's served values, so the footprint is the environments the
+  // flag is enabled in — the same envs the publish endpoint answers for.
+  const environments = useEnvironments();
+  const canPublishSchema = permissionsUtil.canPublishFeature(
+    feature,
+    Array.from(getEnabledEnvironments(feature, environments)),
+  );
+  const canAutoPublish = gatedEnvSet === "none" && canPublishSchema;
 
   const { mode: initialMode, defaultDraft } = useDefaultDraftMode(
     revisionList,

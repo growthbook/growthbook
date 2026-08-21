@@ -648,8 +648,6 @@ describe("POST /api/v1/releases/publish-revisions", () => {
         datePublished: now,
       },
       {
-        // The FIX: the draft drops the constant reference, replacing the rule
-        // value with a literal that satisfies the schema.
         organization: ORG_ID,
         featureId: "qp-fp-feat",
         version: 2,
@@ -709,6 +707,47 @@ describe("POST /api/v1/releases/publish-revisions", () => {
     // The config's own break persists (nothing in the batch fixes the config),
     // so only the FEATURE-mentioning gates must vanish.
     expect(schemaGatesOf(batched.body)).toEqual([]);
+  });
+
+  it("refuses a caller holding no landing atom before validation runs", async () => {
+    // The load-time gate is not just about the answer, it is about how far an
+    // unauthorized caller gets. `collectGates` records its permission gate and
+    // then keeps collecting — entity guards, schema validation, and the org's
+    // sandboxed Custom Hooks all run after it. So a caller who cannot land the
+    // change under ANY footprint must be stopped before that stage, or they
+    // execute hook code and read the whole governance-gate enumeration on their
+    // way to a 403.
+    //
+    // Reuses the schema-break fixture: with the gate, the response carries the
+    // refusal and NO schema gate, which is what proves collection never ran.
+    const context = makeContext();
+    const landing = new Set(["publish", "revert", "delete"]);
+    const real = context.permissions.canRevisionAction;
+    context.permissions.canRevisionAction = ((
+      model: Parameters<typeof real>[0],
+      action: Parameters<typeof real>[1],
+      obj: Parameters<typeof real>[2],
+      envs?: Parameters<typeof real>[3],
+    ) =>
+      landing.has(action)
+        ? false
+        : real(model, action, obj, envs)) as typeof real;
+    setReqContext(context);
+
+    await insertRawConstant("no-atom-const");
+    const version = await stageConstantDraft(
+      "no-atom-const",
+      JSON.stringify({ port: "not-a-number" }),
+    );
+
+    const res = await publishRevisions({
+      dryRun: true,
+      revisions: [{ entityType: "constant", key: "no-atom-const", version }],
+    });
+
+    const gates = (res.body.gates ?? []) as { type: string }[];
+    expect(gates.some((g) => g.type === "permission-denied")).toBe(true);
+    expect(gates.some((g) => g.type === "schema-validation")).toBe(false);
   });
 
   it("requires the releases commercial feature", async () => {

@@ -6,6 +6,8 @@ import {
   updateExperimentValidator,
 } from "shared/validators";
 import { DataSourceInterface } from "shared/types/datasource";
+import { FactMetricInterface } from "shared/types/fact-table";
+import { isFactMetric } from "shared/experiments";
 import { ExperimentInterface, Variation } from "shared/types/experiment";
 import { OrganizationInterface } from "shared/types/organization";
 import { Context } from "back-end/src/models/BaseModel";
@@ -16,6 +18,7 @@ import {
 import {
   applyVariationWeightsToLatestPhase,
   fillEmptyVariationKeys,
+  getExperimentMetricById,
   normalizeStatusUpdateScheduleChanges,
   postExperimentApiPayloadToInterface,
   postMetricApiPayloadIsValid,
@@ -2144,5 +2147,49 @@ describe("validateScheduleUpdate", () => {
         incoming: { stopAfter: { value: 30, unit: "days" } },
       }),
     ).not.toThrow();
+  });
+});
+
+describe("getExperimentMetricById funnel steps", () => {
+  const funnelMetric = {
+    id: "fact__funnel",
+    name: "Signup Funnel",
+    metricType: "funnel",
+    numerator: null,
+    denominator: null,
+    funnelSettings: {
+      steps: [
+        { name: "View", factTableId: "ft_views", rowFilters: [] },
+        { name: "Signup", factTableId: "ft_events", rowFilters: [] },
+      ],
+    },
+  } as unknown as FactMetricInterface;
+
+  const context = {
+    models: {
+      factMetrics: {
+        getById: async (id: string) =>
+          id === funnelMetric.id ? funnelMetric : null,
+      },
+    },
+  } as unknown as Context;
+
+  it("resolves a step id to a proportion metric named after its step", async () => {
+    const step = await getExperimentMetricById(context, "fact__funnel?step=1");
+
+    expect(step?.name).toBe("Signup Funnel: Signup");
+    expect(step && isFactMetric(step) && step.metricType).toBe("proportion");
+  });
+
+  it("returns null for a step the funnel no longer has", async () => {
+    expect(
+      await getExperimentMetricById(context, "fact__funnel?step=7"),
+    ).toBeNull();
+  });
+
+  it("returns null when the step's parent is not a funnel", async () => {
+    expect(await getExperimentMetricById(context, "fact__other?step=0")).toBe(
+      null,
+    );
   });
 });

@@ -26,6 +26,9 @@ const { name: _nextName, ...nextRecommendedConfig } =
 
 export default defineConfig([
   globalIgnores([
+    // Claude Code parks agent worktrees (full checkouts) here; linting them
+    // rewrites another branch's files.
+    ".claude/",
     "**/.next",
     "**/dist",
     "**/coverage",
@@ -34,6 +37,7 @@ export default defineConfig([
     "docs/.docusaurus",
     "docs/docusaurus.config.js",
     "docs/build",
+    "docs-archive/",
     "packages/sdk-js/scripts",
     "**/*.tsbuildinfo",
     "packages/shared/types/*.js",
@@ -145,6 +149,15 @@ export default defineConfig([
         "error",
         {
           ignore: ["jsx", "global"],
+        },
+      ],
+
+      "react/jsx-key": [
+        "error",
+        {
+          checkFragmentShorthand: true,
+          checkKeyMustBeforeSpread: true,
+          warnOnDuplicates: true,
         },
       ],
 

@@ -1,13 +1,16 @@
+import { setTimeout as delay } from "timers/promises";
 import { z } from "zod";
 import {
   tryParseToolResultJson,
   toolResultSnapshotId,
+  type AIChatMention,
   type AIChatToolResultPart,
 } from "shared/ai-chat";
 import {
   dateRangePredefined,
   ExplorationConfig,
   explorationConfigValidator,
+  ProductAnalyticsExploration,
   ProductAnalyticsResultRow,
 } from "shared/validators";
 import {
@@ -36,7 +39,8 @@ import {
   getAllFactTablesForOrganization,
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { runColumnsTopValuesQuery } from "back-end/src/jobs/refreshFactTableColumns";
+import { getMetricById } from "back-end/src/models/MetricModel";
+import { runColumnsTopValuesQuery } from "back-end/src/services/factTableColumns";
 
 // =============================================================================
 // Constants & system prompt
@@ -189,6 +193,14 @@ async function buildProductAnalyticsSystemPrompt(
       : "") +
     `There are ${metrics.length} metrics and ${allFactTables.length} fact tables available. ` +
     "Use the search tool to discover them — pass an empty query to browse, or a search term to filter.\n\n" +
+    "A user message may begin with an auto-injected line of the form\n" +
+    "  [Referenced by the user: Revenue (factMetric: fact__xyz)]\n" +
+    "The chat UI adds it when the user @-mentioned entities in the composer — it is " +
+    "not something they typed, so do not echo it. It maps each `@Name` already in " +
+    "their text to the exact id they picked, so use those ids directly rather than " +
+    "calling search to re-resolve the name. An entry marked STALE was picked under a " +
+    "different datasource and is not usable here — say so, name it, and ask the user " +
+    "to re-pick it rather than searching for a replacement.\n\n" +
     buildConfigSchemaSummary() +
     "\n\n" +
     PA_SYSTEM_INSTRUCTIONS
@@ -780,7 +792,7 @@ async function normalizeConfigForExplorer(
         new Set(
           dataset.values
             .filter((v) => !v.unit && v.metricId)
-            .map((v) => metricById.get(v.metricId!)?.numerator.factTableId)
+            .map((v) => metricById.get(v.metricId!)?.numerator?.factTableId)
             .filter((id): id is string => !!id),
         ),
       );
@@ -798,7 +810,9 @@ async function normalizeConfigForExplorer(
         if (v.unit || !v.metricId) return v;
         const metric = metricById.get(v.metricId);
         if (!metric) return v;
-        const factTable = factTableById.get(metric.numerator.factTableId);
+        const factTable = factTableById.get(
+          metric.numerator?.factTableId ?? "",
+        );
         const defaultUnit = factTable?.userIdTypes?.[0];
         if (!defaultUnit) return v;
         filledCount++;
@@ -837,22 +851,81 @@ async function normalizeConfigForExplorer(
   };
 }
 
+// Match the frontend's polling cadence and ~10-minute cutoff.
+function explorationPollDelayMs(elapsedMs: number): number {
+  if (elapsedMs < 10_000) return 2_000;
+  if (elapsedMs < 30_000) return 3_000;
+  if (elapsedMs < 60_000) return 5_000;
+  if (elapsedMs < 300_000) return 10_000;
+  if (elapsedMs < 600_000) return 20_000;
+  return 0;
+}
+
+async function pollExplorationUntilFinished(
+  ctx: ReqContext,
+  exploration: ProductAnalyticsExploration,
+  startedAt: number,
+  abortSignal?: AbortSignal,
+): Promise<ProductAnalyticsExploration> {
+  let latest = exploration;
+  while (latest.status === "running") {
+    const pollDelay = explorationPollDelayMs(Date.now() - startedAt);
+    if (pollDelay === 0) break;
+
+    await delay(pollDelay, undefined, {
+      signal: abortSignal,
+      ref: false,
+    });
+
+    const polled = await ctx.models.analyticsExplorations.getById(latest.id);
+    if (!polled) {
+      throw new Error("Product analytics exploration not found");
+    }
+    latest = polled;
+  }
+  return latest;
+}
+
 async function executeRunExploration(
   ctx: ReqContext,
   buffer: ConversationBuffer,
   rawConfig: ExplorationConfig,
+  abortSignal?: AbortSignal,
 ): Promise<RunExplorationToolResult> {
   try {
     const { config, warnings, getFactMetricById } =
       await normalizeConfigForExplorer(ctx, rawConfig);
-    const exploration = await runProductAnalyticsExploration(ctx, config, {
-      cache: "preferred",
-    });
+
+    const startedAt = Date.now();
+    const initialExploration = await runProductAnalyticsExploration(
+      ctx,
+      config,
+      {
+        cache: "preferred",
+      },
+    );
+    const exploration =
+      initialExploration?.status === "running"
+        ? await pollExplorationUntilFinished(
+            ctx,
+            initialExploration,
+            startedAt,
+            abortSignal,
+          )
+        : initialExploration;
 
     if (exploration?.status === "error") {
       return {
         status: "error",
         message: exploration.error ?? "The query failed with an unknown error",
+      };
+    }
+
+    if (exploration?.status === "running") {
+      return {
+        status: "error",
+        message:
+          "The warehouse query is still running after waiting. Do NOT assume there is no data or that the fact table, filters, or date range are wrong. Tell the user the query is taking longer than expected and they can retry shortly.",
       };
     }
 
@@ -975,7 +1048,7 @@ async function executeGetAvailableColumns(
       const ftIds = [
         ...new Set(
           metrics
-            .map((m) => m.numerator.factTableId)
+            .map((m) => m.numerator?.factTableId)
             .filter((id): id is string => !!id),
         ),
       ];
@@ -990,7 +1063,7 @@ async function executeGetAvailableColumns(
           m.metricType === "retention" ||
           m.metricType === "dailyParticipation" ||
           (m.metricType === "ratio" &&
-            m.numerator.column === "$$distinctUsers");
+            m.numerator?.column === "$$distinctUsers");
 
         metricUnitInfo.push({
           metricId: m.id,
@@ -998,7 +1071,7 @@ async function executeGetAvailableColumns(
           needsUnit,
         });
 
-        if (!m.numerator.factTableId) continue;
+        if (!m.numerator?.factTableId) continue;
         const ft = ftMap.get(m.numerator.factTableId) ?? null;
         if (!userIdTypes.length && ft?.userIdTypes?.length) {
           userIdTypes = ft.userIdTypes;
@@ -1060,8 +1133,8 @@ async function executeGetColumnValues(
       const { metricIds } = input;
       if (!metricIds?.length) return "metricIds is required for metric source.";
       const metrics = await ctx.models.factMetrics.getByIds(metricIds);
-      const firstWithFt = metrics.find((m) => m.numerator.factTableId);
-      if (!firstWithFt?.numerator.factTableId) {
+      const firstWithFt = metrics.find((m) => m.numerator?.factTableId);
+      if (!firstWithFt?.numerator?.factTableId) {
         return "Could not resolve a fact table from the provided metric IDs.";
       }
       const ft = await getFactTable(ctx, firstWithFt.numerator.factTableId);
@@ -1269,6 +1342,7 @@ const GET_COLUMN_VALUES_DESCRIPTION =
 const RUN_EXPLORATION_DESCRIPTION =
   "Execute a product analytics exploration with the given config. " +
   "Use this when the user asks to build, change, or rerun a chart. " +
+  "Waits for the warehouse query to finish before returning. " +
   "The chart will be automatically displayed to the user after execution. " +
   "Returns config (the normalized config used), resultCsv (CSV of the results for analysis), rowCount, snapshotId, and summary. " +
   "Use config and resultCsv for analysis and follow-up modifications. Ignore the exploration field (internal use). " +
@@ -1283,6 +1357,36 @@ interface PAParams {
   datasourceId: string;
 }
 
+async function mentionDatasource(
+  ctx: ReqContext,
+  mention: AIChatMention,
+): Promise<string | undefined> {
+  if (mention.type === "factMetric") {
+    return (await ctx.models.factMetrics.getById(mention.id))?.datasource;
+  }
+  if (mention.type === "metricGroup") {
+    return (await ctx.models.metricGroups.getById(mention.id))?.datasource;
+  }
+  return (await getMetricById(ctx, mention.id))?.datasource;
+}
+
+async function resolveProductAnalyticsMentions(
+  ctx: ReqContext,
+  mentions: AIChatMention[],
+  datasourceId: string,
+): Promise<AIChatMention[]> {
+  if (!datasourceId) return mentions;
+
+  return Promise.all(
+    mentions.map(async (mention) => {
+      const datasource = await mentionDatasource(ctx, mention);
+      return datasource === datasourceId
+        ? mention
+        : { ...mention, stale: true };
+    }),
+  );
+}
+
 const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
   agentType: "product-analytics",
   promptType: "product-analytics-chat",
@@ -1293,6 +1397,9 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
 
   buildSystemPrompt: (ctx, { datasourceId }) =>
     buildProductAnalyticsSystemPrompt(ctx, datasourceId),
+
+  resolveMentions: (ctx, mentions, { datasourceId }) =>
+    resolveProductAnalyticsMentions(ctx, mentions, datasourceId),
 
   buildTools: (ctx, buffer, { datasourceId }) => {
     let metricsCache: FactMetricInterface[] | null = null;
@@ -1336,7 +1443,8 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
       runExploration: aiTool({
         description: RUN_EXPLORATION_DESCRIPTION,
         inputSchema: runExplorationInputSchema,
-        execute: ({ config }) => executeRunExploration(ctx, buffer, config),
+        execute: ({ config }, { abortSignal }) =>
+          executeRunExploration(ctx, buffer, config, abortSignal),
       }),
 
       getSnapshot: aiTool({

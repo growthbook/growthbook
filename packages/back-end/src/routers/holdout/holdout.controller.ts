@@ -3,7 +3,7 @@ import isEqual from "lodash/isEqual";
 import { getValidDate } from "shared/dates";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { v4 as uuidv4 } from "uuid";
-import { generateVariationId } from "shared/util";
+import { generateVariationId, getApplicableEnvIds } from "shared/util";
 import { omit } from "lodash";
 import { UpdateProps } from "shared/types/base-model";
 import {
@@ -23,7 +23,9 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getContextFromReq,
   getEnvironmentIdsFromOrg,
+  getEnvironments,
 } from "back-end/src/services/organizations";
+import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
   createExperiment,
   getAllExperiments,
@@ -746,8 +748,21 @@ export const deleteHoldoutFeature = async (
     });
   }
 
+  // Stripping the holdout changes what the live flag serves, so it takes
+  // publish authority over the environments it serves in — not draft authority.
   if (
-    !context.permissions.canUpdateFeature(feature, omit(feature, "holdout"))
+    !context.permissions.canPublishFeature(
+      feature,
+      Array.from(
+        getEnabledEnvironments(
+          feature,
+          // The flag's APPLICABLE environments, not every org environment: an
+          // org environment excluded from the flag's project isn't one this
+          // change serves, and demanding authority there produced false 403s.
+          getApplicableEnvIds(getEnvironments(context.org), feature),
+        ),
+      ),
+    )
   ) {
     context.permissions.throwPermissionError();
   }

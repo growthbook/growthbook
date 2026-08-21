@@ -12,6 +12,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import DashboardViewQueriesButton from "./DashboardViewQueriesButton";
+import styles from "./DashboardControlPill.module.scss";
 
 function DashboardStatusSummary({
   enableAutoUpdates,
@@ -189,7 +190,7 @@ export default function DashboardUpdateDisplay({
       <div className="position-relative">
         {canRefresh && (
           <Button
-            size="sm"
+            size="md"
             disabled={
               refreshing ||
               !dashboardId ||
@@ -198,7 +199,7 @@ export default function DashboardUpdateDisplay({
             }
             icon={refreshing ? <LoadingSpinner /> : <PiArrowClockwise />}
             iconPosition="left"
-            variant={!isEditing ? "ghost" : needsUpdate ? "solid" : "outline"}
+            variant="outline"
             onClick={async () => {
               if (updateTemporaryDashboardResults) {
                 setUpdatingTemporaryDashboard(true);
@@ -233,7 +234,8 @@ export default function DashboardUpdateDisplay({
       {isEditing && (
         <DashboardViewQueriesButton
           size="sm"
-          buttonProps={{ variant: "ghost" }}
+          className={styles.controlPill}
+          buttonProps={{ variant: "outline", color: "violet" }}
           hideQueryCount
           iconOnly
         />

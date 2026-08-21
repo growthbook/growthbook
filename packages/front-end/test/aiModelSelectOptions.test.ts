@@ -18,7 +18,6 @@ import {
 type Option = { value: string; label: string };
 type Group = { label: string; options: Option[] };
 
-// Flatten groups; most assertions only care about the set of values.
 const values = (options: (Option | Group)[]): string[] =>
   options.flatMap((o) =>
     "options" in o ? o.options.map((s) => s.value) : [o.value],

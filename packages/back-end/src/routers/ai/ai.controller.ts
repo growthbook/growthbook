@@ -51,18 +51,13 @@ export async function getTokenUsage(
   });
 }
 
-// ai-byok is Enterprise only, on Cloud and self-hosted alike.
 const BYOK_PLAN_ERROR =
   "Using your own AI provider API key requires an Enterprise plan.";
 
 type GetAICredentialsResponse = {
   status: 200;
   credentials: AICredentialFrontEndInterface[];
-  // Providers with a usable env-var key, so the UI can say "inherited from
-  // ANTHROPIC_API_KEY". Org-scoped, not the front-end server's own env.
   envProviders: AIProvider[];
-  // The read itself isn't gated: no secrets here, and a downgraded org still
-  // needs to see the rows it can remove.
   canUseOwnKeys: boolean;
 };
 
@@ -92,20 +87,15 @@ export async function putAICredential(
   const context = getContextFromReq(req);
   const { provider } = req.params;
 
-  // The model enforces this too; up front means a clean 403 before we egress.
   if (!context.permissions.canManageOrgSettings()) {
     context.permissions.throwPermissionError();
   }
 
-  // The model asserts this too; here it names the plan and runs before we send
-  // the key to the provider to be verified.
   if (!context.hasPremiumFeature("ai-byok")) {
     context.throwPlanDoesNotAllowError(BYOK_PLAN_ERROR);
   }
 
-  // Self-hosted, the env var always wins in the resolver, so this would store
-  // dead data the UI implies is in use. Cloud is the opposite case: its env keys
-  // are GrowthBook's managed ones, and overriding them is the whole point.
+  // Self-hosted env keys take precedence over stored keys.
   if (!IS_CLOUD) {
     const { keySource } = await getAISettingsForOrg(context);
     if (keySource[provider] === "env") {
@@ -116,7 +106,6 @@ export async function putAICredential(
     }
   }
 
-  // Trim rather than reject: pasted keys often carry a trailing newline.
   const apiKey = req.body.apiKey.trim();
   if (!apiKey) {
     return res.status(400).json({
@@ -139,12 +128,10 @@ export async function putAICredential(
     updatedByEmail: context.email,
   });
 
-  // The resolver memoizes per request; drop it so later reads see this write.
   clearResolvedAIKeysCache(context);
 
   return res.status(200).json({
     status: 200,
-    // Present only when the key was saved without a successful verification.
     warning: message,
   });
 }
@@ -171,10 +158,6 @@ export async function deleteAICredential(
 
   clearResolvedAIKeysCache(context);
 
-  // Cloud only: without the key these models stop resolving and silently fall
-  // back, so clear them instead of leaving settings pointing at something the
-  // org can no longer run. Self-hosted keeps them — the env var may still serve
-  // the same provider.
   const cleared = IS_CLOUD
     ? await clearModelsForProvider(context, provider)
     : [];
@@ -185,8 +168,6 @@ export async function deleteAICredential(
   });
 }
 
-// Unsets every org setting and prompt override naming a model from `provider`.
-// Returns the setting labels that changed, so the UI can confirm what moved.
 async function clearModelsForProvider(
   context: ReqContext,
   provider: AIProvider,
@@ -216,7 +197,6 @@ async function clearModelsForProvider(
 
   const labels = affected.map((s) => s.label);
   if (staleOverrides.length) labels.push("Prompt model overrides");
-  // Dedupe: defaultAIModel and the legacy openAIDefaultModel share a label.
   return [...new Set(labels)];
 }
 

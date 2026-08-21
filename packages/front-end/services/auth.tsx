@@ -8,16 +8,12 @@ import React, {
   useRef,
 } from "react";
 import { useRouter } from "next/router";
-import {
-  MemberRoleInfo,
-  OrganizationInterface,
-} from "shared/types/organization";
+import { OrganizationInterface } from "shared/types/organization";
 import {
   IdTokenResponse,
   UnauthenticatedResponse,
 } from "shared/types/sso-connection";
 import { setUser as sentrySetUser } from "@sentry/nextjs";
-import { roleSupportsEnvLimit } from "shared/permissions";
 import Modal from "@/components/Modal";
 import ApiWarningModal from "@/components/ApiWarningModal";
 import { DocLink } from "@/components/DocLink";
@@ -717,17 +713,3 @@ export const AuthProvider: React.FC<{
     </AuthContext.Provider>
   );
 };
-
-export function roleHasAccessToEnv(
-  role: MemberRoleInfo,
-  env: string,
-  org: Partial<OrganizationInterface>,
-): "yes" | "no" | "N/A" {
-  if (!roleSupportsEnvLimit(role.role, org)) return "N/A";
-
-  if (!role.limitAccessByEnvironment) return "yes";
-
-  if (role.environments.includes(env)) return "yes";
-
-  return "no";
-}

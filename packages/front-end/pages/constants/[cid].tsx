@@ -1,12 +1,30 @@
+import {
+  NO_ENVIRONMENT_BINDING,
+  canCommentOnRevisionEntity,
+  canDeleteArchivedEntity,
+  archiveFootprintForControl,
+  canLandArchiveToggle,
+  canLandRevertToTarget,
+  canPublishRevisionEntity,
+  canReviewRevisionEntity,
+  holdsRevisionDestination,
+  serveFootprint,
+} from "shared/permissions";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { ConstantInterface } from "shared/types/constant";
 import {
   Revision,
   applyTopLevelPatchOps,
+  getConstantRestoreChange,
   getConstantRevisionChange,
 } from "shared/enterprise";
-import { constantRequiresReview, getReviewSetting } from "shared/util";
+import {
+  proposedArchivedValue,
+  constantRequiresReview,
+  constantPublishEnvironments,
+  getReviewSetting,
+} from "shared/util";
 import { REVIEW_REQUESTED_STATUSES } from "shared/validators";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -15,6 +33,7 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useEnvironments } from "@/services/features";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import Owner from "@/components/Avatar/Owner";
@@ -111,6 +130,7 @@ export default function ConstantDetailPage(): React.ReactElement {
   const { projects, mutateDefinitions } = useDefinitions();
   const { organization, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
+  const environments = useEnvironments();
 
   const [editInfoOpen, setEditInfoOpen] = useState(false);
   const [editValueOpen, setEditValueOpen] = useState(false);
@@ -194,6 +214,48 @@ export default function ConstantDetailPage(): React.ReactElement {
           new Date(b.dateUpdated).getTime() - new Date(a.dateUpdated).getTime(),
       )[0];
   }, [selectedRevision, allRevisions]);
+
+  // The environments the pending change actually touches. A base-value change
+  // carries no footprint, but a per-environment override does — calling this
+  // with no arguments always produced an empty list, so publish and revert
+  // controls looked available to a caller restricted out of those environments.
+  // Same computation the back end performs.
+  const publishEnvironments = useMemo(() => {
+    const pending = selectedRevision ?? displayRevision;
+    if (!pending) return constantPublishEnvironments();
+    // Diffed against the LIVE constant, like the adapter — diffing against the
+    // snapshot reported no changed environments whenever the proposed values merely
+    // restate the snapshot while live has drifted, which SKIPS the env check for a
+    // publish that really does overwrite those environments.
+    const scoped = constantPublishEnvironments(
+      getConstantRevisionChange(
+        (constant ?? pending.target.snapshot) as ConstantInterface,
+        pending.target.proposedChanges,
+      ).changedEnvironments,
+    );
+    // Widened when the revision flips `archived` EITHER way, matching the
+    // constant adapter — which ignores the change's own environments on a flip and
+    // answers for everywhere the constant serves. `scoped` is deliberately NOT
+    // passed through here: that is the CONFIG rule (a scoped Config keeps its own
+    // environments), and borrowing it meant a revision that archived AND edited a
+    // dev override demanded only dev on the client while the server demanded
+    // everywhere.
+    //
+    // Judged against the LIVE constant, which is what the endpoint uses. Every
+    // caller of `assertCanPublishRevision` passes a freshly-loaded live row — the
+    // adapter's parameter is merely NAMED `snapshot` — so reading the revision's
+    // snapshot here made this the only flag-family publish control on a basis the
+    // server never uses, and it diverged in both directions.
+    const proposedArchived = proposedArchivedValue(
+      pending.target.proposedChanges,
+    );
+    const flipsArchived =
+      proposedArchived !== undefined &&
+      proposedArchived !== !!constant?.archived;
+    return flipsArchived
+      ? serveFootprint(environments, constant ?? {})
+      : scoped;
+  }, [selectedRevision, displayRevision, constant, environments]);
 
   // Count of active drafts awaiting/in review — drives the count bubble on the
   // "Review & Publish" tab, matching saved groups and the feature header.
@@ -289,21 +351,66 @@ export default function ConstantDetailPage(): React.ReactElement {
     if (res?.revision) await onRevisionCreated(res.revision);
   };
 
-  const canUpdate = permissionsUtil.canUpdateConstant(constant, constant);
+  const canDraft = permissionsUtil.canRevisionAction(
+    "constant",
+    "draft",
+    constant,
+    NO_ENVIRONMENT_BINDING,
+  );
+  // Reverting is its own authority — a revert-only role holds no draft or
+  // publish rights, and revert alone is enough to both propose and land one.
+  const canRevertEntity = permissionsUtil.canRevisionAction(
+    "constant",
+    "revert",
+    constant,
+    NO_ENVIRONMENT_BINDING,
+  );
+  // Landing one answers for the environments the restore reaches.
+  const canRevertLandingEntity = permissionsUtil.canRevisionAction(
+    "constant",
+    "revert",
+    constant,
+    publishEnvironments,
+  );
   // Delete is gated on the LIVE archive state (not the displayed/draft state):
   // the constant must be archived and published before it can be deleted.
-  const canDeleteNow =
-    permissionsUtil.canDeleteConstant(constant) && !!constant.archived;
+  // No environment footprint: an archived Constant serves nowhere, which is what
+  // the server checks too. Using the pending revision's footprint here borrowed
+  // an unrelated change's environments.
+  const canDeleteNow = canDeleteArchivedEntity(
+    permissionsUtil,
+    "constant",
+    constant,
+  );
   // Editing is only meaningful on the live state or a draft (not when viewing a
   // merged/discarded revision). On live it starts a new draft; on a draft it
   // updates it.
-  const canEditNow = canUpdate && (!selectedRevision || isDraft);
+  const canEditNow = canDraft && (!selectedRevision || isDraft);
+  // Archiving is delete-class server-side — it takes the Constant out of service,
+  // and being archived is what allows deleting it. Unarchiving returns it to
+  // service, so it's an ordinary publish.
+  // Either authority is enough: the landing atom stands on its own for a pure
+  // archive, and an editor without it can still stage the flip as a draft.
+  const canLandArchive = canLandArchiveToggle(
+    permissionsUtil,
+    "constant",
+    constant,
+    // The SERVE footprint, matching the archive endpoints. Raw org envs OVER-demand:
+    // an environment scoped away from the constant's projects never serves it, so
+    // requiring authority there hid Archive from a Deleter the endpoint allows.
+    archiveFootprintForControl({ environments, entity: constant }),
+  );
+  const canArchiveNow =
+    (canLandArchive || canEditNow) && (!selectedRevision || isDraft);
 
   // Whether the user can bypass approval for this constant (its project, or the
   // global "" project when unscoped) — enables the "publish now" option.
-  const canBypassApproval = permissionsUtil.canBypassApprovalChecks({
-    project: constant.project || "",
-  });
+  const canBypassApproval = permissionsUtil.canBypassFlagApprovalChecks(
+    {
+      project: constant.project || "",
+    },
+    "constant",
+  );
 
   const revisionCtx: ConstantRevisionContext = {
     allRevisions,
@@ -312,6 +419,12 @@ export default function ConstantDetailPage(): React.ReactElement {
     approvalRequired,
     metadataReviewRequired,
     canBypassApproval,
+    canPublish: permissionsUtil.canRevisionAction(
+      "constant",
+      "publish",
+      constant,
+      publishEnvironments,
+    ),
   };
 
   const projectName = displayedConstant.project
@@ -382,18 +495,20 @@ export default function ConstantDetailPage(): React.ReactElement {
                   Audit history
                 </DropdownMenuItem>
               </DropdownMenuGroup>
-              {(canEditNow || canDeleteNow) && (
+              {(canEditNow || canArchiveNow || canDeleteNow) && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
-                    {canEditNow && (
+                    {canArchiveNow && (
                       <DropdownMenuItem
                         onClick={() => {
                           setMenuOpen(false);
                           setShowArchiveModal(true);
                         }}
                       >
-                        {displayedConstant.archived ? "Unarchive" : "Archive"}
+                        {/* LIVE state: the endpoint flips against live, so the projected
+                            state labels the opposite action. */}
+                        {constant.archived ? "Unarchive" : "Archive"}
                       </DropdownMenuItem>
                     )}
                     {canDeleteNow && (
@@ -428,7 +543,7 @@ export default function ConstantDetailPage(): React.ReactElement {
             <ReferencesLink
               total={totalReferences}
               onShow={() => setShowReferencesModal(true)}
-              emptyTooltip="No features or constants currently reference this constant."
+              emptyTooltip="No Feature Flags or Constants currently reference this Constant."
             />
           </Flex>
         </Flex>
@@ -470,10 +585,10 @@ export default function ConstantDetailPage(): React.ReactElement {
             <RevisionSummaryCard
               allRevisions={allRevisions}
               selectedRevision={selectedRevision}
-              entityNoun="constant"
+              entityNoun="Constant"
               hasRevisions={allRevisions.length > 0}
-              canEditTitle={canUpdate}
-              canEditDescription={canUpdate}
+              canEditTitle={canDraft}
+              canEditDescription={canDraft}
               fallbackOwnerId={constant.owner}
               fallbackDateCreated={constant.dateCreated}
               onSelectRevision={selectRevision}
@@ -484,10 +599,10 @@ export default function ConstantDetailPage(): React.ReactElement {
                 });
                 await mutateRevisions();
               }}
-              onNewDraft={canUpdate ? handleNewDraft : undefined}
+              onNewDraft={canDraft ? handleNewDraft : undefined}
               onReviewPublish={() => setTabAndScroll("review")}
               onEditDescription={
-                canUpdate ? () => setEditDescriptionModal(true) : undefined
+                canDraft ? () => setEditDescriptionModal(true) : undefined
               }
             />
             <Frame mb="4" px="6" py="5">
@@ -543,9 +658,79 @@ export default function ConstantDetailPage(): React.ReactElement {
             currentState={constant}
             diffConfig={REVISION_CONSTANT_DIFF_CONFIG}
             entityName={constant.name}
-            entityNoun="constant"
+            entityNoun="Constant"
             requiresApproval={selectedRevisionRequiresApproval}
-            canEditEntity={permissionsUtil.canUpdateConstant(constant, {})}
+            reviewRules={reviewRule ? [reviewRule] : []}
+            canEditEntity={permissionsUtil.canRevisionAction(
+              "constant",
+              "draft",
+              constant,
+              NO_ENVIRONMENT_BINDING,
+            )}
+            canRevertEntity={canRevertEntity}
+            canLandRevertEntity={canRevertLandingEntity}
+            canDeleteEntity={permissionsUtil.canRevisionAction(
+              "constant",
+              "delete",
+              constant,
+              NO_ENVIRONMENT_BINDING,
+            )}
+            // Landing an archive takes the constant out of service in every
+            // environment, which is the footprint the publish endpoint demands.
+            canLandArchiveEntity={canLandArchiveToggle(
+              permissionsUtil,
+              "constant",
+              constant,
+              // Narrowed to the constant's projects, like the server's
+              // `archiveServeFootprint` — raw org envs over-demanded.
+              archiveFootprintForControl({ environments, entity: constant }),
+            )}
+            holdsLandingDestination={holdsRevisionDestination(
+              permissionsUtil,
+              "constant",
+              "publish",
+              selectedRevision ?? displayRevision ?? null,
+              constant,
+              publishEnvironments,
+            )}
+            canCommentOnEntity={canCommentOnRevisionEntity(
+              permissionsUtil,
+              "constant",
+              selectedRevision ?? displayRevision ?? null,
+              constant,
+            )}
+            canReviewEntity={canReviewRevisionEntity(
+              permissionsUtil,
+              "constant",
+              selectedRevision ?? displayRevision ?? null,
+              constant,
+              publishEnvironments,
+            )}
+            canManageDraftsEntity={permissionsUtil.canRevisionAction(
+              "constant",
+              "draft",
+              constant,
+            )}
+            canPublishEntity={canPublishRevisionEntity(
+              permissionsUtil,
+              "constant",
+              selectedRevision ?? displayRevision ?? null,
+              constant,
+              publishEnvironments,
+            )}
+            // The basis the CANCEL arm actually uses: the adapter's
+            // `canPublishRevision(snapshot)` = the entity's OWN scoped
+            // environments, with no destination term and no archive-flip
+            // widening. Passing the revision-derived footprint dropped the
+            // destination term but kept the widening, so an env-limited
+            // publisher on an archive-flipping revision still lost the Cancel
+            // button for a schedule the endpoint would let them withdraw.
+            canPublishEntityCoarse={permissionsUtil.canRevisionAction(
+              "constant",
+              "publish",
+              constant,
+              constantPublishEnvironments(),
+            )}
             canBypassApproval={canBypassApproval}
             selectRevision={selectRevision}
             onPublish={handlePublish}
@@ -574,8 +759,8 @@ export default function ConstantDetailPage(): React.ReactElement {
           closeCta="Close"
         >
           <Text as="p" mb="3">
-            This constant is referenced by the following features and constants
-            via <code>@const:{constant.key}</code>.
+            This Constant is referenced by the following Feature Flags and
+            Constants via <code>@const:{constant.key}</code>.
           </Text>
           <ConstantReferencesList
             features={references.features}
@@ -609,7 +794,12 @@ export default function ConstantDetailPage(): React.ReactElement {
 
       {showArchiveModal && (
         <ConstantArchiveModal
-          constant={displayedConstant}
+          // LIVE state, like the feature page does: the endpoint flips against
+          // live, so handing the revision-PROJECTED Constant here inverted the
+          // action whenever the viewed draft staged the opposite archive state —
+          // the modal predicted one atom and submitted the other, and the endpoint
+          // saw no transition at all and wrote nothing.
+          constant={constant}
           revisionCtx={revisionCtx}
           onSaved={onRevisionCreated}
           selectFlow={selectRevision}
@@ -619,6 +809,46 @@ export default function ConstantDetailPage(): React.ReactElement {
 
       {confirmRevert && revisionToRevert && (
         <ConstantRevertModal
+          canRevert={canRevertEntity}
+          canLandRevert={canRevertLandingEntity}
+          // Recomputed per target: the picker can change it after mount, and both
+          // the footprint and the destination follow from restoring THAT snapshot
+          // over current live — the same derivation the revert endpoint uses.
+          canLandRevertForTarget={(t) => {
+            const restore = getConstantRestoreChange(constant, t.target);
+            // A revert that flips `archived` takes the Constant out of service, or
+            // returns it, EVERYWHERE it serves — the footprint the endpoint now
+            // requires. The changed-environment list is empty for a base-value-only
+            // restore, so predicting with it offered "Publish now" for an archive
+            // restore the server then refused.
+            // The COMPLETE state being restored — snapshot plus its patches — not
+            // just this revision's `/archived` patch. A snapshot already archived
+            // without the revision touching `/archived` restores an archived Constant
+            // with no patch to read. Same derivation RevertModal uses.
+            const restoredState = applyTopLevelPatchOps(
+              t.target.snapshot as Record<string, unknown>,
+              t.target.proposedChanges,
+            ) as { archived?: boolean };
+            const flipsArchive =
+              !!restoredState.archived !== !!constant?.archived;
+            return canLandRevertToTarget(
+              permissionsUtil,
+              "constant",
+              constant,
+              { project: restore.restoredProject },
+              // `unresolvedOps` for the same reason the endpoint widens on it: a
+              // restoration carrying an op this applier can't read names fewer
+              // environments than the revert writes.
+              flipsArchive || restore.unresolvedOps
+                ? archiveFootprintForControl({
+                    environments,
+                    entity: constant ?? {},
+                  })
+                : constantPublishEnvironments(restore.changedEnvironments),
+            );
+          }}
+          canLandArchive={canLandArchive}
+          canDraft={canDraft}
           constant={constant}
           revision={revisionToRevert}
           allRevisions={allRevisions}
@@ -707,7 +937,7 @@ export default function ConstantDetailPage(): React.ReactElement {
       {confirmDelete && (
         <ConfirmDialog
           title={`Delete "${constant.name}"?`}
-          content="This permanently deletes the constant. This cannot be undone."
+          content="This permanently deletes the Constant. This cannot be undone."
           yesText="Delete"
           onConfirm={async () => {
             await apiCall(`/constants/${constant.id}`, { method: "DELETE" });

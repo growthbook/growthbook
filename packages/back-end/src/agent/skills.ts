@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import type { SkillKind, SkillSummary } from "shared/ai-chat";
 import { logger } from "back-end/src/util/logger";
 
 /**
@@ -24,15 +25,9 @@ import { logger } from "back-end/src/util/logger";
  * demand after the model reads the router's child map.
  */
 
-export type SkillKind = "domain" | "leaf";
-
-export interface Skill {
-  name: string;
-  description: string;
+/** A skill's index entry plus the prompt body only the agent reads. */
+export interface Skill extends SkillSummary {
   body: string;
-  kind: SkillKind;
-  /** Parent domain name for leaf skills; equals `name` for domain routers. */
-  group?: string;
 }
 
 const FRONTMATTER_RE = /^---\s*\n([\s\S]*?)\n---\s*\n?/;

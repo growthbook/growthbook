@@ -28,6 +28,8 @@ import {
   resolveConfigChain,
   selectScopedOverride,
   findScopedOverrideStructuralErrors,
+  configPublishEnvironments,
+  constantPublishEnvironments,
   computeConfigReconciliationPreview,
   isConfigLocked,
   ConfigChainNode,
@@ -1812,7 +1814,7 @@ describe("ancestor collision messages", () => {
       {
         code: "redundant-declaration",
         path: "a",
-        message: expect.stringContaining('re-declares ancestor config "base"'),
+        message: expect.stringContaining('re-declares ancestor Config "base"'),
       },
     ]);
   });
@@ -2263,5 +2265,38 @@ describe("findScopedOverrideStructuralErrors", () => {
         "base",
       ),
     ).toEqual([]);
+  });
+});
+
+describe("publish environment footprints", () => {
+  const allEnvs = ["dev", "staging", "production"];
+
+  it("scopes a flavor's publish to the environments it declares", () => {
+    expect(
+      configPublishEnvironments({
+        scopedConfig: { environments: ["production"] },
+      }),
+    ).toEqual(["production"]);
+  });
+
+  // A base Config declares no environments — its reach runs through whichever
+  // features consume it, down to individual rules, which a permission check
+  // can't compute. No binding means the env limit doesn't apply.
+  it("treats a base config as having no environment binding", () => {
+    expect(configPublishEnvironments({})).toEqual([]);
+    expect(configPublishEnvironments({ scopedConfig: null })).toEqual([]);
+    expect(
+      configPublishEnvironments({ scopedConfig: { environments: [] } }),
+    ).toEqual([]);
+  });
+
+  it("binds a Constant only through the environments a change touches", () => {
+    expect(constantPublishEnvironments(["dev"])).toEqual(["dev"]);
+    expect(constantPublishEnvironments()).toEqual([]);
+    expect(constantPublishEnvironments([])).toEqual([]);
+  });
+
+  it("never widens to every environment implicitly", () => {
+    expect(configPublishEnvironments({})).not.toEqual(allEnvs);
   });
 });

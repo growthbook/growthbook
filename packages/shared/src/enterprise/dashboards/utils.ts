@@ -9,6 +9,10 @@ import {
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
+  MetricExperimentsBlockInterface,
+  ExperimentsScaledImpactBlockInterface,
+  ExperimentsWinRateBlockInterface,
+  ExperimentsStatusBlockInterface,
   FunnelExplorationBlockInterface,
 } from "shared/enterprise";
 import {
@@ -116,21 +120,235 @@ export function isDashboardGlobalControlSupportedBlock(
   return dashboardGlobalControlSupportedBlockTypes.has(block.type);
 }
 
+// The set of dashboard-wide global filters. `dateRange` drives exploration
+// blocks and the experiment blocks that support it; the rest drive experiment
+// blocks only.
+export const DASHBOARD_GLOBAL_FILTER_KEYS = [
+  "dateRange",
+  "projects",
+  "experimentSearchString",
+] as const;
+export type DashboardGlobalFilterKey =
+  (typeof DASHBOARD_GLOBAL_FILTER_KEYS)[number];
+
+type DashboardExperimentBlock = DashboardBlockInterfaceOrData<
+  | MetricExperimentsBlockInterface
+  | ExperimentsScaledImpactBlockInterface
+  | ExperimentsWinRateBlockInterface
+  | ExperimentsStatusBlockInterface
+>;
+
+// Which global filters each experiment block type honors.
+// - metric-experiments omits `dateRange`: it has its own phase-date windows.
+// - `metricId` is absent everywhere: it is what a block calculates, not a filter.
+const EXPERIMENT_BLOCK_FILTER_SUPPORT: Partial<
+  Record<DashboardBlockType, readonly DashboardGlobalFilterKey[]>
+> = {
+  "metric-experiments": ["projects", "experimentSearchString"],
+  "experiments-scaled-impact": [
+    "dateRange",
+    "projects",
+    "experimentSearchString",
+  ],
+  "experiments-win-rate": ["dateRange", "projects", "experimentSearchString"],
+  "experiments-status": ["dateRange", "projects", "experimentSearchString"],
+};
+
+export function isDashboardExperimentBlock(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+): block is DashboardExperimentBlock {
+  return block.type in EXPERIMENT_BLOCK_FILTER_SUPPORT;
+}
+
+type GlobalControlSettings = NonNullable<
+  DashboardExperimentBlock["globalControlSettings"]
+>;
+
+// Safe accessor for the optional per-block opt-in settings, which only exist on
+// exploration and experiment blocks.
+function getBlockGlobalControlSettings(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+): GlobalControlSettings | undefined {
+  return "globalControlSettings" in block
+    ? block.globalControlSettings
+    : undefined;
+}
+
+export function experimentBlockSupportsGlobalFilter(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  key: DashboardGlobalFilterKey,
+): boolean {
+  return (EXPERIMENT_BLOCK_FILTER_SUPPORT[block.type] ?? []).includes(key);
+}
+
+// The dashboard-wide filters this block supports AND that the dashboard
+// currently has an active value for. These are the filters a single
+// "Use dashboard experiment filters" toggle governs for the block.
+export function getActiveExperimentGlobalFilterKeys(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  globalControls: DashboardInterface["globalControls"] | undefined,
+): DashboardGlobalFilterKey[] {
+  return DASHBOARD_GLOBAL_FILTER_KEYS.filter(
+    (key) =>
+      experimentBlockSupportsGlobalFilter(block, key) &&
+      globalFilterIsSet(globalControls, key),
+  );
+}
+
+// Whether the single "Use dashboard experiment filters" toggle should be shown:
+// the dashboard exposes at least one active filter this block supports.
+export function experimentBlockHasActiveGlobalFilters(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  globalControls: DashboardInterface["globalControls"] | undefined,
+): boolean {
+  return getActiveExperimentGlobalFilterKeys(block, globalControls).length > 0;
+}
+
+// The single-toggle state: the block follows the dashboard when it has opted in
+// to every active dashboard filter it supports. Returns false when the dashboard
+// has no active filters for this block (nothing to follow).
+export function experimentBlockFollowsGlobalFilters(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  globalControls: DashboardInterface["globalControls"] | undefined,
+): boolean {
+  const keys = getActiveExperimentGlobalFilterKeys(block, globalControls);
+  if (keys.length === 0) return false;
+  const settings = getBlockGlobalControlSettings(block);
+  return keys.every((key) => settings?.[key] === true);
+}
+
+// Badge condition: the dashboard exposes filters this block supports, but the
+// block has opted out of following them (so it uses its own local filters).
+export function experimentBlockOptedOutOfGlobalFilters(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  globalControls: DashboardInterface["globalControls"] | undefined,
+): boolean {
+  return (
+    experimentBlockHasActiveGlobalFilters(block, globalControls) &&
+    !experimentBlockFollowsGlobalFilters(block, globalControls)
+  );
+}
+
+/**
+ * The per-filter opt-in a newly created experiment block starts with: it inherits
+ * every dashboard filter it supports. Unlike auto-enrollment (which only fills in
+ * filters the dashboard already has a value for), this opts the block in up front,
+ * so a filter set on the dashboard later applies without the block being touched.
+ */
+export function getDefaultExperimentBlockGlobalControlSettings(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+): GlobalControlSettings {
+  const settings: GlobalControlSettings = {};
+  DASHBOARD_GLOBAL_FILTER_KEYS.forEach((key) => {
+    if (experimentBlockSupportsGlobalFilter(block, key)) {
+      settings[key] = true;
+    }
+  });
+  return settings;
+}
+
+// Compute the block's next per-filter opt-in settings when the single
+// "Use dashboard experiment filters" toggle is flipped: every active supported
+// filter is set to `enabled`, leaving any unrelated stored flags untouched.
+export function setExperimentBlockGlobalFilterFollowing(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  globalControls: DashboardInterface["globalControls"] | undefined,
+  enabled: boolean,
+): GlobalControlSettings {
+  const keys = getActiveExperimentGlobalFilterKeys(block, globalControls);
+  const settings: GlobalControlSettings = {
+    ...(getBlockGlobalControlSettings(block) ?? {}),
+  };
+  keys.forEach((key) => {
+    settings[key] = enabled;
+  });
+  return settings;
+}
+
+// Any block (exploration or experiment) that can follow the given global filter.
+// Exploration blocks only support the date range control.
+export function blockSupportsGlobalFilter(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  key: DashboardGlobalFilterKey,
+): boolean {
+  if (key === "dateRange" && isDashboardGlobalControlSupportedBlock(block)) {
+    return true;
+  }
+  return experimentBlockSupportsGlobalFilter(block, key);
+}
+
+// True when the block both supports the filter and has opted in.
+export function blockUsesGlobalFilter(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  key: DashboardGlobalFilterKey,
+): boolean {
+  return (
+    blockSupportsGlobalFilter(block, key) &&
+    getBlockGlobalControlSettings(block)?.[key] === true
+  );
+}
+
+// Filters this block could follow and the dashboard has a value for. Unlike
+// getActiveExperimentGlobalFilterKeys, covers exploration blocks too.
+export function getActiveBlockGlobalFilterKeys(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  globalControls: DashboardInterface["globalControls"] | undefined,
+): DashboardGlobalFilterKey[] {
+  return DASHBOARD_GLOBAL_FILTER_KEYS.filter(
+    (key) =>
+      blockSupportsGlobalFilter(block, key) &&
+      globalFilterIsSet(globalControls, key),
+  );
+}
+
+// Active filters the block owns locally — the sidebar's "Custom filters" count.
+// One entry per filter, however many values it holds.
+export function getCustomBlockGlobalFilterKeys(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  globalControls: DashboardInterface["globalControls"] | undefined,
+): DashboardGlobalFilterKey[] {
+  return getActiveBlockGlobalFilterKeys(block, globalControls).filter(
+    (key) => !blockUsesGlobalFilter(block, key),
+  );
+}
+
+// Switch the given filters between following the dashboard and carrying their own
+// value. Returns a whole block, not just the settings, so a value patch and the
+// flag flip can go out as one setBlock — two calls would undo each other.
+export function withBlockGlobalFilterFollowing<
+  T extends DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+>(block: T, keys: DashboardGlobalFilterKey[], following: boolean): T {
+  if (keys.length === 0) return block;
+  const settings: GlobalControlSettings = {
+    ...(getBlockGlobalControlSettings(block) ?? {}),
+  };
+  keys.forEach((key) => {
+    settings[key] = following;
+  });
+  return { ...block, globalControlSettings: settings };
+}
+
+// Enroll every block that supports `key` and hasn't yet made a choice
+// (undefined). Blocks that were explicitly opted out (`false`) or in (`true`)
+// are left untouched, so this is safe to call on every persist.
+export function autoEnrollDashboardBlocksInGlobalFilter<
+  T extends DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+>(blocks: T[], key: DashboardGlobalFilterKey): T[] {
+  return blocks.map((block) => {
+    if (!blockSupportsGlobalFilter(block, key)) return block;
+    const settings = getBlockGlobalControlSettings(block);
+    if (settings?.[key] !== undefined) return block;
+    return {
+      ...block,
+      globalControlSettings: { ...settings, [key]: true },
+    } as T;
+  });
+}
+
 export function autoEnrollDashboardBlocksInDateControl<
   T extends DashboardBlockInterfaceOrData<DashboardBlockInterface>,
 >(blocks: T[]): T[] {
-  return blocks.map((block) =>
-    isDashboardGlobalControlSupportedBlock(block) &&
-    block.globalControlSettings?.dateRange === undefined
-      ? ({
-          ...block,
-          globalControlSettings: {
-            ...block.globalControlSettings,
-            dateRange: true,
-          },
-        } as T)
-      : block,
-  );
+  return autoEnrollDashboardBlocksInGlobalFilter(blocks, "dateRange");
 }
 
 export function blockUsesDashboardDateControl(
@@ -144,6 +362,43 @@ export function blockUsesDashboardDateControl(
   );
 }
 
+// Whether a given global filter is currently active (has a usable value).
+export function globalFilterIsSet(
+  globalControls: DashboardInterface["globalControls"] | undefined,
+  key: DashboardGlobalFilterKey,
+): boolean {
+  if (!globalControls) return false;
+  const value = globalControls[key];
+  switch (key) {
+    case "dateRange":
+      return Boolean(value);
+    case "projects":
+      // A defined array is an active filter — an empty array explicitly means
+      // "All projects" (see dashboardGlobalControlsValidator). Only an absent
+      // (undefined) value means the projects filter is unset.
+      return Array.isArray(value);
+    case "experimentSearchString":
+      return typeof value === "string" && value.length > 0;
+    default:
+      return false;
+  }
+}
+
+/**
+ * True when a save transitions a global filter from "off" to "on" — the moment
+ * we auto-enroll supported blocks.
+ */
+export function isEnablingGlobalFilter(
+  existingGlobalControls: DashboardInterface["globalControls"] | undefined,
+  nextGlobalControls: DashboardInterface["globalControls"] | undefined,
+  key: DashboardGlobalFilterKey,
+): boolean {
+  return (
+    !globalFilterIsSet(existingGlobalControls, key) &&
+    globalFilterIsSet(nextGlobalControls, key)
+  );
+}
+
 /**
  * True when a save transitions the dashboard from "no date control" to
  * "date control enabled" — the moment we auto-enroll supported blocks.
@@ -152,22 +407,24 @@ export function isEnablingDashboardDateControl(
   existingGlobalControls: DashboardInterface["globalControls"] | undefined,
   nextGlobalControls: DashboardInterface["globalControls"] | undefined,
 ): boolean {
-  return Boolean(
-    !existingGlobalControls?.dateRange && nextGlobalControls?.dateRange,
+  return isEnablingGlobalFilter(
+    existingGlobalControls,
+    nextGlobalControls,
+    "dateRange",
   );
 }
 
 /**
  * Resolves the blocks to persist when global controls change, applying
  * first-enable auto-enrollment consistently across the internal controller and
- * the REST API model.
+ * the REST API model. Runs for every global filter (date range, projects,
+ * metric, experiment search) that this save newly enables.
  *
  * - When `nextBlocks` is provided (create, or update whose payload includes
- *   blocks), returns those blocks, auto-enrolled if this save is enabling the
- *   date control.
+ *   blocks), returns those blocks, auto-enrolled for any newly enabled filter.
  * - When `nextBlocks` is omitted (update without a blocks payload), returns
- *   auto-enrolled `existingBlocks` only if this save is enabling the date
- *   control, otherwise `undefined` to signal "leave blocks untouched".
+ *   auto-enrolled `existingBlocks` only if this save enables at least one
+ *   filter, otherwise `undefined` to signal "leave blocks untouched".
  */
 export function resolveGlobalControlsBlockEnrollment<
   T extends DashboardBlockInterfaceOrData<DashboardBlockInterface>,
@@ -182,19 +439,22 @@ export function resolveGlobalControlsBlockEnrollment<
   existingBlocks?: T[];
   nextBlocks?: T[];
 }): T[] | undefined {
-  const enrolling = isEnablingDashboardDateControl(
-    existingGlobalControls,
-    nextGlobalControls,
+  const newlyEnabledKeys = DASHBOARD_GLOBAL_FILTER_KEYS.filter((key) =>
+    isEnablingGlobalFilter(existingGlobalControls, nextGlobalControls, key),
   );
 
+  const enroll = (blocks: T[]): T[] =>
+    newlyEnabledKeys.reduce(
+      (acc, key) => autoEnrollDashboardBlocksInGlobalFilter(acc, key),
+      blocks,
+    );
+
   if (nextBlocks) {
-    return enrolling
-      ? autoEnrollDashboardBlocksInDateControl(nextBlocks)
-      : nextBlocks;
+    return newlyEnabledKeys.length ? enroll(nextBlocks) : nextBlocks;
   }
 
-  if (enrolling && existingBlocks) {
-    return autoEnrollDashboardBlocksInDateControl(existingBlocks);
+  if (newlyEnabledKeys.length && existingBlocks) {
+    return enroll(existingBlocks);
   }
 
   return undefined;
@@ -294,6 +554,70 @@ export function getEffectiveExplorationConfig<
 ): T["config"] {
   return evaluateDashboardGlobalControlsForBlock(block, dashboard)
     .effectiveConfig;
+}
+
+/**
+ * Overlays the dashboard's global filters onto an experiment block, honoring the
+ * block's per-filter opt-in. Never mutates the stored block, so edit flows keep
+ * the local values. `metricId` is never overridden — see
+ * EXPERIMENT_BLOCK_FILTER_SUPPORT for what each block type honors.
+ */
+export function getEffectiveExperimentBlock<T extends DashboardExperimentBlock>(
+  block: T,
+  dashboard: Pick<DashboardInterface, "globalControls">,
+): T {
+  const globalControls = dashboard.globalControls;
+  if (!globalControls) return block;
+
+  const overrides: Record<string, unknown> = {};
+
+  if (
+    blockUsesGlobalFilter(block, "projects") &&
+    globalFilterIsSet(globalControls, "projects")
+  ) {
+    overrides.projects = globalControls.projects;
+  }
+  if (
+    blockUsesGlobalFilter(block, "experimentSearchString") &&
+    globalFilterIsSet(globalControls, "experimentSearchString")
+  ) {
+    overrides.experimentSearchString = globalControls.experimentSearchString;
+  }
+  if (
+    blockUsesGlobalFilter(block, "dateRange") &&
+    globalFilterIsSet(globalControls, "dateRange")
+  ) {
+    overrides.dateRange = globalControls.dateRange;
+    // Granularity follows the date-range opt-in and only affects Team Velocity.
+    if (block.type === "experiments-status" && globalControls.dateGranularity) {
+      overrides.dateGranularity = globalControls.dateGranularity;
+    }
+  }
+
+  if (Object.keys(overrides).length === 0) return block;
+  return { ...block, ...overrides } as T;
+}
+
+/**
+ * Which optional experiment-block global filter controls are relevant for the
+ * given set of blocks. Drives conditional rendering of the dashboard filter bar:
+ * a control is shown only when at least one present block supports it.
+ */
+export function getDashboardExperimentFilterApplicability(
+  blocks: readonly DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
+): {
+  showProjects: boolean;
+  showExperimentSearch: boolean;
+} {
+  const experimentBlocks = blocks.filter(isDashboardExperimentBlock);
+  const supports = (key: DashboardGlobalFilterKey) =>
+    experimentBlocks.some((block) =>
+      experimentBlockSupportsGlobalFilter(block, key),
+    );
+  return {
+    showProjects: supports("projects"),
+    showExperimentSearch: supports("experimentSearchString"),
+  };
 }
 
 /**

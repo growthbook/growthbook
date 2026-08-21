@@ -25,6 +25,7 @@ import { postConfigRevisionRebase } from "./postConfigRevisionRebase";
 import { postConfigRevisionRevert } from "./postConfigRevisionRevert";
 import { postConfigRevisionRequestReview } from "./postConfigRevisionRequestReview";
 import { postConfigRevisionSubmitReview } from "./postConfigRevisionSubmitReview";
+import { postConfigRevisionUndoReview } from "./postConfigRevisionUndoReview";
 import { postConfigRevisionReopen } from "./postConfigRevisionReopen";
 import { postConfigRevisionRecallReview } from "./postConfigRevisionRecallReview";
 import { postConfigRevisionSchedulePublish } from "./postConfigRevisionSchedulePublish";
@@ -70,6 +71,7 @@ export const configsRoutes: OpenApiRoute[] = [
 
   postConfigRevisionRequestReview,
   postConfigRevisionSubmitReview,
+  postConfigRevisionUndoReview,
   postConfigRevisionRecallReview,
   postConfigRevisionReopen,
   postConfigRevisionSchedulePublish,

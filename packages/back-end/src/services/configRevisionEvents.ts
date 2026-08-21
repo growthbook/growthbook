@@ -1,9 +1,11 @@
+import { configPublishEnvironments } from "shared/util";
 import { Revision, JsonPatchOperation } from "shared/enterprise";
 import { ConfigInterface } from "shared/types/config";
 import {
   ResourceEvents,
   NotificationEventPayloadSchemaType,
 } from "shared/types/events/base-types";
+import { revisionEventRouting } from "back-end/src/services/revisionEventRouting";
 import { Context } from "back-end/src/models/BaseModel";
 import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
@@ -55,8 +57,19 @@ export async function dispatchConfigRevisionEvent(
       revision,
       context as ApiReqContext,
     );
-    const snapshot = revision.target.snapshot as ConfigInterface;
-    const projects = snapshot.project ? [snapshot.project] : [];
+    const liveForRouting = await context.models.configs.getById(
+      revision.target.id,
+    );
+    // Configs scope by the ENTITY, and `scopedConfig` is read-only in the snapshot
+    // (never in `getUpdatableFields`) — so the flavor's scope can only move on the
+    // LIVE entity, and each side has to be resolved on its own.
+    const { projects, environments } = await revisionEventRouting({
+      context,
+      revision,
+      liveForRouting,
+      scopedFor: (entity) =>
+        configPublishEnvironments(entity as ConfigInterface),
+    });
 
     const emit = async <T extends ConfigRevisionEvent>(
       event: T,
@@ -70,7 +83,7 @@ export async function dispatchConfigRevisionEvent(
         data: { object } as CreateEventData<"config", T>,
         projects,
         tags: [],
-        environments: [],
+        environments,
         containsSecrets: false,
       });
     };
@@ -145,6 +158,15 @@ export async function dispatchConfigRevisionEvent(
         break;
       case "reopened":
         await emit("revision.reopened", apiRevision);
+        break;
+      case "recalled":
+        await emit("revision.recalled", apiRevision);
+        break;
+      case "reviewRetracted":
+        await emit("revision.reviewRetracted", apiRevision);
+        break;
+      case "publishScheduleChanged":
+        await emit("revision.publishScheduleChanged", apiRevision);
         break;
       case "reverted": {
         const source = revision.revertedFrom
