@@ -3,6 +3,7 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
+import { StatsEngine } from "shared/types/stats";
 import {
   ExperimentMetricInterface,
   getLatestPhaseVariations,
@@ -54,7 +55,6 @@ function roundPairForAI(pair: [number, number]): [number, number] {
 export type AIMetricVariationResult = {
   variation: string;
   users: number;
-  value?: number;
   cr?: number;
   lift?: number;
   ci?: [number, number];
@@ -144,6 +144,24 @@ function allocateMetricBudget(
   return allocated;
 }
 
+// analyses[0] is whichever analysis was written first, which may be a
+// dimension analysis — whose results[0] is one slice rather than the whole
+// experiment — or one using a stats engine the team does not read. Prefer an
+// overall analysis, and among those the configured engine.
+function selectAnalysis(
+  snapshot: ExperimentSnapshotInterface,
+  statsEngine?: StatsEngine,
+): ExperimentSnapshotAnalysis | null {
+  const overall = (snapshot.analyses || []).filter(
+    (a) => !a.settings.dimensions?.length && a.results?.length,
+  );
+  return (
+    overall.find((a) => a.settings.statsEngine === statsEngine) ||
+    overall[0] ||
+    getSnapshotAnalysis(snapshot)
+  );
+}
+
 function summarizeMetricResults({
   analysis,
   metricMap,
@@ -194,7 +212,6 @@ function summarizeMetricResults({
           variation: variationNames[i] || `Variation ${i}`,
           users: m.users ?? variation.users,
         };
-        if (typeof m.value === "number") row.value = roundForAI(m.value);
         if (typeof m.cr === "number") row.cr = roundForAI(m.cr);
         if (typeof m.expected === "number") row.lift = roundForAI(m.expected);
         const ci = m.ciAdjusted ?? m.ci;
@@ -269,6 +286,7 @@ export function summarizeExperimentAnalysisForAI({
   guardrailMetricIds,
   segmentName,
   srmThreshold,
+  statsEngine,
 }: {
   experiment: ExperimentInterface;
   snapshot: ExperimentSnapshotInterface | undefined;
@@ -278,6 +296,7 @@ export function summarizeExperimentAnalysisForAI({
   guardrailMetricIds: string[];
   segmentName?: string | null;
   srmThreshold: number;
+  statsEngine?: StatsEngine;
 }): AIExperimentSummary {
   const phases = experiment.phases || [];
   const lastPhase = phases[phases.length - 1];
@@ -321,7 +340,7 @@ export function summarizeExperimentAnalysisForAI({
 
   if (!snapshot) return summary;
 
-  const analysis = getSnapshotAnalysis(snapshot);
+  const analysis = selectAnalysis(snapshot, statsEngine);
   if (!analysis) return summary;
 
   const metricResults = summarizeMetricResults({

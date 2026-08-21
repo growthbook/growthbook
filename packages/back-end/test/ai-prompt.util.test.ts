@@ -211,11 +211,10 @@ describe("summarizeExperimentAnalysisForAI", () => {
     expect(purchases?.metricType).toBe("binomial");
     expect(purchases?.betterDirection).toBe("higher");
     expect(purchases?.variations).toEqual([
-      { variation: "Control", users: 1000, value: 100, cr: 0.1 },
+      { variation: "Control", users: 1000, cr: 0.1 },
       {
         variation: "Two-step",
         users: 1010,
-        value: 121,
         cr: 0.1198,
         lift: 0.198,
         ci: [0.0512, 0.3512],
@@ -559,17 +558,108 @@ describe("summarizeExperimentAnalysisForAI", () => {
     // resultVariations[1] holds the lift, so it must be labelled with the
     // phase's second variation, not the experiment's.
     expect(summary.results?.metrics[0].variations).toEqual([
-      { variation: "Two-step", users: 1000, value: 100, cr: 0.1 },
+      { variation: "Two-step", users: 1000, cr: 0.1 },
       {
         variation: "Control",
         users: 1010,
-        value: 121,
         cr: 0.1198,
         lift: 0.198,
         ci: [0.0512, 0.3512],
         pValue: 0.0123,
       },
     ]);
+  });
+
+  it("leaves out the raw summed value, which cr and users already carry", () => {
+    const summary = summarizeExperimentAnalysisForAI({
+      experiment,
+      snapshot: makeSnapshot(resultVariations),
+      metricMap,
+      goalMetricIds: ["met_purchases"],
+      secondaryMetricIds: [],
+      guardrailMetricIds: [],
+      srmThreshold: 0.001,
+    });
+
+    const serialized = JSON.stringify(summary.results?.metrics);
+    expect(serialized).not.toContain("value");
+  });
+
+  it("prefers the overall analysis using the configured stats engine", () => {
+    const snapshot = makeSnapshot(resultVariations);
+    const [frequentist] = snapshot.analyses;
+    snapshot.analyses = [
+      {
+        ...frequentist,
+        analysisKey: "bayesian",
+        settings: { ...frequentist.settings, statsEngine: "bayesian" },
+      },
+      frequentist,
+    ];
+
+    const summary = summarizeExperimentAnalysisForAI({
+      experiment,
+      snapshot,
+      metricMap,
+      goalMetricIds: ["met_purchases"],
+      secondaryMetricIds: [],
+      guardrailMetricIds: [],
+      srmThreshold: 0.001,
+      statsEngine: "frequentist",
+    });
+
+    expect(summary.results?.statsEngine).toBe("frequentist");
+  });
+
+  it("skips a dimension analysis, whose first row is one slice", () => {
+    const snapshot = makeSnapshot(resultVariations);
+    const [overall] = snapshot.analyses;
+    snapshot.analyses = [
+      {
+        ...overall,
+        analysisKey: "by-country",
+        settings: { ...overall.settings, dimensions: ["exp:country"] },
+        // A distinct srm makes it detectable if this analysis is the one used.
+        results: [{ name: "US", srm: 0.1234, variations: resultVariations }],
+      },
+      overall,
+    ];
+
+    const summary = summarizeExperimentAnalysisForAI({
+      experiment,
+      snapshot,
+      metricMap,
+      goalMetricIds: ["met_purchases"],
+      secondaryMetricIds: [],
+      guardrailMetricIds: [],
+      srmThreshold: 0.001,
+    });
+
+    expect(summary.results?.srmPValue).toBe(0.6324);
+    expect(summary.results?.metrics).toHaveLength(1);
+  });
+
+  it("falls back to the first analysis when none is dimensionless", () => {
+    const snapshot = makeSnapshot(resultVariations);
+    const [overall] = snapshot.analyses;
+    snapshot.analyses = [
+      {
+        ...overall,
+        settings: { ...overall.settings, dimensions: ["exp:country"] },
+      },
+    ];
+
+    const summary = summarizeExperimentAnalysisForAI({
+      experiment,
+      snapshot,
+      metricMap,
+      goalMetricIds: ["met_purchases"],
+      secondaryMetricIds: [],
+      guardrailMetricIds: [],
+      srmThreshold: 0.001,
+    });
+
+    expect(summary.results?.metrics).toHaveLength(1);
   });
 
   it("keeps warehouse queries and health time series out of the prompt", () => {

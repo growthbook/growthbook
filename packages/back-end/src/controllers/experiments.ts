@@ -299,6 +299,10 @@ export async function postAIExperimentAnalysis(
     ? (await context.models.segments.getById(segmentId))?.name
     : null;
   const { srmThreshold } = getHealthSettings(context.org.settings);
+  const { settings: scopedSettings } = getScopedSettings({
+    organization: context.org,
+    experiment,
+  });
 
   const summary = summarizeExperimentAnalysisForAI({
     experiment,
@@ -309,6 +313,7 @@ export async function postAIExperimentAnalysis(
     guardrailMetricIds: expandIds(experiment.guardrailMetrics),
     segmentName,
     srmThreshold,
+    statsEngine: experiment.statsEngine || scopedSettings.statsEngine.value,
   });
 
   const instructions =
@@ -355,7 +360,6 @@ export async function postAIExperimentAnalysis(
     "\n  - betterDirection: 'higher' or 'lower'. For 'lower' metrics such as bounce rate or latency, a positive lift is a regression, not a win." +
     "\n  - variations: one entry per variation, in the same order as experiment.variations, so the first entry is the baseline." +
     "\n    - users: the number of users exposed to the variation." +
-    "\n    - value: the total value of the metric across those users." +
     // Metric interpretation
     "\n    - cr: the per-user value of the metric. What it means depends on metricType:" +
     "\n      - proportion, also called binomial, and retention: the share of users who converted or returned, as a rate and not a percentage. 0.0658 means 6.58% of users, or 6.58 out of every 100." +
