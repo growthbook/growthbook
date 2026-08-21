@@ -248,21 +248,58 @@ export function useExperimentTableRows({
         allMetricGroups,
       );
 
+      // When specific metrics are selected (not just selector IDs), filter the
+      // expanded metrics to only include those explicitly selected. This handles
+      // the case where a user selects an individual metric that's part of a
+      // metric group - we want to show only that metric, not the entire group.
+      const allowedMetricIdsForFiltering = new Set<string>();
+      if (actualMetricFilter.length > 0) {
+        actualMetricFilter.forEach((id) => {
+          if (isMetricGroupId(id)) {
+            const group = allMetricGroups.find((g) => g.id === id);
+            if (group) {
+              group.metrics.forEach((metricId) =>
+                allowedMetricIdsForFiltering.add(metricId),
+              );
+            }
+          } else {
+            allowedMetricIdsForFiltering.add(id);
+          }
+        });
+      }
+
+      const finalExpandedGoals =
+        actualMetricFilter.length > 0
+          ? expandedGoals.filter((id) => allowedMetricIdsForFiltering.has(id))
+          : expandedGoals;
+      const finalExpandedSecondaries =
+        actualMetricFilter.length > 0
+          ? expandedSecondaries.filter((id) =>
+              allowedMetricIdsForFiltering.has(id),
+            )
+          : expandedSecondaries;
+      const finalExpandedGuardrails =
+        actualMetricFilter.length > 0
+          ? expandedGuardrails.filter((id) =>
+              allowedMetricIdsForFiltering.has(id),
+            )
+          : expandedGuardrails;
+
       // Dedup metric rows to prevent rendering the same metric multiple times
       const dedupedGoals: string[] = [];
-      expandedGoals.forEach((metricId) => {
+      finalExpandedGoals.forEach((metricId) => {
         if (!dedupedGoals.includes(metricId)) {
           dedupedGoals.push(metricId);
         }
       });
       const dedupedSecondaries: string[] = [];
-      expandedSecondaries.forEach((metricId) => {
+      finalExpandedSecondaries.forEach((metricId) => {
         if (!dedupedSecondaries.includes(metricId)) {
           dedupedSecondaries.push(metricId);
         }
       });
       const dedupedGuardrails: string[] = [];
-      expandedGuardrails.forEach((metricId) => {
+      finalExpandedGuardrails.forEach((metricId) => {
         if (!dedupedGuardrails.includes(metricId)) {
           dedupedGuardrails.push(metricId);
         }
