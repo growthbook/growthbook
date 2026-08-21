@@ -177,4 +177,69 @@
     ) {
     border-top-right-radius: 0;
   }
+
+  // Opt-in bounded scroll region for wide tables. overflow-x can't scroll
+  // without overflow-y doing the same, so the header sticks to this region
+  // rather than to the viewport.
+  &[data-scroll-x="true"] {
+    overflow: auto;
+    max-height: calc(100vh - var(--table-sticky-top, 56px) - 24px);
+    border: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12));
+    border-radius: var(--radius-4);
+
+    :global(.rt-TableRootTable) {
+      border: none;
+      border-radius: 0;
+    }
+
+    &[data-sticky-header="true"] :global(.rt-TableHeader) {
+      top: 0;
+    }
+  }
+
+  // Anchor for the absolutely positioned resize handle.
+  :global(.rt-TableHeader .rt-TableRow .rt-TableColumnHeaderCell) {
+    position: relative;
+  }
+
+  &[data-resizing="true"] {
+    user-select: none;
+  }
+}
+
+.resizeHandle {
+  position: absolute;
+  // Kept fully inside the cell: the first and last header cells carry a
+  // border-radius, so a handle straddling the border can clip on edge columns.
+  top: 0;
+  right: 0;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 1;
+  background: none;
+  border: none;
+  padding: 0;
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 20%;
+    right: 2px;
+    width: 2px;
+    height: 60%;
+    border-radius: 1px;
+    background-color: transparent;
+  }
+
+  &:hover::after,
+  &:focus-visible::after,
+  &[data-active="true"]::after {
+    background-color: var(--accent-9);
+  }
+
+  &:focus-visible {
+    outline: none;
+  }
 }
