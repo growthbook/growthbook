@@ -27,6 +27,12 @@ export type TableProps = Omit<
    * overflow-x can't scroll without overflow-y doing the same.
    */
   scrollX?: boolean;
+  /**
+   * px floor for the table itself. Under a fixed layout a column with no width
+   * takes only the leftover space, so without a floor it collapses to zero once
+   * the specified widths fill the container. `useTableColumns` computes this.
+   */
+  minTableWidth?: number;
 };
 
 export default function Table({
@@ -37,6 +43,7 @@ export default function Table({
   stickyTopOffset = DEFAULT_STICKY_TOP_OFFSET_PX,
   roundedCorners,
   scrollX,
+  minTableWidth,
   className,
   ...props
 }: TableProps) {
@@ -97,11 +104,12 @@ export default function Table({
       ref={wrapperRef}
       className={styles.wrapper}
       style={
-        useStickyHeader
-          ? ({
-              "--table-sticky-top": `${stickyTopOffset}px`,
-            } as React.CSSProperties)
-          : undefined
+        {
+          ...(useStickyHeader && {
+            "--table-sticky-top": `${stickyTopOffset}px`,
+          }),
+          ...(minTableWidth && { "--table-min-width": `${minTableWidth}px` }),
+        } as React.CSSProperties
       }
       data-table-list
       data-sticky-header={useStickyHeader ? "true" : "false"}
