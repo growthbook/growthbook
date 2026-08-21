@@ -1217,9 +1217,7 @@ export function getFeatureDefinition({
           if (cb.hashAttribute) {
             rule.hashAttribute = cb.hashAttribute;
           }
-          if (cb.seed) {
-            rule.seed = cb.seed;
-          }
+          rule.seed = cb.seed;
           rule.hashVersion = 2;
           // contextual bandits do not currently use sticky bucketing
           rule.disableStickyBucketing = true;
