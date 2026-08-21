@@ -122,6 +122,30 @@ function formatModeValue(value: number, mode: ComparisonMode): string {
   }).format(value);
 }
 
+function SectionHeading({ title, info }: { title: string; info: string }) {
+  return (
+    <Flex align="center" gap="1" mb="3">
+      <Heading as="h3" size="sm" mb="0">
+        {title}
+      </Heading>
+      <Tooltip content={info}>
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label={`About ${title}`}
+          style={{
+            display: "inline-flex",
+            color: "var(--color-text-low)",
+            cursor: "help",
+          }}
+        >
+          <PiInfo aria-hidden />
+        </span>
+      </Tooltip>
+    </Flex>
+  );
+}
+
 export default function ContextualBanditResultsTable({
   cb,
   mutate,
@@ -387,22 +411,10 @@ export default function ContextualBanditResultsTable({
 
       {hasTableData ? (
         <>
-          <Flex align="center" gap="1" mb="3">
-            <Heading as="h3" size="sm" mb="0">
-              Attribute Importance
-            </Heading>
-            <Tooltip content="Attributes ranked by proportion of error removed.">
-              <span
-                style={{
-                  display: "inline-flex",
-                  color: "var(--color-text-low)",
-                  cursor: "help",
-                }}
-              >
-                <PiInfo />
-              </span>
-            </Tooltip>
-          </Flex>
+          <SectionHeading
+            title="Attribute Importance"
+            info="Attributes ranked by proportion of error removed."
+          />
           {hasSplitMetadata ? (
             <Box mb="5">
               <ContextualBanditAttributeTable steps={sseTrajectory} />
@@ -414,24 +426,10 @@ export default function ContextualBanditResultsTable({
             </Text>
           )}
 
-          <Flex align="center" gap="1" mb="3">
-            <Heading as="h3" size="sm" mb="0">
-              Variation Performance
-            </Heading>
-            <Tooltip
-              content={`Mean ${goalMetricName} if all traffic were allocated to a single variation (i.e., which variation is optimal) alongside the share of traffic each is currently receiving, and the number of units historically allocated.`}
-            >
-              <span
-                style={{
-                  display: "inline-flex",
-                  color: "var(--color-text-low)",
-                  cursor: "help",
-                }}
-              >
-                <PiInfo />
-              </span>
-            </Tooltip>
-          </Flex>
+          <SectionHeading
+            title="Variation Performance"
+            info={`Mean ${goalMetricName} if all traffic were allocated to a single variation, current share of traffic, and number of units historically allocated.`}
+          />
           <ContextualBanditOverviewTable
             variations={variations}
             means={overallVariationMeans}
@@ -489,13 +487,10 @@ export default function ContextualBanditResultsTable({
 
           {sseTrajectory.length >= 2 ? (
             <Box mt="5">
-              <Heading as="h3" size="sm" mb="1">
-                Total Error by Number of Leaves
-              </Heading>
-              <Text size="sm" color="text-low" as="div" mb="3">
-                How much within-context error the tree removes as it adds
-                leaves. Hover a point to see the leaf it split and how.
-              </Text>
+              <SectionHeading
+                title="Total Error by Number of Leaves"
+                info="How much within-context error the tree removes as it adds leaves. Hover a point to see the leaf it split and how."
+              />
               <ContextualBanditSseChart steps={sseTrajectory} />
             </Box>
           ) : null}
