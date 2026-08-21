@@ -15,6 +15,7 @@ import {
   createFactFilter,
   createFactTable,
   createPropsToInterface,
+  mergeUpsertColumns,
   updateFactTable,
   updateFactFilter,
   upsertColumns,
@@ -249,6 +250,10 @@ export const postBulkImportFacts = createApiRequestHandler(
               (await resolveOwnerToUserId(updateData.owner, req.context)) ?? "";
           }
 
+          const nextColumns = data.columns
+            ? mergeUpsertColumns(existing.columns, data.columns).columns
+            : existing.columns;
+
           let counted = false;
           if (!dryRun && updateData.columns) {
             await upsertColumns({
@@ -263,7 +268,7 @@ export const postBulkImportFacts = createApiRequestHandler(
 
           const willRefresh =
             needsColumnRefresh(existing, updateData) ||
-            columnsNeedDetection(existing.columns);
+            columnsNeedDetection(nextColumns);
           if (!dryRun) {
             await updateFactTable(
               req.context,
@@ -276,7 +281,7 @@ export const postBulkImportFacts = createApiRequestHandler(
           factTableMap.set(existing.id, {
             ...existing,
             ...updateData,
-            columns: existing.columns,
+            columns: nextColumns,
             columnRefreshPending: willRefresh
               ? true
               : existing.columnRefreshPending,
@@ -357,6 +362,12 @@ export const postBulkImportFacts = createApiRequestHandler(
             : {}),
         };
 
+        if (!id.match(/^[-a-zA-Z0-9_]+$/)) {
+          throw new Error(
+            "Fact table filter ids must contain only letters, numbers, underscores, and dashes",
+          );
+        }
+
         const existingFactFilter = factTable.filters.find((f) => f.id === id);
         // Update existing filter
         if (existingFactFilter) {
@@ -373,6 +384,11 @@ export const postBulkImportFacts = createApiRequestHandler(
         }
         // Create new filter
         else {
+          if (!factTable.managedBy && filterPayload.managedBy) {
+            throw new Error(
+              "Cannot create a filter managed by API unless the Fact Table is also managed by API",
+            );
+          }
           if (!dryRun) {
             const newFilter = await createFactFilter(factTable, {
               description: "",
@@ -423,6 +439,12 @@ export const postBulkImportFacts = createApiRequestHandler(
           managedBy,
         };
 
+        if (!id.match(/^[-a-zA-Z0-9_]+$/)) {
+          throw new Error(
+            "Fact metric ids must contain only letters, numbers, underscores, and dashes",
+          );
+        }
+
         const existing = factMetricMap.get(id);
         // Update existing fact metric
         if (existing) {
@@ -431,6 +453,10 @@ export const postBulkImportFacts = createApiRequestHandler(
             existing,
             lookupFactTable,
           );
+
+          if (!req.context.permissions.canUpdateFactMetric(existing, changes)) {
+            req.context.permissions.throwPermissionError();
+          }
 
           if (dryRun) {
             await FactMetricModel.validateFactMetric(
@@ -457,6 +483,10 @@ export const postBulkImportFacts = createApiRequestHandler(
             lookupFactTable,
           );
           createProps.id = id;
+
+          if (!req.context.permissions.canCreateFactMetric(createProps)) {
+            req.context.permissions.throwPermissionError();
+          }
 
           if (dryRun) {
             await FactMetricModel.validateFactMetric(
