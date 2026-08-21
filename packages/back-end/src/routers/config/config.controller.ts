@@ -31,8 +31,11 @@ import {
   stripConfigExtends,
   scopedOverridesFootprint,
   ScopedOverrideEntry,
+  setOwnValueProperty,
+  removeOwnValueProperty,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
+import { ReqContext } from "back-end/types/request";
 import { assertCanCreateConfigInState } from "back-end/src/revisions/createAuthority";
 import {
   canStageArchiveDraft,
@@ -653,6 +656,86 @@ type PutConfigRequest = AuthRequest<
 type PutConfigResponse =
   | { status: 200; requiresApproval?: false; revision?: Revision }
   | { status: 202; requiresApproval: boolean; revision: Revision };
+
+type PutConfigPropertyRequest = AuthRequest<
+  { property: string; value?: unknown },
+  { id: string },
+  PutConfigRequest["query"]
+>;
+
+type DeleteConfigPropertyRequest = AuthRequest<
+  { property: string },
+  { id: string },
+  PutConfigRequest["query"]
+>;
+
+// The draft's own value, or live's when writing outside a draft.
+const resolveConfigOwnValue = async (
+  context: ReqContext,
+  existing: ConfigInterface,
+  revisionId?: string,
+): Promise<string | undefined> => {
+  if (!revisionId) return existing.value;
+  const targetRevision =
+    await context.models.revisions.getByIdReadable(revisionId);
+  if (targetRevision && targetRevision.target.type === "config") {
+    const patched = applyPatchToSnapshot(
+      targetRevision.target.snapshot as ConfigInterface,
+      normalizeProposedChanges(targetRevision.target.proposedChanges),
+    );
+    return ({ ...existing, ...patched } as ConfigInterface).value;
+  }
+  return existing.value;
+};
+
+// Property-scoped writes, mirroring PUT/DELETE /configs-revisions/:key/:version/property.
+// Both compute the next value from the CURRENT draft, then delegate to
+// putConfig so permissions, validation, revision handling and events stay
+// identical to a whole-value write.
+export const putConfigProperty = async (
+  req: PutConfigPropertyRequest,
+  res: Response<PutConfigResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const existing = await context.models.configs.getById(req.params.id);
+  if (!existing) {
+    return context.throwNotFoundError("Config not found");
+  }
+  const current = await resolveConfigOwnValue(
+    context,
+    existing,
+    req.query.revisionId,
+  );
+  const value = setOwnValueProperty(current, req.body.property, req.body.value);
+  const delegated = req as unknown as PutConfigRequest;
+  delegated.body = { value };
+  return putConfig(delegated, res);
+};
+
+export const deleteConfigProperty = async (
+  req: DeleteConfigPropertyRequest,
+  res: Response<PutConfigResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const existing = await context.models.configs.getById(req.params.id);
+  if (!existing) {
+    return context.throwNotFoundError("Config not found");
+  }
+  const current = await resolveConfigOwnValue(
+    context,
+    existing,
+    req.query.revisionId,
+  );
+  const { value, existed } = removeOwnValueProperty(current, req.body.property);
+  if (!existed) {
+    return context.throwNotFoundError(
+      `No property "${req.body.property}" set on this config`,
+    );
+  }
+  const delegated = req as unknown as PutConfigRequest;
+  delegated.body = { value };
+  return putConfig(delegated, res);
+};
 
 // All edits flow through the revision system (same approval model as constants):
 // merged immediately when approval isn't required, else stored as a draft.

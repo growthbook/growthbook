@@ -67,6 +67,28 @@ router.put(
   configController.putConfig,
 );
 
+// Property-scoped value writes: one property per request, applied to the
+// draft's current value. Mirrors PUT/DELETE /configs-revisions/:key/:version/property.
+router.put(
+  "/:id/property",
+  validateRequestMiddleware({
+    params: idParams,
+    body: z
+      .object({ property: z.string().min(1), value: z.unknown() })
+      .strict(),
+  }),
+  configController.putConfigProperty,
+);
+
+router.delete(
+  "/:id/property",
+  validateRequestMiddleware({
+    params: idParams,
+    body: z.object({ property: z.string().min(1) }).strict(),
+  }),
+  configController.deleteConfigProperty,
+);
+
 router.post(
   "/:id/lock",
   validateRequestMiddleware({
