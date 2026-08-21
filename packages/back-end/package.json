@@ -7,8 +7,8 @@
   },
   "scripts": {
     "build:emails": "mkdir -p dist/templates && cp -r src/templates/* dist/templates",
-    "assemble:skills": "tsx scripts/assemble-agent-skills.ts",
-    "copy:skills": "rimraf -rf dist/agent/skills && mkdir -p dist/agent/skills && cp -r generated/agent-skills/* dist/agent/skills",
+    "assemble:skills": "node scripts/assemble-agent-skills.mts",
+    "copy:skills": "rimraf -rf dist/agent/skills && mkdir -p dist/agent/skills && cp -r generated/agent-skills/. dist/agent/skills || echo 'Warning: No agent skills to copy'",
     "build:clean": "rimraf -rf dist",
     "build:typescript": "tsc",
     "clean": "rimraf node_modules",

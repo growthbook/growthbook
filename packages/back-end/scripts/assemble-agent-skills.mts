@@ -4,7 +4,6 @@
 // checked-in skills-local tree.
 
 import {
-  cpSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -16,24 +15,44 @@ import {
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-const scriptDir = __dirname;
-const packageRoot = resolve(scriptDir, "..");
+const SCRIPT_SUBPATH = join("scripts", "assemble-agent-skills.mts");
+
+function resolveEntryPath(): string | null {
+  return process.argv[1] ? resolve(process.argv[1]) : null;
+}
+
+function resolvePackageRoot(): string {
+  const entry = resolveEntryPath();
+  const candidates = [
+    ...(entry ? [resolve(dirname(entry), "..")] : []),
+    process.cwd(),
+    resolve(process.cwd(), "packages", "back-end"),
+  ];
+  const root = candidates.find((candidate) =>
+    existsSync(join(candidate, "src", "agent", "skills-local")),
+  );
+  if (!root) {
+    throw new Error(
+      "Run assemble-agent-skills from the repository root or packages/back-end.",
+    );
+  }
+  return root;
+}
+
+const packageRoot = resolvePackageRoot();
 const repoRoot = resolve(packageRoot, "..", "..");
 const outputDir = join(packageRoot, "generated", "agent-skills");
 const localSkillsDir = join(packageRoot, "src", "agent", "skills-local");
 
 const SKILLS_REPOSITORY = "https://github.com/growthbook/skills";
-export const CANONICAL_SKILLS = [
-  "feature-flags",
-  "experiments",
-  "analytics",
-] as const;
+const CANONICAL_SKILLS = ["feature-flags", "experiments", "analytics"] as const;
 
 function isSkillsCheckout(dir: string): boolean {
   return existsSync(join(dir, "skills"));
 }
 
-const SIBLING_CANDIDATES = [
+const SKILLS_SOURCE_CANDIDATES = [
+  resolve(repoRoot, "skills-src"),
   resolve(repoRoot, "..", "skills"),
   resolve(repoRoot, "..", "..", "skills"),
 ];
@@ -42,13 +61,14 @@ function resolveSkillsSource(): string | null {
   if (process.env.SKILLS_SRC) {
     const explicit = resolve(process.env.SKILLS_SRC);
     if (!isSkillsCheckout(explicit)) {
-      throw new Error(
-        `SKILLS_SRC is set to ${explicit}, which has no skills/ directory. Point it at a ${SKILLS_REPOSITORY} checkout.`,
+      process.stderr.write(
+        `Warning: SKILLS_SRC is set to ${explicit}, which has no skills/ directory. Point it at a ${SKILLS_REPOSITORY} checkout. Skipping canonical skills.\n`,
       );
+      return null;
     }
     return explicit;
   }
-  return SIBLING_CANDIDATES.find(isSkillsCheckout) ?? null;
+  return SKILLS_SOURCE_CANDIDATES.find(isSkillsCheckout) ?? null;
 }
 
 function markdownFiles(dir: string): string[] {
@@ -66,9 +86,10 @@ function copySkillDirectory(
 ): void {
   const skillFile = join(sourceDir, "SKILL.md");
   if (!existsSync(skillFile)) {
-    throw new Error(
-      `${sourceLabel} skill "${skillName}" has no SKILL.md in ${sourceDir}.`,
+    process.stderr.write(
+      `Warning: ${sourceLabel} skill "${skillName}" has no SKILL.md in ${sourceDir}. Skipping.\n`,
     );
+    return;
   }
 
   const destinationDir = join(destination, skillName);
@@ -94,17 +115,6 @@ function copySkillDirectory(
   }
 }
 
-export function assertNoSkillNameCollision(
-  name: string,
-  canonicalNames: ReadonlySet<string>,
-): void {
-  if (canonicalNames.has(name)) {
-    throw new Error(
-      `Local skill "${name}" collides with an allowlisted canonical skill.`,
-    );
-  }
-}
-
 function copyLocalSkills(
   sourceRoot: string,
   destination: string,
@@ -115,55 +125,35 @@ function copyLocalSkills(
   for (const name of readdirSync(sourceRoot).sort()) {
     const sourceDir = join(sourceRoot, name);
     if (!statSync(sourceDir).isDirectory()) continue;
-    assertNoSkillNameCollision(name, canonicalNames);
+    if (canonicalNames.has(name)) {
+      process.stderr.write(
+        `Warning: Local skill "${name}" collides with an allowlisted canonical skill. Skipping local version.\n`,
+      );
+      continue;
+    }
     copySkillDirectory(sourceDir, name, destination, "Local");
     copied.push(name);
   }
   return copied;
 }
 
-interface AssembleSkillsOptions {
-  source?: string | null;
-  destination?: string;
-  localSource?: string;
-  canonicalSkills?: readonly string[];
-  ci?: boolean;
-}
-
-export function assembleSkills({
-  source = resolveSkillsSource(),
-  destination = outputDir,
-  localSource = localSkillsDir,
-  canonicalSkills = CANONICAL_SKILLS,
-  ci = Boolean(process.env.CI && process.env.CI !== "false"),
-}: AssembleSkillsOptions = {}): void {
-  const reusableAssembly =
-    !source &&
-    canonicalSkills.every((name) =>
-      existsSync(join(destination, name, "SKILL.md")),
-    );
-  if (!source && ci) {
-    throw new Error(
-      `No ${SKILLS_REPOSITORY} checkout found in CI. Set SKILLS_SRC to the checkout root.`,
-    );
-  }
+function assembleSkills(): void {
+  const source = resolveSkillsSource();
   if (!source) {
     process.stderr.write(
-      `Skipping canonical agent skills: no ${SKILLS_REPOSITORY} checkout found.\n` +
-        `Looked for $SKILLS_SRC, ${SIBLING_CANDIDATES.join(", and ")}.\n` +
-        (reusableAssembly
-          ? `Reusing the existing canonical assembly and refreshing local skills.\n`
-          : `Local-only skills will still be assembled.\n`),
+      `Warning: Skipping canonical agent skills: no ${SKILLS_REPOSITORY} checkout found.\n` +
+        `Looked for $SKILLS_SRC, ${SKILLS_SOURCE_CANDIDATES.join(", and ")}.\n` +
+        `Local-only skills will still be assembled.\n`,
     );
   }
 
-  const temporaryDir = `${destination}.tmp-${process.pid}`;
+  const temporaryDir = `${outputDir}.tmp-${process.pid}`;
   rmSync(temporaryDir, { recursive: true, force: true });
   mkdirSync(temporaryDir, { recursive: true });
 
   try {
     if (source) {
-      for (const skillName of canonicalSkills) {
+      for (const skillName of CANONICAL_SKILLS) {
         copySkillDirectory(
           join(source, "skills", skillName),
           skillName,
@@ -171,25 +161,19 @@ export function assembleSkills({
           "Allowlisted canonical",
         );
       }
-    } else if (reusableAssembly) {
-      for (const skillName of canonicalSkills) {
-        cpSync(join(destination, skillName), join(temporaryDir, skillName), {
-          recursive: true,
-        });
-      }
     }
     const localSkills = copyLocalSkills(
-      localSource,
+      localSkillsDir,
       temporaryDir,
-      new Set(canonicalSkills),
+      new Set(CANONICAL_SKILLS),
     );
 
-    rmSync(destination, { recursive: true, force: true });
-    mkdirSync(dirname(destination), { recursive: true });
-    renameSync(temporaryDir, destination);
+    rmSync(outputDir, { recursive: true, force: true });
+    mkdirSync(dirname(outputDir), { recursive: true });
+    renameSync(temporaryDir, outputDir);
 
     process.stdout.write(
-      `Assembled ${source || reusableAssembly ? canonicalSkills.length : 0} canonical and ${localSkills.length} local agent skill(s) into ${destination}\n`,
+      `Assembled ${source ? CANONICAL_SKILLS.length : 0} canonical and ${localSkills.length} local agent skill(s) into ${outputDir}\n`,
     );
   } catch (error) {
     rmSync(temporaryDir, { recursive: true, force: true });
@@ -197,7 +181,8 @@ export function assembleSkills({
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === resolve(__filename)) {
+const entryPath = resolveEntryPath();
+if (entryPath?.endsWith(SCRIPT_SUBPATH)) {
   try {
     assembleSkills();
   } catch (error) {

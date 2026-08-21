@@ -112,13 +112,16 @@ COPY packages/stats-ts/package.json ./packages/stats-ts/package.json
 RUN pnpm install --frozen-lockfile --offline
 RUN pnpm postinstall
 COPY packages ./packages
-COPY skills-src/skills ./skills-src/skills
-RUN \
-  SKILLS_SRC=/usr/local/src/app/skills-src pnpm build \
-  && test -f packages/back-end/dist/server.js \
-  && test -f packages/back-end/dist/agent/skills/feature-flags/references/flag-create.md \
-  || (echo "ERROR: back-end build output or agent skills are missing!" && exit 1) \
-  && rm -rf node_modules \
+# CI checks this out via .github/actions/checkout-agent-skills. Local docker
+# builds without a checkout still succeed: assemble:skills warns and continues.
+COPY skills-src ./skills-src
+
+RUN pnpm build
+
+RUN test -f packages/back-end/dist/server.js \
+  || { echo "ERROR: packages/back-end/dist/server.js is missing after build!"; exit 1; }
+
+RUN rm -rf node_modules \
   && rm -rf packages/back-end/node_modules \
   && rm -rf packages/front-end/node_modules \
   && rm -rf packages/front-end/.next/cache \

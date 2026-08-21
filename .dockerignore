@@ -8,9 +8,9 @@ docker-compose.yml
 .eslint*
 .prettier*
 .husky
+# Root-level only: dockerignore patterns don't cross "/", so nested *.md
+# (skills-src, skills-local) reach the context untouched.
 *.md
-!skills-src/skills/**/*.md
-!packages/back-end/src/agent/skills-local/**/*.md
 **/node_modules
 **/coverage
 **/.next

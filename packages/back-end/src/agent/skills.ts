@@ -60,17 +60,10 @@ function skillsDirHasContent(dir: string): boolean {
 
 function resolveSkillsDir(): string | null {
   const candidates = [
-    // Compiled code resolves to dist/agent/skills.
     path.join(__dirname, "skills"),
-    // Tests and local development read the build-time assembly directly.
     path.resolve(__dirname, "..", "..", "generated", "agent-skills"),
   ];
-  for (const dir of candidates) {
-    if (skillsDirHasContent(dir)) {
-      return dir;
-    }
-  }
-  return null;
+  return candidates.find(skillsDirHasContent) ?? null;
 }
 
 function readMarkdownFile(fullPath: string) {

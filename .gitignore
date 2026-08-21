@@ -20,7 +20,6 @@ config.yml
 packages/stats/notebooks
 buildinfo/
 back-end-dist/
-skills-src/
 *.tsbuildinfo
 
 # Python compiled files
@@ -59,5 +58,9 @@ next-env.d.ts
 # Agent scratch space
 .context/
 
-# Canonical and in-app-only skills assembled for the back-end build.
+# Canonical skills checkout used as Docker/CI input. Keep the placeholder.
+skills-src/*
+!skills-src/.gitkeep
+
+# Canonical and in-app-only skills assembled for local development and builds.
 packages/back-end/generated/agent-skills/
