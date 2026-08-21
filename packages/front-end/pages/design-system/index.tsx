@@ -11,6 +11,7 @@ import BadgeStories from "@/ui/Badge.stories";
 import BreadcrumbsStories from "@/ui/Breadcrumbs.stories";
 import ButtonStories from "@/ui/Button.stories";
 import CalloutStories from "@/ui/Callout.stories";
+import ColumnResizeHandleStories from "@/ui/ColumnResizeHandle.stories";
 import ColumnSettingsStories from "@/ui/ColumnSettings.stories";
 import ColumnSettingsButtonStories from "@/ui/ColumnSettingsButton.stories";
 import CheckboxStories from "@/ui/Checkbox.stories";
@@ -77,6 +78,7 @@ export default function DesignSystemPage() {
     { name: "Breadcrumbs", Stories: BreadcrumbsStories },
     { name: "Button", Stories: ButtonStories },
     { name: "Callout", Stories: CalloutStories },
+    { name: "ColumnResizeHandle", Stories: ColumnResizeHandleStories },
     { name: "ColumnSettings", Stories: ColumnSettingsStories },
     {
       name: "ColumnSettingsButton",
