@@ -62,6 +62,7 @@ router.put(
           statsEngine: z.string().optional(),
           confidenceLevel: z.number().min(0.5).max(1).optional(),
           pValueThreshold: z.number().gt(0).max(0.5).optional(),
+          defaultDashboardId: z.string().optional(),
         }),
       })
       .strict(),
