@@ -324,7 +324,7 @@ This same tracking callback is used for both feature flag experiments and Visual
 
 ### Feature Flag Experiments
 
-There is nothing special you have to do for feature flag experiments. Just evaluate the feature flag like you would normally do. If the user is put into an experiment as part of the feature flag, it will call the `trackingCallback` automatically in the background.
+In order for a user to enter a feature flag experiment, you need to evaluate the feature in your application (for example with `getFeatureValue` or `isOn`). That is also when `trackingCallback` runs so you can record the exposure in your analytics. If they are not included, you still get a value and `trackingCallback` does not run.
 
 ```js
 // If this has an active experiment and the user is included,
