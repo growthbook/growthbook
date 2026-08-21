@@ -581,4 +581,110 @@ describe("getMetricSettingsHash funnel settings", () => {
       ),
     ).not.toEqual(originalHash);
   });
+
+  describe("steps spanning several fact tables", () => {
+    const ordersFactTable = factTableFactory.build({
+      id: "ft_orders",
+      sql: "SELECT user_id, timestamp FROM orders",
+      filters: [
+        {
+          id: "paid_filter",
+          name: "Paid orders",
+          description: "",
+          value: "status = 'paid'",
+          dateCreated: now,
+          dateUpdated: now,
+          managedBy: "",
+        },
+      ],
+    });
+    const crossTableMetric: FunnelFactMetricInterface = {
+      ...metric,
+      funnelSettings: {
+        steps: [
+          metric.funnelSettings.steps[0],
+          {
+            name: "Purchased",
+            factTableId: ordersFactTable.id,
+            rowFilters: [{ operator: "saved_filter", values: ["paid_filter"] }],
+            optional: false,
+            conversionWindow: { unit: "hours", value: 24 },
+          },
+        ],
+      },
+    };
+    const buildFactTableMap = (
+      orders: typeof ordersFactTable = ordersFactTable,
+    ) =>
+      new Map([
+        [factTable.id, factTable],
+        [orders.id, orders],
+      ]);
+
+    it("changes when a later step's fact table SQL changes", () => {
+      const originalHash = getMetricSettingsHash(
+        crossTableMetric.id,
+        undefined,
+        [crossTableMetric],
+        buildFactTableMap(),
+      );
+
+      expect(
+        getMetricSettingsHash(
+          crossTableMetric.id,
+          undefined,
+          [crossTableMetric],
+          buildFactTableMap({
+            ...ordersFactTable,
+            sql: "SELECT user_id, timestamp FROM orders_v2",
+          }),
+        ),
+      ).not.toEqual(originalHash);
+    });
+
+    it("changes when a saved filter on a later step's own fact table changes", () => {
+      const originalHash = getMetricSettingsHash(
+        crossTableMetric.id,
+        undefined,
+        [crossTableMetric],
+        buildFactTableMap(),
+      );
+
+      expect(
+        getMetricSettingsHash(
+          crossTableMetric.id,
+          undefined,
+          [crossTableMetric],
+          buildFactTableMap({
+            ...ordersFactTable,
+            filters: ordersFactTable.filters.map((filter) => ({
+              ...filter,
+              value: "status = 'refunded'",
+            })),
+          }),
+        ),
+      ).not.toEqual(originalHash);
+    });
+
+    it("ignores changes to fact tables the funnel does not read", () => {
+      const originalHash = getMetricSettingsHash(
+        metric.id,
+        undefined,
+        [metric],
+        buildFactTableMap(),
+      );
+
+      expect(
+        getMetricSettingsHash(
+          metric.id,
+          undefined,
+          [metric],
+          buildFactTableMap({
+            ...ordersFactTable,
+            sql: "SELECT user_id, timestamp FROM orders_v2",
+          }),
+        ),
+      ).toEqual(originalHash);
+    });
+  });
 });

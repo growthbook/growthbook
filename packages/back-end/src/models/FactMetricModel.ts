@@ -19,6 +19,7 @@ import {
   FunnelFactMetricInterface,
   LegacyColumnRef,
   LegacyFactMetricInterface,
+  RowFilter,
   StandardFactMetricInterface,
 } from "shared/types/fact-table";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
@@ -456,32 +457,32 @@ export class FactMetricModel extends BaseClass {
       throw new Error("Session-based funnels are not supported for now");
     }
 
-    // TODO(funnel): multi-fact table support for funnel metrics
-    const factTableIds = new Set(steps.map((s) => s.factTableId));
-    if (factTableIds.size > 1) {
-      throw new Error(
-        "All funnel steps must come from the same fact table for now",
-      );
-    }
-
-    const factTableId = steps[0].factTableId;
-    const factTable = factTableMap.get(factTableId);
-    if (!factTable) {
-      throw new Error("Could not find funnel fact table");
-    }
-    if (factTable.datasource !== data.datasource) {
-      throw new Error(
-        "Funnel Fact Table must belong to the metric's Data Source",
-      );
-    }
+    // Steps can each read from a different fact table, so everything below is
+    // validated against the step's own table.
+    const stepFactTables = steps.map((step) => {
+      const factTable = factTableMap.get(step.factTableId);
+      if (!factTable) {
+        throw new Error("Could not find funnel fact table");
+      }
+      if (factTable.datasource !== data.datasource) {
+        throw new Error(
+          "Funnel Fact Table must belong to the metric's Data Source",
+        );
+      }
+      return factTable;
+    });
 
     steps.forEach((step, i) => {
       if (!step.name) {
         throw new Error(`Funnel step ${i + 1} must have a name`);
       }
       validateSavedFilterIds({
-        columnRef: { factTableId, column: "", rowFilters: step.rowFilters },
-        factTable,
+        columnRef: {
+          factTableId: step.factTableId,
+          column: "",
+          rowFilters: step.rowFilters,
+        },
+        factTable: stepFactTables[i],
         filterType: "numerator",
       });
     });
@@ -506,14 +507,30 @@ export class FactMetricModel extends BaseClass {
       existingMetric && isFactFunnelMetric(existingMetric)
         ? existingMetric.funnelSettings.steps
         : [];
-    const rowFiltersToValidate = steps.flatMap((step, index) =>
-      getNetNewSqlExprRowFilters({
+    // One validation query per fact table rather than per step, since each
+    // query round-trips to the warehouse.
+    const rowFiltersByFactTable = new Map<
+      string,
+      { factTable: FactTableInterface; rowFilters: RowFilter[] }
+    >();
+    steps.forEach((step, index) => {
+      const rowFilters = getNetNewSqlExprRowFilters({
         rowFilters: step.rowFilters,
         previousRowFilters: previousSteps[index]?.rowFilters,
         validateAll: previousSteps[index]?.factTableId !== step.factTableId,
-      }),
-    );
-    if (!rowFiltersToValidate.length) return;
+      });
+      if (!rowFilters.length) return;
+      const existing = rowFiltersByFactTable.get(step.factTableId);
+      if (existing) {
+        existing.rowFilters.push(...rowFilters);
+      } else {
+        rowFiltersByFactTable.set(step.factTableId, {
+          factTable: stepFactTables[index],
+          rowFilters: [...rowFilters],
+        });
+      }
+    });
+    if (!rowFiltersByFactTable.size) return;
 
     const datasource = await getDataSourceById(this.context, data.datasource);
     if (!datasource) {
@@ -524,12 +541,15 @@ export class FactMetricModel extends BaseClass {
       datasource,
       true,
     );
-    await validateFactMetricRowFilterSql({
-      integration,
-      factTable,
-      rowFilters: rowFiltersToValidate,
-      errorPrefix: "Invalid funnel step row filter SQL: ",
-    });
+
+    for (const { factTable, rowFilters } of rowFiltersByFactTable.values()) {
+      await validateFactMetricRowFilterSql({
+        integration,
+        factTable,
+        rowFilters,
+        errorPrefix: "Invalid funnel step row filter SQL: ",
+      });
+    }
   }
 
   private async validateColumnRefs(
