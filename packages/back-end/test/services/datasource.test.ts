@@ -228,6 +228,35 @@ describe("testQueryValidity", () => {
 
       expect(result).toBeUndefined();
     });
+
+    it("should match camelCase dimensions against lowercased column metadata", async () => {
+      const query = {
+        id: "user_id",
+        name: "Logged in Users",
+        userIdType: "user_id",
+        dimensions: ["browserFamily"],
+        hasNameCol: false,
+        query: "SELECT * FROM experiments",
+      };
+
+      mockLimitZeroIntegration.getTestValidityQuery = jest
+        .fn()
+        .mockReturnValue("SELECT * FROM experiments LIMIT 0");
+      mockLimitZeroIntegration.runTestQuery = jest.fn().mockResolvedValue({
+        results: [],
+        columns: [
+          { name: "user_id" },
+          { name: "experiment_id" },
+          { name: "variation_id" },
+          { name: "timestamp" },
+          { name: "browserfamily" },
+        ],
+      });
+
+      const result = await testQueryValidity(mockLimitZeroIntegration, query);
+
+      expect(result).toBeUndefined();
+    });
   });
 
   it("should return the error message if an error occurs while running the test query", async () => {
