@@ -26,7 +26,7 @@ import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import { resolveMetricExperimentColumns } from "@/components/MetricExperiments/MetricExperiments";
 import { DATE_RANGE_PREDEFINED_LABELS } from "@/enterprise/components/ProductAnalytics/dateRangeLabels";
-import MetricExperimentsColumnSettings from "./MetricExperimentsColumnSettings";
+import ColumnSettings from "@/ui/ColumnSettings";
 import BlockDateRangePicker from "./BlockDateRangePicker";
 import SidebarSettingField from "./SidebarSettingField";
 import DashboardFilterInheritTag from "./DashboardFilterInheritTag";
@@ -315,7 +315,7 @@ export default function MetricExperimentsSettings({
                       column is always shown.
                     </Text>
                   </Box>
-                  <MetricExperimentsColumnSettings
+                  <ColumnSettings
                     columns={resolvedColumns.map((c) => ({
                       id: c.id,
                       label: c.label,
