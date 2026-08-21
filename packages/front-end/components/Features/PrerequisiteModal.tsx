@@ -7,8 +7,7 @@ import {
   getReviewSetting,
 } from "shared/util";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
-import { PiGitMerge } from "react-icons/pi";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import PrerequisiteStatesTable, {
   MinimalFeatureInfo,
@@ -27,6 +26,7 @@ import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
+import { ConflictShell } from "@/components/DraftConflicts/ConflictContext";
 import HelperText from "@/ui/HelperText";
 import Button from "@/ui/Button";
 import {
@@ -263,7 +263,10 @@ export default function PrerequisiteModal({
       close={close}
       size="lg"
       cta="Save"
-      ctaEnabled={canSubmit}
+      ctaEnabled={canSubmit && !staleList}
+      disabledMessage={
+        staleList ? "Reload to edit against the current list." : undefined
+      }
       header={prerequisite ? "Edit Prerequisite" : "New Prerequisite"}
       submit={form.handleSubmit(async (values) => {
         if (staleList) return;
@@ -323,12 +326,10 @@ export default function PrerequisiteModal({
         }
       />
       {staleList && (
-        <Callout status="warning" size="sm" icon={null} mb="3">
-          <Flex align="center" justify="between" gap="3" width="100%">
-            <Flex align="center" gap="2" style={{ minWidth: 0 }}>
-              <PiGitMerge size={13} style={{ flexShrink: 0 }} />
-              <Text>Reload to edit against the current list.</Text>
-            </Flex>
+        <ConflictShell
+          resolved={false}
+          message={<Text>Reload to edit against the current list.</Text>}
+          choices={
             <Button
               size="sm"
               onClick={async () => {
@@ -338,8 +339,8 @@ export default function PrerequisiteModal({
             >
               Reload
             </Button>
-          </Flex>
-        </Callout>
+          }
+        />
       )}
       <Text as="div" mt="2" mb="3">
         Prerequisite features must evaluate to{" "}

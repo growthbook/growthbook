@@ -371,6 +371,55 @@ describe("putFeatureRule baseline guard", () => {
     expect(draft?.rules?.[0]?.value).toBe("false");
   });
 
+  it("409s when another write lands between the baseline check and the write", async () => {
+    // The baseline check passes (the draft still matches), then a concurrent
+    // edit lands before our write. The content guard must make us lose.
+    const theirLateEdit: FeatureRule = { ...baseRule, value: "landed-first" };
+    await seed({
+      liveRules: [baseRule],
+      liveVersion: 1,
+      drafts: [{ version: 2, rules: [baseRule] }],
+    });
+    const { res, captured } = resSpy();
+
+    const collection = mongoose.connection.collection("featurerevisions");
+    const realFindOne = collection.findOne.bind(collection);
+    let raced = false;
+    jest
+      .spyOn(mongoose.connection.collection("featurerevisions"), "findOne")
+      .mockImplementation(async (...args: unknown[]) => {
+        const doc = await (
+          realFindOne as (...a: unknown[]) => Promise<unknown>
+        )(...args);
+        // Once our copy has been read, let someone else write.
+        if (!raced) {
+          raced = true;
+          await collection.updateOne(
+            { organization: ORG_ID, featureId: FEATURE_ID, version: 2 },
+            { $set: { rules: [theirLateEdit], dateUpdated: new Date() } },
+          );
+        }
+        return doc;
+      });
+
+    try {
+      await putFeatureRule(
+        reqFor(2, {
+          rule: edited,
+          ruleId: baseRule.id,
+          baseline: { rule: baseRule },
+        }),
+        res,
+      );
+    } finally {
+      jest.restoreAllMocks();
+    }
+
+    expect(captured.status).toBe(409);
+    const draft = await storedRevision(2);
+    expect(draft?.rules?.[0]?.value).toBe("landed-first");
+  });
+
   it("cross-family type change is a whole-rule conflict, no field merge", async () => {
     const theirEdit = {
       ...baseRule,

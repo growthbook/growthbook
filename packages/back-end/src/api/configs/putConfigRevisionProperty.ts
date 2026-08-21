@@ -89,11 +89,24 @@ export const putConfigRevisionProperty = createApiRequestHandler(
       { value: strippedValue },
     );
 
+    // Derive inside the write so a CAS retry re-applies this property to the
+    // row it lost to, instead of replaying the value computed above.
     const updated = await createOrUpdateRevision(
       req.context,
       "config",
       config as unknown as Record<string, unknown> & { id: string },
-      buildPatchOps({ value: strippedValue }),
+      (row) => {
+        const value = row
+          ? setOwnValueProperty(
+              applyRevisionToSnapshot(row).value,
+              req.body.property,
+              req.body.value,
+            )
+          : nextValue;
+        return buildPatchOps({
+          value: stripConfigExtends(value) ?? value,
+        });
+      },
       { revisionId: revision.id },
     );
 

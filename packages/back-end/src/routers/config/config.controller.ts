@@ -657,6 +657,10 @@ type PutConfigResponse =
   | { status: 200; requiresApproval?: false; revision?: Revision }
   | { status: 202; requiresApproval: boolean; revision: Revision };
 
+type ValuePropertyOp =
+  | { property: string; remove: false; value: unknown }
+  | { property: string; remove: true };
+
 type PutConfigPropertyRequest = AuthRequest<
   { property: string; value?: unknown },
   { id: string },
@@ -709,7 +713,11 @@ export const putConfigProperty = async (
   const value = setOwnValueProperty(current, req.body.property, req.body.value);
   const delegated = req as unknown as PutConfigRequest;
   delegated.body = { value };
-  return putConfig(delegated, res);
+  return putConfig(delegated, res, {
+    property: req.body.property,
+    remove: false,
+    value: req.body.value,
+  });
 };
 
 export const deleteConfigProperty = async (
@@ -734,7 +742,10 @@ export const deleteConfigProperty = async (
   }
   const delegated = req as unknown as PutConfigRequest;
   delegated.body = { value };
-  return putConfig(delegated, res);
+  return putConfig(delegated, res, {
+    property: req.body.property,
+    remove: true,
+  });
 };
 
 // All edits flow through the revision system (same approval model as constants):
@@ -742,6 +753,9 @@ export const deleteConfigProperty = async (
 export const putConfig = async (
   req: PutConfigRequest,
   res: Response<PutConfigResponse | ApiErrorResponse>,
+  // Set by the property endpoints: lets the revision write recompute the value
+  // from the row it is writing, so a CAS retry can't replay a stale value.
+  valuePropertyOp?: ValuePropertyOp,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1209,7 +1223,28 @@ export const putConfig = async (
     context,
     "config",
     existing as unknown as Record<string, unknown> & { id: string },
-    patchOps,
+    valuePropertyOp
+      ? (row) => {
+          if (!row) return patchOps;
+          const current = (
+            applyPatchToSnapshot(
+              row.target.snapshot as ConfigInterface,
+              normalizeProposedChanges(row.target.proposedChanges),
+            ) as ConfigInterface
+          ).value;
+          const nextValue = valuePropertyOp.remove
+            ? removeOwnValueProperty(current, valuePropertyOp.property).value
+            : setOwnValueProperty(
+                current,
+                valuePropertyOp.property,
+                valuePropertyOp.value,
+              );
+          return buildPatchOps({
+            ...(fieldsToUpdate as Record<string, unknown>),
+            value: stripConfigExtends(nextValue) ?? nextValue,
+          });
+        }
+      : patchOps,
     {
       forceCreate,
       title,

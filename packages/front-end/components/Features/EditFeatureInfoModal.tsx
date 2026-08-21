@@ -125,7 +125,7 @@ const EditFeatureInfoModal: FC<{
       description: "Description",
     },
     form,
-    isNewDraft: mode !== "existing",
+    isNewDraft: mode === "new",
     entityNoun: "feature",
   });
 

@@ -241,7 +241,7 @@ const SavedGroupForm: FC<{
       values: "IDs",
     },
     form,
-    isNewDraft: draftMode !== "existing",
+    isNewDraft: draftMode === "new",
     entityNoun: "saved group",
   });
 

@@ -79,7 +79,7 @@ export default function EditFeatureDescriptionModal({
     initial: { description: feature.description || "" },
     labels: { description: "Description" },
     form,
-    isNewDraft: mode !== "existing",
+    isNewDraft: mode === "new",
     entityNoun: "description",
   });
 

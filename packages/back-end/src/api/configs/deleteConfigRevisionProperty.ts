@@ -79,11 +79,23 @@ export const deleteConfigRevisionProperty = createApiRequestHandler(
       { value: strippedValue },
     );
 
+    // Derive inside the write so a CAS retry removes this property from the row
+    // it lost to, rather than replaying the value computed above.
     const updated = await createOrUpdateRevision(
       req.context,
       "config",
       config as unknown as Record<string, unknown> & { id: string },
-      buildPatchOps({ value: strippedValue }),
+      (row) => {
+        const value = row
+          ? removeOwnValueProperty(
+              applyRevisionToSnapshot(row).value,
+              req.query.property,
+            ).value
+          : nextValue;
+        return buildPatchOps({
+          value: stripConfigExtends(value) ?? value,
+        });
+      },
       { revisionId: revision.id },
     );
 

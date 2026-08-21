@@ -211,6 +211,7 @@ import {
   ReviewSubmittedType,
   submitReviewAndComments,
   updateRevision,
+  RevisionContentChangedError,
   setAutoPublishOnApproval,
   setRevisionScheduledPublish,
 } from "back-end/src/models/FeatureRevisionModel";
@@ -4789,19 +4790,60 @@ export async function putFeatureRule(
     combinedChanges.rampActions = [...filtered, rampActionsUpdate];
   }
 
-  const updatedRevisionAfterRuleEdit = await updateRevision(
-    context,
-    feature,
-    revision,
-    combinedChanges,
-    {
-      user: res.locals.eventAudit,
-      action: "edit rule" + (rampActionsUpdate ? " with ramp schedule" : ""),
-      subject: `rule ${ruleId}`,
-      value: JSON.stringify(effectiveRule),
-    },
-    resetReview,
-  );
+  // The baseline check above closes the stale-editor window; this closes the
+  // request-overlap one. Guarded only when the caller sent a baseline, so
+  // unguarded callers keep the old last-write-wins behavior.
+  let updatedRevisionAfterRuleEdit: FeatureRevisionInterface | null;
+  try {
+    updatedRevisionAfterRuleEdit = await updateRevision(
+      context,
+      feature,
+      revision,
+      combinedChanges,
+      {
+        user: res.locals.eventAudit,
+        action: "edit rule" + (rampActionsUpdate ? " with ramp schedule" : ""),
+        subject: `rule ${ruleId}`,
+        value: JSON.stringify(effectiveRule),
+      },
+      resetReview,
+      { guardDateUpdated: !!baseline },
+    );
+  } catch (e) {
+    if (!(e instanceof RevisionContentChangedError)) throw e;
+    // Someone wrote between our read and our write. Nothing was persisted, so
+    // answer with a conflict against the state that actually won.
+    const fresh = await getRevision({
+      context,
+      organization: feature.organization,
+      featureId: feature.id,
+      feature,
+      version: revision.version,
+    });
+    const freshRule = (fresh?.rules ?? []).find((r) => r.id === ruleId) ?? null;
+    const lost = resolveDraftEdit<FeatureRule>({
+      entityId: ruleId,
+      baseline: baseline?.rule,
+      current: freshRule,
+      incoming: rule as FeatureRule,
+      liveVersion: feature.version,
+      draftVersion: revision.version,
+      config: featureRuleMergeConfig(rule as FeatureRule),
+    });
+    return res.status(409).json({
+      status: 409,
+      message:
+        "This rule was changed by someone else while you were saving. Review their version before saving.",
+      conflict: lost.ok
+        ? {
+            entityId: ruleId,
+            current: freshRule,
+            liveVersion: feature.version,
+            draftVersion: revision.version,
+          }
+        : lost.conflict,
+    });
+  }
   await recordRevisionUpdate(
     context,
     feature,

@@ -132,7 +132,7 @@ export function ConflictMessage({
 
 // Not Callout's icon/action slots: they pin to one text line, off-center
 // against taller buttons.
-function ConflictShell({
+export function ConflictShell({
   resolved,
   message,
   choices,

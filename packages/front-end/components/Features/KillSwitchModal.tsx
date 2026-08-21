@@ -434,7 +434,7 @@ export default function KillSwitchModal({
       setTouchedEnvs((prev) => new Set([...prev, field]));
       setEnvOverrides((o) => ({ ...o, [field]: !!value }));
     },
-    isNewDraft: mode !== "existing",
+    isNewDraft: mode === "new",
     entityNoun: "feature",
   });
 
