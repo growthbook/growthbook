@@ -1,5 +1,4 @@
-import React, { FC, useEffect, useState } from "react";
-import { PiCheckBold, PiXBold } from "react-icons/pi";
+import React, { FC, ReactNode, useEffect, useState } from "react";
 import { ExpandedMember } from "shared/types/organization";
 import { date, datetime } from "shared/dates";
 import { RxIdCard } from "react-icons/rx";
@@ -7,15 +6,17 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import router from "next/router";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
+  EffectiveRoleSource,
   getEffectiveRolesForProject,
-  getRoleDisplayName,
 } from "shared/permissions";
-import { memberEnvAccess, useAuth } from "@/services/auth";
+import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
+import Link from "@/ui/Link";
+import RoleRuleLabel from "@/components/Settings/Team/RoleRuleLabel";
 import Callout from "@/ui/Callout";
 import { usingSSO } from "@/services/env";
-import { useEnvironments } from "@/services/features";
+import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
 import InviteModal from "@/components/Settings/Team/InviteModal";
 import AdminSetPasswordModal from "@/components/Settings/Team/AdminSetPasswordModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -39,6 +40,59 @@ import {
   DropdownMenuItem,
 } from "@/ui/DropdownMenu";
 
+// Keyed by the rule, not just the role: the same role can apply with different
+// environment restrictions.
+function rulesWithSources(roles: EffectiveRoleSource[]) {
+  const out: {
+    key: string;
+    role: string;
+    limitAccessByEnvironment: boolean;
+    environments: string[];
+    sources: string[];
+  }[] = [];
+  roles.forEach((er) => {
+    const src = er.sourceType === "user" ? "Direct" : `Team: ${er.sourceName}`;
+    const key = `${er.role}|${er.limitAccessByEnvironment}|${er.environments.join(",")}`;
+    const existing = out.find((e) => e.key === key);
+    if (existing) existing.sources.push(src);
+    else
+      out.push({
+        key,
+        role: er.role,
+        limitAccessByEnvironment: er.limitAccessByEnvironment,
+        environments: er.environments,
+        sources: [src],
+      });
+  });
+  return out;
+}
+
+function RuleLines({
+  roles,
+  organization,
+}: {
+  roles: EffectiveRoleSource[];
+  organization: Parameters<typeof RoleRuleLabel>[0]["organization"];
+}) {
+  return (
+    <>
+      {rulesWithSources(roles).map((e) => (
+        <div key={e.key}>
+          <RoleRuleLabel
+            {...e}
+            organization={organization}
+            sources={
+              e.sources.some((src) => src !== "Direct")
+                ? e.sources.join(", ")
+                : undefined
+            }
+          />
+        </div>
+      ))}
+    </>
+  );
+}
+
 const MemberList: FC<{
   mutate: () => void;
   project: string;
@@ -46,6 +100,7 @@ const MemberList: FC<{
   canEditProjectRoles?: boolean; // Some users with the project-admin role can't edit global roles, but they can edit roles for a specific project
   canDeleteMembers?: boolean;
   canInviteMembers?: boolean;
+  filters?: ReactNode;
 }> = ({
   mutate,
   project,
@@ -53,6 +108,7 @@ const MemberList: FC<{
   canEditProjectRoles = false,
   canDeleteMembers = true,
   canInviteMembers = true,
+  filters,
 }) => {
   const [inviting, setInviting] = useState(!!router.query["just-subscribed"]);
   const { apiCall } = useAuth();
@@ -62,8 +118,6 @@ const MemberList: FC<{
   const [passwordResetModal, setPasswordResetModal] =
     useState<ExpandedMember | null>(null);
   const { projects } = useDefinitions();
-  const environments = useEnvironments();
-  const forceScroll = environments.length > 3;
 
   const openInviteModal = !!router.query["just-subscribed"];
 
@@ -81,6 +135,19 @@ const MemberList: FC<{
   const members = Array.from(users).sort((a, b) =>
     a[1].name.localeCompare(b[1].name),
   );
+
+  // Every project someone set a rule on — the member or one of their teams.
+  const scopedProjectIds = (member: ExpandedMember) => [
+    ...new Set([
+      ...(member.projectRoles || []).map((pr) => pr.project),
+      ...(member.teams || []).flatMap(
+        (id) =>
+          (teams || [])
+            .find((t) => t.id === id)
+            ?.projectRoles?.map((pr) => pr.project) || [],
+      ),
+    ]),
+  ];
 
   const membersList: ExpandedMember[] = members.map(([, member]) => ({
     ...member,
@@ -140,7 +207,11 @@ const MemberList: FC<{
             limitAccessByEnvironment: !!roleModalUser.limitAccessByEnvironment,
             role: roleModalUser.role,
             projectRoles: roleModalUser.projectRoles,
+            additionalRoles: roleModalUser.additionalRoles,
           }}
+          teams={(teams || []).filter((t) =>
+            roleModalUser.teams?.includes(t.id),
+          )}
           close={() => setRoleModal("")}
           onConfirm={async (value) => {
             await apiCall(`/member/${roleModal}/role`, {
@@ -164,81 +235,70 @@ const MemberList: FC<{
             <h5 className="mb-0">Active Members{` (${users.size})`}</h5>
             <Box width="250px" flexShrink="0">
               <Field
-                size="legacy"
                 placeholder="Search..."
                 type="search"
+                containerClassName="mb-0"
                 {...searchInputProps}
               />
             </Box>
+            {filters}
           </Flex>
           {canInviteMembers && (
             <Button onClick={onInvite}>Invite member</Button>
           )}
         </Flex>
-        <Table
-          variant="surface"
-          style={forceScroll ? { whiteSpace: "nowrap" } : undefined}
-        >
+        <Table variant="surface" layout="fixed">
           <TableHeader>
             <TableRow>
-              <SortableTableColumnHeader field="name">
+              <SortableTableColumnHeader
+                field="name"
+                style={{ width: MEMBER_COLUMN_WIDTHS.name }}
+              >
                 Name
               </SortableTableColumnHeader>
-              <SortableTableColumnHeader field="email">
+              <SortableTableColumnHeader
+                field="email"
+                style={{ width: MEMBER_COLUMN_WIDTHS.email }}
+              >
                 Email
               </SortableTableColumnHeader>
-              <SortableTableColumnHeader field="dateCreated">
+              <SortableTableColumnHeader
+                field="dateCreated"
+                style={{ width: MEMBER_COLUMN_WIDTHS.date }}
+              >
                 Date Joined
               </SortableTableColumnHeader>
-              <SortableTableColumnHeader field="lastLoginDate">
+              <SortableTableColumnHeader
+                field="lastLoginDate"
+                style={{ width: MEMBER_COLUMN_WIDTHS.date }}
+              >
                 Last Login
               </SortableTableColumnHeader>
-              <TableColumnHeader>
-                {project ? "Project Role" : "Global Role"}
-              </TableColumnHeader>
-              <TableColumnHeader>
+              <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.role}>
                 <Tooltip body="The role(s) that actually apply after combining this member's own role with any teams they're on. Hover a value to see each source.">
-                  {project ? "Effective Project Role" : "Effective Global Role"}
+                  {project ? "Project Role" : "Role"}
                 </Tooltip>
               </TableColumnHeader>
-              {!project && <TableColumnHeader>Project Roles</TableColumnHeader>}
-              {environments.map((env) => (
-                <TableColumnHeader key={env.id}>{env.id}</TableColumnHeader>
-              ))}
-              <SortableTableColumnHeader field="numTeams">
+              {!project && (
+                <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.projectRoles}>
+                  Project Roles
+                </TableColumnHeader>
+              )}
+              <SortableTableColumnHeader
+                field="numTeams"
+                style={{ width: MEMBER_COLUMN_WIDTHS.teams }}
+              >
                 Teams
               </SortableTableColumnHeader>
-              <TableColumnHeader style={{ width: 50 }} />
+              <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.actions} />
             </TableRow>
           </TableHeader>
           <TableBody>
             {items.map((member) => {
-              const roleInfo =
-                (project &&
-                  member.projectRoles?.find((r) => r.project === project)) ||
-                member;
               const effectiveRoles = getEffectiveRolesForProject(
                 member,
                 project || null,
                 teams || [],
-              );
-              const effectiveByRole: { role: string; sources: string[] }[] = [];
-              effectiveRoles.forEach((er) => {
-                const src =
-                  er.sourceType === "user"
-                    ? "Direct"
-                    : `Team: ${er.sourceName}`;
-                const existing = effectiveByRole.find(
-                  (e) => e.role === er.role,
-                );
-                if (existing) existing.sources.push(src);
-                else effectiveByRole.push({ role: er.role, sources: [src] });
-              });
-              const effectiveLabel = effectiveByRole
-                .map((e) => getRoleDisplayName(e.role, organization))
-                .join(", ");
-              const effectiveFromTeam = effectiveRoles.some(
-                (er) => er.sourceType === "team",
               );
               return (
                 <TableRow key={member.id}>
@@ -272,72 +332,52 @@ const MemberList: FC<{
                     {member.lastLoginDate && date(member.lastLoginDate)}
                   </TableCell>
                   <TableCell>
-                    {getRoleDisplayName(roleInfo.role, organization)}
-                  </TableCell>
-                  <TableCell>
-                    {effectiveFromTeam || effectiveByRole.length > 1 ? (
-                      <Tooltip
-                        body={
-                          <>
-                            {effectiveByRole.map((e) => (
-                              <div key={e.role}>
-                                {getRoleDisplayName(e.role, organization)} —{" "}
-                                {e.sources.join(", ")}
-                              </div>
-                            ))}
-                          </>
-                        }
-                      >
-                        <span style={{ textDecoration: "underline dotted" }}>
-                          {effectiveLabel}
-                        </span>
-                      </Tooltip>
-                    ) : (
-                      effectiveLabel
-                    )}
+                    <RuleLines
+                      roles={effectiveRoles}
+                      organization={organization}
+                    />
                   </TableCell>
                   {!project && (
                     <TableCell>
-                      {member.projectRoles?.map((pr) => {
-                        const p = projects.find((p) => p.id === pr.project);
-                        if (p?.name) {
-                          return (
-                            <div key={`project-tags-${p.id}`}>
-                              <ProjectBadges
-                                resourceType="member"
-                                projectIds={[p.id]}
-                              />{" "}
-                              — {getRoleDisplayName(pr.role, organization)}
-                            </div>
-                          );
-                        }
-                        return null;
+                      {scopedProjectIds(member).map((projectId) => {
+                        const p = projects.find((p) => p.id === projectId);
+                        if (!p?.name) return null;
+                        const roles = getEffectiveRolesForProject(
+                          member,
+                          projectId,
+                          teams || [],
+                        );
+                        return (
+                          <div key={`project-tags-${p.id}`}>
+                            <ProjectBadges
+                              resourceType="member"
+                              projectIds={[p.id]}
+                            />
+                            <RuleLines
+                              roles={roles}
+                              organization={organization}
+                            />
+                          </div>
+                        );
                       })}
                     </TableCell>
                   )}
-                  {environments.map((env) => {
-                    const access = memberEnvAccess(
-                      member,
-                      env,
-                      organization,
-                      project,
-                    );
-                    return (
-                      <TableCell key={env.id}>
-                        {access === "N/A" ? (
-                          <Text color="text-low">N/A</Text>
-                        ) : access === "yes" ? (
-                          <PiCheckBold color="var(--green-11)" />
-                        ) : (
-                          <PiXBold color="var(--red-11)" />
-                        )}
-                      </TableCell>
-                    );
-                  })}
-
-                  <TableCell>{member.teams?.length ?? 0}</TableCell>
 
                   <TableCell>
+                    {(member.teams ?? []).map((teamId) => {
+                      const team = (teams ?? []).find((t) => t.id === teamId);
+                      if (!team) return null;
+                      return (
+                        <div key={teamId}>
+                          <Link href={`/settings/team/${teamId}`}>
+                            {team.name}
+                          </Link>
+                        </div>
+                      );
+                    })}
+                  </TableCell>
+
+                  <TableCell justify="end">
                     {member.id !== userId && (
                       <DropdownMenu
                         trigger={
@@ -437,7 +477,7 @@ const MemberList: FC<{
             {!items.length && isFiltered && (
               <TableRow>
                 <TableCell
-                  colSpan={8 + environments.length + (project ? 0 : 1)}
+                  colSpan={7 + (project ? 0 : 1)}
                   style={{ textAlign: "center" }}
                 >
                   No matching members found.

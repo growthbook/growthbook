@@ -4,30 +4,31 @@ import {
   ParentConditionInterface,
 } from "@growthbook/growthbook";
 import {
+  ExperimentDependencyIndex,
+  NamespaceValue,
+  ReverseDependencyIndex,
+  buildExperimentDependencyIndex,
+  buildReverseDependencyIndex,
+  deepMergePatch,
+  ensureConfigBacking,
+  filterEnvironmentsByFeature,
+  getApplicableEnvIds,
+  getFeatureBaseConfigKey,
+  getNamespaceHashAttribute,
+  getNamespaceRanges,
   getRulesForEnvironment,
+  getTargetingProjectIds,
   includeExperimentInPayload,
   isDefined,
   isMultiRangeNamespaceFormat,
   namespacesToMap,
-  recursiveWalk,
-  ruleServedToConnection,
-  ruleProjectScope,
-  ruleFootprint,
-  stemRuleId,
-  getNamespaceRanges,
-  getNamespaceHashAttribute,
-  NamespaceValue,
-  buildReverseDependencyIndex,
-  ReverseDependencyIndex,
-  buildExperimentDependencyIndex,
-  ExperimentDependencyIndex,
   parsePlainJSONObject,
-  getFeatureBaseConfigKey,
-  ensureConfigBacking,
+  recursiveWalk,
+  ruleFootprint,
+  ruleProjectScope,
+  ruleServedToConnection,
+  stemRuleId,
   stripConfigExtends,
-  deepMergePatch,
-  getTargetingProjectIds,
-  filterEnvironmentsByFeature,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { resolveScheduleStopAfter } from "shared/dates";
@@ -71,7 +72,6 @@ import { getEnvironments } from "back-end/src/util/organization.util";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
 import { logger } from "back-end/src/util/logger";
-import { getApplicableEnvIds } from "./flattenRules";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 export function pairedWeightsToPositional(

@@ -5,15 +5,16 @@ import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import {
   MergeResultChanges,
-  checkIfRevisionNeedsReview,
-  autoMerge,
-  liveRevisionFromFeature,
   PermissionError,
-  rampRuleEnvKey,
-  stemRuleId,
-  resolveTargetingProjectIds,
+  autoMerge,
+  checkIfRevisionNeedsReview,
   computeHoldoutExperimentLinkageDelta,
+  getApplicableEnvIds,
   getExperimentIdsFromRules,
+  liveRevisionFromFeature,
+  rampRuleEnvKey,
+  resolveTargetingProjectIds,
+  stemRuleId,
 } from "shared/util";
 import {
   SafeRolloutInterface,
@@ -92,7 +93,6 @@ import {
   resolveRampTargets,
   ensureUniqueRuleIds,
   flattenV1ToV2Rules,
-  getApplicableEnvIds,
   isPlausibleFeatureRule,
   V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
@@ -4269,7 +4269,7 @@ export async function createAndPublishRevision({
     feature,
     baseRevision: liveBase,
     revision: preparedRevision,
-    allEnvironments,
+    orgEnvironments: getEnvironments(org),
     settings: org.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });

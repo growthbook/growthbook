@@ -1,3 +1,4 @@
+import { Box } from "@radix-ui/themes";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import {
@@ -13,7 +14,10 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
 import Callout from "@/ui/Callout";
-import RoleSelector from "./RoleSelector";
+import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
+import useOrgLimits from "@/hooks/useOrgLimits";
+import RoleRulesTable from "./RoleRulesTable";
+import RoleRulesSummaryRow from "./RoleRulesSummary";
 
 type InviteResult = {
   email: string;
@@ -35,6 +39,8 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
     freeSeats,
     canSubscribe,
   } = useUser();
+  const { orgSupportsRoles } = useOrgLimits();
+  const [editingRoles, setEditingRoles] = useState(false);
 
   const form = useForm<{
     email: string[];
@@ -46,6 +52,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
         projectRoles: [],
         ...getDefaultRole(organization),
         ...(defaultRole ? { role: defaultRole } : {}),
+        ...(orgSupportsRoles() ? {} : { role: "admin" }),
       },
     },
   });
@@ -167,7 +174,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
       header="Invite Member"
       open={true}
       cta="Invite"
-      size="lg"
+      size="xl"
       closeCta={
         successfulInvites.length || failedInvites.length ? "Close" : "Cancel"
       }
@@ -244,6 +251,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
             legacyHeight
             required
             label="Email Address"
+            placeholder="name@company.com"
             value={form.watch("email")}
             onChange={(emails) => {
               // check for multiple values
@@ -263,12 +271,25 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
             helpText="Enter a list of emails to invite multiple members at once."
             type="email"
           />
-          <RoleSelector
-            value={form.watch("roleInfo")}
-            setValue={(value) => form.setValue("roleInfo", value)}
-            showUpgradeModal={() => setShowUpgradeModal(true)}
-            isNewAssignment
-          />
+          {editingRoles ? (
+            <RoleRulesTable
+              value={form.watch("roleInfo")}
+              setValue={(value) => form.setValue("roleInfo", value)}
+            />
+          ) : (
+            <RoleRulesSummaryRow
+              label="Role"
+              value={form.watch("roleInfo")}
+              onEdit={() => setEditingRoles(true)}
+            />
+          )}
+          <Box mt="3">
+            <UpgradeMessage
+              showUpgradeModal={() => setShowUpgradeModal(true)}
+              commercialFeature="advanced-permissions"
+              upgradeMessage="enable per-environment and per-project permissions"
+            />
+          </Box>
         </>
       )}
     </Modal>
