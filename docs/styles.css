@@ -291,6 +291,18 @@ code a {
   }
 }
 
+/* Mintlify optically centers #content-area with
+   margin-left: max(0px, calc(50vw - 348px - 14rem)), which subtracts the
+   default 14rem sidebar. Below 1650px it uses mx-auto instead, so the
+   mismatch only shows up above that: the article slides ~64px right and
+   under the 28rem API playground (z-index 21). Keep the same formula
+   with our 18rem sidebar. Regular TOC pages are narrower and don't clip. */
+@media (min-width: 1651px) {
+  #content-area {
+    margin-left: max(0px, calc(50vw - 348px - 18rem)) !important;
+  }
+}
+
 /* Set the reference sections apart from the product docs above them, the way
    docs.growthbook.io separates them with a rule. */
 ul.sidebar-group > li[data-title="Tutorials"],
