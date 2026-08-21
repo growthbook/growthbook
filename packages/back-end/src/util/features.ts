@@ -1217,10 +1217,7 @@ export function getFeatureDefinition({
           if (cb.hashAttribute) {
             rule.hashAttribute = cb.hashAttribute;
           }
-          // Seed is regenerated on each weight update to re-bucket users
-          if (cb.seed) {
-            rule.seed = cb.seed;
-          }
+          rule.seed = cb.seed;
           rule.hashVersion = 2;
           // contextual bandits do not currently use sticky bucketing
           rule.disableStickyBucketing = true;
