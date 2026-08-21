@@ -16,6 +16,7 @@ import {
   customFieldApiSpec,
   listCustomFieldsEndpoint,
 } from "back-end/src/api/specs/custom-field.spec";
+import { getCollection } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -306,6 +307,11 @@ export class CustomFieldModel extends BaseClass {
     const newFields = existing.fields.filter((_, i) => i !== toDelete);
     const updated = await this.update(existing, { fields: newFields });
     if (updated) {
+      // Orphaned values would otherwise fail validation on every later write to
+      // the feature/experiment. Legacy duplicate ids keep the key in use.
+      if (!newFields.some((f) => f.id === customFieldId)) {
+        await this.removeCustomFieldValues(customFieldId);
+      }
       queueSDKPayloadRefresh({
         context: this.context,
         payloadKeys: getEnvironmentIdsFromOrg(this.context.org).map((env) => ({
@@ -321,6 +327,18 @@ export class CustomFieldModel extends BaseClass {
       });
     }
     return updated;
+  }
+
+  // Raw collections rather than the Feature/Experiment models: importing those
+  // here would cycle back through the context's model registry.
+  private async removeCustomFieldValues(customFieldId: string) {
+    const filter = {
+      organization: this.context.org.id,
+      [`customFields.${customFieldId}`]: { $exists: true },
+    };
+    const update = { $unset: { [`customFields.${customFieldId}`]: "" } };
+    await getCollection("features").updateMany(filter, update);
+    await getCollection("experiments").updateMany(filter, update);
   }
 
   // Uses _updateOne directly to bypass the change-detection check (reorders are not detected as diffs).

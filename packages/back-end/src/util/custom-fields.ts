@@ -134,25 +134,25 @@ function validateSingleCustomFieldValue(
   }
 }
 
+// `orgCustomFields` is every field on the org, used only to explain why a key
+// isn't usable here: deleted vs. disabled vs. out of scope.
 export function validateCustomFieldValues(
   customFields: CustomField[],
   customFieldValues: Record<string, unknown>,
+  orgCustomFields: CustomField[],
 ): void {
-  if (customFields.length === 0) {
-    if (customFieldValues && Object.keys(customFieldValues).length > 0) {
-      throw new Error(`No custom fields are available to be defined.`);
-    }
-
-    // No custom fields defined + no fields being passed in = success
-    return;
-  }
-
   // Ensure all custom fields being passed in, are valid keys
   const validKeys = new Set(customFields.map((v) => v.id));
   for (const key of Object.keys(customFieldValues)) {
     if (!validKeys.has(key)) {
+      const field = orgCustomFields.find((f) => f.id === key);
+      const reason = !field
+        ? "It does not exist and may have been deleted."
+        : field.active === false
+          ? "It is disabled."
+          : "It is not available for this record's project or section.";
       throw new Error(
-        `Invalid custom field: ${key}. This custom field does not exist.`,
+        `Invalid custom field: ${key}. ${reason} Remove it from this record's customFields to save changes.`,
       );
     }
   }
@@ -206,5 +206,9 @@ export async function validateCustomFieldsForSection({
       project,
     })) ?? [];
 
-  validateCustomFieldValues(applicableCustomFields, customFieldValues ?? {});
+  validateCustomFieldValues(
+    applicableCustomFields,
+    customFieldValues ?? {},
+    (await customFieldsModel.getCustomFields())?.fields ?? [],
+  );
 }

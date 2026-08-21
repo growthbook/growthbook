@@ -84,7 +84,7 @@ export default function CustomFieldRowMenu({
               confirmationTitle: "Delete custom field",
               cta: "Delete",
               getConfirmationContent: async () =>
-                "Are you sure? This action cannot be undone.",
+                "Are you sure? Any values saved for this field on Feature Flags and experiments will be removed too. This action cannot be undone.",
             }}
           >
             Delete

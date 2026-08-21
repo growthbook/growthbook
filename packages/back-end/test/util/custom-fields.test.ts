@@ -17,8 +17,12 @@ const buildCustomField = (
   ...overrides,
 });
 
-const buildCustomFieldsModel = (fields: CustomField[] | null | undefined) => ({
+const buildCustomFieldsModel = (
+  fields: CustomField[] | null | undefined,
+  orgFields: CustomField[] = fields ?? [],
+) => ({
   getCustomFieldsBySectionAndProject: jest.fn().mockResolvedValue(fields),
+  getCustomFields: jest.fn().mockResolvedValue({ fields: orgFields }),
 });
 
 describe("custom fields validation", () => {
@@ -56,7 +60,9 @@ describe("custom fields validation", () => {
           customFieldsModel: buildCustomFieldsModel([]),
           section: "feature",
         }),
-      ).rejects.toThrow("No custom fields are available to be defined.");
+      ).rejects.toThrow(
+        "Invalid custom field: cfd_unknown. It does not exist and may have been deleted. Remove it from this record's customFields to save changes.",
+      );
     });
 
     it("throws when a required text field is missing from the payload", async () => {
@@ -498,7 +504,39 @@ describe("custom fields validation", () => {
           ],
         }),
       ).rejects.toThrow(
-        "Invalid custom field: cfd_unknown. This custom field does not exist.",
+        "Invalid custom field: cfd_unknown. It does not exist and may have been deleted. Remove it from this record's customFields to save changes.",
+      );
+    });
+
+    it("explains that a value references a disabled custom field", async () => {
+      const disabled = buildCustomField({
+        id: "cfd_team",
+        name: "Owning Team",
+        active: false,
+      });
+      await expect(
+        validateCustomFieldsForSection({
+          customFieldValues: { cfd_team: "growth" },
+          customFieldsModel: buildCustomFieldsModel([], [disabled]),
+          section: "feature",
+        }),
+      ).rejects.toThrow("Invalid custom field: cfd_team. It is disabled.");
+    });
+
+    it("explains that a value references a custom field outside the record's scope", async () => {
+      const otherProject = buildCustomField({
+        id: "cfd_team",
+        name: "Owning Team",
+        projects: ["prj_other"],
+      });
+      await expect(
+        validateCustomFieldsForSection({
+          customFieldValues: { cfd_team: "growth" },
+          customFieldsModel: buildCustomFieldsModel([], [otherProject]),
+          section: "feature",
+        }),
+      ).rejects.toThrow(
+        "Invalid custom field: cfd_team. It is not available for this record's project or section.",
       );
     });
 
