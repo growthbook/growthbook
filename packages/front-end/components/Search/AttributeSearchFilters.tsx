@@ -1,6 +1,7 @@
 import React, { FC, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import { SDKAttribute } from "shared/types/organization";
+import { CustomField } from "shared/types/custom-fields";
 import { attributeDataTypes } from "shared/constants";
 import {
   BaseSearchFiltersProps,
@@ -21,6 +22,7 @@ const AttributeSearchFilters: FC<
   BaseSearchFiltersProps & {
     attributes: AttributeWithId[];
     hasArchived: boolean;
+    customFields?: CustomField[];
   }
 > = ({
   searchInputProps,
@@ -28,6 +30,7 @@ const AttributeSearchFilters: FC<
   attributes,
   setSearchValue,
   hasArchived,
+  customFields = [],
 }) => {
   const {
     dropdownFilterOpen,
@@ -63,8 +66,39 @@ const AttributeSearchFilters: FC<
     return tags;
   }, [attributes]);
 
+  // Only fields with a known value set make sense as a dropdown; free-text
+  // fields are still reachable via `<fieldId>:value` in the search box.
+  const filterableCustomFields = useMemo(
+    () =>
+      customFields.flatMap((f) => {
+        if (f.type === "boolean") {
+          // Display casing matches the Identifier filter on the same bar; the
+          // query value stays lowercase.
+          return [
+            {
+              field: f,
+              values: [
+                { name: "Yes", searchValue: "yes" },
+                { name: "No", searchValue: "no" },
+              ],
+            },
+          ];
+        }
+        if (f.type === "enum" || f.type === "multiselect") {
+          const values = (f.values ?? "")
+            .split(",")
+            .map((v) => v.trim())
+            .filter(Boolean)
+            .map((v) => ({ name: v, searchValue: v }));
+          return values.length ? [{ field: f, values }] : [];
+        }
+        return [];
+      }),
+    [customFields],
+  );
+
   return (
-    <Flex gap="5" align="center">
+    <Flex gap="5" align="center" wrap="wrap">
       {!project && (
         <FilterDropdown
           filter="project"
@@ -111,6 +145,22 @@ const AttributeSearchFilters: FC<
         ]}
         updateQuery={updateQuery}
       />
+      {filterableCustomFields.map(({ field, values }) => (
+        <FilterDropdown
+          key={field.id}
+          filter={field.id.toLowerCase()}
+          heading={field.name.toLowerCase()}
+          syntaxFilters={syntaxFilters}
+          open={dropdownFilterOpen}
+          setOpen={setDropdownFilterOpen}
+          items={values.map(({ name, searchValue }) => ({
+            name,
+            id: `${field.id}-${searchValue}`,
+            searchValue,
+          }))}
+          updateQuery={updateQuery}
+        />
+      ))}
       <DropdownMenu
         trigger={FilterHeading({
           heading: "more",

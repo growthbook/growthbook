@@ -38,6 +38,17 @@ import {
   TableColumnDef,
 } from "@/services/tableColumns";
 import ColumnResizeHandle from "@/ui/ColumnResizeHandle";
+import { useCustomFields } from "@/hooks/useCustomFields";
+import { useUser } from "@/services/UserContext";
+import {
+  filterCustomFieldsForSection,
+  filterCustomFieldsForSectionAndProjects,
+} from "@/services/customFields";
+import {
+  customFieldFilterValue,
+  customFieldValueToText,
+  renderCustomFieldValue,
+} from "@/components/CustomFields/renderCustomFieldValue";
 
 // Rough char budget for a column of `width` px. Only settles after a resize
 // commits, which is why it takes the committed width rather than a live one.
@@ -121,6 +132,23 @@ const FeatureAttributesPage = (): React.ReactElement => {
   );
   const { references } = useAttributeReferences(attributeKeys);
 
+  // Column ids are namespaced `custom:<fieldId>`. Those ids are org-unique, so a
+  // saved layout carried into another org just resolves away instead of breaking.
+  const { hasCommercialFeature } = useUser();
+  const allCustomFields = useCustomFields();
+  const attributeCustomFields = useMemo(() => {
+    if (!hasCommercialFeature("custom-metadata")) return [];
+    // Under "All Projects" the table lists attributes from every project, so
+    // scoping the columns to one project's fields would hide metadata that
+    // visible rows carry.
+    const fields = project
+      ? filterCustomFieldsForSectionAndProjects(allCustomFields, "attribute", [
+          project,
+        ])
+      : filterCustomFieldsForSection(allCustomFields, "attribute");
+    return fields ?? [];
+  }, [allCustomFields, hasCommercialFeature, project]);
+
   const attributesWithComputedFields = useAddComputedFields(
     attributeSchema,
     (attr) => {
@@ -141,9 +169,15 @@ const FeatureAttributesPage = (): React.ReactElement => {
         projectNamesSearch: projectNames.filter(Boolean).join(" "),
         datatypeSearch,
         tagsSearch: (attr.tags || []).join(" "),
+        customFieldsSearch: attributeCustomFields
+          .map((f) =>
+            customFieldValueToText(f, attr.customFields?.[f.id] ?? ""),
+          )
+          .filter(Boolean)
+          .join(" "),
       };
     },
-    [getProjectById],
+    [getProjectById, attributeCustomFields],
   );
 
   const hasArchived = attributeSchema.some((a) => a.archived);
@@ -168,8 +202,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
       "datatypeSearch",
       "projectNamesSearch",
       "tagsSearch",
+      "customFieldsSearch",
     ],
     updateSearchQueryOnChange: true,
+    searchTermFilterDeps: [attributeCustomFields],
     searchTermFilters: {
       is: (item) => {
         const is: string[] = [item.datatype];
@@ -181,6 +217,14 @@ const FeatureAttributesPage = (): React.ReactElement => {
       identifier: (item) =>
         item.hashAttribute ? ["yes", "true"] : ["no", "false"],
       tag: (item) => item.tags || [],
+      // parseQuery lowercases the field, so the filter keys must match.
+      ...Object.fromEntries(
+        attributeCustomFields.map((f) => [
+          f.id.toLowerCase(),
+          (item: { customFields?: Record<string, string> }) =>
+            customFieldFilterValue(f, item.customFields?.[f.id] ?? ""),
+        ]),
+      ),
     },
   });
 
@@ -229,6 +273,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
         id: "description",
         label: "Description",
         sortField: "description",
+        // No defaultWidth: absorbs the table's slack. minWidth is its floor
+        // once enough other columns are shown to consume that slack.
+        minWidth: 160,
         cellProps: () => ({ className: "text-gray" }),
         render: (v) =>
           v.description ? (
@@ -362,6 +409,31 @@ const FeatureAttributesPage = (): React.ReactElement => {
           <Flex justify="center">{v.hashAttribute && <>yes</>}</Flex>
         ),
       },
+      // Hidden by default so existing users see no change until they opt in.
+      ...attributeCustomFields.map<TableColumnDef<AttributeRow>>((f) => ({
+        id: `custom:${f.id}`,
+        label: f.name,
+        header: f.description ? (
+          <>
+            {f.name}{" "}
+            <RadixTooltip content={f.description}>
+              <PiInfo style={{ position: "relative", top: "-1px" }} />
+            </RadixTooltip>
+          </>
+        ) : undefined,
+        defaultWidth: 160,
+        defaultHidden: true,
+        cellProps: () => ({ className: "text-gray" }),
+        render: (v) => {
+          const raw = v.customFields?.[f.id] ?? "";
+          if (!raw) return null;
+          return (
+            <ClampedCell tooltip={customFieldValueToText(f, raw)}>
+              {renderCustomFieldValue(f, raw)}
+            </ClampedCell>
+          );
+        },
+      })),
       {
         id: "actions",
         label: "Row actions",
@@ -380,7 +452,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
         ),
       },
     ],
-    [references],
+    [references, attributeCustomFields],
   );
 
   const {
@@ -393,6 +465,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
     setWidth,
     reset,
     colRefs,
+    minTableWidth,
     ColGroup,
   } = useTableColumns({ storageKey: "attributes", columns: columnDefs });
 
@@ -435,8 +508,11 @@ const FeatureAttributesPage = (): React.ReactElement => {
           </Flex>
           {attributeSchema?.length > 0 && (
             <Box mb="3">
-              <Flex justify="between" gap="3" align="center">
-                <Box className="relative" style={{ width: "40%" }}>
+              <Flex justify="between" gap="3" align="center" wrap="wrap">
+                <Box
+                  className="relative"
+                  style={{ width: "40%", minWidth: 240 }}
+                >
                   <Field
                     size="legacy"
                     placeholder="Search..."
@@ -444,13 +520,14 @@ const FeatureAttributesPage = (): React.ReactElement => {
                     {...searchInputProps}
                   />
                 </Box>
-                <Flex gap="5" align="center">
+                <Flex gap="5" align="center" wrap="wrap" justify="end">
                   <AttributeSearchFilters
                     attributes={attributesWithComputedFields}
                     searchInputProps={searchInputProps}
                     setSearchValue={setSearchValue}
                     syntaxFilters={syntaxFilters}
                     hasArchived={hasArchived}
+                    customFields={attributeCustomFields}
                   />
                   <ColumnSettingsButton
                     columns={columns
@@ -479,6 +556,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
             roundedCorners
             layout="fixed"
             scrollX
+            minTableWidth={minTableWidth}
           >
             <ColGroup />
             <TableHeader>

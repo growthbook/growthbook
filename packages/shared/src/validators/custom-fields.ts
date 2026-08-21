@@ -3,7 +3,11 @@ import { apiBaseSchema } from "./base-model";
 
 import { namedSchema } from "./openapi-helpers";
 
-export const customFieldSectionValues = ["feature", "experiment"] as const;
+export const customFieldSectionValues = [
+  "feature",
+  "experiment",
+  "attribute",
+] as const;
 export const customFieldSectionTypes = z.enum(customFieldSectionValues);
 // All valid sections — use as the default when no section is specified.
 export const ALL_SECTIONS = [...customFieldSectionValues] as const;
@@ -116,7 +120,7 @@ export const apiCreateCustomFieldBody = z.strictObject({
   sections: z
     .array(customFieldSectionTypes)
     .describe(
-      "What types of objects this custom field is applicable to (feature, experiment)",
+      "What types of objects this custom field is applicable to (feature, experiment, attribute)",
     ),
 });
 
