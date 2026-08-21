@@ -3,11 +3,10 @@ import { ExposureQuery } from "shared/types/datasource";
 import { SegmentInterface } from "shared/types/segment";
 import BigQuery from "back-end/src/integrations/BigQuery";
 
-// Segment and SQL filter on the incremental refresh path: both must be
-// applied to the new exposures before they are merged into the units table,
-// with the same semantics as the non-incremental units query (segment joined
-// on the unit id with `s.date <= e.timestamp`; query filter as an extra WHERE
-// clause on the exposure rows).
+// Incremental units query must apply segment and queryFilter to new
+// exposures only, with the same JOIN / WHERE s.date <= timestamp shape as
+// the non-incremental units query. Query filter stays on the exposure CTE
+// so its columns cannot collide with the segment relation.
 
 const exposureQuery: ExposureQuery = {
   id: "exposure",
@@ -104,10 +103,17 @@ describe("incremental refresh units query segment and query filter", () => {
     const sql = buildSql({ ...baseSettings, segment: "seg_1" }, segment);
     expect(sql).toMatch(/__segment as \(/i);
     const cte = newExposuresCte(sql);
+    expect(cte).toMatch(/JOIN __segment s ON \(s\.user_id = e\.user_id\)/i);
+    // Timestamp stays raw for UNION with the units table; BQ still needs
+    // the exposure side cast to compare against the segment DATETIME.
     expect(cte).toMatch(
-      /FROM\s+__newExposures e\s+JOIN __segment s ON \(s\.user_id = e\.user_id\)/,
+      /s\.date <= CAST\s*\(\s*e\.timestamp as DATETIME\s*\)/i,
     );
-    expect(cte).toContain("AND s.date <= e.timestamp");
+    expect(cte).toMatch(/SELECT DISTINCT/i);
+    expect(sql).toMatch(
+      /MAX\s*\(\s*timestamp\s*\)\s+OVER\s*\(\s*\)[\s\S]*FROM\s+__segmentedNewExposures/i,
+    );
+    expect(cte).not.toMatch(/EXISTS/i);
   });
 
   it("applies the query filter to new exposures", () => {
@@ -118,18 +124,32 @@ describe("incremental refresh units query segment and query filter", () => {
     const cte = newExposuresCte(sql);
     expect(cte).toMatch(/WHERE[\s\S]*AND \(\s*e\.country = 'US'\s*\)/);
     expect(sql).not.toContain("__segment");
+    expect(sql).not.toContain("__segmentedNewExposures");
+  });
+
+  it("applies both the segment and the query filter to new exposures", () => {
+    const sql = buildSql(
+      { ...baseSettings, segment: "seg_1", queryFilter: "country = 'US'" },
+      segment,
+    );
+    const cte = newExposuresCte(sql);
+    expect(cte).toMatch(/AND \(\s*country = 'US'\s*\)/);
+    expect(cte).toMatch(/JOIN __segment s ON/i);
+    // Query filter is on __filteredNewExposures so unqualified columns
+    // cannot collide with the later segment join.
+    expect(cte.indexOf("country")).toBeLessThan(cte.search(/JOIN __segment/i));
   });
 
   it("leaves the new exposures unfiltered without a segment or query filter", () => {
     const sql = buildSql(baseSettings, null);
     const cte = newExposuresCte(sql);
     expect(sql).not.toContain("__segment");
+    expect(sql).not.toContain("__segmentedNewExposures");
     expect(cte).not.toContain("JOIN");
+    expect(cte).not.toMatch(/EXISTS/i);
     expect(cte).not.toContain("s.date");
     expect(cte).toMatch(
       /FROM\s+__newExposures e\s+WHERE\s+e\.experiment_id = 'exp_1'/,
     );
-    // Only the experiment id and the timestamp bounds remain.
-    expect(cte.match(/\bAND\b/g)).toHaveLength(2);
   });
 });

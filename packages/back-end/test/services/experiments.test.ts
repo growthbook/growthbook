@@ -1463,6 +1463,31 @@ describe("putMetricApiPayloadToMetricInterface", () => {
       );
 
       expect(changes.segment).toBe(undefined);
+      expect("segment" in changes).toBe(false);
+    });
+
+    it("clears the activation metric when activationMetric is an empty string", () => {
+      const experiment = { ...makeExperiment(), activationMetric: "met_1" };
+      const changes = updateExperimentApiPayloadToInterface(
+        { activationMetric: "" },
+        experiment,
+        new Map(),
+        organization,
+      );
+
+      expect(changes.activationMetric).toBe("");
+    });
+
+    it("leaves the activation metric untouched when it is omitted", () => {
+      const experiment = { ...makeExperiment(), activationMetric: "met_1" };
+      const changes = updateExperimentApiPayloadToInterface(
+        { name: "Renamed" },
+        experiment,
+        new Map(),
+        organization,
+      );
+
+      expect("activationMetric" in changes).toBe(false);
     });
   });
 
