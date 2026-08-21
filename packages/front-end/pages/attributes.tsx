@@ -2,7 +2,6 @@ import React, { useMemo, useState } from "react";
 import { PiInfo } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import { BiShow } from "react-icons/bi";
-import { SDKAttribute } from "shared/types/organization";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "@/components/Modal";
@@ -30,6 +29,9 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import Heading from "@/ui/Heading";
+import ColumnSettingsButton from "@/ui/ColumnSettingsButton";
+import { useTableColumns } from "@/hooks/useTableColumns";
+import { TableColumnDef } from "@/services/tableColumns";
 
 const ATTRIBUTE_NAME_COLUMN_MAX_WIDTH = 200;
 const TAGS_COLUMN_MAX_WIDTH = 160;
@@ -123,74 +125,92 @@ const FeatureAttributesPage = (): React.ReactElement => {
       ? attributeSchema.find((a) => a.property === referencesProperty)
       : undefined;
 
-  const drawRow = (v: SDKAttribute) => {
-    const refs = references?.[v.property];
-    const numReferences =
-      (refs?.features.length ?? 0) +
-      (refs?.experiments.length ?? 0) +
-      (refs?.savedGroups.length ?? 0);
+  type AttributeRow = (typeof attributesWithComputedFields)[number];
 
-    return (
-      <TableRow
-        className={v.archived ? "disabled" : ""}
-        key={"attr-row-" + v.property}
-      >
-        <TableCell
-          className="text-gray font-weight-bold"
-          style={{ maxWidth: ATTRIBUTE_NAME_COLUMN_MAX_WIDTH }}
-        >
-          <Link
-            href={`/attributes/${encodeURIComponent(v.property)}`}
-            style={{ color: "var(--gray-12)" }}
-          >
-            <TruncateMiddleWithTooltip
-              text={v.property}
-              maxChars={23}
-              maxWidth={ATTRIBUTE_NAME_COLUMN_MAX_WIDTH}
-            />
-          </Link>{" "}
-          {v.archived && (
-            <span className="badge badge-secondary" style={{ marginLeft: 8 }}>
-              archived
-            </span>
-          )}
-        </TableCell>
-        <TableCell
-          className="text-gray"
-          style={{ maxWidth: 200, overflow: "hidden" }}
-        >
-          {v.description ? (
+  const columnDefs = useMemo<TableColumnDef<AttributeRow>[]>(
+    () => [
+      {
+        id: "property",
+        label: "Attribute",
+        sortField: "property",
+        hideable: false,
+        defaultWidth: ATTRIBUTE_NAME_COLUMN_MAX_WIDTH,
+        cellProps: () => ({ className: "text-gray font-weight-bold" }),
+        render: (v) => (
+          <>
+            <Link
+              href={`/attributes/${encodeURIComponent(v.property)}`}
+              style={{ color: "var(--gray-12)" }}
+            >
+              <TruncateMiddleWithTooltip
+                text={v.property}
+                maxChars={23}
+                maxWidth={ATTRIBUTE_NAME_COLUMN_MAX_WIDTH}
+              />
+            </Link>{" "}
+            {v.archived && (
+              <span className="badge badge-secondary" style={{ marginLeft: 8 }}>
+                archived
+              </span>
+            )}
+          </>
+        ),
+      },
+      {
+        id: "description",
+        label: "Description",
+        sortField: "description",
+        defaultWidth: 200,
+        cellProps: () => ({
+          className: "text-gray",
+          style: { overflow: "hidden" },
+        }),
+        render: (v) =>
+          v.description ? (
             <Markdown className="mb-0">{v.description}</Markdown>
-          ) : null}
-        </TableCell>
-        <TableCell className="text-gray" style={{ wordWrap: "break-word" }}>
-          {v.datatype}
-          {v.datatype === "enum" && <>: ({v.enum})</>}
-          {v.format && (
-            <p className="my-0">
-              <small>(format: {v.format})</small>
-            </p>
-          )}
-        </TableCell>
-        <TableCell style={{ paddingRight: "1rem" }}>
+          ) : null,
+      },
+      {
+        id: "datatype",
+        label: "Data Type",
+        sortField: "datatype",
+        cellProps: () => ({
+          className: "text-gray",
+          style: { wordWrap: "break-word" },
+        }),
+        render: (v) => (
+          <>
+            {v.datatype}
+            {v.datatype === "enum" && <>: ({v.enum})</>}
+            {v.format && (
+              <p className="my-0">
+                <small>(format: {v.format})</small>
+              </p>
+            )}
+          </>
+        ),
+      },
+      {
+        id: "projects",
+        label: "Projects",
+        headerProps: { style: { paddingRight: "1rem" } },
+        cellProps: () => ({ style: { paddingRight: "1rem" } }),
+        render: (v) => (
           <ProjectBadges
             resourceType="attribute"
             projectIds={(v.projects || []).length > 0 ? v.projects : undefined}
           />
-        </TableCell>
-        <TableCell
-          style={{
-            maxWidth: TAGS_COLUMN_MAX_WIDTH,
-            overflow: "hidden",
-          }}
-        >
+        ),
+      },
+      {
+        id: "tags",
+        label: "Tags",
+        defaultWidth: TAGS_COLUMN_MAX_WIDTH,
+        cellProps: () => ({ style: { overflow: "hidden" } }),
+        render: (v) => (
           <div
             className="tags-cell-content"
-            style={{
-              minWidth: 0,
-              maxWidth: "100%",
-              overflow: "hidden",
-            }}
+            style={{ minWidth: 0, maxWidth: "100%", overflow: "hidden" }}
           >
             <SortedTags
               tags={v.tags || []}
@@ -199,9 +219,20 @@ const FeatureAttributesPage = (): React.ReactElement => {
               truncateTagChars={15}
             />
           </div>
-        </TableCell>
-        <TableCell className="text-gray">
-          {numReferences > 0 ? (
+        ),
+      },
+      {
+        id: "references",
+        label: "References",
+        cellProps: () => ({ className: "text-gray" }),
+        render: (v) => {
+          const refs = references?.[v.property];
+          const numReferences =
+            (refs?.features.length ?? 0) +
+            (refs?.experiments.length ?? 0) +
+            (refs?.savedGroups.length ?? 0);
+
+          return numReferences > 0 ? (
             <Link
               onClick={() => setReferencesProperty(v.property)}
               style={{ whiteSpace: "nowrap" }}
@@ -221,20 +252,56 @@ const FeatureAttributesPage = (): React.ReactElement => {
                 <BiShow /> 0 references
               </span>
             </Tooltip>
-          )}
-        </TableCell>
-        <TableCell className="text-gray">
+          );
+        },
+      },
+      {
+        id: "hashAttribute",
+        label: "Identifier",
+        header: (
+          <>
+            Identifier{" "}
+            <Tooltip
+              body="Any attribute that uniquely identifies a user, account, device, or similar."
+              popperStyle={{ textAlign: "left" }}
+            >
+              <PiInfo style={{ position: "relative", top: "-1px" }} />
+            </Tooltip>
+          </>
+        ),
+        align: "center",
+        cellProps: () => ({ className: "text-gray" }),
+        render: (v) => (
           <Flex justify="center">{v.hashAttribute && <>yes</>}</Flex>
-        </TableCell>
-        <TableCell>
+        ),
+      },
+      {
+        id: "actions",
+        label: "Row actions",
+        header: null,
+        locked: true,
+        resizable: false,
+        headerProps: { className: "text-center" },
+        render: (v) => (
           <AttributeRowMenu
             attribute={v}
             onEdit={() => setModalData(v.property)}
           />
-        </TableCell>
-      </TableRow>
-    );
-  };
+        ),
+      },
+    ],
+    [references],
+  );
+
+  const {
+    columns,
+    visibleColumns,
+    colSpan,
+    hiddenCount,
+    isCustomized,
+    applySettings,
+    reset,
+  } = useTableColumns({ storageKey: "attributes", columns: columnDefs });
 
   return (
     <>
@@ -266,13 +333,32 @@ const FeatureAttributesPage = (): React.ReactElement => {
                     {...searchInputProps}
                   />
                 </Box>
-                <AttributeSearchFilters
-                  attributes={attributesWithComputedFields}
-                  searchInputProps={searchInputProps}
-                  setSearchValue={setSearchValue}
-                  syntaxFilters={syntaxFilters}
-                  hasArchived={hasArchived}
-                />
+                <Flex gap="5" align="center">
+                  <AttributeSearchFilters
+                    attributes={attributesWithComputedFields}
+                    searchInputProps={searchInputProps}
+                    setSearchValue={setSearchValue}
+                    syntaxFilters={syntaxFilters}
+                    hasArchived={hasArchived}
+                  />
+                  <ColumnSettingsButton
+                    columns={columns
+                      // The row-actions column has no header and can't be
+                      // hidden or moved, so listing it is pure noise.
+                      .filter((c) => c.header !== null)
+                      .map((c) => ({
+                        id: c.id,
+                        label: c.label,
+                        visible: c.visible,
+                        alwaysVisible: c.locked || c.hideable === false,
+                      }))}
+                    hiddenCount={hiddenCount}
+                    canReset={isCustomized}
+                    onReset={reset}
+                    onChange={applySettings}
+                    note="The Attribute column is always shown."
+                  />
+                </Flex>
               </Flex>
             </Box>
           )}
@@ -284,47 +370,64 @@ const FeatureAttributesPage = (): React.ReactElement => {
           >
             <TableHeader>
               <TableRow>
-                <SortableTableColumnHeader
-                  field="property"
-                  style={{ maxWidth: ATTRIBUTE_NAME_COLUMN_MAX_WIDTH }}
-                >
-                  Attribute
-                </SortableTableColumnHeader>
-                <SortableTableColumnHeader
-                  field="description"
-                  style={{ maxWidth: 200 }}
-                >
-                  Description
-                </SortableTableColumnHeader>
-                <SortableTableColumnHeader field="datatype">
-                  Data Type
-                </SortableTableColumnHeader>
-                <TableColumnHeader style={{ paddingRight: "1rem" }}>
-                  Projects
-                </TableColumnHeader>
-                <TableColumnHeader style={{ maxWidth: TAGS_COLUMN_MAX_WIDTH }}>
-                  Tags
-                </TableColumnHeader>
-                <TableColumnHeader>References</TableColumnHeader>
-                <TableColumnHeader style={{ textAlign: "center" }}>
-                  Identifier{" "}
-                  <Tooltip
-                    body="Any attribute that uniquely identifies a user, account, device, or similar."
-                    popperStyle={{ textAlign: "left" }}
-                  >
-                    <PiInfo style={{ position: "relative", top: "-1px" }} />
-                  </Tooltip>
-                </TableColumnHeader>
-                <TableColumnHeader className="text-center" />
+                {visibleColumns.map((col) =>
+                  col.sortField ? (
+                    <SortableTableColumnHeader
+                      key={col.id}
+                      field={col.sortField}
+                      className={col.headerProps?.className}
+                      style={{
+                        maxWidth: col.width,
+                        textAlign: col.align,
+                        ...col.headerProps?.style,
+                      }}
+                    >
+                      {col.header !== undefined ? col.header : col.label}
+                    </SortableTableColumnHeader>
+                  ) : (
+                    <TableColumnHeader
+                      key={col.id}
+                      className={col.headerProps?.className}
+                      style={{
+                        maxWidth: col.width,
+                        textAlign: col.align,
+                        ...col.headerProps?.style,
+                      }}
+                    >
+                      {col.header !== undefined ? col.header : col.label}
+                    </TableColumnHeader>
+                  ),
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
               {attributeSchema?.length > 0 ? (
                 <>
-                  {filteredAttributes.map((v) => drawRow(v))}
+                  {filteredAttributes.map((v) => (
+                    <TableRow
+                      className={v.archived ? "disabled" : ""}
+                      key={"attr-row-" + v.property}
+                    >
+                      {visibleColumns.map((col) => {
+                        const { className, style } = col.cellProps?.(v) ?? {};
+                        return (
+                          <TableCell
+                            key={col.id}
+                            className={className}
+                            style={{ maxWidth: col.width, ...style }}
+                          >
+                            {col.render(v)}
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  ))}
                   {!filteredAttributes.length && isFiltered && (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-gray">
+                      <TableCell
+                        colSpan={colSpan}
+                        className="text-center text-gray"
+                      >
                         No matching attributes found.
                       </TableCell>
                     </TableRow>
@@ -332,7 +435,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
                 </>
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-gray">
+                  <TableCell
+                    colSpan={colSpan}
+                    className="text-center text-gray"
+                  >
                     <em>No attributes defined.</em>
                   </TableCell>
                 </TableRow>
