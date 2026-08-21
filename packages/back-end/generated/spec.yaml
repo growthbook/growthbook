@@ -10185,9 +10185,12 @@ paths:
               properties:
                 rule:
                   anyOf:
-                    - $ref: '#/components/schemas/Targeting Rule'
-                    - $ref: '#/components/schemas/Experiment Rule'
-                    - $ref: '#/components/schemas/Safe Rollout Rule'
+                    - title: Targeting Rule
+                      $ref: '#/components/schemas/Targeting Rule'
+                    - title: Experiment Rule
+                      $ref: '#/components/schemas/Experiment Rule'
+                    - title: Safe Rollout Rule
+                      $ref: '#/components/schemas/Safe Rollout Rule'
                 rampSchedule:
                   description: >-
                     Multi-step ramp schedule for force/rollout rules. Not
@@ -14133,6 +14136,10 @@ paths:
                         - unit
                       additionalProperties: false
                     scheduledStopPlan:
+                      description: >-
+                        End-of-experiment automation applied at the scheduled
+                        end. Required whenever a `stopAt` or `stopAfter` is set
+                        (any mode, including `notify`).
                       $ref: '#/components/schemas/ScheduledStopPlan'
                   additionalProperties: false
                 ignoreWarnings:
@@ -14836,6 +14843,10 @@ paths:
                             - unit
                           additionalProperties: false
                         scheduledStopPlan:
+                          description: >-
+                            End-of-experiment automation applied at the
+                            scheduled end. Required whenever a `stopAt` or
+                            `stopAfter` is set (any mode, including `notify`).
                           $ref: '#/components/schemas/ScheduledStopPlan'
                       additionalProperties: false
                     - type: 'null'
@@ -15302,6 +15313,9 @@ paths:
                     - unit
                   additionalProperties: false
                 scheduledStopPlan:
+                  description: >-
+                    End-of-experiment automation. Required whenever a `stopAt`
+                    or `stopAfter` is set (any mode, including `notify`).
                   $ref: '#/components/schemas/ScheduledStopPlan'
               additionalProperties: false
       responses:
@@ -23247,6 +23261,17 @@ paths:
                     request's Personal Access Token (PAT), if one is being used.
                   type: string
                 schema:
+                  description: >-
+                    Field definitions for this config, as a JSON Schema document
+                    (`{ type: "json-schema", value }`) or typed-code source (`{
+                    type: "typescript" | "protobuf" | "python" | "go" | "rust",
+                    value }`) — converted server-side in one call. Fields whose
+                    key an ancestor (via `parent`/`extends`) already owns follow
+                    "base wins": an identical re-declaration is stripped with a
+                    `redundant-declaration` warning; one with a differing
+                    definition is rejected. A field owned by two sibling bases
+                    is a conflict and is rejected. Omit to leave the config
+                    schema-less. Conversion warnings are returned in `warnings`.
                   $ref: '#/components/schemas/ConfigSchemaSource'
                 source:
                   description: >-
@@ -23655,6 +23680,11 @@ paths:
               type: object
               properties:
                 schema:
+                  description: >-
+                    The schema to check against the config's stored schema — a
+                    JSON Schema document or typed-code source
+                    (`typescript`/`protobuf`/`python`/`go`/`rust`). Read-only:
+                    nothing is mutated.
                   $ref: '#/components/schemas/ConfigSchemaSource'
               required:
                 - schema
@@ -23752,6 +23782,10 @@ paths:
                 type: object
                 properties:
                   schema:
+                    description: >-
+                      The config's schema in the requested format: a JSON Schema
+                      document (`{ type: "json-schema", value }`) or rendered
+                      TypeScript source (`{ type: "typescript", value }`).
                     $ref: '#/components/schemas/ConfigSchemaSource'
                   effective:
                     description: >-
@@ -23909,6 +23943,19 @@ paths:
                     it will be validated as existing in the organization.
                   type: string
                 schema:
+                  description: >-
+                    Replace this config's field definitions, as a JSON Schema
+                    document (`{ type: "json-schema", value }`) or typed-code
+                    source (`{ type: "typescript" | "protobuf" | "python" | "go"
+                    | "rust", value }`). Fields whose key a published ancestor
+                    already owns follow "base wins": an identical re-declaration
+                    is stripped with a `redundant-declaration` warning; one with
+                    a differing definition is rejected. A schema change cascades
+                    the 'base wins' normalization to descendants when published;
+                    a change that removes or retypes fields descendants still
+                    use soft-blocks with a 422 unless the request body sets
+                    `ignoreWarnings: true`. Conversion warnings are returned in
+                    `warnings`.
                   $ref: '#/components/schemas/ConfigSchemaSource'
                 source:
                   description: >-
@@ -24972,6 +25019,10 @@ paths:
                     belongs to.
                   type: string
                 schema:
+                  description: >-
+                    The named schema source for this projection. Its type names
+                    are captured; its structure derives the config's canonical
+                    schema.
                   $ref: '#/components/schemas/ConfigSchemaSource'
                 additionalProperties:
                   description: >-
@@ -25985,11 +26036,16 @@ paths:
                   type: array
                   items:
                     anyOf:
-                      - $ref: '#/components/schemas/FeatureRevisionRef'
-                      - $ref: '#/components/schemas/SavedGroupRevisionRef'
-                      - $ref: '#/components/schemas/ConfigRevisionRef'
-                      - $ref: '#/components/schemas/ConstantRevisionRef'
-                      - $ref: '#/components/schemas/RevisionIdRef'
+                      - title: Feature Revision Ref
+                        $ref: '#/components/schemas/FeatureRevisionRef'
+                      - title: Saved Group Revision Ref
+                        $ref: '#/components/schemas/SavedGroupRevisionRef'
+                      - title: Config Revision Ref
+                        $ref: '#/components/schemas/ConfigRevisionRef'
+                      - title: Constant Revision Ref
+                        $ref: '#/components/schemas/ConstantRevisionRef'
+                      - title: Revision Id Ref
+                        $ref: '#/components/schemas/RevisionIdRef'
                 dryRun:
                   description: Report every gate and outcome without writing anything.
                   type: boolean
@@ -45344,7 +45400,8 @@ paths:
                       - type: 'null'
                   query:
                     anyOf:
-                      - $ref: '#/components/schemas/Query'
+                      - title: Query
+                        $ref: '#/components/schemas/Query'
                       - type: 'null'
                   explorationUrl:
                     description: >-
@@ -46035,7 +46092,8 @@ paths:
                       - type: 'null'
                   query:
                     anyOf:
-                      - $ref: '#/components/schemas/Query'
+                      - title: Query
+                        $ref: '#/components/schemas/Query'
                       - type: 'null'
                   explorationUrl:
                     description: >-
@@ -46760,7 +46818,8 @@ paths:
                       - type: 'null'
                   query:
                     anyOf:
-                      - $ref: '#/components/schemas/Query'
+                      - title: Query
+                        $ref: '#/components/schemas/Query'
                       - type: 'null'
                   explorationUrl:
                     description: >-
@@ -47475,7 +47534,8 @@ paths:
                       - type: 'null'
                   query:
                     anyOf:
-                      - $ref: '#/components/schemas/Query'
+                      - title: Query
+                        $ref: '#/components/schemas/Query'
                       - type: 'null'
                   explorationUrl:
                     description: >-
@@ -49948,12 +50008,18 @@ components:
       additionalProperties: false
     FeatureRuleV1:
       anyOf:
-        - $ref: '#/components/schemas/FeatureForceRule'
-        - $ref: '#/components/schemas/FeatureRolloutRule'
-        - $ref: '#/components/schemas/FeatureExperimentRule'
-        - $ref: '#/components/schemas/FeatureExperimentRefRule'
-        - $ref: '#/components/schemas/FeatureContextualBanditRefRule'
-        - $ref: '#/components/schemas/FeatureSafeRolloutRule'
+        - title: Feature Force Rule
+          $ref: '#/components/schemas/FeatureForceRule'
+        - title: Feature Rollout Rule
+          $ref: '#/components/schemas/FeatureRolloutRule'
+        - title: Feature Experiment Rule
+          $ref: '#/components/schemas/FeatureExperimentRule'
+        - title: Feature Experiment Ref Rule
+          $ref: '#/components/schemas/FeatureExperimentRefRule'
+        - title: Feature Contextual Bandit Ref Rule
+          $ref: '#/components/schemas/FeatureContextualBanditRefRule'
+        - title: Feature Safe Rollout Rule
+          $ref: '#/components/schemas/FeatureSafeRolloutRule'
     FeatureForceRule:
       allOf:
         - description: >
@@ -51960,7 +52026,8 @@ components:
                         - type: string
                         - type: 'null'
                   additionalProperties: false
-            - $ref: '#/components/schemas/FeatureExperimentRule'
+            - title: Feature Experiment Rule
+              $ref: '#/components/schemas/FeatureExperimentRule'
             - allOf:
                 - $ref: '#/components/schemas/FeatureBaseRule'
                 - type: object
@@ -52039,7 +52106,8 @@ components:
                     - variations
                     - contextualBanditId
                   additionalProperties: false
-            - $ref: '#/components/schemas/FeatureSafeRolloutRule'
+            - title: Feature Safe Rollout Rule
+              $ref: '#/components/schemas/FeatureSafeRolloutRule'
         - type: object
           properties:
             allEnvironments:
@@ -54040,6 +54108,10 @@ components:
                     - unit
                   additionalProperties: false
                 scheduledStopPlan:
+                  description: >-
+                    End-of-experiment automation applied at the scheduled end.
+                    Required whenever a `stopAt` or `stopAfter` is set (any
+                    mode, including `notify`).
                   $ref: '#/components/schemas/ScheduledStopPlan'
               additionalProperties: false
             - type: 'null'
@@ -54131,6 +54203,10 @@ components:
             - description: When null, the organization default is used.
               type: 'null'
         decisionFrameworkSettings:
+          description: >-
+            Controls the decision framework and metric overrides for the
+            experiment. Replaces the entire stored object on update (does not
+            patch individual fields).
           $ref: '#/components/schemas/ExperimentDecisionFrameworkSettings'
         metricOverrides:
           description: >-
@@ -54814,6 +54890,10 @@ components:
                         - unit
                       additionalProperties: false
                     scheduledStopPlan:
+                      description: >-
+                        End-of-experiment automation applied at the scheduled
+                        end. Required whenever a `stopAt` or `stopAfter` is set
+                        (any mode, including `notify`).
                       $ref: '#/components/schemas/ScheduledStopPlan'
                   additionalProperties: false
                 - type: 'null'
@@ -64851,6 +64931,10 @@ components:
       type: object
       properties:
         schema:
+          description: >-
+            The config's schema in the requested format: a JSON Schema document
+            (`{ type: "json-schema", value }`) or rendered TypeScript source (`{
+            type: "typescript", value }`).
           $ref: '#/components/schemas/ConfigSchemaSource'
         effective:
           description: >-
@@ -68039,6 +68123,7 @@ components:
         userEmail:
           type: string
         customHook:
+          description: The hook's full state at this version
           $ref: '#/components/schemas/CustomHook'
       required:
         - auditId

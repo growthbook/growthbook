@@ -8244,9 +8244,12 @@ paths:
               properties:
                 rule:
                   anyOf:
-                    - $ref: '#/components/schemas/TargetingRule'
-                    - $ref: '#/components/schemas/ExperimentRule'
-                    - $ref: '#/components/schemas/SafeRolloutRule'
+                    - title: Targeting Rule
+                      $ref: '#/components/schemas/TargetingRule'
+                    - title: Experiment Rule
+                      $ref: '#/components/schemas/ExperimentRule'
+                    - title: Safe Rollout Rule
+                      $ref: '#/components/schemas/SafeRolloutRule'
                 rampSchedule:
                   description: >-
                     Multi-step ramp schedule for force/rollout rules. Not
@@ -17341,11 +17344,16 @@ paths:
                   type: array
                   items:
                     anyOf:
-                      - $ref: '#/components/schemas/FeatureRevisionRef'
-                      - $ref: '#/components/schemas/SavedGroupRevisionRef'
-                      - $ref: '#/components/schemas/ConfigRevisionRef'
-                      - $ref: '#/components/schemas/ConstantRevisionRef'
-                      - $ref: '#/components/schemas/RevisionIdRef'
+                      - title: Feature Revision Ref
+                        $ref: '#/components/schemas/FeatureRevisionRef'
+                      - title: Saved Group Revision Ref
+                        $ref: '#/components/schemas/SavedGroupRevisionRef'
+                      - title: Config Revision Ref
+                        $ref: '#/components/schemas/ConfigRevisionRef'
+                      - title: Constant Revision Ref
+                        $ref: '#/components/schemas/ConstantRevisionRef'
+                      - title: Revision Id Ref
+                        $ref: '#/components/schemas/RevisionIdRef'
                 dryRun:
                   description: Report every gate and outcome without writing anything.
                   type: boolean
@@ -30054,7 +30062,8 @@ paths:
                       - type: 'null'
                   query:
                     anyOf:
-                      - $ref: '#/components/schemas/Query'
+                      - title: Query
+                        $ref: '#/components/schemas/Query'
                       - type: 'null'
                   explorationUrl:
                     description: >-
@@ -30712,7 +30721,8 @@ paths:
                       - type: 'null'
                   query:
                     anyOf:
-                      - $ref: '#/components/schemas/Query'
+                      - title: Query
+                        $ref: '#/components/schemas/Query'
                       - type: 'null'
                   explorationUrl:
                     description: >-
@@ -31404,7 +31414,8 @@ paths:
                       - type: 'null'
                   query:
                     anyOf:
-                      - $ref: '#/components/schemas/Query'
+                      - title: Query
+                        $ref: '#/components/schemas/Query'
                       - type: 'null'
                   explorationUrl:
                     description: >-
@@ -33303,11 +33314,16 @@ components:
       additionalProperties: false
     FeatureRuleV1:
       anyOf:
-        - $ref: '#/components/schemas/FeatureForceRule'
-        - $ref: '#/components/schemas/FeatureRolloutRule'
-        - $ref: '#/components/schemas/FeatureExperimentRule'
-        - $ref: '#/components/schemas/FeatureExperimentRefRule'
-        - $ref: '#/components/schemas/FeatureSafeRolloutRule'
+        - title: Feature Force Rule
+          $ref: '#/components/schemas/FeatureForceRule'
+        - title: Feature Rollout Rule
+          $ref: '#/components/schemas/FeatureRolloutRule'
+        - title: Feature Experiment Rule
+          $ref: '#/components/schemas/FeatureExperimentRule'
+        - title: Feature Experiment Ref Rule
+          $ref: '#/components/schemas/FeatureExperimentRefRule'
+        - title: Feature Safe Rollout Rule
+          $ref: '#/components/schemas/FeatureSafeRolloutRule'
     FeatureForceRule:
       allOf:
         - description: >
@@ -36212,6 +36228,7 @@ components:
         - rules
       additionalProperties: false
     TargetingRule:
+      title: Targeting Rule
       description: >-
         A targeting rule that serves a specific value to users matching the
         conditions. Set coverage < 1 for a percentage rollout.
@@ -36310,6 +36327,7 @@ components:
         - value
       additionalProperties: false
     ExperimentRule:
+      title: Experiment Rule
       description: An experiment rule that links a feature value to an existing experiment.
       type: object
       properties:
@@ -36392,6 +36410,7 @@ components:
         - variations
       additionalProperties: false
     SafeRolloutRule:
+      title: Safe Rollout Rule
       description: >-
         A safe rollout rule with automated guardrail monitoring and optional
         auto-rollback.
