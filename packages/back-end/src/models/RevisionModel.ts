@@ -142,17 +142,15 @@ const BaseClass = MakeModelClass({
     "scheduledPublishGaveUpAt",
     "armAcknowledgments",
   ],
+  // Both were superseded by longer indexes that start with the same fields, so
+  // Mongo can never pick them; they only cost write throughput.
+  indexesToRemove: [
+    "organization_1_target.type_1_target.id_1_status_1",
+    "organization_1_status_1",
+  ],
   additionalIndexes: [
-    {
-      fields: {
-        organization: 1,
-        "target.type": 1,
-        "target.id": 1,
-        status: 1,
-      },
-    },
-    // Merge order, read on every landing. Extends the equality prefix above with
-    // the sort keys so the read is a one-row indexed walk, not an in-memory sort.
+    // Merge order, read on every landing. The equality filter plus both sort keys,
+    // so the read is a one-row indexed walk, not an in-memory sort.
     {
       fields: {
         organization: 1,
@@ -878,7 +876,10 @@ export class RevisionModel extends BaseClass {
         status: "merged",
       } as Record<string, unknown>,
       {
-        sort: { "resolution.dateCreated": -1, version: -1, id: -1 },
+        // No `id` tiebreaker: `version` is unique per target, so the pair is
+        // already deterministic, and omitting it keeps the whole sort inside
+        // the target/status/resolution index instead of blocking in memory.
+        sort: { "resolution.dateCreated": -1, version: -1 },
         limit: 1,
         // NOT read-filtered: a consistency query, not a user-facing read. A
         // snapshot-basis null here reads to `assertLandingBaseline` as "no
