@@ -551,7 +551,7 @@ This checks if `attributeValue` is an array, and if so at least one of the array
    2. Else if `evalCondition(item, conditionValue)`, break out of loop and return true
 3. Return false
 
-### private paddedVersionString(input): string
+### private paddedVersionString(input): string {#private-paddedversionstring-input-string}
 
 This function can be used to help with the evaluation of the version string comparison.
 
@@ -652,7 +652,7 @@ There are 3 other operators:
 - `$not`
   1. Return `!evalConditionValue(conditionValue, attributeValue)`
 
-There are 6 operators that are used for comparing version strings, e.g. `v1.2.3` or `1.2.3`. See [paddedVersionString(input)](#private-paddedversionstringinput-string) for details.
+There are 6 operators that are used for comparing version strings, e.g. `v1.2.3` or `1.2.3`. See [paddedVersionString(input)](#private-paddedversionstring-input-string) for details.
 
 If operator doesn't match any of these, return false and potentially log the error for debug purposes.
 

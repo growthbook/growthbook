@@ -26,7 +26,7 @@ Contextual Bandits are an Enterprise-only feature. Every endpoint below returns 
 
 ## 1. Create a Contextual Bandit Query
 
-A Contextual Bandit needs a query that defines the assignment SQL and the targeting-attribute columns it splits on. `targetingAttributeColumns` is required and must be non-empty — a bandit with no context to split on is not a contextual bandit. Each named column must also appear in the query's `SELECT`. The query should also select the `leaf_id`, `bandit_version`, and `variation_weights` columns logged by your [tracking callback](/bandits/contextual-config#2-update-your-tracking-callback) — without them the SRM health check is skipped.
+A Contextual Bandit needs a query that defines the assignment SQL and the targeting-attribute columns it splits on. `targetingAttributeColumns` is required and must be non-empty — a bandit with no context to split on is not a contextual bandit. Each named column must also appear in the query's `SELECT`. The query should also select the `leaf_id`, `bandit_version`, and `variation_weights` columns logged by your [tracking callback](/bandits/contextual-config#3-update-your-tracking-callback) — without them the SRM health check is skipped.
 
 ```bash
 curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandit-queries' \
