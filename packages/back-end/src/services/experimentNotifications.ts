@@ -14,6 +14,7 @@ import {
   getExperimentResultStatus,
   getHealthSettings,
 } from "shared/enterprise";
+import { DEFAULT_NO_DATA_ALERT_GRACE_PERIOD_HOURS } from "shared/constants";
 import { ExperimentAnalysisSummary } from "shared/validators";
 import { StatsEngine } from "shared/types/stats";
 import {
@@ -348,9 +349,32 @@ export const notifyNoData = async ({
   // Mirror the front-end "No data yet" check: the snapshot ran successfully but
   // the default analysis returned no variation rows.
   const analysis = getSnapshotAnalysis(snapshot);
-  const triggered =
+  const hasNoData =
     snapshot.status === "success" &&
     (analysis?.results?.[0]?.variations?.length ?? 0) === 0;
+
+  const gracePeriodHours =
+    context.org.settings?.noDataAlertGracePeriodHours ??
+    DEFAULT_NO_DATA_ALERT_GRACE_PERIOD_HOURS;
+  const gracePeriodMs = gracePeriodHours * 60 * 60 * 1000;
+
+  // Measure grace from the phase this snapshot analyzed — a late-finishing
+  // snapshot from an earlier phase shouldn't be graced against a newer phase.
+  // Note: notifyNoData should only be called on the latest snapshot, but
+  // this still ensures any future callers will use the correct phase.
+  const snapshotPhase =
+    experiment.phases[snapshot.phase] ??
+    experiment.phases[experiment.phases.length - 1];
+  const phaseStartDate = snapshotPhase?.dateStarted
+    ? new Date(snapshotPhase.dateStarted)
+    : null;
+
+  const isWithinGracePeriod =
+    phaseStartDate !== null &&
+    Date.now() - phaseStartDate.getTime() < gracePeriodMs;
+
+  // Only trigger if there's no data AND we're past the grace period
+  const triggered = hasNoData && !isWithinGracePeriod;
 
   await memoizeNotification({
     context,

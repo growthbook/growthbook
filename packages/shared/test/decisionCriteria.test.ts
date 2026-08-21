@@ -1319,6 +1319,7 @@ describe("getExperimentResultStatus schedule-driven states", () => {
     srmThreshold: 0.001,
     multipleExposureMinPercent: 0.01,
     experimentMinLengthDays: 7,
+    noDataAlertGracePeriodHours: 0,
   };
 
   const daysAgo = (n: number): Date =>
@@ -1488,5 +1489,48 @@ describe("getExperimentResultStatus schedule-driven states", () => {
 
     expect(result).toMatchObject({ status: "days-left", daysLeft: 3 });
     expect(result?.tooltip).toContain("scheduled to end in about 3 days");
+  });
+
+  it("shows no-data immediately when grace period is 0 and totalUsers is 0", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        dateStarted: hoursFromNow(-1),
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 1,
+            multipleExposures: 0,
+            totalUsers: 0,
+          },
+        },
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+    });
+
+    expect(result).toMatchObject({ status: "no-data" });
+  });
+
+  it("suppresses no-data while within the configured grace period", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        dateStarted: hoursFromNow(-1),
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 1,
+            multipleExposures: 0,
+            totalUsers: 0,
+          },
+        },
+      }),
+      healthSettings: {
+        ...baseHealthSettings,
+        noDataAlertGracePeriodHours: 24,
+      },
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+    });
+
+    expect(result?.status).not.toBe("no-data");
   });
 });
