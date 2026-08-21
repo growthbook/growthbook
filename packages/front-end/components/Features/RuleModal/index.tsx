@@ -1916,13 +1916,16 @@ export default function RuleModal({
         choice === "theirs"
           ? (conflict.current as unknown as Record<string, unknown> | null)
           : stash.get(chunk.key);
-      if (!source) return;
-      for (const f of chunk.fields) {
-        setFormField(f, source[f]);
+      // Keeping mine on the first click has nothing to write — the form already
+      // holds it — but the choice still resolves the chunk.
+      if (source) {
+        for (const f of chunk.fields) {
+          setFormField(f, source[f]);
+        }
+        // The condition builder seeds its own state, so it needs a remount to
+        // show a value applied after mount.
+        forceConditionRender();
       }
-      // The condition builder seeds its own state, so it needs a remount to
-      // show a value applied after mount.
-      forceConditionRender();
       setConflictResolutions((m) => new Map([...m, [chunk.key, choice]]));
     },
     [conflict, formValues, setFormField, forceConditionRender],
