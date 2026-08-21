@@ -142,10 +142,13 @@ const BaseClass = MakeModelClass({
     "scheduledPublishGaveUpAt",
     "armAcknowledgments",
   ],
-  // Superseded by longer indexes starting with the same fields, so never picked.
+  // The first two are prefixes of longer indexes below, which give identical
+  // bounds — no query needs them. Nothing filters `authorId` without also
+  // constraining `target.type`, so the third can never be the selective choice.
   indexesToRemove: [
     "organization_1_target.type_1_target.id_1_status_1",
     "organization_1_status_1",
+    "organization_1_authorId_1",
   ],
   additionalIndexes: [
     // Merge order, read on every landing. The equality filter plus both sort keys,
@@ -159,9 +162,6 @@ const BaseClass = MakeModelClass({
         "resolution.dateCreated": 1,
         version: 1,
       },
-    },
-    {
-      fields: { organization: 1, authorId: 1 },
     },
     // The listing sort `{dateCreated: -1, id: -1}` on the filter's prefix, so
     // paginated reads don't block-sort the whole match.
