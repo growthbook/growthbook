@@ -2,6 +2,7 @@ import {
   closestCenter,
   DndContext,
   DragEndEvent,
+  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
@@ -9,6 +10,7 @@ import {
 import {
   arrayMove,
   SortableContext,
+  sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
@@ -17,11 +19,14 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiDotsSixVertical, PiEye, PiEyeSlash } from "react-icons/pi";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Text from "@/ui/Text";
+import Link from "@/ui/Link";
 
 export interface ManagedColumn {
   id: string;
   label: string;
   visible: boolean;
+  /** Rendered without a drag handle and with the visibility toggle disabled. */
+  locked?: boolean;
 }
 
 function SortableColumnRow({
@@ -38,7 +43,7 @@ function SortableColumnRow({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: column.id });
+  } = useSortable({ id: column.id, disabled: column.locked });
 
   return (
     <Flex
@@ -57,14 +62,18 @@ function SortableColumnRow({
         boxShadow: isDragging ? "var(--shadow-4)" : undefined,
       }}
     >
-      <span
-        {...attributes}
-        {...listeners}
-        aria-label="Drag to reorder"
-        style={{ cursor: "grab", display: "flex", color: "var(--gray-8)" }}
-      >
-        <PiDotsSixVertical />
-      </span>
+      {column.locked ? (
+        <span style={{ display: "flex", width: 14 }} />
+      ) : (
+        <span
+          {...attributes}
+          {...listeners}
+          aria-label={`Drag to reorder ${column.label}`}
+          style={{ cursor: "grab", display: "flex", color: "var(--gray-8)" }}
+        >
+          <PiDotsSixVertical />
+        </span>
+      )}
       <Box style={{ flex: 1, minWidth: 0 }}>
         <Text
           as="div"
@@ -75,11 +84,20 @@ function SortableColumnRow({
           {column.label}
         </Text>
       </Box>
-      <Tooltip body={column.visible ? "Hide column" : "Show column"}>
+      <Tooltip
+        body={
+          column.locked
+            ? "This column is always shown"
+            : column.visible
+              ? "Hide column"
+              : "Show column"
+        }
+      >
         <IconButton
           size="1"
           variant="ghost"
           color={column.visible ? "violet" : "gray"}
+          disabled={column.locked}
           aria-label={column.visible ? "Hide column" : "Show column"}
           onClick={() => onToggle(!column.visible)}
         >
@@ -90,16 +108,25 @@ function SortableColumnRow({
   );
 }
 
-interface Props {
+export interface ColumnSettingsProps {
   columns: ManagedColumn[];
   onChange: (columns: { id: string; visible: boolean }[]) => void;
+  onReset?: () => void;
+  canReset?: boolean;
 }
 
-export default function MetricExperimentsColumnSettings({
+export default function ColumnSettings({
   columns,
   onChange,
-}: Props) {
-  const sensors = useSensors(useSensor(PointerSensor));
+  onReset,
+  canReset,
+}: ColumnSettingsProps) {
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
   const ids = columns.map((c) => c.id);
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -108,6 +135,7 @@ export default function MetricExperimentsColumnSettings({
     const oldIndex = ids.indexOf(String(active.id));
     const newIndex = ids.indexOf(String(over.id));
     if (oldIndex === -1 || newIndex === -1) return;
+    if (columns[oldIndex].locked || columns[newIndex].locked) return;
     const reordered = arrayMove(columns, oldIndex, newIndex);
     onChange(reordered.map((c) => ({ id: c.id, visible: c.visible })));
   };
@@ -122,22 +150,31 @@ export default function MetricExperimentsColumnSettings({
   };
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragEnd={handleDragEnd}
-    >
-      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-        <Flex direction="column" gap="2">
-          {columns.map((c) => (
-            <SortableColumnRow
-              key={c.id}
-              column={c}
-              onToggle={(v) => toggle(c.id, v)}
-            />
-          ))}
+    <>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+          <Flex direction="column" gap="2">
+            {columns.map((c) => (
+              <SortableColumnRow
+                key={c.id}
+                column={c}
+                onToggle={(v) => toggle(c.id, v)}
+              />
+            ))}
+          </Flex>
+        </SortableContext>
+      </DndContext>
+      {onReset && canReset && (
+        <Flex justify="end" mt="3">
+          <Link onClick={onReset}>
+            <Text size="sm">Reset to default</Text>
+          </Link>
         </Flex>
-      </SortableContext>
-    </DndContext>
+      )}
+    </>
   );
 }
