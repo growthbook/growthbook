@@ -186,6 +186,7 @@ export function generateFeaturesPayload({
   savedGroupsMap,
   includeRuleIds,
   includeExperimentNames,
+  includeExperimentIds,
   cbMap,
   includeDraftExperimentRefs,
   rampMonitoredRuleMap,
@@ -217,6 +218,7 @@ export function generateFeaturesPayload({
   savedGroupsMap?: Record<string, SavedGroupInterface>;
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
+  includeExperimentIds?: boolean;
   cbMap?: Map<string, ContextualBanditInterface>;
   includeDraftExperimentRefs?: boolean;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
@@ -255,6 +257,7 @@ export function generateFeaturesPayload({
       savedGroupsMap,
       includeRuleIds,
       includeExperimentNames,
+      includeExperimentIds,
       includeDraftExperimentRefs,
       rampMonitoredRuleMap,
       metadataOptions: {
@@ -381,6 +384,7 @@ export function generateAutoExperimentsPayload({
   organization,
   savedGroupsMap,
   includeExperimentNames,
+  includeExperimentIds,
 }: {
   visualExperiments: VisualExperiment[];
   urlRedirectExperiments: URLRedirectExperiment[];
@@ -399,6 +403,7 @@ export function generateAutoExperimentsPayload({
   organization?: OrganizationInterface;
   savedGroupsMap?: Record<string, SavedGroupInterface>;
   includeExperimentNames?: boolean;
+  includeExperimentIds?: boolean;
 }): AutoExperimentWithMetadata[] {
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
   const isValidSDKExperiment = (
@@ -523,6 +528,7 @@ export function generateAutoExperimentsPayload({
         ),
         seed: phase.seed,
         ...(includeExperimentNames === true ? { name: e.name } : {}),
+        ...(includeExperimentIds === true ? { id: e.id } : {}),
         phase: `${e.phases.length - 1}`,
         force: forcedVariation
           ? variations.indexOf(forcedVariation)
@@ -1008,6 +1014,7 @@ export async function refreshSDKPayloadCache({
             includeExperimentNames: connection.includeExperimentNames,
             includeRedirectExperiments: connection.includeRedirectExperiments,
             includeRuleIds: connection.includeRuleIds,
+            includeExperimentIds: connection.includeExperimentIds,
             hashSecureAttributes: connection.hashSecureAttributes,
             savedGroupReferencesEnabled:
               connection.savedGroupReferencesEnabled &&
@@ -1300,6 +1307,7 @@ export type FeatureDefinitionArgs = {
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
+  includeExperimentIds?: boolean;
   includeProjectIdInMetadata?: boolean;
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
@@ -1345,6 +1353,7 @@ export type ConnectionPayloadOptions = {
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
+  includeExperimentIds?: boolean;
   hashSecureAttributes?: boolean;
   savedGroupReferencesEnabled?: boolean;
   includeProjectIdInMetadata?: boolean;
@@ -1393,6 +1402,7 @@ export async function buildSDKPayloadForConnection(
     includeExperimentNames,
     includeRedirectExperiments,
     includeRuleIds,
+    includeExperimentIds,
     hashSecureAttributes,
     savedGroupReferencesEnabled,
     includeProjectIdInMetadata,
@@ -1499,6 +1509,7 @@ export async function buildSDKPayloadForConnection(
     savedGroupsMap,
     includeRuleIds,
     includeExperimentNames: connection.includeExperimentNames,
+    includeExperimentIds: connection.includeExperimentIds,
     includeDraftExperimentRefs: connection.includeDraftExperimentRefs,
     includeProjectIdInMetadata,
     includeCustomFieldsInMetadata,
@@ -1531,6 +1542,7 @@ export async function buildSDKPayloadForConnection(
     organization: context.org,
     savedGroupsMap,
     includeExperimentNames,
+    includeExperimentIds,
     includeProjectIdInMetadata,
     includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata,
@@ -1639,6 +1651,7 @@ export async function getFeatureDefinitions(
       includeExperimentNames: args.includeExperimentNames,
       includeRedirectExperiments: args.includeRedirectExperiments,
       includeRuleIds: args.includeRuleIds,
+      includeExperimentIds: args.includeExperimentIds,
       hashSecureAttributes: args.hashSecureAttributes,
       savedGroupReferencesEnabled: args.savedGroupReferencesEnabled,
       includeProjectIdInMetadata: args.includeProjectIdInMetadata,
