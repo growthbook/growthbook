@@ -41,6 +41,7 @@ import FactTableTabContent from "./FactTableTabContent";
 import DatasourceTabContent from "./DatasourceTabContent";
 import FunnelTabContent from "./FunnelTabContent";
 import GroupBySection from "./GroupBySection";
+import SaveFunnelMetricAction from "./SaveFunnelMetricAction";
 import ShowAsSection from "./ShowAsSection";
 import DatasourceConfigurator from "./DatasourceConfigurator";
 
@@ -461,6 +462,7 @@ export default function ExplorerSideBar({
           <ShowAsSection />
         )}
       {hasInputs && <GroupBySection />}
+      {activeType === "funnel" && <SaveFunnelMetricAction />}
     </Flex>
   );
 }

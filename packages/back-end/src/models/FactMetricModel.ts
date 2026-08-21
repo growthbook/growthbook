@@ -9,6 +9,7 @@ import {
   getSelectedColumnDatatype,
   isFactFunnelMetric,
 } from "shared/experiments";
+import { getFunnelRuleViolations } from "shared/funnels";
 import { UpdateProps } from "shared/types/base-model";
 import { factMetricValidator, ApiFactMetric } from "shared/validators";
 import {
@@ -444,24 +445,19 @@ export class FactMetricModel extends BaseClass {
     factTableMap: Map<string, FactTableInterface>,
   ): Promise<void> {
     const { steps, ordering, sessionBased } = data.funnelSettings;
-    if (steps.length < 2) {
-      throw new Error("Funnel metrics need at least 2 steps");
-    }
-    // TODO(funnel): support non-sequential ordering
-    if ((ordering ?? "sequential") !== "sequential") {
-      throw new Error("Only sequential funnel ordering is supported for now");
-    }
-    // TODO(funnel): support session-based funnels
-    if (sessionBased) {
-      throw new Error("Session-based funnels are not supported for now");
-    }
 
-    // TODO(funnel): multi-fact table support for funnel metrics
-    const factTableIds = new Set(steps.map((s) => s.factTableId));
-    if (factTableIds.size > 1) {
-      throw new Error(
-        "All funnel steps must come from the same fact table for now",
-      );
+    // Funnel-definition rules live in shared/funnels so the Product Analytics
+    // builder can surface the same reasons before offering a save. Only the
+    // metric-shape rules and async SQL validation below are model-specific.
+    const [violation] = getFunnelRuleViolations({
+      steps,
+      ordering,
+      sessionBased,
+      datasourceId: data.datasource,
+      getFactTable: (id) => factTableMap.get(id),
+    });
+    if (violation) {
+      throw new Error(violation.message);
     }
 
     const factTableId = steps[0].factTableId;
@@ -469,16 +465,8 @@ export class FactMetricModel extends BaseClass {
     if (!factTable) {
       throw new Error("Could not find funnel fact table");
     }
-    if (factTable.datasource !== data.datasource) {
-      throw new Error(
-        "Funnel Fact Table must belong to the metric's Data Source",
-      );
-    }
 
-    steps.forEach((step, i) => {
-      if (!step.name) {
-        throw new Error(`Funnel step ${i + 1} must have a name`);
-      }
+    steps.forEach((step) => {
       validateSavedFilterIds({
         columnRef: { factTableId, column: "", rowFilters: step.rowFilters },
         factTable,

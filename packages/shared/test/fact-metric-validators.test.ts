@@ -1,5 +1,5 @@
+import { MAX_FUNNEL_STEPS } from "../src/funnels";
 import {
-  MAX_FACT_METRIC_FUNNEL_STEPS,
   postFactMetricValidator,
   updateFactMetricValidator,
 } from "../src/validators";
@@ -79,10 +79,10 @@ describe("Fact Metric REST validators", () => {
         name: "Oversized funnel",
         metricType: "funnel",
         funnelSettings: {
-          steps: Array.from(
-            { length: MAX_FACT_METRIC_FUNNEL_STEPS + 1 },
-            (_, index) => ({ ...step, name: `Step ${index + 1}` }),
-          ),
+          steps: Array.from({ length: MAX_FUNNEL_STEPS + 1 }, (_, index) => ({
+            ...step,
+            name: `Step ${index + 1}`,
+          })),
         },
       }),
     ).toThrow();
