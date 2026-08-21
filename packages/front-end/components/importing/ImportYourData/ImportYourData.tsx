@@ -121,12 +121,6 @@ export const ImportYourData: FC<ImportYourDataProps> = (_props) => {
         </div>
       ))}
 
-      <h2 className="mt-5">Migrating from somewhere else?</h2>
-      <p>
-        We can help you move from these platforms too. Let us know what you need
-        &mdash; it also helps us decide which importers to build next.
-      </p>
-
       {upcomingServices.map(({ service, slug, icon, accentColor, text }) => (
         <div key={`ImportFromServiceCard-${service}`} className="my-3">
           <ImportFromServiceCard
