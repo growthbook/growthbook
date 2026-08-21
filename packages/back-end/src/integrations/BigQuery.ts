@@ -32,6 +32,7 @@ import { bigQueryDialect } from "./dialects/bigquery";
 export default class BigQuery extends SqlIntegration {
   params!: BigQueryConnectionParams;
   escapePathCharacter = "`";
+  readonly lowercasesMetadataColumnNames = true;
   setParams(encryptedParams: string) {
     this.params =
       decryptDataSourceParams<BigQueryConnectionParams>(encryptedParams);

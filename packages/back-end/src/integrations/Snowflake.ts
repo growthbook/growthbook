@@ -14,6 +14,7 @@ import { snowflakeDialect } from "./dialects/snowflake";
 export default class Snowflake extends SqlIntegration {
   params!: SnowflakeConnectionParams;
   requiresSchema = false;
+  readonly lowercasesMetadataColumnNames = true;
   setParams(encryptedParams: string) {
     this.params =
       decryptDataSourceParams<SnowflakeConnectionParams>(encryptedParams);

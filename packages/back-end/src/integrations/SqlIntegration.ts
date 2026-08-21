@@ -195,6 +195,7 @@ export default abstract class SqlIntegration
   // Metadata set by the individual query runners
   additionalMetadata?: AdditionalQueryMetadata;
   decryptionError: boolean;
+  readonly lowercasesMetadataColumnNames: boolean = false;
   // eslint-disable-next-line
   params: any;
   abstract setParams(encryptedParams: string): void;

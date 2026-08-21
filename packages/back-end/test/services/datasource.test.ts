@@ -15,6 +15,11 @@ const mockLimitZeroIntegration: SourceIntegrationInterface = {
   supportsLimitZeroColumnValidation: jest.fn().mockReturnValue(true),
 };
 
+const mockLowercasedMetadataIntegration: SourceIntegrationInterface = {
+  ...mockLimitZeroIntegration,
+  lowercasesMetadataColumnNames: true,
+};
+
 describe("testQueryValidity", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -147,6 +152,24 @@ describe("testQueryValidity", () => {
   });
 
   describe("datasources with LIMIT 0 support (column metadata validation)", () => {
+    const camelCaseQuery = {
+      id: "user_id",
+      name: "Logged in Users",
+      userIdType: "user_id",
+      dimensions: ["browserFamily"],
+      hasNameCol: false,
+      query: "SELECT * FROM experiments",
+    };
+    const lowercasedMetadataColumns = [
+      { name: "user_id" },
+      { name: "experiment_id" },
+      { name: "variation_id" },
+      { name: "timestamp" },
+      { name: "browserfamily" },
+    ];
+    const missingCamelCaseDimension =
+      "Missing required columns in response: browserFamily";
+
     it('should return "Unable to determine columns from query" if no column metadata is returned', async () => {
       const query = {
         id: "user_id",
@@ -227,6 +250,55 @@ describe("testQueryValidity", () => {
       const result = await testQueryValidity(mockLimitZeroIntegration, query);
 
       expect(result).toBeUndefined();
+    });
+
+    it.each([
+      {
+        name: "matches camelCase dimensions when the integration lowercases metadata",
+        integration: mockLowercasedMetadataIntegration,
+        queryResult: { results: [], columns: lowercasedMetadataColumns },
+        expected: undefined,
+      },
+      {
+        name: "matches metadata exactly when the lowercasing capability is absent",
+        integration: mockLimitZeroIntegration,
+        queryResult: { results: [], columns: lowercasedMetadataColumns },
+        expected: missingCamelCaseDimension,
+      },
+      {
+        name: "matches metadata exactly when the lowercasing capability is false",
+        integration: {
+          ...mockLimitZeroIntegration,
+          lowercasesMetadataColumnNames: false,
+        },
+        queryResult: { results: [], columns: lowercasedMetadataColumns },
+        expected: missingCamelCaseDimension,
+      },
+      {
+        name: "matches row keys exactly when the integration lowercases metadata",
+        integration: mockLowercasedMetadataIntegration,
+        queryResult: {
+          results: [
+            {
+              user_id: 1,
+              experiment_id: 1,
+              variation_id: 1,
+              timestamp: "2022-01-01",
+              browserfamily: "Chrome",
+            },
+          ],
+        },
+        expected: missingCamelCaseDimension,
+      },
+    ])("$name", async ({ integration, queryResult, expected }) => {
+      integration.getTestValidityQuery = jest
+        .fn()
+        .mockReturnValue("SELECT * FROM experiments LIMIT 0");
+      integration.runTestQuery = jest.fn().mockResolvedValue(queryResult);
+
+      const result = await testQueryValidity(integration, camelCaseQuery);
+
+      expect(result).toBe(expected);
     });
   });
 
