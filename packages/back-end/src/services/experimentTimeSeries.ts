@@ -358,6 +358,7 @@ function getExperimentSettingsHash(
     skipPartialData: snapshotSettings.skipPartialData,
     datasourceId: snapshotSettings.datasourceId,
     exposureQueryId: snapshotSettings.exposureQueryId,
+    exposureQueryIdentifierType: snapshotSettings.exposureQueryIdentifierType,
     startDate: snapshotSettings.startDate,
     regressionAdjustmentEnabled: snapshotSettings.regressionAdjustmentEnabled,
     experimentId: snapshotSettings.experimentId,

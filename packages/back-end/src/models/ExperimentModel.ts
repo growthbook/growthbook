@@ -127,6 +127,7 @@ const experimentSchema = new mongoose.Schema({
   datasource: String,
   userIdType: String,
   exposureQueryId: String,
+  exposureQueryIdentifierType: String,
   hashAttribute: String,
   fallbackAttribute: String,
   hashVersion: Number,

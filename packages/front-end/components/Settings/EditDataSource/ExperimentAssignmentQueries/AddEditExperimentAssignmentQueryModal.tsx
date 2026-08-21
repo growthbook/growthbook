@@ -16,10 +16,10 @@ import StringArrayField from "@/ui/StringArrayField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
+import MultiSelectField from "@/ui/MultiSelectField";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -28,6 +28,13 @@ type EditExperimentAssignmentQueryProps = {
   onSave: (exposureQuery: ExposureQuery) => void;
   onCancel: () => void;
 };
+
+function haveSameIdentifierTypes(left: string[], right: string[]) {
+  return (
+    left.length === right.length &&
+    left.every((identifierType) => right.includes(identifierType))
+  );
+}
 
 export const AddEditExperimentAssignmentQueryModal: FC<
   EditExperimentAssignmentQueryProps
@@ -52,46 +59,61 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       value: userIdType,
     }),
   );
-  const defaultUserId = userIdTypeOptions
-    ? userIdTypeOptions[0]?.value
-    : "user_id";
+  const defaultUserId = userIdTypeOptions?.[0]?.value ?? "user_id";
 
   const defaultQuery = `SELECT\n  ${defaultUserId} as ${defaultUserId},\n  timestamp as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM my_table`;
 
+  const defaultValues =
+    mode === "edit" && exposureQuery
+      ? {
+          ...cloneDeep<ExposureQuery>(exposureQuery),
+          userIdTypes: exposureQuery.userIdTypes?.length
+            ? exposureQuery.userIdTypes
+            : [exposureQuery.userIdType].filter(Boolean),
+        }
+      : {
+          description: "",
+          id: uniqId("tbl_"),
+          name: "",
+          dimensions: [],
+          query: defaultQuery,
+          userIdType: defaultUserId ?? "",
+          userIdTypes: defaultUserId ? [defaultUserId] : [],
+        };
+
   const form = useForm<ExposureQuery>({
-    defaultValues:
-      mode === "edit" && exposureQuery
-        ? cloneDeep<ExposureQuery>(exposureQuery)
-        : {
-            description: "",
-            id: uniqId("tbl_"),
-            name: "",
-            dimensions: [],
-            query: defaultQuery,
-            userIdType: userIdTypeOptions ? userIdTypeOptions[0]?.value : "",
-          },
+    defaultValues,
   });
 
   // User-entered values
-  const userEnteredUserIdType = form.watch("userIdType");
+  const userEnteredUserIdTypes = form.watch("userIdTypes");
   const userEnteredQuery = form.watch("query");
   const userEnteredDimensions = form.watch("dimensions");
   const userEnteredHasNameCol = form.watch("hasNameCol");
 
   const handleSubmit = form.handleSubmit(async (value) => {
     if (isManaged && exposureQuery) {
-      value.userIdType = exposureQuery.userIdType;
+      value.userIdTypes = exposureQuery.userIdTypes?.length
+        ? exposureQuery.userIdTypes
+        : [exposureQuery.userIdType].filter(Boolean);
+      value.userIdType = value.userIdTypes[0] ?? exposureQuery.userIdType;
       value.managedBy = exposureQuery.managedBy;
     } else if (
       exposureQuery &&
       isEventForwarderManagedExposureQuery(exposureQuery) &&
-      value.userIdType !== exposureQuery.userIdType
+      !haveSameIdentifierTypes(
+        value.userIdTypes,
+        exposureQuery.userIdTypes?.length
+          ? exposureQuery.userIdTypes
+          : [exposureQuery.userIdType].filter(Boolean),
+      )
     ) {
       // Re-pointing a managed query at a different identifier hands it to the
       // user. Leaving managedBy: "api" would make attribute reconciliation
       // treat that identifier as Event Forwarder owned and delete it.
       value.managedBy = "";
     }
+    value.userIdType = value.userIdTypes[0] ?? value.userIdType;
     await onSave(value);
 
     form.reset({
@@ -102,6 +124,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       description: "",
       hasNameCol: false,
       userIdType: undefined,
+      userIdTypes: [],
     });
   });
 
@@ -110,18 +133,18 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       "experiment_id",
       "variation_id",
       "timestamp",
-      userEnteredUserIdType,
+      ...userEnteredUserIdTypes,
       ...(userEnteredDimensions || []),
       ...(userEnteredHasNameCol ? ["experiment_name", "variation_name"] : []),
     ]);
-  }, [userEnteredUserIdType, userEnteredDimensions, userEnteredHasNameCol]);
+  }, [userEnteredUserIdTypes, userEnteredDimensions, userEnteredHasNameCol]);
 
   const identityTypes = useMemo(
     () => dataSource.settings.userIdTypes || [],
     [dataSource.settings.userIdTypes],
   );
 
-  const saveEnabled = !!userEnteredUserIdType && !!userEnteredQuery;
+  const saveEnabled = userEnteredUserIdTypes.length >= 1 && !!userEnteredQuery;
 
   if (!exposureQuery && mode === "edit") {
     console.error(
@@ -280,13 +303,13 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                 maxLength={MAX_DESCRIPTION_LENGTH}
                 {...form.register("description")}
               />
-              <SelectField
-                size="legacy"
+              <MultiSelectField
+                legacyHeight
                 label={
                   <>
-                    Identifier Type
+                    Identifier types
                     {isManaged ? (
-                      <Tooltip body="Identifier type is fixed for queries created by Event Forwarder and cannot be changed." />
+                      <Tooltip body="Identifier types are fixed for queries created by Event Forwarder and cannot be changed." />
                     ) : null}
                   </>
                 }
@@ -298,11 +321,11 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                 disabled={isManaged}
                 helpText={
                   isManaged
-                    ? "Managed by Event Forwarder for this identifier."
+                    ? "Managed by Event Forwarder for these identifiers."
                     : undefined
                 }
-                value={form.watch("userIdType")}
-                onChange={(value) => form.setValue("userIdType", value)}
+                value={userEnteredUserIdTypes}
+                onChange={(value) => form.setValue("userIdTypes", value)}
               />
               <div className="form-group">
                 <label className="mr-5">Query</label>

@@ -15,13 +15,17 @@ import {
 import { ExperimentType } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
-import { getExposureQuery } from "@/services/datasources";
+import {
+  getExposureQuery,
+  getExposureQueryIdentifierType,
+} from "@/services/datasources";
 import Callout from "@/ui/Callout";
 import MetricsSelector from "./MetricsSelector";
 
 export interface Props {
   datasource?: string;
   exposureQueryId?: string;
+  exposureQueryIdentifierType?: string;
   project?: string;
   goalMetrics: string[];
   secondaryMetrics: string[];
@@ -49,6 +53,7 @@ export interface Props {
 export default function ExperimentMetricsSelector({
   datasource,
   exposureQueryId,
+  exposureQueryIdentifierType,
   project,
   goalMetrics,
   secondaryMetrics,
@@ -212,7 +217,12 @@ export default function ExperimentMetricsSelector({
       datasourceObj?.settings,
       exposureQueryId,
     );
-    const randomizationUnitUserIdType = exposureQuery?.userIdType;
+    const randomizationUnitUserIdType = exposureQuery
+      ? getExposureQueryIdentifierType(
+          exposureQuery,
+          exposureQueryIdentifierType,
+        )
+      : undefined;
 
     if (!randomizationUnitUserIdType) {
       return false;
@@ -237,6 +247,7 @@ export default function ExperimentMetricsSelector({
     goalMetrics,
     datasource,
     exposureQueryId,
+    exposureQueryIdentifierType,
     getDatasourceById,
     getExperimentMetricById,
     factTables,
@@ -266,6 +277,7 @@ export default function ExperimentMetricsSelector({
             onChange={setGoalMetrics}
             datasource={datasource}
             exposureQueryId={exposureQueryId}
+            exposureQueryIdentifierType={exposureQueryIdentifierType}
             project={project}
             autoFocus={autoFocus}
             includeFacts={true}
@@ -318,6 +330,7 @@ export default function ExperimentMetricsSelector({
                 onChange={setSecondaryMetrics}
                 datasource={datasource}
                 exposureQueryId={exposureQueryId}
+                exposureQueryIdentifierType={exposureQueryIdentifierType}
                 project={project}
                 includeFacts={true}
                 filterConversionWindowMetrics={filterConversionWindowMetrics}
@@ -359,6 +372,7 @@ export default function ExperimentMetricsSelector({
                 onChange={setGuardrailMetrics}
                 datasource={datasource}
                 exposureQueryId={exposureQueryId}
+                exposureQueryIdentifierType={exposureQueryIdentifierType}
                 project={project}
                 includeFacts={true}
                 filterConversionWindowMetrics={filterConversionWindowMetrics}

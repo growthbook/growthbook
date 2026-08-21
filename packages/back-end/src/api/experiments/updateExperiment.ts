@@ -46,6 +46,24 @@ export const updateExperiment = createApiRequestHandler(
     throw new Error("Holdouts are not supported via this API");
   }
 
+  // The assignmentQuery object supersedes the deprecated flat
+  // assignmentQueryId/assignmentQueryIdentifierType. They are mutually
+  // exclusive; when the object is present it is projected onto the flat fields
+  // the rest of the handler reads.
+  if (req.body.assignmentQuery) {
+    if (
+      req.body.assignmentQueryId !== undefined ||
+      req.body.assignmentQueryIdentifierType !== undefined
+    ) {
+      throw new Error(
+        "Cannot set assignmentQuery together with the deprecated assignmentQueryId or assignmentQueryIdentifierType",
+      );
+    }
+    req.body.assignmentQueryId = req.body.assignmentQuery.id;
+    req.body.assignmentQueryIdentifierType =
+      req.body.assignmentQuery.identifierType;
+  }
+
   // Validate projects - We can remove this validation when ExperimentModel is migrated to BaseModel
   if (req.body.project) {
     await req.context.models.projects.ensureProjectsExist([req.body.project]);
@@ -82,21 +100,42 @@ export const updateExperiment = createApiRequestHandler(
     }
   }
 
-  // check for associated assignment query id
+  // check for associated assignment query and identifier type
   if (
-    req.body.assignmentQueryId !== undefined &&
-    req.body.assignmentQueryId !== experiment.exposureQueryId
+    req.body.assignmentQueryId !== undefined ||
+    req.body.assignmentQueryIdentifierType !== undefined
   ) {
     if (!datasource) {
       throw new Error("Datasource not found.");
     }
+    const assignmentQueryId =
+      req.body.assignmentQueryId ?? experiment.exposureQueryId;
+    const assignmentQuery = datasource.settings.queries?.exposure?.find(
+      (query) => query.id === assignmentQueryId,
+    );
+    if (!assignmentQuery) {
+      throw new Error(`Unrecognized assignment query ID: ${assignmentQueryId}`);
+    }
+    const assignmentQueryIdentifierTypes = assignmentQuery.userIdTypes?.length
+      ? assignmentQuery.userIdTypes
+      : [assignmentQuery.userIdType];
     if (
-      !datasource.settings.queries?.exposure?.some(
-        (q) => q.id === req.body.assignmentQueryId,
-      )
+      req.body.assignmentQueryIdentifierType === undefined &&
+      req.body.assignmentQueryId !== undefined &&
+      req.body.assignmentQueryId !== experiment.exposureQueryId
+    ) {
+      req.body.assignmentQueryIdentifierType =
+        assignmentQueryIdentifierTypes[0];
+    }
+    const assignmentQueryIdentifierType =
+      req.body.assignmentQueryIdentifierType ??
+      experiment.exposureQueryIdentifierType;
+    if (
+      assignmentQueryIdentifierType &&
+      !assignmentQueryIdentifierTypes.includes(assignmentQueryIdentifierType)
     ) {
       throw new Error(
-        `Unrecognized assignment query ID: ${req.body.assignmentQueryId}`,
+        `Identifier type "${assignmentQueryIdentifierType}" is not declared by assignment query "${assignmentQueryId}"`,
       );
     }
   }
@@ -231,7 +270,10 @@ export const updateExperiment = createApiRequestHandler(
     (req.body.datasourceId !== undefined &&
       req.body.datasourceId !== experiment.datasource) ||
     (req.body.assignmentQueryId !== undefined &&
-      req.body.assignmentQueryId !== experiment.exposureQueryId);
+      req.body.assignmentQueryId !== experiment.exposureQueryId) ||
+    (req.body.assignmentQueryIdentifierType !== undefined &&
+      req.body.assignmentQueryIdentifierType !==
+        experiment.exposureQueryIdentifierType);
   if (shouldValidatePrecomputedUnitDimensionIds) {
     const effectivePrecomputedUnitDimensionIds =
       req.body.precomputedUnitDimensionIds ??
@@ -243,6 +285,9 @@ export const updateExperiment = createApiRequestHandler(
         datasource,
         exposureQueryId:
           req.body.assignmentQueryId ?? experiment.exposureQueryId,
+        exposureQueryIdentifierType:
+          req.body.assignmentQueryIdentifierType ??
+          experiment.exposureQueryIdentifierType,
         dimensionIds: effectivePrecomputedUnitDimensionIds,
       });
     }

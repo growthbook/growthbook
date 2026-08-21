@@ -198,6 +198,7 @@ export function generateEventForwarderExposureQueries(
     return {
       id: userIdType,
       userIdType,
+      userIdTypes: [userIdType],
       name: userIdType,
       description: EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
       dimensions: [],

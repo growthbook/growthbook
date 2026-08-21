@@ -30,7 +30,11 @@ import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getExposureQuery } from "@/services/datasources";
+import {
+  getExposureQuery,
+  getExposureQueryIdentifierType,
+  getExposureQueryIdentifierTypes,
+} from "@/services/datasources";
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import {
   generateVariationId,
@@ -144,7 +148,10 @@ export function getNewExperimentDatasourceDefaults({
   project?: string;
   initialValue?: Partial<ExperimentInterfaceStringDates>;
   initialHashAttribute?: string;
-}): Pick<ExperimentInterfaceStringDates, "datasource" | "exposureQueryId"> {
+}): Pick<
+  ExperimentInterfaceStringDates,
+  "datasource" | "exposureQueryId" | "exposureQueryIdentifierType"
+> {
   const validDatasources = datasources.filter(
     (d) =>
       d.id === initialValue?.datasource ||
@@ -165,14 +172,21 @@ export function getNewExperimentDatasourceDefaults({
       )?.userIdType ?? "anonymous_id")
     : "anonymous_id";
 
+  const exposureQuery = getExposureQuery(
+    initialDatasource.settings,
+    initialValue?.exposureQueryId,
+    initialUserIdType,
+  );
+
   return {
     datasource: initialDatasource.id,
-    exposureQueryId:
-      getExposureQuery(
-        initialDatasource.settings,
-        initialValue?.exposureQueryId,
-        initialUserIdType,
-      )?.id || "",
+    exposureQueryId: exposureQuery?.id || "",
+    exposureQueryIdentifierType: exposureQuery
+      ? getExposureQueryIdentifierType(
+          exposureQuery,
+          initialValue?.exposureQueryIdentifierType ?? initialUserIdType,
+        )
+      : undefined,
   };
 }
 
@@ -649,8 +663,30 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     ? permissionsUtils.canViewExperimentModal(selectedProject)
     : allowAllProjects;
 
-  const exposureQueries = datasource?.settings?.queries?.exposure || [];
-  const exposureQueryId = form.getValues("exposureQueryId");
+  const exposureQueries = useMemo(
+    () => datasource?.settings?.queries?.exposure || [],
+    [datasource?.settings?.queries?.exposure],
+  );
+  const exposureQueryOptions = useMemo(
+    () =>
+      exposureQueries.flatMap((query) =>
+        getExposureQueryIdentifierTypes(query).map((identifierType) => ({
+          label: query.name,
+          value: JSON.stringify([query.id, identifierType]),
+          exposureQueryId: query.id,
+          exposureQueryIdentifierType: identifierType,
+        })),
+      ),
+    [exposureQueries],
+  );
+  const exposureQueryId = form.watch("exposureQueryId");
+  const exposureQueryIdentifierType = form.watch("exposureQueryIdentifierType");
+  const exposureQueryOptionValue =
+    exposureQueryOptions.find(
+      (option) =>
+        option.exposureQueryId === exposureQueryId &&
+        option.exposureQueryIdentifierType === exposureQueryIdentifierType,
+    )?.value ?? "";
   const status = form.watch("status");
   const type = form.watch("type");
   const isBandit = type === "multi-armed-bandit";
@@ -700,10 +736,27 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
   useEffect(() => {
-    if (!exposureQueries.find((q) => q.id === exposureQueryId)) {
-      form.setValue("exposureQueryId", exposureQueries?.[0]?.id ?? "");
+    const selectedOption = exposureQueryOptions.find(
+      (option) =>
+        option.exposureQueryId === exposureQueryId &&
+        option.exposureQueryIdentifierType === exposureQueryIdentifierType,
+    );
+    if (!selectedOption) {
+      form.setValue(
+        "exposureQueryId",
+        exposureQueryOptions[0]?.exposureQueryId ?? "",
+      );
+      form.setValue(
+        "exposureQueryIdentifierType",
+        exposureQueryOptions[0]?.exposureQueryIdentifierType,
+      );
     }
-  }, [form, exposureQueries, exposureQueryId]);
+  }, [
+    form,
+    exposureQueryId,
+    exposureQueryIdentifierType,
+    exposureQueryOptions,
+  ]);
 
   const [linkNameWithTrackingKey, setLinkNameWithTrackingKey] = useState(true);
 
@@ -1524,20 +1577,28 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     </>
                   }
                   labelClassName="font-weight-bold"
-                  value={form.watch("exposureQueryId") ?? ""}
-                  onChange={(v) => form.setValue("exposureQueryId", v)}
+                  value={exposureQueryOptionValue}
+                  onChange={(value) => {
+                    const selectedOption = exposureQueryOptions.find(
+                      (option) => option.value === value,
+                    );
+                    if (!selectedOption) return;
+                    form.setValue(
+                      "exposureQueryId",
+                      selectedOption.exposureQueryId,
+                    );
+                    form.setValue(
+                      "exposureQueryIdentifierType",
+                      selectedOption.exposureQueryIdentifierType,
+                    );
+                  }}
                   initialOption="Choose..."
                   required
-                  options={exposureQueries?.map((q) => {
-                    return {
-                      label: q.name,
-                      value: q.id,
-                    };
-                  })}
+                  options={exposureQueryOptions}
                   formatOptionLabel={({ label, value }) => {
-                    const userIdType = exposureQueries?.find(
-                      (e) => e.id === value,
-                    )?.userIdType;
+                    const userIdType = exposureQueryOptions.find(
+                      (option) => option.value === value,
+                    )?.exposureQueryIdentifierType;
                     return (
                       <>
                         {label}
@@ -1559,6 +1620,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 datasource={datasource?.id}
                 noLegacyMetrics={willExperimentBeIncludedInIncrementalRefresh}
                 exposureQueryId={exposureQueryId}
+                exposureQueryIdentifierType={exposureQueryIdentifierType}
                 project={project}
                 goalMetrics={form.watch("goalMetrics") ?? []}
                 secondaryMetrics={form.watch("secondaryMetrics") ?? []}

@@ -62,6 +62,7 @@ export type RampMonitoringMode = z.infer<typeof rampMonitoringMode>;
 export const rampMonitoringConfig = z.object({
   datasourceId: z.string(),
   exposureQueryId: z.string(),
+  exposureQueryIdentifierType: z.string().optional(),
   guardrailMetricIds: z.array(z.string()).min(1),
   signalMetricIds: z.array(z.string()).optional(),
   updateScheduleMinutes: z.number().min(10).optional().nullable(),
@@ -79,6 +80,34 @@ export const rampMonitoringConfig = z.object({
   multipleExposureAction: experimentHealthAction.optional(),
 });
 export type RampMonitoringConfig = z.infer<typeof rampMonitoringConfig>;
+
+// API-facing monitoring config. Groups the exposure query id with its chosen
+// identifier type in `exposureQuery`, superseding the deprecated flat
+// exposureQueryId/exposureQueryIdentifierType. The internal rampMonitoringConfig
+// stays flat; API handlers translate between the two.
+export const apiRampMonitoringConfig = rampMonitoringConfig
+  .omit({ exposureQueryId: true, exposureQueryIdentifierType: true })
+  .extend({
+    exposureQuery: z
+      .object({ id: z.string(), identifierType: z.string() })
+      .describe(
+        "The exposure query to use, grouping its ID with the identifier type analyzed on. Mutually exclusive with the deprecated exposureQueryId/exposureQueryIdentifierType.",
+      )
+      .optional(),
+    /** @deprecated use exposureQuery.id */
+    exposureQueryId: z
+      .string()
+      .describe("Deprecated: use exposureQuery instead.")
+      .optional()
+      .meta({ deprecated: true }),
+    /** @deprecated use exposureQuery.identifierType */
+    exposureQueryIdentifierType: z
+      .string()
+      .describe("Deprecated: use exposureQuery.identifierType instead.")
+      .optional()
+      .meta({ deprecated: true }),
+  });
+export type ApiRampMonitoringConfig = z.infer<typeof apiRampMonitoringConfig>;
 
 export const rampStepAction = z.object({
   targetType: z.literal("feature-rule"),
@@ -588,7 +617,7 @@ export const apiRampScheduleInterface = namedSchema(
         "Milliseconds since startedAt (computed at response time, not stored)",
       ),
     lockdownConfig: lockdownConfigSchema.optional(),
-    monitoringConfig: rampMonitoringConfig.nullish(),
+    monitoringConfig: apiRampMonitoringConfig.nullish(),
     experimentHealthAction: experimentHealthAction.optional(),
     currentStepEnteredAt: z.iso.datetime().nullish(),
     stepApproval: z

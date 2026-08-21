@@ -1572,7 +1572,7 @@
       "count": 1
     },
     "no-restricted-syntax": {
-      "count": 3
+      "count": 2
     }
   },
   "packages/front-end/components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries.tsx": {

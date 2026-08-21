@@ -181,6 +181,7 @@ const EXPERIMENT_SECTION_KEYS: Record<
   queryFilter: "analysis",
   skipPartialData: "analysis",
   exposureQueryId: "analysis",
+  exposureQueryIdentifierType: "analysis",
   datasource: "analysis",
   trackingKey: "analysis",
   statsEngine: "analysis",

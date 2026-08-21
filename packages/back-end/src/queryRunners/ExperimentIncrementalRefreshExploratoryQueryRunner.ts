@@ -84,7 +84,8 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
 
   const resolvedExposureQuery = {
     query: exposureQuery.query,
-    userIdType: exposureQuery.userIdType,
+    userIdType:
+      snapshotSettings.exposureQueryIdentifierType ?? exposureQuery.userIdType,
   };
 
   // Only include metrics tied to this experiment, which is goverend by the snapshotSettings.metricSettings

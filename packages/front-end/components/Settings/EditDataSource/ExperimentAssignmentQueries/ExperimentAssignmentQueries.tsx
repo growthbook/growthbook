@@ -169,9 +169,17 @@ export const ExperimentAssignmentQueries: FC<
                 <Flex gap="4">
                   <Box>
                     <strong className="font-weight-semibold">
-                      Identifier:{" "}
+                      Identifiers:{" "}
                     </strong>
-                    <code>{query.userIdType}</code>
+                    {(query.userIdTypes?.length
+                      ? query.userIdTypes
+                      : [query.userIdType]
+                    ).map((identifierType, index) => (
+                      <Fragment key={identifierType}>
+                        {index ? ", " : ""}
+                        <code>{identifierType}</code>
+                      </Fragment>
+                    ))}
                   </Box>
                   <Box>
                     <strong className="font-weight-semibold">
