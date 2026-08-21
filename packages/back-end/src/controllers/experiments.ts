@@ -1996,29 +1996,45 @@ export async function postExperiment(
   }
 
   // If changing phase start/end dates (from "Configure Analysis" modal)
+  // Only update phases if the dates have actually changed to avoid requiring
+  // runExperiments permission for pure analysis-setting changes
   if (
     experiment.status !== "draft" &&
     currentPhase !== undefined &&
     experiment.phases?.[currentPhase] &&
     (phaseStartDate || phaseEndDate)
   ) {
+    const existingPhase = experiment.phases[currentPhase];
     const phases = [...experiment.phases];
     const phaseClone = { ...phases[currentPhase] };
     phases[Math.floor(currentPhase * 1)] = phaseClone;
     const firstPhaseClone = { ...phases[0] };
 
+    let phasesChanged = false;
+
     if (phaseStartDate) {
-      phaseClone.dateStarted = getValidDate(phaseStartDate + ":00Z");
-    }
-    if (experiment.status === "stopped" && phaseEndDate) {
-      phaseClone.dateEnded = getValidDate(phaseEndDate + ":00Z");
-      // update both phases when stopped
-      if (experiment.type === "holdout") {
-        firstPhaseClone.dateEnded = getValidDate(phaseEndDate + ":00Z");
-        phases[0] = firstPhaseClone; // update the first phase to the same date ended
+      const newStartDate = getValidDate(phaseStartDate + ":00Z");
+      if (newStartDate.getTime() !== existingPhase.dateStarted.getTime()) {
+        phaseClone.dateStarted = newStartDate;
+        phasesChanged = true;
       }
     }
-    changes.phases = phases;
+    if (experiment.status === "stopped" && phaseEndDate) {
+      const newEndDate = getValidDate(phaseEndDate + ":00Z");
+      if (newEndDate.getTime() !== existingPhase.dateEnded?.getTime()) {
+        phaseClone.dateEnded = newEndDate;
+        phasesChanged = true;
+        // update both phases when stopped
+        if (experiment.type === "holdout") {
+          firstPhaseClone.dateEnded = newEndDate;
+          phases[0] = firstPhaseClone; // update the first phase to the same date ended
+        }
+      }
+    }
+
+    if (phasesChanged) {
+      changes.phases = phases;
+    }
   }
 
   // Clean up some vars for bandits, but only if safe to do so...
