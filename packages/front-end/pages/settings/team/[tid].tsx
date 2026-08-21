@@ -3,6 +3,7 @@ import React, { FC, useState } from "react";
 import { date, datetime } from "shared/dates";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Flex, IconButton } from "@radix-ui/themes";
+import { reviewScopesRequiringTeam } from "shared/util";
 import { useAuth } from "@/services/auth";
 import TeamModal from "@/components/Teams/TeamModal";
 import { AddMembersModal } from "@/components/Teams/AddMembersModal";
@@ -10,6 +11,7 @@ import { PermissionsModal } from "@/components/Settings/Teams/PermissionModal";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -43,7 +45,11 @@ const TeamPage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
   const canManageTeam = permissionsUtil.canManageTeam();
 
-  const { teams, refreshOrganization } = useUser();
+  const { teams, refreshOrganization, settings } = useUser();
+
+  // Which review rules demand this team's sign-off, described by their scope, so
+  // the team page answers "what does this team gate?".
+  const approvalScopes = reviewScopesRequiringTeam(tid, settings);
 
   const team = teams?.find((team) => team.id === tid);
   const isEditable = !team?.managedByIdp;
@@ -141,7 +147,7 @@ const TeamPage: FC = () => {
               >
                 <DropdownMenuGroup>
                   <DropdownMenuItem onClick={() => setTeamModalOpen(true)}>
-                    Edit team
+                    Edit team settings
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
               </DropdownMenu>
@@ -169,6 +175,37 @@ const TeamPage: FC = () => {
             <Badge label={projectName} />
           )}
         </Flex>
+
+        {approvalScopes.length > 0 && (
+          <Flex direction="column" gap="1" mb="5">
+            <Text weight="semibold">Required approver for:</Text>
+            {approvalScopes.map((scope) => (
+              <Flex
+                key={scope.project ?? "all"}
+                align="center"
+                gap="2"
+                wrap="wrap"
+              >
+                {scope.project ? (
+                  <Link href={`/project/${scope.project}`}>
+                    {getProjectById(scope.project)?.name || scope.project}
+                  </Link>
+                ) : (
+                  <Text>
+                    {approvalScopes.length > 1
+                      ? "All other projects"
+                      : "All projects"}
+                  </Text>
+                )}
+                {scope.environments.length > 0 && (
+                  <Text color="text-low">
+                    · {scope.environments.join(", ")}
+                  </Text>
+                )}
+              </Flex>
+            ))}
+          </Flex>
+        )}
 
         <Flex align="center" justify="between" gap="3" mb="2">
           <Heading as="h2" size="md" mb="0">

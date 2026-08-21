@@ -965,19 +965,21 @@ export const ENV_SCOPED_PERMISSIONS = [
   "manageSDKConnections",
   "manageSDKWebhooks",
   "runExperiments",
+  // Review is env-scoped exactly where publish is: you may not approve what you
+  // could not publish. Saved groups are absent because none of their atoms are.
+  "reviewFeatures",
+  "reviewConfigs",
+  "reviewConstants",
 ] as const;
 
 export const PROJECT_SCOPED_PERMISSIONS = [
   "readData",
   "addComments",
   "editFeatureDrafts",
-  "reviewFeatures",
   "bypassApprovalFeatures",
   "editConfigDrafts",
-  "reviewConfigs",
   "bypassApprovalConfigs",
   "editConstantDrafts",
-  "reviewConstants",
   "bypassApprovalConstants",
   "manageArchetype",
   "manageProjects",

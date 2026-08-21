@@ -17,6 +17,8 @@ import {
   getLiveRevision,
   getRevisionNumber,
   isSavedGroupRevisionMetadataOnly,
+  getApprovalFlowRules,
+  getApprovalFlowSettings,
 } from "shared/enterprise";
 import { REVIEW_REQUESTED_STATUSES } from "shared/validators";
 import {
@@ -169,13 +171,21 @@ export default function EditSavedGroupPage() {
   );
   const { projects } = useDefinitions();
 
-  const approvalRequired =
-    settings.approvalFlows?.savedGroups?.[0]?.required ?? false;
-
-  // Check if metadata review is required
+  const approvalFlow = getApprovalFlowSettings(
+    settings.approvalFlows,
+    "saved-group",
+    savedGroup?.projects ?? [],
+  );
+  // Raw governing rules, mirroring the server adapter: the resolved policy
+  // deliberately drops team requirements, but the review tab needs them.
+  const approvalFlowRules = getApprovalFlowRules(
+    settings.approvalFlows,
+    "saved-group",
+    savedGroup?.projects ?? [],
+  ).filter((r) => r.required);
+  const approvalRequired = !!approvalFlow?.required;
   const metadataReviewRequired =
-    approvalRequired &&
-    (settings.approvalFlows?.savedGroups?.[0]?.requireMetadataReview ?? true);
+    approvalRequired && (approvalFlow?.requireMetadataReview ?? true);
 
   const revisionState = useSavedGroupRevision(
     savedGroup?.id,
@@ -1105,6 +1115,7 @@ export default function EditSavedGroupPage() {
             // the review dance when `requireMetadataReview` is off (matching
             // the server-side rule in the saved-group adapter).
             requiresApproval={selectedRevisionRequiresApproval}
+            reviewRules={approvalFlowRules}
             canEditEntity={permissionsUtil.canRevisionAction(
               "saved-group",
               "draft",
@@ -1140,6 +1151,7 @@ export default function EditSavedGroupPage() {
               "saved-group",
               selectedRevision ?? displayRevision ?? null,
               savedGroup,
+              NO_ENVIRONMENT_BINDING,
             )}
             canManageDraftsEntity={permissionsUtil.canRevisionAction(
               "saved-group",
