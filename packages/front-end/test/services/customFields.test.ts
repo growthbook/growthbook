@@ -1,6 +1,7 @@
 import { CustomField } from "shared/types/custom-fields";
 import {
   customFieldValuesEqual,
+  filterCustomFieldsForSection,
   filterCustomFieldsForSectionAndProject,
   filterCustomFieldsForSectionAndProjects,
   getSeededCustomFieldDefaultValue,
@@ -84,6 +85,46 @@ describe("filterCustomFieldsForSectionAndProject", () => {
     );
 
     expect(result).toEqual([{ ...legacyGlobalField, projects: [] }]);
+  });
+});
+
+describe("filterCustomFieldsForSection", () => {
+  const attrField = (overrides: Partial<CustomField>) =>
+    makeField({ sections: ["attribute"], ...overrides });
+
+  it("keeps project-scoped fields that the project filters would drop", () => {
+    // The "All Projects" case: the view spans projects, so scoping to global
+    // fields only would hide metadata that visible rows carry.
+    const global = attrField({ id: "cf_global" });
+    const scoped = attrField({ id: "cf_a", projects: ["proj_a"] });
+
+    expect(
+      filterCustomFieldsForSection([global, scoped], "attribute")?.map(
+        (f) => f.id,
+      ),
+    ).toEqual(["cf_global", "cf_a"]);
+  });
+
+  it("still filters by section", () => {
+    const attr = attrField({ id: "cf_attr" });
+    const feature = makeField({ id: "cf_feature", sections: ["feature"] });
+
+    expect(
+      filterCustomFieldsForSection([attr, feature], "attribute")?.map(
+        (f) => f.id,
+      ),
+    ).toEqual(["cf_attr"]);
+  });
+
+  it("excludes inactive fields", () => {
+    const active = attrField({ id: "cf_active" });
+    const inactive = attrField({ id: "cf_inactive", active: false });
+
+    expect(
+      filterCustomFieldsForSection([active, inactive], "attribute")?.map(
+        (f) => f.id,
+      ),
+    ).toEqual(["cf_active"]);
   });
 });
 
