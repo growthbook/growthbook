@@ -32,6 +32,7 @@ import Table, {
   TableColumnHeader,
   TableHeader,
   TableRow,
+  TableRowHeaderCell,
 } from "@/ui/Table";
 import {
   createInitialResources,
@@ -524,14 +525,21 @@ export default function FactTablesPage() {
                   }}
                   className="cursor-pointer"
                 >
-                  <TableCell>
-                    <Link href={`/fact-tables/${f.id}`}>{f.name}</Link>
+                  <TableRowHeaderCell>
+                    <Link
+                      href={`/fact-tables/${f.id}`}
+                      color="dark"
+                      underline="hover"
+                      weight="medium"
+                    >
+                      {f.name}
+                    </Link>
                     <OfficialBadge
                       type="fact table"
                       managedBy={f.managedBy}
                       leftGap={true}
                     />
-                  </TableCell>
+                  </TableRowHeaderCell>
                   <TableCell>{f.datasourceName}</TableCell>
                   <TableCell>
                     <SortedTags tags={f.tags} useFlex />

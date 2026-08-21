@@ -12,7 +12,8 @@
     "type-check": "tsgo --pretty --noEmit",
     "unused-export-check": "npx ts-unused-exports tsconfig.json --findCompletelyUnusedFiles --allowUnusedTypes --showLineNumber --excludePathsFromReport=pages;",
     "test": "vitest run",
-    "type-gen": "pnpm --filter shared type-gen"
+    "type-gen": "pnpm --filter shared type-gen",
+    "verify-table-migration": "node scripts/verify-table-migration.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^5.0.0",
