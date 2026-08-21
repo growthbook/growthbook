@@ -17,7 +17,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiDotsSixVertical, PiEye, PiEyeSlash, PiLock } from "react-icons/pi";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 
@@ -81,7 +81,7 @@ function SortableColumnRow({
         </Text>
       </Box>
       {column.alwaysVisible ? (
-        <Tooltip body="This column is always shown">
+        <Tooltip content="This column is always shown">
           {/* A lock, not an eye: an eye here reads as a toggle you can click.
               asChild borrows IconButton's box so it lines up with the toggles —
               the ghost variant's negative margin can't be matched by hand. */}
@@ -95,7 +95,7 @@ function SortableColumnRow({
           </IconButton>
         </Tooltip>
       ) : (
-        <Tooltip body={column.visible ? "Hide column" : "Show column"}>
+        <Tooltip content={column.visible ? "Hide column" : "Show column"}>
           <IconButton
             size="1"
             variant="ghost"

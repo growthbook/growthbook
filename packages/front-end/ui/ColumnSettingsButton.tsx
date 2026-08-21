@@ -42,7 +42,11 @@ export default function ColumnSettingsButton({
             radius="small"
             size="3"
             highContrast
-            aria-label="Column settings"
+            // Derived rather than static: a fixed label would override the name
+            // computed from the children and drop the hidden count.
+            aria-label={
+              hiddenCount > 0 ? `Columns, ${hiddenCount} hidden` : "Columns"
+            }
           >
             <Flex gap="2" align="center">
               <Flex gap="1" align="center">
