@@ -54341,6 +54341,9 @@ components:
         tiebreakerMetricId:
           type: string
         fallback:
+          description: >-
+            What to do at the scheduled end when there is no clear winner.
+            Required when `mode` is `"auto-ship"`; ignored for other modes.
           type: string
           enum:
             - notify
@@ -54349,7 +54352,6 @@ components:
           type: string
       required:
         - mode
-        - fallback
       additionalProperties: false
     ExperimentResults:
       type: object
