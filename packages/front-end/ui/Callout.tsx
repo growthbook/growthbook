@@ -9,6 +9,7 @@ import {
 import React, { forwardRef, ReactNode } from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiX } from "react-icons/pi";
+import clsx from "clsx";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { radixSize } from "@/ui/sizes";
 import { RadixStatusIcon, Status, getRadixColor, Size } from "./HelperText";
@@ -106,13 +107,18 @@ export default forwardRef<
         wrap="wrap"
         align="start"
         gapX="3"
-        gapY="2"
+        gapY="3"
         flexGrow="1"
         minWidth="0"
+        justify={action ? "between" : undefined}
       >
         {/* Rendered as a div (not the default <p>) so block-level children
             and nested layout don't produce invalid <div>-inside-<p> nesting. */}
-        <Text as="div" size={radixSize(size)} className={styles.body}>
+        <Text
+          as="div"
+          size={radixSize(size)}
+          className={clsx(styles.body, action && styles.bodyWithAction)}
+        >
           {children}
         </Text>
         {action ? <Box className={styles.firstLineSlot}>{action}</Box> : null}

@@ -15,39 +15,40 @@ import {
   SDKLanguage,
 } from "shared/types/sdk-connection";
 import {
-  draftRevertedFromVersion,
-  autoMerge,
-  filterEnvironmentsByFeature,
-  filterProjectsByEnvironmentWithNull,
+  ANY_REVIEW_FOOTPRINT,
+  IsFeatureStaleResult,
   MergeResultChanges,
-  mergeResultHasChanges,
   MergeStrategy,
+  assertSchemaMatchesValueType,
+  autoMerge,
   checkIfRevisionNeedsReview,
+  draftRevertedFromVersion,
   evaluatePublishGovernance,
   featureMetadataEnvelope,
-  resetReviewOnChange,
+  fillRevisionFromFeature,
+  filterEnvironmentsByFeature,
+  filterProjectsByEnvironmentWithNull,
   getAffectedEnvsForExperiment,
+  getApplicableEnvIds,
   getDependentExperiments,
   getDependentFeatures,
-  getRevertValueValidationWarnings,
-  getRulesForEnvironment,
-  getEnvsFromRampSchedule,
-  isFeatureStale,
-  IsFeatureStaleResult,
-  mergeRevision,
-  liveRevisionFromFeature,
-  fillRevisionFromFeature,
-  reconcileMergeBaselines,
-  getReviewSetting,
-  normalizeTargetingProjects,
-  normalizeTargetingInUpdates,
-  namespacesToMap,
-  pruneOrphanedRampActions,
-  assertSchemaMatchesValueType,
   getEffectiveRevisionHoldout,
   getRevertTargetHoldout,
   featureRuleMergeConfig,
   resolveDraftEdit,
+  getRevertValueValidationWarnings,
+  getReviewSetting,
+  getRulesForEnvironment,
+  isFeatureStale,
+  liveRevisionFromFeature,
+  mergeResultHasChanges,
+  mergeRevision,
+  namespacesToMap,
+  normalizeTargetingInUpdates,
+  normalizeTargetingProjects,
+  pruneOrphanedRampActions,
+  reconcileMergeBaselines,
+  resetReviewOnChange,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -96,7 +97,6 @@ import {
   PutFeatureRuleConflict,
 } from "shared/types/feature-rule";
 import { getValidDate } from "shared/dates";
-import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
 import { isArmedWithAuthorizedPublisher } from "back-end/src/revisions/approveAndPublish";
 import {
@@ -153,11 +153,13 @@ import {
   getMergeResultPublishEnvs,
   getSavedGroupMap,
   getLiveAndBaseRevisionsForFeature,
+  getFeatureReviewFootprint,
   getLiveRevisionForFeature,
   getDraftRevision,
   assertCanAutoPublish,
   revisionRequiresReview,
 } from "back-end/src/services/features";
+import { assessRevisionApproval } from "back-end/src/services/featurePublishGates";
 import { linkFeatureToContextualBandit } from "back-end/src/enterprise/services/contextualBandits";
 import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
 import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
@@ -1385,10 +1387,14 @@ export async function postFeatureReviewOrComment(
     null,
     { project: feature.project },
   );
+  if (review === "Comment" && !canCommentHere) {
+    context.permissions.throwPermissionError();
+  }
+  // Coarse pre-fetch gate so callers without the review atom cannot probe
+  // which revision versions exist; the footprint check below still runs.
   if (
-    review === "Comment"
-      ? !canCommentHere
-      : !context.permissions.canReviewFeatureDrafts(feature)
+    review !== "Comment" &&
+    !context.permissions.canReviewFeatureDrafts(feature, ANY_REVIEW_FOOTPRINT)
   ) {
     context.permissions.throwPermissionError();
   }
@@ -1402,6 +1408,19 @@ export async function postFeatureReviewOrComment(
   });
   if (!revision) {
     throw new Error("Could not find feature revision");
+  }
+
+  // A verdict is judged against what the draft changes, so it waits on the
+  // revision. Comments keep their pre-fetch refusal.
+  if (review !== "Comment") {
+    const footprint = await getFeatureReviewFootprint({
+      context,
+      feature,
+      revision,
+    });
+    if (!context.permissions.canReviewFeatureDrafts(feature, footprint)) {
+      context.permissions.throwPermissionError();
+    }
   }
   const createdByUser = revision.createdBy as EventUserLoggedIn;
 
@@ -1515,7 +1534,10 @@ export async function postFeatureApproveAndPublish(
   const feature = await getFeature(context, id);
   if (!feature) throw new Error("Could not find feature");
 
-  if (!context.permissions.canReviewFeatureDrafts(feature)) {
+  // Coarse refusal first: no review rights should 403, not 404 on a bad version.
+  if (
+    !context.permissions.canReviewFeatureDrafts(feature, ANY_REVIEW_FOOTPRINT)
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -1527,6 +1549,16 @@ export async function postFeatureApproveAndPublish(
     version: parseInt(version),
   });
   if (!revision) throw new Error("Could not find feature revision");
+
+  // Granting the approval, so judge it against what the draft would change.
+  const approveFootprint = await getFeatureReviewFootprint({
+    context,
+    feature,
+    revision,
+  });
+  if (!context.permissions.canReviewFeatureDrafts(feature, approveFootprint)) {
+    context.permissions.throwPermissionError();
+  }
 
   const createdByUser = revision.createdBy as EventUserLoggedIn;
   if (createdByUser?.id === context.userId) {
@@ -1863,7 +1895,9 @@ export async function postFeatureUndoReview(
   const { id, version } = req.params;
   const feature = await getFeature(context, id);
   if (!feature) throw new Error("Could not find feature");
-  if (!context.permissions.canReviewFeatureDrafts(feature)) {
+  if (
+    !context.permissions.canReviewFeatureDrafts(feature, ANY_REVIEW_FOOTPRINT)
+  ) {
     context.permissions.throwPermissionError();
   }
   const revision = await getRevision({
@@ -2133,34 +2167,31 @@ export async function postFeaturePublish(
       }
     : { ...revision, ...fillRevisionFromFeature(revision, feature) };
 
-  // For ramp `update` actions, the live schedule may have step patches that
-  // target environments the draft removes. Build a lookup so the review check
-  // can catch the "removing env" direction as well as adding.
-  const liveRampScheduleEnvs = new Map<string, string[] | "all">();
-  for (const action of revision.rampActions ?? []) {
-    if (action.mode !== "update") continue;
-    const liveSchedule = await context.models.rampSchedules.getById(
-      action.rampScheduleId,
-    );
-    if (liveSchedule) {
-      liveRampScheduleEnvs.set(
-        action.rampScheduleId,
-        getEnvsFromRampSchedule(liveSchedule),
-      );
-    }
-  }
+  const { requiresReview, hasCoveringApproval, requiredApproverTeams } =
+    await assessRevisionApproval({
+      context,
+      feature,
+      revision,
+      effectiveRevision,
+      filledLive,
+      base,
+    });
 
-  const requiresReview = checkIfRevisionNeedsReview({
-    feature,
-    baseRevision: filledLive,
-    revision: effectiveRevision,
-    allEnvironments: environmentIds,
-    settings: org.settings,
-    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
-    liveRampScheduleEnvs,
-  });
-  if (!adminOverride && requiresReview && revision.status !== "approved") {
-    throw new Error("needs review before publishing");
+  if (!adminOverride && requiresReview && !hasCoveringApproval) {
+    throw new Error(
+      revision.status === "approved"
+        ? "This draft now changes environments its approvers cannot approve. It needs approval from someone with review rights across everything it changes."
+        : "needs review before publishing",
+    );
+  }
+  if (!adminOverride && requiresReview && !requiredApproverTeams.satisfied) {
+    throw new Error(
+      requiredApproverTeams.unmet
+        .map(
+          (t) => `Requires approval from ${t.map((x) => x.name).join(" or ")}.`,
+        )
+        .join(" "),
+    );
   }
   if (requiresReview && !reviewStatuses.includes(revision.status)) {
     throw new Error("Can only publish Draft revisions");
@@ -4342,7 +4373,7 @@ export async function putSafeRolloutStatus(
     feature,
     baseRevision: base,
     revision,
-    allEnvironments: environmentIds,
+    orgEnvironments: allEnvironments,
     settings: org.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });

@@ -14,10 +14,14 @@ import {
   applyTopLevelPatchOps,
   isUserBlockedFromApproving,
   isAutopublishOnApprovalEnabled,
+  entityProjects,
   isScheduledPublishPending,
   isScheduledPublishLockActive,
   findPublishLockingScheduledRevision,
+  entityPublishFootprint,
+  entityReviewFootprint,
 } from "shared/enterprise";
+import { serveFootprint } from "shared/permissions";
 import type { RevisionStatus } from "shared/validators";
 import type { PublishGovernanceResult } from "shared/util";
 import {
@@ -29,12 +33,14 @@ import { datetime } from "shared/dates";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiCaretDownBold, PiGitMergeBold, PiLockSimple } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
+import { useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import useURLHash from "@/hooks/useURLHash";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
+import UnmetApproverTeams from "@/components/Reviews/UnmetApproverTeams";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import PermissionBlocker from "@/ui/PermissionBlocker";
@@ -50,6 +56,7 @@ import CommentComposer from "@/components/Comments/CommentComposer";
 import ReviewCommentPopover from "@/components/Reviews/ReviewCommentPopover";
 import WaitingForReviewCallout from "@/components/Reviews/WaitingForReviewCallout";
 import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
+import { useApprovalCoverage } from "@/components/Reviews/useApprovalCoverage";
 import {
   PersonRow,
   ReviewerVerdictIcon,
@@ -156,6 +163,8 @@ export interface ReviewAndPublishTabProps<T> {
   // Per-revision approval gate (caller applies org settings + e.g. the
   // metadata-only shortcut).
   requiresApproval: boolean;
+  // The caller already resolves these for `requiresApproval`.
+  reviewRules?: { requiredApproverTeams?: string[] }[];
   // The viewer can edit the underlying entity (manage drafts / review).
   canEditEntity: boolean;
   // Reverting is its own authority, so a revert-only role holds no edit rights.
@@ -243,6 +252,7 @@ function ReviewAndPublishRevision<T>({
   entityName = "",
   entityNoun = "revision",
   requiresApproval,
+  reviewRules,
   canEditEntity,
   canRevertEntity,
   canLandRevertEntity,
@@ -267,6 +277,8 @@ function ReviewAndPublishRevision<T>({
   const { apiCall } = useAuth();
   const { users, userId, getUserDisplay, organization, hasCommercialFeature } =
     useUser();
+  const allEnvironments = useEnvironments();
+  const envIds = allEnvironments.map((e) => e.id);
   // Adapt the generic revision's baked reviews[] + activityLog[] into the
   // shared timeline's RevisionLog shape.
   const timelineLogs = useMemo(
@@ -500,6 +512,47 @@ function ReviewAndPublishRevision<T>({
   }, [revision.activityLog, revision.reviews]);
   const isReviewer = !!userId && reviewers.some((r) => r.id === userId);
 
+  // Same footprint the server authorizes publishing with.
+  const entityProject = (revision.target.snapshot as { project?: string })
+    .project;
+  const projects = entityProjects(revision.target.snapshot);
+  const reviewFootprint = useMemo(
+    () =>
+      entityReviewFootprint(
+        entityPublishFootprint(
+          revision.target.type,
+          revision.target.snapshot,
+          revision.target.proposedChanges,
+        ),
+        serveFootprint(allEnvironments, {
+          project: entityProject,
+        }),
+      ),
+    [
+      revision.target.type,
+      revision.target.snapshot,
+      revision.target.proposedChanges,
+      allEnvironments,
+      entityProject,
+    ],
+  );
+
+  const {
+    uncoveredApprovers,
+    uncoveredApproverReasons,
+    uncoveredFootprintEnvs,
+    approvalsCoverFootprint,
+    hasUncoveredApproval,
+    requiredTeams,
+  } = useApprovalCoverage({
+    reviewers,
+    footprint: reviewFootprint,
+    envIds,
+    model: revision.target.type,
+    projects,
+    reviewRules,
+  });
+
   // For the stale-approval banner: when the surviving approval was given (the
   // latest non-stale "approved" verdict in the current cycle). A revisions-since
   // count can't be passed — generic revisions track no base version
@@ -556,9 +609,7 @@ function ReviewAndPublishRevision<T>({
     isAutopublishOnApprovalEnabled(
       organization?.settings,
       revision.target.type,
-      // Constants match their per-project `requireReviews` rule, so the
-      // entity's project must be passed; ignored for approvalFlows entities.
-      (revision.target.snapshot as { project?: string }).project,
+      projects,
     ) && hasCommercialFeature("require-approvals");
   const revisionAutoPublishArmed = !!revision.autoPublishOnApproval;
 
@@ -818,20 +869,29 @@ function ReviewAndPublishRevision<T>({
     experimentsStep: false,
     featureLockedByRamp: false,
     featureLockedBySchedule,
+    checklistIncomplete: false,
     checklistBlocked: false,
-    governanceCanPublish: !mustRebase,
+    checklistAcknowledged: false,
+    governanceCanPublish:
+      !mustRebase &&
+      (!requiresApproval ||
+        (approvalsCoverFootprint && requiredTeams.satisfied)),
   });
 
   // The publish controls (admin-bypass checkbox + Publish button) show only when
   // the revision is publishable or an admin can bypass — mirrors the feature's
   // showPublishSection, so a disabled Publish button isn't shown prematurely on a
   // not-yet-approved draft.
+  // Approved-but-uncovered is the state that most needs the bypass affordance.
   const adminBypassAvailable =
     canBypassApproval &&
     requiresApproval &&
     mergeSuccess &&
     hasChanges &&
-    (revision.status !== "approved" || adminPublish);
+    (revision.status !== "approved" ||
+      !approvalsCoverFootprint ||
+      !requiredTeams.satisfied ||
+      adminPublish);
 
   // Whether the publish section below has anything to show. Each term mirrors one
   // child's own condition; without this the divider rendered around an empty box.
@@ -1012,6 +1072,7 @@ function ReviewAndPublishRevision<T>({
       <Box mb="4">
         <RevisionTimeline
           logs={timelineLogs}
+          uncoveredApproverReasons={uncoveredApproverReasons}
           onRetractVerdict={state.canUndoReview ? doUndoReview : undefined}
           collapseFilter={
             subTab === "overview"
@@ -1123,6 +1184,11 @@ function ReviewAndPublishRevision<T>({
                       name={name || email}
                       timestamp={timestamp}
                       stale={stale}
+                      uncoveredReason={
+                        uncoveredApprovers.has(id)
+                          ? uncoveredApproverReasons.get(id)
+                          : undefined
+                      }
                     />
                   }
                 />
@@ -1410,6 +1476,25 @@ function ReviewAndPublishRevision<T>({
               pt="4"
               style={{ borderTop: "1px solid var(--gray-a5)" }}
             >
+              {/* The verdict stands, so the status stays "Approved". */}
+              {requiresApproval && hasUncoveredApproval && (
+                <Box mb="3">
+                  <Callout status="warning" size="sm">
+                    {uncoveredFootprintEnvs.length
+                      ? `Approved, but no reviewer has approval rights in ${uncoveredFootprintEnvs.join(", ")}. This draft needs approval from someone who does.`
+                      : `Approved, but no reviewer has approval rights across everything this draft changes.`}
+                  </Callout>
+                </Box>
+              )}
+
+              {requiresApproval && !requiredTeams.satisfied && (
+                <Box mb="3">
+                  <Callout status="warning" size="sm">
+                    <UnmetApproverTeams unmet={requiredTeams.unmet} />
+                  </Callout>
+                </Box>
+              )}
+
               {/* Conflict / divergence / stale-approval banners — shared with the
                 feature flow so the revision tab reads identically. */}
               {(governance.divergence !== "current" || staleApproval) && (
@@ -1470,7 +1555,7 @@ function ReviewAndPublishRevision<T>({
                     canBypassApproval={canBypassApproval}
                     requiresApproval={requiresApproval}
                     autopublishOnApproval={autopublishOnApproval}
-                    isReviewRequester={isAuthor}
+                    approvalsCoverChange={approvalsCoverFootprint}
                     mutate={mutate}
                   />
                 )}

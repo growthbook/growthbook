@@ -216,7 +216,9 @@ const BreakDownResults: FC<{
   // Wrap drilldown to include dimension info
   const handleRowClick = drilldownContext
     ? (row: ExperimentTableRow) => {
-        const rawValue = typeof row.label === "string" ? row.label : "";
+        const rawValue =
+          row.dimensionValue ??
+          (typeof row.label === "string" ? row.label : "");
         const value = formatDimensionValueForDisplay(rawValue);
         drilldownContext.openDrilldown(row, {
           dimensionInfo: { id: dimensionId, name: dimension, value, rawValue },
