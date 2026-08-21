@@ -32,7 +32,8 @@ export interface TableColumnDef<TRow> {
   align?: "left" | "center" | "right";
   headerProps?: { className?: string; style?: CSSProperties };
   cellProps?: (row: TRow) => { className?: string; style?: CSSProperties };
-  render: (row: TRow) => ReactNode;
+  /** `width` is the column's resolved width, for content that must size to it. */
+  render: (row: TRow, width: number | undefined) => ReactNode;
 }
 
 export interface TableColumnLayoutEntry {
