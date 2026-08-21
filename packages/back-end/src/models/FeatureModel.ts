@@ -1293,6 +1293,11 @@ export async function updateFeature(
     });
   }
 
+  // `buildFeatureUpdate` below scrubs `environmentSettings.{env}.rules` from
+  // any update that carries `environmentSettings`, on the invariant that the
+  // top-level v2 `rules` array is the only place rules live on disk. Neither
+  // half of that invariant holds on its own, so both are backfilled here.
+
   // Hygiene: when persisting a new top-level v2 `rules` array, also force-scrub
   // any legacy `environmentSettings.{env}.rules` from the doc. The JIT read
   // migration trusts top-level v2 rules over env.rules now (so this is no
@@ -1307,6 +1312,21 @@ export async function updateFeature(
     feature.environmentSettings
   ) {
     allUpdates.environmentSettings = { ...feature.environmentSettings };
+  }
+
+  // The mirror, and load-bearing for correctness: an update carrying
+  // `environmentSettings` but no `rules` triggers the same scrub with nothing
+  // to replace it. On a still-v1-shaped doc those env rules ARE the live rules
+  // — the top-level array is empty on disk and only filled JIT on read by
+  // `migrateRawFeatureToV2` — so the scrub erases every rule the feature had.
+  // Publishing a revision hits this whenever the rules themselves didn't
+  // change: the merge reports no rule diff, so `computeRevisionMergeChanges`
+  // omits `changes.rules` while still writing `environmentSettings`, and
+  // enabling a feature in a new environment silently drops the rest.
+  // `feature.rules` is the migrated live state the reader already sees, so
+  // persisting it is a no-op on v2 docs and a repair on v1 ones.
+  if (allUpdates.environmentSettings && allUpdates.rules === undefined) {
+    allUpdates.rules = feature.rules ?? [];
   }
 
   const normalizedUpdates = buildFeatureUpdate(allUpdates);
