@@ -32,6 +32,7 @@ import {
 } from "back-end/src/util/factTable";
 import { resolveOwnerToUserId } from "back-end/src/services/owner";
 import { BulkImportPartialFailureError } from "back-end/src/util/errors";
+import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 
 export const postBulkImportFacts = createApiRequestHandler(
   postBulkImportFactsValidator,
@@ -419,13 +420,6 @@ export const postBulkImportFacts = createApiRequestHandler(
           throw new Error("Metric slices require an enterprise license");
         }
 
-        if (
-          data.metricType === "funnel" &&
-          !req.context.hasPremiumFeature("funnel-metrics")
-        ) {
-          throw new Error("Funnel metrics are a premium feature");
-        }
-
         const lookupFactTable = async (factTableId: string) =>
           factTableMap.get(factTableId) || null;
 
@@ -443,7 +437,14 @@ export const postBulkImportFacts = createApiRequestHandler(
             lookupFactTable,
           );
 
-          if (!dryRun) {
+          if (dryRun) {
+            await FactMetricModel.validateFactMetric(
+              { ...existing, ...changes } as FactMetricInterface,
+              existing,
+              factTableMap,
+              req.context,
+            );
+          } else {
             const newFactMetric = await req.context.models.factMetrics.update(
               existing,
               changes,
@@ -462,7 +463,20 @@ export const postBulkImportFacts = createApiRequestHandler(
           );
           createProps.id = id;
 
-          if (!dryRun) {
+          if (dryRun) {
+            await FactMetricModel.validateFactMetric(
+              {
+                ...createProps,
+                id,
+                organization: req.organization.id,
+                dateCreated: new Date(),
+                dateUpdated: new Date(),
+              } as FactMetricInterface,
+              null,
+              factTableMap,
+              req.context,
+            );
+          } else {
             const newFactMetric =
               await req.context.models.factMetrics.create(createProps);
             factMetricMap.set(newFactMetric.id, newFactMetric);
