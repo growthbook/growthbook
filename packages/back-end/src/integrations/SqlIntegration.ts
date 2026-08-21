@@ -1665,7 +1665,10 @@ export default abstract class SqlIntegration
     // Does the conversionWindowsHour need to be set different?
     const endDate = getExperimentEndDate(settings, 0);
 
-    // Segment and SQL filter only check against new exposures
+    // Segment and SQL filter are applied to the new exposures only: the
+    // existing units were already filtered when they were first inserted, and
+    // a change to either setting is part of the incremental settings hash,
+    // which forces a full rebuild of the units table.
     return format(
       `
       CREATE TABLE ${params.unitsTempTableFullName} 
@@ -1720,26 +1723,32 @@ export default abstract class SqlIntegration
         )
         , __filteredNewExposures AS (
           SELECT 
-            ${this.getSqlDialect().castToString(`${baseIdType}`)} AS ${baseIdType}
-            , ${this.getSqlDialect().castToString(`variation_id`)} AS variation
-            , timestamp AS timestamp
+            ${this.getSqlDialect().castToString(`e.${baseIdType}`)} AS ${baseIdType}
+            , ${this.getSqlDialect().castToString(`e.variation_id`)} AS variation
+            , e.timestamp AS timestamp
             ${activationMetric ? `, NULL AS activation_timestamp` : ""}
             ${experimentDimensions
               .map(
                 (d) =>
-                  `, ${this.getSqlDialect().castToString(d.id)} AS dim_exp_${d.id}`,
+                  `, ${this.getSqlDialect().castToString(`e.${d.id}`)} AS dim_exp_${d.id}`,
               )
               .join("\n")}
-          FROM __newExposures
+          FROM __newExposures e
+          ${
+            segment
+              ? `JOIN __segment s ON (s.${baseIdType} = e.${baseIdType})`
+              : ""
+          }
           WHERE 
-            experiment_id = '${settings.experimentId}'
+            e.experiment_id = '${settings.experimentId}'
             ${
               lastMaxTimestampBinds && params.lastMaxTimestamp
-                ? `AND timestamp > ${toTimestampWithMs(params.lastMaxTimestamp)}`
-                : `AND timestamp >= ${toTimestampWithMs(settings.startDate)}`
+                ? `AND e.timestamp > ${toTimestampWithMs(params.lastMaxTimestamp)}`
+                : `AND e.timestamp >= ${toTimestampWithMs(settings.startDate)}`
             }
-            ${endDate ? `AND timestamp <= ${toTimestampWithMs(endDate)}` : ""}
-            
+            ${endDate ? `AND e.timestamp <= ${toTimestampWithMs(endDate)}` : ""}
+            ${segment ? `AND s.date <= e.timestamp` : ""}
+            ${settings.queryFilter ? `AND (\n${settings.queryFilter}\n)` : ""}
         )
         , __jointExposures AS (
           SELECT * FROM __existingUnits

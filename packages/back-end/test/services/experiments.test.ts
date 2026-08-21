@@ -1440,6 +1440,30 @@ describe("putMetricApiPayloadToMetricInterface", () => {
         { id: "v0", status: "active" },
       ]);
     });
+
+    it("clears the segment when segmentId is an empty string", () => {
+      const experiment = { ...makeExperiment(), segment: "seg_1" };
+      const changes = updateExperimentApiPayloadToInterface(
+        { segmentId: "" },
+        experiment,
+        new Map(),
+        organization,
+      );
+
+      expect(changes.segment).toBe("");
+    });
+
+    it("leaves the segment untouched when segmentId is omitted", () => {
+      const experiment = { ...makeExperiment(), segment: "seg_1" };
+      const changes = updateExperimentApiPayloadToInterface(
+        { name: "Renamed" },
+        experiment,
+        new Map(),
+        organization,
+      );
+
+      expect(changes.segment).toBe(undefined);
+    });
   });
 
   describe("applyVariationWeightsToLatestPhase", () => {
