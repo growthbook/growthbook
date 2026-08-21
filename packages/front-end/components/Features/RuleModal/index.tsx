@@ -1920,9 +1920,12 @@ export default function RuleModal({
       for (const f of chunk.fields) {
         setFormField(f, source[f]);
       }
+      // The condition builder seeds its own state, so it needs a remount to
+      // show a value applied after mount.
+      forceConditionRender();
       setConflictResolutions((m) => new Map([...m, [chunk.key, choice]]));
     },
-    [conflict, formValues, setFormField],
+    [conflict, formValues, setFormField, forceConditionRender],
   );
 
   // The labels the form controls use, so a conflict names what the user sees.

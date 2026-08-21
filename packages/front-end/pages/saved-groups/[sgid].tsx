@@ -98,6 +98,10 @@ import { REVISION_SAVED_GROUP_DIFF_CONFIG } from "@/components/Revision/Revision
 import { useUser } from "@/services/UserContext";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import ConflictCallout, {
+  ConflictProvider,
+} from "@/components/DraftConflicts/ConflictContext";
+import { useDraftConflict } from "@/components/DraftConflicts/useDraftConflict";
 import SavedGroupDraftSelectorForChanges, {
   DraftMode,
 } from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
@@ -135,6 +139,9 @@ export default function EditSavedGroupPage() {
   const [addItemsDraftSelectedId, setAddItemsDraftSelectedId] = useState<
     string | null
   >(null);
+  // Pinned when a list modal opens. `displayedValues` tracks revalidation, so
+  // reading it at submit time would compare the current list against itself.
+  const [listBaseline, setListBaseline] = useState<string[] | null>(null);
   const [deleteItemsModal, setDeleteItemsModal] = useState(false);
   const [deleteItemsDraftMode, setDeleteItemsDraftMode] =
     useState<DraftMode>("new");
@@ -284,6 +291,19 @@ export default function EditSavedGroupPage() {
     () => displayedSavedGroup?.values ?? [],
     [displayedSavedGroup],
   );
+
+  // ID list values can't merge item-by-item, so a contested list is flagged
+  // rather than merged: pick theirs (loads it into the editor) or keep yours.
+  const listConflict = useDraftConflict<Record<string, unknown>>({
+    initial: { values: listBaseline ?? displayedValues },
+    labels: { values: "IDs" },
+    applyField: (_field, value) => {
+      setImportOperation("replace");
+      setItemsToAdd((value as string[]) ?? []);
+    },
+    isNewDraft: addItemsDraftMode === "new",
+    entityNoun: "saved group",
+  });
 
   const filteredValues = displayedValues.filter((v) => v.match(filter));
   const sortedValues = sortNewestFirst
@@ -501,6 +521,7 @@ export default function EditSavedGroupPage() {
                   ? "Propose changes"
                   : "Create draft"
           }
+          ctaEnabled={listConflict.resolved}
           submit={async () => {
             const newValues = displayedValues.filter((v) => !selected.has(v));
 
@@ -519,13 +540,24 @@ export default function EditSavedGroupPage() {
               params.set("forceCreateRevision", "1");
             }
 
-            const res = await apiCall<{
-              status: number;
-              revision?: Revision;
-            }>(`/saved-groups/${savedGroup.id}?${params.toString()}`, {
-              method: "PUT",
-              body: JSON.stringify({ values: newValues }),
-            });
+            const guard = listConflict.guard({ values: newValues });
+            const res = await listConflict.guarded(() =>
+              apiCall<{
+                status: number;
+                revision?: Revision;
+              }>(
+                `/saved-groups/${savedGroup.id}?${params.toString()}`,
+                {
+                  method: "PUT",
+                  body: JSON.stringify({
+                    values: newValues,
+                    baseline: { values: listBaseline ?? displayedValues },
+                  }),
+                },
+                guard.onError,
+              ),
+            );
+            listConflict.clear();
 
             if (res?.revision) {
               onRevisionCreated(res.revision);
@@ -547,7 +579,12 @@ export default function EditSavedGroupPage() {
             canAutoPublish={canAutoPublish}
             approvalRequired={approvalRequired}
             defaultExpanded={!canAutoPublish}
+            alert={listConflict.alert}
+            alertActive={listConflict.alertActive}
           />
+          <ConflictProvider {...listConflict.providerProps}>
+            {listConflict.callouts}
+          </ConflictProvider>
         </Modal>
       )}
       {addItems && (
@@ -578,7 +615,8 @@ export default function EditSavedGroupPage() {
           }
           ctaEnabled={
             itemsToAdd.length > 0 &&
-            (!listAboveSizeLimit || adminBypassSizeLimit)
+            (!listAboveSizeLimit || adminBypassSizeLimit) &&
+            listConflict.resolved
           }
           submit={async () => {
             const newValues =
@@ -601,14 +639,25 @@ export default function EditSavedGroupPage() {
               params.set("forceCreateRevision", "1");
             }
 
-            const res = await apiCall<{
-              status: number;
-              requiresApproval?: boolean;
-              revision?: Revision;
-            }>(`/saved-groups/${savedGroup.id}?${params.toString()}`, {
-              method: "PUT",
-              body: JSON.stringify({ values: newValues }),
-            });
+            const guard = listConflict.guard({ values: newValues });
+            const res = await listConflict.guarded(() =>
+              apiCall<{
+                status: number;
+                requiresApproval?: boolean;
+                revision?: Revision;
+              }>(
+                `/saved-groups/${savedGroup.id}?${params.toString()}`,
+                {
+                  method: "PUT",
+                  body: JSON.stringify({
+                    values: newValues,
+                    baseline: { values: listBaseline ?? displayedValues },
+                  }),
+                },
+                guard.onError,
+              ),
+            );
+            listConflict.clear();
 
             if (res?.revision) {
               onRevisionCreated(res.revision);
@@ -618,7 +667,7 @@ export default function EditSavedGroupPage() {
             setItemsToAdd([]);
           }}
         >
-          <>
+          <ConflictProvider {...listConflict.providerProps}>
             {addItemsDraftMode !== "publish" && (
               <Text as="p" mb="3" color="text-mid">
                 {approvalRequired
@@ -637,6 +686,8 @@ export default function EditSavedGroupPage() {
               canAutoPublish={canAutoPublish}
               approvalRequired={approvalRequired}
               defaultExpanded={!canAutoPublish}
+              alert={listConflict.alert}
+              alertActive={listConflict.alertActive}
             />
             <IdListItemInput
               values={itemsToAdd}
@@ -647,7 +698,8 @@ export default function EditSavedGroupPage() {
               setBypassSizeLimit={setAdminBypassSizeLimit}
               projects={savedGroup.projects}
             />
-          </>
+            <ConflictCallout field="values" />
+          </ConflictProvider>
         </Modal>
       )}
       {savedGroupForm && (
@@ -1391,6 +1443,7 @@ export default function EditSavedGroupPage() {
                             setDeleteItemsDraftSelectedId(
                               userOpenRevision?.id ?? null,
                             );
+                            setListBaseline(displayedValues);
                             setDeleteItemsModal(true);
                           }}
                         >
@@ -1429,6 +1482,7 @@ export default function EditSavedGroupPage() {
                           setAddItemsDraftSelectedId(
                             userOpenRevision?.id ?? null,
                           );
+                          setListBaseline(displayedValues);
                           setAddItems(true);
                         }}
                       >
@@ -1466,6 +1520,7 @@ export default function EditSavedGroupPage() {
                           setAddItemsDraftSelectedId(
                             userOpenRevision?.id ?? null,
                           );
+                          setListBaseline(displayedValues);
                           setAddItems(true);
                         }}
                       >

@@ -50,6 +50,9 @@ export function useDraftConflict<T extends object>({
   const [claimed, setClaimed] = useState<Set<string>>(new Set());
   const minesRef = useRef<Map<string, Record<string, unknown>>>(new Map());
   const signaledRef = useRef(false);
+  // Bumped whenever a resolution writes into the form. Editors that seed their
+  // own state from a prop (the condition builder) need a remount to show it.
+  const [renderKey, setRenderKey] = useState(0);
 
   const claim = useCallback((key: string) => {
     setClaimed((s) => (s.has(key) ? s : new Set(s).add(key)));
@@ -90,6 +93,7 @@ export function useDraftConflict<T extends object>({
       const source = choice === "theirs" ? current : stash.get(chunk.key);
       if (source) {
         for (const f of chunk.fields) setField(f, source[f]);
+        setRenderKey((k) => k + 1);
       }
       setResolutions((m) => new Map([...m, [chunk.key, choice]]));
     },
@@ -145,6 +149,7 @@ export function useDraftConflict<T extends object>({
         if (payload.merge && !payload.merge.wholeEntity && payload.current) {
           const cur = payload.current as unknown as Record<string, unknown>;
           for (const f of payload.merge.theirFields) setField(f, cur[f]);
+          setRenderKey((k) => k + 1);
         }
         if (payload.current) setBaseline(payload.current);
       },
@@ -211,6 +216,7 @@ export function useDraftConflict<T extends object>({
   return {
     guard,
     guarded,
+    renderKey,
     clear,
     resolved,
     alert,

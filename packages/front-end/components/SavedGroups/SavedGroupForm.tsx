@@ -42,7 +42,9 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import Link from "@/ui/Link";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import Callout from "@/ui/Callout";
-import { ConflictProvider } from "@/components/DraftConflicts/ConflictContext";
+import ConflictCallout, {
+  ConflictProvider,
+} from "@/components/DraftConflicts/ConflictContext";
 import { useDraftConflict } from "@/components/DraftConflicts/useDraftConflict";
 import SavedGroupDraftSelectorForChanges, {
   DraftMode,
@@ -622,6 +624,7 @@ const SavedGroupForm: FC<{
             {...form.register("groupName")}
             placeholder="e.g. beta-users or internal-team-members"
           />
+          <ConflictCallout field="groupName" />
           {showDescription ? (
             <Field
               size="legacy"
@@ -662,6 +665,7 @@ const SavedGroupForm: FC<{
             sort={false}
             closeMenuOnSelect={true}
           />
+          <ConflictCallout field="projects" />
           {current.id && (
             <SelectOwner
               placeholder="Optional"
@@ -669,19 +673,25 @@ const SavedGroupForm: FC<{
               onChange={(v) => form.setValue("owner", v)}
             />
           )}
+          <ConflictCallout field="owner" />
         </>
       )}
 
       {!editInfoOnly &&
         (type === "condition" ? (
-          <ConditionInput
-            defaultValue={form.watch("condition") || ""}
-            onChange={(v) => {
-              form.setValue("condition", v);
-            }}
-            project={selectedProjects[0] || ""}
-            key={conditionKey}
-          />
+          <>
+            <ConditionInput
+              defaultValue={form.watch("condition") || ""}
+              onChange={(v) => {
+                form.setValue("condition", v);
+              }}
+              project={selectedProjects[0] || ""}
+              // Seeds its own state from defaultValue, so a resolved conflict
+              // has to remount it to show the value that was applied.
+              key={`${conditionKey}-${conflict.renderKey}`}
+            />
+            <ConflictCallout field="condition" />
+          </>
         ) : (
           <>
             <SelectField
