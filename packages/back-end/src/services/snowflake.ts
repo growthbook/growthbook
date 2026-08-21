@@ -5,6 +5,7 @@ import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { QueryMetadata } from "shared/types/query";
 import { TEST_QUERY_SQL } from "back-end/src/integrations/SqlIntegration";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import { getQueryTagString } from "back-end/src/util/integration";
 import { logger } from "back-end/src/util/logger";
 
@@ -64,6 +65,14 @@ export function buildSnowflakeConnection(
     // Authenticates with the ambient cloud identity of the GrowthBook server
     // (e.g. its AWS IAM role) — no stored credential. Requires a Snowflake
     // service user with a matching WORKLOAD_IDENTITY binding.
+    // Self-hosted only, enforced server-side (the UI restriction alone could be
+    // bypassed by a direct API request): on GrowthBook Cloud the ambient identity
+    // would be GrowthBook's own infrastructure, not the customer's.
+    if (IS_CLOUD) {
+      throw new Error(
+        "Workload Identity authentication is only supported on self-hosted GrowthBook installations",
+      );
+    }
     if (!conn.workloadIdentityProvider) {
       throw new Error(
         "Workload Identity authentication requires a cloud provider (AWS, AZURE, or GCP)",

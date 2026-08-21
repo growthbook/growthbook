@@ -12,6 +12,19 @@ jest.mock("back-end/src/integrations/SqlIntegration", () => ({
   TEST_QUERY_SQL: "select 1",
 }));
 
+// IS_CLOUD is a module-level const; expose it through a getter so individual
+// tests can flip it. Everything else keeps its real value. `var`, not `let`:
+// the hoisted mock factory's getter fires during module load (logger reads
+// IS_CLOUD at import), and a `let` would still be in its temporal dead zone
+// there — `var` yields undefined, i.e. the real default, until beforeEach.
+let mockIsCloud = false;
+jest.mock("back-end/src/util/secrets", () => ({
+  ...jest.requireActual("back-end/src/util/secrets"),
+  get IS_CLOUD() {
+    return mockIsCloud;
+  },
+}));
+
 const baseParams: SnowflakeConnectionParams = {
   account: "xy12345",
   username: "GB_USER",
@@ -27,6 +40,7 @@ function connectionOptions(): Record<string, unknown> {
 describe("buildSnowflakeConnection auth methods", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockIsCloud = false;
   });
 
   it("passes WORKLOAD_IDENTITY and the provider for workload-identity", () => {
@@ -51,6 +65,18 @@ describe("buildSnowflakeConnection auth methods", () => {
         authMethod: "workload-identity",
       }),
     ).toThrow("Workload Identity authentication requires a cloud provider");
+    expect(createConnection).not.toHaveBeenCalled();
+  });
+
+  it("rejects workload-identity on GrowthBook Cloud before connecting", () => {
+    mockIsCloud = true;
+    expect(() =>
+      buildSnowflakeConnection({
+        ...baseParams,
+        authMethod: "workload-identity",
+        workloadIdentityProvider: "AWS",
+      }),
+    ).toThrow("only supported on self-hosted");
     expect(createConnection).not.toHaveBeenCalled();
   });
 
