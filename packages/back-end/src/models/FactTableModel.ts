@@ -116,6 +116,7 @@ const factTableSchema = new mongoose.Schema({
       },
       lookbackWindow: Number,
       restateChunkDays: Number,
+      useSharedStagingRestate: Boolean,
     },
     default: undefined,
   },

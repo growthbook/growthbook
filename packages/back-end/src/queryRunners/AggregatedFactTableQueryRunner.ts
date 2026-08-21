@@ -46,6 +46,20 @@ export function getRestateChunkBounds(
 
 export type AggregatedFactTableRunMode = "incremental" | "restate";
 
+// Restate-only: build (or reuse) a shared event-grain staging table so multiple
+// idTypes' restates share one fact-table SQL scan. `buildStaging` is set on
+// exactly one idType's runner (which prepends the staging DROP/CREATE/INSERT
+// queries and waits on them before its own restate); the other idTypes' runners
+// only read from `stagingTableFullName`. `allIdTypes` is the full set the
+// staging table projects. The staging table carries a partition-expiration so
+// it auto-drops if the coordinating driver dies before the explicit cleanup.
+export type AggregatedFactTableSharedStaging = {
+  stagingTableFullName: string;
+  allIdTypes: string[];
+  buildStaging: boolean;
+  dropStagingOnComplete: boolean;
+};
+
 export type AggregatedFactTableQueryParams = {
   factTable: FactTableInterface;
   idType: string;
@@ -60,7 +74,12 @@ export type AggregatedFactTableQueryParams = {
   metricState: AggregatedFactTableMetricStateInterface[];
   // How far back a full restate re-scans.
   lookbackWindowDays: number;
+  // Shared-staging restate coordination (opt-in, restate mode only).
+  sharedStaging?: AggregatedFactTableSharedStaging;
 };
+
+export const AGGREGATED_FACT_TABLE_STAGING_PREFIX = "gb_agg_staging";
+export const AGGREGATED_FACT_TABLE_STAGING_EXPIRATION_HOURS = 24;
 
 export type AggregatedFactTableResult = {
   lastMaxTimestamp: Date | null;
@@ -243,8 +262,15 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
       factTableSettingsHash,
       metricState,
       lookbackWindowDays,
+      sharedStaging,
     } = params;
     const integration = this.integration;
+
+    if (sharedStaging && mode !== "restate") {
+      throw new Error(
+        "sharedStaging is restate-only; incremental mode should not pass it",
+      );
+    }
 
     if (!integration.generateTablePath) {
       throw new Error(
@@ -266,6 +292,105 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
 
     // The driver decides the mode; the runner just executes it.
     const queries: Queries = [];
+
+    // Compute the restate window / chunk bounds up front so both the staging
+    // build and the per-idType inserts share them.
+    const now = new Date();
+    const restateWindowStart = new Date(
+      now.getTime() - lookbackWindowDays * 24 * 60 * 60 * 1000,
+    );
+    const restateChunkDays =
+      factTable.aggregatedFactTableSettings?.restateChunkDays;
+    const restateChunks =
+      mode === "restate" && restateChunkDays
+        ? getRestateChunkBounds(restateWindowStart, now, restateChunkDays)
+        : [{ start: restateWindowStart, end: null }];
+
+    let stagingReadyQuery: QueryPointer | null = null;
+    if (sharedStaging?.buildStaging) {
+      // Build the shared staging table before this idType's own restate. All
+      // enabled idTypes' inserts (including this one) then read from it. The
+      // staging DROP-IF-EXISTS runs first for idempotency; a partition-
+      // expiration on CREATE ensures cleanup even if the coordinating driver
+      // dies before the explicit drop.
+      const stagingDropSql = integration.getDropAggregatedFactTableQuery({
+        tableFullName: sharedStaging.stagingTableFullName,
+      });
+      const stagingCreateSql =
+        integration.getCreateAggregatedFactTableStagingQuery({
+          stagingTableFullName: sharedStaging.stagingTableFullName,
+          factTable,
+          idTypes: sharedStaging.allIdTypes,
+          metrics,
+          expirationHours: AGGREGATED_FACT_TABLE_STAGING_EXPIRATION_HOURS,
+        });
+
+      const stagingDrop = await this.startQuery({
+        name: "drop_aggregated_fact_table_staging",
+        displayTitle: `Drop Shared Staging (${factTable.name})`,
+        query: stagingDropSql,
+        dependencies: [],
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runIncrementalWithNoOutputQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
+        queryType: "aggregatedFactTableDrop",
+      });
+      queries.push(stagingDrop);
+
+      const stagingCreate = await this.startQuery({
+        name: "create_aggregated_fact_table_staging",
+        displayTitle: `Create Shared Staging (${factTable.name})`,
+        query: stagingCreateSql,
+        dependencies: [stagingDrop.query],
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runIncrementalWithNoOutputQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
+        queryType: "aggregatedFactTableCreate",
+      });
+      queries.push(stagingCreate);
+
+      let lastStagingInsert: QueryPointer = stagingCreate;
+      for (let i = 0; i < restateChunks.length; i++) {
+        const chunk = restateChunks[i];
+        const stagingInsertSql =
+          integration.getInsertAggregatedFactTableStagingDataQuery({
+            stagingTableFullName: sharedStaging.stagingTableFullName,
+            factTable,
+            idTypes: sharedStaging.allIdTypes,
+            metrics,
+            windowStartDate: chunk.start,
+            windowEndDate: chunk.end,
+          });
+        const stagingInsert = await this.startQuery({
+          name:
+            restateChunks.length > 1
+              ? `insert_aggregated_fact_table_staging_chunk_${i}`
+              : "insert_aggregated_fact_table_staging",
+          displayTitle:
+            restateChunks.length > 1
+              ? `Populate Shared Staging chunk ${i + 1}/${restateChunks.length} (${factTable.name})`
+              : `Populate Shared Staging (${factTable.name})`,
+          query: stagingInsertSql,
+          dependencies: [lastStagingInsert.query],
+          run: (query, setExternalId, queryMetadata) =>
+            integration.runIncrementalWithNoOutputQuery(
+              query,
+              setExternalId,
+              queryMetadata,
+            ),
+          queryType: "aggregatedFactTableInsertData",
+        });
+        queries.push(stagingInsert);
+        lastStagingInsert = stagingInsert;
+      }
+      stagingReadyQuery = lastStagingInsert;
+    }
 
     let dropQuery: QueryPointer | null = null;
     let createQuery: QueryPointer | null = null;
@@ -290,7 +415,7 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
         name: "drop_aggregated_fact_table",
         displayTitle: `Drop Aggregated Fact Table (${factTable.name} / ${idType})`,
         query: dropQueryString,
-        dependencies: [],
+        dependencies: stagingReadyQuery ? [stagingReadyQuery.query] : [],
         run: (query, setExternalId, queryMetadata) =>
           integration.runIncrementalWithNoOutputQuery(
             query,
@@ -318,10 +443,6 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
     }
 
     // Restate re-scans the retained window; incremental slices after the watermark.
-    const now = new Date();
-    const restateWindowStart = new Date(
-      now.getTime() - lookbackWindowDays * 24 * 60 * 60 * 1000,
-    );
     const windowStartDate =
       mode === "restate"
         ? restateWindowStart
@@ -346,11 +467,9 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
     // Restate optionally slices into sequential `restateChunkDays`-wide INSERTs
     // so each query's output stays inside the engine's per-stage write budget on
     // wide fact tables. Unset (or incremental) runs a single full-window INSERT.
-    const restateChunkDays =
-      factTable.aggregatedFactTableSettings?.restateChunkDays;
     const chunks =
-      mode === "restate" && restateChunkDays
-        ? getRestateChunkBounds(restateWindowStart, now, restateChunkDays)
+      mode === "restate"
+        ? restateChunks
         : [{ start: windowStartDate, end: null }];
     const chunked = chunks.length > 1;
 
@@ -366,6 +485,7 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
           windowStartDate: chunk.start,
           windowEndDate: chunk.end,
           exclusiveStart,
+          sourceTableFullName: sharedStaging?.stagingTableFullName,
         });
 
       const insertQuery: QueryPointer = await this.startQuery({
@@ -466,6 +586,27 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
       queryType: "aggregatedFactTableMaxTimestamp",
     });
     queries.push(maxTimestampQuery);
+
+    if (sharedStaging?.dropStagingOnComplete) {
+      // Best-effort cleanup; the partition-expiration set at CREATE guarantees
+      // eventual removal even if this query never runs.
+      const stagingCleanup = await this.startQuery({
+        name: "cleanup_aggregated_fact_table_staging",
+        displayTitle: `Drop Shared Staging (${factTable.name})`,
+        query: integration.getDropAggregatedFactTableQuery({
+          tableFullName: sharedStaging.stagingTableFullName,
+        }),
+        dependencies: [maxTimestampQuery.query],
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runIncrementalWithNoOutputQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
+        queryType: "aggregatedFactTableDrop",
+      });
+      queries.push(stagingCleanup);
+    }
 
     return queries;
   }

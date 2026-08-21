@@ -47,6 +47,7 @@ export type AggregatedFactTableRunInterface = z.infer<
 
 export const aggregatedTableRefreshTriggerStatusValidator = z.enum([
   "started",
+  "completed",
   "failed",
   "skipped",
 ]);
