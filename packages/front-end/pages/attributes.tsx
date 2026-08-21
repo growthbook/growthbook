@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from "react";
+import React, { FC, ReactNode, useEffect, useMemo, useState } from "react";
 import { PiInfo } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import { BiShow } from "react-icons/bi";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import RadixTooltip from "@/ui/Tooltip";
 import Modal from "@/components/Modal";
 import { useAttributeSchema } from "@/services/features";
 import AttributeModal from "@/components/Features/AttributeModal";
@@ -38,6 +39,64 @@ import { TableColumnDef } from "@/services/tableColumns";
 function truncateCharsForWidth(width: number | undefined) {
   return Math.max(12, Math.floor((width ?? 220) / 8));
 }
+
+/**
+ * Clamped content plus a tooltip that only appears once the text is actually
+ * clipped. Measured rather than guessed from a character count: these columns
+ * are resizable and one of them absorbs the table's slack, so the same string
+ * clips at one width and fits at another.
+ */
+const ClampedCell: FC<{
+  tooltip: string;
+  clampLines?: number;
+  children: ReactNode;
+}> = ({ tooltip, clampLines = 1, children }) => {
+  // A callback ref, not useRef: toggling `enabled` swaps a fragment for the
+  // tooltip trigger, which remounts this node. A held ref would keep measuring
+  // the detached one, read 0, and flip the tooltip straight back off.
+  const [node, setNode] = useState<HTMLDivElement | null>(null);
+  const [overflowing, setOverflowing] = useState(false);
+
+  useEffect(() => {
+    if (!node) return;
+    const measure = () =>
+      setOverflowing(
+        node.scrollHeight > node.clientHeight + 1 ||
+          node.scrollWidth > node.clientWidth + 1,
+      );
+    measure();
+    const observer = new ResizeObserver(measure);
+    // The cell too: a line-clamped box keeps the same height whatever its
+    // content, so watching only this node would never re-fire on resize.
+    if (node.parentElement) observer.observe(node.parentElement);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [node, tooltip, clampLines]);
+
+  return (
+    <RadixTooltip content={tooltip} enabled={overflowing}>
+      <div
+        ref={setNode}
+        style={
+          clampLines > 1
+            ? {
+                display: "-webkit-box",
+                WebkitLineClamp: clampLines,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }
+            : {
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }
+        }
+      >
+        {children}
+      </div>
+    </RadixTooltip>
+  );
+};
 
 const FeatureAttributesPage = (): React.ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -168,21 +227,11 @@ const FeatureAttributesPage = (): React.ReactElement => {
         cellProps: () => ({ className: "text-gray" }),
         render: (v) =>
           v.description ? (
-            <Tooltip
-              body={v.description}
-              shouldDisplay={v.description.length > 80}
-            >
-              <div
-                style={{
-                  display: "-webkit-box",
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
-                }}
-              >
-                <Markdown className="mb-0">{v.description}</Markdown>
-              </div>
-            </Tooltip>
+            // Plain text in the tooltip: Radix wraps content in a <p>, so
+            // rendered Markdown would nest block elements inside it.
+            <ClampedCell tooltip={v.description} clampLines={2}>
+              <Markdown className="mb-0">{v.description}</Markdown>
+            </ClampedCell>
           ) : null,
       },
       {
@@ -202,13 +251,17 @@ const FeatureAttributesPage = (): React.ReactElement => {
                 : "";
           return (
             <>
-              <div className="text-truncate">{v.datatype}</div>
+              <Text as="div" truncate>
+                {v.datatype}
+              </Text>
               {detail && (
-                <Tooltip body={detail}>
-                  <div className="text-truncate">
-                    <small>{detail}</small>
-                  </div>
-                </Tooltip>
+                <ClampedCell tooltip={detail}>
+                  {/* Inline, so the clamp's text-overflow ellipsis applies —
+                      it doesn't act on an overflowing block child. */}
+                  <Text as="span" size="sm">
+                    {detail}
+                  </Text>
+                </ClampedCell>
               )}
             </>
           );
