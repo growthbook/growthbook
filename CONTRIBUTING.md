@@ -138,6 +138,10 @@ mongosh -u root
 - `show collections` should show you the collections for the database you are using. This will throw an error if you are not logged in as the correct user.
 - `db` is available and you should be able to run queries against it, e.g. `db.users.find()`
 
+### Building the Docker image
+
+Day-to-day development uses `pnpm dev`, so you don't normally need to build the image. If you do change the `Dockerfile` and want to build it locally, run `docker login dhi.io` first: the hardened base images come from Docker's `dhi.io` registry, which rejects unauthenticated requests (including metadata reads) with a `401`. Any free Docker account works — see [Building from source](https://docs.growthbook.io/self-host#building-from-source) for details. CI does not build the image, so a PR won't fail for want of these credentials.
+
 ### Working on docs
 
 To start the docs site, first `cd docs` and then run `pnpm install` to install and `pnpm dev` to run the docs server. You can view the site at http://localhost:3200
