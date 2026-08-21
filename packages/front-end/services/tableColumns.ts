@@ -94,7 +94,13 @@ export function resolveTableColumns<TRow>(
   defs: TableColumnDef<TRow>[],
   stored: TableColumnLayout | null | undefined,
 ): ResolvedTableColumn<TRow>[] {
-  if (!stored || stored.v !== TABLE_COLUMN_LAYOUT_VERSION) {
+  // The stored value is untrusted: it comes from localStorage, so it can be
+  // hand-edited or left behind by a different shape of this schema.
+  if (
+    !stored ||
+    stored.v !== TABLE_COLUMN_LAYOUT_VERSION ||
+    !Array.isArray(stored.columns)
+  ) {
     return defaultsFor(defs);
   }
 
@@ -102,6 +108,7 @@ export function resolveTableColumns<TRow>(
   const entryById = new Map<string, TableColumnLayoutEntry>();
   const order: string[] = [];
   stored.columns.forEach((entry) => {
+    if (!entry || typeof entry.id !== "string") return;
     if (!byId.has(entry.id) || entryById.has(entry.id)) return;
     entryById.set(entry.id, entry);
     order.push(entry.id);
@@ -163,8 +170,12 @@ export function mergeLayoutForWrite<TRow>(
 ): TableColumnLayout {
   const knownIds = new Set(resolved.map((col) => col.id));
   const orphans = (
-    stored?.v === TABLE_COLUMN_LAYOUT_VERSION ? stored.columns : []
-  ).filter((entry) => !knownIds.has(entry.id));
+    stored?.v === TABLE_COLUMN_LAYOUT_VERSION && Array.isArray(stored.columns)
+      ? stored.columns
+      : []
+  ).filter(
+    (entry) => entry && typeof entry.id === "string" && !knownIds.has(entry.id),
+  );
   return {
     v: TABLE_COLUMN_LAYOUT_VERSION,
     columns: [
