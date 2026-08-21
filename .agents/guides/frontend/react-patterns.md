@@ -54,6 +54,10 @@ Context providers are in `packages/front-end/services/`
 
 When writing user-facing strings (labels, headings, buttons, placeholders, body copy), follow the casing rules in [ui-copy-style.md](../ui-copy-style.md) — the repo-wide copy guide, which also covers back-end and API messages. In short: Title Case for `<Heading>` elements, sentence case for everything else, and always-Title-Case for named resources (GrowthBook, Visual Editor, North Star, Bandit, Data Source, Fact Metric, Feature Flag, Saved Group, SDK Connection) even mid-sentence. The fixed scope label "All Projects" is also Title Case, but bare "project" is a lowercase common noun.
 
+## Top-level list pages
+
+Sidebar destinations (resource lists, tools, insights, settings) share a page shell. Before adding or restyling a top-level page, follow [top-level-page-patterns.md](./top-level-page-patterns.md). Do not invent a new header layout.
+
 ## UI Component Hierarchy
 
 When building UI, follow this priority order for component selection:
