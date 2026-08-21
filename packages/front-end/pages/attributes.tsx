@@ -33,8 +33,11 @@ import ColumnSettingsButton from "@/ui/ColumnSettingsButton";
 import { useTableColumns } from "@/hooks/useTableColumns";
 import { TableColumnDef } from "@/services/tableColumns";
 
-const ATTRIBUTE_NAME_COLUMN_MAX_WIDTH = 200;
-const TAGS_COLUMN_MAX_WIDTH = 160;
+// Rough char budget for a column of `width` px. Only settles after a resize
+// commits, which is why it takes the committed width rather than a live one.
+function truncateCharsForWidth(width: number | undefined) {
+  return Math.max(12, Math.floor((width ?? 220) / 8));
+}
 
 const FeatureAttributesPage = (): React.ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -134,9 +137,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
         label: "Attribute",
         sortField: "property",
         hideable: false,
-        defaultWidth: ATTRIBUTE_NAME_COLUMN_MAX_WIDTH,
+        defaultWidth: 220,
+        minWidth: 120,
         cellProps: () => ({ className: "text-gray font-weight-bold" }),
-        render: (v) => (
+        render: (v, width) => (
           <>
             <Link
               href={`/attributes/${encodeURIComponent(v.property)}`}
@@ -144,8 +148,8 @@ const FeatureAttributesPage = (): React.ReactElement => {
             >
               <TruncateMiddleWithTooltip
                 text={v.property}
-                maxChars={23}
-                maxWidth={ATTRIBUTE_NAME_COLUMN_MAX_WIDTH}
+                maxChars={truncateCharsForWidth(width)}
+                maxWidth="100%"
               />
             </Link>{" "}
             {v.archived && (
@@ -157,44 +161,63 @@ const FeatureAttributesPage = (): React.ReactElement => {
         ),
       },
       {
+        // The slack absorber: no defaultWidth, so it takes the remaining space.
         id: "description",
         label: "Description",
         sortField: "description",
-        defaultWidth: 200,
-        cellProps: () => ({
-          className: "text-gray",
-          style: { overflow: "hidden" },
-        }),
+        cellProps: () => ({ className: "text-gray" }),
         render: (v) =>
           v.description ? (
-            <Markdown className="mb-0">{v.description}</Markdown>
+            <Tooltip
+              body={v.description}
+              shouldDisplay={v.description.length > 80}
+            >
+              <div
+                style={{
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                }}
+              >
+                <Markdown className="mb-0">{v.description}</Markdown>
+              </div>
+            </Tooltip>
           ) : null,
       },
       {
         id: "datatype",
         label: "Data Type",
         sortField: "datatype",
-        cellProps: () => ({
-          className: "text-gray",
-          style: { wordWrap: "break-word" },
-        }),
-        render: (v) => (
-          <>
-            {v.datatype}
-            {v.datatype === "enum" && <>: ({v.enum})</>}
-            {v.format && (
-              <p className="my-0">
-                <small>(format: {v.format})</small>
-              </p>
-            )}
-          </>
-        ),
+        defaultWidth: 170,
+        cellProps: () => ({ className: "text-gray" }),
+        render: (v) => {
+          // Enum lists are unbounded, so the detail line gets one line plus a
+          // tooltip rather than wrapping and making every row taller.
+          const detail =
+            v.datatype === "enum" && v.enum
+              ? `(${v.enum})`
+              : v.format
+                ? `(format: ${v.format})`
+                : "";
+          return (
+            <>
+              <div className="text-truncate">{v.datatype}</div>
+              {detail && (
+                <Tooltip body={detail}>
+                  <div className="text-truncate">
+                    <small>{detail}</small>
+                  </div>
+                </Tooltip>
+              )}
+            </>
+          );
+        },
       },
       {
         id: "projects",
         label: "Projects",
-        headerProps: { style: { paddingRight: "1rem" } },
-        cellProps: () => ({ style: { paddingRight: "1rem" } }),
+        defaultWidth: 150,
         render: (v) => (
           <ProjectBadges
             resourceType="attribute"
@@ -205,9 +228,11 @@ const FeatureAttributesPage = (): React.ReactElement => {
       {
         id: "tags",
         label: "Tags",
-        defaultWidth: TAGS_COLUMN_MAX_WIDTH,
-        cellProps: () => ({ style: { overflow: "hidden" } }),
+        defaultWidth: 150,
         render: (v) => (
+          // The inner div is the flex min-width: 0 fix for SortedTags useFlex;
+          // overflow must not go on the <td> (list cells stay visible so
+          // in-cell poppers aren't clipped).
           <div
             className="tags-cell-content"
             style={{ minWidth: 0, maxWidth: "100%", overflow: "hidden" }}
@@ -224,6 +249,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
       {
         id: "references",
         label: "References",
+        defaultWidth: 130,
         cellProps: () => ({ className: "text-gray" }),
         render: (v) => {
           const refs = references?.[v.property];
@@ -270,6 +296,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
           </>
         ),
         align: "center",
+        defaultWidth: 90,
         cellProps: () => ({ className: "text-gray" }),
         render: (v) => (
           <Flex justify="center">{v.hashAttribute && <>yes</>}</Flex>
@@ -281,6 +308,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
         header: null,
         locked: true,
         resizable: false,
+        defaultWidth: 56,
         headerProps: { className: "text-center" },
         render: (v) => (
           <AttributeRowMenu
@@ -301,6 +329,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
     isCustomized,
     applySettings,
     reset,
+    ColGroup,
   } = useTableColumns({ storageKey: "attributes", columns: columnDefs });
 
   return (
@@ -362,12 +391,8 @@ const FeatureAttributesPage = (): React.ReactElement => {
               </Flex>
             </Box>
           )}
-          <Table
-            variant="list"
-            stickyHeader
-            roundedCorners
-            style={{ tableLayout: "auto" }}
-          >
+          <Table variant="list" stickyHeader roundedCorners layout="fixed">
+            <ColGroup />
             <TableHeader>
               <TableRow>
                 {visibleColumns.map((col) =>
@@ -377,7 +402,6 @@ const FeatureAttributesPage = (): React.ReactElement => {
                       field={col.sortField}
                       className={col.headerProps?.className}
                       style={{
-                        maxWidth: col.width,
                         textAlign: col.align,
                         ...col.headerProps?.style,
                       }}
@@ -389,7 +413,6 @@ const FeatureAttributesPage = (): React.ReactElement => {
                       key={col.id}
                       className={col.headerProps?.className}
                       style={{
-                        maxWidth: col.width,
                         textAlign: col.align,
                         ...col.headerProps?.style,
                       }}
@@ -414,9 +437,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
                           <TableCell
                             key={col.id}
                             className={className}
-                            style={{ maxWidth: col.width, ...style }}
+                            style={style}
                           >
-                            {col.render(v)}
+                            {col.render(v, col.width)}
                           </TableCell>
                         );
                       })}
