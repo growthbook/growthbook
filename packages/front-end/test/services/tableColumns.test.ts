@@ -129,6 +129,22 @@ describe("resolveTableColumns", () => {
     expect(resolved[0].visible).toBe(true);
   });
 
+  it("still honours the stored position of a hideable: false column", () => {
+    // hideable: false means "always visible", not "pinned" — unlike `locked`,
+    // which is what the row-actions column uses.
+    const defs = [col("name", { hideable: false }), col("b"), col("c")];
+    const resolved = resolveTableColumns(
+      defs,
+      layout([
+        { id: "b", visible: true },
+        { id: "name", visible: true },
+        { id: "c", visible: true },
+      ]),
+    );
+    expect(resolved.map((c) => c.id)).toEqual(["b", "name", "c"]);
+    expect(resolved.every((c) => c.visible)).toBe(true);
+  });
+
   it("clamps a stored width up to a raised minWidth", () => {
     const defs = [col("a", { minWidth: 150 })];
     const resolved = resolveTableColumns(
