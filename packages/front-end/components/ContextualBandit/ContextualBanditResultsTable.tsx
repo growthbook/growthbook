@@ -369,23 +369,7 @@ export default function ContextualBanditResultsTable({
 
   return (
     <Box>
-      <Flex justify="between" align="center" mb="1" gap="4" wrap="wrap">
-        <Flex align="center" gap="1">
-          <Heading as="h3" size="sm" mb="0">
-            Attribute Importance
-          </Heading>
-          <Tooltip content="Attributes ranked by proportion of error removed.">
-            <span
-              style={{
-                display: "inline-flex",
-                color: "var(--color-text-low)",
-                cursor: "help",
-              }}
-            >
-              <PiInfo />
-            </span>
-          </Tooltip>
-        </Flex>
+      <Flex justify="end" align="center" mb="4" gap="4" wrap="wrap">
         {headerActions}
       </Flex>
 
@@ -403,6 +387,22 @@ export default function ContextualBanditResultsTable({
 
       {hasTableData ? (
         <>
+          <Flex align="center" gap="1" mb="3">
+            <Heading as="h3" size="sm" mb="0">
+              Attribute Importance
+            </Heading>
+            <Tooltip content="Attributes ranked by proportion of error removed.">
+              <span
+                style={{
+                  display: "inline-flex",
+                  color: "var(--color-text-low)",
+                  cursor: "help",
+                }}
+              >
+                <PiInfo />
+              </span>
+            </Tooltip>
+          </Flex>
           {hasSplitMetadata ? (
             <Box mb="5">
               <ContextualBanditAttributeTable steps={sseTrajectory} />

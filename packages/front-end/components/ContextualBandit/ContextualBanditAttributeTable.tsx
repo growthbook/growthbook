@@ -51,7 +51,7 @@ function AttributeSplitsModal({
       trackingEventModalType="contextual-bandit-attribute-splits"
       header={
         entry.isOther
-          ? "Splits on other attributes"
+          ? "Splits on Other Attributes"
           : `Splits on ${entry.label}`
       }
       subheader={`Removed ${percentFormatter.format(
