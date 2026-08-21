@@ -3307,6 +3307,9 @@ export function toSnapshotApiInterface(
                     pValue: safeFloat(data?.pValue),
                     risk: safeFloat(data?.risk?.[1]),
                     chanceToBeatControl: safeFloat(data?.chanceToWin),
+                    ...(data?.errorMessage
+                      ? { errorMessage: data.errorMessage }
+                      : null),
                   },
                 ],
               };
