@@ -256,9 +256,11 @@ const FeatureAttributesPage = (): React.ReactElement => {
               </Text>
               {detail && (
                 <ClampedCell tooltip={detail}>
-                  {/* Inline, so the clamp's text-overflow ellipsis applies —
-                      it doesn't act on an overflowing block child. */}
-                  <Text as="span" size="sm">
+                  {/* Inline, so the clamp's text-overflow ellipsis applies — it
+                      doesn't act on an overflowing block child. whiteSpace is
+                      explicit because Text otherwise sets `normal` inline,
+                      which beats the clamp's nowrap and lets the text wrap. */}
+                  <Text as="span" size="sm" whiteSpace="nowrap">
                     {detail}
                   </Text>
                 </ClampedCell>
