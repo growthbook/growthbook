@@ -339,6 +339,9 @@ export async function processJWT(
         orgDateCreated: org?.dateCreated
           ? new Date(org.dateCreated).toISOString()
           : "",
+        userDateCreated: user.dateCreated
+          ? new Date(user.dateCreated).toISOString()
+          : "",
         ...trackingAttributes,
         role: org?.members.find((m) => m.id === user.id)?.role,
         hasLicenseKey: org?.licenseKey ? true : false,

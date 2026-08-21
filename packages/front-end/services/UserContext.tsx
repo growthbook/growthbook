@@ -150,6 +150,7 @@ interface UserResponse {
   pylonHmacHash: string;
   verified: boolean;
   superAdmin: boolean;
+  dateCreated?: string | null;
   organizations?: UserOrganizations;
   currentUserPermissions: UserPermissions;
 }
@@ -352,6 +353,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       buildSHA: build.sha,
       buildDate: build.date,
       buildVersion: build.lastVersion,
+      userDateCreated: data?.dateCreated
+        ? getValidDate(data.dateCreated).toISOString()
+        : "",
       orgOwnerJobTitle:
         currentOrg?.organization?.demographicData?.ownerJobTitle,
       orgOwnerUsageIntents:
@@ -360,6 +364,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   }, [
     data?.superAdmin,
     data?.userId,
+    data?.dateCreated,
     currentOrg?.organization?.demographicData?.ownerJobTitle,
     currentOrg?.organization?.demographicData?.ownerUsageIntents,
   ]);
