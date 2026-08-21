@@ -473,13 +473,6 @@ export default function NPSSurvey() {
             >
               Change score
             </Button>
-            <Flex align="center" gap="3" mb="4">
-              <span
-                className={`${styles.scorebox} ${CATEGORY_UI[cat].className}`}
-              >
-                {score}
-              </span>
-            </Flex>
             <Text
               as="label"
               htmlFor={FEEDBACK_FIELD_ID}

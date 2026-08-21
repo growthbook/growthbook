@@ -102,19 +102,6 @@
   transform: translateY(-1px);
 }
 
-.scorebox {
-  width: 42px;
-  height: 42px;
-  border-radius: var(--radius-4);
-  display: grid;
-  place-items: center;
-  background: var(--c9);
-  color: var(--con);
-  font-weight: 700;
-  font-size: 18px;
-  font-variant-numeric: tabular-nums;
-}
-
 .thanks {
   padding: 14px 8px 10px;
 }
