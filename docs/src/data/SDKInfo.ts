@@ -35,6 +35,9 @@ export default {
         caseInsensitiveRegex: "≥ v1.6.3",
       },
       {
+        trackingPlugin: "≥ v1.4.0",
+      },
+      {
         savedGroupReferences: "≥ v1.1.0",
       },
       {
@@ -118,6 +121,9 @@ export default {
       },
       {
         caseInsensitiveRegex: "≥ v1.6.3",
+      },
+      {
+        trackingPlugin: "≥ v1.4.0",
       },
       {
         savedGroupReferences: "≥ v1.1.0",
@@ -238,6 +244,9 @@ export default {
         remoteEval: "≥ v2.5.0",
       },
       {
+        trackingPlugin: "≥ v2.4.0",
+      },
+      {
         caseInsensitiveRegex: "≥ v2.3.0",
       },
       {
@@ -301,6 +310,9 @@ export default {
       },
       {
         caseInsensitiveRegex: "≥ v1.6.3",
+      },
+      {
+        trackingPlugin: "≥ v1.4.0",
       },
       {
         savedGroupReferences: "≥ v1.1.0",
@@ -382,7 +394,7 @@ export default {
   },
   python: {
     name: "Python SDK",
-    version: "2.3.1",
+    version: "2.4.0",
     github: "https://github.com/growthbook/growthbook-python",
     examples: [],
     packageRepos: [
@@ -400,6 +412,9 @@ export default {
       },
       {
         remoteEval: "≥ v2.3.0",
+      },
+      {
+        trackingPlugin: "≥ v2.2.0",
       },
       {
         caseInsensitiveMembership: "≥ v2.1.1",
@@ -457,6 +472,9 @@ export default {
         experimentation: "All versions",
       },
       {
+        trackingPlugin: "≥ v0.2.8",
+      },
+      {
         caseInsensitiveMembership: "≥ v0.2.7",
       },
       {
@@ -493,7 +511,7 @@ export default {
   },
   rust: {
     name: "Rust SDK",
-    version: "0.2.0",
+    version: "0.2.1",
     github: "https://github.com/growthbook/growthbook-rust",
     examples: [
       {
@@ -717,7 +735,7 @@ export default {
   },
   kotlin: {
     name: "Kotlin SDK",
-    version: "7.3.0",
+    version: "7.6.0",
     github: "https://github.com/growthbook/growthbook-kotlin",
     examples: [],
     packageRepos: [
@@ -770,7 +788,7 @@ export default {
   },
   swift: {
     name: "Swift SDK",
-    version: "1.1.12",
+    version: "1.2.0",
     github: "https://github.com/growthbook/growthbook-swift",
     examples: [],
     packageRepos: [
@@ -853,6 +871,9 @@ export default {
       },
       {
         caseInsensitiveRegex: "≥ v1.6.3",
+      },
+      {
+        trackingPlugin: "≥ v1.4.0",
       },
       {
         savedGroupReferences: "≥ v1.1.0",
@@ -1189,6 +1210,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        trackingPlugin: "≥ v4.4.0",
       },
       {
         caseInsensitiveRegex: "≥ v4.3.0",

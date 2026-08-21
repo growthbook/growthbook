@@ -1,18 +1,40 @@
 import fs from "fs";
 import path from "path";
+import type { SkillSummary } from "shared/ai-chat";
 import { logger } from "back-end/src/util/logger";
 
-export interface SkillMetadata {
-  name: string;
-  description: string;
-}
+/**
+ * Agent skills teach the generic agent how to use slices of the GrowthBook
+ * REST API via the `callApi` tool.
+ *
+ * This module is the loader; the content is assembled at build time into
+ * `generated/agent-skills` from a growthbook/skills checkout plus the
+ * in-app-only `skills-local` tree (see `scripts/assemble-agent-skills.mts`).
+ *
+ * Layout (one level deep):
+ *
+ *   generated/agent-skills/
+ *     growthbook-docs/
+ *       SKILL.md                  # standalone domain, no workflows
+ *     feature-flags/
+ *       SKILL.md                  # domain router (name: feature-flags)
+ *       references/
+ *         flag-create.md          # workflow, qualified as
+ *                                 # feature-flags/references/flag-create
+ *
+ * Domain routers appear in the system-prompt index and the composer's
+ * slash-command menu; workflows load on demand once the model has read the
+ * router's workflow table.
+ */
 
-export interface Skill extends SkillMetadata {
+/** A skill's index entry plus the prompt body only the agent reads. */
+export interface Skill extends SkillSummary {
   body: string;
 }
 
 interface SkillRegistry {
-  domains: SkillMetadata[];
+  /** Index entries for domains and workflows, in menu order. */
+  summaries: SkillSummary[];
   skills: Map<string, Skill>;
 }
 
@@ -81,10 +103,13 @@ function readDomainSkill(
   if (!fs.existsSync(routerPath)) return null;
 
   const { data: frontmatter, body } = readMarkdownFile(routerPath);
-  const domain = {
-    name: frontmatter.name || directoryName,
+  const name = frontmatter.name || directoryName;
+  const domain: Skill = {
+    name,
     description: frontmatter.description || "",
     body: body.trim(),
+    kind: "domain",
+    group: name,
   };
   if (!domain.description) {
     logger.warn(
@@ -97,6 +122,7 @@ function readDomainSkill(
 function readReferenceSkills(
   skillsDir: string,
   directoryName: string,
+  domainName: string,
 ): Skill[] | null {
   const referencesDir = path.join(skillsDir, directoryName, "references");
   if (
@@ -116,15 +142,21 @@ function readReferenceSkills(
     const referencePath = path.join(referencesDir, file);
     if (!fs.statSync(referencePath).isFile()) continue;
 
-    const name = `${directoryName}/references/${path.basename(file, ".md")}`;
+    const name = `${domainName}/references/${path.basename(file, ".md")}`;
     const { data: frontmatter, body } = readMarkdownFile(referencePath);
     references.push({
       name,
       description: frontmatter.description || "",
       body: body.trim(),
+      kind: "leaf",
+      group: domainName,
     });
   }
   return references;
+}
+
+function toSummary({ name, description, kind, group }: Skill): SkillSummary {
+  return { name, description, kind, ...(group === undefined ? {} : { group }) };
 }
 
 let cachedRegistry: SkillRegistry | null = null;
@@ -135,10 +167,10 @@ function loadSkillsFromDisk(): SkillRegistry {
     logger.warn(
       `No skills directory found near ${__dirname}; the generic agent will run without skill instructions.`,
     );
-    return { domains: [], skills: new Map() };
+    return { summaries: [], skills: new Map() };
   }
 
-  const domains: SkillMetadata[] = [];
+  const summaries: SkillSummary[] = [];
   const skills = new Map<string, Skill>();
 
   for (const entry of fs.readdirSync(dir).sort()) {
@@ -151,10 +183,10 @@ function loadSkillsFromDisk(): SkillRegistry {
       );
       continue;
     }
-    domains.push({ name: domain.name, description: domain.description });
+    summaries.push(toSummary(domain));
     skills.set(domain.name, domain);
 
-    const domainReferences = readReferenceSkills(dir, entry);
+    const domainReferences = readReferenceSkills(dir, entry, domain.name);
     if (domainReferences === null) continue;
     if (domainReferences.length === 0) {
       logger.warn(
@@ -163,14 +195,16 @@ function loadSkillsFromDisk(): SkillRegistry {
     }
     for (const reference of domainReferences) {
       skills.set(reference.name, reference);
+      summaries.push(toSummary(reference));
     }
   }
 
   const names = [...skills.keys()];
+  const domainCount = summaries.filter((s) => s.kind === "domain").length;
   logger.info(
-    `Loaded ${names.length} agent skill(s) from ${dir} (${domains.length} domain, ${names.length - domains.length} reference): ${names.join(", ")}`,
+    `Loaded ${names.length} agent skill(s) from ${dir} (${domainCount} domain, ${names.length - domainCount} reference): ${names.join(", ")}`,
   );
-  return { domains, skills };
+  return { summaries, skills };
 }
 
 function getSkillRegistry(): SkillRegistry {
@@ -180,8 +214,14 @@ function getSkillRegistry(): SkillRegistry {
   return cachedRegistry;
 }
 
-export function listDomainSkills(): readonly SkillMetadata[] {
-  return getSkillRegistry().domains;
+/** Domain routers only — the compact index inlined into the system prompt. */
+export function listDomainSkills(): readonly SkillSummary[] {
+  return getSkillRegistry().summaries.filter((s) => s.kind === "domain");
+}
+
+/** Domains and workflows — the composer's slash-command menu lists both. */
+export function listSkillSummaries(): readonly SkillSummary[] {
+  return getSkillRegistry().summaries;
 }
 
 export function readSkill(name: string): Skill | undefined {

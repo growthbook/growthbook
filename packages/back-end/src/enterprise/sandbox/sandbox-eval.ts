@@ -27,6 +27,7 @@ import {
   configToResolvable,
   ResolvableValue,
 } from "back-end/src/services/resolvableValues";
+import type { SandboxEvalResult } from "./sandbox-core";
 import { runInSandbox } from "./sandbox-pool";
 
 // Custom hook orchestration; sandboxed JS runs in the child-process pool (sandbox-pool.ts).
@@ -600,6 +601,104 @@ async function _runCustomHooks(
   }
 }
 
+// The incrementalChangesOnly rule: an outcome the previous state already
+// produced isn't this change's fault. Errors must match verbatim, so a message
+// carrying changing state never suppresses. Exported so the hook Test panel
+// applies the same rule instead of approximating it.
+export type IncrementalSuppression = {
+  errorSuppressed: boolean;
+  warnings: string[];
+};
+
+export async function applyIncrementalSuppression(
+  code: string,
+  res: SandboxEvalResult,
+  originalFunctionArgs: Record<string, unknown>,
+): Promise<IncrementalSuppression> {
+  const originalRes = await runInSandbox(code, originalFunctionArgs);
+  if (!res.ok) {
+    return {
+      errorSuppressed: !originalRes.ok && originalRes.error === res.error,
+      warnings: [],
+    };
+  }
+  return {
+    errorSuppressed: false,
+    warnings: originalRes.ok
+      ? res.warnings.filter((w) => !originalRes.warnings.includes(w))
+      : res.warnings,
+  };
+}
+
+// Warnings are only compared on a successful proposed run. A throw returns
+// warnings: [] (error wins); treating that as a comparison would mark every
+// proposed warning as suppressed.
+export function formatCustomHookTestResult(
+  result: SandboxEvalResult,
+  incremental: IncrementalSuppression | null,
+): {
+  success: boolean;
+  returnVal?: string;
+  error?: string;
+  warnings: string[];
+  log?: string;
+  suppressed?: { error?: string; warnings?: string[] };
+} {
+  const suppressedWarnings =
+    incremental && result.ok
+      ? result.warnings.filter((w) => !incremental.warnings.includes(w))
+      : [];
+  const suppressed =
+    incremental?.errorSuppressed || suppressedWarnings.length
+      ? {
+          ...(incremental?.errorSuppressed ? { error: result.error } : {}),
+          ...(suppressedWarnings.length
+            ? { warnings: suppressedWarnings }
+            : {}),
+        }
+      : undefined;
+
+  if (result.ok || incremental?.errorSuppressed) {
+    return {
+      success: true,
+      returnVal: result.returnVal
+        ? JSON.stringify(result.returnVal, null, 2)
+        : undefined,
+      warnings: incremental ? incremental.warnings : result.warnings,
+      log: result.log,
+      suppressed,
+    };
+  }
+
+  return {
+    success: false,
+    error: result.error || "Unknown error",
+    warnings: result.warnings,
+    log: result.log,
+    suppressed,
+  };
+}
+
+// Dry-run used by both the internal Test panel and the REST /custom-hooks/test
+// handler. Second sandbox run only happens when there is an outcome to hide,
+// matching _runCustomHook.
+export async function runCustomHookTest(
+  functionBody: string,
+  functionArgs: Record<string, unknown>,
+  originalFunctionArgs?: Record<string, unknown>,
+) {
+  const result = await runInSandbox(functionBody, functionArgs);
+  const incremental =
+    originalFunctionArgs && (!result.ok || result.warnings.length)
+      ? await applyIncrementalSuppression(
+          functionBody,
+          result,
+          originalFunctionArgs,
+        )
+      : null;
+  return formatCustomHookTestResult(result, incremental);
+}
+
 async function _runCustomHook(
   context: Context,
   hook: CustomHookInterface,
@@ -614,14 +713,18 @@ async function _runCustomHook(
     context.models.customHooks.logFailure(hook);
   }
 
+  // Only worth a second sandbox run when there's an outcome to suppress.
+  const checkPrior = !!originalFunctionArgs && !!hook.incrementalChangesOnly;
+
   // A thrown error is a hard block and always wins over any warnings.
   if (!res.ok) {
-    // Incremental: ignore the hook if this same error already existed before the change.
-    if (originalFunctionArgs && hook.incrementalChangesOnly) {
-      const originalRes = await runInSandbox(hook.code, originalFunctionArgs);
-      if (!originalRes.ok && originalRes.error === res.error) {
-        return { warnings: [] };
-      }
+    if (checkPrior) {
+      const { errorSuppressed } = await applyIncrementalSuppression(
+        hook.code,
+        res,
+        originalFunctionArgs!,
+      );
+      if (errorSuppressed) return { warnings: [] };
     }
 
     const error =
@@ -631,12 +734,12 @@ async function _runCustomHook(
 
   let warnings = res.warnings;
 
-  // Incremental: drop warnings that were already present before this change.
-  if (warnings.length && originalFunctionArgs && hook.incrementalChangesOnly) {
-    const originalRes = await runInSandbox(hook.code, originalFunctionArgs);
-    if (originalRes.ok) {
-      warnings = warnings.filter((w) => !originalRes.warnings.includes(w));
-    }
+  if (warnings.length && checkPrior) {
+    ({ warnings } = await applyIncrementalSuppression(
+      hook.code,
+      res,
+      originalFunctionArgs!,
+    ));
   }
 
   return { warnings };

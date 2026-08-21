@@ -1,4 +1,5 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { DataRegion } from "shared/util";
 import { DimensionInterface } from "shared/types/dimension";
 import { MetricDefinitionInterface } from "shared/types/metric";
 import { SegmentInterface } from "shared/types/segment";
@@ -53,6 +54,7 @@ type Definitions = {
   _factMetricsIncludingArchived: FactMetricInterface[];
   decisionCriteria: DecisionCriteriaInterface[];
   webhookSecrets: WebhookSecretFrontEndInterface[];
+  eventIngestorRegion?: DataRegion;
 };
 
 type DefinitionContextValue = Definitions & {
@@ -400,6 +402,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       _factMetricsIncludingArchived: allFactMetrics,
       decisionCriteria: decisionCriteria,
       webhookSecrets: data.webhookSecrets,
+      eventIngestorRegion: data.eventIngestorRegion,
       setProject,
       getMetricById,
       getDatasourceById,
