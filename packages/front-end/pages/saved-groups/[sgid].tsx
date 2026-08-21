@@ -98,8 +98,10 @@ import { REVISION_SAVED_GROUP_DIFF_CONFIG } from "@/components/Revision/Revision
 import { useUser } from "@/services/UserContext";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import HelperText from "@/ui/HelperText";
 import ConflictCallout, {
   ConflictProvider,
+  ConflictShell,
 } from "@/components/DraftConflicts/ConflictContext";
 import { useDraftConflict } from "@/components/DraftConflicts/useDraftConflict";
 import SavedGroupDraftSelectorForChanges, {
@@ -296,12 +298,12 @@ export default function EditSavedGroupPage() {
   // rather than merged: pick theirs (loads it into the editor) or keep yours.
   const listConflict = useDraftConflict<Record<string, unknown>>({
     initial: { values: listBaseline ?? displayedValues },
-    labels: { values: "IDs" },
+    labels: { values: "List items" },
     applyField: (_field, value) => {
       setImportOperation("replace");
       setItemsToAdd((value as string[]) ?? []);
     },
-    isNewDraft: addItemsDraftMode === "new",
+    isNewDraft: (addItems ? addItemsDraftMode : deleteItemsDraftMode) === "new",
     entityNoun: "saved group",
   });
 
@@ -521,8 +523,14 @@ export default function EditSavedGroupPage() {
                   ? "Propose changes"
                   : "Create draft"
           }
-          ctaEnabled={listConflict.resolved}
+          ctaEnabled={!listConflict.hasConflict}
+          disabledMessage={
+            listConflict.hasConflict
+              ? "Reload to remove items from the current list."
+              : undefined
+          }
           submit={async () => {
+            if (listConflict.hasConflict) return;
             const newValues = displayedValues.filter((v) => !selected.has(v));
 
             const params = new URLSearchParams();
@@ -579,12 +587,37 @@ export default function EditSavedGroupPage() {
             canAutoPublish={canAutoPublish}
             approvalRequired={approvalRequired}
             defaultExpanded={!canAutoPublish}
-            alert={listConflict.alert}
-            alertActive={listConflict.alertActive}
+            alert={
+              listConflict.hasConflict ? (
+                <HelperText status="warning" icon={null}>
+                  The list changed while you were editing, so this removal no
+                  longer matches it.
+                </HelperText>
+              ) : undefined
+            }
+            alertActive={listConflict.hasConflict}
           />
-          <ConflictProvider {...listConflict.providerProps}>
-            {listConflict.callouts}
-          </ConflictProvider>
+          {listConflict.hasConflict && (
+            <ConflictShell
+              resolved={false}
+              message={
+                <Text>Reload to remove items from the current list.</Text>
+              }
+              choices={
+                <Button
+                  size="sm"
+                  onClick={async () => {
+                    listConflict.clear();
+                    setSelected(new Set());
+                    await mutate();
+                    setDeleteItemsModal(false);
+                  }}
+                >
+                  Reload
+                </Button>
+              }
+            />
+          )}
         </Modal>
       )}
       {addItems && (

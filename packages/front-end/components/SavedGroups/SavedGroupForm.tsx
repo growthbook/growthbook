@@ -652,6 +652,7 @@ const SavedGroupForm: FC<{
               </Flex>
             </Link>
           )}
+          <ConflictCallout field="description" />
           <MultiSelectField
             legacyHeight
             label="Projects"
