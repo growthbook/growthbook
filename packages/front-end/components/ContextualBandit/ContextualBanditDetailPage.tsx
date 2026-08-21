@@ -38,11 +38,17 @@ import {
 } from "@/ui/DropdownMenu";
 import { DetailSectionColumn } from "@/components/DetailSectionBox";
 import ContextualBanditResultsTable from "@/components/ContextualBandit/ContextualBanditResultsTable";
+import ContextualBanditHealthTab from "@/components/ContextualBandit/ContextualBanditHealthTab";
 import { VariationBox } from "@/components/Experiment/VariationsTable";
 import ContextualBanditLinkedFeatures from "@/components/ContextualBandit/ContextualBanditLinkedFeatures";
 import StartContextualBanditModal from "@/components/ContextualBandit/StartContextualBanditModal";
 import CompareContextualBanditEventsModal from "@/components/ContextualBandit/CompareContextualBanditEventsModal";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
+import {
+  useContextualBanditHealthIssues,
+  useContextualBanditStatusHealth,
+} from "@/hooks/useContextualBandits";
+import Avatar from "@/ui/Avatar";
 
 function OverviewSection({
   title,
@@ -125,6 +131,9 @@ export default function ContextualBanditDetailPage({
   const [auditModal, setAuditModal] = useState(false);
 
   const updateEndpoint = `/api/v1/contextual-bandits/${cb.id}`;
+
+  const healthIssues = useContextualBanditHealthIssues(cb);
+  const statusHealth = useContextualBanditStatusHealth(cb);
 
   const datasource = cb.datasource ? getDatasourceById(cb.datasource) : null;
   const datasourceName = datasource?.name ?? cb.datasource;
@@ -272,7 +281,10 @@ export default function ContextualBanditDetailPage({
           </Heading>
           <Box style={{ userSelect: "none" }}>
             <ExperimentStatusIndicator
-              experimentData={contextualBanditStatusIndicatorData(cb)}
+              experimentData={contextualBanditStatusIndicatorData(
+                cb,
+                statusHealth,
+              )}
             />
           </Box>
         </Flex>
@@ -436,7 +448,17 @@ export default function ContextualBanditDetailPage({
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           {showResultsTab ? (
-            <TabsTrigger value="results">Results</TabsTrigger>
+            <>
+              <TabsTrigger value="results">Results</TabsTrigger>
+              <TabsTrigger value="health">
+                Health
+                {healthIssues.length > 0 ? (
+                  <Avatar size="sm" ml="2" color="red">
+                    {healthIssues.length}
+                  </Avatar>
+                ) : null}
+              </TabsTrigger>
+            </>
           ) : null}
         </TabsList>
 
@@ -639,6 +661,14 @@ export default function ContextualBanditDetailPage({
               <Frame>
                 <ContextualBanditResultsTable cb={cb} mutate={mutate} />
               </Frame>
+            </Box>
+          </TabsContent>
+        ) : null}
+
+        {showResultsTab ? (
+          <TabsContent value="health">
+            <Box pt="4">
+              <ContextualBanditHealthTab cb={cb} />
             </Box>
           </TabsContent>
         ) : null}

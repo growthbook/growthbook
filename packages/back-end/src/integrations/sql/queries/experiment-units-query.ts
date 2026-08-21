@@ -2,6 +2,10 @@ import { getDelayWindowHours, getUserIdTypes } from "shared/experiments";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { ExperimentUnitsQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
+import {
+  CONTEXTUAL_BANDIT_EAQ_BANDIT_VERSION_COLUMN,
+  queryHasContextualBanditVersionColumn,
+} from "shared/validators";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
 import { getConversionWindowClause } from "back-end/src/integrations/sql/clauses/conversion-window-clause";
@@ -85,6 +89,34 @@ export function getExperimentUnitsQuery(
 
   const contextualBanditCfg = getContextualBanditUnitsSqlConfig(unitsSettings);
 
+  const splitUnitsByBanditVersion =
+    !!unitsSettings.banditSettings?.contextualBandit &&
+    queryHasContextualBanditVersionColumn(exposureQuery.query);
+
+  const banditVersionExposureSelectCol = splitUnitsByBanditVersion
+    ? `, e.${CONTEXTUAL_BANDIT_EAQ_BANDIT_VERSION_COLUMN} AS bandit_version`
+    : "";
+
+  // Contextual bandits need the bandit_version column to flag __multiple__.
+  const isContextualBandit = !!unitsSettings.banditSettings?.contextualBandit;
+
+  // When splitting by version each unit is a single (user, bandit_version), so
+  // a unit is __multiple__ only when that user saw >1 variation within that
+  // same version (checked directly since the CTE groups by user + version).
+  const variationValuePerUnit = splitUnitsByBanditVersion
+    ? dialect.ifElse(
+        "count(distinct e.variation) > 1",
+        "'__multiple__'",
+        getFirstVariationValuePerUnit(dialect),
+      )
+    : isContextualBandit || unitsSettings.banditSettings?.useFirstExposure
+      ? getFirstVariationValuePerUnit(dialect)
+      : dialect.ifElse(
+          "count(distinct e.variation) > 1",
+          "'__multiple__'",
+          "max(e.variation)",
+        );
+
   const {
     contextualExposureSelectCols,
     contextualUnitsBaseSelectCols,
@@ -105,6 +137,7 @@ export function getExperimentUnitsQuery(
           `u.${baseIdType}`,
           "u.variation",
           "u.first_exposure_timestamp",
+          ...(splitUnitsByBanditVersion ? ["u.bandit_version"] : []),
           ...unitDimensions.map((d) => `u.dim_unit_${d.dimension.id}`),
           ...experimentDimensions.map((d) => `u.dim_exp_${d.id}`),
           ...(activationMetric ? ["u.first_activation_timestamp"] : []),
@@ -146,6 +179,7 @@ export function getExperimentUnitsQuery(
         e.${baseIdType} as ${baseIdType}
         , ${dialect.castToString("e.variation_id")} as variation
         , ${timestampDateTimeColumn} as timestamp
+        ${banditVersionExposureSelectCol}
         ${contextualExposureSelectCols}
         ${experimentDimensions
           .map((d) => {
@@ -228,20 +262,12 @@ export function getExperimentUnitsQuery(
       )
       .join("\n")}
     , ${unitsCteName} AS (
-      -- One row per user
+      -- One row per ${splitUnitsByBanditVersion ? "user + bandit_version" : "user"}
       SELECT
         e.${baseIdType} AS ${baseIdType}
-        , ${
-          !!unitsSettings.banditSettings?.useFirstExposure &&
-          unitsSettings.banditSettings
-            ? getFirstVariationValuePerUnit(dialect)
-            : dialect.ifElse(
-                "count(distinct e.variation) > 1",
-                "'__multiple__'",
-                "max(e.variation)",
-              )
-        } AS variation
+        , ${variationValuePerUnit} AS variation
         , MIN(${timestampColumn}) AS first_exposure_timestamp
+        ${splitUnitsByBanditVersion ? `, e.bandit_version AS bandit_version` : ""}
         ${unitDimensions
           .map(
             (d) => `
@@ -295,6 +321,6 @@ export function getExperimentUnitsQuery(
         }
       ${segment ? `WHERE s.date <= e.timestamp` : ""}
       GROUP BY
-        e.${baseIdType}
+        e.${baseIdType}${splitUnitsByBanditVersion ? `\n        , e.bandit_version` : ""}
     )${contextualAfterUnitsCtes}`;
 }

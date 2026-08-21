@@ -16280,10 +16280,88 @@ paths:
                                   degreesOfFreedom:
                                     type: integer
                                     minimum: 0
+                                  latestPeriod:
+                                    type: object
+                                    properties:
+                                      banditVersion:
+                                        type: string
+                                      leaves:
+                                        type: array
+                                        items:
+                                          type: object
+                                          properties:
+                                            leafId:
+                                              type: string
+                                            observed:
+                                              type: array
+                                              items:
+                                                type: number
+                                            expected:
+                                              type: array
+                                              items:
+                                                type: number
+                                          required:
+                                            - leafId
+                                            - observed
+                                            - expected
+                                          additionalProperties: false
+                                    required:
+                                      - banditVersion
+                                      - leaves
+                                    additionalProperties: false
                                 required:
                                   - statistic
                                   - pValue
                                   - degreesOfFreedom
+                                additionalProperties: false
+                              - type: 'null'
+                          traffic:
+                            anyOf:
+                              - type: object
+                                properties:
+                                  overall:
+                                    type: object
+                                    properties:
+                                      name:
+                                        type: string
+                                      srm:
+                                        type: number
+                                      variationUnits:
+                                        type: array
+                                        items:
+                                          type: number
+                                    required:
+                                      - name
+                                      - srm
+                                      - variationUnits
+                                    additionalProperties: false
+                                  dimension:
+                                    type: object
+                                    propertyNames:
+                                      type: string
+                                    additionalProperties:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          name:
+                                            type: string
+                                          srm:
+                                            type: number
+                                          variationUnits:
+                                            type: array
+                                            items:
+                                              type: number
+                                        required:
+                                          - name
+                                          - srm
+                                          - variationUnits
+                                        additionalProperties: false
+                                  error:
+                                    type: string
+                                required:
+                                  - overall
+                                  - dimension
                                 additionalProperties: false
                               - type: 'null'
                         required:
@@ -16297,6 +16375,7 @@ paths:
                           - type
                           - triggeredBy
                           - srm
+                          - traffic
                         additionalProperties: false
                       - type: 'null'
                 required:
@@ -63752,6 +63831,30 @@ components:
         stageDateStarted:
           type: string
           format: date-time
+        analysisSummary:
+          type: object
+          properties:
+            snapshotId:
+              type: string
+            health:
+              type: object
+              properties:
+                srm:
+                  anyOf:
+                    - type: number
+                    - type: 'null'
+                multipleExposures:
+                  type: number
+                totalUsers:
+                  type: number
+              required:
+                - srm
+                - multipleExposures
+                - totalUsers
+              additionalProperties: false
+          required:
+            - snapshotId
+          additionalProperties: false
         autoSnapshots:
           type: boolean
         nextSnapshotAttempt:
