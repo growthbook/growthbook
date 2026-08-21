@@ -4208,14 +4208,40 @@ export async function postFeatureDefaultValue(
     defaultValueChanged: true,
     settings: org?.settings,
   });
-  const updatedRevisionAfterDefaultValue = await setDefaultValue(
-    context,
-    feature,
-    revision,
-    resolution.merged.defaultValue,
-    res.locals.eventAudit,
-    resetReview,
-  );
+  // The baseline check above closes the stale-editor window; this closes the
+  // request-overlap one, as on the rule path.
+  let updatedRevisionAfterDefaultValue: FeatureRevisionInterface | null;
+  try {
+    updatedRevisionAfterDefaultValue = await setDefaultValue(
+      context,
+      feature,
+      revision,
+      resolution.merged.defaultValue,
+      res.locals.eventAudit,
+      resetReview,
+      { guardDateUpdated: !!baseline },
+    );
+  } catch (e) {
+    if (!(e instanceof RevisionContentChangedError)) throw e;
+    const fresh = await getRevision({
+      context,
+      organization: feature.organization,
+      featureId: feature.id,
+      feature,
+      version: revision.version,
+    });
+    return res.status(409).json({
+      status: 409,
+      message:
+        "The default value was changed by someone else while you were saving. Review their version before saving.",
+      conflict: {
+        entityId: feature.id,
+        current: { defaultValue: fresh?.defaultValue ?? revision.defaultValue },
+        liveVersion: feature.version,
+        draftVersion: revision.version,
+      },
+    });
+  }
   await recordRevisionUpdate(
     context,
     feature,

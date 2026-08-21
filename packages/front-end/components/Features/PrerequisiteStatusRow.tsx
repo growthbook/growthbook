@@ -73,6 +73,12 @@ export default function PrerequisiteStatusRow({
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  // Pinned when the modal opens: `feature` is reactive, so reading the list at
+  // submit time would compare the current list against itself while `i` still
+  // points at the row the user saw.
+  const [deleteBaseline, setDeleteBaseline] = useState<
+    FeaturePrerequisite[] | null
+  >(null);
 
   const latestActiveDraft = useMemo(
     () =>
@@ -129,7 +135,7 @@ export default function PrerequisiteStatusRow({
             // Index-addressed, so the list it was read from has to match.
             body: JSON.stringify({
               i,
-              baseline: getPrerequisites(feature),
+              baseline: deleteBaseline ?? getPrerequisites(feature),
               ...draftBody,
             }),
           },
@@ -189,6 +195,7 @@ export default function PrerequisiteStatusRow({
           color="red"
           onClick={() => {
             setOpen(false);
+            setDeleteBaseline(getPrerequisites(feature));
             setShowDeleteModal(true);
           }}
         >
