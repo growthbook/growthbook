@@ -235,7 +235,9 @@ function upsertByPath(
 // re-applies the intent to fresh content instead of replaying stale ops.
 export type ProposedChangesInput =
   | JsonPatchOperation[]
-  | ((existing: Revision | null) => JsonPatchOperation[]);
+  | ((
+      existing: Revision | null,
+    ) => JsonPatchOperation[] | Promise<JsonPatchOperation[]>);
 
 export type CreateOrUpdateRevisionOptions = {
   replaceChanges?: boolean;
@@ -293,8 +295,8 @@ export async function createOrUpdateRevision(
       // both have to happen inside the CAS loop, against the row being written.
       const finalChanges =
         typeof proposedChanges === "function"
-          ? (row: Revision) => {
-              const derived = proposedChanges(row);
+          ? async (row: Revision) => {
+              const derived = await proposedChanges(row);
               return replaceChanges
                 ? derived
                 : upsertByPath(
@@ -328,8 +330,8 @@ export async function createOrUpdateRevision(
     if (existingRevision) {
       const finalChanges =
         typeof proposedChanges === "function"
-          ? (row: Revision) => {
-              const derived = proposedChanges(row);
+          ? async (row: Revision) => {
+              const derived = await proposedChanges(row);
               return replaceChanges
                 ? derived
                 : upsertByPath(
@@ -364,7 +366,7 @@ export async function createOrUpdateRevision(
     // Nothing to race with on a fresh draft: derive against no existing row.
     proposedChanges:
       typeof proposedChanges === "function"
-        ? proposedChanges(null)
+        ? await proposedChanges(null)
         : proposedChanges,
     title,
     comment,

@@ -58,54 +58,46 @@ export const putConfigRevisionProperty = createApiRequestHandler(
       );
     }
 
-    const draft = applyRevisionToSnapshot(revision);
-    const nextValue = setOwnValueProperty(
-      draft.value,
-      req.body.property,
-      req.body.value,
-    );
-
-    assertValidConfigValueEdit(nextValue);
-    const strippedValue = stripConfigExtends(nextValue);
-
-    await assertNoReferenceCycle(
-      req.context,
-      config.key,
-      strippedValue,
-      undefined,
-      "config",
-    );
-
-    await assertConfigValueValid(
-      req.context,
-      {
-        key: config.key,
-        name: config.name,
-        value: strippedValue,
-        schema: draft.schema,
-        parent: draft.parent,
-        extends: draft.extends,
-      },
-      { value: strippedValue },
-    );
-
-    // Derive inside the write so a CAS retry re-applies this property to the
-    // row it lost to, instead of replaying the value computed above.
+    // Derive and validate inside the write, so a CAS retry re-applies this
+    // property to the row it lost to and validates the value it then persists,
+    // rather than one computed against content that has since moved.
     const updated = await createOrUpdateRevision(
       req.context,
       "config",
       config as unknown as Record<string, unknown> & { id: string },
-      (row) => {
-        const value = row
-          ? setOwnValueProperty(
-              applyRevisionToSnapshot(row).value,
-              req.body.property,
-              req.body.value,
-            )
-          : nextValue;
-        return buildPatchOps({
-          value: stripConfigExtends(value),
-        });
+      async (row) => {
+        const draft = applyRevisionToSnapshot(row ?? revision);
+        const nextValue = setOwnValueProperty(
+          draft.value,
+          req.body.property,
+          req.body.value,
+        );
+
+        assertValidConfigValueEdit(nextValue);
+        const strippedValue = stripConfigExtends(nextValue);
+
+        await assertNoReferenceCycle(
+          req.context,
+          config.key,
+          strippedValue,
+          undefined,
+          "config",
+        );
+
+        await assertConfigValueValid(
+          req.context,
+          {
+            key: config.key,
+            name: config.name,
+            value: strippedValue,
+            schema: draft.schema,
+            parent: draft.parent,
+            extends: draft.extends,
+          },
+          { value: strippedValue },
+        );
+
+        return buildPatchOps({ value: strippedValue });
       },
       { revisionId: revision.id },
     );

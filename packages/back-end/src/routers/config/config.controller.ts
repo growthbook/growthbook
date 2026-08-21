@@ -1224,24 +1224,39 @@ export const putConfig = async (
     "config",
     existing as unknown as Record<string, unknown> & { id: string },
     valuePropertyOp
-      ? (row) => {
+      ? async (row) => {
           if (!row) return patchOps;
-          const current = (
-            applyPatchToSnapshot(
-              row.target.snapshot as ConfigInterface,
-              normalizeProposedChanges(row.target.proposedChanges),
-            ) as ConfigInterface
-          ).value;
+          const draft = applyPatchToSnapshot(
+            row.target.snapshot as ConfigInterface,
+            normalizeProposedChanges(row.target.proposedChanges),
+          ) as ConfigInterface;
           const nextValue = valuePropertyOp.remove
-            ? removeOwnValueProperty(current, valuePropertyOp.property).value
+            ? removeOwnValueProperty(draft.value, valuePropertyOp.property)
+                .value
             : setOwnValueProperty(
-                current,
+                draft.value,
                 valuePropertyOp.property,
                 valuePropertyOp.value,
               );
+          const strippedValue = stripConfigExtends(nextValue);
+          // Validated here rather than against the value read before the write:
+          // a CAS retry applies this property to newer content, and the schema
+          // has to hold for the aggregate that actually lands.
+          await assertConfigValueValid(
+            context,
+            {
+              key: existing.key,
+              name: existing.name,
+              value: strippedValue,
+              schema: draft.schema,
+              parent: draft.parent,
+              extends: draft.extends,
+            },
+            { value: strippedValue },
+          );
           return buildPatchOps({
             ...(fieldsToUpdate as Record<string, unknown>),
-            value: stripConfigExtends(nextValue),
+            value: strippedValue,
           });
         }
       : patchOps,

@@ -53,48 +53,41 @@ export const deleteConfigRevisionProperty = createApiRequestHandler(
       );
     }
 
-    const draft = applyRevisionToSnapshot(revision);
-    const { value: nextValue, existed } = removeOwnValueProperty(
-      draft.value,
-      req.query.property,
-    );
-    if (!existed) {
-      throw new NotFoundError(
-        `No property "${req.query.property}" set on this config`,
-      );
-    }
-
-    const strippedValue = stripConfigExtends(nextValue);
-
-    await assertConfigValueValid(
-      req.context,
-      {
-        key: config.key,
-        name: config.name,
-        value: strippedValue,
-        schema: draft.schema,
-        parent: draft.parent,
-        extends: draft.extends,
-      },
-      { value: strippedValue },
-    );
-
-    // Derive inside the write so a CAS retry removes this property from the row
-    // it lost to, rather than replaying the value computed above.
+    // Derive and validate inside the write, so a CAS retry removes this property
+    // from the row it lost to and validates the value it then persists, rather
+    // than one computed against content that has since moved.
     const updated = await createOrUpdateRevision(
       req.context,
       "config",
       config as unknown as Record<string, unknown> & { id: string },
-      (row) => {
-        const value = row
-          ? removeOwnValueProperty(
-              applyRevisionToSnapshot(row).value,
-              req.query.property,
-            ).value
-          : nextValue;
-        return buildPatchOps({
-          value: stripConfigExtends(value),
-        });
+      async (row) => {
+        const draft = applyRevisionToSnapshot(row ?? revision);
+        const { value: nextValue, existed } = removeOwnValueProperty(
+          draft.value,
+          req.query.property,
+        );
+        if (!existed) {
+          throw new NotFoundError(
+            `No property "${req.query.property}" set on this config`,
+          );
+        }
+
+        const strippedValue = stripConfigExtends(nextValue);
+
+        await assertConfigValueValid(
+          req.context,
+          {
+            key: config.key,
+            name: config.name,
+            value: strippedValue,
+            schema: draft.schema,
+            parent: draft.parent,
+            extends: draft.extends,
+          },
+          { value: strippedValue },
+        );
+
+        return buildPatchOps({ value: strippedValue });
       },
       { revisionId: revision.id },
     );

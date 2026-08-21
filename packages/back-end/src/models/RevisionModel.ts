@@ -1527,7 +1527,9 @@ export class RevisionModel extends BaseClass {
     id: string,
     proposedChanges:
       | JsonPatchOperation[]
-      | ((existing: Revision) => JsonPatchOperation[]),
+      | ((
+          existing: Revision,
+        ) => JsonPatchOperation[] | Promise<JsonPatchOperation[]>),
     userId: string,
     authority: CasAuthority<Revision>,
   ) {
@@ -1556,10 +1558,10 @@ export class RevisionModel extends BaseClass {
       );
     }
 
-    return this.writeContentEdit(id, userId, authority, (row) => {
+    return this.writeContentEdit(id, userId, authority, async (row) => {
       const changes = Array.isArray(proposedChanges)
         ? proposedChanges
-        : proposedChanges(row);
+        : await proposedChanges(row);
       if (!Array.isArray(proposedChanges)) {
         this.assertSupportedPatchOps(changes);
       }
@@ -1591,10 +1593,15 @@ export class RevisionModel extends BaseClass {
     id: string,
     userId: string,
     authority: CasAuthority<Revision>,
-    build: (existing: Revision) => {
-      target: Revision["target"];
-      entry: Revision["activityLog"][number];
-    },
+    build: (existing: Revision) =>
+      | {
+          target: Revision["target"];
+          entry: Revision["activityLog"][number];
+        }
+      | Promise<{
+          target: Revision["target"];
+          entry: Revision["activityLog"][number];
+        }>,
   ): Promise<Revision> {
     const updated = await this.updateWithCas(
       id,
@@ -1616,7 +1623,7 @@ export class RevisionModel extends BaseClass {
       async (existing) => {
         await assertCasAuthority(authority, existing);
         this.assertDraftAcceptsContentEdit(existing);
-        const { target, entry } = build(existing);
+        const { target, entry } = await build(existing);
         const { status, resetEntry } = this.resetApprovalIfNeeded(
           existing,
           userId,
