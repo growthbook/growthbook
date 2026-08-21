@@ -38,6 +38,7 @@ import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownSubMenu,
 } from "@/ui/DropdownMenu";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -47,7 +48,7 @@ import LinkButton from "@/ui/LinkButton";
 export default function DashboardsPage() {
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature, userId } = useUser();
-  const { project } = useDefinitions();
+  const { project, projects, mutateDefinitions } = useDefinitions();
   const { apiCall } = useAuth();
   const [saving, setSaving] = useState(false);
   const router = useRouter();
@@ -150,6 +151,30 @@ export default function DashboardsPage() {
     },
     [apiCall, mutateDashboards],
   );
+
+  // A dashboard scoped to specific projects can only be set as the default
+  // for one of those; a global dashboard (no projects) is eligible for any
+  // project. Either way, setting a project's default requires permission on
+  // that project specifically, not on the dashboard.
+  const getEligibleProjectsForDefault = (d: DashboardInterface) => {
+    const candidates = d.projects?.length
+      ? projects.filter((p) => d.projects?.includes(p.id))
+      : projects;
+    return candidates.filter((p) => permissionsUtil.canUpdateProject(p.id));
+  };
+
+  const setDefaultDashboard = async (projectId: string, dashId: string) => {
+    // The server merges this into the project's existing settings, so only
+    // the changed field needs to be sent (avoids clobbering concurrent
+    // changes to statsEngine/confidenceLevel/etc. from a stale snapshot).
+    await apiCall(`/projects/${projectId}/settings`, {
+      method: "PUT",
+      body: JSON.stringify({
+        settings: { defaultDashboardId: dashId },
+      }),
+    });
+    mutateDefinitions();
+  };
 
   if (loading || saving) return <LoadingOverlay />;
 
@@ -352,6 +377,19 @@ export default function DashboardsPage() {
                             permissionsUtil.canCreateGeneralDashboards(d);
                           const canManageSharingAndEditLevels =
                             canEdit && (isOwner || isAdmin);
+                          const eligibleProjectsForDefault =
+                            getEligibleProjectsForDefault(d);
+                          const singleEligibleProjectForDefault =
+                            eligibleProjectsForDefault.length === 1
+                              ? eligibleProjectsForDefault[0]
+                              : undefined;
+                          const isDefaultForSingleProject =
+                            singleEligibleProjectForDefault?.settings
+                              ?.defaultDashboardId === d.id;
+                          const isDefaultForAnyEligibleProject =
+                            eligibleProjectsForDefault.some(
+                              (p) => p.settings?.defaultDashboardId === d.id,
+                            );
 
                           // If the dashboard is private, and the currentUser isn't the owner, they don't have edit/delete rights, regardless of their permissions
                           if (
@@ -462,6 +500,73 @@ export default function DashboardsPage() {
                                       >
                                         Share...
                                       </DropdownMenuItem>
+
+                                      {singleEligibleProjectForDefault ? (
+                                        <Tooltip
+                                          body={
+                                            isDefaultForSingleProject
+                                              ? `Remove this dashboard as the default. Members of the ${singleEligibleProjectForDefault.name} Project currently see it on their home page by default.`
+                                              : `Members of the ${singleEligibleProjectForDefault.name} Project will see this dashboard on their home page by default. They can still pick a different one for themselves.`
+                                          }
+                                        >
+                                          <DropdownMenuItem
+                                            onClick={() =>
+                                              setDefaultDashboard(
+                                                singleEligibleProjectForDefault.id,
+                                                isDefaultForSingleProject
+                                                  ? ""
+                                                  : d.id,
+                                              )
+                                            }
+                                          >
+                                            {isDefaultForSingleProject
+                                              ? `Remove as Default for ${singleEligibleProjectForDefault.name}`
+                                              : `Set as Default for ${singleEligibleProjectForDefault.name}`}
+                                          </DropdownMenuItem>
+                                        </Tooltip>
+                                      ) : eligibleProjectsForDefault.length >
+                                        1 ? (
+                                        <DropdownSubMenu
+                                          trigger={
+                                            isDefaultForAnyEligibleProject
+                                              ? "Manage Default Dashboard"
+                                              : "Set as Default Dashboard"
+                                          }
+                                        >
+                                          {eligibleProjectsForDefault.map(
+                                            (p) => {
+                                              const isCurrentDefault =
+                                                p.settings
+                                                  ?.defaultDashboardId === d.id;
+                                              return (
+                                                <Tooltip
+                                                  key={p.id}
+                                                  body={
+                                                    isCurrentDefault
+                                                      ? `Remove this dashboard as the default. Members of the ${p.name} Project currently see it on their home page by default.`
+                                                      : `Members of the ${p.name} Project will see this dashboard on their home page by default. They can still pick a different one for themselves.`
+                                                  }
+                                                >
+                                                  <DropdownMenuItem
+                                                    onClick={() =>
+                                                      setDefaultDashboard(
+                                                        p.id,
+                                                        isCurrentDefault
+                                                          ? ""
+                                                          : d.id,
+                                                      )
+                                                    }
+                                                  >
+                                                    {isCurrentDefault
+                                                      ? `Remove as Default for ${p.name}`
+                                                      : `Set as Default for ${p.name}`}
+                                                  </DropdownMenuItem>
+                                                </Tooltip>
+                                              );
+                                            },
+                                          )}
+                                        </DropdownSubMenu>
+                                      ) : null}
 
                                       {canDelete && (
                                         <>
