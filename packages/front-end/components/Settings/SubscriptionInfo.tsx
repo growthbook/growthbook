@@ -245,7 +245,8 @@ export default function SubscriptionInfo() {
       </Box>
       <Box mb="3">
         <strong>Number Of Seats:</strong> {subscriptionSeats || 0}
-        {readOnlySeats > 0 ? (
+        {/* Only Orb totals count members alone; Stripe's includes invites, so the breakdown wouldn't add up. */}
+        {subscription?.billingPlatform === "orb" && readOnlySeats > 0 ? (
           <Text as="div" color="gray" size="2">
             This includes {readOnlySeats} read-only {seatLabel(readOnlySeats)}{" "}
             and {fullMemberSeats} full-member {seatLabel(fullMemberSeats)}.
@@ -294,12 +295,13 @@ export default function SubscriptionInfo() {
           <Callout status="error" mb="3">
             Your plan will be canceled, but is still available until the end of
             your billing period on
-            {` ${subscription?.dateToBeCanceled}.`}
+            {` ${date(subscription?.dateToBeCanceled ?? "")}.`}
           </Callout>
         )}
       {subscription?.status === "canceled" && (
         <Callout status="error" mb="3">
-          Your plan was canceled on {` ${subscription?.cancelationDate}.`}
+          Your plan was canceled on{" "}
+          {` ${date(subscription?.cancelationDate ?? "")}.`}
         </Callout>
       )}
       {showOrbInvoiceBlockedCallout ? (
