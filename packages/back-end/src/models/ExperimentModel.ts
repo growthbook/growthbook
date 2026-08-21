@@ -1883,17 +1883,25 @@ export async function getExperimentMapForFeature(
 export async function getAllPayloadExperiments(
   context: ReqContext | ApiReqContext,
   projects?: string[],
+  // Experiments a delivered feature references, wanted whatever project they are in.
+  alsoIncludeIds: string[] = [],
 ): Promise<Map<string, ExperimentInterface>> {
-  const projectFilter =
+  const scoped =
     !projects || !projects.length
-      ? {}
+      ? undefined
       : projects.length === 1
         ? { project: projects[0] }
         : { project: { $in: projects } };
 
+  const scopeFilter = !scoped
+    ? {}
+    : alsoIncludeIds.length
+      ? { $and: [{ $or: [scoped, { id: { $in: alsoIncludeIds } }] }] }
+      : scoped;
+
   const experiments = await findExperiments(context, {
     organization: context.org.id,
-    ...projectFilter,
+    ...scopeFilter,
     archived: { $ne: true },
     $or: [
       {

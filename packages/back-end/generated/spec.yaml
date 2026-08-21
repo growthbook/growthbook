@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  version: 5.0.0
+  version: 5.0.1
   title: GrowthBook REST API
   description: >
     GrowthBook offers a full REST API for interacting with the application.
@@ -694,6 +694,14 @@ tags:
   - name: Report_model
     x-displayName: Report
     description: <SchemaDefinition schemaRef="#/components/schemas/Report" />
+  - name: RequireReviewRule_model
+    x-displayName: Require Review Rule
+    description: <SchemaDefinition schemaRef="#/components/schemas/RequireReviewRule" />
+  - name: RequireReviewRuleInput_model
+    x-displayName: Require Review Rule Input
+    description: >-
+      <SchemaDefinition schemaRef="#/components/schemas/RequireReviewRuleInput"
+      />
   - name: RevisionIdRef_model
     x-displayName: Revision Id Ref
     description: <SchemaDefinition schemaRef="#/components/schemas/RevisionIdRef" />
@@ -703,6 +711,11 @@ tags:
   - name: SavedGroup_model
     x-displayName: Saved Group
     description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroup" />
+  - name: SavedGroupApprovalRule_model
+    x-displayName: Saved Group Approval Rule
+    description: >-
+      <SchemaDefinition schemaRef="#/components/schemas/SavedGroupApprovalRule"
+      />
   - name: SavedGroupReferences_model
     x-displayName: Saved Group References
     description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroupReferences" />
@@ -924,7 +937,32 @@ paths:
                                 condition:
                                   description: Applied to everyone by default.
                                   type: string
+                                savedGroups:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      match:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - none
+                                          - any
+                                      ids:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - match
+                                      - ids
+                                    additionalProperties: false
                                 savedGroupTargeting:
+                                  description: >-
+                                    Deprecated — use `savedGroups`. Accepted so
+                                    a GET response can be posted back unchanged;
+                                    `savedGroups` takes precedence if both are
+                                    sent.
+                                  deprecated: true
                                   type: array
                                   items:
                                     type: object
@@ -1004,7 +1042,32 @@ paths:
                                 condition:
                                   description: Applied to everyone by default.
                                   type: string
+                                savedGroups:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      match:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - none
+                                          - any
+                                      ids:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - match
+                                      - ids
+                                    additionalProperties: false
                                 savedGroupTargeting:
+                                  description: >-
+                                    Deprecated — use `savedGroups`. Accepted so
+                                    a GET response can be posted back unchanged;
+                                    `savedGroups` takes precedence if both are
+                                    sent.
+                                  deprecated: true
                                   type: array
                                   items:
                                     type: object
@@ -1113,7 +1176,32 @@ paths:
                                   const: experiment-ref
                                 condition:
                                   type: string
+                                savedGroups:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      match:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - none
+                                          - any
+                                      ids:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - match
+                                      - ids
+                                    additionalProperties: false
                                 savedGroupTargeting:
+                                  description: >-
+                                    Deprecated — use `savedGroups`. Accepted so
+                                    a GET response can be posted back unchanged;
+                                    `savedGroups` takes precedence if both are
+                                    sent.
+                                  deprecated: true
                                   type: array
                                   items:
                                     type: object
@@ -1332,7 +1420,32 @@ paths:
                                     condition:
                                       description: Applied to everyone by default.
                                       type: string
+                                    savedGroups:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
                                     savedGroupTargeting:
+                                      description: >-
+                                        Deprecated — use `savedGroups`. Accepted
+                                        so a GET response can be posted back
+                                        unchanged; `savedGroups` takes
+                                        precedence if both are sent.
+                                      deprecated: true
                                       type: array
                                       items:
                                         type: object
@@ -1412,7 +1525,32 @@ paths:
                                     condition:
                                       description: Applied to everyone by default.
                                       type: string
+                                    savedGroups:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
                                     savedGroupTargeting:
+                                      description: >-
+                                        Deprecated — use `savedGroups`. Accepted
+                                        so a GET response can be posted back
+                                        unchanged; `savedGroups` takes
+                                        precedence if both are sent.
+                                      deprecated: true
                                       type: array
                                       items:
                                         type: object
@@ -1521,7 +1659,32 @@ paths:
                                       const: experiment-ref
                                     condition:
                                       type: string
+                                    savedGroups:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
                                     savedGroupTargeting:
+                                      description: >-
+                                        Deprecated — use `savedGroups`. Accepted
+                                        so a GET response can be posted back
+                                        unchanged; `savedGroups` takes
+                                        precedence if both are sent.
+                                      deprecated: true
                                       type: array
                                       items:
                                         type: object
@@ -1923,7 +2086,32 @@ paths:
                                 condition:
                                   description: Applied to everyone by default.
                                   type: string
+                                savedGroups:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      match:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - none
+                                          - any
+                                      ids:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - match
+                                      - ids
+                                    additionalProperties: false
                                 savedGroupTargeting:
+                                  description: >-
+                                    Deprecated — use `savedGroups`. Accepted so
+                                    a GET response can be posted back unchanged;
+                                    `savedGroups` takes precedence if both are
+                                    sent.
+                                  deprecated: true
                                   type: array
                                   items:
                                     type: object
@@ -2003,7 +2191,32 @@ paths:
                                 condition:
                                   description: Applied to everyone by default.
                                   type: string
+                                savedGroups:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      match:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - none
+                                          - any
+                                      ids:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - match
+                                      - ids
+                                    additionalProperties: false
                                 savedGroupTargeting:
+                                  description: >-
+                                    Deprecated — use `savedGroups`. Accepted so
+                                    a GET response can be posted back unchanged;
+                                    `savedGroups` takes precedence if both are
+                                    sent.
+                                  deprecated: true
                                   type: array
                                   items:
                                     type: object
@@ -2112,7 +2325,32 @@ paths:
                                   const: experiment-ref
                                 condition:
                                   type: string
+                                savedGroups:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      match:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - none
+                                          - any
+                                      ids:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - match
+                                      - ids
+                                    additionalProperties: false
                                 savedGroupTargeting:
+                                  description: >-
+                                    Deprecated — use `savedGroups`. Accepted so
+                                    a GET response can be posted back unchanged;
+                                    `savedGroups` takes precedence if both are
+                                    sent.
+                                  deprecated: true
                                   type: array
                                   items:
                                     type: object
@@ -2331,7 +2569,32 @@ paths:
                                     condition:
                                       description: Applied to everyone by default.
                                       type: string
+                                    savedGroups:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
                                     savedGroupTargeting:
+                                      description: >-
+                                        Deprecated — use `savedGroups`. Accepted
+                                        so a GET response can be posted back
+                                        unchanged; `savedGroups` takes
+                                        precedence if both are sent.
+                                      deprecated: true
                                       type: array
                                       items:
                                         type: object
@@ -2411,7 +2674,32 @@ paths:
                                     condition:
                                       description: Applied to everyone by default.
                                       type: string
+                                    savedGroups:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
                                     savedGroupTargeting:
+                                      description: >-
+                                        Deprecated — use `savedGroups`. Accepted
+                                        so a GET response can be posted back
+                                        unchanged; `savedGroups` takes
+                                        precedence if both are sent.
+                                      deprecated: true
                                       type: array
                                       items:
                                         type: object
@@ -2520,7 +2808,32 @@ paths:
                                       const: experiment-ref
                                     condition:
                                       type: string
+                                    savedGroups:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
                                     savedGroupTargeting:
+                                      description: >-
+                                        Deprecated — use `savedGroups`. Accepted
+                                        so a GET response can be posted back
+                                        unchanged; `savedGroups` takes
+                                        precedence if both are sent.
+                                      deprecated: true
                                       type: array
                                       items:
                                         type: object
@@ -6936,7 +7249,31 @@ paths:
                             maxLength: 10000
                           condition:
                             type: string
+                          savedGroups:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
                           savedGroupTargeting:
+                            description: >-
+                              Deprecated — use `savedGroups`. Accepted so a GET
+                              response can be posted back unchanged;
+                              `savedGroups` takes precedence if both are sent.
+                            deprecated: true
                             type: array
                             items:
                               type: object
@@ -7048,7 +7385,31 @@ paths:
                             maxLength: 10000
                           condition:
                             type: string
+                          savedGroups:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
                           savedGroupTargeting:
+                            description: >-
+                              Deprecated — use `savedGroups`. Accepted so a GET
+                              response can be posted back unchanged;
+                              `savedGroups` takes precedence if both are sent.
+                            deprecated: true
                             type: array
                             items:
                               type: object
@@ -7184,7 +7545,31 @@ paths:
                             const: experiment-ref
                           condition:
                             type: string
+                          savedGroups:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
                           savedGroupTargeting:
+                            description: >-
+                              Deprecated — use `savedGroups`. Accepted so a GET
+                              response can be posted back unchanged;
+                              `savedGroups` takes precedence if both are sent.
+                            deprecated: true
                             type: array
                             items:
                               type: object
@@ -7311,7 +7696,31 @@ paths:
                             const: safe-rollout
                           condition:
                             type: string
+                          savedGroups:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
                           savedGroupTargeting:
+                            description: >-
+                              Deprecated — use `savedGroups`. Accepted so a GET
+                              response can be posted back unchanged;
+                              `savedGroups` takes precedence if both are sent.
+                            deprecated: true
                             type: array
                             items:
                               type: object
@@ -7636,7 +8045,31 @@ paths:
                             maxLength: 10000
                           condition:
                             type: string
+                          savedGroups:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
                           savedGroupTargeting:
+                            description: >-
+                              Deprecated — use `savedGroups`. Accepted so a GET
+                              response can be posted back unchanged;
+                              `savedGroups` takes precedence if both are sent.
+                            deprecated: true
                             type: array
                             items:
                               type: object
@@ -7748,7 +8181,31 @@ paths:
                             maxLength: 10000
                           condition:
                             type: string
+                          savedGroups:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
                           savedGroupTargeting:
+                            description: >-
+                              Deprecated — use `savedGroups`. Accepted so a GET
+                              response can be posted back unchanged;
+                              `savedGroups` takes precedence if both are sent.
+                            deprecated: true
                             type: array
                             items:
                               type: object
@@ -7884,7 +8341,31 @@ paths:
                             const: experiment-ref
                           condition:
                             type: string
+                          savedGroups:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
                           savedGroupTargeting:
+                            description: >-
+                              Deprecated — use `savedGroups`. Accepted so a GET
+                              response can be posted back unchanged;
+                              `savedGroups` takes precedence if both are sent.
+                            deprecated: true
                             type: array
                             items:
                               type: object
@@ -8011,7 +8492,31 @@ paths:
                             const: safe-rollout
                           condition:
                             type: string
+                          savedGroups:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
                           savedGroupTargeting:
+                            description: >-
+                              Deprecated — use `savedGroups`. Accepted so a GET
+                              response can be posted back unchanged;
+                              `savedGroups` takes precedence if both are sent.
+                            deprecated: true
                             type: array
                             items:
                               type: object
@@ -13373,7 +13878,31 @@ paths:
                           Targeting condition as a JSON string. Mirrors the GET
                           response.
                         type: string
+                      savedGroups:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            match:
+                              type: string
+                              enum:
+                                - all
+                                - none
+                                - any
+                            ids:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - match
+                            - ids
+                          additionalProperties: false
                       savedGroupTargeting:
+                        description: >-
+                          Deprecated — use `savedGroups`. Accepted so a GET
+                          response can be posted back unchanged; `savedGroups`
+                          takes precedence if both are sent.
+                        deprecated: true
                         type: array
                         items:
                           type: object
@@ -14048,7 +14577,31 @@ paths:
                           Targeting condition as a JSON string. Mirrors the GET
                           response.
                         type: string
+                      savedGroups:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            match:
+                              type: string
+                              enum:
+                                - all
+                                - none
+                                - any
+                            ids:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - match
+                            - ids
+                          additionalProperties: false
                       savedGroupTargeting:
+                        description: >-
+                          Deprecated — use `savedGroups`. Accepted so a GET
+                          response can be posted back unchanged; `savedGroups`
+                          takes precedence if both are sent.
+                        deprecated: true
                         type: array
                         items:
                           type: object
@@ -14952,6 +15505,48 @@ paths:
                 required:
                   - snapshot
                 additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    description: >-
+                      The Incremental Pipeline needs a Full Refresh of Overall
+                      Results before this request can be served
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - requires_full_refresh
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiErrorRequiresFullRefreshDetails
+                    required:
+                      - message
+                      - code
+                      - details
+                  - type: object
+                    description: >-
+                      The requested dimension was already computed from the
+                      latest Overall Results
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - dimension_already_up_to_date
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiErrorDimensionAlreadyUpToDateDetails
+                    required:
+                      - message
+                      - code
+                      - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -25642,6 +26237,15 @@ paths:
                   propertyNames:
                     type: string
                   additionalProperties: {}
+                originalFunctionArgs:
+                  description: >-
+                    State before the change. When supplied, the hook also runs
+                    against it and Incremental Changes Only suppression is
+                    applied to the result.
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties: {}
                 entityType:
                   type: string
                   enum:
@@ -25675,6 +26279,8 @@ paths:
                   log:
                     description: Captured console output
                     type: string
+                  suppressed:
+                    $ref: '#/components/schemas/suppressed'
                 required:
                   - success
                 additionalProperties: false
@@ -26375,11 +26981,6 @@ paths:
                   type: array
                   items:
                     $ref: '#/components/schemas/FactTableColumnInput'
-                columnsError:
-                  description: Error message if there was an issue parsing the SQL schema
-                  anyOf:
-                    - type: string
-                    - type: 'null'
                 managedBy:
                   description: Set this to "api" to disable editing in the GrowthBook UI
                   type: string
@@ -29342,6 +29943,27 @@ paths:
                       type: array
                       items:
                         type: string
+                    additionalRoles:
+                      description: >-
+                        Additional roles granted alongside this one, in the same
+                        scope. Each is granted independently and environment
+                        access is the union across them.
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          role:
+                            type: string
+                          environments:
+                            type: array
+                            items:
+                              type: string
+                          limitAccessByEnvironment:
+                            type: boolean
+                        required:
+                          - role
+                          - environments
+                        additionalProperties: false
                     projectRoles:
                       type: array
                       items:
@@ -29357,6 +29979,27 @@ paths:
                               type: string
                           limitAccessByEnvironment:
                             type: boolean
+                          additionalRoles:
+                            description: >-
+                              Additional roles granted alongside this one, in
+                              the same scope. Each is granted independently and
+                              environment access is the union across them.
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                role:
+                                  type: string
+                                environments:
+                                  type: array
+                                  items:
+                                    type: string
+                                limitAccessByEnvironment:
+                                  type: boolean
+                              required:
+                                - role
+                                - environments
+                              additionalProperties: false
                         required:
                           - project
                           - role
@@ -29459,6 +30102,60 @@ paths:
         - lang: cURL
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/settings' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/settings/approvals:
+    put:
+      operationId: putApprovalSettings
+      summary: >-
+        Replace the approval requirements for feature flags, configs and
+        constants, and for saved groups. Each family is replaced wholesale when
+        supplied; omit one to leave it unchanged.
+      tags:
+        - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                requireReviews:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/RequireReviewRuleInput'
+                approvalFlows:
+                  type: object
+                  properties:
+                    savedGroups:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/SavedGroupApprovalRule'
+                  required:
+                    - savedGroups
+                  additionalProperties: false
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  requireReviews:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RequireReviewRule'
+                  approvalFlows:
+                    $ref: '#/components/schemas/approvalFlows'
+                required:
+                  - requireReviews
+                  - approvalFlows
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X PUT 'https://api.growthbook.io/api/v1/settings/approvals' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/version:
     get:
@@ -33717,6 +34414,12 @@ paths:
                         - week
                         - month
                         - year
+                    projects:
+                      type: array
+                      items:
+                        type: string
+                    experimentSearchString:
+                      type: string
                   additionalProperties: false
                 blocks:
                   type: array
@@ -34072,6 +34775,16 @@ paths:
                                     - id
                                     - visible
                                   additionalProperties: false
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  projects:
+                                    type: boolean
+                                  experimentSearchString:
+                                    type: boolean
+                                additionalProperties: false
                             required:
                               - type
                               - title
@@ -34217,6 +34930,16 @@ paths:
                                     additionalProperties: false
                                 required:
                                   - enabled
+                                additionalProperties: false
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  projects:
+                                    type: boolean
+                                  experimentSearchString:
+                                    type: boolean
                                 additionalProperties: false
                               metricId:
                                 type: string
@@ -34364,6 +35087,16 @@ paths:
                                 required:
                                   - enabled
                                 additionalProperties: false
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  projects:
+                                    type: boolean
+                                  experimentSearchString:
+                                    type: boolean
+                                additionalProperties: false
                               showProjectBreakdown:
                                 type: boolean
                             required:
@@ -34509,6 +35242,16 @@ paths:
                                     additionalProperties: false
                                 required:
                                   - enabled
+                                additionalProperties: false
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  projects:
+                                    type: boolean
+                                  experimentSearchString:
+                                    type: boolean
                                 additionalProperties: false
                               dateGranularity:
                                 type: string
@@ -36684,6 +37427,16 @@ paths:
                                     - id
                                     - visible
                                   additionalProperties: false
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  projects:
+                                    type: boolean
+                                  experimentSearchString:
+                                    type: boolean
+                                additionalProperties: false
                             required:
                               - organization
                               - id
@@ -36838,6 +37591,16 @@ paths:
                                     additionalProperties: false
                                 required:
                                   - enabled
+                                additionalProperties: false
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  projects:
+                                    type: boolean
+                                  experimentSearchString:
+                                    type: boolean
                                 additionalProperties: false
                               metricId:
                                 type: string
@@ -36994,6 +37757,16 @@ paths:
                                 required:
                                   - enabled
                                 additionalProperties: false
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  projects:
+                                    type: boolean
+                                  experimentSearchString:
+                                    type: boolean
+                                additionalProperties: false
                               showProjectBreakdown:
                                 type: boolean
                             required:
@@ -37148,6 +37921,16 @@ paths:
                                     additionalProperties: false
                                 required:
                                   - enabled
+                                additionalProperties: false
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  projects:
+                                    type: boolean
+                                  experimentSearchString:
+                                    type: boolean
                                 additionalProperties: false
                               dateGranularity:
                                 type: string
@@ -39232,6 +40015,12 @@ paths:
                         - week
                         - month
                         - year
+                    projects:
+                      type: array
+                      items:
+                        type: string
+                    experimentSearchString:
+                      type: string
                   additionalProperties: false
                 blocks:
                   type: array
@@ -39586,6 +40375,16 @@ paths:
                                 - id
                                 - visible
                               additionalProperties: false
+                          globalControlSettings:
+                            type: object
+                            properties:
+                              dateRange:
+                                type: boolean
+                              projects:
+                                type: boolean
+                              experimentSearchString:
+                                type: boolean
+                            additionalProperties: false
                         required:
                           - type
                           - title
@@ -39731,6 +40530,16 @@ paths:
                                 additionalProperties: false
                             required:
                               - enabled
+                            additionalProperties: false
+                          globalControlSettings:
+                            type: object
+                            properties:
+                              dateRange:
+                                type: boolean
+                              projects:
+                                type: boolean
+                              experimentSearchString:
+                                type: boolean
                             additionalProperties: false
                           metricId:
                             type: string
@@ -39878,6 +40687,16 @@ paths:
                             required:
                               - enabled
                             additionalProperties: false
+                          globalControlSettings:
+                            type: object
+                            properties:
+                              dateRange:
+                                type: boolean
+                              projects:
+                                type: boolean
+                              experimentSearchString:
+                                type: boolean
+                            additionalProperties: false
                           showProjectBreakdown:
                             type: boolean
                         required:
@@ -40023,6 +40842,16 @@ paths:
                                 additionalProperties: false
                             required:
                               - enabled
+                            additionalProperties: false
+                          globalControlSettings:
+                            type: object
+                            properties:
+                              dateRange:
+                                type: boolean
+                              projects:
+                                type: boolean
+                              experimentSearchString:
+                                type: boolean
                             additionalProperties: false
                           dateGranularity:
                             type: string
@@ -43066,6 +43895,24 @@ paths:
                         type: array
                         items:
                           type: string
+                      additionalRoles:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            role:
+                              type: string
+                            limitAccessByEnvironment:
+                              type: boolean
+                            environments:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - role
+                            - limitAccessByEnvironment
+                            - environments
+                          additionalProperties: false
                       project:
                         type: string
                     required:
@@ -43185,6 +44032,24 @@ paths:
                         type: array
                         items:
                           type: string
+                      additionalRoles:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            role:
+                              type: string
+                            limitAccessByEnvironment:
+                              type: boolean
+                            environments:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - role
+                            - limitAccessByEnvironment
+                            - environments
+                          additionalProperties: false
                       project:
                         type: string
                     required:
@@ -56917,11 +57782,23 @@ components:
           items:
             $ref: '#/components/schemas/FactTableColumn'
         columnsError:
+          readOnly: true
           description: Error message if there was an issue parsing the SQL schema
           anyOf:
             - type: string
             - type: 'null'
+        columnRefreshPending:
+          description: >-
+            True while the fact table's column schema is being detected in the
+            background. While true, `columns` may be empty or incomplete and
+            metrics referencing not-yet-detected columns cannot be created.
+          type: boolean
         archived:
+          type: boolean
+        autoSliceUpdatesEnabled:
+          description: >-
+            Whether Auto Slice values for this fact table's columns are
+            refreshed automatically in the background.
           type: boolean
         managedBy:
           description: >-
@@ -57063,6 +57940,19 @@ components:
             For virtual columns, the SQL expression that computes the column
             value. Only valid on a virtual column; when omitted from an update,
             the existing expression is preserved.
+          type: string
+        topValues:
+          readOnly: true
+          description: >-
+            The most common values for this column, sampled from the warehouse
+            to populate filter pickers and auto slices. Read-only.
+          type: array
+          items:
+            type: string
+        topValuesDate:
+          readOnly: true
+          format: date-time
+          description: When topValues was last refreshed for this column.
           type: string
         dateCreated:
           readOnly: true
@@ -58138,6 +59028,27 @@ components:
             type: string
         limitAccessByEnvironment:
           type: boolean
+        additionalRoles:
+          description: >-
+            Additional roles granted alongside this one, in the same scope. Each
+            is granted independently and environment access is the union across
+            them.
+          type: array
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+              environments:
+                type: array
+                items:
+                  type: string
+              limitAccessByEnvironment:
+                type: boolean
+            required:
+              - role
+              - environments
+            additionalProperties: false
         managedbyIdp:
           type: boolean
         teams:
@@ -58159,6 +59070,27 @@ components:
                 type: array
                 items:
                   type: string
+              additionalRoles:
+                description: >-
+                  Additional roles granted alongside this one, in the same
+                  scope. Each is granted independently and environment access is
+                  the union across them.
+                type: array
+                items:
+                  type: object
+                  properties:
+                    role:
+                      type: string
+                    environments:
+                      type: array
+                      items:
+                        type: string
+                    limitAccessByEnvironment:
+                      type: boolean
+                  required:
+                    - role
+                    - environments
+                  additionalProperties: false
             required:
               - project
               - role
@@ -58354,27 +59286,17 @@ components:
         requireReviews:
           type: array
           items:
-            type: object
-            properties:
-              requireReviewOn:
-                type: boolean
-              resetReviewOnChange:
-                type: boolean
-              environments:
-                type: array
-                items:
-                  type: string
-              projects:
-                type: array
-                items:
-                  type: string
-              featureRequireEnvironmentReview:
-                type: boolean
-              featureRequireMetadataReview:
-                type: boolean
-              autopublishOnApproval:
-                type: boolean
-            additionalProperties: false
+            $ref: '#/components/schemas/RequireReviewRule'
+        approvalFlows:
+          type: object
+          properties:
+            savedGroups:
+              type: array
+              items:
+                $ref: '#/components/schemas/SavedGroupApprovalRule'
+          required:
+            - savedGroups
+          additionalProperties: false
         targetingReviewMode:
           type: array
           items:
@@ -58464,6 +59386,7 @@ components:
         - secureAttributeSalt
         - killswitchConfirmation
         - requireReviews
+        - approvalFlows
         - featureKeyExample
         - featureRegexValidator
         - banditScheduleValue
@@ -58471,6 +59394,88 @@ components:
         - banditBurnInValue
         - banditBurnInUnit
         - experimentMinLengthDays
+      additionalProperties: false
+    RequireReviewRule:
+      type: object
+      properties:
+        requireReviewOn:
+          type: boolean
+        projects:
+          type: array
+          items:
+            type: string
+        resetReviewOnChange:
+          type: boolean
+        environments:
+          type: array
+          items:
+            type: string
+        featureRequireEnvironmentReview:
+          type: boolean
+        featureRequireMetadataReview:
+          type: boolean
+        blockSelfApproval:
+          type: boolean
+        autopublishOnApproval:
+          type: boolean
+        requiredApproverTeams:
+          type: array
+          items:
+            type: string
+      additionalProperties: false
+    SavedGroupApprovalRule:
+      type: object
+      properties:
+        required:
+          type: boolean
+        projects:
+          type: array
+          items:
+            type: string
+        resetReviewOnChange:
+          type: boolean
+        requireMetadataReview:
+          type: boolean
+        blockSelfApproval:
+          type: boolean
+        autopublishOnApproval:
+          type: boolean
+        requiredApproverTeams:
+          type: array
+          items:
+            type: string
+      required:
+        - required
+      additionalProperties: false
+    RequireReviewRuleInput:
+      type: object
+      properties:
+        requireReviewOn:
+          type: boolean
+        projects:
+          type: array
+          items:
+            type: string
+        resetReviewOnChange:
+          type: boolean
+        environments:
+          type: array
+          items:
+            type: string
+        featureRequireEnvironmentReview:
+          type: boolean
+        featureRequireMetadataReview:
+          type: boolean
+        blockSelfApproval:
+          type: boolean
+        autopublishOnApproval:
+          type: boolean
+        requiredApproverTeams:
+          type: array
+          items:
+            type: string
+      required:
+        - requireReviewOn
       additionalProperties: false
     InformationSchemaTable:
       type: object
@@ -59697,6 +60702,12 @@ components:
                 - week
                 - month
                 - year
+            projects:
+              type: array
+              items:
+                type: string
+            experimentSearchString:
+              type: string
           additionalProperties: false
         comparison:
           type: object
@@ -60337,6 +61348,16 @@ components:
                         - id
                         - visible
                       additionalProperties: false
+                  globalControlSettings:
+                    type: object
+                    properties:
+                      dateRange:
+                        type: boolean
+                      projects:
+                        type: boolean
+                      experimentSearchString:
+                        type: boolean
+                    additionalProperties: false
                 required:
                   - organization
                   - id
@@ -60491,6 +61512,16 @@ components:
                         additionalProperties: false
                     required:
                       - enabled
+                    additionalProperties: false
+                  globalControlSettings:
+                    type: object
+                    properties:
+                      dateRange:
+                        type: boolean
+                      projects:
+                        type: boolean
+                      experimentSearchString:
+                        type: boolean
                     additionalProperties: false
                   metricId:
                     type: string
@@ -60647,6 +61678,16 @@ components:
                     required:
                       - enabled
                     additionalProperties: false
+                  globalControlSettings:
+                    type: object
+                    properties:
+                      dateRange:
+                        type: boolean
+                      projects:
+                        type: boolean
+                      experimentSearchString:
+                        type: boolean
+                    additionalProperties: false
                   showProjectBreakdown:
                     type: boolean
                 required:
@@ -60801,6 +61842,16 @@ components:
                         additionalProperties: false
                     required:
                       - enabled
+                    additionalProperties: false
+                  globalControlSettings:
+                    type: object
+                    properties:
+                      dateRange:
+                        type: boolean
+                      projects:
+                        type: boolean
+                      experimentSearchString:
+                        type: boolean
                     additionalProperties: false
                   dateGranularity:
                     type: string
@@ -63215,6 +64266,24 @@ components:
                 type: array
                 items:
                   type: string
+              additionalRoles:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    role:
+                      type: string
+                    limitAccessByEnvironment:
+                      type: boolean
+                    environments:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - role
+                    - limitAccessByEnvironment
+                    - environments
+                  additionalProperties: false
               project:
                 type: string
             required:
@@ -65700,6 +66769,22 @@ components:
         - currentStatus
         - expectedStatuses
       additionalProperties: false
+    ApiErrorRequiresFullRefreshDetails:
+      type: object
+      properties:
+        reason:
+          type: string
+      required:
+        - reason
+      additionalProperties: false
+    ApiErrorDimensionAlreadyUpToDateDetails:
+      type: object
+      properties:
+        overallResultsAsOf:
+          type: string
+      required:
+        - overallResultsAsOf
+      additionalProperties: false
     bypassedGates:
       type: object
       properties:
@@ -67202,6 +68287,19 @@ components:
         - requiresPermission
         - resolution
       additionalProperties: false
+    suppressed:
+      description: >-
+        Outcomes the previous state produced too, which Incremental Changes Only
+        would hide on a real save
+      type: object
+      properties:
+        error:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+      additionalProperties: false
     versions:
       type: object
       properties:
@@ -67239,6 +68337,27 @@ components:
             type: string
         limitAccessByEnvironment:
           type: boolean
+        additionalRoles:
+          description: >-
+            Additional roles granted alongside this one, in the same scope. Each
+            is granted independently and environment access is the union across
+            them.
+          type: array
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+              environments:
+                type: array
+                items:
+                  type: string
+              limitAccessByEnvironment:
+                type: boolean
+            required:
+              - role
+              - environments
+            additionalProperties: false
         projectRoles:
           type: array
           items:
@@ -67254,6 +68373,27 @@ components:
                 type: array
                 items:
                   type: string
+              additionalRoles:
+                description: >-
+                  Additional roles granted alongside this one, in the same
+                  scope. Each is granted independently and environment access is
+                  the union across them.
+                type: array
+                items:
+                  type: object
+                  properties:
+                    role:
+                      type: string
+                    environments:
+                      type: array
+                      items:
+                        type: string
+                    limitAccessByEnvironment:
+                      type: boolean
+                  required:
+                    - role
+                    - environments
+                  additionalProperties: false
             required:
               - project
               - role
@@ -67265,6 +68405,16 @@ components:
         - role
         - environments
         - limitAccessByEnvironment
+      additionalProperties: false
+    approvalFlows:
+      type: object
+      properties:
+        savedGroups:
+          type: array
+          items:
+            $ref: '#/components/schemas/SavedGroupApprovalRule'
+      required:
+        - savedGroups
       additionalProperties: false
     monitoring:
       type: object
@@ -67993,9 +69143,12 @@ x-tagGroups:
       - RampSchedule_model
       - RampScheduleTemplate_model
       - Report_model
+      - RequireReviewRule_model
+      - RequireReviewRuleInput_model
       - RevisionIdRef_model
       - Safe Rollout Rule_model
       - SavedGroup_model
+      - SavedGroupApprovalRule_model
       - SavedGroupReferences_model
       - SavedGroupRevision_model
       - SavedGroupRevisionActivityLogEntry_model

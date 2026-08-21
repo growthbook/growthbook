@@ -5,6 +5,7 @@ import isEqual from "lodash/isEqual";
 import {
   checkIfRevisionNeedsReview,
   featureMetadataEnvelope,
+  getApplicableEnvIds,
   isRevisionEditLockedBySchedule,
 } from "shared/util";
 import {
@@ -41,7 +42,6 @@ import { ApiReqContext } from "back-end/types/api";
 import {
   ensureUniqueRuleIds,
   flattenV1ToV2Rules,
-  getApplicableEnvIds,
   isPlausibleFeatureRule,
   isV2RevisionRules,
   narrowRuleToApplicableEnvs,
@@ -133,7 +133,8 @@ const featureRevisionSchema = new mongoose.Schema({
   revertedFromVersion: Number,
   defaultValue: String,
   rules: {},
-  // Revision envelopes — only present when explicitly changed
+  // Only present when explicitly changed, except `metadata`, which
+  // prepareFeatureRevision always writes as a complete snapshot.
   environmentsEnabled: {},
   prerequisites: [{}],
   archived: Boolean,
@@ -1157,7 +1158,7 @@ export async function createRevision({
     feature,
     baseRevision,
     revision,
-    allEnvironments: environments,
+    orgEnvironments: getEnvironments(org),
     settings: org.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });

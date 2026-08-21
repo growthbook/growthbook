@@ -4,30 +4,31 @@ import {
   ParentConditionInterface,
 } from "@growthbook/growthbook";
 import {
+  ExperimentDependencyIndex,
+  NamespaceValue,
+  ReverseDependencyIndex,
+  buildExperimentDependencyIndex,
+  buildReverseDependencyIndex,
+  deepMergePatch,
+  ensureConfigBacking,
+  filterEnvironmentsByFeature,
+  getApplicableEnvIds,
+  getFeatureBaseConfigKey,
+  getNamespaceHashAttribute,
+  getNamespaceRanges,
   getRulesForEnvironment,
+  getTargetingProjectIds,
   includeExperimentInPayload,
   isDefined,
   isMultiRangeNamespaceFormat,
   namespacesToMap,
-  recursiveWalk,
-  ruleServedToConnection,
-  ruleProjectScope,
-  ruleFootprint,
-  stemRuleId,
-  getNamespaceRanges,
-  getNamespaceHashAttribute,
-  NamespaceValue,
-  buildReverseDependencyIndex,
-  ReverseDependencyIndex,
-  buildExperimentDependencyIndex,
-  ExperimentDependencyIndex,
   parsePlainJSONObject,
-  getFeatureBaseConfigKey,
-  ensureConfigBacking,
+  recursiveWalk,
+  ruleFootprint,
+  ruleProjectScope,
+  ruleServedToConnection,
+  stemRuleId,
   stripConfigExtends,
-  deepMergePatch,
-  getTargetingProjectIds,
-  filterEnvironmentsByFeature,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { resolveScheduleStopAfter } from "shared/dates";
@@ -71,7 +72,6 @@ import { getEnvironments } from "back-end/src/util/organization.util";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
 import { logger } from "back-end/src/util/logger";
-import { getApplicableEnvIds } from "./flattenRules";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 export function pairedWeightsToPositional(
@@ -590,6 +590,61 @@ export function getSDKPayloadKeysByDiff(
   }
 
   return getSDKPayloadKeys(environments, projects);
+}
+
+type RefRuleType = "experiment-ref" | "contextual-bandit-ref";
+
+const REF_ID: Record<RefRuleType, (rule: FeatureRule) => string | undefined> = {
+  "experiment-ref": (r) =>
+    r?.type === "experiment-ref" ? r.experimentId : undefined,
+  "contextual-bandit-ref": (r) =>
+    r?.type === "contextual-bandit-ref" ? r.contextualBanditId : undefined,
+};
+
+export function getReferenceIdsInRules(
+  rules: FeatureRule[] | undefined,
+  type: RefRuleType,
+  { skipDisabled = false }: { skipDisabled?: boolean } = {},
+): string[] {
+  const ids = new Set<string>();
+  (rules ?? []).forEach((rule) => {
+    if (skipDisabled && rule?.enabled === false) return;
+    const id = REF_ID[type](rule);
+    if (id) ids.add(id);
+  });
+  return [...ids];
+}
+
+// Disabled rules never render, so what they reference is not needed.
+export function getReferenceIdsInFeatures(
+  features: FeatureInterface[],
+  type: RefRuleType,
+): string[] {
+  return [
+    ...new Set(
+      features.flatMap((f) =>
+        getReferenceIdsInRules(f.rules, type, { skipDisabled: true }),
+      ),
+    ),
+  ];
+}
+
+// An experiment a delivered feature references belongs in that feature's payload
+// even when the experiment itself lives in another project.
+export function experimentMapForFeatures(
+  experimentMap: Map<string, ExperimentInterface>,
+  features: FeatureInterface[],
+  projects: string[],
+): Map<string, ExperimentInterface> {
+  if (!projects.length) return experimentMap;
+  const referenced = new Set(
+    getReferenceIdsInFeatures(features, "experiment-ref"),
+  );
+  return new Map(
+    [...experimentMap.entries()].filter(
+      ([id, exp]) => projects.includes(exp.project || "") || referenced.has(id),
+    ),
+  );
 }
 
 export function getAffectedSDKPayloadKeys(

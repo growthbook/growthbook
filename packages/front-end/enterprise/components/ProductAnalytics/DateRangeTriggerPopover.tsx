@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import clsx from "clsx";
 import { Flex } from "@radix-ui/themes";
 import { PiCalendarBlank, PiCaretDown } from "react-icons/pi";
 import { Popover } from "@/ui/Popover";
@@ -26,6 +27,8 @@ export default function DateRangeTriggerPopover({
   suffix,
   disabled,
   fullWidth = false,
+  align = "end",
+  triggerClassName,
   children,
 }: {
   open: boolean;
@@ -36,6 +39,11 @@ export default function DateRangeTriggerPopover({
   suffix?: TriggerSuffix | null;
   disabled?: boolean;
   fullWidth?: boolean;
+  /** "start" for a trigger sitting at the left of its row — the panel is wide
+   * enough that end-anchoring it would run off the viewport. */
+  align?: "start" | "center" | "end";
+  /** Extra trigger styling for surfaces with their own control treatment. */
+  triggerClassName?: string;
   /** The panel rendered inside the popover. */
   children: ReactNode;
 }) {
@@ -46,7 +54,7 @@ export default function DateRangeTriggerPopover({
     <Popover
       open={open}
       onOpenChange={onOpenChange}
-      align="end"
+      align={align}
       showArrow={false}
       // The comparison-mode Select and the calendar render in their own Radix
       // poppers; clicking inside one must not dismiss this panel.
@@ -72,7 +80,7 @@ export default function DateRangeTriggerPopover({
       }}
       trigger={
         <Button
-          className={styles.trigger}
+          className={clsx(styles.trigger, triggerClassName)}
           variant="outline"
           // Neutral, with a surface fill: this sits beside Select-based controls
           // (variant="surface"), and Button's default violet made it read as the
