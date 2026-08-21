@@ -216,7 +216,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                         or guardrail when analyzing your experiment results.
                         With GrowthBook, you can build out an entire metric
                         library to represent all of the KPIs for your
-                        organization
+                        organization.
                       </p>
                     }
                     hideCTA={!envAllowsCreatingMetrics()}
