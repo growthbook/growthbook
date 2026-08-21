@@ -18,6 +18,7 @@ import {
 } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { getValidDate } from "shared/dates";
+import { includeExperimentInPayload } from "shared/util";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { isNil, omit } from "lodash";
 import {
@@ -417,6 +418,78 @@ export function applyMetricOverrides<T extends ExperimentMetricDefinition>(
   return { newMetric, overrideFields };
 }
 
+/**
+ * True when a stopped experiment still has its temporary rollout turned on.
+ *
+ * Delegates to `includeExperimentInPayload` for the experiment-level guards —
+ * archived, missing released variation, no phases, no linked changes all
+ * correctly exclude themselves.
+ *
+ * Deliberately called without linked feature documents, which the experiment
+ * list does not load. That skips the published-rule check inside
+ * `includeExperimentInPayload`, so an experiment whose experiment-ref rules are
+ * all disabled, in a disabled environment, or present only in an unpublished
+ * draft still reports true. That is the intent here: the rollout setting is
+ * still on and wants turning off, which is precisely the cleanup signal the
+ * "State" column exists to surface. It does mean this is NOT a guarantee that a
+ * live rule is currently serving the released variation — use
+ * `includeExperimentInPayload` with the linked features for that.
+ */
+export function hasTempRollout(
+  exp: Pick<
+    ExperimentInterfaceStringDates,
+    | "status"
+    | "archived"
+    | "excludeFromPayload"
+    | "releasedVariationId"
+    | "hasVisualChangesets"
+    | "hasURLRedirects"
+    | "linkedFeatures"
+    | "phases"
+  >,
+): boolean {
+  return (
+    exp.status === "stopped" &&
+    includeExperimentInPayload(exp as ExperimentInterfaceStringDates)
+  );
+}
+
+// Detailed-status values that belong in the "State" column (data/setup
+// problems with a running experiment) rather than the "Result" column.
+// Kept in sync with the cases in `statusIndicatorData.ts`.
+export const HEALTH_DETAILED_STATUSES = ["No data", "Unhealthy"] as const;
+
+export function isHealthDetailedStatus(detailedStatus?: string): boolean {
+  if (!detailedStatus) return false;
+  return (HEALTH_DETAILED_STATUSES as readonly string[]).includes(
+    detailedStatus,
+  );
+}
+
+/**
+ * Display string for the "State" column. Returns the experiment's health
+ * `detailedStatus` (e.g. "No data", "Unhealthy") when one is set, otherwise
+ * "Temp Rollout" when the experiment is a temp rollout, otherwise "".
+ */
+export function getHealthStatus(
+  exp: Pick<
+    ExperimentInterfaceStringDates,
+    | "status"
+    | "archived"
+    | "excludeFromPayload"
+    | "releasedVariationId"
+    | "hasVisualChangesets"
+    | "hasURLRedirects"
+    | "linkedFeatures"
+    | "phases"
+  >,
+  detailedStatus?: string,
+): string {
+  if (isHealthDetailedStatus(detailedStatus)) return detailedStatus ?? "";
+  if (hasTempRollout(exp)) return "Temp Rollout";
+  return "";
+}
+
 export function pValueFormatter(pValue: number, digits: number = 3): string {
   if (typeof pValue !== "number") {
     return "";
@@ -492,6 +565,8 @@ export function useExperimentSearch({
         statusIndicator,
         statusSortOrder,
         isWatched,
+        hasTempRollout: hasTempRollout(exp),
+        healthStatus: getHealthStatus(exp, statusIndicator.detailedStatus),
       };
     },
     [getExperimentMetricById, getOwnerDisplay, getProjectById],
@@ -542,13 +617,7 @@ export function useExperimentSearch({
         ) {
           has.push("screenshots");
         }
-        if (
-          item.status === "stopped" &&
-          !item.excludeFromPayload &&
-          (item.linkedFeatures?.length ||
-            item.hasURLRedirects ||
-            item.hasVisualChangesets)
-        ) {
+        if (item.hasTempRollout) {
           has.push("rollout", "tempRollout");
         }
         return has;

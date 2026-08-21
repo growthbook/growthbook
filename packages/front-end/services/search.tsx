@@ -396,8 +396,15 @@ export function useSearch<T extends { id: string }>({
     const sorted = [...filtered];
 
     sorted.sort((a, b) => {
-      const comp1 = a[sort.field] || defaultMappings[sort.field];
-      const comp2 = b[sort.field] || defaultMappings[sort.field];
+      const raw1 = a[sort.field];
+      const raw2 = b[sort.field];
+      // Compare booleans directly — `false || default` would mis-coerce false
+      // into the default value, breaking the comparison.
+      if (typeof raw1 === "boolean" && typeof raw2 === "boolean") {
+        return (Number(raw1) - Number(raw2)) * sort.dir;
+      }
+      const comp1 = raw1 || defaultMappings[sort.field];
+      const comp2 = raw2 || defaultMappings[sort.field];
       if (undefinedLast) {
         if (comp1 === undefined && comp2 !== undefined) return 1;
         if (comp2 === undefined && comp1 !== undefined) return -1;
