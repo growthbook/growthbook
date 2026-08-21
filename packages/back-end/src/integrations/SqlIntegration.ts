@@ -1872,6 +1872,10 @@ export default abstract class SqlIntegration
         return "DATE";
       case "timestamp":
         return "TIMESTAMP";
+      case "datetime":
+        // Event-timestamp type; Trino-flavored default treats it as TIMESTAMP
+        // (identity castUserDateCol). BigQuery overrides to DATETIME.
+        return "TIMESTAMP";
       case "hll":
         return "VARBINARY";
       case "quantileSketch":
@@ -2890,7 +2894,9 @@ export default abstract class SqlIntegration
             ? `__joinedDataSteps${sourceSuffix(i)}`
             : `__joinedData${sourceSuffix(i)}`;
           const exposureCol = hasFunnel
-            ? `, u.first_exposure_timestamp AS first_exposure_timestamp`
+            ? `, ${this.getSqlDialect().castUserDateCol(
+                "u.first_exposure_timestamp",
+              )} AS first_exposure_timestamp`
             : "";
 
           const joinCte = `

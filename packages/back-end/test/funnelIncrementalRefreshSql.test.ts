@@ -198,10 +198,11 @@ describe("funnel incremental refresh — cache schema", () => {
       factTableMap,
       metricSourceTableFullName: "proj.ds.metric_source",
     });
-    // Step 0 (no window) → decomposable scalar MIN column.
-    expect(sql).toMatch(/_step_0_resolved_ts\s+TIMESTAMP/);
-    // Step 1 (windowed) → array of candidate timestamps.
-    expect(sql).toMatch(/_step_1_arr\s+ARRAY<TIMESTAMP>/);
+    // Step 0 (no window) → decomposable scalar MIN column. BigQuery event
+    // timestamps are DATETIME (castUserDateCol), so the column is DATETIME.
+    expect(sql).toMatch(/_step_0_resolved_ts\s+DATETIME/);
+    // Step 1 (windowed) → array of candidate event timestamps.
+    expect(sql).toMatch(/_step_1_arr\s+ARRAY<DATETIME>/);
     // A windowless step 0 must NOT also emit an array column.
     expect(sql).not.toMatch(/_step_0_arr/);
   });
@@ -215,9 +216,10 @@ describe("funnel incremental refresh — cache schema", () => {
       factTableMap,
       metricSourceTableFullName: "proj.ds.metric_source",
     });
-    expect(sql).toMatch(/_step_0_arr\s+ARRAY<TIMESTAMP>/);
-    expect(sql).toMatch(/_step_1_arr\s+ARRAY<TIMESTAMP>/);
-    expect(sql).not.toMatch(/_step_0_resolved_ts\s+TIMESTAMP/);
+    expect(sql).toMatch(/_step_0_arr\s+ARRAY<DATETIME>/);
+    expect(sql).toMatch(/_step_1_arr\s+ARRAY<DATETIME>/);
+    // No scalar step-0 column when step 0 has an exposure window.
+    expect(sql).not.toMatch(/_step_0_resolved_ts/);
   });
 });
 

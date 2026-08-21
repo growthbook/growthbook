@@ -44,7 +44,7 @@ export function getMetricSourceTableSchema(
         if (stepIndex === 0 && step0Scalar) {
           schema.set(
             funnelStepResolvedTsColumn(prefix, 0),
-            dialect.getDataType("timestamp"),
+            dialect.getDataType("datetime"),
           );
         } else {
           schema.set(

@@ -213,12 +213,19 @@ export const bigQueryDialect: SqlDialect = {
         return "DATE";
       case "timestamp":
         return "TIMESTAMP";
+      case "datetime":
+        // BigQuery event timestamps are DATETIME (castUserDateCol casts to
+        // DATETIME). Funnel step caches store these, and the resolver's
+        // DATETIME_ADD/SUB arithmetic requires DATETIME operands.
+        return "DATETIME";
       case "hll":
         return "BYTES";
       case "quantileSketch":
         return "BYTES";
       case "arrayTimestamp":
-        return "ARRAY<TIMESTAMP>";
+        // Element type must match `datetime` (DATETIME) — the funnel step
+        // arrays hold event timestamps.
+        return "ARRAY<DATETIME>";
       default: {
         const _: never = dataType;
         throw new Error(`Unsupported data type: ${dataType}`);

@@ -116,6 +116,10 @@ export const snowflakeDialect: SqlDialect = {
         return "DATE";
       case "timestamp":
         return "TIMESTAMP";
+      case "datetime":
+        // Snowflake inherits the identity castUserDateCol, so event timestamps
+        // are stored as TIMESTAMP (same as the `timestamp` type).
+        return "TIMESTAMP";
       case "hll":
         return "BINARY";
       case "quantileSketch":

@@ -102,6 +102,10 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
         return "DATE";
       case "timestamp":
         return "TIMESTAMP";
+      case "datetime":
+        // Base dialects don't cast event timestamps (castUserDateCol is
+        // identity), so the event-timestamp type is just TIMESTAMP.
+        return "TIMESTAMP";
       case "hll":
         return "VARBINARY";
       case "quantileSketch":

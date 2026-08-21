@@ -71,6 +71,10 @@ export const databricksDialect: SqlDialect = {
         return "DATE";
       case "timestamp":
         return "TIMESTAMP";
+      case "datetime":
+        // Databricks isn't an incremental target today; defined for
+        // exhaustiveness. Identity castUserDateCol → TIMESTAMP.
+        return "TIMESTAMP";
       case "hll":
         return "BINARY";
       case "quantileSketch":
