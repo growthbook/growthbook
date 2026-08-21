@@ -32,7 +32,12 @@ import Table, {
 import Heading from "@/ui/Heading";
 import ColumnSettingsButton from "@/ui/ColumnSettingsButton";
 import { useTableColumns } from "@/hooks/useTableColumns";
-import { ResolvedTableColumn, TableColumnDef } from "@/services/tableColumns";
+import {
+  columnWidthBounds,
+  ResolvedTableColumn,
+  TableColumnDef,
+} from "@/services/tableColumns";
+import ColumnResizeHandle from "@/ui/ColumnResizeHandle";
 
 // Rough char budget for a column of `width` px. Only settles after a resize
 // commits, which is why it takes the committed width rather than a live one.
@@ -389,7 +394,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
     hiddenCount,
     isCustomized,
     applySettings,
+    setWidth,
     reset,
+    colRefs,
     ColGroup,
   } = useTableColumns({ storageKey: "attributes", columns: columnDefs });
 
@@ -422,6 +429,23 @@ const FeatureAttributesPage = (): React.ReactElement => {
       : col.header !== undefined
         ? col.header
         : col.label;
+  const renderResizeHandle = (col: ResolvedTableColumn<AttributeRow>) => {
+    if (col.resizable === false) return null;
+    const { min, max } = columnWidthBounds(col);
+    return (
+      <ColumnResizeHandle
+        label={col.label}
+        width={col.width}
+        minWidth={min}
+        maxWidth={max}
+        onCommit={(w) => setWidth(col.id, w)}
+        setLiveWidth={(w) => {
+          const el = colRefs.current.get(col.id);
+          if (el) el.style.width = `${w}px`;
+        }}
+      />
+    );
+  };
 
   return (
     <>
@@ -463,7 +487,13 @@ const FeatureAttributesPage = (): React.ReactElement => {
               </Flex>
             </Box>
           )}
-          <Table variant="list" stickyHeader roundedCorners layout="fixed">
+          <Table
+            variant="list"
+            stickyHeader
+            roundedCorners
+            layout="fixed"
+            scrollX
+          >
             <ColGroup />
             <TableHeader>
               <TableRow>
@@ -477,6 +507,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                         textAlign: col.align,
                         ...col.headerProps?.style,
                       }}
+                      endAdornment={renderResizeHandle(col)}
                     >
                       {renderHeader(col)}
                     </SortableTableColumnHeader>
@@ -490,6 +521,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                       }}
                     >
                       {renderHeader(col)}
+                      {renderResizeHandle(col)}
                     </TableColumnHeader>
                   ),
                 )}
