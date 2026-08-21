@@ -3,18 +3,19 @@ import { MetricOverride } from "shared/validators";
 import { validateCustomFieldsForSection } from "back-end/src/util/custom-fields";
 import { ApiReqContext } from "back-end/types/api";
 
-export const validateCustomFields = async (
-  customFieldValues: Record<string, unknown> | undefined,
+export const validateCustomFields = async <T>(
+  customFieldValues: Record<string, T> | undefined,
   context: ApiReqContext,
   project?: string,
-) => {
-  await validateCustomFieldsForSection({
+  existingCustomFieldValues?: Record<string, unknown>,
+) =>
+  validateCustomFieldsForSection({
     customFieldValues,
+    existingCustomFieldValues,
     customFieldsModel: context.models.customFields,
     section: "experiment",
     project,
   });
-};
 
 type DecisionFrameworkPayload = {
   decisionCriteriaId?: string;

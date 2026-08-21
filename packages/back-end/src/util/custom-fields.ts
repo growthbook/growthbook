@@ -1,4 +1,5 @@
 import isEqual from "lodash/isEqual";
+import omit from "lodash/omit";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 
@@ -188,27 +189,89 @@ export function shouldValidateCustomFieldsOnUpdate({
   return !isEqual(updatedCustomFieldValues, existingCustomFieldValues ?? {});
 }
 
-// Helper that fetches the required customfields to validate against
-export async function validateCustomFieldsForSection({
+export type CustomFieldValidationResult<T> = {
+  // `customFieldValues` with the keys in `prunedKeys` dropped. Persist it
+  // whenever `prunedKeys` is non-empty so the record stops carrying dead keys.
+  customFieldValues: Record<string, T>;
+  prunedKeys: string[];
+};
+
+// A key whose field no longer exists on the org is dropped instead of rejected:
+// the definition is gone, so the value is unrecoverable and would otherwise
+// block every write to the record. Only values the record already carries are
+// dropped — a newly supplied unknown key stays a client error. Keys whose field
+// does exist but isn't usable here (disabled, another project or section) also
+// still throw, since that state is reversible and the value still means
+// something.
+function pruneDeletedCustomFieldValues<T>({
   customFieldValues,
+  existingCustomFieldValues,
+  orgCustomFields,
+}: {
+  customFieldValues: Record<string, T>;
+  existingCustomFieldValues: Record<string, unknown> | undefined;
+  orgCustomFields: CustomField[];
+}): CustomFieldValidationResult<T> {
+  const definedKeys = new Set(orgCustomFields.map((f) => f.id));
+  const prunedKeys = Object.keys(customFieldValues).filter(
+    (key) =>
+      !definedKeys.has(key) &&
+      !!existingCustomFieldValues &&
+      key in existingCustomFieldValues &&
+      isEqual(customFieldValues[key], existingCustomFieldValues[key]),
+  );
+
+  return {
+    customFieldValues: prunedKeys.length
+      ? omit(customFieldValues, prunedKeys)
+      : customFieldValues,
+    prunedKeys,
+  };
+}
+
+// Helper that fetches the required customfields to validate against. Pass
+// `existingCustomFieldValues` on updates so values orphaned by a deleted field
+// heal instead of blocking the write.
+export async function validateCustomFieldsForSection<T>({
+  customFieldValues,
+  existingCustomFieldValues,
   project,
   section,
   customFieldsModel,
 }: {
-  customFieldValues: Record<string, unknown> | undefined;
+  customFieldValues: Record<string, T> | undefined;
+  existingCustomFieldValues?: Record<string, unknown>;
   project: string | undefined;
   section: CustomFieldSection;
   customFieldsModel: CustomFieldModel;
-}): Promise<void> {
+}): Promise<CustomFieldValidationResult<T>> {
   const applicableCustomFields =
     (await customFieldsModel.getCustomFieldsBySectionAndProject({
       section,
       project,
     })) ?? [];
+  // Only keys that aren't applicable here need the org-wide list, to tell a
+  // deleted field from one that is merely disabled or out of scope. Skip that
+  // read entirely when every key checks out, which is the common case.
+  const applicableIds = new Set(applicableCustomFields.map((f) => f.id));
+  const hasUnknownKey = Object.keys(customFieldValues ?? {}).some(
+    (key) => !applicableIds.has(key),
+  );
+  const orgCustomFields = hasUnknownKey
+    ? ((await customFieldsModel.getCustomFields())?.fields ?? [])
+    : applicableCustomFields;
+
+  const result = pruneDeletedCustomFieldValues({
+    customFieldValues: customFieldValues ?? {},
+    existingCustomFieldValues,
+    orgCustomFields,
+  });
 
   validateCustomFieldValues(
     applicableCustomFields,
-    customFieldValues ?? {},
-    (await customFieldsModel.getCustomFields())?.fields ?? [],
+    result.customFieldValues,
+    orgCustomFields,
   );
+
+  return result;
 }

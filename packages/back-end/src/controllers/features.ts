@@ -5301,12 +5301,16 @@ export async function putFeature(
       updatedCustomFieldValues: updates.customFields,
     })
   ) {
-    await validateCustomFieldsForSection({
-      customFieldValues: updates.customFields,
-      customFieldsModel: context.models.customFields,
-      section: "feature",
-      project: "project" in updates ? updates.project : feature.project,
-    });
+    const { customFieldValues, prunedKeys } =
+      await validateCustomFieldsForSection({
+        customFieldValues: updates.customFields,
+        existingCustomFieldValues: feature.customFields,
+        customFieldsModel: context.models.customFields,
+        section: "feature",
+        project: "project" in updates ? updates.project : feature.project,
+      });
+    // Write the pruned map back so the dead keys stop blocking future updates.
+    if (prunedKeys.length) updates.customFields = customFieldValues;
   }
 
   const metadataKeys: (keyof FeatureInterface)[] = [

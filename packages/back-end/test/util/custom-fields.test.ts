@@ -50,7 +50,7 @@ describe("custom fields validation", () => {
           customFieldsModel: buildCustomFieldsModel([]),
           section: "feature",
         }),
-      ).resolves.toBeUndefined();
+      ).resolves.toBeDefined();
     });
 
     it("throws when custom field values are provided but no custom fields are configured", async () => {
@@ -128,7 +128,7 @@ describe("custom fields validation", () => {
             }),
           ],
         }),
-      ).resolves.toBeUndefined();
+      ).resolves.toBeDefined();
     });
 
     it("throws when a required enum field is missing", async () => {
@@ -179,7 +179,7 @@ describe("custom fields validation", () => {
             }),
           ],
         }),
-      ).resolves.toBeUndefined();
+      ).resolves.toBeDefined();
     });
 
     it("accepts enum values with extra whitespace", async () => {
@@ -196,7 +196,7 @@ describe("custom fields validation", () => {
             }),
           ],
         }),
-      ).resolves.toBeUndefined();
+      ).resolves.toBeDefined();
     });
 
     it("accepts enum values sent as JSON arrays with one value", async () => {
@@ -213,7 +213,7 @@ describe("custom fields validation", () => {
             }),
           ],
         }),
-      ).resolves.toBeUndefined();
+      ).resolves.toBeDefined();
     });
 
     it("rejects enum values sent as arrays with more than one value", async () => {
@@ -268,7 +268,7 @@ describe("custom fields validation", () => {
           ],
           section: "experiment",
         }),
-      ).resolves.toBeUndefined();
+      ).resolves.toBeDefined();
     });
 
     it("accepts multiselect JSON payloads used by the UI", async () => {
@@ -287,7 +287,7 @@ describe("custom fields validation", () => {
           ],
           section: "experiment",
         }),
-      ).resolves.toBeUndefined();
+      ).resolves.toBeDefined();
     });
 
     it("accepts multiselect CSV payloads used by the API", async () => {
@@ -306,7 +306,7 @@ describe("custom fields validation", () => {
           ],
           section: "experiment",
         }),
-      ).resolves.toBeUndefined();
+      ).resolves.toBeDefined();
     });
 
     it("throws when a multiselect value is not in the allowed options", async () => {
@@ -343,7 +343,7 @@ describe("custom fields validation", () => {
             }),
           ],
         }),
-      ).resolves.toBeUndefined();
+      ).resolves.toBeDefined();
     });
 
     it("rejects required number values that are only whitespace", async () => {
@@ -391,7 +391,7 @@ describe("custom fields validation", () => {
             }),
           ],
         }),
-      ).resolves.toBeUndefined();
+      ).resolves.toBeDefined();
     });
 
     it("accepts boolean false for required boolean fields", async () => {
@@ -407,7 +407,7 @@ describe("custom fields validation", () => {
             }),
           ],
         }),
-      ).resolves.toBeUndefined();
+      ).resolves.toBeDefined();
     });
 
     it("rejects invalid boolean strings", async () => {
@@ -439,7 +439,7 @@ describe("custom fields validation", () => {
             }),
           ],
         }),
-      ).resolves.toBeUndefined();
+      ).resolves.toBeDefined();
     });
 
     it("rejects invalid datetime values", async () => {
@@ -471,7 +471,7 @@ describe("custom fields validation", () => {
             }),
           ],
         }),
-      ).resolves.toBeUndefined();
+      ).resolves.toBeDefined();
     });
 
     it("rejects invalid url values", async () => {
@@ -554,7 +554,7 @@ describe("custom fields validation", () => {
             }),
           ],
         }),
-      ).resolves.toBeUndefined();
+      ).resolves.toBeDefined();
     });
   });
 
@@ -574,7 +574,7 @@ describe("custom fields validation", () => {
           customFieldsModel: buildCustomFieldsModel([field]),
           section: "feature",
         }),
-      ).resolves.toBeUndefined();
+      ).resolves.toBeDefined();
 
       await expect(
         validateCustomFieldsForSection({
@@ -582,7 +582,111 @@ describe("custom fields validation", () => {
           customFieldsModel: buildCustomFieldsModel([field]),
           section: "feature",
         }),
-      ).resolves.toBeUndefined();
+      ).resolves.toBeDefined();
+    });
+  });
+
+  describe("healing values orphaned by a deleted field", () => {
+    it("drops a stored value whose field no longer exists", async () => {
+      const result = await validateCustomFieldsForSection({
+        customFieldValues: { cfd_team: "growth", cfd_deleted: "stale" },
+        existingCustomFieldValues: { cfd_team: "growth", cfd_deleted: "stale" },
+        customFieldsModel: buildCustomFieldsModel([
+          buildCustomField({ id: "cfd_team", values: "growth" }),
+        ]),
+        section: "feature",
+      });
+
+      expect(result.prunedKeys).toEqual(["cfd_deleted"]);
+      expect(result.customFieldValues).toEqual({ cfd_team: "growth" });
+    });
+
+    it("drops the orphan when the payload omits customFields entirely", async () => {
+      const result = await validateCustomFieldsForSection({
+        customFieldValues: { cfd_deleted: "stale" },
+        existingCustomFieldValues: { cfd_deleted: "stale" },
+        customFieldsModel: buildCustomFieldsModel([]),
+        section: "feature",
+      });
+
+      expect(result.prunedKeys).toEqual(["cfd_deleted"]);
+      expect(result.customFieldValues).toEqual({});
+    });
+
+    it("still rejects an unknown key the record was not already carrying", async () => {
+      await expect(
+        validateCustomFieldsForSection({
+          customFieldValues: { cfd_typo: "oops" },
+          existingCustomFieldValues: {},
+          customFieldsModel: buildCustomFieldsModel([]),
+          section: "feature",
+        }),
+      ).rejects.toThrow("Invalid custom field: cfd_typo.");
+    });
+
+    it("still rejects a new value for a deleted field", async () => {
+      await expect(
+        validateCustomFieldsForSection({
+          customFieldValues: { cfd_deleted: "changed" },
+          existingCustomFieldValues: { cfd_deleted: "stale" },
+          customFieldsModel: buildCustomFieldsModel([]),
+          section: "feature",
+        }),
+      ).rejects.toThrow("Invalid custom field: cfd_deleted.");
+    });
+
+    it("keeps values for a disabled field, which is reversible", async () => {
+      const disabled = buildCustomField({ id: "cfd_team", active: false });
+      await expect(
+        validateCustomFieldsForSection({
+          customFieldValues: { cfd_team: "growth" },
+          existingCustomFieldValues: { cfd_team: "growth" },
+          customFieldsModel: buildCustomFieldsModel([], [disabled]),
+          section: "feature",
+        }),
+      ).rejects.toThrow("Invalid custom field: cfd_team. It is disabled.");
+    });
+
+    it("keeps values for a field scoped to another project", async () => {
+      const scoped = buildCustomField({
+        id: "cfd_team",
+        projects: ["prj_other"],
+      });
+      await expect(
+        validateCustomFieldsForSection({
+          customFieldValues: { cfd_team: "growth" },
+          existingCustomFieldValues: { cfd_team: "growth" },
+          customFieldsModel: buildCustomFieldsModel([], [scoped]),
+          section: "feature",
+        }),
+      ).rejects.toThrow(
+        "Invalid custom field: cfd_team. It is not available for this record's project or section.",
+      );
+    });
+
+    it("does not read the org-wide field list when every key is applicable", async () => {
+      const model = buildCustomFieldsModel([
+        buildCustomField({ id: "cfd_team" }),
+      ]);
+
+      await validateCustomFieldsForSection({
+        customFieldValues: { cfd_team: "growth" },
+        existingCustomFieldValues: { cfd_team: "growth" },
+        customFieldsModel: model,
+        section: "feature",
+      });
+
+      expect(model.getCustomFields).not.toHaveBeenCalled();
+    });
+
+    it("prunes nothing when no existing values are passed (creates)", async () => {
+      await expect(
+        validateCustomFieldsForSection({
+          customFieldValues: { cfd_deleted: "stale" },
+          customFieldsModel: buildCustomFieldsModel([]),
+          section: "feature",
+        }),
+      ).rejects.toThrow("Invalid custom field: cfd_deleted.");
     });
   });
 

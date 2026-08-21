@@ -79,11 +79,14 @@ export async function setRevisionMetadata(
   }
 
   if (metadataFields.customFields !== undefined) {
-    await validateCustomFields(
+    const { customFieldValues, prunedKeys } = await validateCustomFields(
       metadataFields.customFields as Record<string, unknown>,
       context,
       metadataFields.project ?? feature.project,
+      feature.customFields,
     );
+    // Stage the pruned map so publishing doesn't restore the dead keys.
+    if (prunedKeys.length) metadataFields.customFields = customFieldValues;
   }
 
   const { revision, created } = await resolveOrCreateRevision(
