@@ -16,7 +16,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiDotsSixVertical, PiEye, PiEyeSlash } from "react-icons/pi";
+import { PiDotsSixVertical, PiEye, PiEyeSlash, PiLock } from "react-icons/pi";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
@@ -25,8 +25,8 @@ export interface ManagedColumn {
   id: string;
   label: string;
   visible: boolean;
-  /** Rendered without a drag handle and with the visibility toggle disabled. */
-  locked?: boolean;
+  /** Can still be reordered, but shows a lock instead of a visibility toggle. */
+  alwaysVisible?: boolean;
 }
 
 function SortableColumnRow({
@@ -43,7 +43,7 @@ function SortableColumnRow({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: column.id, disabled: column.locked });
+  } = useSortable({ id: column.id });
 
   return (
     <Flex
@@ -62,18 +62,14 @@ function SortableColumnRow({
         boxShadow: isDragging ? "var(--shadow-4)" : undefined,
       }}
     >
-      {column.locked ? (
-        <span style={{ display: "flex", width: 14 }} />
-      ) : (
-        <span
-          {...attributes}
-          {...listeners}
-          aria-label={`Drag to reorder ${column.label}`}
-          style={{ cursor: "grab", display: "flex", color: "var(--gray-8)" }}
-        >
-          <PiDotsSixVertical />
-        </span>
-      )}
+      <span
+        {...attributes}
+        {...listeners}
+        aria-label={`Drag to reorder ${column.label}`}
+        style={{ cursor: "grab", display: "flex", color: "var(--gray-8)" }}
+      >
+        <PiDotsSixVertical />
+      </span>
       <Box style={{ flex: 1, minWidth: 0 }}>
         <Text
           as="div"
@@ -84,19 +80,19 @@ function SortableColumnRow({
           {column.label}
         </Text>
       </Box>
-      {column.locked ? (
+      {column.alwaysVisible ? (
         <Tooltip body="This column is always shown">
-          {/* Not a disabled button: Radix dims those, which reads as hidden. */}
+          {/* A lock, not an eye: an eye here reads as a toggle you can click. */}
           <span
             role="img"
             aria-label={`${column.label} column is always shown`}
             style={{
               display: "flex",
               padding: "0 var(--space-1)",
-              color: "var(--accent-11)",
+              color: "var(--gray-9)",
             }}
           >
-            <PiEye size={16} />
+            <PiLock size={16} />
           </span>
         </Tooltip>
       ) : (
@@ -143,7 +139,6 @@ export default function ColumnSettings({
     const oldIndex = ids.indexOf(String(active.id));
     const newIndex = ids.indexOf(String(over.id));
     if (oldIndex === -1 || newIndex === -1) return;
-    if (columns[oldIndex].locked || columns[newIndex].locked) return;
     const reordered = arrayMove(columns, oldIndex, newIndex);
     onChange(reordered.map((c) => ({ id: c.id, visible: c.visible })));
   };
