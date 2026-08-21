@@ -128,6 +128,12 @@ interface ChatMessageListProps {
   scrollContainerRef: React.RefObject<HTMLDivElement>;
   messagesEndRef: React.RefObject<HTMLDivElement>;
   onScroll: () => void;
+  /**
+   * Rendered after the messages and inside the scroll area — for the prompts
+   * that end a turn (a question, a mutation awaiting approval), which belong
+   * at the foot of the transcript rather than pinned over the composer.
+   */
+  footer?: React.ReactNode;
 }
 
 export default function ChatMessageList({
@@ -145,6 +151,7 @@ export default function ChatMessageList({
   scrollContainerRef,
   messagesEndRef,
   onScroll,
+  footer,
 }: ChatMessageListProps) {
   const hasAnyContent = messages.length > 0 || activeTurnItems.length > 0;
   const messageBlocks = groupIntoBlocks(messages);
@@ -571,6 +578,8 @@ export default function ChatMessageList({
           <Text size="sm">{error}</Text>
         </ErrorBubble>
       )}
+
+      {footer}
 
       <div ref={messagesEndRef} />
     </Flex>

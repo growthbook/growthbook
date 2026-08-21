@@ -243,3 +243,19 @@ export function getSkillNames(): string[] {
 export function _clearSkillCacheForTests(): void {
   cachedSkills = null;
 }
+
+/**
+ * Names of a domain router and every leaf beneath it.
+ *
+ * Used to scope an agent to one domain: the Product Analytics chat offers the
+ * dashboard skills but has no business loading the Feature Flag ones, and an
+ * agent that cannot load a skill never learns the endpoints it documents.
+ */
+export function getSkillNamesForDomain(domainName: string): string[] {
+  const domain = getSkillByName(domainName);
+  if (!domain || domain.kind !== "domain") return [];
+  return [
+    domain.name,
+    ...getLeafSkillsForDomain(domainName).map((s) => s.name),
+  ];
+}

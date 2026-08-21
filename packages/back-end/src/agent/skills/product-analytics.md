@@ -13,11 +13,13 @@ GrowthBook server (e.g. `/api/v1/product-analytics/metric-exploration`).
 Standard workflow for building a chart:
 0. (First chart of a conversation) Pick a datasource — see `<datasource_selection>` below. Reuse the same datasource for follow-up requests in the same conversation unless the user changes it.
 1. `GET /api/v1/product-analytics/search?query=<term>&datasourceId=<id>` — find the metric or fact table by name (or browse with an empty query). Always pass `datasourceId` so results are scoped.
-2. `GET /api/v1/product-analytics/columns?source=<metric|fact_table>&...` — discover valid columns, userIdTypes, and unit requirements.
+2. `GET /api/v1/product-analytics/columns?source=<metric|fact_table>&...` — discover valid columns, userIdTypes, and unit requirements. Pass `factTableId` for a fact table, or `metricIds` as a comma-separated list for metrics.
 3. `POST /api/v1/product-analytics/column-values` — (only when filters or specific values are needed) look up actual column values. NEVER guess.
 4. `POST /api/v1/product-analytics/metric-exploration` (or `/fact-table-exploration` / `/data-source-exploration`) — execute with a complete config. The chart is displayed automatically.
 
 For follow-up modifications ("break down by country", "change to last 90 days", etc.), start from the config returned by the previous exploration response and apply the requested changes — do not rebuild from scratch.
+
+If the user wants several charts saved together on a page — "build me a dashboard", "track these metrics", "add this to a dashboard" — that is a dashboard, not a chart. Call `loadSkill('dashboards')` instead of running one exploration per chart here.
 </workflow>
 
 <datasource_selection>
@@ -131,11 +133,12 @@ Example call:
 }
 ```
 
-## metric-exploration / fact-table-exploration / data-source-exploration — run a chart
+## metric-exploration / fact-table-exploration / data-source-exploration / funnel-exploration — run a chart
 
 - `POST /api/v1/product-analytics/metric-exploration` for `dataset.type: "metric"` configs.
 - `POST /api/v1/product-analytics/fact-table-exploration` for `dataset.type: "fact_table"` configs.
 - `POST /api/v1/product-analytics/data-source-exploration` for `dataset.type: "data_source"` configs.
+- `POST /api/v1/product-analytics/funnel-exploration` for `dataset.type: "funnel"` configs.
 
 The body IS the exploration config — see `<config_schema>` below. Add an optional query param `cache=preferred|required|never` (default `preferred`).
 
@@ -178,11 +181,11 @@ Example call (metric exploration, line chart over last 30 days):
 }
 ```
 
-## get a previous exploration
+## re-reading an earlier exploration
 
-`GET /api/v1/product-analytics/analyticsExplorations/:id`
-
-Use this only if the user references an older exploration by ID and the data isn't already in conversation history. Prefer the response of the most recent exploration call.
+There is no REST endpoint that fetches an exploration by ID. If the user refers
+back to an earlier chart, use the exploration response already in conversation
+history, or re-run its config.
 
 </endpoints>
 

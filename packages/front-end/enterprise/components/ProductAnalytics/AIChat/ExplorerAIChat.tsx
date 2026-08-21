@@ -13,6 +13,15 @@ import AIChatGatingScreen from "@/enterprise/components/AIChat/AIChatGatingScree
 import ChatComposer, {
   type ChatComposerHandle,
 } from "@/enterprise/components/AIChat/Composer/ChatComposer";
+import {
+  PRODUCT_ANALYTICS_CHAT_SKILL_DOMAIN,
+  useSkillMenuItems,
+} from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
+import { useAgentInteractionPrompts } from "@/enterprise/hooks/useAgentInteractionPrompts";
+import AskUserCard, {
+  type AskUserOption,
+} from "@/components/Agent/AskUserCard";
+import ConfirmActionCard from "@/components/Agent/ConfirmActionCard";
 import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
 import { useChatFeedback } from "@/enterprise/components/AIChat/useChatFeedback";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
@@ -44,6 +53,23 @@ export default function ExplorerAIChat() {
   const { draftExploreState } = useExplorerContext();
   const { items: mentionItems, ready: mentionItemsReady } =
     useMetricMentionItems(draftExploreState.datasource);
+  // Scoped to the dashboard domain to match what this chat's agent can load —
+  // see PRODUCT_ANALYTICS_CHAT_SKILL_DOMAIN on the back end.
+  const skillItems = useSkillMenuItems(PRODUCT_ANALYTICS_CHAT_SKILL_DOMAIN);
+  // The dashboard skills use `askUser` and write through the confirmation gate,
+  // so this chat has to render both prompts — an unhandled `confirm-action`
+  // would park a dashboard create the user can never approve.
+  const {
+    askPrompt,
+    confirmPrompt,
+    handleSSEEvent: handleInteractionEvent,
+    syncFromConversation,
+    takePendingDecision,
+    resolveOnUserMessage,
+    resolveAsk,
+    resolveConfirm,
+    reset: resetPrompts,
+  } = useAgentInteractionPrompts();
 
   // -- Hooks with no cross-dependencies (safe to call first) -----------------
 
@@ -57,21 +83,29 @@ export default function ExplorerAIChat() {
     conversationIdRef: feedbackConversationIdRef,
   } = useChatFeedback();
 
+  // One-shot handoff: `buildRequestBody` is a stable callback, so the current
+  // send's mentions and skills are stashed here rather than closed over.
   const pendingMentionsRef = useRef<AIChatMention[]>([]);
+  const pendingSkillsRef = useRef<string[]>([]);
 
   const buildRequestBody = useCallback(
     (message: string, cid: string) => {
       const mentions = pendingMentionsRef.current;
+      const skills = pendingSkillsRef.current;
       pendingMentionsRef.current = [];
+      pendingSkillsRef.current = [];
+      const decision = takePendingDecision();
       return {
         message,
         conversationId: cid,
         datasourceId: draftExploreState.datasource,
         model: chatModel,
         ...(mentions.length ? { mentions } : {}),
+        ...(skills.length ? { skills } : {}),
+        ...(decision ?? {}),
       };
     },
-    [draftExploreState.datasource, chatModel],
+    [draftExploreState.datasource, chatModel, takePendingDecision],
   );
 
   // -- Core chat hook --------------------------------------------------------
@@ -107,8 +141,12 @@ export default function ExplorerAIChat() {
         const title = (event.data.title as string) || "";
         if (title) handleTitleUpdate(conversationId, title);
       }
+      handleInteractionEvent(event);
     },
-    onConversationLoaded: loadFeedbackFromConversation,
+    onConversationLoaded: (data) => {
+      syncFromConversation(data);
+      loadFeedbackFromConversation(data);
+    },
     onMessageComplete: (info) => {
       track("AI Chat Response Completed", {
         model: chatModel,
@@ -153,18 +191,25 @@ export default function ExplorerAIChat() {
   // -- Handlers --------------------------------------------------------------
 
   const trackAndSend = useCallback(
-    (messageOverride?: string, mentions: AIChatMention[] = []) => {
+    (
+      messageOverride?: string,
+      mentions: AIChatMention[] = [],
+      skills: string[] = [],
+    ) => {
       const text = (messageOverride ?? input).trim();
       if (!text) return;
       pendingMentionsRef.current = mentions;
+      pendingSkillsRef.current = skills;
+      resolveOnUserMessage();
       track("AI Chat Message Sent", {
         model: chatModel,
         messageCount: messages.length,
         isFirstMessage: messages.length === 0,
+        skills,
       });
-      sendMessage(messageOverride, { mentions });
+      sendMessage(messageOverride, { mentions, skills });
     },
-    [input, chatModel, messages.length, sendMessage],
+    [input, chatModel, messages.length, sendMessage, resolveOnUserMessage],
   );
 
   // -- Effects ---------------------------------------------------------------
@@ -196,6 +241,25 @@ export default function ExplorerAIChat() {
     trackAndSend(initial.text, initial.mentions);
   }, [trackAndSend]);
 
+  const handleAskOption = useCallback(
+    (option: AskUserOption) => {
+      if (loading || !resolveAsk(option)) return;
+      sendMessage(option.label);
+    },
+    [resolveAsk, sendMessage, loading],
+  );
+
+  const handleConfirmAction = useCallback(
+    (decision: "confirm" | "cancel") => {
+      if (loading || !resolveConfirm(decision)) return;
+      // The decision is a control signal — don't render it as a user bubble.
+      sendMessage(decision === "confirm" ? "Confirm" : "Cancel", {
+        suppressUserMessage: true,
+      });
+    },
+    [resolveConfirm, sendMessage, loading],
+  );
+
   const handleNewChat = useCallback(() => {
     track("AI Chat New Conversation", {
       previousConversationMessageCount: messages.length,
@@ -203,6 +267,7 @@ export default function ExplorerAIChat() {
     newChat();
     setChatModel(defaultAIModel);
     clearFeedback();
+    resetPrompts();
     refreshList();
   }, [
     newChat,
@@ -210,6 +275,7 @@ export default function ExplorerAIChat() {
     defaultAIModel,
     setChatModel,
     clearFeedback,
+    resetPrompts,
     messages.length,
   ]);
 
@@ -306,6 +372,24 @@ export default function ExplorerAIChat() {
           scrollContainerRef={scrollContainerRef}
           messagesEndRef={messagesEndRef}
           onScroll={handleScroll}
+          footer={
+            <>
+              {askPrompt && !askPrompt.resolved && (
+                <AskUserCard
+                  prompt={askPrompt}
+                  loading={loading}
+                  onSelect={handleAskOption}
+                />
+              )}
+              {confirmPrompt && !confirmPrompt.resolved && (
+                <ConfirmActionCard
+                  prompt={confirmPrompt}
+                  loading={loading}
+                  onDecide={handleConfirmAction}
+                />
+              )}
+            </>
+          }
         />
 
         <ChatComposer
@@ -315,7 +399,10 @@ export default function ExplorerAIChat() {
           mentionItemsReady={mentionItemsReady}
           value={input}
           onChange={setInput}
-          onSend={({ text, mentions }) => trackAndSend(text, mentions)}
+          skillItems={skillItems}
+          onSend={({ text, mentions, skills }) =>
+            trackAndSend(text, mentions, skills)
+          }
           onCancel={cancelGeneration}
           loading={loading}
           isLocalStream={isLocalStream}

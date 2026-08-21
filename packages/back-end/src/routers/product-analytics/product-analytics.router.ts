@@ -4,6 +4,7 @@ import {
   productAnalyticsRunRequestBodyValidator,
   aiChatFeedbackRatingValidator,
   aiChatMentionValidator,
+  aiChatSkillsValidator,
 } from "shared/validators";
 import { aiModelValidator } from "back-end/src/routers/ai/ai.validators";
 import { wrapController } from "back-end/src/routers/wrapController";
@@ -43,6 +44,16 @@ router.post(
         datasourceId: z.string(),
         model: aiModelValidator,
         mentions: aiChatMentionValidator.array().optional(),
+        // Skills picked from the composer's `/` menu. Scoped server-side to the
+        // dashboard domain (see PRODUCT_ANALYTICS_CHAT_SKILL_DOMAIN); anything
+        // else resolves to nothing.
+        skills: aiChatSkillsValidator.optional(),
+        // Deterministic mutation-confirmation gate: when the user responds to
+        // a parked mutation, the UI sends the action id and their decision so
+        // the harness can replay or discard the exact stored call. Reachable
+        // here because the dashboard skills write via `callApi`.
+        confirmActionId: z.string().min(1).optional(),
+        confirmDecision: z.enum(["confirm", "cancel"]).optional(),
       })
       .strict(),
   }),

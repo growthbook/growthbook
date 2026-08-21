@@ -451,3 +451,183 @@ export const apiAnalyticsExplorationValidator = namedSchema(
 export type ApiAnalyticsExploration = z.infer<
   typeof apiAnalyticsExplorationValidator
 >;
+
+// ---------------------------------------------------------------------------
+// Discovery: search, columns, column values
+//
+// One definition per input, shared by the product-analytics chat agent's tools
+// and the REST endpoints that expose the same three lookups. Numbers and the
+// id list are query-encoded on the REST side, so they coerce from strings;
+// defaults live in `meta()` rather than `.default()` and are applied by the
+// caller, matching `paginationQueryFields`.
+// ---------------------------------------------------------------------------
+
+export const PRODUCT_ANALYTICS_SEARCH_DEFAULT_LIMIT = 10;
+export const PRODUCT_ANALYTICS_COLUMN_VALUES_DEFAULT_LIMIT = 20;
+
+export const productAnalyticsSearchQuerySchema = z.strictObject({
+  query: z
+    .string()
+    .describe(
+      "Search term matched against metric and fact table names, descriptions, owners, tags, and IDs. " +
+        "Omit or pass an empty string to browse everything available.",
+    )
+    .optional(),
+  datasourceId: z
+    .string()
+    .describe(
+      "Scope results to a single Data Source. Omit to search across the whole organization.",
+    )
+    .optional(),
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(20)
+    .describe("The number of results to return")
+    .optional()
+    .meta({ default: PRODUCT_ANALYTICS_SEARCH_DEFAULT_LIMIT }),
+  skip: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .describe("How many results to skip (use with limit to paginate)")
+    .optional()
+    .meta({ default: 0 }),
+});
+
+export type ProductAnalyticsSearchQuery = z.infer<
+  typeof productAnalyticsSearchQuerySchema
+>;
+
+export const productAnalyticsColumnSources = ["fact_table", "metric"] as const;
+export type ProductAnalyticsColumnSource =
+  (typeof productAnalyticsColumnSources)[number];
+
+/**
+ * A `metric` source needs `metricIds`, a `fact_table` source needs
+ * `factTableId`. Enforced by refinement rather than a discriminated union so
+ * the same object shape works as a flat query string.
+ */
+export function productAnalyticsColumnSourceIsValid(v: {
+  source: string;
+  factTableId?: string;
+  metricIds?: string[];
+}): boolean {
+  switch (v.source) {
+    case "fact_table":
+      return !!v.factTableId;
+    case "metric":
+      return !!v.metricIds?.length;
+    default:
+      return false;
+  }
+}
+
+const COLUMN_SOURCE_REFINEMENT = {
+  message: "Provide the ID field matching the selected source",
+} as const;
+
+/** Comma-separated metric ids, e.g. `?metricIds=fact__a,fact__b`. */
+const metricIdsQueryField = z
+  .string()
+  .describe(
+    "Comma-separated metric IDs — required when source is `metric`. Returns the " +
+      "intersection of columns across the underlying fact tables of every metric listed.",
+  )
+  .meta({
+    type: "array",
+    items: { type: "string" },
+    explode: false,
+  })
+  .optional();
+
+export function parseMetricIdsQueryField(value?: string): string[] {
+  return (value ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+
+const columnSourceQueryFields = {
+  source: z
+    .enum(productAnalyticsColumnSources)
+    .describe(
+      "The exploration type — determines which ID field is required: " +
+        "`fact_table` needs `factTableId`, `metric` needs `metricIds`.",
+    ),
+  factTableId: z
+    .string()
+    .describe("Fact Table ID — required when source is `fact_table`")
+    .optional(),
+  metricIds: metricIdsQueryField,
+};
+
+export const productAnalyticsColumnsQuerySchema = z
+  .strictObject(columnSourceQueryFields)
+  .refine(
+    (v) =>
+      productAnalyticsColumnSourceIsValid({
+        ...v,
+        metricIds: parseMetricIdsQueryField(v.metricIds),
+      }),
+    COLUMN_SOURCE_REFINEMENT,
+  );
+
+export const productAnalyticsColumnValuesBodySchema = z
+  .strictObject({
+    source: z
+      .enum(productAnalyticsColumnSources)
+      .describe(
+        "The exploration type — determines which ID field is required: " +
+          "`fact_table` needs `factTableId`, `metric` needs `metricIds`.",
+      ),
+    factTableId: z
+      .string()
+      .describe("Fact Table ID — required when source is `fact_table`")
+      .optional(),
+    metricIds: z
+      .array(z.string())
+      .describe(
+        "Metric IDs — required when source is `metric`. The fact table behind the " +
+          "first metric with one is queried.",
+      )
+      .optional(),
+    columns: z
+      .array(z.string())
+      .min(1)
+      .max(5)
+      .describe(
+        "Column names to fetch values for. Only string-typed columns are queryable; " +
+          "anything else is reported back in `warnings`.",
+      ),
+    searchTerm: z
+      .string()
+      .describe(
+        "Case-insensitive substring filter, for when you have a partial guess of the " +
+          "value — e.g. `US` to find `United States`.",
+      )
+      .optional(),
+    limit: z
+      .number()
+      .int()
+      .min(1)
+      .max(50)
+      .describe("Maximum values to return per column")
+      .optional()
+      .meta({ default: PRODUCT_ANALYTICS_COLUMN_VALUES_DEFAULT_LIMIT }),
+  })
+  .refine(productAnalyticsColumnSourceIsValid, COLUMN_SOURCE_REFINEMENT);
+
+export type ProductAnalyticsColumnValuesBody = z.infer<
+  typeof productAnalyticsColumnValuesBodySchema
+>;
+
+// The three discovery lookups return already-shaped JSON payloads whose keys
+// vary by branch (a metric-source column lookup carries per-metric unit flags a
+// fact-table one has no notion of), so the response contract is intentionally
+// open rather than a union that would have to be widened on every tweak.
+export const productAnalyticsDiscoveryResultSchema = z.record(
+  z.string(),
+  z.unknown(),
+);
