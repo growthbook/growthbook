@@ -545,8 +545,17 @@ export default function AccountPlanNotices() {
     }
 
     const isEnterpriseLicense = license.plan === "enterprise";
+    const isOrbManaged =
+      !!license.orbSubscription?.id &&
+      license.orbSubscription?.status === "active";
     const seatsExceedLicense = seatsInUse > (license.seats || 0);
-    if (isEnterpriseLicense && seatsExceedLicense && canManageBilling) {
+    // Orb enterprise includes a seat allotment and bills for anything above it.
+    if (
+      isEnterpriseLicense &&
+      !isOrbManaged &&
+      seatsExceedLicense &&
+      canManageBilling
+    ) {
       return (
         <Tooltip
           body={
