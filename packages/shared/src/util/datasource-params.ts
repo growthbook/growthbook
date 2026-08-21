@@ -190,6 +190,7 @@ const DATA_SOURCE_PARAM_SENSITIVITY = {
     authMethod: "public",
     privateKey: "secret",
     privateKeyPassword: "secret",
+    workloadIdentityProvider: "public",
   },
 
   mixpanel: {
