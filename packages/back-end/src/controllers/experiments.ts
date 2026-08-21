@@ -19,7 +19,10 @@ import {
   getAllVariations,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
-import { isExperimentIncrementalEnabled } from "shared/enterprise";
+import {
+  getHealthSettings,
+  isExperimentIncrementalEnabled,
+} from "shared/enterprise";
 import { v4 as uuidv4 } from "uuid";
 import { IdeaInterface } from "shared/types/idea";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
@@ -45,6 +48,7 @@ import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
 import isEqual from "lodash/isEqual";
 import { getMetricMap } from "back-end/src/models/MetricModel";
+import { summarizeExperimentAnalysisForAI } from "back-end/src/util/ai-prompt.util";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -286,18 +290,35 @@ export async function postAIExperimentAnalysis(
     allVariations.find((v) => v.id === releasedVariationId)?.name || "";
 
   const allMetricGroups = await context.models.metricGroups.getAll();
-  const experimentMetricIds = expandMetricGroups(
-    getAllMetricIdsFromExperiment(experiment, false, allMetricGroups),
-    allMetricGroups,
-  );
   const allOrgMetrics = await getMetricMap(context);
-  const experimentMetrics = experimentMetricIds
-    .map((id) => allOrgMetrics.get(id))
-    .filter(isDefined);
+  const expandIds = (ids: string[] | undefined) =>
+    expandMetricGroups(ids || [], allMetricGroups);
+
+  const segmentId = snapshot?.settings?.segment;
+  const segmentName = segmentId
+    ? (await context.models.segments.getById(segmentId))?.name
+    : null;
+  const { srmThreshold } = getHealthSettings(context.org.settings);
+  const { settings: scopedSettings } = getScopedSettings({
+    organization: context.org,
+    experiment,
+  });
+
+  const summary = summarizeExperimentAnalysisForAI({
+    experiment,
+    snapshot,
+    metricMap: allOrgMetrics,
+    goalMetricIds: expandIds(experiment.goalMetrics),
+    secondaryMetricIds: expandIds(experiment.secondaryMetrics),
+    guardrailMetricIds: expandIds(experiment.guardrailMetrics),
+    segmentName,
+    srmThreshold,
+    statsEngine: experiment.statsEngine || scopedSettings.statsEngine.value,
+  });
 
   const instructions =
-    "\nYou are an expert data analyst whose colleague has chosen a particular outcome for an A/B test. " +
-    "\nYou are fully aware of the experiment framework consisting of:" +
+    "\nYou are an expert data analyst whose colleague has chosen a particular outcome for an A/B test." +
+    "\nYou will be given a JSON summary of the experiment and its latest results." +
     // Arguments
     "\nThe chosen outcome can be 'dnf' which means 'did not finish', 'won' which means the experiment was successful, 'lost' which means none of the variations were as successful as the control, or 'inconclusive' which means no statistically significant result was detected." +
     "\nIf the chosen outcome is 'dnf', 'inconclusive', or 'lost' then we stick with the control." +
@@ -305,98 +326,59 @@ export async function postAIExperimentAnalysis(
     "\nUsually the releasedVariationId is the same as the winning variation, but not always perhaps because the difference is not big enough to warrant the cost of maintaining the winning variant, or other external factors not measured by the metrics" +
     // General context
     "\nExperiments are A/B tests that evaluate the performance of different variations of a feature or product." +
-    "\nSnapshots are periodic summaries of experiment results, including metrics and statistical analyses." +
+    "\nSnapshots are periodic summaries of experiment results, including metrics and statistical analyses. You are given a summary of the latest one rather than the raw snapshot." +
+    // Summary structure
+    "\nThe summary contains the following fields:" +
     // Experiment structure
-    "\nAn Experiment object contains the following key fields:" +
-    "\n- id: A unique identifier for the experiment." +
-    "\n- name: The name of the experiment." +
-    "\n- status: The current status of the experiment (e.g., 'running', 'stopped')." +
-    "\n- variations: An array of variations being tested in the experiment. Each variation has an id, name, and description." +
-    "\n- phases: An array of phases, where each phase represents a time period during which the experiment was run with specific settings." +
-    "\n- results: A summary of the experiment's outcome (e.g., 'won', 'lost', 'inconclusive')." +
-    "\n- winner: The index of the winning variation, if applicable." +
-    "\n- releasedVariationId: The id of the variation that was released as a result of the experiment." +
-    "\n- analysis: A textual summary of the experiment's results and conclusions that you will come up with." +
-    "\n- metrics: Metrics are used to evaluate the performance of variations. These include goal metrics, guardrail metrics, and secondary metrics." +
-    "\n- linkedFeatures: A list of feature flags or features associated with the experiment." +
-    // Snapshot structure
-    "\nA Snapshot object contains the following key fields:" +
-    "\n- id: A unique identifier for the snapshot." +
-    "\n- experiment: The id of the experiment this snapshot belongs to." +
-    "\n- phase: The phase index of the experiment this snapshot corresponds to." +
-    "\n- status: The status of the snapshot (e.g., 'success', 'running', 'error')." +
-    "\n- results: An array of results for each variation in the experiment. Each result includes:" +
-    "\n  - name: The name of the variation." +
-    "\n  - srm: Sample Ratio Mismatch, a measure of whether traffic was evenly split." +
-    "\n  - variations: An array of metrics for each variation. Each metric includes:" +
-    "\n    - users: The number of users exposed to the variation." +
-    "\n    - metrics: A map of metric ids to their statistical results, including:" +
-    "\n      - value: The observed value of the metric." +
-    "\n      - cr: Conversion rate for the metric. For metrics with 'revenue' type this is in the local currency, for count it is a number, for duration it is a time, and for binomial it is a percent" +
-    "\n      - ci: Confidence interval for the metric." +
-    "\n      - uplift: The uplift in performance compared to the baseline." +
-    "\n      - chanceToWin: The probability that this variation is better than others." +
-    "\n- health: Information about the health of the experiment, including traffic and statistical power." +
+    "\n- experiment: id, name, status, hypothesis, description, and priorAnalysis (analysis text a colleague already wrote, if any). Long free-text fields may be truncated with a trailing ellipsis." +
+    "\n- experiment.variations: the variations being tested, in order. The first one is the baseline (control). Each has a name, a description, and weight, which is its share of experiment traffic." +
+    "\n- experiment.startDate and experiment.endDate: the period the latest phase ran for. experiment.coverage is the fraction of eligible traffic that phase included." +
+    "\n- experiment.priorPhases: earlier phases, if the experiment ran in more than one, each with the reason it ended. The results below cover only the latest phase, so treat these as background rather than as results." +
+    // Results structure
+    "\n- results: the overall analysis from the latest successful snapshot. It is omitted entirely when there are no results, which usually means the experiment never started." +
+    "\n- results.statsEngine: 'bayesian' or 'frequentist'." +
+    "\n- results.differenceType: 'relative', 'absolute', or 'scaled'. This is how each lift below is expressed." +
+    "\n- results.pValueThreshold, results.pValueCorrection, results.sequentialTesting, results.regressionAdjusted: the analysis settings the results were computed with." +
+    // Health and validity checks
+    "\n- results.srmPValue: the Sample Ratio Mismatch p-value. A value below results.srmThreshold means traffic was not split as configured and the results should not be trusted." +
+    "\n- results.srmThreshold: this org's configured significance threshold for the SRM check above." +
+    "\n- results.multipleExposures: how many users saw more than one variation." +
+    "\n- results.unknownVariations: variation ids found in the data that the experiment does not define. Anything listed here means the exposure data is suspect." +
+    "\n- results.segment and results.queryFilter: when either is present the analysis covered only a subset of users, not everyone in the experiment. Say so whenever you state a result, so the numbers are not read as applying to all users." +
+    "\n- results.health, when present, reports validity checks beyond SRM:" +
+    "\n  - isLowPowered and power: whether the experiment collected enough data to detect the effect it was looking for. When a result is inconclusive and the experiment was underpowered, say so, since that is a different conclusion from the variation having no effect." +
+    "\n  - additionalDaysNeeded: how much longer it would have needed to run to reach adequate power." +
+    "\n  - covariateImbalance: true means the variation groups already differed before the experiment started, which undermines the comparison." +
+    "\n  - trafficError: set when traffic data could not be loaded, so exposure counts may be unreliable." +
+    "\n- results.droppedMetrics: if present, how many metrics of each role were left out of the summary to keep it small. Say so in your analysis when metrics were dropped, since the summary is then incomplete for that role." +
     // Metrics and statistical concepts
-    "\nMetrics are used to evaluate the performance of variations in an experiment. They include:" +
-    "\n- Goal metrics: Metrics that measure the primary objectives of the experiment." +
-    "\n- Guardrail metrics: Metrics that ensure the experiment does not negatively impact critical areas." +
-    "\n- Secondary metrics: Additional metrics that provide context or insights." +
-    "\nStatistical concepts used in experiments include:" +
-    "\n- Confidence intervals: A range of values that likely contains the true effect size." +
-    "\n- Statistical power: The probability of detecting a true effect." +
-    "\n- Sample Ratio Mismatch (SRM): Indicates whether traffic was evenly split among variations." +
-    "\n- Chance to Win (bayesian only): The probability that a variation is better than others." +
-    "\n- P-Value (frequentist only): The probability that the null hypothesis is true." +
+    "\n- results.metrics: one entry per metric, each containing:" +
+    "\n  - metric: the metric name." +
+    "\n  - role: 'goal' for metrics measuring the primary objective, which determine success or failure; 'guardrail' for metrics that must not regress; 'secondary' for metrics that add context only." +
     // Metric types
-    "\nMetrics can be of the following types:" +
-    "\n- Binomial/Proportion Metrics: Represent yes/no outcomes (e.g., conversion rates). The value is the proportion of users who converted (e.g., 10% means 10 out of 100 users converted)." +
-    "\n- Count/Mean Metrics: Represent the total count of events per user (e.g., pages viewed per user). The value is the average count per user." +
-    "\n- Duration/Mean Metrics: Represent the total time spent per user (e.g., time on site). The value is the average duration per user, typically in seconds or minutes." +
-    "\n- Revenue/Mean Metrics: Represent the total revenue generated per user. The value is in the local currency, and not a percent.  (e.g. For instance 6.58 means the average revenue per user was $6.58 on average)." +
-    "\n- Ratio Metrics: Represent the ratio of two numeric values among experiment users." +
-    // Statistical results
-    "\n- Statistical results for metrics include: Conversion Rate (CR)" +
-    "\n- Statistical results for metrics include: Value: Represents the total value of the metric across all users who saw the variation." +
-    "\n- Statistical results for metrics include: Confidence Interval (CI): Represents the range within which the true metric value is likely to fall." +
-    "\n- Statistical results for metrics include: Uplift: Represents the difference in metric performance between variations (e.g., the increase in average revenue per user for a variation compared to the baseline)." +
-    "\n- Statistical results for metrics include: Chance to Win: Represents the probability that a variation is better than others for this metric." +
+    "\n  - metricType: proportion (also called binomial), mean, count, duration, revenue, ratio, quantile, retention, or dailyParticipation." +
+    "\n  - betterDirection: 'higher' or 'lower'. For 'lower' metrics such as bounce rate or latency, a positive lift is a regression, not a win." +
+    "\n  - variations: one entry per variation, in the same order as experiment.variations, so the first entry is the baseline." +
+    "\n    - users: the number of users exposed to the variation." +
     // Metric interpretation
-    "\n- For binomial metrics, the CR represents the proportion of users who achieved the outcome (e.g., 6.58% means 6.58 out of 100 users converted)." +
-    "\n- For count metrics, the CR represents the average number of events per user (e.g., 6.58 means each user performed 6.58 actions on average)." +
-    "\n- For duration metrics, the CR represents the average time spent per user (e.g., 6.58 means each user spent 6.58 seconds or minutes on average, depending on the unit)." +
-    "\n- For revenue metrics, the CR represents the average revenue per user (e.g., $6.58 means each user generated $6.58 in revenue on average)." +
+    "\n    - cr: the per-user value of the metric. What it means depends on metricType:" +
+    "\n      - proportion, also called binomial, and retention: the share of users who converted or returned, as a rate and not a percentage. 0.0658 means 6.58% of users, or 6.58 out of every 100." +
+    "\n      - revenue: the average revenue per user in the local currency. 6.58 means each user generated $6.58 on average, not 6.58%." +
+    "\n      - count and mean: the average number of events per user. 6.58 means each user performed the action 6.58 times on average." +
+    "\n      - duration: the average time per user, in whatever unit the metric is configured with, which may be seconds, minutes, or hours. Do not assume a unit; refer to it as time unless you are told the unit." +
+    "\n      - ratio: the ratio of two aggregated values across experiment users, such as revenue divided by orders." +
+    "\n      - quantile: the value at the metric's configured percentile rather than an average." +
+    "\n      - dailyParticipation: the average share of days in the metric's window that each user was active, as a rate and not a percentage." +
+    // Statistical results
+    "\n    - lift: the difference compared to the baseline, expressed according to differenceType. Absent on the baseline itself." +
+    "\n    - ci: the confidence interval for that lift, which is the range the true effect is likely to fall in." +
+    "\n    - chanceToWin (bayesian only): the probability this variation beats the baseline for this metric." +
+    "\n    - pValue (frequentist only): the probability of seeing a difference at least this large if the variation truly had no effect. Lower means stronger evidence; compare it against pValueThreshold to judge statistical significance." +
     // Metric aggregation
-    "\nMetrics are aggregated at the user level before being averaged across all users in a variation." +
-    "\nFor example, in revenue metrics, the total revenue for all users in a variation is divided by the total number of users in that variation to calculate the average revenue per user." +
-    // Relationships between experiments and snapshots
-    "\nEach experiment can have multiple snapshots, one for each phase or analysis." +
-    "\nSnapshots summarize the results of an experiment at a specific point in time." +
-    "\nThe 'results' field in a snapshot provides detailed metrics and statistical analyses for each variation." +
-    // Relationships between experiments and metrics
-    "\nExperiments are evaluated using metrics, which are categorized into three types:" +
-    "\n- Goal metrics: These measure the primary objectives of the experiment and are used to determine success or failure." +
-    "\n- Guardrail metrics: These ensure that the experiment does not negatively impact critical areas of the product or business." +
-    "\n- Secondary metrics: These provide additional insights or context but are not the primary focus of the experiment." +
-    "\nEach metric is identified by a unique ID, which is referenced in the experiment's `goalMetrics`, `guardrailMetrics`, and `secondaryMetrics` fields." +
-    "\nThe `experimentMetrics` object is a map where the keys are metric IDs and the values are detailed metric objects. These objects include statistical results and metadata about the metrics." +
-    "\nTo evaluate the experiment, the metric IDs in the `goalMetrics`, `guardrailMetrics`, and `secondaryMetrics` fields should be matched to their corresponding metric objects in the `experimentMetrics` map." +
-    "\nEach metric object in the `experimentMetrics` map contains the following key fields:" +
-    "\n- `value`: The observed value of the metric." +
-    "\n- `cr`: The conversion rate for the metric." +
-    "\n- `ci`: The confidence interval for the metric." +
-    "\n- `uplift`: The uplift in performance compared to the baseline." +
-    "\n- `chanceToWin`: The probability that the variation is better than others for this metric." +
-    "\n- `pValue`: The p-value for the metric, indicating statistical significance." +
-    "\nThe `experimentMetrics` map provides the detailed results for each metric, which are used to analyze the performance of the variations in the experiment." +
-    "\nThe keys in the `experimentMetrics` map refer to the ids mentioned in the `goalMetrics`, `guardrailMetrics`, and `secondaryMetrics` fields of the experiment." +
-    "\nIf the snapshot is undefined then the experiment probably never started." +
-    "\n- the experiment data is: " +
-    JSON.stringify(experiment) +
-    "\n- the latest snapshot is: " +
-    JSON.stringify(snapshot) +
-    "\n- the experiment metrics are: " +
-    JSON.stringify(experimentMetrics) +
+    "\nMetrics are aggregated at the user level before being averaged across all users in a variation. For revenue, the total revenue for a variation is divided by the number of users in it." +
+    "\nA result is only worth acting on when it is both statistically significant and large enough to matter in practice." +
+    "\n- the experiment summary is: " +
+    JSON.stringify(summary) +
     "\n- Your colleague has chosen the following outcome for the experiment:" +
     results +
     (results === "won"
