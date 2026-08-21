@@ -29,10 +29,22 @@ export type ContextualLeafStatsEntryInterface = z.infer<
   typeof contextualLeafStatsEntryValidator
 >;
 
+/** Metadata for a single greedy tree split (pre-split leaf condition + partition). */
+export const contextualTreeSplitValidator = z.object({
+  leafClauses: z.array(contextualLeafClauseValidator),
+  attribute: z.string(),
+  leftLevels: z.array(z.string()),
+  rightLevels: z.array(z.string()),
+});
+export type ContextualTreeSplitInterface = z.infer<
+  typeof contextualTreeSplitValidator
+>;
+
 /** Total within-tree SSE at each stage of greedy tree growth (root, after 1st split, ...). */
 export const contextualSseTrajectoryEntryValidator = z.object({
   numSplits: z.number().int().nonnegative(),
   totalSse: z.number(),
+  split: contextualTreeSplitValidator.optional(),
 });
 export type ContextualSseTrajectoryEntryInterface = z.infer<
   typeof contextualSseTrajectoryEntryValidator
