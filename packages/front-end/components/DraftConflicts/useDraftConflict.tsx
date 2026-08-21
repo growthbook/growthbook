@@ -70,13 +70,7 @@ export function useDraftConflict<T extends object>({
         return;
       }
       if (!form) return;
-      (
-        form.setValue as unknown as (
-          name: string,
-          value: unknown,
-          options: { shouldDirty: boolean },
-        ) => void
-      )(field, value, { shouldDirty: true });
+      form.setValue(field, value, { shouldDirty: true });
     },
     [form, applyField],
   );
@@ -128,10 +122,8 @@ export function useDraftConflict<T extends object>({
       ? contested.map((c) => c.key)
       : [WHOLE_KEY]
     : [];
-  // A new draft keeps both versions only when the other edit lives in a DRAFT:
-  // theirs stays there, mine goes elsewhere. Against a PUBLISHED change it
-  // protects nobody — the new draft forks off live and this edit overwrites
-  // theirs inside it, reverting their work when it publishes.
+  // Forking only keeps both versions when their edit is in another draft. Against
+  // live, the new draft carries this stale edit on top of their published change.
   const newDraftAvoidsConflict =
     isNewDraft && conflict?.draftVersion !== undefined;
   const resolved =

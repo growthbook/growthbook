@@ -289,9 +289,8 @@ export async function createOrUpdateRevision(
         throw new Error("Revision does not belong to the specified entity");
       }
 
-      // For a deriver, both the derivation AND the merge with the draft's
-      // existing changes have to happen inside the CAS loop, against the row
-      // actually being written.
+      // A deriver's derivation and its merge with the draft's existing changes
+      // both have to happen inside the CAS loop, against the row being written.
       const finalChanges =
         typeof proposedChanges === "function"
           ? (row: Revision) => {

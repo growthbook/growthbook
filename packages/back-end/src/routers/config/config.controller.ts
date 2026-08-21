@@ -1241,7 +1241,7 @@ export const putConfig = async (
               );
           return buildPatchOps({
             ...(fieldsToUpdate as Record<string, unknown>),
-            value: stripConfigExtends(nextValue) ?? nextValue,
+            value: stripConfigExtends(nextValue),
           });
         }
       : patchOps,

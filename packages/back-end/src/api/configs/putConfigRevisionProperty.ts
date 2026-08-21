@@ -66,7 +66,7 @@ export const putConfigRevisionProperty = createApiRequestHandler(
     );
 
     assertValidConfigValueEdit(nextValue);
-    const strippedValue = stripConfigExtends(nextValue) ?? nextValue;
+    const strippedValue = stripConfigExtends(nextValue);
 
     await assertNoReferenceCycle(
       req.context,
@@ -104,7 +104,7 @@ export const putConfigRevisionProperty = createApiRequestHandler(
             )
           : nextValue;
         return buildPatchOps({
-          value: stripConfigExtends(value) ?? value,
+          value: stripConfigExtends(value),
         });
       },
       { revisionId: revision.id },

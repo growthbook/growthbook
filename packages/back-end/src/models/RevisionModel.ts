@@ -1520,10 +1520,9 @@ export class RevisionModel extends BaseClass {
 
   // Proposed changes
 
-  // `proposedChanges` may be a function of the row being written. The CAS loop
-  // below retries with a freshly read row, so an edit derived from current
-  // content (e.g. one property of a config value) must recompute per attempt
-  // rather than replay a value captured before the first attempt.
+  // `proposedChanges` may be a function of the row being written: an edit derived
+  // from current content (one property of a config value) has to recompute on each
+  // CAS retry instead of replaying ops captured before the first attempt.
   async updateProposedChanges(
     id: string,
     proposedChanges:

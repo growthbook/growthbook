@@ -64,7 +64,7 @@ export const deleteConfigRevisionProperty = createApiRequestHandler(
       );
     }
 
-    const strippedValue = stripConfigExtends(nextValue) ?? nextValue;
+    const strippedValue = stripConfigExtends(nextValue);
 
     await assertConfigValueValid(
       req.context,
@@ -93,7 +93,7 @@ export const deleteConfigRevisionProperty = createApiRequestHandler(
             ).value
           : nextValue;
         return buildPatchOps({
-          value: stripConfigExtends(value) ?? value,
+          value: stripConfigExtends(value),
         });
       },
       { revisionId: revision.id },

@@ -54,8 +54,8 @@ export function threeWayMerge<T extends object>(
   const seen = new Set<string>();
   for (const f of allFields) {
     if (seen.has(f)) continue;
-    const fields = (chunkOf.get(f) ?? [f]).filter(
-      (cf) => allFields.includes(cf) || cf === f,
+    const fields = (chunkOf.get(f) ?? [f]).filter((cf) =>
+      allFields.includes(cf),
     );
     fields.forEach((cf) => seen.add(cf));
     units.push({ key: fields[0], fields });
@@ -92,8 +92,6 @@ export function threeWayMerge<T extends object>(
     }
   }
 
-  if (result.merged) {
-    config.derive?.(result.merged as unknown as Record<string, unknown>);
-  }
+  config.derive?.(result.merged as unknown as Record<string, unknown>);
   return result;
 }

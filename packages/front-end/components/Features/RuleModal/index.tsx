@@ -782,10 +782,8 @@ export default function RuleModal({
       ? conflict.merge.contested.map((c) => c.key)
       : ["__rule__"]
     : [];
-  // A new draft only keeps both versions when the other edit lives in a DRAFT:
-  // theirs stays there, mine goes elsewhere. Against a PUBLISHED change it
-  // protects nobody — the new draft forks off live and my rule overwrites
-  // theirs inside it, reverting their work when it publishes.
+  // Forking only keeps both versions when their edit is in another draft. Against
+  // live, the new draft carries this stale edit on top of their published change.
   const newDraftAvoidsConflict =
     draftMode === "new" && conflict?.draftVersion !== undefined;
   const conflictResolved =
