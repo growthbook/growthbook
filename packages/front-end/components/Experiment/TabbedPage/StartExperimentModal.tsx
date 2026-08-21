@@ -31,6 +31,8 @@ import {
 } from "@/services/utils";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
+import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelectorUtils";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import {
   ICON_PROPERTIES,
   LINKED_CHANGE_CONTAINER_PROPERTIES,
@@ -72,6 +74,11 @@ const PENDING_DRAFT_FAILURE_LABELS: Record<
   "needs-approval": "Awaiting approval",
   "publish-error": "Publish failed unexpectedly",
 };
+
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 2,
+});
 
 function SubmitButton({ cta, disabled }: { cta: string; disabled: boolean }) {
   const { loading } = useModalForm();
@@ -184,6 +191,7 @@ export default function StartExperimentModal({
   const hasAttributeTargeting = hasAttributeCondition(latestPhase?.condition);
   const hasSavedGroupTargeting = !!latestPhase?.savedGroups?.length;
   const hasPrerequisites = !!latestPhase?.prerequisites?.length && !isHoldout;
+  const hasNamespace = !!latestPhase?.namespace?.enabled;
   const hasLinkedChanges =
     linkedFeatures.length > 0 ||
     visualChangesets.length > 0 ||
@@ -216,6 +224,12 @@ export default function StartExperimentModal({
   const [upgradeModal, setUpgradeModal] = useState(false);
 
   const { hasCommercialFeature } = useUser();
+  const { namespaces } = useOrgSettings();
+
+  const { coverage: namespaceCoverage } = getNamespaceDisplayData(
+    latestPhase?.namespace,
+    namespaces,
+  );
 
   const needsVisualEditorUpgrade =
     experiment.hasVisualChangesets && !hasCommercialFeature("visual-editor");
@@ -473,6 +487,13 @@ export default function StartExperimentModal({
                 }}
               >
                 <Flex direction="column" gap="4">
+                  {hasNamespace && (
+                    <SummaryRow label="Namespace" inline>
+                      <Text>
+                        {percentFormatter.format(namespaceCoverage)} included
+                      </Text>
+                    </SummaryRow>
+                  )}
                   <SummaryRow label="Traffic" inline={!isHoldout}>
                     {isHoldout ? (
                       <Flex direction="column" gap="1">
