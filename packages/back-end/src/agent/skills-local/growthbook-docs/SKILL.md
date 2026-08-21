@@ -1,6 +1,6 @@
 ---
 name: growthbook-docs
-description: Answer how-to / SDK / setup / configuration / "how does X work?" questions about GrowthBook itself (not the user's data). Use when the question is about the product, an SDK integration, a configuration option, or general best practices — NOT when the question is about the user's experiments, features, or metrics (those use the feature-flags / experiments / product-analytics skills).
+description: Answer how-to / SDK / setup / configuration / "how does X work?" questions about GrowthBook itself (not the user's data). Use when the question is about the product, an SDK integration, a configuration option, or general best practices — NOT when the question is about the user's experiments, features, or metrics (those use the feature-flags / experiments / analytics skills).
 ---
 
 # GrowthBook documentation
@@ -54,7 +54,7 @@ If the user's question doesn't fit any of these, link the homepage
 ## When NOT to use this skill
 
 - "List my features", "what's the result of experiment X", "build me a
-  chart" → use `feature-flags`, `experiments`, or `product-analytics`.
+  chart" → use `feature-flags`, `experiments`, or `analytics`.
   This skill is only for questions about how the product/SDKs work, not
   for questions about the user's data.
 - Pure conversational replies (greetings, thanks) → just reply with a
