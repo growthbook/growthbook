@@ -71,7 +71,6 @@ export async function assertIncrementalRefreshPrerequisites({
       org,
       "incremental-refresh",
     ),
-    skipPartialData: snapshotSettings.skipPartialData,
     activationMetric: experiment.activationMetric,
     metrics: selectedMetrics,
     experimentType: experiment.type,
