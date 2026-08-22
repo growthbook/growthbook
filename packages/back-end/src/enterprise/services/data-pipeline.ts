@@ -361,6 +361,12 @@ export function getFactTableSettingsHashForAggregatedFactTable(
   factTable: FactTableInterface,
 ): string {
   const timestampColumn = getFactTableTimestampColumn(factTable);
+  // Sorted entries rather than the raw object: Mongo doesn't guarantee key
+  // order, and only mappings that actually rename a column are included so
+  // hashes stored before this field existed stay byte-identical.
+  const idColumnEntries = Object.entries(factTable.userIdColumns ?? {})
+    .filter(([idType, column]) => column && column !== idType)
+    .sort(([a], [b]) => a.localeCompare(b));
   return hashObject({
     sql: factTable.sql,
     // Omitted when it resolves to the default (JSON.stringify drops undefined),
@@ -368,6 +374,7 @@ export function getFactTableSettingsHashForAggregatedFactTable(
     // table that spells out "timestamp" doesn't force a restate either.
     timestampColumn:
       timestampColumn === "timestamp" ? undefined : timestampColumn,
+    userIdColumns: idColumnEntries.length ? idColumnEntries : undefined,
     eventName: factTable.eventName,
     filters: (factTable.filters ?? [])
       .map((f) => ({ id: f.id, value: f.value }))

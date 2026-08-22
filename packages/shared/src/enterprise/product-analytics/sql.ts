@@ -38,6 +38,7 @@ import { FunnelStep } from "../../validators/fact-table";
 import {
   getRowFilterSQL,
   getColumnExpression,
+  getFactTableIdColumnExpression,
   getAggregateFilters,
   isFactFunnelMetric,
 } from "../../experiments/experiments";
@@ -45,7 +46,12 @@ import {
 // Internal Type definitions
 type MinimalFactTable = Pick<
   FactTableInterface,
-  "sql" | "columns" | "filters" | "userIdTypes" | "timestampColumn"
+  | "sql"
+  | "columns"
+  | "filters"
+  | "userIdTypes"
+  | "userIdColumns"
+  | "timestampColumn"
 >;
 // Funnel fact metrics are excluded: product-analytics explorations describe
 // their own funnels through the funnel dataset, and a funnel fact metric has no
@@ -1070,7 +1076,15 @@ function generateFactTableRowsCTE(
 
   // Select all units
   factTableGroup.units.forEach((unit, i) => {
-    selectCols.push(`${unit} AS unit${i}`);
+    const unitColumn = getFactTableIdColumnExpression(
+      factTableGroup.factTable,
+      unit,
+      {
+        jsonExtract: helpers.jsonExtract,
+        identifierQuote: helpers.identifierQuote,
+      },
+    );
+    selectCols.push(`${unitColumn} AS unit${i}`);
   });
 
   // Select all metric event values
@@ -1468,8 +1482,12 @@ export function buildFunnelSql(
   ftGroups.forEach((group) => {
     const ft = group.factTable;
     const timestampColumn = ft.timestampColumn || "timestamp";
+    const unitColumn = getFactTableIdColumnExpression(ft, unit, {
+      jsonExtract: dialect.jsonExtract,
+      identifierQuote: dialect.identifierQuote,
+    });
     const selectCols: string[] = [
-      `${unit} AS user_id`,
+      `${unitColumn} AS user_id`,
       `${timestampColumn} AS ts`,
       // Funnel dimensions are first-touch from the funnel's start, so only
       // the initial fact table contributes a real dimension value. Cast to a

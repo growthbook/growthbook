@@ -86,6 +86,7 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
     const updatedColumns = mergeRefreshedTopValues({
       currentColumns: currentFactTable.columns,
       currentUserIdTypes: currentFactTable.userIdTypes,
+      currentUserIdColumns: currentFactTable.userIdColumns,
       refreshedColumns,
     });
     await updateFactTableColumns(
