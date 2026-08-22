@@ -1,5 +1,6 @@
 import {
   getColumnRefWhereClause,
+  getFactTableIdColumnExpression,
   getFactTableTemplateVariables,
   getFactTableTimestampColumn,
   isFactFunnelMetric,
@@ -56,13 +57,28 @@ export function getFactMetricCTE(
   let join = "";
   let userIdCol = "";
   const userIdTypes = factTable.userIdTypes;
+  // The fact table's SQL may name its identifier columns anything; each is
+  // aliased back to the id type here (or joined on) so downstream SQL doesn't
+  // have to know the real names.
+  const idColumnOpts = {
+    jsonExtract: dialect.jsonExtract,
+    identifierQuote: dialect.identifierQuote,
+  };
   if (userIdTypes.includes(baseIdType)) {
-    userIdCol = baseIdType;
+    userIdCol = getFactTableIdColumnExpression(
+      factTable,
+      baseIdType,
+      idColumnOpts,
+    );
   } else if (userIdTypes.length > 0) {
     for (let i = 0; i < userIdTypes.length; i++) {
       const userIdType: string = userIdTypes[i];
       if (userIdType in idJoinMap) {
-        const metricUserIdCol = `m.${userIdType}`;
+        const metricUserIdCol = getFactTableIdColumnExpression(
+          factTable,
+          userIdType,
+          { ...idColumnOpts, alias: "m" },
+        );
         join = `JOIN ${idJoinMap[userIdType]} i ON (i.${userIdType} = ${metricUserIdCol})`;
         userIdCol = `i.${baseIdType}`;
         break;
