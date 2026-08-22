@@ -53,13 +53,17 @@ export function resolveSnapshotMetricIds({
   getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null;
   results: ExperimentReportResultDimension[];
 }): string[] {
-  return metricIds.flatMap((metricId) => {
-    const metric = getExperimentMetricById(metricId);
-    if (!metric) return [metricId];
-    return resolveMetricsForSnapshot({
-      metric,
-      getExperimentMetricById,
-      results,
-    }).metrics.map((m) => m.id);
-  });
+  return [
+    ...new Set(
+      metricIds.flatMap((metricId) => {
+        const metric = getExperimentMetricById(metricId);
+        if (!metric) return [metricId];
+        return resolveMetricsForSnapshot({
+          metric,
+          getExperimentMetricById,
+          results,
+        }).metrics.map((m) => m.id);
+      }),
+    ),
+  ];
 }
