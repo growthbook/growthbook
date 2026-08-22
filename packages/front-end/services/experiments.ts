@@ -213,6 +213,7 @@ export type ExperimentTableRow = {
   // Funnel step row properties
   funnelStepIndex?: number;
   funnelStepOptional?: boolean;
+  replacedByMetricName?: string;
   // Dimension-table rows: the raw dimension value this row belongs to. On a
   // parent row this equals its label; child rows (e.g. funnel steps) carry it
   // because their label is the step name, not the dimension value.
