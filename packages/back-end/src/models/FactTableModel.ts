@@ -64,6 +64,7 @@ const factTableSchema = new mongoose.Schema({
   datasource: String,
   userIdTypes: [String],
   sql: String,
+  timestampColumn: String,
   eventName: String,
   columns: [
     {
