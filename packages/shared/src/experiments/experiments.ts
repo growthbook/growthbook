@@ -117,11 +117,14 @@ export function isLegacyMetric(m: ExperimentMetricDefinition): boolean {
 }
 
 export function canInlineFilterColumn(
-  factTable: Pick<FactTableInterface, "userIdTypes" | "columns">,
+  factTable: Pick<
+    FactTableInterface,
+    "userIdTypes" | "userIdColumns" | "columns"
+  >,
   column: string,
 ): boolean {
   // If the column is one of the identifier columns, it is not eligible for prompting
-  if (factTable.userIdTypes.includes(column)) return false;
+  if (getFactTableIdColumns(factTable).includes(column)) return false;
 
   const dataType = getSelectedColumnDatatype({
     factTable,
@@ -1101,6 +1104,54 @@ export function getFactTableTimestampColumn(
   factTable: Pick<FactTableInterface, "timestampColumn"> | undefined | null,
 ): string {
   return factTable?.timestampColumn || "timestamp";
+}
+
+// SQL expression for one of a fact table's identifier columns. Callers alias it
+// back to the id type, so nothing downstream has to know the real name. An
+// unmapped id type emits its own name exactly as before, keeping generated SQL
+// byte-identical for fact tables that don't remap.
+export function getFactTableIdColumnExpression(
+  factTable: Pick<FactTableInterface, "userIdColumns" | "columns">,
+  idType: string,
+  {
+    alias = "",
+    jsonExtract,
+    identifierQuote,
+  }: {
+    alias?: string;
+    jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
+    identifierQuote?: SqlIdentifierQuote;
+  },
+): string {
+  const column = factTable.userIdColumns?.[idType];
+  if (!column || column === idType) {
+    return alias ? `${alias}.${idType}` : idType;
+  }
+  // Goes through getColumnExpression so a virtual column or a JSON field path
+  // can serve as an identifier, same as any other referenced column.
+  return getColumnExpression(
+    column,
+    factTable,
+    jsonExtract,
+    alias,
+    identifierQuote,
+  );
+}
+
+// Every column name that holds an identifier, so identifier columns aren't
+// offered as filter / slice / top-values columns. Includes the id type names
+// themselves, which are the column names when unmapped.
+export function getFactTableIdColumns(
+  factTable: Pick<FactTableInterface, "userIdTypes" | "userIdColumns">,
+): string[] {
+  return [
+    ...new Set(
+      factTable.userIdTypes.flatMap((idType) => [
+        idType,
+        factTable.userIdColumns?.[idType] || idType,
+      ]),
+    ),
+  ];
 }
 
 // TODO(sql): refactor to remove factTableMap
@@ -2825,7 +2876,7 @@ export function expandDerivedMetricsInMap({
             column &&
             !column.deleted &&
             (column.datatype === "string" || column.datatype === "boolean") &&
-            !factTable.userIdTypes.includes(column.column)
+            !getFactTableIdColumns(factTable).includes(column.column)
           );
         });
 
