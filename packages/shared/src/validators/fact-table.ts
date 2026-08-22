@@ -405,6 +405,9 @@ const factMetricObjectValidator = z
     inverse: z.boolean(),
     archived: z.boolean().optional(),
 
+    // Older metrics this one supersedes. API-only; existence is not enforced.
+    replaces: z.array(z.string()).optional(),
+
     metricType: metricTypeValidator,
     // Null only for funnel metrics, which describe their events through
     // funnelSettings.steps instead. Cross-field rules live in

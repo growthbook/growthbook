@@ -1,4 +1,5 @@
 export * from "./experiments";
+export * from "./metric-replacement";
 export * from "./outdated-reasons";
 export * from "./targeting";
 export * from "./variations";

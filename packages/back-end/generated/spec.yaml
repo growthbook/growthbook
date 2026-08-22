@@ -28248,6 +28248,18 @@ paths:
                   type: array
                   items:
                     type: string
+                replaces:
+                  description: >-
+                    Ids of older metrics (legacy or fact) that this metric
+                    supersedes, for example the legacy metric it was migrated
+                    from. Cannot include this metric's own id. Informational
+                    only - GrowthBook uses it to link the old and new
+                    definitions in the UI and to keep showing results from a
+                    snapshot that was created before an experiment switched to
+                    this metric. This field can only be set through the API.
+                  type: array
+                  items:
+                    type: string
               required:
                 - name
                 - metricType
@@ -28913,6 +28925,18 @@ paths:
                   description: >-
                     Array of slice column names that will be automatically
                     included in metric analysis. This is an enterprise feature.
+                  type: array
+                  items:
+                    type: string
+                replaces:
+                  description: >-
+                    Ids of older metrics (legacy or fact) that this metric
+                    supersedes, for example the legacy metric it was migrated
+                    from. Cannot include this metric's own id. Informational
+                    only - GrowthBook uses it to link the old and new
+                    definitions in the UI and to keep showing results from a
+                    snapshot that was created before an experiment switched to
+                    this metric. This field can only be set through the API.
                   type: array
                   items:
                     type: string
@@ -29904,6 +29928,20 @@ paths:
                               Array of slice column names that will be
                               automatically included in metric analysis. This is
                               an enterprise feature.
+                            type: array
+                            items:
+                              type: string
+                          replaces:
+                            description: >-
+                              Ids of older metrics (legacy or fact) that this
+                              metric supersedes, for example the legacy metric
+                              it was migrated from. Cannot include this metric's
+                              own id. Informational only - GrowthBook uses it to
+                              link the old and new definitions in the UI and to
+                              keep showing results from a snapshot that was
+                              created before an experiment switched to this
+                              metric. This field can only be set through the
+                              API.
                             type: array
                             items:
                               type: string
@@ -59139,6 +59177,16 @@ components:
           description: >-
             Array of slice column names that will be automatically included in
             metric analysis. This is an enterprise feature.
+          type: array
+          items:
+            type: string
+        replaces:
+          description: >-
+            Ids of older metrics (legacy or fact) that this metric supersedes,
+            for example the legacy metric it was migrated from. Informational
+            only - GrowthBook uses it to link the old and new definitions in the
+            UI and to keep showing results from a snapshot that was created
+            before an experiment switched to this metric.
           type: array
           items:
             type: string

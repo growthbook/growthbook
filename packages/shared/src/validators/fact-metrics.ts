@@ -359,6 +359,12 @@ export const apiFactMetricValidator = namedSchema(
           "Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.",
         )
         .optional(),
+      replaces: z
+        .array(z.string())
+        .describe(
+          "Ids of older metrics (legacy or fact) that this metric supersedes, for example the legacy metric it was migrated from. Informational only - GrowthBook uses it to link the old and new definitions in the UI and to keep showing results from a snapshot that was created before an experiment switched to this metric.",
+        )
+        .optional(),
     })
     .strict(),
 );
@@ -674,6 +680,12 @@ export const postFactMetricBodyFields = z.object({
     .array(z.string())
     .describe(
       "Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.",
+    )
+    .optional(),
+  replaces: z
+    .array(z.string())
+    .describe(
+      "Ids of older metrics (legacy or fact) that this metric supersedes, for example the legacy metric it was migrated from. Cannot include this metric's own id. Informational only - GrowthBook uses it to link the old and new definitions in the UI and to keep showing results from a snapshot that was created before an experiment switched to this metric. This field can only be set through the API.",
     )
     .optional(),
 });

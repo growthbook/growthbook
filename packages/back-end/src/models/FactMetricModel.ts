@@ -114,6 +114,16 @@ function validateUserFilter({
   }
 }
 
+// Existence is not checked: the replaced metric is often deleted later, and
+// failing validation then would make the surviving metric un-editable.
+function validateReplaces({ id, replaces }: FactMetricInterface): void {
+  if (!replaces?.length) return;
+
+  if (replaces.includes(id)) {
+    throw new Error("A metric cannot replace itself");
+  }
+}
+
 function denominatorRequiredByMetricType(metricType: FactMetricType): boolean {
   switch (metricType) {
     case "mean":
@@ -440,6 +450,8 @@ export class FactMetricModel extends BaseClass {
         `maxPercentChange (${data.maxPercentChange}) must be greater than minPercentChange (${data.minPercentChange})`,
       );
     }
+
+    validateReplaces(data);
   }
 
   protected async customValidation(
