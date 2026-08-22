@@ -174,6 +174,22 @@ export class BulkPublishCommitError extends Error {
   }
 }
 
+export class BulkImportPartialFailureError extends Error {
+  status = 400;
+  counts: Record<string, number>;
+  errors: unknown[];
+  constructor(
+    message: string,
+    counts: Record<string, number>,
+    errors: unknown[],
+  ) {
+    super(message);
+    this.name = "BulkImportPartialFailureError";
+    this.counts = counts;
+    this.errors = errors;
+  }
+}
+
 export class SoftWarningError extends Error {
   status = 422;
   warnings: string[];
