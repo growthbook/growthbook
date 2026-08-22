@@ -143,3 +143,31 @@ describe("updateFactTablePropsValidator", () => {
     expect(result.success).toBe(false);
   });
 });
+
+// These land unquoted in generated SQL, so the character set is the guard
+// against injection through the API.
+describe("column mapping fields", () => {
+  const parse = (body: Record<string, unknown>) =>
+    updateFactTablePropsValidator.safeParse(body);
+
+  it("accepts a plain column, a JSON field path, and a cleared value", () => {
+    expect(parse({ timestampColumn: "event_time" }).success).toBe(true);
+    expect(parse({ timestampColumn: "properties.ts" }).success).toBe(true);
+    expect(parse({ timestampColumn: "" }).success).toBe(true);
+    expect(
+      parse({ userIdColumns: { user_id: "userId", anonymous_id: "" } }).success,
+    ).toBe(true);
+    expect(parse({ userIdColumns: {} }).success).toBe(true);
+  });
+
+  it("rejects anything that isn't a bare identifier or field path", () => {
+    expect(parse({ timestampColumn: "ts; DROP TABLE events" }).success).toBe(
+      false,
+    );
+    expect(parse({ timestampColumn: "COALESCE(a, b)" }).success).toBe(false);
+    expect(parse({ timestampColumn: 'ts" OR 1=1--' }).success).toBe(false);
+    expect(parse({ userIdColumns: { user_id: "id FROM users" } }).success).toBe(
+      false,
+    );
+  });
+});

@@ -17,6 +17,7 @@ import {
   columnsHaveAutoSlices,
   columnsNeedDetection,
   validateAggregatedFactTableSettings,
+  validateNewUserIdColumnKeys,
   validateVirtualColumnProps,
 } from "back-end/src/util/factTable";
 
@@ -92,6 +93,13 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
           throw new Error(`Invalid userIdType: ${userIdType}`);
         }
       }
+    }
+
+    if (req.body.userIdColumns) {
+      validateNewUserIdColumnKeys({
+        datasource,
+        userIdColumns: req.body.userIdColumns,
+      });
     }
 
     if (req.body.aggregatedFactTableSettings) {

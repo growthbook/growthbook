@@ -6,7 +6,10 @@ import {
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
 import { columnsNeedDetection } from "back-end/src/util/factTable";
 
-const existing: Pick<FactTableInterface, "sql" | "eventName"> = {
+const existing: Pick<
+  FactTableInterface,
+  "sql" | "eventName" | "timestampColumn" | "userIdColumns"
+> = {
   sql: "SELECT user_id, timestamp FROM events",
   eventName: "purchase",
 };
@@ -50,6 +53,38 @@ describe("needsColumnRefresh", () => {
     };
     const changes: UpdateFactTableProps = { sql: existing.sql };
     expect(needsColumnRefresh(blank, changes)).toBe(true);
+  });
+
+  it("returns true when the timestamp column changes", () => {
+    const changes: UpdateFactTableProps = { timestampColumn: "event_time" };
+    expect(needsColumnRefresh(existing, changes)).toBe(true);
+  });
+
+  it("returns false when the timestamp column is resent as the default", () => {
+    // "" and "timestamp" both resolve to the same column, so neither is a
+    // change worth a detection query.
+    expect(needsColumnRefresh(existing, { timestampColumn: "" })).toBe(false);
+    expect(needsColumnRefresh(existing, { timestampColumn: "timestamp" })).toBe(
+      false,
+    );
+  });
+
+  // The refresh is what re-derives userIdTypes from the mapping, so a mapping
+  // change has to trigger one or the new identifier stays missing.
+  it("returns true when the identifier column mapping changes", () => {
+    const changes: UpdateFactTableProps = {
+      userIdColumns: { user_id: "userId" },
+    };
+    expect(needsColumnRefresh(existing, changes)).toBe(true);
+  });
+
+  it("returns false when an unchanged mapping is resent", () => {
+    const mapped = { ...existing, userIdColumns: { user_id: "userId" } };
+    const changes: UpdateFactTableProps = {
+      userIdColumns: { user_id: "userId" },
+    };
+    expect(needsColumnRefresh(mapped, changes)).toBe(false);
+    expect(needsColumnRefresh(existing, { userIdColumns: {} })).toBe(false);
   });
 });
 

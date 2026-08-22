@@ -6,6 +6,7 @@ import {
 import {
   columnsHaveAutoSlices,
   deriveUserIdTypesFromColumns,
+  validateNewUserIdColumnKeys,
   ensureAutoSliceDefaults,
   normalizePersistedColumn,
   getMostRecentUpdateOccurrence,
@@ -320,6 +321,68 @@ describe("getMostRecentUpdateOccurrence", () => {
         new Date("2024-01-10T12:00:00Z"),
       ),
     ).toEqual(new Date("2024-01-10T07:00:00Z"));
+  });
+});
+
+describe("validateNewUserIdColumnKeys", () => {
+  const datasource = makeStandardDatasource([
+    { userIdType: "user_id" },
+    { userIdType: "anonymous_id" },
+  ]);
+
+  const validate = (
+    userIdColumns: Record<string, string>,
+    existingUserIdColumns?: Record<string, string>,
+  ) =>
+    validateNewUserIdColumnKeys({
+      datasource,
+      userIdColumns,
+      existingUserIdColumns,
+    });
+
+  it("accepts keys that are identifier types on the Data Source", () => {
+    expect(() =>
+      validate({ user_id: "userId", anonymous_id: "anonId" }),
+    ).not.toThrow();
+  });
+
+  it("rejects a new key that isn't an identifier type", () => {
+    expect(() => validate({ device_id: "deviceId" })).toThrow(
+      /Invalid userIdColumns key: device_id/,
+    );
+  });
+
+  // Deleting an identifier type from the Data Source strands its key on every
+  // fact table that mapped it. Editing those fact tables has to keep working.
+  it("allows a stale key that is already stored", () => {
+    expect(() =>
+      validate(
+        { user_id: "userId", device_id: "deviceId" },
+        { device_id: "deviceId" },
+      ),
+    ).not.toThrow();
+  });
+
+  it("allows changing the value of a stale key", () => {
+    expect(() =>
+      validate({ device_id: "deviceIdV2" }, { device_id: "deviceId" }),
+    ).not.toThrow();
+  });
+
+  it("still rejects a new invalid key alongside a stale one", () => {
+    expect(() =>
+      validate(
+        { device_id: "deviceId", session_id: "sessionId" },
+        { device_id: "deviceId" },
+      ),
+    ).toThrow(/session_id/);
+  });
+
+  it("accepts an empty or missing mapping", () => {
+    expect(() => validate({})).not.toThrow();
+    expect(() =>
+      validateNewUserIdColumnKeys({ datasource, userIdColumns: undefined }),
+    ).not.toThrow();
   });
 });
 

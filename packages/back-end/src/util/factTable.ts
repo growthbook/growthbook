@@ -168,6 +168,40 @@ export function deriveUserIdTypesFromColumns(
     .filter((id) => isResolvable(userIdColumns?.[id] || id));
 }
 
+/**
+ * Only keys the write is introducing are checked. Deleting an identifier type
+ * from a Data Source leaves stale keys behind on every fact table that mapped
+ * it, and those must not block an unrelated edit — API clients routinely
+ * round-trip the whole mapping on save.
+ *
+ * Keys are checked against the Data Source's identifier types rather than the
+ * fact table's own userIdTypes, because a column refresh re-derives userIdTypes
+ * from this mapping — mapping a type the fact table doesn't list yet is how you
+ * add it.
+ */
+export function validateNewUserIdColumnKeys({
+  datasource,
+  userIdColumns,
+  existingUserIdColumns,
+}: {
+  datasource: DataSourceInterface;
+  userIdColumns: FactTableInterface["userIdColumns"];
+  existingUserIdColumns?: FactTableInterface["userIdColumns"];
+}): void {
+  const identifierTypes = new Set(
+    (datasource.settings?.userIdTypes || []).map((t) => t.userIdType),
+  );
+
+  for (const idType of Object.keys(userIdColumns || {})) {
+    if (existingUserIdColumns && idType in existingUserIdColumns) continue;
+    if (!identifierTypes.has(idType)) {
+      throw new Error(
+        `Invalid userIdColumns key: ${idType} is not an identifier type on this Data Source`,
+      );
+    }
+  }
+}
+
 export function columnsHaveAutoSlices(
   columns?: Array<{ isAutoSliceColumn?: boolean; autoSlices?: unknown }>,
 ): boolean {

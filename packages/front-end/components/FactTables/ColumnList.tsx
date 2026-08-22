@@ -1,4 +1,8 @@
 import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
+import {
+  getFactTableIdColumn,
+  getFactTableTimestampColumn,
+} from "shared/experiments";
 import { useEffect, useMemo, useState } from "react";
 import {
   PiUserBold,
@@ -80,11 +84,24 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
     return out;
   }, [factTable]);
 
+  // Identifier types can be mapped to differently-named columns, so flag the
+  // column each type actually resolves to rather than the type name.
+  const identifierColumns = useMemo(
+    () =>
+      new Set(
+        factTable.userIdTypes.map((idType) =>
+          getFactTableIdColumn(factTable, idType),
+        ),
+      ),
+    [factTable],
+  );
+  const timestampColumn = getFactTableTimestampColumn(factTable);
+
   const columns = useAddComputedFields(availableColumns, (column) => ({
     ...column,
     name: column.name || column.column,
     id: column.name || column.column,
-    identifier: factTable.userIdTypes.includes(column.column),
+    identifier: identifierColumns.has(column.column),
     isJsonField: !!column.jsonFieldParent,
     type:
       column.datatype === "number"
@@ -205,7 +222,7 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
                           </Avatar>
                         </Tooltip>
                       )}
-                      {col.column === "timestamp" && (
+                      {col.column === timestampColumn && (
                         <Tooltip
                           body="Main date field used for sorting and filtering"
                           tipPosition="left"
