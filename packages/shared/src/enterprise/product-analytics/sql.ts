@@ -45,8 +45,8 @@ import {
 // Internal Type definitions
 type MinimalFactTable = Pick<
   FactTableInterface,
-  "sql" | "columns" | "filters" | "userIdTypes"
-> & { timestampColumn?: string };
+  "sql" | "columns" | "filters" | "userIdTypes" | "timestampColumn"
+>;
 // Funnel fact metrics are excluded: product-analytics explorations describe
 // their own funnels through the funnel dataset, and a funnel fact metric has no
 // numerator column to roll up.
