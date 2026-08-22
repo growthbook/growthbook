@@ -1,4 +1,5 @@
 import { Fragment } from "react";
+import { Box } from "@radix-ui/themes";
 import { getMetricLink } from "shared/experiments";
 import { PiWarningFill } from "react-icons/pi";
 import Callout from "@/ui/Callout";
@@ -17,17 +18,14 @@ export function ReplacedByCallout({ metricId }: { metricId: string }) {
 
   return (
     <Callout status="info" mb="2">
-      <strong>
-        This metric has been replaced by{" "}
-        {replacements.map((m, i) => (
-          <Fragment key={m.id}>
-            {i > 0 ? ", " : ""}
-            <Link href={getMetricLink(m.id)}>{m.name}</Link>
-          </Fragment>
-        ))}
-        .
-      </strong>{" "}
-      Prefer the newer metric in new experiments.
+      <strong>This metric has been replaced.</strong> Prefer{" "}
+      {replacements.map((m, i) => (
+        <Fragment key={m.id}>
+          {i > 0 ? ", " : ""}
+          <Link href={getMetricLink(m.id)}>{m.name}</Link>
+        </Fragment>
+      ))}{" "}
+      in new experiments.
     </Callout>
   );
 }
@@ -62,18 +60,22 @@ export function ReplacesMetadata({ replaces }: { replaces?: string[] }) {
 }
 
 export function ReplacedMetricWarning({ name }: { name: string }) {
+  const label = `Replaced by “${name}”. Showing the previous metric’s results until results are refreshed.`;
   return (
-    <Tooltip
-      content={`Replaced by “${name}”. Showing the previous metric’s results until results are refreshed.`}
-    >
-      <PiWarningFill
-        size={14}
-        style={{
-          color: "var(--amber-11)",
-          marginLeft: 4,
-          verticalAlign: "-0.15em",
-        }}
-      />
+    <Tooltip content={label}>
+      <Box
+        as="span"
+        display="inline-block"
+        ml="1"
+        tabIndex={0}
+        aria-label={label}
+      >
+        <PiWarningFill
+          size={14}
+          aria-hidden
+          style={{ color: "var(--amber-11)", verticalAlign: "-0.15em" }}
+        />
+      </Box>
     </Tooltip>
   );
 }
