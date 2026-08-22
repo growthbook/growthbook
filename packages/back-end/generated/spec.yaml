@@ -27023,7 +27023,7 @@ paths:
                     type: string
                   additionalProperties:
                     type: string
-                    pattern: ^[\w.]*$
+                    pattern: ^(\w+(\.\w+)*)?$
                 aggregatedFactTableSettings:
                   description: >-
                     Settings for maintaining shared daily aggregated tables (a
@@ -27067,7 +27067,7 @@ paths:
                     The column holding the event timestamp. Defaults to
                     "timestamp" when unset.
                   type: string
-                  pattern: ^[\w.]*$
+                  pattern: ^(\w+(\.\w+)*)?$
                 eventName:
                   description: The event name used in SQL template variables
                   type: string
@@ -27196,7 +27196,7 @@ paths:
                     type: string
                   additionalProperties:
                     type: string
-                    pattern: ^[\w.]*$
+                    pattern: ^(\w+(\.\w+)*)?$
                 aggregatedFactTableSettings:
                   description: >-
                     Settings for maintaining shared daily aggregated tables (a
@@ -27240,7 +27240,7 @@ paths:
                     The column holding the event timestamp. Defaults to
                     "timestamp" when unset.
                   type: string
-                  pattern: ^[\w.]*$
+                  pattern: ^(\w+(\.\w+)*)?$
                 eventName:
                   description: The event name used in SQL template variables
                   type: string
@@ -58069,7 +58069,7 @@ components:
             type: string
           additionalProperties:
             type: string
-            pattern: ^[\w.]*$
+            pattern: ^(\w+(\.\w+)*)?$
         aggregatedFactTableSettings:
           description: >-
             Settings for maintaining shared daily aggregated tables (a subset of
@@ -58112,7 +58112,7 @@ components:
             The column holding the event timestamp. Defaults to "timestamp" when
             unset.
           type: string
-          pattern: ^[\w.]*$
+          pattern: ^(\w+(\.\w+)*)?$
         eventName:
           description: The event name used in SQL template variables
           type: string

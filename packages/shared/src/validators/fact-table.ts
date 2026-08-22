@@ -44,14 +44,16 @@ export const numberFormatValidator = z.enum([
 
 /**
  * A column name that query generation emits unquoted (`m.<column>`), optionally
- * a dotted path into a JSON column. Empty means unset, falling back to the
- * default. Same shape `getTestQuery` requires before running a query.
+ * a dotted path into a JSON column (`properties.userId`). Empty means unset,
+ * falling back to the default. Each dot has to separate two segments, so a
+ * malformed path (`.id`, `id.`, `a..b`) is rejected here rather than failing as
+ * invalid SQL against the warehouse.
  */
 const mappedColumnNameValidator = z
   .string()
   .regex(
-    /^[\w.]*$/,
-    "Column names can only contain letters, numbers, underscores, and dots",
+    /^(\w+(\.\w+)*)?$/,
+    "Column names can only contain letters, numbers, and underscores, with dots separating JSON field paths",
   );
 
 export const timestampColumnField = mappedColumnNameValidator.describe(

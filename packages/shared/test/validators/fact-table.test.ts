@@ -153,6 +153,9 @@ describe("column mapping fields", () => {
   it("accepts a plain column, a JSON field path, and a cleared value", () => {
     expect(parse({ timestampColumn: "event_time" }).success).toBe(true);
     expect(parse({ timestampColumn: "properties.ts" }).success).toBe(true);
+    expect(parse({ timestampColumn: "properties.nested.ts" }).success).toBe(
+      true,
+    );
     expect(parse({ timestampColumn: "" }).success).toBe(true);
     expect(
       parse({ userIdColumns: { user_id: "userId", anonymous_id: "" } }).success,
@@ -167,6 +170,18 @@ describe("column mapping fields", () => {
     expect(parse({ timestampColumn: "COALESCE(a, b)" }).success).toBe(false);
     expect(parse({ timestampColumn: 'ts" OR 1=1--' }).success).toBe(false);
     expect(parse({ userIdColumns: { user_id: "id FROM users" } }).success).toBe(
+      false,
+    );
+  });
+
+  // Not injectable, but it would reach the warehouse as invalid SQL and fail
+  // there instead of as a 400 here.
+  it("rejects a malformed dotted path", () => {
+    expect(parse({ timestampColumn: ".ts" }).success).toBe(false);
+    expect(parse({ timestampColumn: "ts." }).success).toBe(false);
+    expect(parse({ timestampColumn: "properties..ts" }).success).toBe(false);
+    expect(parse({ timestampColumn: "." }).success).toBe(false);
+    expect(parse({ userIdColumns: { user_id: ".userId" } }).success).toBe(
       false,
     );
   });
