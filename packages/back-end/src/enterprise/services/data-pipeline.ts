@@ -3,6 +3,7 @@ import {
   ExperimentMetricInterface,
   getAutoSliceMetrics,
   getFactMetricPrimaryFactTableId,
+  getFactTableTimestampColumn,
   isSliceMetric,
 } from "shared/experiments";
 import {
@@ -353,8 +354,14 @@ export function getMetricSettingsHashForAggregatedFactTable({
 export function getFactTableSettingsHashForAggregatedFactTable(
   factTable: FactTableInterface,
 ): string {
+  const timestampColumn = getFactTableTimestampColumn(factTable);
   return hashObject({
     sql: factTable.sql,
+    // Omitted when it resolves to the default (JSON.stringify drops undefined),
+    // so hashes stored before this field existed stay byte-identical and a fact
+    // table that spells out "timestamp" doesn't force a restate either.
+    timestampColumn:
+      timestampColumn === "timestamp" ? undefined : timestampColumn,
     eventName: factTable.eventName,
     filters: (factTable.filters ?? [])
       .map((f) => ({ id: f.id, value: f.value }))
