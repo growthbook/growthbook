@@ -153,4 +153,16 @@ describe("resolveSnapshotMetricIds", () => {
       }),
     ).toEqual(["missing"]);
   });
+
+  it("counts a metric two goals both replace as one hypothesis", () => {
+    const otherId = "fact__other";
+    metricsById[otherId] = factMetric(otherId, [OLD_ID]);
+    expect(
+      resolveSnapshotMetricIds({
+        metricIds: [NEW_ID, otherId],
+        getExperimentMetricById,
+        results: resultsWith([OLD_ID]),
+      }),
+    ).toEqual([OLD_ID]);
+  });
 });
