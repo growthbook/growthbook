@@ -453,10 +453,11 @@ export const putFactTable = async (
   > | null = null;
 
   if (forceColumnRefresh || needsColumnRefresh(factTable, data)) {
+    const updatedFactTable = { ...factTable, ...data } as FactTableInterface;
     const { columns, needsBackgroundRefresh } = await refreshColumns(
       context,
       datasource,
-      { ...factTable, ...data } as FactTableInterface,
+      updatedFactTable,
       forceColumnRefresh,
     );
 
@@ -473,6 +474,7 @@ export const putFactTable = async (
     columnRefreshResults.userIdTypes = deriveUserIdTypesFromColumns(
       datasource,
       columns,
+      updatedFactTable.userIdColumns,
     );
   }
 

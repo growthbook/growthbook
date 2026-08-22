@@ -5,6 +5,7 @@ import {
   AggregatedFactTableSettings,
   ColumnInterface,
   CreateColumnProps,
+  FactTableInterface,
   JSONColumnFields,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
@@ -148,14 +149,18 @@ export function normalizeJSONFieldsInput(
 export function deriveUserIdTypesFromColumns(
   datasource: DataSourceInterface,
   columns: ColumnInterface[],
+  userIdColumns?: FactTableInterface["userIdColumns"],
 ): string[] {
   const activeColumns = new Set(
     columns.filter((c) => !c.deleted).map((c) => c.column),
   );
 
+  // A remapped id type is present when its mapped column is, not when a column
+  // named after the id type is. Without this, a refresh would drop every mapped
+  // id type from userIdTypes and break the fact table's metrics.
   return (datasource.settings?.userIdTypes || [])
     .map((u) => u.userIdType)
-    .filter((id) => activeColumns.has(id));
+    .filter((id) => activeColumns.has(userIdColumns?.[id] || id));
 }
 
 export function columnsHaveAutoSlices(
