@@ -5,6 +5,7 @@ import isEqual from "lodash/isEqual";
 import {
   checkIfRevisionNeedsReview,
   featureMetadataEnvelope,
+  getApplicableEnvIds,
   isRevisionEditLockedBySchedule,
 } from "shared/util";
 import {
@@ -41,7 +42,6 @@ import { ApiReqContext } from "back-end/types/api";
 import {
   ensureUniqueRuleIds,
   flattenV1ToV2Rules,
-  getApplicableEnvIds,
   isPlausibleFeatureRule,
   isV2RevisionRules,
   narrowRuleToApplicableEnvs,
@@ -1158,7 +1158,7 @@ export async function createRevision({
     feature,
     baseRevision,
     revision,
-    allEnvironments: environments,
+    orgEnvironments: getEnvironments(org),
     settings: org.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });

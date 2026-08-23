@@ -32,8 +32,10 @@ const events = Object.keys(notificationEvents).reduce(
   [],
 );
 
+const eventAnchor = (name: string) => name.replace(/\./g, "-").toLowerCase();
+
 const eventTableEntry = ({ name, description }) =>
-  `| **[${name}](#${name.replace(/\./g, "-")})** | ${description} |`;
+  `| **[${name}](#${eventAnchor(name)})** | ${description} |`;
 
 const quote = "```";
 

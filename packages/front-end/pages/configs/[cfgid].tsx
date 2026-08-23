@@ -2203,6 +2203,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                 entityName={config.name}
                 entityNoun="Config"
                 requiresApproval={selectedRevisionRequiresApproval}
+                reviewRules={reviewRule ? [reviewRule] : []}
                 canEditEntity={canDraft}
                 canRevertEntity={canRevertEntity}
                 canLandRevertEntity={canRevertLandingEntity}
@@ -2250,6 +2251,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                   "config",
                   selectedRevision ?? displayRevision ?? null,
                   config,
+                  revisionPublishEnvironments,
                 )}
                 canManageDraftsEntity={permissionsUtil.canRevisionAction(
                   "config",
