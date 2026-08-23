@@ -115,7 +115,6 @@ export interface SourceIntegrationInterface<
     tableName: string,
   ): Promise<{ tableData: null | unknown[] }>;
   getInformationSchema?(): Promise<InformationSchema[]>;
-  supportsLimitZeroColumnValidation?(): boolean;
   getTestValidityQuery?(
     query: string,
     testDays?: number,

@@ -5,6 +5,7 @@ import { SqlDialect } from "shared/types/sql";
 import { prestoCreateTablePartitions } from "shared/enterprise";
 import {
   QueryResponse,
+  QueryResponseColumnData,
   MaxTimestampIncrementalUnitsQueryParams,
   MaxTimestampMetricSourceQueryParams,
   ExternalIdCallback,
@@ -15,6 +16,7 @@ import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getKerberosHeader } from "back-end/src/util/kerberos.util";
 import { getQueryTagString } from "back-end/src/util/integration";
 import { logger } from "back-end/src/util/logger";
+import { getFactTableTypeFromTrinoType } from "back-end/src/util/warehouseColumnTypes";
 import SqlIntegration from "./SqlIntegration";
 import { prestoDialect } from "./dialects/presto";
 
@@ -127,6 +129,7 @@ export default class Presto extends SqlIntegration {
 
     return new Promise<QueryResponse>((resolve, reject) => {
       let cols: string[];
+      let columns: QueryResponseColumnData[] = [];
       const rows: Row[] = [];
       const statistics: QueryStatistics = {};
 
@@ -148,6 +151,14 @@ export default class Presto extends SqlIntegration {
         columns: (error, data) => {
           if (error) return;
           cols = data.map((d) => d.name);
+          // Reported before any rows arrive, so a LIMIT 0 query is enough to
+          // read a query's output schema
+          columns = data.map((d) => {
+            const dataType = d.type
+              ? getFactTableTypeFromTrinoType(d.type)
+              : undefined;
+            return { name: d.name, ...(dataType && { dataType }) };
+          });
         },
         error: (error) => {
           reject(error);
@@ -176,9 +187,7 @@ export default class Presto extends SqlIntegration {
         success: () => {
           resolve({
             rows,
-            columns: cols.map((col) => ({
-              name: col,
-            })),
+            columns,
             statistics,
           });
         },

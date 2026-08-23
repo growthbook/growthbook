@@ -42,9 +42,6 @@ export default class Snowflake extends SqlIntegration {
   async cancelQuery(externalId: string): Promise<void> {
     await cancelSnowflakeQuery(this.params, externalId);
   }
-  supportsLimitZeroColumnValidation(): boolean {
-    return true;
-  }
   hasQuantileSketch(): boolean {
     return true;
   }

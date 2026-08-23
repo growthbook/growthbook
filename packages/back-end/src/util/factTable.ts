@@ -5,10 +5,17 @@ import {
   AggregatedFactTableSettings,
   ColumnInterface,
   CreateColumnProps,
+  DetectedFactTableColumn,
+  FactTableColumnType,
   FactTableInterface,
   JSONColumnFields,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
+import { TestQueryResult } from "shared/types/integrations";
+import {
+  type DetectedJSONFields,
+  determineColumnTypes,
+} from "back-end/src/util/sql";
 
 /**
  * Clears datatype-incompatible props. Empty datatype skips checks while
@@ -356,4 +363,85 @@ export function getNextUpdateOccurrence(
     occurrenceUtc = zonedTimeToUtc(addDays(todayZoned, 1), timezone);
   }
   return occurrenceUtc;
+}
+
+/**
+ * Column types for a Fact Table SQL result. Prefers the datatype the SQL engine
+ * reported for each column, and infers the rest from the returned rows. JSON is
+ * only taken from the engine when it also described the fields, so we can fall
+ * back to inferring them from the data.
+ */
+export function buildColumnTypeMaps(
+  result: Pick<TestQueryResult, "results" | "columns">,
+): {
+  typeMap: Map<string, FactTableColumnType>;
+  jsonMap: Map<string, DetectedJSONFields>;
+  warehouseTypeMap: Map<string, FactTableColumnType>;
+} {
+  const typeMap = new Map<string, FactTableColumnType>();
+  const jsonMap = new Map<string, DetectedJSONFields>();
+  const warehouseTypeMap = new Map<string, FactTableColumnType>();
+
+  result.columns?.forEach((col) => {
+    if (col.dataType === undefined) return;
+
+    warehouseTypeMap.set(col.name, col.dataType);
+    if (
+      col.dataType === "json" &&
+      col.fields !== undefined &&
+      col.fields.length > 0
+    ) {
+      typeMap.set(col.name, "json");
+      jsonMap.set(col.name, {
+        source: "querySchema",
+        fields: col.fields.reduce(
+          (acc, field) => ({
+            ...acc,
+            [field.name]: { datatype: field.dataType },
+          }),
+          {},
+        ),
+      });
+    } else if (col.dataType !== "json") {
+      typeMap.set(col.name, col.dataType);
+    }
+  });
+
+  determineColumnTypes(result.results, typeMap).forEach((col) => {
+    typeMap.set(col.column, col.datatype);
+    if (col.jsonFields) {
+      jsonMap.set(col.column, {
+        source: "sampledValues",
+        fields: col.jsonFields,
+      });
+    }
+  });
+
+  return { typeMap, jsonMap, warehouseTypeMap };
+}
+
+/**
+ * Flat list of the columns a Fact Table's SQL returns, for the create flow to
+ * show before anything is persisted. Includes columns the engine reported but
+ * the rows couldn't type (an untyped `LIMIT 0` result, or JSON without field
+ * info) so a query with no rows still yields a column list.
+ */
+export function detectColumnsFromQueryResult(
+  result: Pick<TestQueryResult, "results" | "columns">,
+): DetectedFactTableColumn[] {
+  const { typeMap, jsonMap } = buildColumnTypeMaps(result);
+
+  // Start from the engine's output schema so the order follows the SELECT list
+  // and columns it names without a datatype still appear — Snowflake and
+  // Presto report names only, and the create flow lets the user set the type.
+  // Inferred types win wherever the rows told us more.
+  const datatypes = new Map<string, FactTableColumnType>(
+    (result.columns || []).map((col) => [col.name, col.dataType || ""]),
+  );
+  typeMap.forEach((datatype, column) => datatypes.set(column, datatype));
+
+  return [...datatypes].map(([column, datatype]) => {
+    const jsonFields = jsonMap.get(column)?.fields;
+    return { column, datatype, ...(jsonFields ? { jsonFields } : {}) };
+  });
 }

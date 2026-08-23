@@ -9,22 +9,19 @@ import {
   DEFAULT_TOP_VALUES_LOOKBACK_UNIT,
 } from "shared/constants";
 import { OrganizationSettings } from "shared/types/organization";
-import {
-  ColumnInterface,
-  FactTableColumnType,
-  FactTableInterface,
-} from "shared/types/fact-table";
+import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import { ReqContext } from "back-end/types/request";
 import {
   columnNamesMatch,
-  type DetectedJSONFields,
-  determineColumnTypes,
   getColumnByName,
   mergeJsonFields,
 } from "back-end/src/util/sql";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
-import { normalizePersistedColumn } from "back-end/src/util/factTable";
+import {
+  buildColumnTypeMaps,
+  normalizePersistedColumn,
+} from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
 
 export const MAX_COLUMNS_WITH_TOP_VALUES = 50;
@@ -261,49 +258,7 @@ export async function runColumnDetectionQuery(
     "factTableValidation",
   );
 
-  const typeMap = new Map<string, FactTableColumnType>();
-  const jsonMap = new Map<string, DetectedJSONFields>();
-  const warehouseTypeMap = new Map<string, FactTableColumnType>();
-
-  result.columns?.forEach((col) => {
-    // If the underlying SQL engine returned the datatype, use it
-    if (col.dataType !== undefined) {
-      warehouseTypeMap.set(col.name, col.dataType);
-      // For JSON, only return if we have the field information, otherwise skip
-      // so we can infer from the returned data
-      if (
-        col.dataType === "json" &&
-        col.fields !== undefined &&
-        col.fields.length > 0
-      ) {
-        typeMap.set(col.name, "json");
-        jsonMap.set(col.name, {
-          source: "querySchema",
-          fields: col.fields.reduce(
-            (acc, field) => ({
-              ...acc,
-              [field.name]: {
-                datatype: field.dataType,
-              },
-            }),
-            {},
-          ),
-        });
-      } else if (col.dataType !== "json") {
-        typeMap.set(col.name, col.dataType);
-      }
-    }
-  });
-
-  determineColumnTypes(result.results, typeMap).forEach((col) => {
-    typeMap.set(col.column, col.datatype);
-    if (col.jsonFields) {
-      jsonMap.set(col.column, {
-        source: "sampledValues",
-        fields: col.jsonFields,
-      });
-    }
-  });
+  const { typeMap, jsonMap, warehouseTypeMap } = buildColumnTypeMaps(result);
 
   const columns = factTable.columns || [];
 
