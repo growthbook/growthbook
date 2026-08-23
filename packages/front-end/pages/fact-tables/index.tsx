@@ -8,7 +8,6 @@ import { Box, Flex, Separator } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import FactTableModal from "@/components/FactTables/FactTableModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import {
   filterSearchTerm,
@@ -94,7 +93,6 @@ export default function FactTablesPage() {
 
   const permissionsUtil = usePermissionsUtil();
 
-  const [createFactOpen, setCreateFactOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
 
   const factMetricCounts: Record<string, number> = {};
@@ -213,9 +211,6 @@ export default function FactTablesPage() {
 
   return (
     <Box className="pagecontents container-fluid">
-      {createFactOpen && (
-        <FactTableModal close={() => setCreateFactOpen(false)} />
-      )}
       <PageHead breadcrumb={[{ display: "Fact Tables" }]} />
       <Flex align="center" justify="between" gap="3" mb="4">
         <Heading as="h1" size="xl" mb="0">
@@ -231,15 +226,11 @@ export default function FactTablesPage() {
                 : ""
             }
           >
-            <Button
-              onClick={() => {
-                if (!canCreate) return;
-                setCreateFactOpen(true);
-              }}
-              disabled={!canCreate}
-            >
-              Add Fact Table
-            </Button>
+            {canCreate ? (
+              <LinkButton href="/fact-tables/new">Add Fact Table</LinkButton>
+            ) : (
+              <Button disabled>Add Fact Table</Button>
+            )}
           </Tooltip>
         ) : null}
       </Flex>
@@ -285,13 +276,9 @@ export default function FactTablesPage() {
                 </Button>
 
                 <div className="mt-2">
-                  <Button
-                    variant="ghost"
-                    size="md"
-                    onClick={() => setCreateFactOpen(true)}
-                  >
+                  <LinkButton href="/fact-tables/new" variant="ghost" size="md">
                     Add Fact Table Manually
-                  </Button>
+                  </LinkButton>
                 </div>
               </div>
             ) : (
@@ -304,15 +291,13 @@ export default function FactTablesPage() {
                     : ""
                 }
               >
-                <Button
-                  onClick={() => {
-                    if (!canCreate) return;
-                    setCreateFactOpen(true);
-                  }}
-                  disabled={!canCreate}
-                >
-                  Add Fact Table
-                </Button>
+                {canCreate ? (
+                  <LinkButton href="/fact-tables/new">
+                    Add Fact Table
+                  </LinkButton>
+                ) : (
+                  <Button disabled>Add Fact Table</Button>
+                )}
               </Tooltip>
             )}
           </div>
