@@ -14,6 +14,7 @@ import {
   normalizeJSONFieldsInput,
   stripIncompatibleFields,
   detectColumnsFromQueryResult,
+  buildColumnTypeMaps,
 } from "back-end/src/util/factTable";
 import { mergeUpsertColumns } from "back-end/src/models/FactTableModel";
 
@@ -720,6 +721,38 @@ describe("deriveUserIdTypesFromColumns", () => {
 
     it("returns nothing when there are no rows and no schema", () => {
       expect(detectColumnsFromQueryResult({ results: [] })).toEqual([]);
+    });
+  });
+
+  describe("buildColumnTypeMaps", () => {
+    // The refresh marks a column deleted when it's missing from `datatypes`,
+    // so untypeable columns the engine still reports have to appear there.
+    it("lists untypeable schema columns in datatypes", () => {
+      const { datatypes } = buildColumnTypeMaps({
+        results: [],
+        columns: [
+          { name: "user_id", dataType: "string" },
+          // JSON without field info can't be typed from an empty row sample
+          { name: "props", dataType: "json" },
+          // Vertica and Query Service report names without types
+          { name: "revenue" },
+        ],
+      });
+
+      expect([...datatypes]).toEqual([
+        ["user_id", "string"],
+        ["props", "json"],
+        ["revenue", ""],
+      ]);
+    });
+
+    it("prefers inferred types over the engine's in datatypes", () => {
+      const { datatypes } = buildColumnTypeMaps({
+        results: [{ revenue: 10 }],
+        columns: [{ name: "revenue" }],
+      });
+
+      expect([...datatypes]).toEqual([["revenue", "number"]]);
     });
   });
 });

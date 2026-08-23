@@ -370,13 +370,18 @@ export function getNextUpdateOccurrence(
  * reported for each column, and infers the rest from the returned rows. JSON is
  * only taken from the engine when it also described the fields, so we can fall
  * back to inferring them from the data.
+ *
+ * `datatypes` is every column the query returns, in SELECT order, with `""` for
+ * the ones neither the engine nor the rows could type. It is the only complete
+ * list of what exists -- a name-only engine (Vertica, Query Service) or JSON
+ * without field info yields no type at all for a perfectly real column.
  */
 export function buildColumnTypeMaps(
   result: Pick<TestQueryResult, "results" | "columns">,
 ): {
-  typeMap: Map<string, FactTableColumnType>;
   jsonMap: Map<string, DetectedJSONFields>;
   warehouseTypeMap: Map<string, FactTableColumnType>;
+  datatypes: Map<string, FactTableColumnType>;
 } {
   const typeMap = new Map<string, FactTableColumnType>();
   const jsonMap = new Map<string, DetectedJSONFields>();
@@ -417,7 +422,15 @@ export function buildColumnTypeMaps(
     }
   });
 
-  return { typeMap, jsonMap, warehouseTypeMap };
+  // Start from the engine's output schema so the order follows the SELECT list
+  // and columns it names without a datatype still appear. Inferred types win
+  // wherever the rows told us more.
+  const datatypes = new Map<string, FactTableColumnType>(
+    (result.columns || []).map((col) => [col.name, col.dataType || ""]),
+  );
+  typeMap.forEach((datatype, column) => datatypes.set(column, datatype));
+
+  return { jsonMap, warehouseTypeMap, datatypes };
 }
 
 /**
@@ -429,16 +442,7 @@ export function buildColumnTypeMaps(
 export function detectColumnsFromQueryResult(
   result: Pick<TestQueryResult, "results" | "columns">,
 ): DetectedFactTableColumn[] {
-  const { typeMap, jsonMap } = buildColumnTypeMaps(result);
-
-  // Start from the engine's output schema so the order follows the SELECT list
-  // and columns it names without a datatype still appear — Snowflake and
-  // Presto report names only, and the create flow lets the user set the type.
-  // Inferred types win wherever the rows told us more.
-  const datatypes = new Map<string, FactTableColumnType>(
-    (result.columns || []).map((col) => [col.name, col.dataType || ""]),
-  );
-  typeMap.forEach((datatype, column) => datatypes.set(column, datatype));
+  const { jsonMap, datatypes } = buildColumnTypeMaps(result);
 
   return [...datatypes].map(([column, datatype]) => {
     const jsonFields = jsonMap.get(column)?.fields;

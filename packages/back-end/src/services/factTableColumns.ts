@@ -258,7 +258,7 @@ export async function runColumnDetectionQuery(
     "factTableValidation",
   );
 
-  const { typeMap, jsonMap, warehouseTypeMap } = buildColumnTypeMaps(result);
+  const { jsonMap, warehouseTypeMap, datatypes } = buildColumnTypeMaps(result);
 
   const columns = factTable.columns || [];
 
@@ -271,7 +271,10 @@ export async function runColumnDetectionQuery(
       return;
     }
 
-    const type = getColumnByName(typeMap, col.column, caseSensitive);
+    // `datatypes`, not `typeMap` -- a column the engine named but neither it
+    // nor the sampled rows could type still exists, and marking it deleted
+    // would drop columns the create flow saved from a schema-only detection.
+    const type = getColumnByName(datatypes, col.column, caseSensitive);
     const jsonFields = getColumnByName(jsonMap, col.column, caseSensitive);
 
     // Column no longer exists, mark as deleted
@@ -321,7 +324,7 @@ export async function runColumnDetectionQuery(
   });
 
   // Add new columns that don't exist yet
-  typeMap.forEach((datatype, column) => {
+  datatypes.forEach((datatype, column) => {
     if (
       !columns.some((c) => columnNamesMatch(c.column, column, caseSensitive))
     ) {
