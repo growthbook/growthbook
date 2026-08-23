@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { MutableRefObject, useCallback, useEffect, useState } from "react";
 import { FaExclamationTriangle, FaPlay } from "react-icons/fa";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
@@ -91,7 +91,7 @@ export default function NewFactTableSqlStep({
   detected,
   detectedSql,
   onColumnsDetected,
-  onContinue,
+  validateRef,
 }: {
   datasourceId: string;
   setDatasourceId: (id: string) => void;
@@ -103,7 +103,9 @@ export default function NewFactTableSqlStep({
   // The SQL that produced `detected`, so we know when the columns are stale
   detectedSql: string | null;
   onColumnsDetected: (columns: DetectedFactTableColumn[]) => void;
-  onContinue: () => void;
+  // Filled in with what the modal's Next button should do: run the query if the
+  // SQL hasn't been tested yet, and refuse to advance if it comes back unusable.
+  validateRef: MutableRefObject<(() => Promise<void>) | null>;
 }) {
   const { apiCall } = useAuth();
   const { getDatasourceById, datasources, project } = useDefinitions();
@@ -258,6 +260,21 @@ export default function NewFactTableSqlStep({
   // Survives stepping back from the configure step, which unmounts this
   // component -- there's no need to re-run a query the SQL hasn't outgrown.
   const hasFreshResults = detectedSql === sql && !!detected?.length;
+
+  useEffect(() => {
+    validateRef.current = async () => {
+      if (hasFreshResults) return;
+      const results = await runQuery();
+      // Both failures are already spelled out in this step, so don't repeat
+      // them in the modal's error bar
+      if (results.error || !results.columns?.length) throw new Error("");
+    };
+    // Once the modal is past this step the query has already been tested, and
+    // this closure's view of that is stale
+    return () => {
+      validateRef.current = null;
+    };
+  }, [validateRef, hasFreshResults, runQuery]);
 
   return (
     <Flex direction="column" gap="3" height="100%">
@@ -467,48 +484,22 @@ export default function NewFactTableSqlStep({
         </Callout>
       )}
 
-      <Flex justify="between" align="center" gap="3">
+      {detected?.length ? (
         <Flex align="center" gap="2">
-          {detected?.length ? (
-            <>
-              <Text color="text-mid">
-                Detected {detected.length} column
-                {detected.length === 1 ? "" : "s"}
-              </Text>
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={sampleOpen ? <PiCaretDown /> : <PiCaretRight />}
-                onClick={() => setSampleOpen(!sampleOpen)}
-              >
-                View sample rows
-              </Button>
-            </>
-          ) : null}
-        </Flex>
-        <Tooltip
-          body="You do not have permission to run test queries"
-          shouldDisplay={!canRunQueries}
-        >
+          <Text color="text-mid">
+            Detected {detected.length} column
+            {detected.length === 1 ? "" : "s"}
+          </Text>
           <Button
-            disabled={!canRunQueries || !sql}
-            loading={testingQuery}
-            onClick={async () => {
-              // Runs first if the SQL has never been run, or changed since
-              if (hasFreshResults) {
-                onContinue();
-                return;
-              }
-              const results = await runQuery();
-              if (results.columns?.length) {
-                onContinue();
-              }
-            }}
+            variant="ghost"
+            size="sm"
+            icon={sampleOpen ? <PiCaretDown /> : <PiCaretRight />}
+            onClick={() => setSampleOpen(!sampleOpen)}
           >
-            Next: configure Fact Table
+            View sample rows
           </Button>
-        </Tooltip>
-      </Flex>
+        </Flex>
+      ) : null}
     </Flex>
   );
 }

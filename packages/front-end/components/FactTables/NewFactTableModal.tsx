@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiArrowLeft } from "react-icons/pi";
-import { isProjectListValidForProject } from "shared/util";
 import {
   CreateFactTableProps,
   DetectedFactTableColumn,
@@ -12,8 +10,8 @@ import {
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 import NewFactTableSqlStep from "@/components/FactTables/NewFactTableSqlStep";
 import Field from "@/components/Forms/Field";
-import PageHead from "@/components/Layout/PageHead";
-import LoadingOverlay from "@/components/LoadingOverlay";
+import PagedModal from "@/components/Modal/PagedModal";
+import Page from "@/components/Modal/Page";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getInitialFactTableQuery } from "@/services/datasources";
@@ -24,10 +22,6 @@ import {
 import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/ui/Button";
-import Callout from "@/ui/Callout";
-import Heading from "@/ui/Heading";
-import LinkButton from "@/ui/LinkButton";
 import { Select, SelectItem } from "@/ui/Select";
 import Table, {
   TableBody,
@@ -54,23 +48,16 @@ const INLINE_FILTER_CANDIDATES = [
   "action",
 ];
 
-export default function NewFactTablePage() {
+// The SQL step needs room for an editor, a schema browser, and a results panel
+const BODY_HEIGHT = "calc(93vh - 260px)";
+
+export default function NewFactTableModal({ close }: { close: () => void }) {
   const router = useRouter();
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
-  const {
-    ready,
-    datasources,
-    project,
-    projects,
-    getDatasourceById,
-    mutateDefinitions,
-  } = useDefinitions();
-
-  const validDatasources = datasources
-    .filter((d) => isProjectListValidForProject(d.projects, project))
-    .filter((d) => d.properties?.queryLanguage === "sql");
+  const { datasources, project, getDatasourceById, mutateDefinitions } =
+    useDefinitions();
 
   const [step, setStep] = useState(0);
   const [datasourceId, setDatasourceId] = useState(
@@ -80,7 +67,6 @@ export default function NewFactTablePage() {
   );
   const [sql, setSql] = useState("");
   const [eventName, setEventName] = useState("");
-  const [error, setError] = useState<string | null>(null);
 
   // Step 2 state
   const [detected, setDetected] = useState<DetectedFactTableColumn[] | null>(
@@ -97,6 +83,9 @@ export default function NewFactTablePage() {
   );
   const [inlineFilterColumn, setInlineFilterColumn] = useState("");
 
+  // Set by the SQL step, so the modal's Next button can run the query first
+  const validateSql = useRef<(() => Promise<void>) | null>(null);
+
   // Seed the editor with starter SQL for whichever Data Source is selected.
   // Keyed off a ref so a background definitions refresh can't wipe user edits.
   const seededDatasource = useRef<string | null>(null);
@@ -107,10 +96,6 @@ export default function NewFactTablePage() {
     seededDatasource.current = datasourceId;
     setSql(getInitialFactTableQuery(datasource).sql);
   }, [datasourceId, getDatasourceById]);
-
-  useEffect(() => {
-    track("Viewed Create Fact Table Page");
-  }, []);
 
   const datasource = getDatasourceById(datasourceId);
   const identifierTypes = (datasource?.settings?.userIdTypes || []).map(
@@ -151,7 +136,6 @@ export default function NewFactTablePage() {
 
   const handleColumnsDetected = useCallback(
     (columns: DetectedFactTableColumn[]) => {
-      setError(null);
       setDetectedSql(sql);
 
       // Always take the newest detection -- reading a row sample narrows types
@@ -198,7 +182,7 @@ export default function NewFactTablePage() {
   );
 
   async function submit() {
-    if (!detected) throw new Error("Run your SQL first");
+    if (!detected) throw new Error("Test your SQL first");
     if (!datasource) throw new Error("Select a valid Data Source");
     if (!name) throw new Error("Enter a name for this Fact Table");
 
@@ -264,68 +248,28 @@ export default function NewFactTablePage() {
     router.push(`/fact-tables/${factTable.id}`);
   }
 
-  if (!ready) return <LoadingOverlay />;
-
-  const breadcrumb = (
-    <PageHead
-      breadcrumb={[
-        { display: "Fact Tables", href: "/fact-tables" },
-        { display: "New Fact Table" },
-      ]}
-    />
-  );
-
-  if (!permissionsUtil.canViewCreateFactTableModal(project, projects)) {
-    return (
-      <Box className="pagecontents container-fluid">
-        {breadcrumb}
-        <Callout status="error">
-          You don&apos;t have permission to create Fact Tables
-          {project ? " in this project" : ""}.
-        </Callout>
-      </Box>
-    );
-  }
-
-  if (!validDatasources.length) {
-    return (
-      <Box className="pagecontents container-fluid">
-        {breadcrumb}
-        <Callout status="info" mb="3">
-          Before creating a Fact Table, you must connect a SQL Data Source.
-        </Callout>
-        <LinkButton href="/datasources">Connect Data Source</LinkButton>
-      </Box>
-    );
-  }
-
   return (
-    <Box className="pagecontents container-fluid">
-      {breadcrumb}
-      <Flex align="center" gap="3" mb="4">
-        {step === 1 && (
-          <Button
-            variant="ghost"
-            size="md"
-            icon={<PiArrowLeft />}
-            onClick={() => setStep(0)}
-          >
-            Back
-          </Button>
-        )}
-        <Heading as="h1" size="xl" mb="0">
-          {step === 0 ? "New Fact Table" : "Configure Columns"}
-        </Heading>
-      </Flex>
-
-      {error && (
-        <Callout status="error" mb="3">
-          {error}
-        </Callout>
-      )}
-
-      {step === 0 ? (
-        <Box style={{ height: "calc(100vh - 260px)", minHeight: 420 }}>
+    <PagedModal
+      trackingEventModalType="new-fact-table"
+      header="New Fact Table"
+      step={step}
+      setStep={setStep}
+      submit={submit}
+      close={close}
+      cta="Create Fact Table"
+      size="max"
+      overflowAuto={false}
+      // The SQL step focuses its own editor
+      autoFocusSelector=""
+      backButton
+    >
+      <Page
+        display="Write SQL"
+        validate={async () => {
+          await validateSql.current?.();
+        }}
+      >
+        <Box style={{ height: BODY_HEIGHT }}>
           <NewFactTableSqlStep
             datasourceId={datasourceId}
             setDatasourceId={setDatasourceId}
@@ -336,139 +280,141 @@ export default function NewFactTablePage() {
             detected={detected}
             detectedSql={detectedSql}
             onColumnsDetected={handleColumnsDetected}
-            onContinue={() => setStep(1)}
+            validateRef={validateSql}
           />
         </Box>
-      ) : (
-        <>
-          <Box mb="4" style={{ maxWidth: 480 }}>
-            <Field
-              label="Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              autoFocus
-            />
-            <Select
-              label="Timestamp column"
-              mb="4"
-              value={
-                validColumn(timestampOptions, timestampColumn) || undefined
-              }
-              setValue={setTimestampColumn}
-              placeholder="Select a column..."
-            >
-              {timestampOptions.map((c) => (
-                <SelectItem key={c.column} value={c.column}>
-                  {c.column}
-                </SelectItem>
-              ))}
-            </Select>
+      </Page>
 
-            <Text as="div" weight="semibold" mb="1">
-              Identifier columns
-            </Text>
-            <Text as="div" size="sm" color="text-mid" mb="2">
-              Pick at least one. These let GrowthBook join this Fact Table to
-              your experiment assignments.
-            </Text>
-            {identifierTypes.map((idType) => (
+      <Page display="Configure">
+        <Box style={{ height: BODY_HEIGHT, overflowY: "auto" }}>
+          <Flex direction="column" gap="4" style={{ maxWidth: 480 }}>
+            <Box>
+              <Field
+                label="Name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                autoFocus
+              />
               <Select
-                key={idType}
-                label={idType}
-                labelSize="sm"
-                mb="3"
+                label="Timestamp column"
                 value={
-                  validColumn(identifierOptions, userIdColumns[idType] || "") ||
-                  NONE
+                  validColumn(timestampOptions, timestampColumn) || undefined
                 }
-                setValue={(v) => {
-                  const column = v === NONE ? "" : v;
-                  setUserIdColumns({ ...userIdColumns, [idType]: column });
-                  // An identifier column can't also be an inline filter
-                  if (column && column === inlineFilterColumn) {
-                    setInlineFilterColumn("");
-                  }
-                }}
+                setValue={setTimestampColumn}
+                placeholder="Select a column..."
               >
-                <SelectItem value={NONE}>Not in this Fact Table</SelectItem>
-                {identifierOptions.map((c) => (
+                {timestampOptions.map((c) => (
                   <SelectItem key={c.column} value={c.column}>
                     {c.column}
                   </SelectItem>
                 ))}
               </Select>
-            ))}
+            </Box>
 
-            <Select
-              label="Inline filter column (optional)"
-              mt="2"
-              value={
-                validColumn(inlineFilterOptions, inlineFilterColumn) || NONE
-              }
-              setValue={(v) => setInlineFilterColumn(v === NONE ? "" : v)}
-            >
-              <SelectItem value={NONE}>None</SelectItem>
-              {inlineFilterOptions.map((c) => (
-                <SelectItem key={c.column} value={c.column}>
-                  {c.column}
-                </SelectItem>
+            <Box>
+              <Text as="div" weight="semibold" mb="1">
+                Identifier columns
+              </Text>
+              <Text as="div" size="sm" color="text-mid" mb="2">
+                Pick at least one. These let GrowthBook join this Fact Table to
+                your experiment assignments.
+              </Text>
+              {identifierTypes.map((idType) => (
+                <Select
+                  key={idType}
+                  label={idType}
+                  labelSize="sm"
+                  mb="3"
+                  value={
+                    validColumn(
+                      identifierOptions,
+                      userIdColumns[idType] || "",
+                    ) || NONE
+                  }
+                  setValue={(v) => {
+                    const column = v === NONE ? "" : v;
+                    setUserIdColumns({ ...userIdColumns, [idType]: column });
+                    // An identifier column can't also be an inline filter
+                    if (column && column === inlineFilterColumn) {
+                      setInlineFilterColumn("");
+                    }
+                  }}
+                >
+                  <SelectItem value={NONE}>Not in this Fact Table</SelectItem>
+                  {identifierOptions.map((c) => (
+                    <SelectItem key={c.column} value={c.column}>
+                      {c.column}
+                    </SelectItem>
+                  ))}
+                </Select>
               ))}
-            </Select>
-            <Text as="div" size="sm" color="text-mid" mt="1">
-              Metrics built on this Fact Table will prompt for a value from this
-              column, e.g. the event name.
-            </Text>
-          </Box>
+            </Box>
 
-          <Box mb="4" style={{ maxWidth: 480 }}>
-            <Text as="div" weight="semibold" mb="1">
-              Column types
-            </Text>
-            <Text as="div" size="sm" color="text-mid" mb="2">
-              Correct anything we got wrong, or set a type we couldn&apos;t
-              detect. Types are re-checked in the background after saving.
-            </Text>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableColumnHeader>Column</TableColumnHeader>
-                  <TableColumnHeader>Data type</TableColumnHeader>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(detected || []).map((col) => (
-                  <TableRow key={col.column}>
-                    <TableCell>{col.column}</TableCell>
-                    <TableCell>
-                      <Select
-                        size="sm"
-                        value={datatypeFor(col) || undefined}
-                        setValue={(v) =>
-                          setDatatype(col.column, v as FactTableColumnType)
-                        }
-                        placeholder="Unknown"
-                      >
-                        {DATATYPE_OPTIONS.map((o) => (
-                          <SelectItem key={o.value} value={o.value}>
-                            {o.label}
-                          </SelectItem>
-                        ))}
-                      </Select>
-                    </TableCell>
-                  </TableRow>
+            <Box>
+              <Select
+                label="Inline filter column (optional)"
+                value={
+                  validColumn(inlineFilterOptions, inlineFilterColumn) || NONE
+                }
+                setValue={(v) => setInlineFilterColumn(v === NONE ? "" : v)}
+              >
+                <SelectItem value={NONE}>None</SelectItem>
+                {inlineFilterOptions.map((c) => (
+                  <SelectItem key={c.column} value={c.column}>
+                    {c.column}
+                  </SelectItem>
                 ))}
-              </TableBody>
-            </Table>
-          </Box>
+              </Select>
+              <Text as="div" size="sm" color="text-mid" mt="1">
+                Metrics built on this Fact Table will prompt for a value from
+                this column, e.g. the event name.
+              </Text>
+            </Box>
 
-          <Flex justify="end">
-            <Button onClick={submit} setError={setError}>
-              Create Fact Table
-            </Button>
+            <Box>
+              <Text as="div" weight="semibold" mb="1">
+                Column types
+              </Text>
+              <Text as="div" size="sm" color="text-mid" mb="2">
+                Correct anything we got wrong, or set a type we couldn&apos;t
+                detect. Types are re-checked in the background after saving.
+              </Text>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableColumnHeader>Column</TableColumnHeader>
+                    <TableColumnHeader>Data type</TableColumnHeader>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(detected || []).map((col) => (
+                    <TableRow key={col.column}>
+                      <TableCell>{col.column}</TableCell>
+                      <TableCell>
+                        <Select
+                          size="sm"
+                          value={datatypeFor(col) || undefined}
+                          setValue={(v) =>
+                            setDatatype(col.column, v as FactTableColumnType)
+                          }
+                          placeholder="Unknown"
+                        >
+                          {DATATYPE_OPTIONS.map((o) => (
+                            <SelectItem key={o.value} value={o.value}>
+                              {o.label}
+                            </SelectItem>
+                          ))}
+                        </Select>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Box>
           </Flex>
-        </>
-      )}
-    </Box>
+        </Box>
+      </Page>
+    </PagedModal>
   );
 }

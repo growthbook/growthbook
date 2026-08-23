@@ -50,6 +50,8 @@ type Props = {
   skipped?: Set<number>;
   hideNav?: boolean;
   bodyPrefix?: ReactNode;
+  overflowAuto?: boolean;
+  autoFocusSelector?: string;
   // An empty string will prevent firing a tracking event, but the prop is still required to encourage developers to add tracking
   trackingEventModalType: string;
   // The source (likely page or component) causing the modal to be shown
