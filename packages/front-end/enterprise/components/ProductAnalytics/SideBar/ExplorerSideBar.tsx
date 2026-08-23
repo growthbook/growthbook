@@ -82,6 +82,7 @@ export default function ExplorerSideBar({
     needsFetch,
     error,
     trackingSource,
+    linkedFunnelMetricId,
   } = useExplorerContext();
   const { factTables, getFactMetricById, getFactTableById, project } =
     useDefinitions();
@@ -201,6 +202,7 @@ export default function ExplorerSideBar({
           compareEnabled={compareEnabled}
           previousTimeFrame={draftExploreState.previousTimeFrame ?? null}
           comparisonMode={comparisonMode}
+          linkedFunnelMetricId={linkedFunnelMetricId}
           comparisonExplorationId={comparisonExploration?.id ?? null}
           trackingSource={trackingSource}
         />
@@ -462,7 +464,9 @@ export default function ExplorerSideBar({
           <ShowAsSection />
         )}
       {hasInputs && <GroupBySection />}
-      {activeType === "funnel" && <SaveFunnelMetricAction />}
+      {activeType === "funnel" && renderingInDashboardSidebar && (
+        <SaveFunnelMetricAction />
+      )}
     </Flex>
   );
 }

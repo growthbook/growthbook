@@ -68,6 +68,15 @@ export default function FunnelTabContent() {
   const [instantCollapseTransition, setInstantCollapseTransition] =
     useState(false);
 
+  // True when the sidebar should show the "No steps added yet" empty state
+  // instead of step cards. Starts true for a blank funnel and flips to false
+  // once the user clicks "Add a step" or loads a saved metric.
+  const [emptyStateActive, setEmptyStateActive] = useState(() => {
+    if (!isFunnel) return false;
+    const initialSteps = (draftExploreState.dataset as FunnelDataset).steps;
+    return !initialSteps.some((s) => !!s.factTableId);
+  });
+
   const [uiState, setUiState] = useState<StepUiState[]>(() => {
     // When the page initializes from a URL/saved config, steps already
     // have fact tables and filters
@@ -161,9 +170,9 @@ export default function FunnelTabContent() {
    */
   const resetToNewFunnel = useCallback(() => {
     clearAllDatasets(draftExploreState.datasource);
-    // One empty step, expanded and ready to edit — matching a fresh page.
     setInstantCollapseTransition(true);
     setUiState([{ collapsed: false, userExpanded: false }]);
+    setEmptyStateActive(true);
   }, [clearAllDatasets, draftExploreState.datasource]);
 
   // Switching project clears the funnel outright — steps included, linked or not.
@@ -233,6 +242,7 @@ export default function FunnelTabContent() {
     });
     setLinkedFunnelMetricId(metricId);
     setInstantCollapseTransition(true);
+    setEmptyStateActive(false);
     setUiState(
       metric.funnelSettings.steps.map(() => ({
         collapsed: true,
@@ -324,22 +334,37 @@ export default function FunnelTabContent() {
 
   return (
     <Flex direction="column" gap="4">
-      <Flex direction="column" gap="1">
+      <Flex
+        direction="column"
+        p="3"
+        gap="3"
+        style={{
+          border: "1px solid var(--gray-a3)",
+          borderRadius: "var(--radius-4)",
+          backgroundColor: "var(--color-panel-translucent)",
+        }}
+      >
         <Select
           label="Funnel"
           labelSize="sm"
           placeholder="Select a funnel"
-          // Falls back to the placeholder when the linked metric isn't in the
-          // list (wrong project, deleted, archived) rather than showing a value
-          // the menu doesn't contain.
+          // When linked to a metric that's in the list, show it. Otherwise
+          // show "Build a New Funnel" for any configured funnel, and the
+          // placeholder only for the initial empty state.
           value={
             linkedFunnelMetricName
               ? (linkedFunnelMetricId ?? undefined)
-              : undefined
+              : emptyStateActive
+                ? undefined
+                : NEW_FUNNEL_VALUE
           }
           setValue={(value) => {
             if (value === NEW_FUNNEL_VALUE) {
-              resetToNewFunnel();
+              // Already building a new funnel — only reset if switching
+              // away from a linked metric.
+              if (linkedFunnelMetricId) {
+                resetToNewFunnel();
+              }
               return;
             }
             handleLoadFunnelMetric(value);
@@ -361,51 +386,83 @@ export default function FunnelTabContent() {
             </Flex>
           </SelectItem>
         </Select>
-        <Callout status="info" size="sm" mt="1">
-          {funnelMetricOptions.length === 0
-            ? "No saved funnel metrics on this data source yet."
-            : linkedFunnelMetricId && funnelLinkIsDirty
+        {funnelMetricOptions.length > 0 && (
+          <Callout status="info" size="sm">
+            {linkedFunnelMetricId && funnelLinkIsDirty
               ? "Edited since loading — the metric itself is unchanged."
               : "Loads the metric's steps. Editing them here doesn't change the metric."}
-        </Callout>
+          </Callout>
+        )}
       </Flex>
-      {steps.map((step, index) => (
-        <FunnelStepCard
-          key={index}
-          index={index}
-          step={step}
-          steps={steps}
-          previousFactTable={
-            index === 0 ? null : (steps[index - 1]?.factTableId ?? null)
-          }
-          isCollapsed={uiState[index]?.collapsed ?? false}
-          onToggleCollapsed={() => handleToggleCollapsed(index)}
-          onDelete={handleDelete}
-          funnelUnitOptions={funnelUnitOptions}
-          collapsibleTransitionMs={instantCollapseTransition ? 0 : 100}
-        />
-      ))}
-      {allStepsHaveFactTable && funnelUnitOptions.length === 0 && (
-        <Text size="sm" color="text-low">
-          No shared user identifier across steps.
-        </Text>
-      )}
-      <Button
-        size="md"
-        variant="outline"
-        onClick={handleAddStep}
-        disabled={steps.length >= MAX_FUNNEL_STEPS}
-        title={
-          steps.length >= MAX_FUNNEL_STEPS
-            ? `Funnels are limited to ${MAX_FUNNEL_STEPS} steps.`
-            : undefined
-        }
-      >
-        <Flex align="center" gap="2">
-          <PiPlus size={14} />
-          Add step
+      {emptyStateActive ? (
+        <Flex align="center" justify="center" direction="column" gap="2" py="9">
+          <Text size="lg" weight="semibold" align="center">
+            No steps added yet
+          </Text>
+          <Text size="sm" color="text-mid" align="center">
+            Add your first step to start building a funnel.
+          </Text>
+          <Button
+            size="md"
+            variant="solid"
+            style={{ width: "100%" }}
+            mt="2"
+            onClick={() => {
+              setEmptyStateActive(false);
+              setUiState((prev) =>
+                prev.map((s, i) =>
+                  i === 0 ? { collapsed: false, userExpanded: true } : s,
+                ),
+              );
+            }}
+          >
+            <Flex align="center" gap="2">
+              <PiPlus size={14} />
+              Add a step
+            </Flex>
+          </Button>
         </Flex>
-      </Button>
+      ) : (
+        <>
+          {steps.map((step, index) => (
+            <FunnelStepCard
+              key={index}
+              index={index}
+              step={step}
+              steps={steps}
+              previousFactTable={
+                index === 0 ? null : (steps[index - 1]?.factTableId ?? null)
+              }
+              isCollapsed={uiState[index]?.collapsed ?? false}
+              onToggleCollapsed={() => handleToggleCollapsed(index)}
+              onDelete={handleDelete}
+              funnelUnitOptions={funnelUnitOptions}
+              collapsibleTransitionMs={instantCollapseTransition ? 0 : 100}
+            />
+          ))}
+          {allStepsHaveFactTable && funnelUnitOptions.length === 0 && (
+            <Text size="sm" color="text-low">
+              No shared user identifier across steps.
+            </Text>
+          )}
+          <Button
+            size="md"
+            variant="outline"
+            onClick={handleAddStep}
+            disabled={steps.length >= MAX_FUNNEL_STEPS}
+            title={
+              steps.length >= MAX_FUNNEL_STEPS
+                ? `Funnels are limited to ${MAX_FUNNEL_STEPS} steps.`
+                : undefined
+            }
+          >
+            <Flex align="center" gap="2">
+              <PiPlus size={14} />
+              Add step
+            </Flex>
+          </Button>
+        </>
+      )}
     </Flex>
   );
 }

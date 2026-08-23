@@ -23,6 +23,7 @@ import Button from "@/ui/Button";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ExplorerSideBar from "./SideBar/ExplorerSideBar";
+import SaveFunnelMetricAction from "./SideBar/SaveFunnelMetricAction";
 import {
   ExplorerProvider,
   useExplorerContext,
@@ -95,7 +96,9 @@ function deriveConfigError(
 }
 
 function ExplorerContent() {
-  const { managedWarehouseUnavailable } = useExplorerContext();
+  const { managedWarehouseUnavailable, draftExploreState } =
+    useExplorerContext();
+  const isFunnel = draftExploreState.type === "funnel";
 
   return (
     <Flex direction="column" gap="3" height="calc(100vh - 72px)">
@@ -142,13 +145,23 @@ function ExplorerContent() {
 
         {/* Sidebar */}
         <Panel id="sidebar" order={2} defaultSize={25} minSize={20}>
-          {/* Let the scroll area fill the panel (which already sizes itself
-              against the parent group's height) instead of a hardcoded
-              `calc(100vh - 160px)` — the latter left ~88px dead space at
-              the bottom and caused unnecessary scrolling. */}
-          <ShadowedScrollArea height="100%">
-            <ExplorerSideBar />
-          </ShadowedScrollArea>
+          <Flex direction="column" height="100%">
+            <Box style={{ flex: 1, minHeight: 0 }}>
+              <ShadowedScrollArea height="100%">
+                <ExplorerSideBar />
+              </ShadowedScrollArea>
+            </Box>
+            {isFunnel && (
+              <Box
+                p="2"
+                style={{
+                  borderTop: "1px solid var(--gray-a3)",
+                }}
+              >
+                <SaveFunnelMetricAction />
+              </Box>
+            )}
+          </Flex>
         </Panel>
       </PanelGroup>
     </Flex>
@@ -271,7 +284,9 @@ function ExplorerInner({ type }: { type: DatasetType }) {
       ? metricId
       : type === "fact_table"
         ? factTableId
-        : datasourceId;
+        : type === "funnel"
+          ? funnelMetricId
+          : datasourceId;
 
   const configError = deriveConfigError(urlConfig, rawParam, type);
 

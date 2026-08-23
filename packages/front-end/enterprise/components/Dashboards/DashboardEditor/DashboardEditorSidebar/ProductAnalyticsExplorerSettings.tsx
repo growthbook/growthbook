@@ -148,6 +148,11 @@ export default function ProductAnalyticsExplorerSettings({
       initialConfig={initialConfig}
       initialSubmittedConfig={initialSubmittedConfig}
       hasExistingResults={!!block.explorerAnalysisId}
+      initialLinkedFunnelMetricId={
+        "linkedFunnelMetricId" in block
+          ? (block.linkedFunnelMetricId ?? null)
+          : null
+      }
       trackingSource="dashboard-editor"
       onRunComplete={(
         exploration,
