@@ -50,6 +50,7 @@ jest.mock("back-end/src/util/features", () => ({
 }));
 
 jest.mock("back-end/src/util/organization.util", () => ({
+  ...jest.requireActual("back-end/src/util/organization.util"),
   getEnvironmentIdsFromOrg: jest.fn(() => ["production", "dev"]),
 }));
 

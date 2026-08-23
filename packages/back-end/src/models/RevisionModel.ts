@@ -9,6 +9,7 @@ import {
   JsonPatchOperation,
   ScheduledPublishInput,
   getApprovalFlowSettings,
+  entityProjects,
   isRevisionEditLockedBySchedule,
   REVIEW_CYCLE_STATUSES,
   reviewCycleOf,
@@ -305,6 +306,7 @@ export class RevisionModel extends BaseClass {
       : !!getApprovalFlowSettings(
           this.context.org.settings?.approvalFlows,
           existing.target.type,
+          entityProjects(existing.target.snapshot),
         )?.resetReviewOnChange;
     if (!shouldReset) return {};
     return {
