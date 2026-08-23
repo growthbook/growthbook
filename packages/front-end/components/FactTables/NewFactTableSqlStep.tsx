@@ -45,7 +45,7 @@ import Table, {
   TableRow,
 } from "@/ui/Table";
 import Text from "@/ui/Text";
-import { DATATYPE_OPTIONS } from "@/services/factTables";
+import { datatypeLabel } from "@/services/factTables";
 
 // Rows to read when the user asks to preview data. Always an explicit opt-in,
 // since the query can't be filtered by date until the timestamp column is set.
@@ -64,13 +64,11 @@ type TestQueryResults = {
 function DetectedColumns({
   columns,
   datatypeFor,
-  setDatatype,
   sampleOpen,
   toggleSample,
 }: {
   columns: DetectedFactTableColumn[];
   datatypeFor: (column: DetectedFactTableColumn) => FactTableColumnType;
-  setDatatype: (column: string, datatype: FactTableColumnType) => void;
   sampleOpen: boolean;
   toggleSample: () => void;
 }) {
@@ -93,10 +91,6 @@ function DetectedColumns({
       }
     >
       <Box p="3">
-        <Text as="div" size="sm" color="text-mid" mb="3">
-          Correct anything we got wrong, or set a type we couldn&apos;t detect.
-          Types are re-checked in the background after saving.
-        </Text>
         <Table>
           <TableHeader>
             <TableRow>
@@ -109,20 +103,9 @@ function DetectedColumns({
               <TableRow key={col.column}>
                 <TableCell>{col.column}</TableCell>
                 <TableCell>
-                  <Select
-                    size="sm"
-                    value={datatypeFor(col) || undefined}
-                    setValue={(v) =>
-                      setDatatype(col.column, v as FactTableColumnType)
-                    }
-                    placeholder="Unknown"
-                  >
-                    {DATATYPE_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </Select>
+                  <Text color="text-mid">
+                    {datatypeLabel(datatypeFor(col))}
+                  </Text>
                 </TableCell>
               </TableRow>
             ))}
@@ -174,7 +157,6 @@ export default function NewFactTableSqlStep({
   detected,
   detectedSql,
   datatypeFor,
-  setDatatype,
   onColumnsDetected,
   onContinue,
 }: {
@@ -188,7 +170,6 @@ export default function NewFactTableSqlStep({
   // The SQL that produced `detected`, so we know when the columns are stale
   detectedSql: string | null;
   datatypeFor: (column: DetectedFactTableColumn) => FactTableColumnType;
-  setDatatype: (column: string, datatype: FactTableColumnType) => void;
   onColumnsDetected: (columns: DetectedFactTableColumn[]) => void;
   onContinue: () => void;
 }) {
@@ -353,7 +334,7 @@ export default function NewFactTableSqlStep({
           <Panel defaultSize={70}>
             <PanelGroup direction="vertical">
               <Panel
-                defaultSize={detected || testQueryResults?.error ? 45 : 100}
+                defaultSize={detected || testQueryResults?.error ? 60 : 100}
                 minSize={20}
               >
                 <AreaWithHeader
@@ -398,7 +379,7 @@ export default function NewFactTableSqlStep({
                             loading={testingQuery}
                             disabled={!canRunQueries || !sql}
                           >
-                            Run
+                            Test Query
                           </Button>
                         </Tooltip>
                         <DropdownMenu
@@ -466,6 +447,7 @@ export default function NewFactTableSqlStep({
                       fullHeight
                       setCursorData={setCursorData}
                       onCtrlEnter={runQuery}
+                      onEditorLoad={(editor) => editor.focus()}
                       completions={autoCompletions}
                     />
                   </Box>
@@ -487,11 +469,10 @@ export default function NewFactTableSqlStep({
               ) : detected?.length ? (
                 <>
                   <PanelResizeHandle />
-                  <Panel defaultSize={sampleOpen ? 25 : 45} minSize={15}>
+                  <Panel defaultSize={sampleOpen ? 20 : 40} minSize={15}>
                     <DetectedColumns
                       columns={detected}
                       datatypeFor={datatypeFor}
-                      setDatatype={setDatatype}
                       sampleOpen={sampleOpen}
                       toggleSample={() => setSampleOpen(!sampleOpen)}
                     />

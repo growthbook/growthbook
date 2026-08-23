@@ -17,7 +17,10 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getInitialFactTableQuery } from "@/services/datasources";
-import { getNewFactTableProjects } from "@/services/factTables";
+import {
+  DATATYPE_OPTIONS,
+  getNewFactTableProjects,
+} from "@/services/factTables";
 import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -26,6 +29,13 @@ import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import LinkButton from "@/ui/LinkButton";
 import { Select, SelectItem } from "@/ui/Select";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import Text from "@/ui/Text";
 
 // Radix Select can't use an empty string as an item value
@@ -326,7 +336,6 @@ export default function NewFactTablePage() {
             detected={detected}
             detectedSql={detectedSql}
             datatypeFor={datatypeFor}
-            setDatatype={setDatatype}
             onColumnsDetected={handleColumnsDetected}
             onContinue={() => setStep(1)}
           />
@@ -411,6 +420,47 @@ export default function NewFactTablePage() {
               Metrics built on this Fact Table will prompt for a value from this
               column, e.g. the event name.
             </Text>
+          </Box>
+
+          <Box mb="4" style={{ maxWidth: 480 }}>
+            <Text as="div" weight="semibold" mb="1">
+              Column types
+            </Text>
+            <Text as="div" size="sm" color="text-mid" mb="2">
+              Correct anything we got wrong, or set a type we couldn&apos;t
+              detect. Types are re-checked in the background after saving.
+            </Text>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableColumnHeader>Column</TableColumnHeader>
+                  <TableColumnHeader>Data type</TableColumnHeader>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(detected || []).map((col) => (
+                  <TableRow key={col.column}>
+                    <TableCell>{col.column}</TableCell>
+                    <TableCell>
+                      <Select
+                        size="sm"
+                        value={datatypeFor(col) || undefined}
+                        setValue={(v) =>
+                          setDatatype(col.column, v as FactTableColumnType)
+                        }
+                        placeholder="Unknown"
+                      >
+                        {DATATYPE_OPTIONS.map((o) => (
+                          <SelectItem key={o.value} value={o.value}>
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                      </Select>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </Box>
 
           <Flex justify="end">
