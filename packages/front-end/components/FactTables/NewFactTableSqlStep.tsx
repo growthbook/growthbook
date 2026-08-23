@@ -7,10 +7,7 @@ import {
   InformationSchemaInterfaceWithPaths,
   TestQueryRow,
 } from "shared/types/integrations";
-import {
-  DetectedFactTableColumn,
-  FactTableColumnType,
-} from "shared/types/fact-table";
+import { DetectedFactTableColumn } from "shared/types/fact-table";
 import { isProjectListValidForProject, parseIntWithDefault } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -37,15 +34,7 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { Select, SelectItem } from "@/ui/Select";
-import Table, {
-  TableBody,
-  TableCell,
-  TableColumnHeader,
-  TableHeader,
-  TableRow,
-} from "@/ui/Table";
 import Text from "@/ui/Text";
-import { datatypeLabel } from "@/services/factTables";
 
 // Rows to read when the user asks to preview data. Always an explicit opt-in,
 // since the query can't be filtered by date until the timestamp column is set.
@@ -60,61 +49,6 @@ type TestQueryResults = {
   // warehouse's reported schema when the query returns no rows.
   columns?: DetectedFactTableColumn[];
 };
-
-function DetectedColumns({
-  columns,
-  datatypeFor,
-  sampleOpen,
-  toggleSample,
-}: {
-  columns: DetectedFactTableColumn[];
-  datatypeFor: (column: DetectedFactTableColumn) => FactTableColumnType;
-  sampleOpen: boolean;
-  toggleSample: () => void;
-}) {
-  return (
-    <AreaWithHeader
-      header={
-        <Flex align="center" justify="between">
-          <Text weight="semibold" color="text-mid">
-            Columns ({columns.length})
-          </Text>
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={sampleOpen ? <PiCaretDown /> : <PiCaretRight />}
-            onClick={toggleSample}
-          >
-            View sample rows
-          </Button>
-        </Flex>
-      }
-    >
-      <Box p="3">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableColumnHeader>Column</TableColumnHeader>
-              <TableColumnHeader>Data type</TableColumnHeader>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {columns.map((col) => (
-              <TableRow key={col.column}>
-                <TableCell>{col.column}</TableCell>
-                <TableCell>
-                  <Text color="text-mid">
-                    {datatypeLabel(datatypeFor(col))}
-                  </Text>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Box>
-    </AreaWithHeader>
-  );
-}
 
 function SampleRowsPrompt({
   onRun,
@@ -133,11 +67,11 @@ function SampleRowsPrompt({
     >
       <Box p="3">
         <Callout status="warning" mb="3">
-          The columns above came from your warehouse&apos;s schema, without
-          reading any data. Reading rows takes a separate query, and since the
-          timestamp column isn&apos;t set yet that query can&apos;t be filtered
-          by date &mdash; so it may scan the whole table, which some warehouses
-          bill by the byte.
+          The columns we detected came from your warehouse&apos;s schema,
+          without reading any data. Reading rows takes a separate query, and
+          since the timestamp column isn&apos;t set yet that query can&apos;t be
+          filtered by date &mdash; so it may scan the whole table, which some
+          warehouses bill by the byte.
         </Callout>
         <Button onClick={onRun} disabled={disabled}>
           Read up to {SAMPLE_ROW_LIMIT} rows
@@ -156,7 +90,6 @@ export default function NewFactTableSqlStep({
   setEventName,
   detected,
   detectedSql,
-  datatypeFor,
   onColumnsDetected,
   onContinue,
 }: {
@@ -169,7 +102,6 @@ export default function NewFactTableSqlStep({
   detected: DetectedFactTableColumn[] | null;
   // The SQL that produced `detected`, so we know when the columns are stale
   detectedSql: string | null;
-  datatypeFor: (column: DetectedFactTableColumn) => FactTableColumnType;
   onColumnsDetected: (columns: DetectedFactTableColumn[]) => void;
   onContinue: () => void;
 }) {
@@ -334,7 +266,7 @@ export default function NewFactTableSqlStep({
           <Panel defaultSize={70}>
             <PanelGroup direction="vertical">
               <Panel
-                defaultSize={detected || testQueryResults?.error ? 60 : 100}
+                defaultSize={testQueryResults?.error || sampleOpen ? 60 : 100}
                 minSize={20}
               >
                 <AreaWithHeader
@@ -466,38 +398,25 @@ export default function NewFactTableSqlStep({
                     />
                   </Panel>
                 </>
-              ) : detected?.length ? (
+              ) : sampleOpen ? (
                 <>
                   <PanelResizeHandle />
-                  <Panel defaultSize={sampleOpen ? 20 : 40} minSize={15}>
-                    <DetectedColumns
-                      columns={detected}
-                      datatypeFor={datatypeFor}
-                      sampleOpen={sampleOpen}
-                      toggleSample={() => setSampleOpen(!sampleOpen)}
-                    />
+                  <Panel defaultSize={40} minSize={15}>
+                    {sample ? (
+                      <DisplayTestQueryResults
+                        duration={parseIntWithDefault(sample.duration, 0)}
+                        results={sample.results || []}
+                        sql={sample.sql || ""}
+                        error={sample.error || ""}
+                        close={() => setSampleOpen(false)}
+                      />
+                    ) : (
+                      <SampleRowsPrompt
+                        onRun={runSampleQuery}
+                        disabled={!canRunQueries}
+                      />
+                    )}
                   </Panel>
-                  {sampleOpen && (
-                    <>
-                      <PanelResizeHandle />
-                      <Panel defaultSize={30} minSize={15}>
-                        {sample ? (
-                          <DisplayTestQueryResults
-                            duration={parseIntWithDefault(sample.duration, 0)}
-                            results={sample.results || []}
-                            sql={sample.sql || ""}
-                            error={sample.error || ""}
-                            close={() => setSampleOpen(false)}
-                          />
-                        ) : (
-                          <SampleRowsPrompt
-                            onRun={runSampleQuery}
-                            disabled={!canRunQueries}
-                          />
-                        )}
-                      </Panel>
-                    </>
-                  )}
                 </>
               ) : null}
             </PanelGroup>
@@ -548,7 +467,25 @@ export default function NewFactTableSqlStep({
         </Callout>
       )}
 
-      <Flex justify="end">
+      <Flex justify="between" align="center" gap="3">
+        <Flex align="center" gap="2">
+          {detected?.length ? (
+            <>
+              <Text color="text-mid">
+                Detected {detected.length} column
+                {detected.length === 1 ? "" : "s"}
+              </Text>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={sampleOpen ? <PiCaretDown /> : <PiCaretRight />}
+                onClick={() => setSampleOpen(!sampleOpen)}
+              >
+                View sample rows
+              </Button>
+            </>
+          ) : null}
+        </Flex>
         <Tooltip
           body="You do not have permission to run test queries"
           shouldDisplay={!canRunQueries}

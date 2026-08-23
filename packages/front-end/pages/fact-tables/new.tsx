@@ -335,7 +335,6 @@ export default function NewFactTablePage() {
             setEventName={setEventName}
             detected={detected}
             detectedSql={detectedSql}
-            datatypeFor={datatypeFor}
             onColumnsDetected={handleColumnsDetected}
             onContinue={() => setStep(1)}
           />
