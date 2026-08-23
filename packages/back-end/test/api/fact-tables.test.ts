@@ -55,36 +55,26 @@ describe("needsColumnRefresh", () => {
     expect(needsColumnRefresh(blank, changes)).toBe(true);
   });
 
-  it("returns true when the timestamp column changes", () => {
-    const changes: UpdateFactTableProps = { timestampColumn: "event_time" };
-    expect(needsColumnRefresh(existing, changes)).toBe(true);
-  });
-
-  it("returns false when the timestamp column is resent as the default", () => {
-    // "" and "timestamp" both resolve to the same column, so neither is a
-    // change worth a detection query.
+  // The refresh is what re-derives userIdTypes from the mapping and re-runs
+  // detection with the new date filter, so a real mapping change has to trigger
+  // one -- but a resent no-op mustn't ("" and "timestamp" are the same column).
+  it("triggers only on a real column mapping change", () => {
+    expect(
+      needsColumnRefresh(existing, { timestampColumn: "event_time" }),
+    ).toBe(true);
+    expect(
+      needsColumnRefresh(existing, { userIdColumns: { user_id: "userId" } }),
+    ).toBe(true);
     expect(needsColumnRefresh(existing, { timestampColumn: "" })).toBe(false);
     expect(needsColumnRefresh(existing, { timestampColumn: "timestamp" })).toBe(
       false,
     );
-  });
-
-  // The refresh is what re-derives userIdTypes from the mapping, so a mapping
-  // change has to trigger one or the new identifier stays missing.
-  it("returns true when the identifier column mapping changes", () => {
-    const changes: UpdateFactTableProps = {
-      userIdColumns: { user_id: "userId" },
-    };
-    expect(needsColumnRefresh(existing, changes)).toBe(true);
-  });
-
-  it("returns false when an unchanged mapping is resent", () => {
-    const mapped = { ...existing, userIdColumns: { user_id: "userId" } };
-    const changes: UpdateFactTableProps = {
-      userIdColumns: { user_id: "userId" },
-    };
-    expect(needsColumnRefresh(mapped, changes)).toBe(false);
-    expect(needsColumnRefresh(existing, { userIdColumns: {} })).toBe(false);
+    expect(
+      needsColumnRefresh(
+        { ...existing, userIdColumns: { user_id: "userId" } },
+        { userIdColumns: { user_id: "userId" } },
+      ),
+    ).toBe(false);
   });
 });
 

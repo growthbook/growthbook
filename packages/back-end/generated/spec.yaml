@@ -27014,16 +27014,15 @@ paths:
                   description: >-
                     Maps an identifier type to the column holding it, for SQL
                     that does not alias its columns to the identifier type
-                    names, e.g. `{"user_id": "userId"}`. May also be a field
-                    path into a JSON column (`properties.userId`) or the name of
-                    a virtual column. Identifier types without an entry use the
-                    identifier type name as the column name.
+                    names, e.g. `{"user_id": "userId"}`. May also be a
+                    single-level field path into a JSON column
+                    (`properties.userId`). Unmapped types use the identifier
+                    type name as the column name.
                   type: object
                   propertyNames:
                     type: string
                   additionalProperties:
                     type: string
-                    pattern: ^(\w+(\.\w+)*)?$
                 aggregatedFactTableSettings:
                   description: >-
                     Settings for maintaining shared daily aggregated tables (a
@@ -27064,10 +27063,10 @@ paths:
                   type: string
                 timestampColumn:
                   description: >-
-                    The column holding the event timestamp. Defaults to
-                    "timestamp" when unset.
+                    The column holding the event timestamp. Must be a date
+                    column on this fact table. Defaults to "timestamp" when
+                    unset.
                   type: string
-                  pattern: ^(\w+(\.\w+)*)?$
                 eventName:
                   description: The event name used in SQL template variables
                   type: string
@@ -27187,16 +27186,15 @@ paths:
                   description: >-
                     Maps an identifier type to the column holding it, for SQL
                     that does not alias its columns to the identifier type
-                    names, e.g. `{"user_id": "userId"}`. May also be a field
-                    path into a JSON column (`properties.userId`) or the name of
-                    a virtual column. Identifier types without an entry use the
-                    identifier type name as the column name.
+                    names, e.g. `{"user_id": "userId"}`. May also be a
+                    single-level field path into a JSON column
+                    (`properties.userId`). Unmapped types use the identifier
+                    type name as the column name.
                   type: object
                   propertyNames:
                     type: string
                   additionalProperties:
                     type: string
-                    pattern: ^(\w+(\.\w+)*)?$
                 aggregatedFactTableSettings:
                   description: >-
                     Settings for maintaining shared daily aggregated tables (a
@@ -27237,10 +27235,10 @@ paths:
                   type: string
                 timestampColumn:
                   description: >-
-                    The column holding the event timestamp. Defaults to
-                    "timestamp" when unset.
+                    The column holding the event timestamp. Must be a date
+                    column on this fact table. Defaults to "timestamp" when
+                    unset.
                   type: string
-                  pattern: ^(\w+(\.\w+)*)?$
                 eventName:
                   description: The event name used in SQL template variables
                   type: string
@@ -58060,16 +58058,14 @@ components:
           description: >-
             Maps an identifier type to the column holding it, for SQL that does
             not alias its columns to the identifier type names, e.g.
-            `{"user_id": "userId"}`. May also be a field path into a JSON column
-            (`properties.userId`) or the name of a virtual column. Identifier
-            types without an entry use the identifier type name as the column
-            name.
+            `{"user_id": "userId"}`. May also be a single-level field path into
+            a JSON column (`properties.userId`). Unmapped types use the
+            identifier type name as the column name.
           type: object
           propertyNames:
             type: string
           additionalProperties:
             type: string
-            pattern: ^(\w+(\.\w+)*)?$
         aggregatedFactTableSettings:
           description: >-
             Settings for maintaining shared daily aggregated tables (a subset of
@@ -58109,10 +58105,9 @@ components:
           type: string
         timestampColumn:
           description: >-
-            The column holding the event timestamp. Defaults to "timestamp" when
-            unset.
+            The column holding the event timestamp. Must be a date column on
+            this fact table. Defaults to "timestamp" when unset.
           type: string
-          pattern: ^(\w+(\.\w+)*)?$
         eventName:
           description: The event name used in SQL template variables
           type: string

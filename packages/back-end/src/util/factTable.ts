@@ -202,6 +202,64 @@ export function validateNewUserIdColumnKeys({
   }
 }
 
+/**
+ * A mapping has to name a column generated SQL can actually read, so callers
+ * pass the post-write column state. Column detection runs asynchronously, so a
+ * request that sets a mapping has to send `columns` too rather than mapping
+ * onto columns nobody has seen yet. Only values the write is changing are
+ * checked, so a column later dropped from the SQL doesn't block an unrelated
+ * edit that round-trips the whole mapping.
+ */
+export function validateColumnMappingTargets({
+  columns,
+  timestampColumn,
+  userIdColumns,
+  existing,
+}: {
+  columns: ColumnInterface[];
+  timestampColumn?: string;
+  userIdColumns?: FactTableInterface["userIdColumns"];
+  existing?: Pick<FactTableInterface, "timestampColumn" | "userIdColumns">;
+}): void {
+  const active = columns.filter((c) => !c.deleted);
+  // Without columns the mapping can't be checked at all, and it ends up
+  // interpolated into generated SQL -- so say what the caller has to do.
+  const where = active.length
+    ? "on this fact table"
+    : "-- this fact table has no columns yet, so send `columns` in the same request";
+
+  // "other" covers warehouse types we don't model; an undetected datatype ("")
+  // is unknown rather than wrong, so it's left alone.
+  const find = (name: string, allowed: string[]) =>
+    active.find(
+      (c) => c.column === name && (!c.datatype || allowed.includes(c.datatype)),
+    );
+
+  if (timestampColumn && timestampColumn !== existing?.timestampColumn) {
+    // Emitted as a bare `m.<name>`, so a virtual column's expression and a JSON
+    // field path would both reach the warehouse as invalid SQL.
+    const column = find(timestampColumn, ["date", "other"]);
+    if (!column || column.isVirtual) {
+      throw new Error(
+        `Invalid timestampColumn: ${timestampColumn} is not a date column ${where}`,
+      );
+    }
+  }
+
+  for (const [idType, column] of Object.entries(userIdColumns || {})) {
+    if (!column || column === existing?.userIdColumns?.[idType]) continue;
+    const [root, field, ...rest] = column.split(".");
+    const resolved = field
+      ? !rest.length && find(root, ["json"])
+      : find(column, ["string", "number", "other"]);
+    if (!resolved) {
+      throw new Error(
+        `Invalid userIdColumns value for ${idType}: ${column} is not an identifier column or JSON field path ${where}`,
+      );
+    }
+  }
+}
+
 export function columnsHaveAutoSlices(
   columns?: Array<{ isAutoSliceColumn?: boolean; autoSlices?: unknown }>,
 ): boolean {

@@ -84,24 +84,17 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
     return out;
   }, [factTable]);
 
-  // Identifier types can be mapped to differently-named columns, so flag the
-  // column each type actually resolves to rather than the type name.
-  const identifierColumns = useMemo(
-    () =>
-      new Set(
-        factTable.userIdTypes.map((idType) =>
-          getFactTableIdColumn(factTable, idType),
-        ),
-      ),
-    [factTable],
-  );
   const timestampColumn = getFactTableTimestampColumn(factTable);
 
   const columns = useAddComputedFields(availableColumns, (column) => ({
     ...column,
     name: column.name || column.column,
     id: column.name || column.column,
-    identifier: identifierColumns.has(column.column),
+    // An identifier type can be mapped to a differently-named column, so flag
+    // the column it resolves to rather than the type name.
+    identifier: factTable.userIdTypes.some(
+      (idType) => getFactTableIdColumn(factTable, idType) === column.column,
+    ),
     isJsonField: !!column.jsonFieldParent,
     type:
       column.datatype === "number"

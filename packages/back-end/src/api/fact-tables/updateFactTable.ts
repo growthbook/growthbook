@@ -9,6 +9,7 @@ import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTable
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   updateFactTable as updateFactTableInDb,
+  mergeUpsertColumns,
   upsertColumns,
   toFactTableApiInterface,
   getFactTable,
@@ -23,6 +24,7 @@ import {
   columnsHaveAutoSlices,
   columnsNeedDetection,
   validateAggregatedFactTableSettings,
+  validateColumnMappingTargets,
   validateNewUserIdColumnKeys,
   validateVirtualColumnProps,
   validateVirtualColumnSql,
@@ -77,6 +79,16 @@ export const updateFactTable = createApiRequestHandler(
       existingUserIdColumns: factTable.userIdColumns,
     });
   }
+
+  // The post-upsert state, so a mapping can point at a column this same request
+  // adds, retypes, or deletes.
+  validateColumnMappingTargets({
+    columns: mergeUpsertColumns(factTable.columns, req.body.columns ?? [])
+      .columns,
+    timestampColumn: req.body.timestampColumn,
+    userIdColumns: req.body.userIdColumns,
+    existing: factTable,
+  });
 
   if (req.body.aggregatedFactTableSettings) {
     if (!req.context.hasPremiumFeature("pipeline-mode")) {

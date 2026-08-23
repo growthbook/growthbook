@@ -42,28 +42,16 @@ export const numberFormatValidator = z.enum([
   "memory:kilobytes",
 ]);
 
-/**
- * A column name that query generation emits unquoted (`m.<column>`), optionally
- * a dotted path into a JSON column (`properties.userId`). Empty means unset,
- * falling back to the default. Each dot has to separate two segments, so a
- * malformed path (`.id`, `id.`, `a..b`) is rejected here rather than failing as
- * invalid SQL against the warehouse.
- */
-const mappedColumnNameValidator = z
+export const timestampColumnField = z
   .string()
-  .regex(
-    /^(\w+(\.\w+)*)?$/,
-    "Column names can only contain letters, numbers, and underscores, with dots separating JSON field paths",
+  .describe(
+    'The column holding the event timestamp. Must be a date column on this fact table. Defaults to "timestamp" when unset.',
   );
 
-export const timestampColumnField = mappedColumnNameValidator.describe(
-  'The column holding the event timestamp. Defaults to "timestamp" when unset.',
-);
-
 export const userIdColumnsField = z
-  .record(z.string(), mappedColumnNameValidator)
+  .record(z.string(), z.string())
   .describe(
-    'Maps an identifier type to the column holding it, for SQL that does not alias its columns to the identifier type names, e.g. `{"user_id": "userId"}`. May also be a field path into a JSON column (`properties.userId`) or the name of a virtual column. Identifier types without an entry use the identifier type name as the column name.',
+    'Maps an identifier type to the column holding it, for SQL that does not alias its columns to the identifier type names, e.g. `{"user_id": "userId"}`. May also be a single-level field path into a JSON column (`properties.userId`). Unmapped types use the identifier type name as the column name.',
   );
 
 /** Persisted JSON fields: every field has a datatype (`""` until detected). */

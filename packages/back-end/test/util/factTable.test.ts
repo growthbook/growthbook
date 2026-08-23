@@ -1,4 +1,4 @@
-import { ColumnInterface } from "shared/types/fact-table";
+import { ColumnInterface, UpdateColumnProps } from "shared/types/fact-table";
 import {
   DataSourceInterface,
   GrowthbookClickhouseDataSource,
@@ -6,6 +6,7 @@ import {
 import {
   columnsHaveAutoSlices,
   deriveUserIdTypesFromColumns,
+  validateColumnMappingTargets,
   validateNewUserIdColumnKeys,
   ensureAutoSliceDefaults,
   normalizePersistedColumn,
@@ -13,6 +14,7 @@ import {
   normalizeJSONFieldsInput,
   stripIncompatibleFields,
 } from "back-end/src/util/factTable";
+import { mergeUpsertColumns } from "back-end/src/models/FactTableModel";
 
 function makeColumn(
   column: string,
@@ -324,12 +326,89 @@ describe("getMostRecentUpdateOccurrence", () => {
   });
 });
 
-describe("validateNewUserIdColumnKeys", () => {
-  const datasource = makeStandardDatasource([
-    { userIdType: "user_id" },
-    { userIdType: "anonymous_id" },
-  ]);
+describe("validateColumnMappingTargets", () => {
+  const columns = [
+    makeColumn("event_time", false, "date"),
+    makeColumn("userId", false, "string"),
+    makeColumn("properties", false, "json"),
+    { column: "ts_vc", isVirtual: true, datatype: "date" } as ColumnInterface,
+  ];
+  const check = (args: Parameters<typeof validateColumnMappingTargets>[0]) =>
+    validateColumnMappingTargets({ columns, ...args });
 
+  it("requires a date column for timestampColumn", () => {
+    expect(() => check({ timestampColumn: "event_time" })).not.toThrow();
+    expect(() => check({ timestampColumn: "userId" })).toThrow(/not a date/);
+    expect(() => check({ timestampColumn: "missing" })).toThrow(/not a date/);
+    // Emitted as a bare `m.<name>`, so neither resolves at query time.
+    expect(() => check({ timestampColumn: "properties.ts" })).toThrow();
+    expect(() => check({ timestampColumn: "ts_vc" })).toThrow();
+  });
+
+  it("requires an id column or a single-dot JSON path for userIdColumns", () => {
+    const v = (user_id: string) => () => check({ userIdColumns: { user_id } });
+    expect(v("userId")).not.toThrow();
+    expect(v("properties.anonId")).not.toThrow();
+    expect(v("")).not.toThrow();
+    expect(v("event_time")).toThrow(/not an identifier column/);
+    expect(v("missing")).toThrow();
+    expect(v("userId.nested")).toThrow(); // root isn't a JSON column
+    expect(v("properties.a.b")).toThrow(); // more than one dot
+    expect(v("ts; DROP TABLE events")).toThrow();
+  });
+
+  // Detection is async, so a mapping can only be set alongside `columns`.
+  it("requires columns to be sent alongside a mapping", () => {
+    expect(() => check({ columns: [] })).not.toThrow();
+    expect(() => check({ columns: [], timestampColumn: "ts" })).toThrow(
+      /no columns yet, so send `columns`/,
+    );
+    expect(() =>
+      check({ columns: [], userIdColumns: { user_id: "userId" } }),
+    ).toThrow(/no columns yet, so send `columns`/);
+  });
+
+  // Callers pass the merged post-write state, so a mapping onto a column this
+  // same request adds has to pass, and one onto a column it deletes must not.
+  it("validates against the final column state", () => {
+    const finalState = (incoming: UpdateColumnProps[]) =>
+      mergeUpsertColumns(columns, incoming).columns;
+    expect(() =>
+      check({
+        columns: finalState([{ column: "new_id", datatype: "string" }]),
+        userIdColumns: { user_id: "new_id" },
+      }),
+    ).not.toThrow();
+    expect(() =>
+      check({
+        columns: finalState([{ column: "userId", deleted: true }]),
+        userIdColumns: { user_id: "userId" },
+      }),
+    ).toThrow(/userId/);
+  });
+
+  // A column dropped from the SQL must not block an unrelated edit that
+  // round-trips the whole mapping.
+  it("only checks values the write is changing", () => {
+    const existing = {
+      timestampColumn: "dropped_ts",
+      userIdColumns: { user_id: "dropped_id" },
+    };
+    expect(() =>
+      check({
+        timestampColumn: "dropped_ts",
+        userIdColumns: { user_id: "dropped_id" },
+        existing,
+      }),
+    ).not.toThrow();
+    expect(() =>
+      check({ userIdColumns: { user_id: "still_missing" }, existing }),
+    ).toThrow(/still_missing/);
+  });
+});
+
+describe("validateNewUserIdColumnKeys", () => {
+  const datasource = makeStandardDatasource([{ userIdType: "user_id" }]);
   const validate = (
     userIdColumns: Record<string, string>,
     existingUserIdColumns?: Record<string, string>,
@@ -340,49 +419,23 @@ describe("validateNewUserIdColumnKeys", () => {
       existingUserIdColumns,
     });
 
-  it("accepts keys that are identifier types on the Data Source", () => {
-    expect(() =>
-      validate({ user_id: "userId", anonymous_id: "anonId" }),
-    ).not.toThrow();
-  });
-
-  it("rejects a new key that isn't an identifier type", () => {
+  it("rejects a new bad key but tolerates a stored stale one", () => {
     expect(() => validate({ device_id: "deviceId" })).toThrow(
       /Invalid userIdColumns key: device_id/,
     );
-  });
-
-  // Deleting an identifier type from the Data Source strands its key on every
-  // fact table that mapped it. Editing those fact tables has to keep working.
-  it("allows a stale key that is already stored", () => {
     expect(() =>
       validate(
         { user_id: "userId", device_id: "deviceId" },
-        { device_id: "deviceId" },
+        { device_id: "x" },
       ),
     ).not.toThrow();
-  });
-
-  it("allows changing the value of a stale key", () => {
-    expect(() =>
-      validate({ device_id: "deviceIdV2" }, { device_id: "deviceId" }),
-    ).not.toThrow();
-  });
-
-  it("still rejects a new invalid key alongside a stale one", () => {
+    // ...but a genuinely new bad key alongside a stale one still throws.
     expect(() =>
       validate(
         { device_id: "deviceId", session_id: "sessionId" },
         { device_id: "deviceId" },
       ),
     ).toThrow(/session_id/);
-  });
-
-  it("accepts an empty or missing mapping", () => {
-    expect(() => validate({})).not.toThrow();
-    expect(() =>
-      validateNewUserIdColumnKeys({ datasource, userIdColumns: undefined }),
-    ).not.toThrow();
   });
 });
 
