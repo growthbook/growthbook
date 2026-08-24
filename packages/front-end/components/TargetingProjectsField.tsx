@@ -45,6 +45,7 @@ export default function TargetingProjectsField({
           <Link
             type="button"
             className="hover-underline"
+            weight="medium"
             onClick={() => setEnabled(true)}
           >
             <PiPlusBold className="mr-1" />
@@ -68,6 +69,7 @@ export default function TargetingProjectsField({
               type="button"
               color="red"
               size="sm"
+              mt="2"
               className="hover-underline"
               onClick={() => {
                 setAllProjects(false);
@@ -75,7 +77,7 @@ export default function TargetingProjectsField({
                 setEnabled(false);
               }}
             >
-              Remove Targeting Projects
+              Remove Targeting
             </Link>
           </Flex>
           <RadioGroup

@@ -246,7 +246,7 @@ const EditFeatureInfoModal: FC<{
             )}
           </Box>
           <TargetingProjectsField
-            mb="4"
+            mb="5"
             primaryProject={form.watch("project")}
             allProjects={form.watch("targetingAllProjects")}
             setAllProjects={(v) =>
