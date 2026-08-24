@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { PiInfo, PiPlusBold } from "react-icons/pi";
+import { PiInfo, PiPlusBold, PiX } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import RadioGroup from "@/ui/RadioGroup";
 import Link from "@/ui/Link";
@@ -77,7 +77,8 @@ export default function TargetingProjectsField({
                 setEnabled(false);
               }}
             >
-              Remove Targeting
+              <PiX className="mr-1" />
+              Remove targeting
             </Link>
           </Flex>
           <RadioGroup
