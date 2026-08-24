@@ -761,23 +761,6 @@ export async function writeSnapshotAnalyses(
   }
 }
 
-export function getFirstResultError(
-  results: ExperimentReportResults[],
-  banditResult?: BanditResult,
-): string | null {
-  if (banditResult?.error) return banditResult.error;
-  for (const analysis of results) {
-    for (const dimension of analysis.dimensions) {
-      for (const variation of dimension.variations) {
-        for (const metric of Object.values(variation.metrics)) {
-          if (metric?.errorMessage) return metric.errorMessage;
-        }
-      }
-    }
-  }
-  return null;
-}
-
 export async function analyzeExperimentResults({
   queryData,
   analysisSettings,
@@ -829,18 +812,6 @@ export async function analyzeExperimentResults({
     unknownVariations,
     result: analysis,
   });
-
-  // Bandits are all-or-nothing when consuming stats output: a single errored
-  // metric or bandit result must not produce a partial reweight. Fail here so
-  // the snapshot errors and no bandit update is applied.
-  // TODO(bandit): prevent reweight only if decision metric fails, otherwise allow
-  // reweight if only secondary metrics fail.
-  if (snapshotSettings.banditSettings) {
-    const banditError = getFirstResultError(results, banditResult);
-    if (banditError) {
-      throw new Error(`Bandit analysis failed: ${banditError}`);
-    }
-  }
 
   return { results, banditResult };
 }

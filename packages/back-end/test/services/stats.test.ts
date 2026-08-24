@@ -2,15 +2,10 @@ import type {
   ExperimentSnapshotAnalysisSettings,
   SnapshotSettingsVariation,
 } from "shared/types/experiment-snapshot";
-import type {
-  ExperimentReportResults,
-  ExperimentReportResultDimension,
-} from "shared/types/report";
+import type { ExperimentReportResultDimension } from "shared/types/report";
 import type { ExperimentMetricAnalysis } from "shared/types/stats";
-import type { BanditResult } from "shared/types/experiment";
 import {
   addMetricErrorsToDimensions,
-  getFirstResultError,
   parseStatsEngineResult,
 } from "back-end/src/services/stats";
 
@@ -301,63 +296,5 @@ describe("parseStatsEngineResult", () => {
         })),
       },
     ]);
-  });
-});
-
-describe("getFirstResultError", () => {
-  const cleanResults: ExperimentReportResults[] = [
-    {
-      unknownVariations: [],
-      multipleExposures: 0,
-      dimensions: [
-        {
-          name: "All",
-          srm: 1,
-          variations: [
-            { users: 10, metrics: { m1: { value: 5, cr: 0.5, users: 10 } } },
-          ],
-        },
-      ],
-    },
-  ];
-
-  it("returns null when nothing has an error", () => {
-    expect(getFirstResultError(cleanResults)).toBeNull();
-  });
-
-  it("returns a metric error message when a variation has one", () => {
-    const results: ExperimentReportResults[] = [
-      {
-        unknownVariations: [],
-        multipleExposures: 0,
-        dimensions: [
-          {
-            name: "All",
-            srm: 1,
-            variations: [
-              {
-                users: 0,
-                metrics: {
-                  m1: {
-                    value: 0,
-                    cr: 0,
-                    users: 0,
-                    errorMessage: "metric blew up",
-                  },
-                },
-              },
-            ],
-          },
-        ],
-      },
-    ];
-    expect(getFirstResultError(results)).toBe("metric blew up");
-  });
-
-  it("returns the bandit result error when present", () => {
-    const banditResult = { error: "bandit blew up" } as BanditResult;
-    expect(getFirstResultError(cleanResults, banditResult)).toBe(
-      "bandit blew up",
-    );
   });
 });
