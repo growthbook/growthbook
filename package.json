@@ -67,6 +67,9 @@
     "./**/*.{json,css,scss,md,mdx}": [
       "prettier --write"
     ],
+    "./docs/**/*.{md,mdx}": [
+      "node scripts/check-docs-frontmatter.mjs"
+    ],
     "./**/*.{js,jsx,mjs,ts,tsx}": [
       "pnpm eslint --fix --max-warnings 0 --no-warn-ignored --cache --cache-strategy content --prune-suppressions",
       "prettier --write"
