@@ -67,7 +67,7 @@ const OrphanedUsersList: FC<{
         />
       )}
       <h5>Orphaned Users{` (${users.length})`}</h5>
-      <Table variant="list" stickyHeader roundedCorners>
+      <Table variant="surface">
         <TableHeader>
           <TableRow>
             <TableColumnHeader>Name</TableColumnHeader>

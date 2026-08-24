@@ -542,7 +542,7 @@ const MetricsList = (): React.ReactElement => {
       >
         <Flex align="center" gap="2">
           <div>
-            Define what constitutes success and failure for your business.
+            Define what constitutes success and failure for your organization.
           </div>
           <DocLink
             useRadix={false}

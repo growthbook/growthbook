@@ -49,9 +49,30 @@ With Approval flows, you can require approval before publishing any change to an
 
 ### Settings
 
-Enable Approval Flows for your organization on the settings page. Select the environments that require approvals, or leave the field blank to require approvals on all environments. To force-reset the review when a change is made after approval, toggle on **Reset review on changes**.
+Enable Approval Flows for your organization under **Settings → General → Approval Flows**. Approval requirements apply per Project: the **All Projects** tab sets the default rule, and **+ Project override** adds a rule for specific Projects that replaces the default for them. Each Project's own settings page also shows its effective rule under an **Approvals** tab.
+
+Each rule for Feature Flags, Configs, and Constants has the following options:
+
+- **Specific environments** — Only changes affecting these environments require approval. Leave blank to require approval in all environments.
+- **Required approver teams** — A draft cannot publish until someone from one of these teams approves it. Anyone eligible can still approve alongside them. Leave blank to accept an approval from anyone with Review access.
+- **Reset review on changes** — If a draft is modified after being approved, the approval is revoked and a new review is required before publishing.
+- **Block contributors from self-approving** — Prevents anyone who edited a draft from approving it. The draft's creator can never approve it, regardless of this setting.
+- **Allow approve & publish in one step** — Adds an "Approve & Publish" option so reviewers with Publish access can approve and publish a draft together.
+- **Require approval for** — Changes to rules, values, and prerequisites always require approval. Optionally also require approval for enabled environment changes (kill switches) and for metadata changes (description, owner, project, tags, etc.).
 
 ![Approval flow organization settings](/static/images/features/approval-flows/org-settings.png)
+
+### Environment-scoped approvals
+
+Approvals are environment-aware. An approval only counts for the environments the reviewer can review: if a reviewer's role (or team) limits their Review permission to specific environments, their approval covers only those environments, and a draft cannot publish until its approvals together cover every environment the draft changes.
+
+To set up a separate approver group per environment — for example, one group that signs off on `production` changes and a different group for `staging`:
+
+1. Create a team per environment ([Settings → Members → Teams](/account/user-permissions#teams)) and give each team a role with the **Review** permission limited to its environment.
+2. Add the reviewers to their environment's team.
+3. Optionally add both teams to **Required approver teams** on the approval rule. Because each team can only review its own environment, a `staging` draft can then only be satisfied by the staging team, and a `production` draft only by the production team.
+
+Even without required approver teams, environment limits alone keep the groups distinct: a reviewer limited to `staging` can never sanction a `production` change.
 
 ### Requesting a Review
 
@@ -69,10 +90,13 @@ Requested reviews appear in the **Drafts** tab on the Features overview page wit
 
 ### Reviewing
 
-A reviewer needs the **Review** permission for Feature Flags. The person who
-created the draft cannot approve it. If **Require approval from a non-editor** is
-enabled, anyone who contributed to the draft is also prevented from approving
-it. See [Permissions](/account/user-permissions) for details.
+A reviewer needs the **Review** permission for Feature Flags, covering the
+environments the draft changes (see
+[Environment-scoped approvals](#environment-scoped-approvals)). The person who
+created the draft cannot approve it. If **Block contributors from
+self-approving** is enabled, anyone who contributed to the draft is also
+prevented from approving it. See [Permissions](/account/user-permissions) for
+details.
 
 Click the feature, then click **Review and Approve** to open the review modal.
 
@@ -105,7 +129,9 @@ Once the changes are **Approved**, they can be published.
 ### Publishing with Approvals
 
 After approval, anyone with **Publish** access to the affected environments can
-publish the draft. A user with **Bypass draft approvals** can publish without an
+publish the draft. If the approval rule lists **Required approver teams**, the
+draft additionally cannot publish until a member of one of those teams has
+approved it. A user with **Bypass draft approvals** can publish without an
 approval.
 
 <Frame>
@@ -150,9 +176,11 @@ You can require approvals for saved group changes independently from feature fla
 Enable saved group approvals from **Settings → General → Approval Flows**. The Saved Groups section has its own toggle, separate from the Features section:
 
 - **Require approval to modify Saved Groups** — When enabled, every change to a saved group must be reviewed and approved by someone else before it goes live.
+- **Required approver teams** — A draft cannot publish until someone from one of these teams approves it. Leave blank to accept an approval from anyone with Review access.
 - **Require approval for** — Approval is always required for changes to values and conditions. Use the **Metadata changes** checkbox to also require approval for edits to the description, owner, project, or tags.
 - **Reset review on changes** — If a draft is modified after it has been approved, the approval is revoked and a new review is required before publishing.
-- **Require approval from a non-editor** — Anyone who edited the draft is blocked from approving it, ensuring a separate reviewer must approve before publishing.
+- **Block contributors from self-approving** — Anyone who edited the draft is blocked from approving it, ensuring a separate reviewer must approve before publishing.
+- **Allow approve & publish in one step** — Adds an "Approve & Publish" option so reviewers with Publish access can approve and publish a draft together.
 
 #### Requesting and Reviewing
 
@@ -160,8 +188,8 @@ When approvals are enabled, **Review & Publish** becomes **Request Approval to
 Publish**. The request appears in the Saved Group's revision list with a
 **Pending Review** status. A user with **Review** access can open the request,
 inspect the diff, comment, request changes, or approve it. The draft's creator
-cannot approve it. When **Require approval from a non-editor** is enabled, other
-contributors cannot approve it either.
+cannot approve it. When **Block contributors from self-approving** is enabled,
+other contributors cannot approve it either.
 
 After approval, a user with **Publish** access in every Project assigned to the
 Saved Group can publish it. **Bypass draft approvals** allows the same user to
