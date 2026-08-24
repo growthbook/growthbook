@@ -18,15 +18,15 @@ Open **Product Analytics** in the left sidebar. From the landing page, you can:
 - **Ask a question with AI Chat** — Type a question like "How many signups did we have last week, broken out by country?" and let GrowthBook generate the exploration for you.
 - **Choose an explorer manually** — Pick the type that matches the shape of your data:
 
-| Explorer        | When to use it                                                                                                 |
-| :-------------- | :------------------------------------------------------------------------------------------------------------- |
-| **Metrics**     | Visualize one or more existing GrowthBook metrics over time.                                                   |
-| **Fact Table**  | Aggregate a fact table — counts, distinct units, or a sum of a numeric column.                                 |
-| **Data Source** | Query any timestamped table in your warehouse without first defining a fact table.                             |
-| **Funnel**      | Measure how many users complete an ordered sequence of steps and where they drop off. See [Funnels](#funnels). |
-| **Custom SQL**  | Write your own `SELECT` query and visualize the result. Opens [Custom SQL Reports](#custom-sql-reports).       |
+| Explorer        | When to use it                                                                                                  |
+| :-------------- | :-------------------------------------------------------------------------------------------------------------- |
+| **Metrics**     | Visualize one or more existing GrowthBook metrics over time.                                                    |
+| **Fact Table**  | Aggregate a fact table — counts, distinct units, or a sum of a numeric column.                                  |
+| **Data Source** | Query any timestamped table in your warehouse without first defining a fact table.                              |
+| **Funnel**      | Measure how many users complete an ordered sequence of steps and where they drop off. See [Funnels](#funnels).  |
+| **SQL**         | Write your own `SELECT` query, then filter, aggregate, and chart the result. See [SQL Explorer](#sql-explorer). |
 
-Each explorer opens with the same layout: a chart on the left, a configuration sidebar on the right, and a toolbar above the chart for chart type, date range, and granularity.
+Funnel and SQL Explorer are also available from the Product Analytics sidebar. Each explorer opens with the same layout: a chart on the left, a configuration sidebar on the right, and a toolbar above the chart for chart type, date range, and granularity. SQL Explorer adds a **Build Dataset** step before that layout — see [SQL Explorer](#sql-explorer).
 
 <Frame>
   <img src="/static/images/product-analytics/explorer-overview.png" alt="Explorer with chart and configuration sidebar" width="1200" />
@@ -201,6 +201,50 @@ Vertica, MySQL, and MSSQL are not yet supported for funnels. The Funnel explorer
 
 Like any other exploration, a funnel can be [saved to a dashboard](#save-to-dashboard) or [shared as a link](#share-a-link).
 
+## SQL Explorer
+
+The SQL Explorer is for analysis that doesn't fit a structured metric, fact table, or data source exploration. Write a `SELECT` query against your warehouse, then use the same chart, filter, and group-by controls as the other explorers.
+
+Open **Product Analytics → SQL Explorer** in the left sidebar.
+
+<Note>
+If your organization still has saved queries from [Custom SQL Reports](#custom-sql-reports), a banner on this page links to those legacy reports. Use the SQL Explorer for new queries.
+</Note>
+
+### Build Dataset
+
+The SQL Explorer has two tabs. Start on **Build Dataset**:
+
+- **Data source** — pick which warehouse connection to query.
+- **Schema Browser** — browse databases, schemas, tables, and columns in the sidebar.
+- **SQL editor** — write a read-only `SELECT` (or `WITH` … `SELECT`) query. Autocomplete, **Format**, and optional AI assistance are available. AI requires the AI Suggestions commercial feature.
+- **Run Query** — tests the query and previews the first **100 rows**. Results can be downloaded as CSV.
+
+Write a query that returns the rows you want to analyze. Include a date or timestamp column if you want date filtering, period comparisons, and time-series charts. This query should be as generic as possible - filtering and aggregation will be applied to it automatically via the **Build Dataset** step.
+
+<Note>
+The SQL Explorer enforces read-only queries. The query is rejected if it doesn't start with `SELECT` or `WITH` (after stripping comments and string literals).
+</Note>
+
+<Warning>
+**Redshift and Microsoft SQL Server**
+
+A query that uses a CTE (`WITH` clause) can fail when GrowthBook wraps it for filtering and aggregation — these warehouses don't support the resulting nested `WITH`. Use inline subqueries or a database view instead.
+
+</Warning>
+
+### Explore Dataset
+
+After a successful test query, switch to **Explore Dataset**. The chart and sidebar match the other explorers:
+
+- **Timestamp column** — optional. GrowthBook infers one from date or timestamp columns when possible. Leave it unset for queries that aren't time-based; date range, comparisons, and time-series charts stay disabled until you pick one.
+- **Values** — `Count` (rows) or `Sum` of a numeric column. Add as many as you need.
+- **Row filters, Group By, Chart Type, and Granularity** — same as [Configuring an Exploration](#configuring-an-exploration).
+
+You can switch back to **Build Dataset** at any time to edit the query. Changing the SQL and re-running it updates the columns available in Explore Dataset.
+
+Like any other exploration, a SQL exploration can be [saved to a dashboard](#save-to-dashboard) or [shared as a link](#share-a-link).
+
 ## Running and Refreshing
 
 When the configuration is valid, click **Update** to run the query.
@@ -268,11 +312,20 @@ If either is missing, the AI Chat input is disabled with an inline explanation.
 
 ## Custom SQL Reports
 
-For analysis that doesn't fit the structured explorers, use **Custom SQL Reports** at `/sql-explorer`. The page lists all saved queries in your organization, scoped to the current project.
+<Warning>
+**Custom SQL Reports are deprecated**
+
+Custom SQL Reports at `/sql-explorer` have been replaced by the [SQL Explorer](#sql-explorer). Use that for new queries and visualizations.
+
+Existing saved reports still work. Open **Product Analytics → SQL Explorer** and follow the banner to view them, or go directly to `/sql-explorer`.
+
+</Warning>
+
+The Custom SQL Reports page lists saved queries in your organization, scoped to the current project. You can still open an existing report, re-run it, and edit its visualizations, but you should not create new reports there.
 
 ### Writing a query
 
-Clicking **New SQL Report** opens the SQL Explorer modal. You get:
+Clicking **New SQL Report** opens the legacy SQL Explorer modal. You get:
 
 - **A schema browser** showing databases, schemas, tables, and columns for the selected data source.
 - **A SQL editor** with auto-complete on table and column names, and a "Format SQL" button (when supported by the dialect).
@@ -280,12 +333,10 @@ Clicking **New SQL Report** opens the SQL Explorer modal. You get:
 - **Optional AI assistance** for generating or modifying SQL (requires the AI Suggestions commercial feature).
 
 <Note>
-SQL Explorer enforces read-only `SELECT` queries. The query is rejected client-side if it doesn't start with `SELECT` or `WITH` (after stripping comments and string literals). Results are capped at **1,000 rows**.
+The legacy SQL Explorer enforces read-only `SELECT` queries. The query is rejected if it doesn't start with `SELECT` or `WITH` (after stripping comments and string literals). Results are capped at **1,000 rows**.
 </Note>
 
-:::caution Redshift and Microsoft SQL Server
-Custom SQL containing a CTE (`WITH` clause) can run as a report, but it cannot be used in a Product Analytics visualization on Redshift or Microsoft SQL Server. GrowthBook wraps the custom query with generated SQL for filtering and aggregation, and these warehouses do not support the resulting nested `WITH` clause. Use inline subqueries or a database view instead.
-:::
+The [Redshift and Microsoft SQL Server CTE limitation](#sql-explorer) also applies when a saved report is used in a Product Analytics visualization.
 
 ### Visualizations
 
@@ -302,22 +353,23 @@ Each visualization configures its own X axis (or X axes for pivot tables), Y axi
 
 ### Saving and reusing
 
-Saving a query requires the **Save SQL Explorer Queries** commercial feature, available on Pro and Enterprise plans. Saved queries can be:
+Saving a query requires the **Save SQL Explorer Queries** commercial feature, available on Pro and Enterprise plans. Existing saved queries can be:
 
 - Re-opened from the Custom SQL Reports list.
-- **Linked to dashboards** via the **Custom SQL Query** block type. A single saved query can power multiple dashboards.
+- **Linked to dashboards** via the deprecated **Custom SQL Query** block type. A single saved query can power multiple dashboards. New dashboard blocks should use an [SQL Explorer](#sql-explorer) exploration instead.
 
 ## Permissions
 
 The actions available in the Explorer depend on your role and project assignments:
 
-| Action                          | Required permission                                         |
-| :------------------------------ | :---------------------------------------------------------- |
-| Use the Metric explorer         | Run Metric Queries                                          |
-| Use the Fact Table explorer     | Run Fact Queries                                            |
-| Use the Data Source explorer    | Run Fact Queries + Run Schema Queries                       |
-| Use Custom SQL                  | Run Fact Queries                                            |
-| Save SQL Explorer queries       | Create SQL Explorer Queries (Pro or Enterprise plan)        |
-| Save explorations to dashboards | Create / Update General Dashboards (Pro or Enterprise plan) |
+| Action                          | Required permission                                          |
+| :------------------------------ | :----------------------------------------------------------- |
+| Use the Metric explorer         | Run Metric Queries                                           |
+| Use the Fact Table explorer     | Run Fact Queries                                             |
+| Use the Data Source explorer    | Run Fact Queries + Run Schema Queries                        |
+| Use the SQL Explorer            | Run SQL Explorer Queries                                     |
+| Use Custom SQL Reports          | Run SQL Explorer Queries                                     |
+| Save Custom SQL Reports         | Create SQL Explorer Queries (legacy; Pro or Enterprise plan) |
+| Save explorations to dashboards | Create / Update General Dashboards (Pro or Enterprise plan)  |
 
 See [User Permissions](/account/user-permissions) for a full breakdown of what each role can do.
