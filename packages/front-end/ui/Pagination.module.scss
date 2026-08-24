@@ -65,6 +65,12 @@
 
   .arrow {
     padding: 0 var(--space-3);
+
+    // The Button wraps children in a Text line box; block the caret out of
+    // inline flow so it centers geometrically instead of sitting ~1px low.
+    svg {
+      display: block;
+    }
   }
 
   .current {

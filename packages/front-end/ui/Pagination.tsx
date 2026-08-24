@@ -1,6 +1,7 @@
 import React, { CSSProperties, FC } from "react";
 import { PiCaretLeft, PiCaretRight } from "react-icons/pi";
 import clsx from "clsx";
+import Button from "@/ui/Button";
 import styles from "./Pagination.module.scss";
 
 export type PaginationItem =
@@ -117,15 +118,16 @@ const Pagination: FC<PaginationProps> = ({
     <nav aria-label="Pagination" className={clsx(styles.root, className)}>
       <ul className={styles.container}>
         <li>
-          <button
-            type="button"
+          <Button
+            variant="soft"
+            color="gray"
             className={clsx(styles.button, styles.arrow)}
             aria-label="Go to previous page"
             disabled={model.currentPage <= 1}
             onClick={() => onPageChange(model.currentPage - 1)}
           >
             <PiCaretLeft size={15} />
-          </button>
+          </Button>
         </li>
         {model.items.map((item) => {
           switch (item.type) {
@@ -133,8 +135,9 @@ const Pagination: FC<PaginationProps> = ({
               const isCurrent = item.page === model.currentPage;
               return (
                 <li key={item.page} style={slotStyle}>
-                  <button
-                    type="button"
+                  <Button
+                    variant="soft"
+                    color="gray"
                     className={clsx(
                       styles.button,
                       styles.page,
@@ -151,7 +154,7 @@ const Pagination: FC<PaginationProps> = ({
                     }}
                   >
                     {item.page}
-                  </button>
+                  </Button>
                 </li>
               );
             }
@@ -173,15 +176,16 @@ const Pagination: FC<PaginationProps> = ({
           }
         })}
         <li>
-          <button
-            type="button"
+          <Button
+            variant="soft"
+            color="gray"
             className={clsx(styles.button, styles.arrow)}
             aria-label="Go to next page"
             disabled={model.currentPage >= model.pageCount}
             onClick={() => onPageChange(model.currentPage + 1)}
           >
             <PiCaretRight size={15} />
-          </button>
+          </Button>
         </li>
       </ul>
     </nav>
