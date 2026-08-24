@@ -33,6 +33,8 @@ export default function RevisionDraftSelectorForChanges({
   metadataOnly = false,
   hideExisting = false,
   dropdownRequiresApproval = true,
+  alert,
+  alertActive,
 }: {
   entityId: string;
   openRevisions: Revision[];
@@ -66,6 +68,8 @@ export default function RevisionDraftSelectorForChanges({
   dropdownRequiresApproval?: boolean;
   /** Restricts the picker to drafts this flow may write. */
   canWriteIntoDraft?: (revision: Revision) => boolean;
+  alert?: React.ReactNode;
+  alertActive?: boolean;
 }) {
   const activeDrafts = useMemo(
     () =>
@@ -132,6 +136,8 @@ export default function RevisionDraftSelectorForChanges({
       hideExisting={hideExisting}
       triggerPrefix={triggerPrefix}
       metadataOnly={metadataOnly}
+      alert={alert}
+      alertActive={alertActive}
     />
   );
 }

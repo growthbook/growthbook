@@ -9,7 +9,7 @@ import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import RoleSelector from "@/components/Settings/Team/RoleSelector";
+import RoleRulesTable from "@/components/Settings/Team/RoleRulesTable";
 import Callout from "@/ui/Callout";
 
 const ApiKeysModal: FC<{
@@ -61,8 +61,7 @@ const ApiKeysModal: FC<{
     role: existingKey ? existingKey.role || "admin" : defaultRole,
     limitAccessByEnvironment: existingKey?.limitAccessByEnvironment ?? false,
     environments: existingKey?.environments ?? [],
-    // Leave undefined when absent (matches create): sending an empty array
-    // would trip the advanced-permissions premium gate in customValidation.
+    additionalRoles: existingKey?.additionalRoles,
     projectRoles: existingKey?.projectRoles,
   });
 
@@ -105,6 +104,7 @@ const ApiKeysModal: FC<{
 
   return (
     <ModalStandard
+      size="xl"
       trackingEventModalType=""
       close={close}
       header={editMode ? "Edit API Key" : "Create API Key"}
@@ -134,11 +134,7 @@ const ApiKeysModal: FC<{
               </Box>
             </Callout>
           )}
-          <RoleSelector
-            value={roleState}
-            setValue={setRoleState}
-            isNewAssignment={!editMode}
-          />
+          <RoleRulesTable value={roleState} setValue={setRoleState} />
         </>
       )}
     </ModalStandard>
