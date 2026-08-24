@@ -49,7 +49,7 @@ export function getOrCreateGbSessionId(options?: {
   forceNew?: boolean;
   maxDuration?: number;
 }): string {
-  const forceNew = options?.forceNew ?? false;
+  const forceNew = !!options?.forceNew;
   const maxDuration = options?.maxDuration ?? DEFAULT_MAX_DURATION_MS;
   const now = Date.now();
   const stored = forceNew ? null : readStoredGbSessionState();
