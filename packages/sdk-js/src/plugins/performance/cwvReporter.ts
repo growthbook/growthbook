@@ -123,7 +123,6 @@ export function createCWVReporter({
     const reportCWV = () => {
       if (stopped) return;
       stopObserving();
-      syncGrowthBookUrl(growthbook);
       // `!= null` so 0 is a valid (and good) measurement
       trackLCP &&
         lcpTime != null &&
@@ -139,16 +138,22 @@ export function createCWVReporter({
         growthbook.logEvent("CWV:INP", { value: inpValue });
     };
 
-    // Report deferred metrics on SPA navigations and on hide
+    // Report deferred metrics on SPA navigations. The location has already
+    // changed when this fires, so don't sync the GrowthBook URL first — the
+    // metrics belong to the page that was just left.
     unsubscribeUrlChanges = subscribeToUrlChanges(reportCWV, {
       trackQueryString: trackQueryStringChanges,
       enablePolling: enableUrlPolling,
     });
 
     // Only fire on "hidden" — bg tabs and prerenders start hidden and emit
-    // a visible event first, which would prematurely halt observation
+    // a visible event first, which would prematurely halt observation.
+    // The page is unchanged here, so refresh attributes (title/UTM) before
+    // finalizing.
     const onVisibilityChange = () => {
-      document.visibilityState === "hidden" && reportCWV();
+      if (document.visibilityState !== "hidden" || stopped) return;
+      syncGrowthBookUrl(growthbook);
+      reportCWV();
     };
     document.addEventListener("visibilitychange", onVisibilityChange);
     removeVisibilityListener = () =>

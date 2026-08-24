@@ -350,6 +350,30 @@ describe("CWV reporter", () => {
     gb.destroy();
   });
 
+  it("finalizes deferred metrics on SPA navigation without re-syncing the URL first", async () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+    const setURL = jest.spyOn(gb, "setURL");
+
+    createCWVReporter({
+      growthbook: gb,
+      trackFCP: false,
+      trackLCP: false,
+      trackINP: false,
+      trackTTFB: false,
+      trackTBT: false,
+    });
+
+    window.history.pushState({}, "", "/cwv-next-page");
+    await sleep(0);
+
+    // Deferred metrics belong to the page that was just left, so the
+    // GrowthBook URL must not be synced to the new page before logging
+    expect(logEvent).toHaveBeenCalledWith("CWV:CLS", { value: 0 });
+    expect(setURL).not.toHaveBeenCalled();
+    gb.destroy();
+  });
+
   it("reports a CLS of zero (does not silently drop valid zero values)", () => {
     const gb = new GrowthBook({ clientKey: "test" });
     const logEvent = jest.spyOn(gb, "logEvent");
