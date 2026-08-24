@@ -648,13 +648,15 @@ export const putSavedGroup = async (
       projects,
     };
     const base = comparisonBase as unknown as Record<string, unknown>;
+    // An empty array and an absent field mean the same thing to the editor.
+    const norm = (v: unknown) =>
+      Array.isArray(v) && v.length === 0 ? null : (v ?? null);
     const contested = Object.keys(baseline).filter((k) => {
       const loaded = (baseline as Record<string, unknown>)[k];
-      if (isEqual(loaded ?? null, base[k] ?? null)) return false;
+      if (isEqual(norm(loaded), norm(base[k]))) return false;
       // Someone else changed it; only a differing submission is contested.
       return (
-        incoming[k] !== undefined &&
-        !isEqual(incoming[k] ?? null, base[k] ?? null)
+        incoming[k] !== undefined && !isEqual(norm(incoming[k]), norm(base[k]))
       );
     });
     if (contested.length) {
