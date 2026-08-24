@@ -572,12 +572,16 @@ export type InitOptions = {
   skipCache?: boolean;
   payload?: FeatureApiResponse;
   streaming?: boolean;
+  /** Refresh the payload on this interval (ms). Ignored when streaming is active. */
+  pollingInterval?: number;
   cacheSettings?: CacheSettings;
 };
 
 export type InitSyncOptions = {
   payload: FeatureApiResponse;
   streaming?: boolean;
+  /** Refresh the payload on this interval (ms). Ignored when streaming is active. */
+  pollingInterval?: number;
 };
 
 export type LoadFeaturesOptions = {

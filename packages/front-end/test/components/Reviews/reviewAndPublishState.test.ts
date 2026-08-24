@@ -24,7 +24,9 @@ function base(overrides: Partial<RnPStateInput> = {}): RnPStateInput {
     experimentsStep: false,
     featureLockedByRamp: false,
     featureLockedBySchedule: false,
+    checklistIncomplete: false,
     checklistBlocked: false,
+    checklistAcknowledged: false,
     governanceCanPublish: true,
     ...overrides,
   };
@@ -242,10 +244,132 @@ describe("getReviewAndPublishState", () => {
           status: "approved",
           hasSelectedExperiments: true,
           experimentsStep: true,
-          checklistBlocked: true,
+          checklistIncomplete: true,
         }),
       );
       expect(s.ctaEnabled).toBe(false);
+    });
+  });
+
+  describe("checklist acknowledgment", () => {
+    const softBlocked = {
+      hasSelectedExperiments: true,
+      experimentsStep: true,
+      checklistIncomplete: true,
+      checklistBlocked: false,
+    } as const;
+
+    it("offers acknowledgment for soft-only blockers (direct-publish path)", () => {
+      const s = getReviewAndPublishState(base(softBlocked));
+      expect(s.submitAction).toBe("publish");
+      expect(s.ctaEnabled).toBe(false);
+      expect(s.showChecklistAcknowledgment).toBe(true);
+    });
+
+    it("offers acknowledgment for soft-only blockers (review path)", () => {
+      const s = getReviewAndPublishState(
+        base({ ...softBlocked, requireReviews: true, status: "approved" }),
+      );
+      expect(s.submitAction).toBe("publish");
+      expect(s.ctaEnabled).toBe(false);
+      expect(s.showChecklistAcknowledgment).toBe(true);
+    });
+
+    it("enables the primary CTA after acknowledging soft blockers", () => {
+      const direct = getReviewAndPublishState(
+        base({ ...softBlocked, checklistAcknowledged: true }),
+      );
+      expect(direct.ctaEnabled).toBe(true);
+      expect(direct.showChecklistAcknowledgment).toBe(true);
+
+      const review = getReviewAndPublishState(
+        base({
+          ...softBlocked,
+          checklistAcknowledged: true,
+          requireReviews: true,
+          status: "approved",
+        }),
+      );
+      expect(review.ctaEnabled).toBe(true);
+      expect(review.showChecklistAcknowledgment).toBe(true);
+    });
+
+    it("never offers acknowledgment when a hard blocker exists", () => {
+      const direct = getReviewAndPublishState(
+        base({
+          ...softBlocked,
+          checklistBlocked: true,
+          checklistAcknowledged: true,
+        }),
+      );
+      expect(direct.ctaEnabled).toBe(false);
+      expect(direct.showChecklistAcknowledgment).toBe(false);
+
+      const review = getReviewAndPublishState(
+        base({
+          ...softBlocked,
+          checklistBlocked: true,
+          requireReviews: true,
+          status: "approved",
+        }),
+      );
+      expect(review.ctaEnabled).toBe(false);
+      expect(review.showChecklistAcknowledgment).toBe(false);
+    });
+
+    it("never offers acknowledgment while the checklist is loading", () => {
+      const s = getReviewAndPublishState(
+        base({ ...softBlocked, checklistBlocked: true }),
+      );
+      expect(s.showChecklistAcknowledgment).toBe(false);
+    });
+
+    it("does not offer acknowledgment outside the experiments step", () => {
+      const s = getReviewAndPublishState(
+        base({
+          hasSelectedExperiments: true,
+          experimentsStep: false,
+          checklistIncomplete: true,
+        }),
+      );
+      expect(s.submitAction).toBe("next-experiments");
+      expect(s.showChecklistAcknowledgment).toBe(false);
+    });
+
+    it("admin bypass clears soft blockers without acknowledgment", () => {
+      const s = getReviewAndPublishState(
+        base({ ...softBlocked, adminPublish: true }),
+      );
+      expect(s.ctaEnabled).toBe(true);
+      expect(s.showChecklistAcknowledgment).toBe(false);
+    });
+
+    it("admin bypass does NOT clear a hard blocker", () => {
+      const direct = getReviewAndPublishState(
+        base({ ...softBlocked, checklistBlocked: true, adminPublish: true }),
+      );
+      expect(direct.ctaEnabled).toBe(false);
+      expect(direct.showChecklistAcknowledgment).toBe(false);
+
+      const review = getReviewAndPublishState(
+        base({
+          ...softBlocked,
+          checklistBlocked: true,
+          adminPublish: true,
+          requireReviews: true,
+          status: "approved",
+        }),
+      );
+      expect(review.ctaEnabled).toBe(false);
+      expect(review.showChecklistAcknowledgment).toBe(false);
+    });
+
+    it("does not offer acknowledgment when publishing is otherwise blocked", () => {
+      const s = getReviewAndPublishState(
+        base({ ...softBlocked, featureLockedByRamp: true }),
+      );
+      expect(s.ctaEnabled).toBe(false);
+      expect(s.showChecklistAcknowledgment).toBe(false);
     });
   });
 

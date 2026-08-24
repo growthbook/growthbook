@@ -5,7 +5,7 @@ import {
   FeatureRule,
   ScheduleRule,
 } from "shared/types/feature";
-import { useCallback, useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
@@ -18,11 +18,11 @@ import {
   parsePlainJSONObject,
   stripDefaultsForSparse,
 } from "shared/util";
-import { PiCaretRight } from "react-icons/pi";
+import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
-import { kebabCase } from "lodash";
+import { cloneDeep, kebabCase } from "lodash";
 import { Box, Flex } from "@radix-ui/themes";
 import {
   CreateSafeRolloutInterface,
@@ -35,6 +35,7 @@ import {
 import {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
+  PutFeatureRuleConflict,
 } from "shared/types/feature-rule";
 import {
   FeatureRevisionInterface,
@@ -59,13 +60,31 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import useApi from "@/hooks/useApi";
 import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVersionSelector";
 import Modal from "@/components/Modal";
+import {
+  CompactInlineDiff,
+  stringifyForRawDiff,
+} from "@/components/Reviews/Feature/RevisionDiffUtils";
+import { normalizeFeatureRules } from "@/components/Features/FeatureDiffRenders";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import RadioCards from "@/ui/RadioCards";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import PagedModal from "@/components/Modal/PagedModal";
+import {
+  ConflictCalloutRow,
+  WholeConflictCallout,
+  ConflictProvider,
+  ConflictResolution,
+  ContestedChunk,
+} from "@/components/DraftConflicts/ConflictContext";
+import { decimalToPercent } from "@/services/utils";
+import {
+  formatChunkValue,
+  projectFormValues,
+} from "@/components/DraftConflicts/conflictValues";
 import StandardRuleFields, {
   type ScheduleType,
   deriveScheduleType,
@@ -77,6 +96,7 @@ import Page from "@/components/Modal/Page";
 import BanditRefFields from "@/components/Features/RuleModal/BanditRefFields";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import { useIncrementer } from "@/hooks/useIncrementer";
+import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 
 import DraftSelectorForChanges, {
   DraftMode,
@@ -198,6 +218,30 @@ export type SafeRolloutRuleCreateFields = SafeRolloutRule & {
   sameSeed?: boolean;
 };
 
+// Coverage is stored 0-1 but entered as a percentage.
+const RULE_VALUE_FORMATTERS: Record<string, (value: unknown) => string> = {
+  coverage: (v) =>
+    typeof v === "number" ? `${decimalToPercent(v)}%` : String(v),
+};
+
+const RULE_FIELD_LABELS: Record<string, string> = {
+  description: "Description",
+  environments: "Rule Environments",
+  projects: "Rule Projects",
+  value: "Value",
+  coverage: "Rollout Percentage",
+  hashAttribute: "Assignment Attribute",
+  seed: "Seed",
+  hashVersion: "Hashing",
+  savedGroups: "Saved Groups",
+  condition: "Attributes",
+  prerequisites: "Prerequisite Features",
+  scheduleRules: "Schedule",
+  enabled: "Enabled",
+  variations: "Variations",
+  experimentId: "Experiment",
+};
+
 export default function RuleModal({
   close,
   feature,
@@ -242,6 +286,42 @@ export default function RuleModal({
   // Pre-generate a rule ID so we can reference it in the ramp schedule creation
   // without an extra round-trip. The back-end preserves a truthy id sent by the client.
   const [pregenRuleId] = useState(() => uniqId("fr_"));
+
+  // Pinned at open; `feature` is reactive and would retarget the save.
+  const [pinnedFeatureVersion] = useState(() => feature.version);
+  const [baselineRule, setBaselineRule] = useState<FeatureRule | undefined>(
+    () => (rule ? cloneDeep(rule) : undefined),
+  );
+  const [conflict, setConflict] = useState<
+    | (PutFeatureRuleConflict & {
+        baseAtConflict: FeatureRule | undefined;
+        // Frozen, so "You set …" survives a resolution overwriting the form.
+        attempted: FeatureRule | undefined;
+      })
+    | null
+  >(null);
+  const [showConflictDetails, setShowConflictDetails] = useState(false);
+  const [conflictResolutions, setConflictResolutions] = useState<
+    Map<string, "mine" | "theirs">
+  >(new Map());
+  const myConflictValuesRef = useRef<Map<string, Record<string, unknown>>>(
+    new Map(),
+  );
+  const [claimedConflictKeys, setClaimedConflictKeys] = useState<Set<string>>(
+    new Set(),
+  );
+  const claimConflictKey = useCallback((key: string) => {
+    setClaimedConflictKeys((s) => (s.has(key) ? s : new Set(s).add(key)));
+  }, []);
+  const releaseConflictKey = useCallback((key: string) => {
+    setClaimedConflictKeys((s) => {
+      if (!s.has(key)) return s;
+      const next = new Set(s);
+      next.delete(key);
+      return next;
+    });
+  }, []);
+  const conflictSignaledRef = useRef(false);
 
   // Find any existing ramp schedule that already targets this specific rule.
   // Uses stem matching so environment-suffixed rule IDs (e.g. fr_abc__production)
@@ -357,11 +437,10 @@ export default function RuleModal({
     defaultDraft,
   );
 
-  // Determines which draft/revision to target in the API call.
   const targetVersion =
     draftMode === "existing" && selectedDraft !== null
       ? selectedDraft
-      : feature.version;
+      : pinnedFeatureVersion;
 
   // Holdout a newly-created experiment should join: the holdout of the draft the
   // rule is being added to (revision.holdout), not just the live feature's — so
@@ -509,6 +588,14 @@ export default function RuleModal({
     defaultValues,
   });
 
+  const { availableFields: customFields, value: customFieldValues } =
+    useReconciledCustomFields({
+      section: "experiment",
+      project: feature.project,
+      value: form.watch("customFields"),
+      setValue: (value) => form.setValue("customFields", value),
+    });
+
   // On edit/duplicate, seed scope from the existing rule. Legacy rules with
   // `environments === undefined` are treated as permissive (= all envs). On
   // create, seed from org default ("all envs") or fall back to the current
@@ -522,6 +609,24 @@ export default function RuleModal({
     (rule !== undefined &&
       rule.allEnvironments !== true &&
       existingRuleEnvList === undefined);
+
+  // react-hook-form can't type a dynamic field name against the rule union,
+  // so the cast lives here rather than at every call site.
+  const formValues = useCallback(
+    () => form.getValues() as unknown as Record<string, unknown>,
+    [form],
+  );
+  const setFormField = useCallback(
+    (field: string, value: unknown) =>
+      (
+        form.setValue as unknown as (
+          name: string,
+          value: unknown,
+          options: { shouldDirty: boolean },
+        ) => void
+      )(field, value, { shouldDirty: true }),
+    [form],
+  );
 
   const [scopeAllEnvs, setScopeAllEnvs] = useState<boolean>(() => {
     if (mode === "edit" || mode === "duplicate") return existingRuleScopeIsAll;
@@ -678,6 +783,20 @@ export default function RuleModal({
   const canSubmit = useMemo(() => {
     return !isCyclic && !prerequisiteTargetingSdkIssues && !monitoringError;
   }, [isCyclic, prerequisiteTargetingSdkIssues, monitoringError]);
+
+  const contestedKeys: string[] = conflict
+    ? conflict.merge && !conflict.merge.wholeEntity && conflict.current
+      ? conflict.merge.contested.map((c) => c.key)
+      : ["__rule__"]
+    : [];
+  // Forking only keeps both versions when their edit is in another draft. Against
+  // live, the new draft carries this stale edit on top of their published change.
+  const newDraftAvoidsConflict =
+    draftMode === "new" && conflict?.draftVersion !== undefined;
+  const conflictResolved =
+    !conflict ||
+    newDraftAvoidsConflict ||
+    contestedKeys.every((k) => conflictResolutions.has(k));
 
   const isRampType = scheduleType === "ramp";
   const hasRampPage =
@@ -1578,10 +1697,40 @@ export default function RuleModal({
               body: JSON.stringify({
                 rule: values,
                 ruleId,
+                ...(baselineRule ? { baseline: { rule: baselineRule } } : {}),
                 ...(rampScheduleInline
                   ? { rampSchedule: rampScheduleInline }
                   : {}),
               } as PutFeatureRuleBody),
+            },
+            (responseData) => {
+              if (responseData?.status === 409 && responseData?.conflict) {
+                conflictSignaledRef.current = true;
+                const payload = responseData.conflict as PutFeatureRuleConflict;
+                setConflict({
+                  ...payload,
+                  baseAtConflict: baselineRule,
+                  attempted: values as unknown as FeatureRule,
+                });
+                setConflictResolutions(new Map());
+                myConflictValuesRef.current = new Map();
+                if (
+                  payload.merge &&
+                  !payload.merge.wholeEntity &&
+                  payload.current
+                ) {
+                  const cur = payload.current as unknown as Record<
+                    string,
+                    unknown
+                  >;
+                  for (const f of payload.merge.theirFields) {
+                    setFormField(f, cur[f]);
+                  }
+                }
+                setBaselineRule(
+                  payload.current ? cloneDeep(payload.current) : undefined,
+                );
+              }
             },
           );
         }
@@ -1693,9 +1842,143 @@ export default function RuleModal({
         error: e.message,
       });
       forceConditionRender();
+      // Empty message: the conflict renders its own banner.
+      if (conflictSignaledRef.current) {
+        conflictSignaledRef.current = false;
+        throw new Error("");
+      }
       throw e;
     }
   });
+
+  const conflictAlert = conflict ? (
+    <HelperText status="warning" icon={null}>
+      {!conflict.current
+        ? "This rule was removed while you had it open. Saving re-adds it."
+        : newDraftAvoidsConflict
+          ? "This rule was modified while you were editing. Saving to a new draft keeps both versions."
+          : conflictResolved
+            ? "This rule was modified while you were editing."
+            : draftMode === "new"
+              ? "This rule was modified while you were editing. Resolve the conflicts below."
+              : "This rule was modified while you were editing. Resolve the conflicts below, or save to a new draft."}
+    </HelperText>
+  ) : undefined;
+
+  const conflictDetails =
+    conflict && conflict.current ? (
+      <Box mt="-4" mb="3">
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={showConflictDetails ? <PiCaretDown /> : <PiCaretRight />}
+          onClick={() => setShowConflictDetails((s) => !s)}
+        >
+          {showConflictDetails ? "Hide comparison" : "Compare versions"}
+        </Button>
+        {showConflictDetails && (
+          <Box
+            mt="2"
+            style={{
+              background: "var(--color-surface)",
+              borderRadius: "var(--radius-2)",
+              overflow: "hidden",
+            }}
+          >
+            <CompactInlineDiff
+              a={stringifyForRawDiff(normalizeFeatureRules([conflict.current]))}
+              b={stringifyForRawDiff(
+                normalizeFeatureRules([
+                  projectFormValues(formValues(), [
+                    conflict.current,
+                    conflict.baseAtConflict,
+                  ]) as unknown as FeatureRule,
+                ]),
+              )}
+              leftTitle="Modified version"
+              rightTitle="My version"
+            />
+          </Box>
+        )}
+      </Box>
+    ) : null;
+
+  const contestedChunks: ContestedChunk[] =
+    conflict?.merge && !conflict.merge.wholeEntity && conflict.current
+      ? conflict.merge.contested
+      : [];
+
+  const resolveConflict = useCallback(
+    (chunk: ContestedChunk, choice: ConflictResolution) => {
+      if (!conflict) return;
+      const values = formValues();
+      const stash = myConflictValuesRef.current;
+      if (choice === "theirs" && !stash.has(chunk.key)) {
+        stash.set(
+          chunk.key,
+          Object.fromEntries(chunk.fields.map((f) => [f, values[f]])),
+        );
+      }
+      const source =
+        choice === "theirs"
+          ? (conflict.current as unknown as Record<string, unknown> | null)
+          : stash.get(chunk.key);
+      // Keeping mine on the first click has nothing to write — the form already
+      // holds it — but the choice still resolves the chunk.
+      if (source) {
+        for (const f of chunk.fields) {
+          setFormField(f, source[f]);
+        }
+        // The condition builder seeds its own state from a prop.
+        forceConditionRender();
+      }
+      setConflictResolutions((m) => new Map([...m, [chunk.key, choice]]));
+    },
+    [conflict, formValues, setFormField, forceConditionRender],
+  );
+
+  const conflictFieldLabel = useCallback(
+    (chunk: ContestedChunk) => RULE_FIELD_LABELS[chunk.key] ?? chunk.key,
+    [],
+  );
+
+  const formatConflictValue = useCallback(
+    (chunk: ContestedChunk, side: ConflictResolution) =>
+      formatChunkValue(
+        side === "theirs"
+          ? (conflict?.current ?? null)
+          : (conflict?.attempted ?? null),
+        chunk.fields,
+        RULE_VALUE_FORMATTERS,
+      ),
+    [conflict],
+  );
+
+  const conflictCallouts = conflict ? (
+    <>
+      {contestedChunks.length ? (
+        contestedChunks
+          .filter((c) => !claimedConflictKeys.has(c.key))
+          .map((chunk) => (
+            <ConflictCalloutRow
+              chunk={chunk}
+              showMine
+              stateful
+              key={chunk.key}
+            />
+          ))
+      ) : (
+        <WholeConflictCallout
+          chunkKey="__rule__"
+          message={
+            conflict.current
+              ? "This rule was restructured by someone else. Saving keeps your version."
+              : "This rule was deleted by someone else. Saving re-adds it."
+          }
+        />
+      )}
+    </>
+  ) : null;
 
   if (newRuleOverviewPage) {
     return (
@@ -1891,7 +2174,7 @@ export default function RuleModal({
     ? environments.map((e) => e.id)
     : selectedEnvironments;
 
-  return (
+  const modalContent = (
     <FormProvider {...form}>
       <PagedModal
         trackingEventModalType={trackingEventModalType}
@@ -1913,10 +2196,14 @@ export default function RuleModal({
             ? ruleType !== undefined
             : hasRampPage && step === 0
               ? !isCyclic && !prerequisiteTargetingSdkIssues
-              : canSubmit
+              : canSubmit && conflictResolved
         }
         disabledMessage={
-          hasRampPage && step === 0 ? undefined : (monitoringError ?? undefined)
+          hasRampPage && step === 0
+            ? undefined
+            : !conflictResolved
+              ? "Resolve the conflicting edits above, or save to a new draft."
+              : (monitoringError ?? undefined)
         }
         header={headerText}
         docSection={
@@ -1937,16 +2224,22 @@ export default function RuleModal({
         }
         submit={submit}
         bodyPrefix={
-          <DraftSelectorForChanges
-            feature={feature}
-            revisionList={revisionList}
-            mode={draftMode}
-            setMode={setDraftMode}
-            selectedDraft={selectedDraft}
-            setSelectedDraft={setSelectedDraft}
-            canAutoPublish={false}
-            gatedEnvSet={gatedEnvSet}
-          />
+          <>
+            <DraftSelectorForChanges
+              feature={feature}
+              revisionList={revisionList}
+              mode={draftMode}
+              setMode={setDraftMode}
+              selectedDraft={selectedDraft}
+              setSelectedDraft={setSelectedDraft}
+              canAutoPublish={false}
+              gatedEnvSet={gatedEnvSet}
+              alert={conflictAlert}
+              alertActive={!conflictResolved}
+            />
+            {!newDraftAvoidsConflict && conflictDetails}
+            {!newDraftAvoidsConflict && conflictCallouts}
+          </>
         }
       >
         {(ruleType === "force" || ruleType === "rollout") && (
@@ -2110,8 +2403,10 @@ export default function RuleModal({
                   hideVariationIds={true}
                   startEditingIndexes={true}
                   orgStickyBucketing={orgStickyBucketing}
-                  setCustomFields={(customFields) =>
-                    form.setValue("customFields", customFields)
+                  customFields={customFields}
+                  customFieldValues={customFieldValues}
+                  setCustomFields={(value) =>
+                    form.setValue("customFields", value)
                   }
                   envScope={i === 0 ? envScopeProps : undefined}
                   projectScope={i === 0 ? projectScopeProps : undefined}
@@ -2183,5 +2478,20 @@ export default function RuleModal({
           : null}
       </PagedModal>
     </FormProvider>
+  );
+
+  return (
+    <ConflictProvider
+      contested={newDraftAvoidsConflict ? [] : contestedChunks}
+      resolutions={conflictResolutions}
+      resolve={resolveConflict}
+      format={formatConflictValue}
+      labelFor={conflictFieldLabel}
+      claimed={claimedConflictKeys}
+      claim={claimConflictKey}
+      release={releaseConflictKey}
+    >
+      {modalContent}
+    </ConflictProvider>
   );
 }

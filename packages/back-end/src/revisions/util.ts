@@ -231,6 +231,14 @@ function upsertByPath(
  * @property revertedFrom   Optional ID of the revision this is reverting
  * @property revisionId     Optional specific revision ID to update (instead of finding by author)
  */
+// A deriver recomputes the patch from the row being written, so a CAS retry
+// re-applies the intent to fresh content instead of replaying stale ops.
+export type ProposedChangesInput =
+  | JsonPatchOperation[]
+  | ((
+      existing: Revision | null,
+    ) => JsonPatchOperation[] | Promise<JsonPatchOperation[]>);
+
 export type CreateOrUpdateRevisionOptions = {
   replaceChanges?: boolean;
   forceCreate?: boolean;
@@ -248,7 +256,7 @@ export async function createOrUpdateRevision(
   context: ReqContext | ApiReqContext,
   entityType: RevisionTargetType,
   entity: Record<string, unknown> & { id: string },
-  proposedChanges: JsonPatchOperation[],
+  proposedChanges: ProposedChangesInput,
   options: CreateOrUpdateRevisionOptions = {},
 ): Promise<Revision> {
   const {
@@ -283,12 +291,25 @@ export async function createOrUpdateRevision(
         throw new Error("Revision does not belong to the specified entity");
       }
 
-      const finalChanges = replaceChanges
-        ? proposedChanges
-        : upsertByPath(
-            normalizeProposedChanges(targetRevision.target.proposedChanges),
-            proposedChanges,
-          );
+      // A deriver's derivation and its merge with the draft's existing changes
+      // both have to happen inside the CAS loop, against the row being written.
+      const finalChanges =
+        typeof proposedChanges === "function"
+          ? async (row: Revision) => {
+              const derived = await proposedChanges(row);
+              return replaceChanges
+                ? derived
+                : upsertByPath(
+                    normalizeProposedChanges(row.target.proposedChanges),
+                    derived,
+                  );
+            }
+          : replaceChanges
+            ? proposedChanges
+            : upsertByPath(
+                normalizeProposedChanges(targetRevision.target.proposedChanges),
+                proposedChanges,
+              );
 
       return context.models.revisions.updateProposedChanges(
         targetRevision.id,
@@ -307,12 +328,25 @@ export async function createOrUpdateRevision(
         context.userId,
       );
     if (existingRevision) {
-      const finalChanges = replaceChanges
-        ? proposedChanges
-        : upsertByPath(
-            normalizeProposedChanges(existingRevision.target.proposedChanges),
-            proposedChanges,
-          );
+      const finalChanges =
+        typeof proposedChanges === "function"
+          ? async (row: Revision) => {
+              const derived = await proposedChanges(row);
+              return replaceChanges
+                ? derived
+                : upsertByPath(
+                    normalizeProposedChanges(row.target.proposedChanges),
+                    derived,
+                  );
+            }
+          : replaceChanges
+            ? proposedChanges
+            : upsertByPath(
+                normalizeProposedChanges(
+                  existingRevision.target.proposedChanges,
+                ),
+                proposedChanges,
+              );
 
       return context.models.revisions.updateProposedChanges(
         existingRevision.id,
@@ -329,7 +363,11 @@ export async function createOrUpdateRevision(
     type: entityType,
     id: entity.id,
     snapshot,
-    proposedChanges,
+    // Nothing to race with on a fresh draft: derive against no existing row.
+    proposedChanges:
+      typeof proposedChanges === "function"
+        ? await proposedChanges(null)
+        : proposedChanges,
     title,
     comment,
     revertedFrom,
