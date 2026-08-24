@@ -78,17 +78,6 @@ export async function setRevisionMetadata(
     }
   }
 
-  if (metadataFields.customFields !== undefined) {
-    const { customFieldValues, prunedKeys } = await validateCustomFields(
-      metadataFields.customFields as Record<string, unknown>,
-      context,
-      metadataFields.project ?? feature.project,
-      feature.customFields,
-    );
-    // Stage the pruned map so publishing doesn't restore the dead keys.
-    if (prunedKeys.length) metadataFields.customFields = customFieldValues;
-  }
-
   const { revision, created } = await resolveOrCreateRevision(
     context,
     organization.id,
@@ -102,6 +91,18 @@ export async function setRevisionMetadata(
       throw new BadRequestError(
         `Cannot edit a revision with status "${revision.status}"`,
       );
+    }
+
+    if (metadataFields.customFields !== undefined) {
+      const { customFieldValues, prunedKeys } = await validateCustomFields(
+        metadataFields.customFields as Record<string, unknown>,
+        context,
+        metadataFields.project ?? feature.project,
+        // The revision's own snapshot — the live feature may already have healed.
+        revision.metadata?.customFields ?? feature.customFields,
+      );
+      // Stage the pruned map so publishing doesn't restore the dead keys.
+      if (prunedKeys.length) metadataFields.customFields = customFieldValues;
     }
 
     const changes: RevisionChanges = {};
