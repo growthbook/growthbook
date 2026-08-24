@@ -46,10 +46,14 @@ function formatFlaggedList(
 export function formatChunkValue(
   entity: Record<string, unknown> | null,
   fields: string[],
+  // Per-field display, for values the control shows in another unit.
+  formatters?: Record<string, (value: unknown) => string>,
 ): string {
   if (!entity) return "(removed)";
   if (fields.length === 1) {
     const only = entity[fields[0]];
+    const format = formatters?.[fields[0]];
+    if (format && only !== undefined) return format(only);
     return Array.isArray(only) ? formatList(only) : formatConflictValue(only);
   }
   const flagged = formatFlaggedList(entity, fields);

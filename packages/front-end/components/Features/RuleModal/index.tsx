@@ -80,6 +80,7 @@ import {
   ConflictResolution,
   ContestedChunk,
 } from "@/components/DraftConflicts/ConflictContext";
+import { decimalToPercent } from "@/services/utils";
 import {
   formatChunkValue,
   projectFormValues,
@@ -215,6 +216,12 @@ export type SafeRolloutRuleCreateFields = SafeRolloutRule & {
   safeRolloutFields: CreateSafeRolloutInterface;
 } & {
   sameSeed?: boolean;
+};
+
+// Coverage is stored 0-1 but entered as a percentage.
+const RULE_VALUE_FORMATTERS: Record<string, (value: unknown) => string> = {
+  coverage: (v) =>
+    typeof v === "number" ? `${decimalToPercent(v)}%` : String(v),
 };
 
 const RULE_FIELD_LABELS: Record<string, string> = {
@@ -1942,6 +1949,7 @@ export default function RuleModal({
           ? (conflict?.current ?? null)
           : (conflict?.attempted ?? null),
         chunk.fields,
+        RULE_VALUE_FORMATTERS,
       ),
     [conflict],
   );

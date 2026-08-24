@@ -43,3 +43,15 @@ describe("formatChunkValue", () => {
     expect(formatChunkValue(null, envs)).toBe("(removed)");
   });
 });
+
+describe("formatChunkValue with per-field formatters", () => {
+  const pct = { coverage: (v: unknown) => `${(v as number) * 100}%` };
+
+  it("uses the formatter for a single field", () => {
+    expect(formatChunkValue({ coverage: 0.35 }, ["coverage"], pct)).toBe("35%");
+  });
+
+  it("falls back when the field is absent", () => {
+    expect(formatChunkValue({}, ["coverage"], pct)).toBe("(removed)");
+  });
+});
