@@ -11,6 +11,7 @@ import {
   type DashboardBlockInterfaceOrData,
   type DashboardInterface,
 } from "shared/enterprise";
+import { tryParseToolResultJson } from "shared/ai-chat";
 import { PiCheckCircleFill, PiSparkleFill } from "react-icons/pi";
 import Link from "next/link";
 import Button from "@/ui/Button";
@@ -65,15 +66,7 @@ export function dashboardDraftFromToolResult(result: unknown): {
   droppedBlocks: DroppedBlock[];
 } | null {
   const parsed =
-    typeof result === "string"
-      ? (() => {
-          try {
-            return JSON.parse(result) as unknown;
-          } catch {
-            return null;
-          }
-        })()
-      : result;
+    typeof result === "string" ? tryParseToolResultJson(result) : result;
 
   if (!parsed || typeof parsed !== "object") return null;
   const { draft, droppedBlocks } = parsed as {
@@ -160,7 +153,6 @@ export default function DashboardPreviewBubble({
   const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [staleData, setStaleData] = useState(false);
 
   const title = draft.title;
   const isRevision = !!draft.dashboardId;
@@ -283,7 +275,10 @@ export default function DashboardPreviewBubble({
       // The tiles keep rendering whatever their stored analysis ids still
       // resolve to, which may be nothing. Say so rather than leaving the user
       // to wonder why a tile is blank.
-      setStaleData(true);
+      setError(
+        "These tiles could not be refreshed, so they may be showing older results " +
+          "or nothing at all. Change a filter and click Update to try again.",
+      );
     });
   }, [refreshOnMount, refreshBlocks, globalControls, comparison]);
 
@@ -388,16 +383,6 @@ export default function DashboardPreviewBubble({
             {droppedBlocks.length === 1
               ? `"${droppedBlocks[0].title}" was left off — ${droppedBlocks[0].reason}.`
               : `${droppedBlocks.length} tiles were left off because their queries could not be started.`}
-          </Callout>
-        </Box>
-      )}
-
-      {staleData && (
-        <Box mb="3">
-          <Callout status="warning" size="sm">
-            These tiles could not be refreshed, so they may be showing older
-            results or nothing at all. Change a filter and click Update to try
-            again.
           </Callout>
         </Box>
       )}

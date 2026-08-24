@@ -241,12 +241,10 @@ const openAnalyticsChatInputSchema = z.object({
     ),
   mentions: aiChatMentionValidator
     .array()
-    .max(20)
     .optional()
     .describe(
-      "Entities named in the prompt, carried over so the other chat resolves them by " +
-        "id instead of searching. Copy them from the `[Referenced by the user: ...]` " +
-        "line — same `type`, `id`, and `name`.",
+      "Entities named in the prompt, copied from the `[Referenced by the user: ...]` " +
+        "line, so the other chat resolves them by id instead of searching.",
     ),
 });
 

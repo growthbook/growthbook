@@ -15,7 +15,7 @@ import ChatComposer, {
 } from "@/enterprise/components/AIChat/Composer/ChatComposer";
 import {
   PRODUCT_ANALYTICS_CHAT_SKILL_GROUP,
-  useSkillMenuItems,
+  useSkillCommandItems,
 } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
 import { useAgentInteractionPrompts } from "@/enterprise/hooks/useAgentInteractionPrompts";
 import AskUserCard, {
@@ -56,7 +56,7 @@ export default function ExplorerAIChat() {
   );
   // Scoped to the dashboard domain to match what this chat's agent can load —
   // see PRODUCT_ANALYTICS_CHAT_SKILL_GROUP on the back end.
-  const skillItems = useSkillMenuItems(PRODUCT_ANALYTICS_CHAT_SKILL_GROUP);
+  const skillItems = useSkillCommandItems(PRODUCT_ANALYTICS_CHAT_SKILL_GROUP);
   // The dashboard skills use `askUser` and write through the confirmation gate,
   // so this chat has to render both prompts — an unhandled `confirm-action`
   // would park a dashboard create the user can never approve.

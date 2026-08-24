@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
 import { Flex } from "@radix-ui/themes";
-import type { AIChatMention } from "shared/ai-chat";
+import { tryParseToolResultJson, type AIChatMention } from "shared/ai-chat";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import { AssistantBubble } from "@/enterprise/components/AIChat/AIChatPrimitives";
@@ -23,15 +23,7 @@ export function analyticsHandoffFromToolResult(
   result: unknown,
 ): AnalyticsHandoff | null {
   const parsed =
-    typeof result === "string"
-      ? (() => {
-          try {
-            return JSON.parse(result) as unknown;
-          } catch {
-            return null;
-          }
-        })()
-      : result;
+    typeof result === "string" ? tryParseToolResultJson(result) : result;
 
   if (!parsed || typeof parsed !== "object") return null;
   const { handoff } = parsed as { handoff?: unknown };
@@ -45,9 +37,9 @@ export function analyticsHandoffFromToolResult(
 
   return {
     prompt: prompt.trim(),
-    ...(Array.isArray(mentions)
-      ? { mentions: mentions as AIChatMention[] }
-      : {}),
+    mentions: Array.isArray(mentions)
+      ? (mentions as AIChatMention[])
+      : undefined,
   };
 }
 

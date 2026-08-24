@@ -6,7 +6,6 @@ import {
   getSkillByName,
   getSkillNames,
   getSkillNamesForGroup,
-  getSkillsForGroup,
 } from "back-end/src/agent/skills";
 
 describe("agent skills loader", () => {
@@ -42,7 +41,7 @@ describe("agent skills loader", () => {
   it("puts the shared-conventions skill at the head of its group", () => {
     // The menu and the prompt index show this order, and the conventions read
     // better before the workflows that lean on them.
-    const experiments = getSkillsForGroup("experiments").map((s) => s.name);
+    const experiments = getSkillNamesForGroup("experiments");
     expect(experiments[0]).toBe("experiments");
     expect(experiments).toEqual(
       expect.arrayContaining([

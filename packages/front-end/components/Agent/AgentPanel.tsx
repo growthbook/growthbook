@@ -36,7 +36,7 @@ import ChatComposer, {
   type ComposerSubmission,
 } from "@/enterprise/components/AIChat/Composer/ChatComposer";
 import { useMentionItems } from "@/enterprise/components/AIChat/Composer/useMentionItems";
-import { useSkillMenuItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
+import { useSkillCommandItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
 import { useAgentInteractionPrompts } from "@/enterprise/hooks/useAgentInteractionPrompts";
 import AgentChatHistory from "./AgentChatHistory";
 import {
@@ -203,7 +203,7 @@ export default function AgentPanel({
   });
 
   const { items: mentionItems, ready: mentionItemsReady } = useMentionItems();
-  const skillItems = useSkillMenuItems();
+  const skillItems = useSkillCommandItems();
 
   const {
     feedbackMap,

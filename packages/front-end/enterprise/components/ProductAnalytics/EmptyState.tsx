@@ -32,7 +32,7 @@ import ChatComposer, {
 import { useMentionItems } from "@/enterprise/components/AIChat/Composer/useMentionItems";
 import {
   PRODUCT_ANALYTICS_CHAT_SKILL_GROUP,
-  useSkillMenuItems,
+  useSkillCommandItems,
 } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
 import { PA_AI_CHAT_INITIAL_MESSAGE_KEY } from "./util";
 import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
@@ -57,7 +57,7 @@ export default function EmptyState() {
   );
   // Same scope as the chat this hands off to, so a skill picked here is one the
   // agent on the other side can actually load.
-  const skillItems = useSkillMenuItems(PRODUCT_ANALYTICS_CHAT_SKILL_GROUP);
+  const skillItems = useSkillCommandItems(PRODUCT_ANALYTICS_CHAT_SKILL_GROUP);
 
   const handleSubmit = useCallback(
     (

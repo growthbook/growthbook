@@ -66,17 +66,16 @@ function dirHasMarkdown(dir: string): boolean {
 }
 
 function skillsDirHasContent(dir: string): boolean {
-  if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) {
-    return false;
-  }
-  if (dirHasMarkdown(dir)) return true;
-  for (const entry of fs.readdirSync(dir)) {
-    const child = path.join(dir, entry);
-    if (fs.statSync(child).isDirectory() && dirHasMarkdown(child)) {
-      return true;
-    }
-  }
-  return false;
+  if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) return false;
+  return (
+    dirHasMarkdown(dir) ||
+    fs
+      .readdirSync(dir)
+      .map((entry) => path.join(dir, entry))
+      .some(
+        (child) => fs.statSync(child).isDirectory() && dirHasMarkdown(child),
+      )
+  );
 }
 
 function resolveSkillsDir(): string | null {
@@ -128,14 +127,14 @@ let cachedSkills: Skill[] | null = null;
  * S. Everything else is alphabetical.
  */
 function orderedGroupFiles(dir: string): string[] {
-  const files = fs
+  return fs
     .readdirSync(dir)
     .filter((f) => f.endsWith(".md"))
-    .sort();
-  return [
-    ...files.filter((f) => f === "SKILL.md"),
-    ...files.filter((f) => f !== "SKILL.md"),
-  ];
+    .sort(
+      (a, b) =>
+        Number(b === "SKILL.md") - Number(a === "SKILL.md") ||
+        a.localeCompare(b),
+    );
 }
 
 function loadSkillsFromDisk(): Skill[] {
@@ -203,11 +202,6 @@ export function getSkillByName(name: string): Skill | undefined {
   return getAllSkills().find((s) => s.name === name);
 }
 
-/** Every skill filed under one directory, in menu order. */
-export function getSkillsForGroup(group: string): Skill[] {
-  return getAllSkills().filter((s) => s.group === group);
-}
-
 /**
  * The system-prompt index: every skill the agent can load, with its
  * description.
@@ -243,5 +237,7 @@ export function _clearSkillCacheForTests(): void {
  * agent that cannot load a skill never learns the endpoints it documents.
  */
 export function getSkillNamesForGroup(group: string): string[] {
-  return getSkillsForGroup(group).map((s) => s.name);
+  return getAllSkills()
+    .filter((s) => s.group === group)
+    .map((s) => s.name);
 }
