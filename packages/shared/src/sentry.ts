@@ -10,7 +10,8 @@ const REDACTED_HEADERS = new Set([
 const REDACTED_URL_PATTERNS = [
   /(\/auth\/reset\/)[^/?#]+/gi,
   /(\/invite\/)[^/?#]+/gi,
-  /([?&](?:token|key)=)[^&#]+/gi,
+  // `^` for `query_string`, which Sentry stores without the leading `?`
+  /((?:[?&#]|^)(?:id_token|access_token|refresh_token|token|code|key)=)[^&#]*/gi,
 ];
 
 const REDACTED = "[Redacted]";
@@ -24,7 +25,11 @@ function redactUrl(url: string): string {
 
 // Structural subset of Sentry's `Event`, so this works for node, edge, and browser alike
 type SentryEventLike = {
-  request?: { url?: string; headers?: Record<string, string> };
+  request?: {
+    url?: string;
+    query_string?: unknown;
+    headers?: Record<string, string>;
+  };
   transaction?: string;
 };
 
@@ -41,6 +46,10 @@ export function scrubSentryEvent<T extends SentryEventLike>(event: T): T {
 
   if (event.request?.url) {
     event.request.url = redactUrl(event.request.url);
+  }
+
+  if (typeof event.request?.query_string === "string") {
+    event.request.query_string = redactUrl(event.request.query_string);
   }
 
   // Without tracing there's no `expressIntegration`, so the transaction name is the raw URL

@@ -42,6 +42,36 @@ describe("scrubSentryEvent", () => {
     ).toBe("/reset-password?foo=1&token=[Redacted]#x");
   });
 
+  it("redacts OAuth codes and tokens, including in the fragment", () => {
+    expect(
+      scrubSentryEvent({
+        request: { url: "/auth/callback?code=oauth_abc&state=xyz" },
+      }).request?.url,
+    ).toBe("/auth/callback?code=[Redacted]&state=xyz");
+
+    expect(
+      scrubSentryEvent({
+        request: { url: "/oauth/callback#id_token=eyJhbG&access_token=at_abc" },
+      }).request?.url,
+    ).toBe("/oauth/callback#id_token=[Redacted]&access_token=[Redacted]");
+  });
+
+  it("redacts query_string, which Sentry stores without a leading `?`", () => {
+    expect(
+      scrubSentryEvent({
+        request: { query_string: "code=oauth_abc&state=xyz" },
+      }).request?.query_string,
+    ).toBe("code=[Redacted]&state=xyz");
+  });
+
+  it("leaves a non-string query_string alone", () => {
+    const parsed = { code: "oauth_abc" };
+    expect(
+      scrubSentryEvent({ request: { query_string: parsed } }).request
+        ?.query_string,
+    ).toBe(parsed);
+  });
+
   it("redacts the transaction name, which is the raw URL without tracing", () => {
     expect(
       scrubSentryEvent({ transaction: "POST /auth/reset/rt_abc123" })
