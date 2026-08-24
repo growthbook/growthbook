@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
-import { date } from "shared/dates";
 import type { ExpandedMember } from "shared/types/organization";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
 import { isCloud } from "@/services/env";
@@ -13,6 +12,11 @@ import Button from "@/ui/Button";
 import Modal from "@/components/Modal";
 import UpgradeModal from "./UpgradeModal";
 import UpdateOrbSubscriptionModal from "./UpdateOrbSubscriptionModal";
+import {
+  getSubscriptionBillingState,
+  type PaymentMethodNotice,
+  type SubscriptionBillingState,
+} from "./subscriptionBillingState";
 
 const CANCELLATION_SURVEY_URL = "https://form.typeform.com/to/kL75SA6F";
 
@@ -56,14 +60,122 @@ function seatLabel(count: number): string {
   return count === 1 ? "seat" : "seats";
 }
 
-function expirationDisplayDate(value: string | undefined): string {
-  if (!value) return "";
-  const parsed = new Date(value);
-  // Backend formats missing Stripe cancel_at as epoch (e.g. "Wed Dec 31 1969").
-  if (Number.isNaN(parsed.getTime()) || parsed.getFullYear() <= 1970) {
-    return "";
+function PaymentMethodCallout({
+  notice,
+  actionLabel,
+}: {
+  notice: PaymentMethodNotice;
+  actionLabel: string;
+}) {
+  if (notice === "valid") {
+    return (
+      <Box maxWidth="650px" mt="3">
+        <Callout status="success">
+          You have a valid payment method on file. You will be billed
+          automatically on this date.
+        </Callout>
+      </Box>
+    );
   }
-  return date(parsed);
+  if (notice === "missing") {
+    return (
+      <Box maxWidth="550px" mt="3">
+        <Callout status="warning">
+          <p>
+            You do not have a valid payment method on file. Your subscription
+            will be cancelled on this date unless you add a valid payment
+            method.
+          </p>
+          <p className="mb-0">
+            Click <strong>{actionLabel}</strong> below to add a payment method.
+          </p>
+        </Callout>
+      </Box>
+    );
+  }
+  return null;
+}
+
+function NextBillDateRow({
+  nextBillDate,
+  paymentMethodNotice,
+  actionLabel,
+}: {
+  nextBillDate: string;
+  paymentMethodNotice: PaymentMethodNotice;
+  actionLabel: string;
+}) {
+  return (
+    <Box mb="3">
+      <div>
+        <strong>Next Bill Date: </strong>
+        {nextBillDate}
+      </div>
+      <PaymentMethodCallout
+        notice={paymentMethodNotice}
+        actionLabel={actionLabel}
+      />
+    </Box>
+  );
+}
+
+function BillingStatusSection({
+  billing,
+  actionLabel,
+}: {
+  billing: SubscriptionBillingState;
+  actionLabel: string;
+}) {
+  switch (billing.kind) {
+    case "canceled":
+      return (
+        <Callout status="error" mb="3">
+          Your plan was canceled on{" "}
+          {billing.cancelationDate ? `${billing.cancelationDate}.` : ""}
+        </Callout>
+      );
+    case "self_serve_pending_cancel":
+      return billing.pendingCancelDate ? (
+        <Callout status="error" mb="3">
+          Your plan will be canceled, but is still available until the end of
+          your billing period on {billing.pendingCancelDate}.
+        </Callout>
+      ) : null;
+    case "self_serve_active":
+    case "enterprise_active":
+      return billing.nextBillDate ? (
+        <NextBillDateRow
+          nextBillDate={billing.nextBillDate}
+          paymentMethodNotice={billing.paymentMethodNotice}
+          actionLabel={actionLabel}
+        />
+      ) : null;
+    case "enterprise_contract_ending":
+      return (
+        <>
+          <Box mb="3">
+            <strong>Contract Expiration:</strong>{" "}
+            {billing.contractExpirationDate}
+            <Text as="div" color="gray" size="2">
+              {billing.contractExpirationHelper}
+            </Text>
+            {!billing.nextBillDate ? (
+              <PaymentMethodCallout
+                notice={billing.paymentMethodNotice}
+                actionLabel={actionLabel}
+              />
+            ) : null}
+          </Box>
+          {billing.nextBillDate ? (
+            <NextBillDateRow
+              nextBillDate={billing.nextBillDate}
+              paymentMethodNotice={billing.paymentMethodNotice}
+              actionLabel={actionLabel}
+            />
+          ) : null}
+        </>
+      );
+  }
 }
 
 export default function SubscriptionInfo() {
@@ -98,39 +210,21 @@ export default function SubscriptionInfo() {
     [users, teams],
   );
 
-  const hasActiveOrbSubscription =
-    subscription?.billingPlatform === "orb" &&
-    subscription?.status === "active" &&
-    subscription?.nextBillDate &&
-    !subscription?.pendingCancelation;
-
-  const showOrbInvoiceBlockedCallout =
-    subscription?.billingPlatform === "orb" &&
-    subscription?.status === "active" &&
-    !subscription?.stripeCustomerId;
-
-  const showStripeManageButton = subscription?.billingPlatform === "stripe";
-  const showUpdateInvoiceButton =
-    subscription?.billingPlatform === "orb" &&
-    subscription?.status === "active" &&
-    !!subscription?.stripeCustomerId;
-  const showRenewButton = subscription?.status === "canceled" && canSubscribe;
-  const isEnterprise = accountPlan === "enterprise";
-  const showCancelButton = hasActiveOrbSubscription && !isEnterprise;
-  const contractExpirationDate = expirationDisplayDate(
-    subscription?.dateToBeCanceled,
+  const billing = useMemo(
+    () =>
+      getSubscriptionBillingState({
+        subscription,
+        accountPlan,
+        canSubscribe,
+      }),
+    [subscription, accountPlan, canSubscribe],
   );
-  // Self-serve pending cancelation means no further charges; enterprise
-  // contracts still bill until the contract end even when auto-renew is off.
-  const showNextBillDate =
-    subscription?.status !== "canceled" &&
-    (isEnterprise || !subscription?.pendingCancelation);
   const showActionButtons =
-    showStripeManageButton ||
-    showUpdateInvoiceButton ||
-    showRenewButton ||
-    showCancelButton;
-  const addPaymentMethodActionLabel = showUpdateInvoiceButton
+    billing.showStripeManageButton ||
+    billing.showUpdateInvoiceButton ||
+    billing.showRenewButton ||
+    billing.showCancelButton;
+  const addPaymentMethodActionLabel = billing.showUpdateInvoiceButton
     ? "Update Invoice Details"
     : "View Plan Details";
 
@@ -236,7 +330,7 @@ export default function SubscriptionInfo() {
       <Box mb="3">
         <strong>Current Plan:</strong> {isCloud() ? "Cloud" : "Self-Hosted"}{" "}
         {planNameFromAccountPlan(accountPlan)}
-        {subscription?.status === "trialing" && (
+        {billing.isTrialing && (
           <>
             {" "}
             <em>(trial)</em>
@@ -253,58 +347,11 @@ export default function SubscriptionInfo() {
           </Text>
         ) : null}
       </Box>
-      {isEnterprise && contractExpirationDate ? (
-        <Box mb="3">
-          <strong>Contract Expiration:</strong> {contractExpirationDate}
-        </Box>
-      ) : null}
-      {showNextBillDate ? (
-        <Box mb="3">
-          <div>
-            <strong>Next Bill Date: </strong>
-            {subscription?.nextBillDate}
-          </div>
-          {subscription?.hasPaymentMethod === true ? (
-            <Box maxWidth="650px" mt="3">
-              <Callout status="success">
-                You have a valid payment method on file. You will be billed
-                automatically on this date.
-              </Callout>
-            </Box>
-          ) : subscription?.hasPaymentMethod === false &&
-            accountPlan !== "enterprise" ? (
-            <Box maxWidth="550px" mt="3">
-              <Callout status="warning">
-                <p>
-                  You do not have a valid payment method on file. Your
-                  subscription will be cancelled on this date unless you add a
-                  valid payment method.
-                </p>
-                <p className="mb-0">
-                  Click <strong>{addPaymentMethodActionLabel}</strong> below to
-                  add a payment method.
-                </p>
-              </Callout>
-            </Box>
-          ) : null}
-        </Box>
-      ) : null}
-      {subscription?.pendingCancelation &&
-        subscription?.dateToBeCanceled &&
-        !isEnterprise && (
-          <Callout status="error" mb="3">
-            Your plan will be canceled, but is still available until the end of
-            your billing period on
-            {` ${date(subscription?.dateToBeCanceled ?? "")}.`}
-          </Callout>
-        )}
-      {subscription?.status === "canceled" && (
-        <Callout status="error" mb="3">
-          Your plan was canceled on{" "}
-          {` ${date(subscription?.cancelationDate ?? "")}.`}
-        </Callout>
-      )}
-      {showOrbInvoiceBlockedCallout ? (
+      <BillingStatusSection
+        billing={billing}
+        actionLabel={addPaymentMethodActionLabel}
+      />
+      {billing.invoiceBlocked ? (
         <Box maxWidth="550px" mt="4" mb="3">
           <Callout status="info">
             To make changes to your subscription, please contact your account
@@ -315,13 +362,13 @@ export default function SubscriptionInfo() {
       ) : null}
       {showActionButtons ? (
         <Flex
-          mt={showOrbInvoiceBlockedCallout ? "0" : "4"}
+          mt={billing.invoiceBlocked ? "0" : "4"}
           mb="3"
           gap="3"
           align="center"
           wrap="wrap"
         >
-          {showStripeManageButton ? (
+          {billing.showStripeManageButton ? (
             <Button
               onClick={async () => {
                 const res = await apiCall<{ url: string }>(
@@ -342,17 +389,17 @@ export default function SubscriptionInfo() {
                 : "View Previous Invoices"}
             </Button>
           ) : null}
-          {showUpdateInvoiceButton ? (
+          {billing.showUpdateInvoiceButton ? (
             <Button onClick={() => setUpdateOrbSubscriptionModal(true)}>
               Update Invoice Details
             </Button>
           ) : null}
-          {showRenewButton ? (
+          {billing.showRenewButton ? (
             <Button onClick={() => setUpgradeModal(true)}>
               Renew Your Plan
             </Button>
           ) : null}
-          {showCancelButton ? (
+          {billing.showCancelButton ? (
             <Button
               color="red"
               onClick={() => setCancelSubscriptionModal(true)}

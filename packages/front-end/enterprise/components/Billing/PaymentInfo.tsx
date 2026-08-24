@@ -31,9 +31,6 @@ export default function PaymentInfo() {
   const [loading, setLoading] = useState(false);
   const { subscription, organization } = useUser();
   const { apiCall } = useAuth();
-  // TODO: Remove once all orgs have moved license info off of the org - only limit by isCloud()
-  // The licenseKey is required to look up payment methods.
-  // stripeCustomerId is required for Stripe self-serve payment method APIs.
   const canShowPaymentInfo =
     isCloud() &&
     !!organization.licenseKey &&
