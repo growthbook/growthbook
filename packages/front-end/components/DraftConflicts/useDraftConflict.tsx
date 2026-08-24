@@ -29,6 +29,7 @@ export function useDraftConflict<T extends object>({
   applyField,
   isNewDraft,
   entityNoun,
+  onReload,
 }: {
   initial: T;
   labels?: Record<string, string>;
@@ -38,6 +39,8 @@ export function useDraftConflict<T extends object>({
   applyField?: (field: string, value: unknown) => void;
   isNewDraft: boolean;
   entityNoun: string;
+  // Offered in place of merge choices when a contested value was too large to ship.
+  onReload?: () => void;
 }) {
   const [baseline, setBaseline] = useState<T>(initial);
   const [conflict, setConflict] = useState<Conflict<T> | null>(null);
@@ -135,7 +138,9 @@ export function useDraftConflict<T extends object>({
   /** Per-submit: the baseline to send, and the 409 handler. */
   const guard = useCallback(
     (attempted: T) => ({
-      baseline,
+      // A fork compares against live, which only the pre-conflict baseline describes.
+      baseline:
+        newDraftAvoidsConflict && conflict ? conflict.baseAtConflict : baseline,
       onError: (responseData: { status?: number; conflict?: unknown }) => {
         if (responseData?.status !== 409 || !responseData?.conflict) return;
         signaledRef.current = true;
@@ -151,7 +156,7 @@ export function useDraftConflict<T extends object>({
         if (payload.current) setBaseline(payload.current);
       },
     }),
-    [baseline, setField],
+    [baseline, setField, conflict, newDraftAvoidsConflict],
   );
 
   // The conflict renders its own banner, so a handled 409 must not also surface
@@ -169,7 +174,18 @@ export function useDraftConflict<T extends object>({
     }
   }, []);
 
-  const clear = useCallback(() => setConflict(null), []);
+  const onReloadRef = useRef(onReload);
+  onReloadRef.current = onReload;
+  const reload = useCallback(() => {
+    setConflict(null);
+    onReloadRef.current?.();
+  }, []);
+
+  // Page-mounted hooks re-pin at modal open; the initial baseline predates it.
+  const clear = useCallback((fresh?: T) => {
+    setConflict(null);
+    if (fresh) setBaseline(fresh);
+  }, []);
 
   const alert = conflict ? (
     <HelperText status="warning" icon={null}>
@@ -220,6 +236,7 @@ export function useDraftConflict<T extends object>({
     alertActive: !resolved,
     callouts,
     hasConflict: !!conflict,
+    conflictFromDraft: conflict?.draftVersion !== undefined,
     providerProps: {
       contested: newDraftAvoidsConflict ? [] : contested,
       resolutions,
@@ -229,6 +246,8 @@ export function useDraftConflict<T extends object>({
       claimed,
       claim,
       release,
+      omitted: conflict?.omittedFields,
+      reload: onReload ? reload : undefined,
     },
   };
 }
