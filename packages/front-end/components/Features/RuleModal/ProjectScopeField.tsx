@@ -57,6 +57,7 @@ export default function RuleProjectScopeField({
           <Link
             type="button"
             className="hover-underline"
+            weight="medium"
             onClick={() => setEnabled(true)}
           >
             <PiPlusBold className="mr-1" />
@@ -68,29 +69,13 @@ export default function RuleProjectScopeField({
         </Box>
       ) : (
         <>
-          <Flex align="center" gap="1" mb="3">
+          <Flex align="center" mb="3">
             <label className="mb-0" style={{ fontWeight: 600 }}>
               Rule Projects
             </label>
             <Tooltip body={help}>
               <PiInfo />
             </Tooltip>
-            <Box flexGrow="1" />
-            <Link
-              type="button"
-              color="red"
-              size="sm"
-              className="hover-underline"
-              onClick={() => {
-                // Back to the default: the rule applies to every Project the
-                // feature delivers to.
-                setAllProjects(true);
-                setSelectedProjects([]);
-                setEnabled(false);
-              }}
-            >
-              Remove Project targeting
-            </Link>
           </Flex>
           <RadioGroup
             width="100%"
