@@ -308,6 +308,11 @@ export interface LinkedFeatureInfo {
    * switches and metadata are excluded (auto-toggled / typically no SDK impact).
    */
   hasUnrelatedDraftChanges?: boolean;
+  /**
+   * Environments currently disabled on the live feature that will be enabled
+   * when the pending draft is auto-published on experiment start.
+   */
+  environmentsToEnable?: string[];
 }
 
 export type LinkedChangeEnvState = "active" | "no-sdk-connection";

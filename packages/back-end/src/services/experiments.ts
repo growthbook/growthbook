@@ -5136,6 +5136,24 @@ export async function getRefLinkedFeatureInfo({
         }
       });
 
+      // Environments currently disabled on the live feature that will be
+      // enabled once the pending draft is auto-published on experiment start.
+      // Only meaningful when there's a draft to publish; the draft's matches
+      // carry environmentEnabled from the draft's environmentsEnabled snapshot.
+      let environmentsToEnable: string[] | undefined;
+      if (state === "draft" && matchedDraftRevision) {
+        const enabled = new Set<string>();
+        matches.forEach((match) => {
+          if (
+            match.environmentEnabled &&
+            !feature.environmentSettings?.[match.environmentId]?.enabled
+          ) {
+            enabled.add(match.environmentId);
+          }
+        });
+        if (enabled.size > 0) environmentsToEnable = [...enabled];
+      }
+
       const info: LinkedFeatureInfo = {
         feature,
         state,
@@ -5156,6 +5174,7 @@ export async function getRefLinkedFeatureInfo({
         ...(hasUnrelatedDraftChanges !== undefined && {
           hasUnrelatedDraftChanges,
         }),
+        ...(environmentsToEnable !== undefined && { environmentsToEnable }),
       };
 
       return info;

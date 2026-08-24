@@ -25,6 +25,8 @@ import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import Avatar from "@/ui/Avatar";
+import Badge from "@/ui/Badge";
+import Tooltip from "@/ui/Tooltip";
 import {
   formatTrafficSplit,
   getHoldoutTrafficBreakdown,
@@ -145,6 +147,54 @@ function LinkedChangeSection({
   );
 }
 
+// Approximate character budget for the ~40% badge region and per-badge
+// overhead (PiPlus icon + padding). Tunable; not pixel-accurate by design.
+const ENV_BADGE_CHAR_BUDGET = 22;
+const ENV_BADGE_OVERHEAD = 3;
+const OVERFLOW_BADGE_COST = 5; // room for the "+ N" badge
+
+function EnvironmentBadges({ environments }: { environments: string[] }) {
+  const visible: string[] = [];
+  let used = 0;
+  for (let i = 0; i < environments.length; i++) {
+    const cost = environments[i].length + ENV_BADGE_OVERHEAD;
+    const moreRemain = i < environments.length - 1;
+    const reserve = moreRemain ? OVERFLOW_BADGE_COST : 0;
+    // Always keep at least one real badge, even if it exceeds the budget.
+    if (visible.length > 0 && used + cost + reserve > ENV_BADGE_CHAR_BUDGET) {
+      break;
+    }
+    visible.push(environments[i]);
+    used += cost;
+  }
+  const hidden = environments.slice(visible.length);
+  return (
+    <Flex gap="2" justify="end" align="center">
+      {visible.map((env) => (
+        <Badge
+          key={env}
+          color="amber"
+          variant="soft"
+          radius="full"
+          size="xs"
+          label={`+ ${env}`}
+        />
+      ))}
+      {hidden.length > 0 && (
+        <Tooltip content={hidden.join(", ")} side="top">
+          <Badge
+            color="amber"
+            variant="soft"
+            radius="full"
+            size="xs"
+            label={`+ ${hidden.length}`}
+          />
+        </Tooltip>
+      )}
+    </Flex>
+  );
+}
+
 function SecondaryActionButton({
   label,
   action,
@@ -196,6 +246,9 @@ export default function StartExperimentModal({
     linkedFeatures.length > 0 ||
     visualChangesets.length > 0 ||
     urlRedirects.length > 0;
+  const featuresEnablingEnvs = linkedFeatures.filter(
+    (f) => (f.environmentsToEnable?.length ?? 0) > 0,
+  );
   const parsedScheduledDate = experiment.statusUpdateSchedule?.startAt
     ? new Date(experiment.statusUpdateSchedule.startAt)
     : null;
@@ -585,17 +638,58 @@ export default function StartExperimentModal({
                     type="feature-flag"
                     count={linkedFeatures.length}
                   >
-                    <Flex wrap="wrap" gap="3">
+                    {featuresEnablingEnvs.length > 0 && (
+                      <Callout size="sm" status="warning" mb="3">
+                        {featuresEnablingEnvs.length} feature
+                        {featuresEnablingEnvs.length === 1 ? "" : "s"} will be
+                        turned on in new environments.
+                      </Callout>
+                    )}
+                    <Flex direction="column" gap="2">
                       {linkedFeatures.map((info) =>
                         info.feature?.id ? (
-                          <Link
+                          <Flex
                             key={info.feature.id}
-                            href={`/features/${info.feature.id}`}
-                            target="_blank"
+                            className="appbox"
+                            p="3"
+                            align="center"
+                            gap="3"
+                            style={{
+                              marginBottom: "0",
+                            }}
                           >
-                            <Text weight="semibold">{info.feature.id}</Text>
-                            <PiArrowSquareOut className="ml-1" />
-                          </Link>
+                            <Box style={{ flexBasis: "60%", minWidth: 0 }}>
+                              <Link
+                                href={`/features/${info.feature.id}`}
+                                target="_blank"
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                  minWidth: 0,
+                                  maxWidth: "100%",
+                                }}
+                              >
+                                <Box
+                                  className="text-ellipsis"
+                                  title={info.feature.id}
+                                  minWidth="0"
+                                >
+                                  <Text weight="semibold" whiteSpace="nowrap">
+                                    {info.feature.id}
+                                  </Text>
+                                </Box>
+                                <PiArrowSquareOut style={{ flexShrink: 0 }} />
+                              </Link>
+                            </Box>
+                            {(info.environmentsToEnable?.length ?? 0) > 0 && (
+                              <Box style={{ flexBasis: "40%", minWidth: 0 }}>
+                                <EnvironmentBadges
+                                  environments={info.environmentsToEnable!}
+                                />
+                              </Box>
+                            )}
+                          </Flex>
                         ) : null,
                       )}
                     </Flex>
