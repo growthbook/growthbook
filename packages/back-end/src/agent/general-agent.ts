@@ -56,9 +56,8 @@ How to end a turn:
   user-visible content — emit no plain text after it).
 
 How to use skills:
-- The "Available skills" section lists **domain routers** only (\`feature-flags\`,
-  \`experiments\`, \`analytics\`, \`growthbook-docs\`). Full instructions
-  are NOT inlined — load them with \`loadSkill\`.
+- The "Available skills" section lists **domain routers** only. Full
+  instructions are NOT inlined — load them with \`loadSkill\`.
 - Canonical skills were originally written for external, shell-capable agents.
   Treat their HTTP methods, paths, bodies, sequencing, and safety guardrails as
   authoritative, but translate every \`gb-call METHOD PATH [body]\` example into
@@ -235,7 +234,7 @@ function buildGeneralAgentSystemPrompt(): string {
 // =============================================================================
 
 const EXPLORATION_PATH_RE =
-  /^\/api\/v[12]\/product-analytics\/(metric|fact-table|data-source)-exploration\/?$/;
+  /^\/api\/v[12]\/product-analytics\/(metric|fact-table|data-source|funnel)-exploration\/?$/;
 
 function isExplorationPath(path: string): boolean {
   // Normalize first so we match the canonical `/api/v1/...` form the

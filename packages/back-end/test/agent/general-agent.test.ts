@@ -167,6 +167,12 @@ describe("requiresMutationConfirmation (deterministic mutation gate)", () => {
         path: "/api/v1/product-analytics/data-source-exploration",
       }),
     ).toBe(false);
+    expect(
+      _requiresMutationConfirmation({
+        method: "POST",
+        path: "/api/v1/product-analytics/funnel-exploration",
+      }),
+    ).toBe(false);
   });
 
   it("ignores query strings when matching the allowlist", () => {

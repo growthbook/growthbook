@@ -1,7 +1,10 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { _loadSkillsFromDirectory } from "back-end/src/agent/skills";
+import {
+  _loadSkillsFromDirectory,
+  _resolveSkill,
+} from "back-end/src/agent/skills";
 
 function writeFixtureFile(path: string, content: string): void {
   mkdirSync(dirname(path), { recursive: true });
@@ -42,6 +45,23 @@ description: A standalone skill with no workflows
 `,
   );
 
+  return root;
+}
+
+function createWorkflowFixture(domains: Record<string, string[]>): string {
+  const root = mkdtempSync(join(tmpdir(), "agent-skills-"));
+  for (const [domain, workflows] of Object.entries(domains)) {
+    writeFixtureFile(
+      join(root, domain, "SKILL.md"),
+      `---\nname: ${domain}\ndescription: ${domain} workflows\n---\n\n# ${domain}\n`,
+    );
+    for (const workflow of workflows) {
+      writeFixtureFile(
+        join(root, domain, "references", `${workflow}.md`),
+        `---\nname: ${workflow}\ndescription: ${workflow}\n---\n\n# ${workflow}\n`,
+      );
+    }
+  }
   return root;
 }
 
@@ -101,5 +121,62 @@ describe("agent skills loader", () => {
     expect(skills.get("growthbook-docs")?.body).toContain(
       "GrowthBook documentation",
     );
+  });
+});
+
+describe("skill name resolution", () => {
+  const root = createWorkflowFixture({
+    "feature-flags": ["flag-create", "flag-toggle"],
+    experiments: ["experiment-stop"],
+    standalone: [],
+  });
+  const { skills } = _loadSkillsFromDirectory(root);
+  const resolvedName = (name: string) => _resolveSkill(skills, name)?.name;
+
+  afterAll(() => rmSync(root, { recursive: true, force: true }));
+
+  it("resolves qualified workflow names and domain names exactly", () => {
+    expect(resolvedName("feature-flags/references/flag-create")).toBe(
+      "feature-flags/references/flag-create",
+    );
+    expect(resolvedName("feature-flags")).toBe("feature-flags");
+  });
+
+  it("resolves the shapes a domain router and its siblings use", () => {
+    // The router's table lists `references/<workflow>.md`.
+    expect(resolvedName("references/flag-create.md")).toBe(
+      "feature-flags/references/flag-create",
+    );
+    // Cross-domain handoffs name the workflow alone.
+    expect(resolvedName("experiment-stop")).toBe(
+      "experiments/references/experiment-stop",
+    );
+    // A qualified name that kept its extension, and stray whitespace.
+    expect(resolvedName("feature-flags/references/flag-toggle.md")).toBe(
+      "feature-flags/references/flag-toggle",
+    );
+    expect(resolvedName(" standalone.md ")).toBe("standalone");
+  });
+
+  it("returns undefined for unknown names", () => {
+    expect(resolvedName("flag-nonexistent")).toBeUndefined();
+    expect(resolvedName("references/")).toBeUndefined();
+  });
+
+  it("returns undefined when a bare workflow name is ambiguous", () => {
+    const ambiguousRoot = createWorkflowFixture({
+      "domain-a": ["shared-workflow"],
+      "domain-b": ["shared-workflow"],
+    });
+    try {
+      const { skills: ambiguous } = _loadSkillsFromDirectory(ambiguousRoot);
+
+      expect(_resolveSkill(ambiguous, "shared-workflow")).toBeUndefined();
+      expect(
+        _resolveSkill(ambiguous, "domain-a/references/shared-workflow")?.name,
+      ).toBe("domain-a/references/shared-workflow");
+    } finally {
+      rmSync(ambiguousRoot, { recursive: true, force: true });
+    }
   });
 });

@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
-// Assembles the in-app assistant's skills from growthbook/skills plus the
-// checked-in skills-local tree. Canonical checkout, in order: $SKILLS_SRC,
-// agent-skills.local.json (gitignored; path relative to the repo root), then
-// skills-src/. Neighbor directories named "skills" are not probed.
+// Copies skills into generated/agent-skills for the in-app assistant.
+//
+// 1. Copy allowlisted skills from a growthbook/skills checkout. The allowlist
+//    is CANONICAL_SKILLS below; other skills in that repo are skipped.
+// 2. Merge in-app assistant skills from src/agent/skills-local. A skill
+//    whose name collides with an allowlisted skill is skipped.
 
 import {
   existsSync,

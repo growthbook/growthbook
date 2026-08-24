@@ -144,6 +144,11 @@ function readReferenceSkills(
 
     const name = `${domainName}/references/${path.basename(file, ".md")}`;
     const { data: frontmatter, body } = readMarkdownFile(referencePath);
+    if (!frontmatter.description) {
+      logger.warn(
+        `Skill ${directoryName}/references/${file} is missing a 'description' frontmatter field; it will only be findable by name in the skill menu.`,
+      );
+    }
     references.push({
       name,
       description: frontmatter.description || "",
@@ -189,7 +194,7 @@ function loadSkillsFromDirectory(dir: string | null): SkillRegistry {
     if (domainReferences === null) continue;
     if (domainReferences.length === 0) {
       logger.warn(
-        `Skill domain "${domain.name}" has no workflows. Run 'pnpm --filter back-end assemble:skills' with a growthbook/skills checkout; see packages/back-end/src/agent/AGENT_SKILLS.md.`,
+        `Skill domain "${domain.name}" has no workflows. Run 'pnpm --filter back-end assemble-skills' with a growthbook/skills checkout; see packages/back-end/agent-skills.local.json.example.`,
       );
     }
     for (const reference of domainReferences) {
@@ -213,7 +218,32 @@ function getSkillRegistry(): SkillRegistry {
   return cachedRegistry;
 }
 
+/**
+ * Skills are keyed `<domain>` or `<domain>/references/<workflow>`, but a domain
+ * router lists its workflows as `references/<workflow>.md` — the path a
+ * shell-capable agent would read — and sibling workflows refer to each other by
+ * bare name. Accept those shapes when they point at exactly one skill, so the
+ * caller doesn't have to reassemble the qualified key from the router's table.
+ */
+function resolveSkill(
+  skills: Map<string, Skill>,
+  name: string,
+): Skill | undefined {
+  const exact = skills.get(name);
+  if (exact) return exact;
+
+  const workflow = name.trim().split("/").pop()?.replace(/\.md$/, "");
+  if (!workflow) return undefined;
+
+  const matches = [...skills.keys()].filter(
+    (key) => key === workflow || key.endsWith(`/references/${workflow}`),
+  );
+  return matches.length === 1 ? skills.get(matches[0]) : undefined;
+}
+
+// Exposed for unit tests — see test/agent/skills.test.ts
 export const _loadSkillsFromDirectory = loadSkillsFromDirectory;
+export const _resolveSkill = resolveSkill;
 
 /** Domain routers only — the compact index inlined into the system prompt. */
 export function listDomainSkills(): readonly SkillSummary[] {
@@ -226,5 +256,5 @@ export function listSkillSummaries(): readonly SkillSummary[] {
 }
 
 export function readSkill(name: string): Skill | undefined {
-  return getSkillRegistry().skills.get(name);
+  return resolveSkill(getSkillRegistry().skills, name);
 }
