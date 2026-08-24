@@ -35,7 +35,9 @@ type SentryEventLike = {
 
 // Strip credentials from a Sentry event. Wire in via `Sentry.init({ beforeSend })`.
 export function scrubSentryEvent<T extends SentryEventLike>(event: T): T {
-  const headers = event.request?.headers;
+  const { request } = event;
+
+  const headers = request?.headers;
   if (headers) {
     Object.keys(headers).forEach((name) => {
       if (REDACTED_HEADERS.has(name.toLowerCase())) {
@@ -44,12 +46,16 @@ export function scrubSentryEvent<T extends SentryEventLike>(event: T): T {
     });
   }
 
-  if (event.request?.url) {
-    event.request.url = redactUrl(event.request.url);
-  }
-
-  if (typeof event.request?.query_string === "string") {
-    event.request.query_string = redactUrl(event.request.query_string);
+  if (request) {
+    if (request.url) {
+      request.url = redactUrl(request.url);
+    }
+    if (typeof request.query_string === "string") {
+      request.query_string = redactUrl(request.query_string);
+    } else if (request.query_string) {
+      // The protocol allows parsed forms too; no JS SDK emits one, so fail closed
+      request.query_string = REDACTED;
+    }
   }
 
   // Without tracing there's no `expressIntegration`, so the transaction name is the raw URL

@@ -64,12 +64,16 @@ describe("scrubSentryEvent", () => {
     ).toBe("code=[Redacted]&state=xyz");
   });
 
-  it("leaves a non-string query_string alone", () => {
-    const parsed = { code: "oauth_abc" };
+  it("redacts a parsed query_string wholesale", () => {
     expect(
-      scrubSentryEvent({ request: { query_string: parsed } }).request
-        ?.query_string,
-    ).toBe(parsed);
+      scrubSentryEvent({ request: { query_string: { code: "oauth_abc" } } })
+        .request?.query_string,
+    ).toBe("[Redacted]");
+
+    expect(
+      scrubSentryEvent({ request: { query_string: [["code", "oauth_abc"]] } })
+        .request?.query_string,
+    ).toBe("[Redacted]");
   });
 
   it("redacts the transaction name, which is the raw URL without tracing", () => {
