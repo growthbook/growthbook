@@ -132,11 +132,12 @@ export default function ProductAnalyticsExplorerSettings({
         }
       : exploration.config
     : undefined;
-  // No `block.comparison` here: the provider owns the comparison while open, so
-  // keying on it makes it remount itself on toggle and drop the in-flight run.
+  // Deliberately excluded, since both remount the provider and lose in-flight work:
+  // - `block.comparison`, which the provider owns while open
+  // - the date-range follow flag, which now flips on every edit of an inherited
+  //   range. Revert reseeds the draft itself, so it needs no remount.
   const explorerProviderKey = [
     dashboardBlockHasIds(block) ? block.id : "",
-    block.globalControlSettings?.dateRange === true,
     JSON.stringify(dashboardGlobalControls ?? null),
     hasStaleDashboardDateResults,
   ].join(":");

@@ -39,6 +39,7 @@ import { Permissions, userHasPermission } from "shared/permissions";
 import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
 import { AgreementType } from "shared/validators";
+import { AIProvider } from "shared/ai";
 import { getOwnerDisplay as getOwnerDisplayName } from "@/services/owners";
 import {
   getGrowthBookBuild,
@@ -103,6 +104,9 @@ export interface UserContextValue {
   pylonHmacHash?: string;
   email?: string;
   superAdmin?: boolean;
+  npsSurveyAt?: string;
+  accountCreatedAt?: string;
+  npsSurveyEnabled?: boolean;
   license?: Partial<LicenseInterface> | null;
   installationName?: string;
   subscription: SubscriptionInfo | null;
@@ -121,6 +125,9 @@ export interface UserContextValue {
   commercialFeatures: CommercialFeature[];
   organization: Partial<OrganizationInterface>;
   agreements?: AgreementType[];
+  // AI providers with a usable API key, from the org's own stored keys or the
+  // host's environment variables.
+  aiKeyProviders: AIProvider[];
   seatsInUse: number;
   roles: Role[];
   teams?: Team[];
@@ -146,6 +153,9 @@ interface UserResponse {
   pylonHmacHash: string;
   verified: boolean;
   superAdmin: boolean;
+  npsSurveyAt?: string;
+  accountCreatedAt?: string;
+  npsSurveyEnabled?: boolean;
   organizations?: UserOrganizations;
   currentUserPermissions: UserPermissions;
 }
@@ -166,6 +176,7 @@ export const UserContext = createContext<UserContextValue>({
   },
   organization: {},
   agreements: [],
+  aiKeyProviders: [],
   subscription: null,
   licenseError: "",
   seatsInUse: 0,
@@ -540,6 +551,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         email: data?.email,
         pylonHmacHash: data?.pylonHmacHash,
         superAdmin: data?.superAdmin,
+        npsSurveyAt: data?.npsSurveyAt,
+        accountCreatedAt: data?.accountCreatedAt,
+        npsSurveyEnabled: data?.npsSurveyEnabled,
         updateUser,
         user,
         users,
@@ -560,6 +574,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         licenseError: currentOrg?.licenseError || "",
         commercialFeatures: [...commercialFeatures],
         agreements: currentOrg?.agreements || [],
+        aiKeyProviders: currentOrg?.aiKeyProviders || [],
         organization: organization || {},
         seatsInUse: currentOrg?.seatsInUse || 0,
         teams,

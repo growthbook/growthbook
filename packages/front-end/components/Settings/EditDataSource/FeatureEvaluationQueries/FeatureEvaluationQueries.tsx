@@ -5,11 +5,15 @@ import {
 } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { PiDotsThreeVertical, PiPlus } from "react-icons/pi";
-import { getActiveFeatureUsageQuery } from "shared/util";
+import {
+  getActiveFeatureUsageQuery,
+  isEventForwarderManaged,
+} from "shared/util";
 import { Box, Flex, Heading, IconButton } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
@@ -38,18 +42,8 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
     [dataSource.settings?.queries?.featureUsage],
   );
 
-  // The Event Forwarder managed feature usage query is intentionally editable
-  // and deletable for now. Restore
-  // `isEventForwarderManagedFeatureUsageQuery(featureUsageQuery)` to lock it
-  // again.
-  const isManagedQuery = false;
-
   const handleActionDeleteClicked = useCallback(
     () => async () => {
-      if (isManagedQuery) {
-        return;
-      }
-
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
       const existing = copy.settings.queries?.featureUsage ?? [];
       const next = existing.filter(
@@ -64,7 +58,7 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
 
       await onSave(copy);
     },
-    [dataSource, featureUsageQuery?.id, isManagedQuery, onSave],
+    [dataSource, featureUsageQuery?.id, onSave],
   );
 
   const handleSave = useCallback(
@@ -103,6 +97,9 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
     return null;
   }
 
+  const isManaged =
+    !!featureUsageQuery && isEventForwarderManaged(featureUsageQuery);
+
   return (
     <Box>
       <Flex align="center" gap="2" mb="3" justify="between">
@@ -121,7 +118,7 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
                 Add
               </Button>
             )}
-            {featureUsageQuery && (
+            {featureUsageQuery && !isManaged && (
               <DropdownMenu
                 trigger={
                   <IconButton
@@ -142,20 +139,18 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
                   Edit Query
                 </DropdownMenuItem>
 
-                {!isManagedQuery && (
-                  <DropdownMenuItem
-                    color="red"
-                    confirmation={{
-                      submit: handleActionDeleteClicked(),
-                      confirmationTitle: "Delete Feature Usage Query",
-                      cta: "Delete",
-                      getConfirmationContent: async () =>
-                        "Are you sure you want to delete this feature usage query?",
-                    }}
-                  >
-                    Delete
-                  </DropdownMenuItem>
-                )}
+                <DropdownMenuItem
+                  color="red"
+                  confirmation={{
+                    submit: handleActionDeleteClicked(),
+                    confirmationTitle: "Delete Feature Usage Query",
+                    cta: "Delete",
+                    getConfirmationContent: async () =>
+                      "Are you sure you want to delete this feature usage query?",
+                  }}
+                >
+                  Delete
+                </DropdownMenuItem>
               </DropdownMenu>
             )}
           </Flex>
@@ -175,6 +170,11 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
 
       {featureUsageQuery && (
         <Box p="2">
+          {featureUsageQuery.description ? (
+            <Text as="p" color="text-mid">
+              {featureUsageQuery.description}
+            </Text>
+          ) : null}
           {featureUsageQuery.error ? (
             <Callout status="error" mb="3">
               This query had an error with it the last time it ran:{" "}

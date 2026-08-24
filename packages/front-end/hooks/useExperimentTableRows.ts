@@ -13,6 +13,8 @@ import {
   expandMetricGroups,
   ExperimentMetricDefinition,
   ExperimentSortBy,
+  funnelStepMetricId,
+  isFactFunnelMetric,
   createCustomSliceDataForMetric,
   createAutoSliceDataForMetric,
   setAdjustedCIs,
@@ -584,6 +586,10 @@ export function generateRowsForMetric({
     numSlices > 0 &&
     !sliceTagsFilter.includes("overall");
 
+  const funnelSteps = isFactFunnelMetric(metric)
+    ? metric.funnelSettings.steps
+    : [];
+
   const parentRow: ExperimentTableRow = {
     label: newMetric?.name,
     metric: newMetric,
@@ -608,7 +614,7 @@ export function generateRowsForMetric({
         }),
     metricSnapshotSettings,
     resultGroup,
-    numSlices,
+    numChildren: numSlices,
     labelOnly: isLabelOnly,
   };
 
@@ -692,7 +698,7 @@ export function generateRowsForMetric({
           name: slice.name,
         },
         metricOverrideFields: overrideFields,
-        rowClass: `${newMetric?.inverse ? "inverse" : ""} slice-row`,
+        rowClass: newMetric?.inverse ? "inverse" : "",
         sliceId: slice.id,
         variations: resultsArray[0].variations.map((v) => {
           // Use the slice metric's data instead of the parent metric's data
@@ -707,8 +713,10 @@ export function generateRowsForMetric({
         }),
         metricSnapshotSettings,
         resultGroup,
-        numSlices: 0,
+        numChildren: 0,
         isSliceRow: true,
+        isChildRow: true,
+        childRowType: "slice",
         parentRowId: metricId,
         sliceLevels: slice.sliceLevels.map((dl) => ({
           column: dl.column,
@@ -741,6 +749,37 @@ export function generateRowsForMetric({
     ) {
       return [];
     }
+  }
+
+  if (funnelSteps.length) {
+    parentRow.numChildren = funnelSteps.length;
+    funnelSteps.forEach((step, stepIndex) => {
+      const stepMetricId = funnelStepMetricId(metricId, stepIndex);
+      rows.push({
+        label: step.name,
+        metric: newMetric,
+        metricOverrideFields: overrideFields,
+        rowClass: newMetric?.inverse ? "inverse" : "",
+        variations: resultsArray[0].variations.map(
+          (v) =>
+            v.metrics?.[stepMetricId] || {
+              users: 0,
+              value: 0,
+              cr: 0,
+              errorMessage: "No data",
+            },
+        ),
+        metricSnapshotSettings,
+        resultGroup,
+        numChildren: 0,
+        isChildRow: true,
+        childRowType: "funnelStep",
+        funnelStepIndex: stepIndex,
+        funnelStepOptional: step.optional,
+        parentRowId: metricId,
+        isHiddenByFilter: false,
+      });
+    });
   }
 
   // Add parent row only if we should show it

@@ -1,5 +1,6 @@
 import type { ApiRequestLocals } from "back-end/types/api";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   getRevision,
@@ -54,8 +55,8 @@ export async function schedulePublish(
   // Arming needs the premium feature + publish authority; canceling needs only
   // publish authority.
   const allowed = date
-    ? canScheduleFeaturePublish(req.context, feature)
-    : canPublishFeatureRevision(req.context, feature);
+    ? await canScheduleFeaturePublish(req.context, feature, revision)
+    : await canPublishFeatureRevision(req.context, feature, revision);
   if (!allowed) {
     req.context.permissions.throwPermissionError();
   }
@@ -78,7 +79,7 @@ export async function schedulePublish(
   // that permission — a requested bypass from a non-admin is silently ignored.
   const bypassApproval =
     !!req.body.bypassApproval &&
-    req.context.permissions.canBypassApprovalChecks(feature);
+    req.context.permissions.canBypassFlagApprovalChecks(feature, "feature");
 
   // Committing a schedule on a draft is the no-approval path (fires without a
   // review cycle). Only allow it when the change doesn't require review, failing
@@ -93,7 +94,7 @@ export async function schedulePublish(
     );
     if (
       requiresReview &&
-      !req.context.permissions.canBypassApprovalChecks(feature)
+      !req.context.permissions.canBypassFlagApprovalChecks(feature, "feature")
     ) {
       throw new BadRequestError(
         "This change requires approval — request review to schedule its publish.",
@@ -101,7 +102,7 @@ export async function schedulePublish(
     }
   }
 
-  await setRevisionScheduledPublish(
+  const scheduleChanged = await setRevisionScheduledPublish(
     req.context,
     revision,
     {
@@ -120,6 +121,20 @@ export async function schedulePublish(
     feature,
     version: req.params.version,
   });
+
+  // Arming, re-arming and cancelling all land here, and all three left schedule
+  // subscribers with nothing to listen to on this engine. Only when something
+  // actually moved: cancelling an already-unarmed revision writes nothing, and
+  // announcing that told subscribers of a change that never happened.
+  if (scheduleChanged) {
+    await dispatchFeatureRevisionEvent(
+      req.context,
+      feature,
+      updated ?? revision,
+      "revision.publishScheduleChanged",
+      {},
+    );
+  }
 
   return { feature, revision: updated ?? revision };
 }

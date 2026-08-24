@@ -2,6 +2,7 @@ import isEqual from "lodash/isEqual";
 import type {
   ApprovalFlowConfiguration,
   ApprovalFlowConfigurations,
+  ApprovalFlowPolicy,
   OrganizationSettings,
 } from "shared/types/organization";
 import type { TeamInterface } from "shared/types/team";
@@ -26,31 +27,109 @@ import {
 import { configUpdatableFieldsSchema } from "../validators/config";
 import { constantUpdatableFieldsSchema } from "../validators/constant";
 import { savedGroupUpdatableFieldsSchema } from "../validators/saved-group";
+import {
+  resolveProjectScopedRule,
+  RuleCombiners,
+} from "../util/projectScopedRules";
+
+// One project for a constant or config, several for a saved group.
+export const entityProjects = (snapshot: unknown): string[] => {
+  const entity = (snapshot ?? {}) as { project?: string; projects?: string[] };
+  if (entity.projects?.length) return entity.projects;
+  return entity.project ? [entity.project] : [];
+};
+
+// Stricter wins; autopublish takes agreement; team lists union into one OR-group.
+const APPROVAL_FLOW_COMBINERS: RuleCombiners<ApprovalFlowConfiguration> = {
+  required: (vals) => vals.some(Boolean),
+  requireMetadataReview: (vals) => vals.some((v) => v !== false),
+  blockSelfApproval: (vals) => vals.some(Boolean),
+  resetReviewOnChange: (vals) => vals.some(Boolean),
+  autopublishOnApproval: (vals) => vals.every(Boolean),
+  requiredApproverTeams: (vals) =>
+    [...new Set(vals.flatMap((v) => v ?? []))].sort(),
+};
+
+// `projects` is the selector and `required` the override's own switch.
+const APPROVAL_FLOW_INHERITABLE = [
+  "requireMetadataReview",
+  "blockSelfApproval",
+  "autopublishOnApproval",
+  "resetReviewOnChange",
+  "requiredApproverTeams",
+] as const;
 
 /**
- * Resolve the approval-flow configuration for a given entity type.
+ * The approval-flow rules for an entity type.
  *
  * Extension point: when introducing a new RevisionTargetType, add a `case`
  * mapping it to the corresponding key on `ApprovalFlowConfigurations`.
- *
- * Returns `undefined` if no approval-flow config exists for the entity type
- * yet (treat the same as "no approval flow features enabled").
  */
-export const getApprovalFlowSettings = (
+const approvalFlowRulesFor = (
   approvalFlows: ApprovalFlowConfigurations | undefined,
   entityType: RevisionTargetType,
-): ApprovalFlowConfiguration | undefined => {
-  if (!approvalFlows) return undefined;
+): ApprovalFlowConfiguration[] => {
+  if (!approvalFlows) return [];
   switch (entityType) {
     case "saved-group":
-      return approvalFlows.savedGroups?.[0];
+      return approvalFlows.savedGroups ?? [];
     // Constants don't use this config — they inherit the feature `requireReviews`
     // settings (see constantRequiresReview).
     case "config":
     case "constant":
     default:
-      return undefined;
+      return [];
   }
+};
+
+// One rule per governing project: each is its own requirement, so no winner.
+export const getApprovalFlowRules = (
+  approvalFlows: ApprovalFlowConfigurations | undefined,
+  entityType: RevisionTargetType,
+  projects: string[] = [],
+): ApprovalFlowConfiguration[] => {
+  const rules = approvalFlowRulesFor(approvalFlows, entityType);
+  if (!rules.length) return [];
+  const scopes: (string | undefined)[] = projects.length
+    ? projects
+    : [undefined];
+  const seen = new Set<string>();
+  const resolved: ApprovalFlowConfiguration[] = [];
+  for (const project of scopes) {
+    const rule = resolveProjectScopedRule(
+      rules,
+      project,
+      APPROVAL_FLOW_INHERITABLE,
+      APPROVAL_FLOW_COMBINERS,
+      (r) => !!r.required,
+    );
+    if (!rule) continue;
+    // By content: inherited layers resolve to equal but distinct objects.
+    const key = JSON.stringify(rule);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    resolved.push(rule);
+  }
+  return resolved;
+};
+
+// The toggles for one entity: stricter wins across governing projects, except
+// autopublish, which loosens the flow and so needs all of them to agree.
+export const getApprovalFlowSettings = (
+  approvalFlows: ApprovalFlowConfigurations | undefined,
+  entityType: RevisionTargetType,
+  projects: string[] = [],
+): ApprovalFlowPolicy | undefined => {
+  const rules = getApprovalFlowRules(approvalFlows, entityType, projects);
+  if (!rules.length) return undefined;
+  if (rules.length === 1) return rules[0];
+  return {
+    required: rules.some((r) => r.required),
+    requireMetadataReview: rules.some((r) => r.requireMetadataReview !== false),
+    blockSelfApproval: rules.some((r) => !!r.blockSelfApproval),
+    resetReviewOnChange: rules.some((r) => !!r.resetReviewOnChange),
+    autopublishOnApproval: rules.every((r) => !!r.autopublishOnApproval),
+  };
 };
 
 /**
@@ -133,6 +212,51 @@ export const isConstantRevisionMetadataOnly = (
 };
 
 /**
+ * What RESTORING a historical revision would change, measured against the entity as
+ * it stands now: which per-environment overrides differ, and where the restored
+ * state would live.
+ *
+ * This is the question every revert authority check asks, and it is not the one
+ * `getConstantRevisionChange` answers — that reports what the revision changed when
+ * it was published, which a later change can have superseded. Shared so the revert
+ * endpoint and the controls that predict it derive the same footprint.
+ */
+export const getConstantRestoreChange = (
+  live: Pick<ConstantInterface, "environmentValues"> & { project?: string },
+  target: {
+    snapshot: unknown;
+    proposedChanges: JsonPatchOperation[] | unknown;
+  },
+): {
+  changedEnvironments: string[];
+  restoredProject?: string;
+  /**
+   * The restoration carries an op this applier couldn't read, so
+   * `changedEnvironments` is a floor rather than the answer. Callers deriving
+   * authority from it must widen instead of narrowing — an empty list would
+   * otherwise skip the environment check entirely.
+   */
+  unresolvedOps: boolean;
+} => {
+  const restored = applyTopLevelPatchOps(
+    (target.snapshot ?? {}) as Record<string, unknown>,
+    normalizeProposedChanges(target.proposedChanges),
+  ) as Pick<ConstantInterface, "environmentValues"> & { project?: string };
+
+  const liveEnvs = live.environmentValues ?? {};
+  const restoredEnvs = restored.environmentValues ?? {};
+  const changedEnvironments = [
+    ...new Set([...Object.keys(liveEnvs), ...Object.keys(restoredEnvs)]),
+  ].filter((env) => (liveEnvs[env] ?? "") !== (restoredEnvs[env] ?? ""));
+
+  return {
+    changedEnvironments,
+    restoredProject: restored.project,
+    unresolvedOps: hasUnappliablePatchOps(target.proposedChanges),
+  };
+};
+
+/**
  * Derive what a constant revision changes, for approval scoping: whether the
  * generic `value` changed (affects all environments), which per-environment
  * overrides changed, and whether the change is metadata-only. Feeds
@@ -163,8 +287,15 @@ export const getConstantRevisionChange = (
   // Deep-equal, not `!==`: a constant's value is a string, but a config reuses
   // this helper with an OBJECT value, where reference-inequality would flag a
   // restated-but-unchanged value as a change (spuriously forcing review).
+  //
+  // An op this applier can't account for reads as a base-value change — the
+  // widest thing it could be. Otherwise a change it dropped lands as
+  // `valueChanged: false` with no environments named, which is exactly the shape
+  // `constantRequiresReview` treats as "nothing to review".
   const valueChanged =
-    !isEqual(snapshot.value ?? "", patched.value ?? "") || contentChanged;
+    !isEqual(snapshot.value ?? "", patched.value ?? "") ||
+    contentChanged ||
+    hasUnappliablePatchOps(ops);
 
   const oldEnvs = snapshot.environmentValues ?? {};
   const newEnvs = patched.environmentValues ?? {};
@@ -189,12 +320,18 @@ const isSelfApprovalBlockedForEntity = (
   entityType: RevisionTargetType,
   revision: Pick<Revision, "target">,
 ): boolean => {
+  const snapshot = revision.target.snapshot as {
+    project?: string;
+    projects?: string[];
+  };
   if (entityType === "constant" || entityType === "config") {
-    const snapshot = revision.target.snapshot as { project?: string };
     return constantBlockSelfApproval({ project: snapshot.project }, settings);
   }
-  return !!getApprovalFlowSettings(settings?.approvalFlows, entityType)
-    ?.blockSelfApproval;
+  return !!getApprovalFlowSettings(
+    settings?.approvalFlows,
+    entityType,
+    snapshot.projects ?? [],
+  )?.blockSelfApproval;
 };
 
 /**
@@ -227,15 +364,17 @@ export const isUserBlockedFromApproving = ({
 export const isAutopublishOnApprovalEnabled = (
   settings: OrganizationSettings | undefined,
   entityType: RevisionTargetType,
-  // The constant's project, used to match its `requireReviews` rule. Ignored
-  // for entities that read from `approvalFlows`.
-  project?: string,
+  // Both families match their rules on this.
+  projects: string[] = [],
 ): boolean => {
   if (entityType === "constant" || entityType === "config") {
-    return constantAutopublishOnApproval({ project }, settings);
+    return constantAutopublishOnApproval({ project: projects[0] }, settings);
   }
-  return !!getApprovalFlowSettings(settings?.approvalFlows, entityType)
-    ?.autopublishOnApproval;
+  return !!getApprovalFlowSettings(
+    settings?.approvalFlows,
+    entityType,
+    projects,
+  )?.autopublishOnApproval;
 };
 
 /**
@@ -353,26 +492,34 @@ export function normalizeProposedChanges(
     : [];
 }
 
+function topLevelField(path: string): string | null {
+  const parts = path.split("/");
+  return parts.length === 2 && parts[1] ? parts[1] : null;
+}
+
 /**
- * Apply the top-level `replace` / `add` / `remove` operations from a JSON Patch
- * array to an object and return the resulting merged object.  Nested paths
- * (e.g. `/values/0`) are treated as a no-op since we only track top-level fields.
- *
- * This is intentionally a lightweight, dependency-free alternative to
- * `fast-json-patch` so it can be used in both front-end and back-end shared code.
+ * Detects operations the lightweight top-level applier cannot represent.
+ * Callers widen authority and approval scope for legacy nested operations.
+ */
+export function hasUnappliablePatchOps(proposedChanges: unknown): boolean {
+  return normalizeProposedChanges(proposedChanges).some(
+    (op) => topLevelField(op.path) === null,
+  );
+}
+
+/**
+ * Applies top-level add, replace, and remove operations. Nested paths are ignored.
  */
 export function applyTopLevelPatchOps<T extends Record<string, unknown>>(
   snapshot: T,
-  proposedChanges: JsonPatchOperation[] | unknown,
+  proposedChanges: unknown,
 ): T {
   const ops = normalizeProposedChanges(proposedChanges);
   if (ops.length === 0) return snapshot;
   const result: Record<string, unknown> = { ...snapshot };
   for (const op of ops) {
-    // Only handle simple top-level paths like "/fieldName"
-    const parts = op.path.split("/");
-    if (parts.length !== 2 || !parts[1]) continue;
-    const field = parts[1];
+    const field = topLevelField(op.path);
+    if (field === null) continue;
     if (op.op === "replace" || op.op === "add") {
       result[field] = op.value;
     } else if (op.op === "remove") {
@@ -462,10 +609,10 @@ export function checkMergeConflicts(
   const fieldsChanged: string[] = [];
   const mergedChanges: Record<string, unknown> = { ...liveState };
 
-  // Helper to check if values are different
+  // Undefined means absent; null is an explicit clear and participates in comparison.
   const hasChanged = (val1: unknown, val2: unknown): boolean => {
-    if ((val1 ?? null) === null) return false;
-    if ((val2 ?? null) === null) return true;
+    if (val1 === undefined) return false;
+    if ((val2 ?? null) === null) return (val1 ?? null) !== null;
     return !isEqual(val1, val2);
   };
 
@@ -579,4 +726,60 @@ export function getRevisionNumberById<
       r.version ?? sorted.findIndex((s) => s.id === r.id) + 1,
     ]),
   );
+}
+
+// Matches the feature revision shape.
+export type ReviewerVerdictStatus =
+  | "approved"
+  | "changes-requested"
+  | "approved-stale"
+  | "changes-requested-stale";
+
+const VERDICT_BASE: Record<string, "approved" | "changes-requested"> = {
+  approve: "approved",
+  "request-changes": "changes-requested",
+};
+
+// As hooks see them: latest per reviewer, `decision` + `stale` collapsed.
+export function toHookReviewerVerdicts<U, T>(
+  reviews: {
+    userId: string;
+    decision: string;
+    stale?: boolean;
+    dateCreated: Date;
+  }[],
+  enrich: (userId: string) => { user: U; teams: T[] },
+): {
+  userId: string;
+  user: U;
+  status: ReviewerVerdictStatus;
+  timestamp: Date;
+  teams: T[];
+}[] {
+  const latest = new Map<
+    string,
+    { status: ReviewerVerdictStatus; timestamp: Date }
+  >();
+  for (const r of reviews) {
+    const base = VERDICT_BASE[r.decision];
+    if (!base) continue;
+    const status = (r.stale ? `${base}-stale` : base) as ReviewerVerdictStatus;
+    const existing = latest.get(r.userId);
+    if (existing && existing.timestamp > r.dateCreated) continue;
+    latest.set(r.userId, { status, timestamp: r.dateCreated });
+  }
+  return Array.from(latest, ([userId, v]) => ({
+    userId,
+    ...enrich(userId),
+    status: v.status,
+    timestamp: v.timestamp,
+  }));
+}
+
+// `contributors` may include the author, and carries blanks from older rows.
+export function coauthorIds(
+  authorId: string | undefined,
+  contributors: string[] | undefined,
+): string[] {
+  return (contributors ?? []).filter((id) => !!id && id !== authorId);
 }

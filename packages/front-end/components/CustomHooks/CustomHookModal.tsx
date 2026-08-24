@@ -6,7 +6,7 @@ import {
   hookEntityType,
 } from "shared/validators";
 import { CreateProps } from "shared/types/base-model";
-import { Flex, Kbd, Separator } from "@radix-ui/themes";
+import { Box, Flex, Kbd, Separator } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -15,6 +15,7 @@ import {
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
+import { useFeaturesList } from "@/services/features";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -197,26 +198,45 @@ const dummyConfig = {
     environments: ["production"],
   },
 };
+// Mirrors what production hands the hook: reviews as reviewer verdicts
+// ({ userId, user, status, timestamp, teams }) and the author resolved the
+// same way — not the raw stored rows.
 const dummyConfigRevision = {
   version: 3,
   status: "approved",
   comment: "Raise the checkout item limit",
   authorId: "user_123",
   contributors: ["user_123"],
+  author: {
+    userId: "user_123",
+    user: {
+      type: "dashboard",
+      id: "user_123",
+      name: "Dana Author",
+      email: "dana@example.com",
+    },
+    teams: [{ id: "team_checkout", name: "Checkout" }],
+  },
+  coauthors: [],
   reviews: [
     {
       userId: "user_456",
-      decision: "approve",
-      comment: "",
-      stale: false,
-      dateCreated: new Date(),
+      user: {
+        type: "dashboard",
+        id: "user_456",
+        name: "Riley Reviewer",
+        email: "riley@example.com",
+      },
+      status: "approved",
+      timestamp: new Date(),
+      teams: [{ id: "team_payments", name: "Payments" }],
     },
     {
       userId: "key_abc123",
-      decision: "approve",
-      comment: "",
-      stale: false,
-      dateCreated: new Date(),
+      user: { type: "api_key", apiKey: "key_abc123" },
+      status: "approved",
+      timestamp: new Date(),
+      teams: [],
     },
   ],
 };
@@ -237,7 +257,7 @@ export const hookTypes: Record<
     availableArguments: {
       config: {
         description:
-          "The config being validated: schema fields, staged value (parsed JSON object), lineage, isHookTarget (is this the config the hook is pinned to, vs a descendant), and scopedConfig (present only for an environment/project override — its base and the environments/projects it applies to)",
+          "The Config being validated: schema fields, staged value (parsed JSON object), lineage, isHookTarget (is this the Config the hook is pinned to, vs a descendant), and scopedConfig (present only for an environment/project override — its base and the environments/projects it applies to)",
         testValue: stringify(dummyConfig),
       },
     },
@@ -248,7 +268,7 @@ export const hookTypes: Record<
     availableArguments: {
       config: {
         description:
-          "The config's changed content: schema fields, value (parsed JSON object), lineage, isHookTarget (is this the config the hook is pinned to, vs a descendant), and scopedConfig (present only for an environment/project override — its base and the environments/projects it applies to)",
+          "The Config's changed content: schema fields, value (parsed JSON object), lineage, isHookTarget (is this the Config the hook is pinned to, vs a descendant), and scopedConfig (present only for an environment/project override — its base and the environments/projects it applies to)",
         testValue: stringify(dummyConfig),
       },
       revision: {
@@ -257,7 +277,7 @@ export const hookTypes: Record<
         testValue: stringify(dummyConfigRevision),
       },
     },
-    example: `\n// config.value is a parsed object — no JSON.parse needed.\n// Block the publish (hard error):\nif ((config.value.maxItems ?? 0) > 100) {\n  throw new Error("maxItems cannot exceed 100");\n}\n\n// Gate on approval policy:\nif (revision) {\n  const approvals = (revision.reviews || []).filter(r => r.decision === "approve" && !r.stale);\n  if (!approvals.some(r => r.userId === "key_abc123")) {\n    throw new Error("Requires release-bot approval");\n  }\n}`,
+    example: `\n// config.value is a parsed object — no JSON.parse needed.\n// Block the publish (hard error):\nif ((config.value.maxItems ?? 0) > 100) {\n  throw new Error("maxItems cannot exceed 100");\n}\n\n// Gate on approval policy:\nif (revision) {\n  const approvals = (revision.reviews || []).filter(r => r.status === "approved");\n  if (!approvals.some(r => r.userId === "key_abc123")) {\n    throw new Error("Requires release-bot approval");\n  }\n}`,
   },
   validateFeature: {
     label: "Validate Feature",
@@ -278,7 +298,29 @@ export const hookTypes: Record<
       },
       revision: {
         description: "The feature revision being validated",
-        testValue: stringify(dummyRevision),
+        // As production delivers it: reviewer verdicts carry teams, and the
+        // author/coauthors arrive resolved (see withHookRevisionContext).
+        testValue: stringify({
+          ...dummyRevision,
+          author: {
+            userId: "user_123",
+            user: {
+              type: "dashboard",
+              id: "user_123",
+              name: "User",
+              email: "user@example.com",
+            },
+            teams: [{ id: "team_checkout", name: "Checkout" }],
+          },
+          coauthors: [],
+          reviews: (dummyRevision.reviews ?? []).map((r) => ({
+            ...r,
+            teams:
+              r.userId === "user_456"
+                ? [{ id: "team_payments", name: "Payments" }]
+                : [],
+          })),
+        }),
       },
     },
     example: `\n// Block the save (hard error):\nif (!revision.rules.production || revision.rules.production.length === 0) {\n  throw new Error("At least one production rule is required");\n}\n\n// Or raise a soft warning the user can acknowledge:\nif (!revision.comment) {\n  addWarning("Consider adding a comment describing this change");\n}`,
@@ -363,6 +405,7 @@ export default function CustomHookModal({
   const projectOptions = useProjectOptions(() => true, current?.projects || []);
 
   const hookType = form.watch("hook");
+  const incrementalChangesOnly = form.watch("incrementalChangesOnly") ?? true;
   const hookTypeData = hookTypes[hookType];
   const exampleDocSection = EXAMPLE_DOC_SECTIONS[hookType];
 
@@ -399,13 +442,49 @@ export default function CustomHookModal({
   const [testValues, setTestValues] = useState<Record<string, string>>(
     initialTestValues(defaultHook),
   );
+  // The "before" side of an Incremental Changes Only run. Seeded identically to
+  // the proposed state so an author starts from a no-op and edits one side.
+  const [priorTestValues, setPriorTestValues] = useState<
+    Record<string, string>
+  >(initialTestValues(defaultHook));
   const [testResult, setTestResult] = useState<{
     status: "" | "success" | "error";
     returnVal?: string;
     error?: string;
     warnings?: string[];
     log?: string;
+    suppressed?: { error?: string; warnings?: string[] };
   }>({ status: "" });
+
+  // A hook created from Settings has no entity in context, so its fixtures are
+  // generic samples. Let the author swap in a real one.
+  const { features: featuresList } = useFeaturesList();
+  const [prefillFeatureId, setPrefillFeatureId] = useState("");
+  const showFeaturePicker =
+    !feature && "feature" in (hookTypeData?.availableArguments ?? {});
+
+  // An empty id is the "use the sample values" option, which puts the generic
+  // fixture back so the picker isn't a one-way door.
+  const prefillFromFeature = (id: string) => {
+    setPrefillFeatureId(id);
+    const picked = featuresList.find((f) => f.id === id);
+    const json = picked
+      ? stringify(picked)
+      : hookTypeData.availableArguments.feature.testValue;
+    setTestValues((v) => ({ ...v, feature: json }));
+    setPriorTestValues((v) => ({ ...v, feature: json }));
+  };
+
+  const parseArgs = (values: Record<string, string>) =>
+    Object.fromEntries(
+      Object.entries(values).map(([k, v]) => {
+        try {
+          return [k, JSON.parse(v)];
+        } catch (e) {
+          return [k, v];
+        }
+      }),
+    );
 
   const runTest = async () => {
     try {
@@ -415,19 +494,15 @@ export default function CustomHookModal({
         error?: string;
         warnings?: string[];
         log?: string;
+        suppressed?: { error?: string; warnings?: string[] };
       }>("/custom-hooks/test", {
         method: "POST",
         body: JSON.stringify({
           functionBody: form.getValues("code"),
-          functionArgs: Object.fromEntries(
-            Object.entries(testValues).map(([k, v]) => {
-              try {
-                return [k, JSON.parse(v)];
-              } catch (e) {
-                return [k, v];
-              }
-            }),
-          ),
+          functionArgs: parseArgs(testValues),
+          ...(incrementalChangesOnly
+            ? { originalFunctionArgs: parseArgs(priorTestValues) }
+            : {}),
           ...(feature
             ? { entityType: "feature" as const, entityId: feature.id }
             : experiment
@@ -443,6 +518,7 @@ export default function CustomHookModal({
         error: res.error,
         warnings: res.warnings,
         log: res.log,
+        suppressed: res.suppressed,
       });
     } catch (e) {
       setTestResult({ status: "error", error: e.message });
@@ -511,6 +587,8 @@ export default function CustomHookModal({
             onChange={(value) => {
               form.setValue("hook", value as CustomHookType);
               setTestValues(initialTestValues(value as CustomHookType));
+              setPriorTestValues(initialTestValues(value as CustomHookType));
+              setPrefillFeatureId("");
             }}
           />
           {!scope && (
@@ -587,6 +665,15 @@ export default function CustomHookModal({
         </div>
         <div style={{ width: "50%" }}>
           <h3>Test Your Hook</h3>
+          {showFeaturePicker && (
+            <SelectField
+              label="Prefill from a Feature Flag"
+              initialOption="Use the sample values"
+              value={prefillFeatureId}
+              onChange={prefillFromFeature}
+              options={featuresList.map((f) => ({ label: f.id, value: f.id }))}
+            />
+          )}
           {Object.keys(hookTypeData?.availableArguments).map((arg) => (
             <CodeTextArea
               language="json"
@@ -606,6 +693,35 @@ export default function CustomHookModal({
               showFullscreenButton
             />
           ))}
+          {incrementalChangesOnly && (
+            <>
+              <Text as="div" size="sm" color="text-low" mb="2">
+                Incremental Changes Only also runs the hook against the state
+                before the change. Edit the values above to represent the
+                change; anything this hook reports for both states is suppressed
+                on a real save.
+              </Text>
+              {Object.keys(hookTypeData?.availableArguments).map((arg) => (
+                <CodeTextArea
+                  language="json"
+                  key={`prior-${arg}`}
+                  label={`${arg} (before the change)`}
+                  required
+                  value={priorTestValues[arg] || ""}
+                  setValue={(value) =>
+                    setPriorTestValues((existing) => ({
+                      ...existing,
+                      [arg]: value,
+                    }))
+                  }
+                  onCtrlEnter={runTest}
+                  maxLines={8}
+                  showCopyButton
+                  showFullscreenButton
+                />
+              ))}
+            </>
+          )}
           <Button
             onClick={runTest}
             disabled={!form.watch("code")}
@@ -635,6 +751,21 @@ export default function CustomHookModal({
                 </Callout>
               ))}
             </div>
+          )}
+          {testResult.suppressed && (
+            <Box mt="3">
+              <strong>Suppressed by Incremental Changes Only:</strong>
+              {[
+                ...(testResult.suppressed.error
+                  ? [testResult.suppressed.error]
+                  : []),
+                ...(testResult.suppressed.warnings ?? []),
+              ].map((m, i) => (
+                <Callout key={i} status="info" mt="2">
+                  {m}
+                </Callout>
+              ))}
+            </Box>
           )}
           {testResult.returnVal && (
             <div className="mt-3">

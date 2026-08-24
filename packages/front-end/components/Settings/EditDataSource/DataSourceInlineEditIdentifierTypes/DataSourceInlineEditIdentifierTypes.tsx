@@ -4,6 +4,7 @@ import {
   DataSourceInterfaceWithParams,
   UserIdType,
 } from "shared/types/datasource";
+import { isEventForwarderManaged } from "shared/util";
 import { PiPlus } from "react-icons/pi";
 import { Box, Card, Flex } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
@@ -34,12 +35,6 @@ export const DataSourceInlineEditIdentifierTypes: FC<
     [dataSource.settings?.userIdTypes],
   );
 
-  // Event Forwarder managed identifier types (prefixed with `ef_`) are
-  // intentionally editable and deletable for now. Restore
-  // `Boolean(dataSource.eventForwarderConfig) &&
-  // isEventForwarderManagedIdentifierId(userIdType)` to lock them again.
-  const isEventForwarderManagedType = false;
-
   const recordEditing = useMemo((): null | UserIdType => {
     return userIdTypes[editingIndex] || null;
   }, [editingIndex, userIdTypes]);
@@ -61,8 +56,11 @@ export const DataSourceInlineEditIdentifierTypes: FC<
   const handleActionDeleteClicked = useCallback(
     (idx: number) => async () => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      copy.settings.userIdTypes.splice(idx, 1);
+      const types = copy.settings?.userIdTypes;
+      if (!types) {
+        return;
+      }
+      types.splice(idx, 1);
 
       await onSave(copy);
     },
@@ -74,8 +72,6 @@ export const DataSourceInlineEditIdentifierTypes: FC<
       async (userIdType: string, description: string, attributes: string[]) => {
         const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
         const types = copy.settings?.userIdTypes ?? [];
-        const editingManagedType =
-          uiMode === "edit" && isEventForwarderManagedType;
 
         if (idx >= types.length) {
           types.push({ userIdType, description, attributes });
@@ -84,13 +80,8 @@ export const DataSourceInlineEditIdentifierTypes: FC<
           if (!existing) {
             return;
           }
-          types[idx] = editingManagedType
-            ? { ...existing, description }
-            : {
-                userIdType,
-                description,
-                attributes,
-              };
+          // Spread existing so fields the form does not own survive the edit.
+          types[idx] = { ...existing, userIdType, description, attributes };
         }
 
         if (!copy.settings) {
@@ -100,7 +91,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
 
         await onSave(copy);
       },
-    [dataSource, isEventForwarderManagedType, onSave, uiMode],
+    [dataSource, onSave],
   );
 
   const handleAdd = useCallback(() => {
@@ -133,15 +124,17 @@ export const DataSourceInlineEditIdentifierTypes: FC<
           </Button>
         </Box>
       </Flex>
-      <p>The different units you use to split traffic in an experiment.</p>
+      <Text as="p" color="text-mid">
+        The different units you use to split traffic in an experiment.
+      </Text>
 
-      {userIdTypes.map(({ userIdType, description, attributes }, idx) => {
-        const deleteDisabled = isEventForwarderManagedType;
+      {userIdTypes.map((type, idx) => {
+        const { userIdType, description, attributes } = type;
+        const isManaged = isEventForwarderManaged(type);
 
         return (
           <Card key={userIdType} mt="3">
             <Flex align="start" justify="between" py="2" px="3" gap="3">
-              {/* region Identity Type text */}
               <Box>
                 <Heading size="sm" as="h3" mb="1">
                   {userIdType}
@@ -156,46 +149,36 @@ export const DataSourceInlineEditIdentifierTypes: FC<
                   {description || "(no description)"}
                 </Text>
               </Box>
-              {/* endregion Identity Type text */}
 
-              {/* region Identity Type actions */}
-              {canEdit && (
-                <Flex gap="3">
-                  {!deleteDisabled && (
-                    <DeleteButton
-                      onClick={handleActionDeleteClicked(idx)}
-                      useIcon={false}
-                      displayName={userIdTypes[idx]?.userIdType}
-                      deleteMessage={`Are you sure you want to delete identifier type ${userIdTypes[idx]?.userIdType}?`}
-                      title="Delete"
-                      text="Delete"
-                      outline={false}
-                      disabled={deleteDisabled}
-                    />
-                  )}
+              {canEdit && !isManaged && (
+                <Flex gap="2">
                   <Button
                     variant="ghost"
                     onClick={handleActionEditClicked(idx)}
                   >
                     Edit
                   </Button>
+                  <DeleteButton
+                    onClick={handleActionDeleteClicked(idx)}
+                    useIcon={false}
+                    displayName={userIdType}
+                    deleteMessage={`Are you sure you want to delete identifier type ${userIdType}?`}
+                    title="Delete"
+                    text="Delete"
+                  />
                 </Flex>
               )}
-              {/* endregion Identity Type actions */}
             </Flex>
           </Card>
         );
       })}
 
-      {/* region Identity Type empty state */}
       {userIdTypes.length === 0 ? (
         <Callout status="info" mb="0">
           No user identifier types.
         </Callout>
       ) : null}
-      {/* endregion Identity Type empty state */}
 
-      {/* region Add/Edit modal */}
       {uiMode === "edit" || uiMode === "add" ? (
         <EditIdentifierType
           mode={uiMode}
@@ -205,10 +188,8 @@ export const DataSourceInlineEditIdentifierTypes: FC<
           attributes={recordEditing?.attributes}
           onSave={handleSave(editingIndex)}
           dataSource={dataSource}
-          isEventForwarderManagedType={isEventForwarderManagedType}
         />
       ) : null}
-      {/* endregion Add/Edit modal */}
     </Box>
   );
 };

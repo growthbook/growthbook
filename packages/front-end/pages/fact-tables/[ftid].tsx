@@ -6,7 +6,7 @@ import {
   FactTableInterface,
   FactMetricInterface,
 } from "shared/types/fact-table";
-import { isEventForwarderEventsFactTable } from "shared/util";
+import { getFactMetricPrimaryFactTableId } from "shared/experiments";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
@@ -56,7 +56,7 @@ export function getMetricsForFactTable(
 ) {
   return factMetrics.filter(
     (m) =>
-      m.numerator.factTableId === factTable ||
+      getFactMetricPrimaryFactTableId(m) === factTable ||
       (m.denominator && m.denominator.factTableId === factTable),
   );
 }
@@ -137,13 +137,7 @@ export default function FactTablePage() {
   let canEdit = permissionsUtil.canUpdateFactTable(factTable, factTable);
   let canDelete = permissionsUtil.canDeleteFactTable(factTable);
 
-  // The Event Forwarder Events fact table is `managedBy: "api"` but is
-  // intentionally user-editable for now.
-  if (
-    factTable.managedBy &&
-    ["api", "config"].includes(factTable.managedBy) &&
-    !isEventForwarderEventsFactTable(factTable, factTable.datasource)
-  ) {
+  if (factTable.managedBy && ["api", "config"].includes(factTable.managedBy)) {
     canEdit = false;
     canDelete = false;
   }

@@ -20,6 +20,7 @@ import {
   SimpleSchema,
 } from "shared/types/feature";
 import { ConfigInterface } from "shared/types/config";
+import { bypassApprovalPermission } from "shared/permissions";
 import {
   buildConstantValueMap,
   resolveConstantRefs,
@@ -123,7 +124,7 @@ export async function assertConfigValueValid(
   leaf: ConfigLeaf,
   values: ConfigValues,
 ): Promise<void> {
-  if (context.skipSchemaValidation) return;
+  if (context.canSkipSchemaValidationFor("config")) return;
   // Warn-only mode: never block a write; the editor + REST surface the issue.
   if (context.org.settings?.blockPublishOnSchemaError === false) return;
   const errors = await collectConfigValueErrors(context, leaf, values);
@@ -376,19 +377,13 @@ export async function assertConfigValueValidForPublish(
             comment: revision.comment,
             authorId: revision.authorId,
             contributors: revision.contributors,
-            reviews: revision.reviews.map((r) => ({
-              userId: r.userId,
-              decision: r.decision,
-              comment: r.comment,
-              stale: r.stale,
-              dateCreated: r.dateCreated,
-            })),
+            reviews: revision.reviews,
           }
         : undefined,
     });
   }
 
-  if (context.skipSchemaValidation) return;
+  if (context.canSkipSchemaValidationFor("config")) return;
   const errors = [
     ...(await collectConfigValueErrors(context, leaf, values)),
     ...(await collectMissingRequiredFields(context, leaf, values.value)),
@@ -401,7 +396,7 @@ export async function assertConfigValueValidForPublish(
     // with the rest of the publish flow.
     if (context.ignoreWarnings) return;
     throw new SoftWarningError(
-      "Publishing config value(s) that don't match the schema:\n" +
+      "Publishing Config value(s) that don't match the schema:\n" +
         errors.join("\n"),
       errors,
     );
@@ -426,7 +421,7 @@ export async function assertConfigValueValidForCreate(
   leaf: ConfigLeaf,
   values: ConfigValues,
 ): Promise<void> {
-  if (context.skipSchemaValidation) return;
+  if (context.canSkipSchemaValidationFor("config")) return;
   const errors = [
     ...(await collectMissingRequiredFields(context, leaf, values.value)),
     ...(await collectInvariantViolations(context, leaf, values.value)),
@@ -435,7 +430,7 @@ export async function assertConfigValueValidForCreate(
   if (context.org.settings?.blockPublishOnSchemaError === false) {
     if (context.ignoreWarnings) return;
     throw new SoftWarningError(
-      "Creating a config whose value doesn't satisfy the schema:\n" +
+      "Creating a Config whose value doesn't satisfy the schema:\n" +
         errors.join("\n"),
       errors,
     );
@@ -448,13 +443,13 @@ export async function assertConfigInvariantsValid(
   leaf: ConfigLeaf,
   rawValue: string | undefined,
 ): Promise<void> {
-  if (context.skipSchemaValidation) return;
+  if (context.canSkipSchemaValidationFor("config")) return;
   const errors = await collectInvariantViolations(context, leaf, rawValue);
   if (!errors.length) return;
   if (context.org.settings?.blockPublishOnSchemaError === false) {
     if (context.ignoreWarnings) return;
     throw new SoftWarningError(
-      "Publishing config value(s) that violate a validation rule:\n" +
+      "Publishing Config value(s) that violate a validation rule:\n" +
         errors.join("\n"),
       errors,
     );
@@ -493,8 +488,8 @@ export function assertConfigBackedDefaultHasNoOverrides(
   const hasOverride = patch ? Object.keys(patch).length > 0 : patchStr !== "";
   if (hasOverride) {
     throw new BadRequestError(
-      "A config-backed feature's default value can't carry its own overrides — it must be exactly a config. " +
-        "Put shared values in the config, or point the default at a descendant config (defaultValueConfig) for feature-specific values.",
+      "A config-backed feature's default value can't carry its own overrides — it must be exactly a Config. " +
+        "Put shared values in the Config, or point the default at a descendant Config (defaultValueConfig) for feature-specific values.",
     );
   }
 }
@@ -702,7 +697,13 @@ export async function assertConfigBackedFeatureValuesValid(
 ): Promise<void> {
   assertConfigBackedDefaultHasNoOverrides(feature, values.defaultValue);
 
-  if (context.skipSchemaValidation) return;
+  // The FEATURE family, not the Config's. The rule being enforced comes from the
+  // backing Config's schema, but the write being gated is a feature value — and
+  // every caller here is a feature path. Asking the Config family let
+  // `bypassApprovalConfigs` alone ship feature values that violate the schema,
+  // while the caller holding feature bypass (which the sibling checks four lines
+  // up in postFeatureV2) could not skip it.
+  if (context.canSkipSchemaValidationFor("feature")) return;
 
   const errors = await collectConfigBackedSchemaInvariantErrors(
     context,
@@ -714,7 +715,7 @@ export async function assertConfigBackedFeatureValuesValid(
   if (context.org.settings?.blockPublishOnSchemaError === false) {
     if (context.ignoreWarnings) return;
     throw new SoftWarningError(
-      "Config-backed value(s) don't conform to the config's schema:\n" +
+      "Config-backed value(s) don't conform to the Config's schema:\n" +
         errors.join("\n"),
       errors,
     );
@@ -738,12 +739,10 @@ export async function collectConfigBackedFeatureValueErrors(
   return collectConfigBackedSchemaInvariantErrors(context, feature, values);
 }
 
-/**
- * Custom validation hooks for a config publish, surfaced as gates: a hard
- * error (a hook threw) is hook-class (`skipHooks`); a warning is
- * acknowledge-class (`ignoreWarnings`). Publish paths only — the archive
- * handlers deliberately exclude publish hooks.
- */
+// Custom validation hooks for a config publish, surfaced as gates: a hard
+// error (a hook threw) is hook-class (`skipHooks`); a warning is
+// acknowledge-class (`ignoreWarnings`). Publish paths only — the archive
+// handlers deliberately exclude publish hooks.
 export async function collectConfigPublishHookGates({
   context,
   config,
@@ -780,18 +779,24 @@ export async function collectConfigPublishHookGates({
       extends: config.extends,
       extensible: config.extensible,
     },
-    revision,
+    revision: {
+      version: revision.version,
+      status: revision.status,
+      title: revision.title,
+      comment: revision.comment,
+      authorId: revision.authorId,
+      contributors: revision.contributors,
+      reviews: revision.reviews,
+    },
   });
-  return hookResultsToGates(hookResults);
+  return hookResultsToGates(hookResults, bypassApprovalPermission("config"));
 }
 
-/**
- * Gate form of assertConfigValueValidForPublish's schema half — conformance,
- * required fields, and cross-field invariants of the post-publish resolved
- * value, block-vs-warn per `blockPublishOnSchemaError`. The bulk publisher
- * evaluates it at plan time (against the multi-entity overlay context) since
- * its commit phase never runs the throwing net.
- */
+// Gate form of assertConfigValueValidForPublish's schema half — conformance,
+// required fields, and cross-field invariants of the post-publish resolved
+// value, block-vs-warn per `blockPublishOnSchemaError`. The bulk publisher
+// evaluates it at plan time (against the multi-entity overlay context) since
+// its commit phase never runs the throwing net.
 export async function collectConfigPublishValueGates({
   context,
   config,
@@ -830,6 +835,7 @@ export async function collectConfigPublishValueGates({
       ],
       ...schemaFailureGateOverride(
         context.org.settings?.blockPublishOnSchemaError !== false,
+        bypassApprovalPermission("config"),
       ),
       resolution: null,
     },

@@ -677,7 +677,7 @@ pre {
 .experiment-results,
 .bandit-summary-results {
   tbody {
-    &.slice-row {
+    &.child-row {
       background-color: var(--slate-a2);
     }
     tr {
@@ -1514,6 +1514,15 @@ main.main {
   }
   &.no-hover:hover {
     background-color: var(--violet-a3);
+  }
+  &.has-conflict {
+    background-color: var(--amber-a3);
+    &:hover {
+      background-color: var(--amber-a4);
+    }
+    &.no-hover:hover {
+      background-color: var(--amber-a3);
+    }
   }
 }
 

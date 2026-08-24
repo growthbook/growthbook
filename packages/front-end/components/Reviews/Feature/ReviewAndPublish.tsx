@@ -1,3 +1,8 @@
+import {
+  NO_ENVIRONMENT_BINDING,
+  canCommentOnRevisionEntity,
+  holdsFeatureMoveDestination,
+} from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import {
@@ -12,7 +17,11 @@ import {
 import {
   autoMerge,
   fillRevisionFromFeature,
+  getReviewAuthorityFootprint,
+  governingReviewProjectsForFeature,
+  getRevisionReviewRequirement,
   liveRevisionFromFeature,
+  type ReviewAuthorityFootprint,
   filterEnvironmentsByFeature,
   getEnvsFromRampSchedule,
   isStrandedLiveRevision,
@@ -22,6 +31,8 @@ import {
   checkIfRevisionNeedsReview,
   evaluatePublishGovernance,
   getLiveChangesSinceBase,
+  isPureFeatureArchive,
+  isPureFeatureRevert,
   MergeStrategy,
 } from "shared/util";
 import {
@@ -50,7 +61,8 @@ import { getCurrentUser, useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
-  getAffectedRevisionEnvs,
+  getRevisionPublishEnvs,
+  getMoveWidenedEnvironments,
   useEnvironments,
   useFeatureExperimentChecklists,
 } from "@/services/features";
@@ -85,10 +97,14 @@ import {
   revisionStatusLabel,
 } from "@/components/Reviews/RevisionStatusBadge";
 import Callout from "@/ui/Callout";
+import UnmetApproverTeams from "@/components/Reviews/UnmetApproverTeams";
 import Checkbox from "@/ui/Checkbox";
 import SelectField from "@/components/Forms/SelectField";
 import { useHoldouts } from "@/hooks/useHoldouts";
-import { PreLaunchChecklistForDraftFeature } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
+import {
+  ChecklistReadyStatus,
+  PreLaunchChecklistForDraftFeature,
+} from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import {
   ExpandableDiff,
@@ -109,11 +125,14 @@ import useURLHash from "@/hooks/useURLHash";
 // (notes, human-readable changes, review activity), "changes" is the diff-first
 // view (JSON diffs, full edit timeline, inline diff comments).
 type ReviewSubTab = "overview" | "changes";
+import { useApprovalCoverage } from "@/components/Reviews/useApprovalCoverage";
 import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
 import NoticeBanner from "@/components/Reviews/NoticeBanner";
 import HelperText from "@/ui/HelperText";
+import PermissionBlocker from "@/ui/PermissionBlocker";
 import Metadata from "@/ui/Metadata";
 import ReviewCommentPopover from "@/components/Reviews/ReviewCommentPopover";
+import WaitingForReviewCallout from "@/components/Reviews/WaitingForReviewCallout";
 import CommentComposer from "@/components/Comments/CommentComposer";
 import {
   DropdownMenu,
@@ -177,8 +196,14 @@ export default function ReviewAndPublish({
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envIds = environments.map((e) => e.id);
   const permissionsUtil = usePermissionsUtil();
-  // POST /feature/:id/:version/comment requires canReviewFeatureDrafts.
-  const canCommentOnDraft = permissionsUtil.canReviewFeatureDrafts(feature);
+  // Same shared predicate as the generic tab and both comment endpoints, so
+  // Feature Flags can't drift from the other entities.
+  const canCommentOnDraft = canCommentOnRevisionEntity(
+    permissionsUtil,
+    "feature",
+    null,
+    { project: feature.project },
+  );
   const { apiCall } = useAuth();
   const user = getCurrentUser();
   const {
@@ -450,6 +475,7 @@ export default function ReviewAndPublish({
   // persists directly to the API and mutates the revision.
   const comment = revision?.comment || "";
   const [adminPublish, setAdminPublish] = useState(false);
+  const [checklistAcknowledged, setChecklistAcknowledged] = useState(false);
   // ── Unified auto-publish arming ──
   // A revision is "armed" (autoPublishOnApproval) in one of two mutually
   // exclusive modes: publish "when approved" (no date) or "on a specific date"
@@ -545,7 +571,23 @@ export default function ReviewAndPublish({
   // collapsed when an auto-saved schedule change re-fetches the revision.
   useEffect(() => {
     setEditingSchedule(false);
-  }, [revision?.version]);
+  }, [feature.id, revision?.version]);
+
+  // Revision-local choices (admin bypass, conflict strategies, open dialogs,
+  // errors) must not follow the viewer to a different revision. Keyed by
+  // feature id AND version — version alone reads as "same revision" across
+  // two different features.
+  useEffect(() => {
+    setAdminPublish(false);
+    setStrategies({});
+    setConflictStep(0);
+    setResolveConflicts(false);
+    setExperimentsStep(false);
+    setSubmitError(null);
+    setRevertOpen(false);
+    setConfirmReopen(false);
+    setConfirmDiscard(false);
+  }, [feature.id, revision?.version]);
 
   // ── Sub-tabs ──
   // "Overview" (human-readable changes + review activity) vs "Changes" (JSON
@@ -597,9 +639,10 @@ export default function ReviewAndPublish({
   const diffComments = useMemo<DiffCommentsProps>(
     () => ({
       anchors: diffCommentAnchors,
-      // New comments only on active drafts when the user can review drafts.
-      // Existing markers stay visible (read-only) on published / discarded
-      // revisions, and when the user lacks canReviewFeatureDrafts.
+      // New comments only on active drafts, gated by canCommentOnRevisionEntity
+      // (comment, draft, or review authority). Existing markers stay visible
+      // (read-only) on published / discarded revisions and for callers without
+      // that authority.
       onSubmitNew:
         isActiveDraft && revision && canCommentOnDraft
           ? async (text: string) => {
@@ -638,6 +681,92 @@ export default function ReviewAndPublish({
     );
   }, [revision, baseRevision, liveRevision, envIds, feature]);
 
+  // Derived the way the server derives it, so the UI agrees with the refusal.
+  // "any" while loading — optimism here risks a late refusal, nothing worse.
+  const reviewFootprint: ReviewAuthorityFootprint = useMemo(() => {
+    if (!revision || !baseRevision || !liveRevision) return { scope: "any" };
+    return getReviewAuthorityFootprint({
+      revision,
+      bases: [
+        { ...liveRevision, ...liveRevisionFromFeature(liveRevision, feature) },
+        fillRevisionFromFeature(baseRevision, feature),
+      ],
+      allEnvironments: envIds,
+      settings,
+      governingProjects: governingReviewProjectsForFeature({
+        feature,
+        revision,
+        settings,
+      }),
+    });
+  }, [revision, baseRevision, liveRevision, feature, envIds, settings]);
+
+  // Against LIVE, filled, because a different base selects different rules.
+  const reviewRules = useMemo(() => {
+    if (!revision || !liveRevision) return [];
+    return getRevisionReviewRequirement({
+      feature,
+      baseRevision: {
+        ...liveRevision,
+        ...liveRevisionFromFeature(liveRevision, feature),
+      },
+      revision,
+      orgEnvironments: environments,
+      settings,
+      requireApprovalsLicensed: hasCommercialFeature("require-approvals"),
+    }).rules;
+  }, [
+    revision,
+    liveRevision,
+    feature,
+    environments,
+    settings,
+    hasCommercialFeature,
+  ]);
+
+  const {
+    uncoveredApprovers,
+    uncoveredApproverReasons,
+    uncoveredFootprintEnvs,
+    approvalsCoverFootprint,
+    hasUncoveredApproval,
+    requiredTeams,
+  } = useApprovalCoverage({
+    reviewers,
+    footprint: reviewFootprint,
+    envIds,
+    model: "feature",
+    projects: feature.project ? [feature.project] : [],
+    reviewRules,
+  });
+
+  // Fall back to all applicable environments until the merge footprint is known.
+  const affectedRevisionEnvs = useMemo(() => {
+    if (!mergeResult?.success) return envIds;
+    return getRevisionPublishEnvs({
+      liveFeature: feature,
+      changes: mergeResult.result,
+      // A staged project/targeting move makes destination-only envs applicable;
+      // widen the universe so the control gates on them, matching the endpoint.
+      environments: getMoveWidenedEnvironments({
+        feature,
+        changes: mergeResult.result,
+        allEnvironments,
+      }),
+      holdoutsMap,
+      // Ramp actions ride the revision, not the merge result, so pass them
+      // explicitly — the endpoint counts their reach either way.
+      rampActions: revision?.rampActions,
+    });
+  }, [
+    mergeResult,
+    envIds,
+    feature,
+    allEnvironments,
+    holdoutsMap,
+    revision?.rampActions,
+  ]);
+
   // Strategies-applied preview for the Resolve Conflicts modal. Becomes
   // successful once every conflict has a chosen strategy, which enables the
   // modal's Next → Review Changes → Update Draft flow and forms the rebase
@@ -654,7 +783,10 @@ export default function ReviewAndPublish({
     );
   }, [revision, baseRevision, liveRevision, envIds, strategies, feature]);
 
-  const canAdminPublish = permissionsUtil.canBypassApprovalChecks(feature);
+  const canAdminPublish = permissionsUtil.canBypassFlagApprovalChecks(
+    feature,
+    "feature",
+  );
   const featureLockedByRamp =
     rampSchedules?.some(
       (rs) => rs.lockdownConfig?.mode === "locked" && rs.status === "running",
@@ -685,7 +817,53 @@ export default function ReviewAndPublish({
   const canReview =
     !!isPendingReview &&
     createdBy?.id !== user?.id &&
-    permissionsUtil.canReviewFeatureDrafts(feature);
+    permissionsUtil.canReviewFeatureDrafts(feature, reviewFootprint);
+  // Advancing a draft takes draft authority, or revert/delete authority over a
+  // draft that only does what they cover (or one the caller authored). The
+  // client goes on provenance alone; the server re-verifies purity.
+  // Unbound, not every environment: advancing a draft publishes nothing, and
+  // the server asks the same way (`featureDraftAuthority`).
+  const hasRevertAuthority = permissionsUtil.canRevertFeature(
+    feature,
+    NO_ENVIRONMENT_BINDING,
+  );
+  const hasDeleteAuthority = permissionsUtil.canDeleteFeature(
+    feature,
+    NO_ENVIRONMENT_BINDING,
+  );
+  const authoredDraft =
+    (!!userId &&
+      !!revision?.createdBy &&
+      "id" in revision.createdBy &&
+      revision.createdBy.id === userId) ||
+    (!!userId && (revision?.contributors ?? []).includes(userId));
+  // The same predicates the server enforces, so the client can't offer an
+  // action the server then refuses.
+  const revertTargetRevision =
+    revision?.revertedFromVersion !== undefined
+      ? revisions.find(
+          (r) =>
+            r.version === revision.revertedFromVersion &&
+            r.status === "published",
+        )
+      : undefined;
+  const draftStagesRevert =
+    !!revision &&
+    !!revertTargetRevision &&
+    isPureFeatureRevert({
+      feature,
+      draft: revision,
+      target: revertTargetRevision,
+    });
+  // Mirrors the server's `isArchiveTransition`: only an ACTIVE flag being
+  // archived counts, else any draft on an archived flag looks like an archive.
+  const draftStagesArchive =
+    !!revision && isPureFeatureArchive({ feature, draft: revision });
+  const canAdvanceDraft =
+    permissionsUtil.canEditFeatureDrafts(feature) ||
+    (authoredDraft && (hasRevertAuthority || hasDeleteAuthority)) ||
+    (hasRevertAuthority && draftStagesRevert) ||
+    (hasDeleteAuthority && draftStagesArchive);
   const approved = revision?.status === "approved" || adminPublish;
 
   const autopublishOnApproval =
@@ -696,22 +874,29 @@ export default function ReviewAndPublish({
   const isReviewRequester =
     !!userId && !!reviewRequesterId && userId === reviewRequesterId;
 
-  // Only the draft / review-request owner can edit the arming; others see a
-  // read-only summary when armed (matching main's auto-publish-on-approval rule).
-  const isArmingOwner =
-    permissionsUtil.canPublishFeature(feature, envIds) &&
-    (revision?.status === "draft" || isReviewRequester);
+  // Schedule authority, the way the schedule endpoints compute it: publish over
+  // the environments this draft reaches AND over the project it would land in.
+  const holdsSchedulePublish =
+    permissionsUtil.canPublishFeature(feature, affectedRevisionEnvs) &&
+    holdsFeatureMoveDestination(
+      permissionsUtil,
+      feature,
+      revision?.metadata?.project,
+      affectedRevisionEnvs,
+    );
+
   const hasScheduledRevisions = hasCommercialFeature("scheduled-revisions");
-  // "when approved" only makes sense before approval — once approved it would
-  // just publish now (which Publish already does), so approved revisions only
-  // offer "on a date".
+  // Arming on a draft rides request-review, so it needs draft authority too.
+  const canArmSchedule =
+    holdsSchedulePublish &&
+    (revision?.status !== "draft" ||
+      permissionsUtil.canEditFeatureDrafts(feature));
+  // Only while an approval is still needed; once it can publish, Publish does that.
   const canArmWhenApproved =
-    autopublishOnApproval && isArmingOwner && revision?.status !== "approved";
-  // Arming/editing a dated schedule needs only publish authority — not draft /
-  // review-request ownership — matching the backend `canScheduleFeaturePublish`
-  // gate, so a reviewer with publish permission can manage the schedule from the
-  // UI. The premium (`scheduled-revisions`) gate is applied at render.
-  const canArmOnDate = permissionsUtil.canPublishFeature(feature, envIds);
+    autopublishOnApproval &&
+    canArmSchedule &&
+    (revision?.status !== "approved" || !approvalsCoverFootprint);
+  const canArmOnDate = canArmSchedule;
   const effectivePublishMode: "approve" | "date" = canArmWhenApproved
     ? publishMode
     : "date";
@@ -722,10 +907,18 @@ export default function ReviewAndPublish({
   // clears the bypass flag (reverts the admin override).
   const scheduleArmedByAdmin =
     scheduledPending && !!revision?.scheduledPublishBypassApproval;
-  const canCancelAdminSchedule =
-    scheduleArmedByAdmin && permissionsUtil.canPublishFeature(feature, envIds);
+  const canCancelAdminSchedule = scheduleArmedByAdmin && holdsSchedulePublish;
 
-  const canManageAutoPublish = canArmWhenApproved || canArmOnDate;
+  // Disarming an already-armed no-date schedule survives the gates on ARMING
+  // (org setting off, licence lapsed, draft ownership) — the endpoint asks for
+  // publish authority alone on the way out, and hiding the checkbox would block
+  // exactly the disarm that's needed. Same term as the shared
+  // ScheduledPublishControl.
+  const canDisarmWhenApproved =
+    revisionAutoPublishArmed && holdsSchedulePublish;
+
+  const canManageAutoPublish =
+    canArmWhenApproved || canArmOnDate || canDisarmWhenApproved;
   // Admin-armed schedules render read-only for everyone, so route them through
   // the read-only card (with an optional Cancel) rather than the editable/owner
   // controls.
@@ -883,27 +1076,14 @@ export default function ReviewAndPublish({
       experimentsMap,
     });
 
-  const [selectedExperiments, setSelectedExperiments] = useState(
-    new Set(experiments.map((e) => e.id)),
-  );
-  // `experiments` is derived from the async `experimentsList` prop, so the
-  // useState initializer can run before it arrives. Reconcile: auto-select
-  // newly-appearing experiments and drop ones that vanished, while preserving
-  // explicit user deselections of already-known ids.
-  const knownExperimentIdsRef = useRef<Set<string>>(
-    new Set(experiments.map((e) => e.id)),
+  const [selectedExperiments, setSelectedExperiments] = useState<Set<string>>(
+    new Set(),
   );
   useEffect(() => {
     const currentIds = new Set(experiments.map((e) => e.id));
-    const known = knownExperimentIdsRef.current;
-    const newlyAdded = [...currentIds].filter((id) => !known.has(id));
-    knownExperimentIdsRef.current = currentIds;
     setSelectedExperiments((prev) => {
       const next = new Set([...prev].filter((id) => currentIds.has(id)));
-      newlyAdded.forEach((id) => next.add(id));
-      return next.size === prev.size && [...next].every((id) => prev.has(id))
-        ? prev
-        : next;
+      return next.size === prev.size ? prev : next;
     });
   }, [experiments]);
 
@@ -920,28 +1100,32 @@ export default function ReviewAndPublish({
 
   const openChecklistStep = useCallback(() => {
     checklistStateRef.current.clear();
+    setChecklistIncomplete(false);
     setChecklistBlocked(false);
+    setChecklistAcknowledged(false);
     setExperimentsStep(true);
   }, []);
 
-  const checklistStateRef = useRef<
-    Map<string, { failedRequired: boolean; loading: boolean }>
-  >(new Map());
+  const checklistStateRef = useRef<Map<string, ChecklistReadyStatus>>(
+    new Map(),
+  );
+  const [checklistIncomplete, setChecklistIncomplete] = useState(false);
   const [checklistBlocked, setChecklistBlocked] = useState(false);
-  // Checklist results are per-revision; clear them when the user switches
-  // revisions so stale failures can't block publishing a clean draft.
   useEffect(() => {
     checklistStateRef.current.clear();
+    setChecklistIncomplete(false);
     setChecklistBlocked(false);
+    setChecklistAcknowledged(false);
   }, [version]);
   const handleChecklistReady = useCallback(
-    (expId: string, failedRequired: boolean, loading: boolean) => {
-      checklistStateRef.current.set(expId, { failedRequired, loading });
-      setChecklistBlocked(
-        [...checklistStateRef.current.values()].some(
-          (v) => v.failedRequired || v.loading,
-        ),
+    (expId: string, status: ChecklistReadyStatus) => {
+      setChecklistAcknowledged(false);
+      checklistStateRef.current.set(expId, status);
+      const all = [...checklistStateRef.current.values()];
+      setChecklistIncomplete(
+        all.some((v) => v.hasHardBlockers || v.hasSoftBlockers || v.loading),
       );
+      setChecklistBlocked(all.some((v) => v.hasHardBlockers || v.loading));
     },
     [],
   );
@@ -1054,6 +1238,8 @@ export default function ReviewAndPublish({
   const renderLeftColumn = (
     diffs: FeatureRevisionDiff[],
     raw: { before: unknown; after: unknown },
+    // Read-only and locked revisions have no retractable verdict.
+    canRetractVerdict = false,
   ) => (
     <>
       {subTab === "overview" && (
@@ -1067,7 +1253,7 @@ export default function ReviewAndPublish({
             },
           ]}
           isDraft={isActiveDraft}
-          canEdit={permissionsUtil.canManageFeatureDrafts(feature)}
+          canEdit={permissionsUtil.canEditFeatureDrafts(feature)}
           onSaved={mutate}
         />
       )}
@@ -1111,6 +1297,9 @@ export default function ReviewAndPublish({
           revision={revision}
           ref={revisionLogRef}
           onRevisionMutate={mutate}
+          // Same gate the generic timeline passes.
+          canRetractVerdict={canRetractVerdict}
+          uncoveredApproverReasons={uncoveredApproverReasons}
           // Overview foregrounds the conversation: comments, verdicts, and
           // lifecycle events. Granular content-edit entries collapse into
           // per-run "N other events" toggles.
@@ -1171,12 +1360,13 @@ export default function ReviewAndPublish({
   // Contributor IDs (author + everyone whose edits touched the revision).
   // Hoisted above the read-only branch so both the draft flow and the
   // read-only column can render the same Contributors / Reviewers widgets.
-  // System actors (e.g. ramp schedules) stamp their own id into createdBy and
-  // contributors; those aren't org members, so exclude them from the people
-  // rows and render a "Generated by" line instead (same as the overview page).
+  // API keys use standard author UI; system actors keep "Generated by".
+  const apiKeyCreator =
+    revision.createdBy?.type === "api_key" ? revision.createdBy : null;
   const systemCreator =
     revision.createdBy?.type === "system" ? revision.createdBy : null;
   const authorId =
+    !apiKeyCreator &&
     !systemCreator &&
     revision.createdBy &&
     "id" in revision.createdBy &&
@@ -1184,13 +1374,25 @@ export default function ReviewAndPublish({
       ? revision.createdBy.id
       : undefined;
   const contribIds = (revision.contributors ?? []).filter(
-    (id) => id !== systemCreator?.id,
+    (id) => id !== apiKeyCreator?.id && id !== systemCreator?.id,
   );
   const contributorIds =
     authorId && !contribIds.includes(authorId)
       ? [authorId, ...contribIds]
       : contribIds;
-  const generatedByRow = systemCreator ? (
+  const generatedByRow = apiKeyCreator ? (
+    <Box mb="3">
+      <Text size="md" weight="medium" color="text-high" as="div" mb="2">
+        Created by
+      </Text>
+      <EventUser
+        user={apiKeyCreator}
+        display="avatar-name-email"
+        size="sm"
+        wrap
+      />
+    </Box>
+  ) : systemCreator ? (
     <Box mb="3">
       <Metadata
         label="Generated by"
@@ -1216,9 +1418,19 @@ export default function ReviewAndPublish({
       : revision.status === "published"
         ? revision
         : null;
-    const canManageDrafts = permissionsUtil.canManageFeatureDrafts(feature);
-    const canRevert = canManageDrafts && !!revertTarget;
+    const canManageDrafts = permissionsUtil.canEditFeatureDrafts(feature);
+    // Revert authority alone offers the action — a revert-only role holds no
+    // draft rights. Unbound like the server's staging check: opening the flow
+    // only proposes a revert; per-environment narrowing happens in the modal
+    // against the chosen target.
+    const canRevertHere =
+      canManageDrafts ||
+      permissionsUtil.canRevertFeature(feature, NO_ENVIRONMENT_BINDING);
+    const canRevert = canRevertHere && !!revertTarget;
     const isDiscarded = revision.status === "discarded";
+    // The first published revision has nothing behind it to roll back to, so
+    // the whole revert affordance is dropped rather than explained away.
+    const nothingToRevertTo = !isDiscarded && !revertTarget;
     // Same page header as the draft path, but the summary line describes
     // the terminal state (merged/published, live, or discarded) instead of a
     // pending merge.
@@ -1348,6 +1560,11 @@ export default function ReviewAndPublish({
                           name={name || email}
                           timestamp={timestamp}
                           stale={stale}
+                          uncoveredReason={
+                            uncoveredApprovers.has(id)
+                              ? uncoveredApproverReasons.get(id)
+                              : undefined
+                          }
                         />
                       }
                     />
@@ -1357,26 +1574,28 @@ export default function ReviewAndPublish({
             </Box>
           )}
 
-          <Box mt="5" mb="4">
-            <HelperText status="info" size="sm">
-              {isDiscarded ? (
-                <>
-                  This revision was discarded. Reopen it as a draft to continue
-                  editing, request review, and publish.
-                </>
-              ) : isLive ? (
-                <>
-                  This revision is currently live. Rolling back reverts the
-                  feature to the previously published revision.
-                </>
-              ) : (
-                <>
-                  This revision was published and is now locked. You can revert
-                  the feature back to this revision.
-                </>
-              )}
-            </HelperText>
-          </Box>
+          {!nothingToRevertTo && (
+            <Box mt="5" mb="4">
+              <HelperText status="info" size="sm">
+                {isDiscarded ? (
+                  <>
+                    This revision was discarded. Reopen it as a draft to
+                    continue editing, request review, and publish.
+                  </>
+                ) : isLive ? (
+                  <>
+                    This revision is currently live. Rolling back reverts the
+                    Feature Flag to a previously published revision.
+                  </>
+                ) : (
+                  <>
+                    This revision was published and is now locked. You can
+                    revert the Feature Flag back to this revision.
+                  </>
+                )}
+              </HelperText>
+            </Box>
+          )}
 
           {isDiscarded ? (
             <Button
@@ -1387,7 +1606,7 @@ export default function ReviewAndPublish({
             >
               Reopen as draft
             </Button>
-          ) : (
+          ) : nothingToRevertTo ? null : (
             <Button
               color="red"
               variant="outline"
@@ -1399,15 +1618,16 @@ export default function ReviewAndPublish({
             </Button>
           )}
 
-          {!canManageDrafts && (
-            <HelperText status="info" size="md" mt="5">
-              You don&apos;t have permission to manage drafts for this feature.
-            </HelperText>
+          {isDiscarded && !canManageDrafts && (
+            <PermissionBlocker mt="2">
+              You don&apos;t have permission to edit drafts for this Feature
+              Flag.
+            </PermissionBlocker>
           )}
-          {!isDiscarded && canManageDrafts && !revertTarget && (
-            <HelperText status="info" size="md" mt="5">
-              There is no previously published revision to roll back to.
-            </HelperText>
+          {!isDiscarded && !nothingToRevertTo && !canRevertHere && (
+            <PermissionBlocker mt="2">
+              You don&apos;t have permission to revert this Feature Flag.
+            </PermissionBlocker>
           )}
         </Box>
       </Box>
@@ -1480,10 +1700,25 @@ export default function ReviewAndPublish({
       ),
   );
 
-  const hasPublishPermission = permissionsUtil.canPublishFeature(
-    feature,
-    getAffectedRevisionEnvs(feature, revision, environments),
-  );
+  // Publish authority, or the narrow atom that could land this exact change in
+  // one step: a pure revert under revert authority, a pure archive under delete
+  // authority. Staging a change as a draft must not require an atom that landing
+  // it directly doesn't. Provenance is all the client can see — the server
+  // re-verifies purity.
+  const hasPublishPermission =
+    (permissionsUtil.canPublishFeature(feature, affectedRevisionEnvs) ||
+      (draftStagesRevert &&
+        permissionsUtil.canRevertFeature(feature, affectedRevisionEnvs)) ||
+      (draftStagesArchive &&
+        permissionsUtil.canDeleteFeature(feature, affectedRevisionEnvs))) &&
+    // A draft that also relocates the flag lands in the destination, so the
+    // narrow atoms above don't carry it — same rule the publish endpoint applies.
+    holdsFeatureMoveDestination(
+      permissionsUtil,
+      feature,
+      mergeResult?.success ? mergeResult.result.metadata?.project : undefined,
+      affectedRevisionEnvs,
+    );
 
   // Publishing is currently blocked (merge conflict, required rebase/divergence,
   // ramp lockdown, or nothing to publish). Used to suppress the reviewer's
@@ -1523,41 +1758,50 @@ export default function ReviewAndPublish({
       };
       effectiveBase = filledLive;
     }
+    const liveRampScheduleEnvs = new Map<string, string[] | "all">();
+    for (const action of effectiveRevision.rampActions ?? []) {
+      if (action.mode !== "update") continue;
+      const liveSchedule = rampSchedules?.find(
+        (schedule) => schedule.id === action.rampScheduleId,
+      );
+      if (liveSchedule) {
+        liveRampScheduleEnvs.set(
+          action.rampScheduleId,
+          getEnvsFromRampSchedule(liveSchedule),
+        );
+      }
+    }
     requireReviews = checkIfRevisionNeedsReview({
       feature,
       baseRevision: effectiveBase,
       revision: effectiveRevision,
-      allEnvironments: envIds,
+      orgEnvironments: environments,
       settings,
       requireApprovalsLicensed: hasCommercialFeature("require-approvals"),
-      liveRampScheduleEnvs: (() => {
-        const map = new Map<string, string[] | "all">();
-        for (const action of effectiveRevision.rampActions ?? []) {
-          if (action.mode !== "update") continue;
-          const liveSchedule = rampSchedules?.find(
-            (rs) => rs.id === action.rampScheduleId,
-          );
-          if (liveSchedule) {
-            map.set(
-              action.rampScheduleId,
-              getEnvsFromRampSchedule(liveSchedule),
-            );
-          }
-        }
-        return map;
-      })(),
+      liveRampScheduleEnvs,
     });
   }
 
   const state = getReviewAndPublishState({
+    // Feature edits demote a changes-requested revision back to `draft`, and the
+    // request-review endpoint only accepts `draft`.
+    editsResetStatus: true,
     requireReviews,
     status: revision.status,
     mergeSuccess: mergeResult.success,
     hasChanges: hasChanges || isStranded,
-    hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(feature),
-    canManageDraft: permissionsUtil.canManageFeatureDrafts(feature),
+    hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(
+      feature,
+      reviewFootprint,
+    ),
+    // Recall is derived from this in the state machine, and revert/delete
+    // authority may recall a review request on a draft they authored — so pass
+    // the widened predicate rather than the bare draft atom.
+    canManageDraft: canAdvanceDraft,
     isReviewRequester,
     isContributor: !!userId && contributorIds.includes(userId),
+    // `authoredFeatureDraft` — author OR contributor, matching this engine.
+    isDraftOwner: authoredDraft,
     isReviewer: !!userId && reviewers.some((r) => r.id === userId),
     adminPublish,
     hasSelectedExperiments: selectedExperiments.size > 0,
@@ -1565,7 +1809,9 @@ export default function ReviewAndPublish({
     experimentsStep,
     featureLockedByRamp,
     featureLockedBySchedule,
+    checklistIncomplete,
     checklistBlocked,
+    checklistAcknowledged,
     governanceCanPublish: governance ? governance.canPublish : true,
   });
 
@@ -2014,11 +2260,21 @@ export default function ReviewAndPublish({
     ) : null;
 
   const canDoPrimary =
-    state.submitAction === "publish" ? hasPublishPermission : true;
+    state.submitAction === "publish"
+      ? hasPublishPermission &&
+        (adminPublish ||
+          !requireReviews ||
+          (approvalsCoverFootprint && requiredTeams.satisfied))
+      : true;
 
   // Shared by the no-changes empty state and the actions column kebab — the
   // only two places an active draft can be discarded from.
-  const canDiscardDraft = permissionsUtil.canManageFeatureDrafts(feature);
+  //
+  // Narrower than advancing, matching `canDiscardFeatureDraft`: draft authority or
+  // authorship. A narrow atom may land this draft or leave it, but not throw away
+  // work that isn't its own — the same rule the generic tab applies.
+  const canDiscardDraft =
+    permissionsUtil.canEditFeatureDrafts(feature) || authoredDraft;
   const discardConfirmModal = confirmDiscard ? (
     <ModalStandard
       trackingEventModalType="discard-feature-revision"
@@ -2065,6 +2321,13 @@ export default function ReviewAndPublish({
       !adminPublish &&
       ["draft", "pending-review", "changes-requested"].includes(revision.status)
     )
+      return { overridable: true };
+    // Overridable so the bypass affordance stays reachable — the state that
+    // most needs it.
+    if (requireReviews && !adminPublish && !approvalsCoverFootprint)
+      return { overridable: true };
+    // Properly approved, but the rule's required team has not signed off.
+    if (requireReviews && !adminPublish && !requiredTeams.satisfied)
       return { overridable: true };
     if (!adminPublish && !governance?.canPublish) return { overridable: true };
     if (!adminPublish && featureLockedByRamp) return { overridable: true };
@@ -2165,9 +2428,7 @@ export default function ReviewAndPublish({
               experiment={experiment}
               feature={feature}
               mutateExperiment={mutate}
-              onReady={(failed, loading) =>
-                handleChecklistReady(experiment.id, failed, loading)
-              }
+              onReady={(status) => handleChecklistReady(experiment.id, status)}
             />
           </Box>
         );
@@ -2176,10 +2437,11 @@ export default function ReviewAndPublish({
   ) : (
     // Left column shared with the read-only review (see renderLeftColumn).
     // The right actions column is rendered separately.
-    renderLeftColumn(allDiffs, {
-      before: currentRevisionData,
-      after: draftRawAfter,
-    })
+    renderLeftColumn(
+      allDiffs,
+      { before: currentRevisionData, after: draftRawAfter },
+      state.canUndoReview,
+    )
   );
 
   // ── Right column: reviewer / approval-flow actions and state ──
@@ -2333,6 +2595,11 @@ export default function ReviewAndPublish({
                           name={name || email}
                           timestamp={timestamp}
                           stale={stale}
+                          uncoveredReason={
+                            uncoveredApprovers.has(id)
+                              ? uncoveredApproverReasons.get(id)
+                              : undefined
+                          }
                         />
                       }
                     />
@@ -2440,16 +2707,12 @@ export default function ReviewAndPublish({
               "waiting for a reviewer" next to a working Publish button reads
               as a contradiction. */}
           {state.waitingForReview && !canReview && !showPublishSection && (
-            <Callout status="info" size="sm">
-              Waiting for a reviewer.{" "}
-              {createdBy?.id === user?.id
-                ? "Authors can't approve their own drafts. "
-                : ""}
-              Anyone with review permission on this feature can approve it.
-              {state.canRecallReview
-                ? " You can also return the draft to editing, which withdraws the review request."
-                : ""}
-            </Callout>
+            <WaitingForReviewCallout
+              isOwnDraft={createdBy?.id === user?.id}
+              canRecallReview={state.canRecallReview}
+              disabled={secondaryLoading !== null}
+              onRecallReview={doRecallReview}
+            />
           )}
 
           {(() => {
@@ -2656,11 +2919,21 @@ export default function ReviewAndPublish({
                       variant="soft"
                       onClick={doSubmit}
                       loading={submitting}
-                      disabled={!state.ctaEnabled}
+                      // Requesting review is a draft action, and the endpoint
+                      // gates on draft authority — so a publish- or review-only
+                      // role must not be offered it.
+                      disabled={!state.ctaEnabled || !canAdvanceDraft}
                       style={{ width: "100%" }}
                     >
                       {state.ctaLabel}
                     </Button>
+                    {state.submitAction === "request-review" &&
+                      !canAdvanceDraft && (
+                        <PermissionBlocker mt="2">
+                          You don&apos;t have permission to request review for
+                          this draft.
+                        </PermissionBlocker>
+                      )}
                   </Box>
                 )}
 
@@ -2673,6 +2946,25 @@ export default function ReviewAndPublish({
                     pt="4"
                     style={{ borderTop: "1px solid var(--gray-a5)" }}
                   >
+                    {/* The verdict stands, so the status stays "Approved". */}
+                    {requireReviews && !requiredTeams.satisfied && (
+                      <Box mb="3">
+                        <Callout status="warning" size="sm">
+                          <UnmetApproverTeams unmet={requiredTeams.unmet} />
+                        </Callout>
+                      </Box>
+                    )}
+
+                    {requireReviews && hasUncoveredApproval && (
+                      <Box mb="3">
+                        <Callout status="warning" size="sm">
+                          {uncoveredFootprintEnvs.length
+                            ? `Approved, but no reviewer has approval rights in ${uncoveredFootprintEnvs.join(", ")}. This draft needs approval from someone who does.`
+                            : `Approved, but no reviewer has approval rights across everything this draft changes.`}
+                        </Callout>
+                      </Box>
+                    )}
+
                     {/* Divergence/rebase notice renders above the publish button
                     so users consider rebasing before reaching for Publish. */}
                     {governance && (
@@ -2682,7 +2974,7 @@ export default function ReviewAndPublish({
                         baseVersion={revision.baseVersion}
                         onUpdateFromLive={onUpdateFromLive}
                         updating={rebasing}
-                        canRebase={permissionsUtil.canManageFeatureDrafts(
+                        canRebase={permissionsUtil.canEditFeatureDrafts(
                           feature,
                         )}
                         onResolveConflicts={() => setResolveConflicts(true)}
@@ -2713,13 +3005,29 @@ export default function ReviewAndPublish({
                               setAdminPublish(!!val);
                               if (!val) {
                                 checklistStateRef.current.clear();
+                                setChecklistIncomplete(false);
                                 setChecklistBlocked(false);
+                                setChecklistAcknowledged(false);
                                 setExperimentsStep(false);
                               }
                             }}
                           />
                         </Box>
                       )}
+
+                    {state.showChecklistAcknowledgment && (
+                      <Box mb="3">
+                        <Checkbox
+                          label="Acknowledge incomplete recommended items and continue"
+                          weight="regular"
+                          disabled={!canDoPrimary || scheduleBlocksPublish}
+                          value={checklistAcknowledged}
+                          setValue={(value) =>
+                            setChecklistAcknowledged(!!value)
+                          }
+                        />
+                      </Box>
+                    )}
 
                     {/* A live schedule blocks "publish now"; the scheduled
                     status card above already explains this and offers
@@ -2748,6 +3056,14 @@ export default function ReviewAndPublish({
                     messages. Stacked in priority order: ramps, errors, and
                     finally the "no approval necessary" note. */}
                     <Flex direction="column" gap="2" mt="3">
+                      {/* First in the stack: a disabled CTA with no reason
+                          reads as a bug. */}
+                      {!hasPublishPermission && (
+                        <PermissionBlocker>
+                          You don&apos;t have permission to publish this draft.
+                        </PermissionBlocker>
+                      )}
+
                       {linkedRamps.map((ramp) => (
                         <Callout key={ramp.id} status="info" size="sm">
                           Publishing this draft will activate ramp schedule{" "}
@@ -2798,7 +3114,9 @@ export default function ReviewAndPublish({
                           color="link"
                           onClick={() => {
                             checklistStateRef.current.clear();
+                            setChecklistIncomplete(false);
                             setChecklistBlocked(false);
+                            setChecklistAcknowledged(false);
                             setExperimentsStep(false);
                           }}
                         >

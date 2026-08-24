@@ -1,6 +1,9 @@
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
-import { sqlReferencesColumn } from "shared/experiments";
+import {
+  getFactMetricColumnRefs,
+  sqlReferencesColumn,
+} from "shared/experiments";
 import { explorationConfigReferencesColumn } from "shared/enterprise";
 import { SqlIdentifierQuote } from "shared/types/sql";
 import { isEqual, omit } from "lodash";
@@ -22,7 +25,6 @@ import {
   ApiFactTableColumn,
   ApiFactTableFilter,
 } from "shared/validators";
-import { isEventForwarderEventsFactTable } from "shared/util";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { promiseAllChunks } from "back-end/src/util/promise";
@@ -371,10 +373,7 @@ export async function updateFactTable(
   // Allow changing columns even for API-managed fact tables. Also allow
   // system/background contexts (which have no audit user) through, e.g. the
   // event forwarder sync.
-  // The Event Forwarder Events fact table is `managedBy: "api"` but is
-  // intentionally user-editable for now.
   if (
-    !isEventForwarderEventsFactTable(factTable, factTable.datasource) &&
     factTable.managedBy === "api" &&
     context.auditUser?.type !== "api_key" &&
     context.auditUser !== null &&
@@ -877,21 +876,15 @@ export async function deleteColumn(
     context.models.factMetrics.getAll(),
   ]);
   const visibleFactMetricIds = new Set(visibleFactMetrics.map((m) => m.id));
-  const allDependentMetrics = allFactMetrics.filter(
-    (metric) =>
+  const allDependentMetrics = allFactMetrics.filter((metric) =>
+    getFactMetricColumnRefs(metric).some((columnRef) =>
       columnRefReferencesColumn(
-        metric.numerator,
+        columnRef,
         columnName,
         factTable,
         identifierQuote,
-      ) ||
-      (metric.denominator !== null &&
-        columnRefReferencesColumn(
-          metric.denominator,
-          columnName,
-          factTable,
-          identifierQuote,
-        )),
+      ),
+    ),
   );
   const dependentMetrics = allDependentMetrics.filter((m) =>
     visibleFactMetricIds.has(m.id),
@@ -1179,7 +1172,6 @@ export async function deleteFactTable(
 ) {
   if (
     !bypassManagedByCheck &&
-    !isEventForwarderEventsFactTable(factTable, factTable.datasource) &&
     factTable.managedBy === "api" &&
     context.auditUser?.type !== "api_key"
   ) {
@@ -1276,36 +1268,55 @@ export async function deleteFactFilter(
 export function toFactTableApiInterface(
   factTable: FactTableInterface,
 ): ApiFactTable {
-  return {
-    ...omit(factTable, [
-      "organization",
-      "filters",
-      "dateCreated",
-      "dateUpdated",
-    ]),
-    columns: factTable.columns.map((col) => ({
-      ...col,
-      alwaysInlineFilter: col.alwaysInlineFilter ?? false,
-      isAutoSliceColumn: col.isAutoSliceColumn ?? false,
-      dateCreated: col.dateCreated.toISOString(),
-      dateUpdated: col.dateUpdated.toISOString(),
-      topValuesDate: col.topValuesDate?.toISOString(),
-    })),
-    managedBy: factTable.managedBy || "",
-    aggregatedFactTableSettings:
-      factTable.aggregatedFactTableSettings ?? undefined,
-    dateCreated: factTable.dateCreated?.toISOString() || "",
-    dateUpdated: factTable.dateUpdated?.toISOString() || "",
-  };
+  const apiFactTable: { [K in keyof Required<ApiFactTable>]: ApiFactTable[K] } =
+    {
+      id: factTable.id,
+      name: factTable.name,
+      description: factTable.description,
+      owner: factTable.owner,
+      // Populated downstream by resolveOwnerEmail; listed here so the exhaustive
+      // type stays satisfied.
+      ownerEmail: undefined,
+      projects: factTable.projects,
+      tags: factTable.tags,
+      datasource: factTable.datasource,
+      userIdTypes: factTable.userIdTypes,
+      aggregatedFactTableSettings:
+        factTable.aggregatedFactTableSettings ?? undefined,
+      sql: factTable.sql,
+      eventName: factTable.eventName,
+      columns: factTable.columns.map(toFactTableColumnApiInterface),
+      columnsError: factTable.columnsError,
+      columnRefreshPending: factTable.columnRefreshPending ?? false,
+      archived: factTable.archived,
+      autoSliceUpdatesEnabled: factTable.autoSliceUpdatesEnabled,
+      managedBy: factTable.managedBy || "",
+      dateCreated: factTable.dateCreated?.toISOString() || "",
+      dateUpdated: factTable.dateUpdated?.toISOString() || "",
+    };
+  return apiFactTable;
 }
 
 export function toFactTableColumnApiInterface(
   column: ColumnInterface,
 ): ApiFactTableColumn {
   return {
-    ...omit(column, ["dateCreated", "dateUpdated", "topValuesDate"]),
+    column: column.column,
+    datatype: column.datatype,
+    dataTypeFromWarehouse: column.dataTypeFromWarehouse,
+    numberFormat: column.numberFormat,
+    jsonFields: column.jsonFields,
+    name: column.name,
+    description: column.description,
     alwaysInlineFilter: column.alwaysInlineFilter ?? false,
+    deleted: column.deleted,
     isAutoSliceColumn: column.isAutoSliceColumn ?? false,
+    autoSlices: column.autoSlices,
+    lockedAutoSlices: column.lockedAutoSlices,
+    isVirtual: column.isVirtual,
+    sql: column.sql,
+    topValues: column.topValues,
+    topValuesDate: column.topValuesDate?.toISOString(),
     dateCreated: column.dateCreated.toISOString(),
     dateUpdated: column.dateUpdated.toISOString(),
   };

@@ -13,17 +13,23 @@ export default function SavedGroupDraftSelectorForChanges({
 }: {
   savedGroup: SavedGroupInterface;
   openRevisions: Revision[];
+  /** Forwarded: only drafts this flow may write into. */
+  canWriteIntoDraft?: (revision: Revision) => boolean;
   allRevisions: Revision[];
   mode: DraftMode;
   setMode: (m: DraftMode) => void;
   selectedDraftId: string | null;
   setSelectedDraftId: (v: string | null) => void;
   canAutoPublish: boolean;
+  /** Whether this caller may STAGE a draft at all; the shell defaults it to true. */
+  canDraft?: boolean;
   approvalRequired: boolean;
   defaultExpanded?: boolean;
   triggerPrefix?: string;
   metadataOnly?: boolean;
   hideExisting?: boolean;
+  alert?: React.ReactNode;
+  alertActive?: boolean;
 }) {
   return <RevisionDraftSelectorForChanges entityId={savedGroup.id} {...rest} />;
 }
