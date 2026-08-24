@@ -735,7 +735,7 @@ export default {
   },
   kotlin: {
     name: "Kotlin SDK",
-    version: "7.6.0",
+    version: "7.7.0",
     github: "https://github.com/growthbook/growthbook-kotlin",
     examples: [],
     packageRepos: [
