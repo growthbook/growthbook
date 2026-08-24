@@ -356,6 +356,12 @@ export class CustomFieldModel extends BaseClass {
       { organization, [key]: { $exists: true } },
       strip,
     );
+    // Templates seed `customFields` onto new experiments, and creates don't heal
+    // — a stale key here would 400 every experiment created from the template.
+    await getCollection("experimenttemplates").updateMany(
+      { organization, [key]: { $exists: true } },
+      strip,
+    );
     // Open revisions snapshot the feature's metadata, so publishing one would
     // restore the key. Published/discarded ones are history and keep it.
     // `pending-parent` is swept too — a ramp schedule auto-publishes it.
