@@ -194,7 +194,7 @@ function loadSkillsFromDirectory(dir: string | null): SkillRegistry {
     if (domainReferences === null) continue;
     if (domainReferences.length === 0) {
       logger.warn(
-        `Skill domain "${domain.name}" has no workflows. Run 'pnpm --filter back-end assemble-skills' with a growthbook/skills checkout; see packages/back-end/agent-skills.local.json.example.`,
+        `Skill domain "${domain.name}" has no workflows. Run 'pnpm --filter back-end assemble-skills' with a growthbook/skills checkout; see packages/back-end/src/agent/README.md.`,
       );
     }
     for (const reference of domainReferences) {
