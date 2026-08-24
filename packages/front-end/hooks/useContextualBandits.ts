@@ -192,6 +192,11 @@ export function useContextualBanditStatusHealth(
           (sum, n) => sum + n,
           0,
         ) ?? 0;
+      // With no traffic there is nothing to assess. Return undefined so callers
+      // treat this as "no health data" rather than an assessed, healthy result.
+      if (totalUsers === 0) {
+        return undefined;
+      }
       return {
         srm: latest.srm?.pValue ?? null,
         multipleExposures: latest.multipleExposures ?? 0,
@@ -199,7 +204,7 @@ export function useContextualBanditStatusHealth(
       };
     }
     const persisted = cb.analysisSummary?.health;
-    if (persisted) {
+    if (persisted && persisted.totalUsers > 0) {
       return {
         srm: persisted.srm ?? null,
         multipleExposures: persisted.multipleExposures,
