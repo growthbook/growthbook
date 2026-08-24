@@ -141,9 +141,6 @@ export default function EditSavedGroupPage() {
   const [addItemsDraftSelectedId, setAddItemsDraftSelectedId] = useState<
     string | null
   >(null);
-  // Pinned when a list modal opens. `displayedValues` tracks revalidation, so
-  // reading it at submit time would compare the current list against itself.
-  const [listBaseline, setListBaseline] = useState<string[] | null>(null);
   const [deleteItemsModal, setDeleteItemsModal] = useState(false);
   const [deleteItemsDraftMode, setDeleteItemsDraftMode] =
     useState<DraftMode>("new");
@@ -294,12 +291,10 @@ export default function EditSavedGroupPage() {
     [displayedSavedGroup],
   );
 
-  const pinnedList = listBaseline ?? displayedValues;
-
   // A list can't merge item-by-item, so a contested one is flagged, not merged.
   // One instance per modal, so an add conflict can't gate a later removal.
   const addConflict = useDraftConflict<Record<string, unknown>>({
-    initial: { values: pinnedList },
+    initial: { values: displayedValues },
     labels: { values: "List items" },
     applyField: (_field, value) => {
       setImportOperation("replace");
@@ -307,15 +302,31 @@ export default function EditSavedGroupPage() {
     },
     isNewDraft: addItemsDraftMode === "new",
     entityNoun: "saved group",
+    onReload: async () => {
+      await mutate();
+      setAddItems(false);
+      setItemsToAdd([]);
+    },
   });
   // Removing by selection has nowhere to apply their list, so this one only
   // reports the conflict and offers a reload.
   const deleteConflict = useDraftConflict<Record<string, unknown>>({
-    initial: { values: pinnedList },
+    initial: { values: displayedValues },
     labels: { values: "List items" },
     isNewDraft: deleteItemsDraftMode === "new",
     entityNoun: "saved group",
   });
+
+  // Publish/new-draft submits compare against live, which the hook baseline
+  // only describes when the conflict itself came from live.
+  const submitBaseline = (
+    mode: DraftMode,
+    guardBaseline: Record<string, unknown> | undefined,
+    hook: { hasConflict: boolean; conflictFromDraft: boolean },
+  ) =>
+    mode !== "existing" && (!hook.hasConflict || hook.conflictFromDraft)
+      ? { values: savedGroup?.values }
+      : guardBaseline;
 
   const filteredValues = displayedValues.filter((v) => v.match(filter));
   const sortedValues = sortNewestFirst
@@ -559,6 +570,11 @@ export default function EditSavedGroupPage() {
             }
 
             const guard = deleteConflict.guard({ values: newValues });
+            const baseline = submitBaseline(
+              deleteItemsDraftMode,
+              guard.baseline,
+              deleteConflict,
+            );
             const res = await deleteConflict.guarded(() =>
               apiCall<{
                 status: number;
@@ -569,7 +585,7 @@ export default function EditSavedGroupPage() {
                   method: "PUT",
                   body: JSON.stringify({
                     values: newValues,
-                    baseline: { values: pinnedList },
+                    baseline,
                   }),
                 },
                 guard.onError,
@@ -683,6 +699,11 @@ export default function EditSavedGroupPage() {
             }
 
             const guard = addConflict.guard({ values: newValues });
+            const baseline = submitBaseline(
+              addItemsDraftMode,
+              guard.baseline,
+              addConflict,
+            );
             const res = await addConflict.guarded(() =>
               apiCall<{
                 status: number;
@@ -694,7 +715,7 @@ export default function EditSavedGroupPage() {
                   method: "PUT",
                   body: JSON.stringify({
                     values: newValues,
-                    baseline: { values: pinnedList },
+                    baseline,
                   }),
                 },
                 guard.onError,
@@ -1350,7 +1371,7 @@ export default function EditSavedGroupPage() {
             )}
             {savedGroup.type === "list" &&
               !isIdListSupportedAttribute(attr) && (
-                <Callout status="error" mt="3">
+                <Callout status="error" my="3">
                   The attribute for this Saved Group has an unsupported
                   datatype. It cannot be edited and it may produce unexpected
                   behavior when used in SDKs. Try using a{" "}
@@ -1486,8 +1507,7 @@ export default function EditSavedGroupPage() {
                             setDeleteItemsDraftSelectedId(
                               userOpenRevision?.id ?? null,
                             );
-                            setListBaseline(displayedValues);
-                            deleteConflict.clear();
+                            deleteConflict.clear({ values: displayedValues });
                             setDeleteItemsModal(true);
                           }}
                         >
@@ -1526,8 +1546,7 @@ export default function EditSavedGroupPage() {
                           setAddItemsDraftSelectedId(
                             userOpenRevision?.id ?? null,
                           );
-                          setListBaseline(displayedValues);
-                          addConflict.clear();
+                          addConflict.clear({ values: displayedValues });
                           setAddItems(true);
                         }}
                       >
@@ -1565,8 +1584,7 @@ export default function EditSavedGroupPage() {
                           setAddItemsDraftSelectedId(
                             userOpenRevision?.id ?? null,
                           );
-                          setListBaseline(displayedValues);
-                          addConflict.clear();
+                          addConflict.clear({ values: displayedValues });
                           setAddItems(true);
                         }}
                       >
