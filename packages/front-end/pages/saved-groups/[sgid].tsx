@@ -141,6 +141,9 @@ export default function EditSavedGroupPage() {
   const [addItemsDraftSelectedId, setAddItemsDraftSelectedId] = useState<
     string | null
   >(null);
+  // Live list pinned at modal open; the SWR value revalidates mid-edit, so a
+  // submit-time read would vouch for changes the user never saw.
+  const [liveListPin, setLiveListPin] = useState<string[] | null>(null);
   const [deleteItemsModal, setDeleteItemsModal] = useState(false);
   const [deleteItemsDraftMode, setDeleteItemsDraftMode] =
     useState<DraftMode>("new");
@@ -325,7 +328,7 @@ export default function EditSavedGroupPage() {
     hook: { hasConflict: boolean; conflictFromDraft: boolean },
   ) =>
     mode !== "existing" && (!hook.hasConflict || hook.conflictFromDraft)
-      ? { values: savedGroup?.values }
+      ? { values: liveListPin ?? savedGroup?.values }
       : guardBaseline;
 
   const filteredValues = displayedValues.filter((v) => v.match(filter));
@@ -1507,6 +1510,7 @@ export default function EditSavedGroupPage() {
                             setDeleteItemsDraftSelectedId(
                               userOpenRevision?.id ?? null,
                             );
+                            setLiveListPin(savedGroup.values ?? []);
                             deleteConflict.clear({ values: displayedValues });
                             setDeleteItemsModal(true);
                           }}
@@ -1546,6 +1550,7 @@ export default function EditSavedGroupPage() {
                           setAddItemsDraftSelectedId(
                             userOpenRevision?.id ?? null,
                           );
+                          setLiveListPin(savedGroup.values ?? []);
                           addConflict.clear({ values: displayedValues });
                           setAddItems(true);
                         }}
@@ -1584,6 +1589,7 @@ export default function EditSavedGroupPage() {
                           setAddItemsDraftSelectedId(
                             userOpenRevision?.id ?? null,
                           );
+                          setLiveListPin(savedGroup.values ?? []);
                           addConflict.clear({ values: displayedValues });
                           setAddItems(true);
                         }}
