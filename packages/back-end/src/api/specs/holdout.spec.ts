@@ -30,7 +30,7 @@ export const holdoutStartAnalysisEndpoint = {
   zodReturnObject: apiHoldoutActionReturn,
   summary: "Start the Holdout's Analysis Period",
   description:
-    "New Feature Flags and experiments can no longer be added, but existing traffic splits remain active. Results exclude data from before the analysis period so you can measure the cumulative impact after changes are frozen.",
+    "Move the holdout into an analysis phase. New Feature Flags and experiments can no longer be added, but existing traffic splits remain active for existing and new traffic. Results exclude data from before the analysis period so you can measure the cumulative impact after changes are frozen.",
   possibleErrors: ["invalid_status"] as const,
 };
 
