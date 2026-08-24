@@ -275,6 +275,31 @@ export function getColumnByName<T>(
   return undefined;
 }
 
+/**
+ * Merge freshly-detected JSON sub-fields into the persisted set, preferring the
+ * existing entry (and its casing) when a field is already present. Names match
+ * under the integration's casing rule, so a warehouse that now echoes a
+ * differently-cased name (BigQuery returning `userId` where we stored `userid`)
+ * does not add a case-variant duplicate.
+ */
+export function mergeJsonFields(
+  existing: JSONColumnFields | undefined,
+  incoming: JSONColumnFields,
+  caseSensitive = false,
+): { fields: JSONColumnFields; changed: boolean } {
+  const fields: JSONColumnFields = { ...existing };
+  const presentNames = Object.keys(fields);
+  let changed = false;
+  for (const name of Object.keys(incoming)) {
+    if (!presentNames.some((p) => columnNamesMatch(p, name, caseSensitive))) {
+      fields[name] = incoming[name];
+      presentNames.push(name);
+      changed = true;
+    }
+  }
+  return { fields, changed };
+}
+
 export function determineColumnTypes(
   rows: Record<string, unknown>[],
   typeMap: Map<string, FactTableColumnType>,

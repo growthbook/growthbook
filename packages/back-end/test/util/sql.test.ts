@@ -1,4 +1,5 @@
 import { format } from "shared/sql";
+import { FactTableColumnType } from "shared/types/fact-table";
 import {
   getBaseIdTypeAndJoins,
   compileSqlTemplate,
@@ -7,6 +8,7 @@ import {
   determineColumnTypes,
   getColumnByName,
   columnNamesMatch,
+  mergeJsonFields,
   getHost,
 } from "back-end/src/util/sql";
 import { baseDialect } from "back-end/src/integrations/dialects/base";
@@ -669,6 +671,67 @@ describe("columnNamesMatch", () => {
   it("requires an exact match when caseSensitive", () => {
     expect(columnNamesMatch("userId", "userid", true)).toBe(false);
     expect(columnNamesMatch("userId", "userId", true)).toBe(true);
+  });
+});
+
+describe("mergeJsonFields", () => {
+  const field = (datatype: FactTableColumnType) => ({ datatype });
+
+  it("adds genuinely new fields and reports the change", () => {
+    const { fields, changed } = mergeJsonFields(
+      { userId: field("string") },
+      { userId: field("string"), country: field("string") },
+    );
+    expect(changed).toBe(true);
+    expect(fields).toEqual({
+      userId: field("string"),
+      country: field("string"),
+    });
+  });
+
+  it("does not re-add a field that already exists under different casing", () => {
+    const { fields, changed } = mergeJsonFields(
+      { userid: field("number") },
+      { userId: field("number") },
+    );
+    expect(changed).toBe(false);
+    expect(fields).toEqual({ userid: field("number") });
+  });
+
+  it("keeps the existing entry and its datatype when a field recurs", () => {
+    const { fields, changed } = mergeJsonFields(
+      { userId: field("number") },
+      { userId: field("string") },
+    );
+    expect(changed).toBe(false);
+    expect(fields).toEqual({ userId: field("number") });
+  });
+
+  it("treats a casing-only difference as new when caseSensitive", () => {
+    const { fields, changed } = mergeJsonFields(
+      { userid: field("string") },
+      { userId: field("string") },
+      true,
+    );
+    expect(changed).toBe(true);
+    expect(fields).toEqual({
+      userid: field("string"),
+      userId: field("string"),
+    });
+  });
+
+  it("handles an absent existing set", () => {
+    const { fields, changed } = mergeJsonFields(undefined, {
+      userId: field("string"),
+    });
+    expect(changed).toBe(true);
+    expect(fields).toEqual({ userId: field("string") });
+  });
+
+  it("does not mutate the existing object", () => {
+    const existing = { userId: field("string") };
+    mergeJsonFields(existing, { country: field("string") });
+    expect(existing).toEqual({ userId: field("string") });
   });
 });
 

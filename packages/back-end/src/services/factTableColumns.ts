@@ -18,6 +18,7 @@ import {
   columnNamesMatch,
   determineColumnTypes,
   getColumnByName,
+  mergeJsonFields,
 } from "back-end/src/util/sql";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { normalizePersistedColumn } from "back-end/src/util/factTable";
@@ -340,17 +341,13 @@ export async function runColumnDetectionQuery(
       }
       // If this is a JSON column, merge in the JSON fields
       else if (col.datatype === "json" && jsonFields !== undefined) {
-        // Merge existing JSON fields with new ones (prefering existing)
-        const newJSONFields = { ...col.jsonFields };
-        let hasNewFields = false;
-        for (const key in jsonFields) {
-          if (!newJSONFields[key]) {
-            newJSONFields[key] = jsonFields[key];
-            hasNewFields = true;
-          }
-        }
-        if (hasNewFields) {
-          col.jsonFields = newJSONFields;
+        const { fields, changed } = mergeJsonFields(
+          col.jsonFields,
+          jsonFields,
+          caseSensitive,
+        );
+        if (changed) {
+          col.jsonFields = fields;
           col.dateUpdated = new Date();
         }
       }
