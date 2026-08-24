@@ -134,15 +134,14 @@ export function isWithinUserAgeWindow({
   maxUserAgeDays,
   now = Date.now(),
 }: {
-  userDateCreated?: string | null;
+  userDateCreated?: Date;
   maxUserAgeDays?: number;
   now?: number;
 }): boolean {
   if (typeof maxUserAgeDays !== "number" || maxUserAgeDays <= 0) return true;
-  const created = userDateCreated ?? null;
-  if (created === null) return false;
+  if (!userDateCreated) return false;
 
-  const createdAt = new Date(created).getTime();
+  const createdAt = userDateCreated.getTime();
   if (Number.isNaN(createdAt)) return false;
 
   return now - maxUserAgeDays * MS_PER_DAY <= createdAt;
@@ -180,7 +179,9 @@ export function HomeMarketingBanner() {
 
   if (
     !isWithinUserAgeWindow({
-      userDateCreated: accountCreatedAt,
+      userDateCreated: accountCreatedAt
+        ? new Date(accountCreatedAt)
+        : undefined,
       maxUserAgeDays: config.maxUserAgeDays,
     })
   ) {

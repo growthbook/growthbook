@@ -1,8 +1,7 @@
 import { isWithinUserAgeWindow } from "@/components/Marketing/MarketingBanner";
 
 const now = new Date("2026-08-24T12:00:00.000Z").getTime();
-const daysAgo = (days: number) =>
-  new Date(now - days * 24 * 60 * 60 * 1000).toISOString();
+const daysAgo = (days: number) => new Date(now - days * 24 * 60 * 60 * 1000);
 
 describe("isWithinUserAgeWindow", () => {
   it("shows to everyone when no window is configured", () => {
@@ -18,7 +17,6 @@ describe("isWithinUserAgeWindow", () => {
     ).toBe(true);
     expect(
       isWithinUserAgeWindow({
-        userDateCreated: null,
         maxUserAgeDays: -5,
         now,
       }),
@@ -59,14 +57,7 @@ describe("isWithinUserAgeWindow", () => {
     expect(isWithinUserAgeWindow({ maxUserAgeDays: 30, now })).toBe(false);
     expect(
       isWithinUserAgeWindow({
-        userDateCreated: null,
-        maxUserAgeDays: 30,
-        now,
-      }),
-    ).toBe(false);
-    expect(
-      isWithinUserAgeWindow({
-        userDateCreated: "not-a-date",
+        userDateCreated: new Date("not-a-date"),
         maxUserAgeDays: 30,
         now,
       }),
