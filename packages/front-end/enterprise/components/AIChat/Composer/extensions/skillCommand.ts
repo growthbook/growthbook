@@ -1,5 +1,4 @@
 import Mention from "@tiptap/extension-mention";
-import type { SkillKind } from "shared/ai-chat";
 
 export const SKILL_COMMAND_NAME = "skillCommand";
 
@@ -15,8 +14,7 @@ export interface SkillItem {
   /** Display name for the `/` menu, derived from `id` by `skillDisplayName`. */
   title: string;
   description: string;
-  kind: SkillKind;
-  /** Parent domain for leaf skills; same as `id` for domain routers. */
+  /** The directory the skill is filed under, for grouping. Absent for a top-level skill. */
   group?: string;
 }
 
@@ -59,18 +57,21 @@ export const SkillCommand = Mention.extend<
   },
 });
 
-/** Title/id matches first, then description. With no query, domains before leaves. */
+/**
+ * Title/id matches first, then description.
+ *
+ * An empty query keeps the server's order, which files each skill under its
+ * directory. The limit is generous because that browse case is the whole menu
+ * and the popup scrolls — truncating it would hide a directory entirely.
+ */
 export function filterSkillItems(
   items: SkillItem[],
   query: string,
-  limit = 20,
+  limit = 50,
 ): SkillItem[] {
   const q = query.trim().toLowerCase();
   if (!q) {
-    return [
-      ...items.filter((i) => i.kind === "domain"),
-      ...items.filter((i) => i.kind !== "domain"),
-    ].slice(0, limit);
+    return items.slice(0, limit);
   }
 
   const nameMatch: SkillItem[] = [];

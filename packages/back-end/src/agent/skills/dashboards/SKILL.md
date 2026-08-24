@@ -1,27 +1,23 @@
 ---
 name: dashboards
-description: Build, extend, and edit Analytics dashboards — multi-block pages of charts and experiment summaries. Use when the user asks to "build me a dashboard", "make a dashboard for X", "put these metrics on a dashboard", "track X and Y over time", "add a chart to this dashboard", or for page context under /product-analytics/dashboards/*. For a single one-off chart with no dashboard involved, use product-analytics instead.
+description: Shared conventions behind the dashboard-create and dashboard-edit skills — which block types an Analytics dashboard supports, the four dashboard archetypes, page-context mapping, the ask budget, and the guardrails on running charts and saving. Load it alongside the dashboard skill you are following; it documents no workflow of its own.
 ---
 
 # Dashboards
 
-Domain router for Analytics dashboards. Use `callApi` for all REST calls.
-Dashboard endpoints are `/api/v1/dashboards`; the product analytics lookups a
-dashboard is built from are `/api/v1/product-analytics/*`.
+Background for `dashboard-create` and `dashboard-edit`. Use `callApi` for all
+REST calls. Dashboard endpoints are `/api/v1/dashboards`; the product analytics
+lookups a dashboard is built from are `/api/v1/product-analytics/*`.
 
-**Workflow:** read this router → `loadSkill('<leaf>')` for the matching
-sub-skill below → follow that leaf's workflow.
+The workflow lives in `dashboard-create` (building a new one) or
+`dashboard-edit` (changing one that exists) — load that one directly. Load this
+alongside it when you need the conventions below.
 
-Both leaves end the same way: one `proposeDashboard` call, which runs every
-chart, lays out the grid, and shows the user a live preview with a Save button.
-You never run the charts yourself and you never save the dashboard.
+Both end the same way: one `proposeDashboard` call, which runs every chart, lays
+out the grid, and shows the user a live preview with a Save button. You never
+run the charts yourself and you never save the dashboard.
 
-## Sub-skills
-
-| Skill              | Use when                                                     |
-| ------------------ | ------------------------------------------------------------ |
-| `dashboard-create` | Building a new dashboard from a goal or a set of metrics     |
-| `dashboard-edit`   | Adding, removing, or reconfiguring blocks on an existing one |
+For a single one-off chart with no dashboard involved, use `product-analytics`.
 
 ## Scope
 
@@ -83,13 +79,20 @@ asking.
 
 ## Ask budget
 
-**At most two `askUser` calls before the create call.** Bundle independent gaps
-into one multi-select question rather than asking them one at a time.
+**Two slots have no default and must be settled before the create call: the
+name and the project.** Ask for both in a single `askUser`, then **at most one
+more** question about everything else. Bundle independent gaps into one
+multi-select question rather than asking them one at a time.
 
-Every slot has a default. Ask only where the default would be wrong:
+Name and project are singled out because they are the two things the user cannot
+fix from the preview — renaming or moving a saved dashboard means editing it by
+hand afterwards. Everything else either has a good default or is adjustable
+where they are looking.
 
 | Slot             | Default                        | Ask only when                                              |
 | ---------------- | ------------------------------ | ---------------------------------------------------------- |
+| Name             | none                           | always, unless the user already named it                   |
+| Project          | none                           | the org has 2+ projects and the user hasn't named one      |
 | Datasource       | the hint, or the only one      | 2+ exist and none is named                                 |
 | Archetype        | inferred from wording          | 2+ genuinely plausible                                     |
 | Metrics          | search hits                    | 0 hits, or one named metric matches 2+ results             |
@@ -97,14 +100,19 @@ Every slot has a default. Ask only where the default would be wrong:
 | Granularity      | `"auto"`                       | never — `auto` is always acceptable                        |
 | Breakdown        | none                           | user said "by X" and X maps to 2+ columns                  |
 | Comparison       | off                            | user implies one ("vs last month") but the mode is unclear |
-| Projects         | `[]` (all)                     | user names a team or project matching 2+                   |
+| Block projects   | `[]` (all)                     | user names a team or project matching 2+                   |
 | Experiment scope | `""` (no filter)               | user scoped experiments vaguely ("our checkout tests")     |
 | Share level      | `"private"`                    | never — they can publish it afterwards                     |
 
-Never ask a question whose answer would not change a block. Prefer building
-something reasonable and stating your assumptions over asking a third question:
-the dashboard is editable, and the create call is gated behind a confirmation
-the user can reject.
+Never ask a question whose answer would not change a block. Beyond the name and
+project, prefer building something reasonable and stating your assumptions over
+asking another question: the dashboard is editable, and the user reviews the
+whole thing in the preview before saving it.
+
+To find the projects: `GET /api/v1/projects`. Skip the question entirely when
+the organization has none or exactly one — pass `[]` or that single id. `[]`
+means the dashboard is visible in every project, which is also the right answer
+when the user says "all of them".
 
 ## Shared conventions
 
@@ -116,11 +124,12 @@ the user can reject.
   before the dashboard appeared. Hand the configs to `proposeDashboard`; it runs
   them and wires up the results.
 - **Never save the dashboard.** The user saves from the preview. Saving for them
-  takes the choice away, and the preview is where they adjust the name, sharing,
+  takes the choice away, and the preview is where they adjust the sharing,
   filters, and layout.
-- **A name is required.** `proposeDashboard` needs a `title`; ask for it if the
-  user hasn't given one. Everything else has a default and is adjustable in the
-  preview, so don't ask about sharing, Project, or auto-refresh.
+- **A name and a project are required.** `proposeDashboard` needs a `title`, and
+  a `projects` array it cannot guess. Settle both before calling it — see the ask
+  budget. Sharing and auto-refresh are adjustable in the preview, so don't ask
+  about those.
 - **Links:** `/product-analytics/dashboards/<id>`.
 - **Never guess a column value.** `POST /api/v1/product-analytics/column-values`
   first, for row filters and static dimension values alike.

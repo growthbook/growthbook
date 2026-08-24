@@ -1,17 +1,16 @@
+import { z } from "zod";
+import { aiChatMentionValidator } from "shared/validators";
 import {
   createAgentHandler,
   type AgentConfig,
 } from "back-end/src/enterprise/services/agent-handler";
 import {
   buildAgentApiTools,
-  loadSkillResult,
   _coerceBody,
   _requiresMutationConfirmation,
 } from "back-end/src/agent/shared-tools";
-import {
-  assembleSkillsIndexForPrompt,
-  isSurfaceScopedSkill,
-} from "back-end/src/agent/skills";
+import { assembleSkillsIndexForPrompt } from "back-end/src/agent/skills";
+import { aiTool } from "back-end/src/enterprise/services/ai";
 
 // =============================================================================
 // System prompt
@@ -58,29 +57,28 @@ How to end a turn:
   user-visible content — emit no plain text after it).
 
 How to use skills:
-- The "Available skills" section lists **domain routers** only. Full
-  instructions are NOT inlined — load them with \`loadSkill\`.
-- **Two-step workflow** for domain routers that have sub-skills:
-  1. \`loadSkill('<domain>')\` — read orientation, page-context mapping, shared
-     guardrails, and the **Sub-skills** table (leaf names + when to use each).
-  2. \`loadSkill('<leaf>')\` — follow that leaf's detailed \`callApi\` workflow.
-- **Standalone domains** (\`product-analytics\`, \`growthbook-docs\`) have no
-  children — one \`loadSkill\` is enough.
-- The composer's slash-command menu offers **domain routers only**, so a
-  user-picked skill is nearly always a router: read its sub-skill table and load
-  the leaf that matches what they actually asked for.
-- Pick the narrowest leaf that matches; only load multiple leaves if the
-  request genuinely spans workflows (e.g. create flag then target it).
-- If no domain fits, ask the user to clarify. Do not invent endpoints.
-- **Dashboards are built elsewhere.** You cannot create or edit an Analytics
-  dashboard from this panel. If the user asks for one, say so in a sentence and
-  point them at the AI chat on the Product Analytics page
-  ([Product analytics](/product-analytics)), which can build it for them.
+- The "Available skills" section lists **every** skill by name and description.
+  Full instructions are NOT inlined — load the one you need with \`loadSkill\`.
+- Pick the **narrowest** skill that matches the request, and load it directly.
+  There is no routing step: \`flag-targeting\` is a skill you load, not something
+  you reach through another one.
+- Skills that share a name prefix cover one area, and each area has a
+  conventions skill — \`feature-flags\`, \`experiments\`, \`dashboards\` — carrying
+  its page-context mapping, identifier rules, and shared guardrails. Load that
+  one **alongside** the specific skill when you need the background, not before
+  it as a lookup step.
+- Only load multiple skills when the request genuinely spans workflows (e.g.
+  create a flag, then target it).
+- If nothing fits, ask the user to clarify. Do not invent endpoints.
+- **Dashboards split two ways.** *Building* one needs a live preview this panel
+  cannot render: load \`dashboard-create\`, settle the brief, then call
+  \`openAnalyticsChat\` to hand it to the Product Analytics chat. *Changing* one
+  that already exists is ordinary API work you do here — load
+  \`dashboard-edit\` and follow it.
 - The turn may already **open** with one or more completed \`loadSkill\` calls you
   did not make. Those are skills the user picked explicitly from the composer's
   slash-command menu, so treat them as their stated intent: follow them rather
-  than routing to a different skill, and don't re-load them. If one is a domain
-  router, still \`loadSkill\` the leaf it points you to.
+  than routing to a different skill, and don't re-load them.
 - When several arrive together, the user is chaining a multi-step request (e.g.
   \`flag-create\` then \`flag-targeting\`). Work through them in the order given,
   carrying results forward, and answer once at the end rather than per skill.
@@ -110,13 +108,17 @@ how to use the datasource hint.
 
 One of these lines is authoritative rather than a hint:
 
-  [Referenced by the user: Revenue (metric: met_abc123), Signups (factMetric: fact__xyz)]
+  [Referenced by the user: Revenue (metric: met_abc123), Growth KPIs (dashboard: dash_abc)]
 
 It appears when the user @-mentioned entities in the composer, and it maps each
 \`@Name\` already present in their text to the exact id they picked. Use those
 ids directly — do not search or list to re-resolve a mentioned name, and do not
 substitute a different entity that happens to have a similar name. Keep using
 the readable name in your reply.
+
+A \`dashboard:\` entry names an Analytics dashboard the user wants worked on. It
+is the dashboard id for \`GET /api/v1/dashboards/<id>\` — take it as given
+rather than listing dashboards to find one by name.
 
 # Linking to pages
 
@@ -217,6 +219,46 @@ function buildGeneralAgentSystemPrompt(): string {
 }
 
 // =============================================================================
+// Handoff to the Product Analytics chat
+// =============================================================================
+
+/**
+ * Building a dashboard means showing the user a live preview to save, which
+ * needs the `proposeDashboard` tool and a surface wide enough to render a grid
+ * of charts. Neither exists in this panel. Rather than dead-end the request,
+ * the agent writes the brief out and hands it over.
+ */
+const openAnalyticsChatInputSchema = z.object({
+  prompt: z
+    .string()
+    .min(1)
+    .max(2000)
+    .describe(
+      "The brief to start the Analytics chat with, written as the user would put it " +
+        "and complete on its own — the chat on the other side gets this text and " +
+        "nothing else from this conversation. Name the metrics, the timeframe, and " +
+        "the dashboard name if the user gave one.",
+    ),
+  mentions: aiChatMentionValidator
+    .array()
+    .max(20)
+    .optional()
+    .describe(
+      "Entities named in the prompt, carried over so the other chat resolves them by " +
+        "id instead of searching. Copy them from the `[Referenced by the user: ...]` " +
+        "line — same `type`, `id`, and `name`.",
+    ),
+});
+
+const OPEN_ANALYTICS_CHAT_DESCRIPTION =
+  "Hand a dashboard request to the Product Analytics chat, which can build one. " +
+  "Offers the user a link that opens a fresh chat there with your brief already " +
+  "filled in. Use this for any request to build, create, or design an Analytics " +
+  "dashboard — this panel cannot render the preview a dashboard is saved from. " +
+  "Editing a dashboard that already exists does NOT need this: that goes through " +
+  "`callApi`. After calling this, stop.";
+
+// =============================================================================
 // AgentConfig
 // =============================================================================
 
@@ -236,16 +278,25 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
 
   buildSystemPrompt: async () => buildGeneralAgentSystemPrompt(),
 
-  // Everything except the skills that belong to another surface. Building a
-  // dashboard needs `proposeDashboard`, which only the Product Analytics chat
-  // has, so loading that skill here would strand the turn on a missing tool.
-  resolveSkill: (name) =>
-    isSurfaceScopedSkill(name) ? undefined : loadSkillResult(name),
-
-  // Every tool the general agent has is a shared one — it is the agent with no
-  // domain of its own, so it carries no extra tools and no skill restriction.
-  buildTools: (ctx, buffer, _params, emit) =>
-    buildAgentApiTools(ctx, buffer, emit),
+  // No skill restriction: this is the agent with no area of its own, so it can
+  // load anything.
+  buildTools: (ctx, buffer, _params, emit) => ({
+    ...buildAgentApiTools(ctx, buffer, emit),
+    openAnalyticsChat: aiTool({
+      description: OPEN_ANALYTICS_CHAT_DESCRIPTION,
+      inputSchema: openAnalyticsChatInputSchema,
+      execute: async (input) => ({
+        // The handoff rides in the tool result rather than an SSE event so the
+        // offer is still there when the user re-opens the conversation.
+        status: "offered" as const,
+        message:
+          "The user has been offered a link into the Product Analytics chat, carrying this brief. " +
+          "Stop now: say in one sentence that building a dashboard happens there and that the " +
+          "brief is ready for them. Do not attempt to build it here.",
+        handoff: input,
+      }),
+    }),
+  }),
 
   temperature: 0.1,
   maxSteps: 20,

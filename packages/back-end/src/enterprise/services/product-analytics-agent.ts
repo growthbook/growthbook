@@ -48,7 +48,7 @@ import {
   buildAgentApiTools,
   loadSkillResult,
 } from "back-end/src/agent/shared-tools";
-import { getSkillNamesForDomain } from "back-end/src/agent/skills";
+import { getSkillNamesForGroup } from "back-end/src/agent/skills";
 import {
   getFactTable,
   getFactTablesForDatasource,
@@ -233,13 +233,17 @@ async function buildProductAnalyticsSystemPrompt(
     `There are ${metrics.length} metrics and ${allFactTables.length} fact tables available. ` +
     "Use the search tool to discover them — pass an empty query to browse, or a search term to filter.\n\n" +
     "A user message may begin with an auto-injected line of the form\n" +
-    "  [Referenced by the user: Revenue (factMetric: fact__xyz)]\n" +
+    "  [Referenced by the user: Revenue (factMetric: fact__xyz), Growth KPIs (dashboard: dash_abc)]\n" +
     "The chat UI adds it when the user @-mentioned entities in the composer — it is " +
     "not something they typed, so do not echo it. It maps each `@Name` already in " +
     "their text to the exact id they picked, so use those ids directly rather than " +
     "calling search to re-resolve the name. An entry marked STALE was picked under a " +
     "different datasource and is not usable here — say so, name it, and ask the user " +
-    "to re-pick it rather than searching for a replacement.\n\n" +
+    "to re-pick it rather than searching for a replacement.\n" +
+    "A `dashboard:` entry is the dashboard the user wants worked on — pass its id as " +
+    "`dashboardId` to `proposeDashboard` so saving updates it instead of creating a " +
+    "second one, and do not list or search dashboards to find it. Dashboards are not " +
+    "scoped to a datasource, so one is never STALE.\n\n" +
     buildConfigSchemaSummary() +
     "\n\n" +
     PA_SYSTEM_INSTRUCTIONS
@@ -972,6 +976,16 @@ const proposeDashboardInputSchema = z.object({
     .describe(
       "Only when revising a dashboard that already exists. Omit for a new one.",
     ),
+  projects: z
+    .string()
+    .array()
+    .optional()
+    .describe(
+      "Project ids the dashboard belongs to; `[]` means every project. " +
+        "Ask the user which project when the organization has more than one, " +
+        "since moving a dashboard afterwards means editing it by hand. " +
+        "Omit only when you could not establish it.",
+    ),
   globalControls: dashboardGlobalControlsValidator
     .optional()
     .describe(
@@ -1014,6 +1028,9 @@ async function mentionDatasource(
   ctx: ReqContext,
   mention: AIChatMention,
 ): Promise<string | undefined> {
+  // Callers filter these out first; guarded here so a dashboard can never be
+  // read as a metric with a missing datasource, which would mark it stale.
+  if (mention.type === "dashboard") return undefined;
   if (mention.type === "factMetric") {
     return (await ctx.models.factMetrics.getById(mention.id))?.datasource;
   }
@@ -1032,6 +1049,10 @@ async function resolveProductAnalyticsMentions(
 
   return Promise.all(
     mentions.map(async (mention) => {
+      // A dashboard is not scoped to a datasource, so there is nothing for it
+      // to be stale against — it stays usable whichever one the chat is on.
+      if (mention.type === "dashboard") return mention;
+
       const datasource = await mentionDatasource(ctx, mention);
       return datasource === datasourceId
         ? mention
@@ -1041,17 +1062,17 @@ async function resolveProductAnalyticsMentions(
 }
 
 /**
- * The only skill domain this chat can load. Dashboards are the natural next
+ * The only skill group this chat can load. Dashboards are the natural next
  * step from a chart ("save these as a dashboard"), so the dashboard workflows
  * belong here — but an analytics chat has no business publishing a Feature Flag,
  * so everything else stays out. Scoping the resolver, not just the `/` menu,
- * means the model cannot reach another domain's endpoints even if it guesses
+ * means the model cannot reach another group's endpoints even if it guesses
  * the skill name.
  */
-export const PRODUCT_ANALYTICS_CHAT_SKILL_DOMAIN = "dashboards";
+export const PRODUCT_ANALYTICS_CHAT_SKILL_GROUP = "dashboards";
 
 function productAnalyticsSkillNames(): string[] {
-  return getSkillNamesForDomain(PRODUCT_ANALYTICS_CHAT_SKILL_DOMAIN);
+  return getSkillNamesForGroup(PRODUCT_ANALYTICS_CHAT_SKILL_GROUP);
 }
 
 function resolveProductAnalyticsSkill(

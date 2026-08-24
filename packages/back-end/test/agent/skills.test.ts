@@ -3,12 +3,10 @@ import {
   _clearSkillCacheForTests,
   assembleSkillsIndexForPrompt,
   getAllSkills,
-  getDomainSkills,
-  getLeafSkillsForDomain,
   getSkillByName,
   getSkillNames,
-  getSkillNamesForDomain,
-  isSurfaceScopedSkill,
+  getSkillNamesForGroup,
+  getSkillsForGroup,
 } from "back-end/src/agent/skills";
 
 describe("agent skills loader", () => {
@@ -16,59 +14,66 @@ describe("agent skills loader", () => {
     _clearSkillCacheForTests();
   });
 
-  it("loads domain routers and leaf skills from nested directories", () => {
-    const domains = getDomainSkills();
-    const domainNames = domains.map((s) => s.name).sort();
+  it("loads every markdown file as a skill in its own right", () => {
+    const names = getSkillNames();
 
-    expect(domainNames).toEqual(
+    expect(names).toEqual(
       expect.arrayContaining([
-        "experiments",
-        "feature-flags",
+        // Top-level files.
         "growthbook-docs",
         "product-analytics",
+        // A directory's SKILL.md takes the directory's name...
+        "experiments",
+        "feature-flags",
+        // ...and the files beside it are skills too, not sub-entries of it.
+        "experiment-launch",
+        "flag-create",
       ]),
     );
-    expect(domains.every((s) => s.kind === "domain")).toBe(true);
-
-    const ffLeaves = getLeafSkillsForDomain("feature-flags");
-    expect(ffLeaves.length).toBeGreaterThanOrEqual(15);
-    expect(
-      ffLeaves.every((s) => s.kind === "leaf" && s.group === "feature-flags"),
-    ).toBe(true);
-
-    const expLeaves = getLeafSkillsForDomain("experiments");
-    expect(expLeaves.length).toBe(5);
-    expect(expLeaves.map((s) => s.name).sort()).toEqual([
-      "experiment-analyze",
-      "experiment-brainstorm",
-      "experiment-design",
-      "experiment-launch",
-      "experiment-stop",
-    ]);
   });
 
-  it("includes leaf names in getSkillNames but only domains in the prompt index", () => {
-    const names = getSkillNames();
-    expect(names).toContain("flag-create");
-    expect(names).toContain("experiment-launch");
+  it("groups a skill by the directory it lives in", () => {
+    expect(getSkillByName("flag-create")?.group).toBe("feature-flags");
+    expect(getSkillByName("feature-flags")?.group).toBe("feature-flags");
+    // A top-level file belongs to no directory.
+    expect(getSkillByName("product-analytics")?.group).toBeUndefined();
+  });
 
+  it("puts the shared-conventions skill at the head of its group", () => {
+    // The menu and the prompt index show this order, and the conventions read
+    // better before the workflows that lean on them.
+    const experiments = getSkillsForGroup("experiments").map((s) => s.name);
+    expect(experiments[0]).toBe("experiments");
+    expect(experiments).toEqual(
+      expect.arrayContaining([
+        "experiment-analyze",
+        "experiment-brainstorm",
+        "experiment-design",
+        "experiment-launch",
+        "experiment-stop",
+      ]),
+    );
+    expect(experiments.length).toBe(6);
+  });
+
+  it("advertises every loadable skill in the prompt index", () => {
+    // The index is now the only place the agent learns a skill's name — there
+    // is no router table to read on the way in. A skill missing from it is
+    // unreachable however well it is written.
     const index = assembleSkillsIndexForPrompt();
-    expect(index).toContain("**feature-flags**");
-    expect(index).toContain("**experiments**");
-    expect(index).not.toContain("flag-create");
-    expect(index).not.toContain("experiment-launch");
+
+    for (const skill of getAllSkills()) {
+      expect(index).toContain(`**${skill.name}**`);
+    }
   });
 
-  it("loads skill bodies by name for domain and leaf", () => {
-    const domain = getSkillByName("feature-flags");
-    expect(domain?.kind).toBe("domain");
-    expect(domain?.body).toContain("Sub-skills");
+  it("loads skill bodies by name", () => {
+    const conventions = getSkillByName("feature-flags");
+    expect(conventions?.body).toContain("Shared conventions");
 
-    const leaf = getSkillByName("flag-create");
-    expect(leaf?.kind).toBe("leaf");
-    expect(leaf?.group).toBe("feature-flags");
-    expect(leaf?.body).toContain("callApi");
-    expect(leaf?.body).not.toContain("gb-call");
+    const workflow = getSkillByName("flag-create");
+    expect(workflow?.body).toContain("callApi");
+    expect(workflow?.body).not.toContain("gb-call");
   });
 
   it("resolves skills from src/agent/skills when running tests from source", () => {
@@ -77,7 +82,6 @@ describe("agent skills loader", () => {
       "../../src/agent/skills/feature-flags/SKILL.md",
     );
     expect(getSkillByName("feature-flags")?.body.length).toBeGreaterThan(0);
-    // Sanity: router file exists at expected path in repo layout
     expect(skillsDir).toContain("feature-flags");
   });
 });
@@ -97,8 +101,8 @@ describe("agent skill cross-references", () => {
     for (const skill of getAllSkills()) {
       for (const match of skill.body.matchAll(/loadSkill\('([^']+)'\)/g)) {
         const name = match[1];
-        // `loadSkill('<leaf>')` in a router's prose is a template, not a
-        // reference to a skill called "<leaf>".
+        // `loadSkill('<leaf>')` in prose is a template, not a reference to a
+        // skill called "<leaf>".
         if (name.includes("<")) continue;
         if (!known.has(name)) dangling.push(`${skill.name} → ${name}`);
       }
@@ -106,81 +110,32 @@ describe("agent skill cross-references", () => {
 
     expect([...new Set(dangling)].sort()).toEqual([]);
   });
-
-  it("lists every leaf of a domain in that domain's router body", () => {
-    // The router body is the only place the agent learns a leaf's name, so a
-    // leaf missing from the table is unreachable however well it is written.
-    const missing: string[] = [];
-
-    for (const domain of getDomainSkills()) {
-      for (const leaf of getLeafSkillsForDomain(domain.name)) {
-        if (!domain.body.includes(leaf.name)) {
-          missing.push(`${domain.name} is missing ${leaf.name}`);
-        }
-      }
-    }
-
-    expect(missing.sort()).toEqual([]);
-  });
 });
 
-describe("getSkillNamesForDomain", () => {
+describe("getSkillNamesForGroup", () => {
   beforeEach(() => {
     _clearSkillCacheForTests();
   });
 
-  it("returns the router and every leaf beneath it", () => {
-    // The Product Analytics chat scopes itself to this domain, so both dashboard
-    // leaves must be reachable there — a missing leaf silently disappears from
-    // that chat's `/` menu and from what its agent can load.
-    const names = getSkillNamesForDomain("dashboards");
+  it("returns every skill filed under the directory", () => {
+    // The Product Analytics chat scopes itself to this group, so both dashboard
+    // workflows must be reachable there — a missing one silently disappears
+    // from that chat's `/` menu and from what its agent can load.
+    const names = getSkillNamesForGroup("dashboards");
     expect(names.includes("dashboards")).toBe(true);
     expect(names.includes("dashboard-create")).toBe(true);
     expect(names.includes("dashboard-edit")).toBe(true);
   });
 
-  it("excludes other domains", () => {
-    const names = getSkillNamesForDomain("dashboards");
+  it("excludes other groups", () => {
+    const names = getSkillNamesForGroup("dashboards");
     expect(names.includes("flag-create")).toBe(false);
     expect(names.includes("feature-flags")).toBe(false);
   });
 
-  it("returns nothing for an unknown domain or a leaf name", () => {
-    expect(getSkillNamesForDomain("nope")).toEqual([]);
-    // A leaf is not a domain router, so it scopes nothing.
-    expect(getSkillNamesForDomain("dashboard-create")).toEqual([]);
-  });
-});
-
-describe("surface-scoped skills", () => {
-  beforeEach(() => {
-    _clearSkillCacheForTests();
-  });
-
-  it("treats the dashboards domain and its leaves as surface-scoped", () => {
-    // Building a dashboard needs `proposeDashboard`, which only the Product
-    // Analytics chat has.
-    expect(isSurfaceScopedSkill("dashboards")).toBe(true);
-    expect(isSurfaceScopedSkill("dashboard-create")).toBe(true);
-    expect(isSurfaceScopedSkill("dashboard-edit")).toBe(true);
-  });
-
-  it("leaves every other skill available to the general agent", () => {
-    expect(isSurfaceScopedSkill("feature-flags")).toBe(false);
-    expect(isSurfaceScopedSkill("flag-create")).toBe(false);
-    expect(isSurfaceScopedSkill("product-analytics")).toBe(false);
-    expect(isSurfaceScopedSkill("experiment-analyze")).toBe(false);
-  });
-
-  it("reports an unknown skill as not scoped", () => {
-    expect(isSurfaceScopedSkill("nope")).toBe(false);
-  });
-
-  it("keeps surface-scoped domains out of the general agent's prompt index", () => {
-    // Advertising a skill the agent cannot load just invites it to try.
-    const index = assembleSkillsIndexForPrompt();
-    expect(index.includes("dashboards")).toBe(false);
-    expect(index.includes("feature-flags")).toBe(true);
-    expect(index.includes("product-analytics")).toBe(true);
+  it("returns nothing for a name that is not a group", () => {
+    expect(getSkillNamesForGroup("nope")).toEqual([]);
+    // A skill name is not a directory name, even when it looks like one.
+    expect(getSkillNamesForGroup("dashboard-create")).toEqual([]);
   });
 });

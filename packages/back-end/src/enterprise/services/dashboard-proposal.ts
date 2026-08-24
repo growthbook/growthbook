@@ -30,6 +30,12 @@ export interface DashboardDraft {
   /** Set when revising a dashboard that already exists; absent for a new one. */
   dashboardId?: string;
   title: string;
+  /**
+   * Project ids the dashboard belongs to; `[]` is every project. Absent when
+   * the agent could not establish it, in which case the preview falls back to
+   * whatever project the user has selected in the app.
+   */
+  projects?: string[];
   globalControls?: DashboardGlobalControls;
   /** Dashboard-wide compare-to-previous-period; overrides any per-block setting. */
   comparison?: BlockComparison;
@@ -39,6 +45,7 @@ export interface DashboardDraft {
 export interface BuildDashboardDraftInput {
   dashboardId?: string;
   title: string;
+  projects?: string[];
   globalControls?: DashboardGlobalControls;
   comparison?: BlockComparison;
   blocks: ProposeDashboardBlock[];
@@ -195,6 +202,9 @@ export async function buildDashboardDraft(
     draft: {
       ...(input.dashboardId ? { dashboardId: input.dashboardId } : {}),
       title: input.title,
+      // Passed through rather than defaulted: an absent value and an explicit
+      // `[]` ("every project") mean different things to the preview.
+      ...(input.projects ? { projects: input.projects } : {}),
       ...(input.globalControls ? { globalControls: input.globalControls } : {}),
       ...(input.comparison ? { comparison: input.comparison } : {}),
       blocks: packed,

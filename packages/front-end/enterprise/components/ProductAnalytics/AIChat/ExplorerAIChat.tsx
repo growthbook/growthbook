@@ -14,7 +14,7 @@ import ChatComposer, {
   type ChatComposerHandle,
 } from "@/enterprise/components/AIChat/Composer/ChatComposer";
 import {
-  PRODUCT_ANALYTICS_CHAT_SKILL_DOMAIN,
+  PRODUCT_ANALYTICS_CHAT_SKILL_GROUP,
   useSkillMenuItems,
 } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
 import { useAgentInteractionPrompts } from "@/enterprise/hooks/useAgentInteractionPrompts";
@@ -22,7 +22,7 @@ import AskUserCard, {
   type AskUserOption,
 } from "@/components/Agent/AskUserCard";
 import ConfirmActionCard from "@/components/Agent/ConfirmActionCard";
-import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
+import { useMentionItems } from "@/enterprise/components/AIChat/Composer/useMentionItems";
 import { useChatFeedback } from "@/enterprise/components/AIChat/useChatFeedback";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
@@ -51,11 +51,12 @@ export default function ExplorerAIChat() {
   const permissionsUtil = usePermissionsUtil();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
   const { draftExploreState } = useExplorerContext();
-  const { items: mentionItems, ready: mentionItemsReady } =
-    useMetricMentionItems(draftExploreState.datasource);
+  const { items: mentionItems, ready: mentionItemsReady } = useMentionItems(
+    draftExploreState.datasource,
+  );
   // Scoped to the dashboard domain to match what this chat's agent can load —
-  // see PRODUCT_ANALYTICS_CHAT_SKILL_DOMAIN on the back end.
-  const skillItems = useSkillMenuItems(PRODUCT_ANALYTICS_CHAT_SKILL_DOMAIN);
+  // see PRODUCT_ANALYTICS_CHAT_SKILL_GROUP on the back end.
+  const skillItems = useSkillMenuItems(PRODUCT_ANALYTICS_CHAT_SKILL_GROUP);
   // The dashboard skills use `askUser` and write through the confirmation gate,
   // so this chat has to render both prompts — an unhandled `confirm-action`
   // would park a dashboard create the user can never approve.
@@ -112,6 +113,7 @@ export default function ExplorerAIChat() {
 
   const {
     messages,
+    rehydratedMessageIds,
     activeTurnItems,
     displayedTextMap,
     sendMessage,
@@ -359,6 +361,7 @@ export default function ExplorerAIChat() {
 
         <ChatMessageList
           messages={messages}
+          rehydratedMessageIds={rehydratedMessageIds}
           activeTurnItems={activeTurnItems}
           displayedTextMap={displayedTextMap}
           loading={loading}

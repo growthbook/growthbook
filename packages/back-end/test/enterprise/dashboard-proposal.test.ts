@@ -182,7 +182,31 @@ describe("buildDashboardDraft", () => {
     });
   });
 
-  it("omits dashboardId and globalControls when not given", async () => {
+  it("carries the projects the agent settled with the user", async () => {
+    mockRunExploration.mockResolvedValue({ id: "expl_1" });
+
+    const { draft } = await buildDashboardDraft(
+      ctx,
+      input([chartBlock("Revenue")], { projects: ["prj_abc"] }),
+    );
+
+    expect(draft.projects).toEqual(["prj_abc"]);
+  });
+
+  it("keeps an explicit empty projects array, which means every project", async () => {
+    // Distinct from omitting it: the preview falls back to the app's current
+    // project selection only when the agent could not establish one at all.
+    mockRunExploration.mockResolvedValue({ id: "expl_1" });
+
+    const { draft } = await buildDashboardDraft(
+      ctx,
+      input([chartBlock("Revenue")], { projects: [] }),
+    );
+
+    expect(draft.projects).toEqual([]);
+  });
+
+  it("omits dashboardId, projects, and globalControls when not given", async () => {
     mockRunExploration.mockResolvedValue({ id: "expl_1" });
 
     const { draft } = await buildDashboardDraft(
@@ -191,6 +215,7 @@ describe("buildDashboardDraft", () => {
     );
 
     expect("dashboardId" in draft).toBe(false);
+    expect("projects" in draft).toBe(false);
     expect("globalControls" in draft).toBe(false);
   });
 

@@ -52,7 +52,7 @@ export const aiChatToolResultPartValidator = z
 
 export const aiChatMentionValidator = z
   .object({
-    type: z.enum(["metric", "factMetric", "metricGroup"]),
+    type: z.enum(["metric", "factMetric", "metricGroup", "dashboard"]),
     id: z.string().min(1).max(64),
     name: z.string().min(1).max(200),
   })

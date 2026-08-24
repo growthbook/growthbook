@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { AIChatMentionType } from "shared/ai-chat";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useDashboards } from "@/hooks/useDashboards";
 import type { MentionItem } from "./extensions/metricMention";
 
 const FACT_METRIC_LABELS: Record<string, string> = {
@@ -20,10 +21,11 @@ const LEGACY_METRIC_LABELS: Record<string, string> = {
   revenue: "Revenue",
 };
 
-export function metricTypeLabel(
+export function mentionTypeLabel(
   kind: AIChatMentionType,
   rawType?: string,
 ): string {
+  if (kind === "dashboard") return "Dashboard";
   if (kind === "metricGroup") return "Metric Group";
   if (kind === "factMetric") {
     return FACT_METRIC_LABELS[rawType ?? ""] ?? "Fact Metric";
@@ -31,11 +33,15 @@ export function metricTypeLabel(
   return LEGACY_METRIC_LABELS[rawType ?? ""] ?? "Metric";
 }
 
-export function useMetricMentionItems(datasourceId?: string): {
+export function useMentionItems(datasourceId?: string): {
   items: MentionItem[];
   ready: boolean;
 } {
   const { metrics, factMetrics, metricGroups, ready } = useDefinitions();
+  // Analytics dashboards only. A per-experiment dashboard belongs to its
+  // experiment's page and none of the dashboard skills can touch it, so
+  // offering one here would only produce a dead end.
+  const { dashboards, loading: dashboardsLoading } = useDashboards(false);
 
   const items = useMemo(() => {
     const items: MentionItem[] = [];
@@ -46,7 +52,7 @@ export function useMetricMentionItems(datasourceId?: string): {
         id: m.id,
         label: m.name,
         metricType: "metric",
-        typeLabel: metricTypeLabel("metric", m.type),
+        typeLabel: mentionTypeLabel("metric", m.type),
       });
     }
     for (const m of factMetrics) {
@@ -55,7 +61,7 @@ export function useMetricMentionItems(datasourceId?: string): {
         id: m.id,
         label: m.name,
         metricType: "factMetric",
-        typeLabel: metricTypeLabel("factMetric", m.metricType),
+        typeLabel: mentionTypeLabel("factMetric", m.metricType),
       });
     }
     if (!datasourceId) {
@@ -64,13 +70,25 @@ export function useMetricMentionItems(datasourceId?: string): {
           id: g.id,
           label: g.name,
           metricType: "metricGroup",
-          typeLabel: metricTypeLabel("metricGroup"),
+          typeLabel: mentionTypeLabel("metricGroup"),
         });
       }
     }
+    // Not filtered by datasource: a dashboard is not scoped to one, so it stays
+    // offerable whichever datasource the chat is pointed at.
+    for (const d of dashboards) {
+      items.push({
+        id: d.id,
+        label: d.title,
+        metricType: "dashboard",
+        typeLabel: mentionTypeLabel("dashboard"),
+      });
+    }
 
     return items.sort((a, b) => a.label.localeCompare(b.label));
-  }, [metrics, factMetrics, metricGroups, datasourceId]);
+  }, [metrics, factMetrics, metricGroups, dashboards, datasourceId]);
 
-  return { items, ready };
+  // Both sources have to land before the list is complete. Reporting ready too
+  // early makes the composer mark every not-yet-loaded mention stale.
+  return { items, ready: ready && !dashboardsLoading };
 }

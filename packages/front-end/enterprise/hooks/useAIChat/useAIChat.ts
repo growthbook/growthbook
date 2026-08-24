@@ -52,6 +52,15 @@ export function useAIChat({
   });
 
   const [messages, setMessages] = useState<AIChatMessage[]>([]);
+  /**
+   * The transcript as it stood when this conversation was opened. Set only by
+   * the conversation-load effect below — not by the remote poll or by the
+   * end-of-turn resync, both of which carry messages the user just watched
+   * arrive.
+   */
+  const [rehydratedMessageIds, setRehydratedMessageIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
   const [activeTurnItems, setActiveTurnItems] = useState<ActiveTurnItem[]>([]);
   const activeTurnItemsRef = useRef<ActiveTurnItem[]>([]);
 
@@ -140,6 +149,9 @@ export function useAIChat({
 
         setIsLoadingConversation(false);
         setMessages(data.messages ?? []);
+        setRehydratedMessageIds(
+          new Set((data.messages ?? []).map((m) => m.id)),
+        );
         onConversationLoadedRef.current?.(data);
 
         const isRecent =
@@ -548,6 +560,7 @@ export function useAIChat({
 
   return {
     messages,
+    rehydratedMessageIds,
     activeTurnItems,
     displayedTextMap,
     sendMessage,

@@ -1,6 +1,6 @@
 ---
 name: dashboard-edit
-description: Change an Analytics dashboard — add or remove a chart, swap a metric, change the timeframe, rename it. Use when the user asks to "add a chart to this dashboard", "remove that block", "change the dashboard to last 90 days", "rename this dashboard", or refers to "this dashboard" on a /product-analytics/dashboards/* page. For building one from scratch, use dashboard-create.
+description: Change an Analytics dashboard — add or remove a chart, swap a metric, change the timeframe, rename it. Use when the user asks to "add a chart to this dashboard", "remove that block", "change the dashboard to last 90 days", "rename this dashboard", @-mentions a dashboard by name, or refers to "this dashboard" on a /product-analytics/dashboards/* page. For building one from scratch, use dashboard-create.
 ---
 
 # dashboard-edit
@@ -11,17 +11,34 @@ gets a fresh preview with a Save button, exactly as when it was created.
 Editing goes through you, not the preview: the user can move tiles and change
 filters there, but adding, removing, or reconfiguring a chart is a prompt.
 
+## Which surface are you on?
+
+Check your tools before doing anything else. Step 1 is the same either way; the
+rest is not.
+
+- **You have `proposeDashboard`** — the Product Analytics chat. Follow the
+  workflow below and never write to the dashboards API yourself.
+- **You don't** — the site-wide assistant panel. There is no preview here, so
+  you apply the change directly: do step 1, then follow
+  `<editing_without_a_preview>` instead of steps 2–4.
+
 ## Workflow
 
-1. **Resolve the dashboard.** From page context
-   (`/product-analytics/dashboards/<id>`), or by listing:
+1. **Resolve the dashboard.** In order of authority:
+   - An `@`-mention. A `[Referenced by the user: Growth KPIs (dashboard: dash_abc)]`
+     line is the user pointing at exactly the dashboard they mean — take that id
+     and skip the rest of this step. Do not list or search to second-guess it.
+   - Page context, `/product-analytics/dashboards/<id>`.
+   - Otherwise, list them:
 
-   ```json
-   { "method": "GET", "path": "/api/v1/dashboards" }
-   ```
+     ```json
+     { "method": "GET", "path": "/api/v1/dashboards" }
+     ```
 
-   If several match what the user described, `askUser` with one option per
-   dashboard. Then read it:
+     If several match what the user described, `askUser` with one option per
+     dashboard.
+
+   Then read it:
 
    ```json
    { "method": "GET", "path": "/api/v1/dashboards/<id>" }
@@ -45,6 +62,7 @@ filters there, but adding, removing, or reconfiguring a chart is a prompt.
    {
      "dashboardId": "dash_abc123",
      "title": "Growth KPIs",
+     "projects": ["prj_abc123"],
      "globalControls": { "dateRange": { "predefined": "last90Days" } },
      "blocks": ["...the full revised list..."]
    }
@@ -52,7 +70,9 @@ filters there, but adding, removing, or reconfiguring a chart is a prompt.
 
    `title` and `globalControls` are required on every call — carry the existing
    values through unless the user asked to change them, or you will silently
-   revert them.
+   revert them. Carry `projects` through from the dashboard you read in step 1
+   as well, so the preview shows where it actually lives; do **not** ask about
+   the project on an edit, since the dashboard already has one.
 
 4. **Stop.** One sentence naming what changed. Do not save it yourself.
 
@@ -60,24 +80,81 @@ If you need the block shapes, the config schema, or the layout rules,
 `loadSkill('dashboard-create')` and read its `<blocks>`, `<config_schema>`, and
 `<layout>` sections rather than guessing.
 
+<editing_without_a_preview>
+For the site-wide assistant, which has no `proposeDashboard`. You write the
+change straight to the dashboard and then send the user to look at it.
+
+1. **Run a query for every chart block you add or reconfigure.** A chart block
+   renders from an `explorerAnalysisId`, and a block saved without one renders
+   blank forever — nothing fills it in later. Post the block's config to the
+   endpoint matching its type:
+
+   ```json
+   {
+     "method": "POST",
+     "path": "/api/v1/product-analytics/metric-exploration",
+     "body": { "type": "metric", "datasource": "ds_abc", "...": "the config" }
+   }
+   ```
+
+   `/fact-table-exploration`, `/data-source-exploration`, and
+   `/funnel-exploration` are the other three. The body **is** the config — no
+   wrapper. Take `exploration.id` from the response and set it as the block's
+   `explorerAnalysisId`. These are reads, so they are not gated; you will not be
+   asked to confirm them.
+
+   Blocks you are not touching keep the `explorerAnalysisId` they already have.
+   Markdown and experimentation blocks need no query at all.
+
+2. **Write the dashboard**, with the complete block list — a partial list drops
+   every block you left out:
+
+   ```json
+   {
+     "method": "PUT",
+     "path": "/api/v1/dashboards/dash_abc123",
+     "summary": "Add a Signups over time chart to the Growth KPIs dashboard",
+     "body": { "blocks": ["...the full revised list..."] }
+   }
+   ```
+
+   Carry each existing block's `layout` through so the grid does not rearrange
+   itself. Leave `layout` off a brand-new block and it takes a default size.
+   This is a write, so the user confirms it — the `summary` is the only thing
+   they read before approving, so name the actual change in their terms.
+
+3. **Send them to it.** End with a link:
+   `[Growth KPIs](/product-analytics/dashboards/dash_abc123)`. The panel opens
+   it in place, so they see the change land.
+
+If the change needs a new chart and you cannot build a valid config for it, say
+so and offer `openAnalyticsChat` instead of saving something broken.
+</editing_without_a_preview>
+
 ## Guardrails
 
 - **Always pass the full block list.** A proposal replaces the dashboard's
   blocks; sending only the new one drops the rest.
 - **Always pass `dashboardId`** when the dashboard already exists. Without it the
   user ends up with a duplicate.
-- **Carry `title` and `globalControls` through** unless the user changed them.
-- **Never save.** No `PUT` or `POST` to the dashboards API — the user saves from
-  the preview.
+- **Carry `title`, `projects`, and `globalControls` through** unless the user
+  changed them.
+- **Never save** _when you have `proposeDashboard`._ No `PUT` or `POST` to the
+  dashboards API — the user saves from the preview. Without that tool the rule
+  inverts: saving is the only way the change reaches them.
 - **Never call `runExploration`.** `proposeDashboard` runs the queries.
 - **Confirm before removing a block.** Say which tile is going.
 - **Only the Analytics block types.** See the scope section of the `dashboards`
-  router.
+  skill.
 
 ## Endpoints used
 
 - `GET /api/v1/dashboards` — list dashboards
 - `GET /api/v1/dashboards/<id>` — read one, including its blocks
+- `PUT /api/v1/dashboards/<id>` — write the change (assistant panel only)
+- `POST /api/v1/product-analytics/metric-exploration` — run a chart and get its
+  analysis id (assistant panel only; same for `/fact-table-exploration`,
+  `/data-source-exploration`, and `/funnel-exploration`)
 - The product analytics lookup endpoints listed in `dashboard-create`, when the
   change needs a new metric or column
 

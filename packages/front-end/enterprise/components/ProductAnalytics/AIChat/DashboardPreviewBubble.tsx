@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import {
   blockUsesDashboardDateControl,
@@ -36,6 +36,12 @@ import styles from "./DashboardPreviewBubble.module.scss";
 export interface DashboardDraft {
   dashboardId?: string;
   title: string;
+  /**
+   * Project ids the agent settled with the user; `[]` is every project. Absent
+   * when it could not establish one, which is the only case where the app's
+   * current project selection stands in.
+   */
+  projects?: string[];
   globalControls?: DashboardInterface["globalControls"];
   comparison?: DashboardInterface["comparison"];
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
@@ -76,13 +82,15 @@ export function dashboardDraftFromToolResult(result: unknown): {
   };
   if (!draft || typeof draft !== "object") return null;
 
-  const { title, blocks, globalControls, comparison, dashboardId } = draft as {
-    title?: unknown;
-    blocks?: unknown;
-    globalControls?: unknown;
-    comparison?: unknown;
-    dashboardId?: unknown;
-  };
+  const { title, blocks, projects, globalControls, comparison, dashboardId } =
+    draft as {
+      title?: unknown;
+      blocks?: unknown;
+      projects?: unknown;
+      globalControls?: unknown;
+      comparison?: unknown;
+      dashboardId?: unknown;
+    };
   if (typeof title !== "string" || !Array.isArray(blocks) || !blocks.length) {
     return null;
   }
@@ -92,6 +100,12 @@ export function dashboardDraftFromToolResult(result: unknown): {
       title,
       blocks:
         blocks as DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
+      // An empty array is meaningful ("every project"), so only a missing or
+      // malformed value falls through to the app's current selection.
+      ...(Array.isArray(projects) &&
+      projects.every((p) => typeof p === "string")
+        ? { projects: projects as string[] }
+        : {}),
       ...(globalControls
         ? {
             globalControls:
@@ -113,12 +127,19 @@ interface Props {
   draft: DashboardDraft;
   droppedBlocks?: DroppedBlock[];
   toolTransparency?: React.ReactNode;
+  /**
+   * True when this preview came out of a conversation the user re-opened rather
+   * than one they just watched run. The draft's analysis ids are only as fresh
+   * as the turn that produced them, so the tiles are re-queried once on mount.
+   */
+  refreshOnMount?: boolean;
 }
 
 export default function DashboardPreviewBubble({
   draft,
   droppedBlocks = [],
   toolTransparency,
+  refreshOnMount = false,
 }: Props) {
   const { apiCall } = useAuth();
   const { userId } = useUser();
@@ -139,9 +160,19 @@ export default function DashboardPreviewBubble({
   const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [staleData, setStaleData] = useState(false);
 
   const title = draft.title;
   const isRevision = !!draft.dashboardId;
+
+  // The agent settles the project with the user before proposing, so its answer
+  // wins. The app's current selection only stands in when it could not — and an
+  // explicit `[]` from the agent means "every project", not "unset". Memoized
+  // because it feeds the preview dashboard's identity.
+  const projects = useMemo(
+    () => draft.projects ?? (project ? [project] : []),
+    [draft.projects, project],
+  );
 
   // A stand-in dashboard so the real renderer can draw an unsaved one. The "new"
   // id is load-bearing: DashboardSnapshotProvider skips its snapshot fetch for
@@ -161,7 +192,7 @@ export default function DashboardPreviewBubble({
       title,
       blocks: blocks as DashboardInterface["blocks"],
       globalControls,
-      projects: project ? [project] : [],
+      projects,
       dateCreated: new Date(),
       dateUpdated: new Date(),
     }),
@@ -172,7 +203,7 @@ export default function DashboardPreviewBubble({
       title,
       blocks,
       globalControls,
-      project,
+      projects,
     ],
   );
 
@@ -189,6 +220,12 @@ export default function DashboardPreviewBubble({
     async (
       controls: DashboardInterface["globalControls"] = globalControls,
       comparisonRef: DashboardInterface["comparison"] = comparison,
+      // "never" for anything the user asked for, so Update means Update. The
+      // mount refresh passes "preferred" instead: it is re-establishing
+      // analyses that may have aged out, not answering a request for fresh
+      // numbers, and re-opening an old thread should not put six queries on the
+      // warehouse.
+      cache: "never" | "preferred" = "never",
     ) => {
       const next = await Promise.all(
         blocks.map(async (block) => {
@@ -204,7 +241,7 @@ export default function DashboardPreviewBubble({
             comparison: comparisonRef,
           });
           const result = await fetchExplorationData(config, {
-            cache: "never",
+            cache,
             previousTimeFrame: blockComparison
               ? resolveComparisonPreviousTimeFrame(
                   config.dateRange,
@@ -231,6 +268,25 @@ export default function DashboardPreviewBubble({
     [blocks, globalControls, comparison, fetchExplorationData],
   );
 
+  /**
+   * Re-query once when a rehydrated thread renders this preview.
+   *
+   * Guarded by a ref rather than an empty dependency list because
+   * `refreshBlocks` closes over `blocks` and so changes identity the moment it
+   * succeeds — without the guard that is an endless loop.
+   */
+  const didRefreshOnMount = useRef(false);
+  useEffect(() => {
+    if (!refreshOnMount || didRefreshOnMount.current) return;
+    didRefreshOnMount.current = true;
+    void refreshBlocks(globalControls, comparison, "preferred").catch(() => {
+      // The tiles keep rendering whatever their stored analysis ids still
+      // resolve to, which may be nothing. Say so rather than leaving the user
+      // to wonder why a tile is blank.
+      setStaleData(true);
+    });
+  }, [refreshOnMount, refreshBlocks, globalControls, comparison]);
+
   const save = useCallback(async () => {
     setSaving(true);
     setError(null);
@@ -253,7 +309,7 @@ export default function DashboardPreviewBubble({
             ? {}
             : {
                 experimentId: "",
-                projects: project ? [project] : [],
+                projects,
                 userId,
               }),
         }),
@@ -273,7 +329,7 @@ export default function DashboardPreviewBubble({
     globalControls,
     comparison,
     shareLevel,
-    project,
+    projects,
     userId,
   ]);
 
@@ -332,6 +388,16 @@ export default function DashboardPreviewBubble({
             {droppedBlocks.length === 1
               ? `"${droppedBlocks[0].title}" was left off — ${droppedBlocks[0].reason}.`
               : `${droppedBlocks.length} tiles were left off because their queries could not be started.`}
+          </Callout>
+        </Box>
+      )}
+
+      {staleData && (
+        <Box mb="3">
+          <Callout status="warning" size="sm">
+            These tiles could not be refreshed, so they may be showing older
+            results or nothing at all. Change a filter and click Update to try
+            again.
           </Callout>
         </Box>
       )}

@@ -162,25 +162,40 @@ export type AIChatSystemMessage = {
   content: string;
 };
 
-export type AIChatMentionType = "metric" | "factMetric" | "metricGroup";
+export type AIChatMentionType =
+  | "metric"
+  | "factMetric"
+  | "metricGroup"
+  | "dashboard";
 
-/** An @-mentioned metric. The text keeps "@Revenue"; this carries the id. */
+/**
+ * An @-mentioned entity. The text keeps "@Revenue"; this carries the id.
+ *
+ * Mostly metrics, plus dashboards — naming one is how a user points the agent
+ * at the dashboard they want changed, instead of describing it and hoping the
+ * search finds the right one.
+ */
 export type AIChatMention = {
   type: AIChatMentionType;
   id: string;
   name: string;
-  /** Set by the server when the metric isn't in this turn's Data Source. */
+  /**
+   * Set by the server when a metric isn't in this turn's Data Source. Never set
+   * on a dashboard, which is not scoped to one.
+   */
   stale?: boolean;
 };
-
-export type SkillKind = "domain" | "leaf";
 
 /** Skill index entry for the `/` menu. Omits the prompt body — the agent loads that. */
 export interface SkillSummary {
   name: string;
   description: string;
-  kind: SkillKind;
-  /** Parent domain for leaf skills; same as `name` for domain routers. */
+  /**
+   * The directory the skill file lives in; absent for a top-level one. It
+   * groups the `/` menu and scopes a surface-specific agent to its own skills.
+   * It carries no routing meaning — every skill stands on its own and is
+   * loadable by name.
+   */
   group?: string;
 }
 

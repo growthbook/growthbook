@@ -29,9 +29,9 @@ import ChatComposer, {
   type ChatComposerHandle,
   type ComposerSubmission,
 } from "@/enterprise/components/AIChat/Composer/ChatComposer";
-import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
+import { useMentionItems } from "@/enterprise/components/AIChat/Composer/useMentionItems";
 import {
-  PRODUCT_ANALYTICS_CHAT_SKILL_DOMAIN,
+  PRODUCT_ANALYTICS_CHAT_SKILL_GROUP,
   useSkillMenuItems,
 } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
 import { PA_AI_CHAT_INITIAL_MESSAGE_KEY } from "./util";
@@ -52,11 +52,12 @@ export default function EmptyState() {
 
   const isDataSourceEmpty = datasources.length === 0;
   const { draftExploreState } = useExplorerContext();
-  const { items: mentionItems, ready: mentionItemsReady } =
-    useMetricMentionItems(draftExploreState.datasource);
+  const { items: mentionItems, ready: mentionItemsReady } = useMentionItems(
+    draftExploreState.datasource,
+  );
   // Same scope as the chat this hands off to, so a skill picked here is one the
   // agent on the other side can actually load.
-  const skillItems = useSkillMenuItems(PRODUCT_ANALYTICS_CHAT_SKILL_DOMAIN);
+  const skillItems = useSkillMenuItems(PRODUCT_ANALYTICS_CHAT_SKILL_GROUP);
 
   const handleSubmit = useCallback(
     (

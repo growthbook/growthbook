@@ -12,20 +12,42 @@ the user a live preview with a Save button.
 You do not run the charts and you do not save the dashboard. Both are handled for
 you.
 
+## Which surface are you on?
+
+Check your tools before doing anything else.
+
+- **You have `proposeDashboard`** — the Product Analytics chat. Follow the
+  workflow below.
+- **You don't** — the site-wide assistant panel. You cannot build a dashboard
+  here: there is no preview for the user to save from, and a dashboard nobody
+  can see is not worth writing to the API. Instead, restate the request as a
+  brief — the metrics, the timeframe, and the name if they gave one — call
+  `openAnalyticsChat` with it, and stop. Don't settle the full brief first and
+  don't run any queries; the chat on the other side asks for whatever it still
+  needs.
+
 ## Workflow
 
 1. **Pick the datasource.** See `<datasource_selection>`.
 
-2. **Get a name.** `proposeDashboard` requires a `title`. If the user hasn't
-   given one, ask for it in one short sentence and stop — do not invent a name
-   and do not guess one from the metrics. This is the one thing you must have.
+2. **Get a name and a project.** `proposeDashboard` requires a `title` and takes
+   a `projects` array. These are the two things the user cannot fix from the
+   preview — a saved dashboard has to be edited by hand to be renamed or moved —
+   so settle them before you build.
+   - **Name:** if the user hasn't given one, ask. Do not invent one and do not
+     guess one from the metrics.
+   - **Project:** `GET /api/v1/projects`. None or one → pass `[]` or that id
+     without asking. Two or more and the user hasn't named one → ask. `[]` means
+     every project.
 
-3. **Settle the rest of the brief.** Pick an archetype (see the `dashboards`
-   router) and fill the slots. Everything except the name has a default: take it,
-   and say what you assumed in your reply. Respect the ask budget — **at most two
-   `askUser` calls**, bundling independent gaps into one multi-select question.
-   Sharing, Project, and auto-refresh are all adjustable in the preview, so never
-   ask about those.
+   Ask for both in a **single** `askUser` (one multi-select question with both
+   slots) rather than two round-trips, then stop and wait for the reply.
+
+3. **Settle the rest of the brief.** Pick an archetype (`loadSkill('dashboards')`
+   for the archetype table and the ask budget) and fill the slots. Everything
+   else has a default: take it, and say what you assumed in your reply. Beyond
+   the name and project, **at most one more `askUser`**. Sharing and auto-refresh
+   are adjustable in the preview, so never ask about those.
 
 4. **Find the metrics.**
 
@@ -77,6 +99,7 @@ you.
    ```json
    {
      "title": "Growth KPIs",
+     "projects": ["prj_abc123"],
      "globalControls": {
        "dateRange": { "predefined": "last30Days" },
        "dateGranularity": "auto"
@@ -262,21 +285,23 @@ preview, so aim for a sensible default rather than a perfect one.
   dashboard appears. Pass configs to `proposeDashboard`.
 - **Never save the dashboard.** No `POST /api/v1/dashboards`. The user saves from
   the preview; saving for them takes the choice away.
-- **Never invent the title.** Ask for it.
+- **Never invent the title, and never guess the project.** Ask for both, in one
+  question. They are the only two things the preview cannot fix.
 - **One `proposeDashboard` call per turn**, with the complete block list. To
   revise, call it again with the full revised list — it replaces the proposal.
 - **Never guess a column value.** `column-values` first, every time.
 - **No per-experiment blocks.** `experiment-metric`, `experiment-dimension`,
   `experiment-time-series`, `experiment-metadata`, and `experiment-traffic`
   belong to an experiment's own dashboard, not an Analytics one.
-- **Stop at two questions** beyond the name. Then build, and state your
-  assumptions.
+- **Stop at one question** beyond the name-and-project one. Then build, and
+  state your assumptions.
 - If the tool reports `droppedBlocks`, say which tiles are missing and why — do
   not present a partial dashboard as complete.
 
 ## Endpoints used
 
 - `GET /api/v1/data-sources` — list datasources
+- `GET /api/v1/projects` — list projects, to settle which one the dashboard is in
 - `GET /api/v1/product-analytics/search` — find metrics and fact tables
 - `GET /api/v1/product-analytics/columns` — columns, userIdTypes, unit guidance
 - `POST /api/v1/product-analytics/column-values` — real values in a string column

@@ -117,6 +117,12 @@ function classifyAssistantBlockMessages(msgs: AIChatMessage[]): {
 
 interface ChatMessageListProps {
   messages: AIChatMessage[];
+  /**
+   * Ids of the messages this conversation was loaded with. A dashboard preview
+   * among them is redrawn from analysis ids that may have aged out, so it
+   * re-queries itself; one that just streamed in is already current.
+   */
+  rehydratedMessageIds: ReadonlySet<string>;
   activeTurnItems: ActiveTurnItem[];
   displayedTextMap: Map<string, string>;
   loading: boolean;
@@ -144,6 +150,7 @@ interface ChatMessageListProps {
 
 export default function ChatMessageList({
   messages,
+  rehydratedMessageIds,
   activeTurnItems,
   displayedTextMap,
   loading,
@@ -416,6 +423,7 @@ export default function ChatMessageList({
                 key={`${msg.id}-r${i}`}
                 draft={proposal.draft}
                 droppedBlocks={proposal.droppedBlocks}
+                refreshOnMount={rehydratedMessageIds.has(msg.id)}
                 toolTransparency={
                   <ToolUsageDetails
                     embedded

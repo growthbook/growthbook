@@ -4,86 +4,54 @@ import useApi from "@/hooks/useApi";
 import { skillDisplayName, type SkillItem } from "./extensions/skillCommand";
 
 /**
- * The one skill domain the Product Analytics chat can load, mirroring
- * `PRODUCT_ANALYTICS_CHAT_SKILL_DOMAIN` on the back end. Kept in step with it:
+ * The one skill group the Product Analytics chat can load, mirroring
+ * `PRODUCT_ANALYTICS_CHAT_SKILL_GROUP` on the back end. Kept in step with it:
  * a menu wider than the agent's resolver just offers dead ends.
  */
-export const PRODUCT_ANALYTICS_CHAT_SKILL_DOMAIN = "dashboards";
+export const PRODUCT_ANALYTICS_CHAT_SKILL_GROUP = "dashboards";
 
 /**
- * Domains that belong to one chat surface rather than the site-wide assistant,
- * mirroring `SURFACE_SCOPED_SKILL_DOMAINS` on the back end. The assistant panel
- * cannot render a dashboard preview and its agent has no `proposeDashboard`
- * tool, so listing these there would offer a dead end.
- */
-const SURFACE_SCOPED_SKILL_DOMAINS = [PRODUCT_ANALYTICS_CHAT_SKILL_DOMAIN];
-
-/**
- * Every skill the agent can load, domain routers and leaves alike.
+ * Every skill the agent can load, in the order the server lists them.
  *
  * This is the lookup catalogue, not the `/` menu — hovering a `/flag-create`
- * token in an older message resolves its description through here, so leaves
- * have to stay in it even though the menu no longer offers them. Use
- * `useSkillMenuItems` for the menu.
+ * token in an older message has to resolve its description even where the menu
+ * is narrower than the catalogue. Use `useSkillMenuItems` for the menu.
  *
- * `domain` restricts the set to one domain router and its leaves, for a chat
- * whose agent is itself scoped that way — offering a skill the agent cannot
- * load would just produce a dead end. Omit it for the site-wide agent, which
- * can load anything.
+ * `group` restricts the set to one directory, for a chat whose agent is itself
+ * scoped that way — offering a skill the agent cannot load would just produce a
+ * dead end. Omit it for the site-wide agent, which can load anything.
  */
-export function useSkillCommandItems(domain?: string): SkillItem[] {
+export function useSkillCommandItems(group?: string): SkillItem[] {
   const { data } = useApi<{ skills: SkillSummary[] }>("/agent/skills");
 
   return useMemo(() => {
     const all = data?.skills ?? [];
-    const skills = domain
-      ? all.filter((s) => s.name === domain || s.group === domain)
-      : all;
-    const domains = skills.filter((s) => s.kind === "domain");
-    const leaves = skills.filter((s) => s.kind === "leaf");
+    const skills = group ? all.filter((s) => s.group === group) : all;
 
-    const ordered: SkillSummary[] = [];
-    for (const router of domains) {
-      ordered.push(router);
-      ordered.push(...leaves.filter((l) => l.group === router.name));
-    }
-    ordered.push(...leaves.filter((l) => !ordered.includes(l)));
-
-    return ordered.map(
+    return skills.map(
       (s): SkillItem => ({
         id: s.name,
         label: s.name,
         title: skillDisplayName(s.name),
         description: s.description,
-        kind: s.kind,
         ...(s.group !== undefined ? { group: s.group } : {}),
       }),
     );
-  }, [data?.skills, domain]);
+  }, [data?.skills, group]);
 }
 
 /**
- * Skills offered in the composer's `/` menu: domain routers only.
+ * Skills offered in the composer's `/` menu.
  *
- * Leaves are deliberately left out. A router's body carries the sub-skill table
- * and the agent is instructed to follow it — "if one is a domain router, still
- * loadSkill the leaf it points you to" — so picking `/feature-flags` and
- * describing the job still lands on the right leaf. Listing all 29 skills made
- * the menu a wall of near-duplicates to save one `loadSkill` call.
+ * Every skill, not one entry per directory: `/flag-create` is the thing a
+ * person means, and listing only `/feature-flags` made them describe the job in
+ * prose so the agent could route to the skill they could have picked. The
+ * server orders them by directory, so related skills still sit together.
  *
- * With no `domain`, this is the site-wide assistant's menu, which additionally
- * drops the surface-scoped domains its agent cannot load.
+ * Currently identical to the catalogue. It stays a separate function because
+ * the two answer different questions — what a menu should offer here, and what
+ * any token in the transcript can resolve to — and they have diverged before.
  */
-export function useSkillMenuItems(domain?: string): SkillItem[] {
-  const items = useSkillCommandItems(domain);
-  return useMemo(
-    () =>
-      items.filter(
-        (s) =>
-          s.kind === "domain" &&
-          (domain !== undefined ||
-            !SURFACE_SCOPED_SKILL_DOMAINS.includes(s.id)),
-      ),
-    [items, domain],
-  );
+export function useSkillMenuItems(group?: string): SkillItem[] {
+  return useSkillCommandItems(group);
 }

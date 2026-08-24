@@ -23,7 +23,7 @@ import {
   skillDisplayName,
   type SkillItem,
 } from "@/enterprise/components/AIChat/Composer/extensions/skillCommand";
-import { metricTypeLabel } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
+import { mentionTypeLabel } from "@/enterprise/components/AIChat/Composer/useMentionItems";
 
 const EXTENSIONS = [
   Document,
@@ -323,14 +323,13 @@ describe("chat composer serialization", () => {
         label: "feature-flags",
         title: "Feature flags",
         description: "Read and modify flags",
-        kind: "domain",
+        group: "feature-flags",
       },
       {
         id: "flag-targeting",
         label: "flag-targeting",
         title: "Flag targeting",
         description: "Targeting rules",
-        kind: "leaf",
         group: "feature-flags",
       },
       {
@@ -338,7 +337,7 @@ describe("chat composer serialization", () => {
         label: "experiments",
         title: "Experiments",
         description: "Targeting an audience",
-        kind: "domain",
+        group: "experiments",
       },
     ];
 
@@ -360,18 +359,18 @@ describe("chat composer serialization", () => {
       expect(filterSkillItems(items, "", 2)).toHaveLength(2);
     });
 
-    it("lists domains before leaves when browsing, so entry points stay visible", () => {
+    it("keeps the server's order when browsing, so a group stays together", () => {
       expect(filterSkillItems(items, "").map((i) => i.id)).toEqual([
         "feature-flags",
-        "experiments",
         "flag-targeting",
+        "experiments",
       ]);
     });
 
-    it("keeps every domain visible even when the limit would cut leaves off", () => {
+    it("truncates from the end when the limit bites", () => {
       expect(filterSkillItems(items, "", 2).map((i) => i.id)).toEqual([
         "feature-flags",
-        "experiments",
+        "flag-targeting",
       ]);
     });
   });
@@ -436,7 +435,7 @@ describe("stripDanglingTriggers", () => {
   });
 });
 
-describe("metricTypeLabel", () => {
+describe("mentionTypeLabel", () => {
   it.each([
     ["proportion", "Proportion"],
     ["mean", "Mean"],
@@ -445,7 +444,7 @@ describe("metricTypeLabel", () => {
     ["quantile", "Quantile"],
     ["dailyParticipation", "Daily Participation"],
   ])("labels the fact metric type %j as %j", (raw, expected) => {
-    expect(metricTypeLabel("factMetric", raw)).toBe(expected);
+    expect(mentionTypeLabel("factMetric", raw)).toBe(expected);
   });
 
   it.each([
@@ -453,15 +452,19 @@ describe("metricTypeLabel", () => {
     ["count", "Count"],
     ["revenue", "Revenue"],
   ])("labels the legacy metric type %j as %j", (raw, expected) => {
-    expect(metricTypeLabel("metric", raw)).toBe(expected);
+    expect(mentionTypeLabel("metric", raw)).toBe(expected);
   });
 
   it("labels a metric group by its kind, since it has no statistical type", () => {
-    expect(metricTypeLabel("metricGroup")).toBe("Metric Group");
+    expect(mentionTypeLabel("metricGroup")).toBe("Metric Group");
+  });
+
+  it("labels a dashboard, which has no statistical type at all", () => {
+    expect(mentionTypeLabel("dashboard")).toBe("Dashboard");
   });
 
   it("names the kind rather than leaking a raw enum it doesn't know", () => {
-    expect(metricTypeLabel("factMetric", "somethingNew")).toBe("Fact Metric");
-    expect(metricTypeLabel("metric", undefined)).toBe("Metric");
+    expect(mentionTypeLabel("factMetric", "somethingNew")).toBe("Fact Metric");
+    expect(mentionTypeLabel("metric", undefined)).toBe("Metric");
   });
 });

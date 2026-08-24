@@ -35,7 +35,7 @@ import ChatComposer, {
   type ChatComposerHandle,
   type ComposerSubmission,
 } from "@/enterprise/components/AIChat/Composer/ChatComposer";
-import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
+import { useMentionItems } from "@/enterprise/components/AIChat/Composer/useMentionItems";
 import { useSkillMenuItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
 import { useAgentInteractionPrompts } from "@/enterprise/hooks/useAgentInteractionPrompts";
 import AgentChatHistory from "./AgentChatHistory";
@@ -48,18 +48,42 @@ import {
 } from "./agentMessageUtils";
 import AskUserCard, { type AskUserOption } from "./AskUserCard";
 import ConfirmActionCard from "./ConfirmActionCard";
+import AnalyticsHandoffCard, {
+  analyticsHandoffFromToolResult,
+  type AnalyticsHandoff,
+} from "./AnalyticsHandoffCard";
 
 const STORAGE_KEY = "growthbook.agent.conversationId";
 
 const CALL_API_LABEL = "Calling GrowthBook API…";
 const ASK_USER_LABEL = "Asking you a question…";
 const LOAD_SKILL_LABEL = "Loading skill…";
+const OPEN_ANALYTICS_CHAT_LABEL = "Preparing the Analytics chat…";
 
 const TOOL_STATUS_LABELS: Record<string, string> = {
   callApi: CALL_API_LABEL,
   askUser: ASK_USER_LABEL,
   loadSkill: LOAD_SKILL_LABEL,
+  openAnalyticsChat: OPEN_ANALYTICS_CHAT_LABEL,
 };
+
+/**
+ * The dashboard brief this turn handed to the Product Analytics chat, if any.
+ *
+ * Read back out of the transcript rather than held in component state so the
+ * offer survives a reload — the user may well come back to it later.
+ */
+function handoffInTurn(messages: AIChatMessage[]): AnalyticsHandoff | null {
+  for (const msg of messages) {
+    if (msg.role !== "tool") continue;
+    for (const part of msg.content) {
+      if (part.toolName !== "openAnalyticsChat") continue;
+      const handoff = analyticsHandoffFromToolResult(part.result);
+      if (handoff) return handoff;
+    }
+  }
+  return null;
+}
 
 interface AgentPanelProps {
   open: boolean;
@@ -178,8 +202,7 @@ export default function AgentPanel({
     skills: [],
   });
 
-  const { items: mentionItems, ready: mentionItemsReady } =
-    useMetricMentionItems();
+  const { items: mentionItems, ready: mentionItemsReady } = useMentionItems();
   const skillItems = useSkillMenuItems();
 
   const {
@@ -689,6 +712,7 @@ function PersistedTurn({
   const { preWork, replyContent, replyMessageId } = classifyTurn(turn.rest);
   const steps = preWorkToSteps(preWork, turn.rest, toolDetailsOpenRef);
   const hasReply = replyContent !== null && replyContent.trim().length > 0;
+  const handoff = handoffInTurn(turn.rest);
 
   return (
     <>
@@ -717,6 +741,8 @@ function PersistedTurn({
           </Markdown>
         </AssistantBubble>
       )}
+
+      {handoff && <AnalyticsHandoffCard handoff={handoff} />}
 
       {hasReply && replyMessageId && (
         <AIChatFeedback

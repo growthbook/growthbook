@@ -45,7 +45,7 @@ router.post(
         model: aiModelValidator,
         mentions: aiChatMentionValidator.array().optional(),
         // Skills picked from the composer's `/` menu. Scoped server-side to the
-        // dashboard domain (see PRODUCT_ANALYTICS_CHAT_SKILL_DOMAIN); anything
+        // dashboard group (see PRODUCT_ANALYTICS_CHAT_SKILL_GROUP); anything
         // else resolves to nothing.
         skills: aiChatSkillsValidator.optional(),
         // Deterministic mutation-confirmation gate: when the user responds to

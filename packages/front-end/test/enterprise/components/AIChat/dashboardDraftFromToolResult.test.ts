@@ -48,11 +48,37 @@ describe("dashboardDraftFromToolResult", () => {
     });
   });
 
+  it("carries projects through, empty array included", () => {
+    // `[]` means every project, so it must survive as a value rather than
+    // reading as "the agent didn't say".
+    expect(
+      dashboardDraftFromToolResult({
+        draft: { title: "Growth KPIs", blocks: [block], projects: ["prj_abc"] },
+      })?.draft.projects,
+    ).toEqual(["prj_abc"]);
+
+    expect(
+      dashboardDraftFromToolResult({
+        draft: { title: "Growth KPIs", blocks: [block], projects: [] },
+      })?.draft.projects,
+    ).toEqual([]);
+  });
+
+  it("drops a projects value that is not an array of strings", () => {
+    // The preview then falls back to the app's current project selection,
+    // which is safer than sending garbage ids to the create endpoint.
+    const parsed = dashboardDraftFromToolResult({
+      draft: { title: "Growth KPIs", blocks: [block], projects: [1, "prj_a"] },
+    });
+    expect("projects" in (parsed?.draft ?? {})).toBe(false);
+  });
+
   it("omits globalControls and dashboardId when absent", () => {
     const parsed = dashboardDraftFromToolResult({
       draft: { title: "Growth KPIs", blocks: [block] },
     });
     expect("dashboardId" in (parsed?.draft ?? {})).toBe(false);
+    expect("projects" in (parsed?.draft ?? {})).toBe(false);
     expect("globalControls" in (parsed?.draft ?? {})).toBe(false);
   });
 
