@@ -61,9 +61,17 @@ export function threeWayMerge<T extends object>(
     units.push({ key: fields[0], fields });
   }
 
-  // An empty array and an absent key mean the same thing to the editor.
-  const canon = (v: unknown) =>
-    Array.isArray(v) && v.length === 0 ? null : (v ?? null);
+  // An empty array equals an absent key, and primitive arrays are set-typed
+  // (tags, projects), so reorders are not changes. Object arrays keep order.
+  const canon = (v: unknown) => {
+    if (Array.isArray(v)) {
+      if (v.length === 0) return null;
+      if (v.every((x) => typeof x !== "object" || x === null)) {
+        return [...v].sort();
+      }
+    }
+    return v ?? null;
+  };
   const pick = (obj: Record<string, unknown>, fields: string[]) =>
     JSON.stringify(fields.map((f) => canon(obj[f])));
 

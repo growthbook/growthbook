@@ -10,8 +10,12 @@ export function formatConflictValue(v: unknown): string {
 }
 
 function formatList(list: unknown[]): string {
-  const s = `[${list.map((v) => JSON.stringify(v)).join(", ")}]`;
-  return s.length > MAX_VALUE_CHARS ? `${s.slice(0, MAX_VALUE_CHARS)}…` : s;
+  // Bounded up front so a huge list never stringifies in full.
+  const bounded = list.slice(0, 120);
+  const s = `[${bounded.map((v) => JSON.stringify(v)).join(", ")}]`;
+  return s.length > MAX_VALUE_CHARS || bounded.length < list.length
+    ? `${s.slice(0, MAX_VALUE_CHARS)}…`
+    : s;
 }
 
 // The fixed scope label the flag stands for: allEnvironments and

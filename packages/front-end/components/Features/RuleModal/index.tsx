@@ -1697,7 +1697,18 @@ export default function RuleModal({
               body: JSON.stringify({
                 rule: values,
                 ruleId,
-                ...(baselineRule ? { baseline: { rule: baselineRule } } : {}),
+                // A fork compares against live, which only the
+                // pre-conflict baseline describes.
+                ...(baselineRule
+                  ? {
+                      baseline: {
+                        rule:
+                          newDraftAvoidsConflict && conflict
+                            ? (conflict.baseAtConflict ?? baselineRule)
+                            : baselineRule,
+                      },
+                    }
+                  : {}),
                 ...(rampScheduleInline
                   ? { rampSchedule: rampScheduleInline }
                   : {}),
