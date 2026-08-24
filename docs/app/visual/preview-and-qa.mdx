@@ -51,7 +51,7 @@ This is helpful for ongoing QA — if a stakeholder reports "the variation looks
 
 The most common causes:
 
-- **Include Visual Experiments is off** on the SDK Connection. Preview links can't deliver a variation the SDK doesn't have. See [the landing page](/app/visual#allow-visual-experiments-on-the-sdk-connection).
+- **Include Visual Experiments is off** on the SDK Connection. Preview links can't deliver a variation the SDK doesn't have. See [the landing page](/app/visual#sdk-setup).
 - **Include Drafts is off** and the experiment is still a draft. The SDK doesn't have the experiment yet.
 - **Wrong SDK Connection / client key**. Your site is loading a different SDK Connection than the one the experiment is associated with.
 - **The URL doesn't match the URL targeting rule.** Even with the querystring, the SDK won't run the experiment on URLs that don't match. Double-check the targeting pattern.
