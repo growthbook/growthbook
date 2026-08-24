@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { PiInfo, PiPlusBold, PiXBold } from "react-icons/pi";
+import { PiInfo, PiPlusBold } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import RadioGroup from "@/ui/RadioGroup";
 import Link from "@/ui/Link";
@@ -76,24 +76,21 @@ export default function RuleProjectScopeField({
               <PiInfo />
             </Tooltip>
             <Box flexGrow="1" />
-            <Tooltip body="Remove Project targeting">
-              <IconButton
-                type="button"
-                color="gray"
-                variant="ghost"
-                radius="full"
-                size="1"
-                onClick={() => {
-                  // Back to the default: the rule applies to every Project the
-                  // feature delivers to.
-                  setAllProjects(true);
-                  setSelectedProjects([]);
-                  setEnabled(false);
-                }}
-              >
-                <PiXBold size={14} />
-              </IconButton>
-            </Tooltip>
+            <Link
+              type="button"
+              color="red"
+              size="sm"
+              className="hover-underline"
+              onClick={() => {
+                // Back to the default: the rule applies to every Project the
+                // feature delivers to.
+                setAllProjects(true);
+                setSelectedProjects([]);
+                setEnabled(false);
+              }}
+            >
+              Remove Project targeting
+            </Link>
           </Flex>
           <RadioGroup
             width="100%"
