@@ -620,4 +620,105 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
       },
     });
   });
+
+  it("should include the holdout's targeting condition and saved groups on the holdout rule", async () => {
+    // A condition-type saved group referenced by the holdout's targeting
+    (mockContext.models.savedGroups.getAll as jest.Mock).mockResolvedValue([
+      {
+        id: "grp_beta",
+        type: "condition",
+        condition: '{"beta":true}',
+      },
+    ]);
+
+    (getAllFeatures as jest.Mock).mockResolvedValue([
+      {
+        id: "feature-with-holdout",
+        valueType: "string",
+        defaultValue: "default_value",
+        environmentSettings: {
+          production: {
+            enabled: true,
+            rules: [
+              {
+                id: "sample_rule",
+                value: "sample_value",
+                type: "force",
+                enabled: true,
+              },
+            ],
+          },
+        },
+        project: "project-2",
+        holdout: {
+          id: "hld_test_holdout",
+          value: "default_value",
+        },
+      },
+    ]);
+
+    (
+      mockContext.models.holdout.getAllPayloadHoldouts as jest.Mock
+    ).mockResolvedValue(
+      new Map([
+        [
+          "hld_test_holdout",
+          {
+            holdout: {
+              id: "hld_test_holdout",
+              name: "Test Holdout",
+              projects: ["project-2"],
+              environment: "production",
+              environmentSettings: {
+                production: {
+                  enabled: true,
+                },
+              },
+            },
+            holdoutExperiment: {
+              id: "exp_holdout",
+              name: "Holdout Experiment",
+              hashAttribute: "user_id",
+              trackingKey: "holdout-tracking-key",
+              phases: [
+                {
+                  dateStarted: new Date("2023-01-01"),
+                  dateEnded: null,
+                  coverage: 0.1,
+                  seed: "holdout-seed",
+                  variationWeights: [0.5, 0.5],
+                  // Targeting configured on phase[0] via the holdout targeting modal
+                  condition: '{"country":"US"}',
+                  savedGroups: [{ ids: ["grp_beta"], match: "all" }],
+                },
+              ],
+            },
+          },
+        ],
+      ]),
+    );
+
+    const result = await getFeatureDefinitionsWithCache({
+      context: mockContext,
+      params: {
+        key: "test-cache-key-targeting",
+        organization: mockContext.org.id,
+        environment: "production",
+        projects: ["project-2"],
+        encryptPayload: false,
+        encryptionKey: "",
+        languages: ["javascript"],
+        sdkVersion: "1.0.0",
+      },
+    });
+
+    // The holdout definition's rule must carry the targeting condition. The
+    // attribute condition and the saved group's inlined condition are ANDed
+    // together (sdkVersion 1.0.0 has no savedGroupReferences capability, so the
+    // group is expanded inline).
+    const holdoutRule = result.features["$holdout:hld_test_holdout"].rules?.[0];
+    expect(holdoutRule?.condition).toEqual({
+      $and: [{ country: "US" }, { beta: true }],
+    });
+  });
 });
