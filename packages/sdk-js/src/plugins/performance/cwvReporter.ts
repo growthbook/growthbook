@@ -1,5 +1,5 @@
 import type { GrowthBook } from "../../GrowthBook";
-import { detectEnv, shouldSample, syncGrowthBookUrl } from "./util";
+import { detectEnv, shouldSample, syncGrowthBookUrl } from "../util";
 import { subscribeToUrlChanges } from "./urlChangeObserver";
 
 export type CWVReporterSettings = {

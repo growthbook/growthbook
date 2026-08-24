@@ -4,7 +4,7 @@ import type {
   UserScopedGrowthBook,
 } from "../../GrowthBookClient";
 import type { EventProperties, UserContext } from "../../types/growthbook";
-import { detectEnv, shouldSample } from "./util";
+import { detectEnv, shouldSample } from "../util";
 
 export type ErrorReporterSettings = {
   debounceTimeout?: number;

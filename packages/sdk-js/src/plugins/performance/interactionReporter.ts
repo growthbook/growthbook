@@ -1,5 +1,5 @@
 import type { GrowthBook } from "../../GrowthBook";
-import { detectEnv, shouldSample } from "./util";
+import { detectEnv, shouldSample } from "../util";
 import {
   resolveElement,
   shouldIgnore,
