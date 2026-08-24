@@ -39859,6 +39859,10 @@ paths:
                                   - type
                                   - dataset
                                 additionalProperties: false
+                              linkedFunnelMetricId:
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
                             required:
                               - organization
                               - id
@@ -63783,6 +63787,10 @@ components:
                       - type
                       - dataset
                     additionalProperties: false
+                  linkedFunnelMetricId:
+                    anyOf:
+                      - type: string
+                      - type: 'null'
                 required:
                   - organization
                   - id
