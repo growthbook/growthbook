@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { PiInfo, PiPlusBold } from "react-icons/pi";
+import { PiInfo, PiPlusBold, PiXBold } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import RadioGroup from "@/ui/RadioGroup";
 import Link from "@/ui/Link";
@@ -62,6 +62,23 @@ export default function TargetingProjectsField({
             </label>
             <Tooltip body={help}>
               <PiInfo />
+            </Tooltip>
+            <Box flexGrow="1" />
+            <Tooltip body="Remove targeting Projects">
+              <IconButton
+                type="button"
+                color="gray"
+                variant="ghost"
+                radius="full"
+                size="1"
+                onClick={() => {
+                  setAllProjects(false);
+                  setTargetingProjects([]);
+                  setEnabled(false);
+                }}
+              >
+                <PiXBold size={14} />
+              </IconButton>
             </Tooltip>
           </Flex>
           <RadioGroup
