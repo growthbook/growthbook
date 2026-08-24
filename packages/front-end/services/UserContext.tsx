@@ -104,7 +104,6 @@ export interface UserContextValue {
   pylonHmacHash?: string;
   email?: string;
   superAdmin?: boolean;
-  /** When the current user's account was created (ISO string), null if unknown */
   dateCreated?: string | null;
   license?: Partial<LicenseInterface> | null;
   installationName?: string;

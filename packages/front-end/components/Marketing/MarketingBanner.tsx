@@ -124,23 +124,11 @@ type MarketingBannerConfig = {
   buttonCopy: string;
   buttonLink: string;
   dismissible?: boolean;
-  /**
-   * Rolling window, in days, measured from the current user's own account
-   * creation date (not the org's). Only users created within the last N days
-   * see the banner. Omitted, zero, or negative means no age targeting.
-   */
   maxUserAgeDays?: number;
 };
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-/**
- * Whether a user whose account was created at `userDateCreated` still falls
- * inside a rolling `maxUserAgeDays` window ending now.
- * No window configured => everyone passes. Window configured but the creation
- * date is missing or unparseable => nobody passes, so targeting never leaks
- * the banner to users we cannot place.
- */
 export function isWithinUserAgeWindow({
   userDateCreated,
   maxUserAgeDays,
@@ -190,8 +178,6 @@ export function HomeMarketingBanner() {
 
   if (!config?.title || !cta) return null;
 
-  // Rolling window evaluated at render time, so the banner ages out on its own
-  // without anyone editing the flag.
   if (
     !isWithinUserAgeWindow({
       userDateCreated: dateCreated,
