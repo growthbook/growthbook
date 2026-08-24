@@ -6,7 +6,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   parsePrompt,
-  secondsUntilAICanBeUsedAgain,
+  secondsUntilAICanBeUsedAgainForModel,
 } from "back-end/src/enterprise/services/ai";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -171,7 +171,11 @@ export const postAISuggestions = createApiRequestHandler(validation)(async (
     context.permissions.throwPermissionError();
   }
 
-  if (await secondsUntilAICanBeUsedAgain(req.organization)) {
+  // Gated on the model this request will actually run: an org on its own key
+  // for that provider pays its own bill, so the managed cap doesn't apply.
+  const { visualEditorAIModel: cappedModel } =
+    await getAISettingsForOrg(context);
+  if (await secondsUntilAICanBeUsedAgainForModel(context, cappedModel)) {
     throw new Error(
       "Daily AI usage limit reached. Try again later or upgrade your plan.",
     );
@@ -219,7 +223,7 @@ export const postAISuggestions = createApiRequestHandler(validation)(async (
     );
   }
 
-  const { visualEditorAIModel } = getAISettingsForOrg(context, true);
+  const { visualEditorAIModel } = await getAISettingsForOrg(context, true);
 
   const result = await parsePrompt({
     context,

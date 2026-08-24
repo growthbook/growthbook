@@ -52,8 +52,8 @@ const PipelineModeSelector = ({
       setValue={setValue}
       disabled={disabled}
       options={options}
-      labelSize="3"
-      descriptionSize="3"
+      labelSize="lg"
+      descriptionSize="lg"
     />
   );
 };

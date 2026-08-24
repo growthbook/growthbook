@@ -3,7 +3,6 @@ import { useRouter } from "next/router";
 import React, { useCallback, useRef, useState } from "react";
 import { BsStars } from "react-icons/bs";
 import {
-  PiArrowRightBold,
   PiCaretDown,
   PiCaretRight,
   PiChartBar,
@@ -11,10 +10,10 @@ import {
   PiTable,
 } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import Field from "@/components/Forms/Field";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import TextDivider from "@/components/TextDivider/TextDivider";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { dataSourceConnections } from "@/services/eventSchema";
 import track from "@/services/track";
 import Button from "@/ui/Button";
@@ -26,6 +25,11 @@ import DataSourceTypeSelector from "@/components/Settings/DataSourceTypeSelector
 import EnableAICallout from "@/components/EnableAICallout";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
+import ChatComposer, {
+  type ChatComposerHandle,
+  type ComposerSubmission,
+} from "@/enterprise/components/AIChat/Composer/ChatComposer";
+import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
 import { PA_AI_CHAT_INITIAL_MESSAGE_KEY } from "./util";
 import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
 
@@ -33,7 +37,7 @@ export default function EmptyState() {
   const router = useRouter();
   const { permissionsUtil, hasCommercialFeature } = useUser();
   const { datasources, mutateDefinitions, project } = useDefinitions();
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const composerRef = useRef<ChatComposerHandle>(null);
   const [input, setInput] = useState("");
   const { aiEnabled } = useAISettings();
 
@@ -43,22 +47,27 @@ export default function EmptyState() {
     useState<null | Partial<DataSourceInterfaceWithParams>>(null);
 
   const isDataSourceEmpty = datasources.length === 0;
+  const { draftExploreState } = useExplorerContext();
+  const { items: mentionItems, ready: mentionItemsReady } =
+    useMetricMentionItems(draftExploreState.datasource);
 
-  const handleSubmit = useCallback(() => {
-    const trimmed = input.trim();
-    if (!trimmed) return;
-    sessionStorage.setItem(PA_AI_CHAT_INITIAL_MESSAGE_KEY, trimmed);
-    router.push("/product-analytics/explore/ai-chat");
-  }, [input, router]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        handleSubmit();
-      }
+  const handleSubmit = useCallback(
+    (
+      { text, mentions }: ComposerSubmission = {
+        text: input,
+        mentions: [],
+        skills: [],
+      },
+    ) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      sessionStorage.setItem(
+        PA_AI_CHAT_INITIAL_MESSAGE_KEY,
+        JSON.stringify({ text: trimmed, mentions }),
+      );
+      router.push("/product-analytics/explore/ai-chat");
     },
-    [handleSubmit],
+    [input, router],
   );
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
   const canRunMetricQueries =
@@ -75,7 +84,7 @@ export default function EmptyState() {
   return (
     <Box style={{ display: "flex", flex: 1, flexDirection: "column" }}>
       <Flex align="center">
-        <Heading as="h1" size="x-large" weight="medium">
+        <Heading as="h1" size="xl" weight="medium">
           Product Analytics
         </Heading>
         <Flex align="center" gap="2" ml="3">
@@ -103,7 +112,7 @@ export default function EmptyState() {
             <LinkButton
               href="/product-analytics/explore/ai-chat"
               variant="ghost"
-              size="sm"
+              size="md"
               disabled={chatDisabled}
             >
               View chat history
@@ -124,11 +133,11 @@ export default function EmptyState() {
                 size={20}
                 style={{ color: "var(--violet-a11)", flexShrink: 0 }}
               />
-              <Heading as="h2" size="x-large" weight="medium">
+              <Heading as="h2" size="xl" weight="medium">
                 Ask AI About Your Data
               </Heading>
             </Flex>
-            <Text color="text-low" align="center" size="large" mt="1">
+            <Text color="text-low" align="center" size="lg" mt="1">
               {isDataSourceEmpty
                 ? "Connect to a data source to start exploring your data."
                 : "Ask a question in plain language and easily build charts and other visualizations"}
@@ -185,40 +194,22 @@ export default function EmptyState() {
               <Box width="100%" style={{ maxWidth: 680 }}>
                 <EnableAICallout source="product-analytics-empty-state" />
               </Box>
-              <Box width="100%" style={{ maxWidth: 680, position: "relative" }}>
-                <Field
-                  textarea
+              <Box width="100%" style={{ maxWidth: 680 }}>
+                <ChatComposer
+                  variant="hero"
+                  ref={composerRef}
                   minRows={chatDisabled ? 1 : 4}
-                  maxRows={8}
                   placeholder="What's my revenue trend look like over the last year?..."
-                  containerStyle={{ width: "100%" }}
-                  style={{
-                    borderRadius: "var(--radius-5)",
-                    padding: "16px 56px 40px 16px",
-                    resize: "none",
-                  }}
-                  ref={inputRef}
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  disabled={chatDisabled}
+                  onChange={setInput}
+                  onSend={handleSubmit}
+                  onCancel={() => undefined}
+                  loading={false}
+                  isLocalStream={false}
+                  disabled={chatDisabled || isDataSourceEmpty}
+                  mentionItems={mentionItems}
+                  mentionItemsReady={mentionItemsReady}
                 />
-                <Box
-                  style={{
-                    position: "absolute",
-                    right: 12,
-                    bottom: 12,
-                    zIndex: 1,
-                  }}
-                >
-                  <Button
-                    onClick={handleSubmit}
-                    disabled={chatDisabled || isDataSourceEmpty}
-                    size="sm"
-                  >
-                    <PiArrowRightBold size={16} />
-                  </Button>
-                </Box>
               </Box>
 
               <Flex
@@ -233,7 +224,7 @@ export default function EmptyState() {
               >
                 <Box width="100%" style={{ maxWidth: 435, textAlign: "left" }}>
                   {chatDisabled ? (
-                    <Text color="text-mid" size="medium">
+                    <Text color="text-mid" size="md">
                       Explore manually
                     </Text>
                   ) : (
@@ -250,7 +241,7 @@ export default function EmptyState() {
                         gap: 4,
                       }}
                     >
-                      <Text color="text-mid" size="medium">
+                      <Text color="text-mid" size="md">
                         Build visualizations manually
                       </Text>
                       {showAdvancedOptions ? (

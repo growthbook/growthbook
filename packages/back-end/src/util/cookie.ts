@@ -43,8 +43,13 @@ class Cookie {
     req.cookies[this.key] = value;
   }
 
-  getValue(req: Request) {
-    return req.cookies[this.key] || "";
+  // cookie-parser JSON-decodes any cookie whose value starts with `j:`, so
+  // req.cookies can hold arbitrary attacker-controlled objects. Never hand one
+  // to a caller — an object reaching a Mongo filter turns into an operator
+  // injection (e.g. `j:{"$ne":""}` matching any refresh token).
+  getValue(req: Request): string {
+    const value = req.cookies[this.key];
+    return typeof value === "string" ? value : "";
   }
 }
 

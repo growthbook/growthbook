@@ -12,6 +12,11 @@
 # Pinned to debian-12 (bookworm) to match the glibc of node:24-slim, keeping the
 # gbstats venv and the kerberos native addon ABI-compatible. Do NOT move to
 # debian-13 without re-validating both.
+#
+# Building this file requires `docker login dhi.io` — that registry rejects
+# unauthenticated requests (even metadata reads) with a 401 that doesn't name
+# DHI. Any free Docker account works; see docs.growthbook.io/self-host#building-from-source.
+# Pulling the published growthbook/growthbook image needs no credentials.
 # ============================================================================
 
 ARG PYTHON_MAJOR=3.11
@@ -227,8 +232,8 @@ ENV LD_LIBRARY_PATH="/opt/python/lib:/opt/pydeps:/opt/krb5deps:/usr/lib/x86_64-l
 # Read-only-rootfs friendly defaults: don't write venv .pyc into the read-only
 # /opt/venv, skip Next's telemetry write, and point PM2_HOME at /tmp (pm2 writes
 # its pid/socket/log files there; the default $HOME/.pm2 isn't writable under a
-# read-only rootfs). The remaining writable paths (/tmp, .next/cache, uploads)
-# are declared as mounts by the deployer (emptyDir or PVC in k8s — see the chart).
+# read-only rootfs). The remaining writable paths (/tmp, uploads) are declared
+# as mounts by the deployer (emptyDir or PVC in k8s — see the chart).
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PM2_HOME=/tmp/.pm2

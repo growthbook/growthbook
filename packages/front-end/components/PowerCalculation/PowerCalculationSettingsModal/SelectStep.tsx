@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
+  getFactMetricPrimaryFactTableId,
   isBinomialMetric,
   isFactMetric,
   quantileMetricType,
@@ -164,8 +165,9 @@ export const SelectStep = ({
         // drop if does not have user id type
         const userIdTypes = !isFactMetric(m)
           ? m.userIdTypes
-          : appFactTables.find((ft) => ft.id === m.numerator.factTableId)
-              ?.userIdTypes;
+          : appFactTables.find(
+              (ft) => ft.id === getFactMetricPrimaryFactTableId(m),
+            )?.userIdTypes;
         if (
           selectedIdType &&
           userIdTypes &&
@@ -442,7 +444,7 @@ export const SelectStep = ({
           Pick the key metrics for which you want to estimate power.
         </div>
         <MultiSelectField
-          size="legacy"
+          legacyHeight
           sort={false}
           value={selectedMetrics}
           options={availableMetrics.map(({ name: label, id: value }) => ({

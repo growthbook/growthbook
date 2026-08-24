@@ -62,7 +62,7 @@ export function isGrowthBookTelemetryDebug(): boolean {
 }
 
 export function getIngestorHost(): string {
-  return INGESTOR_HOST || "https://us1.gb-ingest.com";
+  return INGESTOR_HOST || "https://us-east-1.gb-ingest.com";
 }
 
 // Default to true
@@ -70,6 +70,13 @@ export const ALLOW_SELF_ORG_CREATION = stringToBoolean(
   process.env.ALLOW_SELF_ORG_CREATION,
   true,
 );
+
+const prohibitedOrganizationNameRegex =
+  process.env.PROHIBITED_ORGANIZATION_NAME_REGEX;
+export const PROHIBITED_ORGANIZATION_NAME_REGEX =
+  prohibitedOrganizationNameRegex
+    ? new RegExp(prohibitedOrganizationNameRegex)
+    : null;
 
 export const UPLOAD_METHOD = (() => {
   const method = process.env.UPLOAD_METHOD;
@@ -187,6 +194,10 @@ export const AWS_ASSUME_ROLE = process.env.AWS_ASSUME_ROLE || "";
 // empty to disable signed-URL session-replay reads.
 export const S3_SESSION_REPLAY_BUCKET =
   process.env.S3_SESSION_REPLAY_BUCKET || "";
+// Bucket for orgs whose managed warehouse (and therefore session-replay data)
+// is provisioned in eu-west-1. Same read role as the default bucket.
+export const S3_SESSION_REPLAY_BUCKET_EU =
+  process.env.S3_SESSION_REPLAY_BUCKET_EU || "";
 // Optional override for the role used to read the session-replay bucket. Falls
 // back to AWS_ASSUME_ROLE when unset, so single-role setups need no extra env.
 export const S3_SESSION_REPLAY_ASSUME_ROLE =
@@ -205,6 +216,11 @@ export const EMAIL_FROM = process.env.EMAIL_FROM;
 export const SITE_MANAGER_EMAIL = process.env.SITE_MANAGER_EMAIL;
 
 export const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
+
+// Internal-only: incoming webhook URL for forwarding NPS survey responses to
+// GrowthBook's own Slack. Only set on GrowthBook Cloud — self-hosted and Cloud
+// users never see this, and nothing is sent unless it's configured.
+export const NPS_SLACK_WEBHOOK = process.env.NPS_SLACK_WEBHOOK || "";
 
 const testConn = process.env.POSTGRES_TEST_CONN;
 export const POSTGRES_TEST_CONN = testConn ? JSON.parse(testConn) : {};
@@ -306,6 +322,18 @@ export const API_ALLOW_SKIP_PAGINATION = stringToBoolean(
   process.env.API_ALLOW_SKIP_PAGINATION,
 );
 
+// Opt-in: the bulk experiment results export reads and hydrates every analysis
+// on every snapshot it returns, so it stays off unless a deployment enables it.
+export const EXPERIMENT_BULK_RESULTS_ENABLED = stringToBoolean(
+  process.env.EXPERIMENT_BULK_RESULTS_ENABLED,
+);
+
+export const EXPERIMENT_BULK_RESULTS_RATE_LIMIT_MAX = parseEnvInt(
+  process.env.EXPERIMENT_BULK_RESULTS_RATE_LIMIT_MAX,
+  60,
+  { min: 1, name: "EXPERIMENT_BULK_RESULTS_RATE_LIMIT_MAX" },
+);
+
 // Defines the User-Agent header for all requests made by the API
 export const API_USER_AGENT =
   process.env.API_USER_AGENT ||
@@ -324,7 +352,15 @@ if ((prod || !IS_LOCALHOST) && secretAPIKey === "dev") {
 }
 export const SECRET_API_KEY = secretAPIKey;
 
+// Fallback provider API keys, so a self-hosted install can be configured
+// entirely from the environment. See services/aiCredentials.ts for precedence.
+export const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
+export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
+export const XAI_API_KEY = process.env.XAI_API_KEY || "";
+export const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY || "";
+export const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY || "";
 // Gemini (Google AI Studio) — used by the visual editor's image-gen endpoint.
+// GEMINI_API_KEY is the legacy name for GOOGLE_AI_API_KEY.
 export const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 // Pin a specific model ID — if your key returns 404, hit
 // /v1beta/models to find an ID your account has access to and override.

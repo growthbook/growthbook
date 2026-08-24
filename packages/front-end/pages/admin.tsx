@@ -41,6 +41,11 @@ import SelectField from "@/components/Forms/SelectField";
 import StringArrayField from "@/ui/StringArrayField";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
+import {
+  DEFAULT_DATA_REGION,
+  DataRegion,
+  useDataRegionOptions,
+} from "@/services/dataRegions";
 
 interface memberOrgProps {
   id: string;
@@ -80,6 +85,9 @@ function OrganizationRow({
   const [licenseLoading, setLicenseLoading] = useState(false);
   const { apiCall } = useAuth();
   const [clickhouseModalOpen, setClickhouseModalOpen] = useState(false);
+  const [clickhouseRegion, setClickhouseRegion] =
+    useState<DataRegion>(DEFAULT_DATA_REGION);
+  const dataRegionOptions = useDataRegionOptions();
   const [managedWarehouseId, setManagedWarehouseId] = useState(
     datasources.find((ds) => ds.type === "growthbook_clickhouse")?.id || null,
   );
@@ -135,6 +143,7 @@ function OrganizationRow({
       {
         method: "POST",
         headers: { "X-Organization": organization.id },
+        body: JSON.stringify({ region: clickhouseRegion }),
       },
     );
     setClickhouseModalOpen(false);
@@ -164,6 +173,17 @@ function OrganizationRow({
         >
           Are you sure you want to create a Managed Warehouse data source for
           this organization?
+          <Box mt="3">
+            <SelectField
+              size="small"
+              legacyLabelFormatting={false}
+              label="Data region"
+              value={clickhouseRegion}
+              onChange={(value) => setClickhouseRegion(value as DataRegion)}
+              options={dataRegionOptions}
+              helpText="Where this org's event data is stored. This cannot be changed later."
+            />
+          </Box>
         </Modal>
       )}
       {editSSOOpen && (
@@ -279,7 +299,9 @@ function OrganizationRow({
                   {ssoInfo
                     ? `yes (${
                         ssoInfo.id
-                      } for domains: ${ssoInfo.emailDomains?.join(", ")})`
+                      } for domains: ${ssoInfo.emailDomains?.join(", ")})${
+                        ssoInfo.disabled ? " — DISABLED" : ""
+                      }`
                     : "no"}
                 </div>
                 {isCloud() && (
@@ -1212,7 +1234,7 @@ function EditSSOModal({
       />
 
       <StringArrayField
-        size="legacy"
+        legacyHeight
         label="Email Domains"
         value={form.watch("emailDomains") || []}
         onChange={(emailDomains) => form.setValue("emailDomains", emailDomains)}

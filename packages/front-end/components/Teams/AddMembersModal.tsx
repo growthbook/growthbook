@@ -13,7 +13,7 @@ export const AddMembersModal = ({
   open: boolean;
   onClose: () => void;
 }) => {
-  const { teams, refreshOrganization, user, users } = useUser();
+  const { teams, refreshOrganization, users } = useUser();
 
   const team = teams?.find((team) => team.id === teamId);
 
@@ -29,7 +29,7 @@ export const AddMembersModal = ({
   const userList = [...users.values()];
 
   const addableMembers = userList.filter(
-    (member) => !member.teams?.includes(teamId) && member.id !== user?.id,
+    (member) => !member.teams?.includes(teamId),
   );
 
   const handleClose = () => {
@@ -54,7 +54,7 @@ export const AddMembersModal = ({
       })}
     >
       <MultiSelectField
-        size="legacy"
+        legacyHeight
         label="Members to add"
         placeholder="Select members"
         value={form.watch("members")}

@@ -23,6 +23,7 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import EventUser from "@/components/Avatar/EventUser";
 import Avatar from "@/ui/Avatar";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Code from "@/components/SyntaxHighlighting/Code";
 import MarkdownWithDiffRefs from "@/components/Reviews/DiffCommentMarkdown";
 import CommentCard from "@/components/Comments/CommentCard";
@@ -277,6 +278,7 @@ export function RevisionLogRow({
   onDeleteComment,
   retraction,
   onRetractVerdict,
+  uncoveredApproverReasons,
 }: {
   log: RevisionLog;
   first?: boolean;
@@ -293,6 +295,9 @@ export function RevisionLogRow({
   // "Retract review" action in the card's overflow menu (more discoverable
   // than the actions-column dropdown).
   onRetractVerdict?: () => void | Promise<void>;
+  // Approver id -> why their verdict cannot sanction this draft. Outlines the
+  // avatar and annotates the row.
+  uncoveredApproverReasons?: Map<string, string>;
 }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -364,8 +369,18 @@ export function RevisionLogRow({
       : log.action === "Requested Changes"
         ? "red"
         : null;
+  const uncoveredReason =
+    log.action === "Approved" && logUserId
+      ? uncoveredApproverReasons?.get(logUserId)
+      : undefined;
+  const verdictUncovered = !!uncoveredReason;
   const verdictLeading = verdictAvatarColor ? (
-    <Avatar size="md" color={verdictAvatarColor} variant="solid">
+    <Avatar
+      size="md"
+      color={verdictAvatarColor}
+      variant={verdictUncovered ? "soft" : "solid"}
+      ring={verdictUncovered}
+    >
       <>{visual.icon}</>
     </Avatar>
   ) : undefined;
@@ -381,14 +396,25 @@ export function RevisionLogRow({
           leading={verdictLeading}
           avatarSize="md"
           metadataExtra={
-            retraction ? (
-              <Badge
-                color="gray"
-                variant="solid"
-                label={retraction.label}
-                size="xs"
-              />
-            ) : undefined
+            <>
+              {uncoveredReason && (
+                <Tooltip
+                  body={`This approval does not let the draft publish: ${uncoveredReason}.`}
+                >
+                  <Text size="sm" color="text-low">
+                    — not a qualifying approval
+                  </Text>
+                </Tooltip>
+              )}
+              {retraction && (
+                <Badge
+                  color="gray"
+                  variant="solid"
+                  label={retraction.label}
+                  size="xs"
+                />
+              )}
+            </>
           }
           actions={
             canEdit || canDelete || canRetractVerdict ? (
@@ -474,7 +500,7 @@ export function RevisionLogRow({
             {visual.icon}
           </Flex>
         )}
-        <Text size="small" color="text-high">
+        <Text size="sm" color="text-high">
           <Text size="inherit" weight="medium">
             <EventUser user={log.user} display="name" size="sm" />
           </Text>{" "}
@@ -482,6 +508,16 @@ export function RevisionLogRow({
           <Text size="inherit" color="text-low">
             on {datetime(log.timestamp)}
           </Text>
+          {uncoveredReason && (
+            <Tooltip
+              body={`This approval does not let the draft publish: ${uncoveredReason}.`}
+            >
+              <Text size="inherit" color="text-low">
+                {" "}
+                — not a qualifying approval
+              </Text>
+            </Tooltip>
+          )}
         </Text>
         {retraction && (
           <Badge
@@ -495,7 +531,7 @@ export function RevisionLogRow({
           <Button
             variant="ghost"
             color="gray"
-            size="xs"
+            size="sm"
             mt="0"
             mb="0"
             icon={open ? <PiCaretDown /> : <PiCaretRight />}
@@ -563,9 +599,11 @@ export default function RevisionTimeline({
   onEditComment,
   onDeleteComment,
   onRetractVerdict,
+  uncoveredApproverReasons,
   emptyText = "No history for this revision.",
 }: {
   logs: RevisionLog[];
+  uncoveredApproverReasons?: Map<string, string>;
   // When provided, entries failing the predicate are collapsed into
   // "N other events" toggles (one per consecutive run, within each date
   // group) instead of rendering inline. The verdict-retraction scan still
@@ -677,6 +715,7 @@ export default function RevisionTimeline({
           ? onRetractVerdict
           : undefined
       }
+      uncoveredApproverReasons={uncoveredApproverReasons}
     />
   );
 
@@ -705,7 +744,7 @@ export default function RevisionTimeline({
       >
         <PiGitCommit />
       </Box>
-      <Text size="small" weight="semibold" color="text-mid" mb="3" as="div">
+      <Text size="sm" weight="semibold" color="text-mid" mb="3" as="div">
         {group.date}
       </Text>
       <Flex direction="column" gap="3">
@@ -739,7 +778,7 @@ export default function RevisionTimeline({
                   <Button
                     variant="ghost"
                     color="gray"
-                    size="xs"
+                    size="sm"
                     mt="0"
                     mb="0"
                     icon={isOpen ? <PiCaretDown /> : <PiCaretRight />}

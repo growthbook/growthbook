@@ -189,6 +189,8 @@ export default function SDKConnectionForm({
         (initialValue as { includeTagsInPayload?: boolean })
           .includeTagsInPayload ??
         false,
+      includeExperimentScheduleInMetadata:
+        initialValue.includeExperimentScheduleInMetadata ?? false,
     },
   });
 
@@ -620,7 +622,7 @@ export default function SDKConnectionForm({
           />
         </label>
         <MultiSelectField
-          size="legacy"
+          legacyHeight
           placeholder={
             environmentHasProjects ? "All Environment Projects" : "All Projects"
           }
@@ -666,7 +668,7 @@ export default function SDKConnectionForm({
 
       {shouldShowPayloadSecurity(languageType, languages) && (
         <>
-          <Heading as="h4" size="small" mb="3">
+          <Heading as="h4" size="sm" mb="3">
             Payload Security
           </Heading>
           <div className="bg-highlight rounded p-3 mb-2">
@@ -748,7 +750,7 @@ export default function SDKConnectionForm({
                   }
                 >
                   <Box p="4">
-                    <Heading as="h4" size="small" mb="3">
+                    <Heading as="h4" size="sm" mb="3">
                       Cipher Options
                     </Heading>
                     <Flex direction="column" gap="2">
@@ -915,7 +917,7 @@ export default function SDKConnectionForm({
                   }
                 >
                   <Box px="3" pb="3">
-                    <Heading as="h4" size="small" mb="3">
+                    <Heading as="h4" size="sm" mb="3">
                       Remote Evaluation Options
                     </Heading>
                     <Box>
@@ -1053,7 +1055,7 @@ export default function SDKConnectionForm({
       )}
 
       <Box mt="5">
-        <Heading as="h4" size="small" mb="3">
+        <Heading as="h4" size="sm" mb="3">
           Experiments
         </Heading>
         <Flex direction="column" gap="2">
@@ -1141,7 +1143,7 @@ export default function SDKConnectionForm({
 
       {showSavedGroupSettings && (
         <Box mt="5">
-          <Heading as="h4" size="small" mb="3">
+          <Heading as="h4" size="sm" mb="3">
             Saved Groups
           </Heading>
           <Box>
@@ -1184,7 +1186,7 @@ export default function SDKConnectionForm({
       )}
 
       <Box mt="5">
-        <Heading as="h4" size="small" mb="3">
+        <Heading as="h4" size="sm" mb="3">
           Payload Metadata
         </Heading>
         <Flex direction="column" gap="2">
@@ -1254,7 +1256,7 @@ export default function SDKConnectionForm({
             {form.watch("includeCustomFieldsInMetadata") && (
               <Box mt="2">
                 <MultiSelectField
-                  size="legacy"
+                  legacyHeight
                   placeholder="No fields included"
                   containerClassName="w-100 mb-0"
                   value={form.watch("allowedCustomFieldsInMetadata") || []}
@@ -1282,11 +1284,35 @@ export default function SDKConnectionForm({
                   <Tooltip
                     body={
                       <>
-                        <p className="mb-0">
-                          When enabled, all feature tags will be included in the{" "}
-                          <code>metadata.tags</code> array for each feature in
-                          the SDK payload.
-                        </p>
+                        When enabled, all feature tags will be included in the{" "}
+                        <code>metadata.tags</code> array for each feature in the
+                        SDK payload.
+                      </>
+                    }
+                  >
+                    <PiInfo />
+                  </Tooltip>
+                </>
+              }
+            />
+          </Box>
+          <Box>
+            <Checkbox
+              weight="regular"
+              value={form.watch("includeExperimentScheduleInMetadata")}
+              setValue={(val) =>
+                form.setValue("includeExperimentScheduleInMetadata", val)
+              }
+              label={
+                <>
+                  Include experiment schedule dates{" "}
+                  <Tooltip
+                    body={
+                      <>
+                        When enabled, an experiment&apos;s scheduled start/end
+                        are included as <code>metadata.startDate</code> and{" "}
+                        <code>metadata.endDate</code> on its experiment-ref
+                        rules in the SDK payload.
                       </>
                     }
                   >
@@ -1300,7 +1326,7 @@ export default function SDKConnectionForm({
       </Box>
 
       <Box mt="5">
-        <Heading as="h4" size="small" mb="3">
+        <Heading as="h4" size="sm" mb="3">
           Observability and QA
         </Heading>
         <Flex direction="column" gap="3">
@@ -1313,7 +1339,7 @@ export default function SDKConnectionForm({
             />
           </Box>
           <Box>
-            <Text as="div" size="medium" weight="medium" mb="2">
+            <Text as="div" size="md" weight="medium" mb="2">
               Draft mode experiments
             </Text>
             <Flex direction="column" gap="2">
@@ -1382,7 +1408,7 @@ export default function SDKConnectionForm({
 
       {isCloud() && (
         <Box mt="5">
-          <Heading as="h4" size="small" mb="3">
+          <Heading as="h4" size="sm" mb="3">
             GrowthBook Proxy
           </Heading>
           <Flex direction="column" gap="3">

@@ -1,6 +1,5 @@
 import { updateFactTableValidator } from "shared/validators";
 import {
-  ColumnInterface,
   FactTableInterface,
   UpdateFactTableProps,
 } from "shared/types/fact-table";
@@ -20,7 +19,10 @@ import {
 } from "back-end/src/services/owner";
 import {
   columnsHaveAutoSlices,
+  columnsNeedDetection,
   validateAggregatedFactTableSettings,
+  validateVirtualColumnProps,
+  validateVirtualColumnSql,
 } from "back-end/src/util/factTable";
 
 export const updateFactTable = createApiRequestHandler(
@@ -93,20 +95,93 @@ export const updateFactTable = createApiRequestHandler(
 
   let columnsUpserted = false;
   if (data.columns) {
+    const incomingColumns = data.columns;
+
+    let touchesVirtualColumn = false;
+    for (const col of incomingColumns) {
+      const existingCol = factTable.columns.find(
+        (c) => c.column === col.column,
+      );
+
+      // Origin is immutable: a SQL-detected column can never become virtual and
+      // a virtual column can never stop being one. `mergeUpsertColumns` pins
+      // `isVirtual` to the existing column, so reject the attempt loudly rather
+      // than silently ignoring it.
+      if (
+        existingCol &&
+        col.isVirtual !== undefined &&
+        Boolean(col.isVirtual) !== Boolean(existingCol.isVirtual)
+      ) {
+        throw new Error(
+          `Cannot change whether column "${col.column}" is a virtual column`,
+        );
+      }
+
+      const isVirtual = existingCol ? !!existingCol.isVirtual : !!col.isVirtual;
+
+      if (!isVirtual) {
+        if (col.sql !== undefined) {
+          throw new Error(
+            `Only virtual columns can have a SQL expression: "${col.column}"`,
+          );
+        }
+        continue;
+      }
+
+      touchesVirtualColumn = true;
+
+      // A virtual column must be removed via the delete endpoint so the
+      // dependency guard runs; a soft delete here would strip its expression
+      // out of generated SQL and break dependents silently.
+      if (col.deleted !== undefined) {
+        throw new Error(
+          "Virtual columns must be deleted using the virtual column endpoint",
+        );
+      }
+
+      if (!existingCol) {
+        validateVirtualColumnProps(col);
+        continue;
+      }
+
+      // Partial update: an omitted `sql` preserves the existing expression, but
+      // an explicit one must still be non-empty and structurally safe.
+      if (col.sql !== undefined) {
+        if (!col.sql.trim()) {
+          throw new Error("Virtual columns require a SQL expression");
+        }
+        validateVirtualColumnSql(col.sql);
+      }
+    }
+
+    // A virtual column's expression is raw SQL inlined into generated queries,
+    // so writing one needs the gate `canUpdateFactTable` deliberately skips for
+    // columns-only updates.
+    if (
+      touchesVirtualColumn &&
+      !req.context.permissions.canManageFactTableVirtualColumn(factTable)
+    ) {
+      req.context.permissions.throwPermissionError();
+    }
+
     await upsertColumns({
       context: req.context,
       factTable,
-      columns: data.columns,
+      columns: incomingColumns,
     });
     columnsUpserted = true;
     delete data.columns;
   }
 
-  await updateFactTableInDb(req.context, factTable, data);
-  if (
+  const willRefresh =
     needsColumnRefresh(factTable, data) ||
-    (columnsUpserted && columnsNeedDetection(factTable.columns))
-  ) {
+    (columnsUpserted && columnsNeedDetection(factTable.columns));
+  if (willRefresh) {
+    data.columnRefreshPending = true;
+  }
+
+  await updateFactTableInDb(req.context, factTable, data);
+  if (willRefresh) {
     await queueFactTableColumnsRefresh(factTable);
   }
 
@@ -118,6 +193,7 @@ export const updateFactTable = createApiRequestHandler(
     ...factTable,
     ...req.body,
     columns: factTable.columns,
+    columnRefreshPending: willRefresh ? true : factTable.columnRefreshPending,
   };
   return {
     factTable: await resolveOwnerEmail(
@@ -135,8 +211,4 @@ export function needsColumnRefresh(
   const eventNameChanged =
     changes.eventName !== undefined && changes.eventName !== existing.eventName;
   return sqlChanged || eventNameChanged;
-}
-
-export function columnsNeedDetection(columns?: ColumnInterface[]): boolean {
-  return (columns ?? []).some((c) => c.datatype === "");
 }

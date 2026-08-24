@@ -2,6 +2,7 @@
 import { ReactNode, useMemo, useState } from "react";
 import { Box, Flex, SegmentedControl } from "@radix-ui/themes";
 import { startCase } from "lodash";
+import { getValidDate } from "shared/dates";
 import { ApiContextualBanditInterface } from "shared/validators";
 import {
   expandMetricGroups,
@@ -12,13 +13,14 @@ import type {
   ContextualLeafClause,
 } from "shared/experiments";
 import Text from "@/ui/Text";
-import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Metadata from "@/ui/Metadata";
 import Heading from "@/ui/Heading";
 import Heatmap, { HeatmapColumn, HeatmapRow } from "@/ui/Heatmap";
-import { getVariationColor } from "@/services/features";
+import VariationLabel from "@/ui/VariationLabel";
+import VariationNumber from "@/ui/VariationNumber";
+import Tooltip from "@/ui/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useContextualBanditResults } from "@/hooks/useContextualBandits";
@@ -26,12 +28,33 @@ import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
-import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
+import RunQueriesButton, {
+  getQueryStatus,
+} from "@/components/Queries/RunQueriesButton";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 
 const numberFormatter = Intl.NumberFormat();
 
 type ComparisonMode = "weights" | "means" | "units";
+
+const EMPTY_SNAPSHOT_NOTICE =
+  "Contextual bandit results are not available for this snapshot yet. Run or refresh results to compute weights per context.";
+const EXPLORING_NOTICE =
+  "This Contextual Bandit is in its exploratory stage. Updating results recomputes stats but does not change variation weights — weights stay evenly split until the exploratory stage ends.";
+const EMPTY_SNAPSHOT_EXPLORING_NOTICE =
+  "This Contextual Bandit is in its exploratory stage, so weights stay evenly split until the exploratory stage ends. Run or refresh results to compute stats.";
+
+function getResultsNotice(
+  hasTableData: boolean,
+  isExploring: boolean,
+): string | null {
+  if (!hasTableData) {
+    return isExploring
+      ? EMPTY_SNAPSHOT_EXPLORING_NOTICE
+      : EMPTY_SNAPSHOT_NOTICE;
+  }
+  return isExploring ? EXPLORING_NOTICE : null;
+}
 
 function shouldShowUpdateMessage(message: string | null | undefined): boolean {
   if (!message?.trim()) return false;
@@ -46,68 +69,13 @@ function LeafContextsLabel({ clauses }: { clauses: ContextualLeafClause[] }) {
 
   if (!clauses.length || condition === "{}") {
     return (
-      <Text size="medium" color="text-low">
+      <Text size="md" color="text-low">
         All contexts
       </Text>
     );
   }
 
   return <ConditionDisplay condition={condition} />;
-}
-
-function VariationLabel({
-  index,
-  name,
-  truncate = false,
-  hideName = false,
-}: {
-  index: number;
-  name: string;
-  truncate?: boolean;
-  hideName?: boolean;
-}) {
-  const color = getVariationColor(index);
-  return (
-    <Flex
-      align="center"
-      gap={hideName ? "0" : "2"}
-      style={{ minWidth: 0, overflow: "hidden" }}
-      title={name}
-    >
-      <Flex
-        align="center"
-        justify="center"
-        style={{
-          flexShrink: 0,
-          width: 18,
-          height: 18,
-          borderRadius: "50%",
-          backgroundColor: color,
-          color: readableTextColor(color),
-          fontSize: 11,
-          fontWeight: 600,
-          lineHeight: 1,
-        }}
-      >
-        {index}
-      </Flex>
-      {hideName ? null : (
-        <Text size="medium" weight="medium" truncate={truncate}>
-          {name}
-        </Text>
-      )}
-    </Flex>
-  );
-}
-
-function readableTextColor(hex: string): string {
-  const normalized = hex.replace("#", "");
-  if (normalized.length < 6) return "#fff";
-  const r = parseInt(normalized.slice(0, 2), 16);
-  const g = parseInt(normalized.slice(2, 4), 16);
-  const b = parseInt(normalized.slice(4, 6), 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.6 ? "var(--gray-12)" : "#fff";
 }
 
 function leafCellValues(
@@ -191,11 +159,11 @@ function OverallWeights({
             borderLeft: i === 0 ? undefined : "1px solid var(--gray-a4)",
           }}
         >
-          <VariationLabel index={card.index} name={card.name} truncate />
-          <Heading as="h4" size="x-large" weight="medium" mt="2">
+          <VariationLabel number={card.index} name={card.name} />
+          <Heading as="h4" size="xl" weight="medium" mt="2">
             {card.weight === null ? "—" : formatWeight(card.weight)}
           </Heading>
-          <Text size="small" color="text-low">
+          <Text size="sm" color="text-low">
             {numberFormatter.format(card.units)} {unitDisplayName.toLowerCase()}
           </Text>
         </Box>
@@ -204,13 +172,6 @@ function OverallWeights({
   );
 }
 
-/**
- * CB-native results. Consumes the CB API shape and the CB results context directly —
- * no experiment SnapshotProvider, no phases, no experiment-shaped adapter.
- *
- * Layout follows the Results design: an "Overall Weights" summary followed by a
- * "Comparison" heatmap (reusable `@/ui/Heatmap`) of per-context, per-variation values.
- */
 export default function ContextualBanditResultsTable({
   cb,
   mutate,
@@ -224,11 +185,12 @@ export default function ContextualBanditResultsTable({
   const permissionsUtil = usePermissionsUtil();
 
   const {
+    loading,
+    isValidating,
     contextualBanditSnapshot,
     results,
     latest,
     refresh,
-    refreshing,
     refreshError,
   } = useContextualBanditResults(cb.id);
 
@@ -302,11 +264,22 @@ export default function ContextualBanditResultsTable({
   const showQueries =
     !!queryLatest && (status === "failed" || status === "partially-succeeded");
 
+  const isExploring = cb.stage === "explore";
+  const isSnapshotRunning = latest?.status === "running";
+  const resultsNotice =
+    !hasTableData && (loading || isValidating || isSnapshotRunning)
+      ? null
+      : getResultsNotice(hasTableData, isExploring);
+
   const comparisonColumns: HeatmapColumn[] = useMemo(
     () =>
       variations.map((v, index) => ({
         key: v.id,
-        header: <VariationLabel index={index} name={v.name} hideName />,
+        header: (
+          <Tooltip content={v.name} side="top">
+            <VariationNumber number={index} />
+          </Tooltip>
+        ),
         align: "center",
         cellAlign: "center",
       })),
@@ -320,7 +293,7 @@ export default function ContextualBanditResultsTable({
           shouldShowUpdateMessage(leaf.updateMessage) || leaf.error ? (
             <>
               {shouldShowUpdateMessage(leaf.updateMessage) ? (
-                <Text size="small" color="text-low" as="div" mt="1">
+                <Text size="sm" color="text-low" as="div" mt="1">
                   {leaf.updateMessage}
                 </Text>
               ) : null}
@@ -341,7 +314,7 @@ export default function ContextualBanditResultsTable({
             </Box>
           ),
           leading: [
-            <Text key="units" size="medium" color="text-mid">
+            <Text key="units" size="md" color="text-mid">
               {numberFormatter.format(leafTotalSampleSize(leaf))}
             </Text>,
           ],
@@ -366,9 +339,13 @@ export default function ContextualBanditResultsTable({
         status={status}
         dateCreated={queryLatest?.dateCreated}
         latestQueryDate={queryLatest?.dateCreated}
-        nextUpdate={undefined}
-        autoUpdateEnabled={false}
-        showAutoUpdateWidget={false}
+        nextUpdate={
+          cb.nextSnapshotAttempt
+            ? getValidDate(cb.nextSnapshotAttempt)
+            : undefined
+        }
+        autoUpdateEnabled={cb.status === "running" && !!cb.autoSnapshots}
+        showAutoUpdateWidget={true}
         failedString={
           queryLatest && !queryLatest.queries.length && queryLatest.error
             ? `Snapshot update failed: ${queryLatest.error}`
@@ -382,15 +359,20 @@ export default function ContextualBanditResultsTable({
         }
       />
       {canRunQueries ? (
-        <Button
-          loading={refreshing}
-          onClick={async () => {
+        <RunQueriesButton
+          cta="Update results"
+          icon="refresh"
+          model={{
+            queries: queryLatest?.queries ?? [],
+            runStarted: queryLatest?.runStarted ?? null,
+          }}
+          cancelEndpoint={`/api/v1/contextual-bandits/${cb.id}/cancel`}
+          mutate={mutate}
+          onSubmit={async () => {
             await refresh();
             mutate();
           }}
-        >
-          Update results
-        </Button>
+        />
       ) : null}
       <ResultMoreMenu
         datasource={datasource}
@@ -416,17 +398,15 @@ export default function ContextualBanditResultsTable({
   return (
     <Box>
       <Flex justify="between" align="center" mb="3" gap="4" wrap="wrap">
-        <Heading as="h3" size="small">
+        <Heading as="h3" size="sm">
           Overall Weights
         </Heading>
         {headerActions}
       </Flex>
 
-      {cb.stage === "explore" ? (
+      {resultsNotice ? (
         <Callout status="info" mb="3">
-          This Contextual Bandit is in its exploratory stage. Updating results
-          recomputes stats but does not change variation weights — weights stay
-          evenly split until the exploratory stage ends.
+          {resultsNotice}
         </Callout>
       ) : null}
 
@@ -436,12 +416,7 @@ export default function ContextualBanditResultsTable({
         </Callout>
       ) : null}
 
-      {!hasTableData ? (
-        <Callout status="info">
-          Contextual bandit results are not available for this snapshot yet. Run
-          or refresh results to compute weights per context.
-        </Callout>
-      ) : (
+      {hasTableData ? (
         <>
           <OverallWeights
             variations={variations}
@@ -458,7 +433,7 @@ export default function ContextualBanditResultsTable({
             gap="3"
             wrap="wrap"
           >
-            <Heading as="h3" size="small">
+            <Heading as="h3" size="sm">
               Comparison
             </Heading>
             <SegmentedControl.Root
@@ -494,7 +469,7 @@ export default function ContextualBanditResultsTable({
             formatValue={(value) => formatModeValue(value, mode)}
           />
         </>
-      )}
+      ) : null}
 
       {queriesModalOpen && showQueries && (
         <AsyncQueriesModal

@@ -1,3 +1,5 @@
+import { ANY_REVIEW_FOOTPRINT } from "shared/util";
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex, TextField } from "@radix-ui/themes";
 import { useRouter } from "next/router";
@@ -161,10 +163,18 @@ function revisionToRow(revision: Revision): ApprovalRow {
       ? revision.target.snapshot?.groupName || revision.target.id
       : revision.target.id;
 
+  // Saved Groups carry `projects[]`; Configs and Constants a scalar `project`.
+  // Reading only the array left the scalar entities with no project, so a
+  // project-filtered "needs my review" view dropped them entirely.
+  const snapshot = revision.target.snapshot as
+    | { projects?: string[]; project?: string }
+    | undefined;
   const projects =
     revision.target.type === "saved-group"
-      ? (revision.target.snapshot?.projects ?? [])
-      : [];
+      ? (snapshot?.projects ?? [])
+      : snapshot?.project
+        ? [snapshot.project]
+        : [];
 
   return {
     id: revision.id,
@@ -356,22 +366,30 @@ const ApprovalRequests: FC = () => {
     return items.filter((item) => allowed.has(item.status));
   }, [items, hasExplicitStatusFilter]);
 
-  // Per-row "can I act on this as a reviewer?" check. Mirrors the rules used
-  // elsewhere: `canReview` permission on the feature's project for feature
-  // revisions, and "can edit = can review" (canUpdateSavedGroup) for
-  // saved-group revisions — matching canUserReviewEntity in
-  // shared/src/revisions/helpers.ts.
+  // Per-row "can I act on this as a reviewer?" check. Reviewing is its own
+  // authority for every model, so each row asks the same question of its own
+  // family's review atom. Constants and Configs previously fell through to
+  // `false`, hiding their rows from every reviewer.
   const canReviewRow = useCallback(
     (row: ApprovalRow): boolean => {
       if (row.entityType === "feature") {
-        return permissionsUtil.canReviewFeatureDrafts({
-          project: row.projects[0] ?? "",
-        });
+        // "any" on purpose: this gates visibility, not approval. Hiding a draft
+        // is worse than showing one you cannot fully approve.
+        return permissionsUtil.canReviewFeatureDrafts(
+          { project: row.projects[0] ?? "" },
+          ANY_REVIEW_FOOTPRINT,
+        );
       }
-      if (row.entityType === "saved-group") {
-        return permissionsUtil.canUpdateSavedGroup(
+      if (
+        row.entityType === "saved-group" ||
+        row.entityType === "constant" ||
+        row.entityType === "config"
+      ) {
+        return permissionsUtil.canRevisionAction(
+          row.entityType,
+          "review",
           { projects: row.projects },
-          { projects: row.projects },
+          NO_ENVIRONMENT_BINDING,
         );
       }
       return false;
@@ -530,7 +548,7 @@ const ApprovalRequests: FC = () => {
   return (
     <Box p="4" pr="7" width="100%" maxWidth="1340px" mx="auto">
       <Box mb="5">
-        <Heading as="h1" size="large" mb="2">
+        <Heading as="h1" size="lg" mb="2">
           Approval Requests
         </Heading>
         <Text color="text-low">

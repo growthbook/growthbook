@@ -1,7 +1,16 @@
-import { FactMetricInterface } from "shared/types/fact-table";
+import {
+  FactMetricInterface,
+  FunnelFactMetricInterface,
+} from "shared/types/fact-table";
+import {
+  ExperimentMetricInterface,
+  getFunnelStepMetrics,
+} from "shared/experiments";
+import { MetricForSnapshot } from "shared/types/experiment-snapshot";
 import {
   chunkMetrics,
   getFactMetricGroup,
+  getQueryableMetricsFromSnapshotSettings,
   maxColumnsNeededForMetric,
 } from "back-end/src/services/experimentQueries/experimentQueries";
 import { MAX_METRICS_PER_QUERY } from "back-end/src/services/experimentQueries/constants";
@@ -733,6 +742,65 @@ describe("experimentQueries", () => {
           getFactMetricGroup(b, { skipPartialData: true }),
         );
       });
+    });
+  });
+
+  describe("getQueryableMetricsFromSnapshotSettings", () => {
+    const funnelMetric: FunnelFactMetricInterface = {
+      ...factMetricFactory.build({ id: "fact__funnel" }),
+      id: "fact__funnel",
+      name: "Signup Funnel",
+      metricType: "funnel",
+      numerator: null,
+      denominator: null,
+      funnelSettings: {
+        ordering: "strict",
+        steps: ["View", "Signup"].map((name) => ({
+          name,
+          factTableId: "ft_1",
+          rowFilters: [],
+          optional: false,
+          conversionWindow: null,
+        })),
+      },
+    };
+    const stepMetrics = getFunnelStepMetrics(funnelMetric);
+    const standardMetric = factMetricFactory.build({ id: "fact__revenue" });
+
+    const metricMap = new Map<string, ExperimentMetricInterface>(
+      [funnelMetric, standardMetric, ...stepMetrics].map((m) => [m.id, m]),
+    );
+
+    const metricSettings = (ids: string[]) =>
+      ids.map((id) => ({ id }) as MetricForSnapshot);
+
+    it("drops funnel step metrics, which the parent funnel query covers", () => {
+      const queryable = getQueryableMetricsFromSnapshotSettings(
+        {
+          metricSettings: metricSettings([
+            funnelMetric.id,
+            ...stepMetrics.map((m) => m.id),
+            standardMetric.id,
+          ]),
+        },
+        metricMap,
+      );
+
+      expect(queryable.map((m) => m.id)).toEqual([
+        funnelMetric.id,
+        standardMetric.id,
+      ]);
+    });
+
+    it("drops ids with no definition in the map", () => {
+      const queryable = getQueryableMetricsFromSnapshotSettings(
+        {
+          metricSettings: metricSettings(["fact__deleted", standardMetric.id]),
+        },
+        metricMap,
+      );
+
+      expect(queryable.map((m) => m.id)).toEqual([standardMetric.id]);
     });
   });
 });

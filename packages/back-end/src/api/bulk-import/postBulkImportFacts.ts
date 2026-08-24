@@ -17,11 +17,12 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getCreateMetricPropsFromBody } from "back-end/src/api/fact-metrics/postFactMetric";
 import { getUpdateFactMetricPropsFromBody } from "back-end/src/api/fact-metrics/updateFactMetric";
+import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
 import {
-  needsColumnRefresh,
+  columnsHaveAutoSlices,
   columnsNeedDetection,
-} from "back-end/src/api/fact-tables/updateFactTable";
-import { columnsHaveAutoSlices } from "back-end/src/util/factTable";
+  validateVirtualColumnProps,
+} from "back-end/src/util/factTable";
 import { resolveOwnerToUserId } from "back-end/src/services/owner";
 
 export const postBulkImportFacts = createApiRequestHandler(
@@ -96,6 +97,40 @@ export const postBulkImportFacts = createApiRequestHandler(
       }
 
       const existing = factTableMap.get(id);
+
+      // Enforce virtual-column rules on any incoming columns. Bulk import can
+      // create and preserve virtual (computed) columns — used to sync them
+      // from version control — but must not create an invalid one or flip an
+      // existing column's origin (a SQL-detected column becoming virtual or
+      // vice versa).
+      if (data.columns) {
+        for (const col of data.columns) {
+          const existingCol = existing?.columns.find(
+            (c) => c.column === col.column,
+          );
+          if (
+            existingCol &&
+            Boolean(col.isVirtual) !== Boolean(existingCol.isVirtual)
+          ) {
+            throw new Error(
+              `Cannot change whether column "${col.column}" is a virtual column`,
+            );
+          }
+          if (col.isVirtual) {
+            validateVirtualColumnProps(col);
+            // A virtual column carries raw SQL, so importing one into an
+            // existing fact table needs the same gate as the dedicated
+            // virtual-column endpoints.
+            if (
+              existing &&
+              !req.context.permissions.canManageFactTableVirtualColumn(existing)
+            ) {
+              req.context.permissions.throwPermissionError();
+            }
+          }
+        }
+      }
+
       // Update existing fact table
       if (existing) {
         if (!req.context.permissions.canUpdateFactTable(existing, data)) {
@@ -124,17 +159,24 @@ export const postBulkImportFacts = createApiRequestHandler(
           delete data.columns;
         }
 
-        await updateFactTable(req.context, existing, data);
-        if (
+        const willRefresh =
           needsColumnRefresh(existing, data) ||
-          columnsNeedDetection(existing.columns)
-        ) {
+          columnsNeedDetection(existing.columns);
+        await updateFactTable(
+          req.context,
+          existing,
+          willRefresh ? { ...data, columnRefreshPending: true } : data,
+        );
+        if (willRefresh) {
           await queueFactTableColumnsRefresh(existing);
         }
         factTableMap.set(existing.id, {
           ...existing,
           ...data,
           columns: existing.columns,
+          columnRefreshPending: willRefresh
+            ? true
+            : existing.columnRefreshPending,
         });
         numUpdated.factTables++;
       }
@@ -163,6 +205,9 @@ export const postBulkImportFacts = createApiRequestHandler(
         if (factTable.userIdTypes) {
           validateUserIdTypes(factTable.datasource, factTable.userIdTypes);
         }
+
+        factTable.columnRefreshPending =
+          !factTable.columns?.length || columnsNeedDetection(factTable.columns);
 
         const newFactTable = await createFactTable(req.context, factTable);
         await queueFactTableColumnsRefresh(newFactTable);

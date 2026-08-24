@@ -2,7 +2,7 @@ import cloneDeep from "lodash/cloneDeep";
 import {
   eligibleForUncappedMetric,
   getUserIdTypes,
-  isFunnelMetric,
+  isLegacyFunnelMetric,
   isPercentileCappedMetric,
   isRatioMetric,
   isRegressionAdjusted,
@@ -79,7 +79,7 @@ export function getSnapshotMetricQuery(
       ? denominatorMetrics[denominatorMetrics.length - 1]
       : undefined;
   const ratioMetric = isRatioMetric(metric, denominator);
-  const funnelMetric = isFunnelMetric(metric, denominator);
+  const funnelMetric = isLegacyFunnelMetric(metric, denominator);
 
   const banditDates = getBanditDates(settings.banditSettings);
 

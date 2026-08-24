@@ -1,6 +1,6 @@
-import React, { ChangeEvent, FC, useMemo, useState } from "react";
+import React, { ChangeEvent, FC, useEffect, useMemo, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiCaretRight, PiPlus, PiX } from "react-icons/pi";
+import { PiCaretRight, PiCaretDown, PiPlus, PiX } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Tag from "@/components/Tags/Tag";
 import {
@@ -13,10 +13,8 @@ import { SyntaxFilter, transformQuery } from "@/services/search";
 import { Popover } from "@/ui/Popover";
 import Field from "@/components/Forms/Field";
 import Link from "@/ui/Link";
-import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
-import Checkbox from "@/ui/Checkbox";
 
 // Activate a role="button" element on Enter/Space, matching native button keys.
 function activateOnKey(e: React.KeyboardEvent, fn: () => void) {
@@ -29,7 +27,7 @@ function activateOnKey(e: React.KeyboardEvent, fn: () => void) {
 // Filter keys this component understands, kept in sync with the syntax filters
 // useExperimentSearch recognizes. Mirrors ExperimentSearchFilters so the parsed
 // tokens map back onto the same categories.
-const EXPERIMENT_FILTER_KEYS = [
+export const EXPERIMENT_FILTER_KEYS = [
   "project",
   "metric",
   "owner",
@@ -46,27 +44,25 @@ type FilterCategory = {
   items: SearchFiltersItem[];
 };
 
-// A caller-supplied pill filter that isn't backed by the search string (e.g. a
-// date-range picker writing to a block field). The component handles the pill /
-// popover / category-list mechanics; the caller owns the value and the panel.
+// A caller-supplied filter that isn't backed by the search string (e.g. a
+// date-range picker writing to a block field). The component owns the accordion
+// row mechanics; the caller owns the value and the expanded panel.
 export interface ExtraFilter {
   key: string;
   heading: string;
-  // Whether a pill is currently shown (i.e. the filter has a value).
+  // Whether the filter currently has a value.
   isActive: boolean;
-  // Pill value text rendered after the heading (omit for none).
+  // Value text rendered after the heading (omit for none).
   label?: React.ReactNode;
-  // Create the filter (with a sensible default) when picked from the category
-  // list. The pill and its popover open immediately after.
+  // Create the filter (with a sensible default) when the row is expanded.
   onAdd: () => void;
-  // Clear the filter (called from the pill's remove button).
+  // Clear the filter (called from the row's Clear link).
   onRemove: () => void;
-  // Panel rendered inside the pill's popover (e.g. a date-range picker).
+  // Panel rendered inside the expanded row (e.g. a date-range picker).
   renderPanel: () => React.ReactNode;
-  // Panel width in px (defaults to the standard menu width).
+  // Panel width in px (defaults to full width).
   panelWidth?: number;
-  // Keep the popover open when interacting with nested poppers (a Select
-  // dropdown or calendar) that render in their own portals.
+  // Retained for API compatibility; unused now that panels render inline.
   keepOpenOnNestedPopper?: boolean;
 }
 
@@ -80,17 +76,43 @@ interface Props {
   // (e.g. a Projects multi-select above this filter list), so Project isn't
   // offered twice.
   showProjectFilter?: boolean;
-  // Additional non-search-string pill filters (e.g. date ranges).
+  // Additional non-search-string filters (e.g. date ranges), appended as their
+  // own accordion rows below the search-string categories.
   extraFilters?: ExtraFilter[];
 }
 
+// Whether a search string carries any filter tokens or free text. For callers
+// rendering their own "Clear all" (see below).
+export function experimentSearchIsActive(searchValue: string): boolean {
+  const { searchTerm, syntaxFilters } = transformQuery(
+    searchValue,
+    EXPERIMENT_FILTER_KEYS,
+  );
+  return syntaxFilters.length > 0 || searchTerm.trim().length > 0;
+}
+
+// Design order for the search-string category rows.
+const CATEGORY_ORDER = [
+  "project",
+  "metric",
+  "is",
+  "owner",
+  "status",
+  "tag",
+  "has",
+];
+
 /**
- * Compact experiment filter builder used in narrow surfaces like the dashboard
- * block editor sidebar. Presents an "Add filter" menu plus removable chips
- * instead of a wide row of dropdowns, but writes into the exact same raw
- * search string (and therefore the same syntax filters) as
- * ExperimentSearchFilters — so backend parsing/filtering is unchanged and the
- * shared list-view component is untouched.
+ * Experiment filter builder used by the dashboard's global Experiment Filters
+ * card and the per-block "Filter Experiments" field. Renders an accordion of
+ * filter categories (Metric, Result, Owner, …); expanding a category reveals a
+ * combobox that adds the chosen values as chips. All selections are written into
+ * the same raw search string (and therefore the same syntax filters) as
+ * ExperimentSearchFilters, so backend parsing/filtering is unchanged.
+ *
+ * Category headings sit a size below the caller's field label, since they read as
+ * children of it. "Clear all" belongs to the caller too: on that label row it can
+ * clear `extraFilters` in the same update as the search string.
  */
 const SidebarExperimentFilters: FC<Props> = ({
   searchValue,
@@ -108,9 +130,9 @@ const SidebarExperimentFilters: FC<Props> = ({
 
   // This UI can only author plain filters (`field:value`). Negated (`!`) or
   // operator (`>`, `^`, ...) filters typed by hand elsewhere are kept separate:
-  // they never satisfy a checkbox's checked state (a `tag:!checkout` must not
-  // render as a checked "checkout"), and they render as their own read-only
-  // chips below instead of being folded into a category chip.
+  // they never satisfy a category's selected state (a `tag:!checkout` must not
+  // render as a selected "checkout"), and they render as their own read-only
+  // chips instead of being folded into a category.
   const isPlainFilter = (f: SyntaxFilter) => !f.negated && !f.operator;
   const plainFilters = useMemo(
     () => syntaxFilters.filter(isPlainFilter),
@@ -132,15 +154,23 @@ const SidebarExperimentFilters: FC<Props> = ({
     setSearchValue,
   });
 
-  // "Add filter" popover (category list) open state.
-  const [addOpen, setAddOpen] = useState(false);
-  // Field whose pill popover is currently open (its filter panel). "" = none.
-  const [activeField, setActiveField] = useState("");
-  // A pill created on category click that has no selected values yet. Kept
-  // separate from syntaxFilters (which only tracks fields with >=1 value) so the
-  // pill can exist — and anchor the popover — before the first selection.
-  const [draftField, setDraftField] = useState("");
+  // Which category row is expanded ("" = none).
+  const [expandedField, setExpandedField] = useState("");
+  // Which expanded category's combobox dropdown is open (driven by input focus).
+  const [optionsOpenField, setOptionsOpenField] = useState("");
+  // Text typed into the expanded category's combobox search.
   const [filterSearch, setFilterSearch] = useState("");
+  // Keyboard-highlighted option in the open combobox (aria-activedescendant
+  // pattern). Focus stays in the input; Arrow keys move this, Enter selects.
+  const [activeOptionIndex, setActiveOptionIndex] = useState(0);
+
+  // Keep the keyboard-highlighted option scrolled into view as it moves.
+  useEffect(() => {
+    if (!optionsOpenField) return;
+    document
+      .getElementById(`${optionsOpenField}-option-${activeOptionIndex}`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [optionsOpenField, activeOptionIndex]);
 
   // Shared source of truth for the filter taxonomy (see ExperimentSearchFilters).
   const {
@@ -153,10 +183,11 @@ const SidebarExperimentFilters: FC<Props> = ({
   } = useExperimentFilterCategories({ experiments, allowDrafts });
 
   const categories = useMemo<FilterCategory[]>(() => {
-    const cats: FilterCategory[] = [];
+    const byKey = new Map<string, FilterCategory>();
+    const add = (c: FilterCategory) => byKey.set(c.key, c);
 
     if (showProjectFilter && !project && projects.length > 0) {
-      cats.push({
+      add({
         key: "project",
         heading: "Project",
         items: projects.map((p) => ({
@@ -166,20 +197,18 @@ const SidebarExperimentFilters: FC<Props> = ({
         })),
       });
     }
-
-    cats.push({ key: "metric", heading: "Metric", items: metricItems });
-    cats.push({
+    // Distinguished from the block's own calculation metric, directly above.
+    add({ key: "metric", heading: "Includes metric", items: metricItems });
+    add({ key: "is", heading: "Result", items: resultItems });
+    add({
       key: "owner",
       heading: "Owner",
       items: owners.map((o) => ({ name: o, id: o, searchValue: o })),
     });
-    cats.push({ key: "is", heading: "Result", items: resultItems });
-
     if (showStatusFilter) {
-      cats.push({ key: "status", heading: "Status", items: statusItems });
+      add({ key: "status", heading: "Status", items: statusItems });
     }
-
-    cats.push({
+    add({
       key: "tag",
       heading: "Tag",
       items: availableTags.map((t) => ({
@@ -188,9 +217,11 @@ const SidebarExperimentFilters: FC<Props> = ({
         searchValue: t,
       })),
     });
-    cats.push({ key: "has", heading: "Type", items: typeItems });
+    add({ key: "has", heading: "Type", items: typeItems });
 
-    return cats;
+    return CATEGORY_ORDER.map((key) => byKey.get(key)).filter(
+      (c): c is FilterCategory => !!c,
+    );
   }, [
     showProjectFilter,
     project,
@@ -210,54 +241,16 @@ const SidebarExperimentFilters: FC<Props> = ({
     return map;
   }, [categories]);
 
-  // Human-readable label for a chip value (falls back to the raw value).
-  const labelFor = (field: string, value: string): string => {
-    const category = categoryByKey.get(field);
-    const item = category?.items.find(
-      (i) => i.searchValue.toLowerCase() === value.toLowerCase(),
-    );
-    if (item && typeof item.name === "string") return item.name;
-    return value;
-  };
+  // Selected values (raw searchValues) for a category.
+  const selectedValuesFor = (key: string): string[] =>
+    plainFilters.find((f) => f.field === key)?.values ?? [];
 
-  // One chip per category (field): every field with selected values, plus a
-  // draft field created on category click that has no values selected yet.
-  // Only plain filters get a category chip; negated/operator filters render as
-  // their own chips.
-  const chipFields = useMemo(() => {
-    const fields: string[] = [];
-    plainFilters.forEach((f) => {
-      if (categoryByKey.has(f.field) && !fields.includes(f.field)) {
-        fields.push(f.field);
-      }
-    });
-    if (
-      draftField &&
-      categoryByKey.has(draftField) &&
-      !fields.includes(draftField)
-    ) {
-      fields.push(draftField);
-    }
-    return fields;
-  }, [plainFilters, categoryByKey, draftField]);
-
-  const extraByKey = useMemo(() => {
-    const m = new Map<string, ExtraFilter>();
-    extraFilters.forEach((f) => m.set(f.key, f));
-    return m;
-  }, [extraFilters]);
-
-  // Keep a pill's popover open when the click lands inside a nested Radix
-  // popper (e.g. a date-range Select dropdown or calendar) that portals out of
-  // our content; a genuine outside click still dismisses.
-  const keepOpenOnNestedPopper = (e: {
-    target: EventTarget | null;
-    preventDefault: () => void;
-  }) => {
-    const target = e.target as HTMLElement | null;
-    if (target?.closest("[data-radix-popper-content-wrapper]")) {
-      e.preventDefault();
-    }
+  // Display node for a value (the item's name, which may carry an icon/tag).
+  const labelNodeFor = (key: string, value: string): React.ReactNode => {
+    const item = categoryByKey
+      .get(key)
+      ?.items.find((i) => i.searchValue.toLowerCase() === value.toLowerCase());
+    return item ? item.name : value;
   };
 
   const handleFreeTextChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -277,281 +270,433 @@ const SidebarExperimentFilters: FC<Props> = ({
     );
   };
 
-  const clearFilters = () => {
-    setSearchValue(searchTerm);
-    // Also clear active extra (non-search-string) filters, e.g. date pickers.
-    extraFilters.forEach((f) => {
-      if (f.isActive) f.onRemove();
-    });
-    setDraftField("");
-    setActiveField("");
-  };
-
-  // Drill into a category from the "Add filter" list: create its pill (as a
-  // draft when it has no values yet) and open that pill's popover, so the panel
-  // anchors to the pill instead of the "Add filter" button and won't move as
-  // more values are selected.
-  const openCategory = (key: string) => {
-    setAddOpen(false);
-    setFilterSearch("");
-    const extra = extraByKey.get(key);
-    if (extra) {
-      if (!extra.isActive) extra.onAdd();
-      setActiveField(key);
+  // Add one value to a category. If a hand-typed negated filter already excludes
+  // this exact value, lift the exclusion instead of appending a contradictory
+  // `tag:!x tag:x` (which yields zero results).
+  const addValue = (key: string, value: string) => {
+    const negatedMatch = advancedFilters.find(
+      (f) =>
+        f.field === key &&
+        f.negated &&
+        f.values.some((v) => v.toLowerCase() === value.toLowerCase()),
+    );
+    if (negatedMatch) {
+      const remaining = negatedMatch.values.filter(
+        (v) => v.toLowerCase() !== value.toLowerCase(),
+      );
+      const tokens = syntaxFilters
+        .filter((f) => f !== negatedMatch)
+        .map(filterToString);
+      if (remaining.length > 0) {
+        tokens.push(filterToString({ ...negatedMatch, values: remaining }));
+      }
+      const joined = tokens.join(" ");
+      setSearchValue(
+        joined ? (searchTerm ? `${joined} ${searchTerm}` : joined) : searchTerm,
+      );
       return;
     }
-    setActiveField(key);
-    setDraftField(plainFilters.some((f) => f.field === key) ? "" : key);
+    updateQuery({ field: key, values: [value], operator: "", negated: false });
   };
 
-  // Back arrow: leave the pill panel and reopen the category list. Discards the
-  // draft pill if the user never selected a value.
-  const backToCategories = () => {
-    setActiveField("");
-    setDraftField("");
-    setFilterSearch("");
-    setAddOpen(true);
-  };
+  // Toggle one value off a category (updateQuery removes an existing value).
+  const removeValue = (key: string, value: string) =>
+    updateQuery({ field: key, values: [value], operator: "", negated: false });
 
-  // Pill popover dismissed by an outside click.
-  const closeActiveField = () => {
-    setActiveField("");
-    setDraftField("");
-    setFilterSearch("");
-  };
-
-  // Remove a chip entirely: its filter values (if any) and its draft state.
-  const removeChip = (field: string) => {
-    const extra = extraByKey.get(field);
-    if (extra) {
-      extra.onRemove();
-      if (activeField === field) setActiveField("");
-      return;
-    }
-    const filter = plainFilters.find((f) => f.field === field);
+  // Clear all selected values in a single category.
+  const clearCategory = (key: string) => {
+    const filter = plainFilters.find((f) => f.field === key);
     if (filter) removeFilter(filter);
-    if (draftField === field) setDraftField("");
-    if (activeField === field) setActiveField("");
   };
 
-  // Category list ("Add filter" view): a flat list of categories that drills
-  // into the selected category's pill panel.
-  const categoryListView = (
-    // Outer box owns the scroll (and thus the scrollbar), so it sits flush
-    // against the popover edge. Inner box holds the padding, keeping the gap
-    // between the scrollbar and the content instead.
-    <Box style={{ width: 248, maxHeight: 360, overflowY: "auto" }}>
-      <Box style={{ padding: "6px 8px" }}>
-        {categories
-          // Hide categories that already have a pill; each field maps to a
-          // single chip, so it shouldn't be addable again. (A field with only
-          // a negated/operator filter has no category pill, so it stays
-          // addable.)
-          .filter((c) => !plainFilters.some((f) => f.field === c.key))
-          .map((c) => (
-            <Flex
-              key={c.key}
-              align="center"
-              justify="between"
-              px="2"
-              py="2"
-              role="button"
-              tabIndex={0}
-              className="cursor-pointer hover-highlight"
-              style={{ borderRadius: 6 }}
-              onClick={() => openCategory(c.key)}
-              onKeyDown={(e) => activateOnKey(e, () => openCategory(c.key))}
-            >
-              <Text size="small">{c.heading}</Text>
-              <PiCaretRight size={12} color="var(--slate-9)" />
-            </Flex>
-          ))}
-        {/* Extra (non-search-string) filters that aren't already active. */}
-        {extraFilters
-          .filter((f) => !f.isActive)
-          .map((f) => (
-            <Flex
-              key={f.key}
-              align="center"
-              justify="between"
-              px="2"
-              py="2"
-              role="button"
-              tabIndex={0}
-              className="cursor-pointer hover-highlight"
-              style={{ borderRadius: 6 }}
-              onClick={() => openCategory(f.key)}
-              onKeyDown={(e) => activateOnKey(e, () => openCategory(f.key))}
-            >
-              <Text size="small">{f.heading}</Text>
-              <PiCaretRight size={12} color="var(--slate-9)" />
-            </Flex>
-          ))}
-      </Box>
-    </Box>
+  const extraByKey = useMemo(() => {
+    const m = new Map<string, ExtraFilter>();
+    extraFilters.forEach((f) => m.set(f.key, f));
+    return m;
+  }, [extraFilters]);
+
+  // Expand/collapse an accordion row. Expanding an inactive extra filter seeds
+  // its default value so its panel has something to edit.
+  const toggleExpand = (key: string) => {
+    setFilterSearch("");
+    setOptionsOpenField("");
+    if (expandedField === key) {
+      setExpandedField("");
+      return;
+    }
+    const extra = extraByKey.get(key);
+    if (extra && !extra.isActive) extra.onAdd();
+    setExpandedField(key);
+  };
+
+  // A small circular "+" affordance for empty rows.
+  const plusCircle = (
+    <Flex
+      align="center"
+      justify="center"
+      style={{
+        width: 15,
+        height: 15,
+        borderRadius: "50%",
+        background: "var(--violet-9)",
+        flexShrink: 0,
+      }}
+    >
+      <PiPlus size={12} color="white" />
+    </Flex>
   );
 
-  // Panel rendered inside an extra filter's pill popover: back arrow header +
-  // the caller-supplied content (e.g. a date-range picker).
-  const renderExtraPanel = (extra: ExtraFilter) => (
-    <Box style={{ width: extra.panelWidth ?? 248 }}>
-      <Box style={{ padding: "6px 8px" }}>
-        <Flex
-          align="center"
-          gap="1"
-          px="2"
-          py="1"
-          mb="1"
-          role="button"
-          tabIndex={0}
-          aria-label="Back to filters"
-          className="cursor-pointer"
-          style={{ borderRadius: 6 }}
-          onClick={backToCategories}
-          onKeyDown={(e) => activateOnKey(e, backToCategories)}
-        >
-          <Text size="small" weight="medium">
-            {extra.heading}
-          </Text>
-        </Flex>
-        <Box px="1" pb="1">
-          {extra.renderPanel()}
-        </Box>
-      </Box>
-    </Box>
-  );
+  // Right-side control for a row given its state.
+  const rowControl = (expanded: boolean, count: number) => {
+    if (expanded) {
+      return <PiCaretDown size={15} color="var(--violet-11)" aria-hidden />;
+    }
+    if (count > 0) {
+      return <PiCaretRight size={15} color="var(--slate-11)" aria-hidden />;
+    }
+    return plusCircle;
+  };
 
-  // Filter panel ("Filter by X") rendered inside a pill's popover: back arrow,
-  // search box, and a checkbox list for the category.
-  const renderFilterPanel = (category: FilterCategory) => {
-    const q = filterSearch.toLowerCase();
-    const items = filterSearch
-      ? category.items.filter((i) => {
-          const haystack = typeof i.name === "string" ? i.name : i.searchValue;
-          return haystack.toLowerCase().includes(q);
-        })
-      : category.items;
-    return (
-      <Box style={{ width: 248, maxHeight: 360, overflowY: "auto" }}>
-        <Box style={{ padding: "6px 8px" }}>
-          <Flex
-            align="center"
-            gap="1"
-            px="2"
-            py="1"
-            mb="1"
-            role="button"
-            tabIndex={0}
-            aria-label="Back to filters"
-            className="cursor-pointer"
-            style={{ borderRadius: 6 }}
-            onClick={backToCategories}
-            onKeyDown={(e) => activateOnKey(e, backToCategories)}
+  // size="xs" matches the dashboard filter bar's FilterCountBadge (single digit
+  // renders as a circle). Not imported from there — that lives under
+  // enterprise/Dashboards and this component is shared with the experiment list.
+  const countBadge = (count: number) =>
+    count > 0 ? (
+      <Badge
+        label={`${count}`}
+        size="xs"
+        color="gray"
+        variant="soft"
+        radius="full"
+      />
+    ) : null;
+
+  // A selected-value chip: gray pill with a remove ×.
+  const valueChip = (
+    label: React.ReactNode,
+    onRemove: () => void,
+    ariaLabel: string,
+  ) => (
+    <Badge
+      color="gray"
+      variant="soft"
+      radius="medium"
+      style={{ maxWidth: "100%", whiteSpace: "normal" }}
+      label={
+        <Flex align="center" gap="1">
+          <Text
+            size="sm"
+            whiteSpace="normal"
+            overflowWrap="anywhere"
+            color="text-high"
           >
-            <Text size="small" weight="medium">
-              Filter by {category.heading}
+            {label}
+          </Text>
+          <IconButton
+            size="1"
+            variant="ghost"
+            color="gray"
+            radius="full"
+            aria-label={ariaLabel}
+            onClick={onRemove}
+          >
+            <PiX size={12} />
+          </IconButton>
+        </Flex>
+      }
+    />
+  );
+
+  // The combobox options for an expanded category (not-yet-selected values).
+  // Rendered as popover content, so it overlays instead of pushing the accordion
+  // open. The popover itself provides the border/background/shadow.
+  // Visible (not-yet-selected, search-matching) options for a category's
+  // combobox. Also used to drive keyboard navigation in renderCategoryPanel.
+  const visibleOptionsFor = (category: FilterCategory) => {
+    const selected = selectedValuesFor(category.key);
+    const q = filterSearch.toLowerCase();
+    return category.items.filter((item) => {
+      const isSelected = selected.some(
+        (v) => v.toLowerCase() === item.searchValue.toLowerCase(),
+      );
+      if (isSelected) return false;
+      if (!q) return true;
+      const haystack =
+        typeof item.name === "string" ? item.name : item.searchValue;
+      return haystack.toLowerCase().includes(q);
+    });
+  };
+
+  const renderOptions = (
+    category: FilterCategory,
+    options: FilterCategory["items"],
+    activeIndex: number,
+  ) => {
+    return (
+      <Box
+        id={`${category.key}-listbox`}
+        role="listbox"
+        style={{ maxHeight: 240, overflowY: "auto" }}
+      >
+        {options.length === 0 ? (
+          <Box px="2" py="2">
+            <Text size="sm" color="text-low">
+              No options
             </Text>
-          </Flex>
-
-          <Box px="1" pb="1">
-            <Field
-              value={filterSearch}
-              onChange={(e) => setFilterSearch(e.target.value)}
-              type="search"
-              placeholder="Search..."
-              autoFocus
-              style={{ height: 30, fontSize: 13, padding: "0 8px" }}
-            />
           </Box>
-
-          <Box px="1" pb="1">
-            {items.length === 0 && (
-              <Box px="2" py="1">
-                <Text size="small" color="text-low">
-                  No options
-                </Text>
-              </Box>
-            )}
-            {items.map((item) => {
-              // Only plain filters can check a box — a negated `tag:!checkout`
-              // must not render as a checked "checkout".
-              const exists = plainFilters.some(
-                (f) =>
-                  f.field === category.key &&
-                  f.values.some(
-                    (v) => v.toLowerCase() === item.searchValue.toLowerCase(),
-                  ),
-              );
-              const selectItem = () => {
-                if (item.disabled) return;
-                // If a hand-typed negated filter already excludes this exact
-                // value, checking the box lifts the exclusion instead of
-                // appending a contradictory `tag:!x tag:x` (zero results).
-                const negatedMatch = advancedFilters.find(
-                  (f) =>
-                    f.field === category.key &&
-                    f.negated &&
-                    f.values.some(
-                      (v) => v.toLowerCase() === item.searchValue.toLowerCase(),
-                    ),
-                );
-                if (negatedMatch) {
-                  const remaining = negatedMatch.values.filter(
-                    (v) => v.toLowerCase() !== item.searchValue.toLowerCase(),
-                  );
-                  const tokens = syntaxFilters
-                    .filter((f) => f !== negatedMatch)
-                    .map(filterToString);
-                  if (remaining.length > 0) {
-                    tokens.push(
-                      filterToString({ ...negatedMatch, values: remaining }),
-                    );
-                  }
-                  const joined = tokens.join(" ");
-                  setSearchValue(
-                    joined
-                      ? searchTerm
-                        ? `${joined} ${searchTerm}`
-                        : joined
-                      : searchTerm,
-                  );
-                  return;
-                }
-                updateQuery({
-                  field: category.key,
-                  values: [item.searchValue],
-                  operator: "",
-                  negated: false,
-                });
-              };
+        ) : (
+          <Box>
+            {options.map((item, index) => {
+              const active = index === activeIndex && !item.disabled;
               return (
                 <Box
                   key={item.id}
+                  id={`${category.key}-option-${index}`}
                   px="2"
                   py="1"
-                  className="hover-highlight"
-                  style={{ borderRadius: 6 }}
+                  role="option"
+                  aria-selected={active}
+                  aria-disabled={item.disabled}
+                  className={item.disabled ? undefined : "hover-highlight"}
+                  style={{
+                    borderRadius: 6,
+                    cursor: item.disabled ? "default" : "pointer",
+                    opacity: item.disabled ? 0.5 : 1,
+                    backgroundColor: active ? "var(--gray-a3)" : undefined,
+                  }}
+                  // Keep the combobox input focused so the dropdown stays open
+                  // across multiple selections.
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    if (item.disabled) return;
+                    addValue(category.key, item.searchValue);
+                  }}
                 >
-                  <Checkbox
-                    size="sm"
-                    weight="regular"
-                    value={exists}
-                    setValue={selectItem}
-                    disabled={item.disabled}
-                    label={item.name}
-                    mb="0"
-                  />
+                  <Text size="sm">{item.name}</Text>
                 </Box>
               );
             })}
           </Box>
-        </Box>
+        )}
+      </Box>
+    );
+  };
+
+  // Expanded panel for a search-string category: combobox + selected chips +
+  // Clear.
+  const renderCategoryPanel = (category: FilterCategory) => {
+    const selected = selectedValuesFor(category.key);
+    const optionsOpen = optionsOpenField === category.key;
+    const options = visibleOptionsFor(category);
+    // Clamp the highlighted index in case the list shrank (e.g. after a
+    // selection or a narrower search).
+    const activeIndex = Math.min(
+      activeOptionIndex,
+      Math.max(options.length - 1, 0),
+    );
+    const activeOption = options[activeIndex];
+    return (
+      <Box pb="3">
+        <Popover
+          anchorOnly
+          open={optionsOpen}
+          onOpenChange={(o) => {
+            if (!o) setOptionsOpenField("");
+          }}
+          side="bottom"
+          align="start"
+          showArrow={false}
+          // Keep focus in the search input when the dropdown opens, and don't
+          // let Radix's own outside-click dismiss fire — closing is driven by
+          // the input's blur below so re-clicking the input never closes it.
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+          contentStyle={{
+            padding: 4,
+            width: "var(--radix-popover-trigger-width)",
+          }}
+          trigger={
+            // Full-width block so the anchor (and thus the width-matched
+            // popover) spans the panel. The Popover applies an "unstyled
+            // trigger" class (all:unset; inline-flex) to this element via
+            // asChild, so display/width are set inline to win over it.
+            <div style={{ display: "block", width: "100%" }}>
+              <Field
+                type="text"
+                placeholder={`Search by ${category.heading.toLowerCase()} name...`}
+                value={filterSearch}
+                onChange={(e) => {
+                  setFilterSearch(e.target.value);
+                  setActiveOptionIndex(0);
+                }}
+                onFocus={() => {
+                  setOptionsOpenField(category.key);
+                  setActiveOptionIndex(0);
+                }}
+                onBlur={() => setOptionsOpenField("")}
+                // Combobox keyboard navigation: focus stays in the input while
+                // Arrow keys move the highlight and Enter selects, so the
+                // portaled options list never needs to receive focus.
+                role="combobox"
+                aria-expanded={optionsOpen}
+                aria-controls={`${category.key}-listbox`}
+                aria-activedescendant={
+                  optionsOpen && activeOption
+                    ? `${category.key}-option-${activeIndex}`
+                    : undefined
+                }
+                onKeyDown={(e) => {
+                  if (!optionsOpen) return;
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    setActiveOptionIndex((i) =>
+                      Math.min(i + 1, options.length - 1),
+                    );
+                  } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setActiveOptionIndex((i) => Math.max(i - 1, 0));
+                  } else if (e.key === "Enter") {
+                    if (activeOption && !activeOption.disabled) {
+                      e.preventDefault();
+                      addValue(category.key, activeOption.searchValue);
+                    }
+                  } else if (e.key === "Escape") {
+                    setOptionsOpenField("");
+                  }
+                }}
+              />
+            </div>
+          }
+          content={renderOptions(category, options, activeIndex)}
+        />
+        {selected.length > 0 && (
+          <Flex wrap="wrap" gap="1" mt="2">
+            {selected.map((value) => (
+              <React.Fragment key={value}>
+                {valueChip(
+                  labelNodeFor(category.key, value),
+                  () => removeValue(category.key, value),
+                  `Remove ${category.heading} ${value}`,
+                )}
+              </React.Fragment>
+            ))}
+          </Flex>
+        )}
+        {selected.length > 0 && (
+          <Box mt="2">
+            <Link
+              size="sm"
+              color="red"
+              onClick={() => clearCategory(category.key)}
+            >
+              Clear
+            </Link>
+          </Box>
+        )}
+      </Box>
+    );
+  };
+
+  // A single search-string category accordion row.
+  const renderCategoryRow = (category: FilterCategory) => {
+    const count = selectedValuesFor(category.key).length;
+    const expanded = expandedField === category.key;
+    return (
+      <Box
+        key={category.key}
+        style={{ borderBottom: "1px solid var(--gray-a5)" }}
+      >
+        <Flex
+          align="center"
+          justify="between"
+          py="3"
+          role="button"
+          tabIndex={0}
+          aria-expanded={expanded}
+          aria-controls={`${category.key}-panel`}
+          className="cursor-pointer"
+          onClick={() => toggleExpand(category.key)}
+          onKeyDown={(e) => activateOnKey(e, () => toggleExpand(category.key))}
+        >
+          <Flex align="center" gap="2">
+            <Text weight="medium" size="sm">
+              {category.heading}
+            </Text>
+            {countBadge(count)}
+          </Flex>
+          {rowControl(expanded, count)}
+        </Flex>
+
+        {expanded ? (
+          <Box id={`${category.key}-panel`}>
+            {renderCategoryPanel(category)}
+          </Box>
+        ) : null}
+      </Box>
+    );
+  };
+
+  // An extra (non-search-string) filter row, e.g. a phase date range. These
+  // stay editable even when the experiment search is locked.
+  const renderExtraRow = (extra: ExtraFilter) => {
+    const expanded = expandedField === extra.key;
+    const count = extra.isActive ? 1 : 0;
+    return (
+      <Box key={extra.key} style={{ borderBottom: "1px solid var(--gray-a5)" }}>
+        <Flex
+          align="center"
+          justify="between"
+          py="3"
+          role="button"
+          tabIndex={0}
+          aria-expanded={expanded}
+          aria-controls={`${extra.key}-panel`}
+          className="cursor-pointer"
+          onClick={() => toggleExpand(extra.key)}
+          onKeyDown={(e) => activateOnKey(e, () => toggleExpand(extra.key))}
+        >
+          <Flex align="center" gap="2" style={{ minWidth: 0 }}>
+            <Text weight="medium" size="sm">
+              {extra.heading}
+            </Text>
+            {extra.isActive && extra.label ? (
+              <Text size="sm" color="text-low" truncate>
+                {extra.label}
+              </Text>
+            ) : null}
+          </Flex>
+          {rowControl(expanded, count)}
+        </Flex>
+
+        {expanded ? (
+          <Box
+            id={`${extra.key}-panel`}
+            pb="3"
+            style={{ maxWidth: extra.panelWidth }}
+          >
+            {extra.renderPanel()}
+            {extra.isActive ? (
+              <Box mt="2">
+                <Link
+                  size="sm"
+                  color="red"
+                  onClick={() => {
+                    extra.onRemove();
+                    setExpandedField("");
+                  }}
+                >
+                  Clear
+                </Link>
+              </Box>
+            ) : null}
+          </Box>
+        ) : null}
       </Box>
     );
   };
 
   return (
-    <Flex direction="column" gap="2">
+    <Flex direction="column" gap="0">
       <Field
         placeholder="Search..."
         type="search"
@@ -559,220 +704,31 @@ const SidebarExperimentFilters: FC<Props> = ({
         onChange={handleFreeTextChange}
       />
 
-      <Flex align="center" gap="2" wrap="wrap">
-        {chipFields.map((field) => {
-          const category = categoryByKey.get(field);
-          if (!category) return null;
-          const filter = plainFilters.find((f) => f.field === field);
-          const valueText = (filter?.values ?? [])
-            .map((value) => labelFor(field, value))
-            .join(", ");
-          return (
-            <Popover
-              key={field}
-              // The popover anchors to this pill (not the "Add filter" button),
-              // so it stays put as more values grow the pill.
-              open={activeField === field}
-              onOpenChange={(o) => {
-                if (o) {
-                  setActiveField(field);
-                  setFilterSearch("");
-                } else {
-                  closeActiveField();
-                }
-              }}
-              showArrow={false}
-              align="start"
-              contentStyle={{ padding: 0 }}
-              // Toggling a checkbox blurs focus out of the popover, which Radix
-              // would otherwise treat as a dismiss. Keep the menu open on focus
-              // changes so users can select multiple items; a real outside
-              // pointer-down still closes it.
-              onFocusOutside={(e) => e.preventDefault()}
-              trigger={
-                <Badge
-                  color="violet"
-                  variant="soft"
-                  radius="small"
-                  className="cursor-pointer"
-                  // Let the pill grow up to the container width and wrap its
-                  // text instead of overflowing on long value lists.
-                  style={{ maxWidth: "100%", whiteSpace: "normal" }}
-                  label={
-                    <Flex align="center" gap="1">
-                      <Text
-                        size="small"
-                        whiteSpace="normal"
-                        weight="medium"
-                        overflowWrap="anywhere"
-                      >
-                        {category.heading}
-                        {valueText ? `: ${valueText}` : ""}
-                      </Text>
-                      <IconButton
-                        size="1"
-                        variant="ghost"
-                        color="violet"
-                        radius="full"
-                        aria-label={`Remove ${category.heading} filter`}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeChip(field);
-                        }}
-                      >
-                        <PiX size={12} />
-                      </IconButton>
-                    </Flex>
-                  }
-                />
-              }
-              content={renderFilterPanel(category)}
-            />
-          );
-        })}
+      {advancedFilters.length > 0 ? (
+        <Flex wrap="wrap" gap="1" mt="2">
+          {advancedFilters.map((filter, i) => {
+            const heading = categoryByKey.get(filter.field)?.heading;
+            const label =
+              filter.negated && !filter.operator && heading
+                ? `Not ${heading}: ${filter.values.join(", ")}`
+                : filterToString(filter);
+            return (
+              <React.Fragment key={`advanced-${filter.field}-${i}`}>
+                {valueChip(
+                  label,
+                  () => removeFilter(filter),
+                  `Remove ${label} filter`,
+                )}
+              </React.Fragment>
+            );
+          })}
+        </Flex>
+      ) : null}
 
-        {/* Hand-typed negated/operator filters this UI can't author. Rendered
-            as read-only chips (no popover panel): "Not Tag: checkout" for a
-            plain negation, or the raw token for operator filters. The X strips
-            exactly that filter from the search string. */}
-        {advancedFilters.map((filter, i) => {
-          const heading = categoryByKey.get(filter.field)?.heading;
-          const label =
-            filter.negated && !filter.operator && heading
-              ? `Not ${heading}: ${filter.values
-                  .map((v) => labelFor(filter.field, v))
-                  .join(", ")}`
-              : filterToString(filter);
-          return (
-            <Badge
-              key={`advanced-${filter.field}-${i}`}
-              color="violet"
-              variant="soft"
-              radius="small"
-              style={{ maxWidth: "100%", whiteSpace: "normal" }}
-              label={
-                <Flex align="center" gap="1">
-                  <Text
-                    size="small"
-                    whiteSpace="normal"
-                    weight="medium"
-                    overflowWrap="anywhere"
-                  >
-                    {label}
-                  </Text>
-                  <IconButton
-                    size="1"
-                    variant="ghost"
-                    color="violet"
-                    radius="full"
-                    aria-label={`Remove ${label} filter`}
-                    onClick={() => removeFilter(filter)}
-                  >
-                    <PiX size={12} />
-                  </IconButton>
-                </Flex>
-              }
-            />
-          );
-        })}
-
-        {/* Extra (non-search-string) filter pills, e.g. date ranges. */}
-        {extraFilters
-          .filter((f) => f.isActive)
-          .map((extra) => (
-            <Popover
-              key={extra.key}
-              open={activeField === extra.key}
-              onOpenChange={(o) => {
-                if (o) {
-                  setActiveField(extra.key);
-                } else {
-                  closeActiveField();
-                }
-              }}
-              showArrow={false}
-              align="start"
-              contentStyle={{ padding: 0 }}
-              onFocusOutside={(e) => e.preventDefault()}
-              onInteractOutside={
-                extra.keepOpenOnNestedPopper
-                  ? keepOpenOnNestedPopper
-                  : undefined
-              }
-              trigger={
-                <Badge
-                  color="violet"
-                  variant="soft"
-                  radius="small"
-                  className="cursor-pointer"
-                  style={{ maxWidth: "100%", whiteSpace: "normal" }}
-                  label={
-                    <Flex align="center" gap="1">
-                      <Text
-                        size="small"
-                        whiteSpace="normal"
-                        overflowWrap="anywhere"
-                      >
-                        <Text as="span" size="small" color="text-low">
-                          {extra.heading}
-                        </Text>
-                        {extra.label ? <>: {extra.label}</> : ""}
-                      </Text>
-                      <IconButton
-                        size="1"
-                        variant="ghost"
-                        color="violet"
-                        radius="full"
-                        aria-label={`Remove ${extra.heading} filter`}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeChip(extra.key);
-                        }}
-                      >
-                        <PiX size={12} />
-                      </IconButton>
-                    </Flex>
-                  }
-                />
-              }
-              content={renderExtraPanel(extra)}
-            />
-          ))}
-
-        <Popover
-          open={addOpen}
-          onOpenChange={(o) => {
-            setAddOpen(o);
-            if (!o) setFilterSearch("");
-          }}
-          showArrow={false}
-          align="start"
-          contentStyle={{ padding: 0 }}
-          trigger={
-            <Button variant="outline" size="xs">
-              <Flex align="center" gap="1">
-                <PiPlus size={12} />
-                Add filter
-              </Flex>
-            </Button>
-          }
-          content={categoryListView}
-        />
-
-        {(chipFields.length > 0 ||
-          advancedFilters.length > 0 ||
-          extraFilters.some((f) => f.isActive)) && (
-          <Link
-            size="1"
-            onClick={clearFilters}
-            style={{ whiteSpace: "nowrap" }}
-          >
-            Clear filters
-          </Link>
-        )}
-      </Flex>
+      <Box mt="3">
+        {categories.map(renderCategoryRow)}
+        {extraFilters.map(renderExtraRow)}
+      </Box>
     </Flex>
   );
 };

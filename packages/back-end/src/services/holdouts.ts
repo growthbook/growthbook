@@ -13,41 +13,11 @@ import {
   removeHoldoutFromFeature,
 } from "back-end/src/models/FeatureModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import { getEnabledEnvironments } from "back-end/src/util/features";
+import { isHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
-import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { BadRequestError } from "back-end/src/util/errors";
-
-/**
- * Eagerly link an experiment into a holdout: set `experiment.holdoutId` and add
- * the experiment to the holdout's `linkedExperiments` map. The write-side
- * companion to `resolveHoldoutExperimentToLink` — call it with the experiment
- * that resolver returned.
- *
- * Callers that compensate on downstream failure should record the experiment
- * and holdout ids BEFORE calling: the standard rollback (clear `holdoutId`,
- * remove the map entry if present) is idempotent, so compensating a write that
- * never happened is harmless, while the reverse ordering would leave a
- * mid-failure (experiment written, holdout write failed) uncompensated.
- */
-export async function linkExperimentToHoldout(
-  context: ReqContext | ApiReqContext,
-  experiment: ExperimentInterface,
-  holdoutId: string,
-): Promise<void> {
-  await getHoldoutAvailableForProject({
-    context,
-    holdoutId,
-    project: experiment.project,
-    bypassReadPermissionChecks: true,
-  });
-  await updateExperiment({
-    context,
-    experiment,
-    changes: { holdoutId },
-  });
-  await context.models.holdout.addExperimentToHoldout(holdoutId, experiment.id);
-}
 
 export async function canLinkExperimentToHoldoutFromFeatures(
   context: ReqContext | ApiReqContext,
@@ -56,45 +26,44 @@ export async function canLinkExperimentToHoldoutFromFeatures(
 ): Promise<boolean> {
   if (!featureIds.length) return false;
   const features = await getFeaturesByIds(context, featureIds);
+  // Lets the caller reach a Holdout outside their project scope, on the evidence
+  // that they already hold authority over a Feature Flag inside it. Either half
+  // of that authority counts — drafting or landing — since both mean they are
+  // legitimately working on a flag the Holdout already contains.
+  const orgEnvs = getEnvironmentIdsFromOrg(context.org);
   return features.some(
     (feature) =>
       feature.holdout?.id === holdoutId &&
-      context.permissions.canUpdateFeature(feature, {}) &&
-      context.permissions.canManageFeatureDrafts(feature),
+      (context.permissions.canEditFeatureDrafts(feature) ||
+        context.permissions.canPublishFeature(
+          feature,
+          Array.from(getEnabledEnvironments(feature, orgEnvs)),
+        )),
   );
 }
 
-/**
- * Holdout-compatibility gate for adding an experiment-ref rule to a feature.
- *
- * `effectiveHoldout` is the holdout the rule will publish under, resolved by the
- * caller (the live `feature.holdout`, or the target revision's holdout when
- * posting to a different draft). Given the referenced `experiment`, this
- * enforces the constraints for attaching an experiment to a holdout and returns
- * the experiment that should be eagerly linked, or `null` when no linking is
- * needed (experiment already in this holdout, or neither side uses a holdout).
- *
- * Incompatibilities throw via `makeError`, so REST handlers can surface a 400
- * (`BadRequestError`) while controllers get a plain `Error` (the default).
- */
+// Holdout-compatibility gate for adding an experiment-ref rule to a feature.
+//
+// `effectiveHoldout` is the holdout the rule will publish under, resolved by the
+// caller (the live `feature.holdout`, or the target revision's holdout when
+// posting to a different draft). Validation only; the publish re-checks these
+// against live state.
+//
+// Incompatibilities throw via `makeError`, so REST handlers can surface a 400
+// (`BadRequestError`) while controllers get a plain `Error` (the default).
 export async function resolveHoldoutExperimentToLink({
   context,
   feature,
   experiment,
   effectiveHoldout,
-  // `postFeatureExperimentRefRule` tolerates the experiment already being linked
-  // to *this* feature (create-from-experiment); the other call sites reject any
-  // pre-existing linked feature.
-  allowExistingLinkToThisFeature = false,
   makeError = (message: string) => new Error(message),
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
   experiment: ExperimentInterface;
   effectiveHoldout: { id: string } | null | undefined;
-  allowExistingLinkToThisFeature?: boolean;
   makeError?: (message: string) => Error;
-}): Promise<ExperimentInterface | null> {
+}): Promise<void> {
   if (effectiveHoldout?.id) {
     // Experiment already belongs to a different holdout — refuse the mismatch.
     if (experiment.holdoutId && experiment.holdoutId !== effectiveHoldout.id) {
@@ -112,16 +81,29 @@ export async function resolveHoldoutExperimentToLink({
     // Not yet linked: validate it can join the holdout, then signal the caller
     // to perform the link.
     if (!experiment.holdoutId) {
+      // Re-checked at publish, which is what actually gates the linkage.
+      const holdout = await context.models.holdout.getByIdForLinkage(
+        effectiveHoldout.id,
+      );
+      if (
+        holdout &&
+        !isHoldoutAvailableForProject(holdout, experiment.project)
+      ) {
+        throw makeError(
+          `Cannot add experiment rule: holdout "${holdout.name}" is not available in the experiment's Project.`,
+        );
+      }
       if (experiment.status !== "draft") {
         throw makeError(
           `Cannot add experiment rule: this feature flag uses a holdout, so the experiment must be in "draft" status (currently "${experiment.status ?? "unknown"}").`,
         );
       }
+      // Self-links never count: linkedFeatures is deliberately sticky (see
+      // syncFeatureExperimentLinkages), so a discarded draft on this same feature
+      // leaves one behind, and counting it blocked re-adding the rule.
       const expHasLinkedChanges =
-        (allowExistingLinkToThisFeature
-          ? (experiment.linkedFeatures?.some((fid) => fid !== feature.id) ??
-            false)
-          : (experiment.linkedFeatures?.length ?? 0) > 0) ||
+        (experiment.linkedFeatures?.some((fid) => fid !== feature.id) ??
+          false) ||
         experiment.hasURLRedirects ||
         experiment.hasVisualChangesets;
       if (expHasLinkedChanges) {
@@ -129,11 +111,11 @@ export async function resolveHoldoutExperimentToLink({
           `Cannot add experiment rule: this feature flag uses a holdout, but the experiment already has linked Feature Flags, URL redirects, or visual changesets. Unlink them first.`,
         );
       }
-      return experiment;
+      return;
     }
 
     // Already linked to this same holdout: nothing to do.
-    return null;
+    return;
   }
 
   // Feature is not in a holdout, but the experiment already belongs to one.
@@ -145,16 +127,12 @@ export async function resolveHoldoutExperimentToLink({
       `Cannot add experiment rule: this experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}", but this feature flag is not in a holdout. Add the feature flag to that holdout first, then add the experiment.`,
     );
   }
-
-  return null;
 }
 
-/**
- * Delete a holdout along with its underlying experiment, unlink it from its
- * linked features and experiments, and refresh affected SDK payloads. Callers
- * are responsible for experiment-level permission checks; deleting the holdout
- * itself enforces canDeleteHoldout.
- */
+// Delete a holdout along with its underlying experiment, unlink it from its
+// linked features and experiments, and refresh affected SDK payloads. Callers
+// are responsible for experiment-level permission checks; deleting the holdout
+// itself enforces canDeleteHoldout.
 export async function deleteHoldoutAndExperiment(
   context: ReqContext,
   holdout: HoldoutInterface,
@@ -202,14 +180,12 @@ export async function deleteHoldoutAndExperiment(
   });
 }
 
-/**
- * Mirror of `getHoldoutAvailableForProject`, applied from the Holdout side:
- * narrowing a Holdout's Projects must not strand entities that are already
- * linked from outside the new scope. Without this, the same invalid pairing the
- * feature/experiment side refuses can be created by editing the Holdout, and a
- * project-scoped SDK Connection then drops the Holdout from its payload while
- * the Feature Flag still shows the rule.
- */
+// Mirror of `getHoldoutAvailableForProject`, applied from the Holdout side:
+// narrowing a Holdout's Projects must not strand entities that are already
+// linked from outside the new scope. Without this, the same invalid pairing the
+// feature/experiment side refuses can be created by editing the Holdout, and a
+// project-scoped SDK Connection then drops the Holdout from its payload while
+// the Feature Flag still shows the rule.
 export async function assertHoldoutScopeCoversLinked(
   context: ReqContext | ApiReqContext,
   holdout: HoldoutInterface,

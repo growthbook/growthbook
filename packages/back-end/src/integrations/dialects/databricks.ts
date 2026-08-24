@@ -13,6 +13,7 @@ const databricksEscapeStringLiteral = (value: string) =>
 
 export const databricksDialect: SqlDialect = {
   ...baseDialect,
+  identifierQuote: "`",
   formatDialect: "spark",
   toTimestamp: (date: Date) => `TIMESTAMP'${date.toISOString()}'`,
   addTime: (

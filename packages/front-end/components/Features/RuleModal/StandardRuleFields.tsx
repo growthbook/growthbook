@@ -32,6 +32,7 @@ import Callout from "@/ui/Callout";
 import MonitoredIcon from "@/components/Features/RuleModal/MonitoredIcon";
 import RampScheduleBadge from "@/components/RampSchedule/RampScheduleBadge";
 import ScheduleInputs from "@/components/Features/RuleModal/ScheduleInputs";
+import ConflictCallout from "@/components/DraftConflicts/ConflictContext";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
@@ -278,9 +279,12 @@ export default function StandardRuleFields({
         {...form.register("description")}
         placeholder="Short human-readable description of the rule"
       />
+      <ConflictCallout field="description" />
 
       <RuleEnvironmentScopeField {...envScope} my="5" />
+      <ConflictCallout field="environments" />
       <RuleProjectScopeField {...projectScope} mb="5" />
+      <ConflictCallout field="projects" />
 
       <Box mb="5">
         <FeatureValueField
@@ -304,10 +308,11 @@ export default function StandardRuleFields({
           configBackingShowPatch={isConfigBacked}
           lockConfigBacking={isConfigBacked}
         />
+        <ConflictCallout field="value" />
       </Box>
 
       <div className="mb-3">
-        <Heading as="h3" size="small" mb="2">
+        <Heading as="h3" size="sm" mb="2">
           Release plan
         </Heading>
         {releasePlanLocked && (
@@ -319,7 +324,7 @@ export default function StandardRuleFields({
                   : `Locked while ${isSimpleSchedule ? "Schedule" : "Ramp-up"} is running`}
               </Text>
               {!pendingScheduleRemoval && (
-                <Text as="div" mt="1" size="small">
+                <Text as="div" mt="1" size="sm">
                   To change the release plan, pause or end the Ramp-up
                 </Text>
               )}
@@ -443,7 +448,7 @@ export default function StandardRuleFields({
                           action={
                             <Button
                               color="inherit"
-                              size="xs"
+                              size="sm"
                               variant="outline"
                               onClick={() =>
                                 setRampSectionState({
@@ -485,14 +490,14 @@ export default function StandardRuleFields({
         {/* Ramp-up schedule editor is rendered on page 2 (see index.tsx) */}
       </div>
 
-      <Heading as="h3" size="small" mb="4" mt="6">
+      <Heading as="h3" size="sm" mb="4" mt="6">
         Targeting
       </Heading>
       {rampLocksTargeting ? (
         <HelperText status="info" mb="2" icon={<PiLockSimple />}>
           <Box>
             <Text as="div">Controlled by ramp schedule</Text>
-            <Text as="div" mt="1" size="small">
+            <Text as="div" mt="1" size="sm">
               Coverage and targeting are controlled by the live ramp schedule.
               Pause or end the ramp-up to make immediate changes.
             </Text>
@@ -501,28 +506,33 @@ export default function StandardRuleFields({
       ) : (
         <Flex direction="column" gap="5" mb="4">
           {rampControlsCoverage ? null : (
-            <RolloutPercentInput
-              value={form.watch("coverage") ?? 1}
-              setValue={(coverage) => form.setValue("coverage", coverage)}
-              rampSchedule={ruleRampSchedule}
-              hashAttribute={form.watch("hashAttribute")}
-              setHashAttribute={(v: string) =>
-                form.setValue("hashAttribute", v)
-              }
-              attributeSchema={attributeSchema}
-              hasHashAttributes={hasHashAttributes}
-              hashVersion={form.watch("hashVersion") as 1 | 2 | undefined}
-              setHashVersion={(v: 1 | 2) => form.setValue("hashVersion", v)}
-              project={feature.project}
-              seed={form.watch("seed")}
-              setSeed={(v: string) => form.setValue("seed", v)}
-              ruleId={form.watch("id") as string}
-              featureId={feature.id}
-              isLiveRule={isLiveRule}
-              isNew={isNew}
-              advancedOpen={advancedOptionsOpen}
-              setAdvancedOpen={setadvancedOptionsOpen}
-            />
+            <>
+              <RolloutPercentInput
+                value={form.watch("coverage") ?? 1}
+                setValue={(coverage) => form.setValue("coverage", coverage)}
+                rampSchedule={ruleRampSchedule}
+                hashAttribute={form.watch("hashAttribute")}
+                setHashAttribute={(v: string) =>
+                  form.setValue("hashAttribute", v)
+                }
+                attributeSchema={attributeSchema}
+                hasHashAttributes={hasHashAttributes}
+                hashVersion={form.watch("hashVersion") as 1 | 2 | undefined}
+                setHashVersion={(v: 1 | 2) => form.setValue("hashVersion", v)}
+                project={feature.project}
+                seed={form.watch("seed")}
+                setSeed={(v: string) => form.setValue("seed", v)}
+                ruleId={form.watch("id") as string}
+                featureId={feature.id}
+                isLiveRule={isLiveRule}
+                isNew={isNew}
+                advancedOpen={advancedOptionsOpen}
+                setAdvancedOpen={setadvancedOptionsOpen}
+              />
+              {/* Inside the branch on purpose: no input, no inline callout. */}
+              <ConflictCallout field="coverage" />
+              <ConflictCallout field="hashAttribute" />
+            </>
           )}
 
           <SavedGroupTargetingField
@@ -533,6 +543,7 @@ export default function StandardRuleFields({
             project={feature.project || ""}
             label="Saved Groups"
           />
+          <ConflictCallout field="savedGroups" />
 
           <ConditionInput
             defaultValue={form.watch("condition") || ""}
@@ -541,6 +552,7 @@ export default function StandardRuleFields({
             project={feature.project || ""}
             label="Attributes"
           />
+          <ConflictCallout field="condition" />
 
           <PrerequisiteInput
             value={form.watch("prerequisites") || []}
@@ -555,6 +567,7 @@ export default function StandardRuleFields({
             label="Prerequisite Features"
             onRuleCyclicChange={onRuleCyclicChange}
           />
+          <ConflictCallout field="prerequisites" />
         </Flex>
       )}
       {isCyclic && (

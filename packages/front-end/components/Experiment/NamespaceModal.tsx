@@ -144,7 +144,7 @@ function MultiRangeNamespaceModal({
         {...form.register("label")}
       />
       {existingNamespace && (
-        <Text color="text-mid" size="small" as="p" mb="5" mt="-1">
+        <Text color="text-mid" size="sm" as="p" mb="5" mt="-1">
           ID: <strong>{existingNamespace.name}</strong>
           <br />
           Used as the namespace hash seed and cannot be changed.
@@ -265,7 +265,7 @@ function LegacyNamespaceModal({
         required
         {...form.register("label")}
       />
-      <Text color="text-mid" size="small" as="p" mb="5" mt="-1">
+      <Text color="text-mid" size="sm" as="p" mb="5" mt="-1">
         ID: <strong>{existingNamespace.name}</strong>
         <br />
         Used as the namespace hash seed and cannot be changed.

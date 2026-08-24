@@ -52,13 +52,17 @@ function SingleDashboardPage() {
   >([]);
   const [globalControls, setGlobalControls] =
     useState<DashboardInterface["globalControls"]>();
+  const [dashboardComparison, setDashboardComparison] =
+    useState<DashboardInterface["comparison"]>();
   useEffect(() => {
     if (dashboard) {
       setBlocks(dashboard.blocks);
       setGlobalControls(dashboard.globalControls);
+      setDashboardComparison(dashboard.comparison);
     } else {
       setBlocks([]);
       setGlobalControls(undefined);
+      setDashboardComparison(undefined);
     }
   }, [dashboard]);
 
@@ -98,7 +102,11 @@ function SingleDashboardPage() {
                   enableAutoUpdates: data.enableAutoUpdates,
                   userId: data.userId,
                   globalControls: data.globalControls,
-                  comparison: data.comparison ?? undefined,
+                  // Undefined drops out of the body and reads as "leave alone",
+                  // so "off" must be explicit. Keyed on presence, not value.
+                  ...("comparison" in data
+                    ? { comparison: data.comparison ?? { enabled: false } }
+                    : {}),
                 }
               : data,
           ),
@@ -234,6 +242,20 @@ function SingleDashboardPage() {
                   globalControls,
                   ...(controlBlocks ? { blocks: controlBlocks } : {}),
                 },
+              });
+            }}
+            dashboardComparison={dashboardComparison}
+            onDashboardComparisonChange={async (comparison) => {
+              // Turning compare off has to persist `{ enabled: false }` rather
+              // than `undefined`: the PUT body drops undefined keys, which the
+              // model reads as "leave this field alone". `resolveBlockComparison`
+              // treats a disabled comparison and an absent one identically.
+              const next = comparison ?? { enabled: false };
+              setDashboardComparison(next);
+              await submitDashboard({
+                method: "PUT",
+                dashboardId: dashboard.id,
+                data: { comparison: next },
               });
             }}
           />

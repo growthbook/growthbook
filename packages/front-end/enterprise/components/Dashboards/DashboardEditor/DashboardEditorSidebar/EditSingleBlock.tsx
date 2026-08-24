@@ -6,6 +6,10 @@ import {
   DashboardInterface,
   blockHasFieldOfType,
   isDifferenceType,
+  isDashboardExperimentBlock,
+  getActiveBlockGlobalFilterKeys,
+  getCustomBlockGlobalFilterKeys,
+  withBlockGlobalFilterFollowing,
   BLOCK_CONFIG_ITEM_TYPES,
   DIFFERENCE_TYPE_OPTIONS,
 } from "shared/enterprise";
@@ -44,6 +48,7 @@ import {
 } from "@/components/Experiment/ResultsFilter/ResultsFilter";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
+import VariationLabel from "@/ui/VariationLabel";
 import Link from "@/ui/Link";
 import MultiSelectField from "@/ui/MultiSelectField";
 import TagsInput from "@/components/Tags/TagsInput";
@@ -73,7 +78,7 @@ import {
   useDashboardSnapshot,
   DashboardSnapshotContext,
 } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
-import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
+import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor/dashboardBlockTypes";
 import { isSubmittableConfig } from "@/enterprise/components/ProductAnalytics/util";
 import MetricExplorerSettings from "./MetricExplorerSettings";
 import ProductAnalyticsExplorerSettings from "./ProductAnalyticsExplorerSettings";
@@ -81,6 +86,7 @@ import MetricExperimentsSettings from "./MetricExperimentsSettings";
 import ExperimentsScaledImpactSettings from "./ExperimentsScaledImpactSettings";
 import ExperimentsWinRateSettings from "./ExperimentsWinRateSettings";
 import ExperimentsStatusSettings from "./ExperimentsStatusSettings";
+import DashboardFilterSummary from "./DashboardFilterSummary";
 
 type RequiredField = {
   field: string;
@@ -144,6 +150,17 @@ const REQUIRED_FIELDS: {
     },
   ],
 };
+
+// Whether a required field is still missing, keeping the block from being saved.
+// No global filter can stand in for one of these: every required field is the
+// block's own (a block's `metricId` is what it calculates, not a filter).
+function isBlockIncomplete(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+): boolean {
+  return !!(REQUIRED_FIELDS[block.type] || []).find(
+    ({ field, validation }) => !validation(block[field]),
+  );
+}
 
 interface Props {
   projects: string[];
@@ -815,18 +832,45 @@ export default function EditSingleBlock({
       )}
       {block && (
         <Flex direction="column" py="5" px="4" gap="5" width="100%">
-          <Text weight="medium" size="4">
-            <Avatar
-              radius="small"
-              color="indigo"
-              variant="soft"
-              mr="2"
-              size="sm"
-            >
-              {BLOCK_TYPE_INFO[block.type].icon}
-            </Avatar>
-            {BLOCK_TYPE_INFO[block.type].name}
-          </Text>
+          <Flex justify="between" align="center" gap="3">
+            <Text weight="medium" size="4">
+              <Avatar
+                radius="small"
+                color="indigo"
+                variant="soft"
+                mr="2"
+                size="sm"
+              >
+                {BLOCK_TYPE_INFO[block.type].icon}
+              </Avatar>
+              {BLOCK_TYPE_INFO[block.type].name}
+            </Text>
+          </Flex>
+
+          {/* Exploration blocks render their own summary in ExplorerSideBar, next
+              to the draft date state it has to revert. */}
+          {isDashboardExperimentBlock(block) &&
+            getActiveBlockGlobalFilterKeys(block, dashboardGlobalControls)
+              .length > 0 && (
+              <DashboardFilterSummary
+                customCount={
+                  getCustomBlockGlobalFilterKeys(block, dashboardGlobalControls)
+                    .length
+                }
+                onRevertAll={() =>
+                  setBlock(
+                    withBlockGlobalFilterFollowing(
+                      block,
+                      getActiveBlockGlobalFilterKeys(
+                        block,
+                        dashboardGlobalControls,
+                      ),
+                      true,
+                    ),
+                  )
+                }
+              />
+            )}
 
           <Flex gap="5" direction="column" flexGrow="1">
             {block.type === "experiment-metadata" && (
@@ -977,7 +1021,7 @@ export default function EditSingleBlock({
                 <>
                   <Box>
                     <MultiSelectField
-                      size="legacy"
+                      legacyHeight
                       label="Metrics"
                       labelClassName="font-weight-bold"
                       placeholder="All Metrics"
@@ -1228,7 +1272,7 @@ export default function EditSingleBlock({
                   ) &&
                     sliceOptions.length > 0 && (
                       <MultiSelectField
-                        size="legacy"
+                        legacyHeight
                         label="Slices"
                         labelClassName="font-weight-bold"
                         placeholder="Type to search..."
@@ -1383,32 +1427,19 @@ export default function EditSingleBlock({
                       : []
                   }
                   formatOptionLabel={({ value, label }) => (
-                    <div
-                      className={`variation variation${value} with-variation-label d-flex align-items-center`}
-                    >
-                      <span
-                        className="label"
-                        style={{ width: 20, height: 20, flex: "none" }}
-                      >
-                        {value}
-                      </span>
-                      <span
-                        className="d-inline-block"
-                        style={{
-                          width: 150,
-                          lineHeight: "14px",
-                        }}
-                      >
-                        {label}
-                      </span>
-                    </div>
+                    <VariationLabel
+                      number={parseInt(value)}
+                      name={label}
+                      size="md"
+                      maxWidth="170px"
+                    />
                   )}
                 />
               )}
             {blockHasFieldOfType(block, "variationIds", isStringArray) &&
               shouldShowEditorField(block, "variationIds") && (
                 <MultiSelectField
-                  size="legacy"
+                  legacyHeight
                   sort={false}
                   label="Variations"
                   labelClassName="font-weight-bold"
@@ -1425,32 +1456,19 @@ export default function EditSingleBlock({
                         )
                       : -1;
                     return (
-                      <div
-                        className={`variation variation${varIndex} with-variation-label d-flex align-items-center`}
-                      >
-                        <span
-                          className="label"
-                          style={{ width: 20, height: 20, flex: "none" }}
-                        >
-                          {varIndex}
-                        </span>
-                        <span
-                          className="d-inline-block"
-                          style={{
-                            width: 150,
-                            lineHeight: "14px",
-                          }}
-                        >
-                          {label}
-                        </span>
-                      </div>
+                      <VariationLabel
+                        number={varIndex}
+                        name={label}
+                        size="md"
+                        maxWidth="170px"
+                      />
                     );
                   }}
                 />
               )}
             {blockHasFieldOfType(block, "dimensionValues", isStringArray) && (
               <MultiSelectField
-                size="legacy"
+                legacyHeight
                 label="Dimension Values"
                 labelClassName="font-weight-bold"
                 placeholder="Showing all values"
@@ -1719,6 +1737,7 @@ export default function EditSingleBlock({
                 block={block}
                 setBlock={setBlock}
                 projects={projects}
+                dashboardGlobalControls={dashboardGlobalControls}
               />
             )}
             {block.type === "experiments-scaled-impact" && (
@@ -1726,6 +1745,7 @@ export default function EditSingleBlock({
                 block={block}
                 setBlock={setBlock}
                 projects={projects}
+                dashboardGlobalControls={dashboardGlobalControls}
               />
             )}
             {block.type === "experiments-win-rate" && (
@@ -1733,6 +1753,7 @@ export default function EditSingleBlock({
                 block={block}
                 setBlock={setBlock}
                 projects={projects}
+                dashboardGlobalControls={dashboardGlobalControls}
               />
             )}
             {block.type === "experiments-status" && (
@@ -1740,6 +1761,7 @@ export default function EditSingleBlock({
                 block={block}
                 setBlock={setBlock}
                 projects={projects}
+                dashboardGlobalControls={dashboardGlobalControls}
               />
             )}
             {block.type === "metric-exploration" && (
@@ -1802,11 +1824,7 @@ export default function EditSingleBlock({
                   submit();
                 }
               }}
-              disabled={
-                !!(REQUIRED_FIELDS[block.type] || []).find(
-                  ({ field, validation }) => !validation(block[field]),
-                )
-              }
+              disabled={isBlockIncomplete(block)}
             >
               Save & Close
             </Button>

@@ -12,6 +12,7 @@ export const accountPlans: Set<AccountPlan> = new Set([
 
 export type CommercialFeature =
   | "ai-suggestions"
+  | "ai-byok"
   | "scim"
   | "sso"
   | "advanced-permissions"
@@ -49,6 +50,7 @@ export type CommercialFeature =
   | "custom-roles"
   | "quantile-metrics"
   | "retention-metrics"
+  | "funnel-metrics"
   | "custom-markdown"
   | "experiment-impact"
   | "metric-populations"
@@ -68,6 +70,7 @@ export type CommercialFeature =
   | "saveSqlExplorerQueries"
   | "metric-effects"
   | "metric-correlations"
+  | "learnings"
   | "dashboards"
   | "product-analytics-dashboards"
   | "share-product-analytics-dashboards"
@@ -224,6 +227,7 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "multiple-sdk-webhooks",
   "quantile-metrics",
   "retention-metrics",
+  "funnel-metrics",
   "metric-populations",
   "multi-armed-bandits",
   "historical-power",
@@ -243,6 +247,7 @@ const commercialFeaturesProSso: CommercialFeature[] = [
 
 const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "ai-suggestions",
+  "ai-byok",
   "scim",
   "audit-logging",
   "custom-metadata",
@@ -269,6 +274,7 @@ const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "holdouts",
   "metric-effects",
   "metric-correlations",
+  "learnings",
   "dashboards",
   "custom-hooks",
   "metric-slices",

@@ -3,6 +3,7 @@ import {
   validateResolvableValue,
 } from "shared/validators";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
+import { assertCanCreateConstantInState } from "back-end/src/revisions/createAuthority";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { assertKeyAvailable } from "back-end/src/services/constants";
 import { ensureLiveRevisionExists } from "back-end/src/revisions/util";
@@ -25,6 +26,12 @@ export const postConstant = createApiRequestHandler(postConstantValidator)(
     ) {
       req.context.permissions.throwPermissionError();
     }
+    // Env-scoped values in the create body are a publish into those
+    // environments — same rule as the internal door and the feature twin.
+    assertCanCreateConstantInState(req.context, {
+      project: project || "",
+      environmentValues,
+    });
 
     if (project) {
       await req.context.models.projects.ensureProjectsExist([project]);

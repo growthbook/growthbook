@@ -442,11 +442,11 @@ export default function FeatureRules({
             >
               <Box px="3">
                 <Flex align="center" gap="2" justify="end" py="2">
-                  <Text size="small" color="text-low">
+                  <Text size="sm" color="text-low">
                     Show inactive rules
                   </Text>
                   <Switch
-                    size="1"
+                    size="sm"
                     value={!hasInactiveRules ? false : !hideInactive}
                     onChange={(v) => setHideInactive(!v)}
                     disabled={!hasInactiveRules}
@@ -454,11 +454,11 @@ export default function FeatureRules({
                 </Flex>
                 {env === null && hasOrphanedRules && (
                   <Flex align="center" gap="2" justify="end" py="2">
-                    <Text size="small" color="text-low">
+                    <Text size="sm" color="text-low">
                       Show missing environment rules
                     </Text>
                     <Switch
-                      size="1"
+                      size="sm"
                       value={showOrphaned}
                       onChange={(v) => setShowOrphaned(v)}
                     />
@@ -504,7 +504,7 @@ export default function FeatureRules({
               ))}
               {showOverflowSearch && filteredOverflowLabels.length === 0 && (
                 <Box px="3" py="2">
-                  <Text size="small" color="text-low">
+                  <Text size="sm" color="text-low">
                     No matches
                   </Text>
                 </Box>
@@ -548,10 +548,9 @@ export default function FeatureRules({
                 <em>No rules have been added yet</em>
               </Box>
             )}
-            {!isLocked && (
+            {!isLocked && canEditDrafts && (
               <Flex mt="5" mb="1" justify="end">
                 <Button
-                  disabled={!canEditDrafts}
                   onClick={() => {
                     // environment="" → rule modal defaults to allEnvironments scope
                     setRuleModal({
@@ -602,14 +601,13 @@ export default function FeatureRules({
                 <em>No rules have been added to this environment yet</em>
               </Box>
             )}
-            {!isLocked && (
+            {!isLocked && canEditDrafts && (
               <>
                 <Flex pt="4" justify="between" align="center">
-                  <Text weight="semibold" size="large">
+                  <Text weight="semibold" size="lg">
                     Add rule to {activeEnv.id}
                   </Text>
                   <Button
-                    disabled={!canEditDrafts}
                     onClick={() => {
                       setRuleModal({
                         environment: activeEnv.id,

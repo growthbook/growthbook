@@ -2,7 +2,6 @@ import {
   ColumnInterface,
   CreateColumnProps,
   CreateFactFilterProps,
-  CreateFactMetricProps,
   CreateFactTableProps,
   FactTableInterface,
 } from "shared/types/fact-table";
@@ -18,7 +17,10 @@ import {
   getManagedWarehouseEventsFactTableColumns,
   getManagedWarehouseUserIdTypes,
 } from "shared/util";
-import { getDefaultFactMetricProps } from "@/services/metrics";
+import {
+  CreateStandardFactMetricProps,
+  getDefaultFactMetricProps,
+} from "@/services/metrics";
 import { ApiCallType } from "@/services/auth";
 import { getTablePrefix } from "@/services/datasources";
 
@@ -45,7 +47,7 @@ export interface InitialDatasourceResources {
     filters: CreateFactFilterProps[];
     metrics: Partial<
       Pick<
-        CreateFactMetricProps,
+        CreateStandardFactMetricProps,
         | "name"
         | "description"
         | "numerator"
@@ -672,6 +674,21 @@ export function getInitialDatasourceResources({
       return getRudderstackResources(datasource);
     case "amplitude":
       return getAmplitudeResources(datasource);
+    case undefined:
+    case "custom":
+    case "mixpanel":
+    case "snowplow":
+    case "jitsu":
+    case "freshpaint":
+    case "fullstory":
+    case "matomo":
+    case "heap":
+    case "mparticle":
+    case "firebase":
+    case "keen":
+    case "clevertap":
+    case "eventForwarder":
+      break;
     // TODO: add more
   }
 
@@ -813,7 +830,7 @@ export async function createInitialResources({
             metric.denominator.factTableId = factTableId;
           }
 
-          const metricBody: CreateFactMetricProps = getDefaultFactMetricProps({
+          const metricBody = getDefaultFactMetricProps({
             metricDefaults,
             settings,
             datasources: [datasource],

@@ -31,6 +31,14 @@ const baseMemberFields = {
   dateCreated: Date,
   limitAccessByEnvironment: Boolean,
   environments: [String],
+  additionalRoles: [
+    {
+      _id: false,
+      role: String,
+      limitAccessByEnvironment: Boolean,
+      environments: [String],
+    },
+  ],
   projectRoles: [
     {
       _id: false,
@@ -38,6 +46,14 @@ const baseMemberFields = {
       role: String,
       limitAccessByEnvironment: Boolean,
       environments: [String],
+      additionalRoles: [
+        {
+          _id: false,
+          role: String,
+          limitAccessByEnvironment: Boolean,
+          environments: [String],
+        },
+      ],
     },
   ],
   teams: [String],
@@ -320,6 +336,111 @@ export async function updateOrganization(
   );
 }
 
+function getAvailableSeatFilter(maxSeats: number | null) {
+  if (maxSeats === null) return {};
+
+  const uniqueMemberIds = {
+    $setUnion: [
+      {
+        $map: {
+          input: { $ifNull: ["$members", []] },
+          as: "member",
+          in: "$$member.id",
+        },
+      },
+      [],
+    ],
+  };
+  const uniqueInviteEmails = {
+    $setUnion: [
+      {
+        $map: {
+          input: { $ifNull: ["$invites", []] },
+          as: "invite",
+          in: "$$invite.email",
+        },
+      },
+      [],
+    ],
+  };
+
+  return {
+    $expr: {
+      $lt: [
+        {
+          $add: [{ $size: uniqueMemberIds }, { $size: uniqueInviteEmails }],
+        },
+        maxSeats,
+      ],
+    },
+  };
+}
+
+export async function addOrganizationMemberIfSeatAvailable(
+  organizationId: string,
+  member: Member,
+  maxSeats: number | null,
+) {
+  const doc = await OrganizationModel.findOneAndUpdate(
+    {
+      id: organizationId,
+      "members.id": { $ne: member.id },
+      ...getAvailableSeatFilter(maxSeats),
+    },
+    {
+      $push: { members: member },
+      $pull: { pendingMembers: { id: member.id } },
+    },
+    { new: true },
+  );
+
+  return doc ? toInterface(doc) : null;
+}
+
+export async function addOrganizationInviteIfSeatAvailable(
+  organizationId: string,
+  invite: Invite,
+  maxSeats: number | null,
+) {
+  const doc = await OrganizationModel.findOneAndUpdate(
+    {
+      id: organizationId,
+      "invites.email": { $ne: invite.email },
+      ...getAvailableSeatFilter(maxSeats),
+    },
+    {
+      $push: { invites: invite },
+    },
+    { new: true },
+  );
+
+  return doc ? toInterface(doc) : null;
+}
+
+export async function acceptOrganizationInvite(
+  organizationId: string,
+  inviteKey: string,
+  member: Member,
+) {
+  const doc = await OrganizationModel.findOneAndUpdate(
+    {
+      id: organizationId,
+      "invites.key": inviteKey,
+      "members.id": { $ne: member.id },
+    },
+    {
+      $pull: {
+        invites: { key: inviteKey },
+        pendingMembers: { id: member.id },
+      },
+      $push: { members: member },
+    },
+    { new: true },
+  );
+
+  return doc ? toInterface(doc) : null;
+}
+
 export async function getAllOrgMemberInfoInDb(): Promise<OrgMemberInfo[]> {
   if (IS_CLOUD) {
     throw new Error("getAllOrgMemberInfoInDb() is not supported on cloud");
@@ -502,6 +623,8 @@ export async function updateMember(
   });
 }
 
+// Policies are the only grant mechanism — `.strict()` rejects a stray
+// `permissions` array loudly rather than persisting a grant that does nothing.
 export const customRoleValidator = z
   .object({
     id: z.string().min(2).max(64),

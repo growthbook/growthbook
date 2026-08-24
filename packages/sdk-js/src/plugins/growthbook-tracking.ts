@@ -142,7 +142,7 @@ async function track({
   if (!events.length) return;
 
   const endpoint = `${
-    ingestorHost || "https://us1.gb-ingest.com"
+    ingestorHost || "https://us-east-1.gb-ingest.com"
   }/track?client_key=${clientKey}`;
   const body = JSON.stringify(events);
 
@@ -214,6 +214,8 @@ export function growthbookTrackingPlugin({
     // LRU cache for events to avoid duplicates
     const eventCache = new Set<string>();
 
+    const isMultiUser = "createScopedInstance" in gb;
+
     if ("setEventLogger" in gb) {
       let _q: EventPayload[] = [];
       let timer: NodeJS.Timeout | null = null;
@@ -266,7 +268,14 @@ export function growthbookTrackingPlugin({
             eventName,
             properties,
           };
-          for (const key of dedupeKeyAttributes) {
+          // Feature Evaluated has no unit identity, unlike Experiment Viewed
+          const featureEvaluatedIdentityAttributes = dedupeKeyAttributes.length
+            ? dedupeKeyAttributes
+            : isMultiUser && eventName === EVENT_FEATURE_EVALUATED
+              ? Object.keys(data.attributes)
+              : [];
+
+          for (const key of featureEvaluatedIdentityAttributes) {
             dedupeKeyData["attr:" + key] = data.attributes[key];
           }
 

@@ -79,7 +79,7 @@ export default function LinkedChange({
             </Avatar>
             {changeType === "flag" ? (
               <Link href={`/features/${feature?.id}`}>
-                <Heading as="h4" size="small" weight="medium" mb="0">
+                <Heading as="h4" size="sm" weight="medium" mb="0">
                   <Flex align="center">
                     {heading}
                     <PiArrowSquareOut className="ml-2" />
@@ -88,7 +88,7 @@ export default function LinkedChange({
               </Link>
             ) : headingLink ? (
               <Link href={headingLink}>
-                <Heading as="h4" size="small" weight="medium" mb="0">
+                <Heading as="h4" size="sm" weight="medium" mb="0">
                   <Flex align="center">
                     {heading}
                     <PiArrowSquareOut className="ml-2" />
@@ -96,7 +96,7 @@ export default function LinkedChange({
                 </Heading>
               </Link>
             ) : (
-              <Heading as="h4" size="small" weight="medium" mb="0">
+              <Heading as="h4" size="sm" weight="medium" mb="0">
                 {heading}
               </Heading>
             )}

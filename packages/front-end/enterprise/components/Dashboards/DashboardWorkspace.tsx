@@ -10,10 +10,17 @@ import {
   getInitialConfigByBlockType,
   DASHBOARD_GRID_COLS,
   isDashboardGlobalControlSupportedBlock,
+  isDashboardExperimentBlock,
   autoEnrollDashboardBlocksInDateControl,
+  autoEnrollDashboardBlocksInGlobalFilter,
   blockUsesDashboardDateControl,
+  getDefaultExperimentBlockGlobalControlSettings,
+  isEnablingDashboardDateControl,
   getEffectiveExplorationConfig,
+  globalFilterIsSet,
+  DASHBOARD_GLOBAL_FILTER_KEYS,
   resolveBlockComparison,
+  resolveComparisonMode,
   resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
 import { LayoutItem } from "react-grid-layout";
@@ -36,16 +43,25 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { useExploreData } from "@/enterprise/components/ProductAnalytics/useExploreData";
 import DashboardEditor, {
   DASHBOARD_TOPBAR_HEIGHT,
-  GENERAL_DASHBOARD_BLOCK_TYPES,
   getGridKeyForBlock,
-  isBlockTypeAllowed,
 } from "./DashboardEditor";
 import { SubmitDashboard, UpdateDashboardArgs } from "./DashboardsTab";
 import DashboardEditorSidebar from "./DashboardEditor/DashboardEditorSidebar";
+import { isBlockTypeAllowed } from "./DashboardEditor/dashboardBlockTypes";
+import {
+  AddBlockOptions,
+  insertBlockAtIndex,
+} from "./DashboardEditor/dashboardLayout";
 import DashboardModal from "./DashboardModal";
 
 export const DASHBOARD_WORKSPACE_NAV_HEIGHT = "72px";
 export const DASHBOARD_WORKSPACE_NAV_BOTTOM_PADDING = "12px";
+
+type StagedInsert = {
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>;
+  index: number;
+  placement?: AddBlockOptions["placement"];
+};
 
 interface Props {
   isTabActive: boolean;
@@ -61,6 +77,7 @@ interface Props {
   updateTemporaryDashboard?: (update: {
     blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
     globalControls?: DashboardInterface["globalControls"];
+    comparison?: DashboardInterface["comparison"];
   }) => void;
 }
 export default function DashboardWorkspace({
@@ -92,9 +109,11 @@ export default function DashboardWorkspace({
     if (dashboard) {
       setBlocks(dashboard.blocks);
       setGlobalControls(dashboard.globalControls);
+      setDashboardComparison(dashboard.comparison);
     } else {
       setBlocks([]);
       setGlobalControls(undefined);
+      setDashboardComparison(undefined);
     }
   }, [dashboard]);
   const { metricGroups, datasources } = useDefinitions();
@@ -109,10 +128,9 @@ export default function DashboardWorkspace({
       setSaving(true);
       setSaveError(undefined);
       try {
-        const result = await submitDashboard({
-          ...args,
-          data: { ...dashboard, ...args.data },
-        });
+        // Only what the caller changed. Spreading `dashboard` re-sent a stale
+        // snapshot of every field, so each save rolled back the previous one.
+        const result = await submitDashboard(args);
         return result;
       } catch (e) {
         setSaveError(e.message);
@@ -121,7 +139,7 @@ export default function DashboardWorkspace({
         setSaving(false);
       }
     },
-    [submitDashboard, dashboard],
+    [submitDashboard],
   );
 
   const [blocks, setBlocks] = useState<
@@ -130,6 +148,9 @@ export default function DashboardWorkspace({
   const [globalControls, setGlobalControls] = useState<
     DashboardInterface["globalControls"]
   >(dashboard.globalControls);
+  const [dashboardComparison, setDashboardComparison] = useState<
+    DashboardInterface["comparison"]
+  >(dashboard.comparison);
   const { fetchData: fetchExplorationData } = useExploreData();
   const updateTemporaryDashboardResults = async (
     controls: DashboardInterface["globalControls"] = globalControls,
@@ -142,12 +163,16 @@ export default function DashboardWorkspace({
         const config = getEffectiveExplorationConfig(block, {
           globalControls: controls,
         });
-        const comparison = resolveBlockComparison(block, dashboard);
+        // Staged state: a toggle in this session hasn't round-tripped yet.
+        const comparison = resolveBlockComparison(block, {
+          comparison: dashboardComparison,
+        });
         const result = await fetchExplorationData(config, {
           cache: "never",
           previousTimeFrame: comparison
             ? resolveComparisonPreviousTimeFrame(config.dateRange, comparison)
             : null,
+          comparisonMode: comparison ? resolveComparisonMode(comparison) : null,
         });
         if (!result.data) {
           throw new Error(result.error ?? "Failed to update dashboard block");
@@ -199,16 +224,18 @@ export default function DashboardWorkspace({
 
   const setGlobalControlsAndSubmit = useMemo(() => {
     return async (
-      globalControls: DashboardInterface["globalControls"],
+      nextGlobalControls: DashboardInterface["globalControls"],
       controlBlocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
     ) => {
+      // Only on first enable. Re-enrolling on every date change would flip
+      // blocks the user had opted out of back onto the dashboard filter.
       const nextControlBlocks =
         controlBlocks ??
-        (globalControls?.dateRange
+        (isEnablingDashboardDateControl(globalControls, nextGlobalControls)
           ? autoEnrollDashboardBlocksInDateControl(blocks)
           : undefined);
       setHasMadeChanges(true);
-      setGlobalControls(globalControls);
+      setGlobalControls(nextGlobalControls);
       if (nextControlBlocks) {
         setBlocks(nextControlBlocks);
       }
@@ -216,7 +243,7 @@ export default function DashboardWorkspace({
       if (dashboardFirstSave) {
         updateTemporaryDashboard?.({
           ...(nextControlBlocks ? { blocks: nextControlBlocks } : {}),
-          globalControls,
+          globalControls: nextGlobalControls,
         });
       } else {
         await submit({
@@ -224,7 +251,7 @@ export default function DashboardWorkspace({
           dashboardId: dashboard.id,
           data: {
             ...(nextControlBlocks ? { blocks: nextControlBlocks } : {}),
-            globalControls,
+            globalControls: nextGlobalControls,
           },
         });
       }
@@ -233,18 +260,37 @@ export default function DashboardWorkspace({
     dashboard.id,
     dashboardFirstSave,
     blocks,
+    globalControls,
     setBlocks,
     submit,
     updateTemporaryDashboard,
   ]);
+
+  const setDashboardComparisonAndSubmit = useMemo(() => {
+    return async (comparison: DashboardInterface["comparison"]) => {
+      // `{ enabled: false }`, not `undefined`: undefined keys drop out of the
+      // PUT body, which the model reads as "leave this field alone".
+      const next = comparison ?? { enabled: false };
+      setHasMadeChanges(true);
+      setDashboardComparison(next);
+      if (dashboardFirstSave) {
+        updateTemporaryDashboard?.({ comparison: next });
+      } else {
+        await submit({
+          method: "PUT",
+          dashboardId: dashboard.id,
+          data: { comparison: next },
+        });
+      }
+    };
+  }, [dashboard.id, dashboardFirstSave, submit, updateTemporaryDashboard]);
 
   const [editSidebarExpanded, setEditSidebarExpanded] = useState(true);
   const [editSidebarDirty, setEditSidebarDirty] = useState(false);
   const [hasMadeChanges, setHasMadeChanges] = useState(false);
 
   const clearEditingState = () => {
-    setAddBlockIndex(undefined);
-    setStagedAddBlock(undefined);
+    setStagedInsert(undefined);
     setEditingBlockIndex(undefined);
     setStagedEditBlock(undefined);
     setEditSidebarDirty(false);
@@ -267,56 +313,50 @@ export default function DashboardWorkspace({
     onConsumeInitialEditBlockIndex?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialEditBlockIndex, onConsumeInitialEditBlockIndex]);
-  const [addBlockIndex, setAddBlockIndex] = useState<number | undefined>(
-    undefined,
-  );
-  const [stagedAddBlock, setStagedAddBlock] = useState<
-    DashboardBlockInterfaceOrData<DashboardBlockInterface> | undefined
-  >(undefined);
+  const [stagedInsert, setStagedInsert] = useState<StagedInsert | undefined>();
   const [stagedEditBlock, setStagedEditBlock] = useState<
     DashboardBlockInterfaceOrData<DashboardBlockInterface> | undefined
   >(undefined);
 
   useEffect(() => {
-    if (!globalControls?.dateRange) return;
-    setStagedAddBlock((block) =>
-      block ? autoEnrollDashboardBlocksInDateControl([block])[0] : block,
+    const activeKeys = DASHBOARD_GLOBAL_FILTER_KEYS.filter((key) =>
+      globalFilterIsSet(globalControls, key),
     );
-    setStagedEditBlock((block) =>
-      block ? autoEnrollDashboardBlocksInDateControl([block])[0] : block,
+    if (activeKeys.length === 0) return;
+    const enroll = (
+      block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+    ) =>
+      activeKeys.reduce(
+        (b, key) => autoEnrollDashboardBlocksInGlobalFilter([b], key)[0],
+        block,
+      );
+    setStagedInsert((insert) =>
+      insert ? { ...insert, block: enroll(insert.block) } : insert,
     );
-  }, [globalControls?.dateRange]);
+    setStagedEditBlock((block) => (block ? enroll(block) : block));
+  }, [globalControls]);
 
   // Whenever a block becomes staged (via add, duplicate, or edit), make sure
   // the editing drawer is open so the user can actually configure/save it.
-  // Without this, paths like duplicateBlock - which only set addBlockIndex +
-  // stagedAddBlock - leave a staged block with no visible way to commit it
-  // when the drawer happens to be collapsed.
   useEffect(() => {
-    if (isDefined(addBlockIndex) || isDefined(editingBlockIndex)) {
+    if (stagedInsert || isDefined(editingBlockIndex)) {
       setEditSidebarExpanded(true);
     }
-  }, [addBlockIndex, editingBlockIndex]);
+  }, [stagedInsert, editingBlockIndex]);
 
   const [dashboardCopy] = useState<DashboardInterface | undefined>(
     cloneDeep(dashboard),
   );
 
-  const addBlockType = (bType: DashboardBlockType, index?: number) => {
+  const addBlockType = (
+    bType: DashboardBlockType,
+    options: AddBlockOptions = {},
+  ) => {
+    const { index = blocks.length, placement, initialLayout } = options;
     // Validate that the block type is allowed for this dashboard type
     if (!isBlockTypeAllowed(bType, isGeneralDashboard)) {
       console.warn(
         `Block type ${bType} is not allowed for ${isGeneralDashboard ? "general" : "experiment"} dashboards`,
-      );
-      return;
-    }
-
-    index = index ?? blocks.length;
-
-    // For general dashboards, only allow blocks that don't require experiment
-    if (isGeneralDashboard && !GENERAL_DASHBOARD_BLOCK_TYPES.includes(bType)) {
-      console.warn(
-        `Block type ${bType} requires an experiment and cannot be used in general dashboards`,
       );
       return;
     }
@@ -344,40 +384,50 @@ export default function DashboardWorkspace({
         : undefined,
     });
 
-    setStagedAddBlock(
-      isDashboardGlobalControlSupportedBlock(blockData)
-        ? {
-            ...blockData,
-            globalControlSettings: {
-              ...blockData.globalControlSettings,
-              dateRange: true,
-            },
-          }
-        : blockData,
-    );
-    setAddBlockIndex(index);
+    // A new block inherits the dashboard by default: exploration blocks follow
+    // the date control, and experiment blocks inherit every filter they support —
+    // including ones the dashboard has no value for yet, so a filter set later
+    // applies without the block having to be edited.
+    let stagedBlock: DashboardBlockInterfaceOrData<DashboardBlockInterface> =
+      blockData;
+    if (isDashboardGlobalControlSupportedBlock(blockData)) {
+      stagedBlock = {
+        ...blockData,
+        globalControlSettings: {
+          ...blockData.globalControlSettings,
+          dateRange: true,
+        },
+      };
+    } else if (isDashboardExperimentBlock(blockData)) {
+      stagedBlock = {
+        ...blockData,
+        globalControlSettings: {
+          ...blockData.globalControlSettings,
+          ...getDefaultExperimentBlockGlobalControlSettings(blockData),
+        },
+      };
+    }
+    setStagedInsert({
+      block: initialLayout
+        ? { ...stagedBlock, layout: initialLayout }
+        : stagedBlock,
+      index,
+      placement,
+    });
     setEditSidebarDirty(true);
   };
 
-  const effectiveBlocks = blocks
-    .flatMap<DashboardBlockInterfaceOrData<DashboardBlockInterface>>(
-      (block, i) => {
-        // Show in-progress edits directly on the block
-        const isEditingBlock = i === editingBlockIndex;
-        const effectiveBlock = isEditingBlock
-          ? (stagedEditBlock ?? block)
-          : block;
-        if (i === addBlockIndex && isDefined(stagedAddBlock)) {
-          return [stagedAddBlock, effectiveBlock];
-        }
-        return effectiveBlock;
-      },
-    )
-    .concat(
-      addBlockIndex === blocks.length && isDefined(stagedAddBlock)
-        ? [stagedAddBlock]
-        : [],
-    );
+  const blocksWithStagedEdit = blocks.map((block, i) =>
+    i === editingBlockIndex ? (stagedEditBlock ?? block) : block,
+  );
+  const effectiveBlocks = stagedInsert
+    ? insertBlockAtIndex(
+        blocksWithStagedEdit,
+        stagedInsert.block,
+        stagedInsert.index,
+        stagedInsert.placement,
+      )
+    : blocksWithStagedEdit;
 
   const focusBlock = (i: number) => {
     setFocusedBlockIndex(i);
@@ -396,14 +446,13 @@ export default function DashboardWorkspace({
     clearEditingState();
   };
 
-  // Strip layout so the duplicate doesn't land on top of the source block
-  // (normalizeLayouts on the server doesn't resolve overlaps).
   const duplicateBlock = (i: number) => {
-    setAddBlockIndex(i + 1);
-    setStagedAddBlock({
-      ...getBlockData(effectiveBlocks[i]),
-      layout: undefined,
+    setStagedInsert({
+      block: getBlockData(effectiveBlocks[i]),
+      index: i + 1,
+      placement: "after",
     });
+    setEditSidebarDirty(true);
   };
 
   return (
@@ -480,12 +529,18 @@ export default function DashboardWorkspace({
                     await submit({
                       method: "PUT",
                       dashboardId: dashboard.id,
-                      data: pick(dashboardCopy, [
-                        "blocks",
-                        "title",
-                        "editLevel",
-                        "enableAutoUpdates",
-                      ]),
+                      data: {
+                        ...pick(dashboardCopy, [
+                          "blocks",
+                          "title",
+                          "editLevel",
+                          "enableAutoUpdates",
+                          "globalControls",
+                        ]),
+                        comparison: dashboardCopy.comparison ?? {
+                          enabled: false,
+                        },
+                      },
                     });
                     close();
                   }}
@@ -566,8 +621,10 @@ export default function DashboardWorkspace({
               setBlock={(i, block) => {
                 if (i === editingBlockIndex) {
                   setStagedEditBlock(block);
-                } else if (i === addBlockIndex) {
-                  setStagedAddBlock(block);
+                } else if (i === stagedInsert?.index) {
+                  setStagedInsert((insert) =>
+                    insert ? { ...insert, block } : insert,
+                  );
                 } else {
                   setBlocksAndSubmit([
                     ...blocks.slice(0, i),
@@ -579,11 +636,11 @@ export default function DashboardWorkspace({
               editBlockProps={{
                 editSidebarDirty: editSidebarDirty,
                 focusedBlockIndex: focusedBlockIndex,
-                stagedBlockIndex: addBlockIndex ?? editingBlockIndex,
+                stagedBlockIndex: stagedInsert?.index ?? editingBlockIndex,
+                isAddingBlock: !!stagedInsert,
                 scrollAreaRef: scrollAreaRef,
                 updateLayout: (layouts: readonly LayoutItem[]) => {
-                  if (isDefined(addBlockIndex) || isDefined(editingBlockIndex))
-                    return;
+                  if (stagedInsert) return;
                   const byId = new Map(layouts.map((l) => [l.i, l] as const));
                   let changed = false;
                   const next = blocks.map((b, index) => {
@@ -612,6 +669,15 @@ export default function DashboardWorkspace({
                     return { ...b, layout: nextLayout };
                   });
                   if (!changed) return;
+                  if (isDefined(editingBlockIndex)) {
+                    const editedLayout = next[editingBlockIndex]?.layout;
+                    if (editedLayout) {
+                      setStagedEditBlock((block) =>
+                        block ? { ...block, layout: editedLayout } : block,
+                      );
+                    }
+                    return;
+                  }
                   setBlocksAndSubmit(next);
                 },
                 addBlockType: addBlockType,
@@ -621,6 +687,8 @@ export default function DashboardWorkspace({
               }}
               mutate={mutate}
               onGlobalControlsChange={setGlobalControlsAndSubmit}
+              dashboardComparison={dashboardComparison}
+              onDashboardComparisonChange={setDashboardComparisonAndSubmit}
               updateTemporaryDashboardResults={
                 dashboardFirstSave ? updateTemporaryDashboardResults : undefined
               }
@@ -641,7 +709,7 @@ export default function DashboardWorkspace({
                 maxHeight: DASHBOARD_TOPBAR_HEIGHT,
               }}
             >
-              {isDefined(addBlockIndex) || isDefined(editingBlockIndex) ? (
+              {stagedInsert || isDefined(editingBlockIndex) ? (
                 <IconButton
                   mb="1"
                   onClick={clearEditingState}
@@ -673,12 +741,15 @@ export default function DashboardWorkspace({
               open={editSidebarExpanded}
               cancel={clearEditingState}
               submit={() => {
-                if (isDefined(addBlockIndex) && isDefined(stagedAddBlock)) {
-                  setBlocksAndSubmit([
-                    ...blocks.slice(0, addBlockIndex),
-                    stagedAddBlock,
-                    ...blocks.slice(addBlockIndex),
-                  ]);
+                if (stagedInsert) {
+                  setBlocksAndSubmit(
+                    insertBlockAtIndex(
+                      blocks,
+                      stagedInsert.block,
+                      stagedInsert.index,
+                      stagedInsert.placement,
+                    ),
+                  );
                 } else if (
                   isDefined(editingBlockIndex) &&
                   isDefined(stagedEditBlock)
@@ -692,14 +763,16 @@ export default function DashboardWorkspace({
                 clearEditingState();
               }}
               blocks={blocks}
-              stagedBlock={
-                isDefined(stagedAddBlock) ? stagedAddBlock : stagedEditBlock
-              }
+              stagedBlock={stagedInsert?.block ?? stagedEditBlock}
               setBlocks={setBlocksAndSubmit}
               setStagedBlock={(block) => {
-                isDefined(stagedAddBlock)
-                  ? setStagedAddBlock(block)
-                  : setStagedEditBlock(block);
+                if (stagedInsert) {
+                  setStagedInsert(
+                    block ? { ...stagedInsert, block } : undefined,
+                  );
+                } else {
+                  setStagedEditBlock(block);
+                }
                 setEditSidebarDirty(true);
               }}
               addBlockType={addBlockType}

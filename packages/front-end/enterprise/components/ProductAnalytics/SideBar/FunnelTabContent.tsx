@@ -44,7 +44,7 @@ export default function FunnelTabContent() {
     const initialSteps = isFunnel
       ? (draftExploreState.dataset as FunnelDataset).steps
       : [];
-    const hasConfiguredStep = initialSteps.some((s) => !!s.factTable);
+    const hasConfiguredStep = initialSteps.some((s) => !!s.factTableId);
     return initialSteps.map(() => ({
       collapsed: hasConfiguredStep,
       userExpanded: false,
@@ -86,7 +86,7 @@ export default function FunnelTabContent() {
   );
 
   const funnelStepFactTablesKey = useMemo(
-    () => funnelDataset?.steps.map((s) => s.factTable ?? "").join("|") ?? "",
+    () => funnelDataset?.steps.map((s) => s.factTableId ?? "").join("|") ?? "",
     [funnelDataset],
   );
 
@@ -126,7 +126,7 @@ export default function FunnelTabContent() {
   const dataset = draftExploreState.dataset as FunnelDataset;
   const steps = dataset.steps;
 
-  const allStepsHaveFactTable = steps.every((s) => !!s.factTable);
+  const allStepsHaveFactTable = steps.every((s) => !!s.factTableId);
 
   const handleToggleCollapsed = (index: number) => {
     setUiState((prev) =>
@@ -158,13 +158,13 @@ export default function FunnelTabContent() {
     setDraftExploreState((prev) => {
       if (prev.dataset.type !== "funnel") return prev;
       const previousFactTable =
-        prev.dataset.steps[prev.dataset.steps.length - 1]?.factTable ?? "";
+        prev.dataset.steps[prev.dataset.steps.length - 1]?.factTableId ?? "";
       // Default the new step's fact table to the previous step's — the most
       // common case. The picker is hidden on inherited steps, so the user
       // doesn't see a redundant select until they actively want to override.
       const newStep = createEmptyFunnelStep({
         name: `Step ${prev.dataset.steps.length + 1}`,
-        factTable: previousFactTable,
+        factTableId: previousFactTable,
       });
       // Mirror handleFactTableChange in FunnelStepCard: any alwaysInlineFilter
       // columns on the inherited fact table get pre-seeded with empty values.
@@ -202,7 +202,7 @@ export default function FunnelTabContent() {
           step={step}
           steps={steps}
           previousFactTable={
-            index === 0 ? null : (steps[index - 1]?.factTable ?? null)
+            index === 0 ? null : (steps[index - 1]?.factTableId ?? null)
           }
           isCollapsed={uiState[index]?.collapsed ?? false}
           onToggleCollapsed={() => handleToggleCollapsed(index)}
@@ -212,11 +212,11 @@ export default function FunnelTabContent() {
         />
       ))}
       {allStepsHaveFactTable && funnelUnitOptions.length === 0 && (
-        <Text size="small" color="text-low">
+        <Text size="sm" color="text-low">
           No shared user identifier across steps.
         </Text>
       )}
-      <Button size="sm" variant="outline" onClick={handleAddStep}>
+      <Button size="md" variant="outline" onClick={handleAddStep}>
         <Flex align="center" gap="2">
           <PiPlus size={14} />
           Add step

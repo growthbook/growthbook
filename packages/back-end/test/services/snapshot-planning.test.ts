@@ -1,14 +1,21 @@
 import {
   ExperimentMetricInterface,
+  expandDerivedMetricsInMap,
   getMetricSnapshotSettings,
 } from "shared/experiments";
 import { ExperimentInterface } from "shared/types/experiment";
 import { DataSourceInterface } from "shared/types/datasource";
 import {
   ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotSettings,
   MetricForSnapshot,
 } from "shared/types/experiment-snapshot";
-import { MetricSnapshotSettings } from "shared/types/report";
+import {
+  ExperimentSnapshotReportInterface,
+  LegacyExperimentReportArgs,
+  MetricSnapshotSettings,
+} from "shared/types/report";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ApiReqContext } from "back-end/types/api";
 import {
   assertIncrementalRefreshPrerequisites,
@@ -25,6 +32,11 @@ import {
   planSnapshot,
 } from "back-end/src/services/experiments";
 import { planMetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
+import { getQueryableMetricsFromSnapshotSettings } from "back-end/src/services/experimentQueries/experimentQueries";
+import {
+  getReportSnapshotSettings,
+  getSnapshotSettingsFromReportArgs,
+} from "back-end/src/services/reports";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
@@ -83,6 +95,16 @@ jest.mock("back-end/src/enterprise", () => ({
 jest.mock("back-end/src/enterprise/services/data-pipeline", () => ({
   assertIncrementalRefreshPrerequisites: jest.fn(),
   exploratoryOverallRequiresFullRefresh: jest.fn(),
+  legacyDocDescribesPhase: (
+    args: Parameters<
+      (typeof import("back-end/src/enterprise/services/data-pipeline"))["legacyDocDescribesPhase"]
+    >[0],
+  ) =>
+    jest
+      .requireActual<
+        typeof import("back-end/src/enterprise/services/data-pipeline")
+      >("back-end/src/enterprise/services/data-pipeline")
+      .legacyDocDescribesPhase(args),
 }));
 
 const {
@@ -161,6 +183,19 @@ function wireIncrementalIntegration(datasource: DataSourceInterface): void {
   } as never);
 }
 
+function wireIncrementalRefreshState(
+  context: ApiReqContext,
+  {
+    phaseDoc = null,
+    legacyDoc = null,
+  }: { phaseDoc?: unknown; legacyDoc?: unknown } = {},
+): void {
+  context.models.incrementalRefresh = {
+    getByExperimentIdAndPhase: jest.fn().mockResolvedValue(phaseDoc),
+    getLegacyByExperimentIdWithoutPhase: jest.fn().mockResolvedValue(legacyDoc),
+  } as never;
+}
+
 function makeContext(): ApiReqContext {
   return {
     org: {
@@ -215,6 +250,49 @@ function makeExperiment(
   } as unknown as ExperimentInterface;
 }
 
+function makeTwoPhaseExperiment(): ExperimentInterface {
+  return makeExperiment({
+    phases: [
+      {
+        dateStarted: new Date("2025-01-01T00:00:00.000Z"),
+        variationWeights: [0.5, 0.5],
+      },
+      {
+        dateStarted: new Date("2025-03-01T00:00:00.000Z"),
+        variationWeights: [0.5, 0.5],
+      },
+    ],
+  });
+}
+
+function settingsHashForPhase({
+  experiment,
+  datasource,
+  phaseIndex,
+}: {
+  experiment: ExperimentInterface;
+  datasource: DataSourceInterface;
+  phaseIndex: number;
+}): string {
+  return getExperimentSettingsHashForIncrementalRefresh(
+    getSnapshotSettings({
+      experiment,
+      phaseIndex,
+      snapshotType: "standard",
+      dimension: null,
+      regressionAdjustmentEnabled: false,
+      orgPriorSettings: undefined,
+      orgDisabledPrecomputedDimensions: true,
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+      metricGroups: [],
+      incrementalRefreshModel: null,
+      datasource,
+    }),
+  );
+}
+
 function makeAnalysisSettings(
   overrides: Partial<ExperimentSnapshotAnalysisSettings> = {},
 ): ExperimentSnapshotAnalysisSettings {
@@ -253,7 +331,7 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("results");
+    expect(plan.snapshot.runnerKind).toBe("results");
     // useCache: false → full refresh, with a free-form reason explaining why.
     expect(plan.fullRefresh).toBe(true);
     expect(plan.fullRefreshReason).toBe("Full refresh explicitly requested.");
@@ -263,6 +341,256 @@ describe("snapshot planning", () => {
     expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
     expect(updateExperimentMock).not.toHaveBeenCalled();
     expect(updateExperimentDashboardsMock).not.toHaveBeenCalled();
+  });
+
+  // Exposure query identifies units by user_id; ft_joinable shares that id
+  // type, ft_orphan does not and the datasource has no identity join for it.
+  // Both metrics carry auto slices, so each expands into derived metrics.
+  function makeJoinabilityFixture() {
+    const datasource = makeDatasource({
+      settings: {
+        queries: {
+          exposure: [
+            {
+              id: "exposure_user",
+              name: "Users",
+              userIdType: "user_id",
+              query: "SELECT * FROM exposures",
+              dimensions: [],
+            },
+          ],
+        },
+      } as unknown as DataSourceInterface["settings"],
+    });
+    const sliceColumn = {
+      column: "country",
+      datatype: "string" as const,
+      name: "country",
+      description: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      numberFormat: "" as const,
+      deleted: false,
+      isAutoSliceColumn: true,
+      autoSlices: ["us", "ca"],
+    };
+    const joinableTable = factTableFactory.build({
+      id: "ft_joinable",
+      userIdTypes: ["user_id"],
+      columns: [sliceColumn],
+    });
+    const orphanTable = factTableFactory.build({
+      id: "ft_orphan",
+      userIdTypes: ["device_id"],
+      columns: [sliceColumn],
+    });
+    const factTableMap = new Map([
+      [joinableTable.id, joinableTable],
+      [orphanTable.id, orphanTable],
+    ]) as FactTableMap;
+    const joinableMetric = factMetricFactory.build({
+      id: "m_joinable",
+      numerator: { factTableId: "ft_joinable", column: "$$count" },
+      metricAutoSlices: ["country"],
+    });
+    const orphanMetric = factMetricFactory.build({
+      id: "m_orphan",
+      numerator: { factTableId: "ft_orphan", column: "$$count" },
+      metricAutoSlices: ["country"],
+    });
+    const metricMap = new Map<string, ExperimentMetricInterface>([
+      [joinableMetric.id, joinableMetric],
+      [orphanMetric.id, orphanMetric],
+    ]);
+    const settingsForSnapshotMetrics = [joinableMetric, orphanMetric].map(
+      (metric) =>
+        getMetricSnapshotSettings({
+          metric,
+          denominatorMetrics: [],
+          experimentRegressionAdjustmentEnabled: false,
+        }).metricSnapshotSettings,
+    );
+    return { datasource, factTableMap, metricMap, settingsForSnapshotMetrics };
+  }
+
+  function expectOnlyJoinableMetricsAnalyzed(
+    snapshotSettings: ExperimentSnapshotSettings,
+    metricMap: Map<string, ExperimentMetricInterface>,
+  ) {
+    const analyzedIds = snapshotSettings.metricSettings.map((m) => m.id);
+    expect(snapshotSettings.goalMetrics).toEqual(["m_joinable"]);
+    expect(analyzedIds).toContain("m_joinable");
+    expect(analyzedIds.some((id) => id.startsWith("m_joinable?dim:"))).toBe(
+      true,
+    );
+    expect(analyzedIds.filter((id) => id.startsWith("m_orphan"))).toEqual([]);
+
+    // The query runner selects metrics to query from these settings; the
+    // orphan's slices would otherwise reach the SQL builder, which has no way
+    // to join ft_orphan to the exposure units and fails the whole snapshot.
+    const queried = getQueryableMetricsFromSnapshotSettings(
+      snapshotSettings,
+      metricMap,
+    ).map((m) => m.id);
+    expect(queried.some((id) => id.startsWith("m_joinable?dim:"))).toBe(true);
+    expect(queried.filter((id) => id.startsWith("m_orphan"))).toEqual([]);
+  }
+
+  // Callers reach getSnapshotSettings both with a fresh metricMap and with one
+  // that was already expanded from the full experiment (e.g. the map built in
+  // createExperimentSnapshotFromPlan is reused for dashboard snapshots), so
+  // scrubbing must hold either way.
+  describe.each([
+    ["a fresh metricMap", false],
+    ["a metricMap already expanded from the unscrubbed experiment", true],
+  ])("snapshot settings with %s", (_label, preExpand) => {
+    it("do not analyze unjoinable metrics or their slices", () => {
+      const {
+        datasource,
+        factTableMap,
+        metricMap,
+        settingsForSnapshotMetrics,
+      } = makeJoinabilityFixture();
+      const experiment = makeExperiment({
+        exposureQueryId: "exposure_user",
+        goalMetrics: ["m_joinable", "m_orphan"],
+        metricOverrides: [],
+      });
+      if (preExpand) {
+        expandDerivedMetricsInMap({
+          metricMap,
+          factTableMap,
+          experiment,
+          metricGroups: [],
+        });
+      }
+
+      const snapshotSettings = getSnapshotSettings({
+        experiment,
+        phaseIndex: 0,
+        snapshotType: "standard",
+        dimension: null,
+        regressionAdjustmentEnabled: false,
+        orgPriorSettings: undefined,
+        orgDisabledPrecomputedDimensions: true,
+        settingsForSnapshotMetrics,
+        metricMap,
+        factTableMap,
+        metricGroups: [],
+        incrementalRefreshModel: null,
+        datasource,
+      });
+
+      expectOnlyJoinableMetricsAnalyzed(snapshotSettings, metricMap);
+    });
+  });
+
+  it("report settings drop unjoinable metrics and their slices", () => {
+    const { datasource, factTableMap, metricMap, settingsForSnapshotMetrics } =
+      makeJoinabilityFixture();
+    const experimentAnalysisSettings = {
+      exposureQueryId: "exposure_user",
+      goalMetrics: ["m_joinable", "m_orphan"],
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+      metricOverrides: [],
+    };
+    // Report generation expands derived metrics from the unscrubbed report
+    // settings before building the snapshot settings.
+    expandDerivedMetricsInMap({
+      metricMap,
+      factTableMap,
+      experiment: experimentAnalysisSettings,
+      metricGroups: [],
+    });
+
+    const snapshotSettings = getReportSnapshotSettings({
+      report: {
+        experimentAnalysisSettings,
+        experimentMetadata: {
+          phases: [{ variationWeights: [0.5, 0.5] }],
+          variations: [{ key: "0" }, { key: "1" }],
+        },
+      } as unknown as ExperimentSnapshotReportInterface,
+      analysisSettings: makeAnalysisSettings(),
+      phaseIndex: 0,
+      orgPriorSettings: undefined,
+      settingsForSnapshotMetrics,
+      metricMap,
+      factTableMap,
+      metricGroups: [],
+      datasource,
+    });
+
+    expectOnlyJoinableMetricsAnalyzed(snapshotSettings, metricMap);
+  });
+
+  it("expands legacy report metric groups consistently", () => {
+    const metricGroups = [
+      { id: "mg_goal", metrics: ["m_goal_a", "m_goal_b"] },
+      { id: "mg_secondary", metrics: ["m_secondary"] },
+      { id: "mg_guardrail", metrics: ["m_guardrail_a", "m_guardrail_b"] },
+    ].map(
+      ({ id, metrics }): MetricGroupInterface => ({
+        id,
+        organization: "org_123",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        owner: "",
+        name: id,
+        description: "",
+        tags: [],
+        projects: [],
+        metrics,
+        datasource: "ds_123",
+        archived: false,
+      }),
+    );
+    const metrics = metricGroups
+      .flatMap((group) => group.metrics)
+      .map((id) => factMetricFactory.build({ id }));
+    const metricMap = new Map<string, ExperimentMetricInterface>(
+      metrics.map((metric) => [metric.id, metric]),
+    );
+    const args: LegacyExperimentReportArgs = {
+      trackingKey: "experiment",
+      datasource: "ds_123",
+      exposureQueryId: "exposure",
+      startDate: new Date(),
+      variations: [
+        { id: "0", index: 0, name: "Control", weight: 0.5 },
+        { id: "1", index: 1, name: "Treatment", weight: 0.5 },
+      ],
+      goalMetrics: ["mg_goal"],
+      secondaryMetrics: ["mg_secondary"],
+      guardrailMetrics: ["mg_guardrail"],
+      decisionFrameworkSettings: {},
+    };
+
+    const { snapshotSettings, analysisSettings } =
+      getSnapshotSettingsFromReportArgs(
+        args,
+        metricMap,
+        undefined,
+        undefined,
+        metricGroups,
+      );
+
+    expect(snapshotSettings.metricSettings.map((metric) => metric.id)).toEqual([
+      "m_goal_a",
+      "m_goal_b",
+      "m_secondary",
+      "m_guardrail_a",
+      "m_guardrail_b",
+    ]);
+    expect(snapshotSettings.goalMetrics).toEqual(["m_goal_a", "m_goal_b"]);
+    expect(snapshotSettings.secondaryMetrics).toEqual(["m_secondary"]);
+    expect(snapshotSettings.guardrailMetrics).toEqual([
+      "m_guardrail_a",
+      "m_guardrail_b",
+    ]);
+    expect(analysisSettings.numGoalMetrics).toBe(2);
+    expect(analysisSettings.numGuardrailMetrics).toBe(2);
   });
 
   it("rejects a snapshot for an experiment with no metrics without persisting a record", async () => {
@@ -320,11 +648,9 @@ describe("snapshot planning", () => {
     );
 
     const context = makeContext();
-    context.models.incrementalRefresh = {
-      getByExperimentId: jest.fn().mockResolvedValue({
-        unitsTableFullName: "db.schema.units_exp_123",
-      }),
-    } as never;
+    wireIncrementalRefreshState(context, {
+      phaseDoc: { unitsTableFullName: "db.schema.units_exp_123" },
+    });
 
     const plan = await planSnapshot({
       experiment: makeExperiment(),
@@ -341,7 +667,7 @@ describe("snapshot planning", () => {
     });
 
     expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalled();
-    expect(plan.runnerKind).toBe("results");
+    expect(plan.snapshot.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBe("metric not compatible");
   });
 
@@ -364,9 +690,7 @@ describe("snapshot planning", () => {
     const context = makeContext();
     // First run: no prior incremental state, so the warehouse units table
     // does not exist yet and a full refresh is required.
-    context.models.incrementalRefresh = {
-      getByExperimentId: jest.fn().mockResolvedValue(null),
-    } as never;
+    wireIncrementalRefreshState(context, { phaseDoc: null });
 
     const plan = await planSnapshot({
       experiment: makeExperiment(),
@@ -382,7 +706,7 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("incremental");
+    expect(plan.snapshot.runnerKind).toBe("incremental-full");
     // The incremental runner must not discard the computed full refresh, or it
     // would attempt an incremental update against a non-existent units table.
     expect(plan.fullRefresh).toBe(true);
@@ -391,6 +715,104 @@ describe("snapshot planning", () => {
     );
     expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledWith(
       expect.objectContaining({ analysisType: "main-fullRefresh" }),
+    );
+  });
+
+  it("claims a pre-phase document for the phase whose settings hash it matches, even when a newer phase exists", async () => {
+    const datasource = makeIncrementalDatasource();
+    wireIncrementalIntegration(datasource);
+    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+      undefined as never,
+    );
+
+    const experiment = makeTwoPhaseExperiment();
+    const phaseZeroHash = settingsHashForPhase({
+      experiment,
+      datasource,
+      phaseIndex: 0,
+    });
+    // The hash covers the phase start date, so a document can only be claimed by
+    // one of these two phases. Equal hashes would make both tests vacuous.
+    expect(phaseZeroHash).not.toEqual(
+      settingsHashForPhase({ experiment, datasource, phaseIndex: 1 }),
+    );
+
+    const context = makeContext();
+    wireIncrementalRefreshState(context, {
+      legacyDoc: {
+        unitsTableFullName: "db.schema.units_exp_123",
+        experimentSettingsHash: phaseZeroHash,
+      },
+    });
+
+    const plan = await planSnapshot({
+      experiment,
+      context,
+      type: "standard",
+      triggeredBy: "manual-dashboard",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings(),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(
+      context.models.incrementalRefresh.getLegacyByExperimentIdWithoutPhase,
+    ).toHaveBeenCalledWith("exp_123");
+    expect(plan.snapshot.runnerKind).toBe("incremental-update");
+    expect(plan.fullRefresh).toBe(false);
+    expect(plan.fullRefreshReason).toBeNull();
+  });
+
+  it("refuses a pre-phase document whose settings hash belongs to a different phase", async () => {
+    const datasource = makeIncrementalDatasource();
+    wireIncrementalIntegration(datasource);
+    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+      undefined as never,
+    );
+
+    const experiment = makeTwoPhaseExperiment();
+    const phaseZeroHash = settingsHashForPhase({
+      experiment,
+      datasource,
+      phaseIndex: 0,
+    });
+    expect(phaseZeroHash).not.toEqual(
+      settingsHashForPhase({ experiment, datasource, phaseIndex: 1 }),
+    );
+
+    const context = makeContext();
+    wireIncrementalRefreshState(context, {
+      legacyDoc: {
+        unitsTableFullName: "db.schema.units_exp_123",
+        experimentSettingsHash: phaseZeroHash,
+      },
+    });
+
+    const plan = await planSnapshot({
+      experiment,
+      context,
+      type: "standard",
+      triggeredBy: "manual-dashboard",
+      phaseIndex: 1,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings(),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(
+      context.models.incrementalRefresh.getLegacyByExperimentIdWithoutPhase,
+    ).toHaveBeenCalledWith("exp_123");
+    expect(plan.snapshot.runnerKind).toBe("incremental-full");
+    expect(plan.fullRefresh).toBe(true);
+    expect(plan.fullRefreshReason).toBe(
+      "No prior Incremental Pipeline state for this experiment.",
     );
   });
 
@@ -493,8 +915,8 @@ describe("snapshot planning", () => {
       getExperimentSettingsHashForIncrementalRefresh(snapshotSettings);
 
     const context = makeContext();
-    context.models.incrementalRefresh = {
-      getByExperimentId: jest.fn().mockResolvedValue({
+    wireIncrementalRefreshState(context, {
+      phaseDoc: {
         ...incrementalRefreshModel,
         experimentSettingsHash,
         metricSources: [
@@ -503,8 +925,8 @@ describe("snapshot planning", () => {
             metrics: [{ id: "m1", settingsHash: staleMetricHash }],
           },
         ],
-      }),
-    } as never;
+      },
+    });
 
     const plan = await planSnapshot({
       experiment,
@@ -523,7 +945,7 @@ describe("snapshot planning", () => {
     expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledWith(
       expect.objectContaining({ analysisType: "main-update" }),
     );
-    expect(plan.runnerKind).toBe("incremental");
+    expect(plan.snapshot.runnerKind).toBe("incremental-update");
     expect(plan.fullRefresh).toBe(false);
     expect(plan.incrementalFallbackReason).toBeNull();
 
@@ -571,12 +993,12 @@ describe("snapshot planning", () => {
     );
 
     const context = makeContext();
-    context.models.incrementalRefresh = {
-      getByExperimentId: jest.fn().mockResolvedValue({
+    wireIncrementalRefreshState(context, {
+      phaseDoc: {
         unitsTableFullName: "db.schema.units_exp_123",
         experimentSettingsHash: "stale_hash",
-      }),
-    } as never;
+      },
+    });
 
     const plan = await planSnapshot({
       experiment: makeExperiment(),
@@ -599,7 +1021,7 @@ describe("snapshot planning", () => {
     expect(assertIncrementalRefreshPrerequisitesMock).not.toHaveBeenCalledWith(
       expect.objectContaining({ analysisType: "main-fullRefresh" }),
     );
-    expect(plan.runnerKind).toBe("results");
+    expect(plan.snapshot.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBe(staleConfigMessage);
     expect(plan.fullRefresh).toBe(false);
     expect(plan.fullRefreshReason).toBeNull();
@@ -622,12 +1044,12 @@ describe("snapshot planning", () => {
     );
 
     const context = makeContext();
-    context.models.incrementalRefresh = {
-      getByExperimentId: jest.fn().mockResolvedValue({
+    wireIncrementalRefreshState(context, {
+      phaseDoc: {
         unitsTableFullName: "db.schema.units_exp_123",
         experimentSettingsHash: "current_hash",
-      }),
-    } as never;
+      },
+    });
 
     const plan = await planSnapshot({
       experiment: makeExperiment(),
@@ -647,7 +1069,7 @@ describe("snapshot planning", () => {
     expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledWith(
       expect.objectContaining({ analysisType: "main-update" }),
     );
-    expect(plan.runnerKind).toBe("incremental");
+    expect(plan.snapshot.runnerKind).toBe("incremental-update");
     expect(plan.fullRefresh).toBe(false);
     expect(plan.fullRefreshReason).toBeNull();
     expect(plan.incrementalFallbackReason).toBeNull();
@@ -678,12 +1100,12 @@ describe("snapshot planning", () => {
       .mockResolvedValueOnce(undefined as never);
 
     const context = makeContext();
-    context.models.incrementalRefresh = {
-      getByExperimentId: jest.fn().mockResolvedValue({
+    wireIncrementalRefreshState(context, {
+      phaseDoc: {
         unitsTableFullName: "db.schema.units_exp_123",
         experimentSettingsHash: "stale_hash",
-      }),
-    } as never;
+      },
+    });
 
     const plan = await planSnapshot({
       experiment: makeExperiment(),
@@ -709,7 +1131,7 @@ describe("snapshot planning", () => {
     );
     // The incremental runner is kept and promoted to a full refresh instead of
     // silently downgrading to the non-incremental results runner.
-    expect(plan.runnerKind).toBe("incremental");
+    expect(plan.snapshot.runnerKind).toBe("incremental-full");
     expect(plan.fullRefresh).toBe(true);
     expect(plan.fullRefreshReason).toBe(staleConfigMessage);
     expect(plan.incrementalFallbackReason).toBeNull();
@@ -736,12 +1158,12 @@ describe("snapshot planning", () => {
       .mockRejectedValueOnce(new Error("metric not compatible"));
 
     const context = makeContext();
-    context.models.incrementalRefresh = {
-      getByExperimentId: jest.fn().mockResolvedValue({
+    wireIncrementalRefreshState(context, {
+      phaseDoc: {
         unitsTableFullName: "db.schema.units_exp_123",
         experimentSettingsHash: "stale_hash",
-      }),
-    } as never;
+      },
+    });
 
     const plan = await planSnapshot({
       experiment: makeExperiment(),
@@ -758,7 +1180,7 @@ describe("snapshot planning", () => {
     });
 
     expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledTimes(2);
-    expect(plan.runnerKind).toBe("results");
+    expect(plan.snapshot.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBe("metric not compatible");
     expect(plan.fullRefresh).toBe(false);
     expect(plan.fullRefreshReason).toBeNull();
@@ -778,13 +1200,13 @@ describe("snapshot planning", () => {
     } as never);
 
     const context = makeContext();
-    context.models.incrementalRefresh = {
-      getByExperimentId: jest.fn().mockResolvedValue({
+    wireIncrementalRefreshState(context, {
+      phaseDoc: {
         unitsTableFullName: "db.schema.units_exp_123",
         experimentSettingsHash: "current_hash",
         materializedBySnapshotId,
-      }),
-    } as never;
+      },
+    });
 
     const plan = await planSnapshot({
       experiment: makeExperiment(),
@@ -802,7 +1224,7 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("incremental-exploratory");
+    expect(plan.snapshot.runnerKind).toBe("incremental-exploratory");
     expect(findSnapshotByIdMock).toHaveBeenCalledWith(
       context,
       materializedBySnapshotId,
@@ -819,13 +1241,13 @@ describe("snapshot planning", () => {
     );
 
     const context = makeContext();
-    context.models.incrementalRefresh = {
-      getByExperimentId: jest.fn().mockResolvedValue({
+    wireIncrementalRefreshState(context, {
+      phaseDoc: {
         unitsTableFullName: "db.schema.units_exp_123",
         experimentSettingsHash: "current_hash",
         materializedBySnapshotId: null,
-      }),
-    } as never;
+      },
+    });
 
     const plan = await planSnapshot({
       experiment: makeExperiment(),
@@ -843,7 +1265,7 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("incremental-exploratory");
+    expect(plan.snapshot.runnerKind).toBe("incremental-exploratory");
     expect(findSnapshotByIdMock).not.toHaveBeenCalled();
     expect(getLatestSuccessfulSnapshotMock).not.toHaveBeenCalled();
     expect(plan.snapshot.sourceSnapshotId).toBeUndefined();
@@ -885,12 +1307,12 @@ describe("snapshot planning", () => {
     );
 
     const context = makeContext();
-    context.models.incrementalRefresh = {
-      getByExperimentId: jest.fn().mockResolvedValue({
+    wireIncrementalRefreshState(context, {
+      phaseDoc: {
         unitsTableFullName: "db.schema.units_exp_123",
         experimentSettingsHash: "stale_hash",
-      }),
-    } as never;
+      },
+    });
 
     await expect(
       planSnapshot({
@@ -926,12 +1348,12 @@ describe("snapshot planning", () => {
     );
 
     const context = makeContext();
-    context.models.incrementalRefresh = {
-      getByExperimentId: jest.fn().mockResolvedValue({
+    wireIncrementalRefreshState(context, {
+      phaseDoc: {
         unitsTableFullName: "db.schema.units_exp_123",
         experimentSettingsHash: "stale_hash",
-      }),
-    } as never;
+      },
+    });
 
     const plan = await planSnapshot({
       experiment: makeExperiment(),
@@ -947,19 +1369,19 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("results");
+    expect(plan.snapshot.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBe("metric not compatible");
   });
 
   function makeExploratoryContext() {
     const context = makeContext();
-    context.models.incrementalRefresh = {
-      getByExperimentId: jest.fn().mockResolvedValue({
+    wireIncrementalRefreshState(context, {
+      phaseDoc: {
         unitsTableFullName: "db.schema.units_exp_123",
         experimentSettingsHash: "hash_abc",
         metricSources: [],
-      }),
-    } as never;
+      },
+    });
     return context;
   }
 
@@ -986,7 +1408,7 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("incremental-exploratory");
+    expect(plan.snapshot.runnerKind).toBe("incremental-exploratory");
   });
 
   it("throws ExperimentIncrementalPipelineRequiresFullRefreshError when the Overall units table requires a full refresh and prompting enabled", async () => {
@@ -996,23 +1418,28 @@ describe("snapshot planning", () => {
     );
     exploratoryOverallRequiresFullRefreshMock.mockReturnValue(true);
 
-    await expect(
-      planSnapshot({
-        experiment: makeExperiment(),
-        context: makeExploratoryContext(),
-        type: "exploratory",
-        triggeredBy: "manual",
-        phaseIndex: 0,
-        useCache: true,
-        defaultAnalysisSettings: makeAnalysisSettings({
-          dimensions: ["exp:country"],
-        }),
-        additionalAnalysisSettings: [],
-        settingsForSnapshotMetrics: [],
-        metricMap: new Map<string, ExperimentMetricInterface>(),
-        factTableMap: new Map() as FactTableMap,
+    const planning = planSnapshot({
+      experiment: makeExperiment(),
+      context: makeExploratoryContext(),
+      type: "exploratory",
+      triggeredBy: "manual",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["exp:country"],
       }),
-    ).rejects.toThrow(ExperimentIncrementalPipelineRequiresFullRefreshError);
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    await expect(planning).rejects.toThrow(
+      ExperimentIncrementalPipelineRequiresFullRefreshError,
+    );
+    await expect(planning).rejects.toThrow(
+      "Overall Results require a full refresh before Dimension Results can be updated.",
+    );
   });
 
   it("falls back to results runner when the Overall units table requires a full refresh and triggered by a background job", async () => {
@@ -1038,9 +1465,281 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("results");
+    expect(plan.snapshot.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBe(
       "Overall Results need a full refresh; running non-incremental update instead of reading stale data.",
     );
+  });
+
+  function makeNeverMaterializedContext() {
+    const context = makeContext();
+    context.models.incrementalRefresh = {
+      getByExperimentIdAndPhase: jest.fn().mockResolvedValue(null),
+      getLegacyByExperimentIdWithoutPhase: jest.fn().mockResolvedValue(null),
+    } as never;
+    return context;
+  }
+
+  function makeNonLatestPhaseExperiment(): ExperimentInterface {
+    const experiment = makeExperiment();
+    return {
+      ...experiment,
+      phases: [experiment.phases[0], { ...experiment.phases[0] }],
+    };
+  }
+
+  function useRealIncrementalPrerequisites(): void {
+    assertIncrementalRefreshPrerequisitesMock.mockImplementation(
+      jest.requireActual<
+        typeof import("back-end/src/enterprise/services/data-pipeline")
+      >("back-end/src/enterprise/services/data-pipeline")
+        .assertIncrementalRefreshPrerequisites,
+    );
+  }
+
+  it("throws ExperimentIncrementalPipelineRequiresFullRefreshError for a manual dimension request when Overall Results were never materialized", async () => {
+    wireIncrementalIntegration(makeIncrementalDatasource());
+
+    const planning = planSnapshot({
+      experiment: makeExperiment(),
+      context: makeNeverMaterializedContext(),
+      type: "exploratory",
+      triggeredBy: "manual",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["exp:country"],
+      }),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    await expect(planning).rejects.toThrow(
+      ExperimentIncrementalPipelineRequiresFullRefreshError,
+    );
+    await expect(planning).rejects.toThrow(
+      "Overall Results have not been computed yet, so there is no units table for a dimension breakdown to read.",
+    );
+  });
+
+  it("does not block a dimensionless request on the Overall Results that request would itself materialize", async () => {
+    wireIncrementalIntegration(makeIncrementalDatasource());
+    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+      undefined as never,
+    );
+
+    const plan = await planSnapshot({
+      experiment: makeExperiment(),
+      context: makeNeverMaterializedContext(),
+      type: "exploratory",
+      triggeredBy: "manual",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings(),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(plan.snapshot.runnerKind).toBe("results");
+    expect(plan.incrementalFallbackReason).toBe(
+      "No materialized units table yet for Overall Results.",
+    );
+  });
+
+  it("does not demand an Overall Results refresh the pipeline would reject for the same experiment", async () => {
+    orgHasPremiumFeatureMock.mockReturnValue(true);
+    wireIncrementalIntegration(makeIncrementalDatasource());
+    useRealIncrementalPrerequisites();
+
+    const plan = await planSnapshot({
+      experiment: makeExperiment({ skipPartialData: true }),
+      context: makeNeverMaterializedContext(),
+      type: "exploratory",
+      triggeredBy: "manual",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["exp:country"],
+      }),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledWith(
+      expect.objectContaining({ analysisType: "main-fullRefresh" }),
+    );
+    expect(plan.snapshot.runnerKind).toBe("results");
+    expect(plan.incrementalFallbackReason).toBe(
+      "'Exclude In-Progress Conversions' is not supported with Incremental Pipeline mode while in beta. Please select 'Include' in the Analysis Settings for Metric Conversion Windows.",
+    );
+  });
+
+  it("does not demand an Overall Results refresh for a non-latest phase that would never materialize one", async () => {
+    wireIncrementalIntegration(makeIncrementalDatasource());
+    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+      undefined as never,
+    );
+
+    const plan = await planSnapshot({
+      experiment: makeNonLatestPhaseExperiment(),
+      context: makeNeverMaterializedContext(),
+      type: "exploratory",
+      triggeredBy: "manual",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["exp:country"],
+      }),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(plan.snapshot.runnerKind).toBe("results");
+    expect(plan.incrementalFallbackReason).toBe(
+      "No materialized units table yet for Overall Results.",
+    );
+  });
+
+  it("uses the phase-scoped units table for a non-latest phase when it is current", async () => {
+    wireIncrementalIntegration(makeIncrementalDatasource());
+    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+      undefined as never,
+    );
+    exploratoryOverallRequiresFullRefreshMock.mockReturnValue(false);
+
+    const plan = await planSnapshot({
+      experiment: makeNonLatestPhaseExperiment(),
+      context: makeExploratoryContext(),
+      type: "exploratory",
+      triggeredBy: "manual",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["exp:country"],
+      }),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(plan.snapshot.runnerKind).toBe("incremental-exploratory");
+    expect(plan.incrementalFallbackReason).toBeNull();
+  });
+
+  it("does not demand an Overall Results refresh for a settings-drifted non-latest phase", async () => {
+    wireIncrementalIntegration(makeIncrementalDatasource());
+    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+      undefined as never,
+    );
+    exploratoryOverallRequiresFullRefreshMock.mockReturnValue(true);
+
+    const plan = await planSnapshot({
+      experiment: makeNonLatestPhaseExperiment(),
+      context: makeExploratoryContext(),
+      type: "exploratory",
+      triggeredBy: "manual",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["exp:country"],
+      }),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(exploratoryOverallRequiresFullRefreshMock).toHaveBeenCalledTimes(1);
+    expect(plan.snapshot.runnerKind).toBe("results");
+    expect(plan.incrementalFallbackReason).toBe(
+      "The requested phase's materialized units table is stale; running a non-incremental update instead.",
+    );
+  });
+
+  it("falls back to results for a scheduled dimension request when Overall Results were never materialized", async () => {
+    wireIncrementalIntegration(makeIncrementalDatasource());
+
+    const plan = await planSnapshot({
+      experiment: makeExperiment(),
+      context: makeNeverMaterializedContext(),
+      type: "exploratory",
+      triggeredBy: "schedule",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["exp:country"],
+      }),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(plan.snapshot.runnerKind).toBe("results");
+    expect(plan.incrementalFallbackReason).toBe(
+      "No materialized units table yet for Overall Results.",
+    );
+  });
+
+  it("throws for a scheduled dimension request from a request path when Overall Results were never materialized", async () => {
+    wireIncrementalIntegration(makeIncrementalDatasource());
+
+    const planning = planSnapshot({
+      experiment: makeExperiment(),
+      context: makeNeverMaterializedContext(),
+      type: "exploratory",
+      triggeredBy: "schedule",
+      phaseIndex: 0,
+      useCache: true,
+      throwIfRequiresFullRefresh: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["exp:country"],
+      }),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    await expect(planning).rejects.toThrow(
+      ExperimentIncrementalPipelineRequiresFullRefreshError,
+    );
+    await expect(planning).rejects.toThrow(
+      "Overall Results have not been computed yet, so there is no units table for a dimension breakdown to read.",
+    );
+  });
+
+  it("leaves a manual dimension request alone when the experiment is not covered by the Incremental Pipeline", async () => {
+    getDataSourceByIdMock.mockResolvedValue(makeDatasource());
+    getSourceIntegrationObjectMock.mockReturnValue({} as never);
+
+    const plan = await planSnapshot({
+      experiment: makeExperiment(),
+      context: makeNeverMaterializedContext(),
+      type: "exploratory",
+      triggeredBy: "manual",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["exp:country"],
+      }),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(plan.snapshot.runnerKind).toBe("results");
+    expect(plan.incrementalFallbackReason).toBeNull();
+    expect(assertIncrementalRefreshPrerequisitesMock).not.toHaveBeenCalled();
   });
 });

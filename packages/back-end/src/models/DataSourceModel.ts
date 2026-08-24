@@ -3,6 +3,7 @@ import uniqid from "uniqid";
 import { cloneDeep, isEqual } from "lodash";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import {
+  DataRegion,
   isEventForwarderManagedExposureQuery,
   isEventForwarderManagedFeatureUsageQuery,
   isManagedWarehouseAwaitingProvisioning,
@@ -14,6 +15,7 @@ import {
   DataSourcePipelineSettings,
   DataSourceSettings,
   DataSourceType,
+  GrowthbookClickhouseDataSource,
 } from "shared/types/datasource";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
 import { ApiDataSource } from "shared/validators";
@@ -126,6 +128,32 @@ export async function getDataSourcesByOrganization(
   return datasources.filter((ds) =>
     context.permissions.canReadMultiProjectResource(ds.projects),
   );
+}
+
+// Unfiltered by project permissions - the org's event ingestor region isn't
+// sensitive on its own, and gating it on datasource read permissions means
+// users without access to the Managed Warehouse/Event Forwarder datasource
+// would get an incorrect region for the SDK setup snippets.
+export async function getEventIngestorRegionForOrganization(
+  context: ReqContext | ApiReqContext,
+): Promise<DataRegion | undefined> {
+  const datasources = usingFileConfig()
+    ? getConfigDatasources(context.org.id)
+    : (await DataSourceModel.find({ organization: context.org.id })).map(
+        toInterface,
+      );
+
+  const managedWarehouse = datasources.find(
+    (d): d is GrowthbookClickhouseDataSource =>
+      d.type === "growthbook_clickhouse",
+  );
+  if (managedWarehouse) {
+    return managedWarehouse.settings?.region;
+  }
+
+  const forwarderConfigs =
+    await context.models.eventForwarderConfigs.getAllBypassingReadPermissions();
+  return forwarderConfigs.find((c) => c.region)?.region;
 }
 
 // WARNING: This does not restrict by organization

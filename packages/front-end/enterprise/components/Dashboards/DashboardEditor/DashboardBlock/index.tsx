@@ -3,10 +3,13 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
+  DashboardBlockType,
   blockHasFieldOfType,
   blockUsesDashboardDateControl,
   DashboardInterface,
   isDashboardGlobalControlSupportedBlock,
+  isDashboardExperimentBlock,
+  experimentBlockOptedOutOfGlobalFilters,
 } from "shared/enterprise";
 import { Flex, IconButton, Text } from "@radix-ui/themes";
 import { PiDotsSixVertical, PiPencilSimpleFill } from "react-icons/pi";
@@ -30,6 +33,7 @@ import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownSubMenu,
 } from "@/ui/DropdownMenu";
 import { useExperiments } from "@/hooks/useExperiments";
 import {
@@ -41,8 +45,9 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import Field from "@/components/Forms/Field";
 import Badge from "@/ui/Badge";
-import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
 import { isSubmittableConfig } from "@/enterprise/components/ProductAnalytics/util";
+import { DashboardBlockTypeMenuItems } from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlockTypeMenu";
+import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor/dashboardBlockTypes";
 import MarkdownBlock from "./MarkdownBlock";
 import ExperimentMetadataBlock from "./ExperimentMetadataBlock";
 import ExperimentMetricBlock from "./ExperimentMetricBlock";
@@ -88,6 +93,7 @@ export type BlockProps<T extends DashboardBlockInterface> = {
   isTabActive: boolean;
   block: DashboardBlockInterfaceOrData<T>;
   dashboardGlobalControls?: DashboardInterface["globalControls"];
+  dashboardComparison?: DashboardInterface["comparison"];
   blockIndex?: number;
   setBlock: undefined | React.Dispatch<DashboardBlockInterfaceOrData<T>>;
   snapshot: ExperimentSnapshotInterface;
@@ -101,10 +107,12 @@ interface Props<DashboardBlock extends DashboardBlockInterface> {
   isTabActive: boolean;
   block: DashboardBlockInterfaceOrData<DashboardBlock>;
   dashboardGlobalControls?: DashboardInterface["globalControls"];
+  dashboardComparison?: DashboardInterface["comparison"];
   blockIndex?: number;
   isFocused: boolean;
   isEditing: boolean;
   editingBlock: boolean;
+  canMoveBlock: boolean;
   disableBlock: "full" | "partial" | "none";
   scrollAreaRef: null | React.MutableRefObject<HTMLDivElement | null>;
   setBlock:
@@ -113,6 +121,9 @@ interface Props<DashboardBlock extends DashboardBlockInterface> {
   editBlock: () => void;
   duplicateBlock: () => void;
   deleteBlock: () => void;
+  addBlockBefore?: (bType: DashboardBlockType) => void;
+  addBlockAfter?: (bType: DashboardBlockType) => void;
+  isGeneralDashboard: boolean;
   mutate: () => void;
   canEdit?: boolean;
   setIsEditing?: (value: boolean) => void;
@@ -144,16 +155,21 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   isTabActive,
   block,
   dashboardGlobalControls,
+  dashboardComparison,
   blockIndex,
   isEditing,
   isFocused,
   editingBlock,
+  canMoveBlock,
   disableBlock,
   scrollAreaRef,
   setBlock,
   editBlock,
   duplicateBlock,
   deleteBlock,
+  addBlockBefore,
+  addBlockAfter,
+  isGeneralDashboard,
   mutate,
   canEdit,
   setIsEditing,
@@ -188,6 +204,12 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     Boolean(dashboardGlobalControls?.dateRange) &&
     isDashboardGlobalControlSupportedBlock(block) &&
     !blockUsesDashboardDateControl(block);
+  // Experiment blocks follow the dashboard's experiment filters via a single
+  // per-block toggle; surface a badge when a block has opted out while the
+  // dashboard has active filters it could follow.
+  const shouldShowExperimentFilterOptOutBadge =
+    isDashboardExperimentBlock(block) &&
+    experimentBlockOptedOutOfGlobalFilters(block, dashboardGlobalControls);
 
   // Type guards for sql-explorer blocks
   const isSqlExplorerWithDataVizIndex = (
@@ -446,7 +468,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
         ></div>
       )}
       <Flex align="center" mb="2">
-        {isEditing && !editingBlock && disableBlock !== "full" && (
+        {isEditing && canMoveBlock && disableBlock !== "full" && (
           <IconButton
             className="dashboard-block-drag-handle"
             variant="ghost"
@@ -530,6 +552,15 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                 ml="2"
               />
             ) : null}
+            {shouldShowExperimentFilterOptOutBadge ? (
+              <Badge
+                label="Uses block filters"
+                color="gray"
+                variant="soft"
+                size="xs"
+                ml="2"
+              />
+            ) : null}
 
             <div style={{ flexGrow: 1, marginRight: 30 }} />
           </>
@@ -572,6 +603,28 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                 >
                   Duplicate
                 </DropdownMenuItem>
+                {disableBlock === "none" && addBlockBefore && addBlockAfter && (
+                  <>
+                    <DropdownSubMenu trigger="Add block before">
+                      <DashboardBlockTypeMenuItems
+                        isGeneralDashboard={isGeneralDashboard}
+                        onSelect={(bType) => {
+                          addBlockBefore(bType);
+                          setDropdownOpen(false);
+                        }}
+                      />
+                    </DropdownSubMenu>
+                    <DropdownSubMenu trigger="Add block after">
+                      <DashboardBlockTypeMenuItems
+                        isGeneralDashboard={isGeneralDashboard}
+                        onSelect={(bType) => {
+                          addBlockAfter(bType);
+                          setDropdownOpen(false);
+                        }}
+                      />
+                    </DropdownSubMenu>
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={(e) => {
@@ -651,6 +704,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
             isTabActive={isTabActive}
             block={block}
             dashboardGlobalControls={dashboardGlobalControls}
+            dashboardComparison={dashboardComparison}
             blockIndex={blockIndex}
             setBlock={setBlock}
             isEditing={isEditing}

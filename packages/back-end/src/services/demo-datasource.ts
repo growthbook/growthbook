@@ -1,3 +1,4 @@
+import { getApplicableEnvIds } from "shared/util";
 import {
   DEMO_DATASOURCE_HOST,
   DEMO_DATASOURCE_ID,
@@ -24,6 +25,7 @@ import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snap
 import {
   FactMetricInterface,
   MetricWindowSettings,
+  StandardFactMetricInterface,
 } from "shared/types/fact-table";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -53,7 +55,6 @@ import {
   deleteFeature,
   getFeature,
 } from "back-end/src/models/FeatureModel";
-import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   createFactTable,
@@ -128,7 +129,7 @@ const EMPTY_WINDOW_SETTINGS: MetricWindowSettings = {
   delayValue: 0,
 };
 const DEMO_METRICS: Pick<
-  FactMetricInterface,
+  StandardFactMetricInterface,
   "id" | "name" | "description" | "metricType" | "numerator" | "windowSettings"
 >[] = [
   {
@@ -167,7 +168,7 @@ const DEMO_METRICS: Pick<
 ];
 
 const DEMO_RATIO_METRIC: Pick<
-  FactMetricInterface,
+  StandardFactMetricInterface,
   | "id"
   | "name"
   | "description"
@@ -206,6 +207,7 @@ const DEMO_FACT_METRIC_DEFAULTS: Pick<
   | "targetMDE"
   | "regressionAdjustmentDays"
   | "quantileSettings"
+  | "funnelSettings"
 > = {
   winRisk: 0.0025,
   loseRisk: 0.0125,
@@ -228,6 +230,7 @@ const DEMO_FACT_METRIC_DEFAULTS: Pick<
   targetMDE: 0.1,
   regressionAdjustmentDays: 14,
   quantileSettings: null,
+  funnelSettings: null,
 };
 
 // endregion Constants for Demo Datasource
@@ -307,7 +310,8 @@ async function ensureDemoFactTables(
           datatype: "string",
         },
       ],
-      columnRefreshPending: true,
+      // Datatypes are known, so it is not pending detection.
+      columnRefreshPending: false,
     });
 
     // Kick off a column refresh so string columns get topValues populated
@@ -350,7 +354,8 @@ async function ensureDemoFactTables(
           alwaysInlineFilter: true,
         },
       ],
-      columnRefreshPending: true,
+      // Datatypes are known, so it is not pending detection.
+      columnRefreshPending: false,
     });
 
     await queueFactTableColumnsRefresh(demoPageViewsFactTable);

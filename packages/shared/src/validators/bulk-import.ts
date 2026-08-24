@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { ownerInputField } from "./owner-field";
-import { apiFactTableColumnInputValidator } from "./fact-table";
+import {
+  apiFactTableColumnInputValidator,
+  isValidRowFilterRangeLength,
+  ROW_FILTER_RANGE_LENGTH_MESSAGE,
+} from "./fact-table";
 
 // The body references PostFactTablePayload, PostFactTableFilterPayload, and PostFactMetricPayload
 const postBulkImportFactsBody = z
@@ -132,40 +136,47 @@ const postBulkImportFactsBody = z
                 .meta({ deprecated: true }),
               rowFilters: z
                 .array(
-                  z.object({
-                    operator: z.enum([
-                      "=",
-                      "!=",
-                      ">",
-                      "<",
-                      ">=",
-                      "<=",
-                      "in",
-                      "not_in",
-                      "is_null",
-                      "not_null",
-                      "is_true",
-                      "is_false",
-                      "contains",
-                      "not_contains",
-                      "starts_with",
-                      "ends_with",
-                      "sql_expr",
-                      "saved_filter",
-                    ]),
-                    values: z
-                      .array(z.string())
-                      .describe(
-                        "Not required for is_null, not_null, is_true, is_false operators.",
-                      )
-                      .optional(),
-                    column: z
-                      .string()
-                      .describe(
-                        "Required for all operators except sql_expr and saved_filter.",
-                      )
-                      .optional(),
-                  }),
+                  z
+                    .object({
+                      operator: z.enum([
+                        "=",
+                        "!=",
+                        ">",
+                        "<",
+                        ">=",
+                        "<=",
+                        "between",
+                        "not_between",
+                        "in",
+                        "not_in",
+                        "is_null",
+                        "not_null",
+                        "is_true",
+                        "is_false",
+                        "contains",
+                        "not_contains",
+                        "starts_with",
+                        "ends_with",
+                        "sql_expr",
+                        "saved_filter",
+                      ]),
+                      values: z
+                        .array(z.string())
+                        .describe(
+                          "Not required for is_null, not_null, is_true, is_false operators. The between and not_between operators take at most two values, a lower and an upper bound in that order; leave a bound as an empty string for an open-ended range.",
+                        )
+                        .optional(),
+                      column: z
+                        .string()
+                        .describe(
+                          "Required for all operators except sql_expr and saved_filter.",
+                        )
+                        .optional(),
+                    })
+                    .refine(isValidRowFilterRangeLength, {
+                      message: ROW_FILTER_RANGE_LENGTH_MESSAGE,
+                      path: ["values"],
+                    }),
                 )
                 .describe(
                   "Filters to apply to the rows of the fact table before aggregation.",
@@ -220,40 +231,47 @@ const postBulkImportFactsBody = z
                   .meta({ deprecated: true }),
                 rowFilters: z
                   .array(
-                    z.object({
-                      operator: z.enum([
-                        "=",
-                        "!=",
-                        ">",
-                        "<",
-                        ">=",
-                        "<=",
-                        "in",
-                        "not_in",
-                        "is_null",
-                        "not_null",
-                        "is_true",
-                        "is_false",
-                        "contains",
-                        "not_contains",
-                        "starts_with",
-                        "ends_with",
-                        "sql_expr",
-                        "saved_filter",
-                      ]),
-                      values: z
-                        .array(z.string())
-                        .describe(
-                          "Not required for is_null, not_null, is_true, is_false operators.",
-                        )
-                        .optional(),
-                      column: z
-                        .string()
-                        .describe(
-                          "Required for all operators except sql_expr and saved_filter.",
-                        )
-                        .optional(),
-                    }),
+                    z
+                      .object({
+                        operator: z.enum([
+                          "=",
+                          "!=",
+                          ">",
+                          "<",
+                          ">=",
+                          "<=",
+                          "between",
+                          "not_between",
+                          "in",
+                          "not_in",
+                          "is_null",
+                          "not_null",
+                          "is_true",
+                          "is_false",
+                          "contains",
+                          "not_contains",
+                          "starts_with",
+                          "ends_with",
+                          "sql_expr",
+                          "saved_filter",
+                        ]),
+                        values: z
+                          .array(z.string())
+                          .describe(
+                            "Not required for is_null, not_null, is_true, is_false operators. The between and not_between operators take at most two values, a lower and an upper bound in that order; leave a bound as an empty string for an open-ended range.",
+                          )
+                          .optional(),
+                        column: z
+                          .string()
+                          .describe(
+                            "Required for all operators except sql_expr and saved_filter.",
+                          )
+                          .optional(),
+                      })
+                      .refine(isValidRowFilterRangeLength, {
+                        message: ROW_FILTER_RANGE_LENGTH_MESSAGE,
+                        path: ["values"],
+                      }),
                   )
                   .describe(
                     "Filters to apply to the rows of the fact table before aggregation.",

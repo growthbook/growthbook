@@ -34,6 +34,7 @@ import {
   MakeModelClass,
   ScopedFilterQuery,
 } from "back-end/src/models/BaseModel";
+import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import {
   getCollection,
   removeMongooseFields,
@@ -120,6 +121,18 @@ export class DashboardModel extends BaseClass {
 
   public async getAllNonExperimentDashboards(): Promise<DashboardInterface[]> {
     return this._find({ experimentId: null });
+  }
+
+  // Every dashboard in the org, ignoring the caller's read permissions. Only
+  // for authoritative dependency scans (e.g. blocking deletion of a fact table
+  // column a dashboard still references), where missing a dashboard the caller
+  // cannot read would let the delete through and leave that dashboard
+  // generating SQL for a column that no longer exists. Never return these to
+  // the caller.
+  public async dangerousGetAllForDependencyScan(): Promise<
+    DashboardInterface[]
+  > {
+    return this._find({}, { bypassReadPermissionChecks: true });
   }
 
   public static async getDashboardsToUpdate(): Promise<
@@ -880,6 +893,35 @@ export function migrateBlock(
       }
       return migrated;
     }
+    case "funnel-exploration": {
+      const steps = doc.config?.dataset?.steps;
+      if (Array.isArray(steps)) {
+        const needsMigration = steps.some(
+          (s: Record<string, unknown>) =>
+            "factTable" in s && !("factTableId" in s),
+        );
+        if (needsMigration) {
+          return {
+            ...doc,
+            config: {
+              ...doc.config,
+              dataset: {
+                ...doc.config.dataset,
+                steps: AnalyticsExplorationModel.migrateFunnelSteps(steps),
+              },
+            },
+          } as DashboardBlockInterface | CreateDashboardBlockInterface;
+        }
+      }
+      return doc;
+    }
+    case "metric-explorer":
+    case "markdown":
+    case "experiment-metadata":
+    case "experiment-traffic":
+    case "metric-exploration":
+    case "fact-table-exploration":
+    case "data-source-exploration":
     default:
       return doc;
   }
@@ -900,6 +942,21 @@ function toBlockApiInterface(
           endDate: getValidDate(block.analysisSettings.endDate).toISOString(),
         },
       };
+    case "experiment-metric":
+    case "experiment-dimension":
+    case "experiment-time-series":
+    case "sql-explorer":
+    case "markdown":
+    case "experiment-metadata":
+    case "metric-experiments":
+    case "experiments-scaled-impact":
+    case "experiments-win-rate":
+    case "experiments-status":
+    case "experiment-traffic":
+    case "metric-exploration":
+    case "fact-table-exploration":
+    case "data-source-exploration":
+    case "funnel-exploration":
     default:
       return block;
   }
@@ -923,6 +980,20 @@ export function fromBlockApiInterface(
         ...apiBlock,
         blockConfig: apiBlock.blockConfig ?? [],
       };
+    case "experiment-metric":
+    case "experiment-dimension":
+    case "experiment-time-series":
+    case "markdown":
+    case "experiment-metadata":
+    case "metric-experiments":
+    case "experiments-scaled-impact":
+    case "experiments-win-rate":
+    case "experiments-status":
+    case "experiment-traffic":
+    case "metric-exploration":
+    case "fact-table-exploration":
+    case "data-source-exploration":
+    case "funnel-exploration":
     default:
       return apiBlock;
   }

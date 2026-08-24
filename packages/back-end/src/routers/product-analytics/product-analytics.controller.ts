@@ -9,7 +9,11 @@ import {
   type AIChatFeedbackEntry,
   type AIChatFeedbackRating,
 } from "shared/validators";
-import { computeExplorationComparisonPayload } from "shared/enterprise";
+import {
+  buildComparisonExplorationConfig,
+  computeExplorationComparisonPayload,
+  getComparisonAlignmentStrategy,
+} from "shared/enterprise";
 import { QueryInterface } from "shared/types/query";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -78,12 +82,13 @@ export const postProductAnalyticsRun = async (
     query: QueryInterface | null;
     comparison?: ProductAnalyticsRunComparisonPayload & {
       query: QueryInterface | null;
+      error?: string | null;
     };
   }>,
 ) => {
   const context = getContextFromReq(req);
   const cacheOpts = { cache: req.query.cache };
-  const { config, previousTimeFrame } = req.body;
+  const { config, previousTimeFrame, comparisonMode } = req.body;
 
   async function resolveQuery(
     exploration: ProductAnalyticsExploration | null,
@@ -106,10 +111,10 @@ export const postProductAnalyticsRun = async (
     });
   }
 
-  const comparisonConfig: ExplorationConfig = {
-    ...config,
-    dateRange: previousTimeFrame,
-  };
+  const comparisonConfig: ExplorationConfig = buildComparisonExplorationConfig(
+    config,
+    previousTimeFrame,
+  );
 
   // allSettled (not all): a comparison failure (timeout, upstream schema
   // change, transient warehouse issue) must not fail the whole request and
@@ -123,11 +128,16 @@ export const postProductAnalyticsRun = async (
     throw primaryResult.reason;
   }
   const exploration = primaryResult.value;
+  let comparisonError: string | null = null;
   if (comparisonResult.status === "rejected") {
     logger.warn(
       { err: comparisonResult.reason },
       "Failed to run product analytics comparison query; returning primary only",
     );
+    comparisonError =
+      comparisonResult.reason instanceof Error
+        ? comparisonResult.reason.message
+        : "Failed to run the comparison query";
   }
   const comparisonExploration =
     comparisonResult.status === "fulfilled" ? comparisonResult.value : null;
@@ -154,6 +164,7 @@ export const postProductAnalyticsRun = async (
     config,
     previousTimeFrame,
     getFactMetricById,
+    getComparisonAlignmentStrategy(comparisonMode ?? "previousPeriod"),
   );
 
   return res.status(200).json({
@@ -166,6 +177,7 @@ export const postProductAnalyticsRun = async (
       previousPeriod: comparisonPayload.previousPeriod,
       bigNumberTrends: comparisonPayload.bigNumberTrends,
       tableTrendsByRow: comparisonPayload.tableTrendsByRow,
+      error: comparisonError ?? comparisonExploration?.error ?? null,
     },
   });
 };

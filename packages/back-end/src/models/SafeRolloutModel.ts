@@ -86,7 +86,17 @@ export class SafeRolloutModel extends BaseClass {
     const live = await this.getById(pre.id);
     if (!live) return;
     if (live.status === pre.status) return;
-    if (live.status !== (written?.status ?? writtenStatus)) return;
+    // Live holds neither our pre-image nor what we wrote, so a third writer owns
+    // this rollout now. Same shape as the lost CAS below, and it has to be reported
+    // the same way: returning quietly let Feature and revision compensation restore
+    // the flag and reopen the draft on top of a rollout still carrying advanced
+    // state. Refusing loudly is what makes the publish stand whole instead.
+    if (live.status !== (written?.status ?? writtenStatus)) {
+      throw new Error(
+        `safe rollout ${pre.id}: could not be rolled back — another writer has ` +
+          `moved it to "${live.status}"`,
+      );
+    }
     const sameDate = (a?: Date | null, b?: Date | null) =>
       (a?.getTime() ?? null) === (b?.getTime() ?? null);
     // The sync stamps start metadata only when transitioning a never-started
@@ -121,8 +131,27 @@ export class SafeRolloutModel extends BaseClass {
     const unset: Record<string, 1> = {};
     if (ownsStartedAt) unset.startedAt = 1;
     if (ownsNextAttempt) unset.nextSnapshotAttempt = 1;
-    await this._dangerousGetCollection().updateOne(
-      { organization: this.context.org.id, id: pre.id },
+    // The ownership decision above was read from `live`; fold what it depended on
+    // into the write filter so a worker advancing this rollout between the read and
+    // the write loses the race instead of having its progress reverted. Each clause
+    // mirrors an ownership check: the status we are undoing, and each timing field we
+    // proved was ours.
+    const res = await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        id: pre.id,
+        status: live.status,
+        ...(ownsStartedAt ? { startedAt: live.startedAt ?? null } : {}),
+        ...(ownsNextAttempt
+          ? { nextSnapshotAttempt: live.nextSnapshotAttempt ?? null }
+          : {}),
+        // The schedule is RESTORED below when we own it, so it belongs in the
+        // predicate too — otherwise a worker advancing the ramp between the read and
+        // this write has its progress overwritten by our pre-image.
+        ...(ownsSchedule
+          ? { rampUpSchedule: live.rampUpSchedule ?? null }
+          : {}),
+      },
       {
         $set: {
           status: pre.status,
@@ -132,6 +161,15 @@ export class SafeRolloutModel extends BaseClass {
         ...(Object.keys(unset).length ? { $unset: unset } : {}),
       },
     );
+    // A no-match means a concurrent write moved this rollout between the ownership
+    // read and here, so the failed publish's status/timing are still live. Silence
+    // let Feature and revision compensation report a clean rollback over it.
+    if (!res.matchedCount) {
+      throw new Error(
+        `safe rollout ${pre.id}: could not be rolled back — it was changed by ` +
+          `another writer and still carries this publish's state`,
+      );
+    }
   }
   public async getAllByFeatureIds(featureIds: string[]) {
     return await this._find({ featureId: { $in: featureIds } });

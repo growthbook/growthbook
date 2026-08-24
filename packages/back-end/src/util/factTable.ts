@@ -1,5 +1,6 @@
 import { set, subDays, addDays } from "date-fns";
 import { utcToZonedTime, zonedTimeToUtc } from "date-fns-tz";
+import { validateVirtualColumnExpression } from "shared/experiments";
 import {
   AggregatedFactTableSettings,
   ColumnInterface,
@@ -45,6 +46,50 @@ export function stripIncompatibleFields(
   }
 
   return next;
+}
+
+// A virtual column's id must be a plain identifier ending in `_vc`, so it is
+// visually distinct from SQL-detected columns and safe to inline into
+// generated SQL.
+export const VIRTUAL_COLUMN_ID_REGEX = /^[a-zA-Z0-9_]+_vc$/;
+
+/**
+ * A virtual column's expression is inlined into generated SQL as `(<sql>)`, so
+ * it must be a single self-contained scalar expression that cannot break out of
+ * those parentheses. Throws when it can (statement separator, unbalanced paren,
+ * unterminated literal or comment).
+ */
+export function validateVirtualColumnSql(sql: string): void {
+  const error = validateVirtualColumnExpression(sql);
+  if (error) {
+    throw new Error(error);
+  }
+}
+
+/**
+ * Shared validation for virtual-column input, used by the internal route, the
+ * public REST API, and bulk import so every write path enforces the same
+ * rules: a `_vc` identifier, a non-empty and structurally safe SQL expression,
+ * and an explicit data type (the refresh job cannot auto-detect a virtual
+ * column's type).
+ */
+export function validateVirtualColumnProps(data: {
+  column: string;
+  sql?: string;
+  datatype?: string;
+}): void {
+  if (!data.column.match(VIRTUAL_COLUMN_ID_REGEX)) {
+    throw new Error(
+      "Virtual column ids must contain only letters, numbers, and underscores and end with '_vc'",
+    );
+  }
+  if (!data.sql || !data.sql.trim()) {
+    throw new Error("Virtual columns require a SQL expression");
+  }
+  validateVirtualColumnSql(data.sql);
+  if (!data.datatype) {
+    throw new Error("Virtual columns require a data type");
+  }
 }
 
 /**
@@ -117,6 +162,12 @@ export function columnsHaveAutoSlices(
   columns?: Array<{ isAutoSliceColumn?: boolean; autoSlices?: unknown }>,
 ): boolean {
   return (columns ?? []).some((c) => !!c.isAutoSliceColumn || !!c.autoSlices);
+}
+
+export function columnsNeedDetection(
+  columns?: Array<{ datatype?: string; deleted?: boolean }>,
+): boolean {
+  return (columns ?? []).some((c) => !c.datatype && !c.deleted);
 }
 
 function isValidIanaTimezone(timezone: string): boolean {

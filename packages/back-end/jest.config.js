@@ -12,11 +12,9 @@ module.exports = {
       "<rootDir>/../../node_modules/.pnpm/@typespec+ts-http-runtime@0.3.1/node_modules/@typespec/ts-http-runtime/dist/commonjs/$1/internal.js",
   },
   setupFilesAfterEnv: ["<rootDir>/test/jest.setup.ts"],
-  // Jest retains each test file's compiled module graph for the worker's
-  // lifetime, so a worker's heap grows ~140MB per file and a worker that
-  // handles enough files creeps toward the 8GB --max-old-space-size ceiling and
-  // crashes with "JavaScript heap out of memory" (intermittently, depending on
-  // how files get distributed). Recycle a worker once its RSS passes 2GB so
-  // heap usage stays well under the ceiling regardless of file distribution.
-  workerIdleMemoryLimit: "2GB",
+  // For non-CI, lets make sure to cap the workers
+  ...(process.env.CI ? {} : { maxWorkers: "50%" }),
+  // Each file's module graph stays resident (~140MB/file); recycle workers
+  // before the heap fills.
+  workerIdleMemoryLimit: process.env.CI ? "2GB" : "1GB",
 };
