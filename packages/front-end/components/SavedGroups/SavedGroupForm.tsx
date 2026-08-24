@@ -1,5 +1,5 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
-import { FC, useEffect, useMemo, useState } from "react";
+import { FC, useEffect, useMemo, useRef, useState } from "react";
 import {
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
@@ -251,8 +251,13 @@ const SavedGroupForm: FC<{
     (c) => c.key === "description",
   );
 
-  // Update form values when selected revision changes OR when current prop updates
+  // Reseed only when the backing revision changes: a same-revision SWR refresh
+  // must not clobber unsaved edits — the stale baseline 409s instead.
+  const seedKey = currentRevision ? currentRevision.id : "__live__";
+  const seededKeyRef = useRef<string | null>(null);
   useEffect(() => {
+    if (seededKeyRef.current === seedKey) return;
+    seededKeyRef.current = seedKey;
     let baseData: Partial<SavedGroupInterface>;
 
     if (currentRevision) {
@@ -294,7 +299,16 @@ const SavedGroupForm: FC<{
     if (baseData.description) {
       setShowDescription(true);
     }
-  }, [currentRevision, liveVersion, type, project, orgId, form, current]);
+  }, [
+    seedKey,
+    currentRevision,
+    liveVersion,
+    type,
+    project,
+    orgId,
+    form,
+    current,
+  ]);
 
   const selectedProjects = form.watch("projects") || [];
 
