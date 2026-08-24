@@ -147,14 +147,13 @@ export function validateCustomFieldValues(
   for (const key of Object.keys(customFieldValues)) {
     if (!validKeys.has(key)) {
       const field = orgCustomFields.find((f) => f.id === key);
+      // Disabled is the one reason with a remedy that keeps the value.
       const reason = !field
-        ? "It does not exist and may have been deleted."
+        ? "It does not exist and may have been deleted. Remove it from this record's customFields to save changes."
         : field.active === false
-          ? "It is disabled."
-          : "It is not available for this record's project or section.";
-      throw new Error(
-        `Invalid custom field: ${key}. ${reason} Remove it from this record's customFields to save changes.`,
-      );
+          ? "It is disabled. Re-enable it to keep this value, or remove it from this record's customFields to save changes."
+          : "It is not available for this record's project or section. Remove it from this record's customFields to save changes.";
+      throw new Error(`Invalid custom field: ${key}. ${reason}`);
     }
   }
 

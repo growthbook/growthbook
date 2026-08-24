@@ -50,7 +50,7 @@ describe("custom fields validation", () => {
           customFieldsModel: buildCustomFieldsModel([]),
           section: "feature",
         }),
-      ).resolves.toBeDefined();
+      ).resolves.toMatchObject({ prunedKeys: [] });
     });
 
     it("throws when custom field values are provided but no custom fields are configured", async () => {
@@ -128,7 +128,7 @@ describe("custom fields validation", () => {
             }),
           ],
         }),
-      ).resolves.toBeDefined();
+      ).resolves.toMatchObject({ prunedKeys: [] });
     });
 
     it("throws when a required enum field is missing", async () => {
@@ -179,7 +179,7 @@ describe("custom fields validation", () => {
             }),
           ],
         }),
-      ).resolves.toBeDefined();
+      ).resolves.toMatchObject({ prunedKeys: [] });
     });
 
     it("accepts enum values with extra whitespace", async () => {
@@ -196,7 +196,7 @@ describe("custom fields validation", () => {
             }),
           ],
         }),
-      ).resolves.toBeDefined();
+      ).resolves.toMatchObject({ prunedKeys: [] });
     });
 
     it("accepts enum values sent as JSON arrays with one value", async () => {
@@ -213,7 +213,7 @@ describe("custom fields validation", () => {
             }),
           ],
         }),
-      ).resolves.toBeDefined();
+      ).resolves.toMatchObject({ prunedKeys: [] });
     });
 
     it("rejects enum values sent as arrays with more than one value", async () => {
@@ -268,7 +268,7 @@ describe("custom fields validation", () => {
           ],
           section: "experiment",
         }),
-      ).resolves.toBeDefined();
+      ).resolves.toMatchObject({ prunedKeys: [] });
     });
 
     it("accepts multiselect JSON payloads used by the UI", async () => {
@@ -287,7 +287,7 @@ describe("custom fields validation", () => {
           ],
           section: "experiment",
         }),
-      ).resolves.toBeDefined();
+      ).resolves.toMatchObject({ prunedKeys: [] });
     });
 
     it("accepts multiselect CSV payloads used by the API", async () => {
@@ -306,7 +306,7 @@ describe("custom fields validation", () => {
           ],
           section: "experiment",
         }),
-      ).resolves.toBeDefined();
+      ).resolves.toMatchObject({ prunedKeys: [] });
     });
 
     it("throws when a multiselect value is not in the allowed options", async () => {
@@ -343,7 +343,7 @@ describe("custom fields validation", () => {
             }),
           ],
         }),
-      ).resolves.toBeDefined();
+      ).resolves.toMatchObject({ prunedKeys: [] });
     });
 
     it("rejects required number values that are only whitespace", async () => {
@@ -391,7 +391,7 @@ describe("custom fields validation", () => {
             }),
           ],
         }),
-      ).resolves.toBeDefined();
+      ).resolves.toMatchObject({ prunedKeys: [] });
     });
 
     it("accepts boolean false for required boolean fields", async () => {
@@ -407,7 +407,7 @@ describe("custom fields validation", () => {
             }),
           ],
         }),
-      ).resolves.toBeDefined();
+      ).resolves.toMatchObject({ prunedKeys: [] });
     });
 
     it("rejects invalid boolean strings", async () => {
@@ -439,7 +439,7 @@ describe("custom fields validation", () => {
             }),
           ],
         }),
-      ).resolves.toBeDefined();
+      ).resolves.toMatchObject({ prunedKeys: [] });
     });
 
     it("rejects invalid datetime values", async () => {
@@ -471,7 +471,7 @@ describe("custom fields validation", () => {
             }),
           ],
         }),
-      ).resolves.toBeDefined();
+      ).resolves.toMatchObject({ prunedKeys: [] });
     });
 
     it("rejects invalid url values", async () => {
@@ -520,7 +520,9 @@ describe("custom fields validation", () => {
           customFieldsModel: buildCustomFieldsModel([], [disabled]),
           section: "feature",
         }),
-      ).rejects.toThrow("Invalid custom field: cfd_team. It is disabled.");
+      ).rejects.toThrow(
+        "Invalid custom field: cfd_team. It is disabled. Re-enable it to keep this value, or remove it from this record's customFields to save changes.",
+      );
     });
 
     it("explains that a value references a custom field outside the record's scope", async () => {
@@ -554,7 +556,7 @@ describe("custom fields validation", () => {
             }),
           ],
         }),
-      ).resolves.toBeDefined();
+      ).resolves.toMatchObject({ prunedKeys: [] });
     });
   });
 
@@ -574,7 +576,7 @@ describe("custom fields validation", () => {
           customFieldsModel: buildCustomFieldsModel([field]),
           section: "feature",
         }),
-      ).resolves.toBeDefined();
+      ).resolves.toMatchObject({ prunedKeys: [] });
 
       await expect(
         validateCustomFieldsForSection({
@@ -582,7 +584,7 @@ describe("custom fields validation", () => {
           customFieldsModel: buildCustomFieldsModel([field]),
           section: "feature",
         }),
-      ).resolves.toBeDefined();
+      ).resolves.toMatchObject({ prunedKeys: [] });
     });
   });
 
@@ -644,7 +646,9 @@ describe("custom fields validation", () => {
           customFieldsModel: buildCustomFieldsModel([], [disabled]),
           section: "feature",
         }),
-      ).rejects.toThrow("Invalid custom field: cfd_team. It is disabled.");
+      ).rejects.toThrow(
+        "Invalid custom field: cfd_team. It is disabled. Re-enable it to keep this value, or remove it from this record's customFields to save changes.",
+      );
     });
 
     it("keeps values for a field scoped to another project", async () => {
