@@ -150,6 +150,18 @@ export function useExperimentTableRows({
         hasGuardrailSelector ||
         (!hasGoalSelector && !hasSecondarySelector && !hasGuardrailSelector);
 
+      const allowedMetricIds = new Set<string>();
+      actualMetricFilter.forEach((id) => {
+        if (isMetricGroupId(id)) {
+          const group = allMetricGroups.find((g) => g.id === id);
+          if (group) {
+            group.metrics.forEach((metricId) => allowedMetricIds.add(metricId));
+          }
+        } else {
+          allowedMetricIds.add(id);
+        }
+      });
+
       // Filter by metric groups if filter is active
       let filteredGoalMetrics: string[] = [];
       let filteredSecondaryMetrics: string[] = [];
@@ -161,21 +173,6 @@ export function useExperimentTableRows({
         hasSecondarySelector ||
         hasGuardrailSelector
       ) {
-        // Create a set of allowed metric IDs from expanded groups and individual metrics
-        const allowedMetricIds = new Set<string>();
-        actualMetricFilter.forEach((id) => {
-          if (isMetricGroupId(id)) {
-            const group = allMetricGroups.find((g) => g.id === id);
-            if (group) {
-              group.metrics.forEach((metricId) =>
-                allowedMetricIds.add(metricId),
-              );
-            }
-          } else {
-            allowedMetricIds.add(id);
-          }
-        });
-
         // Filter metrics by group or allowed metric IDs
         // Only include categories that are selected via selector IDs
         if (includeGoals) {
@@ -248,41 +245,21 @@ export function useExperimentTableRows({
         allMetricGroups,
       );
 
-      // When specific metrics are selected (not just selector IDs), filter the
-      // expanded metrics to only include those explicitly selected. This handles
-      // the case where a user selects an individual metric that's part of a
-      // metric group - we want to show only that metric, not the entire group.
-      const allowedMetricIdsForFiltering = new Set<string>();
-      if (actualMetricFilter.length > 0) {
-        actualMetricFilter.forEach((id) => {
-          if (isMetricGroupId(id)) {
-            const group = allMetricGroups.find((g) => g.id === id);
-            if (group) {
-              group.metrics.forEach((metricId) =>
-                allowedMetricIdsForFiltering.add(metricId),
-              );
-            }
-          } else {
-            allowedMetricIdsForFiltering.add(id);
-          }
-        });
-      }
-
+      // allowedMetricIds is the set of metrics that are explicitly selected
+      // by the user either directly or via the group. This code will drop
+      // metrics in groups that are not explicitly selected via the group or
+      // themselves.
       const finalExpandedGoals =
         actualMetricFilter.length > 0
-          ? expandedGoals.filter((id) => allowedMetricIdsForFiltering.has(id))
+          ? expandedGoals.filter((id) => allowedMetricIds.has(id))
           : expandedGoals;
       const finalExpandedSecondaries =
         actualMetricFilter.length > 0
-          ? expandedSecondaries.filter((id) =>
-              allowedMetricIdsForFiltering.has(id),
-            )
+          ? expandedSecondaries.filter((id) => allowedMetricIds.has(id))
           : expandedSecondaries;
       const finalExpandedGuardrails =
         actualMetricFilter.length > 0
-          ? expandedGuardrails.filter((id) =>
-              allowedMetricIdsForFiltering.has(id),
-            )
+          ? expandedGuardrails.filter((id) => allowedMetricIds.has(id))
           : expandedGuardrails;
 
       // Dedup metric rows to prevent rendering the same metric multiple times
