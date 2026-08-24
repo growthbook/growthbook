@@ -115,6 +115,12 @@ export function getExperimentSettingsHashForIncrementalRefresh(
     settingsForHash[field] = snapshotSettings[field];
   }
 
+  // Incremental units SQL used to ignore segment and queryFilter before #6711.
+  // Salt only those hashes so pre-fix tables refresh; unfiltered tables are still valid.
+  if (snapshotSettings.segment || snapshotSettings.queryFilter) {
+    settingsForHash.unitsFiltersApplied = true;
+  }
+
   return hashObject(settingsForHash);
 }
 

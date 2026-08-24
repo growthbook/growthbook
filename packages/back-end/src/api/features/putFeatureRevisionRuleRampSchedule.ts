@@ -4,7 +4,7 @@ import {
   RampStartState,
   putFeatureRevisionRuleRampScheduleValidator,
 } from "shared/validators";
-import { resetReviewOnChange } from "shared/util";
+import { getApplicableEnvIds, resetReviewOnChange } from "shared/util";
 import { resolveRampStartState } from "back-end/src/services/rampSchedule";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
@@ -17,7 +17,6 @@ import {
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
-  getApplicableEnvIds,
   resolveRampTarget,
   ruleFootprint,
 } from "back-end/src/util/flattenRules";
