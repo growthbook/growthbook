@@ -529,6 +529,10 @@ const getFailedMetricResult = (errorMessage: string): SnapshotMetric => ({
   cr: 0,
   buckets: [],
   errorMessage,
+  // Marks an analysis-level compute failure, distinct from the benign
+  // per-variation errorMessage gbstats stamps on successful snapshots.
+  // TODO: change how we handle expected vs unexpected errors so we can remove this flag
+  computeFailed: true,
 });
 
 export function parseStatsEngineResult({

@@ -430,7 +430,10 @@ export function findErroredSafeRolloutMetricId(
         for (const [metricId, metric] of Object.entries(
           variation.metrics ?? {},
         )) {
-          if (metric?.errorMessage) return metricId;
+          // Only analysis-level compute failures (which used to error the whole
+          // snapshot) block advancement. A benign per-variation errorMessage
+          // (no units, moments failure) leaves the snapshot valid, so ignore it.
+          if (metric?.computeFailed) return metricId;
         }
       }
     }

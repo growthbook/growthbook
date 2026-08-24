@@ -83,6 +83,7 @@ describe("parseStatsEngineResult", () => {
         users: 0,
         buckets: [],
         errorMessage: "metric analysis failed",
+        computeFailed: true,
       });
     });
   });
@@ -145,11 +146,13 @@ describe("parseStatsEngineResult", () => {
         cr: 0,
         buckets: [],
         errorMessage: "analysis 0 failed",
+        computeFailed: true,
       });
     });
 
     results[1].dimensions[0].variations.forEach((variation) => {
       expect(variation.metrics.partial.errorMessage).toBeUndefined();
+      expect(variation.metrics.partial.computeFailed).toBeUndefined();
       expect(variation.metrics.partial.cr).toBeGreaterThan(0);
     });
   });
@@ -183,6 +186,7 @@ describe("parseStatsEngineResult", () => {
     result.dimensions[0].variations.forEach((variation) => {
       expect(variation.metrics.survivor).toBeDefined();
       expect(variation.metrics.boom.errorMessage).toBeTruthy();
+      expect(variation.metrics.boom.computeFailed).toBe(true);
     });
   });
 
@@ -208,6 +212,7 @@ describe("parseStatsEngineResult", () => {
               users: 0,
               buckets: [],
               errorMessage: "metric analysis failed",
+              computeFailed: true,
             },
           },
         })),
