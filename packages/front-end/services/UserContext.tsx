@@ -104,6 +104,8 @@ export interface UserContextValue {
   pylonHmacHash?: string;
   email?: string;
   superAdmin?: boolean;
+  /** When the current user's account was created (ISO string), null if unknown */
+  dateCreated?: string | null;
   license?: Partial<LicenseInterface> | null;
   installationName?: string;
   subscription: SubscriptionInfo | null;
@@ -550,6 +552,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         email: data?.email,
         pylonHmacHash: data?.pylonHmacHash,
         superAdmin: data?.superAdmin,
+        dateCreated: data?.dateCreated ?? null,
         updateUser,
         user,
         users,

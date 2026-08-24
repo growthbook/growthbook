@@ -8,6 +8,7 @@ import Heading from "@/ui/Heading";
 import LinkButton from "@/ui/LinkButton";
 import Text from "@/ui/Text";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { useUser } from "@/services/UserContext";
 
 // How long a dismissed banner stays hidden before re-showing.
 const DISMISS_DURATION_MS = 90 * 24 * 60 * 60 * 1000;
@@ -123,7 +124,41 @@ type MarketingBannerConfig = {
   buttonCopy: string;
   buttonLink: string;
   dismissible?: boolean;
+  /**
+   * Rolling window, in days, measured from the current user's own account
+   * creation date (not the org's). Only users created within the last N days
+   * see the banner. Omitted, zero, or negative means no age targeting.
+   */
+  maxUserAgeDays?: number;
 };
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * Whether a user whose account was created at `userDateCreated` still falls
+ * inside a rolling `maxUserAgeDays` window ending now.
+ * No window configured => everyone passes. Window configured but the creation
+ * date is missing or unparseable => nobody passes, so targeting never leaks
+ * the banner to users we cannot place.
+ */
+export function isWithinUserAgeWindow({
+  userDateCreated,
+  maxUserAgeDays,
+  now = Date.now(),
+}: {
+  userDateCreated?: string | null;
+  maxUserAgeDays?: number;
+  now?: number;
+}): boolean {
+  if (typeof maxUserAgeDays !== "number" || maxUserAgeDays <= 0) return true;
+  const created = userDateCreated ?? null;
+  if (created === null) return false;
+
+  const createdAt = new Date(created).getTime();
+  if (Number.isNaN(createdAt)) return false;
+
+  return now - maxUserAgeDays * MS_PER_DAY <= createdAt;
+}
 
 // Slug derived from the title so changing the banner copy re-shows it to users
 // who dismissed the previous one.
@@ -137,8 +172,8 @@ function slugify(value: string): string {
 /**
  * Reads the `home-marketing-banner` JSON feature flag and renders the banner.
  * Requires a title and a complete button (both buttonCopy and buttonLink).
- * Everything else — pill, subheader, dismissible — is optional and degrades
- * gracefully.
+ * Everything else — pill, subheader, dismissible, maxUserAgeDays — is optional
+ * and degrades gracefully.
  * Returns null when a required field is missing or the flag is unset.
  */
 export function HomeMarketingBanner() {
@@ -146,6 +181,7 @@ export function HomeMarketingBanner() {
     "home-marketing-banner",
     null,
   );
+  const { dateCreated } = useUser();
 
   const cta =
     config?.buttonCopy && config?.buttonLink
@@ -153,6 +189,17 @@ export function HomeMarketingBanner() {
       : undefined;
 
   if (!config?.title || !cta) return null;
+
+  // Rolling window evaluated at render time, so the banner ages out on its own
+  // without anyone editing the flag.
+  if (
+    !isWithinUserAgeWindow({
+      userDateCreated: dateCreated,
+      maxUserAgeDays: config.maxUserAgeDays,
+    })
+  ) {
+    return null;
+  }
 
   // Identity changes when the banner copy changes. The `key` forces a
   // remount so useLocalStorage re-reads the dismissed state from the new
