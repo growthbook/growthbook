@@ -514,6 +514,7 @@
               {
                 "group": "Feature Flags (legacy)",
                 "tag": "LEGACY",
+                "expanded": false,
                 "pages": [
                   "api/features/operation/listFeatures",
                   "api/features/operation/postFeature",
@@ -529,6 +530,7 @@
               {
                 "group": "Feature Revisions (legacy)",
                 "tag": "LEGACY",
+                "expanded": false,
                 "pages": [
                   "api/feature-revisions/operation/listRevisions",
                   "api/feature-revisions/operation/getFeatureRevisions",
@@ -630,6 +632,7 @@
               {
                 "group": "Metrics (legacy)",
                 "tag": "LEGACY",
+                "expanded": false,
                 "pages": [
                   "api/metrics/operation/listMetrics",
                   "api/metrics/operation/postMetric",

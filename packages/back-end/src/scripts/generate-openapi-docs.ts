@@ -21,23 +21,6 @@ const DOCS_JSON_PATH = path.join(DOCS_DIR, "docs.json");
 
 const HTTP_METHODS = ["get", "post", "put", "patch", "delete"] as const;
 
-// Badges shown next to a nav group. Not derivable from the spec, so new tags
-// start unbadged until someone adds them here.
-const NAV_BADGES: Record<string, string> = {
-  "features-v2": "v2",
-  "feature-revisions-v2": "v2",
-  features: "LEGACY",
-  "feature-revisions": "LEGACY",
-  metrics: "LEGACY",
-  releases: "BETA",
-  constants: "BETA",
-  "constant-revisions": "BETA",
-  configs: "BETA",
-  "config-revisions": "BETA",
-  ContextualBandits: "BETA",
-  ContextualBanditQueries: "BETA",
-};
-
 interface SpecOperation {
   operationId?: string;
   summary?: string;
@@ -65,6 +48,19 @@ function frontmatter(fields: Record<string, string>): string {
     ([key, value]) => `${key}: ${JSON.stringify(value)}`,
   );
   return ["---", ...lines, "---", ""].join("\n");
+}
+
+/**
+ * Nav properties a person set by hand: badges (`tag: "BETA"`) and the
+ * `expanded: false` that keeps the long legacy groups collapsed. None of it is
+ * derivable from the spec, so carry it across a regeneration. Matched on the
+ * group's display name, so renaming a tag's `x-displayName` drops its badge.
+ */
+function manualNavProps(group: NavGroup | undefined): Record<string, unknown> {
+  if (!group) return {};
+  return Object.fromEntries(
+    Object.entries(group).filter(([key]) => key !== "group" && key !== "pages"),
+  );
 }
 
 function writeFile(filePath: string, contents: string): void {
@@ -179,21 +175,35 @@ async function run() {
   const apiTab = docsConfig.navigation.tabs.find((tab) => tab.tab === "API");
   if (!apiTab) throw new Error("No API tab in docs.json");
 
+  const existingSubgroups = new Map<string, NavGroup>();
+  for (const group of apiTab.groups) {
+    for (const page of group.pages) {
+      if (typeof page !== "string") existingSubgroups.set(page.group, page);
+    }
+  }
+
   const replaceGroup = (name: string, pages: (string | NavGroup)[]) => {
     const index = apiTab.groups.findIndex((group) => group.group === name);
     if (index === -1) throw new Error(`No "${name}" group in the API tab`);
-    apiTab.groups[index] = { group: name, pages };
+    apiTab.groups[index] = {
+      group: name,
+      ...manualNavProps(apiTab.groups[index]),
+      pages,
+    };
   };
 
   replaceGroup(
     "Endpoints",
     endpointTags
       .filter((tag) => operationsByTag.has(tag))
-      .map((tag) => ({
-        group: displayNames.get(tag) ?? tag,
-        ...(NAV_BADGES[tag] ? { tag: NAV_BADGES[tag] } : {}),
-        pages: operationsByTag.get(tag) ?? [],
-      })),
+      .map((tag) => {
+        const group = displayNames.get(tag) ?? tag;
+        return {
+          group,
+          ...manualNavProps(existingSubgroups.get(group)),
+          pages: operationsByTag.get(tag) ?? [],
+        };
+      }),
   );
   replaceGroup(
     "Models",
