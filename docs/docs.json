@@ -514,7 +514,6 @@
               {
                 "group": "Feature Flags (legacy)",
                 "tag": "LEGACY",
-                "expanded": false,
                 "pages": [
                   "api/features/operation/listFeatures",
                   "api/features/operation/postFeature",
@@ -530,7 +529,6 @@
               {
                 "group": "Feature Revisions (legacy)",
                 "tag": "LEGACY",
-                "expanded": false,
                 "pages": [
                   "api/feature-revisions/operation/listRevisions",
                   "api/feature-revisions/operation/getFeatureRevisions",
@@ -608,6 +606,9 @@
                   "api/fact-tables/operation/getFactTableFilter",
                   "api/fact-tables/operation/updateFactTableFilter",
                   "api/fact-tables/operation/deleteFactTableFilter",
+                  "api/fact-tables/operation/postFactTableVirtualColumn",
+                  "api/fact-tables/operation/updateFactTableVirtualColumn",
+                  "api/fact-tables/operation/deleteFactTableVirtualColumn",
                   "api/fact-tables/operation/getAggregatedFactTables",
                   "api/fact-tables/operation/refreshAggregatedFactTable",
                   "api/fact-tables/operation/listAggregatedTableRuns",
@@ -629,13 +630,13 @@
               {
                 "group": "Metrics (legacy)",
                 "tag": "LEGACY",
-                "expanded": false,
                 "pages": [
                   "api/metrics/operation/listMetrics",
                   "api/metrics/operation/postMetric",
                   "api/metrics/operation/getMetric",
                   "api/metrics/operation/putMetric",
-                  "api/metrics/operation/deleteMetric"
+                  "api/metrics/operation/deleteMetric",
+                  "api/metrics/operation/listMetricExperiments"
                 ]
               },
               {
@@ -651,6 +652,7 @@
                   "api/experiments/operation/postExperimentStart",
                   "api/experiments/operation/postExperimentStartChecklistManualComplete",
                   "api/experiments/operation/postExperimentStop",
+                  "api/experiments/operation/putExperimentSchedule",
                   "api/experiments/operation/postExperimentModifyTemporaryRollout",
                   "api/experiments/operation/postExperimentSnapshot",
                   "api/experiments/operation/postVariationImageUpload",
@@ -736,7 +738,8 @@
                   "api/saved-groups/operation/updateSavedGroup",
                   "api/saved-groups/operation/deleteSavedGroup",
                   "api/saved-groups/operation/archiveSavedGroup",
-                  "api/saved-groups/operation/unarchiveSavedGroup"
+                  "api/saved-groups/operation/unarchiveSavedGroup",
+                  "api/saved-groups/operation/getSavedGroupReferences"
                 ]
               },
               {
@@ -755,6 +758,10 @@
                   "api/saved-group-revisions/operation/postSavedGroupRevisionItemsRemove",
                   "api/saved-group-revisions/operation/postSavedGroupRevisionRequestReview",
                   "api/saved-group-revisions/operation/postSavedGroupRevisionSubmitReview",
+                  "api/saved-group-revisions/operation/postSavedGroupRevisionRecallReview",
+                  "api/saved-group-revisions/operation/postSavedGroupRevisionReopen",
+                  "api/saved-group-revisions/operation/postSavedGroupRevisionSchedulePublish",
+                  "api/saved-group-revisions/operation/postSavedGroupRevisionUndoReview",
                   "api/saved-group-revisions/operation/getSavedGroupRevisionMergeStatus",
                   "api/saved-group-revisions/operation/postSavedGroupRevisionRebase",
                   "api/saved-group-revisions/operation/postSavedGroupRevisionPublish",
@@ -763,9 +770,111 @@
                 ]
               },
               {
+                "group": "Constants",
+                "tag": "BETA",
+                "pages": [
+                  "api/constants/operation/listConstants",
+                  "api/constants/operation/postConstant",
+                  "api/constants/operation/getConstantReferences",
+                  "api/constants/operation/getConstant",
+                  "api/constants/operation/updateConstant",
+                  "api/constants/operation/deleteConstant",
+                  "api/constants/operation/archiveConstant",
+                  "api/constants/operation/unarchiveConstant"
+                ]
+              },
+              {
+                "group": "Constant Revisions",
+                "tag": "BETA",
+                "pages": [
+                  "api/constant-revisions/operation/listConstantRevisions",
+                  "api/constant-revisions/operation/getConstantRevisions",
+                  "api/constant-revisions/operation/postConstantRevision",
+                  "api/constant-revisions/operation/getConstantRevisionLatest",
+                  "api/constant-revisions/operation/getConstantRevision",
+                  "api/constant-revisions/operation/putConstantRevisionMetadata",
+                  "api/constant-revisions/operation/putConstantRevisionValue",
+                  "api/constant-revisions/operation/putConstantRevisionArchive",
+                  "api/constant-revisions/operation/postConstantRevisionRequestReview",
+                  "api/constant-revisions/operation/postConstantRevisionSubmitReview",
+                  "api/constant-revisions/operation/postConstantRevisionRecallReview",
+                  "api/constant-revisions/operation/postConstantRevisionReopen",
+                  "api/constant-revisions/operation/postConstantRevisionSchedulePublish",
+                  "api/constant-revisions/operation/postConstantRevisionUndoReview",
+                  "api/constant-revisions/operation/getConstantRevisionMergeStatus",
+                  "api/constant-revisions/operation/postConstantRevisionRebase",
+                  "api/constant-revisions/operation/postConstantRevisionPublish",
+                  "api/constant-revisions/operation/postConstantRevisionDiscard",
+                  "api/constant-revisions/operation/postConstantRevisionRevert"
+                ]
+              },
+              {
+                "group": "Configs",
+                "tag": "BETA",
+                "pages": [
+                  "api/configs/operation/listConfigs",
+                  "api/configs/operation/postConfig",
+                  "api/configs/operation/getConfigReferences",
+                  "api/configs/operation/getConfigKeyUsage",
+                  "api/configs/operation/getConfigLineage",
+                  "api/configs/operation/verifyConfigSchema",
+                  "api/configs/operation/getConfigSchema",
+                  "api/configs/operation/getConfig",
+                  "api/configs/operation/updateConfig",
+                  "api/configs/operation/deleteConfig",
+                  "api/configs/operation/archiveConfig",
+                  "api/configs/operation/unarchiveConfig",
+                  "api/configs/operation/lockConfig",
+                  "api/configs/operation/unlockConfig"
+                ]
+              },
+              {
+                "group": "Config Revisions",
+                "tag": "BETA",
+                "pages": [
+                  "api/config-revisions/operation/listConfigRevisions",
+                  "api/config-revisions/operation/getConfigRevisions",
+                  "api/config-revisions/operation/postConfigRevision",
+                  "api/config-revisions/operation/getConfigRevisionLatest",
+                  "api/config-revisions/operation/getConfigRevision",
+                  "api/config-revisions/operation/putConfigRevisionMetadata",
+                  "api/config-revisions/operation/putConfigRevisionValue",
+                  "api/config-revisions/operation/putConfigRevisionProperty",
+                  "api/config-revisions/operation/deleteConfigRevisionProperty",
+                  "api/config-revisions/operation/putConfigRevisionSchema",
+                  "api/config-revisions/operation/putConfigRevisionProjection",
+                  "api/config-revisions/operation/deleteConfigRevisionProjection",
+                  "api/config-revisions/operation/putConfigRevisionArchive",
+                  "api/config-revisions/operation/postConfigRevisionRequestReview",
+                  "api/config-revisions/operation/postConfigRevisionSubmitReview",
+                  "api/config-revisions/operation/postConfigRevisionUndoReview",
+                  "api/config-revisions/operation/postConfigRevisionRecallReview",
+                  "api/config-revisions/operation/postConfigRevisionReopen",
+                  "api/config-revisions/operation/postConfigRevisionSchedulePublish",
+                  "api/config-revisions/operation/getConfigRevisionMergeStatus",
+                  "api/config-revisions/operation/postConfigRevisionRebase",
+                  "api/config-revisions/operation/postConfigRevisionPublish",
+                  "api/config-revisions/operation/postConfigRevisionDiscard",
+                  "api/config-revisions/operation/postConfigRevisionRevert"
+                ]
+              },
+              {
                 "group": "Releases",
                 "tag": "BETA",
                 "pages": ["api/releases/operation/postReleasePublishRevisions"]
+              },
+              {
+                "group": "Custom Hooks",
+                "pages": [
+                  "api/custom-hooks/operation/listCustomHooks",
+                  "api/custom-hooks/operation/postCustomHook",
+                  "api/custom-hooks/operation/testCustomHook",
+                  "api/custom-hooks/operation/getCustomHook",
+                  "api/custom-hooks/operation/updateCustomHook",
+                  "api/custom-hooks/operation/deleteCustomHook",
+                  "api/custom-hooks/operation/listCustomHookHistory",
+                  "api/custom-hooks/operation/revertCustomHook"
+                ]
               },
               {
                 "group": "Organizations",
@@ -807,7 +916,10 @@
               },
               {
                 "group": "Settings",
-                "pages": ["api/settings/operation/getSettings"]
+                "pages": [
+                  "api/settings/operation/getSettings",
+                  "api/settings/operation/putApprovalSettings"
+                ]
               },
               {
                 "group": "Attributes",
@@ -827,6 +939,30 @@
                 "pages": ["api/meta/operation/getVersion"]
               },
               {
+                "group": "Contextual Bandits",
+                "tag": "BETA",
+                "pages": [
+                  "api/ContextualBandits/operation/getContextualBanditCurrentWeights",
+                  "api/ContextualBandits/operation/listContextualBanditSnapshots",
+                  "api/ContextualBandits/operation/getContextualBanditSnapshot",
+                  "api/ContextualBandits/operation/listContextualBanditEvents",
+                  "api/ContextualBandits/operation/getContextualBanditEvent",
+                  "api/ContextualBandits/operation/getContextualBanditResults",
+                  "api/ContextualBandits/operation/getContextualBanditLinkedFeatures",
+                  "api/ContextualBandits/operation/addContextualBanditLinkedFeature",
+                  "api/ContextualBandits/operation/updateContextualBanditLinkedFeature",
+                  "api/ContextualBandits/operation/deleteContextualBanditLinkedFeature",
+                  "api/ContextualBandits/operation/getContextualBandit",
+                  "api/ContextualBandits/operation/updateContextualBandit",
+                  "api/ContextualBandits/operation/listContextualBandits",
+                  "api/ContextualBandits/operation/createContextualBandit",
+                  "api/ContextualBandits/operation/startContextualBandit",
+                  "api/ContextualBandits/operation/stopContextualBandit",
+                  "api/ContextualBandits/operation/refreshContextualBandit",
+                  "api/ContextualBandits/operation/cancelContextualBandit"
+                ]
+              },
+              {
                 "group": "Dashboards",
                 "pages": [
                   "api/Dashboards/operation/getDashboard",
@@ -835,6 +971,17 @@
                   "api/Dashboards/operation/listDashboards",
                   "api/Dashboards/operation/createDashboard",
                   "api/Dashboards/operation/getDashboardsForExperiment"
+                ]
+              },
+              {
+                "group": "Contextual Bandit Queries",
+                "tag": "BETA",
+                "pages": [
+                  "api/ContextualBanditQueries/operation/getContextualBanditQuery",
+                  "api/ContextualBanditQueries/operation/updateContextualBanditQuery",
+                  "api/ContextualBanditQueries/operation/deleteContextualBanditQuery",
+                  "api/ContextualBanditQueries/operation/listContextualBanditQueries",
+                  "api/ContextualBanditQueries/operation/createContextualBanditQuery"
                 ]
               },
               {
@@ -885,7 +1032,8 @@
                 "pages": [
                   "api/AnalyticsExplorations/operation/postMetricExploration",
                   "api/AnalyticsExplorations/operation/postFactTableExploration",
-                  "api/AnalyticsExplorations/operation/postDataSourceExploration"
+                  "api/AnalyticsExplorations/operation/postDataSourceExploration",
+                  "api/AnalyticsExplorations/operation/postFunnelExploration"
                 ]
               },
               {
@@ -896,6 +1044,17 @@
                   "api/RampScheduleTemplates/operation/deleteRampScheduleTemplate",
                   "api/RampScheduleTemplates/operation/listRampScheduleTemplates",
                   "api/RampScheduleTemplates/operation/createRampScheduleTemplate"
+                ]
+              },
+              {
+                "group": "Learnings",
+                "pages": [
+                  "api/Learnings/operation/getLearning",
+                  "api/Learnings/operation/updateLearning",
+                  "api/Learnings/operation/deleteLearning",
+                  "api/Learnings/operation/listLearnings",
+                  "api/Learnings/operation/createLearning",
+                  "api/Learnings/operation/searchLearnings"
                 ]
               }
             ]
@@ -908,7 +1067,28 @@
               "api/Archetype_model",
               "api/Attribute_model",
               "api/CodeRef_model",
+              "api/Config_model",
+              "api/ConfigKeyUsage_model",
+              "api/ConfigLineage_model",
+              "api/ConfigReferences_model",
+              "api/ConfigRevision_model",
+              "api/ConfigRevisionActivityLogEntry_model",
+              "api/ConfigRevisionRef_model",
+              "api/ConfigRevisionReview_model",
+              "api/ConfigSchemaExport_model",
+              "api/ConfigSchemaSource_model",
+              "api/ConfigSchemaVerify_model",
+              "api/ConfigSchemaWarning_model",
+              "api/Constant_model",
+              "api/ConstantReferences_model",
+              "api/ConstantRevision_model",
+              "api/ConstantRevisionActivityLogEntry_model",
+              "api/ConstantRevisionRef_model",
+              "api/ConstantRevisionReview_model",
+              "api/ContextualBandit_model",
+              "api/ContextualBanditQuery_model",
               "api/CustomField_model",
+              "api/CustomHook_model",
               "api/Dashboard_model",
               "api/DataSource_model",
               "api/Dimension_model",
@@ -929,12 +1109,14 @@
               "api/FactTableColumn_model",
               "api/FactTableFilter_model",
               "api/FeatureBaseRule_model",
+              "api/FeatureContextualBanditRefRule_model",
               "api/FeatureDefinition_model",
               "api/FeatureEnvironmentV1_model",
               "api/FeatureEnvironmentV2_model",
               "api/FeatureExperimentRefRule_model",
               "api/FeatureExperimentRule_model",
               "api/FeatureForceRule_model",
+              "api/FeatureRevisionRef_model",
               "api/FeatureRevisionSummary_model",
               "api/FeatureRevisionV1_model",
               "api/FeatureRevisionV2_model",
@@ -948,6 +1130,7 @@
               "api/FeatureWithRevisionsV2_model",
               "api/InformationSchema_model",
               "api/InformationSchemaTable_model",
+              "api/Learning_model",
               "api/LookbackOverride_model",
               "api/Member_model",
               "api/Metric_model",
@@ -963,12 +1146,19 @@
               "api/RampSchedule_model",
               "api/RampScheduleTemplate_model",
               "api/Report_model",
+              "api/RequireReviewRule_model",
+              "api/RequireReviewRuleInput_model",
+              "api/RevisionIdRef_model",
               "api/Safe Rollout Rule_model",
               "api/SavedGroup_model",
+              "api/SavedGroupApprovalRule_model",
+              "api/SavedGroupReferences_model",
               "api/SavedGroupRevision_model",
               "api/SavedGroupRevisionActivityLogEntry_model",
+              "api/SavedGroupRevisionRef_model",
               "api/SavedGroupRevisionReview_model",
               "api/ScheduleRule_model",
+              "api/ScheduledStopPlan_model",
               "api/SdkConnection_model",
               "api/Segment_model",
               "api/Settings_model",
