@@ -45,6 +45,11 @@ import {
   EXTENDS_KEY,
 } from "../sdk-versioning";
 import {
+  threeWayMerge,
+  ThreeWayMergeConfig,
+  ThreeWayMergeResult,
+} from "./threeWayMerge";
+import {
   resolveProjectScopedRule,
   projectsWithOwnRule,
   RuleCombiners,
@@ -1672,6 +1677,53 @@ export function revisionHasMetadataOnlyGlobalChange(
 //
 // Returns the conflicts found (resolved or not) and the merged array — or
 // `merged: null` while any rule-level conflict remains unresolved.
+// Mutually-exclusive pairs; merged independently they can contradict.
+const RULE_MERGE_CHUNKS: string[][] = [
+  ["environments", "allEnvironments"],
+  ["projects", "allProjects"],
+];
+
+function ruleTypeFamily(type: string | undefined): string {
+  return type === "force" || type === "rollout"
+    ? "force-rollout"
+    : (type ?? "");
+}
+
+export type RuleMergeResult = ThreeWayMergeResult<FeatureRule>;
+
+export function featureRuleMergeConfig(
+  yours: FeatureRule,
+): ThreeWayMergeConfig<FeatureRule> {
+  // Type follows coverage here, so resolve coverage and derive it.
+  const derivesTypeFromCoverage =
+    ruleTypeFamily(yours.type) === "force-rollout";
+  return {
+    chunks: RULE_MERGE_CHUNKS,
+    family: (r) => ruleTypeFamily(r.type),
+    ignoreFields: () => (derivesTypeFromCoverage ? ["id", "type"] : ["id"]),
+    derive: derivesTypeFromCoverage
+      ? (merged) => {
+          const coverage = merged.coverage;
+          merged.type =
+            typeof coverage === "number" && coverage < 1 ? "rollout" : "force";
+        }
+      : undefined,
+  };
+}
+
+export function threeWayMergeRule(
+  base: FeatureRule,
+  theirs: FeatureRule,
+  yours: FeatureRule,
+): RuleMergeResult {
+  return threeWayMerge<FeatureRule>(
+    base,
+    theirs,
+    yours,
+    featureRuleMergeConfig(yours),
+  );
+}
+
 function mergeRulesGranular(
   base: FeatureRule[],
   live: FeatureRule[],
