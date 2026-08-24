@@ -100,7 +100,6 @@ export interface FactTableInterface {
   columnRefreshPending?: boolean;
   filters: FactFilterInterface[];
   archived?: boolean;
-  timestampColumn?: string;
   autoSliceUpdatesEnabled?: boolean;
   // Null/undefined means the pipeline is disabled for this fact table.
   aggregatedFactTableSettings?: z.infer<

@@ -17,12 +17,10 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getCreateMetricPropsFromBody } from "back-end/src/api/fact-metrics/postFactMetric";
 import { getUpdateFactMetricPropsFromBody } from "back-end/src/api/fact-metrics/updateFactMetric";
-import {
-  needsColumnRefresh,
-  columnsNeedDetection,
-} from "back-end/src/api/fact-tables/updateFactTable";
+import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
 import {
   columnsHaveAutoSlices,
+  columnsNeedDetection,
   validateVirtualColumnProps,
 } from "back-end/src/util/factTable";
 import { resolveOwnerToUserId } from "back-end/src/services/owner";
@@ -161,17 +159,24 @@ export const postBulkImportFacts = createApiRequestHandler(
           delete data.columns;
         }
 
-        await updateFactTable(req.context, existing, data);
-        if (
+        const willRefresh =
           needsColumnRefresh(existing, data) ||
-          columnsNeedDetection(existing.columns)
-        ) {
+          columnsNeedDetection(existing.columns);
+        await updateFactTable(
+          req.context,
+          existing,
+          willRefresh ? { ...data, columnRefreshPending: true } : data,
+        );
+        if (willRefresh) {
           await queueFactTableColumnsRefresh(existing);
         }
         factTableMap.set(existing.id, {
           ...existing,
           ...data,
           columns: existing.columns,
+          columnRefreshPending: willRefresh
+            ? true
+            : existing.columnRefreshPending,
         });
         numUpdated.factTables++;
       }
@@ -200,6 +205,9 @@ export const postBulkImportFacts = createApiRequestHandler(
         if (factTable.userIdTypes) {
           validateUserIdTypes(factTable.datasource, factTable.userIdTypes);
         }
+
+        factTable.columnRefreshPending =
+          !factTable.columns?.length || columnsNeedDetection(factTable.columns);
 
         const newFactTable = await createFactTable(req.context, factTable);
         await queueFactTableColumnsRefresh(newFactTable);

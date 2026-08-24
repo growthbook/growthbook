@@ -2,10 +2,10 @@
 // Public types for useAIChat
 // ---------------------------------------------------------------------------
 
-import type { AIChatMessage } from "shared/ai-chat";
+import type { AIChatMention, AIChatMessage } from "shared/ai-chat";
 import type { AIAgentPendingAction } from "shared/validators";
 
-export type { AIChatMessage };
+export type { AIChatMention, AIChatMessage };
 
 export type ActiveTurnItem =
   | { kind: "text"; id: string; content: string }
@@ -138,7 +138,11 @@ export interface UseAIChatReturn {
   displayedTextMap: Map<string, string>;
   sendMessage: (
     messageOverride?: string,
-    options?: { suppressUserMessage?: boolean },
+    options?: {
+      suppressUserMessage?: boolean;
+      mentions?: AIChatMention[];
+      skills?: string[];
+    },
   ) => void;
   /** Cancels the active live stream. No-op unless `isLocalStream` is true. */
   cancelGeneration: () => void;
