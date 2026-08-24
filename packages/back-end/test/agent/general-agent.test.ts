@@ -14,7 +14,7 @@ jest.mock("back-end/src/enterprise/services/agent-handler", () => ({
 import {
   _coerceBody,
   _requiresMutationConfirmation,
-} from "back-end/src/agent/general-agent";
+} from "back-end/src/agent/shared-tools";
 
 describe("coerceBody (callApi defensive parsing)", () => {
   it("returns objects unchanged", () => {

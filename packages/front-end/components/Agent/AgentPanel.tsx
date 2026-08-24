@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiX, PiPlus, PiArrowLineLeft, PiArrowLineRight } from "react-icons/pi";
 import type { AIChatMessage } from "shared/ai-chat";
+import type { AnalyticsHandoff } from "shared/validators";
 import Markdown from "@/components/Markdown/Markdown";
 import Text from "@/ui/Text";
 import track from "@/services/track";
@@ -36,7 +37,7 @@ import ChatComposer, {
   type ComposerSubmission,
 } from "@/enterprise/components/AIChat/Composer/ChatComposer";
 import { useMentionItems } from "@/enterprise/components/AIChat/Composer/useMentionItems";
-import { useSkillCommandItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
+import { useSkillMenuItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
 import { useAgentInteractionPrompts } from "@/enterprise/hooks/useAgentInteractionPrompts";
 import AgentChatHistory from "./AgentChatHistory";
 import {
@@ -50,7 +51,6 @@ import AskUserCard, { type AskUserOption } from "./AskUserCard";
 import ConfirmActionCard from "./ConfirmActionCard";
 import AnalyticsHandoffCard, {
   analyticsHandoffFromToolResult,
-  type AnalyticsHandoff,
 } from "./AnalyticsHandoffCard";
 
 const STORAGE_KEY = "growthbook.agent.conversationId";
@@ -194,7 +194,7 @@ export default function AgentPanel({
     resolveOnUserMessage,
     resolveAsk,
     resolveConfirm,
-    reset: resetPrompts,
+    reset: resetTransientState,
   } = useAgentInteractionPrompts();
   const pendingSubmissionRef = useRef<ComposerSubmission>({
     text: "",
@@ -203,7 +203,7 @@ export default function AgentPanel({
   });
 
   const { items: mentionItems, ready: mentionItemsReady } = useMentionItems();
-  const skillItems = useSkillCommandItems();
+  const skillItems = useSkillMenuItems();
 
   const {
     feedbackMap,
@@ -371,7 +371,7 @@ export default function AgentPanel({
 
   const handleAskOption = useCallback(
     (option: AskUserOption) => {
-      if (loading || !resolveAsk(option)) return;
+      if (loading || !resolveAsk()) return;
       trackMessageSent();
       sendMessage(option.label);
     },
@@ -389,8 +389,6 @@ export default function AgentPanel({
     },
     [resolveConfirm, sendMessage, loading, trackMessageSent],
   );
-
-  const resetTransientState = resetPrompts;
 
   const handleNewChat = useCallback(() => {
     track("AI Assistant New Conversation", {

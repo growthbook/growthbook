@@ -1,4 +1,5 @@
 import Mention from "@tiptap/extension-mention";
+import type { SkillKind } from "shared/ai-chat";
 
 export const SKILL_COMMAND_NAME = "skillCommand";
 
@@ -14,17 +15,10 @@ export interface SkillItem {
   /** Display name for the `/` menu, derived from `id` by `skillDisplayName`. */
   title: string;
   description: string;
-  /** The directory the skill is filed under, for grouping. Absent for a top-level skill. */
+  kind: SkillKind;
+  /** Parent domain for leaf skills; same as `id` for domain routers. */
   group?: string;
 }
-
-/**
- * Words a mechanical capitalization would get wrong. Only proper nouns the copy
- * guide pins a spelling for — "GrowthBook" is never "Growthbook".
- */
-const SKILL_WORD_CASING: Record<string, string> = {
-  growthbook: "GrowthBook",
-};
 
 /**
  * Menu label for a skill: its identifier with the hyphens opened up and the
@@ -39,7 +33,8 @@ export function skillDisplayName(id: string): string {
   const words = id
     .split("-")
     .filter(Boolean)
-    .map((w) => SKILL_WORD_CASING[w.toLowerCase()] ?? w);
+    // "GrowthBook" is never "Growthbook" — the one spelling the copy guide pins.
+    .map((w) => (w.toLowerCase() === "growthbook" ? "GrowthBook" : w));
   if (!words.length) return "";
   const [first, ...rest] = words;
   return [first.charAt(0).toUpperCase() + first.slice(1), ...rest].join(" ");

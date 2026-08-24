@@ -1,6 +1,7 @@
 import { setTimeout as delay } from "timers/promises";
 import { z } from "zod";
 import {
+  PRODUCT_ANALYTICS_CHAT_SKILL_GROUP,
   tryParseToolResultJson,
   toolResultSnapshotId,
   type AIChatMention,
@@ -1061,16 +1062,8 @@ async function resolveProductAnalyticsMentions(
   );
 }
 
-/**
- * The only skill group this chat can load. Dashboards are the natural next
- * step from a chart ("save these as a dashboard"), so the dashboard workflows
- * belong here — but an analytics chat has no business publishing a Feature Flag,
- * so everything else stays out. Scoping the resolver, not just the `/` menu,
- * means the model cannot reach another group's endpoints even if it guesses
- * the skill name.
- */
-export const PRODUCT_ANALYTICS_CHAT_SKILL_GROUP = "dashboards";
-
+// Scoped on the resolver, not just the `/` menu, so the model cannot reach
+// another domain's endpoints even if it guesses the skill name.
 function productAnalyticsSkillNames(): string[] {
   return getSkillNamesForGroup(PRODUCT_ANALYTICS_CHAT_SKILL_GROUP);
 }
@@ -1154,10 +1147,10 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
         description: PROPOSE_DASHBOARD_DESCRIPTION,
         inputSchema: proposeDashboardInputSchema,
         execute: async (input) => {
-          const { draft, droppedBlocks } = await buildDashboardDraft(ctx, {
-            ...input,
-            globalControls: input.globalControls,
-          });
+          const { draft, droppedBlocks } = await buildDashboardDraft(
+            ctx,
+            input,
+          );
           if (!draft.blocks.length) {
             return {
               status: "error" as const,

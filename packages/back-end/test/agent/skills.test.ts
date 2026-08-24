@@ -3,6 +3,8 @@ import {
   _clearSkillCacheForTests,
   assembleSkillsIndexForPrompt,
   getAllSkills,
+  getDomainSkills,
+  getLeafSkillsForDomain,
   getSkillByName,
   getSkillNames,
   getSkillNamesForGroup,
@@ -13,66 +15,67 @@ describe("agent skills loader", () => {
     _clearSkillCacheForTests();
   });
 
-  it("loads every markdown file as a skill in its own right", () => {
-    const names = getSkillNames();
+  it("loads domain routers and leaf skills from nested directories", () => {
+    const domains = getDomainSkills();
+    const domainNames = domains.map((s) => s.name).sort();
 
-    expect(names).toEqual(
+    expect(domainNames).toEqual(
       expect.arrayContaining([
-        // Top-level files.
-        "growthbook-docs",
-        "product-analytics",
-        // A directory's SKILL.md takes the directory's name...
+        "dashboards",
         "experiments",
         "feature-flags",
-        // ...and the files beside it are skills too, not sub-entries of it.
-        "experiment-launch",
-        "flag-create",
+        "growthbook-docs",
+        "product-analytics",
       ]),
     );
+    expect(domains.every((s) => s.kind === "domain")).toBe(true);
+
+    const ffLeaves = getLeafSkillsForDomain("feature-flags");
+    expect(ffLeaves.length).toBeGreaterThanOrEqual(15);
+    expect(
+      ffLeaves.every((s) => s.kind === "leaf" && s.group === "feature-flags"),
+    ).toBe(true);
+
+    const dashLeaves = getLeafSkillsForDomain("dashboards");
+    expect(dashLeaves.map((s) => s.name).sort()).toEqual([
+      "dashboard-create",
+      "dashboard-edit",
+    ]);
+
+    const expLeaves = getLeafSkillsForDomain("experiments");
+    expect(expLeaves.length).toBe(5);
+    expect(expLeaves.map((s) => s.name).sort()).toEqual([
+      "experiment-analyze",
+      "experiment-brainstorm",
+      "experiment-design",
+      "experiment-launch",
+      "experiment-stop",
+    ]);
   });
 
-  it("groups a skill by the directory it lives in", () => {
-    expect(getSkillByName("flag-create")?.group).toBe("feature-flags");
-    expect(getSkillByName("feature-flags")?.group).toBe("feature-flags");
-    // A top-level file belongs to no directory.
-    expect(getSkillByName("product-analytics")?.group).toBeUndefined();
-  });
+  it("includes leaf names in getSkillNames but only domains in the prompt index", () => {
+    const names = getSkillNames();
+    expect(names).toContain("flag-create");
+    expect(names).toContain("experiment-launch");
 
-  it("puts the shared-conventions skill at the head of its group", () => {
-    // The menu and the prompt index show this order, and the conventions read
-    // better before the workflows that lean on them.
-    const experiments = getSkillNamesForGroup("experiments");
-    expect(experiments[0]).toBe("experiments");
-    expect(experiments).toEqual(
-      expect.arrayContaining([
-        "experiment-analyze",
-        "experiment-brainstorm",
-        "experiment-design",
-        "experiment-launch",
-        "experiment-stop",
-      ]),
-    );
-    expect(experiments.length).toBe(6);
-  });
-
-  it("advertises every loadable skill in the prompt index", () => {
-    // The index is now the only place the agent learns a skill's name — there
-    // is no router table to read on the way in. A skill missing from it is
-    // unreachable however well it is written.
     const index = assembleSkillsIndexForPrompt();
-
-    for (const skill of getAllSkills()) {
-      expect(index).toContain(`**${skill.name}**`);
-    }
+    expect(index).toContain("**feature-flags**");
+    expect(index).toContain("**experiments**");
+    expect(index).not.toContain("flag-create");
+    expect(index).not.toContain("experiment-launch");
+    expect(index).not.toContain("dashboard-create");
   });
 
-  it("loads skill bodies by name", () => {
-    const conventions = getSkillByName("feature-flags");
-    expect(conventions?.body).toContain("Shared conventions");
+  it("loads skill bodies by name for domain and leaf", () => {
+    const domain = getSkillByName("feature-flags");
+    expect(domain?.kind).toBe("domain");
+    expect(domain?.body).toContain("Sub-skills");
 
-    const workflow = getSkillByName("flag-create");
-    expect(workflow?.body).toContain("callApi");
-    expect(workflow?.body).not.toContain("gb-call");
+    const leaf = getSkillByName("flag-create");
+    expect(leaf?.kind).toBe("leaf");
+    expect(leaf?.group).toBe("feature-flags");
+    expect(leaf?.body).toContain("callApi");
+    expect(leaf?.body).not.toContain("gb-call");
   });
 
   it("resolves skills from src/agent/skills when running tests from source", () => {
@@ -81,6 +84,7 @@ describe("agent skills loader", () => {
       "../../src/agent/skills/feature-flags/SKILL.md",
     );
     expect(getSkillByName("feature-flags")?.body.length).toBeGreaterThan(0);
+    // Sanity: router file exists at expected path in repo layout
     expect(skillsDir).toContain("feature-flags");
   });
 });
@@ -103,7 +107,7 @@ describe("agent skill cross-references", () => {
         // `loadSkill('<leaf>')` in prose is a template, not a reference to a
         // skill called "<leaf>".
         if (name.includes("<")) continue;
-        if (!known.has(name)) dangling.push(`${skill.name} → ${name}`);
+        if (!known.has(name)) dangling.push(`${skill.name} \u2192 ${name}`);
       }
     }
 
@@ -116,25 +120,26 @@ describe("getSkillNamesForGroup", () => {
     _clearSkillCacheForTests();
   });
 
-  it("returns every skill filed under the directory", () => {
-    // The Product Analytics chat scopes itself to this group, so both dashboard
-    // workflows must be reachable there — a missing one silently disappears
-    // from that chat's `/` menu and from what its agent can load.
-    const names = getSkillNamesForGroup("dashboards");
-    expect(names.includes("dashboards")).toBe(true);
-    expect(names.includes("dashboard-create")).toBe(true);
-    expect(names.includes("dashboard-edit")).toBe(true);
+  it("returns the router and every leaf under it", () => {
+    // The Product Analytics chat scopes itself to this domain, so both
+    // dashboard workflows must be reachable there — a missing one silently
+    // disappears from that chat's `/` menu and from what its agent can load.
+    expect(getSkillNamesForGroup("dashboards").sort()).toEqual([
+      "dashboard-create",
+      "dashboard-edit",
+      "dashboards",
+    ]);
   });
 
-  it("excludes other groups", () => {
+  it("excludes other domains", () => {
     const names = getSkillNamesForGroup("dashboards");
     expect(names.includes("flag-create")).toBe(false);
     expect(names.includes("feature-flags")).toBe(false);
   });
 
-  it("returns nothing for a name that is not a group", () => {
+  it("returns nothing for a name that is not a domain", () => {
     expect(getSkillNamesForGroup("nope")).toEqual([]);
-    // A skill name is not a directory name, even when it looks like one.
+    // A leaf name is not a domain name, even when it looks like one.
     expect(getSkillNamesForGroup("dashboard-create")).toEqual([]);
   });
 });

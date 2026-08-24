@@ -1033,6 +1033,9 @@
               {
                 "group": "Analytics Explorations",
                 "pages": [
+                  "api/AnalyticsExplorations/operation/searchProductAnalytics",
+                  "api/AnalyticsExplorations/operation/getProductAnalyticsColumns",
+                  "api/AnalyticsExplorations/operation/postProductAnalyticsColumnValues",
                   "api/AnalyticsExplorations/operation/postMetricExploration",
                   "api/AnalyticsExplorations/operation/postFactTableExploration",
                   "api/AnalyticsExplorations/operation/postDataSourceExploration",

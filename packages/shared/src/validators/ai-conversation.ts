@@ -58,6 +58,46 @@ export const aiChatMentionValidator = z
   })
   .strict();
 
+/**
+ * The brief the site-wide agent hands to the Product Analytics chat, which is
+ * the only surface that can render a dashboard preview.
+ *
+ * One definition for both ends: it is the `openAnalyticsChat` tool's input
+ * schema on the way in and what the handoff card parses on the way out, so the
+ * card cannot go stale against a field the tool started sending.
+ */
+export const analyticsHandoffValidator = z.object({
+  prompt: z
+    .string()
+    .trim()
+    .min(1)
+    .max(2000)
+    .describe(
+      "The brief to start the Analytics chat with, written as the user would put it " +
+        "and complete on its own — the chat on the other side gets this text and " +
+        "nothing else from this conversation. Name the metrics, the timeframe, and " +
+        "the dashboard name if the user gave one.",
+    ),
+  // A malformed `mentions` costs the other chat its id shortcuts, not the brief
+  // itself — so it drops rather than failing the whole handoff.
+  mentions: aiChatMentionValidator
+    .array()
+    .max(20)
+    .optional()
+    .catch(undefined)
+    .describe(
+      "Entities named in the prompt, copied from the `[Referenced by the user: ...]` " +
+        "line, so the other chat resolves them by id instead of searching.",
+    ),
+});
+
+export type AnalyticsHandoff = z.infer<typeof analyticsHandoffValidator>;
+
+/** The `openAnalyticsChat` tool result, as the transcript stores it. */
+export const analyticsHandoffResultValidator = z.object({
+  handoff: analyticsHandoffValidator,
+});
+
 /** Stored form. `stale` is server-set — the client cannot assert it. */
 export const aiChatStoredMentionValidator = aiChatMentionValidator.extend({
   stale: z.boolean().optional(),

@@ -4,14 +4,17 @@ import {
   blockUsesDashboardDateControl,
   DEFAULT_DASHBOARD_GLOBAL_CONTROLS,
   getEffectiveExplorationConfig,
+  proposeDashboardResultValidator,
   resolveBlockComparison,
   resolveComparisonMode,
   resolveComparisonPreviousTimeFrame,
   type DashboardBlockInterface,
   type DashboardBlockInterfaceOrData,
+  type DashboardDraftOf,
   type DashboardInterface,
+  type DroppedDashboardBlock,
 } from "shared/enterprise";
-import { tryParseToolResultJson } from "shared/ai-chat";
+import { parseToolResult } from "shared/ai-chat";
 import { PiCheckCircleFill, PiSparkleFill } from "react-icons/pi";
 import Link from "next/link";
 import Button from "@/ui/Button";
@@ -28,97 +31,33 @@ import DashboardEditor, {
 import styles from "./DashboardPreviewBubble.module.scss";
 
 /**
- * A dashboard the agent has proposed but nobody has saved yet.
- *
- * Mirrors the `draft` returned by the `proposeDashboard` tool. `dashboardId` is
- * present only when revising a dashboard that already exists, in which case
- * saving updates that one rather than creating a second.
+ * A dashboard the agent has proposed but nobody has saved yet, carrying the
+ * block shape this preview renders. `dashboardId` is present only when revising
+ * a dashboard that already exists, in which case saving updates that one rather
+ * than creating a second.
  */
-export interface DashboardDraft {
-  dashboardId?: string;
-  title: string;
-  /**
-   * Project ids the agent settled with the user; `[]` is every project. Absent
-   * when it could not establish one, which is the only case where the app's
-   * current project selection stands in.
-   */
-  projects?: string[];
-  globalControls?: DashboardInterface["globalControls"];
-  comparison?: DashboardInterface["comparison"];
-  blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
-}
+export type DashboardDraft = DashboardDraftOf<
+  DashboardBlockInterfaceOrData<DashboardBlockInterface>
+>;
 
-export interface DroppedBlock {
-  title: string;
-  type: string;
-  reason: string;
-}
-
-/**
- * Pull the draft out of a `proposeDashboard` tool result.
- *
- * Reads defensively: the result is JSON that came back through the model's tool
- * loop, and a malformed one should render nothing rather than throw inside the
- * message list.
- */
+/** Pull the draft out of a `proposeDashboard` tool result. */
 export function dashboardDraftFromToolResult(result: unknown): {
   draft: DashboardDraft;
-  droppedBlocks: DroppedBlock[];
+  droppedBlocks: DroppedDashboardBlock[];
 } | null {
-  const parsed =
-    typeof result === "string" ? tryParseToolResultJson(result) : result;
-
-  if (!parsed || typeof parsed !== "object") return null;
-  const { draft, droppedBlocks } = parsed as {
-    draft?: unknown;
-    droppedBlocks?: unknown;
-  };
-  if (!draft || typeof draft !== "object") return null;
-
-  const { title, blocks, projects, globalControls, comparison, dashboardId } =
-    draft as {
-      title?: unknown;
-      blocks?: unknown;
-      projects?: unknown;
-      globalControls?: unknown;
-      comparison?: unknown;
-      dashboardId?: unknown;
-    };
-  if (typeof title !== "string" || !Array.isArray(blocks) || !blocks.length) {
-    return null;
-  }
-
+  const parsed = parseToolResult(result, proposeDashboardResultValidator);
+  if (!parsed) return null;
+  // The blocks came out of `proposeDashboardBlockValidator` on the way in, so
+  // this narrows rather than trusts — see the note on `dashboardDraftValidator`.
   return {
-    draft: {
-      title,
-      blocks:
-        blocks as DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
-      // An empty array is meaningful ("every project"), so only a missing or
-      // malformed value falls through to the app's current selection.
-      ...(Array.isArray(projects) &&
-      projects.every((p) => typeof p === "string")
-        ? { projects: projects as string[] }
-        : {}),
-      ...(globalControls
-        ? {
-            globalControls:
-              globalControls as DashboardInterface["globalControls"],
-          }
-        : {}),
-      ...(comparison
-        ? { comparison: comparison as DashboardInterface["comparison"] }
-        : {}),
-      ...(typeof dashboardId === "string" ? { dashboardId } : {}),
-    },
-    droppedBlocks: Array.isArray(droppedBlocks)
-      ? (droppedBlocks as DroppedBlock[])
-      : [],
+    draft: parsed.draft as DashboardDraft,
+    droppedBlocks: parsed.droppedBlocks,
   };
 }
 
 interface Props {
   draft: DashboardDraft;
-  droppedBlocks?: DroppedBlock[];
+  droppedBlocks?: DroppedDashboardBlock[];
   toolTransparency?: React.ReactNode;
   /**
    * True when this preview came out of a conversation the user re-opened rather

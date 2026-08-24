@@ -22,9 +22,10 @@ export const listSkills = async (
   req: AuthRequest,
   res: Response<{ status: 200; skills: SkillSummary[] }>,
 ): Promise<Response> => {
-  const skills = getAllSkills().map(({ name, description, group }) => ({
+  const skills = getAllSkills().map(({ name, description, kind, group }) => ({
     name,
     description,
+    kind,
     ...(group !== undefined ? { group } : {}),
   }));
 

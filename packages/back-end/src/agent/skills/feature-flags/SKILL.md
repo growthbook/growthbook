@@ -1,15 +1,37 @@
 ---
 name: feature-flags
-description: Shared conventions behind the flag-* skills — endpoint versions, v2 create and rule semantics, identifiers and links, page-context mapping, and how to read a 403 on publish or a 409 merge conflict. Load it alongside the flag-* skill you are following; it documents no workflow of its own.
+description: Read and modify feature flags, environments, projects, and flag revisions. Use when the user asks about feature flags, rollouts, toggling, targeting rules, publishing drafts, or page context under /features/*, /environments, or /projects.
 ---
 
 # Feature flags
 
-Background for the `flag-*` skills. Use `callApi` for all REST calls. Feature
+Domain router for feature flags. Use `callApi` for all REST calls. Feature
 endpoints are `/api/v2/features`; environments and projects are `/api/v1/`.
 
-The workflow lives in whichever `flag-*` skill matches the request — load that
-one directly. Load this alongside it when you need the conventions below.
+**Workflow:** read this router → `loadSkill('<leaf>')` for the matching
+sub-skill below → follow that leaf's workflow.
+
+## Sub-skills
+
+| Skill                | Use when                                                  |
+| -------------------- | --------------------------------------------------------- |
+| `flag-create`        | Creating a new feature flag                               |
+| `flag-search`        | Finding a flag by description or listing flags            |
+| `flag-toggle`        | Enabling/disabling a flag in an environment (kill switch) |
+| `flag-targeting`     | Adding/editing force or rollout rules with conditions     |
+| `flag-rules`         | Listing, reordering, or routing to rule-type workflows    |
+| `flag-experiment`    | Adding experiment-ref or inline experiment rules          |
+| `flag-default-value` | Changing the default value when no rules match            |
+| `flag-metadata`      | Owner, project, tags, description, custom fields          |
+| `flag-schedule`      | Timed rule activation                                     |
+| `flag-ramp`          | Progressive rollout schedules                             |
+| `flag-prerequisites` | Feature-level prerequisite gates                          |
+| `flag-monitoring`    | Monitored / safe rollout rules                            |
+| `flag-graph`         | Visualizing flag dependencies                             |
+| `flag-revisions`     | Draft revisions without a specific rule change            |
+| `flag-publish`       | Publishing a draft (approval / merge-conflict paths)      |
+| `flag-review`        | Review and approval workflow                              |
+| `flag-cleanup`       | Archive or delete a stale flag                            |
 
 ## Page context
 

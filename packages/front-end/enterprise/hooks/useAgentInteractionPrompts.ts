@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { z } from "zod";
 import type {
   AskUserOption,
   AskUserPrompt,
@@ -44,8 +45,8 @@ export interface AgentInteractionPrompts {
   /** Answering by typing rather than clicking still settles an open prompt. */
   resolveOnUserMessage: () => void;
 
-  /** Mark the question answered; the caller sends `option.label` as the reply. */
-  resolveAsk: (option: AskUserOption) => boolean;
+  /** Mark the question answered; the caller sends the picked option's label. */
+  resolveAsk: () => boolean;
 
   /**
    * Mark the parked mutation decided and stage the decision for the next
@@ -56,6 +57,49 @@ export interface AgentInteractionPrompts {
   /** Clear everything — for starting a new conversation. */
   reset: () => void;
 }
+
+/**
+ * A single `askUser` option. Parsed per-element rather than as part of the event
+ * so one malformed option drops itself instead of the whole question.
+ */
+const askOptionSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  description: z.string().optional(),
+});
+
+const askEventSchema = z.object({
+  question: z.string().min(1),
+  options: z.array(z.unknown()),
+  allowMultiple: z.boolean().catch(false),
+});
+
+/**
+ * The parked mutation, as both places that describe one spell it: the
+ * `confirm-action` SSE event keys it `actionId`, the conversation's persisted
+ * `pendingAction` keys it `id`. Everything else matches, so the fields are
+ * declared once and the id is grafted on per source.
+ *
+ * `.catch` on the display fields rather than a hard requirement: an action whose
+ * summary came back as a number is still an action the user has to decide on,
+ * and refusing to render the card would park the write with no way to approve
+ * it.
+ */
+const confirmFieldsSchema = z.object({
+  method: z.string().catch(""),
+  path: z.string().catch(""),
+  summary: z.string().catch(""),
+  query: z.record(z.string(), z.unknown()).optional().catch(undefined),
+  body: z.unknown().optional(),
+});
+
+const confirmEventSchema = confirmFieldsSchema.extend({
+  actionId: z.string().min(1),
+});
+
+const pendingActionSchema = confirmFieldsSchema
+  .extend({ id: z.string().min(1) })
+  .transform(({ id, ...rest }) => ({ actionId: id, ...rest }));
 
 export function useAgentInteractionPrompts(): AgentInteractionPrompts {
   const [askPrompt, setAskPrompt] = useState<AskUserPrompt | null>(null);
@@ -76,53 +120,30 @@ export function useAgentInteractionPrompts(): AgentInteractionPrompts {
   const handleSSEEvent = useCallback(
     (event: { type: string; data: Record<string, unknown> }) => {
       if (event.type === "ask-user") {
-        const question =
-          typeof event.data.question === "string" ? event.data.question : "";
-        const rawOptions = Array.isArray(event.data.options)
-          ? (event.data.options as Array<Record<string, unknown>>)
-          : [];
-        const options: AskUserOption[] = rawOptions
-          .map((o) => ({
-            id: typeof o.id === "string" ? o.id : "",
-            label: typeof o.label === "string" ? o.label : "",
-            description:
-              typeof o.description === "string" ? o.description : undefined,
-          }))
-          .filter((o) => o.id && o.label);
-        if (!question || options.length === 0) return;
+        const parsed = askEventSchema.safeParse(event.data);
+        if (!parsed.success) return;
+        const options: AskUserOption[] = parsed.data.options.flatMap((o) => {
+          const option = askOptionSchema.safeParse(o);
+          return option.success ? [option.data] : [];
+        });
+        if (!options.length) return;
         askSeqRef.current += 1;
         setAskPrompt({
           seq: askSeqRef.current,
-          question,
+          question: parsed.data.question,
           options,
-          allowMultiple: event.data.allowMultiple === true,
+          allowMultiple: parsed.data.allowMultiple,
           resolved: false,
         });
         return;
       }
       if (event.type === "confirm-action") {
-        const actionId =
-          typeof event.data.actionId === "string" ? event.data.actionId : "";
-        const method =
-          typeof event.data.method === "string" ? event.data.method : "";
-        const path = typeof event.data.path === "string" ? event.data.path : "";
-        const summary =
-          typeof event.data.summary === "string" ? event.data.summary : "";
-        const query =
-          event.data.query && typeof event.data.query === "object"
-            ? (event.data.query as Record<string, unknown>)
-            : undefined;
-        const body = "body" in event.data ? event.data.body : undefined;
-        if (!actionId) return;
+        const parsed = confirmEventSchema.safeParse(event.data);
+        if (!parsed.success) return;
         confirmSeqRef.current += 1;
         setConfirmPrompt({
           seq: confirmSeqRef.current,
-          actionId,
-          method,
-          path,
-          summary,
-          query,
-          body,
+          ...parsed.data,
           resolved: false,
         });
       }
@@ -136,37 +157,22 @@ export function useAgentInteractionPrompts(): AgentInteractionPrompts {
   // pendingAction always means "still awaiting" — the server clears it the
   // moment the user confirms or cancels.
   const syncFromConversation = useCallback((data: unknown) => {
-    const pending =
-      data && typeof data === "object" && "pendingAction" in data
-        ? (data as { pendingAction?: unknown }).pendingAction
-        : null;
-    if (pending && typeof pending === "object") {
-      const p = pending as Record<string, unknown>;
-      const actionId = typeof p.id === "string" ? p.id : "";
-      if (!actionId) return;
-      setConfirmPrompt((prev) => {
-        // Already tracking this action (resolved or not) — leave it so we
-        // don't re-open a prompt the user just answered.
-        if (prev && prev.actionId === actionId) return prev;
-        confirmSeqRef.current += 1;
-        return {
-          seq: confirmSeqRef.current,
-          actionId,
-          method: typeof p.method === "string" ? p.method : "",
-          path: typeof p.path === "string" ? p.path : "",
-          summary: typeof p.summary === "string" ? p.summary : "",
-          query:
-            p.query && typeof p.query === "object"
-              ? (p.query as Record<string, unknown>)
-              : undefined,
-          body: "body" in p ? p.body : undefined,
-          resolved: false,
-        };
-      });
-    } else {
-      // Server reports no parked action — drop any prompt we were showing.
+    const pending = z
+      .object({ pendingAction: pendingActionSchema })
+      .safeParse(data);
+    if (!pending.success) {
+      // No parked action (or nothing usable) — drop any prompt we were showing.
       setConfirmPrompt((prev) => (prev ? null : prev));
+      return;
     }
+    const action = pending.data.pendingAction;
+    setConfirmPrompt((prev) => {
+      // Already tracking this action (resolved or not) — leave it so we don't
+      // re-open a prompt the user just answered.
+      if (prev && prev.actionId === action.actionId) return prev;
+      confirmSeqRef.current += 1;
+      return { seq: confirmSeqRef.current, ...action, resolved: false };
+    });
   }, []);
 
   const takePendingDecision = useCallback(() => {
@@ -188,7 +194,7 @@ export function useAgentInteractionPrompts(): AgentInteractionPrompts {
     }
   }, []);
 
-  const resolveAsk = useCallback((_option: AskUserOption) => {
+  const resolveAsk = useCallback(() => {
     const ask = askRef.current;
     if (!ask || ask.resolved) return false;
     setAskPrompt({ ...ask, resolved: true });

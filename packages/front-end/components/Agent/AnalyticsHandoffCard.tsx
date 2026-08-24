@@ -1,46 +1,22 @@
 import { useRouter } from "next/router";
 import { Flex } from "@radix-ui/themes";
-import { tryParseToolResultJson, type AIChatMention } from "shared/ai-chat";
+import { parseToolResult } from "shared/ai-chat";
+import {
+  analyticsHandoffResultValidator,
+  type AnalyticsHandoff,
+} from "shared/validators";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import { AssistantBubble } from "@/enterprise/components/AIChat/AIChatPrimitives";
 import { PA_AI_CHAT_INITIAL_MESSAGE_KEY } from "@/enterprise/components/ProductAnalytics/util";
 
-/** The brief the agent wrote, as it rides in the `openAnalyticsChat` result. */
-export interface AnalyticsHandoff {
-  prompt: string;
-  mentions?: AIChatMention[];
-}
-
-/**
- * Pull a handoff out of an `openAnalyticsChat` tool result.
- *
- * Reads defensively, like the dashboard preview does: this is JSON that came
- * back through the model's tool loop, and a malformed one should render nothing
- * rather than throw inside the transcript.
- */
+/** Pull a handoff out of an `openAnalyticsChat` tool result. */
 export function analyticsHandoffFromToolResult(
   result: unknown,
 ): AnalyticsHandoff | null {
-  const parsed =
-    typeof result === "string" ? tryParseToolResultJson(result) : result;
-
-  if (!parsed || typeof parsed !== "object") return null;
-  const { handoff } = parsed as { handoff?: unknown };
-  if (!handoff || typeof handoff !== "object") return null;
-
-  const { prompt, mentions } = handoff as {
-    prompt?: unknown;
-    mentions?: unknown;
-  };
-  if (typeof prompt !== "string" || !prompt.trim()) return null;
-
-  return {
-    prompt: prompt.trim(),
-    mentions: Array.isArray(mentions)
-      ? (mentions as AIChatMention[])
-      : undefined,
-  };
+  return (
+    parseToolResult(result, analyticsHandoffResultValidator)?.handoff ?? null
+  );
 }
 
 /**

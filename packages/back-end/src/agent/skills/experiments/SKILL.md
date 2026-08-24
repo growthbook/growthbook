@@ -1,18 +1,28 @@
 ---
 name: experiments
-description: Shared conventions behind the experiment-* skills — the GET /experiments filter and sort reference, identifier and linking rules, page-context mapping, which mutations are gated, and how to report Bayesian results. Load it alongside the experiment-* skill you are following; it documents no workflow of its own.
+description: Read and modify experiments (A/B tests), snapshots, and results. Use when the user asks about experiments, hypotheses, variations, goal/guardrail metrics, launching or stopping tests, or page context under /experiment/*.
 ---
 
 # Experiments
 
-Background for the `experiment-*` skills. Use `callApi` for all REST calls under
+Domain router for experiments. Use `callApi` for all REST calls under
 `/api/v1/experiments`.
 
-The workflow lives in whichever `experiment-*` skill matches the request — load
-that one directly. Load this alongside it when you need the conventions below.
+**Workflow:** read this router → `loadSkill('<leaf>')` for the matching
+sub-skill below → follow that leaf's workflow.
 
 For **product analytics charts** (metric/fact-table explorations), call
 `loadSkill('product-analytics')` instead — not covered here.
+
+## Sub-skills
+
+| Skill                   | Use when                                      |
+| ----------------------- | --------------------------------------------- |
+| `experiment-brainstorm` | Exploring ideas before a formal design        |
+| `experiment-design`     | Designing hypothesis, metrics, and variations |
+| `experiment-launch`     | End-to-end create + flag wire-up + start      |
+| `experiment-analyze`    | Fetching and interpreting results (read-only) |
+| `experiment-stop`       | Stopping a running experiment with a winner   |
 
 ## Page context
 

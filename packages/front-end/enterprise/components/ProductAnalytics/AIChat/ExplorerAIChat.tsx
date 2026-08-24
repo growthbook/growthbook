@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useCallback, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiArrowLineLeft, PiArrowLineRight } from "react-icons/pi";
 import type { AIChatMention } from "shared/ai-chat";
+import { PRODUCT_ANALYTICS_CHAT_SKILL_GROUP } from "shared/ai-chat";
 import { useUser } from "@/services/UserContext";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -13,10 +14,7 @@ import AIChatGatingScreen from "@/enterprise/components/AIChat/AIChatGatingScree
 import ChatComposer, {
   type ChatComposerHandle,
 } from "@/enterprise/components/AIChat/Composer/ChatComposer";
-import {
-  PRODUCT_ANALYTICS_CHAT_SKILL_GROUP,
-  useSkillCommandItems,
-} from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
+import { useSkillMenuItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
 import { useAgentInteractionPrompts } from "@/enterprise/hooks/useAgentInteractionPrompts";
 import AskUserCard, {
   type AskUserOption,
@@ -55,8 +53,8 @@ export default function ExplorerAIChat() {
     draftExploreState.datasource,
   );
   // Scoped to the dashboard domain to match what this chat's agent can load —
-  // see PRODUCT_ANALYTICS_CHAT_SKILL_GROUP on the back end.
-  const skillItems = useSkillCommandItems(PRODUCT_ANALYTICS_CHAT_SKILL_GROUP);
+  // see PRODUCT_ANALYTICS_CHAT_SKILL_GROUP, shared with the back end.
+  const skillItems = useSkillMenuItems(PRODUCT_ANALYTICS_CHAT_SKILL_GROUP);
   // The dashboard skills use `askUser` and write through the confirmation gate,
   // so this chat has to render both prompts — an unhandled `confirm-action`
   // would park a dashboard create the user can never approve.
@@ -245,7 +243,7 @@ export default function ExplorerAIChat() {
 
   const handleAskOption = useCallback(
     (option: AskUserOption) => {
-      if (loading || !resolveAsk(option)) return;
+      if (loading || !resolveAsk()) return;
       sendMessage(option.label);
     },
     [resolveAsk, sendMessage, loading],

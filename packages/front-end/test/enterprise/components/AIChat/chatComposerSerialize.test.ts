@@ -321,6 +321,7 @@ describe("chat composer serialization", () => {
       {
         id: "feature-flags",
         label: "feature-flags",
+        kind: "domain",
         title: "Feature flags",
         description: "Read and modify flags",
         group: "feature-flags",
@@ -328,6 +329,7 @@ describe("chat composer serialization", () => {
       {
         id: "flag-targeting",
         label: "flag-targeting",
+        kind: "leaf",
         title: "Flag targeting",
         description: "Targeting rules",
         group: "feature-flags",
@@ -335,6 +337,7 @@ describe("chat composer serialization", () => {
       {
         id: "experiments",
         label: "experiments",
+        kind: "domain",
         title: "Experiments",
         description: "Targeting an audience",
         group: "experiments",

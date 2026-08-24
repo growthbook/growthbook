@@ -1,23 +1,30 @@
 ---
 name: dashboards
-description: Shared conventions behind the dashboard-create and dashboard-edit skills — which block types an Analytics dashboard supports, the four dashboard archetypes, page-context mapping, the ask budget, and the guardrails on running charts and saving. Load it alongside the dashboard skill you are following; it documents no workflow of its own.
+description: Build and edit Analytics dashboards. Use when the user asks to build, create, or change a dashboard, save charts together on a page, or page context under /product-analytics/dashboards/*.
 ---
 
 # Dashboards
 
-Background for `dashboard-create` and `dashboard-edit`. Use `callApi` for all
-REST calls. Dashboard endpoints are `/api/v1/dashboards`; the product analytics
-lookups a dashboard is built from are `/api/v1/product-analytics/*`.
+Domain router for Analytics dashboards. Use `callApi` for all REST calls.
+Dashboard endpoints are `/api/v1/dashboards`; the product analytics lookups a
+dashboard is built from are `/api/v1/product-analytics/*`.
 
-The workflow lives in `dashboard-create` (building a new one) or
-`dashboard-edit` (changing one that exists) — load that one directly. Load this
-alongside it when you need the conventions below.
+**Workflow:** read this router → `loadSkill('<leaf>')` for the matching
+sub-skill below → follow that leaf's workflow.
 
-Both end the same way: one `proposeDashboard` call, which runs every chart, lays
-out the grid, and shows the user a live preview with a Save button. You never
-run the charts yourself and you never save the dashboard.
+Both leaves end the same way: one `proposeDashboard` call, which runs every
+chart, lays out the grid, and shows the user a live preview with a Save button.
+You never run the charts yourself and you never save the dashboard.
 
-For a single one-off chart with no dashboard involved, use `product-analytics`.
+For a single one-off chart with no dashboard involved, call
+`loadSkill('product-analytics')` instead.
+
+## Sub-skills
+
+| Skill              | Use when                         |
+| ------------------ | -------------------------------- |
+| `dashboard-create` | Building a new dashboard         |
+| `dashboard-edit`   | Changing a dashboard that exists |
 
 ## Scope
 

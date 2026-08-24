@@ -1,14 +1,9 @@
-import { z } from "zod";
-import { aiChatMentionValidator } from "shared/validators";
+import { analyticsHandoffValidator } from "shared/validators";
 import {
   createAgentHandler,
   type AgentConfig,
 } from "back-end/src/enterprise/services/agent-handler";
-import {
-  buildAgentApiTools,
-  _coerceBody,
-  _requiresMutationConfirmation,
-} from "back-end/src/agent/shared-tools";
+import { buildAgentApiTools } from "back-end/src/agent/shared-tools";
 import { assembleSkillsIndexForPrompt } from "back-end/src/agent/skills";
 import { aiTool } from "back-end/src/enterprise/services/ai";
 
@@ -57,28 +52,28 @@ How to end a turn:
   user-visible content — emit no plain text after it).
 
 How to use skills:
-- The "Available skills" section lists **every** skill by name and description.
-  Full instructions are NOT inlined — load the one you need with \`loadSkill\`.
-- Pick the **narrowest** skill that matches the request, and load it directly.
-  There is no routing step: \`flag-targeting\` is a skill you load, not something
-  you reach through another one.
-- Skills that share a name prefix cover one area, and each area has a
-  conventions skill — \`feature-flags\`, \`experiments\`, \`dashboards\` — carrying
-  its page-context mapping, identifier rules, and shared guardrails. Load that
-  one **alongside** the specific skill when you need the background, not before
-  it as a lookup step.
-- Only load multiple skills when the request genuinely spans workflows (e.g.
-  create a flag, then target it).
-- If nothing fits, ask the user to clarify. Do not invent endpoints.
-- **Dashboards split two ways.** *Building* one needs a live preview this panel
-  cannot render: load \`dashboard-create\`, settle the brief, then call
-  \`openAnalyticsChat\` to hand it to the Product Analytics chat. *Changing* one
-  that already exists is ordinary API work you do here — load
-  \`dashboard-edit\` and follow it.
+- The "Available skills" section lists **domain routers** only (\`feature-flags\`,
+  \`experiments\`, \`dashboards\`, \`product-analytics\`, \`growthbook-docs\`). Full
+  instructions are NOT inlined — load them with \`loadSkill\`.
+- **Two-step workflow** for domain routers that have sub-skills:
+  1. \`loadSkill('<domain>')\` — read orientation, page-context mapping, shared
+     guardrails, and the **Sub-skills** table (leaf names + when to use each).
+  2. \`loadSkill('<leaf>')\` — follow that leaf's detailed \`callApi\` workflow.
+- **Standalone domains** (\`product-analytics\`, \`growthbook-docs\`) have no
+  children — one \`loadSkill\` is enough.
+- Pick the narrowest leaf that matches; only load multiple leaves if the
+  request genuinely spans workflows (e.g. create flag then target it).
+- If no domain fits, ask the user to clarify. Do not invent endpoints.
+- **The \`dashboards\` domain splits two ways.** *Building* one needs a live
+  preview this panel cannot render: take the \`dashboard-create\` leaf, settle the
+  brief, then call \`openAnalyticsChat\` to hand it to the Product Analytics chat.
+  *Changing* one that already exists is ordinary API work you do here — take the
+  \`dashboard-edit\` leaf and follow it.
 - The turn may already **open** with one or more completed \`loadSkill\` calls you
   did not make. Those are skills the user picked explicitly from the composer's
   slash-command menu, so treat them as their stated intent: follow them rather
-  than routing to a different skill, and don't re-load them.
+  than routing to a different skill, and don't re-load them. If one is a domain
+  router, still \`loadSkill\` the leaf it points you to.
 - When several arrive together, the user is chaining a multi-step request (e.g.
   \`flag-create\` then \`flag-targeting\`). Work through them in the order given,
   carrying results forward, and answer once at the end rather than per skill.
@@ -228,26 +223,6 @@ function buildGeneralAgentSystemPrompt(): string {
  * of charts. Neither exists in this panel. Rather than dead-end the request,
  * the agent writes the brief out and hands it over.
  */
-const openAnalyticsChatInputSchema = z.object({
-  prompt: z
-    .string()
-    .min(1)
-    .max(2000)
-    .describe(
-      "The brief to start the Analytics chat with, written as the user would put it " +
-        "and complete on its own — the chat on the other side gets this text and " +
-        "nothing else from this conversation. Name the metrics, the timeframe, and " +
-        "the dashboard name if the user gave one.",
-    ),
-  mentions: aiChatMentionValidator
-    .array()
-    .optional()
-    .describe(
-      "Entities named in the prompt, copied from the `[Referenced by the user: ...]` " +
-        "line, so the other chat resolves them by id instead of searching.",
-    ),
-});
-
 const OPEN_ANALYTICS_CHAT_DESCRIPTION =
   "Hand a dashboard request to the Product Analytics chat, which can build one. " +
   "Offers the user a link that opens a fresh chat there with your brief already " +
@@ -282,7 +257,7 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
     ...buildAgentApiTools(ctx, buffer, emit),
     openAnalyticsChat: aiTool({
       description: OPEN_ANALYTICS_CHAT_DESCRIPTION,
-      inputSchema: openAnalyticsChatInputSchema,
+      inputSchema: analyticsHandoffValidator,
       execute: async (input) => ({
         // The handoff rides in the tool result rather than an SSE event so the
         // offer is still there when the user re-opens the conversation.
@@ -306,7 +281,3 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
 // =============================================================================
 
 export const postGeneralAgentChat = createAgentHandler(generalAgentConfig);
-
-// Exposed for unit tests — see test/agent/general-agent.test.ts
-// Re-exported from shared-tools so existing tests keep their import path.
-export { _coerceBody, _requiresMutationConfirmation };

@@ -549,7 +549,12 @@ export function parseMetricIdsQueryField(value?: string): string[] {
     .filter((s) => s.length > 0);
 }
 
-const columnSourceQueryFields = {
+/**
+ * Which dataset the lookup runs against, shared by both endpoints. Only
+ * `metricIds` differs between them — comma-separated in a query string, a real
+ * array in a JSON body — so it is supplied per schema.
+ */
+const columnSourceFields = {
   source: z
     .enum(productAnalyticsColumnSources)
     .describe(
@@ -560,11 +565,10 @@ const columnSourceQueryFields = {
     .string()
     .describe("Fact Table ID — required when source is `fact_table`")
     .optional(),
-  metricIds: metricIdsQueryField,
 };
 
 export const productAnalyticsColumnsQuerySchema = z
-  .strictObject(columnSourceQueryFields)
+  .strictObject({ ...columnSourceFields, metricIds: metricIdsQueryField })
   .refine(
     (v) =>
       productAnalyticsColumnSourceIsValid({
@@ -576,16 +580,7 @@ export const productAnalyticsColumnsQuerySchema = z
 
 export const productAnalyticsColumnValuesBodySchema = z
   .strictObject({
-    source: z
-      .enum(productAnalyticsColumnSources)
-      .describe(
-        "The exploration type — determines which ID field is required: " +
-          "`fact_table` needs `factTableId`, `metric` needs `metricIds`.",
-      ),
-    factTableId: z
-      .string()
-      .describe("Fact Table ID — required when source is `fact_table`")
-      .optional(),
+    ...columnSourceFields,
     metricIds: z
       .array(z.string())
       .describe(

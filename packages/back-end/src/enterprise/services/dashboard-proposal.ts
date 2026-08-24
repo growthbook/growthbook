@@ -2,8 +2,9 @@ import {
   BlockComparison,
   buildComparisonExplorationConfig,
   CreateDashboardBlockInterface,
-  DashboardGlobalControls,
   DashboardBlockSizeHint,
+  DashboardDraftOf,
+  DroppedDashboardBlock,
   getEffectiveExplorationConfig,
   packDashboardBlocks,
   ProposeDashboardBlock,
@@ -26,35 +27,15 @@ import { logger } from "back-end/src/util/logger";
  * the chat.
  */
 
-export interface DashboardDraft {
-  /** Set when revising a dashboard that already exists; absent for a new one. */
-  dashboardId?: string;
-  title: string;
-  /**
-   * Project ids the dashboard belongs to; `[]` is every project. Absent when
-   * the agent could not establish it, in which case the preview falls back to
-   * whatever project the user has selected in the app.
-   */
-  projects?: string[];
-  globalControls?: DashboardGlobalControls;
-  /** Dashboard-wide compare-to-previous-period; overrides any per-block setting. */
-  comparison?: BlockComparison;
-  blocks: CreateDashboardBlockInterface[];
-}
+/** What the tool result carries: blocks the dashboards API can be handed. */
+export type DashboardDraft = DashboardDraftOf<CreateDashboardBlockInterface>;
 
-export interface BuildDashboardDraftInput {
-  dashboardId?: string;
-  title: string;
-  projects?: string[];
-  globalControls?: DashboardGlobalControls;
-  comparison?: BlockComparison;
-  blocks: ProposeDashboardBlock[];
-}
+/** The same shape the model proposed, before the server ran anything. */
+export type BuildDashboardDraftInput = DashboardDraftOf<ProposeDashboardBlock>;
 
 export interface BuildDashboardDraftResult {
   draft: DashboardDraft;
-  /** Blocks that could not be built, and why — surfaced to the model and user. */
-  droppedBlocks: { title: string; type: string; reason: string }[];
+  droppedBlocks: DroppedDashboardBlock[];
 }
 
 /**

@@ -2,6 +2,7 @@
  * Persisted AI chat messages: content parts shaped like the AI SDK’s model messages,
  * plus id/ts for storage and UI. Convert to ModelMessage[] via toModelMessages (back-end).
  */
+import type { z } from "zod";
 
 // ---------------------------------------------------------------------------
 // Roles & content parts (mirror @ai-sdk/provider-utils names where possible)
@@ -106,6 +107,25 @@ export function tryParseToolResultJson(resultJson: string): unknown {
   }
 }
 
+/**
+ * Read a typed payload out of a tool result.
+ *
+ * A result reaches the UI two ways — as a JSON string from the persisted
+ * transcript, or already parsed from the live stream — so both are accepted.
+ * Returns null on anything that doesn't match the schema: this is JSON that came
+ * back through the model's tool loop, and a malformed one should render nothing
+ * rather than throw inside the message list.
+ */
+export function parseToolResult<T>(
+  result: unknown,
+  schema: z.ZodType<T>,
+): T | null {
+  const value =
+    typeof result === "string" ? tryParseToolResultJson(result) : result;
+  const parsed = schema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
 /** Snapshot id inside a JSON tool result (e.g. product analytics), if any. */
 export function toolResultSnapshotId(resultJson: string): string | undefined {
   const value = tryParseToolResultJson(resultJson);
@@ -186,16 +206,25 @@ export type AIChatMention = {
   stale?: boolean;
 };
 
+export type SkillKind = "domain" | "leaf";
+
+/**
+ * The one skill domain the Product Analytics chat can load. Dashboards are the
+ * natural next step from a chart ("save these as a dashboard"), but an analytics
+ * chat has no business publishing a Feature Flag.
+ *
+ * Shared so the agent's resolver and the composer's `/` menu cannot drift: a
+ * menu wider than the resolver offers dead ends, and a resolver wider than the
+ * menu lets the model reach endpoints this surface never advertised.
+ */
+export const PRODUCT_ANALYTICS_CHAT_SKILL_GROUP = "dashboards";
+
 /** Skill index entry for the `/` menu. Omits the prompt body — the agent loads that. */
 export interface SkillSummary {
   name: string;
   description: string;
-  /**
-   * The directory the skill file lives in; absent for a top-level one. It
-   * groups the `/` menu and scopes a surface-specific agent to its own skills.
-   * It carries no routing meaning — every skill stands on its own and is
-   * loadable by name.
-   */
+  kind: SkillKind;
+  /** Parent domain for leaf skills; same as `name` for domain routers. */
   group?: string;
 }
 

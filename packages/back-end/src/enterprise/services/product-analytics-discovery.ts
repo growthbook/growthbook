@@ -299,24 +299,76 @@ export async function runProductAnalyticsSearch(
 // columns
 // =============================================================================
 
+/** Columns a caller can actually use — a deleted column is still on the doc. */
+function liveColumns(ft: FactTableInterface | null): ColumnInterface[] {
+  return (ft?.columns ?? []).filter((c) => !c.deleted);
+}
+
+/** Column list as the lookups report it: by display name, minimal fields. */
+function toColumnSummaries(columns: ColumnInterface[]) {
+  return [...columns]
+    .sort((a, b) => (a.name || a.column).localeCompare(b.name || b.column))
+    .map((c) => ({ column: c.column, name: c.name, datatype: c.datatype }));
+}
+
+/**
+ * The single fact table a lookup runs against: the one named directly, or the
+ * one behind the first metric that has one.
+ *
+ * Both `source` branches ended up here in every lookup that queries the
+ * warehouse, and a resolver that disagreed with itself between two endpoints
+ * would send the agent the columns of one table and the values of another.
+ */
+async function resolveSourceFactTable(
+  ctx: ReqContext,
+  input: ProductAnalyticsColumnsInput,
+): Promise<
+  { ok: true; factTable: FactTableInterface } | { ok: false; message: string }
+> {
+  if (input.source === "fact_table") {
+    const { factTableId } = input;
+    if (!factTableId) {
+      return {
+        ok: false,
+        message: "factTableId is required for fact_table source.",
+      };
+    }
+    const ft = await getFactTable(ctx, factTableId);
+    if (!ft) {
+      return { ok: false, message: `Fact table "${factTableId}" not found.` };
+    }
+    return { ok: true, factTable: ft };
+  }
+
+  const { metricIds } = input;
+  if (!metricIds?.length) {
+    return { ok: false, message: "metricIds is required for metric source." };
+  }
+  const metrics = await ctx.models.factMetrics.getByIds(metricIds);
+  const factTableId = metrics.find((m) => m.numerator?.factTableId)?.numerator
+    ?.factTableId;
+  if (!factTableId) {
+    return {
+      ok: false,
+      message: "Could not resolve a fact table from the provided metric IDs.",
+    };
+  }
+  const ft = await getFactTable(ctx, factTableId);
+  if (!ft) return { ok: false, message: `Fact table not found.` };
+  return { ok: true, factTable: ft };
+}
+
 export async function getProductAnalyticsColumns(
   ctx: ReqContext,
   input: ProductAnalyticsColumnsInput,
 ): Promise<ProductAnalyticsDiscoveryResult> {
   switch (input.source) {
     case "fact_table": {
-      const { factTableId } = input;
-      if (!factTableId) {
-        return fail("factTableId is required for fact_table source.");
-      }
-      const ft = await getFactTable(ctx, factTableId);
-      if (!ft) return fail(`Fact table "${factTableId}" not found.`);
-      const columns = (ft.columns ?? [])
-        .filter((c) => !c.deleted)
-        .sort((a, b) => (a.name || a.column).localeCompare(b.name || b.column))
-        .map((c) => ({ column: c.column, name: c.name, datatype: c.datatype }));
+      const resolved = await resolveSourceFactTable(ctx, input);
+      if (!resolved.ok) return fail(resolved.message);
+      const ft = resolved.factTable;
       return ok({
-        columns,
+        columns: toColumnSummaries(liveColumns(ft)),
         userIdTypes: ft.userIdTypes ?? [],
         unitNote: ft.userIdTypes?.length
           ? `For valueType "unit_count", set unit to one of userIdTypes (default: "${ft.userIdTypes[0]}"). For "count" or "sum", set unit to null.`
@@ -369,7 +421,7 @@ export async function getProductAnalyticsColumns(
         if (!userIdTypes.length && ft?.userIdTypes?.length) {
           userIdTypes = ft.userIdTypes;
         }
-        const ftCols = (ft?.columns ?? []).filter((c) => !c.deleted);
+        const ftCols = liveColumns(ft);
         if (columns === null) {
           columns = ftCols;
         } else {
@@ -378,16 +430,12 @@ export async function getProductAnalyticsColumns(
         }
       }
 
-      const result = (columns ?? [])
-        .sort((a, b) => (a.name || a.column).localeCompare(b.name || b.column))
-        .map((c) => ({ column: c.column, name: c.name, datatype: c.datatype }));
-
       const unitNote = userIdTypes.length
         ? `For metrics where needsUnit=true, set unit to one of userIdTypes (default: "${userIdTypes[0]}"). For others, set unit to null.`
         : "No userIdTypes found — set unit to null for all metrics.";
 
       return ok({
-        columns: result,
+        columns: toColumnSummaries(columns ?? []),
         userIdTypes,
         metrics: metricUnitInfo,
         unitNote,
@@ -406,54 +454,12 @@ export async function getProductAnalyticsColumnValues(
 ): Promise<ProductAnalyticsDiscoveryResult> {
   const { columns: requestedColumns, searchTerm, limit } = input;
 
-  type RawCol = { column: string; datatype: string };
-  let factTableSql: string;
-  let factTableEventName: string;
-  let datasourceId: string;
-  let availableColumns: RawCol[];
+  const resolved = await resolveSourceFactTable(ctx, input);
+  if (!resolved.ok) return fail(resolved.message);
+  const factTable = resolved.factTable;
+  const availableColumns = liveColumns(factTable);
 
-  switch (input.source) {
-    case "fact_table": {
-      const { factTableId } = input;
-      if (!factTableId) {
-        return fail("factTableId is required for fact_table source.");
-      }
-      const ft = await getFactTable(ctx, factTableId);
-      if (!ft) return fail(`Fact table "${factTableId}" not found.`);
-      factTableSql = ft.sql;
-      factTableEventName = ft.eventName ?? "";
-      datasourceId = ft.datasource;
-      availableColumns = (ft.columns ?? [])
-        .filter((c) => !c.deleted)
-        .map((c) => ({ column: c.column, datatype: c.datatype }));
-      break;
-    }
-
-    case "metric": {
-      const { metricIds } = input;
-      if (!metricIds?.length) {
-        return fail("metricIds is required for metric source.");
-      }
-      const metrics = await ctx.models.factMetrics.getByIds(metricIds);
-      const firstWithFt = metrics.find((m) => m.numerator?.factTableId);
-      if (!firstWithFt?.numerator?.factTableId) {
-        return fail(
-          "Could not resolve a fact table from the provided metric IDs.",
-        );
-      }
-      const ft = await getFactTable(ctx, firstWithFt.numerator.factTableId);
-      if (!ft) return fail(`Fact table not found.`);
-      factTableSql = ft.sql;
-      factTableEventName = ft.eventName ?? "";
-      datasourceId = ft.datasource;
-      availableColumns = (ft.columns ?? [])
-        .filter((c) => !c.deleted)
-        .map((c) => ({ column: c.column, datatype: c.datatype }));
-      break;
-    }
-  }
-
-  const datasource = await getDataSourceById(ctx, datasourceId);
+  const datasource = await getDataSourceById(ctx, factTable.datasource);
   if (!datasource) return fail(`Datasource not found.`);
 
   // Separate requested columns into queryable (string-typed), skipped (wrong type), not-found
@@ -468,16 +474,7 @@ export async function getProductAnalyticsColumnValues(
     } else if (found.datatype !== "string") {
       nonStringCols.push(name);
     } else {
-      colsToQuery.push({
-        column: name,
-        name,
-        datatype: "string",
-        numberFormat: "",
-        description: "",
-        deleted: false,
-        dateCreated: new Date(0),
-        dateUpdated: new Date(0),
-      });
+      colsToQuery.push(found);
     }
   }
 
@@ -499,7 +496,7 @@ export async function getProductAnalyticsColumnValues(
     rawValues = await runColumnsTopValuesQuery(
       ctx,
       datasource,
-      { sql: factTableSql, eventName: factTableEventName },
+      { sql: factTable.sql, eventName: factTable.eventName ?? "" },
       colsToQuery,
     );
   } catch (err) {

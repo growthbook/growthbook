@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import type { SkillSummary } from "shared/ai-chat";
+import type { SkillKind, SkillSummary } from "shared/ai-chat";
 import { logger } from "back-end/src/util/logger";
 
 /**
@@ -15,19 +15,14 @@ import { logger } from "back-end/src/util/logger";
  *
  *   skills.ts                          # this loader
  *   skills/
- *     product-analytics.md          # top-level skill (no group)
+ *     product-analytics.md          # standalone domain (no children)
  *     feature-flags/
- *       SKILL.md                    # skill named feature-flags, group feature-flags
- *       flag-create.md              # skill named flag-create, group feature-flags
+ *       SKILL.md                    # domain router (name: feature-flags)
+ *       flag-create.md              # leaf (group: feature-flags)
  *       ...
  *
- * Every markdown file is a skill in its own right: all of them are listed in
- * the system-prompt index and offered on the composer's `/` menu, and any of
- * them can be loaded by name. A directory is a grouping, not a router — it
- * orders the menu and scopes a surface-specific agent to its own skills.
- * `SKILL.md` is not special beyond taking its directory's name by convention;
- * it holds the shared conventions and page-context mapping the skills beside
- * it lean on.
+ * Domain routers appear in the system-prompt index; leaves are loaded on
+ * demand after the model reads the router's child map.
  */
 
 /** A skill's index entry plus the prompt body only the agent reads. */
@@ -61,21 +56,21 @@ function parseFrontmatter(raw: string): {
   return { data, body };
 }
 
-function dirHasMarkdown(dir: string): boolean {
-  return fs.readdirSync(dir).some((entry) => entry.endsWith(".md"));
-}
-
 function skillsDirHasContent(dir: string): boolean {
-  if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) return false;
-  return (
-    dirHasMarkdown(dir) ||
-    fs
-      .readdirSync(dir)
-      .map((entry) => path.join(dir, entry))
-      .some(
-        (child) => fs.statSync(child).isDirectory() && dirHasMarkdown(child),
-      )
-  );
+  if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) {
+    return false;
+  }
+  for (const entry of fs.readdirSync(dir)) {
+    if (entry.endsWith(".md")) return true;
+    const child = path.join(dir, entry);
+    if (
+      fs.statSync(child).isDirectory() &&
+      fs.existsSync(path.join(child, "SKILL.md"))
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function resolveSkillsDir(): string | null {
@@ -98,6 +93,7 @@ function resolveSkillsDir(): string | null {
 function parseSkillFile(
   fullPath: string,
   fileLabel: string,
+  kind: SkillKind,
   group?: string,
 ): Skill {
   const raw = fs.readFileSync(fullPath, "utf8");
@@ -113,29 +109,12 @@ function parseSkillFile(
     name,
     description,
     body: body.trim(),
+    kind,
     ...(group !== undefined ? { group } : {}),
   };
 }
 
 let cachedSkills: Skill[] | null = null;
-
-/**
- * Files within a group directory, `SKILL.md` first.
- *
- * The order is what the `/` menu and the prompt index show, and the shared
- * conventions file reads better at the head of its own group than filed under
- * S. Everything else is alphabetical.
- */
-function orderedGroupFiles(dir: string): string[] {
-  return fs
-    .readdirSync(dir)
-    .filter((f) => f.endsWith(".md"))
-    .sort(
-      (a, b) =>
-        Number(b === "SKILL.md") - Number(a === "SKILL.md") ||
-        a.localeCompare(b),
-    );
-}
 
 function loadSkillsFromDisk(): Skill[] {
   const dir = resolveSkillsDir();
@@ -149,17 +128,6 @@ function loadSkillsFromDisk(): Skill[] {
   const skills: Skill[] = [];
   const seenNames = new Set<string>();
 
-  const add = (skill: Skill, fileLabel: string): void => {
-    if (seenNames.has(skill.name)) {
-      logger.warn(
-        `Duplicate skill name "${skill.name}" in ${fileLabel}; skipping.`,
-      );
-      return;
-    }
-    seenNames.add(skill.name);
-    skills.push(skill);
-  };
-
   for (const entry of fs.readdirSync(dir).sort()) {
     const fullPath = path.join(dir, entry);
 
@@ -169,22 +137,64 @@ function loadSkillsFromDisk(): Skill[] {
       if (!FRONTMATTER_RE.test(fs.readFileSync(fullPath, "utf8"))) {
         continue;
       }
-      add(parseSkillFile(fullPath, entry), entry);
+      const skill = parseSkillFile(fullPath, entry, "domain");
+      if (seenNames.has(skill.name)) {
+        logger.warn(
+          `Duplicate skill name "${skill.name}" in ${entry}; skipping.`,
+        );
+        continue;
+      }
+      seenNames.add(skill.name);
+      skills.push(skill);
       continue;
     }
 
     if (!fs.statSync(fullPath).isDirectory()) continue;
 
-    for (const file of orderedGroupFiles(fullPath)) {
-      const filePath = path.join(fullPath, file);
-      if (!fs.statSync(filePath).isFile()) continue;
-      const label = `${entry}/${file}`;
-      add(parseSkillFile(filePath, label, entry), label);
+    const routerPath = path.join(fullPath, "SKILL.md");
+    if (!fs.existsSync(routerPath)) continue;
+
+    const domainSkill = parseSkillFile(
+      routerPath,
+      `${entry}/SKILL.md`,
+      "domain",
+    );
+    if (seenNames.has(domainSkill.name)) {
+      logger.warn(
+        `Duplicate skill name "${domainSkill.name}" in ${entry}/SKILL.md; skipping domain.`,
+      );
+      continue;
+    }
+    seenNames.add(domainSkill.name);
+    domainSkill.group = domainSkill.name;
+    skills.push(domainSkill);
+
+    for (const leafFile of fs.readdirSync(fullPath).sort()) {
+      if (!leafFile.endsWith(".md") || leafFile === "SKILL.md") continue;
+      const leafPath = path.join(fullPath, leafFile);
+      if (!fs.statSync(leafPath).isFile()) continue;
+
+      const leaf = parseSkillFile(
+        leafPath,
+        `${entry}/${leafFile}`,
+        "leaf",
+        domainSkill.name,
+      );
+      if (seenNames.has(leaf.name)) {
+        logger.warn(
+          `Duplicate skill name "${leaf.name}" in ${entry}/${leafFile}; skipping.`,
+        );
+        continue;
+      }
+      seenNames.add(leaf.name);
+      skills.push(leaf);
     }
   }
 
+  const domainCount = skills.filter((s) => s.kind === "domain").length;
+  const leafCount = skills.filter((s) => s.kind === "leaf").length;
   logger.info(
-    `Loaded ${skills.length} agent skill(s) from ${dir}: ${skills
+    `Loaded ${skills.length} agent skill(s) from ${dir} (${domainCount} domain, ${leafCount} leaf): ${skills
       .map((s) => s.name)
       .join(", ")}`,
   );
@@ -202,24 +212,29 @@ export function getSkillByName(name: string): Skill | undefined {
   return getAllSkills().find((s) => s.name === name);
 }
 
+export function getDomainSkills(): Skill[] {
+  return getAllSkills().filter((s) => s.kind === "domain");
+}
+
+export function getLeafSkillsForDomain(domainName: string): Skill[] {
+  return getAllSkills().filter(
+    (s) => s.kind === "leaf" && s.group === domainName,
+  );
+}
+
 /**
- * The system-prompt index: every skill the agent can load, with its
- * description.
- *
- * Listed in full rather than by directory. The alternative — advertising one
- * entry per directory and making the model read a routing table to find the
- * real skill — costs a `loadSkill` round-trip on every turn and hides the
- * skills that actually document the endpoints.
+ * Compact index for the system prompt: domain routers only.
+ * Leaf bodies load on demand via `loadSkill` after reading the router.
  */
 export function assembleSkillsIndexForPrompt(): string {
-  const skills = getAllSkills();
-  if (!skills.length) return "";
-  return skills
+  const domains = getDomainSkills();
+  if (!domains.length) return "";
+  return domains
     .map((s) => `- **${s.name}** — ${s.description || "(no description)"}`)
     .join("\n");
 }
 
-/** Names of all loaded skills, for tool error messages. */
+/** Names of all loaded skills (domains and leaves), for tool error messages. */
 export function getSkillNames(): string[] {
   return getAllSkills().map((s) => s.name);
 }
@@ -230,11 +245,11 @@ export function _clearSkillCacheForTests(): void {
 }
 
 /**
- * Names of every skill in one group.
+ * Names of every skill filed under one domain, router included.
  *
  * Used to scope an agent to one area: the Product Analytics chat offers the
- * dashboard skills but has no business loading the Feature Flag ones, and an
- * agent that cannot load a skill never learns the endpoints it documents.
+ * dashboard skills but has no business publishing a Feature Flag, and an agent
+ * that cannot load a skill never learns the endpoints it documents.
  */
 export function getSkillNamesForGroup(group: string): string[] {
   return getAllSkills()
