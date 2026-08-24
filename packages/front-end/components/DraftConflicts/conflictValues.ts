@@ -9,12 +9,51 @@ export function formatConflictValue(v: unknown): string {
   return s.length > MAX_VALUE_CHARS ? `${s.slice(0, MAX_VALUE_CHARS)}…` : s;
 }
 
+function formatList(list: unknown[]): string {
+  const s = `[${list.map((v) => JSON.stringify(v)).join(", ")}]`;
+  return s.length > MAX_VALUE_CHARS ? `${s.slice(0, MAX_VALUE_CHARS)}…` : s;
+}
+
+// The fixed scope label the flag stands for: allEnvironments and
+// targetingAllProjects both read as "All Environments" / "All Projects".
+function scopeLabel(flagField: string): string {
+  return flagField
+    .replace(/^.*?(all)/i, "$1")
+    .replace(/([A-Z])/g, " $1")
+    .replace(/^./, (c) => c.toUpperCase())
+    .trim();
+}
+
+/**
+ * A chunk pairing an "everything" flag with its list (allEnvironments +
+ * environments) reads as the value in force, not as the raw pair.
+ */
+function formatFlaggedList(
+  entity: Record<string, unknown>,
+  fields: string[],
+): string | null {
+  if (fields.length !== 2) return null;
+  const flagField = fields.find((f) => typeof entity[f] === "boolean");
+  if (!flagField) return null;
+  // The list is often absent when the flag is on, so it can't be required here.
+  const list = entity[fields.find((f) => f !== flagField) as string];
+  if (list !== undefined && !Array.isArray(list)) return null;
+  return entity[flagField]
+    ? scopeLabel(flagField)
+    : formatList((list as unknown[]) ?? []);
+}
+
 export function formatChunkValue(
   entity: Record<string, unknown> | null,
   fields: string[],
 ): string {
   if (!entity) return "(removed)";
-  if (fields.length === 1) return formatConflictValue(entity[fields[0]]);
+  if (fields.length === 1) {
+    const only = entity[fields[0]];
+    return Array.isArray(only) ? formatList(only) : formatConflictValue(only);
+  }
+  const flagged = formatFlaggedList(entity, fields);
+  if (flagged !== null) return flagged;
   return formatConflictValue(
     Object.fromEntries(
       fields.filter((f) => entity[f] !== undefined).map((f) => [f, entity[f]]),
