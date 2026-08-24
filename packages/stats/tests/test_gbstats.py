@@ -20,7 +20,6 @@ from gbstats.gbstats import (
     get_bandit_result,
     create_bandit_statistics,
     preprocess_bandits,
-    process_multiple_experiment_results,
 )
 from gbstats.bayesian.bandits import BanditsSimple, BanditConfig
 
@@ -33,8 +32,6 @@ from gbstats.models.results import (
     BaselineResponse,
     BayesianVariationResponseIndividual,
     DimensionResponse,
-    ExperimentMetricAnalysis,
-    ExperimentMetricAnalysisResult,
     FrequentistVariationResponseIndividual,
     MetricStats,
     FrequentistVariationResponse,
@@ -388,163 +385,6 @@ BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
     weight_by_period=True,
     top_two=True,
 )
-
-
-class TestProcessMultipleExperimentResults(TestCase):
-    def test_isolates_single_metric_failure(self):
-        good_metric = dataclasses.replace(COUNT_METRIC, id="good_metric")
-        bad_metric = dataclasses.replace(COUNT_METRIC, id="bad_metric")
-        good_result = ExperimentMetricAnalysis(
-            metric=good_metric.id,
-            analyses=[
-                ExperimentMetricAnalysisResult(
-                    unknownVariations=[],
-                    multipleExposures=0,
-                    dimensions=[],
-                )
-            ],
-        )
-
-        def process_metric(**kwargs):
-            metric = kwargs["metric"]
-            if metric.id == bad_metric.id:
-                raise ValueError("bad metric data")
-            return good_result
-
-        data = [
-            {
-                "id": "experiment",
-                "data": {
-                    "metrics": {
-                        good_metric.id: dataclasses.asdict(good_metric),
-                        bad_metric.id: dataclasses.asdict(bad_metric),
-                    },
-                    "analyses": [dataclasses.asdict(DEFAULT_ANALYSIS)],
-                    "query_results": [
-                        {
-                            "rows": [{"dimension": "All"}],
-                            "metrics": [good_metric.id, bad_metric.id],
-                        }
-                    ],
-                },
-            }
-        ]
-
-        with patch(
-            "gbstats.gbstats.process_single_metric",
-            side_effect=process_metric,
-        ):
-            experiment_result = process_multiple_experiment_results(data)[0]
-
-        self.assertIsNone(experiment_result.error)
-        self.assertEqual(len(experiment_result.results), 2)
-        self.assertEqual(experiment_result.results[0], good_result)
-
-        bad = experiment_result.results[1]
-        self.assertEqual(bad.metric, bad_metric.id)
-        # One error slot per requested analysis, not a metric-level error
-        self.assertEqual(len(bad.analyses), 1)
-        self.assertEqual(bad.analyses[0].dimensions, [])
-        self.assertEqual(bad.analyses[0].error, "bad metric data")
-        bad_traceback = bad.analyses[0].traceback
-        assert bad_traceback is not None
-        self.assertIn("ValueError: bad metric data", bad_traceback)
-
-    def test_unparseable_metric_does_not_discard_others(self):
-        good_metric = dataclasses.replace(COUNT_METRIC, id="good_metric")
-        good_result = ExperimentMetricAnalysis(
-            metric=good_metric.id,
-            analyses=[
-                ExperimentMetricAnalysisResult(
-                    unknownVariations=[],
-                    multipleExposures=0,
-                    dimensions=[],
-                )
-            ],
-        )
-
-        data = [
-            {
-                "id": "experiment",
-                "data": {
-                    "metrics": {
-                        good_metric.id: dataclasses.asdict(good_metric),
-                        # missing required fields -> fails to parse
-                        "bad_metric": {"id": "bad_metric"},
-                    },
-                    "analyses": [dataclasses.asdict(DEFAULT_ANALYSIS)],
-                    "query_results": [
-                        {
-                            "rows": [{"dimension": "All"}],
-                            "metrics": [good_metric.id, "bad_metric"],
-                        }
-                    ],
-                },
-            }
-        ]
-
-        with patch(
-            "gbstats.gbstats.process_single_metric",
-            return_value=good_result,
-        ):
-            experiment_result = process_multiple_experiment_results(data)[0]
-
-        self.assertIsNone(experiment_result.error)
-        by_id = {r.metric: r for r in experiment_result.results}
-        self.assertEqual(by_id["good_metric"], good_result)
-        bad = by_id["bad_metric"]
-        self.assertEqual(len(bad.analyses), 1)
-        self.assertEqual(bad.analyses[0].dimensions, [])
-        self.assertIn("parse", (bad.analyses[0].error or "").lower())
-
-    def test_bandit_result_failure_is_contained(self):
-        # gbstats contains bandit failures like experiments: a bandit weight
-        # failure becomes an error bandit result rather than crashing the payload.
-        # The back end decides not to apply a bandit update when an error exists.
-        decision_metric = dataclasses.replace(COUNT_METRIC, id="decision")
-        good_result = ExperimentMetricAnalysis(
-            metric=decision_metric.id,
-            analyses=[
-                ExperimentMetricAnalysisResult(
-                    unknownVariations=[],
-                    multipleExposures=0,
-                    dimensions=[],
-                )
-            ],
-        )
-        analysis = dataclasses.replace(DEFAULT_ANALYSIS, dimension="")
-        bandit_settings = dataclasses.replace(
-            BANDIT_ANALYSIS, decision_metric=decision_metric.id
-        )
-        data = [
-            {
-                "id": "experiment",
-                "data": {
-                    "metrics": {
-                        decision_metric.id: dataclasses.asdict(decision_metric)
-                    },
-                    "analyses": [dataclasses.asdict(analysis)],
-                    "query_results": [
-                        {
-                            "rows": [{"dimension": "All"}],
-                            "metrics": [decision_metric.id],
-                        }
-                    ],
-                    "bandit_settings": dataclasses.asdict(bandit_settings),
-                },
-            }
-        ]
-
-        with patch(
-            "gbstats.gbstats.get_bandit_result", side_effect=ValueError("bandit boom")
-        ), patch("gbstats.gbstats.process_single_metric", return_value=good_result):
-            experiment_result = process_multiple_experiment_results(data)[0]
-
-        self.assertIsNone(experiment_result.error)
-        self.assertEqual(experiment_result.results, [good_result])
-        bandit_result = experiment_result.banditResult
-        assert bandit_result is not None
-        self.assertEqual(bandit_result.error, "bandit boom")
 
 
 class TestProcessSingleMetricAnalysisIsolation(TestCase):

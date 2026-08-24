@@ -1,4 +1,3 @@
-from dataclasses import field
 from typing import Any, Dict, List, Literal, Optional, Union
 from pydantic.dataclasses import dataclass
 
@@ -92,9 +91,6 @@ class DataForStatsEngine:
     analyses: List[AnalysisSettingsForStatsEngine]
     query_results: List[QueryResultsForStatsEngine]
     bandit_settings: Optional[BanditSettingsForStatsEngine]
-    # Metrics whose settings could not be parsed, keyed by metric id.
-    # These are surfaced as errored results instead of failing the whole payload.
-    metric_parse_errors: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
