@@ -325,16 +325,17 @@ function getAnalysisResult(
   return analysis.results.find((result) => result.name === dimensionValue);
 }
 
-// A stats-engine failure yields a zeroed metric with an errorMessage. Drop
-// those so a failed difference type is neither recorded as a real value nor
-// picked as the stats source.
+// A stats-engine compute failure yields a zeroed metric flagged computeFailed.
+// Drop those so a failed difference type is neither recorded as a real value
+// nor picked as the stats source. Key off computeFailed, not errorMessage: a
+// successful metric can carry errorMessage: null from gbstats.
 function getComputedMetric(
   result: ExperimentSnapshotAnalysis["results"][number] | undefined,
   variationIndex: number,
   metricId: string,
 ): SnapshotMetric | undefined {
   const metric = result?.variations[variationIndex]?.metrics[metricId];
-  return metric && metric.errorMessage === undefined ? metric : undefined;
+  return metric && !metric.computeFailed ? metric : undefined;
 }
 
 function getAnalysisByDifferenceType(

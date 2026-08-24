@@ -39,21 +39,24 @@ function makeAnalysis({
   differenceType,
   value,
   errored = false,
+  benignError = false,
   settings = {},
 }: {
   differenceType: "relative" | "absolute" | "scaled";
   value: number;
   errored?: boolean;
+  benignError?: boolean;
   settings?: Partial<ExperimentSnapshotAnalysisSettings>;
 }): ExperimentSnapshotAnalysis {
-  // A stats-engine metric failure zeroes the metric and stamps an errorMessage
-  // on every variation, mirroring getFailedMetricResult in stats.ts.
+  // A stats-engine compute failure zeroes the metric and flags computeFailed on
+  // every variation, mirroring getFailedMetricResult in stats.ts.
   const erroredMetric = {
     value: 0,
     cr: 0,
     users: 0,
     buckets: [],
     errorMessage: "boom",
+    computeFailed: true,
   };
   return {
     analysisKey: `analysis_${differenceType}_${value}`,
@@ -94,6 +97,10 @@ function makeAnalysis({
                     pValue: 0.03,
                     expected: value,
                     stats: { users: 120, mean: 0.2, stddev: 0.3 },
+                    // A successful metric can still carry an errorMessage (e.g.
+                    // gbstats null, or a benign "no units" note). It must not be
+                    // dropped, only computeFailed is.
+                    ...(benignError ? { errorMessage: "no units" } : {}),
                   },
             },
           },
@@ -402,6 +409,42 @@ describe("updateExperimentAnalysisTimeSeries", () => {
     });
 
     expect(upsertMultipleSingleDataPoint).not.toHaveBeenCalled();
+  });
+
+  it("records a successful metric that carries a non-fatal errorMessage", async () => {
+    const upsertMultipleSingleDataPoint = jest
+      .fn()
+      .mockResolvedValue(undefined);
+    const context = {
+      models: {
+        metricTimeSeries: {
+          upsertMultipleSingleDataPoint,
+        },
+      },
+    };
+
+    await updateExperimentAnalysisTimeSeries({
+      context: context as never,
+      experiment: makeExperiment(),
+      experimentSnapshot: makeSnapshot(),
+      analyses: [
+        makeAnalysis({
+          differenceType: "relative",
+          value: 1.2,
+          benignError: true,
+        }),
+        makeAnalysis({ differenceType: "absolute", value: 12 }),
+        makeAnalysis({ differenceType: "scaled", value: 120 }),
+      ],
+      allMetricIds: ["met_1"],
+      factMetrics: undefined,
+      factTableMap: new Map(),
+    });
+
+    expect(upsertMultipleSingleDataPoint).toHaveBeenCalledTimes(1);
+    const [dataPoints] = upsertMultipleSingleDataPoint.mock.calls[0];
+    const variation = dataPoints[0].singleDataPoint.variations[1];
+    expect(variation.relative?.value).toBe(1.2);
   });
 
   it("skips writes when there are no time-series-compatible analyses", async () => {
