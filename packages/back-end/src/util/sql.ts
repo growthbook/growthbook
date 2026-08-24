@@ -248,6 +248,33 @@ function getJSONFields(testValues: unknown[]): JSONColumnFields {
   return fields;
 }
 
+export function columnNamesMatch(
+  a: string,
+  b: string,
+  caseSensitive = false,
+): boolean {
+  return caseSensitive ? a === b : a.toLowerCase() === b.toLowerCase();
+}
+
+// Map values are never undefined, so undefined means the key is absent.
+export function getColumnByName<T>(
+  map: Map<string, T>,
+  name: string,
+  caseSensitive = false,
+): T | undefined {
+  const direct = map.get(name);
+  if (direct !== undefined || caseSensitive) {
+    return direct;
+  }
+  const lower = name.toLowerCase();
+  for (const [key, value] of map) {
+    if (key.toLowerCase() === lower) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
 export function determineColumnTypes(
   rows: Record<string, unknown>[],
   typeMap: Map<string, FactTableColumnType>,

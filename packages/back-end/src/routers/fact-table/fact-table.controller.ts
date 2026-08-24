@@ -61,6 +61,7 @@ import {
   validateVirtualColumnSql,
 } from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
+import { columnNamesMatch, getColumnByName } from "back-end/src/util/sql";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
 import {
   AggregatedFactTableStatus,
@@ -238,6 +239,7 @@ async function testVirtualColumnQuery(
 function mergeColumnsWithTypeMap(
   existingColumns: ColumnInterface[],
   typeMap: Map<string, FactTableColumnType>,
+  caseSensitive: boolean,
 ): ColumnInterface[] {
   const columns = cloneDeep(existingColumns);
 
@@ -248,7 +250,7 @@ function mergeColumnsWithTypeMap(
     if (col.isVirtual) {
       return;
     }
-    const type = typeMap.get(col.column);
+    const type = getColumnByName(typeMap, col.column, caseSensitive);
     if (type === undefined) {
       col.deleted = true;
       col.dateUpdated = new Date();
@@ -267,7 +269,9 @@ function mergeColumnsWithTypeMap(
 
   // Add new columns
   typeMap.forEach((datatype, column) => {
-    if (!columns.some((c) => c.column === column)) {
+    if (
+      !columns.some((c) => columnNamesMatch(c.column, column, caseSensitive))
+    ) {
       columns.push({
         column,
         datatype,
@@ -347,7 +351,11 @@ export async function refreshColumns(
     });
 
     // Merge with existing columns (preserve rich types like json with jsonFields)
-    const columns = mergeColumnsWithTypeMap(factTable.columns || [], typeMap);
+    const columns = mergeColumnsWithTypeMap(
+      factTable.columns || [],
+      typeMap,
+      integration.columnNamesAreCaseSensitive === true,
+    );
 
     return { columns, needsBackgroundRefresh: true };
   } else {

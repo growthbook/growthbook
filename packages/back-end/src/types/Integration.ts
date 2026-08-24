@@ -90,6 +90,7 @@ export interface SourceIntegrationInterface<
   context: ReqContext;
   additionalQueryMetadata?: AdditionalQueryMetadata;
   decryptionError: boolean;
+  columnNamesAreCaseSensitive?: boolean;
   params: DataSourceParamsForType<T>;
   setAdditionalQueryMetadata?(
     additionalQueryMetadata: AdditionalQueryMetadata,

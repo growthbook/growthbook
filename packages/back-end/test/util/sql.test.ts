@@ -5,6 +5,8 @@ import {
   expandDenominatorMetrics,
   replaceCountStar,
   determineColumnTypes,
+  getColumnByName,
+  columnNamesMatch,
   getHost,
 } from "back-end/src/util/sql";
 import { baseDialect } from "back-end/src/integrations/dialects/base";
@@ -620,6 +622,53 @@ from
         },
       ]);
     });
+  });
+});
+
+describe("getColumnByName", () => {
+  it("returns an exact-case match", () => {
+    const map = new Map([["browserFamily", "string"]]);
+    expect(getColumnByName(map, "browserFamily")).toEqual("string");
+  });
+
+  it("matches regardless of case in either direction", () => {
+    const lowered = new Map([["browserfamily", "string"]]);
+    expect(getColumnByName(lowered, "browserFamily")).toEqual("string");
+
+    const uppered = new Map([["BROWSERFAMILY", "string"]]);
+    expect(getColumnByName(uppered, "browserFamily")).toEqual("string");
+  });
+
+  it("returns undefined when the key is absent", () => {
+    const map = new Map([["country", "string"]]);
+    expect(getColumnByName(map, "browserFamily")).toBeUndefined();
+  });
+
+  it("prefers the exact-case entry when both cases exist", () => {
+    const map = new Map([
+      ["userId", "number"],
+      ["userid", "string"],
+    ]);
+    expect(getColumnByName(map, "userid")).toEqual("string");
+  });
+
+  it("does not fall back to a differently-cased key when caseSensitive", () => {
+    const map = new Map([["browserfamily", "string"]]);
+    expect(getColumnByName(map, "browserFamily", true)).toBeUndefined();
+    expect(getColumnByName(map, "browserfamily", true)).toEqual("string");
+  });
+});
+
+describe("columnNamesMatch", () => {
+  it("matches case-insensitively by default", () => {
+    expect(columnNamesMatch("browserFamily", "browserfamily")).toBe(true);
+    expect(columnNamesMatch("userId", "USERID")).toBe(true);
+    expect(columnNamesMatch("userId", "country")).toBe(false);
+  });
+
+  it("requires an exact match when caseSensitive", () => {
+    expect(columnNamesMatch("userId", "userid", true)).toBe(false);
+    expect(columnNamesMatch("userId", "userId", true)).toBe(true);
   });
 });
 

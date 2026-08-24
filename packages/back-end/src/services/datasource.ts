@@ -4,6 +4,7 @@ import { SqlIdentifierQuote, TemplateVariables } from "shared/types/sql";
 import {
   FeatureEvalDiagnosticsQueryResponseRows,
   QueryResponseColumnData,
+  TestQueryResult,
   TestQueryRow,
   UserExperimentExposuresQueryResponseRows,
 } from "shared/types/integrations";
@@ -23,7 +24,7 @@ import {
   mergeDataSourceParams,
   redactSecretParams,
 } from "shared/util";
-import { determineColumnTypes } from "back-end/src/util/sql";
+import { columnNamesMatch, determineColumnTypes } from "back-end/src/util/sql";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 import GoogleAnalytics from "back-end/src/integrations/GoogleAnalytics";
 import Athena from "back-end/src/integrations/Athena";
@@ -390,6 +391,39 @@ export async function testQuery(
   }
 }
 
+function findMissingRequiredColumns(
+  results: TestQueryResult,
+  requiredColumns: Set<string>,
+  caseSensitive: boolean,
+): string | undefined {
+  let present: string[];
+
+  // For datasources where the result includes columns, use column metadata
+  if (results.columns) {
+    present = results.columns.map((c) => c.name);
+    if (present.length === 0) {
+      return "Unable to determine columns from query";
+    }
+  } else {
+    // For other datasources, extract from first row (requires LIMIT 1+)
+    if (results.results.length === 0) {
+      return "No rows returned";
+    }
+    present = Object.keys(results.results[0]);
+  }
+
+  const missingColumns = [...requiredColumns].filter(
+    (col) =>
+      !present.some((name) => columnNamesMatch(name, col, caseSensitive)),
+  );
+
+  if (missingColumns.length > 0) {
+    return `Missing required columns in response: ${missingColumns.join(", ")}`;
+  }
+
+  return undefined;
+}
+
 // Return any errors that result when running the query otherwise return undefined
 export async function testQueryValidity(
   integration: SourceIntegrationInterface,
@@ -418,38 +452,11 @@ export async function testQueryValidity(
   );
   try {
     const results = await integration.runTestQuery(sql, undefined, "testQuery");
-
-    let columns: Set<string>;
-
-    // For datasources where the result includes columns, use column metadata
-    if (results.columns) {
-      const columnNames = results.columns.map((c) => c.name);
-      if (columnNames.length === 0) {
-        return "Unable to determine columns from query";
-      }
-      columns = new Set(columnNames);
-    } else {
-      // For other datasources, extract from first row (requires LIMIT 1+)
-      if (results.results.length === 0) {
-        return "No rows returned";
-      }
-      columns = new Set(Object.keys(results.results[0]));
-    }
-
-    const missingColumns: string[] = [];
-    for (const col of requiredColumns) {
-      if (!columns.has(col)) {
-        missingColumns.push(col);
-      }
-    }
-
-    if (missingColumns.length > 0) {
-      return `Missing required columns in response: ${missingColumns.join(
-        ", ",
-      )}`;
-    }
-
-    return undefined;
+    return findMissingRequiredColumns(
+      results,
+      requiredColumns,
+      integration.columnNamesAreCaseSensitive === true,
+    );
   } catch (e) {
     return e.message;
   }
@@ -474,36 +481,11 @@ export async function testFeatureUsageQueryValidity(
   );
   try {
     const results = await integration.runTestQuery(sql, undefined, "testQuery");
-
-    let columns: Set<string>;
-
-    if (results.columns) {
-      const columnNames = results.columns.map((c) => c.name);
-      if (columnNames.length === 0) {
-        return "Unable to determine columns from query";
-      }
-      columns = new Set(columnNames);
-    } else {
-      if (results.results.length === 0) {
-        return "No rows returned";
-      }
-      columns = new Set(Object.keys(results.results[0]));
-    }
-
-    const missingColumns: string[] = [];
-    for (const col of requiredColumns) {
-      if (!columns.has(col)) {
-        missingColumns.push(col);
-      }
-    }
-
-    if (missingColumns.length > 0) {
-      return `Missing required columns in response: ${missingColumns.join(
-        ", ",
-      )}`;
-    }
-
-    return undefined;
+    return findMissingRequiredColumns(
+      results,
+      requiredColumns,
+      integration.columnNamesAreCaseSensitive === true,
+    );
   } catch (e) {
     return e.message;
   }
