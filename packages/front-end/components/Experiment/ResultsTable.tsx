@@ -165,15 +165,6 @@ export enum RowError {
   QUANTILE_AGGREGATION_ERROR = "QUANTILE_AGGREGATION_ERROR",
 }
 
-type MetricComputeError = { computeError: string };
-
-type RowResultOrError =
-  | RowResults
-  | "query error"
-  | RowError
-  | MetricComputeError
-  | null;
-
 export default function ResultsTable({
   id,
   experimentId,
@@ -444,103 +435,96 @@ export default function ResultsTable({
 
   const domain = useDomain(filteredVariations, rows, differenceType, oneSided);
 
-  const rowsResults: RowResultOrError[][] = useMemo(() => {
-    const rr: RowResultOrError[][] = [];
-    rows.map((row, i) => {
-      rr.push([]);
-      const baseline = row.variations[baselineRow] || {
-        value: 0,
-        cr: 0,
-        users: 0,
-      };
-      orderedVariations.map((v) => {
-        let skipVariation = false;
-        if (variationFilter?.length && variationFilter?.includes(v.index)) {
-          skipVariation = true;
-        }
-        if (v.index === baselineRow) {
-          skipVariation = true;
-        }
-        if (skipVariation) {
-          rr[i].push(null);
-          return;
-        }
-        if (
-          queryStatusData?.status === "partially-succeeded" &&
-          queryStatusData?.failedNames?.includes(row.metric.id)
-        ) {
-          rr[i].push("query error");
-          return;
-        }
-
-        if (row.error) {
-          rr[i].push(row.error);
-          return;
-        }
-
-        const stats = row.variations[v.index] || {
+  const rowsResults: (RowResults | "query error" | RowError | null)[][] =
+    useMemo(() => {
+      const rr: (RowResults | "query error" | RowError | null)[][] = [];
+      rows.map((row, i) => {
+        rr.push([]);
+        const baseline = row.variations[baselineRow] || {
           value: 0,
           cr: 0,
           users: 0,
         };
+        orderedVariations.map((v) => {
+          let skipVariation = false;
+          if (variationFilter?.length && variationFilter?.includes(v.index)) {
+            skipVariation = true;
+          }
+          if (v.index === baselineRow) {
+            skipVariation = true;
+          }
+          if (skipVariation) {
+            rr[i].push(null);
+            return;
+          }
+          if (
+            queryStatusData?.status === "partially-succeeded" &&
+            queryStatusData?.failedNames?.includes(row.metric.id)
+          ) {
+            rr[i].push("query error");
+            return;
+          }
 
-        // Show a whole-row error only when this variation has no data to show
-        const computeError =
-          getComputeErrorMessage(stats) || getComputeErrorMessage(baseline);
-        if (computeError && !stats.users) {
-          rr[i].push({ computeError });
-          return;
-        }
+          if (row.error) {
+            rr[i].push(row.error);
+            return;
+          }
 
-        const denominator =
-          !isFactMetric(row.metric) && row.metric.denominator
-            ? ((ssrPolyfills?.getExperimentMetricById?.(
-                row.metric.denominator,
-              ) ||
-                getExperimentMetricById(row.metric.denominator)) ??
-              undefined)
-            : undefined;
-        const rowResults = getRowResults({
-          stats,
-          baseline,
-          metric: row.metric,
-          denominator,
-          metricDefaults,
-          minSampleSize: getMinSampleSizeForMetric(row.metric),
-          statsEngine,
-          differenceType,
-          ciUpper,
-          ciLower,
-          pValueThreshold,
-          snapshotDate: getValidDate(dateCreated),
-          phaseStartDate: getValidDate(startDate),
-          isLatestPhase,
-          experimentStatus: status,
+          const stats = row.variations[v.index] || {
+            value: 0,
+            cr: 0,
+            users: 0,
+          };
+
+          const denominator =
+            !isFactMetric(row.metric) && row.metric.denominator
+              ? ((ssrPolyfills?.getExperimentMetricById?.(
+                  row.metric.denominator,
+                ) ||
+                  getExperimentMetricById(row.metric.denominator)) ??
+                undefined)
+              : undefined;
+          const rowResults = getRowResults({
+            stats,
+            baseline,
+            metric: row.metric,
+            denominator,
+            metricDefaults,
+            minSampleSize: getMinSampleSizeForMetric(row.metric),
+            statsEngine,
+            differenceType,
+            ciUpper,
+            ciLower,
+            pValueThreshold,
+            snapshotDate: getValidDate(dateCreated),
+            phaseStartDate: getValidDate(startDate),
+            isLatestPhase,
+            experimentStatus: status,
+          });
+          rr[i].push(rowResults);
         });
-        rr[i].push(rowResults);
       });
-    });
-    return rr;
-  }, [
-    rows,
-    orderedVariations,
-    baselineRow,
-    variationFilter,
-    metricDefaults,
-    getMinSampleSizeForMetric,
-    statsEngine,
-    differenceType,
-    ciUpper,
-    ciLower,
-    pValueThreshold,
-    dateCreated,
-    startDate,
-    isLatestPhase,
-    status,
-    queryStatusData,
-    ssrPolyfills,
-    getExperimentMetricById,
-  ]);
+      return rr;
+    }, [
+      rows,
+      orderedVariations,
+      baselineRow,
+      variationFilter,
+      metricDefaults,
+      getMinSampleSizeForMetric,
+      statsEngine,
+      differenceType,
+      ciUpper,
+      ciLower,
+      pValueThreshold,
+      dateCreated,
+      startDate,
+      isLatestPhase,
+      status,
+      queryStatusData,
+      ssrPolyfills,
+      getExperimentMetricById,
+    ]);
 
   const noRows = rows.length === 0;
   const hasUnfilteredMetrics = (totalMetricsCount ?? 0) > 0;
@@ -794,6 +778,7 @@ export default function ResultsTable({
                   };
                   let alreadyShownQueryError = false;
                   let alreadyShownQuantileError = false;
+                  let alreadyShownComputeError = false;
 
                   const rowId = row.sliceId
                     ? `${id}-${row.metric.id}-${row.sliceId}`
@@ -913,80 +898,6 @@ export default function ResultsTable({
                                   return null;
                                 }
                                 if (
-                                  typeof rowResults === "object" &&
-                                  "computeError" in rowResults
-                                ) {
-                                  const errorColSpan =
-                                    columnsToDisplay.length -
-                                    (columnsToDisplay.includes(
-                                      "Metric & Variation Names",
-                                    )
-                                      ? 1
-                                      : 0);
-                                  return (
-                                    <tr
-                                      key={j}
-                                      className="results-variation-row align-items-center error-row"
-                                      style={{
-                                        height: compactResults
-                                          ? ROW_HEIGHT + 10
-                                          : ROW_HEIGHT,
-                                      }}
-                                    >
-                                      {columnsToDisplay.includes(
-                                        "Metric & Variation Names",
-                                      ) && (
-                                        <td
-                                          className="variation position-relative"
-                                          style={{
-                                            width: 220 * tableCellScale,
-                                          }}
-                                        >
-                                          {!compactResults ? (
-                                            <div
-                                              className={`d-flex align-items-center ml-2 ${
-                                                row.isChildRow
-                                                  ? "pl-4"
-                                                  : dimension
-                                                    ? "pl-2" // less padding because no expansion buttons
-                                                    : "pl-3"
-                                              }`}
-                                              style={{
-                                                width: 200 * tableCellScale,
-                                              }}
-                                            >
-                                              <VariationLabel
-                                                number={v.index}
-                                                name={v.name}
-                                                size="md"
-                                              />
-                                            </div>
-                                          ) : (
-                                            renderLabelColumn({
-                                              label: row.label,
-                                              metric: row.metric,
-                                              row,
-                                              maxRows: 3,
-                                              location: resultGroup,
-                                            })
-                                          )}
-                                        </td>
-                                      )}
-                                      {errorColSpan > 0 && (
-                                        <td colSpan={errorColSpan}>
-                                          <HelperText
-                                            status="error"
-                                            size="sm"
-                                            mx="2"
-                                          >
-                                            {rowResults.computeError}
-                                          </HelperText>
-                                        </td>
-                                      )}
-                                    </tr>
-                                  );
-                                }
-                                if (
                                   rowResults === "query error" ||
                                   rowResults ===
                                     RowError.QUANTILE_AGGREGATION_ERROR
@@ -1067,6 +978,75 @@ export default function ResultsTable({
                                   } else {
                                     return null;
                                   }
+                                }
+
+                                // Show a whole-row error only when this variation has no data to show
+                                const computeError =
+                                  getComputeErrorMessage(stats) ||
+                                  getComputeErrorMessage(baseline);
+                                if (computeError && !stats.users) {
+                                  if (alreadyShownComputeError) {
+                                    return null;
+                                  }
+                                  alreadyShownComputeError = true;
+                                  return drawEmptyRow({
+                                    key: j,
+                                    className: clsx(
+                                      "results-variation-row align-items-center error-row",
+                                      {
+                                        "last-before-slice-header":
+                                          !row.isSliceRow &&
+                                          i < rows.length - 1 &&
+                                          rows[i + 1].isSliceRow &&
+                                          JSON.stringify(
+                                            rows[i + 1].sliceLevels,
+                                          ) !==
+                                            JSON.stringify(
+                                              rows[i]?.sliceLevels || [],
+                                            ) &&
+                                          j === orderedVariations.length - 1,
+                                      },
+                                    ),
+                                    labelColSpan: includedLabelColumns.length,
+                                    renderLabel:
+                                      includedLabelColumns.length > 0,
+                                    renderGraph:
+                                      columnsToDisplay.includes("CI Graph"),
+                                    renderLastColumn:
+                                      columnsToDisplay.includes("Lift"),
+                                    label: (
+                                      <>
+                                        {compactResults ? (
+                                          <div className="position-relative">
+                                            {renderLabelColumn({
+                                              label: row.label,
+                                              metric: row.metric,
+                                              row,
+                                              location: resultGroup,
+                                            })}
+                                          </div>
+                                        ) : null}
+                                        <HelperText
+                                          status="error"
+                                          size="sm"
+                                          mx="2"
+                                        >
+                                          {computeError}
+                                        </HelperText>
+                                      </>
+                                    ),
+                                    graphCellWidth: columnsToDisplay.includes(
+                                      "CI Graph",
+                                    )
+                                      ? graphCellWidth
+                                      : 0,
+                                    rowHeight: compactResults
+                                      ? ROW_HEIGHT + 10
+                                      : ROW_HEIGHT,
+                                    id,
+                                    domain,
+                                    ssrPolyfills,
+                                  });
                                 }
 
                                 const hideScaledImpact =
