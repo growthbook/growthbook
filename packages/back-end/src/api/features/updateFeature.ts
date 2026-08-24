@@ -1,8 +1,9 @@
 import {
-  validateFeatureValue,
+  getApplicableEnvIds,
   getRulesForEnvironment,
-  stemRuleId,
   normalizeTargetingInUpdates,
+  stemRuleId,
+  validateFeatureValue,
 } from "shared/util";
 import { isEqual, omit } from "lodash";
 import { updateFeatureValidator } from "shared/validators";
@@ -46,7 +47,6 @@ import {
   getEnvironments,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
-import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { logger } from "back-end/src/util/logger";
 import {
   dispatchFeatureRevisionEvent,

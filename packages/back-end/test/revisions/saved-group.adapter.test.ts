@@ -5,13 +5,16 @@ import { savedGroupAdapter } from "back-end/src/revisions/adapters/saved-group.a
 import { getAdapter, getEntityModel } from "back-end/src/revisions/index";
 import { isRevisionRequired } from "back-end/src/revisions/util";
 
-const buildRevision = (proposedChanges: JsonPatchOperation[]): Revision =>
+const buildRevision = (
+  proposedChanges: JsonPatchOperation[],
+  snapshot: Record<string, unknown> = {},
+): Revision =>
   ({
     id: "rev-1",
     target: {
       type: "saved-group",
       id: "sg-1",
-      snapshot: {} as Record<string, unknown>,
+      snapshot,
       proposedChanges,
     },
     status: "draft",
@@ -44,6 +47,9 @@ const baseGroup: SavedGroupInterface = {
 function makeContext(overrides: {
   approvalRequired?: boolean;
   hasRequireApprovals?: boolean;
+  // The full rule list, for the project-scoped cases. Takes precedence over
+  // `approvalRequired` / `requireMetadataReview`.
+  savedGroups?: Record<string, unknown>[];
   // When provided, controls the `requireMetadataReview` org setting. Defaults
   // to `undefined` (which behaves like the historical "true" default).
   requireMetadataReview?: boolean;
@@ -58,18 +64,23 @@ function makeContext(overrides: {
   return {
     org: {
       settings: {
-        approvalFlows: overrides.approvalRequired
-          ? {
-              savedGroups: [
-                {
-                  required: true,
-                  ...(overrides.requireMetadataReview !== undefined
-                    ? { requireMetadataReview: overrides.requireMetadataReview }
-                    : {}),
-                },
-              ],
-            }
-          : { savedGroups: [{ required: false }] },
+        approvalFlows: overrides.savedGroups
+          ? { savedGroups: overrides.savedGroups }
+          : overrides.approvalRequired
+            ? {
+                savedGroups: [
+                  {
+                    required: true,
+                    ...(overrides.requireMetadataReview !== undefined
+                      ? {
+                          requireMetadataReview:
+                            overrides.requireMetadataReview,
+                        }
+                      : {}),
+                  },
+                ],
+              }
+            : { savedGroups: [{ required: false }] },
       },
     },
     permissions,
@@ -518,5 +529,112 @@ describe("revisions registry", () => {
     const ctxOff = makeContext({ approvalRequired: false });
     expect(isRevisionRequired(ctxOn, "saved-group", "sg-1")).toBe(true);
     expect(isRevisionRequired(ctxOff, "saved-group", "sg-1")).toBe(false);
+  });
+});
+
+describe("savedGroupAdapter.reviewRequirementForRevision", () => {
+  const valueChange: JsonPatchOperation[] = [
+    { op: "replace", path: "/values", value: ["c"] } as JsonPatchOperation,
+  ];
+  const metadataChange: JsonPatchOperation[] = [
+    { op: "replace", path: "/description", value: "new" } as JsonPatchOperation,
+  ];
+
+  it("carries the governing project's rule so its required teams apply", () => {
+    const context = makeContext({
+      savedGroups: [
+        { projects: [], required: true, requiredApproverTeams: ["t_sec"] },
+        { projects: ["prj-1"], required: true },
+      ],
+    });
+
+    const requirement = savedGroupAdapter.reviewRequirementForRevision?.(
+      context,
+      buildRevision(valueChange, { projects: ["prj-1"] }),
+    );
+
+    expect(requirement?.required).toBe(true);
+    // Inherited from the all-projects layer, which the override left unset.
+    expect(requirement?.rules).toEqual([
+      expect.objectContaining({ requiredApproverTeams: ["t_sec"] }),
+    ]);
+  });
+
+  // Each project's rule is its own requirement, so both must be reported.
+  it("returns a rule per project a multi-project group belongs to", () => {
+    const context = makeContext({
+      savedGroups: [
+        { projects: ["prj-1"], required: true, requiredApproverTeams: ["t_a"] },
+        { projects: ["prj-2"], required: true, requiredApproverTeams: ["t_b"] },
+      ],
+    });
+
+    const requirement = savedGroupAdapter.reviewRequirementForRevision?.(
+      context,
+      buildRevision(valueChange, { projects: ["prj-1", "prj-2"] }),
+    );
+
+    expect(requirement?.rules.map((r) => r.requiredApproverTeams)).toEqual([
+      ["t_a"],
+      ["t_b"],
+    ]);
+  });
+
+  it("drops rules that do not gate metadata from a metadata-only change", () => {
+    const context = makeContext({
+      savedGroups: [
+        {
+          projects: ["prj-1"],
+          required: true,
+          requireMetadataReview: false,
+          requiredApproverTeams: ["t_a"],
+        },
+        {
+          projects: ["prj-2"],
+          required: true,
+          requireMetadataReview: true,
+          requiredApproverTeams: ["t_b"],
+        },
+      ],
+    });
+
+    const requirement = savedGroupAdapter.reviewRequirementForRevision?.(
+      context,
+      buildRevision(metadataChange, { projects: ["prj-1", "prj-2"] }),
+    );
+
+    expect(requirement?.required).toBe(true);
+    expect(requirement?.rules.map((r) => r.requiredApproverTeams)).toEqual([
+      ["t_b"],
+    ]);
+  });
+
+  it("agrees with isApprovalRequiredForRevision", () => {
+    const context = makeContext({
+      savedGroups: [
+        { projects: ["prj-1"], required: true, requireMetadataReview: false },
+      ],
+    });
+    const revision = buildRevision(metadataChange, { projects: ["prj-1"] });
+
+    expect(
+      savedGroupAdapter.reviewRequirementForRevision?.(context, revision)
+        ?.required,
+    ).toBe(
+      savedGroupAdapter.isApprovalRequiredForRevision?.(context, revision),
+    );
+  });
+
+  it("requires nothing when the group's project is not governed", () => {
+    const context = makeContext({
+      savedGroups: [{ projects: ["prj-other"], required: true }],
+    });
+
+    const requirement = savedGroupAdapter.reviewRequirementForRevision?.(
+      context,
+      buildRevision(valueChange, { projects: ["prj-1"] }),
+    );
+
+    expect(requirement).toEqual({ required: false, rules: [] });
   });
 });
