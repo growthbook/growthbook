@@ -138,7 +138,6 @@ describe("parseStatsEngineResult", () => {
       ],
     });
 
-    // Analysis 0 failed: the error is attached to every variation cell
     results[0].dimensions[0].variations.forEach((variation) => {
       expect(variation.metrics.partial).toEqual({
         users: 0,
@@ -149,7 +148,6 @@ describe("parseStatsEngineResult", () => {
       });
     });
 
-    // Analysis 1 survived: real results, no error
     results[1].dimensions[0].variations.forEach((variation) => {
       expect(variation.metrics.partial.errorMessage).toBeUndefined();
       expect(variation.metrics.partial.cr).toBeGreaterThan(0);
@@ -167,8 +165,6 @@ describe("parseStatsEngineResult", () => {
             {
               dimension: "All",
               srm: 1,
-              // malformed: variations must be an array, forces a throw
-              // while processing this metric
               variations: null as unknown as [],
             },
           ],

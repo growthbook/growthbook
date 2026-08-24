@@ -13,7 +13,10 @@ import {
   checkAndRollbackSafeRollout,
   updateRampUpSchedule,
 } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
-import { evaluateRampScheduleAfterSafeRolloutSnapshot } from "back-end/src/services/rampScheduleEvaluator";
+import {
+  evaluateRampScheduleAfterSafeRolloutSnapshot,
+  findErroredSafeRolloutMetricId,
+} from "back-end/src/services/rampScheduleEvaluator";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -181,8 +184,11 @@ export class SafeRolloutSnapshotModel extends BaseClass {
           ruleId: matchingRule.id,
           feature,
         });
-        // update the ramp up Schedule if the status is running and the ramp up is enabled and not completed
-        if (status === "running") {
+        // A metric that failed to compute used to error the snapshot and stop
+        // here; now the snapshot succeeds, so skip the advance explicitly.
+        const guardrailComputeFailed =
+          findErroredSafeRolloutMetricId(updatedDoc) !== null;
+        if (status === "running" && !guardrailComputeFailed) {
           await updateRampUpSchedule({
             context: this.context,
             safeRollout,

@@ -51,6 +51,8 @@ import {
   ExperimentSnapshotTraffic,
   ExperimentSnapshotTrafficDimension,
   SnapshotBanditSettings,
+  SnapshotMetric,
+  SnapshotVariation,
   SnapshotSettingsVariation,
 } from "shared/types/experiment-snapshot";
 import { BanditResult } from "shared/types/experiment";
@@ -513,12 +515,20 @@ const getFormattedCI = (
   return [ci[0] ?? -Infinity, ci[1] ?? Infinity];
 };
 
+const getFailedMetricResult = (errorMessage: string): SnapshotMetric => ({
+  users: 0,
+  value: 0,
+  cr: 0,
+  buckets: [],
+  errorMessage,
+});
+
 export function parseStatsEngineResult({
   analysisSettings,
   snapshotSettings,
   queryResults,
   unknownVariations,
-  result,
+  result: metricResults,
 }: {
   analysisSettings: ExperimentSnapshotAnalysisSettings[];
   snapshotSettings: Pick<ExperimentSnapshotSettings, "variations">;
@@ -538,159 +548,133 @@ export function parseStatsEngineResult({
     ),
   );
 
-  // A whole-metric failure is fanned into every analysis slot with the same
-  // message, so dedupe by metric+message to log each distinct failure once.
-  const loggedAnalysisErrors = new Set<string>();
-
-  analysisSettings.forEach((_, i) => {
+  analysisSettings.forEach((_, analysisIndex) => {
     const dimensionMap: Map<string, ExperimentReportResultDimension> =
       new Map();
-    const metricErrors = new Map<string, string>();
-    const processMetricResult = ({
-      metric,
-      analyses,
-    }: ExperimentMetricAnalysis[number]) => {
+    const failedMetrics: SnapshotVariation["metrics"] = {};
+    for (const { metric, analyses } of metricResults) {
       // each result can have multiple analyses (a set of computations that
       // use the same snapshot)
       // we loop over the analyses requested and pull out the results for each one
-      const analysisResult = analyses[i];
-      if (!analysisResult) return;
+      const analysisResult = analyses[analysisIndex];
+      if (!analysisResult) continue;
 
       const analysisError = analysisResult.error ?? null;
       if (analysisError !== null) {
-        const logKey = `${metric}\n${analysisError}`;
-        if (!loggedAnalysisErrors.has(logKey)) {
-          loggedAnalysisErrors.add(logKey);
-          logger.error(
-            "Metric analysis failed in stats engine:\n" +
-              (analysisResult.traceback
-                ? `${analysisError}\n\n${analysisResult.traceback}`
-                : analysisError),
-          );
-        }
-        metricErrors.set(metric, analysisError);
-        return;
-      }
-
-      unknownVariationsCopy = unknownVariationsCopy.concat(
-        analysisResult.unknownVariations,
-      );
-
-      analysisResult.dimensions.forEach((row) => {
-        const dim = dimensionMap.get(row.dimension) || {
-          name: row.dimension,
-          srm: 1,
-          variations: [],
-        };
-
-        row.variations.forEach((v, i) => {
-          const data = dim.variations[i] || {
-            users: v.users,
-            metrics: {},
-          };
-          data.users = Math.max(data.users, v.users);
-
-          // translate null in CI to infinity
-          if ("ci" in v) {
-            v.ci = getFormattedCI(v.ci);
-          }
-          if (
-            v.supplementalResults?.cupedUnadjusted &&
-            "ci" in v.supplementalResults.cupedUnadjusted
-          ) {
-            v.supplementalResults.cupedUnadjusted.ci = getFormattedCI(
-              v.supplementalResults.cupedUnadjusted.ci,
-            );
-          }
-          if (
-            v.supplementalResults?.uncapped &&
-            "ci" in v.supplementalResults.uncapped
-          ) {
-            v.supplementalResults.uncapped.ci = getFormattedCI(
-              v.supplementalResults.uncapped.ci,
-            );
-          }
-          if (
-            v.supplementalResults?.unstratified &&
-            "ci" in v.supplementalResults.unstratified
-          ) {
-            v.supplementalResults.unstratified.ci = getFormattedCI(
-              v.supplementalResults.unstratified.ci,
-            );
-          }
-          if (
-            v.supplementalResults?.noVarianceReduction &&
-            "ci" in v.supplementalResults.noVarianceReduction
-          ) {
-            v.supplementalResults.noVarianceReduction.ci = getFormattedCI(
-              v.supplementalResults.noVarianceReduction.ci,
-            );
-          }
-
-          data.metrics[metric] = {
-            ...v,
-            buckets: [],
-          };
-          dim.variations[i] = data;
-        });
-
-        dimensionMap.set(row.dimension, dim);
-      });
-    };
-
-    result.forEach((metricResult) => {
-      // Isolate an unexpected failure to the metric it came from so one bad
-      // metric result does not discard every other metric's analysis.
-      try {
-        processMetricResult(metricResult);
-      } catch (e) {
-        const message = getErrorMessage(e);
         logger.error(
-          `Failed to process stats engine result for metric ${metricResult.metric}: ${message}`,
+          "Metric analysis failed in stats engine:\n" +
+            (analysisResult.traceback
+              ? `${analysisError}\n\n${analysisResult.traceback}`
+              : analysisError),
         );
-        metricErrors.set(metricResult.metric, message);
+        failedMetrics[metric] = getFailedMetricResult(analysisError);
+        continue;
       }
-    });
+
+      try {
+        unknownVariationsCopy = unknownVariationsCopy.concat(
+          analysisResult.unknownVariations,
+        );
+
+        analysisResult.dimensions.forEach((row) => {
+          const dim = dimensionMap.get(row.dimension) || {
+            name: row.dimension,
+            srm: 1,
+            variations: [],
+          };
+
+          row.variations.forEach((v, variationIndex) => {
+            const data = dim.variations[variationIndex] || {
+              users: v.users,
+              metrics: {},
+            };
+            data.users = Math.max(data.users, v.users);
+
+            // translate null in CI to infinity
+            if ("ci" in v) {
+              v.ci = getFormattedCI(v.ci);
+            }
+            if (
+              v.supplementalResults?.cupedUnadjusted &&
+              "ci" in v.supplementalResults.cupedUnadjusted
+            ) {
+              v.supplementalResults.cupedUnadjusted.ci = getFormattedCI(
+                v.supplementalResults.cupedUnadjusted.ci,
+              );
+            }
+            if (
+              v.supplementalResults?.uncapped &&
+              "ci" in v.supplementalResults.uncapped
+            ) {
+              v.supplementalResults.uncapped.ci = getFormattedCI(
+                v.supplementalResults.uncapped.ci,
+              );
+            }
+            if (
+              v.supplementalResults?.unstratified &&
+              "ci" in v.supplementalResults.unstratified
+            ) {
+              v.supplementalResults.unstratified.ci = getFormattedCI(
+                v.supplementalResults.unstratified.ci,
+              );
+            }
+            if (
+              v.supplementalResults?.noVarianceReduction &&
+              "ci" in v.supplementalResults.noVarianceReduction
+            ) {
+              v.supplementalResults.noVarianceReduction.ci = getFormattedCI(
+                v.supplementalResults.noVarianceReduction.ci,
+              );
+            }
+
+            data.metrics[metric] = {
+              ...v,
+              buckets: [],
+            };
+            dim.variations[variationIndex] = data;
+          });
+
+          dimensionMap.set(row.dimension, dim);
+        });
+      } catch (error) {
+        const errorMessage = getErrorMessage(error);
+        logger.error(
+          `Failed to process stats engine result for metric ${metric}: ${errorMessage}`,
+        );
+        failedMetrics[metric] = getFailedMetricResult(errorMessage);
+      }
+    }
 
     const dimensions = Array.from(dimensionMap.values());
-    dimensions.forEach((dimension) => {
-      // Calculate SRM
-      dimension.srm = checkSrm(
-        dimension.variations.map((v) => v.users),
-        snapshotSettings.variations.map((v) => v.weight),
-      );
-    });
-
+    const hasFailedMetrics = Object.keys(failedMetrics).length > 0;
     if (dimensions.length === 0) {
       dimensions.push({
         name: "All",
         srm: 1,
-        // Errors need variation cells to stamp onto; a no-data snapshot uses [].
-        variations:
-          metricErrors.size === 0
-            ? []
-            : Array.from(
-                { length: snapshotSettings.variations.length },
-                () => ({
-                  users: 0,
-                  metrics: {},
-                }),
-              ),
+        variations: hasFailedMetrics
+          ? snapshotSettings.variations.map(() => ({
+              users: 0,
+              metrics: cloneDeep(failedMetrics),
+            }))
+          : [],
+      });
+    } else {
+      dimensions.forEach((dimension) => {
+        // Calculate SRM
+        dimension.srm = checkSrm(
+          dimension.variations.map((v) => v.users),
+          snapshotSettings.variations.map((v) => v.weight),
+        );
+        if (hasFailedMetrics) {
+          dimension.variations.forEach((variation) => {
+            variation.metrics = {
+              ...variation.metrics,
+              ...cloneDeep(failedMetrics),
+            };
+          });
+        }
       });
     }
-    metricErrors.forEach((errorMessage, metric) => {
-      dimensions.forEach((dimension) => {
-        dimension.variations.forEach((variation) => {
-          variation.metrics[metric] = {
-            users: 0,
-            value: 0,
-            cr: 0,
-            buckets: [],
-            errorMessage,
-          };
-        });
-      });
-    });
     experimentReportResults.push({
       multipleExposures,
       unknownVariations: Array.from(new Set(unknownVariationsCopy)),
@@ -797,7 +781,6 @@ export async function analyzeExperimentResults({
     unknownVariations,
     result: analysis,
   });
-
   return { results, banditResult };
 }
 

@@ -1,6 +1,7 @@
 import {
   RampScheduleInterface,
   SafeRolloutInterface,
+  SafeRolloutSnapshotInterface,
   ExperimentHealthAction,
 } from "shared/validators";
 import { expandMetricGroups } from "shared/experiments";
@@ -305,6 +306,17 @@ async function evaluateMonitoredStep(
   );
   if (experimentHealthDecision) return experimentHealthDecision;
 
+  // A metric that failed to compute can't be judged safe, so hold rather than
+  // advance. After the rollback checks (rollback beats hold), before the
+  // sample-size gate (more data won't fix a compute error).
+  const erroredMetricId = findErroredSafeRolloutMetricId(summarySnapshot);
+  if (erroredMetricId) {
+    return {
+      action: "hold",
+      reason: `Guardrail metric ${erroredMetricId} failed to compute — holding step until it recovers`,
+    };
+  }
+
   const resultsStatus = summary.resultsStatus;
   if (!resultsStatus) {
     return { action: "hold", reason: "No results status available yet" };
@@ -407,6 +419,25 @@ function checkScheduleGuardrailSignals(
 
   return null;
 }
+
+export function findErroredSafeRolloutMetricId(
+  snapshot: SafeRolloutSnapshotInterface | null,
+): string | null {
+  if (!snapshot) return null;
+  for (const analysis of snapshot.analyses ?? []) {
+    for (const dimension of analysis.results ?? []) {
+      for (const variation of dimension.variations ?? []) {
+        for (const [metricId, metric] of Object.entries(
+          variation.metrics ?? {},
+        )) {
+          if (metric?.errorMessage) return metricId;
+        }
+      }
+    }
+  }
+  return null;
+}
+
 function checkExperimentHealth(
   ctx: ReqContext | ApiReqContext,
   safeRollout: SafeRolloutInterface,
