@@ -66,16 +66,18 @@ function SampleRowsPrompt({
       }
     >
       <Box p="3">
-        <Callout status="warning" mb="3">
-          The columns we detected came from your warehouse&apos;s schema,
-          without reading any data. Reading rows takes a separate query, and
-          since the timestamp column isn&apos;t set yet that query can&apos;t be
-          filtered by date &mdash; so it may scan the whole table, which some
-          warehouses bill by the byte.
+        <Callout
+          status="info"
+          mb="3"
+          action={
+            <Button onClick={onRun} disabled={disabled}>
+              Fetch Rows
+            </Button>
+          }
+        >
+          This will run a LIMIT {SAMPLE_ROW_LIMIT} query and may trigger a full
+          table scan. Are you sure you want to proceed?
         </Callout>
-        <Button onClick={onRun} disabled={disabled}>
-          Read up to {SAMPLE_ROW_LIMIT} rows
-        </Button>
       </Box>
     </AreaWithHeader>
   );
@@ -277,10 +279,10 @@ export default function NewFactTableSqlStep({
   }, [validateRef, hasFreshResults, runQuery]);
 
   return (
-    <Flex direction="column" gap="3" height="100%">
-      <Box flexGrow="1" style={{ minHeight: 0 }}>
-        <PanelGroup direction="horizontal">
-          <Panel defaultSize={70}>
+    <PanelGroup direction="horizontal">
+      <Panel defaultSize={70}>
+        <Flex direction="column" gap="2" height="100%">
+          <Box flexGrow="1" style={{ minHeight: 0 }}>
             <PanelGroup direction="vertical">
               <Panel
                 defaultSize={testQueryResults?.error || sampleOpen ? 60 : 100}
@@ -437,69 +439,71 @@ export default function NewFactTableSqlStep({
                 </>
               ) : null}
             </PanelGroup>
-          </Panel>
-          <PanelResizeHandle />
-          <Panel defaultSize={30} minSize={20} maxSize={50}>
-            <AreaWithHeader
-              header={
-                <Select
-                  label="Data Source"
-                  labelSize="sm"
-                  value={datasourceId}
-                  setValue={setDatasourceId}
-                  placeholder="Select..."
-                >
-                  {validDatasources.map((d) => (
-                    <SelectItem key={d.id} value={d.id}>
-                      {d.name}
-                    </SelectItem>
-                  ))}
-                </Select>
-              }
+          </Box>
+
+          {testQueryResults && !testQueryResults.error && !detected?.length && (
+            <Callout status="warning">
+              Your warehouse reported no output columns for this query.
+              Double-check the SQL, then run it again.
+            </Callout>
+          )}
+
+          <Flex align="center" justify="between" gap="3">
+            {detected?.length ? (
+              <Callout status="success" size="sm">
+                Query ran successfully
+              </Callout>
+            ) : (
+              <div />
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={sampleOpen ? <PiCaretDown /> : <PiCaretRight />}
+              onClick={() => setSampleOpen(!sampleOpen)}
+              disabled={!canRunQueries || !sql}
             >
-              {datasource && supportsSchemaBrowser ? (
-                <Flex direction="column" height="100%" p="4">
-                  <SchemaBrowser
-                    updateSqlInput={setSql}
-                    datasource={datasource}
-                    cursorData={cursorData || undefined}
-                  />
-                </Flex>
-              ) : (
-                <Box p="4">
-                  <Text size="sm" color="text-mid">
-                    This Data Source does not support browsing schemas.
-                  </Text>
-                </Box>
-              )}
-            </AreaWithHeader>
-          </Panel>
-        </PanelGroup>
-      </Box>
-
-      {testQueryResults && !testQueryResults.error && !detected?.length && (
-        <Callout status="warning">
-          Your warehouse reported no output columns for this query. Double-check
-          the SQL, then run it again.
-        </Callout>
-      )}
-
-      {detected?.length ? (
-        <Flex align="center" gap="2">
-          <Text color="text-mid">
-            Detected {detected.length} column
-            {detected.length === 1 ? "" : "s"}
-          </Text>
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={sampleOpen ? <PiCaretDown /> : <PiCaretRight />}
-            onClick={() => setSampleOpen(!sampleOpen)}
-          >
-            View sample rows
-          </Button>
+              View sample rows
+            </Button>
+          </Flex>
         </Flex>
-      ) : null}
-    </Flex>
+      </Panel>
+      <PanelResizeHandle />
+      <Panel defaultSize={30} minSize={20} maxSize={50}>
+        <AreaWithHeader
+          header={
+            <Select
+              label="Data Source"
+              labelSize="sm"
+              value={datasourceId}
+              setValue={setDatasourceId}
+              placeholder="Select..."
+            >
+              {validDatasources.map((d) => (
+                <SelectItem key={d.id} value={d.id}>
+                  {d.name}
+                </SelectItem>
+              ))}
+            </Select>
+          }
+        >
+          {datasource && supportsSchemaBrowser ? (
+            <Flex direction="column" height="100%" p="4">
+              <SchemaBrowser
+                updateSqlInput={setSql}
+                datasource={datasource}
+                cursorData={cursorData || undefined}
+              />
+            </Flex>
+          ) : (
+            <Box p="4">
+              <Text size="sm" color="text-mid">
+                This Data Source does not support browsing schemas.
+              </Text>
+            </Box>
+          )}
+        </AreaWithHeader>
+      </Panel>
+    </PanelGroup>
   );
 }
