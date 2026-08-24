@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { FunnelDataset } from "shared/validators";
 import { FactMetricInterface } from "shared/types/fact-table";
 import {
@@ -158,11 +158,11 @@ export default function SaveFunnelMetricModal({
         {blockers.length > 0 && (
           <Callout status="error">
             <Text weight="medium">This funnel can&apos;t be saved yet:</Text>
-            <Box as="ul" mt="1" mb="0">
+            <ul style={{ marginTop: "var(--space-1)", marginBottom: 0 }}>
               {blockers.map((b) => (
                 <li key={b}>{b}</li>
               ))}
-            </Box>
+            </ul>
           </Callout>
         )}
         {!canCreateFactMetric && (
@@ -209,7 +209,7 @@ export default function SaveFunnelMetricModal({
 
         <Callout status="info">
           Two things change when a funnel becomes a metric:
-          <Box as="ul" mt="1" mb="0">
+          <ul style={{ marginTop: "var(--space-1)", marginBottom: 0 }}>
             <li>
               The counting unit isn&apos;t carried over — in an experiment, the
               metric counts whatever the experiment&apos;s exposure table uses.
@@ -219,7 +219,7 @@ export default function SaveFunnelMetricModal({
               <strong>everyone exposed</strong>, not just users who reached step
               1, so the percentages there will be lower than here.
             </li>
-          </Box>
+          </ul>
         </Callout>
 
         <Text size="sm" color="text-low">
