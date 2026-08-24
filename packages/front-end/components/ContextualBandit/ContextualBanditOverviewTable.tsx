@@ -13,6 +13,8 @@ import Table, {
   TableRowHeaderCell,
 } from "@/ui/Table";
 import VariationLabel from "@/ui/VariationLabel";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { GBInfo } from "@/components/Icons";
 import { getVariationColor } from "@/services/features";
 
 const numberFormatter = new Intl.NumberFormat();
@@ -149,10 +151,25 @@ export default function ContextualBanditOverviewTable({
         <TableHeader>
           <TableRow>
             <TableColumnHeader>Variation</TableColumnHeader>
-            <TableColumnHeader>Weight</TableColumnHeader>
-            <TableColumnHeader>Mean {goalMetricName}</TableColumnHeader>
+            <TableColumnHeader>
+              Weight{" "}
+              <Tooltip body="Current share of traffic.">
+                <GBInfo />
+              </Tooltip>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              Mean {goalMetricName}{" "}
+              <Tooltip
+                body={`Mean ${goalMetricName} if all traffic were allocated to a single variation.`}
+              >
+                <GBInfo />
+              </Tooltip>
+            </TableColumnHeader>
             <TableColumnHeader justify="end">
-              {unitDisplayName}
+              {unitDisplayName}{" "}
+              <Tooltip body="Number of units historically allocated.">
+                <GBInfo />
+              </Tooltip>
             </TableColumnHeader>
           </TableRow>
         </TableHeader>

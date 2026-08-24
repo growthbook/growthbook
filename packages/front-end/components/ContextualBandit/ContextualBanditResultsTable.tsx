@@ -1,7 +1,6 @@
 // TODO(holdout-v1.5): attach holdout-vs-bandit comparison view and EDF recommendations here.
 import { ReactNode, useMemo, useState } from "react";
 import { Box, Flex, SegmentedControl } from "@radix-ui/themes";
-import { PiInfo } from "react-icons/pi";
 import { startCase } from "lodash";
 import { getValidDate } from "shared/dates";
 import { ApiContextualBanditInterface } from "shared/validators";
@@ -122,27 +121,22 @@ function formatModeValue(value: number, mode: ComparisonMode): string {
   }).format(value);
 }
 
-function SectionHeading({ title, info }: { title: string; info: string }) {
+function SectionHeading({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
   return (
-    <Flex align="center" gap="1" mb="3">
-      <Heading as="h3" size="sm" mb="0">
+    <Box mb="3">
+      <Heading as="h3" size="sm" mb="1">
         {title}
       </Heading>
-      <Tooltip content={info}>
-        <span
-          role="button"
-          tabIndex={0}
-          aria-label={`About ${title}`}
-          style={{
-            display: "inline-flex",
-            color: "var(--color-text-low)",
-            cursor: "help",
-          }}
-        >
-          <PiInfo aria-hidden />
-        </span>
-      </Tooltip>
-    </Flex>
+      <Text size="sm" color="text-low" as="div">
+        {description}
+      </Text>
+    </Box>
   );
 }
 
@@ -413,7 +407,7 @@ export default function ContextualBanditResultsTable({
         <>
           <SectionHeading
             title="Attribute Importance"
-            info="Attributes ranked by proportion of error removed."
+            description="Attributes ranked by proportion of error removed."
           />
           {hasSplitMetadata ? (
             <Box mb="5">
@@ -428,7 +422,7 @@ export default function ContextualBanditResultsTable({
 
           <SectionHeading
             title="Variation Performance"
-            info={`Mean ${goalMetricName} if all traffic were allocated to a single variation, current share of traffic, and number of units historically allocated.`}
+            description="Breakdown by variation."
           />
           <ContextualBanditOverviewTable
             variations={variations}
@@ -443,15 +437,21 @@ export default function ContextualBanditResultsTable({
 
           <Flex
             justify="between"
-            align="center"
+            align="start"
             mt="5"
             mb="3"
             gap="3"
             wrap="wrap"
           >
-            <Heading as="h3" size="sm">
-              Bandit Breakdown
-            </Heading>
+            <Box>
+              <Heading as="h3" size="sm" mb="1">
+                Bandit Breakdown
+              </Heading>
+              <Text size="sm" color="text-low" as="div">
+                Variation weights, sample {goalMetricName} means, and sample
+                sizes by bandit group.
+              </Text>
+            </Box>
             <SegmentedControl.Root
               size="1"
               value={mode}
@@ -489,7 +489,7 @@ export default function ContextualBanditResultsTable({
             <Box mt="5">
               <SectionHeading
                 title="Total Error by Number of Leaves"
-                info="How much within-context error the tree removes as it adds leaves. Hover a point to see the leaf it split and how."
+                description="How much within-context error the tree removes as it adds leaves. Hover a point to see the leaf it split and how."
               />
               <ContextualBanditSseChart steps={sseTrajectory} />
             </Box>
