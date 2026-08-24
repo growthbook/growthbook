@@ -1,7 +1,24 @@
 import { createHmac } from "node:crypto";
 import { Response } from "express";
 import { OrganizationInterface } from "shared/types/organization";
-import { IS_CLOUD } from "back-end/src/util/secrets";
+import {
+  NPS_CATEGORY_META,
+  NPS_MAX_FEEDBACK_LENGTH,
+  npsCategoryOf,
+} from "shared/nps";
+import {
+  NpsDisposition,
+  NpsResponseBody,
+  npsResponseBodyValidator,
+} from "shared/validators";
+import { KnownBlock } from "@slack/types";
+import { IS_CLOUD, NPS_SLACK_WEBHOOK } from "back-end/src/util/secrets";
+import { logger } from "back-end/src/util/logger";
+import { sendSlackMessage } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
+import {
+  escapeSlackMrkdwn,
+  truncateSlackText,
+} from "back-end/src/util/slack.util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { usingOpenId } from "back-end/src/services/auth";
 import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
@@ -107,9 +124,16 @@ export async function getUser(req: AuthRequest, res: Response) {
     email: req.email,
     pylonHmacHash: createPylonHmacHash(req.email),
     superAdmin: !!req.superAdmin,
-    dateCreated: req.currentUser?.dateCreated
-      ? new Date(req.currentUser.dateCreated).toISOString()
-      : null,
+    // Only the date is sent: the client uses it for the re-survey window, and
+    // nothing reads the status, so it stays server-side.
+    npsSurveyAt: req.currentUser?.npsSurveyAt?.toISOString(),
+    // The survey's tenure gate needs the account's own date, not the
+    // org-membership date on ExpandedMember, which is re-stamped on every join.
+    accountCreatedAt: req.currentUser?.dateCreated?.toISOString(),
+    // Whether this deployment can deliver a response at all. A boolean only —
+    // the webhook URL is a post-to-channel capability and must not reach the
+    // client.
+    npsSurveyEnabled: !!NPS_SLACK_WEBHOOK,
     organizations: validOrgs.map((org) => {
       return {
         id: org.id,
@@ -137,6 +161,142 @@ export async function putUserName(
       message: e.message || "An error occurred",
     });
   }
+}
+
+// Slack rejects a section block whose text exceeds 3000 characters.
+const SLACK_SECTION_TEXT_LIMIT = 3000;
+
+async function sendNpsResponseToSlack({
+  score,
+  feedback,
+  email,
+  disposition,
+  preview,
+}: {
+  score: number;
+  feedback: string;
+  email: string;
+  disposition?: NpsDisposition;
+  preview?: boolean;
+}): Promise<void> {
+  // Bands and the sentiment colour come from shared so the Slack message can't
+  // disagree with the category the front-end reports in telemetry.
+  const { label: category, slackColor: color } =
+    NPS_CATEGORY_META[npsCategoryOf(score)];
+
+  const safeFeedback = escapeSlackMrkdwn(
+    feedback.slice(0, NPS_MAX_FEEDBACK_LENGTH),
+  );
+  const header = `*NPS ${score}/10 · ${category}*`;
+  const fullText = safeFeedback
+    ? `${header}\n> ${safeFeedback.replace(/\n/g, "\n> ")}`
+    : header;
+  // Clamp so escape expansion can't push the block past Slack's limit and get
+  // the whole message rejected.
+  const sectionText = truncateSlackText(fullText, SLACK_SECTION_TEXT_LIMIT);
+
+  // A "submitted" score is the norm, so only the other exits are called out —
+  // a score with no comment reads differently when the survey was abandoned.
+  // Staff previews are labelled so they're never mistaken for real feedback.
+  const notes = [
+    disposition && disposition !== "submitted" ? disposition : "",
+    preview ? "preview" : "",
+  ].filter(Boolean);
+  const exitNote = notes.length ? `   ·   ${notes.join("   ·   ")}` : "";
+
+  // The email is user-controlled in SSO/SCIM deployments, so escape it too —
+  // otherwise it's the one field that could smuggle a `<!channel>` ping past
+  // the escaping applied to the feedback beside it.
+  const safeEmail = escapeSlackMrkdwn(email);
+
+  const blocks: KnownBlock[] = [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: sectionText,
+      },
+    },
+    {
+      type: "context",
+      elements: [
+        {
+          type: "mrkdwn",
+          text: `:bust_in_silhouette:  ${safeEmail}${exitNote}`,
+        },
+      ],
+    },
+  ];
+
+  // Delegate transport to the shared Slack sender (timeout, ok-check, and
+  // error logging live there); this builder only owns the message shape.
+  await sendSlackMessage(
+    {
+      attachments: [
+        {
+          color,
+          // Notification-only fallback; not shown in-channel.
+          fallback: `NPS ${score}/10 (${category}) from ${safeEmail}${exitNote}`,
+          blocks,
+        },
+      ],
+    },
+    NPS_SLACK_WEBHOOK,
+  );
+}
+
+export async function postNpsResponse(
+  req: AuthRequest<NpsResponseBody>,
+  res: Response,
+) {
+  const parsed = npsResponseBodyValidator.safeParse(req.body);
+  if (!parsed.success) {
+    // Log it: a client/server contract drift would otherwise be invisible and
+    // look exactly like "nobody is responding to the survey".
+    logger.warn(
+      { issues: parsed.error.issues },
+      "Rejected malformed NPS response",
+    );
+    return res.status(400).json({
+      status: 400,
+      message: "Invalid NPS response",
+    });
+  }
+  const { status, score, feedback, disposition, preview } = parsed.data;
+
+  const { userId } = getContextFromReq(req);
+
+  // `preview` decides whether this response consumes the caller's re-survey
+  // window, so it can't be trusted from the body — otherwise any caller could
+  // set it and replay forever without recording state. Staff only.
+  const isPreview = preview === true && !!req.superAdmin;
+
+  // A preview still forwards to Slack so the path stays testable, but must not
+  // consume the previewer's own window.
+  if (!isPreview) {
+    await updateUser(userId, {
+      npsSurveyStatus: status,
+      npsSurveyAt: new Date(),
+    });
+  }
+
+  // The webhook is the whole gate here: no webhook, nowhere to forward. Feedback
+  // text only rides an explicit "submitted" exit, matching the client. The 90-day
+  // window is a display concern, so every response that arrives is forwarded.
+  // Fire-and-forget — a Slack failure must never affect the user's request.
+  if (status === "responded" && score !== undefined && NPS_SLACK_WEBHOOK) {
+    void sendNpsResponseToSlack({
+      score,
+      feedback: disposition === "submitted" ? (feedback ?? "").trim() : "",
+      email: req.email,
+      disposition,
+      preview: isPreview,
+    });
+  }
+
+  res.status(200).json({
+    status: 200,
+  });
 }
 
 export async function postWatchItem(

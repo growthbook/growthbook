@@ -1,4 +1,8 @@
-import { Permissions, userHasPermission } from "shared/permissions";
+import {
+  Permissions,
+  getRolePermissions,
+  userHasPermission,
+} from "shared/permissions";
 import { uniq } from "lodash";
 import md5 from "md5";
 import type pino from "pino";
@@ -37,7 +41,6 @@ import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
   getUserPermissions,
-  getRolePermissions,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/util/organization.util";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";

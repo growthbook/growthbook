@@ -32,7 +32,13 @@ export type AuthRequest<
 > = Request<Params, unknown, Body, QueryParams> & {
   currentUser: Pick<
     UserInterface,
-    "email" | "id" | "name" | "verified" | "superAdmin" | "dateCreated"
+    | "email"
+    | "id"
+    | "name"
+    | "verified"
+    | "superAdmin"
+    | "npsSurveyAt"
+    | "dateCreated"
   >;
   email: string;
   verified?: boolean;

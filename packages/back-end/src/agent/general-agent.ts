@@ -5,6 +5,7 @@ import { aiTool } from "back-end/src/enterprise/services/ai";
 import {
   createAgentHandler,
   type AgentConfig,
+  type SkillLoadResult,
 } from "back-end/src/enterprise/services/agent-handler";
 import { AWAITING_CONFIRMATION_RESULT } from "back-end/src/enterprise/services/stream-processor";
 import {
@@ -71,6 +72,14 @@ How to use skills:
 - Pick the narrowest leaf that matches; only load multiple leaves if the
   request genuinely spans workflows (e.g. create flag then target it).
 - If no domain fits, ask the user to clarify. Do not invent endpoints.
+- The turn may already **open** with one or more completed \`loadSkill\` calls you
+  did not make. Those are skills the user picked explicitly from the composer's
+  slash-command menu, so treat them as their stated intent: follow them rather
+  than routing to a different skill, and don't re-load them. If one is a domain
+  router, still \`loadSkill\` the leaf it points you to.
+- When several arrive together, the user is chaining a multi-step request (e.g.
+  \`flag-create\` then \`flag-targeting\`). Work through them in the order given,
+  carrying results forward, and answer once at the end rather than per skill.
 
 # Page context
 
@@ -94,6 +103,16 @@ a soft hint about the datasource the user currently has selected. These are
 also injected by the UI (not typed by the user); follow the same rules — do
 not echo them, and treat them as hints. The product-analytics skill documents
 how to use the datasource hint.
+
+One of these lines is authoritative rather than a hint:
+
+  [Referenced by the user: Revenue (metric: met_abc123), Signups (factMetric: fact__xyz)]
+
+It appears when the user @-mentioned entities in the composer, and it maps each
+\`@Name\` already present in their text to the exact id they picked. Use those
+ids directly — do not search or list to re-resolve a mentioned name, and do not
+substitute a different entity that happens to have a similar name. Keep using
+the readable name in your reply.
 
 # Linking to pages
 
@@ -387,6 +406,22 @@ const LOAD_SKILL_DESCRIPTION =
   "body } on a hit, or { status: 'not_found', availableSkills } if the " +
   "name doesn't match — in which case retry with a valid name.";
 
+/**
+ * The `loadSkill` hit result, built in one place so a call the model makes and
+ * one seeded from a slash command are byte-identical — the model reads both in
+ * the same transcript, and the shape is what `LOAD_SKILL_DESCRIPTION` promises.
+ */
+function loadSkillResult(name: string): SkillLoadResult | undefined {
+  const skill = getSkillByName(name);
+  if (!skill) return undefined;
+  return {
+    status: "ok",
+    name: skill.name,
+    description: skill.description,
+    body: skill.body,
+  };
+}
+
 // --- askUser ---------------------------------------------------------------
 
 const askUserOptionSchema = z.object({
@@ -456,6 +491,8 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
 
   buildSystemPrompt: async () => buildGeneralAgentSystemPrompt(),
 
+  resolveSkill: loadSkillResult,
+
   buildTools: (ctx, buffer, _params, emit) => {
     const stripQueryStrings = (
       query: Record<string, string | number | boolean> | undefined,
@@ -473,20 +510,15 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
         description: LOAD_SKILL_DESCRIPTION,
         inputSchema: loadSkillInputSchema,
         execute: async (input) => {
-          const skill = getSkillByName(input.name);
-          if (!skill) {
+          const result = loadSkillResult(input.name);
+          if (!result) {
             return {
               status: "not_found" as const,
               message: `No skill named "${input.name}". Pick one from availableSkills and retry.`,
               availableSkills: getSkillNames(),
             };
           }
-          return {
-            status: "ok" as const,
-            name: skill.name,
-            description: skill.description,
-            body: skill.body,
-          };
+          return result;
         },
       }),
 

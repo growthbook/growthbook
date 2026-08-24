@@ -1,20 +1,20 @@
-import React, { FC } from "react";
+import React, { FC, useState } from "react";
 import { useRouter } from "next/router";
 import { date } from "shared/dates";
-import { PiCheckBold, PiXBold } from "react-icons/pi";
 import { RxIdCard } from "react-icons/rx";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, IconButton } from "@radix-ui/themes";
 import Link from "@/ui/Link";
-import { useUser } from "@/services/UserContext";
+import { Team, useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
-import { useEnvironments } from "@/services/features";
-import { memberEnvAccess, useAuth } from "@/services/auth";
+import { useAuth } from "@/services/auth";
+import { RoleRuleLines } from "@/components/Settings/Team/RoleRuleLabel";
+import { PermissionsModal } from "@/components/Settings/Teams/PermissionModal";
+import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
-import Text from "@/ui/Text";
 import { capitalizeFirstLetter } from "@/services/utils";
 import Table, {
   TableHeader,
@@ -29,35 +29,51 @@ import {
   DropdownMenuItem,
 } from "@/ui/DropdownMenu";
 
-const TeamsList: FC = () => {
+const TeamsList: FC<{ onDuplicate?: (team: Team) => void }> = ({
+  onDuplicate,
+}) => {
   const { teams, refreshOrganization, organization } = useUser();
+  const [permissionsTeamId, setPermissionsTeamId] = useState<string | null>(
+    null,
+  );
   const { projects } = useDefinitions();
   const router = useRouter();
-  const environments = useEnvironments();
-  const forceScroll = environments.length > 3;
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const canManageTeam = permissionsUtil.canManageTeam();
 
+  const permissionsTeam = teams?.find((t) => t.id === permissionsTeamId);
+
   return (
     <Box mb="4">
+      {permissionsTeam && (
+        <PermissionsModal
+          team={permissionsTeam}
+          open={true}
+          onClose={() => setPermissionsTeamId(null)}
+          onSuccess={async () => {
+            refreshOrganization();
+            setPermissionsTeamId(null);
+          }}
+        />
+      )}
       {teams && teams.length > 0 ? (
-        <Table
-          variant="surface"
-          style={forceScroll ? { whiteSpace: "nowrap" } : undefined}
-        >
+        <Table variant="surface" layout="fixed">
           <TableHeader>
             <TableRow>
               <TableColumnHeader>Team Name</TableColumnHeader>
               <TableColumnHeader>Description</TableColumnHeader>
               <TableColumnHeader>Date Updated</TableColumnHeader>
-              <TableColumnHeader>Global Role</TableColumnHeader>
-              <TableColumnHeader>Project Roles</TableColumnHeader>
-              {environments.map((env) => (
-                <TableColumnHeader key={env.id}>{env.id}</TableColumnHeader>
-              ))}
-              <TableColumnHeader>Members</TableColumnHeader>
-              <TableColumnHeader style={{ width: 50 }} />
+              <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.role}>
+                Role
+              </TableColumnHeader>
+              <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.projectRoles}>
+                Project Roles
+              </TableColumnHeader>
+              <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.teams}>
+                Members
+              </TableColumnHeader>
+              <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.actions} />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -88,38 +104,27 @@ const TeamsList: FC = () => {
                     {t.description}
                   </TableCell>
                   <TableCell>{date(t.dateUpdated)}</TableCell>
-                  <TableCell>{t.role}</TableCell>
+                  <TableCell>
+                    <RoleRuleLines scope={t} organization={organization} />
+                  </TableCell>
                   <TableCell>
                     {t.projectRoles?.map((pr) => {
                       const p = projects.find((p) => p.id === pr.project);
-                      if (p?.name) {
-                        return (
-                          <div key={`project-tags-${p.id}`}>
-                            <ProjectBadges
-                              resourceType="team"
-                              projectIds={[p.id]}
-                            />{" "}
-                            — {pr.role}
-                          </div>
-                        );
-                      }
-                      return null;
+                      if (!p?.name) return null;
+                      return (
+                        <div key={`project-tags-${p.id}`}>
+                          <ProjectBadges
+                            resourceType="team"
+                            projectIds={[p.id]}
+                          />{" "}
+                          <RoleRuleLines
+                            scope={pr}
+                            organization={organization}
+                          />
+                        </div>
+                      );
                     })}
                   </TableCell>
-                  {environments.map((env) => {
-                    const access = memberEnvAccess(t, env, organization, "");
-                    return (
-                      <TableCell key={env.id}>
-                        {access === "N/A" ? (
-                          <Text color="text-low">N/A</Text>
-                        ) : access === "yes" ? (
-                          <PiCheckBold color="var(--green-11)" />
-                        ) : (
-                          <PiXBold color="var(--red-11)" />
-                        )}
-                      </TableCell>
-                    );
-                  })}
                   <TableCell>{t.members?.length ?? 0}</TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     {canManageTeam && !teamIsExternallyManaged ? (
@@ -139,6 +144,16 @@ const TeamsList: FC = () => {
                         variant="soft"
                       >
                         <DropdownMenuGroup>
+                          <DropdownMenuItem
+                            onClick={() => setPermissionsTeamId(t.id)}
+                          >
+                            Edit permissions
+                          </DropdownMenuItem>
+                          {onDuplicate && (
+                            <DropdownMenuItem onClick={() => onDuplicate(t)}>
+                              Duplicate
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem
                             color="red"
                             confirmation={{

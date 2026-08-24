@@ -169,7 +169,7 @@ export function HomeMarketingBanner() {
     "home-marketing-banner",
     null,
   );
-  const { dateCreated } = useUser();
+  const { accountCreatedAt } = useUser();
 
   const cta =
     config?.buttonCopy && config?.buttonLink
@@ -180,7 +180,7 @@ export function HomeMarketingBanner() {
 
   if (
     !isWithinUserAgeWindow({
-      userDateCreated: dateCreated,
+      userDateCreated: accountCreatedAt,
       maxUserAgeDays: config.maxUserAgeDays,
     })
   ) {
