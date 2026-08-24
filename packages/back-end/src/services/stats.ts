@@ -513,39 +513,6 @@ const getFormattedCI = (
   return [ci[0] ?? -Infinity, ci[1] ?? Infinity];
 };
 
-export function addMetricErrorsToDimensions(
-  dimensions: ExperimentReportResultDimension[],
-  metricErrors: ReadonlyMap<string, string>,
-  variationCount: number,
-): void {
-  if (metricErrors.size === 0) return;
-
-  if (dimensions.length === 0) {
-    dimensions.push({
-      name: "All",
-      srm: 1,
-      variations: Array.from({ length: variationCount }, () => ({
-        users: 0,
-        metrics: {},
-      })),
-    });
-  }
-
-  dimensions.forEach((dimension) => {
-    dimension.variations.forEach((variation) => {
-      metricErrors.forEach((errorMessage, metric) => {
-        variation.metrics[metric] = {
-          users: 0,
-          value: 0,
-          cr: 0,
-          buckets: [],
-          errorMessage,
-        };
-      });
-    });
-  });
-}
-
 export function parseStatsEngineResult({
   analysisSettings,
   snapshotSettings,
@@ -694,18 +661,36 @@ export function parseStatsEngineResult({
       );
     });
 
-    addMetricErrorsToDimensions(
-      dimensions,
-      metricErrors,
-      snapshotSettings.variations.length,
-    );
     if (dimensions.length === 0) {
       dimensions.push({
         name: "All",
         srm: 1,
-        variations: [],
+        // Errors need variation cells to stamp onto; a no-data snapshot uses [].
+        variations:
+          metricErrors.size === 0
+            ? []
+            : Array.from(
+                { length: snapshotSettings.variations.length },
+                () => ({
+                  users: 0,
+                  metrics: {},
+                }),
+              ),
       });
     }
+    metricErrors.forEach((errorMessage, metric) => {
+      dimensions.forEach((dimension) => {
+        dimension.variations.forEach((variation) => {
+          variation.metrics[metric] = {
+            users: 0,
+            value: 0,
+            cr: 0,
+            buckets: [],
+            errorMessage,
+          };
+        });
+      });
+    });
     experimentReportResults.push({
       multipleExposures,
       unknownVariations: Array.from(new Set(unknownVariationsCopy)),

@@ -2,12 +2,8 @@ import type {
   ExperimentSnapshotAnalysisSettings,
   SnapshotSettingsVariation,
 } from "shared/types/experiment-snapshot";
-import type { ExperimentReportResultDimension } from "shared/types/report";
 import type { ExperimentMetricAnalysis } from "shared/types/stats";
-import {
-  addMetricErrorsToDimensions,
-  parseStatsEngineResult,
-} from "back-end/src/services/stats";
+import { parseStatsEngineResult } from "back-end/src/services/stats";
 
 const analysisSettings: ExperimentSnapshotAnalysisSettings = {
   dimensions: [""],
@@ -67,81 +63,6 @@ const failedResult: ExperimentMetricAnalysis[number] = {
     },
   ],
 };
-
-describe("addMetricErrorsToDimensions", () => {
-  it("adds errors onto surviving dimensions in place", () => {
-    const [parsed] = parseStatsEngineResult({
-      analysisSettings: [analysisSettings],
-      snapshotSettings: { variations },
-      queryResults: [],
-      unknownVariations: [],
-      result: [survivorResult],
-    });
-    const dimensions = parsed.dimensions;
-
-    addMetricErrorsToDimensions(
-      dimensions,
-      new Map([["failed", "metric analysis failed"]]),
-      variations.length,
-    );
-
-    dimensions[0].variations.forEach((variation) => {
-      expect(variation.metrics.survivor).toBeDefined();
-      expect(variation.metrics.failed).toEqual({
-        users: 0,
-        value: 0,
-        cr: 0,
-        buckets: [],
-        errorMessage: "metric analysis failed",
-      });
-    });
-  });
-
-  it("leaves dimensions untouched when there are no errors", () => {
-    const [parsed] = parseStatsEngineResult({
-      analysisSettings: [analysisSettings],
-      snapshotSettings: { variations },
-      queryResults: [],
-      unknownVariations: [],
-      result: [survivorResult],
-    });
-    const dimensions = parsed.dimensions;
-    const before = JSON.parse(JSON.stringify(dimensions));
-
-    addMetricErrorsToDimensions(dimensions, new Map(), variations.length);
-
-    expect(dimensions).toEqual(before);
-  });
-
-  it("creates an All dimension with the requested variation count", () => {
-    const dimensions: ExperimentReportResultDimension[] = [];
-
-    addMetricErrorsToDimensions(
-      dimensions,
-      new Map([["failed", "metric analysis failed"]]),
-      3,
-    );
-
-    expect(dimensions).toEqual([
-      {
-        name: "All",
-        srm: 1,
-        variations: Array.from({ length: 3 }, () => ({
-          users: 0,
-          metrics: {
-            failed: {
-              users: 0,
-              value: 0,
-              cr: 0,
-              buckets: [],
-              errorMessage: "metric analysis failed",
-            },
-          },
-        })),
-      },
-    ]);
-  });
-});
 
 describe("parseStatsEngineResult", () => {
   it("attaches a failed metric to every surviving variation", () => {
@@ -294,6 +215,24 @@ describe("parseStatsEngineResult", () => {
             },
           },
         })),
+      },
+    ]);
+  });
+
+  it("uses an empty All dimension when nothing computed and nothing failed", () => {
+    const [result] = parseStatsEngineResult({
+      analysisSettings: [analysisSettings],
+      snapshotSettings: { variations },
+      queryResults: [],
+      unknownVariations: [],
+      result: [],
+    });
+
+    expect(result.dimensions).toEqual([
+      {
+        name: "All",
+        srm: 1,
+        variations: [],
       },
     ]);
   });
