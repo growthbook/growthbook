@@ -1599,8 +1599,7 @@ describe("SDK payload generation (scenario-specific)", () => {
   });
 
   describe("includeDraftExperimentRefs", () => {
-    // Draft experiment linked ONLY via a feature flag (no visual changesets or
-    // URL redirects) — the case the connection setting exists for.
+    // Draft experiment linked only via a feature flag (no visual changesets or redirects)
     function draftRefData(): SDKPayloadRawData {
       const exp: ExperimentInterface = {
         id: "exp-draft-ref",

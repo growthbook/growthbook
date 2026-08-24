@@ -200,9 +200,7 @@ export function includeExperimentInPayload(
   exp: ExperimentInterface | ExperimentInterfaceStringDates,
   linkedFeatures: FeatureInterface[] = [],
   options?: {
-    // SDK connections can opt into draft experiment-ref rules
-    // (includeDraftExperimentRefs), so payload-building and payload-refresh
-    // paths must keep feature-only drafts in scope.
+    // Keep feature-only drafts (SDK connections with includeDraftExperimentRefs)
     includeDrafts?: boolean;
   },
 ): boolean {

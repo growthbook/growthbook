@@ -1918,8 +1918,7 @@ export async function getAllPayloadExperiments(
 
   return new Map(
     experiments
-      // Keep feature-only drafts: connections with includeDraftExperimentRefs
-      // need them, and getFeatureDefinition drops drafts for everyone else.
+      // Keep drafts; getFeatureDefinition filters them per connection
       .filter((e) => includeExperimentInPayload(e, [], { includeDrafts: true }))
       .map((e) => [e.id, e]),
   );
@@ -2093,9 +2092,8 @@ export function getPayloadKeys(
   // Every org project id — only consulted for linked features that target all projects.
   allProjectIds: string[] = [],
 ): SDKPayloadKey[] {
-  // If experiment is not included in the SDK payload. Feature-only drafts
-  // count: connections with includeDraftExperimentRefs serve them, so edits
-  // must refresh the payloads their published ref rules live in.
+  // If experiment is not included in the SDK payload. Drafts count so their
+  // edits refresh the payloads serving includeDraftExperimentRefs connections.
   if (
     !includeExperimentInPayload(experiment, linkedFeatures, {
       includeDrafts: true,
