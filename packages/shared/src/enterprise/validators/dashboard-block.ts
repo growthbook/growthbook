@@ -747,15 +747,9 @@ export type DashboardBlockInterfaceOrData<T extends DashboardBlockInterface> =
   | T
   | DashboardBlockData<T>;
 
-// ---------------------------------------------------------------------------
-// AI-proposed dashboards
-//
-// The wire shape the agent's `proposeDashboard` tool accepts. Deliberately not
-// the create shape: the analysis ids that back every chart are the server's to
-// produce (it runs the exploration), and the grid coordinates are the packer's,
-// so the model supplies neither. It describes what it wants and nothing it
-// cannot know.
-// ---------------------------------------------------------------------------
+// The wire shape `proposeDashboard` accepts. Not the create shape: the analysis
+// ids are the server's to produce and the coordinates are the packer's, so the
+// model supplies neither.
 
 /** Coarse width intent; `packDashboardBlocks` turns it into grid coordinates. */
 export const dashboardBlockSizeHintValidator = z.enum([
@@ -787,19 +781,14 @@ const explorationProposeOmits = {
   ...proposeOmits,
   explorerAnalysisId: true,
   comparisonExplorerAnalysisId: true,
-  // Enrollment in the dashboard filter bar is decided when the draft is built,
-  // together with the config each chart actually runs. Letting the model set it
-  // independently is how a tile ends up enrolled in a date control it was never
-  // queried against — which renders as a "click Update" placeholder instead of
-  // a chart.
+  // Decided when the draft is built, alongside the config each chart runs.
+  // Model-set enrollment is how a tile ends up enrolled in a date control it
+  // was never queried against, rendering as "click Update" forever.
   globalControlSettings: true,
 } as const;
 
-/**
- * One block in a proposed dashboard. Experimentation blocks carry their full
- * config because they compute client-side from experiment data; exploration
- * blocks carry only the chart config, and the propose handler runs it.
- */
+/** Experimentation blocks compute client-side; exploration blocks carry only a
+ * config, which the propose handler runs. */
 export const proposeDashboardBlockValidator = z.discriminatedUnion("type", [
   markdownBlockInterface.omit(proposeOmits).extend(sizeHintField),
   metricExperimentsBlockInterface.omit(proposeOmits).extend(sizeHintField),

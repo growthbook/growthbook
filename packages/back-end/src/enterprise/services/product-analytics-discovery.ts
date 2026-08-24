@@ -14,22 +14,13 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { runColumnsTopValuesQuery } from "back-end/src/services/factTableColumns";
 
 /**
- * The three read-only lookups a caller needs before it can build a product
- * analytics exploration: find a metric or fact table, list the columns it
- * exposes, and read the real values in one of those columns.
- *
- * Extracted from the product-analytics chat agent so the REST endpoints and the
- * agent's tools share one implementation — the agent's markdown skill documents
- * these as `/api/v1/product-analytics/{search,columns,column-values}`, and two
- * implementations would drift the moment either side changed.
+ * The three read-only lookups needed before building an exploration: find a
+ * metric or fact table, list its columns, read real values from one. Shared by
+ * the chat agent's tools and the REST endpoints the skill documents, so the two
+ * cannot drift.
  */
 
-/**
- * Lookups fail for reasons the caller wants to shape differently — a chat tool
- * hands the model a sentence to recover from, a REST endpoint owes the client a
- * 4xx — so failure is a value here rather than a thrown error or a bare string
- * baked into the payload.
- */
+/** Failure is a value, not a throw: the chat tool wants a sentence, REST wants a 4xx. */
 export type ProductAnalyticsDiscoveryResult =
   | { ok: true; data: Record<string, unknown> }
   | { ok: false; message: string };
@@ -68,11 +59,7 @@ export interface ProductAnalyticsColumnValuesInput
 // search
 // =============================================================================
 
-/**
- * Light singularization so queries like "page views" still match metrics
- * named "Page View" (and vice versa). Deliberately simple — this is a
- * heuristic, not a full stemmer.
- */
+/** Light singularization so "page views" matches "Page View". A heuristic, not a stemmer. */
 function singularizeWord(word: string): string {
   if (word.length <= 3) return word;
   if (word.endsWith("ies") && word.length > 4) {
@@ -148,11 +135,7 @@ export interface ProductAnalyticsSearchLoaders {
   getFactTables: () => Promise<FactTableInterface[]>;
 }
 
-/**
- * Datasource-scoped, lazily-memoized loaders for the search corpus. Memoized
- * because a chat turn searches several times and each miss is a full fetch of
- * every metric in the org.
- */
+/** Memoized: a turn searches several times and each miss refetches every metric. */
 export function createProductAnalyticsSearchLoaders(
   ctx: ReqContext,
   datasourceId?: string,
@@ -312,12 +295,9 @@ function toColumnSummaries(columns: ColumnInterface[]) {
 }
 
 /**
- * The single fact table a lookup runs against: the one named directly, or the
- * one behind the first metric that has one.
- *
- * Both `source` branches ended up here in every lookup that queries the
- * warehouse, and a resolver that disagreed with itself between two endpoints
- * would send the agent the columns of one table and the values of another.
+ * The fact table a lookup runs against: named directly, or behind the first
+ * metric that has one. Shared so two endpoints can't resolve differently and
+ * report the columns of one table with the values of another.
  */
 async function resolveSourceFactTable(
   ctx: ReqContext,

@@ -18,14 +18,11 @@ import { getSkillByName, getSkillNames } from "back-end/src/agent/skills";
 import type { ReqContext } from "back-end/types/request";
 
 /**
- * The tools any GrowthBook agent needs to act on the app rather than just talk
- * about it: `loadSkill` to read a workflow, `callApi` to run it against the
- * REST API behind a mutation-confirmation gate, and `askUser` to stop and ask.
+ * The tools any GrowthBook agent needs to act on the app rather than talk about
+ * it: `loadSkill`, `callApi` behind a mutation-confirmation gate, and `askUser`.
  *
- * Extracted from the general agent so a second agent can offer the same
- * behaviour without a second copy of the gate. The gate in particular must not
- * be duplicated — an agent that parks writes slightly differently is an agent
- * that can write without the user seeing it.
+ * Shared rather than copied per agent: one that parks writes slightly
+ * differently is one that can write without the user seeing it.
  */
 
 // =============================================================================
@@ -49,15 +46,9 @@ function isExplorationPath(path: string): boolean {
 }
 
 /**
- * Deterministic mutation gate. Any non-GET call mutates configuration and is
- * parked for explicit user confirmation, except a small allowlist of
- * read-only POSTs (experiment snapshot refreshes, product-analytics
- * explorations, and column-value lookups) that compute or read data without
- * changing configuration.
- *
- * The path is normalized first (via the dispatcher's `normalizePath`) so the
- * allowlist matches regardless of whether the LLM sends `/api/v1/...`,
- * `/v1/...`, or `/...` — the same forms the dispatcher accepts when routing.
+ * Deterministic mutation gate: every non-GET call is parked for confirmation
+ * except an allowlist of read-only POSTs that compute rather than configure.
+ * Normalized first, so the allowlist matches whichever prefix form the LLM sent.
  */
 function requiresMutationConfirmation(input: DispatchInput): boolean {
   if (input.method === "GET") return false;
@@ -75,12 +66,9 @@ function requiresMutationConfirmation(input: DispatchInput): boolean {
 }
 
 /**
- * Models occasionally serialize `body` as a JSON-encoded string ("the JSON")
- * instead of an object even when told not to. Detect that and parse it back
- * to an object so the underlying handler's schema validates cleanly.
- *
- * This is intentionally permissive — only triggers when the string starts
- * with `{` or `[` after trim. Anything else is passed through unchanged.
+ * Models sometimes JSON-encode `body` as a string even when told not to. Parse
+ * it back so the handler's schema validates; anything not starting `{`/`[`
+ * passes through untouched.
  */
 function coerceBody(body: unknown): unknown {
   if (typeof body !== "string") return body;
@@ -97,13 +85,8 @@ function coerceBody(body: unknown): unknown {
 }
 
 /**
- * Trim the response body the agent sees for two reasons: keep token usage
- * sane on big list endpoints, and keep the agent focused on actionable parts
- * (status, message, the relevant top-level fields).
- *
- * For successful exploration responses we elide `exploration.result.rows`
- * (which the chart UI uses but the agent doesn't read row-by-row) and
- * surface only summary fields.
+ * Trim what the agent sees: elide `exploration.result.rows` (the chart UI gets
+ * them over SSE; the agent never reads them row by row) and cap the rest.
  */
 const MAX_BODY_CHARS = 16_000;
 
@@ -235,11 +218,7 @@ const LOAD_SKILL_DESCRIPTION =
   "body } on a hit, or { status: 'not_found', availableSkills } if the " +
   "name doesn't match — in which case retry with a valid name.";
 
-/**
- * The `loadSkill` hit result, built in one place so a call the model makes and
- * one seeded from a slash command are byte-identical — the model reads both in
- * the same transcript, and the shape is what `LOAD_SKILL_DESCRIPTION` promises.
- */
+/** Built here so a model-issued load and a slash-command-seeded one are identical. */
 export function loadSkillResult(name: string): SkillLoadResult | undefined {
   const skill = getSkillByName(name);
   if (!skill) return undefined;
@@ -317,25 +296,13 @@ function stripQueryStrings(
 }
 
 export interface AgentApiToolOptions {
-  /**
-   * Which skills this agent may load. Defaults to the whole registry; pass a
-   * narrower resolver to keep an agent scoped to its own domain, so it never
-   * learns endpoints outside it.
-   */
+  /** Which skills this agent may load. Defaults to the whole registry. */
   resolveSkill?: (name: string) => SkillLoadResult | undefined;
   /** Skill names offered in the `loadSkill` error message. Defaults to all. */
   availableSkillNames?: () => string[];
 }
 
-/**
- * Build `loadSkill`, `callApi`, and `askUser` for one request.
- *
- * `callApi` never executes a mutating call directly: it parks it on the
- * conversation as a `pendingAction`, emits `confirm-action`, and returns the
- * awaiting-confirmation sentinel. The shared agent handler replays the exact
- * stored call once the user confirms, so the model is never trusted to reissue
- * it.
- */
+/** Build `loadSkill`, `callApi`, and `askUser` for one request. */
 export function buildAgentApiTools(
   ctx: ReqContext,
   buffer: ConversationBuffer,
@@ -374,12 +341,8 @@ export function buildAgentApiTools(
           body: coerceBody(input.body),
         };
 
-        // Deterministic mutation gate: never execute a mutating call here.
-        // Park it on the conversation, surface a confirmation prompt, and
-        // return the awaiting-confirmation sentinel. The StreamProcessor
-        // drops this tool-call from the transcript and the handler ends the
-        // turn; the user's decision is replayed as a real call/result pair
-        // next turn, so the model never sees the gate.
+        // Park the call and end the turn; the handler replays the stored call
+        // verbatim once the user decides, so the model never sees the gate.
         if (requiresMutationConfirmation(dispatchInput)) {
           const pendingAction: AIAgentPendingAction = {
             id: randomUUID(),
@@ -437,9 +400,8 @@ export function buildAgentApiTools(
       description: ASK_USER_DESCRIPTION,
       inputSchema: askUserInputSchema,
       execute: async (input) => {
-        // Surface the question to the chat UI. The frontend renders the
-        // options as buttons; clicking one triggers a regular user message
-        // (the option's label) on the next turn.
+        // The UI renders the options as buttons; a click sends the label as
+        // the next user message.
         if (emit) {
           emit("ask-user", {
             question: input.question,
@@ -447,9 +409,6 @@ export function buildAgentApiTools(
             allowMultiple: input.allowMultiple ?? false,
           });
         }
-        // The tool result is mostly a marker for the agent that the
-        // question was delivered. We deliberately don't include the
-        // options here — the agent already knows them from the input.
         return {
           status: "asked",
           message:

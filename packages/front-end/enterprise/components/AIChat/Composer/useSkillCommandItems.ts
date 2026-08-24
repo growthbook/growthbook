@@ -4,15 +4,10 @@ import useApi from "@/hooks/useApi";
 import { skillDisplayName, type SkillItem } from "./extensions/skillCommand";
 
 /**
- * Every skill the agent can load, routers included.
- *
- * This is the lookup catalogue, not the `/` menu: hovering a `/feature-flags`
- * token in an older message has to resolve its description even though the menu
- * never offered it. Use `useSkillMenuItems` for the menu.
- *
- * `group` restricts the set to one domain, for a chat whose agent is itself
- * scoped that way — offering a skill the agent cannot load would just produce a
- * dead end. Omit it for the site-wide agent, which can load anything.
+ * Every skill the agent can load, routers included — the lookup catalogue, not
+ * the `/` menu: a `/feature-flags` token in an older message still has to
+ * resolve. `group` scopes it to one domain, for a chat whose agent is scoped
+ * that way. See `useSkillMenuItems` for the menu.
  */
 export function useSkillCommandItems(group?: string): SkillItem[] {
   const { data } = useApi<{ skills: SkillSummary[] }>("/agent/skills");
@@ -35,11 +30,8 @@ export function useSkillCommandItems(group?: string): SkillItem[] {
 }
 
 /**
- * Skills offered in the composer's `/` menu: leaves only.
- *
- * A domain router documents no workflow of its own — it exists so the agent can
- * find the leaf. Listing it beside its own children just gives the user two
- * entries for one job and a `/feature-flags` token that does nothing on its own.
+ * Skills offered in the `/` menu: leaves only. A router documents no workflow of
+ * its own, so listing it beside its children is two entries for one job.
  */
 export function useSkillMenuItems(group?: string): SkillItem[] {
   const items = useSkillCommandItems(group);

@@ -12,20 +12,6 @@ the user a live preview with a Save button.
 You do not run the charts and you do not save the dashboard. Both are handled for
 you.
 
-## Which surface are you on?
-
-Check your tools before doing anything else.
-
-- **You have `proposeDashboard`** — the Product Analytics chat. Follow the
-  workflow below.
-- **You don't** — the site-wide assistant panel. You cannot build a dashboard
-  here: there is no preview for the user to save from, and a dashboard nobody
-  can see is not worth writing to the API. Instead, restate the request as a
-  brief — the metrics, the timeframe, and the name if they gave one — call
-  `openAnalyticsChat` with it, and stop. Don't settle the full brief first and
-  don't run any queries; the chat on the other side asks for whatever it still
-  needs.
-
 ## Workflow
 
 1. **Pick the datasource.** See `<datasource_selection>`.
@@ -157,97 +143,16 @@ automatically. Sending them is rejected.
 ### Chart blocks
 
 `metric-exploration`, `fact-table-exploration`, `data-source-exploration`,
-`funnel-exploration` — each carries a `config` matching `<config_schema>`:
+`funnel-exploration` — each carries a `config` matching `<config_schema>
+As `product-analytics` `<config_schema>`, with two additions:
 
-```json
-{
-  "type": "metric-exploration",
-  "title": "Revenue over time",
-  "description": "",
-  "sizeHint": "medium",
-  "config": { "type": "metric", "datasource": "ds_abc", "...": "..." }
-}
-```
-
-Add `"comparison": { "enabled": true, "mode": "previousPeriod" }` only when the
-user asked to compare periods. Modes: `previousPeriod`,
-`previousPeriodMatchDayOfWeek`, `previousYear`, `previousYearMatchDayOfWeek`,
-`custom` (with `previousTimeFrame`).
-
-### Experimentation blocks
-
-These need no query run — they compute client-side from experiment data.
-
-| Type                        | Suggested title       | Fields beyond title/description                                               |
-| --------------------------- | --------------------- | ----------------------------------------------------------------------------- |
-| `experiments-status`        | Team Velocity         | `dateRange`, `projects`, `dateGranularity?`                                   |
-| `experiments-win-rate`      | Win Percentage        | `dateRange`, `projects`, `showProjectBreakdown` (`true`)                      |
-| `experiments-scaled-impact` | Scaled Impact         | `dateRange`, `projects`, `metricId`                                           |
-| `metric-experiments`        | Experiments with Lift | `metricId`, `projects`, `experimentSearchString`, `differenceType`, `bandits` |
-
-- `projects: []` means all projects.
-- `experimentSearchString` is a raw search query applied on top of the date and
-  project scope, e.g. `"status:stopped tag:checkout"`. Use `""` unless the user
-  scoped the experiments.
-- `differenceType`: `"relative"` (default), `"absolute"`, or `"scaled"`.
-- **`metric-experiments` has no `dateRange`.** It filters on phase dates via
-  optional `startDateRange` (phase start, so in-flight experiments can be
-  included) and `endDateRange` (phase end). It also ignores the dashboard's date
-  filter for the same reason — mention that if the user expects otherwise.
-- `experiments-scaled-impact` and `metric-experiments` both need a `metricId`, so
-  they still need step 4.
-
-### markdown
-
-```json
-{
-  "type": "markdown",
-  "title": "",
-  "description": "",
-  "sizeHint": "full",
-  "content": "## Funnel"
-}
-```
-
-Use one as a section heading when a dashboard mixes archetypes. A heading and at
-most a sentence — the user did not ask for prose.
-
-`sql-explorer` is not available through `proposeDashboard`; it needs an existing
-saved query and is better added by hand.
-</blocks>
-
-<config_schema>
-Chart config: `{ type, datasource, chartType, dateRange, dimensions, dataset, showAs? }`
-
-- `type`: `"metric" | "fact_table" | "data_source" | "funnel"` — must match
-  `dataset.type` and the block type.
-- `chartType`: `"line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber"`
-- `dateRange`: `{ predefined, lookbackValue?, lookbackUnit?, startDate?, endDate? }`.
-  Valid `predefined`: `"today"`, `"yesterday"`, `"last7Days"`, `"last30Days"`,
-  `"last90Days"`, `"last12Months"`, `"lastCalendarYear"`, `"customLookback"`,
-  `"customDateRange"`. `"last14Days"` is **not** valid — use
+- `funnel` dataset: `{ type: "funnel", unit, steps: [{ name, factTableId, rowFilters: [], optional: false }], yAxisScale?: "count"|"percent" }`
+- `"last14Days"` is **not** a valid `predefined` — use
   `{ predefined: "customLookback", lookbackValue: 14, lookbackUnit: "day" }`.
-- `dimensions`:
-  - date: `{ dimensionType: "date", column: null, dateGranularity: "auto" }`
-  - dynamic (top N): `{ dimensionType: "dynamic", column: "platform", maxValues: 5 }`
-  - static (named values): `{ dimensionType: "static", column: "platform", values: ["ios","android"] }`
-    — only after confirming the values via `column-values`.
-- `dataset` by type:
-  - `metric`: `{ type: "metric", values: [{ type: "metric", name, metricId, unit, denominatorUnit: null, rowFilters: [] }] }`
-  - `fact_table`: `{ type: "fact_table", factTableId, values: [{ type: "fact_table", name, valueType: "unit_count"|"count"|"sum", valueColumn, unit, rowFilters: [] }] }`
-  - `funnel`: `{ type: "funnel", unit, steps: [{ name, factTableId, rowFilters: [], optional: false }], yAxisScale?: "count"|"percent" }`
-- `rowFilters`: `[{ operator, column, values }]` with operator one of `"="`,
-  `"!="`, `"in"`, `"not_in"`, `"contains"`, `"not_contains"`, `"starts_with"`,
-  `"ends_with"`, `"is_null"`, `"not_null"`.
-- `showAs`: `"total" | "per_unit"`. Omit unless the user clearly asked for one,
-  and only when a mean metric is involved.
   </config_schema>
 
 <chart_rules>
 
-- Timeseries charts (`line`, `area`, `timeseries-table`) **must** include a date
-  dimension. Cumulative charts (`bar`, `stackedBar`, `horizontalBar`,
-  `stackedHorizontalBar`, `table`, `bigNumber`) must **not**.
 - `bigNumber` takes exactly 1 value and 0 dimensions. On a dashboard it is the
   right choice for a KPI tile — unlike a one-off chart request, where you would
   avoid it.
@@ -280,19 +185,10 @@ preview, so aim for a sensible default rather than a perfect one.
 
 ## Guardrails
 
-- **Never call `runExploration` for a dashboard.** Every call renders its own
-  chart card in the chat, so the user sees a pile of loose charts before the
-  dashboard appears. Pass configs to `proposeDashboard`.
-- **Never save the dashboard.** No `POST /api/v1/dashboards`. The user saves from
-  the preview; saving for them takes the choice away.
-- **Never invent the title, and never guess the project.** Ask for both, in one
-  question. They are the only two things the preview cannot fix.
+The `dashboards` skill carries the shared rules. On top of those:
+
 - **One `proposeDashboard` call per turn**, with the complete block list. To
   revise, call it again with the full revised list — it replaces the proposal.
-- **Never guess a column value.** `column-values` first, every time.
-- **No per-experiment blocks.** `experiment-metric`, `experiment-dimension`,
-  `experiment-time-series`, `experiment-metadata`, and `experiment-traffic`
-  belong to an experiment's own dashboard, not an Analytics one.
 - **Stop at one question** beyond the name-and-project one. Then build, and
   state your assumptions.
 - If the tool reports `droppedBlocks`, say which tiles are missing and why — do

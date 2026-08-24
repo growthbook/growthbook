@@ -10,14 +10,10 @@ import type {
 } from "@/components/Agent/ConfirmActionCard";
 
 /**
- * The two ways an agent turn ends by handing control back to the user: a
- * multiple-choice question (`askUser`) and a parked mutation awaiting approval
- * (the confirmation gate).
- *
- * Shared by every chat surface that talks to an agent with those tools. A chat
- * that streams `confirm-action` but renders nothing leaves the user with a
- * write that silently never happens, so this must not be reimplemented per
- * surface — one gate, one prompt, one place to get it right.
+ * The two ways an agent turn hands control back: a multiple-choice question
+ * (`askUser`) and a parked mutation awaiting approval. Shared by every chat
+ * surface — one that streams `confirm-action` and renders nothing leaves the
+ * user with a write that silently never happens.
  */
 
 export interface AgentInteractionPrompts {
@@ -30,16 +26,10 @@ export interface AgentInteractionPrompts {
     data: Record<string, unknown>;
   }) => void;
 
-  /**
-   * Feed the raw conversation payload on load so a mutation parked before a
-   * reload comes back up for approval.
-   */
+  /** Feed the conversation payload on load, so a parked mutation survives a reload. */
   syncFromConversation: (data: unknown) => void;
 
-  /**
-   * Consume the decision to attach to the next request. Call from
-   * `buildRequestBody` — it clears, so the decision rides exactly one request.
-   */
+  /** Consume the decision for the next request; clears, so it rides exactly one. */
   takePendingDecision: () => ConfirmDecisionBody | null;
 
   /** Answering by typing rather than clicking still settles an open prompt. */
@@ -48,20 +38,14 @@ export interface AgentInteractionPrompts {
   /** Mark the question answered; the caller sends the picked option's label. */
   resolveAsk: () => boolean;
 
-  /**
-   * Mark the parked mutation decided and stage the decision for the next
-   * request. Returns false when there is nothing to decide.
-   */
+  /** Stage the decision for the next request; false when there is nothing to decide. */
   resolveConfirm: (decision: "confirm" | "cancel") => boolean;
 
   /** Clear everything — for starting a new conversation. */
   reset: () => void;
 }
 
-/**
- * A single `askUser` option. Parsed per-element rather than as part of the event
- * so one malformed option drops itself instead of the whole question.
- */
+/** Parsed per-element, so one malformed option drops itself, not the question. */
 const askOptionSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
@@ -75,15 +59,10 @@ const askEventSchema = z.object({
 });
 
 /**
- * The parked mutation, as both places that describe one spell it: the
- * `confirm-action` SSE event keys it `actionId`, the conversation's persisted
- * `pendingAction` keys it `id`. Everything else matches, so the fields are
- * declared once and the id is grafted on per source.
- *
- * `.catch` on the display fields rather than a hard requirement: an action whose
- * summary came back as a number is still an action the user has to decide on,
- * and refusing to render the card would park the write with no way to approve
- * it.
+ * The parked mutation. The SSE event keys the id `actionId`, the persisted
+ * `pendingAction` keys it `id`; everything else matches. `.catch` on the display
+ * fields because a bad summary is still a write the user must be able to
+ * approve.
  */
 const confirmFieldsSchema = z.object({
   method: z.string().catch(""),
@@ -110,8 +89,7 @@ export function useAgentInteractionPrompts(): AgentInteractionPrompts {
   // Holds the decision to attach to the next outgoing message. Consumed (and
   // cleared) by buildRequestBody so it only rides along with one request.
   const pendingDecisionRef = useRef<ConfirmDecisionBody | null>(null);
-  // Mirrors of the prompts so the callbacks below can stay stable rather than
-  // re-creating on every prompt change (they feed memoized send handlers).
+  // Mirrors, so the callbacks below stay stable for the memoized send handlers.
   const askRef = useRef<AskUserPrompt | null>(null);
   askRef.current = askPrompt;
   const confirmRef = useRef<ConfirmActionPrompt | null>(null);
@@ -151,11 +129,8 @@ export function useAgentInteractionPrompts(): AgentInteractionPrompts {
     [],
   );
 
-  // When a conversation is (re)loaded from the server, re-render the
-  // confirmation prompt from any persisted pending action so a gated request
-  // survives a page reload / switching back to the chat. A non-null
-  // pendingAction always means "still awaiting" — the server clears it the
-  // moment the user confirms or cancels.
+  // A non-null pendingAction always means "still awaiting" — the server clears
+  // it the moment the user confirms or cancels.
   const syncFromConversation = useCallback((data: unknown) => {
     const pending = z
       .object({ pendingAction: pendingActionSchema })

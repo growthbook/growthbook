@@ -67,12 +67,7 @@ const TOOL_STATUS_LABELS: Record<string, string> = {
   openAnalyticsChat: OPEN_ANALYTICS_CHAT_LABEL,
 };
 
-/**
- * The dashboard brief this turn handed to the Product Analytics chat, if any.
- *
- * Read back out of the transcript rather than held in component state so the
- * offer survives a reload — the user may well come back to it later.
- */
+/** Read from the transcript, not component state, so the offer survives a reload. */
 function handoffInTurn(messages: AIChatMessage[]): AnalyticsHandoff | null {
   for (const msg of messages) {
     if (msg.role !== "tool") continue;

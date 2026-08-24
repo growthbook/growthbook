@@ -30,12 +30,7 @@ import DashboardEditor, {
 } from "@/enterprise/components/Dashboards/DashboardEditor";
 import styles from "./DashboardPreviewBubble.module.scss";
 
-/**
- * A dashboard the agent has proposed but nobody has saved yet, carrying the
- * block shape this preview renders. `dashboardId` is present only when revising
- * a dashboard that already exists, in which case saving updates that one rather
- * than creating a second.
- */
+/** A proposed, unsaved dashboard. `dashboardId` set only when revising one. */
 export type DashboardDraft = DashboardDraftOf<
   DashboardBlockInterfaceOrData<DashboardBlockInterface>
 >;
@@ -59,11 +54,7 @@ interface Props {
   draft: DashboardDraft;
   droppedBlocks?: DroppedDashboardBlock[];
   toolTransparency?: React.ReactNode;
-  /**
-   * True when this preview came out of a conversation the user re-opened rather
-   * than one they just watched run. The draft's analysis ids are only as fresh
-   * as the turn that produced them, so the tiles are re-queried once on mount.
-   */
+  /** Re-opened conversation: the stored analysis ids may have aged out, so re-query once. */
   refreshOnMount?: boolean;
 }
 
@@ -78,9 +69,8 @@ export default function DashboardPreviewBubble({
   const { project, mutateDefinitions } = useDefinitions();
   const { fetchData: fetchExplorationData } = useExploreData();
 
-  // Everything the user can change here without going back to the agent. Blocks
-  // are in state because the grid writes layout back; their *contents* are not
-  // editable, which is why nothing below hands DashboardEditor a `setBlock`.
+  // Blocks are in state because the grid writes layout back; contents are not
+  // editable, hence no `setBlock` below.
   const [blocks, setBlocks] = useState(draft.blocks);
   const [globalControls, setGlobalControls] = useState(
     draft.globalControls ?? DEFAULT_DASHBOARD_GLOBAL_CONTROLS,
@@ -96,18 +86,15 @@ export default function DashboardPreviewBubble({
   const title = draft.title;
   const isRevision = !!draft.dashboardId;
 
-  // The agent settles the project with the user before proposing, so its answer
-  // wins. The app's current selection only stands in when it could not — and an
-  // explicit `[]` from the agent means "every project", not "unset". Memoized
-  // because it feeds the preview dashboard's identity.
+  // The agent's answer wins; the app's selection only stands in when it had
+  // none. An explicit `[]` means "every project", not "unset".
   const projects = useMemo(
     () => draft.projects ?? (project ? [project] : []),
     [draft.projects, project],
   );
 
-  // A stand-in dashboard so the real renderer can draw an unsaved one. The "new"
-  // id is load-bearing: DashboardSnapshotProvider skips its snapshot fetch for
-  // it, and exploration tiles fetch their own analysis by id regardless.
+  // Stand-in so the real renderer can draw an unsaved dashboard. The "new" id is
+  // load-bearing: DashboardSnapshotProvider skips its snapshot fetch for it.
   const previewDashboard = useMemo<DashboardInterface>(
     () => ({
       id: draft.dashboardId ?? "new",
@@ -139,23 +126,16 @@ export default function DashboardPreviewBubble({
   );
 
   /**
-   * Re-run the tiles against the current filter bar.
-   *
-   * This is what makes the date control usable before saving. It is also what
-   * enables the Update button at all: `DashboardUpdateDisplay` disables it for
-   * an unsaved dashboard unless this callback is supplied, since there is no
-   * dashboard id to refresh server-side. Mirrors the same path
-   * `DashboardWorkspace` uses for a dashboard on its first save.
+   * Re-run the tiles against the current filter bar. Also what enables Update at
+   * all: `DashboardUpdateDisplay` disables it on an unsaved dashboard unless
+   * this callback is supplied, there being no id to refresh server-side.
    */
   const refreshBlocks = useCallback(
     async (
       controls: DashboardInterface["globalControls"] = globalControls,
       comparisonRef: DashboardInterface["comparison"] = comparison,
-      // "never" for anything the user asked for, so Update means Update. The
-      // mount refresh passes "preferred" instead: it is re-establishing
-      // analyses that may have aged out, not answering a request for fresh
-      // numbers, and re-opening an old thread should not put six queries on the
-      // warehouse.
+      // "never" so Update means Update. The mount refresh passes "preferred":
+      // re-opening an old thread shouldn't put six queries on the warehouse.
       cache: "never" | "preferred" = "never",
     ) => {
       const next = await Promise.all(
@@ -199,13 +179,8 @@ export default function DashboardPreviewBubble({
     [blocks, globalControls, comparison, fetchExplorationData],
   );
 
-  /**
-   * Re-query once when a rehydrated thread renders this preview.
-   *
-   * Guarded by a ref rather than an empty dependency list because
-   * `refreshBlocks` closes over `blocks` and so changes identity the moment it
-   * succeeds — without the guard that is an endless loop.
-   */
+  // Ref-guarded, not an empty dep list: `refreshBlocks` closes over `blocks` and
+  // changes identity the moment it succeeds, which without the guard loops.
   const didRefreshOnMount = useRef(false);
   useEffect(() => {
     if (!refreshOnMount || didRefreshOnMount.current) return;
@@ -359,11 +334,8 @@ export default function DashboardPreviewBubble({
             setComparison(next ?? { enabled: false });
           }}
           onGlobalControlsChange={async (next) => {
-            // Store only. The controls bar decides whether to re-query now (via
-            // updateTemporaryDashboardResults) or mark the tiles stale for the
-            // Update button, so refreshing here too would run every query twice.
-            // Clearing the bar comes back as undefined; fall back to the
-            // defaults so the controls stay rendered rather than disappearing.
+            // Store only — the controls bar decides whether to re-query now or
+            // mark tiles stale, so refreshing here too runs every query twice.
             setGlobalControls(next ?? DEFAULT_DASHBOARD_GLOBAL_CONTROLS);
           }}
           updateTemporaryDashboardResults={async (controls) =>

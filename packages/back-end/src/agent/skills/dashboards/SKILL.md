@@ -19,6 +19,18 @@ You never run the charts yourself and you never save the dashboard.
 For a single one-off chart with no dashboard involved, call
 `loadSkill('product-analytics')` instead.
 
+## Which surface are you on?
+
+Check your tools before doing anything else.
+
+- **You have `proposeDashboard`** — the Product Analytics chat. Follow the leaf's
+  workflow.
+- **You don't** — the site-wide assistant panel. There is no preview here.
+  _Building_: restate the request as a brief (metrics, timeframe, name if given),
+  call `openAnalyticsChat`, and stop — don't settle the full brief or run
+  queries first. _Editing_: apply the change directly via the dashboards API;
+  see `<editing_without_a_preview>` in `dashboard-edit`.
+
 ## Sub-skills
 
 | Skill              | Use when                         |
@@ -86,15 +98,10 @@ asking.
 
 ## Ask budget
 
-**Two slots have no default and must be settled before the create call: the
-name and the project.** Ask for both in a single `askUser`, then **at most one
-more** question about everything else. Bundle independent gaps into one
-multi-select question rather than asking them one at a time.
-
-Name and project are singled out because they are the two things the user cannot
-fix from the preview — renaming or moving a saved dashboard means editing it by
-hand afterwards. Everything else either has a good default or is adjustable
-where they are looking.
+**The name and the project have no default and must be settled before the create
+call** — they are the only two things the preview cannot fix. Ask for both in one
+`askUser`, then **at most one more** question, bundling any remaining gaps into
+it.
 
 | Slot             | Default                        | Ask only when                                              |
 | ---------------- | ------------------------------ | ---------------------------------------------------------- |
@@ -111,15 +118,12 @@ where they are looking.
 | Experiment scope | `""` (no filter)               | user scoped experiments vaguely ("our checkout tests")     |
 | Share level      | `"private"`                    | never — they can publish it afterwards                     |
 
-Never ask a question whose answer would not change a block. Beyond the name and
-project, prefer building something reasonable and stating your assumptions over
-asking another question: the dashboard is editable, and the user reviews the
-whole thing in the preview before saving it.
+Never ask a question whose answer would not change a block — build something
+reasonable and state your assumptions instead.
 
-To find the projects: `GET /api/v1/projects`. Skip the question entirely when
-the organization has none or exactly one — pass `[]` or that single id. `[]`
-means the dashboard is visible in every project, which is also the right answer
-when the user says "all of them".
+Projects: `GET /api/v1/projects`. Skip the question when the org has none or one
+— pass `[]` or that single id. `[]` means visible in every project, which is
+also the answer when the user says "all of them".
 
 ## Shared conventions
 
@@ -133,10 +137,6 @@ when the user says "all of them".
 - **Never save the dashboard.** The user saves from the preview. Saving for them
   takes the choice away, and the preview is where they adjust the sharing,
   filters, and layout.
-- **A name and a project are required.** `proposeDashboard` needs a `title`, and
-  a `projects` array it cannot guess. Settle both before calling it — see the ask
-  budget. Sharing and auto-refresh are adjustable in the preview, so don't ask
-  about those.
 - **Links:** `/product-analytics/dashboards/<id>`.
 - **Never guess a column value.** `POST /api/v1/product-analytics/column-values`
   first, for row filters and static dimension values alike.

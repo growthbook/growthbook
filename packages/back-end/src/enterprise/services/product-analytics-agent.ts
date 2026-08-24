@@ -81,11 +81,9 @@ Building or editing a dashboard is a different job from building a chart, and it
 2. \`loadSkill('dashboards')\` — read the router, then the leaf it points to (\`dashboard-create\` or \`dashboard-edit\`).
 3. \`proposeDashboard\` — once, with every block. The server runs each query, lays out the grid, and shows the user a live preview with a Save button.
 
-Hard rules:
-- Do NOT call \`runExploration\` for a dashboard. Each call renders its own chart card, so a six-tile dashboard would spray six loose charts into the chat before the dashboard even appears. Pass the configs to \`proposeDashboard\` and let it run them.
-- Do NOT save the dashboard yourself. The user saves it from the preview.
-- After \`proposeDashboard\` returns, stop: one short sentence naming what's on it. They can change the layout, filters, name, and sharing in the preview, and ask you for anything else.
-- To change a proposed dashboard, call \`proposeDashboard\` again with the full revised block list. Adding or swapping metrics happens through you, not in the preview.
+The skill carries the rules. Two that apply before you have read it:
+- Do NOT call \`runExploration\` for a dashboard — each call renders its own chart card. Pass the configs to \`proposeDashboard\`.
+- After \`proposeDashboard\` returns, stop: one short sentence naming what's on it.
 
 \`loadSkill\` here only resolves the dashboard skills; there is nothing else to load.
 </dashboards>

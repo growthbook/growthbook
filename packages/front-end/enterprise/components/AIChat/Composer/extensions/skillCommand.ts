@@ -5,14 +5,9 @@ export const SKILL_COMMAND_NAME = "skillCommand";
 
 export interface SkillItem {
   id: string;
-  /**
-   * The token text, which must stay the skill's identifier: `renderText`
-   * prefixes it with `/` to produce `/flag-create` in the sent message, and the
-   * chat log restyles a command by looking for exactly that string. Use `title`
-   * for anything a person reads.
-   */
+  /** The token text — must stay the identifier; `renderText` sends `/<label>`. */
   label: string;
-  /** Display name for the `/` menu, derived from `id` by `skillDisplayName`. */
+  /** Display name for the `/` menu. */
   title: string;
   description: string;
   kind: SkillKind;
@@ -20,15 +15,7 @@ export interface SkillItem {
   group?: string;
 }
 
-/**
- * Menu label for a skill: its identifier with the hyphens opened up and the
- * first letter capitalized, so `flag-default-value` reads "Flag default value".
- * Sentence case per the repo copy guide — these are list labels, not headings.
- *
- * Derived rather than authored so a new skill needs no extra frontmatter to
- * show up readably; the trade-off is that the label tracks the identifier, so
- * an id that reads badly gives a label that reads badly.
- */
+/** `flag-default-value` → "Flag default value". Sentence case, per the copy guide. */
 export function skillDisplayName(id: string): string {
   const words = id
     .split("-")
@@ -53,11 +40,8 @@ export const SkillCommand = Mention.extend<
 });
 
 /**
- * Title/id matches first, then description.
- *
- * An empty query keeps the server's order, which files each skill under its
- * directory. The limit is generous because that browse case is the whole menu
- * and the popup scrolls — truncating it would hide a directory entirely.
+ * Title/id matches first, then description. An empty query keeps the server's
+ * order; the limit is generous because that case is the whole scrolling menu.
  */
 export function filterSkillItems(
   items: SkillItem[],
@@ -72,8 +56,7 @@ export function filterSkillItems(
   const nameMatch: SkillItem[] = [];
   const descriptionMatch: SkillItem[] = [];
   for (const item of items) {
-    // Match the title too: people search the words they can see ("/create
-    // dashboard"), not the kebab-case id they can't.
+    // People search the words they can see, not the kebab-case id.
     if (
       item.id.toLowerCase().includes(q) ||
       item.title.toLowerCase().includes(q)

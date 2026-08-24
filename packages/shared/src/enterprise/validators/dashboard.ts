@@ -181,20 +181,10 @@ export type DashboardEditLevel = z.infer<typeof dashboardEditLevel>;
 export type DashboardShareLevel = z.infer<typeof dashboardShareLevel>;
 export type DashboardUpdateSchedule = z.infer<typeof dashboardUpdateSchedule>;
 
-// ---------------------------------------------------------------------------
-// AI-proposed dashboards
-//
-// The `proposeDashboard` tool result: the draft the server built from the
-// model's proposal, plus whatever it could not build. Declared here rather than
-// once per package because the back-end writes it into a tool result and the
-// chat UI reads it back out — two declarations of one wire shape drift the
-// moment either side gains a field.
-//
-// `blocks` stays `unknown[]`: the server has already produced them from
-// `proposeDashboardBlockValidator`, and re-validating the full block union on
-// the way into the preview would only add a way for a valid dashboard to render
-// as nothing. Each side casts to the block type it works in.
-// ---------------------------------------------------------------------------
+// The `proposeDashboard` tool result, declared once because the back-end writes
+// it and the chat UI reads it back. `blocks` stays `unknown[]` — the server
+// already validated them on the way in, and re-checking the union here would
+// only add a way for a valid dashboard to render as nothing.
 
 export const droppedDashboardBlockValidator = z.object({
   title: z.string(),
@@ -206,12 +196,7 @@ export const dashboardDraftValidator = z.object({
   /** Set when revising a dashboard that already exists; absent for a new one. */
   dashboardId: z.string().optional(),
   title: z.string().min(1),
-  /**
-   * Project ids the dashboard belongs to; `[]` is every project. Absent when the
-   * agent could not establish it, in which case the preview falls back to
-   * whatever project the user has selected — so an empty array and a missing
-   * value mean different things and neither is defaulted away.
-   */
+  /** `[]` is every project; absent means fall back to the user's selection. */
   projects: z.array(z.string()).optional(),
   globalControls: dashboardGlobalControlsValidator.optional(),
   /** Dashboard-wide compare-to-previous-period; overrides any per-block setting. */

@@ -117,11 +117,7 @@ function classifyAssistantBlockMessages(msgs: AIChatMessage[]): {
 
 interface ChatMessageListProps {
   messages: AIChatMessage[];
-  /**
-   * Ids of the messages this conversation was loaded with. A dashboard preview
-   * among them is redrawn from analysis ids that may have aged out, so it
-   * re-queries itself; one that just streamed in is already current.
-   */
+  /** Loaded-from-history ids: a preview among them re-queries its aged-out analyses. */
   rehydratedMessageIds: ReadonlySet<string>;
   activeTurnItems: ActiveTurnItem[];
   displayedTextMap: Map<string, string>;
@@ -140,11 +136,7 @@ interface ChatMessageListProps {
   scrollContainerRef: React.RefObject<HTMLDivElement>;
   messagesEndRef: React.RefObject<HTMLDivElement>;
   onScroll: () => void;
-  /**
-   * Rendered after the messages and inside the scroll area — for the prompts
-   * that end a turn (a question, a mutation awaiting approval), which belong
-   * at the foot of the transcript rather than pinned over the composer.
-   */
+  /** Rendered inside the scroll area, below the messages — turn-ending prompts. */
   footer?: React.ReactNode;
 }
 

@@ -108,13 +108,9 @@ export function tryParseToolResultJson(resultJson: string): unknown {
 }
 
 /**
- * Read a typed payload out of a tool result.
- *
- * A result reaches the UI two ways — as a JSON string from the persisted
- * transcript, or already parsed from the live stream — so both are accepted.
- * Returns null on anything that doesn't match the schema: this is JSON that came
- * back through the model's tool loop, and a malformed one should render nothing
- * rather than throw inside the message list.
+ * Read a typed payload out of a tool result — a JSON string from the persisted
+ * transcript, or already parsed from the live stream. Null on a mismatch, so a
+ * malformed result renders nothing rather than throwing in the message list.
  */
 export function parseToolResult<T>(
   result: unknown,
@@ -188,34 +184,20 @@ export type AIChatMentionType =
   | "metricGroup"
   | "dashboard";
 
-/**
- * An @-mentioned entity. The text keeps "@Revenue"; this carries the id.
- *
- * Mostly metrics, plus dashboards — naming one is how a user points the agent
- * at the dashboard they want changed, instead of describing it and hoping the
- * search finds the right one.
- */
+/** An @-mentioned entity. The text keeps "@Revenue"; this carries the id. */
 export type AIChatMention = {
   type: AIChatMentionType;
   id: string;
   name: string;
-  /**
-   * Set by the server when a metric isn't in this turn's Data Source. Never set
-   * on a dashboard, which is not scoped to one.
-   */
+  /** Server-set when a metric isn't in this turn's Data Source; never on a dashboard. */
   stale?: boolean;
 };
 
 export type SkillKind = "domain" | "leaf";
 
 /**
- * The one skill domain the Product Analytics chat can load. Dashboards are the
- * natural next step from a chart ("save these as a dashboard"), but an analytics
- * chat has no business publishing a Feature Flag.
- *
- * Shared so the agent's resolver and the composer's `/` menu cannot drift: a
- * menu wider than the resolver offers dead ends, and a resolver wider than the
- * menu lets the model reach endpoints this surface never advertised.
+ * The one skill domain the Product Analytics chat can load. Shared so the
+ * agent's resolver and the composer's `/` menu cannot drift apart.
  */
 export const PRODUCT_ANALYTICS_CHAT_SKILL_GROUP = "dashboards";
 

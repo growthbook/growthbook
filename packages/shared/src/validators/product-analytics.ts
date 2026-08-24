@@ -452,15 +452,9 @@ export type ApiAnalyticsExploration = z.infer<
   typeof apiAnalyticsExplorationValidator
 >;
 
-// ---------------------------------------------------------------------------
-// Discovery: search, columns, column values
-//
-// One definition per input, shared by the product-analytics chat agent's tools
-// and the REST endpoints that expose the same three lookups. Numbers and the
-// id list are query-encoded on the REST side, so they coerce from strings;
-// defaults live in `meta()` rather than `.default()` and are applied by the
-// caller, matching `paginationQueryFields`.
-// ---------------------------------------------------------------------------
+// Discovery inputs, shared by the chat agent's tools and the REST endpoints.
+// Query-encoded on the REST side, so numbers coerce from strings; defaults live
+// in `meta()` and are applied by the caller, matching `paginationQueryFields`.
 
 export const PRODUCT_ANALYTICS_SEARCH_DEFAULT_LIMIT = 10;
 export const PRODUCT_ANALYTICS_COLUMN_VALUES_DEFAULT_LIMIT = 20;
@@ -504,11 +498,7 @@ export const productAnalyticsColumnSources = ["fact_table", "metric"] as const;
 export type ProductAnalyticsColumnSource =
   (typeof productAnalyticsColumnSources)[number];
 
-/**
- * A `metric` source needs `metricIds`, a `fact_table` source needs
- * `factTableId`. Enforced by refinement rather than a discriminated union so
- * the same object shape works as a flat query string.
- */
+/** Refinement rather than a discriminated union, so it also works as a flat query string. */
 export function productAnalyticsColumnSourceIsValid(v: {
   source: string;
   factTableId?: string;
@@ -618,10 +608,8 @@ export type ProductAnalyticsColumnValuesBody = z.infer<
   typeof productAnalyticsColumnValuesBodySchema
 >;
 
-// The three discovery lookups return already-shaped JSON payloads whose keys
-// vary by branch (a metric-source column lookup carries per-metric unit flags a
-// fact-table one has no notion of), so the response contract is intentionally
-// open rather than a union that would have to be widened on every tweak.
+// Keys vary by branch (a metric-source lookup carries per-metric unit flags a
+// fact-table one has no notion of), so the contract stays open.
 export const productAnalyticsDiscoveryResultSchema = z.record(
   z.string(),
   z.unknown(),

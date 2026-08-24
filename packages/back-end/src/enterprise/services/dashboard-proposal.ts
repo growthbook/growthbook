@@ -116,8 +116,7 @@ export async function buildDashboardDraft(
 ): Promise<BuildDashboardDraftResult> {
   const droppedBlocks: BuildDashboardDraftResult["droppedBlocks"] = [];
 
-  // Explorations are independent, so run them together rather than serially —
-  // a six-tile dashboard would otherwise pay six round-trips end to end.
+  // Independent, so run them together rather than paying N round-trips.
   const built = await Promise.all(
     input.blocks.map(async (proposed) => {
       const { sizeHint, ...block } = proposed as ProposeDashboardBlock & {
@@ -131,10 +130,8 @@ export async function buildDashboardDraft(
         };
       }
 
-      // Enroll in the dashboard's date control first, matching the
-      // auto-enrollment a hand-built dashboard gets on save. Without it the
-      // filter bar is inert for this tile and Update skips it entirely — and
-      // the effective config below would come back unchanged.
+      // Enroll in the date control first, as a hand-built dashboard gets on
+      // save — without it the filter bar is inert and Update skips this tile.
       const enrolled = {
         ...block,
         ...(input.globalControls?.dateRange
@@ -152,9 +149,8 @@ export async function buildDashboardDraft(
         context,
         proposed.type,
         config,
-        // The dashboard-wide setting wins over the block's own, in both
-        // directions — the same precedence the tiles apply when rendering, so
-        // the previous-period query we run is the one they look for.
+        // Dashboard-wide wins over the block's own, both ways — the same
+        // precedence the tiles apply, so we run the query they look for.
         resolveBlockComparison(proposed, {
           comparison: input.comparison,
         }) ?? undefined,
@@ -183,8 +179,7 @@ export async function buildDashboardDraft(
     draft: {
       ...(input.dashboardId ? { dashboardId: input.dashboardId } : {}),
       title: input.title,
-      // Passed through rather than defaulted: an absent value and an explicit
-      // `[]` ("every project") mean different things to the preview.
+      // Absent and `[]` ("every project") mean different things to the preview.
       ...(input.projects ? { projects: input.projects } : {}),
       ...(input.globalControls ? { globalControls: input.globalControls } : {}),
       ...(input.comparison ? { comparison: input.comparison } : {}),

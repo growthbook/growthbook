@@ -20,13 +20,10 @@ export function analyticsHandoffFromToolResult(
 }
 
 /**
- * The offer to continue a dashboard request in the Product Analytics chat.
- *
- * Clicking navigates rather than the tool doing it on its own: the panel floats
- * over whatever the user was working on, and moving them off that page is not
- * something to do behind their back. The brief goes through the same
- * sessionStorage stash the Product Analytics empty state uses, so the other
- * chat sends it as the opening message.
+ * The offer to continue a dashboard request in the Product Analytics chat. The
+ * user clicks rather than the tool navigating: the panel floats over whatever
+ * they were doing. The brief rides the same sessionStorage stash the PA empty
+ * state uses.
  */
 export default function AnalyticsHandoffCard({
   handoff,
@@ -41,8 +38,7 @@ export default function AnalyticsHandoffCard({
       JSON.stringify({
         text: handoff.prompt,
         mentions: handoff.mentions ?? [],
-        // The other chat is scoped to the dashboard skills, and this is always
-        // a build request — an edit never gets here.
+        // Always a build request; an edit never reaches this card.
         skills: ["dashboard-create"],
       }),
     );

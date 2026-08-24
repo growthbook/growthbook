@@ -11,18 +11,11 @@ gets a fresh preview with a Save button, exactly as when it was created.
 Editing goes through you, not the preview: the user can move tiles and change
 filters there, but adding, removing, or reconfiguring a chart is a prompt.
 
-## Which surface are you on?
-
-Check your tools before doing anything else. Step 1 is the same either way; the
-rest is not.
-
-- **You have `proposeDashboard`** — the Product Analytics chat. Follow the
-  workflow below and never write to the dashboards API yourself.
-- **You don't** — the site-wide assistant panel. There is no preview here, so
-  you apply the change directly: do step 1, then follow
-  `<editing_without_a_preview>` instead of steps 2–4.
-
 ## Workflow
+
+Step 1 is the same on either surface (see the `dashboards` skill). With
+`proposeDashboard`, follow steps 2–4; without it, follow
+`<editing_without_a_preview>` instead.
 
 1. **Resolve the dashboard.** In order of authority:
    - An `@`-mention. A `[Referenced by the user: Growth KPIs (dashboard: dash_abc)]`
@@ -139,13 +132,9 @@ so and offer `openAnalyticsChat` instead of saving something broken.
   user ends up with a duplicate.
 - **Carry `title`, `projects`, and `globalControls` through** unless the user
   changed them.
-- **Never save** _when you have `proposeDashboard`._ No `PUT` or `POST` to the
-  dashboards API — the user saves from the preview. Without that tool the rule
-  inverts: saving is the only way the change reaches them.
-- **Never call `runExploration`.** `proposeDashboard` runs the queries.
+- **The never-save rule inverts without `proposeDashboard`.** On the site-wide
+  panel, writing to the dashboards API is the only way the change reaches them.
 - **Confirm before removing a block.** Say which tile is going.
-- **Only the Analytics block types.** See the scope section of the `dashboards`
-  skill.
 
 ## Endpoints used
 
