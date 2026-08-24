@@ -73,6 +73,9 @@ export default function SQLInputField({
         body: JSON.stringify({
           query: userEnteredQuery,
           datasourceId: datasourceId,
+          timestampColumn: requiredColumns.has("timestamp")
+            ? "timestamp"
+            : undefined,
         }),
       });
 

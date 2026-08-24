@@ -62,7 +62,7 @@ export default function DataSourceDropdown() {
                 ? {
                     confirmationTitle: "Change data source",
                     cta: "Change",
-                    submitColor: "primary",
+                    ctaColor: "violet",
                     submit: () => clearAllDatasets(ds.id),
                     getConfirmationContent: async () =>
                       `Changing the data source will clear your current exploration. Are you sure you want to switch to "${ds.name}"?`,

@@ -1,12 +1,14 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
 import { FaKey } from "react-icons/fa";
-import Link from "next/link";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
+import Link from "@/ui/Link";
 import { ApiKeysTable } from "@/components/ApiKeysTable/ApiKeysTable";
 import ApiKeysModal from "@/components/Settings/ApiKeysModal";
 import { useAuth } from "@/services/auth";
 import { groupApiKeysByType } from "@/services/secret-api-keys.utils";
 import useApi from "@/hooks/useApi";
+import Callout from "@/ui/Callout";
+import { useUser } from "@/services/UserContext";
 
 type PersonalAccessTokensProps = {
   accessTokens: ApiKeyInterface[];
@@ -27,6 +29,8 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
   onCreate,
 }) => {
   const [open, setOpen] = useState(false);
+  const { settings } = useUser();
+  const tokensDisabled = !!settings?.disablePersonalAccessTokens;
 
   return (
     <div>
@@ -55,22 +59,30 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
             onToggleDisabled={onToggleDisabled}
           />
         )}
-        <button
-          className="btn btn-primary"
-          onClick={(e) => {
-            e.preventDefault();
-            setOpen(true);
-          }}
-        >
-          <FaKey /> Create New Personal Access Token
-        </button>
+        {tokensDisabled ? (
+          <Callout status="warning">
+            Personal access tokens are disabled for your organization. Existing
+            tokens no longer work and new ones can&apos;t be created. Contact an
+            admin if you need API access.
+          </Callout>
+        ) : (
+          <button
+            className="btn btn-primary"
+            onClick={(e) => {
+              e.preventDefault();
+              setOpen(true);
+            }}
+          >
+            <FaKey /> Create New Personal Access Token
+          </button>
+        )}
       </div>
 
       <div className="mb-5">
-        <div className="alert alert-info">
+        <Callout status="info">
           Administrators can also create userless keys for an organization on
           the <Link href="/settings/keys">API Keys</Link> page.
-        </div>
+        </Callout>
       </div>
     </div>
   );

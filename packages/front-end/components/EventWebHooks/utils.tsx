@@ -97,8 +97,16 @@ const buildGroupedEventOptions = () => {
       shouldIndent?: boolean;
     }> = [];
 
-    // Group events by level 2, adding subgroup wildcards where applicable
-    const sortedLevel2 = Object.keys(level2Map).sort();
+    // Group events by level 2, adding subgroup wildcards where applicable.
+    // List direct events (e.g. savedGroup.created/updated/deleted) before
+    // nested subgroups (e.g. savedGroup.revision.*) so a top-level event isn't
+    // stranded visually after a subgroup's block.
+    const isSubgroup = (level2: string) =>
+      (level2Map[level2][0]?.split(".").length ?? 0) > 2;
+    const sortedLevel2 = Object.keys(level2Map).sort((a, b) => {
+      if (isSubgroup(a) !== isSubgroup(b)) return isSubgroup(a) ? 1 : -1;
+      return a.localeCompare(b);
+    });
 
     // Check if we have subgroups (multi-level events) or multiple top-level events
     const totalTopLevelEvents = Object.values(level2Map).flat().length;

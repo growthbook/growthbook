@@ -5,3 +5,19 @@
     max-height: 100%;
   }
 }
+
+// An outlined avatar: same footprint as the filled one, but the color reads as
+// a border rather than a fill. Uses the accent scale so it tracks `color`.
+.ring {
+  // A real outline, so it can be dashed and costs no layout. The negative
+  // offset pulls it inside the circle instead of orbiting it.
+  outline: 1.5px dashed var(--accent-9);
+  outline-offset: -1.5px;
+  background-color: transparent;
+
+  // Radix tints the fallback, not the root, so clearing the root alone leaves
+  // the fill behind.
+  :global(.rt-AvatarFallback) {
+    background-color: transparent;
+  }
+}

@@ -6,12 +6,14 @@ import {
   ReactNode,
   useState,
 } from "react";
-import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import { radixSize, Size as SharedSize } from "@/ui/sizes";
 
-export type Color = "violet" | "red" | "gray";
+// "inherit" drops the forced accent color so the button inherits the
+// surrounding Radix accent context (e.g. a Callout's status color).
+export type Color = "violet" | "red" | "gray" | "inherit";
 export type Variant = "solid" | "soft" | "outline" | "ghost";
-export type Size = "xs" | "sm" | "md" | "lg";
+export type Size = SharedSize<"sm" | "md" | "lg" | "xl">;
 
 export type Props = {
   onClick?:
@@ -31,20 +33,10 @@ export type Props = {
   style?: CSSProperties;
   tabIndex?: number;
 } & MarginProps &
-  Pick<ButtonProps, "title" | "type" | "aria-label" | "className">;
-
-export function getRadixSize(size: Size): Responsive<"1" | "2" | "3" | "4"> {
-  switch (size) {
-    case "xs":
-      return "1";
-    case "sm":
-      return "2";
-    case "md":
-      return "3";
-    case "lg":
-      return "4";
-  }
-}
+  Pick<
+    ButtonProps,
+    "title" | "type" | "aria-label" | "aria-pressed" | "className"
+  >;
 
 const Button = forwardRef<HTMLButtonElement, Props>(
   (
@@ -52,7 +44,7 @@ const Button = forwardRef<HTMLButtonElement, Props>(
       onClick,
       color = "violet",
       variant = "solid",
-      size = "sm",
+      size = "md",
       disabled,
       loading: _externalLoading,
       setError,
@@ -90,9 +82,9 @@ const Button = forwardRef<HTMLButtonElement, Props>(
               }
             : undefined
         }
-        color={color}
+        color={color === "inherit" ? undefined : color}
         variant={variant}
-        size={getRadixSize(size)}
+        size={radixSize(size)}
         disabled={disabled}
         loading={loading}
         type={type}
@@ -107,13 +99,15 @@ const Button = forwardRef<HTMLButtonElement, Props>(
 Button.displayName = "Button";
 export default Button;
 
-type WhiteButtonProps = Omit<Props, "color">;
+type WhiteButtonProps = Omit<Props, "color"> & {
+  fullWidth?: boolean;
+};
 export const WhiteButton = forwardRef<HTMLButtonElement, WhiteButtonProps>(
   function WhiteButton(
     {
       onClick,
       variant = "solid",
-      size = "sm",
+      size = "md",
       disabled,
       loading: _externalLoading,
       setError,
@@ -122,6 +116,7 @@ export const WhiteButton = forwardRef<HTMLButtonElement, WhiteButtonProps>(
       type = "button",
       children,
       tabIndex,
+      fullWidth = true,
       ...otherProps
     }: WhiteButtonProps,
     ref: ForwardedRef<HTMLButtonElement>,
@@ -150,12 +145,12 @@ export const WhiteButton = forwardRef<HTMLButtonElement, WhiteButtonProps>(
             : undefined
         }
         variant={variant}
-        size={getRadixSize(size)}
+        size={radixSize(size)}
         disabled={disabled}
         loading={loading}
         type={type}
         style={{
-          width: "100%",
+          width: fullWidth ? "100%" : undefined,
           backgroundColor: variant === "outline" ? "" : "var(--white-a12)",
           color:
             variant === "outline" ? "var(--white-a12)" : "var(--black-a12)",

@@ -52,7 +52,7 @@ const chartTypes: {
         icon: PiChartBarHorizontalDuotone,
       },
       { value: "table", label: "Table", icon: PiTable },
-      { value: "bigNumber", label: "Big Number", icon: PiHash },
+      { value: "bigNumber", label: "Big Numbers", icon: PiHash },
     ],
   },
 ];
@@ -62,7 +62,7 @@ export default function GraphTypeSelector() {
 
   return (
     <Select
-      size="2"
+      size="md"
       value={draftExploreState.chartType}
       placeholder="Select value"
       setValue={(v) => changeChartType(v as (typeof chartTypeValues)[number])}

@@ -3,7 +3,7 @@ import { Text } from "@radix-ui/themes";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import FeatureReferencesList from "./FeatureReferencesList";
 
 interface FeatureDeleteModalProps {
@@ -22,19 +22,17 @@ export default function FeatureDeleteModal({
     (dependents?.features.length ?? 0) + (dependents?.experiments.length ?? 0);
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       header="Delete Feature"
       close={close}
       open={true}
       cta="Delete"
-      submitColor="danger"
+      ctaColor="red"
       submit={async () => {
         await onDelete();
-        close();
       }}
       ctaEnabled={!loading && totalDependents === 0}
-      useRadixButton={true}
     >
       {loading ? (
         <Text color="gray">
@@ -60,6 +58,6 @@ export default function FeatureDeleteModal({
       ) : (
         <p>Are you sure? This action cannot be undone.</p>
       )}
-    </Modal>
+    </ModalStandard>
   );
 }

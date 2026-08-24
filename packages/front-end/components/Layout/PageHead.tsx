@@ -5,15 +5,11 @@ import {
   useEffect,
   useState,
 } from "react";
-
-interface BreadCrumbItem {
-  display: string;
-  href?: string;
-}
+import type { BreadcrumbItem } from "@/ui/Breadcrumbs";
 
 interface PageHeadContextInterface {
-  breadcrumb: BreadCrumbItem[];
-  setBreadcrumb: (breadcrumb: BreadCrumbItem[]) => void;
+  breadcrumb: BreadcrumbItem[];
+  setBreadcrumb: (breadcrumb: BreadcrumbItem[]) => void;
 }
 
 export const PageHeadContext = createContext<PageHeadContextInterface>({
@@ -26,7 +22,7 @@ export function usePageHead() {
 }
 
 export function PageHeadProvider({ children }: { children: ReactNode }) {
-  const [breadcrumb, setBreadcrumb] = useState<BreadCrumbItem[]>([]);
+  const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([]);
 
   return (
     <PageHeadContext.Provider value={{ breadcrumb, setBreadcrumb }}>
@@ -38,7 +34,7 @@ export function PageHeadProvider({ children }: { children: ReactNode }) {
 export default function PageHead({
   breadcrumb,
 }: {
-  breadcrumb: BreadCrumbItem[];
+  breadcrumb: BreadcrumbItem[];
 }) {
   const { setBreadcrumb } = useContext(PageHeadContext);
 

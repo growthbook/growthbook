@@ -3,6 +3,7 @@ import _ from "lodash";
 import { EventWebHookLogInterface } from "shared/types/event-webhook-log";
 import { useRouter } from "next/router";
 import { useEventWebhookLogs } from "@/hooks/useEventWebhookLogs";
+import Callout from "@/ui/Callout";
 import { EventWebHookLogItem } from "./EventWebHookLogItem/EventWebHookLogItem";
 import { EventWebHookLogActiveItem } from "./EventWebHookLogActiveItem/EventWebHookLogActiveItem";
 
@@ -97,9 +98,9 @@ export const EventWebHookLogsContainer = () => {
 
   if (error) {
     return (
-      <div className="alert alert-danger">
+      <Callout status="error">
         Unable to fetch run log history for event web hook {eventWebHookId}
-      </div>
+      </Callout>
     );
   }
 

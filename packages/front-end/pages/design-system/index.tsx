@@ -5,8 +5,10 @@ import Link from "@/ui/Link";
 import Frame from "@/ui/Frame";
 
 import AnalysisResultSummaryStories from "@/ui/AnalysisResultSummary.stories";
+import SizeCohesionStories from "@/ui/SizeCohesion.stories";
 import AvatarStories from "@/ui/Avatar.stories";
 import BadgeStories from "@/ui/Badge.stories";
+import BreadcrumbsStories from "@/ui/Breadcrumbs.stories";
 import ButtonStories from "@/ui/Button.stories";
 import CalloutStories from "@/ui/Callout.stories";
 import CheckboxStories from "@/ui/Checkbox.stories";
@@ -14,8 +16,10 @@ import DataListStories from "@/ui/DataList.stories";
 import DatePickerStories from "@/ui/DatePicker.stories";
 import DropdownMenuStories from "@/ui/DropdownMenu.stories";
 import ExperimentResultIndicatorStories from "@/ui/ExperimentResultIndicator.stories";
+import FieldStories from "@/ui/Field.stories";
 import ExperimentStatusIndicatorStories from "@/ui/ExperimentStatusIndicator.stories";
 import TextStories from "@/ui/Text.stories";
+import TextFieldStories from "@/ui/TextField.stories";
 import HeadingStories from "@/ui/Heading.stories";
 import HelperTextStories from "@/ui/HelperText.stories";
 import LinkStories from "@/ui/Link.stories";
@@ -25,21 +29,33 @@ import PopoverStories from "@/ui/Popover.stories";
 import PremiumCalloutStories from "@/ui/PremiumCallout.stories";
 import RadioCardsStories from "@/ui/RadioCards.stories";
 import RadioGroupStories from "@/ui/RadioGroup.stories";
+import MultiSelectFieldStories from "@/ui/MultiSelectField.stories";
 import SelectStories from "@/ui/Select.stories";
+import SelectFieldStories from "@/ui/SelectField.stories";
 import SliderStories from "@/ui/Slider.stories";
 import StepperStories from "@/ui/Stepper.stories";
 import SwitchStories from "@/ui/Switch.stories";
 import TableStories from "@/ui/Table.stories";
 import TabsStories from "@/ui/Tabs.stories";
 import ProgressBarStories from "@/ui/ProgressBar.stories";
+import VariationLabelStories from "@/ui/VariationLabel.stories";
+import VariationNumberStories from "@/ui/VariationNumber.stories";
 import VariationStatsTableStories from "@/ui/VariationStatsTable.stories";
-import DialogStories from "@/ui/Dialog/Dialog.stories";
+import ModalStories from "@/ui/Modal/Modal.stories";
 
 type StoryEntry = {
   name: string;
   description?: React.ReactNode;
   Stories: () => React.ReactNode;
 };
+
+const TOP_NAV_HEIGHT = 56;
+const PAGE_TOP_PADDING = 24;
+const PAGE_BOTTOM_PADDING = 16;
+const SIDEBAR_TOP_OFFSET = TOP_NAV_HEIGHT + PAGE_TOP_PADDING;
+const SIDEBAR_MAX_HEIGHT = `calc(100vh - ${
+  SIDEBAR_TOP_OFFSET + PAGE_BOTTOM_PADDING
+}px)`;
 
 export default function DesignSystemPage() {
   const components = [
@@ -56,6 +72,7 @@ export default function DesignSystemPage() {
     },
     { name: "Avatar", Stories: AvatarStories },
     { name: "Badge", Stories: BadgeStories },
+    { name: "Breadcrumbs", Stories: BreadcrumbsStories },
     { name: "Button", Stories: ButtonStories },
     { name: "Callout", Stories: CalloutStories },
     { name: "Checkbox", Stories: CheckboxStories },
@@ -70,8 +87,16 @@ export default function DesignSystemPage() {
       name: "ExperimentStatusIndicator",
       Stories: ExperimentStatusIndicatorStories,
     },
+    { name: "VariationLabel", Stories: VariationLabelStories },
+    { name: "VariationNumber", Stories: VariationNumberStories },
     { name: "VariationStatsTable", Stories: VariationStatsTableStories },
     { name: "Text", Stories: TextStories },
+    {
+      name: "TextField",
+      description:
+        "Radix-based single-line text input with design system sizing, labels, and validation states. Supports native input types (text, number, password, email, etc.) and standard HTML validation attributes (required, min, max, pattern, minLength, maxLength, step, …).",
+      Stories: TextFieldStories,
+    },
     { name: "Heading", Stories: HeadingStories },
     { name: "HelperText", Stories: HelperTextStories },
     { name: "Link", Stories: LinkStories },
@@ -83,12 +108,20 @@ export default function DesignSystemPage() {
     { name: "RadioCards", Stories: RadioCardsStories },
     { name: "RadioGroup", Stories: RadioGroupStories },
     { name: "Select", Stories: SelectStories },
+    {
+      name: "Field (legacy text input)",
+      description:
+        "Bootstrap-based text input. Prefer TextField for new work; this component remains for legacy forms and textareas.",
+      Stories: FieldStories,
+    },
+    { name: "SelectField (legacy)", Stories: SelectFieldStories },
+    { name: "MultiSelectField", Stories: MultiSelectFieldStories },
     { name: "Slider", Stories: SliderStories },
     { name: "Stepper", Stories: StepperStories },
     { name: "Switch", Stories: SwitchStories },
     { name: "Table", Stories: TableStories },
     { name: "Tabs", Stories: TabsStories },
-    { name: "Dialog", Stories: DialogStories },
+    { name: "Modal", Stories: ModalStories },
   ] satisfies StoryEntry[];
 
   const entries = useMemo(
@@ -109,15 +142,31 @@ export default function DesignSystemPage() {
           aria-label="Components"
           style={{
             position: "sticky",
-            top: 80,
+            top: SIDEBAR_TOP_OFFSET,
             alignSelf: "flex-start",
             minWidth: 220,
+            maxHeight: SIDEBAR_MAX_HEIGHT,
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
           }}
         >
           <Text as="div" weight="semibold" mb="2">
             Components
           </Text>
-          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+          <ul
+            style={{
+              listStyle: "none",
+              padding: 0,
+              margin: 0,
+              overflowY: "auto",
+              minHeight: 0,
+              paddingRight: 8,
+            }}
+          >
+            <li style={{ marginBottom: 8 }}>
+              <Link href="#size-cohesion">Size cohesion</Link>
+            </li>
             {entries.map(({ name, id }) => (
               <li key={id} style={{ marginBottom: 8 }}>
                 <Link href={`#${id}`}>{name}</Link>
@@ -130,6 +179,21 @@ export default function DesignSystemPage() {
           <h1 className="mb-4">GrowthBook Design System</h1>
           <div className="pagecontents">
             <Flex gap="4" direction="column">
+              <Frame id="size-cohesion" style={{ scrollMarginTop: 90 }}>
+                <Flex direction="column" gap="3">
+                  <h3 className="mb-1">Size cohesion</h3>
+                  <Text>
+                    Every @/ui component takes a t-shirt size. sm / md / lg / xl
+                    map to Radix 1 / 2 / 3 / 4 through one shared map in
+                    ui/sizes.ts, and xs and 2xl are names with no shared
+                    meaning. A component supports a subset of the ladder and
+                    never renames it, so the gaps listed under each step are
+                    real. The break-outs at the end keep their own map; Heading
+                    and Modal are the two that matter.
+                  </Text>
+                  <SizeCohesionStories />
+                </Flex>
+              </Frame>
               {entries.map(({ name, description, Stories, id }) => (
                 <Frame key={id} id={id} style={{ scrollMarginTop: 90 }}>
                   <Flex direction="column" gap="3">

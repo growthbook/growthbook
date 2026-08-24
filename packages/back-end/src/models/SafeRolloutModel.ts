@@ -1,3 +1,4 @@
+import { isEqual } from "lodash";
 import { UpdateProps } from "shared/types/base-model";
 import { SafeRolloutInterface, safeRolloutValidator } from "shared/validators";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
@@ -19,6 +20,8 @@ const BaseClass = MakeModelClass({
     deleteEvent: "safeRollout.delete",
   },
   globallyUniquePrimaryKeys: true,
+  skipAuditLogFields: ["nextSnapshotAttempt", "lastSnapshotAttempt"],
+  skipDateUpdatedFields: ["nextSnapshotAttempt", "lastSnapshotAttempt"],
   defaultValues: {
     autoSnapshots: true,
   },
@@ -54,11 +57,119 @@ export class SafeRolloutModel extends BaseClass {
     if (!("autoRollback" in legacyDoc)) {
       legacyDoc["autoRollback"] = false;
     }
+    // Environment scoping now lives on rule.environments, not the SafeRollout doc.
+    delete legacyDoc["environment"];
     return legacyDoc as SafeRolloutInterface;
   }
 
   public async getAllByFeatureId(featureId: string) {
     return await this._find({ featureId });
+  }
+
+  /**
+   * Compensation for a failed bulk publish: put a safe rollout the apply's
+   * status sync advanced back to its pre-apply state. Restores ONLY the
+   * fields the sync writes, each with a per-field ownership check against the
+   * post-apply snapshot (`written`) — a field another writer advanced after
+   * the apply is newer intent and stays. Raw write, compensation-only: the
+   * validated update path can't express the start-metadata unset.
+   */
+  public async restoreAfterFailedBulkPublish(
+    pre: SafeRolloutInterface,
+    writtenStatus: string,
+    written?: SafeRolloutInterface,
+    // dryRun runs every check — including the deterministic missing-baseline
+    // refusal — without writing, so the caller can preflight ALL of a
+    // feature's rollouts before mutating any of them.
+    options?: { dryRun?: boolean },
+  ) {
+    const live = await this.getById(pre.id);
+    if (!live) return;
+    if (live.status === pre.status) return;
+    // Live holds neither our pre-image nor what we wrote, so a third writer owns
+    // this rollout now. Same shape as the lost CAS below, and it has to be reported
+    // the same way: returning quietly let Feature and revision compensation restore
+    // the flag and reopen the draft on top of a rollout still carrying advanced
+    // state. Refusing loudly is what makes the publish stand whole instead.
+    if (live.status !== (written?.status ?? writtenStatus)) {
+      throw new Error(
+        `safe rollout ${pre.id}: could not be rolled back — another writer has ` +
+          `moved it to "${live.status}"`,
+      );
+    }
+    const sameDate = (a?: Date | null, b?: Date | null) =>
+      (a?.getTime() ?? null) === (b?.getTime() ?? null);
+    // The sync stamps start metadata only when transitioning a never-started
+    // rollout to running — the only case where those timing fields are ours to
+    // reverse. Ownership of each REQUIRES the post-apply snapshot (`written`).
+    const applyStartedIt =
+      !pre.startedAt && writtenStatus === "running" && !!live.startedAt;
+    // Apply stamped start metadata but the post-apply snapshot is missing: we
+    // can't prove ownership of the timing fields, and restoring status alone
+    // would leave a rolled-back rollout carrying the publish's startedAt/
+    // schedule. Refuse that half-restore — throw so this rollout is left
+    // running (untouched) and the caller records a reversal failure.
+    if (applyStartedIt && !written) {
+      throw new Error(
+        `safe rollout ${pre.id}: post-apply baseline missing — cannot reverse ` +
+          `start metadata; rollout left running`,
+      );
+    }
+    if (options?.dryRun) return;
+    const ownsStartedAt =
+      applyStartedIt &&
+      !!written &&
+      sameDate(live.startedAt, written.startedAt);
+    const ownsNextAttempt =
+      applyStartedIt &&
+      !!written &&
+      sameDate(live.nextSnapshotAttempt, written.nextSnapshotAttempt);
+    const ownsSchedule =
+      applyStartedIt &&
+      !!written &&
+      isEqual(live.rampUpSchedule, written.rampUpSchedule);
+    const unset: Record<string, 1> = {};
+    if (ownsStartedAt) unset.startedAt = 1;
+    if (ownsNextAttempt) unset.nextSnapshotAttempt = 1;
+    // The ownership decision above was read from `live`; fold what it depended on
+    // into the write filter so a worker advancing this rollout between the read and
+    // the write loses the race instead of having its progress reverted. Each clause
+    // mirrors an ownership check: the status we are undoing, and each timing field we
+    // proved was ours.
+    const res = await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        id: pre.id,
+        status: live.status,
+        ...(ownsStartedAt ? { startedAt: live.startedAt ?? null } : {}),
+        ...(ownsNextAttempt
+          ? { nextSnapshotAttempt: live.nextSnapshotAttempt ?? null }
+          : {}),
+        // The schedule is RESTORED below when we own it, so it belongs in the
+        // predicate too — otherwise a worker advancing the ramp between the read and
+        // this write has its progress overwritten by our pre-image.
+        ...(ownsSchedule
+          ? { rampUpSchedule: live.rampUpSchedule ?? null }
+          : {}),
+      },
+      {
+        $set: {
+          status: pre.status,
+          ...(ownsSchedule ? { rampUpSchedule: pre.rampUpSchedule } : {}),
+          dateUpdated: new Date(),
+        },
+        ...(Object.keys(unset).length ? { $unset: unset } : {}),
+      },
+    );
+    // A no-match means a concurrent write moved this rollout between the ownership
+    // read and here, so the failed publish's status/timing are still live. Silence
+    // let Feature and revision compensation report a clean rollback over it.
+    if (!res.matchedCount) {
+      throw new Error(
+        `safe rollout ${pre.id}: could not be rolled back — it was changed by ` +
+          `another writer and still carries this publish's state`,
+      );
+    }
   }
   public async getAllByFeatureIds(featureIds: string[]) {
     return await this._find({ featureId: { $in: featureIds } });
@@ -82,11 +193,14 @@ export class SafeRolloutModel extends BaseClass {
       const feature = await getFeature(this.context, existing.featureId);
       if (!feature) return;
 
+      const allProjectIds = await this.context.getAllProjectIds();
       queueSDKPayloadRefresh({
         context: this.context,
         payloadKeys: getAffectedSDKPayloadKeys(
           [feature],
           getEnvironmentIdsFromOrg(this.context.org),
+          undefined,
+          allProjectIds,
         ),
         auditContext: {
           event: "step changed",
@@ -115,6 +229,7 @@ export class SafeRolloutModel extends BaseClass {
         "pastNotifications",
         "rampUpSchedule",
         "dateUpdated",
+        "analysisStartedAt",
       ];
 
       // Check for disallowed field updates

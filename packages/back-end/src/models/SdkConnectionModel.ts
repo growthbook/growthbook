@@ -26,7 +26,8 @@ import {
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
-import { addCloudSDKMapping } from "back-end/src/services/clickhouse";
+import { addCloudSDKMapping } from "back-end/src/services/licenseServerManagedClickhouse";
+import { logger } from "back-end/src/util/logger";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import {
@@ -63,6 +64,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   hashSecureAttributes: Boolean,
   includeVisualExperiments: Boolean,
   includeDraftExperiments: Boolean,
+  includeDraftExperimentRefs: Boolean,
   includeExperimentNames: Boolean,
   includeRedirectExperiments: Boolean,
   includeRuleIds: Boolean,
@@ -70,6 +72,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   includeCustomFieldsInMetadata: Boolean,
   allowedCustomFieldsInMetadata: [String],
   includeTagsInMetadata: Boolean,
+  includeExperimentScheduleInMetadata: Boolean,
   connected: Boolean,
   remoteEvalEnabled: Boolean,
   savedGroupReferencesEnabled: Boolean,
@@ -133,6 +136,7 @@ export async function findSDKConnectionById(
   id: string,
 ) {
   const doc = await SDKConnectionModel.findOne({
+    organization: context.org.id,
     id,
   });
 
@@ -198,6 +202,7 @@ export const createSDKConnectionValidator = z
     hashSecureAttributes: z.boolean().optional(),
     includeVisualExperiments: z.boolean().optional(),
     includeDraftExperiments: z.boolean().optional(),
+    includeDraftExperimentRefs: z.boolean().optional(),
     includeExperimentNames: z.boolean().optional(),
     includeRedirectExperiments: z.boolean().optional(),
     includeRuleIds: z.boolean().optional(),
@@ -205,6 +210,7 @@ export const createSDKConnectionValidator = z
     includeCustomFieldsInMetadata: z.boolean().optional(),
     allowedCustomFieldsInMetadata: z.array(z.string()).optional(),
     includeTagsInMetadata: z.boolean().optional(),
+    includeExperimentScheduleInMetadata: z.boolean().optional(),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
     remoteEvalEnabled: z.boolean().optional(),
@@ -253,7 +259,7 @@ export async function createSDKConnection(
 
   if (connection.proxy.enabled) {
     if (connection.proxy.host) {
-      const res = await testProxyConnection(connection, false);
+      const res = await testProxyConnection(context, connection, false);
       if (res) {
         connection.proxy.connected = !res.error;
         connection.proxy.version = res.version || "";
@@ -266,7 +272,15 @@ export async function createSDKConnection(
   const doc = await SDKConnectionModel.create(connection);
 
   if (IS_CLOUD) {
-    await addCloudSDKMapping(connection);
+    const { key, organization } = connection;
+    try {
+      await addCloudSDKMapping(key, organization);
+    } catch (e) {
+      logger.error(
+        e,
+        `Error inserting sdk key mapping (${key} -> ${organization})`,
+      );
+    }
   }
 
   queueSDKPayloadRefresh({
@@ -298,6 +312,7 @@ export const editSDKConnectionValidator = z
     hashSecureAttributes: z.boolean().optional(),
     includeVisualExperiments: z.boolean().optional(),
     includeDraftExperiments: z.boolean().optional(),
+    includeDraftExperimentRefs: z.boolean().optional(),
     includeExperimentNames: z.boolean().optional(),
     includeRedirectExperiments: z.boolean().optional(),
     includeRuleIds: z.boolean().optional(),
@@ -305,6 +320,7 @@ export const editSDKConnectionValidator = z
     includeCustomFieldsInMetadata: z.boolean().optional(),
     allowedCustomFieldsInMetadata: z.array(z.string()).optional(),
     includeTagsInMetadata: z.boolean().optional(),
+    includeExperimentScheduleInMetadata: z.boolean().optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
     eventTracker: z.string().optional(),
@@ -339,6 +355,7 @@ export async function editSDKConnection(
 
     if (addEnvProxySettings(newProxy).host) {
       const res = await testProxyConnection(
+        context,
         {
           ...connection,
           proxy: addEnvProxySettings(newProxy),
@@ -367,6 +384,7 @@ export async function editSDKConnection(
     "remoteEvalEnabled",
     "includeVisualExperiments",
     "includeDraftExperiments",
+    "includeDraftExperimentRefs",
     "includeExperimentNames",
     "includeRedirectExperiments",
     "includeRuleIds",
@@ -374,6 +392,7 @@ export async function editSDKConnection(
     "includeCustomFieldsInMetadata",
     "allowedCustomFieldsInMetadata",
     "includeTagsInMetadata",
+    "includeExperimentScheduleInMetadata",
     "savedGroupReferencesEnabled",
   ] as const;
   keysRequiringProxyUpdate.forEach((key) => {
@@ -391,7 +410,7 @@ export async function editSDKConnection(
 
   await SDKConnectionModel.updateOne(
     {
-      organization: connection.organization,
+      organization: context.org.id,
       id: connection.id,
     },
     {
@@ -463,13 +482,14 @@ export async function markSDKConnectionUsed(key: string) {
 }
 
 export async function setProxyError(
+  context: ReqContext | ApiReqContext,
   connection: SDKConnectionInterface,
   error: string,
 ) {
   const consecutiveFailures = (connection.proxy.consecutiveFailures || 0) + 1;
   await SDKConnectionModel.updateOne(
     {
-      organization: connection.organization,
+      organization: context.org.id,
       id: connection.id,
     },
     {
@@ -486,10 +506,13 @@ export async function setProxyError(
   );
 }
 
-export async function clearProxyError(connection: SDKConnectionInterface) {
+export async function clearProxyError(
+  context: ReqContext | ApiReqContext,
+  connection: SDKConnectionInterface,
+) {
   await SDKConnectionModel.updateOne(
     {
-      organization: connection.organization,
+      organization: context.org.id,
       id: connection.id,
     },
     {
@@ -503,6 +526,7 @@ export async function clearProxyError(connection: SDKConnectionInterface) {
 }
 
 export async function testProxyConnection(
+  context: ReqContext | ApiReqContext,
   connection: SDKConnectionInterface,
   updateDB: boolean = true,
 ): Promise<ProxyTestResult | undefined> {
@@ -561,7 +585,7 @@ export async function testProxyConnection(
     if (updateDB) {
       await SDKConnectionModel.updateOne(
         {
-          organization: connection.organization,
+          organization: context.org.id,
           id: connection.id,
         },
         {
@@ -616,6 +640,7 @@ export function toApiSDKConnectionInterface(
     hashSecureAttributes: connection.hashSecureAttributes,
     includeVisualExperiments: connection.includeVisualExperiments,
     includeDraftExperiments: connection.includeDraftExperiments,
+    includeDraftExperimentRefs: connection.includeDraftExperimentRefs,
     includeExperimentNames: connection.includeExperimentNames,
     includeRedirectExperiments: connection.includeRedirectExperiments,
     includeRuleIds: connection.includeRuleIds,
@@ -623,6 +648,8 @@ export function toApiSDKConnectionInterface(
     includeCustomFieldsInMetadata: connection.includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata: connection.allowedCustomFieldsInMetadata,
     includeTagsInMetadata: connection.includeTagsInMetadata,
+    includeExperimentScheduleInMetadata:
+      connection.includeExperimentScheduleInMetadata,
     key: connection.key,
     proxyEnabled: connection.proxy.enabled,
     proxyHost: connection.proxy.host,

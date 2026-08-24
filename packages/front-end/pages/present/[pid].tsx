@@ -9,6 +9,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import { defaultTheme } from "@/components/Share/ShareModal";
+import Callout from "@/ui/Callout";
 
 const DynamicPresentation = dynamic(
   () => import("@/components/Share/Presentation"),
@@ -54,7 +55,7 @@ const PresentPage = (): React.ReactElement => {
   };
 
   if (error) {
-    return <div className="alert alert-danger">An error occurred</div>;
+    return <Callout status="error">An error occurred</Callout>;
   }
   if (!pdata) {
     return <LoadingOverlay />;

@@ -1,10 +1,11 @@
-import { Box } from "@radix-ui/themes";
+import { Box, IconButton } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { ExperimentTemplateInterface } from "shared/types/experiment";
 import React, { useState } from "react";
 import { omit } from "lodash";
 import { useRouter } from "next/router";
 import { isProjectListValidForProject } from "shared/util";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import Link from "@/ui/Link";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
@@ -13,14 +14,104 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 import { useAuth } from "@/services/auth";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import EmptyState from "@/components/EmptyState";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
+import Callout from "@/ui/Callout";
+
+function TemplateRowMenu({
+  templateId,
+  canEdit,
+  canCreate,
+  canDelete,
+  onEdit,
+  onDuplicate,
+}: {
+  templateId: string;
+  canEdit: boolean;
+  canCreate: boolean;
+  canDelete: boolean;
+  onEdit: () => void;
+  onDuplicate: () => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const { apiCall } = useAuth();
+  const { mutateTemplates } = useTemplates();
+  return (
+    <DropdownMenu
+      trigger={
+        <IconButton
+          variant="ghost"
+          color="gray"
+          radius="full"
+          size="2"
+          highContrast
+        >
+          <BsThreeDotsVertical size={18} />
+        </IconButton>
+      }
+      open={menuOpen}
+      onOpenChange={setMenuOpen}
+      menuPlacement="end"
+    >
+      {canEdit && (
+        <DropdownMenuItem
+          onClick={() => {
+            onEdit();
+            setMenuOpen(false);
+          }}
+        >
+          Edit
+        </DropdownMenuItem>
+      )}
+      {canCreate && (
+        <DropdownMenuItem
+          onClick={() => {
+            onDuplicate();
+            setMenuOpen(false);
+          }}
+        >
+          Duplicate
+        </DropdownMenuItem>
+      )}
+      {canDelete && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            color="red"
+            confirmation={{
+              submit: async () => {
+                await apiCall(`/templates/${templateId}`, { method: "DELETE" });
+                await mutateTemplates();
+              },
+              confirmationTitle: "Delete Template",
+              cta: "Delete",
+              ctaColor: "red",
+              getConfirmationContent: async () =>
+                "Are you sure you want to delete this template? This action cannot be undone.",
+            }}
+          >
+            Delete
+          </DropdownMenuItem>
+        </>
+      )}
+    </DropdownMenu>
+  );
+}
 
 interface Props {
   setOpenTemplateModal: (
@@ -37,17 +128,14 @@ export const TemplatesPage = ({
 }: Props) => {
   const { ready, project, getProjectById } = useDefinitions();
 
-  const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
   const {
     templates: allTemplates,
     error,
     loading,
     templateExperimentMap,
-    mutateTemplates,
   } = useTemplates();
   const permissionsUtil = usePermissionsUtil();
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const router = useRouter();
 
   const hasTemplatesFeature = hasCommercialFeature("templates");
@@ -80,7 +168,7 @@ export const TemplatesPage = ({
     [templateExperimentMap, allTemplates],
   );
 
-  const { items, SortableTH } = useSearch({
+  const { items, SortableTableColumnHeader } = useSearch({
     items: flattenedTemplates,
     defaultSortField: "templateName",
     localStorageKey: "templates",
@@ -95,7 +183,7 @@ export const TemplatesPage = ({
   }
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
 
   if (!hasTemplatesFeature) {
@@ -113,144 +201,111 @@ export const TemplatesPage = ({
   }
   return hasTemplates ? (
     <Box>
-      <table className="appbox table gbtable">
-        <thead>
-          <tr>
-            <SortableTH field="templateName">Template Name</SortableTH>
-            <SortableTH field="templateDescription">Description</SortableTH>
-            <SortableTH field="tags">Tags</SortableTH>
+      <Table variant="list" stickyHeader roundedCorners>
+        <TableHeader>
+          <TableRow>
+            <SortableTableColumnHeader field="templateName">
+              Template Name
+            </SortableTableColumnHeader>
+            <SortableTableColumnHeader field="templateDescription">
+              Description
+            </SortableTableColumnHeader>
+            <SortableTableColumnHeader field="tags">
+              Tags
+            </SortableTableColumnHeader>
             {showProjectColumn && (
-              <SortableTH field="project">Project</SortableTH>
+              <SortableTableColumnHeader field="project">
+                Project
+              </SortableTableColumnHeader>
             )}
-            <SortableTH field="dateCreated">Created</SortableTH>
-            <SortableTH field="usage">Usage</SortableTH>
-            <th style={{ width: 50 }} />
-          </tr>
-        </thead>
-        <tbody>
+            <SortableTableColumnHeader field="dateCreated">
+              Created
+            </SortableTableColumnHeader>
+            <SortableTableColumnHeader
+              field="usage"
+              style={{ textAlign: "right" }}
+            >
+              Usage
+            </SortableTableColumnHeader>
+            <TableColumnHeader style={{ width: 40 }} />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {items.map((t) => {
             const templateUsage = t.usage;
             return (
-              <tr
+              <TableRow
                 key={t.id}
-                className="hover-highlight"
                 onClick={(e) => {
                   e.preventDefault();
                   router.push(`/experiments/template/${t.id}`);
                 }}
                 style={{ cursor: "pointer" }}
               >
-                <td data-title="Template Name" className="col-2">
-                  <Link href={`/experiments/template/${t.id}`}>
+                <TableCell style={{ padding: "var(--space-0)" }}>
+                  <Link
+                    href={`/experiments/template/${t.id}`}
+                    style={{
+                      display: "block",
+                      padding: "var(--space-3)",
+                      color: "var(--gray-12)",
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {t.templateName}
                   </Link>
-                </td>
-                <td data-title="Description" className="col-3">
-                  {t.templateDescription}
-                </td>
-                <td data-title="Tags">
+                </TableCell>
+                <TableCell>{t.templateDescription}</TableCell>
+                <TableCell>
                   <SortedTags
                     tags={Object.values(t.tags ?? [])}
                     useFlex={true}
                   />
-                </td>
+                </TableCell>
                 {showProjectColumn && (
-                  <td className="text-gray col-2">
+                  <TableCell>
                     {t.project ? getProjectById(t.project)?.name : ""}
-                  </td>
+                  </TableCell>
                 )}
-                <td data-title="Created" className="col-2">
-                  {date(t.dateCreated)}
-                </td>
-                <td data-title="Usage">{templateUsage}</td>
-                <td
-                  // style={{ cursor: "initial" }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                  }}
-                >
-                  <MoreMenu>
-                    {canEdit(t) ? (
-                      <button
-                        className="dropdown-item"
-                        onClick={() => {
-                          setOpenTemplateModal(t);
-                        }}
-                      >
-                        Edit
-                      </button>
-                    ) : null}
-                    {canCreate ? (
-                      <button
-                        className="dropdown-item"
-                        onClick={() => {
-                          setOpenDuplicateTemplateModal(t);
-                        }}
-                      >
-                        Duplicate
-                      </button>
-                    ) : null}
-                    <hr className="my-1" />
-                    {canDelete(t) ? (
-                      <DeleteButton
-                        className="dropdown-item text-danger"
-                        displayName="Template"
-                        text="Delete"
-                        useIcon={false}
-                        onClick={async () => {
-                          await apiCall(`/templates/${t.id}`, {
-                            method: "DELETE",
-                          });
-                          await mutateTemplates();
-                        }}
-                      />
-                    ) : null}
-                  </MoreMenu>
-                </td>
-              </tr>
+                <TableCell>{date(t.dateCreated)}</TableCell>
+                <TableCell justify="end">
+                  <Box pr="2">{templateUsage}</Box>
+                </TableCell>
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <TemplateRowMenu
+                    templateId={t.id}
+                    canEdit={canEdit(t)}
+                    canCreate={canCreate}
+                    canDelete={canDelete(t)}
+                    onEdit={() => setOpenTemplateModal(t)}
+                    onDuplicate={() => setOpenDuplicateTemplateModal(t)}
+                  />
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </Box>
   ) : (
-    <>
-      {showUpgradeModal && (
-        <UpgradeModal
-          close={() => setShowUpgradeModal(false)}
-          source="templates"
-          commercialFeature="templates"
-        />
-      )}
-      <EmptyState
-        title="Create Reusable Experiment Templates"
-        description="Save time configuring experiment details, and ensure consistency
-          across your team and projects."
-        leftButton={
-          <LinkButton
-            href="https://docs.growthbook.io/running-experiments/experiment-templates"
-            variant="outline"
-            external={true}
-          >
-            View docs
-          </LinkButton>
-        }
-        rightButton={
-          canCreate ? (
-            <Button onClick={() => setOpenTemplateModal({})}>
-              Create Template
-            </Button>
-          ) : (
-            <Button
-              onClick={() => {
-                setShowUpgradeModal(true);
-              }}
-            >
-              Upgrade Plan
-            </Button>
-          )
-        }
-      ></EmptyState>
-    </>
+    <EmptyState
+      title="Create Reusable Experiment Templates"
+      description="Save time configuring experiment details, and ensure consistency
+        across your team and projects."
+      leftButton={
+        <LinkButton
+          href="https://docs.growthbook.io/running-experiments/experiment-templates"
+          variant="outline"
+          external={true}
+        >
+          View docs
+        </LinkButton>
+      }
+      rightButton={
+        <Button disabled={!canCreate} onClick={() => setOpenTemplateModal({})}>
+          Create Template
+        </Button>
+      }
+    ></EmptyState>
   );
 };

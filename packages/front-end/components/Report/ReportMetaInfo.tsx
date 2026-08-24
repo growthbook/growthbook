@@ -30,6 +30,7 @@ import ConditionalWrapper from "@/components/ConditionalWrapper";
 import track from "@/services/track";
 import Owner from "@/components/Avatar/Owner";
 import Metadata from "@/ui/Metadata";
+import Heading from "@/ui/Heading";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
 
 type ShareLevel = "public" | "organization" | "private";
@@ -265,23 +266,30 @@ export default function ReportMetaInfo({
       <div className="mb-3">
         <div className="d-flex">
           <div className="flex-1">
-            <h1 className="mt-1 mb-3 mr-2">
+            <Heading
+              as="h1"
+              size="xl"
+              weight="semibold"
+              color="text-high"
+              overflowWrap="anywhere"
+              mt="1"
+              mb="4"
+              mr="2"
+            >
               {report.title}
               {showEditControls && (
-                <>
-                  <div
-                    className="d-inline-block ml-2 position-relative"
-                    style={{ top: -2 }}
-                  >
-                    <ShareStatusBadge
-                      shareLevel={report.shareLevel}
-                      editLevel={report.editLevel}
-                      isOwner={isOwner}
-                    />
-                  </div>
-                </>
+                <div
+                  className="d-inline-block ml-2 position-relative"
+                  style={{ top: -2 }}
+                >
+                  <ShareStatusBadge
+                    shareLevel={report.shareLevel}
+                    editLevel={report.editLevel}
+                    isOwner={isOwner}
+                  />
+                </div>
               )}
-            </h1>
+            </Heading>
 
             <Flex gap="3" mt="2" mb="1">
               {showEditControls && (
@@ -427,9 +435,12 @@ export default function ReportMetaInfo({
             mutate?.();
           })}
           header={`Edit "${report.title}"`}
-          useRadixButton={true}
         >
-          <Field label="Report Name" {...generalForm.register("title")} />
+          <Field
+            size="legacy"
+            label="Report Name"
+            {...generalForm.register("title")}
+          />
 
           <label>Description</label>
           <MarkdownInput
@@ -446,7 +457,6 @@ export default function ReportMetaInfo({
           close={() => setShareModalOpen(false)}
           closeCta="Close"
           header={`Share "${report.title}"`}
-          useRadixButton={true}
           secondaryCTA={shareLinkButton}
         >
           <div className="mb-3">
@@ -470,6 +480,7 @@ export default function ReportMetaInfo({
           </div>
 
           <SelectField
+            size="legacy"
             label="View access"
             value={shareLevel}
             onChange={(v: ShareLevel) => setShareLevel(v)}
@@ -499,6 +510,7 @@ export default function ReportMetaInfo({
           </div>
 
           <SelectField
+            size="legacy"
             label="Edit access"
             value={editLevel}
             onChange={(v: EditLevel) => setEditLevel(v)}

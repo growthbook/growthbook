@@ -10,6 +10,7 @@ import {
   ExplorationDataset,
   ExplorationConfig,
 } from "shared/validators";
+import { isManagedWarehouseNoEventsGuidanceMessage } from "shared/util";
 import { PiCheck } from "react-icons/pi";
 import SelectField from "@/components/Forms/SelectField";
 import {
@@ -28,6 +29,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import BuildTablesCard from "./BuildTablesCard";
 import PendingTablesCard from "./PendingTablesCard";
 
@@ -188,12 +190,11 @@ export default function DatasourceConfigurator({
   return (
     <Flex direction="column" gap="2">
       {informationSchema?.error ? (
-        <Callout status="error" mt="2">
-          <Flex direction="column" gap="2">
-            <Text weight="medium">
-              We&apos;re unable to identify tables for this Data Source.
-            </Text>
-            <Text>Reason: {informationSchema?.error?.message}</Text>
+        isManagedWarehouseNoEventsGuidanceMessage(
+          informationSchema.error.message,
+        ) ? (
+          <Flex direction="column" gap="2" mt="2">
+            <ManagedWarehouseNoEventsCallout />
             <Tooltip
               body="You do not have permission to retry generating an information schema for this datasource."
               shouldDisplay={!canRunQueries}
@@ -201,14 +202,36 @@ export default function DatasourceConfigurator({
               <Button
                 disabled={!canRunQueries}
                 variant="soft"
-                color="red"
+                color="gray"
                 onClick={() => refreshOrCreateInfoSchema("PUT")}
               >
                 Retry
               </Button>
             </Tooltip>
           </Flex>
-        </Callout>
+        ) : (
+          <Callout status="error" mt="2">
+            <Flex direction="column" gap="2">
+              <Text weight="medium">
+                We&apos;re unable to identify tables for this Data Source.
+              </Text>
+              <Text>Reason: {informationSchema?.error?.message}</Text>
+              <Tooltip
+                body="You do not have permission to retry generating an information schema for this datasource."
+                shouldDisplay={!canRunQueries}
+              >
+                <Button
+                  disabled={!canRunQueries}
+                  variant="soft"
+                  color="inherit"
+                  onClick={() => refreshOrCreateInfoSchema("PUT")}
+                >
+                  Retry
+                </Button>
+              </Tooltip>
+            </Flex>
+          </Callout>
+        )
       ) : datasourceId && !informationSchema && !fetching ? (
         <BuildTablesCard
           refreshOrCreateInfoSchema={refreshOrCreateInfoSchema}
@@ -254,10 +277,10 @@ export default function DatasourceConfigurator({
                       ).toLocaleString()}`}
                     </div>
                     {!canRunQueries ? (
-                      <div className="alert alert-warning mt-2">
+                      <Callout status="warning" mt="2">
                         You do not have permission to refresh this information
                         schema.
-                      </div>
+                      </Callout>
                     ) : null}
                   </div>
                 }
@@ -275,6 +298,7 @@ export default function DatasourceConfigurator({
             )}
           </Flex>
           <SelectField
+            size="legacy"
             value={databaseDataset?.table || ""}
             onChange={(value) => {
               const selectedTable = tableOptions.find(
@@ -321,8 +345,8 @@ export default function DatasourceConfigurator({
                   open={dropdownOpen}
                   onOpenChange={setDropdownOpen}
                   trigger={
-                    <Button size="xs" variant="ghost">
-                      <Text weight="semibold" size="small">
+                    <Button size="sm" variant="ghost">
+                      <Text weight="semibold" size="sm">
                         {!databaseDataset?.timestampColumn
                           ? "select"
                           : "change"}

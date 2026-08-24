@@ -14,7 +14,6 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { FaChartBar } from "react-icons/fa";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
-import { Text } from "@radix-ui/themes";
 import {
   getAvailableMetricsFilters,
   getAvailableMetricTags,
@@ -32,7 +31,6 @@ import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import DiscussionThread from "@/components/DiscussionThread";
 import { useAuth } from "@/services/auth";
-import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import EditStatusModal from "@/components/Experiment/EditStatusModal";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -47,6 +45,7 @@ import { useExperimentDashboards } from "@/hooks/useDashboards";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import CompareExperimentEventsModal from "@/components/Experiment/CompareExperimentEventsModal";
+import { PreLaunchChecklistProvider } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
 import ExperimentHeader from "./ExperimentHeader";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
@@ -75,9 +74,7 @@ export interface Props {
   mutate: () => void;
   duplicate?: (() => void) | null;
   editTags?: (() => void) | null;
-  checklistItemsRemaining: number | null;
   envs: string[];
-  setChecklistItemsRemaining: (value: number | null) => void;
   editVariations?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
   urlRedirects: URLRedirectInterface[];
@@ -85,9 +82,12 @@ export interface Props {
   editPhase?: ((i: number | null) => void) | null;
   editPhases?: (() => void) | null;
   editTargeting?: (() => void) | null;
+  editTraffic?: ((variationId?: string) => void) | null;
+  addVariation?: (() => void) | null;
+  editNamespace?: (() => void) | null;
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
-  editHoldoutSchedule?: (() => void) | null;
+  editSchedule?: (() => void) | null;
   visualChangesetEnvStates?: LinkedChangeEnvStates;
   urlRedirectEnvStates?: LinkedChangeEnvStates;
 }
@@ -106,13 +106,14 @@ export default function TabbedPage({
   envs,
   urlRedirects,
   editTargeting,
+  editTraffic,
+  addVariation,
+  editNamespace,
   newPhase,
   editPhases,
   editMetrics,
   editResult,
-  checklistItemsRemaining,
-  setChecklistItemsRemaining,
-  editHoldoutSchedule,
+  editSchedule,
   visualChangesetEnvStates,
   urlRedirectEnvStates,
 }: Props) {
@@ -379,16 +380,6 @@ export default function TabbedPage({
   const { data: sdkConnectionsData } = useSDKConnections();
   const connections = sdkConnectionsData?.connections || [];
 
-  const projectConnections = connections.filter(
-    (connection) =>
-      !connection.projects.length ||
-      connection.projects.includes(experiment.project || ""),
-  );
-  const matchingConnections = projectConnections.filter(
-    (connection) =>
-      !visualChangesets.length || connection.includeVisualExperiments,
-  );
-
   const { data, mutate: mutateWatchers } = useApi<{
     userIds: string[];
   }>(`/experiment/${experiment.id}/watchers`);
@@ -415,6 +406,13 @@ export default function TabbedPage({
   const showMetricGroupPromo = (): boolean => {
     if (metricGroups.length) return false;
 
+    if (
+      experiment.project ===
+      getDemoDatasourceProjectIdForOrganization(organization.id)
+    ) {
+      return false;
+    }
+
     // only show if there are atleast 2 metrics in any section
     if (
       experiment.goalMetrics.length > 2 ||
@@ -433,7 +431,16 @@ export default function TabbedPage({
     experiment.status === "stopped" && tab !== "dashboards";
 
   return (
-    <>
+    <PreLaunchChecklistProvider
+      experiment={experiment}
+      linkedFeatures={linkedFeatures}
+      visualChangesets={visualChangesets}
+      urlRedirects={urlRedirects}
+      connections={connections}
+      mutateExperiment={mutate}
+      editTargeting={editTargeting}
+      envs={envs}
+    >
       {compareModal && (
         <CompareExperimentEventsModal
           experiment={experiment}
@@ -442,6 +449,7 @@ export default function TabbedPage({
       )}
       {watchersModal && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           open={true}
           header="Experiment Watchers"
@@ -498,6 +506,9 @@ export default function TabbedPage({
           close={() => setFeatureModal(false)}
           mutate={mutate}
           source={trackSource}
+          reAddableFeatureIds={linkedFeatures
+            .filter((f) => f.state === "discarded")
+            .map((f) => f.feature.id)}
         />
       )}
       {/* TODO: Update Experiment Header props to include redirect and pipe through to StartExperimentBanner */}
@@ -521,11 +532,12 @@ export default function TabbedPage({
         newPhase={newPhase}
         editPhases={editPhases}
         healthNotificationCount={healthNotificationCount}
-        checklistItemsRemaining={checklistItemsRemaining}
         linkedFeatures={linkedFeatures}
+        visualChangesets={visualChangesets}
+        urlRedirects={urlRedirects}
         showDashboardView={showDashboardView}
         safeToEdit={safeToEdit}
-        editHoldoutSchedule={editHoldoutSchedule}
+        editSchedule={editSchedule}
       />
 
       <div
@@ -534,21 +546,6 @@ export default function TabbedPage({
           showDashboardView && "pt-0",
         )}
       >
-        {experiment.project ===
-          getDemoDatasourceProjectIdForOrganization(organization.id) && (
-          <div className="alert alert-info d-flex align-items-center mb-0 mt-2">
-            <div className="flex-1">
-              This experiment is part of our sample dataset. You can safely
-              delete this once you are done exploring.
-            </div>
-            <div style={{ width: 180 }} className="ml-2">
-              <DeleteDemoDatasourceButton
-                onDelete={() => router.push("/experiments")}
-                source="experiment"
-              />
-            </div>
-          </div>
-        )}
         {experiment.type !== "holdout" &&
           tab !== "dashboards" &&
           !showDashboardView && (
@@ -568,11 +565,9 @@ export default function TabbedPage({
           ((!isBandit && tab === "results") ||
             (isBandit && tab === "explore")) && (
             <Callout status="info">
-              <Text>
-                {isHoldout
-                  ? "You are viewing the results of the entire holdout period."
-                  : "You are viewing the results of a previous experiment phase."}
-              </Text>
+              {isHoldout
+                ? "You are viewing the results of the entire holdout period."
+                : "You are viewing the results of a previous experiment phase."}
               <Link
                 ml="2"
                 onClick={() => setPhase(experiment.phases.length - 1)}
@@ -608,14 +603,7 @@ export default function TabbedPage({
             holdoutExperiments={holdoutExperiments}
             mutate={mutate}
             disableEditing={viewingOldPhase}
-            linkedFeatures={linkedFeatures}
-            visualChangesets={visualChangesets}
-            editTargeting={editTargeting}
-            matchingConnections={matchingConnections}
-            checklistItemsRemaining={checklistItemsRemaining}
-            setChecklistItemsRemaining={setChecklistItemsRemaining}
-            envs={envs}
-            editHoldoutSchedule={editHoldoutSchedule}
+            editSchedule={editSchedule}
           />
           <Implementation
             experiment={experiment}
@@ -630,6 +618,9 @@ export default function TabbedPage({
             visualChangesets={visualChangesets}
             urlRedirects={urlRedirects}
             editTargeting={editTargeting}
+            editTraffic={editTraffic}
+            addVariation={addVariation}
+            editNamespace={editNamespace}
             linkedFeatures={linkedFeatures}
             envs={envs}
             visualChangesetEnvStates={visualChangesetEnvStates}
@@ -639,7 +630,7 @@ export default function TabbedPage({
             <div className="mt-3 mb-2 text-center d-print-none">
               <Button
                 onClick={() => setTabAndScroll("results")}
-                size="md"
+                size="lg"
                 icon={<FaChartBar />}
               >
                 View Results
@@ -677,7 +668,7 @@ export default function TabbedPage({
         {showMetricGroupPromo() ? (
           <PremiumCallout
             commercialFeature="metric-groups"
-            dismissable={true}
+            dismissible={true}
             id="metrics-list-metric-group-promo"
             docSection="metricGroups"
             mb="2"
@@ -766,6 +757,6 @@ export default function TabbedPage({
           </div>
         </div>
       )}
-    </>
+    </PreLaunchChecklistProvider>
   );
 }

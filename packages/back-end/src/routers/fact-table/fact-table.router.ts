@@ -1,12 +1,14 @@
 import express from "express";
 import { z } from "zod";
 import {
+  createVirtualColumnPropsValidator,
   createFactFilterPropsValidator,
   createFactTablePropsValidator,
   updateFactFilterPropsValidator,
   updateColumnPropsValidator,
   updateFactTablePropsValidator,
   testFactFilterPropsValidator,
+  testVirtualColumnPropsValidator,
 } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
@@ -17,6 +19,9 @@ const router = express.Router();
 const factTableController = wrapController(rawFactTableController);
 
 const factTableParams = z.object({ id: z.string() }).strict();
+const aggregatedRunsParams = z
+  .object({ id: z.string(), idType: z.string() })
+  .strict();
 const columnParams = z.object({ id: z.string(), column: z.string() }).strict();
 const filterParams = z
   .object({ id: z.string(), filterId: z.string() })
@@ -30,6 +35,16 @@ router.post(
   factTableController.postFactTable,
 );
 
+router.get("/fact-tables", factTableController.getFactTables);
+
+router.get(
+  "/fact-tables/:id",
+  validateRequestMiddleware({
+    params: factTableParams,
+  }),
+  factTableController.getFactTableById,
+);
+
 router.put(
   "/fact-tables/:id",
   validateRequestMiddleware({
@@ -37,6 +52,44 @@ router.put(
     body: updateFactTablePropsValidator,
   }),
   factTableController.putFactTable,
+);
+
+router.get(
+  "/fact-tables/:id/aggregated-tables",
+  validateRequestMiddleware({
+    params: factTableParams,
+  }),
+  factTableController.getAggregatedFactTables,
+);
+
+router.get(
+  "/fact-tables/:id/aggregated-tables/:idType/runs",
+  validateRequestMiddleware({
+    params: aggregatedRunsParams,
+  }),
+  factTableController.getAggregatedFactTableRuns,
+);
+
+router.post(
+  "/fact-tables/:id/aggregated-tables/refresh",
+  validateRequestMiddleware({
+    params: factTableParams,
+    body: z
+      .object({
+        idType: z.string().optional(),
+        fullRestate: z.boolean().optional(),
+      })
+      .strict(),
+  }),
+  factTableController.refreshAggregatedFactTables,
+);
+
+router.post(
+  "/fact-tables/:id/aggregated-tables/:idType/cancel",
+  validateRequestMiddleware({
+    params: aggregatedRunsParams,
+  }),
+  factTableController.cancelAggregatedFactTableRun,
 );
 
 router.post("/fact-tables/:id/archive", factTableController.archiveFactTable);
@@ -62,6 +115,15 @@ router.post(
   factTableController.postColumnTopValues,
 );
 
+router.post(
+  "/fact-tables/:id/virtual-column",
+  validateRequestMiddleware({
+    params: factTableParams,
+    body: createVirtualColumnPropsValidator,
+  }),
+  factTableController.postVirtualColumn,
+);
+
 router.put(
   "/fact-tables/:id/column/:column",
   validateRequestMiddleware({
@@ -69,6 +131,23 @@ router.put(
     body: updateColumnPropsValidator,
   }),
   factTableController.putColumn,
+);
+
+router.delete(
+  "/fact-tables/:id/column/:column",
+  validateRequestMiddleware({
+    params: columnParams,
+  }),
+  factTableController.deleteColumn,
+);
+
+router.post(
+  "/fact-tables/:id/test-virtual-column",
+  validateRequestMiddleware({
+    params: factTableParams,
+    body: testVirtualColumnPropsValidator,
+  }),
+  factTableController.postVirtualColumnTest,
 );
 
 router.post(

@@ -76,6 +76,7 @@ export default function MetricGroupInlineForm({
     <div>
       <Flex align="center" className="pb-2">
         <Field
+          size="legacy"
           disabled={loading}
           placeholder="Metric Group Name"
           style={{ minWidth: "320px" }}

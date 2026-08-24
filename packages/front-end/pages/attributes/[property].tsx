@@ -7,14 +7,14 @@ import { FeatureInterface } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { FaQuestionCircle } from "react-icons/fa";
-import { BiShow } from "react-icons/bi";
+import ReferencesLink from "@/components/References/ReferencesLink";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import PageHead from "@/components/Layout/PageHead";
 import { useAttributeSchema, useFeaturesList } from "@/services/features";
 import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import useApi from "@/hooks/useApi";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -43,9 +43,29 @@ export default function AttributeDetailPage() {
     [attributeSchema, property],
   );
 
-  const { savedGroups } = useDefinitions();
-  const { features } = useFeaturesList({ useCurrentProject: false });
-  const { experiments } = useExperiments();
+  const { data: savedGroupsData, error: savedGroupsError } = useApi<{
+    savedGroups: SavedGroupWithoutValues[];
+  }>("/saved-groups");
+  const savedGroupsLoading = !savedGroupsData && !savedGroupsError;
+  // Match definitions behavior by excluding archived groups.
+  const savedGroups = useMemo(
+    () => (savedGroupsData?.savedGroups ?? []).filter((sg) => !sg.archived),
+    [savedGroupsData],
+  );
+  const {
+    features,
+    loading: featuresLoading,
+    error: featuresError,
+  } = useFeaturesList({ useCurrentProject: false });
+  const {
+    experiments,
+    loading: experimentsLoading,
+    error: experimentsError,
+  } = useExperiments();
+  const referencesError =
+    savedGroupsError || featuresError || experimentsError || null;
+  const referencesLoading =
+    savedGroupsLoading || featuresLoading || experimentsLoading;
   const { apiCall } = useAuth();
   const { refreshOrganization } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -73,23 +93,20 @@ export default function AttributeDetailPage() {
     const attributeGroupIds: Record<string, Set<string>> = {};
 
     for (const feature of features) {
-      for (const envid in feature.environmentSettings) {
-        const env = feature.environmentSettings?.[envid];
-        env?.rules?.forEach((rule) => {
-          try {
-            const parsedCondition = JSON.parse(rule?.condition ?? "{}");
-            recursiveWalk(parsedCondition, (node) => {
-              if (attributeKeys.includes(node[0])) {
-                if (!attributeFeatureIds[node[0]])
-                  attributeFeatureIds[node[0]] = new Set<string>();
-                attributeFeatureIds[node[0]].add(feature.id);
-              }
-            });
-          } catch (e) {
-            // ignore
-          }
-        });
-      }
+      (feature.rules ?? []).forEach((rule) => {
+        try {
+          const parsedCondition = JSON.parse(rule?.condition ?? "{}");
+          recursiveWalk(parsedCondition, (node) => {
+            if (attributeKeys.includes(node[0])) {
+              if (!attributeFeatureIds[node[0]])
+                attributeFeatureIds[node[0]] = new Set<string>();
+              attributeFeatureIds[node[0]].add(feature.id);
+            }
+          });
+        } catch (e) {
+          // ignore
+        }
+      });
     }
 
     for (const experiment of experiments) {
@@ -181,6 +198,7 @@ export default function AttributeDetailPage() {
     <>
       {showReferencesModal && (
         <Modal
+          useRadixButton={false}
           open={true}
           header={`References: ${attribute.property}`}
           close={() => setShowReferencesModal(false)}
@@ -205,6 +223,7 @@ export default function AttributeDetailPage() {
       )}
       {showDeleteModal && (
         <Modal
+          useRadixButton={false}
           open={true}
           header="Delete Attribute"
           close={() => setShowDeleteModal(false)}
@@ -212,12 +231,21 @@ export default function AttributeDetailPage() {
           submitColor="danger"
           trackingEventModalType=""
           submit={async () => {
-            await apiCall<{ status: number }>("/attribute/", {
+            const response = await apiCall<{
+              status: number;
+              eventForwarderWarning?: string;
+            }>("/attribute/", {
               method: "DELETE",
               body: JSON.stringify({ id: attribute.property }),
             });
             refreshOrganization();
             setShowDeleteModal(false);
+            if (response.eventForwarderWarning) {
+              sessionStorage.setItem(
+                "attributeDeleteEventForwarderWarning",
+                response.eventForwarderWarning,
+              );
+            }
             router.push("/attributes");
           }}
         >
@@ -238,7 +266,7 @@ export default function AttributeDetailPage() {
       />
       <div className="p-3 container-fluid pagecontents">
         <Flex align="center" justify="between" mb="4">
-          <Heading as="h1" size="2x-large">
+          <Heading as="h1" size="xl" overflowWrap="anywhere">
             {attribute.property}
           </Heading>
           {canEdit && (
@@ -326,20 +354,18 @@ export default function AttributeDetailPage() {
             </Text>
           </Flex>
           <Flex direction="column" align="end" gap="2">
-            {totalReferences > 0 ? (
-              <Link onClick={() => setShowReferencesModal(true)}>
-                <BiShow /> {totalReferences} reference
-                {totalReferences !== 1 && "s"}
-              </Link>
-            ) : (
-              <Tooltip body="No features, experiments, or saved groups currently reference this attribute.">
-                <span
-                  style={{ color: "var(--gray-10)", cursor: "not-allowed" }}
-                >
-                  <BiShow /> {totalReferences} references
-                </span>
-              </Tooltip>
-            )}
+            <ReferencesLink
+              total={totalReferences}
+              onShow={() => setShowReferencesModal(true)}
+              emptyTooltip="No features, experiments, or saved groups currently reference this attribute."
+              status={
+                referencesError
+                  ? "error"
+                  : referencesLoading
+                    ? "loading"
+                    : undefined
+              }
+            />
           </Flex>
         </Flex>
 
@@ -365,6 +391,8 @@ export default function AttributeDetailPage() {
                   if (payload.projects === null) delete payload.projects;
                   if (payload.format === null) delete payload.format;
                   if (payload.enum === null) delete payload.enum;
+                  if (payload.disableEqualityConditions === null)
+                    delete payload.disableEqualityConditions;
                   await apiCall("/attribute", {
                     method: "PUT",
                     body: JSON.stringify(payload),

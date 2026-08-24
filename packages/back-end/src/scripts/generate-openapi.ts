@@ -2,12 +2,19 @@ import path from "path";
 import fs from "fs";
 import { z, ZodNever } from "zod";
 import yaml from "js-yaml";
-import { namedSchemaRegistry } from "shared/validators";
+import {
+  namedSchemaRegistry,
+  apiErrorRegistry,
+  ApiErrorCode,
+} from "shared/validators";
 import { allRoutes, apiModelTagMeta } from "back-end/src/api/api.router";
+import { getBuild } from "back-end/src/util/build";
 
 const openApiTags = [
   "projects",
   "environments",
+  "features-v2",
+  "feature-revisions-v2",
   "features",
   "feature-revisions",
   "ramp-schedules",
@@ -20,9 +27,17 @@ const openApiTags = [
   "snapshots",
   "dimensions",
   "segments",
+  "reports",
   "sdk-connections",
   "visual-changesets",
   "saved-groups",
+  "saved-group-revisions",
+  "constants",
+  "constant-revisions",
+  "configs",
+  "config-revisions",
+  "releases",
+  "custom-hooks",
   "organizations",
   "members",
   "code-references",
@@ -31,6 +46,7 @@ const openApiTags = [
   "settings",
   "attributes",
   "usage",
+  "meta",
 ] as const;
 
 export type OpenApiTag = (typeof openApiTags)[number];
@@ -47,18 +63,29 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
       "GrowthBook comes with one environment by default (production), but you can add as many as you need. When used with feature flags, you can enable/disable feature flags on a per-environment basis.",
   },
   features: {
-    display: "Feature Flags",
-    description: "Control your feature flags programatically",
+    display: "Feature Flags (legacy)",
+    description:
+      "Control your feature flags programatically.\n\n**These are v1 endpoints.** New integrations should use the v2 Feature Flags endpoints, which expose a unified per-rule environment scope instead of per-environment rule arrays.",
   },
   "feature-revisions": {
+    display: "Feature Revisions (legacy)",
+    description:
+      "Draft revisions for feature flags, including rules, scheduling, and approval workflows.\n\n**These are v1 endpoints.** New integrations should use the v2 Feature Revisions endpoints.",
+  },
+  "features-v2": {
+    display: "Feature Flags",
+    description:
+      "Control your feature flags programatically.\n\nRules are returned as a unified top-level array; each rule carries `allEnvironments` / `environments` scope fields instead of being bucketed by environment.",
+  },
+  "feature-revisions-v2": {
     display: "Feature Revisions",
     description:
-      "Draft revisions for feature flags, including rules, scheduling, and approval workflows.\n\nThese endpoints are in beta and are subject to change.",
+      "Draft revisions for feature flags, including rules, scheduling, and approval workflows.\n\nRevision `rules` is a flat array with per-rule scope fields.",
   },
   "ramp-schedules": {
     display: "Ramp Schedules",
     description:
-      "Multi-step rollout schedules that gradually ramp feature rule changes over time, with support for interval, approval, and scheduled triggers.",
+      "Multi-step rollout schedules that gradually increase feature rule traffic over time, with optional real-time monitoring. Each step supports interval timers, approval gates, and hold conditions. Monitored steps are backed by a live analysis experiment that can automatically hold, roll back, or advance the ramp based on guardrail and signal metric health.",
   },
   "data-sources": {
     display: "Data Sources",
@@ -100,6 +127,11 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
     display: "Segments",
     description: "Segments used during experiment analysis",
   },
+  reports: {
+    display: "Experiment Reports",
+    description:
+      "Custom analysis reports built on top of experiment snapshots. Reports let you re-run analysis with different metrics, date ranges, stats engines, and other settings without modifying the underlying experiment.",
+  },
   "sdk-connections": {
     display: "SDK Connections",
     description:
@@ -114,6 +146,41 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
     display: "Saved Groups",
     description:
       "Defined sets of attribute values which can be used with feature rules for targeting features at particular users.",
+  },
+  "saved-group-revisions": {
+    display: "Saved Group Revisions",
+    description:
+      'Draft revisions for saved groups, including pending changes, approvals, and lifecycle (publish, discard, revert).\n\nMost callers can interact with these endpoints via shorthand actions (`/items/add`, `/items/remove`, single-field PUTs) instead of authoring JSON Patch ops directly. Pass `version: "new"` on edit endpoints to auto-create a draft.',
+  },
+  constants: {
+    display: "Constants",
+    description:
+      "**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nReusable named values referenced from feature flag values as `@const:key` and resolved into the SDK payload at build time. String constants are interpolated via `{{ @const:key }}`; JSON (object) constants are composed via an `$extends` array. A constant's own keys **replace** what its `$extends` bases provide, wholesale — constants are atomic building blocks. (Config and feature values compose as deep, targeted patches instead.)",
+  },
+  "constant-revisions": {
+    display: "Constant Revisions",
+    description:
+      '**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nDraft revisions for constants, including pending changes, approvals, and lifecycle (publish, discard, revert). Pass `version: "new"` on edit endpoints to auto-create a draft.',
+  },
+  configs: {
+    display: "Configs",
+    description:
+      "**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nReusable, typed, inheritable JSON objects referenced from feature flag values as `@config:key`. A config carries a field `schema` (with TypeScript/JSON Schema import-export) and a lineage `parent`. Inheritance is expressed via `parent`, never an in-value `@config:` entry. Values layer as a **deep, targeted patch**: a child (or a config-backed feature value) restates only the leaves it changes and inherits the rest — unlike a constant's `$extends`, whose own keys replace wholesale. Schema fields colliding with a published ancestor's key follow 'base wins': identical re-declarations are stripped with a warning, differing ones are rejected.",
+  },
+  "config-revisions": {
+    display: "Config Revisions",
+    description:
+      '**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nDraft revisions for configs, including value and schema edits, schema import (JSON Schema / TypeScript / inferred), approvals, and lifecycle (publish, discard, revert). Publishing a schema change cascades the "base wins" normalization to descendant configs; a publish that removes or retypes fields descendants still use soft-blocks with a 422 unless the request body sets `ignoreWarnings: true`. Pass `version: "new"` on edit endpoints to auto-create a draft.',
+  },
+  releases: {
+    display: "Releases",
+    description:
+      "**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nCoordinated multi-entity publishing: publish a set of revisions across Feature Flags, Saved Groups, configs, and constants as one all-or-nothing operation, validated against the combined end-state instead of each in-between state. Requires the `releases` commercial feature.",
+  },
+  "custom-hooks": {
+    display: "Custom Hooks",
+    description:
+      "Sandboxed JavaScript validation hooks that run when features, configs, or their revisions are saved or published. Throwing an Error blocks the save; `addWarning(msg)` raises a soft warning. Hooks are scoped by projects, or pinned to a single feature/config via `entityType`/`entityId`; a config-scoped hook also runs for every config inheriting from it (its whole descendant lineage). Scope can be retargeted on update (or cleared with nulls). Requires an enterprise plan; not available on GrowthBook Cloud.",
   },
   members: {
     display: "Members",
@@ -150,6 +217,11 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
     display: "Usage",
     description: "Usage information for metrics in experiments.",
   },
+  meta: {
+    display: "Meta",
+    description:
+      "Server metadata, including the running build's version and commit for version-skew checks.",
+  },
 };
 
 function isNonEmptySchema(schema: z.ZodType | undefined): schema is z.ZodType {
@@ -176,12 +248,10 @@ function rewriteRefs(obj: unknown): unknown {
   return obj;
 }
 
-/**
- * Convert a ZodType to an OpenAPI-compatible JSON Schema object.
- * - Strips the top-level `$schema` meta-field emitted by `z.toJSONSchema`.
- * - Hoists any `$defs` (produced by `namedSchema`) into `componentSchemas`.
- * - Rewrites `$ref` pointers from `#/$defs/X` to `#/components/schemas/X`.
- */
+// Convert a ZodType to an OpenAPI-compatible JSON Schema object.
+// - Strips the top-level `$schema` meta-field emitted by `z.toJSONSchema`.
+// - Hoists any `$defs` (produced by `namedSchema`) into `componentSchemas`.
+// - Rewrites `$ref` pointers from `#/$defs/X` to `#/components/schemas/X`.
 function toOpenApiSchema(schema: z.ZodType): z.core.JSONSchema.BaseSchema {
   const {
     $schema: _$schema,
@@ -201,6 +271,13 @@ function toOpenApiSchema(schema: z.ZodType): z.core.JSONSchema.BaseSchema {
       if (jsonSchema.maximum === 9007199254740991) {
         delete jsonSchema.maximum;
       }
+      // format: "date-time" is sufficient for docs; strip the verbose regex pattern
+      if (
+        (jsonSchema as Record<string, unknown>).format === "date-time" &&
+        (jsonSchema as Record<string, unknown>).pattern
+      ) {
+        delete (jsonSchema as Record<string, unknown>).pattern;
+      }
     },
   }) as Record<string, unknown>;
   if ($defs && typeof $defs === "object") {
@@ -217,6 +294,40 @@ function toOpenApiSchema(schema: z.ZodType): z.core.JSONSchema.BaseSchema {
   return rewriteRefs(rest) as z.core.JSONSchema.BaseSchema;
 }
 
+// Remove `default`-bearing properties from every `required` array in a schema
+// tree (recursing through properties, items, anyOf/oneOf/allOf, etc.).
+//
+// `z.toJSONSchema` runs in "output" mode, where a field with a Zod
+// `.default()` is always present in the parsed result and so gets listed as
+// `required`. That's correct for responses, but for REQUEST schemas it's
+// contradictory: `default` means the client may omit the field, so it must not
+// also be `required`. We only call this on request (params/query/body) schemas;
+// response schemas keep the output-mode `required` set. Skips `$ref` nodes, so
+// shared component schemas (used by responses) are never mutated.
+function stripDefaultedFromRequired(node: unknown): void {
+  if (Array.isArray(node)) {
+    node.forEach(stripDefaultedFromRequired);
+    return;
+  }
+  if (!node || typeof node !== "object") return;
+  const obj = node as Record<string, unknown>;
+
+  const props = obj.properties as Record<string, unknown> | undefined;
+  if (props && Array.isArray(obj.required)) {
+    const filtered = (obj.required as string[]).filter((name) => {
+      const prop = props[name] as Record<string, unknown> | undefined;
+      return !(prop && typeof prop === "object" && "default" in prop);
+    });
+    // Drop the key entirely when empty so we don't emit `required: []`.
+    if (filtered.length) obj.required = filtered;
+    else delete obj.required;
+  }
+
+  for (const value of Object.values(obj)) {
+    stripDefaultedFromRequired(value);
+  }
+}
+
 /**
  * Build a cURL code sample from the example request data and route metadata.
  */
@@ -226,7 +337,7 @@ function buildCurlSample(
   example: { params?: unknown; body?: unknown; query?: unknown },
 ): string {
   // Substitute path params into the URL
-  let url = `https://api.growthbook.io/api/v1${fullPath}`;
+  let url = `https://api.growthbook.io/api${fullPath}`;
   if (example.params && typeof example.params === "object") {
     for (const [key, value] of Object.entries(
       example.params as Record<string, unknown>,
@@ -282,7 +393,7 @@ type RequestBody = {
 };
 
 type Response = {
-  description?: string;
+  description: string;
   content: {
     "application/json": {
       schema: z.core.JSONSchema.BaseSchema;
@@ -290,10 +401,25 @@ type Response = {
   };
 };
 
+function defaultResponseDescription(method: string): string {
+  switch (method.toLowerCase()) {
+    case "post":
+      return "Resource created";
+    case "put":
+    case "patch":
+      return "Resource updated";
+    case "delete":
+      return "Resource deleted";
+    default:
+      return "Successful response";
+  }
+}
+
 type Path = {
   operationId: string;
   summary?: string;
   description?: string;
+  deprecated?: boolean;
   tags?: string[];
   parameters?: (Parameter | Ref)[];
   requestBody?: RequestBody;
@@ -305,6 +431,7 @@ type CodeSample = { lang: string; source: string };
 
 async function run() {
   // TODO: add security, etc.
+  const version = getBuild().lastVersion || "1.0.0";
   const openapiSpec: {
     openapi: string;
     info: {
@@ -315,6 +442,10 @@ async function run() {
     servers: {
       url: string;
       description: string;
+      variables?: Record<
+        string,
+        { default: string; description?: string; enum?: string[] }
+      >;
     }[];
     tags: {
       name: string;
@@ -338,13 +469,22 @@ async function run() {
   } = {
     openapi: "3.1.0",
     info: {
-      version: "1.0.0",
+      version,
       title: "GrowthBook REST API",
       description: `GrowthBook offers a full REST API for interacting with the application.
 
 Request data can use either JSON or Form data encoding (with proper \`Content-Type\` headers). All response bodies are JSON-encoded.
 
-The API base URL for GrowthBook Cloud is \`https://api.growthbook.io\`. For self-hosted deployments, it is the same as your API_HOST environment variable (defaults to \`http://localhost:3100\`). The rest of these docs will assume you are using GrowthBook Cloud.
+The API base URL for GrowthBook Cloud is \`https://api.growthbook.io/api\`. For self-hosted deployments, it is the same as your API_HOST environment variable (defaults to \`http://localhost:3100/api\`). The rest of these docs will assume you are using GrowthBook Cloud.
+
+## Versioning
+
+Endpoints are versioned by path prefix:
+
+- \`/v1/...\` — stable, widely-supported endpoints
+- \`/v2/...\` — updated endpoints with improved shapes (e.g. unified per-rule environment scope for feature flags)
+
+New integrations should prefer v2 where available.
 
 ## Authentication
 
@@ -358,14 +498,14 @@ You first need to generate a new API Key in GrowthBook. Different keys have diff
 If using HTTP Basic auth, pass the Secret Key as the username and leave the password blank (when using curl, add \`:\` at the end of the secret to indicate an empty password)
 
 \`\`\`bash
-curl https://api.growthbook.io/api/v1 \\
+curl https://api.growthbook.io/api/v1/features \\
   -u secret_abc123DEF456:
 \`\`\`
 
 If using Bearer auth, pass the Secret Key as the token:
 
 \`\`\`bash
-curl https://api.growthbook.io/api/v1 \\
+curl https://api.growthbook.io/api/v1/features \\
 -H "Authorization: Bearer secret_abc123DEF456"
 \`\`\`
 
@@ -378,22 +518,42 @@ The API may return the following error status codes:
 - **402** - Request Failed - The parameters are valid, but the request failed
 - **403** - Forbidden - Provided API key does not have the required access
 - **404** - Not Found - Unknown API route or requested resource
+- **422** - Unprocessable Entity - The request is valid, but a warning, validation rule, approval requirement, or another publishing gate blocked it. Do not assume that \`ignoreWarnings\` clears every 422 response.
 - **429** - Too Many Requests - You exceeded the rate limit of 60 requests per minute. Try again later.
 - **5XX** - Server Error - Something went wrong on GrowthBook's end (these are rare)
 
 The response body will be a JSON object with the following properties:
 
 - **message** - Information about the error
+
+### Publishing gates
+
+Publish responses include a \`gates\` array that explains every blocker:
+
+- \`type\`, \`severity\`, and \`messages\` identify the problem.
+- \`override\` names the request-body field that can bypass it. This is \`ignoreWarnings\` for warnings, \`skipSchemaValidation\` for schema and invariant failures, or \`skipHooks\` for Custom Hook rejections. A value of \`null\` means there is no request-body override.
+- \`requiresPermission\` identifies any additional permission needed to use the override.
+- \`resolution\` provides an API action, method, and path when the blocker must be resolved another way.
+
+For example, an approval gate is cleared by approving the revision or by using a caller with **Bypass draft approvals** access. A Config lock is cleared through the unlock route in \`resolution\`.
+
+When a successful publish bypasses a gate, the response includes \`bypassedGates\`. Each entry reports the gate \`type\` and how it was bypassed in \`via\`, which is one of \`ignoreWarnings\`, \`skipSchemaValidation\`, \`skipHooks\`, \`bypassApprovalPermission\`, \`restApiBypassesReviews\`, or \`revertsBypassApproval\` (reverts only). This field is omitted when no gates were bypassed.
 `,
     },
     servers: [
       {
-        url: "https://api.growthbook.io/api/v1",
+        url: "https://api.growthbook.io/api",
         description: "GrowthBook Cloud",
       },
       {
-        url: "https://{domain}/api/v1",
+        url: "https://{domain}/api",
         description: "Self-hosted GrowthBook",
+        variables: {
+          domain: {
+            default: "localhost:3100",
+            description: "Your self-hosted GrowthBook host (and port)",
+          },
+        },
       },
     ],
     tags: openApiTags.map((id) => ({
@@ -412,7 +572,7 @@ The response body will be a JSON object with the following properties:
           scheme: "bearer",
           description: `If using Bearer auth, pass the Secret Key as the token:
 \`\`\`bash
-curl https://api.growthbook.io/api/v1 \
+curl https://api.growthbook.io/api/v1/features \
   -H "Authorization: Bearer secret_abc123DEF456"
 \`\`\`
 `,
@@ -422,7 +582,7 @@ curl https://api.growthbook.io/api/v1 \
           scheme: "basic",
           description: `If using HTTP Basic auth, pass the Secret Key as the username and leave the password blank:
 \`\`\`bash
-curl https://api.growthbook.io/api/v1 \
+curl https://api.growthbook.io/api/v1/features \
   -u secret_abc123DEF456:
 # The ":" at the end stops curl from asking for a password
 \`\`\`
@@ -438,6 +598,32 @@ curl https://api.growthbook.io/api/v1 \
   // Be able to look up a schema by its JSON stringified schema
   const schemaHashMap: Record<string, string> = {};
 
+  // Register per-code error detail schemas. These live in schemaRefs (not
+  // componentSchemas) so they don't pick up the auto-generated `_model` doc
+  // tags reserved for user-facing API resource models. We don't document
+  // generic errors per-endpoint — only the actionable, declared ones below.
+  // e.g. "pending_draft_publish_failed" → "ApiErrorPendingDraftPublishFailedDetails"
+  const errorDetailsSchemaName = (code: string) =>
+    `ApiError${code
+      .split("_")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join("")}Details`;
+  for (const [code, { detailsSchema }] of Object.entries(apiErrorRegistry)) {
+    schemaRefs[errorDetailsSchemaName(code)] = toOpenApiSchema(detailsSchema);
+  }
+
+  // The response-level description is rendered prominently next to the status
+  // code (even when the response section is collapsed), so we use the standard
+  // HTTP reason phrase here. Per-code descriptions live on each schema variant.
+  const HTTP_STATUS_REASONS: Record<string, string> = {
+    "400": "Bad Request",
+    "401": "Unauthorized",
+    "403": "Forbidden",
+    "404": "Not Found",
+    "409": "Conflict",
+    "500": "Internal Server Error",
+  };
+
   for (const route of allRoutes) {
     if (route.excludeFromSpec) {
       continue;
@@ -452,6 +638,9 @@ curl https://api.growthbook.io/api/v1 \
       method,
       path,
       exampleRequest,
+      version,
+      deprecated,
+      possibleErrors,
     } = route;
 
     if (!path || !method || !operationId) {
@@ -464,6 +653,7 @@ curl https://api.growthbook.io/api/v1 \
     // URL params
     if (isNonEmptySchema(schemas?.params)) {
       const jsonSchema = toOpenApiSchema(schemas.params);
+      stripDefaultedFromRequired(jsonSchema);
       Object.entries(jsonSchema.properties ?? {}).forEach(([name, schema]) => {
         const isRequired = (jsonSchema.required ?? []).includes(name);
         const parameter: Parameter = {
@@ -498,13 +688,16 @@ curl https://api.growthbook.io/api/v1 \
     // Query params
     if (isNonEmptySchema(schemas?.query)) {
       const jsonSchema = toOpenApiSchema(schemas.query);
+      stripDefaultedFromRequired(jsonSchema);
       Object.entries(jsonSchema.properties ?? {}).forEach(([name, schema]) => {
         const isRequired = (jsonSchema.required ?? []).includes(name);
-        // Hoist x- extension fields from schema to parameter level
+        // Hoist x- extension fields — plus serialization fields like
+        // `explode`/`style`, which schemas can set via .meta() but belong on
+        // the parameter — from schema to parameter level
         const schemaObj = schema as Record<string, unknown>;
         const extensions: Record<string, unknown> = {};
         for (const key of Object.keys(schemaObj)) {
-          if (key.startsWith("x-")) {
+          if (key.startsWith("x-") || key === "explode" || key === "style") {
             extensions[key] = schemaObj[key];
             delete schemaObj[key];
           }
@@ -543,6 +736,7 @@ curl https://api.growthbook.io/api/v1 \
     let requestBody: RequestBody | undefined = undefined;
     if (isNonEmptySchema(schemas?.body)) {
       const jsonSchema = toOpenApiSchema(schemas.body);
+      stripDefaultedFromRequired(jsonSchema);
       requestBody = {
         required: !(schemas.body instanceof z.ZodOptional),
         content: {
@@ -632,7 +826,7 @@ curl https://api.growthbook.io/api/v1 \
 
     const responses: Record<string, Response> = {
       "200": {
-        ...(responseDescription && { description: responseDescription }),
+        description: responseDescription || defaultResponseDescription(method),
         content: {
           "application/json": {
             schema: responseSchema,
@@ -641,8 +835,47 @@ curl https://api.growthbook.io/api/v1 \
       },
     };
 
-    // Relace express style path parameters with OpenAPI style path parameters
-    const fullPath = path.replace(/:(\w+)/g, "{$1}");
+    if (possibleErrors && possibleErrors.length > 0) {
+      const errorsByStatus: Partial<Record<string, ApiErrorCode[]>> = {};
+      for (const code of possibleErrors) {
+        const status = String(apiErrorRegistry[code].status);
+        (errorsByStatus[status] ??= []).push(code);
+      }
+
+      for (const [status, codes] of Object.entries(errorsByStatus)) {
+        if (!codes) continue;
+        const errorSchemas: z.core.JSONSchema.BaseSchema[] = codes.map(
+          (code) => ({
+            type: "object",
+            description: apiErrorRegistry[code].description,
+            properties: {
+              message: { type: "string" },
+              code: { type: "string", enum: [code] },
+              details: {
+                $ref: `#/components/schemas/${errorDetailsSchemaName(code)}`,
+              },
+            },
+            required: ["message", "code", "details"],
+          }),
+        );
+
+        responses[status] = {
+          description: HTTP_STATUS_REASONS[status] ?? "Error",
+          content: {
+            "application/json": {
+              schema:
+                errorSchemas.length === 1
+                  ? errorSchemas[0]
+                  : { oneOf: errorSchemas },
+            },
+          },
+        };
+      }
+    }
+
+    // Replace express style path parameters with OpenAPI style path parameters,
+    // and prefix with the version segment so the spec uses /v1/... or /v2/...
+    const fullPath = `/${version ?? "v1"}` + path.replace(/:(\w+)/g, "{$1}");
 
     // Build code samples from example data
     const codeSamples: CodeSample[] = [
@@ -657,6 +890,7 @@ curl https://api.growthbook.io/api/v1 \
       operationId,
       summary,
       ...(description !== undefined && { description }),
+      ...(deprecated && { deprecated: true }),
       tags,
       ...(parameters.length > 0 && { parameters }),
       ...(requestBody !== undefined && { requestBody }),
@@ -715,14 +949,17 @@ curl https://api.growthbook.io/api/v1 \
     openapiSpec.components.schemas[name] = schema;
   });
 
-  // Generate _model tags for each named component schema (powers the "Models" section in docs)
+  // Generate _model tags for registered API resource models (powers the "Models"
+  // section in docs). Hoisted $defs from `componentSchema()` are omitted.
   const modelTags: string[] = [];
-  for (const name of Object.keys(componentSchemas).sort()) {
+  for (const name of [...namedSchemaRegistry.keys()].sort()) {
+    if (!componentSchemas[name]) continue;
     const tagName = `${name}_model`;
     modelTags.push(tagName);
+    const modelDisplayName = name.replace(/([a-z])([A-Z])/g, "$1 $2");
     openapiSpec.tags.push({
       name: tagName,
-      "x-displayName": name,
+      "x-displayName": modelDisplayName,
       description: `<SchemaDefinition schemaRef="#/components/schemas/${name}" />`,
     });
   }

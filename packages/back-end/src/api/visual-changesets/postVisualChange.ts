@@ -1,5 +1,7 @@
+import uniqid from "uniqid";
 import { postVisualChangeValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { requireDraftExperiment } from "back-end/src/api/visual-editor-ai/requireDraftExperiment";
 import {
   createVisualChange,
   findExperimentByVisualChangesetId,
@@ -20,12 +22,17 @@ export const postVisualChange = createApiRequestHandler(
   if (!req.context.permissions.canCreateVisualChange(experiment)) {
     req.context.permissions.throwPermissionError();
   }
+  requireDraftExperiment(req.context, experiment);
 
-  const res = await createVisualChange(
-    req.params.id,
-    req.organization.id,
-    req.body,
-  );
+  const visualChangeId = req.body.id ?? uniqid("vc_");
 
-  return res;
+  const res = await createVisualChange(req.params.id, req.organization.id, {
+    ...req.body,
+    id: visualChangeId,
+    description: req.body.description ?? "",
+    css: req.body.css ?? "",
+    domMutations: req.body.domMutations ?? [],
+  });
+
+  return { ...res, visualChangeId };
 });

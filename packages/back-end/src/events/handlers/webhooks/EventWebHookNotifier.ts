@@ -297,7 +297,7 @@ export class EventWebHookNotifier implements Notifier {
   }): Promise<void> {
     const { eventWebHookId } = job.attrs.data;
 
-    await updateEventWebHookStatus(eventWebHookId, {
+    await updateEventWebHookStatus(eventWebHookId, organizationId, {
       state: "success",
       responseBody: successResult.responseBody,
     });
@@ -336,7 +336,7 @@ export class EventWebHookNotifier implements Notifier {
   }): Promise<void> {
     const { eventWebHookId } = job.attrs.data;
 
-    await updateEventWebHookStatus(eventWebHookId, {
+    await updateEventWebHookStatus(eventWebHookId, organizationId, {
       state: "error",
       error: errorResult.error,
     });

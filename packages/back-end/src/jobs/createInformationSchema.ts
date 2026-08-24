@@ -1,5 +1,6 @@
 import Agenda, { Job } from "agenda";
 import { InformationSchemaError } from "shared/types/integrations";
+import { formatQueryExecutionErrorForApi } from "shared/util";
 import {
   DataSourceNotSupportedError,
   MissingDatasourceParamsError,
@@ -34,7 +35,7 @@ const createInformationSchema = async (job: CreateInformationSchemaJob) => {
   } catch (e) {
     const error: InformationSchemaError = {
       errorType: "generic",
-      message: e.message,
+      message: formatQueryExecutionErrorForApi(e),
     };
     if (e instanceof DataSourceNotSupportedError) {
       error.errorType = "not_supported";

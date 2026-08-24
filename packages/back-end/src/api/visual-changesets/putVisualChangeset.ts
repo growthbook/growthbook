@@ -1,12 +1,14 @@
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import omit from "lodash/omit";
 import { putVisualChangesetValidator } from "shared/validators";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   findVisualChangesetById,
   toVisualChangesetApiInterface,
   updateVisualChangeset,
+  VisualChangesetUpdates,
 } from "back-end/src/models/VisualChangesetModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { requireDraftExperiment } from "back-end/src/api/visual-editor-ai/requireDraftExperiment";
 
 export const putVisualChangeset = createApiRequestHandler(
   putVisualChangesetValidator,
@@ -31,12 +33,29 @@ export const putVisualChangeset = createApiRequestHandler(
   if (!req.context.permissions.canUpdateVisualChange(experiment)) {
     req.context.permissions.throwPermissionError();
   }
+  // Reject writes to non-draft experiments (running / stopped / archived).
+  // Re-checked here on every save so a stale editor can't clobber an
+  // experiment that was started after it loaded the (then-draft) changeset.
+  requireDraftExperiment(req.context, experiment);
+
+  const updates: VisualChangesetUpdates = {
+    ...omit(req.body, ["urlPatterns"]),
+    ...(req.body.urlPatterns !== undefined
+      ? {
+          urlPatterns: req.body.urlPatterns.map((p) => ({
+            type: p.type,
+            pattern: p.pattern,
+            include: p.include ?? true,
+          })),
+        }
+      : {}),
+  };
 
   const res = await updateVisualChangeset({
     visualChangeset,
     experiment,
     context: req.context,
-    updates: req.body,
+    updates,
   });
 
   const updatedVisualChangeset = await findVisualChangesetById(
@@ -48,9 +67,6 @@ export const putVisualChangeset = createApiRequestHandler(
     nModified: res.nModified,
     visualChangeset: updatedVisualChangeset
       ? toVisualChangesetApiInterface(updatedVisualChangeset)
-      : {
-          ...toVisualChangesetApiInterface(visualChangeset),
-          ...(req.body as Partial<VisualChangesetInterface>),
-        },
+      : toVisualChangesetApiInterface(visualChangeset),
   };
 });

@@ -7,24 +7,32 @@ import React, {
   ReactNode,
   ReactElement,
 } from "react";
-import Link from "next/link";
 import { FaQuestionCircle, FaTimes } from "react-icons/fa";
 import { MetricInterface } from "shared/types/metric";
 import { useForm } from "react-hook-form";
-import { BsGear } from "react-icons/bs";
+import { BsGear, BsThreeDotsVertical } from "react-icons/bs";
 import { IdeaInterface } from "shared/types/idea";
 import { date } from "shared/dates";
 import { formatAIRateLimitRetryMessage } from "shared/ai";
-import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { isBinomialMetric } from "shared/experiments";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { AppFeatures } from "shared/types/app-features";
+import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
+import Metadata from "@/ui/Metadata";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DiscussionThread from "@/components/DiscussionThread";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import { getMetricFormatter } from "@/services/metrics";
 import MetricForm, { usesValueColumn } from "@/components/Metrics/MetricForm";
@@ -40,8 +48,6 @@ import RightRailSectionGroup from "@/components/Layout/RightRailSectionGroup";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Code from "@/components/SyntaxHighlighting/Code";
 import PickSegmentModal from "@/components/Segments/PickSegmentModal";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import Button from "@/components/Button";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
@@ -52,7 +58,6 @@ import { GBCuped, GBEdit } from "@/components/Icons";
 import Switch from "@/ui/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useCurrency } from "@/hooks/useCurrency";
-import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import { capitalizeFirstLetter } from "@/services/utils";
@@ -62,7 +67,6 @@ import MetricPriorRightRailSectionGroup from "@/components/Metrics/MetricPriorRi
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
 import { MetricModal } from "@/components/FactTables/NewMetricModal";
-import { AppFeatures } from "@/types/app-features";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -75,15 +79,17 @@ const MetricPage: FC = () => {
     getDatasourceById,
     getSegmentById,
     getMetricById,
+    getProjectById,
     metrics,
     segments,
   } = useDefinitions();
   const settings = useOrgSettings();
-  const { organization, getOwnerDisplay } = useUser();
+  const { getOwnerDisplay } = useUser();
   const gb = useGrowthBook<AppFeatures>();
 
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState<boolean>(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [editTags, setEditTags] = useState(false);
   const [editProjects, setEditProjects] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
@@ -126,7 +132,7 @@ const MetricPage: FC = () => {
   }, [data]);
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
   if (!data) {
     return <LoadingOverlay />;
@@ -287,9 +293,9 @@ const MetricPage: FC = () => {
       } catch (e) {
         console.error(e);
         return (
-          <div className="alert alert-danger">
+          <Callout status="error">
             An error occurred getting the metric usage
-          </div>
+          </Callout>
         );
       }
       return null;
@@ -415,117 +421,129 @@ const MetricPage: FC = () => {
       />
 
       {metric.status === "archived" && (
-        <div className="alert alert-secondary mb-2">
+        <Callout status="info" mb="2">
           <strong>This metric is archived.</strong> Existing references will
           continue working, but you will be unable to add this metric to new
           experiments.
-        </div>
+        </Callout>
       )}
 
-      {metric.projects?.includes(
-        getDemoDatasourceProjectIdForOrganization(organization.id),
-      ) && (
-        <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
-          <div className="flex-1">
-            This metric is part of our sample dataset. You can safely delete
-            this once you are done exploring.
-          </div>
-          <div style={{ width: 180 }} className="ml-2">
-            <DeleteDemoDatasourceButton
-              onDelete={() => router.push("/metrics")}
-              source="metric"
-            />
-          </div>
-        </div>
-      )}
-
-      <div className="row align-items-center mb-2">
-        <h1 className="col-auto">
-          <MetricName id={metric.id} />
-        </h1>
-        <div style={{ flex: 1 }} />
-        <div className="col-auto">
-          <MoreMenu>
-            {canEditMetric ? (
-              <Button
-                className="btn dropdown-item py-2"
-                color=""
-                onClick={() => setEditModalOpen(true)}
+      <Flex align="start" justify="between" gap="2" mb="2">
+        <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
+          <Heading size="xl" as="h1" overflowWrap="anywhere" mb="0">
+            <MetricName id={metric.id} />
+          </Heading>
+        </Flex>
+        <Flex align="center" pr="2">
+          <DropdownMenu
+            trigger={
+              <IconButton
+                variant="ghost"
+                color="gray"
+                radius="full"
+                size="2"
+                highContrast
+              >
+                <BsThreeDotsVertical size={16} />
+              </IconButton>
+            }
+            menuPlacement="end"
+            open={dropdownOpen}
+            onOpenChange={setDropdownOpen}
+          >
+            {canEditMetric && (
+              <DropdownMenuItem
+                onClick={() => {
+                  setEditModalOpen(true);
+                  setDropdownOpen(false);
+                }}
               >
                 Edit metric
-              </Button>
-            ) : null}
-            {canDuplicateMetric ? (
-              <Button
-                className="btn dropdown-item py-2"
-                color=""
-                onClick={() => setDuplicateModalOpen(true)}
+              </DropdownMenuItem>
+            )}
+            {canDuplicateMetric && (
+              <DropdownMenuItem
+                onClick={() => {
+                  setDuplicateModalOpen(true);
+                  setDropdownOpen(false);
+                }}
               >
                 Duplicate metric
-              </Button>
-            ) : null}
-            {canDeleteMetric ? (
-              <DeleteButton
-                className="btn dropdown-item py-2"
-                text="Delete"
-                title="Delete this metric"
-                getConfirmationContent={getMetricUsage(metric)}
+              </DropdownMenuItem>
+            )}
+            {canEditMetric && (
+              <DropdownMenuItem
                 onClick={async () => {
-                  await apiCall(`/metric/${metric.id}`, {
-                    method: "DELETE",
-                  });
-                  mutateDefinitions({});
-                  router.push("/metrics");
-                }}
-                useIcon={false}
-                displayName={"Metric '" + metric.name + "'"}
-              />
-            ) : null}
-            {canEditMetric ? (
-              <Button
-                className="btn dropdown-item py-2"
-                color=""
-                onClick={async () => {
+                  setDropdownOpen(false);
                   const newStatus =
                     metric.status === "archived" ? "active" : "archived";
                   await apiCall(`/metric/${metric.id}`, {
                     method: "PUT",
-                    body: JSON.stringify({
-                      status: newStatus,
-                    }),
+                    body: JSON.stringify({ status: newStatus }),
                   });
                   mutateDefinitions({});
                   mutate();
                 }}
               >
                 {metric.status === "archived" ? "Unarchive" : "Archive"}
-              </Button>
-            ) : null}
-          </MoreMenu>
-        </div>
-      </div>
-      <div className="row mb-3 align-items-center">
-        <div className="col">
-          Projects:{" "}
-          {metric?.projects?.length ? (
-            <ProjectBadges resourceType="metric" projectIds={metric.projects} />
-          ) : (
-            <ProjectBadges resourceType="metric" />
-          )}
-          {canEditMetric && (
-            <a
-              href="#"
-              className="ml-2"
-              onClick={(e) => {
-                e.preventDefault();
-                setEditProjects(true);
-              }}
-            >
-              <GBEdit />
-            </a>
-          )}
-        </div>
-      </div>
+              </DropdownMenuItem>
+            )}
+            {canDeleteMetric && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  color="red"
+                  confirmation={{
+                    confirmationTitle: `Delete Metric '${metric.name}'`,
+                    cta: "Delete",
+                    getConfirmationContent: getMetricUsage(metric),
+                    submit: async () => {
+                      await apiCall(`/metric/${metric.id}`, {
+                        method: "DELETE",
+                      });
+                      mutateDefinitions({});
+                      router.push("/metrics");
+                    },
+                    closeDropdown: () => setDropdownOpen(false),
+                  }}
+                >
+                  Delete
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenu>
+        </Flex>
+      </Flex>
+      <Flex gap="4" align="center" wrap="wrap" mb="3">
+        <Metadata
+          label="Projects"
+          value={
+            <Flex gap="1" align="center">
+              {metric?.projects?.length ? (
+                <Text weight="regular" color="text-mid">
+                  {metric.projects
+                    .map((p) => getProjectById(p)?.name || p)
+                    .join(", ")}
+                </Text>
+              ) : (
+                <Text weight="regular" color="text-mid" fontStyle="italic">
+                  All Projects
+                </Text>
+              )}
+              {canEditMetric && (
+                <Link
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setEditProjects(true);
+                  }}
+                >
+                  <GBEdit />
+                </Link>
+              )}
+            </Flex>
+          }
+        />
+      </Flex>
 
       <div className="mt-3">
         <CustomMarkdown page={"metric"} variables={variables} />
@@ -655,6 +673,7 @@ const MetricPage: FC = () => {
                             }}
                           >
                             <RunQueriesButton
+                              useRadixButton={false}
                               icon="refresh"
                               cta={analysis ? "Refresh Data" : "Run Analysis"}
                               mutate={mutate}
@@ -683,38 +702,32 @@ const MetricPage: FC = () => {
                       )}
                     </div>
                     {hasQueries && status === "failed" && (
-                      <div className="alert alert-danger my-3">
+                      <Callout status="error" my="3">
                         Error running the analysis.{" "}
                         <ViewAsyncQueriesButton
                           queries={metric.queries.map((q) => q.query)}
                           error={metric.analysisError}
                           ctaComponent={(onClick) => (
-                            <a
-                              className="alert-link"
-                              href="#"
-                              onClick={onClick}
-                            >
-                              View Queries
-                            </a>
+                            <Link onClick={onClick}>View Queries</Link>
                           )}
                         />{" "}
                         for more info
-                      </div>
+                      </Callout>
                     )}
                     {hasQueries && status === "running" && (
-                      <div className="alert alert-info">
+                      <Callout status="info">
                         Your analysis is currently running.{" "}
                         {analysis && "The data below is from the previous run."}
-                      </div>
+                      </Callout>
                     )}
                     {analysis &&
                       status === "succeeded" &&
                       (metric.segment || analysis.segment) &&
                       metric.segment !== analysis.segment && (
-                        <div className="alert alert-info">
+                        <Callout status="info">
                           The graphs below are using an old Segment. Update them
                           to see the latest numbers.
-                        </div>
+                        </Callout>
                       )}
                     {analysis && (
                       <div className="mb-4">

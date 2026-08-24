@@ -12,12 +12,13 @@ import {
 import { MdPending } from "react-icons/md";
 import { cloneDeep, isEqual } from "lodash";
 import { Environment } from "shared/types/organization";
-import Link from "next/link";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
+import { getRulesForEnvironment } from "shared/util";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
+import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Code from "@/components/SyntaxHighlighting/Code";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Button from "@/components/Button";
 import Checkbox from "@/ui/Checkbox";
 import { ApiCallType, useAuth } from "@/services/auth";
@@ -39,6 +40,7 @@ import {
   transformLDProjectsToGBProject,
 } from "@/services/importing/launchdarkly/launchdarkly-importing";
 import track from "@/services/track";
+import Callout from "@/ui/Callout";
 
 type ImportStatus = "invalid" | "skipped" | "pending" | "completed" | "failed";
 
@@ -95,9 +97,7 @@ function getFeatureComp(existing: PartialFeature, incoming: PartialFeature) {
       tags: existing.tags,
       owner: existing.owner,
       rules: Object.fromEntries(
-        Object.entries(envSettings1)
-          .filter(([e]) => envs.includes(e))
-          .map(([e, v]) => [e, v.rules]),
+        envs.map((e) => [e, getRulesForEnvironment(existing.rules, e)]),
       ),
     },
     {
@@ -106,9 +106,7 @@ function getFeatureComp(existing: PartialFeature, incoming: PartialFeature) {
       tags: incoming.tags,
       owner: incoming.owner,
       rules: Object.fromEntries(
-        Object.entries(envSettings2)
-          .filter(([e]) => envs.includes(e))
-          .map(([e, v]) => [e, v.rules]),
+        envs.map((e) => [e, getRulesForEnvironment(incoming.rules, e)]),
       ),
     },
   ];
@@ -578,7 +576,7 @@ function FeatureImportRow({
         </td>
       </tr>
       {open && data.feature && (
-        <Modal
+        <ModalStandard
           trackingEventModalType=""
           open
           close={() => setOpen(false)}
@@ -610,7 +608,7 @@ function FeatureImportRow({
               />
             </>
           )}
-        </Modal>
+        </ModalStandard>
       )}
     </>
   );
@@ -723,6 +721,7 @@ export default function ImportFromLaunchDarkly() {
             <div className="row">
               <div className="col">
                 <Field
+                  size="legacy"
                   label="API Token"
                   value={token}
                   type="password"
@@ -732,6 +731,7 @@ export default function ImportFromLaunchDarkly() {
               </div>
               <div className="col-auto">
                 <Field
+                  size="legacy"
                   label="Max requests per 10 secs"
                   type="number"
                   value={intervalCap}
@@ -817,7 +817,7 @@ export default function ImportFromLaunchDarkly() {
 
       <div className="position-relative">
         {data.status === "error" ? (
-          <div className="alert alert-danger">{data.error || "Error"}</div>
+          <Callout status="error">{data.error || "Error"}</Callout>
         ) : data.status === "init" ? null : (
           <div>
             <h2>

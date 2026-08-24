@@ -7,7 +7,7 @@ export default function Document() {
     // so we suppress hydration warnings so React does not attempt to patch
     // our changes.
     // This applies only to the <html> element, not affecting any of the children.
-    <Html suppressHydrationWarning>
+    <Html suppressHydrationWarning data-scroll-behavior="smooth">
       <Head>
         <script
           dangerouslySetInnerHTML={{

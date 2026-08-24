@@ -30,7 +30,6 @@ export interface Props {
   setStatusModalOpen: (open: boolean) => void;
   setVersion: (version: number) => void;
   environment: string;
-  i: number;
   feature: FeatureInterface;
   mutate?: () => void;
 }
@@ -71,6 +70,7 @@ function getDefaultStatusAndText(
         text: "The Safe Rollout is still collecting data. Are you sure you want to stop early?",
       };
     case "ready-for-review":
+    case "scheduled-end-review":
       return {
         defaultStatus: "",
         text: "The Safe Rollout is ready for review. Are you sure you want to stop early?",
@@ -86,7 +86,6 @@ export default function SafeRolloutStatusModal({
   setStatusModalOpen,
   setVersion,
   environment,
-  i,
   feature,
   mutate,
 }: Props) {
@@ -141,6 +140,7 @@ export default function SafeRolloutStatusModal({
 
   return (
     <Modal
+      useRadixButton={false}
       open={open}
       close={() => setStatusModalOpen(false)}
       header={`End Safe Rollout`}
@@ -153,8 +153,7 @@ export default function SafeRolloutStatusModal({
             body: JSON.stringify({
               status: values.status,
               environment,
-              safeRolloutFields: values,
-              i,
+              ruleId: rule.id,
             }),
           },
         );
@@ -173,6 +172,7 @@ export default function SafeRolloutStatusModal({
       ) : null}
       <div className="mb-4">
         <SelectField
+          size="legacy"
           label="Update Safe Rollout status"
           value={form.watch("status")}
           required

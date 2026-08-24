@@ -2,9 +2,10 @@
 // Public types for useAIChat
 // ---------------------------------------------------------------------------
 
-import type { AIChatMessage } from "shared/ai-chat";
+import type { AIChatMention, AIChatMessage } from "shared/ai-chat";
+import type { AIAgentPendingAction } from "shared/validators";
 
-export type { AIChatMessage };
+export type { AIChatMention, AIChatMessage };
 
 export type ActiveTurnItem =
   | { kind: "text"; id: string; content: string }
@@ -124,13 +125,25 @@ export interface ConversationLoadResponse {
   messages: AIChatMessage[];
   isStreaming: boolean;
   lastStreamedAt: number;
+  /**
+   * Mutation parked awaiting the user's confirm/cancel decision, if any.
+   * Present so the confirmation prompt can be re-rendered after a reload.
+   */
+  pendingAction?: AIAgentPendingAction | null;
 }
 
 export interface UseAIChatReturn {
   messages: AIChatMessage[];
   activeTurnItems: ActiveTurnItem[];
   displayedTextMap: Map<string, string>;
-  sendMessage: (messageOverride?: string) => void;
+  sendMessage: (
+    messageOverride?: string,
+    options?: {
+      suppressUserMessage?: boolean;
+      mentions?: AIChatMention[];
+      skills?: string[];
+    },
+  ) => void;
   /** Cancels the active live stream. No-op unless `isLocalStream` is true. */
   cancelGeneration: () => void;
   newChat: () => void;

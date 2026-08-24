@@ -1,0 +1,43 @@
+import { createLikeStringMatchFn } from "shared/sql";
+import type { SqlDialect } from "shared/types/sql";
+import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
+import { indicesTableUnpivot } from "back-end/src/integrations/sql/clauses/indices-table-unpivot";
+import { baseDialect } from "./base";
+
+export const verticaDialect: SqlDialect = {
+  ...baseDialect,
+  formatDialect: "postgresql",
+  stringMatch: createLikeStringMatchFn({
+    escapeStringLiteral: baseDialect.escapeStringLiteral,
+    emitEscapeClause: false,
+  }),
+  dateDiff: (startCol: string, endCol: string) =>
+    `${endCol}::DATE - ${startCol}::DATE`,
+  dateDiffMs: (startCol: string, endCol: string) =>
+    `TIMESTAMPDIFF(millisecond, ${startCol}, ${endCol})`,
+  addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>
+    `TIMESTAMPADD(second, ${sign === "-" ? "-" : ""}${amount}, ${col})`,
+  castToFloat: (col: string) => `${col}::float`,
+  formatDate: (col: string) => `to_char(${col}, 'YYYY-MM-DD')`,
+  formatDateTimeString: (col: string) =>
+    `to_char(${col}, 'YYYY-MM-DD HH24:MI:SS.MS')`,
+  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
+    const raw = `MAPLOOKUP(MapJSONExtractor(${jsonCol}), '${path}')`;
+    return isNumeric ? verticaDialect.castToFloat(raw) : raw;
+  },
+  percentileApprox: (value: string, quantile: string | number) =>
+    `APPROXIMATE_PERCENTILE(${value} USING PARAMETERS percentiles='${quantile}')`,
+  percentileCapSelectClause: (values, metricTable, where = "") =>
+    defaultPercentileCapSelectClause(
+      verticaDialect,
+      values,
+      metricTable,
+      where,
+    ),
+
+  // Vertica's FROM clause rejects bare VALUES, and LATERAL derived tables are
+  // restricted to a single SELECT (no UNION).
+  unpivotLabeledPairs: indicesTableUnpivot,
+
+  arrayElement: (arrayCol: string, index: number) => `${arrayCol}[${index}]`,
+};

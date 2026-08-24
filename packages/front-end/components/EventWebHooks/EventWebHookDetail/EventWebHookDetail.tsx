@@ -160,7 +160,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
               style={{ height: "2rem", width: "2rem" }}
             />
           </Box>
-          <Text as="div" size="x-large" weight="semibold">
+          <Text as="div" size="xl" weight="semibold">
             {name}
           </Text>
           {enabled && <Badge label="Enabled" color="gray" variant="soft" />}
@@ -216,7 +216,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
                 confirmation={{
                   confirmationTitle: "Delete Webhook",
                   cta: "Delete",
-                  submitColor: "danger",
+                  ctaColor: "red",
                   submit: async () => {
                     await onDelete();
                     setDropdownOpen(false);

@@ -1,20 +1,19 @@
-import React, { FC, useMemo } from "react";
+import React, { FC } from "react";
 import { Flex } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Tag from "@/components/Tags/Tag";
 import {
   BaseSearchFiltersProps,
   FilterDropdown,
-  SearchFiltersItem,
   useSearchFiltersBase,
 } from "@/components/Search/SearchFilters";
-import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
-import { useUser } from "@/services/UserContext";
+import { useExperimentFilterCategories } from "@/components/Search/experimentFilterCategories";
 
 const ExperimentSearchFilters: FC<
   BaseSearchFiltersProps & {
     experiments: ExperimentInterfaceStringDates[];
     allowDrafts?: boolean;
+    showStatusFilter?: boolean;
   }
 > = ({
   searchInputProps,
@@ -22,6 +21,7 @@ const ExperimentSearchFilters: FC<
   experiments,
   setSearchValue,
   allowDrafts = true,
+  showStatusFilter = true,
 }) => {
   const {
     dropdownFilterOpen,
@@ -34,110 +34,20 @@ const ExperimentSearchFilters: FC<
     syntaxFilters,
     setSearchValue,
   });
-  const { getOwnerDisplay } = useUser();
-  const allMetrics = useCombinedMetrics({});
-  // const [createdOperator, setCreatedOperator] = useState("<");
-  // const [createdDate, setCreatedDate] = useState<Date | undefined>();
-  // const [updatedOperator, setUpdatedOperator] = useState(">");
-  // const [updatedDate, setUpdatedDate] = useState<Date | undefined>();
-  //
-  // const dateOperatorsOptions = [
-  //   { label: "Newer than", value: ">" },
-  //   { label: "Older than", value: "<" },
-  // ];
 
-  const availableTags = useMemo(() => {
-    const availableTags: string[] = [];
-    experiments.forEach((item) => {
-      if (item.tags) {
-        item.tags.forEach((tag) => {
-          if (!availableTags.includes(tag)) {
-            availableTags.push(tag);
-          }
-        });
-      }
-    });
-    return availableTags;
-  }, [experiments]);
-
-  const metricsMap = useMemo(() => {
-    const map = new Map();
-    allMetrics.forEach((m) => {
-      map.set(m.id, {
-        name: m.name,
-        id: m.id,
-        searchValue: m.name,
-        disabled: true,
-      });
-    });
-
-    experiments.forEach((e) => {
-      const enableMetric = (m: string) => {
-        if (m && map.has(m)) {
-          map.set(m, {
-            ...map.get(m),
-            disabled: false,
-          });
-        }
-      };
-
-      e.goalMetrics?.forEach(enableMetric);
-      e.secondaryMetrics?.forEach(enableMetric);
-      e.guardrailMetrics?.forEach(enableMetric);
-    });
-
-    return map;
-  }, [allMetrics, experiments]);
-
-  const owners = useMemo(() => {
-    const owners = new Set<string>();
-    experiments.forEach((e) => {
-      if (e.owner) {
-        owners.add(getOwnerDisplay(e.owner));
-      }
-    });
-    return Array.from(owners);
-  }, [experiments, getOwnerDisplay]);
-
-  const availableExperimentTypes = useMemo(() => {
-    const experimentTypes = new Set<string>();
-    experiments.forEach((e) => {
-      if (e.linkedFeatures) {
-        experimentTypes.add("feature");
-      }
-      if (e.hasURLRedirects) {
-        experimentTypes.add("redirect");
-      }
-      if (e.hasVisualChangesets) {
-        experimentTypes.add("visualChange");
-      }
-    });
-    return Array.from(experimentTypes);
-  }, [experiments]);
-  const allExperimentTypes: SearchFiltersItem[] = [
-    {
-      name: "Feature Flag",
-      id: "exp-type-flag",
-      searchValue: "feature",
-      disabled: !availableExperimentTypes.includes("feature"),
-    },
-    {
-      name: "Visual Change",
-      id: "exp-type-visual",
-      searchValue: "visualChange",
-      disabled: !availableExperimentTypes.includes("visualChange"),
-    },
-    {
-      name: "URL Redirect",
-      id: "exp-type-redirect",
-      searchValue: "redirect",
-      disabled: !availableExperimentTypes.includes("redirect"),
-    },
-  ];
+  // Shared source of truth for the filter taxonomy (see SidebarExperimentFilters).
+  const {
+    availableTags,
+    metricItems,
+    owners,
+    resultItems,
+    statusItems,
+    typeItems,
+  } = useExperimentFilterCategories({ experiments, allowDrafts });
 
   return (
     <Flex gap="5" align="center">
-      {!project && (
+      {!project && projects.length > 0 && (
         <FilterDropdown
           filter="project"
           heading="Project"
@@ -156,7 +66,7 @@ const ExperimentSearchFilters: FC<
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
-        items={Array.from(metricsMap.values())}
+        items={metricItems}
         updateQuery={updateQuery}
       />
       <FilterDropdown
@@ -176,56 +86,20 @@ const ExperimentSearchFilters: FC<
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
-        items={[
-          {
-            searchValue: "won",
-            id: "isWon",
-            name: "Won",
-          },
-          {
-            searchValue: "lost",
-            id: "isLost",
-            name: "Lost",
-          },
-          {
-            searchValue: "inconclusive",
-            id: "isInconclusive",
-            name: "Inconclusive",
-          },
-          {
-            searchValue: "dnf",
-            id: "isDNF",
-            name: "Did not finish",
-          },
-        ]}
+        items={resultItems}
         updateQuery={updateQuery}
       />
-      <FilterDropdown
-        filter="status"
-        heading="Status"
-        syntaxFilters={syntaxFilters}
-        open={dropdownFilterOpen}
-        setOpen={setDropdownFilterOpen}
-        items={[
-          {
-            searchValue: "draft",
-            id: "draft",
-            name: "Draft",
-            disabled: !allowDrafts,
-          },
-          {
-            searchValue: "running",
-            id: "running",
-            name: "Running",
-          },
-          {
-            searchValue: "stopped",
-            id: "stopped",
-            name: "Stopped",
-          },
-        ]}
-        updateQuery={updateQuery}
-      />
+      {showStatusFilter && (
+        <FilterDropdown
+          filter="status"
+          heading="Status"
+          syntaxFilters={syntaxFilters}
+          open={dropdownFilterOpen}
+          setOpen={setDropdownFilterOpen}
+          items={statusItems}
+          updateQuery={updateQuery}
+        />
+      )}
       <FilterDropdown
         filter="tag"
         heading="Tag"
@@ -247,7 +121,7 @@ const ExperimentSearchFilters: FC<
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
-        items={allExperimentTypes}
+        items={typeItems}
         updateQuery={updateQuery}
       />
       {/*<DropdownMenu*/}

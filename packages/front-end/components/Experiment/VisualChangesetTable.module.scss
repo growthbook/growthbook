@@ -1,0 +1,580 @@
+// Component-local stylesheet for the redesigned "Values" block (visual
+// editor changesets on the experiment page).
+//
+// All colors / radii reference Radix theme tokens (`--accent-N`,
+// `--gray-N`, `--orange-N`, `--radius-N`, etc.) so dark mode swaps come
+// for free. The literal hex values from the design handoff are mapped to
+// the closest Radix step:
+//
+//   text high-contrast (#1F2D5C ink)           → --gray-12
+//   text low-contrast / soft (#60646C, #80838D) → --gray-11
+//   faint (#8B8D98)                            → --gray-10 / --gray-a9
+//   hairlines (#EDEEF0)                        → --gray-a4
+//   borders (#DDDEE3 / #E6E7EB)                → --gray-a6 / --gray-a5
+//   alt surface (#F7F7FA)                      → --gray-a3
+//   accent / accent-soft / accent-text         → --accent-9 / --accent-3 / --accent-11
+//   blue link (#006DCB)                        → --blue-11
+//   greens / reds for include/exclude          → --green / --red scales
+//
+// The card surface itself uses `.appbox` (already in the codebase,
+// dark-mode-aware) — we only add a local `cardChrome` class to layer
+// `overflow: hidden` so child hairlines clip correctly.
+
+// ---- Container ----
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+// Co-class with `.appbox` to add the design's overflow/clip behavior
+// without redefining the box's surface or border.
+.cardChrome {
+  overflow: hidden;
+  padding: 0;
+}
+
+// ---- Card header band ----
+// No tinted background — the band sits on the appbox surface; the
+// border-bottom hairline alone separates it from the targeting region.
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--gray-a4);
+}
+
+.cardHeaderTitleBlock {
+  min-width: 0;
+  flex: 1;
+}
+
+.cardUrlRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.cardUrl {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--blue-11);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cardUrl:hover {
+  text-decoration: underline;
+}
+
+.cardSummary {
+  display: inline-block;
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--gray-11);
+  font-weight: 500;
+}
+
+.launchBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-panel-solid);
+  border: 1px solid var(--gray-a6);
+  color: var(--accent-11);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 13px;
+  border-radius: var(--radius-2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.launchBtn:hover {
+  background: var(--accent-a3);
+}
+
+.iconBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-2);
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--gray-a6);
+  color: var(--gray-10);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.iconBtn:hover {
+  background: var(--gray-a3);
+  color: var(--gray-12);
+}
+
+// ---- Targeting rows ----
+.targeting {
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--gray-a4);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.targetRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.targetLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--gray-a9);
+  // min-width (not width) so the label keeps a stable column for
+  // short text but expands to fit longer labels like "APPLIES TO"
+  // without overflowing its box.
+  min-width: 58px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.targetLabelExcept {
+  color: var(--red-11);
+}
+
+.ruleChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--gray-a3);
+  border: 1px solid var(--gray-a5);
+  border-radius: var(--radius-5);
+  padding: 4px 9px;
+  max-width: 100%;
+}
+
+.ruleChipExclude {
+  background: var(--red-a3);
+  border-color: var(--red-a6);
+}
+
+.ruleDot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-5);
+  flex-shrink: 0;
+  background: var(--green-9);
+}
+
+.ruleDotExclude {
+  background: var(--red-9);
+}
+
+.rulePattern {
+  font-family: var(--code-font-family);
+  font-size: 11.5px;
+  color: var(--gray-11);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rulePatternExclude {
+  color: var(--red-11);
+}
+
+.regexBadge {
+  font-family: var(--code-font-family);
+  font-size: 10px;
+  font-weight: 600;
+  flex-shrink: 0;
+  color: var(--accent-11);
+  background: var(--accent-a3);
+  border: 1px solid var(--accent-a6);
+  border-radius: var(--radius-1);
+  padding: 0 4px;
+}
+
+.editTargetingBtn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-11);
+}
+
+.editTargetingBtn:hover {
+  text-decoration: underline;
+}
+
+.variationRow {
+  padding: 0px 24px;
+}
+
+.variationHead {
+  display: flex;
+  align-items: center;
+  gap: 48px;
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+.variationSwatch {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-5);
+  flex-shrink: 0;
+  border: 2px solid var(--swatch-color, var(--blue-9));
+  color: var(--swatch-color, var(--blue-9));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.variationName {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--gray-12);
+  width: 92px;
+}
+
+.splitWrap {
+  width: 120px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.splitTrack {
+  width: 46px;
+  height: 6px;
+  border-radius: var(--radius-1);
+  background: var(--gray-a4);
+  overflow: hidden;
+}
+
+.splitFill {
+  display: block;
+  height: 100%;
+  background: var(--swatch-color, var(--blue-9));
+  border-radius: var(--radius-1);
+}
+
+.splitLabel {
+  font-size: 13px;
+  color: var(--gray-11);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.changesArea {
+  flex: 1;
+  min-width: 0;
+}
+
+.changesEmpty {
+  font-size: 13px;
+  color: var(--gray-a9);
+}
+
+.changesToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: transparent;
+  border: 1px solid var(--gray-a6);
+  border-radius: var(--radius-2);
+  padding: 5px 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-12);
+}
+
+.changesToggle:hover {
+  background: var(--gray-a3);
+}
+
+.changesToggleOpen {
+  background: var(--accent-a3);
+  border-color: transparent;
+  color: var(--accent-11);
+}
+
+.changesToggleOpen:hover {
+  background: var(--accent-a4);
+}
+
+.changesChev {
+  display: inline-flex;
+  color: var(--gray-a9);
+}
+
+.changesChevOpen {
+  color: var(--accent-11);
+}
+
+.rowActions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-shrink: 0;
+}
+
+.ghostAction {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  color: var(--gray-11);
+}
+
+.ghostAction:hover {
+  text-decoration: underline;
+}
+
+.ghostAccent {
+  color: var(--accent-11);
+}
+
+// Expanded change list under a variation row.
+.changeList {
+  padding: 2px 0px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+// ---- Change row ----
+.change {
+  border: 1px solid var(--gray-a5);
+  border-radius: var(--radius-3);
+  overflow: hidden;
+  background: var(--color-panel-solid);
+}
+
+.changeHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 13px;
+}
+
+.typeTile {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-3);
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--tone-soft);
+  color: var(--tone-solid);
+}
+
+.changeText {
+  flex: 1;
+  min-width: 0;
+}
+
+.changeHeadline {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.changeVerbTitle {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--gray-12);
+}
+
+.selectorChip {
+  font-family: var(--code-font-family);
+  font-size: 11.5px;
+  color: var(--gray-11);
+  background: var(--gray-a3);
+  border: 1px solid var(--gray-a5);
+  padding: 1px 6px;
+  border-radius: var(--radius-1);
+  // Long selectors wrap here (the chip now lives in the raw-values panel,
+  // not as an inline headline chip), so break rather than overflow.
+  word-break: break-all;
+}
+
+// "Applies to: <selector>" row at the top of the raw-values panel. Moved
+// out of the headline because a CSS selector isn't human-readable.
+.appliesTo {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.appliesToLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gray-11);
+  flex-shrink: 0;
+}
+
+.changeHuman {
+  font-size: 12.5px;
+  color: var(--gray-11);
+  margin-top: 2px;
+}
+
+.afterChip {
+  font-family: var(--code-font-family);
+  font-size: 11.5px;
+  color: var(--tone-text);
+  background: var(--tone-soft);
+  border-radius: var(--radius-2);
+  padding: 3px 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-weight: 500;
+}
+
+.codeToggle {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-2);
+  cursor: pointer;
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--gray-a5);
+  color: var(--gray-a9);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.codeToggle:hover {
+  background: var(--gray-a3);
+  color: var(--gray-12);
+}
+
+.codeToggleOpen {
+  background: var(--gray-a3);
+  color: var(--gray-12);
+}
+
+// Per-change-row delete affordance. Same dimensions as the code
+// toggle so the action cluster reads as one row; hover reveals a
+// red tint to flag the destructive nature. Reuses the codeToggle
+// base via class composition would be tidier — kept separate so
+// hover/disabled rules don't bleed.
+.deleteRowBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-2);
+  cursor: pointer;
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--gray-a5);
+  color: var(--gray-a9);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.deleteRowBtn:hover {
+  background: var(--red-a3);
+  border-color: var(--red-a6);
+  color: var(--red-11);
+}
+
+// Per-variation delete trash. Sits in the variation row's action
+// cluster alongside Preview / Edit. Quieter at rest than the code
+// toggle (no border), red on hover for the destructive signal.
+.variationDeleteBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-2);
+  cursor: pointer;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--gray-a9);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.variationDeleteBtn:hover {
+  background: var(--red-a3);
+  color: var(--red-11);
+}
+
+.codePanel {
+  padding: 0 13px 12px 55px;
+}
+
+// Image-swap preview: a contained thumbnail above the raw src line.
+// `max-height` is the gate; max-width fills available space so we
+// don't squash wider-than-tall images. Light background so transparent
+// PNGs read against both light and dark themes.
+.imagePreview {
+  margin-bottom: 8px;
+  padding: 6px;
+  border: 1px solid var(--gray-a5);
+  border-radius: var(--radius-2);
+  background: var(--gray-a2);
+  display: inline-block;
+  max-width: 100%;
+
+  img {
+    display: block;
+    max-width: 100%;
+    max-height: 160px;
+    object-fit: contain;
+    border-radius: var(--radius-1);
+  }
+}
+
+.codeBlock {
+  margin: 0;
+  font-family: var(--code-font-family);
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--gray-11);
+  background: var(--gray-a3);
+  border: 1px solid var(--gray-a5);
+  border-radius: var(--radius-2);
+  padding: 9px 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+// ---- Card footer (Environments) ----
+// Hosts the shared <EnvironmentStatesGrid /> drop-down. The grid brings
+// its own padding (p="4" px="5") — we only add the hairline divider
+// above so the env section reads as a banded section of the card.
+.cardFooter {
+  border-top: 1px solid var(--gray-a4);
+}
+
+// Used on small icons inside other regions of the card.
+.footerIcon {
+  color: var(--gray-a9);
+  display: inline-flex;
+}

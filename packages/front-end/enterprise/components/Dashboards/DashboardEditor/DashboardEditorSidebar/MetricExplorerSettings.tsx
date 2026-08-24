@@ -7,11 +7,12 @@ import { Flex, TextField, Text, Box } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiSlidersHorizontal, PiWrench } from "react-icons/pi";
 import { FaAngleRight } from "react-icons/fa";
-import { FactTableInterface } from "shared/types/fact-table";
+import { FactTableDefinition } from "shared/types/fact-table";
 import { Select, SelectItem } from "@/ui/Select";
+import Switch from "@/ui/Switch";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import PopulationChooser from "@/components/MetricAnalysis/PopulationChooser";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -26,7 +27,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
   const { getFactMetricById, getFactTableById } = useDefinitions();
   const metric = getFactMetricById(block.factMetricId);
   const factTable = getFactTableById(metric?.numerator?.factTableId || "");
-  let denominatorFactTable: FactTableInterface | null = null;
+  let denominatorFactTable: FactTableDefinition | null = null;
 
   if (metric?.denominator?.factTableId) {
     if (metric?.numerator?.factTableId !== metric?.denominator?.factTableId) {
@@ -113,7 +114,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
               {metric && factTable && (
                 <Select
                   label="Unit"
-                  size="2"
+                  size="md"
                   value={block.analysisSettings.userIdType}
                   placeholder="Select unit"
                   setValue={(v) =>
@@ -158,7 +159,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
               {metric && metric?.metricType !== "ratio" && (
                 <Select
                   label="Metric Value"
-                  size="2"
+                  size="md"
                   value={block.valueType}
                   placeholder="Select value"
                   setValue={(v) =>
@@ -177,7 +178,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
               )}
               <Select
                 label="Date Range"
-                size="2"
+                size="md"
                 value={
                   isCustomLookback
                     ? "-1"
@@ -265,7 +266,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
 
               <Select
                 label="Graph Type"
-                size="2"
+                size="md"
                 value={block.visualizationType}
                 placeholder="Select value"
                 setValue={(v) =>
@@ -278,12 +279,33 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
                   })
                 }
               >
-                <SelectItem value="bigNumber">Big Number</SelectItem>
+                <SelectItem value="bigNumber">Big Numbers</SelectItem>
                 <SelectItem value="timeseries">Timeseries</SelectItem>
                 {metric?.metricType === "mean" && (
                   <SelectItem value="histogram">Histogram</SelectItem>
                 )}
               </Select>
+              {block.visualizationType !== "histogram" && (
+                <Switch
+                  label="Compare to previous period"
+                  description="Overlay the prior period of equal length for context. The previous window rolls with the date range."
+                  value={!!block.comparison?.enabled}
+                  onChange={(checked) =>
+                    setBlock({
+                      ...block,
+                      comparison: {
+                        ...(block.comparison ?? {}),
+                        enabled: checked,
+                      },
+                      // Drop the stale comparison analysis when turning off so
+                      // we don't render data from a previous configuration.
+                      comparisonMetricAnalysisId: checked
+                        ? block.comparisonMetricAnalysisId
+                        : "",
+                    })
+                  }
+                />
+              )}
             </Flex>
           </Box>
         </Collapsible>
@@ -368,6 +390,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
           <Box p="4" height="fit-content">
             <Flex direction="column" gap="4">
               <MultiSelectField
+                legacyHeight
                 label={
                   <Flex align="center" gap="1">
                     <Text as="label" size="3" weight="medium">
@@ -407,6 +430,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
               />
               {metric?.denominator?.factTableId ? (
                 <MultiSelectField
+                  legacyHeight
                   label={
                     <Flex align="center" gap="1">
                       <Text as="label" size="3" weight="medium">

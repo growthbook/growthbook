@@ -1973,15 +1973,10 @@ export async function runImport(options: RunImportOptions) {
             for (const linkedFeatureId of linkedFeatureIds) {
               const linkedFeature = featuresMap.get(linkedFeatureId);
               if (linkedFeature) {
-                // Check if this feature has experiment-ref rules for this experiment
-                const hasExperimentRef = Object.values(
-                  linkedFeature.environmentSettings || {},
-                ).some((envSettings) =>
-                  envSettings.rules?.some(
-                    (rule) =>
-                      rule.type === "experiment-ref" &&
-                      rule.experimentId === existingExperiment.id,
-                  ),
+                const hasExperimentRef = (linkedFeature.rules ?? []).some(
+                  (rule) =>
+                    rule.type === "experiment-ref" &&
+                    rule.experimentId === existingExperiment.id,
                 );
                 if (hasExperimentRef) {
                   existingCompanionFeature = linkedFeature;

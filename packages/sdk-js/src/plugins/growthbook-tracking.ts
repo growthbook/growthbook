@@ -47,6 +47,12 @@ function parseString(value: unknown): null | string {
   return typeof value === "string" ? value : null;
 }
 
+function utf8ByteLength(str: string): number {
+  return typeof TextEncoder !== "undefined"
+    ? new TextEncoder().encode(str).length
+    : str.length * 3; // conservative upper bound without TextEncoder
+}
+
 function parseAttributes(attributes: Attributes): {
   nested: Attributes;
   topLevel: {
@@ -124,29 +130,46 @@ function getEventPayload({
   };
 }
 
+export type TrackingTransport = "auto" | "beacon" | "fetch";
+
 async function track({
   clientKey,
   ingestorHost,
   events,
-  keepalive = false,
+  useBeacon,
 }: {
   events: EventPayload[];
   clientKey: string;
   ingestorHost?: string;
-  // keepalive prevents the browser from canceling the request on unload
-  // (capped at 64KB per request, well above a typical batch)
-  keepalive?: boolean;
+  useBeacon?: boolean;
 }) {
   if (!events.length) return;
 
   const endpoint = `${
-    ingestorHost || "https://us1.gb-ingest.com"
+    ingestorHost || "https://us-east-1.gb-ingest.com"
   }/track?client_key=${clientKey}`;
   const payload = {
     events,
     sentAt: new Date().toISOString(),
   };
   const body = JSON.stringify(payload);
+
+  // sendBeacon is queued by the browser and survives page unload even where
+  // fetch keepalive is unsupported. text/plain keeps it a CORS simple request.
+  // Unlike the fetch below, sendBeacon cannot omit credentials; use
+  // transport "fetch" if cookies must never reach the ingestor origin.
+  if (useBeacon && typeof navigator !== "undefined" && navigator.sendBeacon) {
+    try {
+      if (
+        navigator.sendBeacon(endpoint, new Blob([body], { type: "text/plain" }))
+      ) {
+        return;
+      }
+      // Beacon rejected (e.g. payload over the beacon quota) - fall through
+    } catch (e) {
+      // Fall through to fetch
+    }
+  }
 
   try {
     await fetch(endpoint, {
@@ -157,7 +180,11 @@ async function track({
         "Content-Type": "text/plain",
       },
       credentials: "omit",
-      keepalive,
+      // Let the request outlive the page; exposures fired just before a
+      // navigation (e.g. redirect tests) are otherwise cancelled by the
+      // browser. Keepalive bodies share a 64KB in-flight *byte* quota and
+      // larger ones are rejected outright, so oversized batches skip it.
+      keepalive: utf8ByteLength(body) < 60000,
     });
   } catch (e) {
     console.error("Failed to track event", e);
@@ -172,6 +199,7 @@ export function growthbookTrackingPlugin({
   dedupeCacheSize = 1000,
   dedupeKeyAttributes = [],
   eventFilter,
+  transport = "auto",
 }: {
   // TODO: add option to allow filtering out certain attributes that contain PII
   queueFlushInterval?: number;
@@ -181,6 +209,9 @@ export function growthbookTrackingPlugin({
   dedupeCacheSize?: number;
   dedupeKeyAttributes?: string[];
   eventFilter?: (event: EventData) => boolean;
+  // "auto" (default): fetch with keepalive, plus sendBeacon when the page is
+  // unloading. "beacon": always prefer sendBeacon. "fetch": never use beacon.
+  transport?: TrackingTransport;
 } = {}) {
   return (gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient) => {
     const clientKey = gb.getClientKey();
@@ -191,22 +222,37 @@ export function growthbookTrackingPlugin({
     // LRU cache for events to avoid duplicates
     const eventCache = new Set<string>();
 
+    const isMultiUser = "createScopedInstance" in gb;
+
     if ("setEventLogger" in gb) {
       let _q: EventPayload[] = [];
       let timer: NodeJS.Timeout | null = null;
       let isUnloading = false;
       let promise: Promise<void> | null = null;
-      const flush = async (keepalive = false) => {
+      let flushDone: (() => void) | null = null;
+      const flush = async (unloading?: boolean) => {
         const events = _q;
         _q = [];
         timer && clearTimeout(timer);
         timer = null;
-        // Reset so the next logEvent starts a fresh batch — otherwise a
-        // manual flush (e.g. on visibilitychange) leaves callers awaiting
-        // a promise whose setTimeout we just cleared
+        // Release the in-flight promise so later events schedule a new flush
+        // (an unload flush cancels the timer that would have released it,
+        // which would otherwise stall the queue for the rest of the page)
+        const done = flushDone;
+        flushDone = null;
         promise = null;
-        events.length &&
-          (await track({ clientKey, events, ingestorHost, keepalive }));
+        try {
+          events.length &&
+            (await track({
+              clientKey,
+              events,
+              ingestorHost,
+              useBeacon:
+                transport === "beacon" || (transport === "auto" && !!unloading),
+            }));
+        } finally {
+          done && done();
+        }
       };
       gb.setEventLogger(async (eventName, properties, userContext) => {
         const data: EventData = {
@@ -232,7 +278,14 @@ export function growthbookTrackingPlugin({
             eventName,
             properties,
           };
-          for (const key of dedupeKeyAttributes) {
+          // Feature Evaluated has no unit identity, unlike Experiment Viewed
+          const featureEvaluatedIdentityAttributes = dedupeKeyAttributes.length
+            ? dedupeKeyAttributes
+            : isMultiUser && eventName === EVENT_FEATURE_EVALUATED
+              ? Object.keys(data.attributes)
+              : [];
+
+          for (const key of featureEvaluatedIdentityAttributes) {
             dedupeKeyData["attr:" + key] = data.attributes[key];
           }
 
@@ -263,54 +316,62 @@ export function growthbookTrackingPlugin({
 
         _q.push(payload);
 
+        // The page is tearing down; a delayed flush would never fire
         if (isUnloading) {
-          flush().catch(console.error);
-        } else {
-          // Only one in-progress promise at a time
-          if (!promise) {
-            promise = new Promise((resolve, reject) => {
-              // Flush the queue after a delay
-              timer = setTimeout(() => {
-                flush().then(resolve).catch(reject);
-                promise = null;
-              }, queueFlushInterval);
-            });
-          }
-          await promise;
+          await flush(true);
+          return;
         }
+
+        // Only one in-progress promise at a time
+        if (!promise) {
+          promise = new Promise((resolve) => {
+            flushDone = resolve;
+            // Flush the queue after a delay
+            timer = setTimeout(() => {
+              flush().catch(console.error);
+            }, queueFlushInterval);
+          });
+        }
+        await promise;
       });
 
-      // Flush on unload (both events; web-vitals does the same):
-      //   visibilitychange → hidden: reliable on iOS Safari when backgrounding;
-      //     don't set isUnloading so a tab switch doesn't degrade batching
-      //   pagehide: actual unload signal (also fires for bfcache); set
-      //     isUnloading so further events skip the queue delay
-      // Both flush with keepalive so the request survives teardown.
-      let removeUnloadListener: (() => void) | null = null;
-      if (typeof window !== "undefined" && "addEventListener" in window) {
+      // Flush the queue on page unload. Listeners are removed on destroy so
+      // SPA re-inits don't accumulate handlers over dead instances.
+      // visibilitychange → hidden doesn't set isUnloading so a tab switch
+      // doesn't degrade batching for the rest of the page.
+      if (typeof document !== "undefined" && document.visibilityState) {
         const onVisibilityChange = () => {
-          document.visibilityState === "hidden" &&
+          if (document.visibilityState === "hidden") {
             flush(true).catch(console.error);
+          }
         };
+        document.addEventListener("visibilitychange", onVisibilityChange);
+        "onDestroy" in gb &&
+          gb.onDestroy(() =>
+            document.removeEventListener(
+              "visibilitychange",
+              onVisibilityChange,
+            ),
+          );
+      }
+      // pagehide fires on navigations where visibilitychange may not; it's the
+      // real unload signal, so later events skip the queue delay
+      if (typeof window !== "undefined") {
         const onPageHide = () => {
           isUnloading = true;
           flush(true).catch(console.error);
         };
-        document.addEventListener("visibilitychange", onVisibilityChange);
         window.addEventListener("pagehide", onPageHide);
-        removeUnloadListener = () => {
-          document.removeEventListener("visibilitychange", onVisibilityChange);
-          window.removeEventListener("pagehide", onPageHide);
-        };
+        "onDestroy" in gb &&
+          gb.onDestroy(() =>
+            window.removeEventListener("pagehide", onPageHide),
+          );
       }
 
       // Flush the queue when the growthbook instance is destroyed
       "onDestroy" in gb &&
         gb.onDestroy(() => {
-          isUnloading = true;
-          flush(true).catch(console.error);
-          removeUnloadListener?.();
-          removeUnloadListener = null;
+          flush().catch(console.error);
         });
     }
 

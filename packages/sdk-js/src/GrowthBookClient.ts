@@ -31,7 +31,7 @@ import {
   clearAutoRefresh,
   configureCache,
   refreshFeatures,
-  startStreaming,
+  startBackgroundSync,
   unsubscribe,
 } from "./feature-repository";
 import {
@@ -39,6 +39,7 @@ import {
   evalFeature as _evalFeature,
   getAllStickyBucketAssignmentDocs,
   getApiHosts,
+  getTrackingUserContext,
   runExperiment,
 } from "./core";
 import { StickyBucketService } from "./sticky-bucket-service";
@@ -95,6 +96,9 @@ export class GrowthBookClient<
     if (data.savedGroups) {
       this._options.savedGroups = data.savedGroups;
     }
+    if (data.contextualBandits) {
+      this._options.contextualBandits = data.contextualBandits;
+    }
     this.ready = true;
   }
 
@@ -110,13 +114,19 @@ export class GrowthBookClient<
     if (payload.features) {
       this._features = payload.features;
     }
+    if (payload.savedGroups) {
+      this._options.savedGroups = payload.savedGroups;
+    }
+    if (payload.contextualBandits) {
+      this._options.contextualBandits = payload.contextualBandits;
+    }
     if (payload.experiments) {
       this._experiments = payload.experiments;
     }
 
     this.ready = true;
 
-    startStreaming(this, options);
+    startBackgroundSync(this, options);
 
     return this;
   }
@@ -130,7 +140,7 @@ export class GrowthBookClient<
 
     if (options.payload) {
       await this.setPayload(options.payload);
-      startStreaming(this, options);
+      startBackgroundSync(this, options);
       return {
         success: true,
         source: "init",
@@ -140,7 +150,7 @@ export class GrowthBookClient<
         ...options,
         allowStale: true,
       });
-      startStreaming(this, options);
+      startBackgroundSync(this, options);
       await this.setPayload(data || {});
       return res;
     }
@@ -243,7 +253,11 @@ export class GrowthBookClient<
   ) {
     if (this._options.eventLogger) {
       const ctx = this._getEvalContext(userContext);
-      this._options.eventLogger(eventName, properties, ctx.user);
+      this._options.eventLogger(
+        eventName,
+        properties,
+        getTrackingUserContext(ctx.user),
+      );
     }
   }
 
@@ -287,10 +301,12 @@ export class GrowthBookClient<
       enabled: this._options.enabled,
       qaMode: this._options.qaMode,
       savedGroups: this._options.savedGroups,
+      contextualBandits: this._options.contextualBandits,
       forcedFeatureValues: this._options.forcedFeatureValues,
       forcedVariations: this._options.forcedVariations,
       trackingCallback: this._options.trackingCallback,
       onFeatureUsage: this._options.onFeatureUsage,
+      eventLogger: this._options.eventLogger,
     };
   }
 
@@ -443,6 +459,9 @@ export class UserScopedGrowthBook<
 
   public setTrackingCallback(cb: TrackingCallback) {
     this._userContext.trackingCallback = cb;
+  }
+  public setFeatureUsageCallback(cb: FeatureUsageCallback) {
+    this._userContext.onFeatureUsage = cb;
   }
   public getApiInfo(): [ApiHost, ClientKey] {
     return this._gb.getApiInfo();

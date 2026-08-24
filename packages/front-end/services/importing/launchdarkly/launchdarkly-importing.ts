@@ -7,6 +7,7 @@ import {
 } from "shared/types/feature";
 import { ConditionInterface } from "@growthbook/growthbook-react";
 import { uniqBy } from "lodash";
+import { stemRuleId, suffixRuleId } from "shared/util";
 import { ApiCallType } from "@/services/auth";
 
 // Various utilities to help migrate from another service to GrowthBook
@@ -380,6 +381,7 @@ export const transformLDFeatureFlag = (
   const defaultValue = variationValues[defaultValueIndex];
 
   const gbEnvironments: FeatureInterface["environmentSettings"] = {};
+  const allRules: FeatureRule[] = [];
   envKeys.forEach((envKey) => {
     const envData = environments[envKey];
 
@@ -417,6 +419,7 @@ export const transformLDFeatureFlag = (
           type: "force",
           id: `rule_prereqs_${i}`,
           description: `Prerequisite feature ${i + 1}`,
+          allEnvironments: false,
           prerequisites: [
             {
               id: key,
@@ -445,6 +448,7 @@ export const transformLDFeatureFlag = (
         type: "force",
         id: `rule_targets_${i}`,
         description: "Targets",
+        allEnvironments: false,
         condition: JSON.stringify({
           id: {
             $in: target.values,
@@ -485,6 +489,7 @@ export const transformLDFeatureFlag = (
             type: "experiment",
             id: rule._id || `rule_${i}`,
             description: rule.description || "",
+            allEnvironments: false,
             condition: JSON.stringify(cond),
             enabled: true,
             hashAttribute: rule.rollout.bucketBy || "id",
@@ -507,6 +512,7 @@ export const transformLDFeatureFlag = (
           type: "force",
           id: rule._id || `rule_${i}`,
           description: rule.description || "",
+          allEnvironments: false,
           condition: JSON.stringify(cond),
           enabled: true,
           value: variationValues[rule.variation],
@@ -529,6 +535,7 @@ export const transformLDFeatureFlag = (
         type: "force",
         id: `rule_fallthrough`,
         description: "Fallthrough",
+        allEnvironments: false,
         enabled: true,
         value: variationValues[fallthrough],
         condition: "{}",
@@ -538,8 +545,23 @@ export const transformLDFeatureFlag = (
 
     gbEnvironments[envKey] = {
       enabled: environments[envKey].on,
-      rules: rules,
     };
+    // v2 unified-rules invariant: every rule in `feature.rules` must have a
+    // unique id within the feature. LaunchDarkly synthesizes rule ids per-env
+    // (e.g. `rule_prereqs_0`, `rule_targets_0`, `rule_fallthrough`) and real
+    // LD rule `_id`s are globally unique but not guaranteed to be, so we
+    // defensively env-scope every imported id using the same `__<env>`
+    // migration-suffix convention the JIT flattener uses. This makes
+    // importer output byte-identical to a post-JIT-split feature and
+    // guarantees no cross-env id collisions in the unified array.
+    for (const r of rules) {
+      allRules.push({
+        ...r,
+        id: suffixRuleId(stemRuleId(r.id), envKey),
+        allEnvironments: false,
+        environments: [envKey],
+      });
+    }
   });
 
   const owner = _maintainer
@@ -548,6 +570,7 @@ export const transformLDFeatureFlag = (
 
   return {
     environmentSettings: gbEnvironments,
+    rules: allRules,
     defaultValue: defaultValue,
     project,
     id: key,

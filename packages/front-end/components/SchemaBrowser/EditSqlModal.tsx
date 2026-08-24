@@ -66,6 +66,7 @@ export interface Props {
       | "Fact Table"
       | "Identity Join"
       | "Experiment Assignment Query"
+      | "Contextual Bandit Assignment Query"
       | "Metric"
       | "Segment"
       | "Feature Usage Query";
@@ -140,6 +141,9 @@ export default function EditSqlModal({
           datasourceId: datasourceId,
           templateVariables: templateVariables,
           limit: apply5RowLimit ? 5 : undefined,
+          timestampColumn: requiredColumns.has("timestamp")
+            ? "timestamp"
+            : undefined,
         }),
       });
 
@@ -261,6 +265,7 @@ export default function EditSqlModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open
       header={
@@ -359,7 +364,7 @@ export default function EditSqlModal({
                         </Tooltip>
                         {canFormat ? (
                           <RadixButton
-                            size="sm"
+                            size="md"
                             variant="ghost"
                             onClick={handleFormatClick}
                             disabled={!form.watch("sql")}
@@ -452,6 +457,7 @@ export default function EditSqlModal({
                           </Text>
                           {hasEventName && (
                             <Field
+                              size="legacy"
                               label="eventName"
                               labelClassName="mr-2"
                               value={templateVariables?.eventName || ""}
@@ -470,6 +476,7 @@ export default function EditSqlModal({
                           )}
                           {hasValueCol && (
                             <Field
+                              size="legacy"
                               label="valueColumn"
                               labelClassName="mr-2"
                               value={templateVariables?.valueColumn || ""}

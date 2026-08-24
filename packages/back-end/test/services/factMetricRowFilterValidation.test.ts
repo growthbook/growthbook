@@ -156,12 +156,13 @@ describe("factMetricRowFilterValidation", () => {
         errorPrefix: "Invalid row filter SQL: ",
       });
 
-      const [query, testDays, templateVariables] =
+      const [query, testDays, templateVariables, timestampColumn] =
         getTestValidityQuery.mock.calls[0];
       expect(query).toContain("WHERE (amount > 100\n)");
       expect(query).not.toContain("country = 'US'");
       expect(testDays).toBe(1);
       expect(templateVariables).toEqual({ eventName: "orders" });
+      expect(timestampColumn).toBe("timestamp");
       expect(runTestQuery).toHaveBeenCalledWith(
         "SELECT * FROM __table LIMIT 0",
         undefined,

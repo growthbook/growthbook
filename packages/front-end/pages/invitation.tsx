@@ -4,6 +4,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
 import { useAuth, redirectWithTimeout } from "@/services/auth";
 import { trackPageView } from "@/services/track";
+import Callout from "@/ui/Callout";
 
 const InvitationPage = (): React.ReactElement => {
   const { apiCall } = useAuth();
@@ -53,7 +54,7 @@ const InvitationPage = (): React.ReactElement => {
     ? "Missing required invite key parameter in URL. Please go back to your email and click the invite link again."
     : keyError?.message;
   if (error) {
-    return <div className="alert alert-danger">{error}</div>;
+    return <Callout status="error">{error}</Callout>;
   }
 
   if (!data) {

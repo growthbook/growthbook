@@ -1,4 +1,5 @@
 import Handlebars, { HelperOptions } from "handlebars";
+import type { SqlDialect } from "shared/types/sql";
 
 // Adapted from https://github.com/helpers/handlebars-helpers
 import formatInTimeZone from "date-fns-tz/formatInTimeZone";
@@ -264,4 +265,49 @@ helpers.uppercase = strictHelper(function (str: string) {
 helpers.date = strictHelper(function (dateStr: string, formatStr: string) {
   // Convert to UTC as that is what most DBs store
   return formatInTimeZone(parseISO(dateStr), "UTC", formatStr);
+});
+
+/**
+ * Safely quote a value as a SQL string literal. String/number/boolean values
+ * are coerced to a string, escaped using the `escapeStringLiteral` from the
+ * dialect supplied via `compileSqlTemplate` (when available), and wrapped in
+ * single quotes. Other types (null, undefined values passed via a variable,
+ * objects, arrays) render as `''`.
+ *
+ * When no dialect is provided (e.g. outside of `compileSqlTemplate`), the
+ * helper falls back to doubling both backslashes and single quotes. This is
+ * safe on databases that treat backslash as an escape character inside string
+ * literals (e.g. MySQL in its default mode, BigQuery, ClickHouse, Databricks)
+ * and on ANSI-SQL dialects; without it, a value like
+ * `foo\'; DROP TABLE users; --` would escape out of the wrapping quotes on
+ * backslash-sensitive dialects.
+ *
+ * ```handlebars
+ * {{sqlstring customFields.region}}
+ * <!-- for "us-east" results in:  'us-east' -->
+ * <!-- for "it's" results in:  'it''s' -->
+ * ```
+ * @param {unknown} `val` The value to quote.
+ * @return {String}
+ * @api public
+ */
+helpers.sqlstring = strictHelper(function (...args: unknown[]) {
+  // Handlebars always passes the HelperOptions object as the last argument.
+  const options = args[args.length - 1] as HelperOptions;
+  const val = args.length > 1 ? args[0] : undefined;
+
+  if (
+    typeof val !== "string" &&
+    typeof val !== "number" &&
+    typeof val !== "boolean"
+  ) {
+    return new Handlebars.SafeString("''");
+  }
+
+  const dialect = options?.data?.dialect as SqlDialect | undefined;
+  const escape =
+    dialect?.escapeStringLiteral ??
+    ((s: string) => s.replace(/\\/g, "\\\\").replace(/'/g, "''"));
+
+  return new Handlebars.SafeString("'" + escape(String(val)) + "'");
 });

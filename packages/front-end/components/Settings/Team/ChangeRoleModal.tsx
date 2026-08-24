@@ -1,15 +1,17 @@
-import React, { FC, useState } from "react";
+import { FC, useState } from "react";
 import { MemberRoleWithProjects } from "shared/types/organization";
-import Modal from "@/components/Modal";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import RoleSelector from "./RoleSelector";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import RoleRulesTable from "./RoleRulesTable";
+import { TeamRuleSource } from "./roleRules";
 
 const ChangeRoleModal: FC<{
   displayInfo: string;
   roleInfo: MemberRoleWithProjects;
-  close?: () => void;
+  teams?: TeamRuleSource[];
+  close: () => void;
   onConfirm: (data: MemberRoleWithProjects) => Promise<void>;
-}> = ({ roleInfo, displayInfo, close, onConfirm }) => {
+}> = ({ roleInfo, displayInfo, teams, close, onConfirm }) => {
   const [value, setValue] = useState(roleInfo);
 
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -25,24 +27,23 @@ const ChangeRoleModal: FC<{
   }
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       close={close}
       header="Change Role"
+      subheader={
+        <>
+          Change role for <strong>{displayInfo}</strong>
+        </>
+      }
       open={true}
+      size="xl"
       submit={async () => {
         await onConfirm(value);
       }}
     >
-      <p>
-        Change role for <strong>{displayInfo}</strong>:
-      </p>
-      <RoleSelector
-        value={value}
-        setValue={setValue}
-        showUpgradeModal={() => setUpgradeModal(true)}
-      />
-    </Modal>
+      <RoleRulesTable value={value} setValue={setValue} teams={teams} />
+    </ModalStandard>
   );
 };
 

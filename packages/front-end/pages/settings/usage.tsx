@@ -2,6 +2,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CloudUsage from "@/components/Settings/Usage/CloudUsage";
 import { useUser } from "@/services/UserContext";
 import OrbPortal from "@/enterprise/components/Billing/OrbPortal";
+import Callout from "@/ui/Callout";
 
 export default function UsagePage() {
   const permissionsUtil = usePermissionsUtil();
@@ -10,9 +11,9 @@ export default function UsagePage() {
   if (!permissionsUtil.canViewUsage()) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           You do not have access to view this page.
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -20,11 +21,11 @@ export default function UsagePage() {
   if (subscription?.isVercelIntegration) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-info">
+        <Callout status="info">
           This page is not available for organizations whose plan is managed by
           Vercel. Please go to your Vercel Integration Dashboard to view your
           usage and billing information.
-        </div>
+        </Callout>
       </div>
     );
   }

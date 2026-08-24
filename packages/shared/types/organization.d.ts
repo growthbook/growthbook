@@ -15,9 +15,10 @@ import {
   AccountPlan,
   CommercialFeature,
   LicenseInterface,
+  OrgLimits,
   SubscriptionInfo,
 } from "shared/enterprise";
-import { AIModel, EmbeddingModel } from "shared/ai";
+import { AIModel, AIProvider, EmbeddingModel } from "shared/ai";
 import {
   AgreementType,
   environment,
@@ -31,7 +32,6 @@ import {
   projectMemberRole,
 } from "shared/validators";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
-import { ApiKeyInterface } from "shared/types/apikey";
 import { TeamInterface } from "shared/types/team";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
@@ -53,25 +53,50 @@ export type Permission =
 
 export type PermissionsObject = Partial<Record<Permission, boolean>>;
 
+/** A principal's permissions in one scope, merged across their roles. */
 export type UserPermission = {
+  /** Union across roles. Legacy fallback — check environments via `envsAllowedBy`. */
   environments: string[];
   limitAccessByEnvironment: boolean;
   permissions: PermissionsObject;
+  /**
+   * Per role: its env-scoped permissions with its own env restriction, so one
+   * role's permission can't borrow another's environments. Absent for roles
+   * granting nothing env-scoped, and for payloads predating the field.
+   */
+  envGrants?: {
+    environments: string[];
+    limitAccessByEnvironment: boolean;
+    permissions: Permission[];
+  }[];
 };
 
 export type UserPermissions = {
   global: UserPermission;
   projects: { [key: string]: UserPermission };
 };
+// An absent inheritable field falls back to the all-projects rule. The selector
+// (`projects`) and the rule's own switch (`requireReviewOn`) never inherit.
 export type RequireReview = {
   requireReviewOn: boolean;
-  resetReviewOnChange: boolean;
-  environments: string[];
   projects: string[];
+  resetReviewOnChange?: boolean;
+  environments?: string[];
   featureRequireEnvironmentReview?: boolean;
   featureRequireMetadataReview?: boolean;
   // When true, co-authors (contributors[]) are also blocked from approving, not just the original author.
   blockSelfApproval?: boolean;
+  autopublishOnApproval?: boolean;
+  // A requirement on the approval SET, not on who may approve. Any ONE of these
+  // teams satisfies the rule; a second rule is a separate requirement.
+  requiredApproverTeams?: string[];
+};
+
+// Whether secondary targeting projects impose their own review requirements
+// (strict) or only the primary governs (loose). Most-specific-wins; default strict.
+export type TargetingReviewRule = {
+  projects: string[];
+  mode: "strict" | "loose";
 };
 
 export type OwnerJobTitle = keyof typeof OWNER_JOB_TITLES;
@@ -200,6 +225,33 @@ export type ExperimentUpdateSchedule = {
 
 export type Environment = z.infer<typeof environment>;
 
+export type ApprovalFlowConfiguration = {
+  // Selector; empty (or absent, on rows predating the field) = all projects.
+  projects?: string[];
+  required: boolean;
+  // Inherited from the all-projects rule when absent, as in RequireReview.
+  requireMetadataReview?: boolean;
+  // Same meaning as the flag family's: a requirement on the approval SET.
+  requiredApproverTeams?: string[];
+  // When true, anyone listed in `revision.contributors` (including the author)
+  // is blocked from approving the revision. A separate, non-contributor
+  // reviewer is required.
+  blockSelfApproval?: boolean;
+  autopublishOnApproval?: boolean;
+  resetReviewOnChange?: boolean;
+};
+
+export type ApprovalFlowConfigurations = {
+  savedGroups: ApprovalFlowConfiguration[];
+};
+
+// Team requirements are deliberately absent here: a multi-project entity has
+// several governing rules, and flattening their teams turns "A and B" into "A or B".
+export type ApprovalFlowPolicy = Omit<
+  ApprovalFlowConfiguration,
+  "projects" | "requiredApproverTeams"
+>;
+
 export interface OrganizationSettings {
   visualEditorEnabled?: boolean;
   confidenceLevel?: number;
@@ -220,7 +272,7 @@ export interface OrganizationSettings {
   sdkInstructionsViewed?: boolean;
   videoInstructionsViewed?: boolean;
   multipleExposureMinPercent?: number;
-  defaultRole?: MemberRoleInfo;
+  defaultRole?: MemberRoleWithProjects;
   statsEngine?: StatsEngine;
   pValueThreshold?: number;
   pValueCorrection?: PValueCorrection;
@@ -233,6 +285,14 @@ export interface OrganizationSettings {
   embeddingModel?: EmbeddingModel;
   /** @deprecated */
   openAIDefaultModel?: AIModel;
+  // Per-surface overrides for the Visual Editor. Image model is a free
+  // string (not AIModel) because Gemini image-model ids live in their
+  // own namespace and rev independently of the text-model union.
+  visualEditorAIModel?: AIModel;
+  visualEditorImageModel?: string;
+  // Free-text brand guidelines appended to the Visual Editor AI system
+  // prompt (e.g. tone, brand colors, button casing).
+  visualEditorAIContext?: string;
   implementationTypes?: ImplementationType[];
   attributionModel?: AttributionModel;
   sequentialTestingEnabled?: boolean;
@@ -242,10 +302,45 @@ export interface OrganizationSettings {
   /** @deprecated */
   killswitchConfirmation?: boolean;
   requireReviews?: boolean | RequireReview[];
+  // Reviewers must hold review rights in every environment a draft touches.
+  // Project-scoped rules; absent/no-match = strict.
+  targetingReviewMode?: TargetingReviewRule[];
+  // Default extensibility for newly authored configs. When true (default),
+  // base configs allow child configs / feature rules to add extra keys unless
+  // a config explicitly opts out via its own `extensible` flag.
+  configsExtensibleByDefault?: boolean;
+  // Default value of the per-config "experiment guard" for newly created configs.
+  // The guard soft-blocks publishing a config whose value is served to a running
+  // experiment. Seeded onto each config at creation (a concrete per-config flag),
+  // so changing this default doesn't retroactively affect existing configs.
+  // Absent = off.
+  configExperimentGuardDefault?: boolean;
+  // Whether publishing a revision is BLOCKED when its values don't match the
+  // JSON schema (features and configs). Per-write validation always runs (opt
+  // out per request with ?skipSchemaValidation=true); this governs the re-check
+  // at publish, which catches values that became invalid after the fact (e.g. a
+  // schema change, an ancestor-config change, or a value staged with the skip
+  // flag). true (default) blocks the publish; false surfaces a bypassable soft
+  // warning instead. Absent = true.
+  blockPublishOnSchemaError?: boolean;
+  // When enabled, a feature draft whose base version is behind the current
+  // live version (or whose approval has gone stale) must be rebased
+  // ("Rebase with live") before it can be published.
+  requireRebaseBeforePublish?: boolean;
+  // When enabled, anyone with publish permission can revert to a previously
+  // published revision and publish it immediately, even when approvals are
+  // otherwise required. Reverts restore an already-reviewed state, so the
+  // revert UI defaults to "Publish now". Applies to features and saved groups.
+  revertsBypassApproval?: boolean;
+  // Soft cap on active (unpublished, non-discarded) drafts per feature.
+  // Advisory only: the UI warns and asks for confirmation, REST returns an
+  // escapable 409 (`overrideDraftLimit=true`), and automated processes
+  // (ramps, experiment linkages, reverts, reopens) ignore it entirely.
+  // 0 or absent = no cap.
+  maxConcurrentDrafts?: number;
   restApiBypassesReviews?: boolean;
   defaultDataSource?: string;
   testQueryDays?: number;
-  disableMultiMetricQueries?: boolean;
   disablePrecomputedDimensions?: boolean;
   useStickyBucketing?: boolean;
   useFallbackAttributes?: boolean;
@@ -254,7 +349,26 @@ export interface OrganizationSettings {
   codeRefsPlatformUrl?: string;
   featureKeyExample?: string; // Example Key of feature flag (e.g. "feature-20240201-name")
   featureRegexValidator?: string; // Regex to validate feature flag name (e.g. ^.+-\d{8}-.+$)
+  // When enabled, new JSON feature-flag rules start in "sparse patch" mode (the
+  // rule value is a partial object merged onto the feature's default value).
+  // The rule editor opens already in sparse mode with a clean-slate value.
+  // Only affects new rules on eligible JSON features; off by default.
+  sparseJSONRulesByDefault?: boolean;
   requireProjectForFeatures?: boolean;
+  requireProjectForSdkConnections?: boolean;
+  // When true, saving a feature rule or experiment rejects hashAttribute,
+  // fallbackAttribute, or condition keys that don't appear (unarchived) in
+  // attributeSchema. Prevents typo'd attributes silently never matching at
+  // eval time. Mirrors the existing saved-group "Unknown attributeKey" check.
+  // Two-toggle gate for the opt-in attribute registration check. Stored as
+  // an object so we can split the "must be a registered attribute" check
+  // from the stricter "must also be scoped to this project" check. The
+  // legacy boolean shape is still accepted on read for back-compat —
+  // `getRequireRegisteredAttributesSettings` normalizes both into the
+  // canonical { isOn, requireProjectScoping } pair.
+  requireRegisteredAttributes?:
+    | boolean
+    | { isOn: boolean; requireProjectScoping: boolean };
   featureListMarkdown?: string;
   featurePageMarkdown?: string;
   experimentListMarkdown?: string;
@@ -263,11 +377,14 @@ export interface OrganizationSettings {
   metricPageMarkdown?: string;
   preferredEnvironment?: string | null; // null (or undefined) means "remember previous environment"
   maxMetricSliceLevels?: number;
+  topValuesLookbackValue?: number;
+  topValuesLookbackUnit?: "days";
   banditScheduleValue?: number;
   banditScheduleUnit?: "hours" | "days";
   banditBurnInValue?: number;
   banditBurnInUnit?: "hours" | "days";
   requireExperimentTemplates?: boolean;
+  requireUniqueExperimentTrackingKeys?: boolean;
   experimentMinLengthDays?: number;
   experimentMaxLengthDays?: number;
   decisionFrameworkEnabled?: boolean;
@@ -279,6 +396,33 @@ export interface OrganizationSettings {
   /** @deprecated Use postStratificationEnabled instead */
   postStratificationDisabled?: boolean;
   postStratificationEnabled?: boolean;
+  approvalFlows?: ApprovalFlowConfigurations;
+  learningStatuses?: LearningStatus[];
+  // When true, members can't create user-attributed API tokens and existing
+  // ones are rejected at authentication. Covers Personal Access Tokens and
+  // OAuth-issued access tokens; app-issued Visual Editor keys are unaffected.
+  disablePersonalAccessTokens?: boolean;
+}
+
+export type LearningStatusColor =
+  | "gray"
+  | "blue"
+  | "cyan"
+  | "indigo"
+  | "violet"
+  | "purple"
+  | "amber"
+  | "orange"
+  | "yellow"
+  | "green"
+  | "teal"
+  | "red"
+  | "pink";
+
+export interface LearningStatus {
+  id: string;
+  label: string;
+  color?: LearningStatusColor;
 }
 
 export interface OrganizationConnections {
@@ -364,7 +508,9 @@ export interface OrganizationInterface {
   customRoles?: Role[];
   deactivatedRoles?: string[];
   disabled?: boolean;
+  suspended?: boolean;
   setupEventTracker?: string;
+  limits?: OrgLimits;
 }
 
 export type NamespaceUsage = Record<
@@ -387,7 +533,6 @@ export type GetOrganizationResponse = {
   seatsInUse: number;
   roles: Role[];
   agreements: AgreementType[];
-  apiKeys: ApiKeyInterface[];
   enterpriseSSO: Partial<SSOConnectionInterface> | null;
   accountPlan: AccountPlan;
   effectiveAccountPlan: AccountPlan;
@@ -405,6 +550,9 @@ export type GetOrganizationResponse = {
     features: string[];
   };
   usage: OrganizationUsage;
+  // Providers with a usable key, stored or inherited from the environment.
+  // Non-secret, and rides along here so AI gating needs no separate request.
+  aiKeyProviders: AIProvider[];
 };
 
 export type DailyUsage = {

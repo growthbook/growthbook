@@ -1,5 +1,6 @@
 import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { isManagedWarehouseUnavailable } from "shared/util";
 import {
   Fragment,
   useCallback,
@@ -12,6 +13,7 @@ import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight, FaTable } from "react-icons/fa";
 import { cloneDeep } from "lodash";
 import clsx from "clsx";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { CursorData } from "@/components/Segments/SegmentForm";
@@ -22,6 +24,7 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
+import Callout from "@/ui/Callout";
 import SchemaBrowserWrapper from "./SchemaBrowserWrapper";
 import RetryInformationSchemaCard from "./RetryInformationSchemaCard";
 import PendingInformationSchemaCard from "./PendingInformationSchemaCard";
@@ -39,9 +42,13 @@ export default function SchemaBrowser({
   updateSqlInput,
   cursorData,
 }: Props) {
+  const managedWarehousePending = isManagedWarehouseUnavailable(datasource);
+
   const { data, mutate } = useApi<{
     informationSchema: InformationSchemaInterfaceWithPaths;
-  }>(`/datasource/${datasource.id}/schema`);
+  }>(`/datasource/${datasource.id}/schema`, {
+    shouldRun: () => !managedWarehousePending,
+  });
 
   const informationSchema = data?.informationSchema;
   const permissionsUtil = usePermissionsUtil();
@@ -255,6 +262,14 @@ export default function SchemaBrowser({
     refreshOrCreateInfoSchema,
   ]);
 
+  if (managedWarehousePending) {
+    return (
+      <div className="d-flex flex-column h-100 p-2">
+        <ManagedWarehouseNoEventsCallout />
+      </div>
+    );
+  }
+
   if (!data) return <LoadingSpinner />;
 
   return (
@@ -444,7 +459,11 @@ export default function SchemaBrowser({
         )}
       </PanelGroup>
 
-      {error && <div className="alert alert-danger mt-2 mb-0">{error}</div>}
+      {error && (
+        <Callout status="error" mt="2" mb="0">
+          {error}
+        </Callout>
+      )}
     </div>
   );
 }

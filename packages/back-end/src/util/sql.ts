@@ -1,5 +1,5 @@
 import Handlebars from "handlebars";
-import { SQLVars } from "shared/types/sql";
+import { SQLVars, SqlDialect } from "shared/types/sql";
 import { FactTableColumnType, JSONColumnFields } from "shared/types/fact-table";
 import { helpers } from "./handlebarsHelpers";
 
@@ -60,6 +60,9 @@ function usesTemplateVariable(sql: string, variableName: string) {
 }
 
 // Compile sql template with handlebars, replacing vars (e.g. '{{startDate}}') and evaluating helpers (e.g. '{{camelcase eventName}}')
+// Pass `dialect` so dialect-aware helpers like `{{sqlstring}}` produce output
+// that's safe for the current database. When omitted, helpers fall back to a
+// conservative dialect-agnostic escape.
 export function compileSqlTemplate(
   sql: string,
   {
@@ -70,6 +73,7 @@ export function compileSqlTemplate(
     customFields,
     phase,
   }: SQLVars,
+  dialect?: SqlDialect,
 ) {
   // If there's no end date, use a near future date by default
   // We want to use at least 24 hours in the future in case of timezone issues
@@ -141,7 +145,9 @@ export function compileSqlTemplate(
       ),
       knownHelpersOnly: true,
     });
-    return template(replacements);
+    return template(replacements, {
+      data: { dialect },
+    });
   } catch (e) {
     if (e.message.includes("not defined in [object Object]")) {
       const variableName = e.message.match(/"(.+?)"/)[1];

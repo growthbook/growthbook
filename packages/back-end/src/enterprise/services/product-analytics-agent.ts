@@ -1,12 +1,16 @@
+import { setTimeout as delay } from "timers/promises";
 import { z } from "zod";
 import {
   tryParseToolResultJson,
   toolResultSnapshotId,
+  type AIChatMention,
   type AIChatToolResultPart,
 } from "shared/ai-chat";
 import {
+  dateRangePredefined,
   ExplorationConfig,
   explorationConfigValidator,
+  ProductAnalyticsExploration,
   ProductAnalyticsResultRow,
 } from "shared/validators";
 import {
@@ -14,6 +18,13 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
+import {
+  clearInapplicableShowAs,
+  getEffectiveShowAs,
+  getIsRatioByIndex,
+  buildExplorationColumns,
+  getExplorationCellValue,
+} from "shared/enterprise";
 import type { ReqContext } from "back-end/types/request";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { aiTool } from "back-end/src/enterprise/services/ai";
@@ -28,7 +39,8 @@ import {
   getAllFactTablesForOrganization,
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { runColumnsTopValuesQuery } from "back-end/src/jobs/refreshFactTableColumns";
+import { getMetricById } from "back-end/src/models/MetricModel";
+import { runColumnsTopValuesQuery } from "back-end/src/services/factTableColumns";
 
 // =============================================================================
 // Constants & system prompt
@@ -61,8 +73,9 @@ If the user asks for data that spans both a fact table and a metric (different e
 </chart_rules>
 
 <dimension_rules>
-Only use dimensionType 'dynamic'. Never use 'static' or 'slice'.
-'dynamic' shows the top N values for a column — set maxValues (1–20, default 5).
+Only use dimensionType 'dynamic' or 'static'. Never use 'slice'.
+'dynamic' shows the top N values for a column — set maxValues (1–20, default 5). Use this for an open-ended "break down by X" request.
+'static' pins a fixed list of column values (1–20, set via values) — rows whose column value isn't in the list are dropped (no top-N/'other' bucket). Use this when the user names specific values to compare (e.g. "compare US vs UK vs Canada"). Always call getColumnValues first to confirm the real values before setting them — never guess.
 Use dateGranularity 'auto' by default for date dimensions; only use a specific granularity (hour/day/week/month/year) when the user requests it.
 Maximum 2 total dimensions (including the date dimension for timeseries). If dataset has more than 1 value, max 1 dimension.
 bigNumber charts (only when explicitly requested): 0 dimensions and exactly 1 value.
@@ -76,9 +89,27 @@ For cumulative charts, include 0 dimensions by default — just show the total.
 Always follow the unitNote returned by getAvailableColumns:
 - fact_table valueType "unit_count": set unit to userIdTypes[0] (e.g. "user_id") unless user specifies otherwise.
 - fact_table valueType "count" or "sum": unit must be null.
-- metric: set unit for proportion, retention, dailyParticipation, and ratio-distinct metrics using userIdTypes[0]; null for all others.
+- metric: always set unit to userIdTypes[0] for standard metric types (mean, proportion, retention, dailyParticipation). The backend requires a unit to emit the denominator needed for per-unit rendering. For ratio and quantile metrics, leave unit null (they handle units internally).
 - denominatorUnit: always null.
+
+If you omit unit on a standard metric, the backend will fill in userIdTypes[0] automatically and return a configNormalized warning. Prefer setting it explicitly.
 </unit_rules>
+
+<show_as_rules>
+showAs is an optional top-level field that toggles how numeric values are rendered: "total" shows the raw numerator, "per_unit" divides by the unit count (e.g. avg per user).
+
+DEFAULT: Omit showAs in almost all cases. The UI infers a sensible default from the selected metrics — totals for most datasets, per-unit only for mean metrics whose aggregation makes totals incoherent (max, count distinct).
+
+SET showAs explicitly ONLY when the user's request clearly asks for one view:
+- "per user", "per device", "average per X", "rate" → "per_unit"
+- "total X", "sum of X", "how much X did we have" → "total"
+
+showAs has no effect on these dataset types — do not set it:
+- fact_table / data_source datasets (always renders as the raw value)
+- metric datasets where every value is a proportion, retention, dailyParticipation, ratio, or quantile metric (the toggle is hidden in the UI because per-unit is either degenerate or self-contained)
+
+Set showAs only when at least one value is a mean metric.
+</show_as_rules>
 
 <value_column_rules>
 For fact_table values:
@@ -90,13 +121,14 @@ For fact_table values:
 <row_filter_rules>
 rowFilters shape: { operator, column, values }
 Common operators: "=", "!=", "in", "not_in", "contains", "not_contains", "starts_with", "ends_with", "is_null", "not_null".
+For date columns only, "between" and "not_between" take exactly two values (a lower and an upper bound); "!=" and "is_null" are not offered for date columns.
 CRITICAL — never guess column values for filters. Always call getColumnValues first. Pass a searchTerm for partial matches (e.g. 'US' to find 'United States').
 getColumnValues only works on string-typed columns.
 </row_filter_rules>
 
 <date_range_rules>
 "last14Days" is NOT a valid predefined value. For 14 days use: { predefined: "customLookback", lookbackValue: 14, lookbackUnit: "day" }.
-Valid predefined values: "today", "last7Days", "last30Days", "last90Days", "customLookback", "customDateRange".
+Valid predefined values: ${dateRangePredefined.map((v) => `"${v}"`).join(", ")}.
 </date_range_rules>
 
 <search_rules>
@@ -115,6 +147,11 @@ CRITICAL search strategy:
 <tool_notes>
 runExploration returns resultCsv, config, snapshotId, and rowCount. Use resultCsv for analysis and insights. The chart is displayed automatically — do not embed config JSON in your text.
 getSnapshot retrieves config and CSV for older/compacted snapshots by snapshotId. Prefer the runExploration return value for the current run.
+
+resultCsv column conventions (so you describe the same numbers the user sees on the chart):
+- Standard metric columns: one value column per metric. The header tells you the mode — "<name>" means raw totals, "<name> per <unit>" means per-unit averages (the value is numerator/denominator). Report the numbers in the header's mode.
+- Ratio metric columns: three columns — "<name> Numerator", "<name> Denominator", "<name> Value" (= N/D). Ratio metrics always render as N/D.
+- The column headers reflect the effective showAs (explicit if you set it, otherwise the UI-inferred default). Never assume a different mode than what the header says.
 </tool_notes>
 
 <response_style>
@@ -156,6 +193,14 @@ async function buildProductAnalyticsSystemPrompt(
       : "") +
     `There are ${metrics.length} metrics and ${allFactTables.length} fact tables available. ` +
     "Use the search tool to discover them — pass an empty query to browse, or a search term to filter.\n\n" +
+    "A user message may begin with an auto-injected line of the form\n" +
+    "  [Referenced by the user: Revenue (factMetric: fact__xyz)]\n" +
+    "The chat UI adds it when the user @-mentioned entities in the composer — it is " +
+    "not something they typed, so do not echo it. It maps each `@Name` already in " +
+    "their text to the exact id they picked, so use those ids directly rather than " +
+    "calling search to re-resolve the name. An entry marked STALE was picked under a " +
+    "different datasource and is not usable here — say so, name it, and ask the user " +
+    "to re-pick it rather than searching for a replacement.\n\n" +
     buildConfigSchemaSummary() +
     "\n\n" +
     PA_SYSTEM_INSTRUCTIONS
@@ -185,7 +230,7 @@ export function findSnapshot(
 function buildConfigSchemaSummary(): string {
   return [
     "<config_schema>",
-    "Top-level: { type, datasource, chartType, dateRange, dimensions, dataset }",
+    "Top-level: { type, datasource, chartType, dateRange, dimensions, dataset, showAs? }",
     'type: "metric" | "fact_table"',
     'chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber"',
     "dateRange: { predefined, lookbackValue?, lookbackUnit?, startDate?, endDate? }",
@@ -193,9 +238,11 @@ function buildConfigSchemaSummary(): string {
     "dimensions: array of dimension objects:",
     "  date: { dimensionType: 'date', column: null, dateGranularity: 'auto'|'hour'|'day'|'week'|'month'|'year' }",
     "  dynamic: { dimensionType: 'dynamic', column: string, maxValues: number (1-20) }",
+    "  static: { dimensionType: 'static', column: string, values: string[] (1-20) }",
     'dataset for type="metric": { type: "metric", values: [{ type: "metric", name, metricId, unit, denominatorUnit, rowFilters }] }',
     'dataset for type="fact_table": { type: "fact_table", factTableId, values: [{ type: "fact_table", name, valueType: "unit_count"|"count"|"sum", valueColumn, unit, rowFilters }] }',
     'rowFilters: [{ operator: "="|"!="|"in"|"not_in"|"contains"|"not_contains"|"starts_with"|"ends_with"|"is_null"|"not_null", column: string, values: string[] }]',
+    'showAs (optional): "total" | "per_unit" — chart-level toggle between raw totals and per-unit averages for mean metrics. Omit to use the smart default (see show_as_rules).',
     "Always pass a complete config object to runExploration.",
     "</config_schema>",
   ].join("\n");
@@ -211,9 +258,21 @@ function buildSnapshotSummary(
     parts.push(
       `Initial: ${curr.chartType} chart, ${curr.type} dataset, date range ${curr.dateRange.predefined}`,
     );
-    const valueNames = curr.dataset?.values?.map((v) => v.name).filter(Boolean);
-    if (valueNames?.length) {
-      parts.push(`values: ${valueNames.join(", ")}`);
+    if (curr.dataset?.type === "funnel") {
+      const stepNames = curr.dataset.steps?.map((s) => s.name).filter(Boolean);
+      if (stepNames?.length) {
+        parts.push(`steps: ${stepNames.join(", ")}`);
+      }
+    } else {
+      const valueNames = curr.dataset?.values
+        ?.map((v) => v.name)
+        .filter(Boolean);
+      if (valueNames?.length) {
+        parts.push(`values: ${valueNames.join(", ")}`);
+      }
+    }
+    if (curr.showAs) {
+      parts.push(`showAs: ${curr.showAs}`);
     }
     return parts.join(", ");
   }
@@ -227,12 +286,28 @@ function buildSnapshotSummary(
     );
   }
 
-  const prevNames = prev.dataset?.values?.map((v) => v.name) ?? [];
-  const currNames = curr.dataset?.values?.map((v) => v.name) ?? [];
-  const added = currNames.filter((n) => !prevNames.includes(n));
-  const removed = prevNames.filter((n) => !currNames.includes(n));
-  if (added.length) parts.push(`added: ${added.join(", ")}`);
-  if (removed.length) parts.push(`removed: ${removed.join(", ")}`);
+  // Funnels carry "steps"; everything else carries "values". Diff whichever
+  // shape applies; treat shape change as a coarse "dataset changed".
+  if (prev.dataset?.type === "funnel" && curr.dataset?.type === "funnel") {
+    const prevSteps = prev.dataset.steps.map((s) => s.name);
+    const currSteps = curr.dataset.steps.map((s) => s.name);
+    const added = currSteps.filter((n) => !prevSteps.includes(n));
+    const removed = prevSteps.filter((n) => !currSteps.includes(n));
+    if (added.length) parts.push(`added steps: ${added.join(", ")}`);
+    if (removed.length) parts.push(`removed steps: ${removed.join(", ")}`);
+  } else if (
+    prev.dataset?.type !== "funnel" &&
+    curr.dataset?.type !== "funnel"
+  ) {
+    const prevNames = prev.dataset?.values?.map((v) => v.name) ?? [];
+    const currNames = curr.dataset?.values?.map((v) => v.name) ?? [];
+    const added = currNames.filter((n) => !prevNames.includes(n));
+    const removed = prevNames.filter((n) => !currNames.includes(n));
+    if (added.length) parts.push(`added: ${added.join(", ")}`);
+    if (removed.length) parts.push(`removed: ${removed.join(", ")}`);
+  } else if (prev.dataset?.type !== curr.dataset?.type) {
+    parts.push(`dataset type: ${prev.dataset?.type} → ${curr.dataset?.type}`);
+  }
 
   const prevDims = prev.dimensions?.length ?? 0;
   const currDims = curr.dimensions?.length ?? 0;
@@ -244,82 +319,81 @@ function buildSnapshotSummary(
     parts.push("datasource changed");
   }
 
+  if ((prev.showAs ?? null) !== (curr.showAs ?? null)) {
+    parts.push(
+      `showAs: ${prev.showAs ?? "inferred"} → ${curr.showAs ?? "inferred"}`,
+    );
+  }
+
   return parts.length ? parts.join(", ") : "minor config update";
 }
 
+/**
+ * Serialize exploration result rows into a CSV for the agent. Column schema
+ * and per-cell value selection are produced by the shared helpers that also
+ * drive the Explorer result table, so the agent always sees the same columns
+ * and the same numbers the user sees on screen.
+ *
+ * Display-layer concerns (number precision, date formatting, the "Total"
+ * dimension fallback) are handled here — each surface is free to format how
+ * it prefers, but the underlying column set and cell values are identical.
+ */
 function buildResultCsv(
   rows: ProductAnalyticsResultRow[],
   config: ExplorationConfig | null,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
 ): string | null {
   if (!rows.length || !config) return null;
 
-  const dimHeaders: string[] = (config.dimensions ?? []).map((d) => {
-    if (d.dimensionType === "date") return "Date";
-    if (d.dimensionType === "dynamic") return d.column ?? "Dimension";
-    if (d.dimensionType === "static") return d.column;
-    if (d.dimensionType === "slice") return "Slice";
-    return "Dimension";
-  });
-  if (!dimHeaders.length) dimHeaders.push("Total");
+  const columns = buildExplorationColumns(config, getFactMetricById);
+  if (columns.length === 0) return null;
 
-  const valueNames = config.dataset?.values?.map((v) => v.name) ?? [];
-  const hasDenom = valueNames.map((_, i) =>
-    rows.some((r) => r.values[i]?.denominator != null),
-  );
+  const renderOpts = {
+    showAs: getEffectiveShowAs(config, getFactMetricById),
+    isRatioByIndex: getIsRatioByIndex(config, getFactMetricById),
+  };
 
-  const metricHeaders: string[] = [];
-  for (let i = 0; i < valueNames.length; i++) {
-    if (hasDenom[i]) {
-      metricHeaders.push(
-        `${valueNames[i]} Numerator`,
-        `${valueNames[i]} Denominator`,
-        `${valueNames[i]} Value`,
-      );
-    } else {
-      metricHeaders.push(valueNames[i]);
+  const hasNoDimensions = !config.dimensions || config.dimensions.length === 0;
+
+  const escape = (c: string): string =>
+    c.includes('"') || c.includes(",") || c.includes("\n")
+      ? `"${c.replace(/"/g, '""')}"`
+      : c;
+
+  const formatCell = (
+    raw: string | number | null,
+    col: (typeof columns)[number],
+  ): string => {
+    if (col.kind === "dimension") {
+      if (raw == null || raw === "") return hasNoDimensions ? "Total" : "";
+      return typeof raw === "number" ? String(raw) : raw;
     }
-  }
+    if (raw == null) return "";
+    if (col.sub === "numerator" || col.sub === "denominator") {
+      return typeof raw === "number" ? String(raw) : String(raw);
+    }
+    // value (ratio) and single: 4dp for ratios/per-unit, integer for totals.
+    if (typeof raw === "number") {
+      const isRatioOrPerUnit =
+        col.sub === "value" ||
+        (col.sub === "single" && renderOpts.isRatioByIndex[col.metricIndex]) ||
+        (col.sub === "single" && renderOpts.showAs === "per_unit");
+      return isRatioOrPerUnit ? raw.toFixed(4) : String(raw);
+    }
+    return String(raw);
+  };
 
-  const header = [...dimHeaders, ...metricHeaders].join(",");
+  const header = columns.map((c) => escape(c.label)).join(",");
 
   const truncated = rows.slice(0, MAX_RESULT_ROWS);
-  const dataLines = truncated.map((row) => {
-    const dimCells =
-      dimHeaders.length === 1 && dimHeaders[0] === "Total"
-        ? ["Total"]
-        : row.dimensions.map((d) => d ?? "");
-
-    const metricCells: string[] = [];
-    for (let i = 0; i < valueNames.length; i++) {
-      const v = row.values[i];
-      if (hasDenom[i]) {
-        metricCells.push(
-          v?.numerator != null ? String(v.numerator) : "",
-          v?.denominator != null ? String(v.denominator) : "",
-          v?.numerator != null && v?.denominator != null
-            ? (v.numerator / v.denominator).toFixed(4)
-            : "",
-        );
-      } else {
-        const val =
-          v?.numerator != null
-            ? v.denominator
-              ? (v.numerator / v.denominator).toFixed(4)
-              : String(v.numerator)
-            : "";
-        metricCells.push(val);
-      }
-    }
-
-    return [...dimCells, ...metricCells]
-      .map((c) => {
-        if (c.includes('"') || c.includes(",") || c.includes("\n")) {
-          return `"${c.replace(/"/g, '""')}"`;
-        }
-        return c;
+  const dataLines = truncated.map((row) =>
+    columns
+      .map((col) => {
+        const raw = getExplorationCellValue(row, col, renderOpts);
+        return escape(formatCell(raw, col));
       })
-      .join(",");
-  });
+      .join(","),
+  );
 
   let csv = [header, ...dataLines].join("\n");
   if (rows.length > MAX_RESULT_ROWS) {
@@ -362,30 +436,74 @@ function explorationConfigFromLatestRun(
 }
 
 /**
+ * Light singularization so queries like "page views" still match metrics
+ * named "Page View" (and vice versa). Deliberately simple — this is a
+ * heuristic, not a full stemmer.
+ */
+function singularizeWord(word: string): string {
+  if (word.length <= 3) return word;
+  if (word.endsWith("ies") && word.length > 4) {
+    return word.slice(0, -3) + "y";
+  }
+  if (/(sses|shes|ches|xes|zes)$/.test(word)) {
+    return word.slice(0, -2);
+  }
+  if (
+    word.endsWith("s") &&
+    !word.endsWith("ss") &&
+    !word.endsWith("us") &&
+    !word.endsWith("is")
+  ) {
+    return word.slice(0, -1);
+  }
+  return word;
+}
+
+function normalizeForSearch(text: string): string {
+  return text
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(singularizeWord)
+    .join(" ");
+}
+
+/**
  * Score a search query against a haystack string.
  * - Exact name/id match with the full query: 10
  * - Full query found as substring in haystack: 5
  * - Per-token: each token found in haystack adds 1 point
+ * Matching is also performed on a singularized form of both the query and
+ * the haystack so plural/singular differences don't hide results.
  * Returns 0 if no tokens match.
  */
 function scoreSearch(
   q: string,
+  qNorm: string,
   tokens: string[],
+  tokensNorm: string[],
   haystack: string,
+  haystackNorm: string,
   name: string,
   id: string,
 ): number {
   const nameLower = name.toLowerCase();
   const idLower = id.toLowerCase();
-  const exactMatch = nameLower === q || idLower === q;
+  const exactMatch =
+    nameLower === q || idLower === q || normalizeForSearch(nameLower) === qNorm;
   if (exactMatch) return 10;
 
-  const fullSubstring = haystack.includes(q);
+  const fullSubstring = haystack.includes(q) || haystackNorm.includes(qNorm);
   let score = fullSubstring ? 5 : 0;
 
   if (tokens.length > 1) {
-    for (const token of tokens) {
-      if (haystack.includes(token)) score += 1;
+    for (let i = 0; i < tokens.length; i++) {
+      if (
+        haystack.includes(tokens[i]) ||
+        haystackNorm.includes(tokensNorm[i])
+      ) {
+        score += 1;
+      }
     }
   }
 
@@ -401,6 +519,8 @@ async function executeSearch(
   const q = query.trim().toLowerCase();
   const isBlank = q.length === 0;
   const tokens = q.split(/\s+/).filter(Boolean);
+  const qNorm = normalizeForSearch(q);
+  const tokensNorm = tokens.map(singularizeWord);
 
   type ScoredResult = { score: number; name: string; result: unknown };
   const all: ScoredResult[] = [];
@@ -431,7 +551,17 @@ async function executeSearch(
     ]
       .join(" ")
       .toLowerCase();
-    const score = scoreSearch(q, tokens, haystack, m.name, m.id);
+    const haystackNorm = normalizeForSearch(haystack);
+    const score = scoreSearch(
+      q,
+      qNorm,
+      tokens,
+      tokensNorm,
+      haystack,
+      haystackNorm,
+      m.name,
+      m.id,
+    );
     if (score > 0) {
       all.push({ score, name: m.name, result: metricResult });
     }
@@ -455,7 +585,17 @@ async function executeSearch(
     const haystack = [ft.id, ft.name, ft.eventName ?? ""]
       .join(" ")
       .toLowerCase();
-    const score = scoreSearch(q, tokens, haystack, ft.name, ft.id);
+    const haystackNorm = normalizeForSearch(haystack);
+    const score = scoreSearch(
+      q,
+      qNorm,
+      tokens,
+      tokensNorm,
+      haystack,
+      haystackNorm,
+      ft.name,
+      ft.id,
+    );
     if (score > 0) {
       all.push({ score, name: ft.name, result: ftResult });
     }
@@ -528,38 +668,28 @@ const TIMESERIES_CHART_TYPES = new Set(["line", "area", "timeseries-table"]);
 interface NormalizeResult {
   config: ExplorationConfig;
   warnings: string[];
+  /**
+   * Metric resolver derived from the metrics already fetched during
+   * normalization. Reused by the CSV writer so we don't reload metrics.
+   * Returns null for metric IDs not referenced by this config.
+   */
+  getFactMetricById: (id: string) => FactMetricInterface | null;
 }
 
-function normalizeConfigForExplorer(
+async function normalizeConfigForExplorer(
+  ctx: ReqContext,
   config: ExplorationConfig,
-): NormalizeResult {
+): Promise<NormalizeResult> {
   const warnings: string[] = [];
   let dims = config.dimensions;
   let dataset = config.dataset;
 
-  // Convert static → dynamic; drop slice
-  const hadStatic = dims.some((d) => d.dimensionType === "static");
+  // Drop slice dimensions — the agent isn't equipped to author them.
   const hadSlice = dims.some((d) => d.dimensionType === "slice");
-  dims = dims
-    .map((d) => {
-      if (d.dimensionType === "static") {
-        return {
-          dimensionType: "dynamic" as const,
-          column: d.column,
-          maxValues: Math.min(d.values.length || 5, 20),
-        };
-      }
-      return d;
-    })
-    .filter((d) => d.dimensionType !== "slice");
-  if (hadStatic) {
-    warnings.push(
-      "Static dimensions are not supported — converted to dynamic. Only use dimensionType 'dynamic'.",
-    );
-  }
+  dims = dims.filter((d) => d.dimensionType !== "slice");
   if (hadSlice) {
     warnings.push(
-      "Slice dimensions are not supported and were removed. Only use dimensionType 'dynamic'.",
+      "Slice dimensions are not supported and were removed. Only use dimensionType 'dynamic' or 'static'.",
     );
   }
 
@@ -585,51 +715,204 @@ function normalizeConfigForExplorer(
     }
   }
 
-  // bigNumber: no dimensions, single value
-  if (config.chartType === "bigNumber") {
-    if (dims.length > 0) {
-      dims = [];
-      warnings.push(
-        "Removed all dimensions — bigNumber charts do not support dimensions.",
-      );
+  const dateIdx = dims.findIndex((d) => d.dimensionType === "date");
+  if (dateIdx > 0) {
+    const dateDim = dims[dateIdx];
+    dims = [dateDim, ...dims.filter((_, i) => i !== dateIdx)];
+    warnings.push(
+      "Moved date dimension to the first position. Date dimensions must come before breakdown dimensions.",
+    );
+  }
+
+  // Funnel datasets have a different structure (steps instead of values)
+  // and the AI agent isn't equipped to produce them. The bigNumber / value
+  // count constraints below assume a `values` array, so we skip them for
+  // funnels — the front-end already enforces funnel-specific limits.
+  if (dataset.type !== "funnel") {
+    // bigNumber: no dimensions, single value
+    if (config.chartType === "bigNumber") {
+      if (dims.length > 0) {
+        dims = [];
+        warnings.push(
+          "Removed all dimensions — bigNumber charts do not support dimensions.",
+        );
+      }
+      if (dataset.values.length > 1) {
+        dataset = {
+          ...dataset,
+          values: dataset.values.slice(0, 1),
+        } as typeof dataset;
+        warnings.push(
+          "Trimmed to 1 value — bigNumber charts only support a single value.",
+        );
+      }
     }
-    if (dataset.values.length > 1) {
-      dataset = {
-        ...dataset,
-        values: dataset.values.slice(0, 1),
-      } as typeof dataset;
+
+    // Enforce max dimensions (2, or 1 if multiple values)
+    const maxDims = dataset.values.length > 1 ? 1 : 2;
+    if (dims.length > maxDims) {
+      const removed = dims.length - maxDims;
+      dims = dims.slice(0, maxDims);
       warnings.push(
-        "Trimmed to 1 value — bigNumber charts only support a single value.",
+        `Removed ${removed} dimension(s) to stay within the limit of ${maxDims} (max 2, or 1 when multiple values).`,
       );
     }
   }
 
-  // Enforce max dimensions (2, or 1 if multiple values)
-  const maxDims = dataset.values.length > 1 ? 1 : 2;
-  if (dims.length > maxDims) {
-    const removed = dims.length - maxDims;
-    dims = dims.slice(0, maxDims);
+  // Load every referenced fact metric once. This map serves both the unit
+  // backfill below and the CSV writer downstream — no second round-trip.
+  const referencedMetricIds =
+    dataset.type === "metric"
+      ? Array.from(
+          new Set(
+            dataset.values
+              .map((v) => v.metricId)
+              .filter((id): id is string => !!id),
+          ),
+        )
+      : [];
+  const referencedMetrics = referencedMetricIds.length
+    ? await ctx.models.factMetrics.getByIds(referencedMetricIds)
+    : [];
+  const metricById = new Map(referencedMetrics.map((m) => [m.id, m]));
+  const getFactMetricByIdResolver = (id: string) => metricById.get(id) ?? null;
+
+  // Backfill missing units for metric values so the SQL layer emits a
+  // denominator and per_unit rendering works. The agent often omits `unit`
+  // even when it should be set; default to the numerator fact table's primary
+  // userIdType. Only applies to metric datasets — fact_table/data_source
+  // datasets have user-driven unit semantics.
+  if (dataset.type === "metric") {
+    const needsUnit = dataset.values.some(
+      (v) => !v.unit && v.metricId && metricById.has(v.metricId),
+    );
+
+    if (needsUnit) {
+      const factTableIds = Array.from(
+        new Set(
+          dataset.values
+            .filter((v) => !v.unit && v.metricId)
+            .map((v) => metricById.get(v.metricId!)?.numerator?.factTableId)
+            .filter((id): id is string => !!id),
+        ),
+      );
+      const factTables = await Promise.all(
+        factTableIds.map((id) => getFactTable(ctx, id)),
+      );
+      const factTableById = new Map(
+        factTables
+          .filter((ft): ft is FactTableInterface => !!ft)
+          .map((ft) => [ft.id, ft]),
+      );
+
+      let filledCount = 0;
+      const newValues = dataset.values.map((v) => {
+        if (v.unit || !v.metricId) return v;
+        const metric = metricById.get(v.metricId);
+        if (!metric) return v;
+        const factTable = factTableById.get(
+          metric.numerator?.factTableId ?? "",
+        );
+        const defaultUnit = factTable?.userIdTypes?.[0];
+        if (!defaultUnit) return v;
+        filledCount++;
+        return { ...v, unit: defaultUnit };
+      });
+
+      if (filledCount > 0) {
+        dataset = { ...dataset, values: newValues } as typeof dataset;
+        warnings.push(
+          `Filled in default unit (userIdTypes[0] from the metric's fact table) for ${filledCount} metric value(s) where unit was missing. Set unit explicitly for standard metrics (mean, proportion, retention, dailyParticipation) to avoid this.`,
+        );
+      }
+    }
+  }
+
+  let normalized = {
+    ...config,
+    dimensions: dims,
+    dataset,
+  } as ExplorationConfig;
+
+  // Strip `showAs` when the current dataset doesn't support it, so we never
+  // persist a value that disagrees with what the chart will actually render.
+  const beforeShowAs = normalized.showAs;
+  normalized = clearInapplicableShowAs(normalized, getFactMetricByIdResolver);
+  if (beforeShowAs !== undefined && normalized.showAs === undefined) {
     warnings.push(
-      `Removed ${removed} dimension(s) to stay within the limit of ${maxDims} (max 2, or 1 when multiple values).`,
+      `Dropped showAs="${beforeShowAs}" — it doesn't apply to this dataset (only meaningful for mean metrics). The chart will render totals.`,
     );
   }
 
   return {
-    config: { ...config, dimensions: dims, dataset } as ExplorationConfig,
+    config: normalized,
     warnings,
+    getFactMetricById: getFactMetricByIdResolver,
   };
+}
+
+// Match the frontend's polling cadence and ~10-minute cutoff.
+function explorationPollDelayMs(elapsedMs: number): number {
+  if (elapsedMs < 10_000) return 2_000;
+  if (elapsedMs < 30_000) return 3_000;
+  if (elapsedMs < 60_000) return 5_000;
+  if (elapsedMs < 300_000) return 10_000;
+  if (elapsedMs < 600_000) return 20_000;
+  return 0;
+}
+
+async function pollExplorationUntilFinished(
+  ctx: ReqContext,
+  exploration: ProductAnalyticsExploration,
+  startedAt: number,
+  abortSignal?: AbortSignal,
+): Promise<ProductAnalyticsExploration> {
+  let latest = exploration;
+  while (latest.status === "running") {
+    const pollDelay = explorationPollDelayMs(Date.now() - startedAt);
+    if (pollDelay === 0) break;
+
+    await delay(pollDelay, undefined, {
+      signal: abortSignal,
+      ref: false,
+    });
+
+    const polled = await ctx.models.analyticsExplorations.getById(latest.id);
+    if (!polled) {
+      throw new Error("Product analytics exploration not found");
+    }
+    latest = polled;
+  }
+  return latest;
 }
 
 async function executeRunExploration(
   ctx: ReqContext,
   buffer: ConversationBuffer,
   rawConfig: ExplorationConfig,
+  abortSignal?: AbortSignal,
 ): Promise<RunExplorationToolResult> {
   try {
-    const { config, warnings } = normalizeConfigForExplorer(rawConfig);
-    const exploration = await runProductAnalyticsExploration(ctx, config, {
-      cache: "preferred",
-    });
+    const { config, warnings, getFactMetricById } =
+      await normalizeConfigForExplorer(ctx, rawConfig);
+
+    const startedAt = Date.now();
+    const initialExploration = await runProductAnalyticsExploration(
+      ctx,
+      config,
+      {
+        cache: "preferred",
+      },
+    );
+    const exploration =
+      initialExploration?.status === "running"
+        ? await pollExplorationUntilFinished(
+            ctx,
+            initialExploration,
+            startedAt,
+            abortSignal,
+          )
+        : initialExploration;
 
     if (exploration?.status === "error") {
       return {
@@ -638,11 +921,23 @@ async function executeRunExploration(
       };
     }
 
+    if (exploration?.status === "running") {
+      return {
+        status: "error",
+        message:
+          "The warehouse query is still running after waiting. Do NOT assume there is no data or that the fact table, filters, or date range are wrong. Tell the user the query is taking longer than expected and they can retry shortly.",
+      };
+    }
+
     const prevConfig = explorationConfigFromLatestRun(
       buffer.getLatestToolResult("runExploration"),
     );
     const summary = buildSnapshotSummary(prevConfig, config);
-    const resultCsv = buildResultCsv(exploration?.result?.rows ?? [], config);
+    const resultCsv = buildResultCsv(
+      exploration?.result?.rows ?? [],
+      config,
+      getFactMetricById,
+    );
 
     const snapshotId = nextSnapshotId(buffer);
     const rowCount = exploration?.result?.rows?.length ?? 0;
@@ -753,7 +1048,7 @@ async function executeGetAvailableColumns(
       const ftIds = [
         ...new Set(
           metrics
-            .map((m) => m.numerator.factTableId)
+            .map((m) => m.numerator?.factTableId)
             .filter((id): id is string => !!id),
         ),
       ];
@@ -768,7 +1063,7 @@ async function executeGetAvailableColumns(
           m.metricType === "retention" ||
           m.metricType === "dailyParticipation" ||
           (m.metricType === "ratio" &&
-            m.numerator.column === "$$distinctUsers");
+            m.numerator?.column === "$$distinctUsers");
 
         metricUnitInfo.push({
           metricId: m.id,
@@ -776,7 +1071,7 @@ async function executeGetAvailableColumns(
           needsUnit,
         });
 
-        if (!m.numerator.factTableId) continue;
+        if (!m.numerator?.factTableId) continue;
         const ft = ftMap.get(m.numerator.factTableId) ?? null;
         if (!userIdTypes.length && ft?.userIdTypes?.length) {
           userIdTypes = ft.userIdTypes;
@@ -838,8 +1133,8 @@ async function executeGetColumnValues(
       const { metricIds } = input;
       if (!metricIds?.length) return "metricIds is required for metric source.";
       const metrics = await ctx.models.factMetrics.getByIds(metricIds);
-      const firstWithFt = metrics.find((m) => m.numerator.factTableId);
-      if (!firstWithFt?.numerator.factTableId) {
+      const firstWithFt = metrics.find((m) => m.numerator?.factTableId);
+      if (!firstWithFt?.numerator?.factTableId) {
         return "Could not resolve a fact table from the provided metric IDs.";
       }
       const ft = await getFactTable(ctx, firstWithFt.numerator.factTableId);
@@ -905,7 +1200,7 @@ async function executeGetColumnValues(
       colsToQuery,
     );
   } catch (err) {
-    return `Failed to query column values: ${
+    return `Failed to query column values on ${datasource.type}: ${
       err instanceof Error ? err.message : "Unknown error"
     }`;
   }
@@ -1047,6 +1342,7 @@ const GET_COLUMN_VALUES_DESCRIPTION =
 const RUN_EXPLORATION_DESCRIPTION =
   "Execute a product analytics exploration with the given config. " +
   "Use this when the user asks to build, change, or rerun a chart. " +
+  "Waits for the warehouse query to finish before returning. " +
   "The chart will be automatically displayed to the user after execution. " +
   "Returns config (the normalized config used), resultCsv (CSV of the results for analysis), rowCount, snapshotId, and summary. " +
   "Use config and resultCsv for analysis and follow-up modifications. Ignore the exploration field (internal use). " +
@@ -1061,6 +1357,36 @@ interface PAParams {
   datasourceId: string;
 }
 
+async function mentionDatasource(
+  ctx: ReqContext,
+  mention: AIChatMention,
+): Promise<string | undefined> {
+  if (mention.type === "factMetric") {
+    return (await ctx.models.factMetrics.getById(mention.id))?.datasource;
+  }
+  if (mention.type === "metricGroup") {
+    return (await ctx.models.metricGroups.getById(mention.id))?.datasource;
+  }
+  return (await getMetricById(ctx, mention.id))?.datasource;
+}
+
+async function resolveProductAnalyticsMentions(
+  ctx: ReqContext,
+  mentions: AIChatMention[],
+  datasourceId: string,
+): Promise<AIChatMention[]> {
+  if (!datasourceId) return mentions;
+
+  return Promise.all(
+    mentions.map(async (mention) => {
+      const datasource = await mentionDatasource(ctx, mention);
+      return datasource === datasourceId
+        ? mention
+        : { ...mention, stale: true };
+    }),
+  );
+}
+
 const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
   agentType: "product-analytics",
   promptType: "product-analytics-chat",
@@ -1071,6 +1397,9 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
 
   buildSystemPrompt: (ctx, { datasourceId }) =>
     buildProductAnalyticsSystemPrompt(ctx, datasourceId),
+
+  resolveMentions: (ctx, mentions, { datasourceId }) =>
+    resolveProductAnalyticsMentions(ctx, mentions, datasourceId),
 
   buildTools: (ctx, buffer, { datasourceId }) => {
     let metricsCache: FactMetricInterface[] | null = null;
@@ -1114,7 +1443,8 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
       runExploration: aiTool({
         description: RUN_EXPLORATION_DESCRIPTION,
         inputSchema: runExplorationInputSchema,
-        execute: ({ config }) => executeRunExploration(ctx, buffer, config),
+        execute: ({ config }, { abortSignal }) =>
+          executeRunExploration(ctx, buffer, config, abortSignal),
       }),
 
       getSnapshot: aiTool({

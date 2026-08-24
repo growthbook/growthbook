@@ -1,8 +1,9 @@
 import { PiArrowRight, PiCheckCircleFill } from "react-icons/pi";
 import { useState, useEffect } from "react";
-import Link from "next/link";
+import NextLink from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box, Separator } from "@radix-ui/themes";
+import Link from "@/ui/Link";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -13,6 +14,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useGetStarted } from "@/services/GetStartedProvider";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
+import Callout from "@/ui/Callout";
 
 const CreateFeatureFlagsGuide = (): React.ReactElement => {
   const { organization } = useUser();
@@ -35,7 +37,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
   }
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
 
   const isSDKIntegrated =
@@ -104,7 +106,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
                 )}
               </div>
               <div className="col">
-                <Link
+                <NextLink
                   href="/sdks"
                   style={{
                     fontSize: "17px",
@@ -120,7 +122,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
                   }
                 >
                   Integrate the GrowthBook SDK into your app
-                </Link>
+                </NextLink>
                 <Box mt="2">Allow GrowthBook to communicate with your app.</Box>
                 <Separator size="4" my="4" />
               </div>
@@ -152,7 +154,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
                 )}
               </div>
               <div className="col">
-                <Link
+                <NextLink
                   href="/features"
                   style={{
                     fontSize: "17px",
@@ -170,7 +172,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
                   }
                 >
                   Create a Test Feature Flag{project && " in this Project"}
-                </Link>
+                </NextLink>
                 <Box mt="2">
                   Add your first feature flag to test your setup.
                 </Box>

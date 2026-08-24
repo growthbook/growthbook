@@ -2,6 +2,7 @@ import { CSSProperties, forwardRef, ReactElement } from "react";
 import { Badge as RadixBadge } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { RadixColor } from "@/ui/HelperText";
+import { radixSize, Size as SharedSize } from "@/ui/sizes";
 
 type Props = {
   label: string | ReactElement;
@@ -14,14 +15,10 @@ type Props = {
   className?: string;
 } & MarginProps;
 
-export type Size = "xs" | "sm" | "md" | "lg";
+export type Size = SharedSize<"xs" | "sm" | "md" | "lg">;
 
-// note: "xs" is a synthetic size based on Radix "1" with our own smaller overrides
-const sizeMap: Partial<Record<Size, "1" | "2" | "3">> = {
-  sm: "1",
-  md: "2",
-  lg: "3",
-};
+// xs has no Radix step of its own. It is Radix "1" plus the overrides below,
+// which is why it cannot go through the shared radixSize map.
 const xsStyle: CSSProperties = {
   fontSize: "10px",
   lineHeight: "12px",
@@ -31,11 +28,16 @@ const xsStyle: CSSProperties = {
 };
 
 export default forwardRef<HTMLDivElement, Props>(function Badge(
-  { label, title, size, style, ...props }: Props,
+  { label, title, size = "sm", style, ...props }: Props,
   ref,
 ) {
-  const resolvedSize = size ? sizeMap[size] : undefined;
-  const resolvedStyle = size === "xs" ? { ...xsStyle, ...style } : style;
+  const resolvedSize = size === "xs" ? "1" : radixSize(size);
+  // Center the badge against adjacent text when rendered inline (e.g. next to a
+  // tab label). No-op for flex/grid children, which ignore vertical-align.
+  const resolvedStyle: CSSProperties =
+    size === "xs"
+      ? { verticalAlign: "middle", ...xsStyle, ...style }
+      : { verticalAlign: "middle", ...style };
 
   return (
     <RadixBadge

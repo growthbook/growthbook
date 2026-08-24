@@ -2,20 +2,18 @@ import { isEqual } from "lodash";
 import React, { useEffect, useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { FaExclamationCircle } from "react-icons/fa";
-import { PiPlus } from "react-icons/pi";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
-import Link from "@/ui/Link";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import { useEnvironments } from "@/services/features";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import { useEnvironments, FEATURE_RULES_ALL_ENVS } from "@/services/features";
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
 import { GBInfo } from "@/components/Icons";
 import Frame from "@/ui/Frame";
+import Callout from "@/ui/Callout";
+
 export default function FeatureSettings() {
   const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =
     useState<string>("");
@@ -23,53 +21,10 @@ export default function FeatureSettings() {
   const { hasCommercialFeature } = useUser();
   const environments = useEnvironments();
   const form = useFormContext();
-  const { projects } = useDefinitions();
-
-  const [showProjectScope, setShowProjectScope] = useState<
-    Record<number, boolean>
-  >(() => {
-    const rules: { projects?: string[]; environments?: string[] }[] =
-      form.getValues("requireReviews") ?? [];
-    return Object.fromEntries(
-      rules.map((r, i) => [i, !!(r.projects?.length ?? 0)]),
-    );
-  });
-
-  const [showEnvScope, setShowEnvScope] = useState<Record<number, boolean>>(
-    () => {
-      const rules: { environments?: string[] }[] =
-        form.getValues("requireReviews") ?? [];
-      return Object.fromEntries(
-        rules.map((r, i) => [i, !!(r.environments?.length ?? 0)]),
-      );
-    },
-  );
-
-  // Auto-expand scope views when form values are loaded asynchronously
-  // (the form initializes with defaults before settings load via useEffect+reset).
-  const requireReviewsWatched = form.watch("requireReviews");
-  useEffect(() => {
-    if (!Array.isArray(requireReviewsWatched)) return;
-    setShowEnvScope((prev) => {
-      const next = { ...prev };
-      requireReviewsWatched.forEach((r, i) => {
-        if ((r.environments?.length ?? 0) > 0) next[i] = true;
-      });
-      return next;
-    });
-    setShowProjectScope((prev) => {
-      const next = { ...prev };
-      requireReviewsWatched.forEach((r, i) => {
-        if ((r.projects?.length ?? 0) > 0) next[i] = true;
-      });
-      return next;
-    });
-  }, [requireReviewsWatched]);
 
   const hasSecureAttributesFeature = hasCommercialFeature(
     "hash-secure-attributes",
   );
-  const hasRequireApprovals = hasCommercialFeature("require-approvals");
 
   const hasCodeReferencesFeature = hasCommercialFeature("code-references");
 
@@ -97,13 +52,20 @@ export default function FeatureSettings() {
       <Flex gap="4">
         <Box width="220px" flexShrink="0">
           <Heading size="4" as="h4">
-            Feature Settings
+            Feature Flag Settings
           </Heading>
         </Box>
 
         <Flex align="start" direction="column" flexGrow="1" pt="6">
+          <Box mb="5" width="100%">
+            <Callout status="info">
+              Approval flow settings have moved to the{" "}
+              <a href="#approval-flow">Approval Flows tab</a>.
+            </Callout>
+          </Box>
           <Box mb="4" width="100%">
             <Field
+              size="legacy"
               label={
                 <PremiumTooltip
                   commercialFeature="hash-secure-attributes"
@@ -112,7 +74,7 @@ export default function FeatureSettings() {
                       <p>
                         Feature targeting conditions referencing{" "}
                         <code>secureString</code> attributes will be anonymized
-                        via SHA-256 hashing. When evaluating feature flags in a
+                        via SHA-256 hashing. When evaluating Feature Flags in a
                         public or insecure environment (such as a browser),
                         hashing provides an additional layer of security through
                         obfuscation. This allows you to target users based on
@@ -151,7 +113,7 @@ export default function FeatureSettings() {
           <Box mb="6" width="100%">
             <Text as="label" htmlFor="featureKeyExample" mb="2">
               <Text size="3" className="font-weight-semibold">
-                Feature Key Example (Optional)
+                Feature key example
               </Text>
             </Text>
             <Text as="p" mb="2" size="2">
@@ -160,6 +122,7 @@ export default function FeatureSettings() {
               spaces.
             </Text>
             <Field
+              size="legacy"
               id="featureKeyExample"
               {...form.register("featureKeyExample")}
               placeholder="my-feature"
@@ -172,7 +135,7 @@ export default function FeatureSettings() {
               size="3"
               className="font-weight-semibold"
             >
-              Feature Key Regex Validator (Optional)
+              Feature key regex validator
             </Text>
             <Text as="p" mb="2" size="2">
               When using the create feature modal, this will validate the
@@ -181,6 +144,7 @@ export default function FeatureSettings() {
               companies.
             </Text>
             <Field
+              size="legacy"
               id="featureRegexValidator"
               {...form.register("featureRegexValidator")}
               placeholder=""
@@ -192,8 +156,8 @@ export default function FeatureSettings() {
             <Box mb="6" width="100%">
               <Checkbox
                 id="toggle-requireProjectForFeatures"
-                label="Require Project for all new Features"
-                description="If enabled, users will be required to select a project when creating a feature flag."
+                label="Require Project for all new Feature Flags"
+                description="If enabled, users will be required to select a Project when creating a Feature Flag."
                 value={!!form.watch("requireProjectForFeatures")}
                 setValue={(value) =>
                   form.setValue("requireProjectForFeatures", value, {
@@ -208,7 +172,7 @@ export default function FeatureSettings() {
             <Checkbox
               id="toggle-defaultFeatureRulesInAllEnvs"
               label="Create rules in all environments by default"
-              description="If enabled, new feature rules will be created in all environments by default."
+              description="If enabled, new Feature Flag rules will be created in all environments by default."
               value={!!form.watch("defaultFeatureRulesInAllEnvs")}
               setValue={(value) =>
                 form.setValue("defaultFeatureRulesInAllEnvs", value, {
@@ -218,10 +182,96 @@ export default function FeatureSettings() {
             />
           </Box>
 
+          <Box mb="6" width="100%">
+            <Checkbox
+              id="toggle-sparseJSONRulesByDefault"
+              label="Default JSON rules to sparse patch mode"
+              description="New rules on object-valued JSON flags open in sparse mode, where you edit only the keys that differ from the default."
+              value={!!form.watch("sparseJSONRulesByDefault")}
+              setValue={(value) =>
+                form.setValue("sparseJSONRulesByDefault", value, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </Box>
+
+          <Box mb="6" width="100%">
+            <Checkbox
+              id="toggle-configsExtensibleByDefault"
+              label="Allow Configs to be extended by default"
+              description="New base Configs permit child Configs and Feature Flag rules to add keys beyond the declared schema. Each Config can override this from its own settings."
+              value={!!form.watch("configsExtensibleByDefault")}
+              setValue={(value) =>
+                form.setValue("configsExtensibleByDefault", value, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </Box>
+
+          <Box mb="6" width="100%">
+            <Checkbox
+              id="toggle-configExperimentGuardDefault"
+              label="Guard Configs used by running experiments by default"
+              description="New Configs enable the experiment guard: publishing a change served to a running experiment soft-blocks until acknowledged. Each Config can override this from its own settings."
+              value={!!form.watch("configExperimentGuardDefault")}
+              setValue={(value) =>
+                form.setValue("configExperimentGuardDefault", value, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </Box>
+
+          <Box mb="6" width="100%">
+            <Checkbox
+              id="toggle-blockPublishOnSchemaError"
+              label="Block publishing on JSON schema errors"
+              description={`When publishing a revision, re-check Feature Flag and Config values against their JSON schema and block the publish if they don't match. Disable to surface a bypassable warning instead. Per-request edits are always validated unless the request body passes "skipSchemaValidation": true.`}
+              value={form.watch("blockPublishOnSchemaError") ?? true}
+              setValue={(value) =>
+                form.setValue("blockPublishOnSchemaError", value, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </Box>
+
+          <Box mb="6" width="100%">
+            {/* TODO(UI): move to a neutral org-level "Revisions" section once
+                saved groups & others enforce this cap (it's not feature-only). */}
+            <Checkbox
+              id="toggle-maxConcurrentDrafts"
+              label="Cap number of drafts allowed per Feature Flag"
+              description="A soft limit to reduce clutter. Users are warned and asked to confirm before creating drafts past the cap; REST API calls can override it. Automated processes are exempt."
+              value={(form.watch("maxConcurrentDrafts") ?? 0) !== 0}
+              setValue={(value) =>
+                form.setValue("maxConcurrentDrafts", value ? 3 : 0, {
+                  shouldDirty: true,
+                })
+              }
+            />
+            {(form.watch("maxConcurrentDrafts") ?? 0) !== 0 && (
+              <Box ml="5" mt="2" width="150px">
+                <Field
+                  type="number"
+                  append="drafts"
+                  step="1"
+                  min="1"
+                  {...form.register("maxConcurrentDrafts", {
+                    valueAsNumber: true,
+                  })}
+                />
+              </Box>
+            )}
+          </Box>
+
           <Box mb="5">
             <SelectField
+              size="legacy"
               id="preferredEnvironment"
-              label="Preferred environment for feature pages:"
+              label="Preferred environment for Feature Flag pages"
               labelClassName="font-weight-semibold"
               value={form.watch("preferredEnvironment") || ""}
               isClearable
@@ -229,6 +279,10 @@ export default function FeatureSettings() {
                 {
                   label: "Remember previous environment",
                   value: "",
+                },
+                {
+                  label: "All Environments",
+                  value: FEATURE_RULES_ALL_ENVS,
                 },
                 ...environments.map((env) => ({
                   label: env.id,
@@ -246,211 +300,6 @@ export default function FeatureSettings() {
             />
           </Box>
 
-          <Box mb="6" width="100%">
-            <Box className="appbox p-3">
-              <Heading size="3" className="font-weight-semibold" mb="4">
-                Drafts and Approvals
-              </Heading>
-
-              <Text as="p" size="2" mb="2" color="gray">
-                All changes to features are tracked as revisions. Requiring
-                approvals adds a review step before any change goes live. Kill
-                switch changes always prompt a confirmation regardless of
-                approval settings.
-              </Text>
-
-              {hasRequireApprovals && (
-                <>
-                  {form.watch("requireReviews")?.map?.((requireReviews, i) => (
-                    <Box key={`approval-flow-${i}`}>
-                      <Checkbox
-                        id={`toggle-require-reviews-${i}`}
-                        label="Require approval to publish changes"
-                        value={
-                          !!form.watch(`requireReviews.${i}.requireReviewOn`)
-                        }
-                        setValue={(value) =>
-                          form.setValue(
-                            `requireReviews.${i}.requireReviewOn`,
-                            value,
-                          )
-                        }
-                      />
-                      {!!form.watch(`requireReviews.${i}.requireReviewOn`) && (
-                        <Flex direction="column" gap="3" mt="2" ml="5">
-                          <Flex direction="column" gap="3" mb="3">
-                            {showProjectScope[i] ? (
-                              <MultiSelectField
-                                id={`projects-${i}`}
-                                label="Projects"
-                                labelClassName="font-weight-semibold"
-                                containerClassName="mb-0"
-                                value={
-                                  form.watch(`requireReviews.${i}.projects`) ||
-                                  []
-                                }
-                                onChange={(v) =>
-                                  form.setValue(
-                                    `requireReviews.${i}.projects`,
-                                    v,
-                                  )
-                                }
-                                options={projects.map((e) => ({
-                                  value: e.id,
-                                  label: e.name,
-                                }))}
-                                placeholder="All Projects"
-                              />
-                            ) : (
-                              <Link
-                                onClick={() =>
-                                  setShowProjectScope((prev) => ({
-                                    ...prev,
-                                    [i]: true,
-                                  }))
-                                }
-                              >
-                                <PiPlus /> For specific projects
-                              </Link>
-                            )}
-                            {showEnvScope[i] ? (
-                              <MultiSelectField
-                                id={`environments-${i}`}
-                                label="Specific environments"
-                                labelClassName="font-weight-semibold"
-                                containerClassName="mb-0"
-                                value={
-                                  form.watch(
-                                    `requireReviews.${i}.environments`,
-                                  ) || []
-                                }
-                                onChange={(v) =>
-                                  form.setValue(
-                                    `requireReviews.${i}.environments`,
-                                    v,
-                                  )
-                                }
-                                options={environments.map((e) => ({
-                                  value: e.id,
-                                  label: e.id,
-                                }))}
-                                placeholder="All environments (leave blank to gate all)"
-                              />
-                            ) : (
-                              <Link
-                                onClick={() =>
-                                  setShowEnvScope((prev) => ({
-                                    ...prev,
-                                    [i]: true,
-                                  }))
-                                }
-                              >
-                                <PiPlus /> For specific environments
-                              </Link>
-                            )}
-                          </Flex>
-                          <Checkbox
-                            id={`toggle-reset-review-on-change-${i}`}
-                            label="Reset review on changes"
-                            description="If a draft is modified after being approved, the approval is revoked and a new review is required before publishing."
-                            value={
-                              !!form.watch(
-                                `requireReviews.${i}.resetReviewOnChange`,
-                              )
-                            }
-                            setValue={(v) =>
-                              form.setValue(
-                                `requireReviews.${i}.resetReviewOnChange`,
-                                v,
-                              )
-                            }
-                          />
-                          <Checkbox
-                            id={`toggle-block-self-approval-${i}`}
-                            label="Block contributors from self-approving"
-                            description="Prevents anyone who edited a draft from approving it. Requires a separate reviewer."
-                            value={
-                              !!form.watch(
-                                `requireReviews.${i}.blockSelfApproval`,
-                              )
-                            }
-                            setValue={(v) =>
-                              form.setValue(
-                                `requireReviews.${i}.blockSelfApproval`,
-                                v,
-                              )
-                            }
-                          />
-                          <Box mt="2">
-                            <Text as="label" size="2" weight="bold" mb="2">
-                              Require approval for
-                            </Text>
-                            <Flex direction="column" gap="2" align="start">
-                              <Checkbox
-                                id={`toggle-rules-values-${i}`}
-                                label="Rules, values, and prerequisites"
-                                value={true}
-                                disabled={true}
-                                setValue={() => undefined}
-                              />
-                              <Checkbox
-                                id={`toggle-env-review-${i}`}
-                                label="Enabled environment changes (kill switches)"
-                                value={
-                                  form.watch(
-                                    `requireReviews.${i}.featureRequireEnvironmentReview`,
-                                  ) !== false
-                                }
-                                setValue={(v) =>
-                                  form.setValue(
-                                    `requireReviews.${i}.featureRequireEnvironmentReview`,
-                                    v,
-                                  )
-                                }
-                              />
-                              <Checkbox
-                                id={`toggle-metadata-review-${i}`}
-                                label="Metadata changes (description, owner, project, tags, etc.)"
-                                value={
-                                  form.watch(
-                                    `requireReviews.${i}.featureRequireMetadataReview`,
-                                  ) !== false
-                                }
-                                setValue={(v) =>
-                                  form.setValue(
-                                    `requireReviews.${i}.featureRequireMetadataReview`,
-                                    v,
-                                  )
-                                }
-                              />
-                            </Flex>
-                          </Box>
-                          {/* REST API bypass — global, shown after the last rule's options */}
-                          {i ===
-                            (form.watch("requireReviews")?.length ?? 1) - 1 && (
-                            <Box mt="2">
-                              <Checkbox
-                                id="toggle-restApiBypassesReviews"
-                                label="REST API always bypasses approval requirements"
-                                description="When enabled, all API calls bypass approval requirements. When disabled, API calls are blocked unless the caller's role grants bypassApprovalChecks on the feature's project."
-                                value={
-                                  form.watch("restApiBypassesReviews") !== false
-                                }
-                                setValue={(v) =>
-                                  form.setValue("restApiBypassesReviews", v)
-                                }
-                              />
-                            </Box>
-                          )}
-                        </Flex>
-                      )}
-                    </Box>
-                  ))}
-                </>
-              )}
-            </Box>
-          </Box>
-
           {/* Code References */}
           <Box mb="6" width="100%">
             <Box className="appbox p-3">
@@ -460,7 +309,7 @@ export default function FeatureSettings() {
               <Checkbox
                 id="toggle-codeReferences"
                 label="Enable code references"
-                description="Displays code references for feature flags in the GrowthBook UI"
+                description="Displays code references for Feature Flags in the GrowthBook UI."
                 value={!!form.watch("codeReferencesEnabled")}
                 setValue={(value) =>
                   form.setValue("codeReferencesEnabled", value)
@@ -552,7 +401,8 @@ export default function FeatureSettings() {
                   </Box>
                   <Box mb="5">
                     <Field
-                      label="Only show code refs from the following branches (comma-separated, optional):"
+                      size="legacy"
+                      label="Only show code refs from the following branches (comma-separated)"
                       type="text"
                       placeholder="main, qa, dev"
                       value={codeRefsBranchesToFilterStr}
@@ -564,7 +414,8 @@ export default function FeatureSettings() {
 
                   <Box mb="5">
                     <SelectField
-                      label="Platform (to allow direct linking, optional):"
+                      size="legacy"
+                      label="Platform (to allow direct linking)"
                       labelClassName="font-weight-semibold"
                       containerClassName="mb-0"
                       value={form.watch("codeRefsPlatformUrl") || ""}

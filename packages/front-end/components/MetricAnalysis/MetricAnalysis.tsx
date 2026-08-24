@@ -7,7 +7,10 @@ import {
 } from "react-icons/fa";
 import clsx from "clsx";
 import { isEqual } from "lodash";
-import { isBinomialMetric } from "shared/experiments";
+import {
+  getFactMetricPrimaryFactTableId,
+  isBinomialMetric,
+} from "shared/experiments";
 import {
   CreateMetricAnalysisProps,
   MetricAnalysisInterface,
@@ -16,7 +19,10 @@ import {
   MetricAnalysisSettings,
 } from "shared/types/metric-analysis";
 import { FactMetricInterface } from "shared/types/fact-table";
-import { parseIntWithDefault } from "shared/util";
+import {
+  isManagedWarehouseNoEventsGuidanceMessage,
+  parseIntWithDefault,
+} from "shared/util";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import RunQueriesButton, {
@@ -46,6 +52,7 @@ import OutdatedBadge from "@/components/OutdatedBadge";
 import MetricAnalysisMoreMenu from "@/components/MetricAnalysis/MetricAnalysisMoreMenu";
 import track from "@/services/track";
 import Callout from "@/ui/Callout";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import { getMetricAnalysisProps } from "@/components/MetricAnalysis/metric-analysis-props";
 import { useCurrency } from "@/hooks/useCurrency";
 
@@ -268,7 +275,9 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
   }>(`/metric-analysis/metric/${factMetric.id}`);
 
   const metricAnalysis = data?.metricAnalysis;
-  const factTable = getFactTableById(factMetric.numerator.factTableId);
+  const factTable = getFactTableById(
+    getFactMetricPrimaryFactTableId(factMetric),
+  );
   // get latest full object or add reset to default?
   const { reset, watch, getValues, setValue, register } =
     useForm<MetricAnalysisFormFields>({
@@ -329,6 +338,10 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
             Standalone metric analysis not yet available for daily participation
             metrics.
           </Callout>
+        ) : factMetric.metricType === "funnel" ? (
+          <Callout status="warning" mt="2" mb="2">
+            Standalone metric analysis not yet available for funnel metrics.
+          </Callout>
         ) : (
           <>
             <div
@@ -341,6 +354,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                   <div className="row nowrap align-items-center">
                     <div className="col-auto">
                       <SelectField
+                        size="legacy"
                         containerClassName={"select-dropdown-underline"}
                         options={[
                           ...LOOKBACK_DAY_OPTIONS.map((days) => ({
@@ -365,6 +379,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                     {watch("lookbackSelected") === "custom" && (
                       <div className="col-auto" style={{ marginTop: "-10px" }}>
                         <Field
+                          size="legacy"
                           type="number"
                           min={1}
                           max={999999}
@@ -389,7 +404,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                     }
                     setValue("userIdType", v);
                   }}
-                  factTableId={factMetric.numerator.factTableId}
+                  factTableId={getFactMetricPrimaryFactTableId(factMetric)}
                 />
               </div>
               <div className="col-auto form-inline pr-5">
@@ -485,6 +500,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                     }}
                   >
                     <RunQueriesButton
+                      useRadixButton={false}
                       icon="refresh"
                       cta={"Run Analysis"}
                       mutate={mutate}
@@ -539,9 +555,17 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
               </Callout>
             ) : null}
             {error || metricAnalysis?.error ? (
-              <Callout status="error" mt="2" mb="2">
-                {`Analysis error: ${error || metricAnalysis?.error}`}
-              </Callout>
+              isManagedWarehouseNoEventsGuidanceMessage(
+                error || metricAnalysis?.error,
+              ) ? (
+                <div className="mt-2 mb-2">
+                  <ManagedWarehouseNoEventsCallout />
+                </div>
+              ) : (
+                <Callout status="error" mt="2" mb="2">
+                  {`Analysis error: ${error || metricAnalysis?.error}`}
+                </Callout>
+              )
             ) : null}
             {metricAnalysis ? (
               <>

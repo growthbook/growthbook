@@ -17,27 +17,26 @@ import {
 import { getScopedSettings } from "shared/settings";
 import { generateTrackingKey, getEqualWeights } from "shared/experiments";
 import { kebabCase, debounce } from "lodash";
-import { Box, Flex, Text, Heading, Separator } from "@radix-ui/themes";
+import { Box, Flex, Heading, Separator } from "@radix-ui/themes";
 import {
   FaCheckCircle,
   FaExclamationCircle,
   FaExternalLinkAlt,
 } from "react-icons/fa";
 import { PiCaretDownFill } from "react-icons/pi";
+import Text from "@/ui/Text";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
-import {
-  filterCustomFieldsForSectionAndProject,
-  useCustomFields,
-} from "@/hooks/useCustomFields";
+import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import {
   generateVariationId,
   useAttributeSchema,
   useEnvironments,
+  validateUnregisteredAttributes,
 } from "@/services/features";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
 import { hasOpenAIKey, hasMistralKey, hasGoogleAIKey } from "@/services/env";
@@ -202,6 +201,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] =
     useState(false);
   const [autoRefreshResults, setAutoRefreshResults] = useState(true);
+  const [useSameSeedAsOriginal, setUseSameSeedAsOriginal] = useState(false);
 
   const { datasources, getDatasourceById, refreshTags, project, projects } =
     useDefinitions();
@@ -254,7 +254,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const { refreshWatching } = useWatching();
 
   const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
+  const initialHasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
     project,
   );
@@ -262,6 +262,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [conditionKey, forceConditionRender] = useIncrementer();
 
   const attributeSchema = useAttributeSchema(false, project);
+  // Unfiltered schema for client-side validation — lets us tell apart
+  // truly-unknown attributes from attributes that exist but are scoped to
+  // other projects, matching the back-end's project-scope-aware check.
+  const allAttributesSchema = useAttributeSchema(false);
   const hashAttributes =
     attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
     [];
@@ -300,7 +304,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       activationMetric: initialValue?.activationMetric || "",
       hashAttribute: initialHashAttribute,
       hashVersion:
-        initialValue?.hashVersion || (hasSDKWithNoBucketingV2 ? 1 : 2),
+        initialValue?.hashVersion || (initialHasSDKWithNoBucketingV2 ? 1 : 2),
       disableStickyBucketing: initialValue?.disableStickyBucketing ?? false,
       attributionModel:
         initialValue?.attributionModel ??
@@ -318,7 +322,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           ? [
               {
                 ...initialValue.phases[lastPhase],
-                coverage: initialValue.phases?.[lastPhase]?.coverage || 1,
+                coverage: initialValue.phases?.[lastPhase]?.coverage ?? 1,
                 dateStarted: getValidDate(
                   initialValue.phases?.[lastPhase]?.dateStarted ?? "",
                 )
@@ -337,6 +341,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 variations:
                   initialValue.phases[lastPhase].variations ??
                   toPhaseVariations(initialExpVariations),
+                // Clear seed when duplicating to generate a fresh one on the backend
+                ...(duplicate ? { seed: undefined } : {}),
               },
             ]
           : [
@@ -370,11 +376,18 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   });
 
   const selectedProject = form.watch("project");
-  const customFields = filterCustomFieldsForSectionAndProject(
-    useCustomFields(),
-    "experiment",
+  const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
+    sdkConnectionsData?.connections,
     selectedProject,
   );
+
+  const { availableFields: customFields, value: customFieldValues } =
+    useReconciledCustomFields({
+      section: "experiment",
+      project: selectedProject,
+      value: form.watch("customFields"),
+      setValue: (value) => form.setValue("customFields", value),
+    });
 
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
@@ -506,6 +519,23 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         throw new Error("Prerequisite targeting issues must be resolved");
       }
 
+      // Opt-in client-side pre-flight — catches typo'd experiment attributes
+      // before the network round-trip, same wording as the back-end error.
+      validateUnregisteredAttributes(
+        {
+          hashAttribute: (data as { hashAttribute?: string }).hashAttribute,
+          fallbackAttribute: (data as { fallbackAttribute?: string })
+            .fallbackAttribute,
+          condition: data.phases[0].condition,
+        },
+        "experiment",
+        {
+          attributeSchema: allAttributesSchema,
+          requireRegisteredAttributes: settings.requireRegisteredAttributes,
+          project: data.project || project || undefined,
+        },
+      );
+
       // bandits
       if (
         data.type === "multi-armed-bandit" &&
@@ -539,6 +569,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       }
     }
 
+    if (duplicate && data.phases?.[0]) {
+      data.phases[0].seed = useSameSeedAsOriginal
+        ? initialValue?.phases?.[lastPhase]?.seed
+        : undefined;
+    }
+
     const body = JSON.stringify(data);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -548,6 +584,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     }
     if (duplicate && initialValue?.id) {
       params.originalId = initialValue.id;
+      if (useSameSeedAsOriginal) {
+        params.allowSameSeedAsOriginal = true;
+      }
     }
 
     if (autoRefreshResults && isImport) {
@@ -789,6 +828,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   return (
     <FormProvider {...form}>
       <PagedModal
+        useRadixButton={false}
         trackingEventModalType={trackingEventModalType}
         trackingEventModalSource={source}
         header={header}
@@ -813,16 +853,15 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       >
         <Page display="Overview">
           <div className="px-2">
-            {msg && <div className="alert alert-info">{msg}</div>}
+            {msg && <Callout status="info">{msg}</Callout>}
 
             {currentProjectIsDemo && (
-              <div className="alert alert-warning">
-                You are creating an experiment under the demo datasource
-                project. This experiment will be deleted when the demo
-                datasource project is deleted.
-              </div>
+              <Callout status="warning">
+                You are creating an experiment in the Sample Data Project.
+              </Callout>
             )}
-            {availableTemplates.length >= 1 &&
+            {hasCommercialFeature("templates") &&
+              availableTemplates.length >= 1 &&
               !isBandit &&
               !isImport &&
               !duplicate && (
@@ -831,6 +870,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     <label>Select Template</label>
                   </PremiumTooltip>
                   <SelectField
+                    size="legacy"
                     value={form.watch("templateId") ?? ""}
                     onChange={(t) => {
                       if (t === "") {
@@ -858,7 +898,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       return (
                         <Flex as="div" align="baseline">
                           <Text>{value.label}</Text>
-                          <Text size="1" className="text-muted" ml="auto">
+                          <Text size="sm" color="text-mid" ml="auto">
                             Created {date(t.dateCreated)}
                           </Text>
                         </Flex>
@@ -879,6 +919,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               <div className="form-group">
                 <label>Project</label>
                 <SelectField
+                  size="legacy"
                   value={form.watch("project") ?? ""}
                   onChange={(p) => {
                     form.setValue("project", p);
@@ -903,6 +944,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             </>
 
             <Field
+              size="legacy"
               label={isBandit ? "Bandit Name" : "Experiment Name"}
               required
               minLength={2}
@@ -930,19 +972,42 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               }}
             />
 
-            <Field
-              label="Tracking Key"
-              helpText={`Unique identifier for this ${
-                isBandit ? "Bandit" : "Experiment"
-              }, used to track impressions and analyze results`}
-              {...trackingKeyFieldHandlers}
-              onChange={(e) => {
-                trackingKeyFieldHandlers.onChange(e);
-                setLinkNameWithTrackingKey(false);
-              }}
-            />
+            <div className="form-group">
+              <Text as="label" weight="semibold" mb="1">
+                Tracking Key
+              </Text>
+              <Text as="div" color="text-mid" mb="2">
+                {`Unique identifier for this ${
+                  isBandit ? "Bandit" : "Experiment"
+                }, used to track impressions and analyze results`}
+              </Text>
+              <Field
+                size="legacy"
+                {...trackingKeyFieldHandlers}
+                onChange={(e) => {
+                  trackingKeyFieldHandlers.onChange(e);
+                  setLinkNameWithTrackingKey(false);
+                }}
+              />
+            </div>
+            {duplicate && (
+              <Box mb="4">
+                <Checkbox
+                  label="Use same randomization seed as original experiment"
+                  value={useSameSeedAsOriginal}
+                  setValue={(v) => setUseSameSeedAsOriginal(v)}
+                  error={
+                    useSameSeedAsOriginal
+                      ? "Can introduce bias if the original experiment influenced user behavior."
+                      : undefined
+                  }
+                  errorLevel="warning"
+                />
+              </Box>
+            )}
             {!isBandit && (
               <Field
+                size="legacy"
                 label="Hypothesis"
                 textarea
                 minRows={2}
@@ -961,6 +1026,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             )}
             {includeDescription && (
               <Field
+                size="legacy"
                 label="Description"
                 textarea
                 minRows={2}
@@ -993,7 +1059,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 <Box my="4">
                   <Flex gap="2" className="text-muted" align="center">
                     <FaExclamationCircle />
-                    <Text size="2" weight="light">
+                    <Text weight="regular">
                       Enter more details to check for similar experiments
                     </Text>
                   </Flex>
@@ -1004,51 +1070,47 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     <Box my="4">
                       <Flex gap="2" className="text-muted">
                         <LoadingSpinner />
-                        <Text size="2">
-                          Checking for similar experiments...
-                        </Text>
+                        <Text>Checking for similar experiments...</Text>
                       </Flex>
                     </Box>
                   ) : (
                     <>
                       <Box my="4">
-                        <Text size="2" color="violet">
-                          {similarExperiments.length > 0 ? (
-                            <Flex
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setExpandSimilarResults(!expandSimilarResults);
-                              }}
-                              gap="2"
-                              align="center"
-                            >
-                              <PiCaretDownFill
-                                style={{
-                                  transition: "transform 0.3s ease",
-                                  transform: expandSimilarResults
-                                    ? "none"
-                                    : "rotate(-90deg)",
+                        <span style={{ color: "var(--violet-11)" }}>
+                          <Text>
+                            {similarExperiments.length > 0 ? (
+                              <Flex
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setExpandSimilarResults(
+                                    !expandSimilarResults,
+                                  );
                                 }}
-                              />
-                              <Text
-                                weight="medium"
-                                style={{
-                                  cursor: "pointer",
-                                  color: "violet-11",
-                                }}
+                                gap="2"
+                                align="center"
                               >
-                                Similar experiment
-                                {similarExperiments.length === 1 ? "" : "s"} (
-                                {similarExperiments.length})
-                              </Text>
-                            </Flex>
-                          ) : (
-                            <Flex gap="2" align="center">
-                              <FaCheckCircle />
-                              No similar experiments found
-                            </Flex>
-                          )}
-                        </Text>
+                                <PiCaretDownFill
+                                  style={{
+                                    transition: "transform 0.3s ease",
+                                    transform: expandSimilarResults
+                                      ? "none"
+                                      : "rotate(-90deg)",
+                                  }}
+                                />
+                                <Text weight="medium" as="span">
+                                  Similar experiment
+                                  {similarExperiments.length === 1 ? "" : "s"} (
+                                  {similarExperiments.length})
+                                </Text>
+                              </Flex>
+                            ) : (
+                              <Flex gap="2" align="center">
+                                <FaCheckCircle />
+                                No similar experiments found
+                              </Flex>
+                            )}
+                          </Text>
+                        </span>
                         {expandSimilarResults && (
                           <Flex
                             gap="3"
@@ -1094,7 +1156,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                                       </span>
                                     </Flex>
                                     <Flex gap="3" align="center">
-                                      <Text size="1" className="text-muted">
+                                      <Text size="sm" color="text-mid">
                                         {date(s.experiment.dateCreated)}
                                       </Text>
                                       <ExperimentStatusIndicator
@@ -1137,6 +1199,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             {!isNewExperiment && (
               <>
                 <SelectField
+                  size="legacy"
                   label="Status"
                   options={[
                     { label: "draft", value: "draft" },
@@ -1179,18 +1242,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 )}
               </>
             )}
-            {hasCommercialFeature("custom-metadata") &&
-              !!customFields?.length && (
-                <CustomFieldInput
-                  customFields={customFields}
-                  currentCustomFields={form.watch("customFields") || {}}
-                  setCustomFields={(value) => {
-                    form.setValue("customFields", value);
-                  }}
-                  section={"experiment"}
-                  project={selectedProject}
-                />
-              )}
+            {customFields.length > 0 && (
+              <CustomFieldInput
+                fields={customFields}
+                value={customFieldValues}
+                onChange={(value) => form.setValue("customFields", value)}
+              />
+            )}
           </div>
         </Page>
 
@@ -1205,7 +1263,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     <ExperimentRefNewFields
                       step={i}
                       source="experiment"
-                      project={project}
+                      project={selectedProject}
                       environments={envs}
                       noSchedule={true}
                       prerequisiteValue={
@@ -1258,7 +1316,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     <BanditRefNewFields
                       step={i}
                       source="experiment"
-                      project={project}
+                      project={selectedProject}
                       environments={envs}
                       prerequisiteValue={
                         form.watch("phases.0.prerequisites") || []
@@ -1308,40 +1366,44 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               {isNewExperiment && (
                 <>
                   <div className="d-flex" style={{ gap: "2rem" }}>
-                    <SelectField
-                      withRadixThemedPortal
-                      containerClassName="flex-1"
-                      label="Assign variation based on attribute"
-                      labelClassName="font-weight-bold"
-                      options={attributeSchema
-                        .filter((s) => !hasHashAttributes || s.hashAttribute)
-                        .map((s) => ({
-                          label: s.property,
-                          value: s.property,
-                          description: s.description,
-                          tags: s.tags,
-                          datatype: s.datatype,
-                          hashAttribute: s.hashAttribute,
-                        }))}
-                      sort={false}
-                      value={form.watch("hashAttribute") || ""}
-                      onChange={(v) => {
-                        form.setValue("hashAttribute", v);
-                      }}
-                      formatOptionLabel={(o, meta) => {
-                        return (
-                          <AttributeOptionWithTooltip
-                            option={o as AttributeOptionForTooltip}
-                            context={meta.context}
-                          >
-                            {o.label}
-                          </AttributeOptionWithTooltip>
-                        );
-                      }}
-                      helpText={
-                        "Will be hashed together with the seed (UUID) to determine which variation to assign"
-                      }
-                    />
+                    <div className="flex-1">
+                      <Text as="label" weight="semibold" mb="1">
+                        Assign variation based on attribute
+                      </Text>
+                      <Text as="div" color="text-mid" mb="2">
+                        Will be hashed together with the seed (UUID) to
+                        determine which variation to assign
+                      </Text>
+                      <SelectField
+                        size="legacy"
+                        withRadixThemedPortal
+                        options={attributeSchema
+                          .filter((s) => !hasHashAttributes || s.hashAttribute)
+                          .map((s) => ({
+                            label: s.property,
+                            value: s.property,
+                            description: s.description,
+                            tags: s.tags,
+                            datatype: s.datatype,
+                            hashAttribute: s.hashAttribute,
+                          }))}
+                        sort={false}
+                        value={form.watch("hashAttribute") || ""}
+                        onChange={(v) => {
+                          form.setValue("hashAttribute", v);
+                        }}
+                        formatOptionLabel={(o, meta) => {
+                          return (
+                            <AttributeOptionWithTooltip
+                              option={o as AttributeOptionForTooltip}
+                              context={meta.context}
+                            >
+                              {o.label}
+                            </AttributeOptionWithTooltip>
+                          );
+                        }}
+                      />
+                    </div>
                     <FallbackAttributeSelector
                       form={form}
                       attributeSchema={attributeSchema}
@@ -1352,7 +1414,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     <HashVersionSelector
                       value={(form.watch("hashVersion") || 1) as 1 | 2}
                       onChange={(v) => form.setValue("hashVersion", v)}
-                      project={project}
+                      project={selectedProject}
                     />
                   )}
 
@@ -1433,6 +1495,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             <div style={{ minHeight: 350 }}>
               {(!isImport || fromFeature) && (
                 <SelectField
+                  size="legacy"
                   label="Data Source"
                   labelClassName="font-weight-bold"
                   value={form.watch("datasource") ?? ""}
@@ -1453,6 +1516,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               )}
               {datasource?.properties?.exposureQueries && (
                 <SelectField
+                  size="legacy"
                   label={
                     <>
                       Experiment Assignment Table{" "}
@@ -1509,6 +1573,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   form.setValue("guardrailMetrics", guardrailMetrics)
                 }
                 experimentId={initialValue?.id}
+                experimentType={type}
               />
             </div>
 
