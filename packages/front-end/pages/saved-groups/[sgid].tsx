@@ -21,11 +21,7 @@ import {
   getApprovalFlowSettings,
 } from "shared/enterprise";
 import { REVIEW_REQUESTED_STATUSES } from "shared/validators";
-import {
-  PiArrowsDownUp,
-  PiPencilSimpleFill,
-  PiPlusCircleBold,
-} from "react-icons/pi";
+import { PiArrowsDownUp, PiPencilSimpleFill, PiPlusBold } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { isIdListSupportedAttribute, restoredProjectScope } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -1572,7 +1568,7 @@ export default function EditSavedGroupPage() {
                       <Button
                         variant="outline"
                         disabled={!canDraft || !!(isMerged || isDiscarded)}
-                        icon={<PiPlusCircleBold />}
+                        icon={<PiPlusBold />}
                         onClick={() => {
                           // When viewing live, switch to/create draft first
                           if (!selectedRevision && userOpenRevision) {
