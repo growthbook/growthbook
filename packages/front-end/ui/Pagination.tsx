@@ -104,7 +104,7 @@ const Pagination: FC<PaginationProps> = ({
   perPage,
   currentPage,
   onPageChange,
-  className = "",
+  className,
 }) => {
   const model = getPaginationModel({
     pageCount: Math.ceil(numItemsTotal / perPage),
@@ -169,10 +169,6 @@ const Pagination: FC<PaginationProps> = ({
                   …
                 </li>
               );
-            default: {
-              const exhaustiveCheck: never = item;
-              return exhaustiveCheck;
-            }
           }
         })}
         <li>

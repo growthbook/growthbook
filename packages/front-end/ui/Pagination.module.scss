@@ -19,21 +19,25 @@
     }
   }
 
-  .button {
+  .button,
+  .break {
     display: flex;
     align-items: center;
     justify-content: center;
-    box-sizing: border-box;
     height: var(--space-6);
+    font-size: var(--font-size-1);
+    line-height: var(--line-height-1);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .button {
+    box-sizing: border-box;
     border: 1px solid var(--gray-a5);
     border-radius: var(--radius-2);
     background: var(--color-surface);
     color: var(--color-text-high);
     font-family: inherit;
-    font-size: var(--font-size-1);
     font-weight: var(--font-weight-medium);
-    line-height: var(--line-height-1);
-    font-variant-numeric: tabular-nums;
     text-align: center;
     cursor: pointer;
     transition:
@@ -81,13 +85,6 @@
   }
 
   .break {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: var(--space-6);
     color: var(--gray-9);
-    font-size: var(--font-size-1);
-    line-height: var(--line-height-1);
-    font-variant-numeric: tabular-nums;
   }
 }
