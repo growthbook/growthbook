@@ -7,7 +7,11 @@ import {
 import { isEventForwarderManaged } from "shared/util";
 import { PiPlus } from "react-icons/pi";
 import { Box, Card, Flex } from "@radix-ui/themes";
-import { OfficialBadge } from "@/components/Metrics/MetricName";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import {
+  EVENT_FORWARDER_MANAGED_TOOLTIP,
+  EventForwarderManagedBadge,
+} from "@/components/Settings/EditDataSource/EventForwarderManaged";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import { EditIdentifierType } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/EditIdentifierType";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -140,11 +144,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
                 <Heading size="sm" as="h3" mb="1">
                   {userIdType}
                   {isManaged && (
-                    <OfficialBadge
-                      type="identifier type"
-                      managedBy="api"
-                      ml="1"
-                    />
+                    <EventForwarderManagedBadge type="identifier type" />
                   )}
                 </Heading>
                 <Box mb="2">
@@ -158,23 +158,31 @@ export const DataSourceInlineEditIdentifierTypes: FC<
                 </Text>
               </Box>
 
-              {canEdit && !isManaged && (
-                <Flex gap="2">
-                  <Button
-                    variant="ghost"
-                    onClick={handleActionEditClicked(idx)}
-                  >
-                    Edit
-                  </Button>
-                  <DeleteButton
-                    onClick={handleActionDeleteClicked(idx)}
-                    useIcon={false}
-                    displayName={userIdType}
-                    deleteMessage={`Are you sure you want to delete identifier type ${userIdType}?`}
-                    title="Delete"
-                    text="Delete"
-                  />
-                </Flex>
+              {canEdit && (
+                <Tooltip
+                  body={EVENT_FORWARDER_MANAGED_TOOLTIP}
+                  shouldDisplay={isManaged}
+                  usePortal
+                >
+                  <Flex gap="2">
+                    <Button
+                      variant="ghost"
+                      disabled={isManaged}
+                      onClick={handleActionEditClicked(idx)}
+                    >
+                      Edit
+                    </Button>
+                    <DeleteButton
+                      onClick={handleActionDeleteClicked(idx)}
+                      useIcon={false}
+                      disabled={isManaged}
+                      displayName={userIdType}
+                      deleteMessage={`Are you sure you want to delete identifier type ${userIdType}?`}
+                      title="Delete"
+                      text="Delete"
+                    />
+                  </Flex>
+                </Tooltip>
               )}
             </Flex>
           </Card>

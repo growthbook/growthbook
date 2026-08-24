@@ -8,7 +8,10 @@ import { PiCaretRight, PiDotsThreeVertical, PiPlus } from "react-icons/pi";
 import { Box, Card, Flex, Heading, IconButton } from "@radix-ui/themes";
 import { DimensionSlicesInterface } from "shared/types/dimension";
 import { isEventForwarderManaged } from "shared/util";
-import { OfficialBadge } from "@/components/Metrics/MetricName";
+import {
+  EVENT_FORWARDER_MANAGED_TOOLTIP,
+  EventForwarderManagedBadge,
+} from "@/components/Settings/EditDataSource/EventForwarderManaged";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
@@ -151,6 +154,9 @@ export const ExperimentAssignmentQueries: FC<
       {experimentExposureQueries.map((query, idx) => {
         const isOpen = openIndexes[idx] || false;
         const isManaged = isEventForwarderManaged(query);
+        const managedTooltip = isManaged
+          ? EVENT_FORWARDER_MANAGED_TOOLTIP
+          : undefined;
 
         return (
           <Card mt="3" key={query.id}>
@@ -160,11 +166,7 @@ export const ExperimentAssignmentQueries: FC<
                 <Heading as="h4" size="3" mb="0">
                   {query.name}
                   {isManaged && (
-                    <OfficialBadge
-                      type="assignment query"
-                      managedBy="api"
-                      ml="1"
-                    />
+                    <EventForwarderManagedBadge type="assignment query" />
                   )}
                 </Heading>
                 {query.description && (
@@ -228,7 +230,7 @@ export const ExperimentAssignmentQueries: FC<
               {/* region Actions*/}
 
               <Flex align="center">
-                {canEdit && !isManaged && (
+                {canEdit && (
                   <DropdownMenu
                     trigger={
                       <IconButton
@@ -247,18 +249,24 @@ export const ExperimentAssignmentQueries: FC<
                   >
                     <DropdownMenuItem
                       onClick={handleActionClicked(idx, "edit")}
+                      disabled={isManaged}
+                      tooltip={managedTooltip}
                     >
                       Edit Query
                     </DropdownMenuItem>
                     {query.dimensions.length > 0 ? (
                       <DropdownMenuItem
                         onClick={handleActionClicked(idx, "dimension")}
+                        disabled={isManaged}
+                        tooltip={managedTooltip}
                       >
                         Edit Dimensions
                       </DropdownMenuItem>
                     ) : null}
                     <DropdownMenuItem
                       color="red"
+                      disabled={isManaged}
+                      tooltip={managedTooltip}
                       confirmation={{
                         submit: handleActionDeleteClicked(idx),
                         confirmationTitle: `Delete ${query.name}`,

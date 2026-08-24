@@ -10,7 +10,10 @@ import {
   isEventForwarderManaged,
 } from "shared/util";
 import { Box, Flex, Heading, IconButton } from "@radix-ui/themes";
-import { OfficialBadge } from "@/components/Metrics/MetricName";
+import {
+  EVENT_FORWARDER_MANAGED_TOOLTIP,
+  EventForwarderManagedBadge,
+} from "@/components/Settings/EditDataSource/EventForwarderManaged";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Button from "@/ui/Button";
@@ -100,6 +103,9 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
 
   const isManaged =
     !!featureUsageQuery && isEventForwarderManaged(featureUsageQuery);
+  const managedTooltip = isManaged
+    ? EVENT_FORWARDER_MANAGED_TOOLTIP
+    : undefined;
 
   return (
     <Box>
@@ -109,11 +115,7 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
             <Heading as="h3" size="4" mb="0">
               Feature Usage Query
               {isManaged && (
-                <OfficialBadge
-                  type="feature usage query"
-                  managedBy="api"
-                  ml="1"
-                />
+                <EventForwarderManagedBadge type="feature usage query" />
               )}
             </Heading>
           </Flex>
@@ -126,7 +128,7 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
                 Add
               </Button>
             )}
-            {featureUsageQuery && !isManaged && (
+            {featureUsageQuery && (
               <DropdownMenu
                 trigger={
                   <IconButton
@@ -143,12 +145,18 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
                 menuPlacement="end"
                 variant="soft"
               >
-                <DropdownMenuItem onClick={() => setUiMode("edit")}>
+                <DropdownMenuItem
+                  onClick={() => setUiMode("edit")}
+                  disabled={isManaged}
+                  tooltip={managedTooltip}
+                >
                   Edit Query
                 </DropdownMenuItem>
 
                 <DropdownMenuItem
                   color="red"
+                  disabled={isManaged}
+                  tooltip={managedTooltip}
                   confirmation={{
                     submit: handleActionDeleteClicked(),
                     confirmationTitle: "Delete Feature Usage Query",
