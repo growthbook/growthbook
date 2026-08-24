@@ -8,6 +8,7 @@ import { PiCaretRight, PiDotsThreeVertical, PiPlus } from "react-icons/pi";
 import { Box, Card, Flex, Heading, IconButton } from "@radix-ui/themes";
 import { DimensionSlicesInterface } from "shared/types/dimension";
 import { isEventForwarderManaged } from "shared/util";
+import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
@@ -158,6 +159,13 @@ export const ExperimentAssignmentQueries: FC<
               <Box width="100%">
                 <Heading as="h4" size="3" mb="0">
                   {query.name}
+                  {isManaged && (
+                    <OfficialBadge
+                      type="assignment query"
+                      managedBy="api"
+                      ml="1"
+                    />
+                  )}
                 </Heading>
                 {query.description && (
                   <p className="text-muted mb-0 mt-1">{query.description}</p>

@@ -7,6 +7,7 @@ import {
 import { isEventForwarderManaged } from "shared/util";
 import { PiPlus } from "react-icons/pi";
 import { Box, Card, Flex } from "@radix-ui/themes";
+import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import { EditIdentifierType } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/EditIdentifierType";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -138,6 +139,13 @@ export const DataSourceInlineEditIdentifierTypes: FC<
               <Box>
                 <Heading size="sm" as="h3" mb="1">
                   {userIdType}
+                  {isManaged && (
+                    <OfficialBadge
+                      type="identifier type"
+                      managedBy="api"
+                      ml="1"
+                    />
+                  )}
                 </Heading>
                 <Box mb="2">
                   <Metadata

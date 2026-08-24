@@ -10,6 +10,7 @@ import {
   isEventForwarderManaged,
 } from "shared/util";
 import { Box, Flex, Heading, IconButton } from "@radix-ui/themes";
+import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Button from "@/ui/Button";
@@ -107,6 +108,13 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
           <Flex align="center" gap="3" mb="0">
             <Heading as="h3" size="4" mb="0">
               Feature Usage Query
+              {isManaged && (
+                <OfficialBadge
+                  type="feature usage query"
+                  managedBy="api"
+                  ml="1"
+                />
+              )}
             </Heading>
           </Flex>
         </Box>
