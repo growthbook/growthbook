@@ -1,0 +1,211 @@
+---
+title: Funnel Metrics
+description: Measure the share of experiment units who complete an ordered series of steps, and see where they drop off, with funnel fact metrics in GrowthBook.
+sidebarTitle: Funnel Metrics
+slug: /app/metrics/funnel
+---
+
+import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
+
+<CommercialFeature feature="funnel-metrics" />
+
+Funnel Metrics measure the share of exposed units who complete a series of steps in order. One metric gives you both the end-to-end completion rate and a per-step breakdown of where units drop off, so a single row in your experiment results expands into the whole journey.
+
+A funnel metric is a [Fact Table](/app/metrics) metric like any other. You define an ordered list of steps and GrowthBook turns each step into its own conversion rate.
+
+<Note>
+**Two things named "funnel"**
+
+This page covers the **funnel metric type** built on Fact Tables. It is unrelated to the [legacy denominator behavior](/app/metrics/legacy#denominator-ratio-funnel-metrics), where a binomial denominator metric acted as a filter on the numerator. Those legacy metrics should be replaced by these funnel metrics, although there are some slight differences in behavior.
+
+The [Funnel explorer](/app/product-analytics/explorer#funnels) in Product Analytics answers similar questions outside of an experiment. Funnel metrics are for experiment analysis; the explorer is for ad-hoc exploration.
+
+</Note>
+
+## Creating a funnel metric
+
+1. Go to **Metrics** and click **Add Metric**.
+2. Pick your **Data Source**, then choose **Funnel** as the metric type.
+3. Select the **Fact Table** your step events come from. All steps read from this one table.
+4. Name the first step and add a row filter that defines it, such as `event_name = view_product`.
+5. Click **Add a step** for each additional step, in the order units should complete them.
+6. Set conversion windows and mark optional steps as needed, then save.
+
+A funnel needs at least 2 steps and supports up to 20.
+
+<Info>
+**One fact table per funnel**
+
+Every step in a funnel must come from the same Fact Table. Changing the Fact Table on the first step rewrites it for all steps and clears each step's row filters, so pick the table before you write your filters.
+
+The ability to choose a different Fact Table per step is coming soon!
+
+</Info>
+
+### Step settings
+
+Each step has the following settings:
+
+- **Step name**: The label shown in the results table, the funnel chart, and CSV exports. Defaults to `Step N`.
+- **Row filters**: What counts as completing this step, such as `event_name = add_to_cart`. These work the same as [Row Filters](/app/metrics#row-filters) on any other metric, including saved filters and custom SQL expressions.
+- **Optional step**: Units who skip this step can still complete later steps. See [Optional steps](#optional-steps).
+- **Conversion window**: How long the unit has to reach this step. Enter a number and a unit of `minutes`, `hours`, `days`, or `weeks`.
+
+### Metric-level settings
+
+Funnel metrics support [Metric Windows](/app/metrics#metric-windows), a [metric delay](/app/metrics#metric-delay), a target MDE, and [Bayesian priors](/app/metrics#bayesian-priors). The metric window bounds which events are eligible at all; step conversion windows then apply inside that envelope.
+
+[Metric Slices](/app/metrics#metric-slices) are not supported for funnel metrics.
+
+## How steps are resolved
+
+Funnels are sequential: steps must happen in order, and a unit can complete a later step without having completed an optional one along the way.
+
+For each step, GrowthBook takes the **earliest** qualifying event that falls inside that step's window. The window is anchored on the nearest prior **required** step. The first step is anchored on experiment exposure, and so is any step whose prior steps are all optional.
+
+Take a three-step funnel where a unit is exposed at 10:00:
+
+| Step              | Conversion window | Anchored on       | Counts if the event happens                    |
+| ----------------- | ----------------- | ----------------- | ---------------------------------------------- |
+| 1. Viewed product | 1 hour            | Exposure at 10:00 | Between 10:00 and 11:00. Say it lands at 10:05 |
+| 2. Added to cart  | 2 hours           | Step 1 at 10:05   | Between 10:05 and 12:05. Say it lands at 11:30 |
+| 3. Purchased      | 1 day             | Step 2 at 11:30   | Between 11:30 and 11:30 the next day           |
+
+A step with no conversion window has no upper bound. It counts as long as it happens after the previous non-optional step and inside the metric window.
+
+### Optional steps
+
+An optional step is measured like any other step: you still get its conversion rate, its lift, and its own row in the results. What changes is that it does not anchor or filter the steps after it.
+
+In the example above, if **Added to cart** were optional and the unit never added to cart, **Purchased** would be measured within 1 day of **Viewed product** instead. Units who did add to cart are still anchored on their view, not their add to cart.
+
+Use optional steps for parts of a journey you want to measure but that are not required to continue.
+
+<Note>
+**Partial data**
+
+Metric level conversion windows are a hard cap on the completion of all steps. Data that lands after a conversion window has closed are not considered. If the experiment has **Skip Partial Data** enabled, where it controls which recent exposures are excluded as not having had time to convert, time to convert is measured as the sum of each steps conversion windows, capped by the metric window.
+
+</Note>
+
+## Every step shares one denominator
+
+This is the most important thing to know about funnel metrics: **each step is measured against all exposed units, not just the units who completed the previous step.**
+
+If 1,000 units are exposed to a variation and 400 view a product, 120 add to cart, and 60 purchase, the three steps report 40%, 12%, and 6%. They do not report 40%, 30%, and 50%.
+
+That choice is critical for deriving the correct interpretation from your results. Using the conversion total from the previous step as the denominator for your next step will mislead most experimenters, because it carries forward the indirect effect of the last step into the current step's analysis.
+
+**Example: why step-to-step conversion rates can be misleading**
+
+Suppose you run an experiment on a two-step funnel: Add to Cart -> Purchase, with 1,000 users in each variation. Imagine we know the true effect: the treatment brings in many new, lower-intent cart-adders, but checkout rates are unchanged by this experiment (low-intent users still checkout at the same rates as before and high-intent users still checkout at the same rates as before.
+
+| Metric                                     | Control   | Treatment |
+| ------------------------------------------ | --------- | --------- |
+| Users assigned                             | 1,000     | 1,000     |
+| Added to cart                              | 200 (20%) | 400 (40%) |
+| Purchased                                  | 100       | 140       |
+| Cart → Purchase rate (conditional)         | 50%       | 35%       |
+| Assignment → Purchase rate (unconditional) | 10%       | 14%       |
+
+The step-to-step, conditional conversion rate (Cart → Purchase) fell from 50% to 35% so it looks like the treatment hurt checkout. But nothing about checkout changed. The control arm's carts had 200 high-intent shoppers; the treatment arm added 200 casual browsers who convert at ~20%, dragging the average down. Reading the 50% -> 35% drop as "checkout got worse" conflates the treatment's effect on who reaches the cart with its effect on checkout itself.
+
+The last row is what GrowthBook would represent as the second step conversion rate and it tells the true story in this case: purchases per assigned user rose from 10% to 14%. That comparison is safe because randomization guarantees the two groups of 1,000 are comparable, comparing the groups of cart-adders are not. This is an example of the well known "post-treatment bias" problem, and is akin to what happens when sample ratio mismatch is a sign of assignment bias.
+
+Step-to-step conversion rates are still available in the [funnel chart](/app/experiment-results#funnel-metric-results) in the metric drilldown, but we do not currently provide them as a top-level metric with the confidence intervals and statistics used for decision making. Those are reserved for the safer, unconditional conversion rates.
+
+The metric's own value is the share of exposed units who reach the **last** step, which is your end-to-end completion rate.
+
+## Where funnel metrics can be used
+
+Funnel metrics work as **goal**, **secondary**, and **guardrail** metrics on experiments and reports, including with dimensions, date results, and [Experiment Dashboards](/app/experiment-dashboards).
+
+The following are not supported yet:
+
+| Feature                                                       | Behavior                                                                                                                                                                                                                           |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Activation metrics                                            | Funnel metrics are hidden from the activation metric dropdown. Use a proportion metric instead.                                                                                                                                    |
+| [Metric Slices](/app/metrics#metric-slices)                   | Not supported. The drilldown's Slices tab is replaced by a Funnel tab.                                                                                                                                                             |
+| [CUPED and regression adjustment](/statistics/cuped)          | Always off for a funnel and its steps, because the funnel query does not emit covariate columns. CUPED support for funnel metrics is coming soon!                                                                                  |
+| Standalone metric analysis                                    | The metric page cannot chart a funnel on its own. It is analyzed in the context of an experiment.                                                                                                                                  |
+| [Product Analytics Explorer](/app/product-analytics/explorer) | Funnel metrics cannot be charted in the Explorer or in a metric explorer dashboard block, and this is coming soon! In the meantime, use the [Funnel explorer](/app/product-analytics/explorer#funnels) for ad-hoc funnel analysis. |
+| Incremental Refresh                                           | Funnel metrics are not supported for Incremental Pipeline experiments yet, but support is coming soon! For now, remove them from the experiment, or run the experiment without incremental refresh.                                |
+| Capping and quantile settings                                 | Not supported.                                                                                                                                                                                                                     |
+
+### Supported data sources
+
+Funnel metrics run on Postgres, ClickHouse (including the [Managed Warehouse](/app/managed-warehouse)), BigQuery, Snowflake, Athena, Presto, Databricks, and Redshift.
+
+<Warning>
+MySQL, MSSQL, and Vertica cannot run funnel queries. Adding a funnel metric to an experiment on one of these data sources fails the query with an unsupported data source error naming the funnel metrics involved. Mixpanel and Google Analytics do not support Fact Tables at all.
+</Warning>
+
+## Funnel metrics in experiment results
+
+In the results table, a funnel metric is one row you can expand into a row per step. Each step row shows that step's conversion rate, lift, and significance against the shared denominator, and steps always stay in funnel order no matter how you sort. Clicking the metric opens the drilldown with a **Funnel** tab that charts each variation's funnel side by side.
+
+See [Funnel Metric Results](/app/experiment-results#funnel-metric-results) for the full walkthrough.
+
+## Managing funnel metrics with the API
+
+Create a funnel metric by setting `metricType` to `funnel` and passing `funnelSettings`. Omit `numerator` and `denominator`; they are not allowed on funnel metrics. The metric inherits its data source from the first step's Fact Table.
+
+```bash
+curl -X POST 'https://api.growthbook.io/api/v1/fact-metrics' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Checkout Funnel",
+    "owner": "you@example.com",
+    "metricType": "funnel",
+    "funnelSettings": {
+      "steps": [
+        {
+          "name": "Viewed product",
+          "factTableId": "ft_events",
+          "rowFilters": [
+            { "column": "event_name", "operator": "=", "values": ["view_product"] }
+          ],
+          "optional": false,
+          "conversionWindow": { "unit": "hours", "value": 1 }
+        },
+        {
+          "name": "Added to cart",
+          "factTableId": "ft_events",
+          "rowFilters": [
+            { "column": "event_name", "operator": "=", "values": ["add_to_cart"] }
+          ],
+          "optional": true,
+          "conversionWindow": { "unit": "hours", "value": 2 }
+        },
+        {
+          "name": "Purchased",
+          "factTableId": "ft_events",
+          "rowFilters": [
+            { "column": "event_name", "operator": "=", "values": ["purchase"] }
+          ],
+          "optional": false,
+          "conversionWindow": { "unit": "days", "value": 1 }
+        }
+      ],
+      "ordering": "sequential",
+      "concurrencyWindowSeconds": 0
+    }
+  }'
+```
+
+Field reference for `funnelSettings`:
+
+- **steps**: Required. An ordered array of 2 to 20 steps. Each step needs `name`, `factTableId`, `rowFilters`, and `optional`; `conversionWindow` is optional and may be `null`.
+- **ordering**: Optional, defaults to `sequential`. Only `sequential` is accepted today.
+- **concurrencyWindowSeconds**: Optional, defaults to `0`. Tolerance in seconds for events that arrive slightly out of order, applied to the lower bound of each step's window.
+
+`GET` responses for funnel metrics include `funnelSettings` and omit `numerator`. Listing fact metrics filtered by `factTableId` returns funnel metrics whose steps use that Fact Table.
+
+Per-step results are exposed in the [bulk experiment results API](/app/experiment-bulk-results-api) as derived metric ids of the form `<metricId>?step=<index>`, zero-indexed, named `Funnel name: Step name`. These ids are read-only. They cannot be created, queried, or added to an experiment on their own.
+
+## What's next
+
+- [Understanding Experiment Results](/app/experiment-results#funnel-metric-results) for reading funnel results in an experiment.
+- [Metrics and Fact Tables](/app/metrics) for row filters, metric windows, and the other metric types.
+- [Funnel explorer](/app/product-analytics/explorer#funnels) for ad-hoc funnel analysis outside of an experiment.

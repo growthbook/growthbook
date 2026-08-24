@@ -7,7 +7,7 @@ import {
   EXPOSURE_DATE_DIMENSION_NAME,
 } from "shared/constants";
 
-import { putBaselineVariationFirst } from "shared/util";
+import { parseEnvInt, putBaselineVariationFirst } from "shared/util";
 import {
   ExperimentMetricInterface,
   eligibleForUncappedMetric,
@@ -144,6 +144,13 @@ export function getBanditSettingsForStatsEngine(
   };
 }
 
+/** Upper bound for one external stats-engine call; mirrors the local engine timeout. */
+const EXTERNAL_PYTHON_SERVER_TIMEOUT_MS = parseEnvInt(
+  process.env.GB_EXTERNAL_STATS_TIMEOUT_MS,
+  600_000,
+  { min: 1, name: "GB_EXTERNAL_STATS_TIMEOUT_MS" },
+);
+
 export async function runStatsEngine(
   statsData: ExperimentDataForStatsEngine[],
 ): Promise<MultipleExperimentMetricAnalysis[]> {
@@ -152,6 +159,7 @@ export async function runStatsEngine(
       `${process.env.EXTERNAL_PYTHON_SERVER_URL}/stats`,
       {
         method: "POST",
+        signal: AbortSignal.timeout(EXTERNAL_PYTHON_SERVER_TIMEOUT_MS),
         headers: {
           "Content-Type": "application/json",
           ...(process.env.PYTHON_SERVER_AUTH_TOKEN
