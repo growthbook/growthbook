@@ -233,23 +233,25 @@ export async function updateExperimentAnalysisTimeSeries({
     );
 
     for (const metricId of allMetricIds) {
-      const metricHasError = baseResult.variations.some(
-        (variation) => variation.metrics[metricId]?.errorMessage !== undefined,
-      );
-      if (metricHasError) continue;
-
       const variations: MetricTimeSeriesVariation[] = variationIds.map(
         (v, variationIndex) => {
-          const relativeMetric =
-            resultsByDifferenceType.relative?.variations[variationIndex]
-              ?.metrics[metricId];
-          const absoluteMetric =
-            resultsByDifferenceType.absolute?.variations[variationIndex]
-              ?.metrics[metricId];
-          const scaledMetric =
-            resultsByDifferenceType.scaled?.variations[variationIndex]?.metrics[
-              metricId
-            ];
+          // Each difference type computes independently; drop the ones that
+          // errored and keep the rest, rather than dropping the whole metric.
+          const relativeMetric = getComputedMetric(
+            resultsByDifferenceType.relative,
+            variationIndex,
+            metricId,
+          );
+          const absoluteMetric = getComputedMetric(
+            resultsByDifferenceType.absolute,
+            variationIndex,
+            metricId,
+          );
+          const scaledMetric = getComputedMetric(
+            resultsByDifferenceType.scaled,
+            variationIndex,
+            metricId,
+          );
 
           return {
             id: v.id,
@@ -263,6 +265,14 @@ export async function updateExperimentAnalysisTimeSeries({
           };
         },
       );
+
+      const hasComputedValue = variations.some(
+        (v) =>
+          v.relative !== undefined ||
+          v.absolute !== undefined ||
+          v.scaled !== undefined,
+      );
+      if (!hasComputedValue) continue;
 
       const baseDataPoint = {
         source: "experiment",
@@ -313,6 +323,18 @@ function getAnalysisResult(
   if (!analysis) return undefined;
   if (dimensionValue === undefined) return analysis.results[0];
   return analysis.results.find((result) => result.name === dimensionValue);
+}
+
+// A stats-engine failure yields a zeroed metric with an errorMessage. Drop
+// those so a failed difference type is neither recorded as a real value nor
+// picked as the stats source.
+function getComputedMetric(
+  result: ExperimentSnapshotAnalysis["results"][number] | undefined,
+  variationIndex: number,
+  metricId: string,
+): SnapshotMetric | undefined {
+  const metric = result?.variations[variationIndex]?.metrics[metricId];
+  return metric && metric.errorMessage === undefined ? metric : undefined;
 }
 
 function getAnalysisByDifferenceType(

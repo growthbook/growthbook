@@ -38,12 +38,23 @@ function makeAnalysisSettings(
 function makeAnalysis({
   differenceType,
   value,
+  errored = false,
   settings = {},
 }: {
   differenceType: "relative" | "absolute" | "scaled";
   value: number;
+  errored?: boolean;
   settings?: Partial<ExperimentSnapshotAnalysisSettings>;
 }): ExperimentSnapshotAnalysis {
+  // A stats-engine metric failure zeroes the metric and stamps an errorMessage
+  // on every variation, mirroring getFailedMetricResult in stats.ts.
+  const erroredMetric = {
+    value: 0,
+    cr: 0,
+    users: 0,
+    buckets: [],
+    errorMessage: "boom",
+  };
   return {
     analysisKey: `analysis_${differenceType}_${value}`,
     dateCreated: new Date("2025-01-01T00:00:00Z"),
@@ -60,26 +71,30 @@ function makeAnalysis({
           {
             users: 100,
             metrics: {
-              met_1: {
-                value: 10,
-                cr: 0.1,
-                users: 100,
-                stats: { users: 100, mean: 0.1, stddev: 0.2 },
-              },
+              met_1: errored
+                ? erroredMetric
+                : {
+                    value: 10,
+                    cr: 0.1,
+                    users: 100,
+                    stats: { users: 100, mean: 0.1, stddev: 0.2 },
+                  },
             },
           },
           {
             users: 120,
             metrics: {
-              met_1: {
-                value,
-                cr: 0.2,
-                users: 120,
-                ci: [value - 0.1, value + 0.1],
-                pValue: 0.03,
-                expected: value,
-                stats: { users: 120, mean: 0.2, stddev: 0.3 },
-              },
+              met_1: errored
+                ? erroredMetric
+                : {
+                    value,
+                    cr: 0.2,
+                    users: 120,
+                    ci: [value - 0.1, value + 0.1],
+                    pValue: 0.03,
+                    expected: value,
+                    stats: { users: 120, mean: 0.2, stddev: 0.3 },
+                  },
             },
           },
         ],
@@ -288,6 +303,105 @@ describe("updateExperimentAnalysisTimeSeries", () => {
     expect(dataPoints[0].singleDataPoint.variations[1].absolute?.value).toBe(
       12,
     );
+  });
+
+  it("records difference types that computed even when the base analysis errored", async () => {
+    const upsertMultipleSingleDataPoint = jest
+      .fn()
+      .mockResolvedValue(undefined);
+    const context = {
+      models: {
+        metricTimeSeries: {
+          upsertMultipleSingleDataPoint,
+        },
+      },
+    };
+
+    await updateExperimentAnalysisTimeSeries({
+      context: context as never,
+      experiment: makeExperiment(),
+      experimentSnapshot: makeSnapshot(),
+      analyses: [
+        makeAnalysis({ differenceType: "relative", value: 1.2, errored: true }),
+        makeAnalysis({ differenceType: "absolute", value: 12 }),
+        makeAnalysis({ differenceType: "scaled", value: 120 }),
+      ],
+      allMetricIds: ["met_1"],
+      factMetrics: undefined,
+      factTableMap: new Map(),
+    });
+
+    expect(upsertMultipleSingleDataPoint).toHaveBeenCalledTimes(1);
+    const [dataPoints] = upsertMultipleSingleDataPoint.mock.calls[0];
+    const variation = dataPoints[0].singleDataPoint.variations[1];
+    expect(variation.relative).toBeUndefined();
+    expect(variation.absolute?.value).toBe(12);
+    expect(variation.scaled?.value).toBe(120);
+    // stats must come from a computed difference type, not the errored base.
+    expect(variation.stats).toEqual({ users: 120, mean: 0.2, stddev: 0.3 });
+  });
+
+  it("drops an errored difference type instead of writing a zeroed value", async () => {
+    const upsertMultipleSingleDataPoint = jest
+      .fn()
+      .mockResolvedValue(undefined);
+    const context = {
+      models: {
+        metricTimeSeries: {
+          upsertMultipleSingleDataPoint,
+        },
+      },
+    };
+
+    await updateExperimentAnalysisTimeSeries({
+      context: context as never,
+      experiment: makeExperiment(),
+      experimentSnapshot: makeSnapshot(),
+      analyses: [
+        makeAnalysis({ differenceType: "relative", value: 1.2 }),
+        makeAnalysis({ differenceType: "absolute", value: 12 }),
+        makeAnalysis({ differenceType: "scaled", value: 120, errored: true }),
+      ],
+      allMetricIds: ["met_1"],
+      factMetrics: undefined,
+      factTableMap: new Map(),
+    });
+
+    expect(upsertMultipleSingleDataPoint).toHaveBeenCalledTimes(1);
+    const [dataPoints] = upsertMultipleSingleDataPoint.mock.calls[0];
+    const variation = dataPoints[0].singleDataPoint.variations[1];
+    expect(variation.relative?.value).toBe(1.2);
+    expect(variation.absolute?.value).toBe(12);
+    expect(variation.scaled).toBeUndefined();
+  });
+
+  it("skips a metric when every difference type errored", async () => {
+    const upsertMultipleSingleDataPoint = jest
+      .fn()
+      .mockResolvedValue(undefined);
+    const context = {
+      models: {
+        metricTimeSeries: {
+          upsertMultipleSingleDataPoint,
+        },
+      },
+    };
+
+    await updateExperimentAnalysisTimeSeries({
+      context: context as never,
+      experiment: makeExperiment(),
+      experimentSnapshot: makeSnapshot(),
+      analyses: [
+        makeAnalysis({ differenceType: "relative", value: 1.2, errored: true }),
+        makeAnalysis({ differenceType: "absolute", value: 12, errored: true }),
+        makeAnalysis({ differenceType: "scaled", value: 120, errored: true }),
+      ],
+      allMetricIds: ["met_1"],
+      factMetrics: undefined,
+      factTableMap: new Map(),
+    });
+
+    expect(upsertMultipleSingleDataPoint).not.toHaveBeenCalled();
   });
 
   it("skips writes when there are no time-series-compatible analyses", async () => {
