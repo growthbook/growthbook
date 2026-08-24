@@ -330,10 +330,6 @@ export function generateHoldoutsPayload({
     { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >;
   groupMap: GroupMap;
-  savedGroupsMap?: Record<string, SavedGroupInterface>;
-  organization?: OrganizationInterface;
-  capabilities?: SDKCapability[];
-  savedGroupReferencesEnabled?: boolean;
 }): Record<string, FeatureDefinition> {
   const holdoutDefs: Record<string, FeatureDefinition> = {};
   holdoutsMap.forEach((holdoutWithExperiment) => {
