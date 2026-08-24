@@ -14,6 +14,7 @@ import { Container } from "@radix-ui/themes";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
 import { OrgSuspendedBannerContainer } from "@/components/OrgSuspendedBanner/OrgSuspendedBanner";
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
+import NPSSurvey from "@/components/NPSSurvey/NPSSurvey";
 import { PageHeadProvider } from "@/components/Layout/PageHead";
 import { RadixTheme } from "@/services/RadixTheme";
 import { AuthProvider, useAuth } from "@/services/auth";
@@ -217,6 +218,7 @@ function App({
                                       <OrgSuspendedBannerContainer />
                                       <OrganizationMessagesContainer />
                                       <DemoDataSourceGlobalBannerContainer />
+                                      <NPSSurvey />
                                       <OrgPageContent>
                                         <GuidedGetStartedBar />
                                         <DefinitionsGuard>

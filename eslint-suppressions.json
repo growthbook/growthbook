@@ -1679,26 +1679,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Settings/Team/MemberList.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Settings/Team/MembersTabView.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Settings/Team/ProjectRolesSelector.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Settings/Team/SingleRoleSelector.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Settings/UpdateOrbSubscriptionModal.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -2114,11 +2094,6 @@
     "no-restricted-imports": {
       "count": 1
     },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/projects/index.tsx": {
     "no-restricted-syntax": {
       "count": 1
     }

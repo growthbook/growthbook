@@ -42,11 +42,16 @@ import {
   getTargetingProjectIds,
   TargetingScopedEntity,
 } from "../util/features";
-import { envsAllowedBy } from "./permissions.utils";
+import type { ReviewAuthorityFootprint } from "../util/features";
+import {
+  envsAllowedBy,
+  hasUnrestrictedEnvAuthority,
+} from "./permissions.utils";
+// Type-only: erased at runtime, so no cycle back through the util barrel.
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 import {
   NO_ENVIRONMENT_BINDING,
-  REVISION_PERMISSIONS,
+  revisionActionPermission,
   RevisionAction,
   RevisionModel,
 } from "./revisionPermissions";
@@ -69,6 +74,14 @@ function isEventForwarderManagedFactTable(
     { id: factTable.id, managedBy: factTable.managedBy },
     factTable.datasource,
   );
+}
+
+// "everywhere"/"unbound" → [] (fail closed); "any" → null (not sanctioning).
+function footprintEnvironments(
+  footprint: ReviewAuthorityFootprint,
+): string[] | null {
+  if (footprint.scope === "environments") return footprint.environments;
+  return footprint.scope === "any" ? null : [];
 }
 
 export class Permissions {
@@ -369,11 +382,22 @@ export class Permissions {
     model: RevisionModel,
     action: RevisionAction,
     obj: { project?: string; projects?: string[] },
-    environments: string[] = [],
+    // `null` = no environment constraint. `[]` = unbound, which fails closed.
+    environments: string[] | null = [],
   ): boolean => {
     const projects = obj.projects ?? (obj.project ? [obj.project] : []);
-    const { permission, scope } = REVISION_PERMISSIONS[model][action];
+    const { permission, scope } = revisionActionPermission(model, action);
     if (scope === "environment") {
+      if (environments === null) {
+        return this.checkProjectFilterPermission(
+          { projects },
+          permission as ProjectScopedPermission,
+        );
+      }
+      // Unbound changes take authority no environment limit restricts.
+      if (action === "review" && !environments.length) {
+        return this.checkUnrestrictedEnvAuthority({ projects }, permission);
+      }
       return this.checkEnvFilterPermission(
         { projects },
         environments,
@@ -1043,14 +1067,33 @@ export class Permissions {
     });
   };
 
+  // Required: there is no safe default for "what does this draft change".
+  // Pass `{ scope: "any" }` when not sanctioning a change.
   public canReviewFeatureDrafts = (
     feature: Pick<FeatureInterface, "project">,
+    footprint: ReviewAuthorityFootprint,
   ): boolean => {
     // Reviewer eligibility follows the primary project only. Targeting projects
     // affect whether a review is required, never who may approve.
-    return this.canRevisionAction("feature", "review", {
-      projects: feature.project ? [feature.project] : [],
-    });
+    return this.canReviewRevision(
+      "feature",
+      feature.project ? [feature.project] : [],
+      footprint,
+    );
+  };
+
+  // Saved-group review is project-scoped, so it takes no env requirement.
+  public canReviewRevision = (
+    model: RevisionModel,
+    projects: string[],
+    footprint: ReviewAuthorityFootprint,
+  ): boolean => {
+    return this.canRevisionAction(
+      model,
+      "review",
+      { projects },
+      footprintEnvironments(footprint),
+    );
   };
 
   /**
@@ -1285,7 +1328,7 @@ export class Permissions {
     return (
       this.canEditFeatureDrafts(feature) ||
       this.canPublishFeature(feature, NO_ENVIRONMENT_BINDING) ||
-      this.canReviewFeatureDrafts(feature) ||
+      this.canReviewFeatureDrafts(feature, { scope: "any" }) ||
       (!!datasource &&
         this.checkProjectFilterPermission(datasource, "runQueries"))
     );
@@ -1832,6 +1875,20 @@ export class Permissions {
       return false;
     }
     return true;
+  }
+
+  private checkUnrestrictedEnvAuthority(
+    obj: { projects?: string[] },
+    permission: Permission,
+  ): boolean {
+    const projects = obj.projects?.length ? obj.projects : [""];
+
+    return projects.every((project) => {
+      const scoped =
+        this.userPermissions.projects[project] || this.userPermissions.global;
+      if (!scoped?.permissions[permission]) return false;
+      return hasUnrestrictedEnvAuthority(scoped, permission);
+    });
   }
 
   public checkEnvFilterPermission(

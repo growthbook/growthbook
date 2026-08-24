@@ -1,3 +1,4 @@
+import { ANY_REVIEW_FOOTPRINT } from "shared/util";
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex, TextField } from "@radix-ui/themes";
@@ -372,9 +373,12 @@ const ApprovalRequests: FC = () => {
   const canReviewRow = useCallback(
     (row: ApprovalRow): boolean => {
       if (row.entityType === "feature") {
-        return permissionsUtil.canReviewFeatureDrafts({
-          project: row.projects[0] ?? "",
-        });
+        // "any" on purpose: this gates visibility, not approval. Hiding a draft
+        // is worse than showing one you cannot fully approve.
+        return permissionsUtil.canReviewFeatureDrafts(
+          { project: row.projects[0] ?? "" },
+          ANY_REVIEW_FOOTPRINT,
+        );
       }
       if (
         row.entityType === "saved-group" ||
