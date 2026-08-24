@@ -1598,6 +1598,104 @@ describe("SDK payload generation (scenario-specific)", () => {
     expect(outIncluded.experiments?.length).toBe(1);
   });
 
+  describe("includeDraftExperimentRefs", () => {
+    // Draft experiment linked ONLY via a feature flag (no visual changesets or
+    // URL redirects) — the case the connection setting exists for.
+    function draftRefData(): SDKPayloadRawData {
+      const exp: ExperimentInterface = {
+        id: "exp-draft-ref",
+        organization: "org-1",
+        project: "",
+        name: "Draft Ref Exp",
+        hypothesis: "",
+        status: "draft",
+        hashVersion: 2,
+        archived: false,
+        hasVisualChangesets: false,
+        hasURLRedirects: false,
+        linkedFeatures: ["fd"],
+        trackingKey: "tk-draft",
+        phases: [
+          {
+            phase: "main",
+            coverage: 1,
+            variationWeights: [0.5, 0.5],
+            seed: "draft-ref-seed",
+          },
+        ],
+        variations: [
+          { id: "v0", key: "0", name: "Control" },
+          { id: "v1", key: "1", name: "Treatment" },
+        ],
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+      } as ExperimentInterface;
+      const feature: FeatureInterface = {
+        id: "fd",
+        project: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: "false",
+        organization: "org-1",
+        owner: "",
+        valueType: "boolean",
+        archived: false,
+        description: "",
+        version: 1,
+        environmentSettings: {
+          production: {
+            enabled: true,
+            rules: [
+              {
+                type: "experiment-ref",
+                id: "rule-draft-ref",
+                enabled: true,
+                experimentId: "exp-draft-ref",
+                variations: [
+                  { variationId: "v0", value: "false" },
+                  { variationId: "v1", value: "true" },
+                ],
+              },
+            ],
+          },
+        },
+      } as FeatureInterface;
+      return minimalRawData({
+        features: [feature],
+        experimentMap: new Map([[exp.id, exp]]),
+      });
+    }
+
+    it("excludes feature-only draft experiment-ref rules by default", async () => {
+      const out = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: [],
+          environment: "production",
+          projects: [],
+        },
+        data: draftRefData(),
+      });
+      expect(out.features["fd"]?.rules ?? []).toEqual([]);
+    });
+
+    it("includes feature-only draft experiment-ref rules when enabled", async () => {
+      const out = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: [],
+          environment: "production",
+          projects: [],
+          includeDraftExperimentRefs: true,
+        },
+        data: draftRefData(),
+      });
+      const rules = out.features["fd"]?.rules ?? [];
+      expect(rules.length).toBe(1);
+      expect(rules[0].variations).toEqual([false, true]);
+    });
+  });
+
   describe("contextual bandits gated by SDK version", () => {
     const cbDoc = {
       id: "cb1",
