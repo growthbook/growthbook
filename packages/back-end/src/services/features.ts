@@ -324,10 +324,6 @@ function buildHoldoutsMapForProjects(
 export function generateHoldoutsPayload({
   holdoutsMap,
   groupMap,
-  savedGroupsMap,
-  organization,
-  capabilities,
-  savedGroupReferencesEnabled,
 }: {
   holdoutsMap: Map<
     string,
@@ -345,17 +341,13 @@ export function generateHoldoutsPayload({
     const holdout = holdoutWithExperiment.holdout;
     if (!exp) return;
 
-    // Targeting is anchored to phase[0] (the same phase coverage/seed are read
-    // from) so a holdout's population stays stable for its whole lifetime — the
-    // "Analysis" phase is a copy of phase[0], so reading it would never change
-    // who is in the holdout.
-    const phase = exp.phases[0];
+    const mainPhase = exp.phases[0];
 
     const rule: FeatureDefinitionRule = {
       id: getHoldoutFeatureDefId(holdout.id),
-      coverage: phase.coverage,
+      coverage: mainPhase.coverage,
       hashAttribute: exp.hashAttribute,
-      seed: phase.seed,
+      seed: mainPhase.seed,
       hashVersion: 2,
       variations: ["holdoutcontrol", "holdouttreatment"],
       weights: [0.5, 0.5],
@@ -364,29 +356,13 @@ export function generateHoldoutsPayload({
       meta: [{ key: "0" }, { key: "1" }],
     };
 
-    // Attach the configured targeting condition (attribute condition + saved
-    // groups). Users who don't match fail the rule, fall through to the
-    // `genpop` default, and are excluded from the holdout.
     const condition = getParsedCondition(
       groupMap,
-      phase.condition,
-      phase.savedGroups,
+      mainPhase.condition,
+      mainPhase.savedGroups,
     );
     if (condition) {
       rule.condition = condition;
-
-      // Inline saved-group references for SDKs that can't resolve them.
-      if (capabilities !== undefined && savedGroupsMap && organization) {
-        if (
-          !capabilities.includes("savedGroupReferences") ||
-          savedGroupReferencesEnabled === false
-        ) {
-          recursiveWalk(
-            rule.condition,
-            replaceSavedGroups(savedGroupsMap, organization),
-          );
-        }
-      }
     }
 
     holdoutDefs[getHoldoutFeatureDefId(holdout.id)] = {
@@ -1559,12 +1535,6 @@ export async function buildSDKPayloadForConnection(
   const holdoutFeatureDefinitions = generateHoldoutsPayload({
     holdoutsMap: holdoutsMapForConnection,
     groupMap: data.groupMap,
-    savedGroupsMap,
-    organization: context.org,
-    capabilities,
-    savedGroupReferencesEnabled:
-      !!savedGroupReferencesEnabled &&
-      capabilities.includes("savedGroupReferences"),
   });
 
   const experimentsDefinitions = generateAutoExperimentsPayload({
@@ -1601,8 +1571,6 @@ export async function buildSDKPayloadForConnection(
     ...holdoutsInUse,
   };
 
-  // Include holdout defs so saved groups referenced only by a holdout's
-  // targeting are still delivered in the payload.
   const savedGroupsInUse = filterUsedSavedGroups(
     getSavedGroupsValuesFromGroupMap(data.groupMap),
     featuresWithHoldouts,
