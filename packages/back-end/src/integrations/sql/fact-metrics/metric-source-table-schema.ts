@@ -12,7 +12,6 @@ import {
   funnelStepArrayColumn,
   funnelStepResolvedTsColumn,
 } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
-import { funnelStep0NeedsExposureWindow } from "back-end/src/integrations/sql/ctes/funnel-resolution-cte";
 
 // Generates the cache table schema for a single per-fact-table metric source.
 //
@@ -38,15 +37,18 @@ export function getMetricSourceTableSchema(
   metrics.forEach((metric) => {
     if (isFactFunnelMetric(metric)) {
       const prefix = encodeMetricIdForColumnName(metric.id);
-      const step0Scalar = !funnelStep0NeedsExposureWindow(metric);
       (metric.funnelSettings?.steps ?? []).forEach((step, stepIndex) => {
         if (step.factTableId !== factTableId) return;
-        if (stepIndex === 0 && step0Scalar) {
+        if (stepIndex === 0) {
+          // Step 0 anchors on exposure (known at write), so it's resolved to a
+          // scalar (windowed or not). DATETIME on BigQuery, not the units/refresh
+          // `timestamp` type.
           schema.set(
             funnelStepResolvedTsColumn(prefix, 0),
             dialect.getDataType("datetime"),
           );
         } else {
+          // Later steps anchor on a prior resolved step (cross-day) → arrays.
           schema.set(
             funnelStepArrayColumn(prefix, stepIndex),
             dialect.getDataType("arrayTimestamp"),

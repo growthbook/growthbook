@@ -119,6 +119,7 @@ import {
   QueryType,
   RunQueryMetadata,
 } from "shared/types/query";
+import { conversionWindowToSeconds } from "shared/funnels";
 import { MissingDatasourceParamsError } from "back-end/src/util/errors";
 import { ReqContext } from "back-end/types/request";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
@@ -139,7 +140,6 @@ import {
   funnelStepResolvedTsColumn,
 } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
 import {
-  funnelStep0NeedsExposureWindow,
   getFunnelResolutionCTEs,
   type FunnelMetricForResolution,
 } from "back-end/src/integrations/sql/ctes/funnel-resolution-cte";
@@ -2198,22 +2198,48 @@ export default abstract class SqlIntegration
             ${metricData
               .map((data) => {
                 if (isFactFunnelMetric(data.metric)) {
-                  return (data.metric.funnelSettings?.steps ?? [])
+                  const funnelMetric = data.metric;
+                  const dialect = this.getSqlDialect();
+                  return (funnelMetric.funnelSettings?.steps ?? [])
                     .map((step, stepIndex) => {
                       if (step.factTableId !== params.factTableId) return "";
                       const col = funnelStepTimestampColumn(
                         data.alias,
                         stepIndex,
                       );
-                      return `, ${addCaseWhenTimeFilter(this.getSqlDialect(), {
+                      // Overall (funnel-wide) window + exposure lower bound.
+                      const overall = addCaseWhenTimeFilter(dialect, {
                         col: `m.${col}`,
-                        metric: data.metric,
+                        metric: funnelMetric,
                         overrideConversionWindows:
                           data.overrideConversionWindows,
                         endDate: params.settings.endDate,
                         metricTimestampColExpr: castToTimestamp("m.timestamp"),
                         exposureTimestampColExpr: "d.first_exposure_timestamp",
-                      })} AS ${col}`;
+                      });
+                      // Step 0 is resolved to a scalar (MIN) downstream, so its
+                      // own conversion window must be applied here (exposure is
+                      // available per-row). Later steps keep only the overall
+                      // window and are windowed against their prior step at read.
+                      if (stepIndex === 0 && step.conversionWindow) {
+                        const exposure = dialect.castUserDateCol(
+                          "d.first_exposure_timestamp",
+                        );
+                        const conc =
+                          funnelMetric.funnelSettings
+                            .concurrencyWindowSeconds ?? 0;
+                        const lower =
+                          conc > 0
+                            ? dialect.addIntervalSeconds(exposure, "-", conc)
+                            : exposure;
+                        const upper = dialect.addIntervalSeconds(
+                          exposure,
+                          "+",
+                          conversionWindowToSeconds(step.conversionWindow),
+                        );
+                        return `, CASE WHEN m.${col} >= ${lower} AND m.${col} <= ${upper} THEN (${overall}) ELSE NULL END AS ${col}`;
+                      }
+                      return `, ${overall} AS ${col}`;
                     })
                     .join("\n");
                 }
@@ -2284,7 +2310,6 @@ export default abstract class SqlIntegration
             ${metricData
               .map((m) => {
                 if (isFactFunnelMetric(m.metric)) {
-                  const step0Scalar = !funnelStep0NeedsExposureWindow(m.metric);
                   const prefix = encodeMetricIdForColumnName(m.id);
                   return (m.metric.funnelSettings?.steps ?? [])
                     .map((step, stepIndex) => {
@@ -2293,7 +2318,9 @@ export default abstract class SqlIntegration
                         m.alias,
                         stepIndex,
                       );
-                      if (stepIndex === 0 && step0Scalar) {
+                      // Step 0 is already window-filtered in __newMetricRows, so
+                      // a plain MIN resolves it (decomposable across days).
+                      if (stepIndex === 0) {
                         return `, MIN(${inCol}) AS ${funnelStepResolvedTsColumn(prefix, 0)}`;
                       }
                       return `, ${this.getSqlDialect().arrayAggSorted(
@@ -2342,13 +2369,12 @@ export default abstract class SqlIntegration
             .map((m) => {
               // Funnels: pass through the per-step columns produced above.
               if (isFactFunnelMetric(m.metric)) {
-                const step0Scalar = !funnelStep0NeedsExposureWindow(m.metric);
                 const prefix = encodeMetricIdForColumnName(m.id);
                 return (m.metric.funnelSettings?.steps ?? [])
                   .map((step, stepIndex) => {
                     if (step.factTableId !== params.factTableId) return "";
                     const outCol =
-                      stepIndex === 0 && step0Scalar
+                      stepIndex === 0
                         ? funnelStepResolvedTsColumn(prefix, 0)
                         : funnelStepArrayColumn(prefix, stepIndex);
                     return `, ${outCol} AS ${outCol}`;
@@ -2573,11 +2599,12 @@ export default abstract class SqlIntegration
           if (isFactFunnelMetric(data.metric)) {
             const prefix = encodeMetricIdForColumnName(data.metric.id);
             const alias = data.alias;
-            const step0Scalar = !funnelStep0NeedsExposureWindow(data.metric);
             return (data.metric.funnelSettings?.steps ?? [])
               .map((step, stepIndex) => {
                 if (step.factTableId !== sources[i].factTable.id) return "";
-                if (stepIndex === 0 && step0Scalar) {
+                // Step 0 is a pre-resolved scalar (windowed or not) — merge
+                // across days with MIN. Later steps stay candidate arrays.
+                if (stepIndex === 0) {
                   return `, MIN(umj.${funnelStepResolvedTsColumn(prefix, 0)}) AS ${funnelStepResolvedTsColumn(alias, 0)}`;
                 }
                 return `, ${this.getSqlDialect().arrayConcatAgg(
@@ -2748,14 +2775,12 @@ export default abstract class SqlIntegration
 
               if (isFactFunnelMetric(data.metric)) {
                 const alias = data.alias;
-                const step0Scalar = !funnelStep0NeedsExposureWindow(
-                  data.metric,
-                );
                 return (data.metric.funnelSettings?.steps ?? [])
                   .map((step, stepIndex) => {
                     if (step.factTableId !== sources[i].factTable.id) return "";
+                    // Step 0 is a resolved-ts scalar; later steps are arrays.
                     const col =
-                      stepIndex === 0 && step0Scalar
+                      stepIndex === 0
                         ? funnelStepResolvedTsColumn(alias, 0)
                         : funnelStepArrayColumn(alias, stepIndex);
                     return `, ${localAlias}.${col} AS ${col}`;

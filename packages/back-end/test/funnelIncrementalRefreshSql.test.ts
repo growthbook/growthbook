@@ -207,7 +207,7 @@ describe("funnel incremental refresh — cache schema", () => {
     expect(sql).not.toMatch(/_step_0_arr/);
   });
 
-  it("emits an array column for every step when step 0 has an exposure window", () => {
+  it("still stores a scalar step 0 even when step 0 has an exposure window", () => {
     const sql = integration.getCreateMetricSourceTableQuery({
       settings,
       exposureQuery: resolvedExposureQuery,
@@ -216,10 +216,11 @@ describe("funnel incremental refresh — cache schema", () => {
       factTableMap,
       metricSourceTableFullName: "proj.ds.metric_source",
     });
-    expect(sql).toMatch(/_step_0_arr\s+ARRAY<DATETIME>/);
+    // Step 0 anchors on exposure (known at write), so it's resolved to a scalar
+    // regardless of window; only later steps are arrays.
+    expect(sql).toMatch(/_step_0_resolved_ts\s+DATETIME/);
+    expect(sql).not.toMatch(/_step_0_arr/);
     expect(sql).toMatch(/_step_1_arr\s+ARRAY<DATETIME>/);
-    // No scalar step-0 column when step 0 has an exposure window.
-    expect(sql).not.toMatch(/_step_0_resolved_ts/);
   });
 });
 
@@ -245,6 +246,17 @@ describe("funnel incremental refresh — write (per-day partials)", () => {
     // The funnel branch early-returns before the numeratorAggFns path; a
     // stray _value output column would be an unresolvable reference.
     expect(insertSql([scalarStep0Funnel])).not.toMatch(/AS\s+\w+_value\b/);
+  });
+
+  it("applies step 0's own conversion window at write when it has one", () => {
+    const sql = insertSql([windowedStep0Funnel]);
+    // Step 0's 6h window (21600s) is applied against exposure in the row CASE,
+    // then MIN resolves it — no step-0 array is stored.
+    expect(sql).toContain("21600");
+    expect(sql).toMatch(
+      /MIN\([^)]*_step_0_ts\s*\)\s+AS\s+\w+_step_0_resolved_ts/,
+    );
+    expect(sql).not.toMatch(/AS\s+\w+_step_0_arr/);
   });
 });
 
@@ -279,10 +291,15 @@ describe("funnel incremental refresh — read (merge + resolve)", () => {
     expect(sql).not.toContain("m0_value");
   });
 
-  it("resolves a windowed step 0 via its own resolution CTE", () => {
+  it("merges a windowed step 0 as a pre-resolved scalar (no step-0 resolve CTE)", () => {
     const sql = readSql([windowedStep0Funnel]);
-    expect(sql).toContain("__funnelResolveInc_0");
-    expect(sql).toMatch(/ARRAY_CONCAT_AGG\([^)]*_step_0_arr\)/);
+    // Step 0 is resolved to a scalar at write (window applied there), so the
+    // read merges it with MIN and the resolver never resolves step 0.
+    expect(sql).not.toContain("__funnelResolveInc_0");
+    expect(sql).toMatch(
+      /MIN\([^)]*_step_0_resolved_ts\s*\)\s+AS\s+m0_step_0_resolved_ts/,
+    );
+    expect(sql).not.toMatch(/ARRAY_CONCAT_AGG\([^)]*_step_0_arr\)/);
   });
 });
 
