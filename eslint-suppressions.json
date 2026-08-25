@@ -1,4 +1,24 @@
 {
+  "_to_delete/untracked.1786668710/packages/back-end/test/services/assertCanAutoPublish.test.ts": {
+    "import/no-unresolved": {
+      "count": 3
+    }
+  },
+  "_to_delete/untracked.1786668710/packages/back-end/test/services/contextualBanditAddVariationValues.test.ts": {
+    "import/no-unresolved": {
+      "count": 3
+    }
+  },
+  "_to_delete/untracked.1786668710/packages/back-end/test/services/contextualBanditVariationChange.test.ts": {
+    "import/no-unresolved": {
+      "count": 3
+    }
+  },
+  "_to_delete/untracked.1786668710/packages/shared/src/experiments/contextual-bandit-variation-changes.ts": {
+    "import/no-unresolved": {
+      "count": 2
+    }
+  },
   "packages/back-end/src/events/handlers/legacy.ts": {
     "@typescript-eslint/switch-exhaustiveness-check": {
       "count": 1
@@ -1682,26 +1702,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Settings/Team/MemberList.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Settings/Team/MembersTabView.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Settings/Team/ProjectRolesSelector.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Settings/Team/SingleRoleSelector.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Settings/UpdateOrbSubscriptionModal.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -2117,11 +2117,6 @@
     "no-restricted-imports": {
       "count": 1
     },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/projects/index.tsx": {
     "no-restricted-syntax": {
       "count": 1
     }

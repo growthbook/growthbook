@@ -548,6 +548,50 @@ export const putConfigRevisionValueValidator = {
   responseSchema: revisionResponseWithWarnings,
 };
 
+export const putConfigRevisionPropertyValidator = {
+  method: "put" as const,
+  path: "/configs-revisions/:key/:version/property",
+  operationId: "putConfigRevisionProperty",
+  summary: "Set one property of a config draft revision's value",
+  description:
+    'Stages a single property of this config\'s own value on the draft, leaving every other property untouched. Prefer this over `PUT .../value` when changing one field: a whole-value write from a stale read silently drops properties someone else added in the meantime.\n\n`null` is a value (it does not remove the property) — use `DELETE .../property` to remove one. Pass `version: "new"` to auto-create a draft.',
+  tags: ["config-revisions"],
+  paramsSchema: revisionParams,
+  bodySchema: z
+    .object({
+      ...newDraftMetadataFields,
+      property: z
+        .string()
+        .describe("Name of the property to set in this config's own value."),
+      value: z
+        .unknown()
+        .describe("The property's new value. `null` sets it to null."),
+      ...publishOverrideBodyFields,
+    })
+    .strict(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
+  responseSchema: revisionResponseWithWarnings,
+};
+
+export const deleteConfigRevisionPropertyValidator = {
+  method: "delete" as const,
+  path: "/configs-revisions/:key/:version/property",
+  operationId: "deleteConfigRevisionProperty",
+  summary: "Remove one property from a config draft revision's value",
+  description:
+    'Stages removal of a single property from this config\'s own value on the draft; the config then inherits that property from its parent (if any). Every other property is untouched. Pass `version: "new"` to auto-create a draft.',
+  tags: ["config-revisions"],
+  paramsSchema: revisionParams,
+  bodySchema: z.never(),
+  querySchema: z
+    .object({
+      property: z.string().describe("Name of the property to remove."),
+      ...schemaValidationQueryFields,
+    })
+    .strict(),
+  responseSchema: revisionResponse,
+};
+
 export const putConfigRevisionSchemaValidator = {
   method: "put" as const,
   path: "/configs-revisions/:key/:version/schema",

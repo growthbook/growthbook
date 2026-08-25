@@ -10,31 +10,32 @@ import {
   GrowthBook,
 } from "@growthbook/growthbook";
 import {
+  MergeResultChanges,
+  NodeHandler,
+  PrerequisiteStateResult,
   buildReverseDependencyIndex,
+  checkIfRevisionNeedsReview,
+  entityTargetsProject,
   evalDeterministicPrereqValue,
   evaluatePrerequisiteState,
+  fillRevisionFromFeature,
+  filterEnvironmentsByFeature,
   filterProjectsByEnvironmentWithNull,
+  getApplicableEnvIds,
+  getConfigBackingKey,
+  getConfigBackingPatch,
   getDependentFeatures,
+  getSavedGroupsValuesFromGroupMap,
+  getSavedGroupsValuesFromInterfaces,
   isDefined,
-  MergeResultChanges,
-  PrerequisiteStateResult,
+  namespacesToMap,
+  recursiveWalk,
+  ruleAppliesToEnv,
+  stemRuleId,
+  stripConfigExtends,
   toApiNamespace,
   validateCondition,
   validateFeatureValue,
-  getSavedGroupsValuesFromGroupMap,
-  getSavedGroupsValuesFromInterfaces,
-  NodeHandler,
-  recursiveWalk,
-  checkIfRevisionNeedsReview,
-  fillRevisionFromFeature,
-  ruleAppliesToEnv,
-  namespacesToMap,
-  stemRuleId,
-  getConfigBackingKey,
-  getConfigBackingPatch,
-  stripConfigExtends,
-  entityTargetsProject,
-  filterEnvironmentsByFeature,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -82,6 +83,7 @@ import {
   apiFeatureRevisionV2Validator,
   ApiFeatureWithRevisionsV2,
   ApiFeatureEnvironmentV2,
+  resolveSavedGroupsInput,
 } from "shared/validators";
 import {
   AttributeMap,
@@ -107,6 +109,11 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import {
+  getReviewAuthorityFootprint,
+  governingReviewProjectsForFeature,
+  type ReviewAuthorityFootprint,
+} from "shared/util";
 import { ApiReqContext } from "back-end/types/api";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
@@ -132,8 +139,9 @@ import {
   getHoldoutFeatureDefId,
   getParsedCondition,
   pairedWeightsToPositional,
+  experimentMapForFeatures,
+  getReferenceIdsInFeatures,
 } from "back-end/src/util/features";
-import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -1428,6 +1436,12 @@ export async function buildSDKPayloadForConnection(
         )
       : data.experimentMap;
 
+  const featureExperimentMap = experimentMapForFeatures(
+    data.experimentMap,
+    filteredFeatures,
+    projectList,
+  );
+
   // Fresh cache per connection (one env per connection); keyed by prereq id only
   const prereqStateCache: Record<string, PrerequisiteStateResult> = {};
 
@@ -1461,16 +1475,10 @@ export async function buildSDKPayloadForConnection(
   }
 
   let cbMap: Map<string, ContextualBanditInterface> | undefined;
-  const cbIdsFromRules: string[] = [];
-  for (const feature of filteredFeatures) {
-    const rules = feature.rules ?? [];
-    for (const rule of rules) {
-      if (rule.type === "contextual-bandit-ref" && rule.contextualBanditId) {
-        cbIdsFromRules.push(rule.contextualBanditId);
-      }
-    }
-  }
-  const cbIds = Array.from(new Set(cbIdsFromRules));
+  const cbIds = getReferenceIdsInFeatures(
+    filteredFeatures,
+    "contextual-bandit-ref",
+  );
   if (cbIds.length > 0) {
     const cbDocs = await Promise.all(
       cbIds.map((id) => context.models.contextualBandits.getById(id)),
@@ -1488,7 +1496,7 @@ export async function buildSDKPayloadForConnection(
     groupMap: data.groupMap,
     constants: data.constants,
     constantMap: data.constantMap,
-    experimentMap: filteredExperimentMap,
+    experimentMap: featureExperimentMap,
     prereqStateCache,
     safeRolloutMap: data.safeRolloutMap,
     holdoutsMap: holdoutsMapForConnection,
@@ -1615,7 +1623,11 @@ export async function getFeatureDefinitions(
     projects: projectFilter,
   });
   const groupMap = await getSavedGroupMap(context, allSavedGroups);
-  const experimentMap = await getAllPayloadExperiments(context, projectFilter);
+  const experimentMap = await getAllPayloadExperiments(
+    context,
+    projectFilter,
+    getReferenceIdsInFeatures(allFeatures, "experiment-ref"),
+  );
   const safeRolloutMap =
     await context.models.safeRollout.getAllPayloadSafeRollouts();
   const holdoutsMap =
@@ -1633,6 +1645,7 @@ export async function getFeatureDefinitions(
       encryptionKey: args.encryptionKey,
       includeVisualExperiments: args.includeVisualExperiments,
       includeDraftExperiments: args.includeDraftExperiments,
+      includeDraftExperimentRefs: args.includeDraftExperimentRefs,
       includeExperimentNames: args.includeExperimentNames,
       includeRedirectExperiments: args.includeRedirectExperiments,
       includeRuleIds: args.includeRuleIds,
@@ -3315,10 +3328,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           description: r.description ?? "",
           value: validateFeatureValue(valFeature, r.value),
           condition: r.condition,
-          savedGroups: (r.savedGroupTargeting || []).map((s) => ({
-            ids: s.savedGroups,
-            match: s.matchType,
-          })),
+          savedGroups: resolveSavedGroupsInput(r) ?? [],
           enabled: r.enabled != null ? r.enabled : true,
           ...(r.sparse !== undefined && { sparse: r.sparse }),
           ...(r.prerequisites && { prerequisites: r.prerequisites }),
@@ -3338,10 +3348,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           hashAttribute: r.hashAttribute,
           value: validateFeatureValue(valFeature, r.value),
           condition: r.condition,
-          savedGroups: (r.savedGroupTargeting || []).map((s) => ({
-            ids: s.savedGroups,
-            match: s.matchType,
-          })),
+          savedGroups: resolveSavedGroupsInput(r) ?? [],
           enabled: r.enabled != null ? r.enabled : true,
           // Preserve on round-trips — dropping seed/hashVersion re-buckets the rollout.
           ...(r.seed !== undefined && { seed: r.seed }),
@@ -3720,6 +3727,36 @@ export async function getLiveRevisionForFeature(
   return live;
 }
 
+// Measured against live AND the draft's base: those two can drift, and unioning
+// them means drift only ever demands more authority.
+export async function getFeatureReviewFootprint({
+  context,
+  feature,
+  revision,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+}): Promise<ReviewAuthorityFootprint> {
+  const { live, base } = await getLiveAndBaseRevisionsForFeature({
+    context,
+    feature,
+    revision,
+  });
+
+  return getReviewAuthorityFootprint({
+    revision,
+    bases: [live, base],
+    allEnvironments: getEnvironmentIdsFromOrg(context.org),
+    settings: context.org.settings,
+    governingProjects: governingReviewProjectsForFeature({
+      feature,
+      revision,
+      settings: context.org.settings,
+    }),
+  });
+}
+
 export async function getLiveAndBaseRevisionsForFeature({
   context,
   feature,
@@ -3881,8 +3918,6 @@ export async function revisionRequiresReview(
     treatUnresolvedBaseAsReview = false,
   }: { treatUnresolvedBaseAsReview?: boolean } = {},
 ): Promise<boolean> {
-  const allEnvironments = getEnvironmentIdsFromOrg(context.org);
-
   const baseRevision = await getRevision({
     context,
     organization: feature.organization,
@@ -3903,7 +3938,7 @@ export async function revisionRequiresReview(
       ...fillRevisionFromFeature(baseRevision, feature),
     },
     revision: draft,
-    allEnvironments,
+    orgEnvironments: getEnvironments(context.org),
     settings: context.org.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });

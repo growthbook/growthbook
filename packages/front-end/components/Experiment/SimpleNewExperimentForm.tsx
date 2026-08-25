@@ -33,10 +33,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useHoldouts } from "@/hooks/useHoldouts";
-import {
-  filterCustomFieldsForSectionAndProject,
-  useCustomFields,
-} from "@/hooks/useCustomFields";
+import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
@@ -201,11 +198,13 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   const defaultHashAttribute =
     hashAttributes.length === 1 ? hashAttributes[0] : "";
 
-  const customFields = filterCustomFieldsForSectionAndProject(
-    useCustomFields(),
-    "experiment",
-    selectedProject,
-  );
+  const { availableFields: customFields, value: customFieldValues } =
+    useReconciledCustomFields({
+      section: "experiment",
+      project: selectedProject,
+      value: form.watch("customFields"),
+      setValue: (value) => form.setValue("customFields", value),
+    });
 
   const availableProjects = projects
     .slice()
@@ -626,15 +625,11 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         </Callout>
       )}
 
-      {hasCommercialFeature("custom-metadata") && !!customFields?.length && (
+      {customFields.length > 0 && (
         <CustomFieldInput
-          customFields={customFields}
-          currentCustomFields={form.watch("customFields") || {}}
-          setCustomFields={(value) => {
-            form.setValue("customFields", value);
-          }}
-          section={"experiment"}
-          project={selectedProject}
+          fields={customFields}
+          value={customFieldValues}
+          onChange={(value) => form.setValue("customFields", value)}
         />
       )}
     </ModalStandard>

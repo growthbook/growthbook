@@ -1,5 +1,6 @@
 import { z } from "zod";
 import isEqual from "lodash/isEqual";
+import { v4 as uuidv4 } from "uuid";
 import {
   apiContextualBanditCancelReturn,
   apiContextualBanditLifecycleReturn,
@@ -386,6 +387,7 @@ export class ContextualBanditModel extends BaseClass {
       status: "draft" as const,
       currentLeafWeights: [],
       banditVersion: 0,
+      seed: uuidv4(),
     };
   }
 
@@ -441,6 +443,7 @@ export class ContextualBanditModel extends BaseClass {
       bumpVersion?: boolean;
       expectedBanditVersion?: number;
       bypassPermissionCheck?: boolean;
+      newSeed?: string;
     },
   ): Promise<ContextualBanditInterface> {
     return this.applyWeightEpochUpdate(cbId, {
@@ -448,6 +451,7 @@ export class ContextualBanditModel extends BaseClass {
       bumpVersion: options?.bumpVersion ?? false,
       expectedBanditVersion: options?.expectedBanditVersion,
       bypassPermissionCheck: options?.bypassPermissionCheck,
+      newSeed: options?.newSeed,
     });
   }
 
@@ -464,6 +468,7 @@ export class ContextualBanditModel extends BaseClass {
       bumpVersion: boolean;
       expectedBanditVersion?: number;
       bypassPermissionCheck?: boolean;
+      newSeed?: string;
     },
   ): Promise<ContextualBanditInterface> {
     const existingCB = await this.getById(cbId);
@@ -479,6 +484,9 @@ export class ContextualBanditModel extends BaseClass {
     const set: Record<string, unknown> = { dateUpdated: now };
     if (changes.currentLeafWeights) {
       set.currentLeafWeights = changes.currentLeafWeights;
+    }
+    if (changes.newSeed) {
+      set.seed = changes.newSeed;
     }
     const res = await collection.updateOne(
       {

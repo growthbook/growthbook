@@ -386,6 +386,8 @@ describe("persistContextualBanditEvent", () => {
           create: createCbeMock,
         },
       },
+      auditLog: jest.fn().mockResolvedValue(undefined),
+      logger: { error: jest.fn() },
     } as unknown as ReqContext;
 
     const cbe = await persistContextualBanditEvent(context, cbs, result);
@@ -393,24 +395,29 @@ describe("persistContextualBanditEvent", () => {
     expect(cbe.id).toBe("cbe_1");
     expect(getByIdMock).toHaveBeenCalledWith(cbs.contextualBandit);
 
-    expect(createCbeMock).toHaveBeenCalledWith({
-      contextualBandit: cb.id,
-      snapshotId: cbs.id,
-      attributes: result.attributes,
-      responses: result.responses,
-      leaf_map: result.leaf_map,
-      weightsWereUpdated: true,
-    });
+    expect(createCbeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contextualBandit: cb.id,
+        snapshotId: cbs.id,
+        attributes: result.attributes,
+        responses: result.responses,
+        leaf_map: result.leaf_map,
+        weightsWereUpdated: true,
+        // New seed is generated when weights are updated
+        seed: expect.any(String),
+      }),
+    );
 
     expect(setLeafWeightsMock).toHaveBeenCalledTimes(1);
     const [cbIdArg, leafWeightsArg, patchOptions] =
       setLeafWeightsMock.mock.calls[0];
     expect(cbIdArg).toBe(cb.id);
     expect(leafWeightsArg).toHaveLength(2);
-    // Weights changed → the version bumps alongside the payload refresh
+    // Weights changed → the version bumps alongside the payload refresh, and a new seed is set
     expect(patchOptions).toEqual({
       bumpVersion: true,
       expectedBanditVersion: cb.banditVersion,
+      newSeed: expect.any(String),
     });
     const expectedLeafWeights = leafWeightsFromContextualBanditResult(
       result,
@@ -712,7 +719,8 @@ describe("persistContextualBanditEvent — P3 stale-epoch guard", () => {
     const warnMock = jest.fn();
     const context = {
       org: { id: "org_1" },
-      logger: { warn: warnMock },
+      logger: { warn: warnMock, error: jest.fn() },
+      auditLog: jest.fn().mockResolvedValue(undefined),
       models: {
         contextualBandits: {
           getById: jest.fn().mockResolvedValue(cb),
