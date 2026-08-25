@@ -1,6 +1,7 @@
 import {
   getColumnRefWhereClause,
   getFactTableTemplateVariables,
+  getFactTableTimestampColumn,
   isFactFunnelMetric,
   isRatioMetric,
   parseSliceMetricId,
@@ -69,8 +70,12 @@ export function getFactMetricCTE(
     }
   }
 
+  // The fact table's timestamp column, aliased to `timestamp` on the way out so
+  // downstream SQL never has to know its real name.
+  const timestampColumn = `m.${getFactTableTimestampColumn(factTable)}`;
+
   // BQ datetime cast for SELECT statements (do not use for where)
-  const timestampDateTimeColumn = dialect.castUserDateCol("m.timestamp");
+  const timestampDateTimeColumn = dialect.castUserDateCol(timestampColumn);
 
   const sql = factTable.sql;
   const where: string[] = [];
@@ -82,7 +87,7 @@ export function getFactMetricCTE(
     const timestampFn = exclusiveStartDateFilter
       ? toTimestampWithMs
       : dialect.toTimestamp.bind(dialect);
-    where.push(`m.timestamp ${operator} ${timestampFn(startDate)}`);
+    where.push(`${timestampColumn} ${operator} ${timestampFn(startDate)}`);
   }
   if (endDate) {
     // If exclusive, we need to be more precise with the timestamp
@@ -90,7 +95,7 @@ export function getFactMetricCTE(
     const timestampFn = exclusiveEndDateFilter
       ? toTimestampWithMs
       : dialect.toTimestamp.bind(dialect);
-    where.push(`m.timestamp ${operator} ${timestampFn(endDate)}`);
+    where.push(`${timestampColumn} ${operator} ${timestampFn(endDate)}`);
   }
 
   const metricCols: string[] = [];
