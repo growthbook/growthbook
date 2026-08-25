@@ -622,7 +622,6 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
   });
 
   it("should include the holdout's targeting condition and saved groups on the holdout rule", async () => {
-    // A condition-type saved group referenced by the holdout's targeting
     (mockContext.models.savedGroups.getAll as jest.Mock).mockResolvedValue([
       {
         id: "grp_beta",
@@ -687,7 +686,6 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
                   coverage: 0.1,
                   seed: "holdout-seed",
                   variationWeights: [0.5, 0.5],
-                  // Targeting configured on phase[0] via the holdout targeting modal
                   condition: '{"country":"US"}',
                   savedGroups: [{ ids: ["grp_beta"], match: "all" }],
                 },
@@ -712,10 +710,6 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
       },
     });
 
-    // The holdout definition's rule must carry the targeting condition. The
-    // attribute condition and the saved group's inlined condition are ANDed
-    // together (sdkVersion 1.0.0 has no savedGroupReferences capability, so the
-    // group is expanded inline).
     const holdoutRule = result.features["$holdout:hld_test_holdout"].rules?.[0];
     expect(holdoutRule?.condition).toEqual({
       $and: [{ country: "US" }, { beta: true }],
@@ -723,11 +717,6 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
   });
 
   it("should include list saved groups referenced only by a holdout in the payload", async () => {
-    // A list group is what actually exercises the holdout -> savedGroups path:
-    // condition groups are inlined by getParsedCondition and never emit
-    // $inGroup, and getSavedGroupsValuesFromGroupMap drops them entirely. Only a
-    // list group leaves an $inGroup reference that has to be resolved against
-    // the saved groups collected from the payload.
     (mockContext.models.savedGroups.getAll as jest.Mock).mockResolvedValue([
       {
         id: "grp_us_ca",
@@ -817,9 +806,6 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
       },
     });
 
-    // No feature references the group, so it only reaches the used-saved-groups
-    // set via the holdout definitions. If it doesn't, the $inGroup reference
-    // survives into the payload and no SDK can evaluate it.
     const holdoutRule = result.features["$holdout:hld_test_holdout"].rules?.[0];
     expect(holdoutRule?.condition).toEqual({
       country: { $in: ["US", "CA"] },

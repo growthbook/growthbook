@@ -1689,8 +1689,6 @@ export async function postExperiment(
   const existingKeyById = new Map(
     experiment.variations.map((v) => [v.id, v.key]),
   );
-  // Holdouts emit hardcoded variations, weights, and meta, so nothing a caller
-  // sends about variations can reach their payload
   const variationIdsChanged =
     experiment.type !== "holdout" &&
     !!data.variations &&
@@ -2084,8 +2082,6 @@ export async function postExperiment(
   if (data.coverage !== undefined) {
     const coverage = data.coverage;
     const phases = changes.phases || [...experiment.phases];
-    // Holdouts serve coverage from phases[0] and mirror it onto the analysis
-    // phase — see the holdout branch of postExperimentTargeting.
     const lastIndex = phases.length - 1;
     phases.forEach((phase, i) => {
       if (experiment.type !== "holdout" && i !== lastIndex) return;
@@ -2995,11 +2991,7 @@ export async function postExperimentTargeting(
   const phases = [...experiment.phases];
 
   if (experiment.type === "holdout" && phases.length) {
-    // Holdouts serve targeting from phases[0], even during the analysis period.
-    // The analysis phase is a lookback copy that never reaches the payload, but
-    // its coverage still feeds snapshot settings (and so Scaled Impact), so
-    // mirror the edit there too rather than leaving it describing traffic that
-    // no longer serves.
+    // Later phases feed analysis settings, so keep them aligned with payload targeting.
     const holdoutTargeting = { condition, savedGroups, coverage };
     phases.forEach((phase, i) => {
       phases[i] = { ...phase, ...holdoutTargeting };
