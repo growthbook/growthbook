@@ -64206,6 +64206,7 @@ components:
         - variations
         - datasource
         - contextualBanditQueryId
+        - seed
         - currentLeafWeights
         - banditVersion
         - contextualAttributes
