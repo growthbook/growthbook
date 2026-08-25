@@ -9,6 +9,8 @@ on:
       - "eslint.config.mjs"
       - "eslint-rules/**"
       - "eslint-suppressions.json"
+      - ".github/workflows/ci.yml"
+      - ".github/actions/setup-workspace/**"
   pull_request:
     paths-ignore:
       - "packages/**"
@@ -17,6 +19,8 @@ on:
       - "eslint.config.mjs"
       - "eslint-rules/**"
       - "eslint-suppressions.json"
+      - ".github/workflows/ci.yml"
+      - ".github/actions/setup-workspace/**"
 
 # When code or tooling has not changed, skip the full CI suite but still check formatting.
 # This workflow provides the required successful CI check for those pull requests.

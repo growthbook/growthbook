@@ -1,0 +1,35 @@
+name: Set up workspace
+description: Install pnpm, Node and workspace dependencies, then build the shared packages.
+
+runs:
+  using: composite
+  steps:
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+
+    - name: Setup Node
+      uses: actions/setup-node@v5
+      with:
+        node-version: "24"
+        cache: "pnpm"
+
+    - name: Cache tsbuildinfo
+      uses: actions/cache@v5
+      with:
+        path: |
+          **/tsconfig.tsbuildinfo
+        key: ${{ runner.os }}-tsbuildinfo-${{ hashFiles('pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-tsbuildinfo-
+
+    - name: Install pnpm dependencies
+      run: pnpm install
+      shell: bash
+
+    # Lint, type-check and the tests all need sdk-js/sdk-react/shared/stats-ts
+    # built. The Python engine is not built here; only the lint job needs it.
+    - name: Build dependencies
+      run: pnpm build:deps
+      shell: bash
+      env:
+        CI: true

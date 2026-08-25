@@ -9,6 +9,8 @@ on:
       - "eslint.config.mjs"
       - "eslint-rules/**"
       - "eslint-suppressions.json"
+      - ".github/workflows/ci.yml"
+      - ".github/actions/setup-workspace/**"
   pull_request:
     paths:
       - "packages/**"
@@ -17,40 +19,37 @@ on:
       - "eslint.config.mjs"
       - "eslint-rules/**"
       - "eslint-suppressions.json"
+      - ".github/workflows/ci.yml"
+      - ".github/actions/setup-workspace/**"
 
+# These jobs used to be sequential steps of a single job, which made the run the
+# sum of its parts (~14 min). They share no ordering, so they now run in
+# parallel and `ci` below aggregates them into the one required status check.
 jobs:
-  # Linting, type-checking, and tests
-  ci:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v5
-        with:
-          node-version: "24"
-          cache: "pnpm"
-
       # No eslint cache here on purpose. ESLint keys its cache on file content
       # plus the serialized config, neither of which changes when a type in
       # another package or a rule under eslint-rules/ changes. Caching would let
       # type-aware rules such as switch-exhaustiveness-check pass on stale results.
+      - uses: ./.github/actions/setup-workspace
 
-      - name: Cache tsbuildinfo
-        uses: actions/cache@v5
-        with:
-          path: |
-            **/tsconfig.tsbuildinfo
-          key: ${{ runner.os }}-tsbuildinfo-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-tsbuildinfo-
+      - name: Lint
+        run: pnpm lint:ci
+        env:
+          CI: true
 
-      - name: Install pnpm dependencies
-        run: pnpm install
+  # The Python engine's lint and pytest suite. Split out so the JS jobs above
+  # don't pay for a Python toolchain they never use.
+  stats:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v6
@@ -61,7 +60,6 @@ jobs:
 
       - name: Install python dependencies
         run: |
-          # Stats engine
           pip install pipx
           pipx install poetry
           poetry config virtualenvs.in-project true
@@ -77,22 +75,40 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-poetry-
 
-      - name: Build dependencies
-        run: |
-          # Build required dependencies (sdks/shared package)
-          # This is required for linting/type checks to work
-          pnpm run setup
-          # Generate Next.js types (next-env.d.ts, routes.d.ts) for front-end type-check
-          pnpm --filter front-end exec next typegen
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: "pnpm"
+
+      - name: Install pnpm dependencies
+        run: pnpm install
+
+      - name: Install stats engine
+        run: pnpm --filter stats setup
         env:
           CI: true
 
       - name: Lint
-        run: |
-          pnpm lint:ci
-          pnpm --filter stats lint:ci
+        run: pnpm --filter stats lint:ci
         env:
           CI: true
+
+      - name: Test
+        run: pnpm --filter stats test
+        env:
+          CI: true
+
+  format-and-openapi:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup-workspace
 
       - name: Check formatting
         run: pnpm pretty:check
@@ -102,14 +118,93 @@ jobs:
           pnpm generate-openapi
           [[ -n $(git status --porcelain) ]] && echo "You need to run pnpm generate-openapi" && git status --porcelain && exit 1 || true
 
+  type-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Generate Next.js types
+        run: pnpm --filter front-end exec next typegen
+
       - name: Type-check
-        run: |
-          pnpm type-check
+        run: pnpm type-check
         env:
           CI: true
 
+  # The back-end suite is ~80% of all test time, and a 4-vCPU runner gives Jest
+  # only 3 workers for 300+ files. Split it across runners instead.
+  test-back-end:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Cache Jest transform cache
+        uses: actions/cache@v5
+        with:
+          path: packages/back-end/.jest-cache
+          key: ${{ runner.os }}-jest-back-end-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-jest-back-end-${{ matrix.shard }}-
+            ${{ runner.os }}-jest-back-end-
+
       - name: Test
-        run: |
-          pnpm test
+        run: pnpm --filter back-end test --shard=${{ matrix.shard }}/4
         env:
           CI: true
+
+  test-packages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Cache Jest transform cache
+        uses: actions/cache@v5
+        with:
+          path: packages/shared/.jest-cache
+          key: ${{ runner.os }}-jest-shared-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-jest-shared-
+
+      # stats (pytest) runs in its own job; back-end is sharded above.
+      - name: Test
+        run: pnpm --filter '!back-end' --filter '!stats' -r --workspace-concurrency=1 run test
+        env:
+          CI: true
+
+  # The one required status check: green only if every job above succeeded.
+  ci:
+    if: always()
+    needs:
+      [
+        lint,
+        stats,
+        format-and-openapi,
+        type-check,
+        test-back-end,
+        test-packages,
+      ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check job results
+        run: |
+          results='${{ join(needs.*.result, " ") }}'
+          echo "Upstream results: $results"
+          for r in $results; do
+            if [[ "$r" != "success" ]]; then
+              echo "A required job did not succeed."
+              exit 1
+            fi
+          done

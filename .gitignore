@@ -57,3 +57,6 @@ next-env.d.ts
 
 # Agent scratch space
 .context/
+
+# Jest transform cache (pinned in jest.config.js so CI can cache it)
+.jest-cache
