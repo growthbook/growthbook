@@ -346,6 +346,14 @@ export function useFeaturePageData(
       return match;
     }
 
+    // A specific non-live version is selected but its revision has not loaded
+    // yet (e.g. a ?v=N deep link outside the base response's full-revision
+    // window). Do not fall back to live feature values under that version's
+    // URL -- wait for the revision to load.
+    if (currentVersion !== baseFeature.version) {
+      return null;
+    }
+
     // Create dummy revision for old features without revision history
     const rules: FeatureRule[] = baseFeature.rules ?? [];
     return {

@@ -172,4 +172,56 @@ describe("useFeaturePageData", () => {
     );
     await waitFor(() => expect(result.current.revision?.version).toBe(6));
   });
+
+  it("does not render live feature values under a ?v= URL while that revision is loading", async () => {
+    let resolveBaseLocal!: (payload: unknown) => void;
+    let resolveRev!: (payload: unknown) => void;
+    const baseLocal = new Promise((res) => {
+      resolveBaseLocal = res;
+    });
+    const revLocal = new Promise((res) => {
+      resolveRev = res;
+    });
+    apiCall.mockReset();
+    apiCall.mockImplementation((url: string) => {
+      if (url === "/feature/f1") return baseLocal;
+      if (url.startsWith("/ramp-schedule")) {
+        return Promise.resolve({ status: 200, rampSchedules: [] });
+      }
+      if (url === "/feature/f1/revisions?versions=42") return revLocal;
+      throw new Error(`unexpected api call: ${url}`);
+    });
+
+    const { result } = render("42");
+    await flush();
+    expect(result.current.feature).toBeNull();
+
+    // Base response knows v42 exists (revisionList) but only carries full
+    // revisions for the recent window, so v42's revision must be fetched.
+    const payload = basePayload([rev(1), rev(2)]);
+    payload.revisionList.push({
+      version: 42,
+      datePublished: new Date(0),
+      dateUpdated: new Date(0),
+      createdBy: null,
+      status: "published",
+      comment: "",
+    });
+    await act(async () => {
+      resolveBaseLocal(payload);
+    });
+    await flush();
+
+    // v42's revision is still in flight: the hook must not substitute the live
+    // feature under the ?v=42 URL.
+    expect(result.current.version).toBe(42);
+    expect(result.current.revision).toBeNull();
+    expect(result.current.feature).toBeNull();
+
+    // Once v42 arrives, it renders as the historical revision.
+    await act(async () => {
+      resolveRev({ status: 200, revisions: [rev(42, { baseVersion: 1 })] });
+    });
+    await waitFor(() => expect(result.current.revision?.version).toBe(42));
+  });
 });
