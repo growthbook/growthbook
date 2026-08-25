@@ -41,7 +41,6 @@ import {
   getFeaturesByIds,
   removeHoldoutFromFeature,
 } from "back-end/src/models/FeatureModel";
-import { CasConflictError } from "back-end/src/models/BaseModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { isHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
@@ -416,22 +415,14 @@ export async function createHoldoutWithExperiment(
 }
 
 /**
- * Roll an experiment back to a prior snapshot after its companion holdout write
- * failed (the two documents share no transaction). Returns whether the restore
- * succeeded so callers can gate follow-up work.
- *
- * The restore is guarded on the exact field values this operation wrote, not the
- * whole-document `dateUpdated`. An unrelated edit to some other experiment field
- * therefore no longer blocks compensation, while a concurrent write to one of the
- * fields we set fails the guard — in that case we skip the rollback rather than
- * clobber the newer value with our stale revert, and warn that the pair may need
- * reconciling. On any other failure we log for manual reconciliation rather than
- * masking the caller's original error.
+ * Roll an experiment back after its companion holdout write failed (the two
+ * documents share no transaction). Returns whether the restore succeeded so
+ * callers can gate follow-up work; on failure it logs for manual reconciliation
+ * rather than masking the caller's original error.
  */
 async function rollbackExperimentAfterHoldoutFailure(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
-  writtenChanges: Partial<ExperimentInterface>,
   revertChanges: Partial<ExperimentInterface>,
   logContext: string,
 ): Promise<boolean> {
@@ -440,16 +431,9 @@ async function rollbackExperimentAfterHoldoutFailure(
       context,
       experiment,
       changes: revertChanges,
-      guard: writtenChanges,
     });
     return true;
   } catch (revertError) {
-    if (revertError instanceof CasConflictError) {
-      logger.warn(
-        `Skipped rolling back experiment "${experiment.id}" ${logContext}; one of the fields it wrote was modified concurrently, so the other write is left intact and the holdout and experiment may need reconciling by hand`,
-      );
-      return false;
-    }
     logger.error(
       revertError,
       `Failed to roll back experiment "${experiment.id}" ${logContext}; the holdout and experiment are now inconsistent and need reconciling by hand`,
@@ -691,7 +675,6 @@ export async function updateHoldoutWithExperiment(
       await rollbackExperimentAfterHoldoutFailure(
         context,
         experiment,
-        experimentChanges,
         originalExperimentValues,
         "after holdout update failed",
       );
@@ -870,7 +853,6 @@ export async function setHoldoutStage(
       const reverted = await rollbackExperimentAfterHoldoutFailure(
         context,
         updatedExperiment,
-        changes,
         { status: originalStatus, phases: originalPhases },
         `after holdout update failed during "${event}"`,
       );

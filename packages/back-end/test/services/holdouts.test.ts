@@ -2,7 +2,6 @@ import type { ExperimentInterface } from "shared/types/experiment";
 import type { HoldoutInterface, ApiUpdateHoldoutBody } from "shared/validators";
 import { holdoutSizeToCoverage } from "shared/util";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
-import { CasConflictError } from "back-end/src/models/BaseModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { logger } from "back-end/src/util/logger";
 import type { ReqContext } from "back-end/types/request";
@@ -358,7 +357,7 @@ describe("getNextScheduledStatusUpdateForStage", () => {
   });
 });
 
-describe("rollbackExperimentAfterHoldoutFailure guard", () => {
+describe("rollbackExperimentAfterHoldoutFailure", () => {
   const mockUpdateExperiment = updateExperiment as jest.Mock;
   const mockQueueSDKPayloadRefresh = queueSDKPayloadRefresh as jest.Mock;
 
@@ -401,7 +400,7 @@ describe("rollbackExperimentAfterHoldoutFailure guard", () => {
   });
 
   describe("metadata updates", () => {
-    it("guards the rollback on the fields the update wrote, not dateUpdated", async () => {
+    it("rolls the experiment back to the fields it wrote", async () => {
       const experiment = makeRollbackExperiment();
       mockUpdateExperiment
         .mockResolvedValueOnce(makeRollbackExperiment({ name: "New" }))
@@ -420,18 +419,18 @@ describe("rollbackExperimentAfterHoldoutFailure guard", () => {
 
       expect(mockUpdateExperiment).toHaveBeenCalledTimes(2);
       const rollbackCall = mockUpdateExperiment.mock.calls[1][0];
-      expect(rollbackCall.guard).toEqual({ name: "New" });
+      expect(rollbackCall.guard).toBeUndefined();
       expect(rollbackCall.changes).toEqual({ name: "Old" });
     });
 
-    it("skips the rollback and warns when a written field changed concurrently", async () => {
+    it("logs for manual reconciliation when the rollback write fails", async () => {
       mockUpdateExperiment
         .mockResolvedValueOnce(makeRollbackExperiment({ name: "New" }))
-        .mockRejectedValueOnce(new CasConflictError());
+        .mockRejectedValueOnce(new Error("revert down"));
       const holdoutUpdate = jest
         .fn()
         .mockRejectedValue(new Error("holdout down"));
-      const warn = jest.spyOn(logger, "warn").mockImplementation();
+      const error = jest.spyOn(logger, "error").mockImplementation();
 
       await expect(
         updateHoldoutWithExperiment(makeContext(holdoutUpdate), {
@@ -441,8 +440,8 @@ describe("rollbackExperimentAfterHoldoutFailure guard", () => {
         }),
       ).rejects.toThrow("holdout down");
 
-      expect(warn).toHaveBeenCalledTimes(1);
-      expect(warn.mock.calls[0][0]).toContain("may need reconciling");
+      expect(error).toHaveBeenCalledTimes(1);
+      expect(error.mock.calls[0][1]).toContain("need reconciling by hand");
     });
   });
 
@@ -469,7 +468,7 @@ describe("rollbackExperimentAfterHoldoutFailure guard", () => {
 
       const savedGroupTargeting = [{ match: "all" as const, ids: ["grp_1"] }];
       await updateHoldoutWithExperiment(makeContext(holdoutUpdate), {
-        holdout: makeHoldout(),
+        holdout: makeRollbackHoldout(),
         experiment,
         body: {
           targetingCondition: '{"country":"US"}',
@@ -487,14 +486,14 @@ describe("rollbackExperimentAfterHoldoutFailure guard", () => {
         expect(phase.savedGroups).toEqual(savedGroupTargeting);
         expect(phase.coverage).toBe(expectedCoverage);
       }
-      // Non-targeting fields on each phase are preserved.
+      // Non-targeting fields are preserved.
       expect(changes.phases[0].name).toBe("Holdout");
       expect(changes.phases[1].name).toBe("Analysis");
     });
   });
 
   describe("lifecycle transitions", () => {
-    it("guards the rollback on the status and phases it wrote", async () => {
+    it("rolls back to the status and phases it wrote", async () => {
       const experiment = makeRollbackExperiment({ status: "running" });
       mockUpdateExperiment
         .mockResolvedValueOnce(makeRollbackExperiment({ status: "stopped" }))
@@ -512,11 +511,8 @@ describe("rollbackExperimentAfterHoldoutFailure guard", () => {
       ).rejects.toThrow("holdout down");
 
       expect(mockUpdateExperiment).toHaveBeenCalledTimes(2);
-      const forwardChanges = mockUpdateExperiment.mock.calls[0][0].changes;
       const rollbackCall = mockUpdateExperiment.mock.calls[1][0];
-      // The guard is exactly the changeset the forward write applied.
-      expect(rollbackCall.guard).toBe(forwardChanges);
-      expect(rollbackCall.guard.status).toBe("stopped");
+      expect(rollbackCall.guard).toBeUndefined();
       expect(rollbackCall.changes.status).toBe("running");
     });
 
@@ -531,7 +527,7 @@ describe("rollbackExperimentAfterHoldoutFailure guard", () => {
 
       await expect(
         setHoldoutStage(makeContext(holdoutUpdate), {
-          holdout: makeHoldout(),
+          holdout: makeRollbackHoldout(),
           experiment,
           stage: "stopped",
         }),
@@ -540,8 +536,7 @@ describe("rollbackExperimentAfterHoldoutFailure guard", () => {
       const events = mockQueueSDKPayloadRefresh.mock.calls.map(
         ([arg]) => arg.auditContext.event,
       );
-      // The forward lifecycle refresh must not run once the transition rolls
-      // back; only the reverted-state refresh should reach the SDK caches.
+      // Only the reverted-state refresh runs, not the forward one.
       expect(events).toEqual(["Reverted: Status changed to stopped"]);
     });
   });
