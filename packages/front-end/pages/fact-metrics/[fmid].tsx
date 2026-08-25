@@ -647,15 +647,22 @@ export default function FactMetricPage() {
         <Flex align="center" gap="2" pr="2">
           <OpenInExplorerButton
             enabled={canOpenInExplorer}
-            disabledReason={
+            // Funnel metrics open in the Funnel Builder, which understands
+            // steps; every other type goes to the Metric Explorer as before.
+            href={
               isFactFunnelMetric(factMetric)
-                ? "Funnel metrics are not yet supported in the Explorer."
-                : null
+                ? `/product-analytics/explore/funnel?funnelMetricId=${encodeURIComponent(
+                    factMetric.id,
+                  )}`
+                : `/product-analytics/explore/metrics?metricId=${encodeURIComponent(
+                    factMetric.id,
+                  )}`
             }
-            href={`/product-analytics/explore/metrics?metricId=${encodeURIComponent(
-              factMetric.id,
-            )}`}
-            tooltip="Open this Fact Metric in the Product Analytics Explorer to view trends, compare time periods, and slice/dice a metric."
+            tooltip={
+              isFactFunnelMetric(factMetric)
+                ? "Open this funnel in the Funnel Builder to explore its steps, break them down by dimension, and try changes without affecting the metric."
+                : "Open this Fact Metric in the Product Analytics Explorer to view trends, compare time periods, and slice/dice a metric."
+            }
           />
           <DropdownMenu
             trigger={

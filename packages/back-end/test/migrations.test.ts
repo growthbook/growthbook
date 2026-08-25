@@ -372,6 +372,54 @@ describe("Fact Metric Migration", () => {
         rowFilters: [],
       });
     });
+    it("keeps a complete aggregate filter", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          rowFilters: [],
+          aggregateFilterColumn: "$$count",
+          aggregateFilter: ">= 1",
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [],
+        aggregateFilterColumn: "$$count",
+        aggregateFilter: ">= 1",
+      });
+    });
+    it("drops an aggregate filter column with no filter", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          rowFilters: [],
+          aggregateFilterColumn: "$$count",
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [],
+      });
+    });
+    it("drops an aggregate filter with a null column", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          rowFilters: [],
+          aggregateFilter: ">= 1",
+          // Mongo stores an explicit `undefined` as null
+          aggregateFilterColumn: null as unknown as string,
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [],
+      });
+    });
+
     it("Can unmigrate filters for API responses", () => {
       const original: LegacyColumnRef = {
         factTableId: "ft_123",

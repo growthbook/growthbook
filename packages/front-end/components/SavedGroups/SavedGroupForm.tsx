@@ -1,5 +1,5 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
-import { FC, useEffect, useMemo, useState } from "react";
+import { FC, useEffect, useMemo, useRef, useState } from "react";
 import {
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
@@ -251,8 +251,19 @@ const SavedGroupForm: FC<{
     (c) => c.key === "description",
   );
 
-  // Update form values when selected revision changes OR when current prop updates
+  // Live state pinned at open. Publish/new-draft submits compare against live,
+  // which the hook baseline only describes when the conflict came from live.
+  const [livePin] = useState<SavedGroupInterface | undefined>(
+    () => liveVersion,
+  );
+
+  // Reseed only when the backing revision changes: a same-revision SWR refresh
+  // must not clobber unsaved edits — the stale baseline 409s instead.
+  const seedKey = currentRevision ? currentRevision.id : "__live__";
+  const seededKeyRef = useRef<string | null>(null);
   useEffect(() => {
+    if (seededKeyRef.current === seedKey) return;
+    seededKeyRef.current = seedKey;
     let baseData: Partial<SavedGroupInterface>;
 
     if (currentRevision) {
@@ -294,7 +305,16 @@ const SavedGroupForm: FC<{
     if (baseData.description) {
       setShowDescription(true);
     }
-  }, [currentRevision, liveVersion, type, project, orgId, form, current]);
+  }, [
+    seedKey,
+    currentRevision,
+    liveVersion,
+    type,
+    project,
+    orgId,
+    form,
+    current,
+  ]);
 
   const selectedProjects = form.watch("projects") || [];
 
@@ -466,8 +486,11 @@ const SavedGroupForm: FC<{
         if (current.id) {
           const baseline = (k: keyof SavedGroupInterface) =>
             (current as Partial<SavedGroupInterface>)[k];
+          // An empty array and an absent field mean the same thing here.
+          const norm = (v: unknown) =>
+            Array.isArray(v) && v.length === 0 ? null : (v ?? null);
           const fieldChanged = (k: keyof SavedGroupFormValues) =>
-            !isEqual(value[k] ?? null, baseline(k) ?? null);
+            !isEqual(norm(value[k]), norm(baseline(k)));
           let payload: UpdateSavedGroupProps;
           if (editInfoOnly) {
             payload = {
@@ -526,6 +549,17 @@ const SavedGroupForm: FC<{
           const guard = conflict.guard(
             payload as unknown as Record<string, unknown>,
           );
+          const submitBaseline =
+            livePin &&
+            draftMode !== "existing" &&
+            (!conflict.hasConflict || conflict.conflictFromDraft)
+              ? Object.fromEntries(
+                  Object.keys(payload).map((k) => [
+                    k,
+                    (livePin as unknown as Record<string, unknown>)[k],
+                  ]),
+                )
+              : guard.baseline;
           const res = await conflict.guarded(() =>
             apiCall<{
               status: number;
@@ -535,7 +569,7 @@ const SavedGroupForm: FC<{
               url,
               {
                 method: "PUT",
-                body: JSON.stringify({ ...payload, baseline: guard.baseline }),
+                body: JSON.stringify({ ...payload, baseline: submitBaseline }),
               },
               guard.onError,
             ),
