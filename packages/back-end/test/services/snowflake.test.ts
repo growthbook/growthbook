@@ -13,15 +13,20 @@ jest.mock("back-end/src/integrations/SqlIntegration", () => ({
 }));
 
 // IS_CLOUD is a module-level const; expose it through a getter so individual
-// tests can flip it. Everything else keeps its real value. `var`, not `let`:
-// the hoisted mock factory's getter fires during module load (logger reads
-// IS_CLOUD at import), and a `let` would still be in its temporal dead zone
-// there — `var` yields undefined, i.e. the real default, until beforeEach.
-let mockIsCloud = false;
+// tests can flip it. Everything else keeps its real value. The backing store
+// lives on globalThis rather than in a local binding: the getter fires during
+// module IMPORT (logger reads IS_CLOUD at load), before any local declaration
+// has initialized — a let/const would be in its temporal dead zone there, and
+// the hoisted-`var` alternative gets auto-rewritten to `let` by eslint's
+// no-var fixer at commit time (which silently broke this file once already).
+type IsCloudStore = { __mockIsCloud?: boolean };
+const setMockIsCloud = (value: boolean) => {
+  (globalThis as IsCloudStore).__mockIsCloud = value;
+};
 jest.mock("back-end/src/util/secrets", () => ({
   ...jest.requireActual("back-end/src/util/secrets"),
   get IS_CLOUD() {
-    return mockIsCloud;
+    return (globalThis as IsCloudStore).__mockIsCloud ?? false;
   },
 }));
 
@@ -40,7 +45,7 @@ function connectionOptions(): Record<string, unknown> {
 describe("buildSnowflakeConnection auth methods", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockIsCloud = false;
+    setMockIsCloud(false);
   });
 
   it("passes WORKLOAD_IDENTITY and the provider for workload-identity", () => {
@@ -68,8 +73,20 @@ describe("buildSnowflakeConnection auth methods", () => {
     expect(createConnection).not.toHaveBeenCalled();
   });
 
+  it("rejects an unsupported workload-identity provider before connecting", () => {
+    expect(() =>
+      buildSnowflakeConnection({
+        ...baseParams,
+        authMethod: "workload-identity",
+        // @ts-expect-error direct API requests are not constrained by the union type
+        workloadIdentityProvider: "aws",
+      }),
+    ).toThrow("requires a cloud provider");
+    expect(createConnection).not.toHaveBeenCalled();
+  });
+
   it("rejects workload-identity on GrowthBook Cloud before connecting", () => {
-    mockIsCloud = true;
+    setMockIsCloud(true);
     expect(() =>
       buildSnowflakeConnection({
         ...baseParams,

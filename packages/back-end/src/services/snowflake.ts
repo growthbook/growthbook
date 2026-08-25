@@ -73,7 +73,15 @@ export function buildSnowflakeConnection(
         "Workload Identity authentication is only supported on self-hosted GrowthBook installations",
       );
     }
-    if (!conn.workloadIdentityProvider) {
+    // Allowlist, not a presence check: the TypeScript union only constrains the
+    // UI — a direct API request can supply anything, and an invalid value would
+    // otherwise surface as an opaque SDK/connection failure instead of a clear
+    // configuration error.
+    if (
+      conn.workloadIdentityProvider !== "AWS" &&
+      conn.workloadIdentityProvider !== "AZURE" &&
+      conn.workloadIdentityProvider !== "GCP"
+    ) {
       throw new Error(
         "Workload Identity authentication requires a cloud provider (AWS, AZURE, or GCP)",
       );
