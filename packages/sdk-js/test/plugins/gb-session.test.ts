@@ -2,6 +2,7 @@ import {
   getOrCreateGbSessionId,
   DEFAULT_MAX_DURATION_MS,
 } from "../../src/plugins/gb-session";
+import { setPolyfills } from "../../src/feature-repository";
 
 const STORAGE_KEY = "gb_session";
 
@@ -129,5 +130,47 @@ describe("gb session manager", () => {
       gbSessionId: id,
       createdAt: 1000,
     });
+  });
+
+  it("uses polyfilled sessionStorage when set", () => {
+    const store: Record<string, string> = {};
+    setPolyfills({
+      sessionStorage: {
+        getItem: (key: string) => store[key] ?? null,
+        setItem: (key: string, value: string) => {
+          store[key] = value;
+        },
+      },
+    });
+
+    const id = getOrCreateGbSessionId();
+
+    expect(id).toEqual(expect.any(String));
+    const stored = JSON.parse(store[STORAGE_KEY] || "{}");
+    expect(stored).toEqual({ gbSessionId: id, createdAt: 1000 });
+
+    setPolyfills({ sessionStorage: globalThis.sessionStorage });
+  });
+
+  it("falls back to in-memory when no sessionStorage is available", () => {
+    setPolyfills({
+      sessionStorage: {
+        getItem: () => {
+          throw new Error("no storage");
+        },
+        setItem: () => {
+          throw new Error("no storage");
+        },
+      },
+    });
+
+    const id = getOrCreateGbSessionId();
+    expect(id).toEqual(expect.any(String));
+
+    // Second call should return same id via in-memory fallback
+    const id2 = getOrCreateGbSessionId();
+    expect(id2).toBe(id);
+
+    setPolyfills({ sessionStorage: globalThis.sessionStorage });
   });
 });

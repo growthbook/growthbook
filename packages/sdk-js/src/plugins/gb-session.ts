@@ -1,4 +1,4 @@
-import { genUUID } from "../util";
+import { genUUID, getPolyfills } from "../util";
 
 type StoredGbSessionState = {
   gbSessionId: string;
@@ -6,9 +6,13 @@ type StoredGbSessionState = {
 };
 
 const SESSION_STORAGE_KEY = "gb_session";
-export const DEFAULT_MAX_DURATION_MS = 30 * 60 * 1000;
+export const DEFAULT_MAX_DURATION_MS = 10 * 60 * 1000;
 
 let inMemoryFallback: StoredGbSessionState | null = null;
+
+function getSessionStorage() {
+  return getPolyfills().sessionStorage ?? globalThis.sessionStorage;
+}
 
 function normalizeStoredGbSessionState(
   value: unknown,
@@ -29,7 +33,9 @@ function normalizeStoredGbSessionState(
 
 function readStoredGbSessionState(): StoredGbSessionState | null {
   try {
-    const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    const raw = getSessionStorage().getItem(SESSION_STORAGE_KEY) as
+      | string
+      | null;
     if (!raw) return null;
     return normalizeStoredGbSessionState(JSON.parse(raw));
   } catch {
@@ -39,7 +45,7 @@ function readStoredGbSessionState(): StoredGbSessionState | null {
 
 function persistGbSessionState(state: StoredGbSessionState): void {
   try {
-    sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(state));
+    getSessionStorage().setItem(SESSION_STORAGE_KEY, JSON.stringify(state));
   } catch {
     inMemoryFallback = state;
   }
@@ -59,7 +65,7 @@ export function getOrCreateGbSessionId(options?: {
   }
 
   const fresh: StoredGbSessionState = {
-    gbSessionId: genUUID(window.crypto),
+    gbSessionId: genUUID(globalThis.crypto),
     createdAt: now,
   };
   persistGbSessionState(fresh);
