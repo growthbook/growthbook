@@ -337,7 +337,7 @@ export default function DashboardPreviewBubble({
               // read as one vague failure without them.
               <>
                 {droppedBlocks.length} tiles were left off:
-                <ul className="mb-0 mt-1 pl-3">
+                <ul className={styles.droppedList}>
                   {droppedBlocks.map((block) => (
                     <li key={block.title}>
                       {`"${block.title}" — ${block.reason}.`}
