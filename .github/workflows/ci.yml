@@ -188,22 +188,16 @@ jobs:
   ci:
     if: always()
     needs:
-      [
-        lint,
-        stats,
-        format-and-openapi,
-        type-check,
-        test-back-end,
-        test-packages,
-      ]
+      [lint, stats, format-and-openapi, type-check, test-back-end, test-packages]
     runs-on: ubuntu-latest
     steps:
       - name: Check job results
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
-          results='${{ join(needs.*.result, " ") }}'
-          echo "Upstream results: $results"
-          for r in $results; do
-            if [[ "$r" != "success" ]]; then
+          echo "Upstream results: $RESULTS"
+          for r in $RESULTS; do
+            if [ "$r" != "success" ]; then
               echo "A required job did not succeed."
               exit 1
             fi
