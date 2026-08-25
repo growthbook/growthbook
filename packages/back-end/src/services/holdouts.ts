@@ -551,18 +551,20 @@ export async function updateHoldoutWithExperiment(
       }
     }
 
-    const current = phases[phases.length - 1];
-    phases[phases.length - 1] = {
-      ...current,
-      condition: body.targetingCondition ?? current.condition,
-      savedGroups: body.savedGroupTargeting ?? current.savedGroups,
-      coverage:
-        body.holdoutSize === undefined
-          ? current.coverage
-          : holdoutSizeToCoverage(body.holdoutSize),
-    };
+    // A holdout in its analysis period has two phases ("Holdout" and
+    // "Analysis") that must carry identical targeting, so mirror the change
+    // across every phase rather than only the last one.
+    const targetingCoverage =
+      body.holdoutSize === undefined
+        ? undefined
+        : holdoutSizeToCoverage(body.holdoutSize);
 
-    experimentChanges.phases = phases;
+    experimentChanges.phases = phases.map((phase) => ({
+      ...phase,
+      condition: body.targetingCondition ?? phase.condition,
+      savedGroups: body.savedGroupTargeting ?? phase.savedGroups,
+      coverage: targetingCoverage ?? phase.coverage,
+    }));
     if (body.hashAttribute !== undefined) {
       experimentChanges.hashAttribute = body.hashAttribute;
     }

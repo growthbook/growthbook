@@ -1,5 +1,6 @@
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { HoldoutInterface, ApiUpdateHoldoutBody } from "shared/validators";
+import { holdoutSizeToCoverage } from "shared/util";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { CasConflictError } from "back-end/src/models/BaseModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
@@ -442,6 +443,53 @@ describe("rollbackExperimentAfterHoldoutFailure guard", () => {
 
       expect(warn).toHaveBeenCalledTimes(1);
       expect(warn.mock.calls[0][0]).toContain("may need reconciling");
+    });
+  });
+
+  describe("targeting updates", () => {
+    it("mirrors targeting changes across every phase", async () => {
+      const experiment = makeExperiment({
+        phases: [
+          {
+            name: "Holdout",
+            condition: "{}",
+            savedGroups: [],
+            coverage: 0.5,
+          },
+          {
+            name: "Analysis",
+            condition: "{}",
+            savedGroups: [],
+            coverage: 0.5,
+          },
+        ] as unknown as ExperimentInterface["phases"],
+      });
+      mockUpdateExperiment.mockResolvedValueOnce(experiment);
+      const holdoutUpdate = jest.fn();
+
+      const savedGroupTargeting = [{ match: "all" as const, ids: ["grp_1"] }];
+      await updateHoldoutWithExperiment(makeContext(holdoutUpdate), {
+        holdout: makeHoldout(),
+        experiment,
+        body: {
+          targetingCondition: '{"country":"US"}',
+          savedGroupTargeting,
+          holdoutSize: 0.2,
+        } as ApiUpdateHoldoutBody,
+      });
+
+      expect(mockUpdateExperiment).toHaveBeenCalledTimes(1);
+      const { changes } = mockUpdateExperiment.mock.calls[0][0];
+      const expectedCoverage = holdoutSizeToCoverage(0.2);
+      expect(changes.phases).toHaveLength(2);
+      for (const phase of changes.phases) {
+        expect(phase.condition).toBe('{"country":"US"}');
+        expect(phase.savedGroups).toEqual(savedGroupTargeting);
+        expect(phase.coverage).toBe(expectedCoverage);
+      }
+      // Non-targeting fields on each phase are preserved.
+      expect(changes.phases[0].name).toBe("Holdout");
+      expect(changes.phases[1].name).toBe("Analysis");
     });
   });
 
