@@ -1,12 +1,15 @@
 import {
   RampScheduleInterface,
   SafeRolloutInterface,
-  SafeRolloutSnapshotInterface,
   ExperimentHealthAction,
 } from "shared/validators";
 import { expandMetricGroups } from "shared/experiments";
 import { getHealthSettings } from "shared/enterprise";
 import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
+import {
+  findAnalysisComputeFailure,
+  getSafeRolloutSnapshotAnalysis,
+} from "shared/util";
 import {
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
@@ -309,11 +312,13 @@ async function evaluateMonitoredStep(
   // A metric that failed to compute can't be judged safe, so hold rather than
   // advance. After the rollback checks (rollback beats hold), before the
   // sample-size gate (more data won't fix a compute error).
-  const erroredMetricId = findErroredSafeRolloutMetricId(summarySnapshot);
-  if (erroredMetricId) {
+  const computeFailure = findAnalysisComputeFailure(
+    getSafeRolloutSnapshotAnalysis(summarySnapshot),
+  );
+  if (computeFailure) {
     return {
       action: "hold",
-      reason: `Guardrail metric ${erroredMetricId} failed to compute — holding step until it recovers`,
+      reason: `Guardrail metric ${computeFailure.metricId} failed to compute — holding step until it recovers`,
     };
   }
 
@@ -417,27 +422,6 @@ function checkScheduleGuardrailSignals(
     }
   }
 
-  return null;
-}
-
-export function findErroredSafeRolloutMetricId(
-  snapshot: SafeRolloutSnapshotInterface | null,
-): string | null {
-  if (!snapshot) return null;
-  for (const analysis of snapshot.analyses ?? []) {
-    for (const dimension of analysis.results ?? []) {
-      for (const variation of dimension.variations ?? []) {
-        for (const [metricId, metric] of Object.entries(
-          variation.metrics ?? {},
-        )) {
-          // Only analysis-level compute failures (which used to error the whole
-          // snapshot) block advancement. A benign per-variation errorMessage
-          // (no units, moments failure) leaves the snapshot valid, so ignore it.
-          if (metric?.computeFailed) return metricId;
-        }
-      }
-    }
-  }
   return null;
 }
 
