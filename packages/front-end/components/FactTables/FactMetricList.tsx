@@ -40,6 +40,14 @@ import {
   isMergeAggregationMetric,
   REST_API_ONLY_EDIT_MESSAGE,
 } from "@/services/factMetrics";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+  TableRowHeaderCell,
+} from "@/ui/Table";
 import FactMetricModal from "./FactMetricModal";
 
 function FactMetricRowMenu({
@@ -255,7 +263,7 @@ export default function FactMetricList({
     isFiltered,
     syntaxFilters,
     setSearchValue,
-    SortableTH,
+    SortableTableColumnHeader,
     clear,
     pagination,
   } = useSearch({
@@ -401,13 +409,17 @@ export default function FactMetricList({
       </Flex>
       {metrics.length > 0 && (
         <>
-          <table className="table appbox gbtable mt-2 mb-0 table-hover">
-            <thead>
-              <tr className="cursor-pointer">
-                <SortableTH field="name">Name</SortableTH>
-                <SortableTH field="metricType">Type</SortableTH>
+          <Table variant="list" mt="2">
+            <TableHeader>
+              <TableRow>
+                <SortableTableColumnHeader field="name">
+                  Name
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="metricType">
+                  Type
+                </SortableTableColumnHeader>
                 {shouldShowSliceAnalysisColumn && (
-                  <SortableTH field="numAutoSlices" style={{}}>
+                  <SortableTableColumnHeader field="numAutoSlices">
                     Auto Slices
                     <PaidFeatureBadge
                       commercialFeature="metric-slices"
@@ -415,17 +427,21 @@ export default function FactMetricList({
                       variant="outline"
                       ml="2"
                     />
-                  </SortableTH>
+                  </SortableTableColumnHeader>
                 )}
-                <SortableTH field="tags">Tags</SortableTH>
-                <SortableTH field="dateUpdated">Last Updated</SortableTH>
-                <th style={{ width: 30 }} />
-              </tr>
-            </thead>
-            <tbody>
+                <SortableTableColumnHeader field="tags">
+                  Tags
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="dateUpdated">
+                  Last Updated
+                </SortableTableColumnHeader>
+                <TableColumnHeader style={{ width: 30 }} />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {items.map((metric) => (
-                <tr key={metric.id}>
-                  <td>
+                <TableRow key={metric.id}>
+                  <TableRowHeaderCell>
                     <Link
                       href={`/fact-metrics/${metric.id}`}
                       className="font-weight-bold"
@@ -433,12 +449,12 @@ export default function FactMetricList({
                     >
                       <MetricName id={metric.id} />
                     </Link>
-                  </td>
-                  <td>
+                  </TableRowHeaderCell>
+                  <TableCell>
                     <FactMetricTypeDisplayName type={metric.metricType} />
-                  </td>
+                  </TableCell>
                   {shouldShowSliceAnalysisColumn && (
-                    <td>
+                    <TableCell>
                       <div
                         className="d-flex flex-wrap"
                         style={{ gap: "0.25rem" }}
@@ -500,19 +516,19 @@ export default function FactMetricList({
                           </Text>
                         )}
                       </div>
-                    </td>
+                    </TableCell>
                   )}
-                  <td>
+                  <TableCell>
                     <SortedTags
                       tags={metric.tags}
                       useFlex={true}
                       {...tagLinkProps("metrics")}
                     />
-                  </td>
-                  <td>
+                  </TableCell>
+                  <TableCell>
                     {metric.dateUpdated ? date(metric.dateUpdated) : null}
-                  </td>
-                  <td>
+                  </TableCell>
+                  <TableCell>
                     <FactMetricRowMenu
                       metric={metric}
                       canEdit={canEdit(metric)}
@@ -536,12 +552,15 @@ export default function FactMetricList({
                         })
                       }
                     />
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
               {!items.length && isFiltered && (
-                <tr>
-                  <td colSpan={5} align={"center"}>
+                <TableRow>
+                  <TableCell
+                    colSpan={shouldShowSliceAnalysisColumn ? 6 : 5}
+                    align="center"
+                  >
                     No matching metrics.{" "}
                     <a
                       href="#"
@@ -552,11 +571,11 @@ export default function FactMetricList({
                     >
                       Clear search field
                     </a>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
           {pagination}
         </>
       )}
