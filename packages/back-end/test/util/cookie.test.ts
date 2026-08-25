@@ -3,8 +3,11 @@ import { Request, Response } from "express";
 import {
   IdTokenCookie,
   RefreshTokenCookie,
+  clearPendingAuthChecks,
+  getPendingAuthChecks,
   isIdTokenExpired,
   setIdTokenCookie,
+  setPendingAuthChecks,
 } from "back-end/src/util/cookie";
 
 function makeReqRes() {
@@ -111,6 +114,58 @@ describe("Cookie.getValue", () => {
   it("applies to every cookie, not just the refresh token", () => {
     const req = reqWithCookies({ AUTH_ID_TOKEN: { $ne: "" } });
     expect(IdTokenCookie.getValue(req)).toBe("");
+  });
+});
+
+describe("pending auth checks", () => {
+  it("keeps one cookie per flow so concurrent logins don't overwrite each other", () => {
+    const { req, res, cookieCalls } = makeReqRes();
+
+    setPendingAuthChecks("s1", "a", req, res);
+    setPendingAuthChecks("s2", "b", req, res);
+
+    expect(cookieCalls.map((c) => c.name)).toEqual([
+      "AUTH_CHECKS_s1",
+      "AUTH_CHECKS_s2",
+    ]);
+    expect(getPendingAuthChecks(req)).toEqual({ s1: "a", s2: "b" });
+  });
+
+  it("clears only the consumed flow", () => {
+    const { req, res, clearCalls } = makeReqRes();
+    setPendingAuthChecks("s1", "a", req, res);
+    setPendingAuthChecks("s2", "b", req, res);
+
+    clearPendingAuthChecks(req, res, "s1");
+
+    expect(clearCalls).toEqual([{ name: "AUTH_CHECKS_s1" }]);
+    expect(getPendingAuthChecks(req)).toEqual({ s2: "b" });
+  });
+
+  it("sweeps every pending flow once too many pile up", () => {
+    const { req, res, clearCalls } = makeReqRes();
+    for (let i = 0; i < 10; i++) {
+      setPendingAuthChecks(`s${i}`, "x", req, res);
+    }
+    expect(clearCalls).toHaveLength(0);
+
+    setPendingAuthChecks("s10", "y", req, res);
+
+    expect(clearCalls).toHaveLength(10);
+    expect(getPendingAuthChecks(req)).toEqual({ s10: "y" });
+  });
+
+  it("ignores unrelated, empty, and JSON-decoded object cookies", () => {
+    const req = {
+      cookies: {
+        AUTH_CHECKS_a: "ok",
+        AUTH_CHECKS_b: "",
+        AUTH_CHECKS_c: { $ne: "" },
+        AUTH_REFRESH_TOKEN: "abc",
+      },
+    } as unknown as Request;
+
+    expect(getPendingAuthChecks(req)).toEqual({ a: "ok" });
   });
 });
 

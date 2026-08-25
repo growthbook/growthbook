@@ -66,8 +66,56 @@ export const RefreshTokenCookie = new Cookie(
   "/auth",
 );
 export const IdTokenCookie = new Cookie("AUTH_ID_TOKEN", minutes(15));
+
+// One cookie per in-flight login so concurrent tabs can't overwrite each other's state
+const AUTH_CHECKS_PREFIX = "AUTH_CHECKS_";
 // Long enough to sit on the IdP's login page for a while before coming back
-export const AuthChecksCookie = new Cookie("AUTH_CHECKS", minutes(60));
+const AUTH_CHECKS_TTL = minutes(60);
+const MAX_PENDING_AUTH_CHECKS = 10;
+
+export function getPendingAuthChecks(req: Request): Record<string, string> {
+  const pending: Record<string, string> = {};
+  for (const [name, value] of Object.entries(req.cookies)) {
+    if (
+      name.startsWith(AUTH_CHECKS_PREFIX) &&
+      typeof value === "string" &&
+      value
+    ) {
+      pending[name.slice(AUTH_CHECKS_PREFIX.length)] = value;
+    }
+  }
+  return pending;
+}
+
+export function setPendingAuthChecks(
+  state: string,
+  value: string,
+  req: Request,
+  res: Response,
+) {
+  // Abandoned flows expire on their own; only sweep when they pile up
+  if (
+    Object.keys(getPendingAuthChecks(req)).length >= MAX_PENDING_AUTH_CHECKS
+  ) {
+    clearPendingAuthChecks(req, res);
+  }
+  new Cookie(AUTH_CHECKS_PREFIX + state, AUTH_CHECKS_TTL).setValue(
+    value,
+    req,
+    res,
+  );
+}
+
+export function clearPendingAuthChecks(
+  req: Request,
+  res: Response,
+  state?: string,
+) {
+  const states = state ? [state] : Object.keys(getPendingAuthChecks(req));
+  for (const s of states) {
+    new Cookie(AUTH_CHECKS_PREFIX + s, AUTH_CHECKS_TTL).setValue("", req, res);
+  }
+}
 
 // Read the JWT's `exp` claim without verifying the signature — we only trust
 // the cookie value once a downstream middleware has verified it.

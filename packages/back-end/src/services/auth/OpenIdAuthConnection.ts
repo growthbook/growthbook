@@ -20,7 +20,9 @@ import {
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { MemoryCache } from "back-end/src/services/cache";
 import {
-  AuthChecksCookie,
+  clearPendingAuthChecks,
+  getPendingAuthChecks,
+  setPendingAuthChecks,
   SSOConnectionIdCookie,
 } from "back-end/src/util/cookie";
 import { APP_ORIGIN, IS_CLOUD, USE_PROXY } from "back-end/src/util/secrets";
@@ -41,9 +43,6 @@ type AuthChecks = {
   state: string;
   code_verifier: string;
 };
-
-// The cookie holds one entry per in-flight login so concurrent tabs don't clobber each other
-const MAX_PENDING_AUTH_CHECKS = 10;
 
 if (USE_PROXY) {
   custom.setHttpOptionsDefaults(getHttpOptions());
@@ -133,23 +132,19 @@ export class OpenIdAuthConnection implements AuthConnection {
 
     const params = client.callbackParams(req.originalUrl);
 
-    // Consume only this flow's entry; other tabs' pending logins stay valid
-    const pending = this.getAuthChecks(req);
-    const checks = pending.find((c) => c.state === params.state);
-    const remaining = pending.filter((c) => c !== checks);
-    AuthChecksCookie.setValue(
-      remaining.length ? JSON.stringify(remaining) : "",
-      req,
-      res,
-    );
+    // Consume only this flow's cookie; other tabs' pending logins stay valid
+    const pending = getPendingAuthChecks(req);
+    const raw = params.state ? pending[params.state] : undefined;
+    if (raw) clearPendingAuthChecks(req, res, params.state);
 
-    if (!checks) {
+    if (!raw) {
       throw new Error(
-        pending.length
+        Object.keys(pending).length
           ? "No pending auth checks match the returned state"
           : "Missing auth checks in session",
       );
     }
+    const checks: AuthChecks = JSON.parse(raw);
     if (checks.connection_id !== (connection.id || "")) {
       throw new Error("Invalid auth checks in session");
     }
@@ -262,11 +257,7 @@ export class OpenIdAuthConnection implements AuthConnection {
   }
 
   private getAuthChecks(req: Request): AuthChecks[] {
-    const checks = AuthChecksCookie.getValue(req);
-    if (!checks) return [];
-    const parsed: AuthChecks | AuthChecks[] = JSON.parse(checks);
-    // Cookies written before the list format held a single object
-    return Array.isArray(parsed) ? parsed : [parsed];
+    return Object.values(getPendingAuthChecks(req)).map((v) => JSON.parse(v));
   }
   private getMaxAge(tokenSet: TokenSet) {
     if (tokenSet.expires_in) {
@@ -302,8 +293,7 @@ export class OpenIdAuthConnection implements AuthConnection {
       state,
     };
 
-    const pending = this.getAuthChecks(req).slice(1 - MAX_PENDING_AUTH_CHECKS);
-    AuthChecksCookie.setValue(JSON.stringify([...pending, checks]), req, res);
+    setPendingAuthChecks(state, JSON.stringify(checks), req, res);
 
     let url = client.authorizationUrl({
       scope: `openid email profile ${
