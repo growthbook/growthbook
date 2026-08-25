@@ -21,6 +21,8 @@ import {
   applyMetricOverrides,
   ExperimentTableRow,
   compareRows,
+  sortDimensionsByTraffic,
+  sortDimensionsByAlpha,
 } from "@/services/experiments";
 import { RowError } from "@/components/Experiment/ResultsTable";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -42,6 +44,7 @@ export interface UseExperimentDimensionRowsParams {
   metricsFilter?: string[];
   sortBy?: ExperimentSortBy;
   sortDirection?: "asc" | "desc" | null;
+  dimensionSortBy?: ExperimentSortBy;
   customMetricOrder?: string[];
   analysisBarSettings?: {
     variationFilter: number[];
@@ -73,6 +76,7 @@ export function useExperimentDimensionRows({
   metricsFilter,
   sortBy,
   sortDirection,
+  dimensionSortBy,
   customMetricOrder,
   analysisBarSettings,
   statsEngine,
@@ -281,9 +285,23 @@ export function useExperimentDimensionRows({
       return [];
     }
 
+    // Apply dimension-level sorting before building per-metric tables
+    let sortedResults: ExperimentReportResultDimension[];
+    if (dimensionSortBy === "dimension-traffic") {
+      sortedResults = sortDimensionsByTraffic(results);
+    } else if (dimensionSortBy === "dimension-alpha") {
+      sortedResults = sortDimensionsByAlpha(results);
+    } else {
+      sortedResults = results;
+    }
+
     if (pValueCorrection && statsEngine === "frequentist") {
-      setAdjustedPValuesOnResults(results, expandedGoals, pValueCorrection);
-      setAdjustedCIs(results, pValueThreshold);
+      setAdjustedPValuesOnResults(
+        sortedResults,
+        expandedGoals,
+        pValueCorrection,
+      );
+      setAdjustedCIs(sortedResults, pValueThreshold);
     }
 
     // Helper function to process metrics by type
@@ -371,7 +389,7 @@ export function useExperimentDimensionRows({
           const rows = generateDimensionRowsForMetric({
             metricId,
             resultGroup,
-            results,
+            results: sortedResults,
             dimensionValuesFilter,
             overrideFields,
             metricSnapshotSettings: _metricSnapshotSettings,
@@ -433,6 +451,7 @@ export function useExperimentDimensionRows({
     metricTagFilter,
     sortBy,
     sortDirection,
+    dimensionSortBy,
     customMetricOrder,
     analysisBarSettings,
     statsEngine,
