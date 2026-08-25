@@ -3,7 +3,7 @@ import isEqual from "lodash/isEqual";
 import { getValidDate } from "shared/dates";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { v4 as uuidv4 } from "uuid";
-import { generateVariationId } from "shared/util";
+import { generateVariationId, getApplicableEnvIds } from "shared/util";
 import { omit } from "lodash";
 import { UpdateProps } from "shared/types/base-model";
 import {
@@ -26,7 +26,6 @@ import {
   getEnvironments,
 } from "back-end/src/services/organizations";
 import { getEnabledEnvironments } from "back-end/src/util/features";
-import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import {
   createExperiment,
   getAllExperiments,

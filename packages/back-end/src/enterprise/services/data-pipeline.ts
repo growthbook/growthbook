@@ -3,6 +3,7 @@ import {
   ExperimentMetricInterface,
   getAutoSliceMetrics,
   getFactMetricPrimaryFactTableId,
+  getFactTableTimestampColumn,
   isFactFunnelMetric,
   isSliceMetric,
 } from "shared/experiments";
@@ -114,6 +115,12 @@ export function getExperimentSettingsHashForIncrementalRefresh(
 
   for (const field of INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS) {
     settingsForHash[field] = snapshotSettings[field];
+  }
+
+  // Incremental units SQL used to ignore segment and queryFilter before #6711.
+  // Salt only those hashes so pre-fix tables refresh; unfiltered tables are still valid.
+  if (snapshotSettings.segment || snapshotSettings.queryFilter) {
+    settingsForHash.unitsFiltersApplied = true;
   }
 
   return hashObject(settingsForHash);
@@ -357,8 +364,14 @@ export function getMetricSettingsHashForAggregatedFactTable({
 export function getFactTableSettingsHashForAggregatedFactTable(
   factTable: FactTableInterface,
 ): string {
+  const timestampColumn = getFactTableTimestampColumn(factTable);
   return hashObject({
     sql: factTable.sql,
+    // Omitted when it resolves to the default (JSON.stringify drops undefined),
+    // so hashes stored before this field existed stay byte-identical and a fact
+    // table that spells out "timestamp" doesn't force a restate either.
+    timestampColumn:
+      timestampColumn === "timestamp" ? undefined : timestampColumn,
     eventName: factTable.eventName,
     filters: (factTable.filters ?? [])
       .map((f) => ({ id: f.id, value: f.value }))

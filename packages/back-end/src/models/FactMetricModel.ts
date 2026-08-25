@@ -289,6 +289,13 @@ export class FactMetricModel extends BaseClass {
       delete newColumnRef.aggregation;
     }
 
+    // A user filter needs both fields; a half-set pair (from the same null
+    // storage) fails the "both or neither" check and blocks unrelated edits
+    if (!newColumnRef.aggregateFilter || !newColumnRef.aggregateFilterColumn) {
+      delete newColumnRef.aggregateFilter;
+      delete newColumnRef.aggregateFilterColumn;
+    }
+
     // If row filters are already defined, do nothing
     if (newColumnRef.rowFilters !== undefined) {
       return newColumnRef;
