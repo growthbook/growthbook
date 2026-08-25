@@ -5,7 +5,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { createPortal } from "react-dom";
 import { Box, Flex } from "@radix-ui/themes";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import type { ImperativePanelHandle } from "react-resizable-panels";
@@ -265,8 +264,6 @@ export default function ExplorerMainSection({
   const exploreReady = sqlEditorContext?.exploreReady ?? sqlConfigIsReady;
   const [sqlResultsTarget, setSqlResultsTarget] =
     useState<HTMLDivElement | null>(null);
-  const [visualizationTarget, setVisualizationTarget] =
-    useState<HTMLDivElement | null>(null);
   const [sqlQueryOpen, setSqlQueryOpen] = useState(true);
   const [hasSqlPreview, setHasSqlPreview] = useState(false);
   // Mount Explore once ready so returning to Dataset doesn't remount viz state.
@@ -486,19 +483,7 @@ export default function ExplorerMainSection({
           ) : null}
         </>
       ) : (
-        <>
-          <Box
-            ref={setVisualizationTarget}
-            width="100%"
-            style={{ flex: 1, minHeight: 0, overflow: "hidden" }}
-          />
-          {visualizationTarget
-            ? createPortal(
-                <ExplorerVisualizationPane emptyState={exploreEmptyState} />,
-                visualizationTarget,
-              )
-            : null}
-        </>
+        <ExplorerVisualizationPane emptyState={exploreEmptyState} />
       )}
     </Flex>
   );
