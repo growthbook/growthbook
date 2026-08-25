@@ -305,6 +305,31 @@ export default function SqlQuerySection({
             queryHelp={!showHeader ? queryHelp : undefined}
           />
         );
+        const editor = (
+          <>
+            {prompt}
+            <CodeTextArea
+              wrapperClassName={styles["sql-editor-wrapper"]}
+              language="sql"
+              value={localSql}
+              setValue={(sql) => {
+                setLocalSql(sql);
+                setFormatError(null);
+              }}
+              disabled={loading || !canRunQueries}
+              setCursorData={setCursorData}
+              onCtrlEnter={() => {
+                if (canRunPreview) {
+                  void previewQuery(localSql);
+                }
+              }}
+              completions={autoCompletions}
+              fullHeight
+              paddingTop={8}
+              placeholder={SQL_PLACEHOLDER}
+            />
+          </>
+        );
         return (
           <Box
             style={{
@@ -365,42 +390,26 @@ export default function SqlQuerySection({
                     defaultSize={previewResult && !resultsTarget ? 60 : 100}
                     minSize={30}
                   >
-                    <AreaWithHeader
-                      hideHeader={showHeader}
-                      borderless={showHeader}
-                      header={
-                        <Flex align="center" justify="between" gap="3">
-                          <Flex align="center" gap="2">
-                            <Text weight="medium">SQL</Text>
+                    {showHeader ? (
+                      <Box height="100%" style={{ overflowY: "auto" }}>
+                        {editor}
+                      </Box>
+                    ) : (
+                      <AreaWithHeader
+                        header={
+                          <Flex align="center" justify="between" gap="3">
+                            <Flex align="center" gap="2">
+                              <Text weight="medium">SQL</Text>
+                            </Flex>
+                            <Flex align="center" gap="2">
+                              {queryActions}
+                            </Flex>
                           </Flex>
-                          <Flex align="center" gap="2">
-                            {queryActions}
-                          </Flex>
-                        </Flex>
-                      }
-                    >
-                      {prompt}
-                      <CodeTextArea
-                        wrapperClassName={styles["sql-editor-wrapper"]}
-                        language="sql"
-                        value={localSql}
-                        setValue={(sql) => {
-                          setLocalSql(sql);
-                          setFormatError(null);
-                        }}
-                        disabled={loading || !canRunQueries}
-                        setCursorData={setCursorData}
-                        onCtrlEnter={() => {
-                          if (canRunPreview) {
-                            void previewQuery(localSql);
-                          }
-                        }}
-                        completions={autoCompletions}
-                        fullHeight
-                        paddingTop={8}
-                        placeholder={SQL_PLACEHOLDER}
-                      />
-                    </AreaWithHeader>
+                        }
+                      >
+                        {editor}
+                      </AreaWithHeader>
+                    )}
                   </Panel>
                   {!resultsTarget && previewContent ? (
                     <>
