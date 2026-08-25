@@ -1,8 +1,12 @@
 import request from "supertest";
-import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import {
+  findOrganizationById,
+  updateOrganization,
+} from "back-end/src/models/OrganizationModel";
 import { setupApp } from "./api.setup";
 
 jest.mock("back-end/src/models/OrganizationModel", () => ({
+  findOrganizationById: jest.fn(),
   updateOrganization: jest.fn(),
 }));
 
@@ -181,29 +185,32 @@ describe("environements API", () => {
   });
 
   it("can update environments", async () => {
+    const org = {
+      id: "org1",
+      settings: {
+        environments: [
+          {
+            id: "env1",
+            description: "env1",
+            toggleOnList: true,
+            defaultState: true,
+            projects: ["bla"],
+          },
+          {
+            id: "env2",
+          },
+        ],
+      },
+    };
+    // The payload refresh re-reads the org by id after the write
+    jest.mocked(findOrganizationById).mockResolvedValue(org as never);
     setReqContext({
       models: {
         projects: {
           getAll: () => [{ id: "proj1" }, { id: "proj2" }, { id: "proj3" }],
         },
       },
-      org: {
-        id: "org1",
-        settings: {
-          environments: [
-            {
-              id: "env1",
-              description: "env1",
-              toggleOnList: true,
-              defaultState: true,
-              projects: ["bla"],
-            },
-            {
-              id: "env2",
-            },
-          ],
-        },
-      },
+      org,
       permissions: {
         canUpdateEnvironment: () => true,
       },

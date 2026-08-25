@@ -1,6 +1,7 @@
 import {
   getAggregateFilters,
   getColumnExpression,
+  getFactTableTimestampColumn,
   isBinomialMetric,
 } from "shared/experiments";
 import type {
@@ -28,7 +29,7 @@ export function getFactMetricColumn(
     ? columnRef?.aggregateFilterColumn
     : columnRef?.column;
 
-  const timestampColumn = `${alias}.timestamp`;
+  const timestampColumn = `${alias}.${getFactTableTimestampColumn(factTable)}`;
 
   const value =
     (!hasAggregateFilter && isBinomialMetric(metric)) ||
