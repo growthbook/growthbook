@@ -1,4 +1,4 @@
-import { genUUID, getPolyfills } from "../util";
+import { genUUID, getPolyfills } from "../../util";
 
 type StoredGbSessionState = {
   gbSessionId: string;

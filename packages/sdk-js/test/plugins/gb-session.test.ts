@@ -1,7 +1,7 @@
 import {
   getOrCreateGbSessionId,
   DEFAULT_MAX_DURATION_MS,
-} from "../../src/plugins/gb-session";
+} from "../../src/plugins/utils/gb-session";
 import { setPolyfills } from "../../src/feature-repository";
 
 const STORAGE_KEY = "gb_session";

@@ -4,7 +4,7 @@ import type {
   GrowthBookClient,
 } from "../GrowthBookClient";
 import { genUUID } from "../util";
-import { getOrCreateGbSessionId } from "./gb-session";
+import { getOrCreateGbSessionId } from "./utils/gb-session";
 
 export type AutoAttributeSettings = {
   uuidCookieName?: string;
