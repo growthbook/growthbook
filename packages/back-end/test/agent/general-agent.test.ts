@@ -154,6 +154,44 @@ describe("requiresMutationConfirmation (deterministic mutation gate)", () => {
     ).toBe(false);
   });
 
+  it("allows Learnings search without confirmation", () => {
+    // POST only because the query goes in the body — it reads, it doesn't write.
+    expect(
+      _requiresMutationConfirmation({
+        method: "POST",
+        path: "/api/v1/learnings/search",
+      }),
+    ).toBe(false);
+    // Prefix-agnostic, like the other allowlist entries.
+    expect(
+      _requiresMutationConfirmation({
+        method: "POST",
+        path: "/learnings/search",
+      }),
+    ).toBe(false);
+  });
+
+  it("still gates Learnings writes", () => {
+    expect(
+      _requiresMutationConfirmation({
+        method: "POST",
+        path: "/api/v1/learnings",
+      }),
+    ).toBe(true);
+    expect(
+      _requiresMutationConfirmation({
+        method: "PUT",
+        path: "/api/v1/learnings/lrn_123",
+      }),
+    ).toBe(true);
+    expect(
+      _requiresMutationConfirmation({
+        method: "DELETE",
+        path: "/api/v1/learnings/lrn_123",
+      }),
+    ).toBe(true);
+  });
+
   it("ignores query strings when matching the allowlist", () => {
     expect(
       _requiresMutationConfirmation({

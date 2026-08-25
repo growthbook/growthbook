@@ -225,6 +225,11 @@ const EXPLORATION_PATH_RE =
 const COLUMN_VALUES_PATH_RE =
   /^\/api\/v[12]\/product-analytics\/column-values\/?$/;
 
+/** Read-only POST that ranks saved Learnings against a natural-language query.
+ * It's a POST only because the query goes in the body; it changes nothing, and
+ * the learnings skill treats it as the preferred way to search. */
+const LEARNINGS_SEARCH_PATH_RE = /^\/api\/v[12]\/learnings\/search\/?$/;
+
 function isExplorationPath(path: string): boolean {
   // Normalize first so we match the canonical `/api/v1/...` form the
   // dispatcher routes to, regardless of the prefix shape the LLM sent
@@ -236,8 +241,8 @@ function isExplorationPath(path: string): boolean {
  * Deterministic mutation gate. Any non-GET call mutates configuration and is
  * parked for explicit user confirmation, except a small allowlist of
  * read-only POSTs (experiment snapshot refreshes, product-analytics
- * explorations, and column-value lookups) that compute or read data without
- * changing configuration.
+ * explorations, column-value lookups, and Learnings search) that compute or
+ * read data without changing configuration.
  *
  * The path is normalized first (via the dispatcher's `normalizePath`) so the
  * allowlist matches regardless of whether the LLM sends `/api/v1/...`,
@@ -253,6 +258,9 @@ function requiresMutationConfirmation(input: DispatchInput): boolean {
     return false;
   }
   if (COLUMN_VALUES_PATH_RE.test(path)) {
+    return false;
+  }
+  if (LEARNINGS_SEARCH_PATH_RE.test(path)) {
     return false;
   }
   return true;

@@ -14,6 +14,9 @@ sub-skill below → follow that leaf's workflow.
 For **product analytics charts** (metric/fact-table explorations), call
 `loadSkill('product-analytics')` instead — not covered here.
 
+For **what the team has already concluded** across past experiments ("have we
+tested this before", "what do we know about X"), call `loadSkill('learnings')`.
+
 ## Sub-skills
 
 | Skill                   | Use when                                      |
