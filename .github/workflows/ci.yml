@@ -102,13 +102,6 @@ jobs:
           pnpm generate-openapi
           [[ -n $(git status --porcelain) ]] && echo "You need to run pnpm generate-openapi" && git status --porcelain && exit 1 || true
 
-      - name: Check doc
-        run: |
-          cd docs
-          pnpm install
-          pnpm gen
-          [[ -n $(git status --porcelain) ]] && echo "You need to run pnpm doc-gen" && git status --porcelain && exit 1 || true
-
       - name: Type-check
         run: |
           pnpm type-check

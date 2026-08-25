@@ -892,6 +892,51 @@ class TestPostStratification(TestCase):
             (self.revenue_us_firefox_a, self.revenue_us_firefox_b),
         ]
 
+    def test_count_relative_point_estimate_uses_negative_baseline_magnitude(self):
+        def sample_mean(mean: float, n: int = 1000) -> SampleMeanStatistic:
+            return SampleMeanStatistic(n=n, sum=mean * n, sum_squares=(mean**2 + 4) * n)
+
+        for variation_mean, expected_relative_lift in [
+            (-5, 0.5),
+            (-15, -0.5),
+            (5, 1.5),
+        ]:
+            with self.subTest(variation_mean=variation_mean):
+                stats = [
+                    (sample_mean(-10), sample_mean(variation_mean)) for _ in range(2)
+                ]
+                result = EffectMomentsPostStratification(
+                    stats, self.moments_config_rel  # type: ignore
+                ).compute_result()
+
+                self.assertTrue(result.post_stratification_applied)
+                self.assertAlmostEqual(result.point_estimate, expected_relative_lift)
+
+    def test_ratio_relative_point_estimate_uses_negative_baseline_magnitude(self):
+        def ratio(mean: float, n: int = 1000) -> RatioStatistic:
+            return RatioStatistic(
+                n=n,
+                m_statistic=SampleMeanStatistic(
+                    n=n, sum=mean * n, sum_squares=(mean**2 + 4) * n
+                ),
+                d_statistic=SampleMeanStatistic(n=n, sum=n, sum_squares=n),
+                m_d_sum_of_products=mean * n,
+            )
+
+        for variation_mean, expected_relative_lift in [
+            (-5, 0.5),
+            (-15, -0.5),
+            (5, 1.5),
+        ]:
+            with self.subTest(variation_mean=variation_mean):
+                stats = [(ratio(-10), ratio(variation_mean)) for _ in range(2)]
+                result = EffectMomentsPostStratification(
+                    stats, self.moments_config_rel  # type: ignore
+                ).compute_result()
+
+                self.assertTrue(result.post_stratification_applied)
+                self.assertAlmostEqual(result.point_estimate, expected_relative_lift)
+
     def test_zero_negative_variance(self):
         stats_count_strata = [
             (

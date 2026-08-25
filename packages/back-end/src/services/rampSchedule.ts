@@ -18,12 +18,29 @@ import {
   startApprovalPending,
 } from "shared/validators";
 import { ResourceEvents } from "shared/types/events/base-types";
-import { filterEnvironmentsByFeature, MergeResultChanges } from "shared/util";
+import {
+  MergeResultChanges,
+  filterEnvironmentsByFeature,
+  getApplicableEnvIds,
+  getEnvsFromRampSchedule,
+  isRampScheduleServing,
+  rampRuleEnvKey,
+  rampTargetFootprint,
+  rampTargetRuleIds,
+} from "shared/util";
 import uniqid from "uniqid";
-import { getEnvironments } from "back-end/src/services/organizations";
+import {
+  getEnvironmentIdsFromOrg,
+  getEnvironments,
+} from "back-end/src/services/organizations";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
+import {
+  getFeatureRuleEnvironmentsByIds,
+  getFeature,
+  getFeatureProjectsByIds,
+  publishRevision,
+} from "back-end/src/models/FeatureModel";
 // NOTE: rampScheduleEvaluator also imports from this module (advanceStep, etc).
 // The cycle is safe: every cross-module reference is a hoisted function
 // declaration used only at call time, never at module top-level.
@@ -36,7 +53,6 @@ import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import {
   resolveRampTargets,
   ruleFootprint,
-  getApplicableEnvIds,
 } from "back-end/src/util/flattenRules";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -140,6 +156,9 @@ export async function withRampScheduleAdvanceLockRetry<T>(
 
 // `fn` must re-validate any status preconditions screened on the caller's
 // pre-lock read — the schedule may have changed while waiting for the lock.
+// Authorization is NOT re-checked here (callers gate differently, and the
+// scheduler holds no user authority); control-verb dispatch sites use
+// `runControlledRampScheduleAction` below, which does re-check.
 export async function runLockedRampScheduleAction<T>(
   ctx: ReqContext | ApiReqContext,
   scheduleId: string,
@@ -159,6 +178,31 @@ export async function runLockedRampScheduleAction<T>(
       return fn(fresh, heartbeat);
     },
   );
+}
+
+/**
+ * Locked runner for the control verbs (start/pause/resume/advance/rollback…),
+ * which all gate on `assertCanControlRampSchedule`.
+ *
+ * Control authority derives from the schedule's targets, so a pre-lock check
+ * can go stale while waiting for the lock (e.g. a concurrent add-target
+ * attaches a flag the caller holds nothing in). The verdict is re-taken on the
+ * in-lock document — the one the action actually acts on. Dispatch sites keep
+ * their pre-lock assertion so the common case gets a plain 403 without a lock
+ * wait.
+ */
+export async function runControlledRampScheduleAction<T>(
+  ctx: ReqContext | ApiReqContext,
+  scheduleId: string,
+  fn: (
+    fresh: RampScheduleInterface,
+    heartbeat: () => Promise<void>,
+  ) => Promise<T>,
+): Promise<T> {
+  return runLockedRampScheduleAction(ctx, scheduleId, async (fresh, hb) => {
+    await assertCanControlRampSchedule(ctx, fresh);
+    return fn(fresh, hb);
+  });
 }
 
 const MAX_EVENT_HISTORY = 500;
@@ -330,6 +374,16 @@ export function appendRampEvent(
   return history.slice(-MAX_EVENT_HISTORY);
 }
 
+// Distinct class so the bulk planner can tell a lockdown apart from an infra
+// failure of the schedule read — a plain Error let a database error become a
+// bypassable `ramp-locked` gate.
+export class RampLockdownError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RampLockdownError";
+  }
+}
+
 export async function assertFeatureNotLockedByRamp(
   ctx: ReqContext | ApiReqContext,
   featureId: string,
@@ -340,7 +394,7 @@ export async function assertFeatureNotLockedByRamp(
       s.lockdownConfig?.mode === "locked" &&
       (LOCKDOWN_ACTIVE_STATUSES as readonly string[]).includes(s.status)
     ) {
-      throw new Error(
+      throw new RampLockdownError(
         `Feature is locked by an active ramp schedule ("${s.name}"). Pause the schedule to make immediate changes.`,
       );
     }
@@ -1623,12 +1677,10 @@ export async function restartSchedule(
   return startSchedule(ctx, readied, heartbeat);
 }
 
-/**
- * Move the schedule to `targetStepIndex` (forward or backward) and leave it
- * paused. Re-applies (forward) or rolls back (backward) rule patches between
- * the old and new step, stops the linked SafeRollout, and emits
- * `rampSchedule.actions.jumped`. Use -1 for pre-start.
- */
+// Move the schedule to `targetStepIndex` (forward or backward) and leave it
+// paused. Re-applies (forward) or rolls back (backward) rule patches between
+// the old and new step, stops the linked SafeRollout, and emits
+// `rampSchedule.actions.jumped`. Use -1 for pre-start.
 export async function jumpSchedule(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -2236,19 +2288,17 @@ export async function onActivatingRevisionPublished(
   }
 }
 
-/**
- * Transition a `ready` schedule to `running` immediately (the "start now"
- * path). Called from `createRampSchedulesForRevision` when an update action
- * explicitly clears `startDate` on a schedule that has not yet started.
- *
- * Content-level fields (name, steps, cutoffDate, etc.) should already be
- * applied to `schedule` before this is called, or passed in via
- * `contentUpdates` so they land atomically in a single write.
- *
- * Returns false when the start did NOT run (schedule no longer ready, or the
- * lock stayed busy) so the caller can apply its content edits through the
- * normal update path instead of silently dropping them.
- */
+// Transition a `ready` schedule to `running` immediately (the "start now"
+// path). Called from `createRampSchedulesForRevision` when an update action
+// explicitly clears `startDate` on a schedule that has not yet started.
+//
+// Content-level fields (name, steps, cutoffDate, etc.) should already be
+// applied to `schedule` before this is called, or passed in via
+// `contentUpdates` so they land atomically in a single write.
+//
+// Returns false when the start did NOT run (schedule no longer ready, or the
+// lock stayed busy) so the caller can apply its content edits through the
+// normal update path instead of silently dropping them.
 export async function startReadyScheduleNow(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -2513,7 +2563,9 @@ export async function advanceUntilBlocked(
     !current.cutoffDate
   ) {
     await completeRollout(ctx, current);
-    await ctx.models.rampSchedules.deleteById(current.id);
+    await ctx.models.rampSchedules.dangerousDeleteByIdBypassPermission(
+      current.id,
+    );
     return;
   }
 
@@ -2521,7 +2573,7 @@ export async function advanceUntilBlocked(
   if (
     current.cutoffDate &&
     current.cutoffDate <= now &&
-    ["running", "paused"].includes(current.status)
+    isRampScheduleServing(current)
   ) {
     await completeRollout(ctx, current, { disableActiveTargets: true });
     return;
@@ -2577,10 +2629,14 @@ export async function approveAndPublishStep(
   const feature = await getFeature(ctx, schedule.entityId);
   if (!feature) return { code: "feature_not_found" };
 
-  if (!ctx.permissions.canUpdateFeature(feature, feature)) {
+  if (!ctx.permissions.canEditFeatureDrafts(feature)) {
     return { code: "permission_denied", detail: "Cannot update this feature" };
   }
-  if (!ctx.permissions.canReviewFeatureDrafts(feature)) {
+  // Granting an approval, so this must not use `any`. The step's footprint
+  // needs the revision this path never loads, so it fails closed for now.
+  if (
+    !ctx.permissions.canReviewFeatureDrafts(feature, { scope: "everywhere" })
+  ) {
     return {
       code: "permission_denied",
       detail: "Cannot review drafts for this feature",
@@ -2693,14 +2749,12 @@ type ApproveStartError =
   | { code: "permission_denied"; detail: string }
   | { code: "error"; detail: string };
 
-/**
- * Approves the one-time "start on approval" hold on the -1 → step 0 edge.
- * Sets the transient startApprovedAt marker, then either arms for a future
- * startDate (the "approve, then wait for date" compose case) or starts now.
- *
- * Idempotent: a schedule that's already been approved (or already left the
- * ready hold) returns null without side effects.
- */
+// Approves the one-time "start on approval" hold on the -1 → step 0 edge.
+// Sets the transient startApprovedAt marker, then either arms for a future
+// startDate (the "approve, then wait for date" compose case) or starts now.
+//
+// Idempotent: a schedule that's already been approved (or already left the
+// ready hold) returns null without side effects.
 export async function approveScheduleStart(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -2708,7 +2762,7 @@ export async function approveScheduleStart(
   const feature = await getFeature(ctx, schedule.entityId);
   if (!feature) return { code: "feature_not_found" };
 
-  if (!ctx.permissions.canUpdateFeature(feature, feature)) {
+  if (!ctx.permissions.canEditFeatureDrafts(feature)) {
     return { code: "permission_denied", detail: "Cannot update this feature" };
   }
   const allEnvironments = getEnvironments(ctx.org);
@@ -2815,6 +2869,14 @@ export async function updateRampMonitoringConfig(
   schedule: RampScheduleInterface,
   newConfig: RampMonitoringConfig,
 ): Promise<RampScheduleInterface> {
+  // A started SafeRollout freezes its metrics and cadence too, not just its
+  // data source. Enforced here so the internal and REST surfaces can't drift.
+  await assertCanUpdateLinkedSafeRolloutMonitoringConfig(
+    ctx,
+    schedule,
+    newConfig,
+  );
+
   // Datasource and exposureQuery are baked into the linked SafeRollout at
   // creation and cannot be changed post-start. Reject early to avoid silent
   // drift between the schedule config and what the SafeRollout actually queries.
@@ -2909,13 +2971,11 @@ export type StepMergeResult = {
   skippedIndices: number[];
 };
 
-/**
- * Merges an incoming steps array onto a running schedule with per-position guards:
- *  - past steps  : frozen — incoming changes are dropped
- *  - current step: only `holdConditions` and `approvalNotes` may change
- *  - future steps: full replacement from incoming (preserving existing `actions`
- *                  when the caller omits them, to avoid wiping coverage patches)
- */
+// Merges an incoming steps array onto a running schedule with per-position guards:
+// - past steps  : frozen — incoming changes are dropped
+// - current step: only `holdConditions` and `approvalNotes` may change
+// - future steps: full replacement from incoming (preserving existing `actions`
+// when the caller omits them, to avoid wiping coverage patches)
 export function mergeStepsForRunningSchedule(
   schedule: RampScheduleInterface,
   incomingSteps: RampScheduleInterface["steps"],
@@ -3019,4 +3079,103 @@ export async function updateRampSteps(
   await syncLinkedSafeRolloutForRampState(ctx, ensured);
 
   return { schedule: ensured };
+}
+
+// Live ramp control — start/pause/resume/advance/rewind/complete/restart and
+// target attach/eject — changes what users are served right now, so it takes
+// publish authority over the environments the schedule reaches. Shared by the
+// internal controller and the REST handlers so the two can't drift.
+export async function assertCanControlRampSchedule(
+  context: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+): Promise<void> {
+  const scheduleEnvs =
+    context.models.rampSchedules.publishEnvironments(schedule);
+  // The strictest answer available: every environment the org has.
+  const orgEnvironmentIds = getEnvironmentIdsFromOrg(context.org);
+  // A multi-target schedule mutates every attached flag, so control takes
+  // publish over each target's project against that target's OWN environments —
+  // a union across targets would demand authority the schedule never acts on.
+  // Keyed by feature so two targets on different rules of the same feature
+  // union their environments instead of the later replacing the earlier.
+  const checks = new Map<string, Set<string>>();
+  // Every rule id this schedule could touch for a target: the target's own AND
+  // every `patch.ruleId` its actions name — the executor resolves rules from the
+  // patch, not `target.ruleId`, so a dev-only target can carry a production patch.
+  const ruleIdsForTarget = (target: { id: string; ruleId?: string | null }) =>
+    rampTargetRuleIds(schedule, target);
+
+  // Footprint is what each rule CURRENTLY serves, not what the patch names: a
+  // patch's `environments` REPLACES the field, so narrowing production → dev is
+  // still a production change the patch alone never mentions.
+  const ruleEnvs = await getFeatureRuleEnvironmentsByIds(
+    context,
+    (schedule.targets ?? []).flatMap((t) =>
+      ruleIdsForTarget(t).map((ruleId) => ({
+        featureId: t.entityId,
+        ruleId,
+        // Same env scoping as `resolveRampTargets`, so the gate resolves the
+        // sibling set the write will patch.
+        environment: t.environment ?? undefined,
+      })),
+    ),
+  );
+  for (const target of schedule.targets ?? []) {
+    // Union across every rule this target can reach: if ANY of them serves
+    // production, the footprint says production.
+    const reachable = ruleIdsForTarget(target).map((ruleId) =>
+      ruleEnvs.get(
+        rampRuleEnvKey(
+          target.entityId,
+          ruleId,
+          target.environment ?? undefined,
+        ),
+      ),
+    );
+    const currentRuleEnvs: string[] | "all" = reachable.some((r) => r === "all")
+      ? "all"
+      : reachable.flatMap((r) => (Array.isArray(r) ? r : []));
+    // The same shared per-target footprint call the Publish control makes, so
+    // the two gates can't drift.
+    const envs = rampTargetFootprint({
+      schedule,
+      target,
+      currentRuleEnvs,
+      allEnvironments: orgEnvironmentIds,
+    });
+    const existing = checks.get(target.entityId) ?? new Set<string>();
+    // "all" has already been resolved against the organization's environments.
+    for (const env of envs) existing.add(env);
+    checks.set(target.entityId, existing);
+  }
+  // The anchor feature is always checked, against the schedule-wide footprint
+  // when it isn't itself a target.
+  if (!checks.has(schedule.entityId)) {
+    // As in the per-target arm, an unscoped "all" resolves to every org
+    // environment, never the patch list.
+    const anchorEnvs =
+      getEnvsFromRampSchedule(schedule) === "all"
+        ? orgEnvironmentIds
+        : scheduleEnvs;
+    checks.set(schedule.entityId, new Set(anchorEnvs));
+  }
+
+  // Raw projects, not a read-filtered fetch: `getFeature` returns null for a
+  // feature the CALLER cannot read, and an unreadable target is precisely the
+  // one that must still be checked. A target that is truly gone contributes no
+  // project and is checked against the global scope — the strictest answer.
+  const projectsById = await getFeatureProjectsByIds(context, [
+    ...checks.keys(),
+  ]);
+  for (const [featureId, envSet] of checks) {
+    const environments = Array.from(envSet);
+    if (
+      !context.permissions.canPublishFeature(
+        { project: projectsById.get(featureId) },
+        environments,
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
+  }
 }

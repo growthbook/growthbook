@@ -7,12 +7,14 @@ import {
   EXPOSURE_DATE_DIMENSION_NAME,
 } from "shared/constants";
 
-import { putBaselineVariationFirst } from "shared/util";
+import { parseEnvInt, putBaselineVariationFirst } from "shared/util";
 import {
   ExperimentMetricInterface,
   eligibleForUncappedMetric,
+  getFunnelStepMetrics,
   isBinomialMetric,
   isFactMetric,
+  isFactFunnelMetric,
   isRatioMetric,
   isRegressionAdjusted,
   quantileMetricType,
@@ -66,6 +68,7 @@ import {
   MAX_METRICS_PER_QUERY,
   MAX_ROWS_UNIT_AGGREGATE_QUERY,
 } from "back-end/src/services/experimentQueries/constants";
+import { splitFunnelMetricBlock } from "back-end/src/services/experimentQueries/funnelMetricBlock";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { statsServerPool } from "back-end/src/services/python";
 import { metrics } from "back-end/src/util/metrics";
@@ -141,6 +144,13 @@ export function getBanditSettingsForStatsEngine(
   };
 }
 
+/** Upper bound for one external stats-engine call; mirrors the local engine timeout. */
+const EXTERNAL_PYTHON_SERVER_TIMEOUT_MS = parseEnvInt(
+  process.env.GB_EXTERNAL_STATS_TIMEOUT_MS,
+  600_000,
+  { min: 1, name: "GB_EXTERNAL_STATS_TIMEOUT_MS" },
+);
+
 export async function runStatsEngine(
   statsData: ExperimentDataForStatsEngine[],
 ): Promise<MultipleExperimentMetricAnalysis[]> {
@@ -149,6 +159,7 @@ export async function runStatsEngine(
       `${process.env.EXTERNAL_PYTHON_SERVER_URL}/stats`,
       {
         method: "POST",
+        signal: AbortSignal.timeout(EXTERNAL_PYTHON_SERVER_TIMEOUT_MS),
         headers: {
           "Content-Type": "application/json",
           ...(process.env.PYTHON_SERVER_AUTH_TOKEN
@@ -425,17 +436,50 @@ export function getMetricsAndQueryDataForStatsEngine(
 
           const metric = metricMap.get(metricId);
           // skip any metrics somehow missing from map
-          if (metric) {
-            metricIds.push(metricId);
-            metricSettings[metricId] = getMetricSettingsForStatsEngine(
+          if (!metric) {
+            metricIds.push(null);
+            continue;
+          }
+
+          // A funnel occupies one slot in this query but has no main_sum of
+          // its own — its block is a sum per step. Vacate the slot and hand
+          // gbstats a separate result whose metrics are the per-step binomials.
+          if (isFactFunnelMetric(metric)) {
+            metricIds.push(null);
+            queryResults.push(
+              splitFunnelMetricBlock({
+                metric,
+                slotAlias: `m${i}`,
+                rows,
+                sql: query.query,
+              }),
+            );
+
+            metricSettings[metric.id] = getMetricSettingsForStatsEngine(
               metric,
               metricMap,
               settings,
               true,
             );
-          } else {
-            metricIds.push(null);
+
+            getFunnelStepMetrics(metric).forEach((stepMetric) => {
+              metricSettings[stepMetric.id] = getMetricSettingsForStatsEngine(
+                stepMetric,
+                metricMap,
+                settings,
+                true,
+              );
+            });
+            continue;
           }
+
+          metricIds.push(metricId);
+          metricSettings[metricId] = getMetricSettingsForStatsEngine(
+            metric,
+            metricMap,
+            settings,
+            true,
+          );
         }
         queryResults.push({
           metrics: metricIds,
@@ -461,6 +505,7 @@ export function getMetricsAndQueryDataForStatsEngine(
       });
     });
   }
+
   return {
     queryResults,
     metricSettings,

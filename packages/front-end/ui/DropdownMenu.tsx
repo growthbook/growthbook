@@ -49,6 +49,12 @@ type DropdownProps = {
   onOpenChange?: (o: boolean) => void;
   disabled?: boolean;
   modal?: boolean; // blocks clicks underneath the menu
+  /** Called when the menu closes and would return focus to the trigger — call
+   * e.preventDefault() to leave focus alone (e.g. when the selected item opens a
+   * popover that should keep focus). */
+  onCloseAutoFocus?: React.ComponentProps<
+    typeof RadixDropdownMenu.Content
+  >["onCloseAutoFocus"];
 } & MarginProps;
 
 export function DropdownMenu({
@@ -65,6 +71,7 @@ export function DropdownMenu({
   open,
   onOpenChange,
   modal = false,
+  onCloseAutoFocus,
   ...props
 }: DropdownProps) {
   const triggerComponent =
@@ -158,6 +165,7 @@ export function DropdownMenu({
           align={menuPlacement}
           color={color}
           variant={variant}
+          onCloseAutoFocus={onCloseAutoFocus}
           className={
             menuWidth === "full" ? "dropdown-content-width-full" : undefined
           }
@@ -205,6 +213,7 @@ type DropdownItemProps = {
   color?: "red" | "default";
   shortcut?: RadixDropdownMenu.ItemProps["shortcut"];
   tooltip?: string;
+  tooltipStyle?: React.CSSProperties;
   confirmation?: {
     submit: () => Promise<void> | void;
     getConfirmationContent?: () => Promise<string | ReactElement | null>;
@@ -226,6 +235,7 @@ export function DropdownMenuItem({
   onClick,
   confirmation,
   tooltip,
+  tooltipStyle = { width: "max-content" },
   ...props
 }: DropdownItemProps) {
   if (color === "default") {
@@ -332,7 +342,13 @@ export function DropdownMenuItem({
           {confirmationContent ?? "Are you sure? This action cannot be undone."}
         </ModalStandard>
       )}
-      {tooltip ? <Tooltip body={tooltip}>{menuItem}</Tooltip> : menuItem}
+      {tooltip ? (
+        <Tooltip body={tooltip} popperStyle={tooltipStyle}>
+          {menuItem}
+        </Tooltip>
+      ) : (
+        menuItem
+      )}
     </>
   );
 }

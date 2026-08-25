@@ -566,6 +566,30 @@ function DiffCommentCell({
   );
 }
 
+export function CompactInlineDiff({
+  a,
+  b,
+  leftTitle,
+  rightTitle,
+}: {
+  a: string;
+  b: string;
+  leftTitle?: string;
+  rightTitle?: string;
+}) {
+  if (a === b) return null;
+  return (
+    <ReactDiffViewer
+      oldValue={a}
+      newValue={b}
+      compareMethod={DiffMethod.LINES}
+      leftTitle={leftTitle}
+      rightTitle={rightTitle}
+      styles={COMPACT_DIFF_STYLES}
+    />
+  );
+}
+
 export function ExpandableDiff({
   title,
   a,
@@ -1320,7 +1344,7 @@ function RevisionCommentItem({
   // When comparing multiple revisions, label which revision the notes belong to.
   showLabel?: boolean;
   // Mirrors the overview page gating: isDraft = active draft status,
-  // canEdit = canManageFeatureDrafts permission.
+  // canEdit = canEditFeatureDrafts permission.
   isDraft?: boolean;
   canEdit?: boolean;
   onSaved?: () => void;
@@ -1421,7 +1445,7 @@ export function RevisionCommentSection({
     title?: string | null;
   }>;
   // Mirrors the overview page gating: isDraft = active draft status,
-  // canEdit = canManageFeatureDrafts permission.
+  // canEdit = canEditFeatureDrafts permission.
   isDraft?: boolean;
   canEdit?: boolean;
   onSaved?: () => void;
@@ -1560,7 +1584,7 @@ export function DiffContent({
   // to the per-section JSON diffs.
   raw?: { before: unknown; after: unknown; title?: string };
   // Mirrors the overview page gating for the notes edit pencil:
-  // isDraftNotes = active draft status, canEditNotes = canManageFeatureDrafts.
+  // isDraftNotes = active draft status, canEditNotes = canEditFeatureDrafts.
   isDraftNotes?: boolean;
   canEditNotes?: boolean;
   onNotesSaved?: () => void;

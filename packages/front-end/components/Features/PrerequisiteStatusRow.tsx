@@ -15,6 +15,7 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { useAuth } from "@/services/auth";
+import { getPrerequisites } from "@/services/features";
 import track from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ValueDisplay from "@/components/Features/ValueDisplay";
@@ -68,10 +69,16 @@ export default function PrerequisiteStatusRow({
   colWidth = 120,
 }: Props) {
   const permissionsUtil = usePermissionsUtil();
-  const canEdit = permissionsUtil.canViewFeatureModal(feature.project);
+  const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  // Pinned when the modal opens: `feature` is reactive, so reading the list at
+  // submit time would compare the current list against itself while `i` still
+  // points at the row the user saw.
+  const [deleteBaseline, setDeleteBaseline] = useState<
+    FeaturePrerequisite[] | null
+  >(null);
 
   const latestActiveDraft = useMemo(
     () =>
@@ -125,7 +132,12 @@ export default function PrerequisiteStatusRow({
           `/feature/${feature.id}/prerequisite`,
           {
             method: "DELETE",
-            body: JSON.stringify({ i, ...draftBody }),
+            // Index-addressed, so the list it was read from has to match.
+            body: JSON.stringify({
+              i,
+              baseline: deleteBaseline ?? getPrerequisites(feature),
+              ...draftBody,
+            }),
           },
         );
         await mutate();
@@ -183,6 +195,7 @@ export default function PrerequisiteStatusRow({
           color="red"
           onClick={() => {
             setOpen(false);
+            setDeleteBaseline(getPrerequisites(feature));
             setShowDeleteModal(true);
           }}
         >

@@ -13,6 +13,8 @@ import {
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
   isMetricGroupId,
+  isFactFunnelMetric,
+  funnelStepMetricId,
 } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -118,6 +120,18 @@ export function useExperimentDimensionRows({
         hasGuardrailSelector ||
         (!hasGoalSelector && !hasSecondarySelector && !hasGuardrailSelector);
 
+      const allowedMetricIds = new Set<string>();
+      actualMetricFilter.forEach((id) => {
+        if (isMetricGroupId(id)) {
+          const group = allMetricGroups.find((g) => g.id === id);
+          if (group) {
+            group.metrics.forEach((metricId) => allowedMetricIds.add(metricId));
+          }
+        } else {
+          allowedMetricIds.add(id);
+        }
+      });
+
       // Filter by metric groups if filter is active
       let filteredGoalMetrics: string[] = [];
       let filteredSecondaryMetrics: string[] = [];
@@ -129,21 +143,6 @@ export function useExperimentDimensionRows({
         hasSecondarySelector ||
         hasGuardrailSelector
       ) {
-        // Create a set of allowed metric IDs from expanded groups and individual metrics
-        const allowedMetricIds = new Set<string>();
-        actualMetricFilter.forEach((id) => {
-          if (isMetricGroupId(id)) {
-            const group = allMetricGroups.find((g) => g.id === id);
-            if (group) {
-              group.metrics.forEach((metricId) =>
-                allowedMetricIds.add(metricId),
-              );
-            }
-          } else {
-            allowedMetricIds.add(id);
-          }
-        });
-
         // Filter metrics by group or allowed metric IDs
         // Only include categories that are selected via selector IDs
         // For groups, expand them first and check if any expanded metric matches
@@ -226,21 +225,38 @@ export function useExperimentDimensionRows({
         allMetricGroups,
       );
 
+      // allowedMetricIds is the set of metrics that are explicitly selected
+      // by the user either directly or via the group. This code will drop
+      // metrics in groups that are not explicitly selected via the group or
+      // themselves.
+      const finalExpandedGoals =
+        actualMetricFilter.length > 0
+          ? expandedGoals.filter((id) => allowedMetricIds.has(id))
+          : expandedGoals;
+      const finalExpandedSecondaries =
+        actualMetricFilter.length > 0
+          ? expandedSecondaries.filter((id) => allowedMetricIds.has(id))
+          : expandedSecondaries;
+      const finalExpandedGuardrails =
+        actualMetricFilter.length > 0
+          ? expandedGuardrails.filter((id) => allowedMetricIds.has(id))
+          : expandedGuardrails;
+
       // Dedupe metric rows to prevent rendering the same metric multiple times
       const dedupedGoals: string[] = [];
-      expandedGoals.forEach((metricId) => {
+      finalExpandedGoals.forEach((metricId) => {
         if (!dedupedGoals.includes(metricId)) {
           dedupedGoals.push(metricId);
         }
       });
       const dedupedSecondaries: string[] = [];
-      expandedSecondaries.forEach((metricId) => {
+      finalExpandedSecondaries.forEach((metricId) => {
         if (!dedupedSecondaries.includes(metricId)) {
           dedupedSecondaries.push(metricId);
         }
       });
       const dedupedGuardrails: string[] = [];
-      expandedGuardrails.forEach((metricId) => {
+      finalExpandedGuardrails.forEach((metricId) => {
         if (!dedupedGuardrails.includes(metricId)) {
           dedupedGuardrails.push(metricId);
         }
@@ -390,10 +406,22 @@ export function useExperimentDimensionRows({
         sortDirection: sortDirection || "desc",
       };
 
-      return tables.map((table) => ({
-        ...table,
-        rows: [...table.rows].sort((a, b) => compareRows(a, b, sortOptions)),
-      }));
+      // A funnel table's rows are dimension-value parents with per-step child
+      // rows beneath each. Sort the parents but keep each parent's steps
+      // attached in step order; a flat sort would tear that grouping apart.
+      return tables.map((table) =>
+        isFactFunnelMetric(table.metric)
+          ? {
+              ...table,
+              rows: sortFunnelDimensionRows(table.rows, sortOptions),
+            }
+          : {
+              ...table,
+              rows: [...table.rows].sort((a, b) =>
+                compareRows(a, b, sortOptions),
+              ),
+            },
+      );
     }
 
     return tables;
@@ -470,31 +498,96 @@ export function generateDimensionRowsForMetric({
 }): ExperimentTableRow[] {
   const filteredResults = includeVariation(results, dimensionValuesFilter);
 
+  const funnelSteps = isFactFunnelMetric(newMetric)
+    ? newMetric.funnelSettings.steps
+    : [];
+
+  const noData = () => ({ users: 0, value: 0, cr: 0, errorMessage: "No data" });
+
   const rows: ExperimentTableRow[] = [];
 
-  // Create a row for each dimension result
+  // One row per dimension result. For a funnel metric the dimension value is
+  // the parent (whole-funnel completion) and each step follows as a child row,
+  // mirroring the overall table's nesting one level deeper.
   filteredResults.forEach((dimensionResult) => {
-    const row: ExperimentTableRow = {
+    const parentRow: ExperimentTableRow = {
       label: dimensionResult.name,
+      dimensionValue: dimensionResult.name,
       metric: newMetric,
       metricOverrideFields: overrideFields,
       rowClass: newMetric?.inverse ? "inverse" : "",
-      variations: dimensionResult.variations.map((v) => {
-        return (
-          v.metrics?.[metricId] || {
-            users: 0,
-            value: 0,
-            cr: 0,
-            errorMessage: "No data",
-          }
-        );
-      }),
+      variations: dimensionResult.variations.map(
+        (v) => v.metrics?.[metricId] || noData(),
+      ),
       metricSnapshotSettings,
       resultGroup,
     };
 
-    rows.push(row);
+    if (!funnelSteps.length) {
+      rows.push(parentRow);
+      return;
+    }
+
+    const parentRowId = `${metricId}:${dimensionResult.name}`;
+    parentRow.numChildren = funnelSteps.length;
+    rows.push(parentRow);
+
+    funnelSteps.forEach((step, stepIndex) => {
+      const stepMetricId = funnelStepMetricId(metricId, stepIndex);
+      rows.push({
+        label: step.name,
+        dimensionValue: dimensionResult.name,
+        metric: newMetric,
+        metricOverrideFields: overrideFields,
+        rowClass: newMetric?.inverse ? "inverse" : "",
+        variations: dimensionResult.variations.map(
+          (v) => v.metrics?.[stepMetricId] || noData(),
+        ),
+        metricSnapshotSettings,
+        resultGroup,
+        numChildren: 0,
+        isChildRow: true,
+        childRowType: "funnelStep",
+        funnelStepIndex: stepIndex,
+        funnelStepOptional: step.optional,
+        parentRowId,
+        isHiddenByFilter: false,
+      });
+    });
   });
 
   return rows;
+}
+
+export interface FunnelDimensionRowGroup {
+  parent: ExperimentTableRow;
+  children: ExperimentTableRow[];
+}
+
+// A funnel dimension table is a flat list of dimension-value parent rows, each
+// followed by its step child rows. Group them so a parent can move without
+// detaching its steps.
+export function groupFunnelDimensionRows(
+  rows: ExperimentTableRow[],
+): FunnelDimensionRowGroup[] {
+  const groups: FunnelDimensionRowGroup[] = [];
+  for (const row of rows) {
+    if (row.isChildRow && groups.length > 0) {
+      groups[groups.length - 1].children.push(row);
+    } else {
+      groups.push({ parent: row, children: [] });
+    }
+  }
+  return groups;
+}
+
+// Sort the parent dimension rows by significance/change while keeping each
+// parent's step children beneath it in their original step order.
+export function sortFunnelDimensionRows(
+  rows: ExperimentTableRow[],
+  sortOptions: Parameters<typeof compareRows>[2],
+): ExperimentTableRow[] {
+  return groupFunnelDimensionRows(rows)
+    .sort((a, b) => compareRows(a.parent, b.parent, sortOptions))
+    .flatMap((group) => [group.parent, ...group.children]);
 }

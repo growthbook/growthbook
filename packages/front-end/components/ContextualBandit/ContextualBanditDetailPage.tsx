@@ -41,6 +41,7 @@ import ContextualBanditResultsTable from "@/components/ContextualBandit/Contextu
 import { VariationBox } from "@/components/Experiment/VariationsTable";
 import ContextualBanditLinkedFeatures from "@/components/ContextualBandit/ContextualBanditLinkedFeatures";
 import StartContextualBanditModal from "@/components/ContextualBandit/StartContextualBanditModal";
+import CompareContextualBanditEventsModal from "@/components/ContextualBandit/CompareContextualBanditEventsModal";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 
 function OverviewSection({
@@ -121,6 +122,7 @@ export default function ContextualBanditDetailPage({
   const [confirmStop, setConfirmStop] = useState(false);
   const [showStart, setShowStart] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [auditModal, setAuditModal] = useState(false);
 
   const updateEndpoint = `/api/v1/contextual-bandits/${cb.id}`;
 
@@ -258,24 +260,22 @@ export default function ContextualBanditDetailPage({
   return (
     <Box>
       <Flex direction="row" align="start" justify="between" gap="5">
-        <Box>
-          <h1
-            className="mb-0"
-            style={{ display: "inline", verticalAlign: "middle" }}
+        <Flex align="center" gap="2">
+          <Heading
+            as="h1"
+            size="xl"
+            weight="semibold"
+            overflowWrap="anywhere"
+            mb="0"
           >
             {cb.name}
-          </h1>
-          <Box
-            ml="2"
-            mt="1"
-            display="inline-block"
-            style={{ userSelect: "none" }}
-          >
+          </Heading>
+          <Box style={{ userSelect: "none" }}>
             <ExperimentStatusIndicator
               experimentData={contextualBanditStatusIndicatorData(cb)}
             />
           </Box>
-        </Box>
+        </Flex>
 
         <Flex direction="row" align="center" gap="2" flexShrink="0">
           {canRun && cb.status === "draft" ? (
@@ -292,51 +292,60 @@ export default function ContextualBanditDetailPage({
               Stop Contextual Bandit
             </Button>
           ) : null}
-          {editOverview || duplicate ? (
-            <DropdownMenu
-              trigger={
-                <IconButton
-                  variant="ghost"
-                  color="gray"
-                  radius="full"
-                  size="3"
-                  highContrast
-                  ml="2"
+          <DropdownMenu
+            trigger={
+              <IconButton
+                variant="ghost"
+                color="gray"
+                radius="full"
+                size="3"
+                highContrast
+                ml="2"
+              >
+                <BsThreeDotsVertical size={18} />
+              </IconButton>
+            }
+            open={dropdownOpen}
+            onOpenChange={(o) => setDropdownOpen(!!o)}
+            menuPlacement="end"
+          >
+            {editOverview ? (
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    editOverview();
+                  }}
                 >
-                  <BsThreeDotsVertical size={18} />
-                </IconButton>
-              }
-              open={dropdownOpen}
-              onOpenChange={(o) => setDropdownOpen(!!o)}
-              menuPlacement="end"
-            >
-              <DropdownMenuGroup>
-                {editOverview ? (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setDropdownOpen(false);
-                      editOverview();
-                    }}
-                  >
-                    Edit info
-                  </DropdownMenuItem>
-                ) : null}
+                  Edit info
+                </DropdownMenuItem>
               </DropdownMenuGroup>
-              {editOverview && duplicate ? <DropdownMenuSeparator /> : null}
+            ) : null}
+            {editOverview ? <DropdownMenuSeparator /> : null}
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                onClick={() => {
+                  setDropdownOpen(false);
+                  setAuditModal(true);
+                }}
+              >
+                Audit history
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            {duplicate ? <DropdownMenuSeparator /> : null}
+            {duplicate ? (
               <DropdownMenuGroup>
-                {duplicate ? (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setDropdownOpen(false);
-                      duplicate();
-                    }}
-                  >
-                    Duplicate
-                  </DropdownMenuItem>
-                ) : null}
+                <DropdownMenuItem
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    duplicate();
+                  }}
+                >
+                  Duplicate
+                </DropdownMenuItem>
               </DropdownMenuGroup>
-            </DropdownMenu>
-          ) : null}
+            ) : null}
+          </DropdownMenu>
         </Flex>
       </Flex>
 
@@ -641,6 +650,13 @@ export default function ContextualBanditDetailPage({
           linkedFeatures={linkedFeatures}
           startContextualBandit={start}
           close={() => setShowStart(false)}
+        />
+      ) : null}
+
+      {auditModal ? (
+        <CompareContextualBanditEventsModal
+          cbId={cb.id}
+          onClose={() => setAuditModal(false)}
         />
       ) : null}
 

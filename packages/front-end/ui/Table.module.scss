@@ -2,6 +2,13 @@
   font-weight: 500;
 }
 
+// table-layout: fixed does not clip, so a long unbroken value (an email, an id)
+// spills into the next column. Break it instead.
+:global(.rt-r-tl-fixed .rt-TableCell),
+:global(.rt-r-tl-fixed .rt-TableColumnHeaderCell) {
+  overflow-wrap: anywhere;
+}
+
 // List table variant: sticky header, row hover (use same solid surface as surface variant)
 .wrapper[data-table-list] {
   max-width: 100%;

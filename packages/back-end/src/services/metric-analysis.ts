@@ -27,7 +27,7 @@ export function getMetricWithFiltersApplied(
   }
 
   const metricWithFilters = cloneDeep(metric);
-  if (settings.additionalNumeratorFilters) {
+  if (settings.additionalNumeratorFilters && metricWithFilters.numerator) {
     metricWithFilters.numerator.rowFilters = [
       ...(metricWithFilters.numerator.rowFilters || []),
       ...settings.additionalNumeratorFilters.map((f) => ({

@@ -1,5 +1,12 @@
 import { isEqual } from "lodash";
 import type { Revision } from "shared/enterprise";
+import type { ReviewRequirement } from "shared/util";
+import {
+  NO_ENVIRONMENT_BINDING,
+  RevisionAction,
+  RevisionModel,
+} from "shared/permissions";
+import type { PublishFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import type { Context } from "back-end/src/models/BaseModel";
 import type { ArmAcknowledgments } from "back-end/src/services/armGuards";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
@@ -26,19 +33,105 @@ export function filterUpdatableChanges(
 }
 
 /**
- * Adapter interface that each entity type must implement to participate in the
- * revision system. All saved-group-specific logic lives in the saved-group adapter;
- * adding a new entity type requires only creating a new adapter and registering it.
- *
- * See revisions/adapters/saved-group.adapter.ts for the reference implementation.
+ * The five per-action permission hooks, which differ across adapters only in
+ * how the snapshot yields projects and environments.
  */
+export function revisionActionHooks<TSnapshot extends Record<string, unknown>>({
+  model,
+  projectsOf,
+  envsOf,
+}: {
+  model: RevisionModel;
+  projectsOf: (snapshot: TSnapshot) => string[];
+  envsOf?: (context: Context, snapshot: TSnapshot) => string[];
+}): Required<
+  Pick<
+    EntityRevisionAdapter<TSnapshot>,
+    | "canManageDrafts"
+    | "canReview"
+    | "canPublishRevision"
+    | "canRevert"
+    | "canDeleteEntity"
+  >
+> {
+  const scoped = (
+    action: RevisionAction,
+    context: Context,
+    snapshot: TSnapshot,
+  ) =>
+    context.permissions.canRevisionAction(
+      model,
+      action,
+      { projects: projectsOf(snapshot) },
+      envsOf ? envsOf(context, snapshot) : NO_ENVIRONMENT_BINDING,
+    );
+  return {
+    canManageDrafts: (context, snapshot) =>
+      context.permissions.canRevisionAction(model, "draft", {
+        projects: projectsOf(snapshot),
+      }),
+    // `environments` is the caller's change-aware footprint; falling back to
+    // envsOf keeps callers that cannot compute one working.
+    canReview: (context, snapshot, environments) =>
+      environments !== undefined
+        ? context.permissions.canRevisionAction(
+            model,
+            "review",
+            { projects: projectsOf(snapshot) },
+            environments,
+          )
+        : scoped("review", context, snapshot),
+    canPublishRevision: (context, snapshot) =>
+      scoped("publish", context, snapshot),
+    canRevert: (context, snapshot) => scoped("revert", context, snapshot),
+    canDeleteEntity: (context, snapshot) => scoped("delete", context, snapshot),
+  };
+}
+
+/**
+ * What an apply actually persisted: the top-level keys it wrote (post
+ * updatable-filter and post-normalization) and the doc the write RETURNED.
+ *
+ * `written` is the ownership baseline compensation needs, taken from the write
+ * itself rather than a re-read — a re-read after failure can observe a
+ * concurrent writer and mistake their values for this apply's own. `null` only
+ * when the apply threw before its entity write, in which case there is nothing
+ * of ours to put back.
+ */
+export type ApplyChangesResult = {
+  persistedKeys: string[];
+  written: Record<string, unknown> | null;
+  /**
+   * Writes the apply made to OTHER entities on this landing's behalf — a Config's
+   * descendant cascade — each with its own pre-image. Compensation restores these
+   * AFTER the root; see `compensateFailedLanding` for the ordering rationale.
+   */
+  cascade?: {
+    before: Record<string, unknown> & { id: string };
+    written: Record<string, unknown>;
+    /** `dateUpdated` the cascade write left, for callers re-anchoring a CAS baseline. */
+    stamp?: Date | null;
+  }[];
+};
+
+// Adapter interface that each entity type must implement to participate in the
+// revision system. All saved-group-specific logic lives in the saved-group adapter;
+// adding a new entity type requires only creating a new adapter and registering it.
+//
+// See revisions/adapters/saved-group.adapter.ts for the reference implementation.
 export interface EntityRevisionAdapter<
   TSnapshot extends Record<string, unknown> = Record<string, unknown>,
 > {
   /** Return the BaseModel for this entity type, used for loading the live entity. */
-  getModel(
-    context: Context,
-  ): { getById(id: string): Promise<TSnapshot | null> } | null;
+  getModel(context: Context): {
+    getById(id: string): Promise<TSnapshot | null>;
+    // Read-filtered batch fetch: what comes back is what the caller may READ,
+    // which is how revision listings decide visibility from the live entity
+    // rather than a snapshot that predates a project move. Projected to drop the
+    // heavy value fields — listings ask for every target in a filtered scan, and
+    // a read check only consults project scope.
+    getReadScopesByIds(ids: string[]): Promise<TSnapshot[]>;
+  } | null;
 
   /** Normalize an entity object for storage as a revision snapshot. */
   buildSnapshot(entity: TSnapshot): TSnapshot;
@@ -59,38 +152,76 @@ export interface EntityRevisionAdapter<
   canUpdate(context: Context, snapshot: TSnapshot): boolean;
   canDelete(context: Context, snapshot: TSnapshot): boolean;
 
+  // Lifecycle authority, each split out from `canUpdate` so a role can hold one
+  // without full edit access. All default to `canUpdate` when not implemented.
+
+  /** Create/edit/discard/rebase a revision and request review. */
+  canManageDrafts?(context: Context, snapshot: TSnapshot): boolean;
+
+  /** Approve / request changes / undo a verdict. */
+  canReview?(
+    context: Context,
+    snapshot: TSnapshot,
+    environments?: string[] | null,
+  ): boolean;
+
+  /** Restore a previously-published revision. */
+  canRevert?(context: Context, snapshot: TSnapshot): boolean;
+
+  /**
+   * Archive/delete the ENTITY (the delete atom) — distinct from `canDelete`
+   * above, which gates discarding a revision document and is bypass-tier.
+   */
+  canDeleteEntity?(context: Context, snapshot: TSnapshot): boolean;
+
+  // The environment reach of a specific change set, layered ON TOP of
+  // `canPublishRevision`, which cannot see the change. Omit when this entity type
+  // has no environment dimension at all.
+  //
+  // Returns a tagged reach, never a bare list: `{scope:"environments"}` narrows,
+  // `{scope:"unscoped"}` says the change has no environment dimension, and
+  // `{scope:"everywhere"}` says it reaches all served environments without naming
+  // them. Spelling the last two the same way — as an empty list — would let an
+  // archive flip pass every environment check vacuously.
+  publishFootprint?(
+    context: Context,
+    snapshot: TSnapshot,
+    proposedChanges: unknown,
+  ): PublishFootprint;
+
   // ---------- Approval flow ----------
 
   /** Whether this org requires approval before a revision can be merged. */
   isApprovalRequired(context: Context): boolean;
 
-  /**
-   * Whether approval is required for this *specific* revision. Defaults to
-   * `isApprovalRequired(context)` for adapters that don't care about the
-   * revision's contents — override when an entity-type's review settings
-   * gate on what changed (e.g. saved-group's `requireMetadataReview`, which
-   * lets metadata-only revisions skip review).
-   */
+  // Whether approval is required for this *specific* revision. Defaults to
+  // `isApprovalRequired(context)` for adapters that don't care about the
+  // revision's contents — override when an entity-type's review settings
+  // gate on what changed (e.g. saved-group's `requireMetadataReview`, which
+  // lets metadata-only revisions skip review).
   isApprovalRequiredForRevision?(context: Context, revision: Revision): boolean;
+
+  // Same answer as isApprovalRequiredForRevision, plus the rules that demanded
+  // it — what per-rule policy hangs off. Saved groups carry no rules.
+  reviewRequirementForRevision?(
+    context: Context,
+    revision: Revision,
+  ): ReviewRequirement;
 
   /** Whether the current user can bypass the approval requirement. */
   canBypassApproval(context: Context, snapshot: TSnapshot): boolean;
 
-  /**
-   * Whether an *approved* revision should reset to pending-review when its
-   * proposed changes are subsequently modified. Defaults (when not implemented)
-   * to the entity's approval-flow `resetReviewOnChange` toggle. Override when the
-   * decision depends on what changed and/or the settings live elsewhere — e.g.
-   * constants, which use the feature `requireReviews` model.
-   */
+  // Whether an *approved* revision should reset to pending-review when its
+  // proposed changes are subsequently modified. Defaults (when not implemented)
+  // to the entity's approval-flow `resetReviewOnChange` toggle. Override when the
+  // decision depends on what changed and/or the settings live elsewhere — e.g.
+  // constants, which use the feature `requireReviews` model.
   shouldResetReviewOnChange?(context: Context, revision: Revision): boolean;
 
-  /**
-   * Whether auto-publish-on-approval may be armed for this entity. Defaults
-   * (when not implemented) to the entity's approval-flow `autopublishOnApproval`
-   * toggle. Override for entities whose review settings live elsewhere — e.g.
-   * constants.
-   */
+  // Whether auto-publish-on-approval may be armed for this entity. Defaults
+  // (when not implemented) to the entity's approval-flow `autopublishOnApproval`
+  // toggle. Override for entities whose review settings live elsewhere — e.g.
+  // constants.
   isAutopublishOnApprovalEnabled?(
     context: Context,
     snapshot: TSnapshot,
@@ -99,36 +230,49 @@ export interface EntityRevisionAdapter<
   // ---------- Merge ----------
 
   /**
-   * Persist the computed changes (already filtered to updatable fields) back to
-   * the live entity. Called by postMerge after conflicts are resolved.
-   *
-   * `options.isRevert` is set when the revision being merged carries a
-   * `revertedFrom` link, so adapters can skip validations that would otherwise
-   * block restoring a previously-published state.
-   *
-   * Returns the keys this call actually persisted on the entity — the changes
-   * that survived the updatable filter AND any adapter normalization (e.g. a
-   * config field stripped as owned by an ancestor). Bulk compensation restores
-   * ONLY these keys, so a field the write dropped is never rolled back over a
-   * concurrent writer's value. Single-entity callers ignore the return.
+   * Re-run whatever `applyChanges` cascades to, after a compensation restored
+   * the fields named in `restoredKeys`. Restoring the entity's own document does
+   * not un-touch dependents a partially failed cascade already wrote — Config
+   * descendants reconciled against a root that has since been put back. Invoked
+   * by the shared restore, so every compensation path (single, bulk, direct)
+   * repairs the same way. Omit when nothing cascades.
    */
+  afterRestorePreImage?(
+    context: Context,
+    entity: TSnapshot,
+    restoredKeys: string[],
+  ): Promise<void>;
+
+  // Persist the computed changes back to the live entity. `isRevert` lets adapters
+  // skip validations that would block restoring a previously-published state.
+  //
+  // Returns the keys ACTUALLY persisted — what survived the updatable filter and any
+  // adapter normalization. Bulk compensation restores ONLY these, so a field the
+  // write dropped is never rolled back over a concurrent writer's value.
   applyChanges(
     context: Context,
     entity: TSnapshot,
     changes: Record<string, unknown>,
-    options?: { isRevert?: boolean },
-  ): Promise<string[]>;
+    // `guarded` conditions the entity write on `entity` still being current, so a
+    // landing that lost a race fails (CasConflictError) instead of overwriting the
+    // winner. Every landing passes it; compensation and self-heal writes do not,
+    // because they re-read first and mean to write over what they found.
+    options?: {
+      isRevert?: boolean;
+      guarded?: boolean;
+      // Called the moment the ENTITY write lands, before any cascade — so a
+      // caller learns what was persisted even when a later step throws and the
+      // return value never arrives. Returning the result is not enough: a Config
+      // whose root write succeeds and whose descendant cascade then fails is
+      // exactly the case compensation needs, and it exits by throwing.
+      onPersisted?: (result: ApplyChangesResult) => void;
+    },
+  ): Promise<ApplyChangesResult>;
 
-  /**
-   * Validate that `desiredState` (the changes a merge would apply) can be
-   * published, BEFORE the merge is claimed. Throwing here leaves the revision in
-   * its current open status — nothing is marked merged — so a publish that fails
-   * validation (e.g. a config value that violates a cross-field rule) errors
-   * cleanly and keeps the draft editable, instead of stranding it "merged" and
-   * relying on a post-merge reopen. Runs on every internal publish path,
-   * including admin/bypass-approval publishes (bypass skips approval, not
-   * validation). Optional: adapters without publish-time invariants can omit it.
-   */
+  // Validate what a merge would apply BEFORE the merge is claimed: throwing here leaves
+  // the revision open and editable, instead of stranding it "merged" and relying on a
+  // post-merge reopen. Runs on every internal publish path — bypass skips approval, not
+  // validation. Optional: adapters without publish-time invariants can omit it.
   assertPublishable?(
     context: Context,
     entity: TSnapshot,
@@ -138,22 +282,24 @@ export interface EntityRevisionAdapter<
     // auto-publish-on-approval), whose overrides are the arm-time snapshot on the
     // revision — NOT a synchronous manual publish (where a live ignoreWarnings/
     // bypass applies).
-    options?: { isRevert?: boolean; deferred?: boolean },
+    // `hooksAlreadyRan`: the caller already evaluated this entity's custom hooks
+    // (the REST publish handlers collect them as gates), so the assert must not
+    // execute them a second time — sandboxed hooks can be slow and are not
+    // guaranteed idempotent.
+    options?: {
+      isRevert?: boolean;
+      deferred?: boolean;
+      hooksAlreadyRan?: boolean;
+    },
   ): Promise<void>;
 
-  /**
-   * Non-throwing view of this entity's publish guards, for the REST publish
-   * handlers' aggregated 422 (PublishBlockedError): evaluate the same guard
-   * conditions the sequential asserts enforce and return one PublishGate per
-   * live conflict set, so a blocked publish reports every gate — and the flag
-   * that clears it — in one response. Gates the caller's authority or request
-   * disposition already clears implicitly (bypass-approval permission, a live
-   * ignoreWarnings) are omitted, matching the asserts' synchronous override —
-   * but the overridden conflicts must still be logged, matching the asserts'
-   * override logging. On the REST publish path this plus the handler's
-   * evaluatePublishGates IS the guard enforcement; deferred/internal paths keep
-   * their asserts.
-   */
+  // Non-throwing view of the same guards the sequential asserts enforce, so a blocked
+  // REST publish reports EVERY gate — and the flag that clears it — in one 422 rather
+  // than one per round trip. Gates the caller's authority or request disposition
+  // already clears are omitted, but the overridden conflicts must still be logged —
+  // both matching the asserts. On the REST publish path this plus the handler's
+  // evaluatePublishGates IS the guard enforcement; deferred/internal paths keep
+  // their asserts.
   collectPublishGates?(
     context: Context,
     entity: TSnapshot,
@@ -161,14 +307,12 @@ export interface EntityRevisionAdapter<
     desiredState: Record<string, unknown>,
   ): Promise<PublishGate[]>;
 
-  /**
-   * Called on the no-op merge path (publish with no net entity change — a
-   * genuine no-op or a retry after a partial apply). `applyChanges` is skipped
-   * there, so side effects it would have run (e.g. cascading a schema change to
-   * descendants that never ran because the first attempt failed mid-way) must
-   * be replayed here. Invoked BEFORE the merge is claimed so a failure leaves
-   * the draft open and retryable. Must be idempotent.
-   */
+  // Called on the no-op merge path (publish with no net entity change — a
+  // genuine no-op or a retry after a partial apply). `applyChanges` is skipped
+  // there, so side effects it would have run (e.g. cascading a schema change to
+  // descendants that never ran because the first attempt failed mid-way) must
+  // be replayed here. Invoked BEFORE the merge is claimed so a failure leaves
+  // the draft open and retryable. Must be idempotent.
   beforeNoOpMerge?(
     context: Context,
     entity: TSnapshot,
@@ -177,20 +321,16 @@ export interface EntityRevisionAdapter<
 
   // ---------- Scheduled publish (optional overrides; sensible defaults) ----------
 
-  /**
-   * Whether the caller may ARM a date-based scheduled publish. When absent,
-   * defaults to the `scheduled-revisions` premium feature plus publish
-   * authority (`canPublishRevision`) — so every revisioned entity supports
-   * scheduling out of the box. Override only to narrow it.
-   */
+  // Whether the caller may ARM a date-based scheduled publish. When absent,
+  // defaults to the `scheduled-revisions` premium feature plus publish
+  // authority (`canPublishRevision`) — so every revisioned entity supports
+  // scheduling out of the box. Override only to narrow it.
   canSchedulePublish?(context: Context, snapshot: TSnapshot): boolean;
 
-  /**
-   * Publish authority over the entity — gates publishing, canceling a pending
-   * schedule, and taking one over. Defaults to `canUpdate` when absent.
-   * Override when publish authority differs from edit (e.g. an
-   * environment-scoped publish permission).
-   */
+  // Publish authority over the entity — gates publishing, canceling a pending
+  // schedule, and taking one over. Defaults to `canUpdate` when absent.
+  // Override when publish authority differs from edit (e.g. an
+  // environment-scoped publish permission).
   canPublishRevision?(context: Context, snapshot: TSnapshot): boolean;
 
   /**
@@ -200,18 +340,13 @@ export interface EntityRevisionAdapter<
    */
   assertSchedulable?(context: Context, entity: TSnapshot): Promise<void> | void;
 
-  /**
-   * Capture arm-time acknowledgments when a deferred publish is armed (scheduled
-   * or auto-publish-on-approval). Returns a per-guard map of keys to snapshot on
-   * the revision and re-check at merge time; throws (e.g. SoftWarningError) when
-   * the armer must acknowledge a condition first. The config/constant adapters use
-   * this for the experiment / config-lock / schema-break guards; adapters without
-   * an arm-time precondition omit it.
-   *
-   * `proposedChanges` are the revision's staged ops, so an adapter can skip the
-   * precondition for a change that can't trigger it (e.g. a metadata-only config
-   * revision that rewrites no served value).
-   */
+  // Acknowledgments captured when a deferred publish is armed: a per-guard map of keys
+  // to snapshot on the revision and re-check at merge time, throwing when the armer must
+  // acknowledge first. Omitted by adapters with no arm-time precondition.
+  //
+  // `proposedChanges` are the revision's staged ops, so an adapter can skip the
+  // precondition for a change that can't trigger it (e.g. a metadata-only config
+  // revision that rewrites no served value).
   captureArmAcknowledgment?(
     context: Context,
     entity: TSnapshot,

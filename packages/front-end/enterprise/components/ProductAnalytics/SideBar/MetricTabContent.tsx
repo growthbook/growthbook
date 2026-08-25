@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import type { MetricValue } from "shared/validators";
+import { getFactMetricPrimaryFactTableId } from "shared/experiments";
 import SelectField, {
   GroupedValue,
   SingleValue,
@@ -43,6 +44,8 @@ export default function MetricTabContent() {
     const unManagedMetrics: SingleValue[] = [];
     factMetrics.forEach((m) => {
       if (m.datasource !== draftExploreState.datasource) return;
+      // The Explorer can't chart funnel metrics yet.
+      if (m.metricType === "funnel") return;
       if (m.managedBy) {
         managedMetrics.push({ label: m.name, value: m.id });
       } else {
@@ -106,7 +109,9 @@ export default function MetricTabContent() {
                 onChange={(val) => {
                   const newMetric = factMetrics.find((m) => m.id === val);
                   const newFactTable = newMetric
-                    ? getFactTableById(newMetric.numerator.factTableId)
+                    ? getFactTableById(
+                        getFactMetricPrimaryFactTableId(newMetric),
+                      )
                     : null;
 
                   let unit = v.unit;

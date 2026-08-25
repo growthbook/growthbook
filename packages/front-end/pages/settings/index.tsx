@@ -17,7 +17,7 @@ import {
   DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
   DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS,
   DEFAULT_POST_STRATIFICATION_ENABLED,
-  DEFAULT_REVISION_CONFIGURATION,
+  DEFAULT_LEARNING_STATUSES,
 } from "shared/constants";
 import {
   DEFAULT_MAX_METRIC_SLICE_LEVELS,
@@ -40,6 +40,7 @@ import {
 import { useUser } from "@/services/UserContext";
 import { useCurrency } from "@/hooks/useCurrency";
 import useURLHash from "@/hooks/useURLHash";
+import { applyApprovalFlowEntitlements } from "@/hooks/useOrgSettings";
 import OrganizationAndLicenseSettings from "@/components/GeneralSettings/OrganizationAndLicenseSettings";
 import ImportSettings from "@/components/GeneralSettings/ImportSettings";
 import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetricSettings";
@@ -50,9 +51,11 @@ import RampScheduleTemplates from "@/components/GeneralSettings/RampScheduleTemp
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
+import LearningSettings from "@/components/GeneralSettings/LearningSettings";
 import AISettings from "@/components/GeneralSettings/AISettings";
 import {
   SETTINGS_TAB,
+  SETTINGS_TABS_ANCHOR,
   parseSettingsHash,
 } from "@/components/GeneralSettings/settingsSections";
 import HelperText from "@/ui/HelperText";
@@ -77,28 +80,6 @@ function hasChanges(
   return !isEqual(value, existing);
 }
 
-function applyApprovalFlowEntitlements(
-  approvalFlows: OrganizationSettings["approvalFlows"],
-  hasRequireApprovals: boolean,
-): OrganizationSettings["approvalFlows"] {
-  if (hasRequireApprovals || !approvalFlows) return approvalFlows;
-
-  const savedGroupApprovalFlow =
-    approvalFlows?.savedGroups?.[0] ??
-    DEFAULT_REVISION_CONFIGURATION.savedGroups[0];
-
-  return {
-    ...approvalFlows,
-    savedGroups: [
-      {
-        ...savedGroupApprovalFlow,
-        required: false,
-      },
-      ...(approvalFlows.savedGroups?.slice(1) ?? []),
-    ],
-  };
-}
-
 const GeneralSettingsPage = (): React.ReactElement => {
   const { refreshOrganization, settings, organization, hasCommercialFeature } =
     useUser();
@@ -118,6 +99,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const [urlHash, setUrlHash] = useURLHash();
   const { tab: activeTab, section: deepLinkSection } =
     parseSettingsHash(urlHash);
+  const [arrivedOnTab] = useState(() => !!urlHash && !urlHash.includes("/"));
   const { metricDefaults } = useOrganizationMetricDefaults();
   const form = useForm<OrganizationSettingsWithMetricDefaults>({
     defaultValues: {
@@ -231,13 +213,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.requireRegisteredAttributes,
       ),
       aiEnabled: settings.aiEnabled ?? false,
-      defaultAIModel: settings.defaultAIModel || "gpt-4o-mini",
+      // Seeding a model on Cloud would persist it on the next save of any
+      // setting, silently taking the org off the managed default.
+      defaultAIModel:
+        settings.defaultAIModel || (isCloud() ? undefined : "gpt-4o-mini"),
       embeddingModel: settings.embeddingModel || "text-embedding-ada-002",
-      // `undefined` represents "use default" — the back-end's resolver
-      // (getAISettingsForOrg) falls back to defaultAIModel for text and
-      // the GEMINI_IMAGE_MODEL env var for image when these are unset.
-      // We can't use empty string here because visualEditorAIModel is
-      // typed as the AIModel union (which doesn't include "").
       visualEditorAIModel: settings.visualEditorAIModel,
       visualEditorImageModel: settings.visualEditorImageModel || "",
       visualEditorAIContext: settings.visualEditorAIContext || "",
@@ -258,6 +238,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.approvalFlows,
         hasRequireApprovals,
       ),
+      learningStatuses: settings.learningStatuses ?? DEFAULT_LEARNING_STATUSES,
     },
   });
   const { apiCall } = useAuth();
@@ -307,11 +288,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
     aiEnabled: form.watch("aiEnabled"),
     defaultAIModel: form.watch("defaultAIModel"),
     embeddingModel: form.watch("embeddingModel"),
-    // Empty string from the form → undefined on the wire so we don't
-    // pollute the saved settings doc with empty values. The back-end's
-    // resolver treats both unset and empty-string as "no override".
-    visualEditorAIModel: form.watch("visualEditorAIModel") || undefined,
-    visualEditorImageModel: form.watch("visualEditorImageModel") || undefined,
+    visualEditorAIModel: form.watch("visualEditorAIModel"),
+    visualEditorImageModel: form.watch("visualEditorImageModel"),
     visualEditorAIContext: form.watch("visualEditorAIContext") || undefined,
     disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
     defaultFeatureRulesInAllEnvs: form.watch("defaultFeatureRulesInAllEnvs"),
@@ -320,6 +298,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     topValuesLookbackValue: form.watch("topValuesLookbackValue"),
     savedGroupSizeLimit: form.watch("savedGroupSizeLimit"),
     approvalFlows: form.watch("approvalFlows"),
+    learningStatuses: form.watch("learningStatuses"),
     requireRegisteredAttributes: form.watch("requireRegisteredAttributes"),
   };
   function updateCronString(cron?: string) {
@@ -431,6 +410,18 @@ const GeneralSettingsPage = (): React.ReactElement => {
     return () => window.cancelAnimationFrame(frame);
   }, [deepLinkSection]);
 
+  // Arriving on a tab deep link selects that tab, but the tabs sit below the
+  // page header, so without this you land above the thing you asked for.
+  useEffect(() => {
+    if (!arrivedOnTab) return;
+    const frame = window.requestAnimationFrame(() => {
+      document
+        .getElementById(SETTINGS_TABS_ANCHOR)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [arrivedOnTab]);
+
   // I Don't think this works as intended - the hasChanges(value, originalValue) always seems to return true.
   const ctaEnabled =
     hasChanges(value, originalValue) || promptForm.formState.isDirty;
@@ -540,7 +531,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
           />
         </Box>
 
-        <Tabs value={activeTab} onValueChange={setUrlHash}>
+        <Tabs
+          id={SETTINGS_TABS_ANCHOR}
+          value={activeTab}
+          onValueChange={setUrlHash}
+        >
           <StickyTabsList>
             <TabsTrigger value={SETTINGS_TAB.experiment}>
               Experiments
@@ -581,6 +576,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
               />
               <Frame mb="4">
                 <BanditSettings page="org-settings" />
+              </Frame>
+              <Frame mb="4">
+                <LearningSettings />
               </Frame>
             </TabsContent>
 

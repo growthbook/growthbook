@@ -1,7 +1,8 @@
 import { z } from "zod";
+import { MAX_FUNNEL_STEPS } from "shared/funnels";
 import { apiBaseSchema } from "./base-model";
 import { queryPointerValidator } from "./queries";
-import { rowFilterValidator } from "./fact-table";
+import { rowFilterValidator, funnelStepValidator } from "./fact-table";
 
 import { namedSchema } from "./openapi-helpers";
 
@@ -71,28 +72,6 @@ const dataSourceDatasetValidator = z
   .strict();
 
 // Funnels
-export const conversionWindowValidator = z.object({
-  unit: z.enum(["weeks", "days", "hours", "minutes"]),
-  value: z.number().positive(),
-});
-export type ConversionWindow = z.infer<typeof conversionWindowValidator>;
-
-export const funnelStepValidator = z.object({
-  // Display name shown in the sidebar / chart / table.
-  name: z.string(),
-  // Id of the fact table the step's events come from.
-  factTable: z.string(),
-  // Filters that decide whether an event row counts as this step.
-  rowFilters: z.array(rowFilterValidator),
-  // Ignored for the initial step. When true, the step is allowed to be
-  // skipped without breaking the funnel.
-  optional: z.boolean(),
-  // Ignored for the initial step. Bounds how long after the previous
-  // matched step's timestamp this step's event can occur.
-  conversionWindow: conversionWindowValidator.nullish(),
-});
-export type FunnelStep = z.infer<typeof funnelStepValidator>;
-
 /** Y-axis scaling for the funnel bar chart.
  *  - `count`: raw user counts per step.
  *  - `percent`: each series is normalized so step 1 is 100%, surfacing
@@ -108,7 +87,7 @@ const funnelDatasetValidator = z
     // table. Nullable so a default-state config can exist before the user
     // has picked anything.
     unit: z.string().nullable(),
-    steps: z.array(funnelStepValidator),
+    steps: z.array(funnelStepValidator).max(MAX_FUNNEL_STEPS),
     // Seconds of out-of-order tolerance applied between adjacent steps.
     // Defaults to 0 (strict chronological ordering).
     concurrencyWindowSeconds: z.number().int().min(0).optional(),
@@ -155,6 +134,8 @@ export const dynamicDimensionValidator = z.object({
 export const staticDimensionValidator = z.object({
   dimensionType: z.literal("static"),
   column: z.string(),
+  // Unbounded so this can parse older saved/URL-encoded explorations too;
+  // the editor enforces the 20-value cap.
   values: z.array(z.string()),
 });
 
@@ -379,6 +360,9 @@ export type ProductAnalyticsFunnelStepResult = z.infer<
 export type ProductAnalyticsDimension = z.infer<typeof dimensionValidator>;
 export type ProductAnalyticsDynamicDimension = z.infer<
   typeof dynamicDimensionValidator
+>;
+export type ProductAnalyticsStaticDimension = z.infer<
+  typeof staticDimensionValidator
 >;
 export type ProductAnalyticsResult = z.infer<
   typeof productAnalyticsResultValidator
