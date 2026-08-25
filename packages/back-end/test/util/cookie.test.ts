@@ -142,25 +142,34 @@ describe("pending auth checks", () => {
     expect(getPendingAuthChecks(req)).toEqual({ s2: "b" });
   });
 
-  it("sweeps every pending flow once too many pile up", () => {
+  it("evicts only the oldest pending flow once too many pile up", () => {
     const { req, res, clearCalls } = makeReqRes();
-    for (let i = 0; i < 10; i++) {
+    const now = jest.spyOn(Date, "now");
+    // Insert out of chronological order so eviction can't just follow insertion
+    for (const [i, t] of [5, 3, 9, 1, 7, 2, 8, 4, 6, 10].entries()) {
+      now.mockReturnValue(t);
       setPendingAuthChecks(`s${i}`, "x", req, res);
     }
     expect(clearCalls).toHaveLength(0);
 
+    now.mockReturnValue(11);
     setPendingAuthChecks("s10", "y", req, res);
+    now.mockRestore();
 
-    expect(clearCalls).toHaveLength(10);
-    expect(getPendingAuthChecks(req)).toEqual({ s10: "y" });
+    expect(clearCalls).toEqual([{ name: "AUTH_CHECKS_s3" }]);
+    expect(Object.keys(getPendingAuthChecks(req))).toHaveLength(10);
+    expect(getPendingAuthChecks(req)).not.toHaveProperty("s3");
+    expect(getPendingAuthChecks(req)).toHaveProperty("s10", "y");
   });
 
-  it("ignores unrelated, empty, and JSON-decoded object cookies", () => {
+  it("ignores unrelated, empty, malformed, and JSON-decoded object cookies", () => {
     const req = {
       cookies: {
-        AUTH_CHECKS_a: "ok",
+        AUTH_CHECKS_a: JSON.stringify({ t: 1, v: "ok" }),
         AUTH_CHECKS_b: "",
         AUTH_CHECKS_c: { $ne: "" },
+        AUTH_CHECKS_d: "not json",
+        AUTH_CHECKS_e: JSON.stringify({ v: "no timestamp" }),
         AUTH_REFRESH_TOKEN: "abc",
       },
     } as unknown as Request;

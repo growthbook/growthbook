@@ -73,18 +73,40 @@ const AUTH_CHECKS_PREFIX = "AUTH_CHECKS_";
 const AUTH_CHECKS_TTL = minutes(60);
 const MAX_PENDING_AUTH_CHECKS = 10;
 
-export function getPendingAuthChecks(req: Request): Record<string, string> {
-  const pending: Record<string, string> = {};
+// Creation time is stored alongside the value so the cap can evict oldest-first
+type PendingAuthChecks = { t: number; v: string };
+
+function authChecksCookie(state: string) {
+  return new Cookie(AUTH_CHECKS_PREFIX + state, AUTH_CHECKS_TTL);
+}
+
+function readPendingAuthChecks(
+  req: Request,
+): Record<string, PendingAuthChecks> {
+  const pending: Record<string, PendingAuthChecks> = {};
   for (const [name, value] of Object.entries(req.cookies)) {
-    if (
-      name.startsWith(AUTH_CHECKS_PREFIX) &&
-      typeof value === "string" &&
-      value
-    ) {
-      pending[name.slice(AUTH_CHECKS_PREFIX.length)] = value;
+    if (!name.startsWith(AUTH_CHECKS_PREFIX) || typeof value !== "string") {
+      continue;
+    }
+    try {
+      const parsed = JSON.parse(value) as Partial<PendingAuthChecks> | null;
+      if (typeof parsed?.t === "number" && typeof parsed?.v === "string") {
+        pending[name.slice(AUTH_CHECKS_PREFIX.length)] = {
+          t: parsed.t,
+          v: parsed.v,
+        };
+      }
+    } catch (e) {
+      // ignore malformed cookies
     }
   }
   return pending;
+}
+
+export function getPendingAuthChecks(req: Request): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(readPendingAuthChecks(req)).map(([s, c]) => [s, c.v]),
+  );
 }
 
 export function setPendingAuthChecks(
@@ -93,14 +115,16 @@ export function setPendingAuthChecks(
   req: Request,
   res: Response,
 ) {
-  // Abandoned flows expire on their own; only sweep when they pile up
-  if (
-    Object.keys(getPendingAuthChecks(req)).length >= MAX_PENDING_AUTH_CHECKS
-  ) {
-    clearPendingAuthChecks(req, res);
+  // Abandoned flows expire on their own; past the cap, evict the oldest
+  const oldestFirst = Object.entries(readPendingAuthChecks(req)).sort(
+    (a, b) => a[1].t - b[1].t,
+  );
+  const excess = oldestFirst.length + 1 - MAX_PENDING_AUTH_CHECKS;
+  for (const [s] of oldestFirst.slice(0, Math.max(0, excess))) {
+    clearPendingAuthChecks(req, res, s);
   }
-  new Cookie(AUTH_CHECKS_PREFIX + state, AUTH_CHECKS_TTL).setValue(
-    value,
+  authChecksCookie(state).setValue(
+    JSON.stringify({ t: Date.now(), v: value }),
     req,
     res,
   );
@@ -111,9 +135,9 @@ export function clearPendingAuthChecks(
   res: Response,
   state?: string,
 ) {
-  const states = state ? [state] : Object.keys(getPendingAuthChecks(req));
+  const states = state ? [state] : Object.keys(readPendingAuthChecks(req));
   for (const s of states) {
-    new Cookie(AUTH_CHECKS_PREFIX + s, AUTH_CHECKS_TTL).setValue("", req, res);
+    authChecksCookie(s).setValue("", req, res);
   }
 }
 
