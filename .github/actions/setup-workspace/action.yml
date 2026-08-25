@@ -31,8 +31,6 @@ runs:
       run: pnpm install
       shell: bash
 
-    # Lint, type-check and the tests all need sdk-js/sdk-react/shared/stats-ts
-    # built. The Python engine is not built here; only the lint job needs it.
     - name: Build dependencies
       if: inputs.build-deps == 'true'
       run: pnpm build:deps

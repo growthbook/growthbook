@@ -19,10 +19,8 @@ import {
  * permission-matrix-features.test.ts, and a divergence is either a deliberate
  * difference or a bug.
  *
- * One entity per spec file: Jest never splits a single file across workers, so
- * running all three here made the matrix a 140s serial floor on the whole
- * back-end suite. Importing this module boots an app and an in-memory Mongo of
- * its own, the same way calling setupApp() in a spec does.
+ * One entity per spec file: Jest never splits a single file across workers.
+ * Importing this module boots an app and an in-memory Mongo of its own.
  */
 
 const org: OrganizationInterface = buildOrg("org_perm_matrix_entities");

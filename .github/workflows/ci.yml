@@ -4,15 +4,8 @@ on:
     branches: [main]
   pull_request:
 
-# One workflow, always triggered, so exactly one check named `ci` is ever
-# reported for a commit.
-#
-# Splitting code / no-code across two workflows could not be made mutually
-# exclusive: `paths` fires when ANY changed file matches and `paths-ignore`
-# fires when ANY changed file does not, so a PR touching both kinds triggered
-# both. Both defined a job named `ci`, and the cheap one reported that check
-# green while the real jobs were still running. The `changes` job below decides
-# what to run instead, and `ci` at the bottom is the single required check.
+# No path filters on purpose: `paths` and `paths-ignore` can both fire on one
+# commit, so a second workflow can never be mutually exclusive with this one.
 jobs:
   changes:
     runs-on: ubuntu-latest
@@ -51,8 +44,7 @@ jobs:
             echo "code=false" >> "$GITHUB_OUTPUT"
           fi
 
-  # Runs on every commit, code or not — this is what the old ci-nochanges
-  # workflow existed to provide.
+  # Formatting covers docs and markdown too, so it is not gated on code changes.
   format:
     runs-on: ubuntu-latest
     steps:
@@ -85,8 +77,7 @@ jobs:
         env:
           CI: true
 
-  # The Python engine's lint and pytest suite. Split out so the JS jobs don't
-  # pay for a Python toolchain they never use.
+  # Separate job so the JS jobs never install a Python toolchain.
   stats:
     needs: changes
     if: needs.changes.outputs.code == 'true'
@@ -180,8 +171,7 @@ jobs:
         env:
           CI: true
 
-  # The back-end suite is ~80% of all test time, and a 4-vCPU runner gives Jest
-  # only 3 workers for 300+ files. Split it across runners instead.
+  # A 4-vCPU runner gives Jest only 3 workers for 300+ files, so shard instead.
   test-back-end:
     needs: changes
     if: needs.changes.outputs.code == 'true'
@@ -234,8 +224,7 @@ jobs:
         env:
           CI: true
 
-  # The one required status check. Green only when every job above either
-  # succeeded or was deliberately skipped.
+  # The single required status check; renaming it breaks branch protection.
   ci:
     if: always()
     needs:

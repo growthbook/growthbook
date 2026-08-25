@@ -3,8 +3,7 @@ import { expect, beforeEach } from "vitest";
 
 expect.extend(matchers);
 
-// Specs run in the node environment unless they opt into jsdom, so everything
-// below is skipped when there is no DOM to set up.
+// Specs default to the node environment, so guard anything that needs a DOM.
 const hasDom = typeof document !== "undefined";
 
 // Portal component requires a #portal-root element in the DOM
@@ -20,14 +19,8 @@ beforeEach(() => {
 // Mock ResizeObserver for tests (not available in jsdom)
 if (hasDom) {
   global.ResizeObserver = class ResizeObserver {
-    observe() {
-      // Mock implementation
-    }
-    unobserve() {
-      // Mock implementation
-    }
-    disconnect() {
-      // Mock implementation
-    }
+    observe() {}
+    unobserve() {}
+    disconnect() {}
   };
 }
