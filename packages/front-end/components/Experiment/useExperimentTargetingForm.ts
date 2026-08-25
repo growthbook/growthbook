@@ -35,9 +35,12 @@ export interface UseExperimentTargetingFormResult {
 }
 
 // Shared by the targeting and traffic modals, which both POST to the same
-// `/experiment/:id/targeting` endpoint.
+// `/experiment/:id/targeting` endpoint. `attributeScopeProjects` is the
+// experiment's attribute-scope union (project + linked features' targeting
+// projects); when omitted the pre-flight falls back to `experiment.project`.
 export function useExperimentTargetingForm(
   experiment: ExperimentInterfaceStringDates,
+  attributeScopeProjects?: string[] | null,
 ): UseExperimentTargetingFormResult {
   const { apiCall } = useAuth();
   const orgSettings = useOrgSettings();
@@ -68,6 +71,7 @@ export function useExperimentTargetingForm(
     coverage: lastPhase?.coverage ?? 1,
     hashAttribute: experiment.hashAttribute || "id",
     fallbackAttribute: experiment.fallbackAttribute || "",
+    attributeScopeAllProjects: experiment.attributeScopeAllProjects ?? false,
     hashVersion: experiment.hashVersion || (hasSDKWithNoBucketingV2 ? 1 : 2),
     disableStickyBucketing: experiment.disableStickyBucketing ?? false,
     bucketVersion: experiment.bucketVersion || 1,
@@ -162,7 +166,11 @@ export function useExperimentTargetingForm(
         {
           attributeSchema: allAttributesSchema,
           requireRegisteredAttributes: orgSettings.requireRegisteredAttributes,
-          project: experiment.project || undefined,
+          project: value.attributeScopeAllProjects
+            ? null
+            : attributeScopeProjects !== undefined
+              ? attributeScopeProjects
+              : experiment.project || undefined,
         },
         existingAttributeParts,
       );

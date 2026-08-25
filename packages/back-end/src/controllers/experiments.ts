@@ -56,6 +56,7 @@ import {
   createSnapshotAnalysis,
   determineNextBanditSchedule,
   getLinkedChangeEnvironmentStates,
+  getExperimentAttributeScopeProjects,
   getLinkedFeatureInfo,
   normalizeStatusUpdateScheduleChanges,
   resetExperimentBanditSettings,
@@ -1188,7 +1189,14 @@ export async function postExperiments(
   const { metricIds, datasource, invalidMetricIds } = result;
 
   // Opt-in attribute registration check (org-level setting). Applies before
-  // any DB writes so a typo'd attribute is rejected outright.
+  // any DB writes so a typo'd attribute is rejected outright. Sweeps
+  // `data.linkedFeatures` so experiments created from a feature (experiment-ref
+  // rules) can use attributes from the feature's targeting projects.
+  const attributeScope = await getExperimentAttributeScopeProjects(context, {
+    project: data.project,
+    linkedFeatures: data.linkedFeatures,
+    attributeScopeAllProjects: data.attributeScopeAllProjects,
+  });
   assertRegisteredAttributes(
     context,
     {
@@ -1197,7 +1205,7 @@ export async function postExperiments(
     },
     "experiment",
     undefined,
-    data.project,
+    attributeScope,
   );
   for (const phase of data.phases ?? []) {
     assertRegisteredAttributes(
@@ -1205,7 +1213,7 @@ export async function postExperiments(
       { condition: phase.condition },
       "experiment phase",
       undefined,
-      data.project,
+      attributeScope,
     );
   }
 
@@ -1542,6 +1550,12 @@ export async function postExperiment(
   }
 
   // Opt-in attribute registration check (org-level setting).
+  const attributeScope = await getExperimentAttributeScopeProjects(context, {
+    project: "project" in data ? data.project : experiment.project,
+    linkedFeatures: experiment.linkedFeatures,
+    attributeScopeAllProjects:
+      data.attributeScopeAllProjects ?? experiment.attributeScopeAllProjects,
+  });
   assertRegisteredAttributes(
     context,
     {
@@ -1550,7 +1564,7 @@ export async function postExperiment(
     },
     "experiment",
     undefined,
-    experiment.project,
+    attributeScope,
   );
   for (const phase of data.phases ?? []) {
     assertRegisteredAttributes(
@@ -1558,7 +1572,7 @@ export async function postExperiment(
       { condition: phase.condition },
       "experiment phase",
       undefined,
-      experiment.project,
+      attributeScope,
     );
   }
 
@@ -2841,7 +2855,7 @@ export async function putExperimentPhase(
     { condition: phase.condition },
     "experiment phase",
     undefined,
-    experiment.project,
+    await getExperimentAttributeScopeProjects(context, experiment),
   );
 
   phase.dateStarted = phase.dateStarted
@@ -2905,6 +2919,7 @@ export async function postExperimentTargeting(
     coverage,
     hashAttribute,
     fallbackAttribute,
+    attributeScopeAllProjects,
     hashVersion,
     disableStickyBucketing,
     bucketVersion,
@@ -2975,7 +2990,12 @@ export async function postExperimentTargeting(
       fallbackAttribute: experiment.fallbackAttribute,
       condition: lastPersistedPhase?.condition,
     },
-    experiment.project,
+    await getExperimentAttributeScopeProjects(context, {
+      project: experiment.project,
+      linkedFeatures: experiment.linkedFeatures,
+      attributeScopeAllProjects:
+        attributeScopeAllProjects ?? experiment.attributeScopeAllProjects,
+    }),
   );
 
   const phases = [...experiment.phases];
@@ -3036,6 +3056,9 @@ export async function postExperimentTargeting(
   }
 
   changes.hashAttribute = hashAttribute;
+  if (attributeScopeAllProjects !== undefined) {
+    changes.attributeScopeAllProjects = attributeScopeAllProjects;
+  }
   if (experiment.type !== "holdout") {
     changes.fallbackAttribute = fallbackAttribute;
     changes.hashVersion = hashVersion;
@@ -3135,7 +3158,7 @@ export async function postExperimentPhase(
     { condition: data.condition },
     "experiment phase",
     undefined,
-    experiment.project,
+    await getExperimentAttributeScopeProjects(context, experiment),
   );
 
   const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();

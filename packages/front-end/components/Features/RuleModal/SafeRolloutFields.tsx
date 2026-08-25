@@ -36,6 +36,7 @@ import Callout from "@/ui/Callout";
 
 export default function SafeRolloutFields({
   feature,
+  attributeProjects,
   environment,
   setPrerequisiteTargetingSdkIssues,
   isCyclic,
@@ -51,6 +52,9 @@ export default function SafeRolloutFields({
   onRuleCyclicChange,
 }: {
   feature: FeatureInterface;
+  // Attribute-scope union (feature targeting projects, current ∪ staged);
+  // null = unscoped. Falls back to `feature.project` when omitted.
+  attributeProjects?: string[] | null;
   environment: string;
   defaultValues: FeatureRule | NewExperimentRefRule;
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
@@ -68,7 +72,10 @@ export default function SafeRolloutFields({
   const form = useFormContext();
   const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
   const [advancedOptionsSeedOpen, setAdvancedOptionsSeedOpen] = useState(false);
-  const attributeSchema = useAttributeSchema(false, feature.project);
+  const attributeSchema = useAttributeSchema(
+    false,
+    attributeProjects !== undefined ? attributeProjects : feature.project,
+  );
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
   const { datasources } = useDefinitions();
@@ -105,6 +112,7 @@ export default function SafeRolloutFields({
       <>
         <TargetingFieldsGroup
           project={feature.project || ""}
+          attributeProjects={attributeProjects}
           environments={[environment]}
           feature={feature}
           savedGroups={form.watch("savedGroups") || []}

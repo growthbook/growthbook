@@ -242,6 +242,63 @@ describe("assertRegisteredAttributes", () => {
     expect(err?.message).toMatch(/country/);
   });
 
+  // Feature and experiment callers pass a targeting-union of projects rather
+  // than a single id. The attribute is in scope when ANY project overlaps.
+  it("accepts a project-scoped attribute when any project in the union matches", () => {
+    const ctx = makeContext({
+      attributeSchema: [
+        {
+          property: "country",
+          datatype: "string",
+          projects: ["proj_one"],
+        } as unknown as {
+          property: string;
+          datatype: "string";
+          archived?: boolean;
+        },
+      ],
+    });
+    expect(() =>
+      assertRegisteredAttributes(
+        ctx,
+        { hashAttribute: "country" },
+        "rule",
+        undefined,
+        ["proj_two", "proj_one"],
+      ),
+    ).not.toThrow();
+  });
+
+  it("rejects a project-scoped attribute when no project in the union matches", () => {
+    const ctx = makeContext({
+      attributeSchema: [
+        {
+          property: "country",
+          datatype: "string",
+          projects: ["proj_one"],
+        } as unknown as {
+          property: string;
+          datatype: "string";
+          archived?: boolean;
+        },
+      ],
+    });
+    let err: BadRequestError | undefined;
+    try {
+      assertRegisteredAttributes(
+        ctx,
+        { hashAttribute: "country" },
+        "rule",
+        undefined,
+        ["proj_two", "proj_three"],
+      );
+    } catch (e) {
+      err = e as BadRequestError;
+    }
+    expect(err).toBeInstanceOf(BadRequestError);
+    expect(err?.message).toMatch(/not part of this project's scope/);
+  });
+
   // The setting is stored as an object on new orgs; legacy boolean shapes
   // still come through unchanged on older orgs. Lock down both forms behave
   // the same for the strict (everything-on) case so we don't regress

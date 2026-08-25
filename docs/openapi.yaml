@@ -13688,6 +13688,14 @@ paths:
                   type: string
                 fallbackAttribute:
                   type: string
+                attributeScopeAllProjects:
+                  description: >-
+                    When true, targeting may use registered attributes from any
+                    project instead of only those in scope for the experiment's
+                    project and linked features. Only relevant when the
+                    organization requires registered attributes with project
+                    scoping.
+                  type: boolean
                 hashVersion:
                   anyOf:
                     - type: number
@@ -14366,6 +14374,14 @@ paths:
                   type: string
                 fallbackAttribute:
                   type: string
+                attributeScopeAllProjects:
+                  description: >-
+                    When true, targeting may use registered attributes from any
+                    project instead of only those in scope for the experiment's
+                    project and linked features. Only relevant when the
+                    organization requires registered attributes with project
+                    scoping.
+                  type: boolean
                 hashVersion:
                   anyOf:
                     - type: number
@@ -54270,6 +54286,8 @@ components:
           type: array
           items:
             type: string
+        attributeScopeAllProjects:
+          type: boolean
         hasVisualChangesets:
           type: boolean
         hasURLRedirects:
@@ -55041,6 +55059,8 @@ components:
               type: array
               items:
                 type: string
+            attributeScopeAllProjects:
+              type: boolean
             hasVisualChangesets:
               type: boolean
             hasURLRedirects:

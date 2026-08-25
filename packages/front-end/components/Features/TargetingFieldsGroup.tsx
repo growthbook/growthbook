@@ -12,6 +12,9 @@ import PrerequisiteInput, {
 
 export interface TargetingFieldsGroupProps {
   project: string;
+  // Attribute-scope union overriding `project` for attribute filtering (e.g.
+  // a feature's targeting projects); null = show attributes from all projects.
+  attributeProjects?: string[] | null;
   environments: string[];
   // When set, `PrerequisiteInput` will use the feature's project + linked-feature
   // metadata. Pass `feature` from rule modals; leave undefined for experiment-level
@@ -34,6 +37,7 @@ export interface TargetingFieldsGroupProps {
 
 export default function TargetingFieldsGroup({
   project,
+  attributeProjects,
   environments,
   feature,
   savedGroups,
@@ -59,6 +63,7 @@ export default function TargetingFieldsGroup({
         onChange={setCondition}
         key={conditionKey}
         project={project}
+        attributeProjects={attributeProjects}
       />
       <Separator size="4" my="5" />
       <PrerequisiteInput

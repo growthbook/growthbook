@@ -55,6 +55,7 @@ export default function BanditRefNewFields({
   source,
   feature,
   project,
+  attributeProjects,
   environments,
   prerequisiteValue,
   setPrerequisiteValue,
@@ -83,6 +84,9 @@ export default function BanditRefNewFields({
   source: "rule" | "experiment";
   feature?: FeatureInterface;
   project?: string;
+  // Attribute-scope union (feature targeting projects, current ∪ staged);
+  // null = unscoped. Falls back to `project` when omitted.
+  attributeProjects?: string[] | null;
   environments: string[];
   prerequisiteValue: FeaturePrerequisite[];
   setPrerequisiteValue: (prerequisites: FeaturePrerequisite[]) => void;
@@ -130,7 +134,10 @@ export default function BanditRefNewFields({
     }
   }, [exposureQueries, exposureQueryId, form]);
 
-  const attributeSchema = useAttributeSchema(false, project);
+  const attributeSchema = useAttributeSchema(
+    false,
+    attributeProjects !== undefined ? attributeProjects : project,
+  );
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
@@ -266,6 +273,7 @@ export default function BanditRefNewFields({
         <>
           <TargetingFieldsGroup
             project={project || ""}
+            attributeProjects={attributeProjects}
             environments={environments ?? []}
             feature={feature}
             savedGroups={savedGroupValue}

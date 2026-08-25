@@ -138,6 +138,9 @@ interface Props {
   defaultValue: string;
   onChange: (value: string) => void;
   project: string;
+  // Attribute-scope union overriding `project` for attribute filtering (e.g.
+  // a feature's targeting projects); null = show attributes from all projects.
+  attributeProjects?: string[] | null;
   labelClassName?: string;
   emptyText?: string;
   label?: string;
@@ -159,6 +162,7 @@ export default function ConditionInput({
   defaultValue,
   onChange,
   project,
+  attributeProjects,
   labelClassName,
   emptyText = "Applied to everyone by default.",
   label = "Target by Attributes",
@@ -175,7 +179,9 @@ export default function ConditionInput({
   setModeLabel,
   removeModeLabel,
 }: Props) {
-  const attributes = useAttributeMap(project);
+  const attributeFilter =
+    attributeProjects !== undefined ? attributeProjects : project;
+  const attributes = useAttributeMap(attributeFilter);
 
   const [advanced, setAdvanced] = useState(
     () => jsonToConds(defaultValue, attributes) === null,
@@ -190,7 +196,7 @@ export default function ConditionInput({
     defaultCodeEditorToggledOn,
   );
 
-  const attributeSchema = useAttributeSchema(false, project);
+  const attributeSchema = useAttributeSchema(false, attributeFilter);
   const showAddRemoveSelector =
     !!addRemoveMode && !!addRemoveValue && !!onAddRemoveValueChange;
   const renderAddRemoveSelector = () =>
@@ -627,6 +633,7 @@ export default function ConditionInput({
                 }}
                 orGroupsCount={conds.length}
                 project={project}
+                attributeProjects={attributeProjects}
                 labelClassName={labelClassName}
                 emptyText={emptyText}
                 label={label}
@@ -687,6 +694,7 @@ function ConditionAndGroupInput({
   setConds: (conds: Condition[]) => void;
   orGroupsCount: number;
   project: string;
+  attributeProjects?: string[] | null;
   labelClassName?: string;
   emptyText?: string;
   label?: string;
@@ -698,7 +706,11 @@ function ConditionAndGroupInput({
 }) {
   const { savedGroups, getSavedGroupById } = useDefinitions();
 
-  const attributes = useAttributeMap(props.project);
+  const attributes = useAttributeMap(
+    props.attributeProjects !== undefined
+      ? props.attributeProjects
+      : props.project,
+  );
 
   // Normalize: secureString/secureString[] only support exact operators (in/nin), not case-insensitive (ini/nini)
   useEffect(() => {
@@ -720,7 +732,12 @@ function ConditionAndGroupInput({
 
   const listOperators = ["$in", "$nin", "$ini", "$nini"];
 
-  const attributeSchema = useAttributeSchema(false, props.project);
+  const attributeSchema = useAttributeSchema(
+    false,
+    props.attributeProjects !== undefined
+      ? props.attributeProjects
+      : props.project,
+  );
 
   return (
     <>

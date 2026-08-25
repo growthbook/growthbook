@@ -1,5 +1,13 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { useMemo } from "react";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "shared/types/experiment";
 import { hasAttributeCondition } from "shared/experiments";
+import {
+  getAttributeScopeProjectIds,
+  getExperimentAttributeScopeProjectIds,
+} from "shared/util";
 import { Box } from "@radix-ui/themes";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
@@ -25,6 +33,9 @@ import { useExperimentTargetingForm } from "./useExperimentTargetingForm";
 export interface Props {
   close: () => void;
   experiment: ExperimentInterfaceStringDates;
+  // Used to widen the attribute scope to the linked features' targeting
+  // projects — targeting conditions evaluate wherever a linked feature is served.
+  linkedFeatures?: LinkedFeatureInfo[];
   mutate: () => void;
   safeToEdit: boolean;
 }
@@ -32,9 +43,26 @@ export interface Props {
 export default function EditTargetingModal({
   close,
   experiment,
+  linkedFeatures,
   mutate,
   safeToEdit,
 }: Props) {
+  // Attribute-scope union before the opt-out switch is applied: the
+  // experiment's project plus every linked feature's targeting projects.
+  // null = unscoped (no project, or a linked feature targets all projects).
+  const attributeScopeProjects = useMemo(
+    () =>
+      getExperimentAttributeScopeProjectIds(
+        { project: experiment.project },
+        (linkedFeatures ?? []).map((f) =>
+          f.attributeScopeProjects !== undefined
+            ? f.attributeScopeProjects
+            : getAttributeScopeProjectIds(f.feature),
+        ),
+      ),
+    [experiment.project, linkedFeatures],
+  );
+
   const {
     form,
     defaultValues,
@@ -42,7 +70,12 @@ export default function EditTargetingModal({
     setPrerequisiteTargetingSdkIssues,
     canSubmit,
     onSubmit,
-  } = useExperimentTargetingForm(experiment);
+  } = useExperimentTargetingForm(experiment, attributeScopeProjects);
+
+  // The persisted opt-out: show and validate attributes from every project.
+  const effectiveAttributeProjects = form.watch("attributeScopeAllProjects")
+    ? null
+    : attributeScopeProjects;
 
   const environments = useEnvironments();
   const envs = environments.map((e) => e.id);
@@ -78,7 +111,7 @@ export default function EditTargetingModal({
     experiment.project,
   );
 
-  const attributeSchema = useAttributeSchema(false, experiment.project);
+  const attributeSchema = useAttributeSchema(false, effectiveAttributeProjects);
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
@@ -197,9 +230,25 @@ export default function EditTargetingModal({
               />
             )}
 
+          {experiment.project ? (
+            <Switch
+              mt="6"
+              label={
+                <Text weight="medium" color="text-high">
+                  Attributes From All Projects
+                </Text>
+              }
+              description="Allow targeting by registered attributes from any project, not only those in scope for this experiment's projects."
+              value={!!form.watch("attributeScopeAllProjects")}
+              onChange={(v) => {
+                form.setValue("attributeScopeAllProjects", v);
+              }}
+            />
+          ) : null}
           <Box mt="6">
             <TargetingFieldsGroup
               project={experiment.project || ""}
+              attributeProjects={effectiveAttributeProjects}
               environments={envs}
               savedGroups={form.watch("savedGroups") || []}
               setSavedGroups={(v) => form.setValue("savedGroups", v)}
@@ -225,6 +274,7 @@ export default function EditTargetingModal({
   return (
     <MakeChangesFlow
       experiment={experiment}
+      attributeProjects={attributeScopeProjects}
       form={form}
       defaultValues={defaultValues}
       onSubmit={(scope) => onSubmit(mutate, scope)()}

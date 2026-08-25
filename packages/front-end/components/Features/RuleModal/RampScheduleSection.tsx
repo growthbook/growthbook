@@ -867,6 +867,9 @@ interface Props {
   // Renders the schedule grid in view-only mode.
   readOnly?: boolean;
   feature: FeatureInterface;
+  // Attribute-scope union (feature targeting projects, current ∪ staged);
+  // null = unscoped. Falls back to `feature.project` when omitted.
+  attributeProjects?: string[] | null;
   environments: string[];
   // Used by the standalone modal.
   boxStepGrid?: boolean;
@@ -901,6 +904,7 @@ export default function RampScheduleSection({
   embedded = false,
   readOnly = false,
   feature,
+  attributeProjects,
   environments,
   boxStepGrid = false,
   hideNameField = false,
@@ -1415,6 +1419,7 @@ export default function RampScheduleSection({
               defaultValue={patch.condition ?? "{}"}
               onChange={(v) => setPatchFn("condition", v)}
               project={feature.project ?? ""}
+              attributeProjects={attributeProjects}
               slimMode
               emptyText=""
               addRemoveMode

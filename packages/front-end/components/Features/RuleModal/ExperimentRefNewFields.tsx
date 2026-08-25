@@ -74,6 +74,7 @@ export default function ExperimentRefNewFields({
   source,
   feature,
   project,
+  attributeProjects,
   environments,
   defaultValues,
   prerequisiteValue,
@@ -112,6 +113,9 @@ export default function ExperimentRefNewFields({
   source: "rule" | "experiment";
   feature?: FeatureInterface;
   project?: string;
+  // Attribute-scope union (feature targeting projects, current ∪ staged);
+  // null = unscoped. Falls back to `project` when omitted.
+  attributeProjects?: string[] | null;
   environments: string[];
   defaultValues?: FeatureRule | NewExperimentRefRule;
   prerequisiteValue: FeaturePrerequisite[];
@@ -180,7 +184,10 @@ export default function ExperimentRefNewFields({
   const exposureQueries = datasource?.settings?.queries?.exposure;
   const exposureQueryId = form.getValues("exposureQueryId");
 
-  const attributeSchema = useAttributeSchema(false, project);
+  const attributeSchema = useAttributeSchema(
+    false,
+    attributeProjects !== undefined ? attributeProjects : project,
+  );
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
@@ -524,6 +531,7 @@ export default function ExperimentRefNewFields({
         <>
           <TargetingFieldsGroup
             project={project || ""}
+            attributeProjects={attributeProjects}
             environments={environments ?? []}
             feature={feature}
             savedGroups={savedGroupValue}

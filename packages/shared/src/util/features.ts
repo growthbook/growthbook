@@ -3787,6 +3787,58 @@ export function getTargetingProjectIds(
   );
 }
 
+// Staged (draft-revision) form of the targeting scope, as found on
+// `FeatureRevisionInterface.metadata`. `undefined` fields mean "unchanged".
+export type StagedTargetingScope = {
+  project?: string;
+  targetingAllProjects?: boolean;
+  targetingProjects?: string[];
+};
+
+// Projects whose registered attributes are selectable for targeting on a
+// feature-family entity: primary + targetingProjects, unioned with any
+// staged (draft) values so both the live and the staged state stay editable
+// while a draft is open. Returns null when attribute selection is unscoped —
+// the entity targets all projects (live or staged) or its primary project is
+// empty (an All Projects entity delivers everywhere).
+export function getAttributeScopeProjectIds(
+  entity: TargetingScopedEntity,
+  staged?: StagedTargetingScope,
+): string[] | null {
+  if (entity.targetingAllProjects || staged?.targetingAllProjects) return null;
+  const primaries = [
+    entity.project ?? "",
+    staged?.project ?? entity.project ?? "",
+  ];
+  if (primaries.some((p) => !p)) return null;
+  return Array.from(
+    new Set([
+      ...primaries,
+      ...(entity.targetingProjects ?? []),
+      ...(staged?.targetingProjects ?? []),
+    ]),
+  ).filter(Boolean);
+}
+
+// Attribute-scope union for an experiment: its own project plus the attribute
+// scope of every linked feature (targeting conditions evaluate wherever a
+// linked feature is served). null = unscoped — the experiment opted out via
+// `attributeScopeAllProjects`, has no project, or any linked feature is
+// itself unscoped.
+export function getExperimentAttributeScopeProjectIds(
+  experiment: { project?: string; attributeScopeAllProjects?: boolean },
+  linkedFeatureScopes: Array<string[] | null>,
+): string[] | null {
+  if (experiment.attributeScopeAllProjects) return null;
+  if (!experiment.project) return null;
+  const ids = new Set<string>([experiment.project]);
+  for (const scope of linkedFeatureScopes) {
+    if (scope === null) return null;
+    scope.forEach((id) => ids.add(id));
+  }
+  return Array.from(ids);
+}
+
 export function entityTargetsProject(
   entity: TargetingScopedEntity,
   projectId: string,

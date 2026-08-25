@@ -9,10 +9,15 @@ import FeatureVariationsInput from "@/components//Features/FeatureVariationsInpu
 import NamespaceSelector from "@/components//Features/NamespaceSelector";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import Callout from "@/ui/Callout";
+import Switch from "@/ui/Switch";
+import Text from "@/ui/Text";
 import type { ChangeType } from "./MakeChangesFlow";
 
 export interface TargetingFormProps {
   experiment: ExperimentInterfaceStringDates;
+  // Attribute-scope union before the opt-out switch (experiment project +
+  // linked features' targeting projects); null = unscoped.
+  attributeProjects?: string[] | null;
   form: UseFormReturn<ExperimentTargetingData>;
   changeType?: ChangeType;
   conditionKey: number;
@@ -21,11 +26,20 @@ export interface TargetingFormProps {
 
 export default function TargetingForm({
   experiment,
+  attributeProjects,
   form,
   changeType = "advanced",
   conditionKey,
   setPrerequisiteTargetingSdkIssues,
 }: TargetingFormProps) {
+  // Apply the persisted opt-out: show and validate attributes from every project.
+  const effectiveAttributeProjects = form.watch("attributeScopeAllProjects")
+    ? null
+    : attributeProjects !== undefined
+      ? attributeProjects
+      : experiment.project
+        ? [experiment.project]
+        : null;
   const hasLinkedChanges =
     !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
 
@@ -50,8 +64,24 @@ export default function TargetingForm({
 
       {["targeting", "advanced"].includes(changeType) && (
         <>
+          {experiment.project ? (
+            <Switch
+              mb="4"
+              label={
+                <Text weight="medium" color="text-high">
+                  Attributes From All Projects
+                </Text>
+              }
+              description="Allow targeting by registered attributes from any project, not only those in scope for this experiment's projects."
+              value={!!form.watch("attributeScopeAllProjects")}
+              onChange={(v) => {
+                form.setValue("attributeScopeAllProjects", v);
+              }}
+            />
+          ) : null}
           <TargetingFieldsGroup
             project={experiment.project || ""}
+            attributeProjects={effectiveAttributeProjects}
             environments={envs}
             savedGroups={form.watch("savedGroups") || []}
             setSavedGroups={(v) => form.setValue("savedGroups", v)}

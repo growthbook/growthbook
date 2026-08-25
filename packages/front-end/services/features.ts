@@ -606,17 +606,24 @@ export function getVariationColor(i: number, experimentTheme = false) {
   return colors[i % colors.length];
 }
 
+// `projectFilter` may be a single project id or a set of them (e.g. a
+// feature's targeting-project union). null/undefined/empty = no filtering.
 export function useAttributeSchema(
   showArchived = false,
-  projectFilter?: string,
+  projectFilter?: string | string[] | null,
 ) {
   const attributeSchema = useOrgSettings().attributeSchema || [];
 
+  const filterProjects = Array.isArray(projectFilter)
+    ? projectFilter.filter(Boolean)
+    : projectFilter
+      ? [projectFilter]
+      : [];
   const filteredAttributeSchema = attributeSchema.filter((attribute) => {
     return (
-      !projectFilter ||
+      !filterProjects.length ||
       !attribute.projects?.length ||
-      attribute.projects.includes(projectFilter)
+      attribute.projects.some((p) => filterProjects.includes(p))
     );
   });
   return useMemo(() => {
@@ -670,7 +677,8 @@ export function validateUnregisteredAttributes(
   options: {
     attributeSchema?: SDKAttributeSchema;
     requireRegisteredAttributes?: RawRequireRegistered;
-    project?: string;
+    // Single project or a targeting-union of projects; null = unscoped.
+    project?: string | string[] | null;
   },
   existingParts?: AttributeParts,
 ): void {
@@ -700,7 +708,7 @@ export function validateUnregisteredAttributes(
   const buckets = categorizeUnregisteredAttributes(
     keys,
     options.attributeSchema,
-    requireProjectScoping ? options.project : undefined,
+    requireProjectScoping ? (options.project ?? undefined) : undefined,
   );
   if (buckets.unknown.length || buckets.outOfProject.length) {
     throw new Error(formatUnregisteredAttributesError(label, buckets));
@@ -713,6 +721,9 @@ export function validateFeatureRule(
   options: {
     attributeSchema?: SDKAttributeSchema;
     requireRegisteredAttributes?: RawRequireRegistered;
+    // Attribute-scope union (feature targeting projects, current ∪ staged).
+    // When set, overrides the `feature.project` fallback; null = unscoped.
+    attributeProjects?: string[] | null;
   } = {},
   existingRule?: FeatureRule,
 ): null | FeatureRule {
@@ -744,7 +755,13 @@ export function validateFeatureRule(
       condition: ruleCopy.condition,
     },
     "rule",
-    { ...options, project: feature.project },
+    {
+      ...options,
+      project:
+        options.attributeProjects !== undefined
+          ? options.attributeProjects
+          : feature.project,
+    },
     existingRule
       ? {
           hashAttribute: (existingRule as { hashAttribute?: string })
@@ -1613,7 +1630,7 @@ function getAttributeDataType(type: SDKAttributeType) {
 }
 
 export function useAttributeMap(
-  projectFilter?: string,
+  projectFilter?: string | string[] | null,
 ): Map<string, AttributeData> {
   const attributeSchema = useAttributeSchema(true, projectFilter);
 

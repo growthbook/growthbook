@@ -63,6 +63,7 @@ export function deriveScheduleType(
 export default function StandardRuleFields({
   ruleType,
   feature,
+  attributeProjects,
   environments,
   defaultValues,
   setPrerequisiteTargetingSdkIssues,
@@ -83,6 +84,9 @@ export default function StandardRuleFields({
 }: {
   ruleType: "force" | "rollout";
   feature: FeatureInterface;
+  // Attribute-scope union (feature targeting projects, current ∪ staged);
+  // null = unscoped. Falls back to `feature.project` when omitted.
+  attributeProjects?: string[] | null;
   environments: string[];
   defaultValues: FeatureRule | NewExperimentRefRule;
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
@@ -130,7 +134,10 @@ export default function StandardRuleFields({
         form.watch("hashVersion") !== undefined &&
         form.watch("hashVersion") !== 2),
   );
-  const attributeSchema = useAttributeSchema(false, feature.project);
+  const attributeSchema = useAttributeSchema(
+    false,
+    attributeProjects !== undefined ? attributeProjects : feature.project,
+  );
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
   const { hasCommercialFeature } = useUser();
@@ -550,6 +557,7 @@ export default function StandardRuleFields({
             onChange={(value) => form.setValue("condition", value)}
             key={conditionKey}
             project={feature.project || ""}
+            attributeProjects={attributeProjects}
             label="Attributes"
           />
           <ConflictCallout field="condition" />

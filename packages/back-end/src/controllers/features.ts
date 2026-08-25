@@ -30,6 +30,7 @@ import {
   filterProjectsByEnvironmentWithNull,
   getAffectedEnvsForExperiment,
   getApplicableEnvIds,
+  getAttributeScopeProjectIds,
   getDependentExperiments,
   getDependentFeatures,
   getEffectiveRevisionHoldout,
@@ -3277,6 +3278,8 @@ export async function postFeatureRule(
     context.permissions.throwPermissionError();
   }
 
+  const revision = await getDraftRevision(context, feature, parseInt(version));
+
   // Opt-in attribute registration check before any side effects (safe-rollout
   // create, holdout linking, revision update).
   assertRegisteredAttributes(
@@ -3289,7 +3292,7 @@ export async function postFeatureRule(
     },
     "rule",
     undefined,
-    feature.project,
+    getAttributeScopeProjectIds(feature, revision.metadata) ?? undefined,
   );
 
   // Pre-generate the safeRollout id so hooks see the rule's final shape; the doc is created after prevalidation
@@ -3312,8 +3315,6 @@ export async function postFeatureRule(
       rule.trackingKey || `${SAFE_ROLLOUT_TRACKING_KEY_PREFIX}${uuidv4()}`;
     rule.safeRolloutId = generateId("sr_");
   }
-
-  const revision = await getDraftRevision(context, feature, parseInt(version));
 
   const effectiveHoldout = getEffectiveRevisionHoldout(revision, feature);
 
@@ -4684,7 +4685,7 @@ export async function putFeatureRule(
         .fallbackAttribute,
       condition: existingRule.condition,
     },
-    feature.project,
+    getAttributeScopeProjectIds(feature, revision.metadata) ?? undefined,
   );
 
   let rampActionsUpdate:

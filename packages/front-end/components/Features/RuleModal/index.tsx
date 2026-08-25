@@ -13,6 +13,7 @@ import {
   generateVariationId,
   isProjectListValidForProject,
   getReviewSetting,
+  getAttributeScopeProjectIds,
   getTargetingProjectIds,
   stemRuleId,
   parsePlainJSONObject,
@@ -262,7 +263,15 @@ export default function RuleModal({
   const { hasCommercialFeature, organization } = useUser();
   const { apiCall } = useAuth();
 
-  const attributeSchema = useAttributeSchema(false, feature.project);
+  // Attribute scope = the feature's targeting-project union (current ∪
+  // draft-staged), matching the back-end check. `feature` is the merged view
+  // where staged targeting REPLACES current, so union the published
+  // `baseFeature` with the draft's staged metadata instead.
+  const attributeScopeProjects = useMemo(
+    () => getAttributeScopeProjectIds(baseFeature, draftRevision?.metadata),
+    [baseFeature, draftRevision],
+  );
+  const attributeSchema = useAttributeSchema(false, attributeScopeProjects);
   // Unfiltered org-wide schema lets validateFeatureRule distinguish between
   // truly-unknown attributes and attributes that exist but aren't scoped to
   // this project, so the client-side error wording matches the server.
@@ -1099,6 +1108,7 @@ export default function RuleModal({
           {
             attributeSchema: allAttributesSchema,
             requireRegisteredAttributes: settings.requireRegisteredAttributes,
+            attributeProjects: attributeScopeProjects,
           },
         );
         if (newRule) {
@@ -1389,6 +1399,7 @@ export default function RuleModal({
         {
           attributeSchema: allAttributesSchema,
           requireRegisteredAttributes: settings.requireRegisteredAttributes,
+          attributeProjects: attributeScopeProjects,
         },
       );
       if (correctedRule) {
@@ -2258,6 +2269,7 @@ export default function RuleModal({
             <StandardRuleFields
               ruleType={ruleType}
               feature={feature}
+              attributeProjects={attributeScopeProjects}
               environments={effectiveEnvList}
               defaultValues={defaultValues}
               setPrerequisiteTargetingSdkIssues={
@@ -2294,6 +2306,7 @@ export default function RuleModal({
               readOnly={!!ruleRampSchedule && !rampIsEditable}
               hideNameField={true}
               feature={feature}
+              attributeProjects={attributeScopeProjects}
               environments={environments.map((e) => e.id)}
               hashAttribute={form.watch("hashAttribute") as string}
               setHashAttribute={(v) => form.setValue("hashAttribute", v)}
@@ -2312,6 +2325,7 @@ export default function RuleModal({
         {ruleType === "safe-rollout" && (
           <SafeRolloutFields
             feature={feature}
+            attributeProjects={attributeScopeProjects}
             environment={environment}
             defaultValues={defaultValues}
             setPrerequisiteTargetingSdkIssues={
@@ -2366,6 +2380,7 @@ export default function RuleModal({
                   source="rule"
                   feature={feature}
                   project={feature.project}
+                  attributeProjects={attributeScopeProjects}
                   environments={effectiveEnvList}
                   defaultValues={defaultValues}
                   prerequisiteValue={form.watch("prerequisites") || []}
@@ -2435,6 +2450,7 @@ export default function RuleModal({
                   source="rule"
                   feature={feature}
                   project={feature.project}
+                  attributeProjects={attributeScopeProjects}
                   environments={effectiveEnvList}
                   prerequisiteValue={form.watch("prerequisites") || []}
                   setPrerequisiteValue={(prerequisites) =>

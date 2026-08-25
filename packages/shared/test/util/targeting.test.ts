@@ -1,5 +1,7 @@
 import {
   getTargetingProjectIds,
+  getAttributeScopeProjectIds,
+  getExperimentAttributeScopeProjectIds,
   entityTargetsProject,
   resolveTargetingProjectIds,
   normalizeTargetingProjects,
@@ -55,6 +57,107 @@ describe("targeting scope helpers", () => {
           "px",
         ),
       ).toBe(true);
+    });
+  });
+
+  describe("getAttributeScopeProjectIds", () => {
+    it("returns primary + targeting projects deduped", () => {
+      expect(
+        getAttributeScopeProjectIds({
+          project: "p1",
+          targetingProjects: ["p2", "p1"],
+        }),
+      ).toEqual(["p1", "p2"]);
+    });
+
+    it("returns null when the entity targets all projects", () => {
+      expect(
+        getAttributeScopeProjectIds({
+          project: "p1",
+          targetingAllProjects: true,
+        }),
+      ).toBeNull();
+    });
+
+    it("returns null for an entity with no primary project", () => {
+      expect(getAttributeScopeProjectIds({ targetingProjects: ["p2"] })).toBe(
+        null,
+      );
+    });
+
+    it("unions staged targeting projects with current ones", () => {
+      expect(
+        getAttributeScopeProjectIds(
+          { project: "p1", targetingProjects: ["p2"] },
+          { targetingProjects: ["p3"] },
+        ),
+      ).toEqual(["p1", "p2", "p3"]);
+    });
+
+    it("keeps both primaries across a staged project move", () => {
+      expect(
+        getAttributeScopeProjectIds({ project: "p1" }, { project: "p4" }),
+      ).toEqual(["p1", "p4"]);
+    });
+
+    it("returns null when the staged state targets all projects", () => {
+      expect(
+        getAttributeScopeProjectIds(
+          { project: "p1" },
+          { targetingAllProjects: true },
+        ),
+      ).toBeNull();
+    });
+
+    it("returns null when staged moves the entity to no project", () => {
+      expect(
+        getAttributeScopeProjectIds({ project: "p1" }, { project: "" }),
+      ).toBeNull();
+    });
+
+    it("ignores an empty staged object", () => {
+      expect(getAttributeScopeProjectIds({ project: "p1" }, {})).toEqual([
+        "p1",
+      ]);
+    });
+  });
+
+  describe("getExperimentAttributeScopeProjectIds", () => {
+    it("returns the experiment project with no linked features", () => {
+      expect(
+        getExperimentAttributeScopeProjectIds({ project: "p1" }, []),
+      ).toEqual(["p1"]);
+    });
+
+    it("unions linked feature scopes with the experiment project", () => {
+      expect(
+        getExperimentAttributeScopeProjectIds({ project: "p1" }, [
+          ["p2", "p3"],
+          ["p1", "p4"],
+        ]),
+      ).toEqual(["p1", "p2", "p3", "p4"]);
+    });
+
+    it("returns null when any linked feature is unscoped", () => {
+      expect(
+        getExperimentAttributeScopeProjectIds({ project: "p1" }, [
+          ["p2"],
+          null,
+        ]),
+      ).toBeNull();
+    });
+
+    it("returns null when the experiment opted out", () => {
+      expect(
+        getExperimentAttributeScopeProjectIds(
+          { project: "p1", attributeScopeAllProjects: true },
+          [["p2"]],
+        ),
+      ).toBeNull();
+    });
+
+    it("returns null for a project-less experiment", () => {
+      expect(getExperimentAttributeScopeProjectIds({}, [["p2"]])).toBeNull();
     });
   });
 

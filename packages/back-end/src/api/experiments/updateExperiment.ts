@@ -12,6 +12,7 @@ import {
 import {
   normalizeStatusUpdateScheduleChanges,
   toExperimentApiInterface,
+  getExperimentAttributeScopeProjects,
   updateExperimentApiPayloadToInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";
@@ -282,6 +283,17 @@ export const updateExperiment = createApiRequestHandler(
 
   // Opt-in attribute registration check (org-level setting). Covers the
   // experiment-level hash/fallback attributes and every provided phase.
+  const attributeScope = await getExperimentAttributeScopeProjects(
+    req.context,
+    {
+      project:
+        req.body.project !== undefined ? req.body.project : experiment.project,
+      linkedFeatures: experiment.linkedFeatures,
+      attributeScopeAllProjects:
+        req.body.attributeScopeAllProjects ??
+        experiment.attributeScopeAllProjects,
+    },
+  );
   assertRegisteredAttributes(
     req.context,
     {
@@ -290,7 +302,7 @@ export const updateExperiment = createApiRequestHandler(
     },
     "experiment",
     undefined,
-    experiment.project,
+    attributeScope,
   );
   for (const phase of req.body.phases ?? []) {
     assertRegisteredAttributes(
@@ -298,7 +310,7 @@ export const updateExperiment = createApiRequestHandler(
       { condition: phase.condition },
       "experiment phase",
       undefined,
-      experiment.project,
+      attributeScope,
     );
   }
 

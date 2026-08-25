@@ -25,7 +25,10 @@ import {
   DRAFT_REVISION_STATUSES,
   fillRevisionFromFeature,
   generateVariationId,
+  getAttributeScopeProjectIds,
+  getExperimentAttributeScopeProjectIds,
   getMatchingRules,
+  getRequireRegisteredAttributesSettings,
   getNamespaceRanges,
   getReviewSetting,
   getSnapshotAnalysis,
@@ -3116,6 +3119,7 @@ export async function toExperimentApiInterface(
         }
       : null),
     linkedFeatures: experiment.linkedFeatures || [],
+    attributeScopeAllProjects: experiment.attributeScopeAllProjects || false,
     hasVisualChangesets: experiment.hasVisualChangesets || false,
     hasURLRedirects: experiment.hasURLRedirects || false,
     customFields: experiment.customFields ?? {},
@@ -4348,6 +4352,9 @@ export function postExperimentApiPayloadToInterface(
     archived: payload.archived ?? false,
     hashAttribute: payload.hashAttribute ?? "",
     fallbackAttribute: payload.fallbackAttribute || "",
+    ...(payload.attributeScopeAllProjects !== undefined
+      ? { attributeScopeAllProjects: payload.attributeScopeAllProjects }
+      : {}),
     hashVersion: payload.hashVersion ?? 2,
     disableStickyBucketing: payload.disableStickyBucketing ?? false,
     ...(payload.bucketVersion !== undefined
@@ -4747,6 +4754,9 @@ export function updateExperimentApiPayloadToInterface(
     ...(assignmentQueryId ? { exposureQueryId: assignmentQueryId } : {}),
     ...(hashAttribute ? { hashAttribute } : {}),
     ...(hashVersion ? { hashVersion } : {}),
+    ...(payload.attributeScopeAllProjects !== undefined
+      ? { attributeScopeAllProjects: payload.attributeScopeAllProjects }
+      : {}),
     ...(disableStickyBucketing !== undefined ? { disableStickyBucketing } : {}),
     ...(bucketVersion !== undefined ? { bucketVersion } : {}),
     ...(minBucketVersion !== undefined ? { minBucketVersion } : {}),
@@ -5136,10 +5146,27 @@ export async function getRefLinkedFeatureInfo({
         }
       });
 
+      // Attribute-scope projects for this feature (current ∪ draft-staged
+      // targeting); null = unscoped (targets all projects).
+      let attributeScopeProjects = getAttributeScopeProjectIds(feature);
+      for (const draft of activeDrafts) {
+        if (attributeScopeProjects === null) break;
+        if (!draft.metadata) continue;
+        const staged = getAttributeScopeProjectIds(feature, draft.metadata);
+        if (staged === null) {
+          attributeScopeProjects = null;
+          break;
+        }
+        attributeScopeProjects = Array.from(
+          new Set([...attributeScopeProjects, ...staged]),
+        );
+      }
+
       const info: LinkedFeatureInfo = {
         feature,
         state,
         environmentStates,
+        attributeScopeProjects,
         values: refRuleValues(matches[0]?.rule),
         sparse: !!(matches[0]?.rule as ExperimentRefRule)?.sparse,
         valuesFrom: matches[0]?.environmentId || "",
@@ -5176,6 +5203,57 @@ export async function getLinkedFeatureInfo(
     matchRule: (rule) =>
       rule.type === "experiment-ref" && rule.experimentId === experiment.id,
   });
+}
+
+// Projects whose registered attributes are in scope for the experiment's
+// targeting: its own project plus every linked feature's attribute scope
+// (current and draft-staged targeting projects). `undefined` = unscoped,
+// returned when the org hasn't opted into project-scope enforcement, the
+// experiment opted out via `attributeScopeAllProjects`, it has no project,
+// or a linked feature targets all projects. Feed the result straight to
+// `assertRegisteredAttributes`.
+export async function getExperimentAttributeScopeProjects(
+  context: ReqContext | ApiReqContext,
+  experiment: Pick<
+    ExperimentInterface,
+    "project" | "linkedFeatures" | "attributeScopeAllProjects"
+  >,
+): Promise<string[] | undefined> {
+  const { isOn, requireProjectScoping } =
+    getRequireRegisteredAttributesSettings(
+      context.org.settings?.requireRegisteredAttributes,
+    );
+  if (!isOn || !requireProjectScoping) return undefined;
+  if (experiment.attributeScopeAllProjects || !experiment.project) {
+    return undefined;
+  }
+
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+  const scopes: Array<string[] | null> = [];
+  if (linkedFeatureIds.length) {
+    const features = await getFeaturesByIds(context, linkedFeatureIds);
+    const featuresByFeatureId = Object.fromEntries(
+      features.map((f) => [f.id, f]),
+    );
+    const revisionsByFeatureId = await getFeatureRevisionsByFeatureIds(
+      context,
+      context.org.id,
+      linkedFeatureIds,
+      featuresByFeatureId,
+    );
+    for (const feature of features) {
+      scopes.push(getAttributeScopeProjectIds(feature));
+      const drafts = (revisionsByFeatureId[feature.id] || []).filter((r) =>
+        DRAFT_REVISION_STATUSES.includes(r.status),
+      );
+      for (const draft of drafts) {
+        if (!draft.metadata) continue;
+        scopes.push(getAttributeScopeProjectIds(feature, draft.metadata));
+      }
+    }
+  }
+
+  return getExperimentAttributeScopeProjectIds(experiment, scopes) ?? undefined;
 }
 
 export async function getLinkedChangeEnvironmentStates(

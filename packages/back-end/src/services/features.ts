@@ -22,6 +22,7 @@ import {
   filterEnvironmentsByFeature,
   filterProjectsByEnvironmentWithNull,
   getApplicableEnvIds,
+  getAttributeScopeProjectIds,
   getConfigBackingKey,
   getConfigBackingPatch,
   getDependentFeatures,
@@ -31,6 +32,7 @@ import {
   namespacesToMap,
   recursiveWalk,
   ruleAppliesToEnv,
+  StagedTargetingScope,
   stemRuleId,
   stripConfigExtends,
   toApiNamespace,
@@ -3208,12 +3210,15 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
   feature: FeatureInterface,
   rules: ApiFeatureEnvSettingsRules,
   existingRules?: FeatureRule[],
+  stagedTargeting?: StagedTargetingScope,
 ): FeatureRule[] => {
   // Honor the opt-in `?skipSchemaValidation=true` escape hatch: drop the schema
   // so values are still normalized (parse / dirty-json) but not schema-checked.
   const valFeature = context.canSkipSchemaValidationFor("feature")
     ? { ...feature, jsonSchema: undefined }
     : feature;
+  const attributeScope =
+    getAttributeScopeProjectIds(feature, stagedTargeting) ?? undefined;
   return rules.map((r) => {
     const conditionRes = validateCondition(r.condition);
     if (!conditionRes.success) {
@@ -3249,7 +3254,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
             condition: existingRule.condition,
           }
         : undefined,
-      feature.project,
+      attributeScope,
     );
 
     // Preserve rule-level project scope on the round-trip (mirrors

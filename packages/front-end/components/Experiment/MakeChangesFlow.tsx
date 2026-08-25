@@ -36,6 +36,9 @@ export type ReleasePlan =
 
 export interface MakeChangesFlowProps {
   experiment: ExperimentInterfaceStringDates;
+  // Attribute-scope union before the opt-out switch (experiment project +
+  // linked features' targeting projects); null = unscoped.
+  attributeProjects?: string[] | null;
   form: UseFormReturn<ExperimentTargetingData>;
   // Loosely typed because `useForm` accepts a `DeepPartial<ExperimentTargetingData>`
   // and the namespace shape produced by `EditTargetingModal` doesn't always match
@@ -52,6 +55,7 @@ export interface MakeChangesFlowProps {
 
 export default function MakeChangesFlow({
   experiment,
+  attributeProjects,
   form,
   defaultValues,
   onSubmit,
@@ -210,6 +214,7 @@ export default function MakeChangesFlow({
           <div>
             <TargetingForm
               experiment={experiment}
+              attributeProjects={attributeProjects}
               form={form}
               changeType={changeType}
               conditionKey={conditionKey}

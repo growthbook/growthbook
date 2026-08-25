@@ -182,6 +182,9 @@ const NewPhaseForm: FC<{
           onChange={(condition) => form.setValue("condition", condition)}
           key={conditionKey}
           project={experiment.project || ""}
+          attributeProjects={
+            experiment.attributeScopeAllProjects ? null : undefined
+          }
         />
       )}
 

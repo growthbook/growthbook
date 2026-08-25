@@ -11,6 +11,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
+  getExperimentAttributeScopeProjects,
   postExperimentApiPayloadToInterface,
   toExperimentApiInterface,
   validateVariationIds,
@@ -279,6 +280,13 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
 
     // Opt-in attribute registration check (org-level setting). Applies to the
     // experiment's hashAttribute/fallbackAttribute and every phase's condition.
+    const attributeScope = await getExperimentAttributeScopeProjects(
+      req.context,
+      {
+        project: payload.project,
+        attributeScopeAllProjects: payload.attributeScopeAllProjects,
+      },
+    );
     assertRegisteredAttributes(
       req.context,
       {
@@ -287,7 +295,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       },
       "experiment",
       undefined,
-      payload.project,
+      attributeScope,
     );
     for (const phase of payload.phases ?? []) {
       assertRegisteredAttributes(
@@ -295,7 +303,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         { condition: phase.condition },
         "experiment phase",
         undefined,
-        payload.project,
+        attributeScope,
       );
     }
 
