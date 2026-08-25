@@ -1689,7 +1689,10 @@ export async function postExperiment(
   const existingKeyById = new Map(
     experiment.variations.map((v) => [v.id, v.key]),
   );
+  // Holdouts emit hardcoded variations, weights, and meta, so nothing a caller
+  // sends about variations can reach their payload
   const variationIdsChanged =
+    experiment.type !== "holdout" &&
     !!data.variations &&
     !isEqual(
       data.variations.map((v) => v.id),
@@ -1697,6 +1700,7 @@ export async function postExperiment(
     );
   // Variation keys are emitted in the SDK payload meta, so key edits also count
   const variationKeysChanged =
+    experiment.type !== "holdout" &&
     !!data.variations &&
     data.variations.some((v) => v.key !== existingKeyById.get(v.id));
   const coverageChanged =
@@ -2064,7 +2068,7 @@ export async function postExperiment(
   }
 
   // Re-order phase variations to match the order of the variations coming in via the request body
-  if (data.variations) {
+  if (data.variations && experiment.type !== "holdout") {
     const phases = changes.phases || [...experiment.phases];
     const lastIndex = phases.length - 1;
     phases[lastIndex] = {
@@ -2078,12 +2082,15 @@ export async function postExperiment(
   }
 
   if (data.coverage !== undefined) {
+    const coverage = data.coverage;
     const phases = changes.phases || [...experiment.phases];
-    const phaseIndex = experiment.type === "holdout" ? 0 : phases.length - 1;
-    phases[phaseIndex] = {
-      ...phases[phaseIndex],
-      coverage: data.coverage,
-    };
+    // Holdouts serve coverage from phases[0] and mirror it onto the analysis
+    // phase — see the holdout branch of postExperimentTargeting.
+    const lastIndex = phases.length - 1;
+    phases.forEach((phase, i) => {
+      if (experiment.type !== "holdout" && i !== lastIndex) return;
+      phases[i] = { ...phase, coverage };
+    });
     changes.phases = phases;
   }
 
@@ -2989,12 +2996,14 @@ export async function postExperimentTargeting(
 
   if (experiment.type === "holdout" && phases.length) {
     // Holdouts serve targeting from phases[0], even during the analysis period.
-    phases[0] = {
-      ...phases[0],
-      condition,
-      savedGroups,
-      coverage,
-    };
+    // The analysis phase is a lookback copy that never reaches the payload, but
+    // its coverage still feeds snapshot settings (and so Scaled Impact), so
+    // mirror the edit there too rather than leaving it describing traffic that
+    // no longer serves.
+    const holdoutTargeting = { condition, savedGroups, coverage };
+    phases.forEach((phase, i) => {
+      phases[i] = { ...phase, ...holdoutTargeting };
+    });
   } else if (phases.length && !newPhase) {
     phases[phases.length - 1] = {
       ...phases[phases.length - 1],
