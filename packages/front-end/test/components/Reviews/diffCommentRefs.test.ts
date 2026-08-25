@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
 import type { RevisionLog } from "shared/validators";
 import {

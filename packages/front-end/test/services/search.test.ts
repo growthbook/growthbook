@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import React from "react";
 import { useRouter } from "next/router";
 import { act, renderHook } from "@testing-library/react";

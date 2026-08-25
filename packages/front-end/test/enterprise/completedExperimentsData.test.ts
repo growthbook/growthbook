@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   bucketVelocity,

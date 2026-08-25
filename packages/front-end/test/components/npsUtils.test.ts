@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { npsCategoryOf, npsValueOf } from "shared/nps";
 import {
   DEFAULT_MIN_TENURE_DAYS,
