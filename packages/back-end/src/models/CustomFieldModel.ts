@@ -347,6 +347,9 @@ export class CustomFieldModel extends BaseClass {
   private async removeCustomFieldValues(customFieldId: string) {
     const organization = this.context.org.id;
     const key = `customFields.${customFieldId}`;
+    // A write racing this sweep can restore the key. Features and experiments
+    // prune it out again on their next edit; templates never validate
+    // `customFields`, so a template edit that loses the race stays stale.
     const strip = { $unset: { [key]: "" } };
     await getCollection("features").updateMany(
       { organization, [key]: { $exists: true } },
