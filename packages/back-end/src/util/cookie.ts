@@ -67,79 +67,13 @@ export const RefreshTokenCookie = new Cookie(
 );
 export const IdTokenCookie = new Cookie("AUTH_ID_TOKEN", minutes(15));
 
-// One cookie per in-flight login so concurrent tabs can't overwrite each other's state
-const AUTH_CHECKS_PREFIX = "AUTH_CHECKS_";
-// Long enough to sit on the IdP's login page for a while before coming back
-const AUTH_CHECKS_TTL = minutes(60);
-const MAX_PENDING_AUTH_CHECKS = 10;
-
-// Creation time is stored alongside the value so the cap can evict oldest-first
-type PendingAuthChecks = { t: number; v: string };
-
-function authChecksCookie(state: string) {
-  return new Cookie(AUTH_CHECKS_PREFIX + state, AUTH_CHECKS_TTL);
-}
-
-function readPendingAuthChecks(
-  req: Request,
-): Record<string, PendingAuthChecks> {
-  const pending: Record<string, PendingAuthChecks> = {};
-  for (const [name, value] of Object.entries(req.cookies)) {
-    if (!name.startsWith(AUTH_CHECKS_PREFIX) || typeof value !== "string") {
-      continue;
-    }
-    try {
-      const parsed = JSON.parse(value) as Partial<PendingAuthChecks> | null;
-      if (typeof parsed?.t === "number" && typeof parsed?.v === "string") {
-        pending[name.slice(AUTH_CHECKS_PREFIX.length)] = {
-          t: parsed.t,
-          v: parsed.v,
-        };
-      }
-    } catch (e) {
-      // ignore malformed cookies
-    }
-  }
-  return pending;
-}
-
-export function getPendingAuthChecks(req: Request): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(readPendingAuthChecks(req)).map(([s, c]) => [s, c.v]),
-  );
-}
-
-export function setPendingAuthChecks(
-  state: string,
-  value: string,
-  req: Request,
-  res: Response,
-) {
-  // Abandoned flows expire on their own; past the cap, evict the oldest
-  const oldestFirst = Object.entries(readPendingAuthChecks(req)).sort(
-    (a, b) => a[1].t - b[1].t,
-  );
-  const excess = oldestFirst.length + 1 - MAX_PENDING_AUTH_CHECKS;
-  for (const [s] of oldestFirst.slice(0, Math.max(0, excess))) {
-    clearPendingAuthChecks(req, res, s);
-  }
-  authChecksCookie(state).setValue(
-    JSON.stringify({ t: Date.now(), v: value }),
-    req,
-    res,
-  );
-}
-
-export function clearPendingAuthChecks(
-  req: Request,
-  res: Response,
-  state?: string,
-) {
-  const states = state ? [state] : Object.keys(readPendingAuthChecks(req));
-  for (const s of states) {
-    authChecksCookie(s).setValue("", req, res);
-  }
-}
+// Per-browser key that OAuth state/PKCE values derive from, so no per-flow storage is needed
+export const AuthSecretCookie = new Cookie("AUTH_SECRET", days(365));
+// Hint that this browser was recently sent to an enterprise IdP, for the confirm prompt
+export const PendingSSOConnectionCookie = new Cookie(
+  "AUTH_PENDING_SSO",
+  minutes(10),
+);
 
 // Read the JWT's `exp` claim without verifying the signature — we only trust
 // the cookie value once a downstream middleware has verified it.
