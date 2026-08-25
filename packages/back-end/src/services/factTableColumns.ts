@@ -1,5 +1,8 @@
 import chunk from "lodash/chunk";
-import { canInlineFilterColumn } from "shared/experiments";
+import {
+  canInlineFilterColumn,
+  getFactTableTimestampColumn,
+} from "shared/experiments";
 import {
   DEFAULT_MAX_METRIC_SLICE_LEVELS,
   DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
@@ -89,7 +92,7 @@ export function selectColumnsForTopValues({
 export async function runColumnsTopValuesQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
-  factTable: Pick<FactTableInterface, "sql" | "eventName">,
+  factTable: Pick<FactTableInterface, "sql" | "eventName" | "timestampColumn">,
   columns: ColumnInterface[],
 ): Promise<Record<string, string[]>> {
   if (!context.permissions.canRunFactQueries(datasource)) {
@@ -215,7 +218,7 @@ export async function runColumnDetectionQuery(
   datasource: DataSourceInterface,
   factTable: Pick<
     FactTableInterface,
-    "sql" | "eventName" | "columns" | "userIdTypes"
+    "sql" | "eventName" | "columns" | "userIdTypes" | "timestampColumn"
   >,
 ): Promise<ColumnInterface[]> {
   if (!context.permissions.canRunFactQueries(datasource)) {
@@ -228,7 +231,7 @@ export async function runColumnDetectionQuery(
     throw new Error("Testing not supported on this data source");
   }
 
-  const timestampColumn = "timestamp";
+  const timestampColumn = getFactTableTimestampColumn(factTable);
 
   const sql = integration.getTestQuery({
     query: factTable.sql,
@@ -383,7 +386,10 @@ export async function runColumnDetectionQuery(
 export async function refreshColumnTopValues(
   context: ReqContext,
   datasource: DataSourceInterface,
-  factTable: Pick<FactTableInterface, "sql" | "eventName" | "userIdTypes">,
+  factTable: Pick<
+    FactTableInterface,
+    "sql" | "eventName" | "userIdTypes" | "timestampColumn"
+  >,
   columns: ColumnInterface[],
 ): Promise<ColumnInterface[]> {
   const refreshedColumns: ColumnInterface[] = [];

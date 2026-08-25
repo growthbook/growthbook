@@ -9,7 +9,6 @@ import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import { isEventForwarderManagedExposureQuery } from "shared/util";
 import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
 import StringArrayField from "@/ui/StringArrayField";
@@ -40,11 +39,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       : `Edit ${
           exposureQuery ? exposureQuery.name : "Experiment Assignment"
         } query`;
-
-  // Event Forwarder managed queries are intentionally editable for now. Restore
-  // `mode === "edit" && !!exposureQuery &&
-  // isEventForwarderManagedExposureQuery(exposureQuery)` to lock them again.
-  const isManaged = false;
 
   const userIdTypeOptions = dataSource?.settings?.userIdTypes?.map(
     ({ userIdType }) => ({
@@ -79,19 +73,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const userEnteredHasNameCol = form.watch("hasNameCol");
 
   const handleSubmit = form.handleSubmit(async (value) => {
-    if (isManaged && exposureQuery) {
-      value.userIdType = exposureQuery.userIdType;
-      value.managedBy = exposureQuery.managedBy;
-    } else if (
-      exposureQuery &&
-      isEventForwarderManagedExposureQuery(exposureQuery) &&
-      value.userIdType !== exposureQuery.userIdType
-    ) {
-      // Re-pointing a managed query at a different identifier hands it to the
-      // user. Leaving managedBy: "api" would make attribute reconciliation
-      // treat that identifier as Event Forwarder owned and delete it.
-      value.managedBy = "";
-    }
     await onSave(value);
 
     form.reset({
@@ -282,25 +263,12 @@ export const AddEditExperimentAssignmentQueryModal: FC<
               />
               <SelectField
                 size="legacy"
-                label={
-                  <>
-                    Identifier Type
-                    {isManaged ? (
-                      <Tooltip body="Identifier type is fixed for queries created by Event Forwarder and cannot be changed." />
-                    ) : null}
-                  </>
-                }
+                label="Identifier Type"
                 options={identityTypes.map((i) => ({
                   value: i.userIdType,
                   label: i.userIdType,
                 }))}
                 required
-                disabled={isManaged}
-                helpText={
-                  isManaged
-                    ? "Managed by Event Forwarder for this identifier."
-                    : undefined
-                }
                 value={form.watch("userIdType")}
                 onChange={(value) => form.setValue("userIdType", value)}
               />
@@ -320,26 +288,19 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                   />
                 )}
                 <div>
-                  <Tooltip
-                    body="SQL is managed by Event Forwarder and cannot be customized."
-                    shouldDisplay={isManaged}
+                  <button
+                    className="btn btn-primary mt-2"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setUiMode("sql");
+                    }}
                   >
-                    <button
-                      className="btn btn-primary mt-2"
-                      type="button"
-                      disabled={isManaged}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        if (isManaged) return;
-                        setUiMode("sql");
-                      }}
-                    >
-                      <div className="d-flex align-items-center">
-                        Customize SQL
-                        <FaExternalLinkAlt className="ml-2" />
-                      </div>
-                    </button>
-                  </Tooltip>
+                    <div className="d-flex align-items-center">
+                      Customize SQL
+                      <FaExternalLinkAlt className="ml-2" />
+                    </div>
+                  </button>
                 </div>
               </div>
 

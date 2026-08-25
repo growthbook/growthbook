@@ -1743,6 +1743,7 @@ export async function setDefaultValue(
   defaultValue: string,
   user: EventUser,
   requireReview: boolean,
+  { guardDateUpdated = false }: { guardDateUpdated?: boolean } = {},
 ) {
   // Fail early on the internal draft-edit path (the REST default-value endpoint
   // enforces the same lock at its handler); publish re-checks regardless.
@@ -1760,6 +1761,7 @@ export async function setDefaultValue(
       value: JSON.stringify({ defaultValue }),
     },
     requireReview,
+    { guardDateUpdated },
   );
 }
 
