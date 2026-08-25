@@ -114,9 +114,9 @@ export default function ContextualBanditVariationsModal({
         cta="Save"
         size="lg"
         submit={form.handleSubmit(async (data) => {
-          const variations = data.variations.map((v, i) => ({
+          const variations = data.variations.map((v) => ({
             id: v.id,
-            key: v.key || `${i}`,
+            key: v.key || v.id,
             name: v.name,
             description: v.description,
             screenshots: [],

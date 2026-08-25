@@ -521,21 +521,21 @@ export class ContextualBanditModel extends BaseClass {
   public async activatePendingVariationsForFeature(
     feature: FeatureInterface,
   ): Promise<void> {
-    try {
-      const cbIds = getContextualBanditIdsFromRules(feature.rules ?? []);
-      for (const cbId of cbIds) {
+    const cbIds = getContextualBanditIdsFromRules(feature.rules ?? []);
+    for (const cbId of cbIds) {
+      try {
         const cb = await this.getById(cbId);
         if (!cb) continue;
         if (!cb.variations.some((v) => v.status === "pending")) continue;
         await activatePendingContextualBanditVariations(this.context, cb, {
           bypassPermissionChecks: true,
         });
+      } catch (e) {
+        this.context.logger.error(
+          e,
+          `Failed to activate pending contextual bandit variations for ${cbId} after publishing feature ${feature.id}; arms stay pending and will be retried on the next publish or variation save`,
+        );
       }
-    } catch (e) {
-      this.context.logger.error(
-        e,
-        `Failed to activate pending contextual bandit variations after publishing feature ${feature.id}`,
-      );
     }
   }
 

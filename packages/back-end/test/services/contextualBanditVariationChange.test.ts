@@ -461,6 +461,76 @@ describe("executeContextualBanditVariationChange", () => {
     expect(updated.banditVersion).toBe(cb.banditVersion + 1);
   });
 
+  it("removes a variation in exploit with leaf weights: overall and every leaf re-sum to 1 over survivors (Luke B)", async () => {
+    const cb = makeCb({
+      stage: "exploit",
+      variations: [
+        v("v0", "0"),
+        v("v1", "1"),
+        v("v2", "2"),
+        v("v3", "3"),
+        v("v4", "4"),
+      ],
+      variationWeights: [
+        { variationId: "v0", weight: 0.1 },
+        { variationId: "v1", weight: 0.2 },
+        { variationId: "v2", weight: 0.3 },
+        { variationId: "v3", weight: 0.15 },
+        { variationId: "v4", weight: 0.25 },
+      ],
+      currentLeafWeights: [
+        {
+          leafId: 0,
+          condition: { country: "US" },
+          weights: [
+            { variationId: "v0", weight: 0.05 },
+            { variationId: "v1", weight: 0.15 },
+            { variationId: "v2", weight: 0.4 },
+            { variationId: "v3", weight: 0.1 },
+            { variationId: "v4", weight: 0.3 },
+          ],
+        },
+        {
+          leafId: 1,
+          condition: { country: "CA" },
+          weights: [
+            { variationId: "v0", weight: 0.25 },
+            { variationId: "v1", weight: 0.25 },
+            { variationId: "v2", weight: 0.2 },
+            { variationId: "v3", weight: 0.2 },
+            { variationId: "v4", weight: 0.1 },
+          ],
+        },
+      ],
+    });
+    const { context, updateMock, setLeafWeightsMock } = makeContext(cb);
+
+    const { updated } = await executeContextualBanditVariationChange(
+      context,
+      cb,
+      [v("v0", "0"), v("v1", "1"), v("v2", "2"), v("v3", "3")],
+    );
+
+    const survivors = ["v0", "v1", "v2", "v3"];
+    const [, changes] = updateMock.mock.calls[0];
+    expect(
+      changes.variationWeights
+        .map((p: { variationId: string }) => p.variationId)
+        .sort(),
+    ).toEqual(survivors);
+    expect(sum(changes.variationWeights)).toBeCloseTo(1, 6);
+
+    const leafWeights = setLeafWeightsMock.mock.calls[0][1] as {
+      weights: { variationId: string; weight: number }[];
+    }[];
+    expect(leafWeights).toHaveLength(2);
+    leafWeights.forEach((lw) => {
+      expect(lw.weights.map((p) => p.variationId).sort()).toEqual(survivors);
+      expect(sum(lw.weights)).toBeCloseTo(1, 6);
+    });
+    expect(updated.currentLeafWeights).toEqual(leafWeights);
+  });
+
   it("allows metadata-only edits in exploit without reconciling weights, bumping version, or touching linked features", async () => {
     const cb = makeCb({ stage: "exploit" });
     const { context, updateMock, setLeafWeightsMock, bumpBanditVersionMock } =
@@ -1204,6 +1274,64 @@ describe("executeContextualBanditVariationChange", () => {
       }),
     ]);
     expect(updateMock).toHaveBeenCalledTimes(1);
+    expect(pendingVariationIds).toEqual(["v2"]);
+    expect(updated.variations.find((x) => x.id === "v2")?.status).toBe(
+      "pending",
+    );
+    expect(updateMock.mock.calls[0][1].variationWeights).toEqual([
+      { variationId: "v0", weight: 0.5 },
+      { variationId: "v1", weight: 0.5 },
+    ]);
+  });
+
+  it("keeps an added arm pending and out of the weights when one of several linked features fails (multi-feature partial failure)", async () => {
+    const feature1 = makeFeature({ id: "feature1" });
+    const feature2 = makeFeature({ id: "feature2" });
+    getRefLinkedFeatureInfoMock.mockResolvedValue([
+      linkedInfo(feature1),
+      linkedInfo(feature2),
+    ]);
+    getFeatureMock.mockImplementation(async (_ctx: unknown, id: string) =>
+      id === "feature1"
+        ? makeFeature({
+            id: "feature1",
+            rules: [
+              cbRefRule({
+                variations: [
+                  { variationId: "v0", value: "control" },
+                  { variationId: "v1", value: "treatment" },
+                  { variationId: "v2", value: "added-value" },
+                ],
+              }),
+            ],
+          } as Partial<FeatureInterface>)
+        : makeFeature({ id: "feature2" }),
+    );
+    updateRevisionMock.mockImplementation(
+      async (_context, feature, revision, changes) => {
+        if ((feature as FeatureInterface).id === "feature2") {
+          throw new Error("revision write failed");
+        }
+        return { ...revision, ...changes } as FeatureRevisionInterface;
+      },
+    );
+    const cb = makeCb({
+      status: "running",
+      linkedFeatures: ["feature1", "feature2"],
+    });
+    const { context, updateMock } = makeContext(cb);
+
+    const { featureDraftPublishFailures, pendingVariationIds, updated } =
+      await executeContextualBanditVariationChange(
+        context,
+        cb,
+        [v("v0", "0"), v("v1", "1"), v("v2", "2")],
+        { feature1: { v2: "added-value" }, feature2: { v2: "added-value" } },
+      );
+
+    expect(featureDraftPublishFailures).toEqual([
+      expect.objectContaining({ featureId: "feature2" }),
+    ]);
     expect(pendingVariationIds).toEqual(["v2"]);
     expect(updated.variations.find((x) => x.id === "v2")?.status).toBe(
       "pending",

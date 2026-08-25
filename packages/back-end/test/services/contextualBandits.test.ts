@@ -20,6 +20,7 @@ import { ContextualBanditResult } from "back-end/src/enterprise/services/context
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { ContextualBanditResultsQueryRunner } from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
+import { CasConflictError } from "back-end/src/models/BaseModel";
 
 jest.mock("back-end/src/services/features", () => ({
   queueSDKPayloadRefresh: jest.fn(),
@@ -757,6 +758,19 @@ describe("persistContextualBanditEvent — P3 stale-epoch guard", () => {
 
     expect(setLeafWeightsMock.mock.calls[0][1].length).toBeGreaterThan(0);
     expect(warnMock).not.toHaveBeenCalled();
+  });
+
+  it("discards this run's weights when an arm change lands between the read and the leaf-weight write", async () => {
+    const cb = makeCb({ stage: "exploit", banditVersion: 5 });
+    const cbs = makeCbs({ banditVersion: 5 });
+    const { context, setLeafWeightsMock, warnMock } = makeGuardContext(cb);
+    setLeafWeightsMock.mockRejectedValueOnce(new CasConflictError());
+
+    const cbe = await persistContextualBanditEvent(context, cbs, makeResult());
+
+    expect(cbe).toEqual(expect.objectContaining({ id: "cbe_x" }));
+    expect(setLeafWeightsMock).toHaveBeenCalledTimes(1);
+    expect(warnMock).toHaveBeenCalledTimes(1);
   });
 });
 
