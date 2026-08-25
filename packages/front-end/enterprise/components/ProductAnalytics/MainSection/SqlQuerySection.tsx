@@ -218,7 +218,6 @@ export default function SqlQuerySection({
         error={error ?? previewResult?.error ?? ""}
         allowDownload={status === "success"}
         showNoRowsWarning={status === "success"}
-        resultsHeader="Sample Results"
         emptyResultsContent={
           status === "loading" ? (
             <Flex

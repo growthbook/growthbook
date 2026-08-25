@@ -6,10 +6,10 @@ import type { ReactNode } from "react";
 import { isManagedWarehousePendingQueryError } from "shared/util";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import Code from "@/components/SyntaxHighlighting/Code";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import { convertToCSV, downloadCSVFile } from "@/services/sql";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import AreaWithHeader from "@/components/SchemaBrowser/AreaWithHeader";
 import QueryModal from "@/components/Experiment/QueryModal";
@@ -22,13 +22,6 @@ import {
 } from "@/components/Settings/flattenHeaderStructureForCsv";
 
 export type { HeaderStructure };
-
-export type AdditionalQueryResultsTab = {
-  value: string;
-  label: ReactNode;
-  content: ReactNode;
-  disabled?: boolean;
-};
 
 export type Props = {
   results: Record<string, unknown>[];
@@ -67,14 +60,7 @@ export type Props = {
   ) => ReactNode | undefined;
   paddingTop?: number;
   showNoRowsWarning?: boolean;
-  activeTab?: string;
-  onTabChange?: (value: string) => void;
-  additionalTab?: AdditionalQueryResultsTab;
-  resultsDisabled?: boolean;
   emptyResultsContent?: ReactNode;
-  headerActions?: ReactNode;
-  /** Label for the results tab. Defaults to "Results". */
-  resultsHeader?: string;
 };
 
 export default function DisplayTestQueryResults({
@@ -96,13 +82,7 @@ export default function DisplayTestQueryResults({
   renderCell,
   paddingTop = 0,
   showNoRowsWarning = true,
-  activeTab,
-  onTabChange,
-  additionalTab,
-  resultsDisabled = false,
   emptyResultsContent,
-  headerActions,
-  resultsHeader = "Results",
 }: Props) {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [showQueryModal, setShowQueryModal] = useState(false);
@@ -112,15 +92,6 @@ export default function DisplayTestQueryResults({
   const durationStatus = error ? "Query failed" : "Query succeeded";
   const showDurationStatus = showDuration && duration > 0;
 
-  const tabsProps =
-    activeTab !== undefined
-      ? {
-          value: activeTab,
-          onValueChange: onTabChange,
-        }
-      : {
-          defaultValue: "results",
-        };
   const showRenderedSqlContent =
     Boolean(error) ||
     (showNoRowsWarning && !results.length && emptyResultsContent === undefined);
@@ -248,294 +219,254 @@ export default function DisplayTestQueryResults({
           queries={[sql]}
         />
       ) : null}
-      <Tabs
-        {...tabsProps}
-        style={{
-          overflow: "hidden",
-          height: "100%",
+      <AreaWithHeader
+        headerStyles={{
+          paddingLeft: "12px",
+          paddingRight: "12px",
+          paddingTop: `${paddingTop}px`,
         }}
+        header={
+          <Flex align="center" justify="between" width="100%" gap="2">
+            <Text weight="medium" mt="2" ml="2">
+              Results
+            </Text>
+            {close ? (
+              <button
+                type="button"
+                className="close"
+                style={{ padding: "0.3rem 1rem" }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  close();
+                }}
+                aria-label="Close"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            ) : null}
+          </Flex>
+        }
       >
-        <AreaWithHeader
-          headerStyles={{
+        <Flex
+          direction="column"
+          height="100%"
+          style={{
             paddingLeft: "12px",
             paddingRight: "12px",
-            paddingTop: `${paddingTop}px`,
           }}
-          header={
-            <Flex align="center" justify="between" width="100%" gap="2">
-              <TabsList>
-                <TabsTrigger value="results" disabled={resultsDisabled}>
-                  {resultsHeader}
-                </TabsTrigger>
-                {additionalTab ? (
-                  <TabsTrigger
-                    value={additionalTab.value}
-                    disabled={additionalTab.disabled}
-                  >
-                    {additionalTab.label}
-                  </TabsTrigger>
-                ) : null}
-              </TabsList>
-              <Flex align="center" justify="end" gap="2" flexShrink="0">
-                {headerActions}
-                {close ? (
-                  <button
-                    type="button"
-                    className="close"
-                    style={{ padding: "0.3rem 1rem" }}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      close();
-                    }}
-                    aria-label="Close"
-                  >
-                    <span aria-hidden="true">×</span>
-                  </button>
-                ) : null}
-              </Flex>
-            </Flex>
-          }
         >
-          <TabsContent
-            value="results"
+          <Flex
+            direction="column"
             style={{
-              display: "flex",
-              flexDirection: "column",
-              height: "100%",
-              paddingLeft: "12px",
-              paddingRight: "12px",
+              flex: 1,
+              minHeight: 0,
+              marginTop: 8,
+              marginBottom: 16,
+              border: "1px solid var(--gray-a3)",
+              borderRadius: "var(--radius-4)",
+              backgroundColor: "var(--color-panel-translucent)",
+              overflow: "hidden",
             }}
           >
-            <Flex
-              direction="column"
-              style={{
-                flex: 1,
-                minHeight: 0,
-                marginTop: 8,
-                marginBottom: 16,
-                border: "1px solid var(--gray-a3)",
-                borderRadius: "var(--radius-4)",
-                backgroundColor: "var(--color-panel-translucent)",
-                overflow: "hidden",
-              }}
-            >
-              {showRenderedSqlContent ? (
-                renderedSqlContent
-              ) : emptyResultsContent ? (
-                emptyResultsContent
-              ) : (
-                <>
-                  <div className="mt-2 rounded p-2 bg-light">
-                    {downloadError ? (
-                      <div className="mb-2">
-                        <Callout status="error">{downloadError}</Callout>
-                      </div>
-                    ) : null}
-                    <Flex align="center" gap="4">
-                      <Flex align="center" flexGrow="1">
-                        {totalPages > 1 ? (
-                          <Flex align="center">
-                            <div className="mr-1">
-                              Showing {page * pageSize - pageSize + 1} -{" "}
-                              {Math.min(page * pageSize, results.length)} of{" "}
-                              <Tooltip
-                                body={`GrowthBook limits the result to ${SQL_ROW_LIMIT} rows max`}
-                                shouldDisplay={results.length >= SQL_ROW_LIMIT}
-                              >
-                                <strong>{results.length}</strong> rows
-                              </Tooltip>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              disabled={page <= 1}
-                              onClick={() => {
-                                setPage((p) => Math.max(p - 1, 1));
-                                // Scroll to top
-                                tableBodyScrollRef.current?.scrollTo({
-                                  top: 0,
-                                  behavior: "instant",
-                                });
-                              }}
-                            >
-                              <PiCaretLeft size={16} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              disabled={page >= totalPages}
-                              onClick={() => {
-                                setPage((p) => Math.min(p + 1, totalPages));
-                                // Scroll to top
-                                tableBodyScrollRef.current?.scrollTo({
-                                  top: 0,
-                                  behavior: "instant",
-                                });
-                              }}
-                            >
-                              <PiCaretRight size={16} />
-                            </Button>
-                          </Flex>
-                        ) : (
+            {showRenderedSqlContent ? (
+              renderedSqlContent
+            ) : emptyResultsContent ? (
+              emptyResultsContent
+            ) : (
+              <>
+                <div className="mt-2 rounded p-2 bg-light">
+                  {downloadError ? (
+                    <div className="mb-2">
+                      <Callout status="error">{downloadError}</Callout>
+                    </div>
+                  ) : null}
+                  <Flex align="center" gap="4">
+                    <Flex align="center" flexGrow="1">
+                      {totalPages > 1 ? (
+                        <Flex align="center">
                           <div className="mr-1">
-                            {rowsLabel ?? (
-                              <strong>
-                                {`${showSampleHeader ? "Sample " : ""}${results?.length} Rows`}
-                              </strong>
-                            )}
+                            Showing {page * pageSize - pageSize + 1} -{" "}
+                            {Math.min(page * pageSize, results.length)} of{" "}
+                            <Tooltip
+                              body={`GrowthBook limits the result to ${SQL_ROW_LIMIT} rows max`}
+                              shouldDisplay={results.length >= SQL_ROW_LIMIT}
+                            >
+                              <strong>{results.length}</strong> rows
+                            </Tooltip>
                           </div>
-                        )}
-                      </Flex>
-                      {showDurationStatus ? (
-                        <Tooltip body={durationStatus}>
-                          <span
-                            aria-label={`${durationStatus} in ${floatRound(duration, 2)} milliseconds`}
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 4,
-                              color: error
-                                ? "var(--red-11)"
-                                : "var(--green-11)",
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={page <= 1}
+                            onClick={() => {
+                              setPage((p) => Math.max(p - 1, 1));
+                              // Scroll to top
+                              tableBodyScrollRef.current?.scrollTo({
+                                top: 0,
+                                behavior: "instant",
+                              });
                             }}
                           >
-                            <PiTimer size={16} aria-hidden />
-                            {floatRound(duration, 2)}ms
-                          </span>
-                        </Tooltip>
-                      ) : null}
-                      {sql || (allowDownload && results.length) ? (
-                        <DropdownMenu
-                          menuPlacement="end"
-                          trigger={
-                            <IconButton
-                              variant="ghost"
-                              color="gray"
-                              radius="full"
-                              size="1"
-                              aria-label="Query result options"
-                            >
-                              <BsThreeDotsVertical size={16} />
-                            </IconButton>
-                          }
-                        >
-                          {sql ? (
-                            <DropdownMenuItem
-                              onClick={() => setShowQueryModal(true)}
-                            >
-                              View Rendered SQL
-                            </DropdownMenuItem>
-                          ) : null}
-                          {allowDownload && results.length ? (
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setDownloadError(null);
-                                try {
-                                  handleDownload(results);
-                                } catch (e) {
-                                  setDownloadError(
-                                    e instanceof Error
-                                      ? e.message
-                                      : "Error downloading results.",
-                                  );
-                                }
-                              }}
-                            >
-                              Download CSV
-                            </DropdownMenuItem>
-                          ) : null}
-                        </DropdownMenu>
-                      ) : null}
+                            <PiCaretLeft size={16} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={page >= totalPages}
+                            onClick={() => {
+                              setPage((p) => Math.min(p + 1, totalPages));
+                              // Scroll to top
+                              tableBodyScrollRef.current?.scrollTo({
+                                top: 0,
+                                behavior: "instant",
+                              });
+                            }}
+                          >
+                            <PiCaretRight size={16} />
+                          </Button>
+                        </Flex>
+                      ) : (
+                        <div className="mr-1">
+                          {rowsLabel ?? (
+                            <strong>
+                              {`${showSampleHeader ? "Sample " : ""}${results?.length} Rows`}
+                            </strong>
+                          )}
+                        </div>
+                      )}
                     </Flex>
-                  </div>
-                  <div
-                    style={{ width: "100%", overflow: "auto", flexGrow: 1 }}
-                    className="mb-3"
-                    ref={tableBodyScrollRef}
-                  >
-                    <table className="table table-bordered appbox gbtable table-hover mb-0">
-                      <thead
-                        style={{
-                          position: "sticky",
-                          top: -1,
-                          zIndex: 2,
-                          backgroundColor: "var(--color-panel-solid)",
-                        }}
+                    {showDurationStatus ? (
+                      <Tooltip body={durationStatus}>
+                        <span
+                          aria-label={`${durationStatus} in ${floatRound(duration, 2)} milliseconds`}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                            color: error ? "var(--red-11)" : "var(--green-11)",
+                          }}
+                        >
+                          <PiTimer size={16} aria-hidden />
+                          {floatRound(duration, 2)}ms
+                        </span>
+                      </Tooltip>
+                    ) : null}
+                    {sql || (allowDownload && results.length) ? (
+                      <DropdownMenu
+                        menuPlacement="end"
+                        trigger={
+                          <IconButton
+                            variant="ghost"
+                            color="gray"
+                            radius="full"
+                            size="1"
+                            aria-label="Query result options"
+                          >
+                            <BsThreeDotsVertical size={16} />
+                          </IconButton>
+                        }
                       >
-                        {useTwoRowHeader && headerStructure ? (
-                          <>
-                            <tr>
-                              {headerStructure.row1.map((cell, idx) => (
-                                <th
-                                  key={idx}
-                                  rowSpan={cell.rowSpan}
-                                  colSpan={cell.colSpan ?? 1}
-                                  style={{ minWidth: 150 }}
-                                >
-                                  {cell.label}
-                                </th>
-                              ))}
-                            </tr>
-                            <tr>
-                              {headerStructure.row2Labels.map((label, idx) => (
-                                <th key={idx} style={{ minWidth: 150 }}>
-                                  {label}
-                                </th>
-                              ))}
-                            </tr>
-                          </>
-                        ) : (
+                        {sql ? (
+                          <DropdownMenuItem
+                            onClick={() => setShowQueryModal(true)}
+                          >
+                            View Rendered SQL
+                          </DropdownMenuItem>
+                        ) : null}
+                        {allowDownload && results.length ? (
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setDownloadError(null);
+                              try {
+                                handleDownload(results);
+                              } catch (e) {
+                                setDownloadError(
+                                  e instanceof Error
+                                    ? e.message
+                                    : "Error downloading results.",
+                                );
+                              }
+                            }}
+                          >
+                            Download CSV
+                          </DropdownMenuItem>
+                        ) : null}
+                      </DropdownMenu>
+                    ) : null}
+                  </Flex>
+                </div>
+                <div
+                  style={{ width: "100%", overflow: "auto", flexGrow: 1 }}
+                  className="mb-3"
+                  ref={tableBodyScrollRef}
+                >
+                  <table className="table table-bordered appbox gbtable table-hover mb-0">
+                    <thead
+                      style={{
+                        position: "sticky",
+                        top: -1,
+                        zIndex: 2,
+                        backgroundColor: "var(--color-panel-solid)",
+                      }}
+                    >
+                      {useTwoRowHeader && headerStructure ? (
+                        <>
                           <tr>
-                            {cols.map((col, i) => (
-                              <th key={col} style={{ minWidth: 150 }}>
-                                {labels[i] ?? col}
+                            {headerStructure.row1.map((cell, idx) => (
+                              <th
+                                key={idx}
+                                rowSpan={cell.rowSpan}
+                                colSpan={cell.colSpan ?? 1}
+                                style={{ minWidth: 150 }}
+                              >
+                                {cell.label}
                               </th>
                             ))}
                           </tr>
-                        )}
-                      </thead>
-                      <tbody>
-                        {results
-                          .slice((page - 1) * pageSize, page * pageSize)
-                          .map((result, i) => (
-                            <tr key={i}>
-                              {cols.map((key, j) => {
-                                const raw = result[key];
-                                const custom = renderCell?.(key, raw, result);
-                                return (
-                                  <td key={j}>
-                                    {custom !== undefined && custom !== null
-                                      ? custom
-                                      : defaultCellContent(raw)}
-                                  </td>
-                                );
-                              })}
-                            </tr>
+                          <tr>
+                            {headerStructure.row2Labels.map((label, idx) => (
+                              <th key={idx} style={{ minWidth: 150 }}>
+                                {label}
+                              </th>
+                            ))}
+                          </tr>
+                        </>
+                      ) : (
+                        <tr>
+                          {cols.map((col, i) => (
+                            <th key={col} style={{ minWidth: 150 }}>
+                              {labels[i] ?? col}
+                            </th>
                           ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
-            </Flex>
-          </TabsContent>
-          {additionalTab ? (
-            <TabsContent
-              value={additionalTab.value}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                height: "100%",
-                minHeight: 0,
-                padding: "8px 12px 16px",
-                boxSizing: "border-box",
-              }}
-            >
-              {additionalTab.content}
-            </TabsContent>
-          ) : null}
-        </AreaWithHeader>
-      </Tabs>
+                        </tr>
+                      )}
+                    </thead>
+                    <tbody>
+                      {results
+                        .slice((page - 1) * pageSize, page * pageSize)
+                        .map((result, i) => (
+                          <tr key={i}>
+                            {cols.map((key, j) => {
+                              const raw = result[key];
+                              const custom = renderCell?.(key, raw, result);
+                              return (
+                                <td key={j}>
+                                  {custom !== undefined && custom !== null
+                                    ? custom
+                                    : defaultCellContent(raw)}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </Flex>
+        </Flex>
+      </AreaWithHeader>
     </>
   );
 }
