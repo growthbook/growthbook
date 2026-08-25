@@ -73,10 +73,6 @@ export function getMetricCTE(
 
   // A fact table's identifier columns can be remapped; a legacy metric carries
   // its own userIdColumns, already resolved into cols.userIds.
-  const idColumnOpts = {
-    jsonExtract: dialect.jsonExtract,
-    identifierQuote: dialect.identifierQuote,
-  };
 
   // query builder does not use a sub-query to get a the userId column to
   // equal the userIdType, so when using the query builder, continue to
@@ -85,9 +81,7 @@ export function getMetricCTE(
     userIdCol =
       queryFormat === "builder"
         ? userIdCol
-        : factTable
-          ? getFactTableIdColumnExpression(factTable, baseIdType, idColumnOpts)
-          : baseIdType;
+        : getFactTableIdColumnExpression(factTable, baseIdType, dialect);
   } else if (userIdTypes.length > 0) {
     for (let i = 0; i < userIdTypes.length; i++) {
       const userIdType: string = userIdTypes[i];
@@ -95,12 +89,12 @@ export function getMetricCTE(
         const metricUserIdCol =
           queryFormat === "builder"
             ? cols.userIds[userIdType]
-            : factTable
-              ? getFactTableIdColumnExpression(factTable, userIdType, {
-                  ...idColumnOpts,
-                  alias: "m",
-                })
-              : `m.${userIdType}`;
+            : getFactTableIdColumnExpression(
+                factTable,
+                userIdType,
+                dialect,
+                "m",
+              );
         join = `JOIN ${idJoinMap[userIdType]} i ON (i.${userIdType} = ${metricUserIdCol})`;
         userIdCol = `i.${baseIdType}`;
         break;

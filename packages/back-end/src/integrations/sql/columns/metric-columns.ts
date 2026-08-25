@@ -31,13 +31,12 @@ export function getMetricColumns(
     const userIds: Record<string, string> = {};
     getUserIdTypes(metric, factTableMap, useDenominator).forEach(
       (userIdType) => {
-        userIds[userIdType] = factTable
-          ? getFactTableIdColumnExpression(factTable, userIdType, {
-              alias,
-              jsonExtract: dialect.jsonExtract,
-              identifierQuote: dialect.identifierQuote,
-            })
-          : `${alias}.${userIdType}`;
+        userIds[userIdType] = getFactTableIdColumnExpression(
+          factTable,
+          userIdType,
+          dialect,
+          alias,
+        );
       },
     );
 

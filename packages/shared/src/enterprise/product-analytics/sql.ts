@@ -1079,10 +1079,7 @@ function generateFactTableRowsCTE(
     const unitColumn = getFactTableIdColumnExpression(
       factTableGroup.factTable,
       unit,
-      {
-        jsonExtract: helpers.jsonExtract,
-        identifierQuote: helpers.identifierQuote,
-      },
+      helpers,
     );
     selectCols.push(`${unitColumn} AS unit${i}`);
   });
@@ -1482,10 +1479,7 @@ export function buildFunnelSql(
   ftGroups.forEach((group) => {
     const ft = group.factTable;
     const timestampColumn = ft.timestampColumn || "timestamp";
-    const unitColumn = getFactTableIdColumnExpression(ft, unit, {
-      jsonExtract: dialect.jsonExtract,
-      identifierQuote: dialect.identifierQuote,
-    });
+    const unitColumn = getFactTableIdColumnExpression(ft, unit, dialect);
     const selectCols: string[] = [
       `${unitColumn} AS user_id`,
       `${timestampColumn} AS ts`,

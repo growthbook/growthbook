@@ -30,16 +30,8 @@ export function getFactSegmentCTE(
   // The fact table's SQL may name its identifier columns anything; each is
   // aliased back to the id type here (or joined on) so downstream SQL doesn't
   // have to know the real names.
-  const idColumnOpts = {
-    jsonExtract: dialect.jsonExtract,
-    identifierQuote: dialect.identifierQuote,
-  };
   if (userIdTypes.includes(baseIdType)) {
-    userIdCol = getFactTableIdColumnExpression(
-      factTable,
-      baseIdType,
-      idColumnOpts,
-    );
+    userIdCol = getFactTableIdColumnExpression(factTable, baseIdType, dialect);
   } else if (userIdTypes.length > 0) {
     for (let i = 0; i < userIdTypes.length; i++) {
       const userIdType: string = userIdTypes[i];
@@ -47,7 +39,8 @@ export function getFactSegmentCTE(
         const metricUserIdCol = getFactTableIdColumnExpression(
           factTable,
           userIdType,
-          { ...idColumnOpts, alias: "m" },
+          dialect,
+          "m",
         );
         join = `JOIN ${idJoinMap[userIdType]} i ON (i.${userIdType} = ${metricUserIdCol})`;
         userIdCol = `i.${baseIdType}`;

@@ -52,10 +52,7 @@ export function getPowerPopulationSourceCTE(
         const idColumn = getFactTableIdColumnExpression(
           factTable,
           settings.userIdType,
-          {
-            jsonExtract: dialect.jsonExtract,
-            identifierQuote: dialect.identifierQuote,
-          },
+          dialect,
         );
         return compileSqlTemplate(
           `

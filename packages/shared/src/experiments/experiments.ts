@@ -57,6 +57,7 @@ import {
 } from "shared/types/stats";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import {
+  SqlDialect,
   SqlIdentifierQuote,
   StringMatchFn,
   TemplateVariables,
@@ -1097,51 +1098,36 @@ export function getFactTableTemplateVariables(
   };
 }
 
-// The timestamp column in a fact table's SQL is configurable, defaulting to
-// `timestamp`. Query generation aliases it to `timestamp` when it first selects
-// from the fact table, so nothing downstream has to know the real name.
 export function getFactTableTimestampColumn(
   factTable: Pick<FactTableInterface, "timestampColumn"> | undefined | null,
 ): string {
   return factTable?.timestampColumn || "timestamp";
 }
 
-// SQL expression for one of a fact table's identifier columns. Callers alias it
-// back to the id type, so nothing downstream has to know the real name. An
-// unmapped id type emits its own name exactly as before, keeping generated SQL
-// byte-identical for fact tables that don't remap.
 export function getFactTableIdColumnExpression(
-  factTable: Pick<FactTableInterface, "userIdColumns" | "columns">,
+  factTable:
+    | Pick<FactTableInterface, "userIdColumns" | "columns">
+    | undefined
+    | null,
   idType: string,
-  {
-    alias = "",
-    jsonExtract,
-    identifierQuote,
-  }: {
-    alias?: string;
-    jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
-    identifierQuote?: SqlIdentifierQuote;
-  },
+  dialect: Pick<SqlDialect, "jsonExtract" | "identifierQuote">,
+  alias = "",
 ): string {
-  const column = factTable.userIdColumns?.[idType];
-  if (!column || column === idType) {
+  const column = factTable?.userIdColumns?.[idType];
+  if (!factTable || !column || column === idType) {
     return alias ? `${alias}.${idType}` : idType;
   }
-  // Goes through getColumnExpression so a virtual column or a JSON field path
-  // can serve as an identifier, same as any other referenced column.
+  // Use getColumnExpression to support virtual columns and JSON field paths
   return getColumnExpression(
     column,
     factTable,
-    jsonExtract,
+    dialect.jsonExtract,
     alias,
-    identifierQuote,
+    dialect.identifierQuote,
   );
 }
 
-// Every column name that holds an identifier, so identifier columns aren't
-// offered as filter / slice / top-values columns. Includes the id type names
-// themselves, which are the column names when unmapped.
-export function getFactTableIdColumns(
+function getFactTableIdColumns(
   factTable: Pick<FactTableInterface, "userIdTypes" | "userIdColumns">,
 ): string[] {
   return [

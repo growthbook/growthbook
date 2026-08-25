@@ -93,17 +93,9 @@ export interface FactTableInterface {
   tags: string[];
   datasource: string;
   userIdTypes: string[];
-  // Maps an identifier type to the column that holds it, for SQL that doesn't
-  // alias its columns to the id type names. Unmapped types fall back to using
-  // the type name as the column name. Query generation aliases the resolved
-  // column back to the id type in the first CTE over the fact table, so
-  // everything downstream is unchanged.
-  userIdColumns?: Record<string, string>;
+  userIdColumns?: Record<string, string>; // defaults to the id type names
   sql: string;
-  // Column in the fact table SQL holding the event timestamp. Empty/undefined
-  // means "timestamp". SQL generation aliases it to `timestamp` in the first CTE
-  // that selects from the fact table, so everything downstream is unchanged.
-  timestampColumn?: string;
+  timestampColumn?: string; // defaults to "timestamp"
   eventName: string;
   columns: ColumnInterface[];
   columnsError?: string | null;
