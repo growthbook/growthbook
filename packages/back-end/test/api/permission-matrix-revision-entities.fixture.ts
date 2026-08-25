@@ -13,11 +13,16 @@ import {
  * Persona x action matrix for the three revision entities that sit on
  * BaseModel: Configs, Constants and Saved Groups.
  *
- * They are table-driven together because they must answer the same way —
- * Configs and Constants share the "flags" atoms with Feature Flags, and Saved
- * Groups hold the mirrored SavedGroup* set. The expectations below therefore
- * track permission-matrix-features.test.ts, and a divergence is either a
- * deliberate difference or a bug.
+ * They share one table because they must answer the same way — Configs and
+ * Constants share the "flags" atoms with Feature Flags, and Saved Groups hold
+ * the mirrored SavedGroup* set. The expectations below therefore track
+ * permission-matrix-features.test.ts, and a divergence is either a deliberate
+ * difference or a bug.
+ *
+ * One entity per spec file: Jest never splits a single file across workers, so
+ * running all three here made the matrix a 140s serial floor on the whole
+ * back-end suite. Importing this module boots an app and an in-memory Mongo of
+ * its own, the same way calling setupApp() in a spec does.
  */
 
 const org: OrganizationInterface = buildOrg("org_perm_matrix_entities");
@@ -26,21 +31,21 @@ const { app, setReqContext } = setupApp();
 let seq = 0;
 const uniq = (p: string) => `${p}_${++seq}`;
 
-function as(persona: Persona | "admin", envLimited = false) {
+export function as(persona: Persona | "admin", envLimited = false) {
   const role =
     persona === "admin" ? "admin" : envLimited ? `${persona}_dev` : persona;
   const userId = persona === "admin" ? "u_admin" : `u_${role}`;
   setReqContext(makePersonaContext(org, role, userId));
 }
 
-const api = {
+export const api = {
   post: (path: string, body: Record<string, unknown> = {}) =>
     request(app).post(path).send(body).set("Authorization", "Bearer x"),
   put: (path: string, body: Record<string, unknown> = {}) =>
     request(app).put(path).send(body).set("Authorization", "Bearer x"),
 };
 
-type Entity = {
+export type Entity = {
   label: string;
   /** Collection segment, e.g. "constants" -> /constants, /constants-revisions. */
   base: string;
@@ -104,6 +109,8 @@ const ENTITIES: Entity[] = [
     renameBody: { name: "Renamed" },
   },
 ];
+
+export const [CONSTANTS, CONFIGS, SAVED_GROUPS] = ENTITIES;
 
 type Case = {
   name: string;
@@ -381,7 +388,7 @@ const CASES: Case[] = [
 ];
 
 /** A fresh entity per case, so no case can be affected by an earlier one. */
-async function seed(e: Entity): Promise<string> {
+export async function seed(e: Entity): Promise<string> {
   as("admin");
   const body = e.createBody();
   const res = await api.post(`/api/v1/${e.base}`, body);
@@ -479,7 +486,7 @@ async function seedStaleBase(e: Entity, id: string, version: number) {
  * A pure-revert draft standing on the current live state, so rebasing it pulls
  * nothing in. Returns the draft's version.
  */
-async function seedRevertDraft(e: Entity, id: string): Promise<number> {
+export async function seedRevertDraft(e: Entity, id: string): Promise<number> {
   const target = await seedPriorPublishedRevision(e, id);
   as("admin");
   const res = await api.post(
@@ -589,7 +596,7 @@ async function seedDraft(e: Entity, id: string): Promise<number> {
  * Carry the body into the assertion: a 400 from a malformed request would
  * otherwise look like a permission result and make the case vacuous.
  */
-function expectVerdict(
+export function expectVerdict(
   res: { status: number; body?: unknown },
   isAllowed: boolean,
 ): void {
@@ -601,9 +608,9 @@ function expectVerdict(
   }
 }
 
-describe.each(ENTITIES)("permission matrix — $label", (entity: Entity) => {
+export function describeEntityMatrix(entity: Entity): void {
   describe.each(CASES)(
-    "$name",
+    `permission matrix — ${entity.label} — $name`,
     ({
       allowed,
       run,
@@ -677,75 +684,4 @@ describe.each(ENTITIES)("permission matrix — $label", (entity: Entity) => {
       }
     },
   );
-});
-
-describe("a Constant's environment overrides bind the environment restriction", () => {
-  // The change-aware footprint: a base-value change carries no intrinsic
-  // environment (declared design), but an environmentValues.production write
-  // from a dev-limited editor is exactly what the restriction exists to stop.
-  const constant = ENTITIES[0];
-
-  it("dev-limited editor may change the base value", async () => {
-    const id = await seed(constant);
-    as("editor", true);
-    expectVerdict(
-      await api.post(`/api/v1/${constant.base}/${id}`, {
-        value: '{"timeout":99}',
-      }),
-      true,
-    );
-  });
-
-  it("dev-limited editor may change the dev override", async () => {
-    const id = await seed(constant);
-    as("editor", true);
-    expectVerdict(
-      await api.post(`/api/v1/${constant.base}/${id}`, {
-        environmentValues: { dev: '{"timeout":1}' },
-      }),
-      true,
-    );
-  });
-
-  it("dev-limited editor may NOT change the production override", async () => {
-    const id = await seed(constant);
-    as("editor", true);
-    expectVerdict(
-      await api.post(`/api/v1/${constant.base}/${id}`, {
-        environmentValues: { production: '{"timeout":1}' },
-      }),
-      false,
-    );
-  });
-
-  it("unrestricted editor may change the production override", async () => {
-    const id = await seed(constant);
-    as("editor");
-    expectVerdict(
-      await api.post(`/api/v1/${constant.base}/${id}`, {
-        environmentValues: { production: '{"timeout":1}' },
-      }),
-      true,
-    );
-  });
-});
-
-describe("a no-op rebase over a pure-revert draft", () => {
-  const constant = ENTITIES[0];
-
-  it.each([
-    ["reverter", true],
-    ["drafter", true],
-    ["deleter", false],
-    ["publisher", false],
-  ] as [Persona, boolean][])("%s -> allowed=%s", async (persona, isAllowed) => {
-    const id = await seed(constant);
-    const version = await seedRevertDraft(constant, id);
-    as(persona);
-    const res = await api.post(
-      `/api/v1/${constant.base}-revisions/${id}/${version}/rebase`,
-      { conflictResolutions: {} },
-    );
-    expectVerdict(res, isAllowed);
-  });
-});
+}
