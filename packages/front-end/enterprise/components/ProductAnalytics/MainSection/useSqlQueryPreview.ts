@@ -7,7 +7,6 @@ import {
 import { useAuth } from "@/services/auth";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { useSqlEditorContext } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
-import { getInferredTimestampColumn } from "@/enterprise/components/ProductAnalytics/util";
 
 export const PREVIEW_ROW_LIMIT = 100;
 
@@ -149,20 +148,12 @@ export default function useSqlQueryPreview({
           return false;
         }
 
+        const columns = response.columns ?? [];
         const columnTypes = Object.fromEntries(
-          (response.columns ?? []).map((column) => [
-            column.name,
-            column.dataType ?? "other",
-          ]),
+          columns.map((column) => [column.name, column.dataType ?? "other"]),
         ) as SqlDataset["columnTypes"];
-        const dateColumns = (response.columns ?? [])
-          .filter((column) => column.dataType === "date")
-          .map((column) => column.name);
-        const inferredTimestamp = getInferredTimestampColumn(columnTypes);
         const timestampColumn =
-          inferredTimestamp && columnTypes[inferredTimestamp] === "date"
-            ? inferredTimestamp
-            : (dateColumns[0] ?? null);
+          columns.find((column) => column.dataType === "date")?.name ?? null;
 
         lastPreviewedSqlRef.current = sql;
         applyColumnMetadata(sql, columnTypes, timestampColumn);
