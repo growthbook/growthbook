@@ -4,8 +4,18 @@ import { allRoutes } from "back-end/src/api/api.router";
 
 // A skill naming a path that doesn't exist sends the agent into a 404 loop it
 // cannot recover from. Both mistakes have happened: no such endpoint, wrong version.
+//
+// Only the in-repo skills are checked: canonical ones come from growthbook/skills
+// and are assembled at build time, so they aren't on disk here.
 
-const SKILLS_DIR = path.join(__dirname, "..", "..", "src", "agent", "skills");
+const SKILLS_DIR = path.join(
+  __dirname,
+  "..",
+  "..",
+  "src",
+  "agent",
+  "skills-local",
+);
 
 /** `/api/v1/foo/{a,b}-bar` → ["/api/v1/foo/a-bar", "/api/v1/foo/b-bar"] */
 function expandBraceLists(raw: string): string[] {
@@ -86,7 +96,7 @@ describe("agent skills reference real API endpoints", () => {
     // Without this, a mocked-out route table or a moved skills directory would
     // make every assertion below vacuously pass.
     expect(registered.length).toBeGreaterThan(50);
-    expect(collectSkillPaths().length).toBeGreaterThan(50);
+    expect(collectSkillPaths().length).toBeGreaterThan(10);
   });
 
   it("documents no endpoint that isn't registered", () => {

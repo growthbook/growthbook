@@ -206,5 +206,5 @@ Everything else goes through the `proposeDashboard` tool.
 
 ## Handoffs
 
-- `loadSkill('dashboard-edit')` — to change a dashboard that is already saved
-- `loadSkill('product-analytics')` — if the user only wanted one chart
+- `loadSkill('dashboards/references/dashboard-edit')` — to change a dashboard that is already saved
+- `loadSkill('analytics')` — if the user only wanted one chart

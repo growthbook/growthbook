@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_FUNNEL_STEPS } from "shared/funnels";
 import { apiBaseSchema } from "./base-model";
 import { queryPointerValidator } from "./queries";
 import { rowFilterValidator, funnelStepValidator } from "./fact-table";
@@ -86,7 +87,7 @@ const funnelDatasetValidator = z
     // table. Nullable so a default-state config can exist before the user
     // has picked anything.
     unit: z.string().nullable(),
-    steps: z.array(funnelStepValidator),
+    steps: z.array(funnelStepValidator).max(MAX_FUNNEL_STEPS),
     // Seconds of out-of-order tolerance applied between adjacent steps.
     // Defaults to 0 (strict chronological ordering).
     concurrencyWindowSeconds: z.number().int().min(0).optional(),

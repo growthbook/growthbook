@@ -1,145 +1,204 @@
-import path from "path";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import {
-  _clearSkillCacheForTests,
-  assembleSkillsIndexForPrompt,
-  getAllSkills,
-  getDomainSkills,
-  getLeafSkillsForDomain,
-  getSkillByName,
-  getSkillNames,
+  _loadSkillsFromDirectory,
+  _resolveSkill,
   getSkillNamesForGroup,
 } from "back-end/src/agent/skills";
 
-describe("agent skills loader", () => {
-  beforeEach(() => {
-    _clearSkillCacheForTests();
-  });
+function writeFixtureFile(path: string, content: string): void {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, content, "utf8");
+}
 
-  it("loads domain routers and leaf skills from nested directories", () => {
-    const domains = getDomainSkills();
-    const domainNames = domains.map((s) => s.name).sort();
+function createSkillsFixture(): string {
+  const root = mkdtempSync(join(tmpdir(), "agent-skills-"));
 
-    expect(domainNames).toEqual(
-      expect.arrayContaining([
-        "dashboards",
-        "experiments",
-        "feature-flags",
-        "growthbook-docs",
-        "product-analytics",
-      ]),
+  writeFixtureFile(
+    join(root, "example-domain", "SKILL.md"),
+    `---
+name: example-domain
+description: Example domain workflows
+---
+
+Read \`references/do-thing.md\`.
+`,
+  );
+  writeFixtureFile(
+    join(root, "example-domain", "references", "do-thing.md"),
+    `---
+name: do-thing
+description: Do the thing
+---
+
+# Do the thing
+`,
+  );
+  writeFixtureFile(
+    join(root, "standalone", "SKILL.md"),
+    `---
+name: standalone
+description: A standalone skill with no workflows
+---
+
+# Standalone
+`,
+  );
+
+  return root;
+}
+
+function createWorkflowFixture(domains: Record<string, string[]>): string {
+  const root = mkdtempSync(join(tmpdir(), "agent-skills-"));
+  for (const [domain, workflows] of Object.entries(domains)) {
+    writeFixtureFile(
+      join(root, domain, "SKILL.md"),
+      `---\nname: ${domain}\ndescription: ${domain} workflows\n---\n\n# ${domain}\n`,
     );
-    expect(domains.every((s) => s.kind === "domain")).toBe(true);
-
-    const ffLeaves = getLeafSkillsForDomain("feature-flags");
-    expect(ffLeaves.length).toBeGreaterThanOrEqual(15);
-    expect(
-      ffLeaves.every((s) => s.kind === "leaf" && s.group === "feature-flags"),
-    ).toBe(true);
-
-    const dashLeaves = getLeafSkillsForDomain("dashboards");
-    expect(dashLeaves.map((s) => s.name).sort()).toEqual([
-      "dashboard-create",
-      "dashboard-edit",
-    ]);
-
-    const expLeaves = getLeafSkillsForDomain("experiments");
-    expect(expLeaves.length).toBe(5);
-    expect(expLeaves.map((s) => s.name).sort()).toEqual([
-      "experiment-analyze",
-      "experiment-brainstorm",
-      "experiment-design",
-      "experiment-launch",
-      "experiment-stop",
-    ]);
-  });
-
-  it("includes leaf names in getSkillNames but only domains in the prompt index", () => {
-    const names = getSkillNames();
-    expect(names).toContain("flag-create");
-    expect(names).toContain("experiment-launch");
-
-    const index = assembleSkillsIndexForPrompt();
-    expect(index).toContain("**feature-flags**");
-    expect(index).toContain("**experiments**");
-    expect(index).not.toContain("flag-create");
-    expect(index).not.toContain("experiment-launch");
-    expect(index).not.toContain("dashboard-create");
-  });
-
-  it("loads skill bodies by name for domain and leaf", () => {
-    const domain = getSkillByName("feature-flags");
-    expect(domain?.kind).toBe("domain");
-    expect(domain?.body).toContain("Sub-skills");
-
-    const leaf = getSkillByName("flag-create");
-    expect(leaf?.kind).toBe("leaf");
-    expect(leaf?.group).toBe("feature-flags");
-    expect(leaf?.body).toContain("callApi");
-    expect(leaf?.body).not.toContain("gb-call");
-  });
-
-  it("resolves skills from src/agent/skills when running tests from source", () => {
-    const skillsDir = path.resolve(
-      __dirname,
-      "../../src/agent/skills/feature-flags/SKILL.md",
-    );
-    expect(getSkillByName("feature-flags")?.body.length).toBeGreaterThan(0);
-    // Sanity: router file exists at expected path in repo layout
-    expect(skillsDir).toContain("feature-flags");
-  });
-});
-
-describe("agent skill cross-references", () => {
-  beforeEach(() => {
-    _clearSkillCacheForTests();
-  });
-
-  it("only hands off to skills that exist", () => {
-    // A `loadSkill('x')` naming a skill that isn't there dead-ends the agent
-    // the same way a phantom endpoint does: the tool errors, and the skill it
-    // was following has no other route forward.
-    const known = new Set(getSkillNames());
-    const dangling: string[] = [];
-
-    for (const skill of getAllSkills()) {
-      for (const match of skill.body.matchAll(/loadSkill\('([^']+)'\)/g)) {
-        const name = match[1];
-        // `loadSkill('<leaf>')` in prose is a template, not a reference to a
-        // skill called "<leaf>".
-        if (name.includes("<")) continue;
-        if (!known.has(name)) dangling.push(`${skill.name} \u2192 ${name}`);
-      }
+    for (const workflow of workflows) {
+      writeFixtureFile(
+        join(root, domain, "references", `${workflow}.md`),
+        `---\nname: ${workflow}\ndescription: ${workflow}\n---\n\n# ${workflow}\n`,
+      );
     }
+  }
+  return root;
+}
 
-    expect([...new Set(dangling)].sort()).toEqual([]);
+describe("agent skills loader", () => {
+  it("returns an empty registry when no skills directory is present", () => {
+    const { summaries, skills } = _loadSkillsFromDirectory(null);
+
+    expect(summaries).toEqual([]);
+    expect(skills.size).toBe(0);
+  });
+
+  it("loads domain frontmatter and qualified workflows from a directory", () => {
+    const root = createSkillsFixture();
+    try {
+      const { summaries, skills } = _loadSkillsFromDirectory(root);
+      const domains = summaries.filter((s) => s.kind === "domain");
+
+      expect(domains.map(({ name }) => name).sort()).toEqual([
+        "example-domain",
+        "standalone",
+      ]);
+      expect(domains).toContainEqual(
+        expect.objectContaining({
+          name: "example-domain",
+          description: "Example domain workflows",
+        }),
+      );
+      expect(skills.get("example-domain/references/do-thing")?.body).toContain(
+        "Do the thing",
+      );
+      expect(skills.get("standalone")?.body).toContain("# Standalone");
+      expect(domains.map(({ name }) => name)).not.toContain(
+        "example-domain/references/do-thing",
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("loads in-repo local skills without assembling", () => {
+    const localSkillsDir = join(
+      __dirname,
+      "..",
+      "..",
+      "src",
+      "agent",
+      "skills-local",
+    );
+    const { summaries, skills } = _loadSkillsFromDirectory(localSkillsDir);
+
+    expect(summaries).toContainEqual(
+      expect.objectContaining({
+        name: "growthbook-docs",
+        description: expect.any(String),
+      }),
+    );
+    expect(skills.get("growthbook-docs")?.body).toContain(
+      "GrowthBook documentation",
+    );
+
+    // The Product Analytics chat scopes itself to the `dashboards` domain, so
+    // both workflows must load — a missing one silently disappears from that
+    // chat's `/` menu and from what its agent can reach.
+    expect(
+      summaries.filter((s) => s.group === "dashboards").map(({ name }) => name),
+    ).toEqual([
+      "dashboards",
+      "dashboards/references/dashboard-create",
+      "dashboards/references/dashboard-edit",
+    ]);
   });
 });
 
 describe("getSkillNamesForGroup", () => {
-  beforeEach(() => {
-    _clearSkillCacheForTests();
-  });
-
-  it("returns the router and every leaf under it", () => {
-    // The Product Analytics chat scopes itself to this domain, so both
-    // dashboard workflows must be reachable there — a missing one silently
-    // disappears from that chat's `/` menu and from what its agent can load.
-    expect(getSkillNamesForGroup("dashboards").sort()).toEqual([
-      "dashboard-create",
-      "dashboard-edit",
-      "dashboards",
-    ]);
-  });
-
-  it("excludes other domains", () => {
-    const names = getSkillNamesForGroup("dashboards");
-    expect(names.includes("flag-create")).toBe(false);
-    expect(names.includes("feature-flags")).toBe(false);
-  });
-
   it("returns nothing for a name that is not a domain", () => {
     expect(getSkillNamesForGroup("nope")).toEqual([]);
-    // A leaf name is not a domain name, even when it looks like one.
-    expect(getSkillNamesForGroup("dashboard-create")).toEqual([]);
+    // A workflow's qualified name is not a group name.
+    expect(
+      getSkillNamesForGroup("dashboards/references/dashboard-create"),
+    ).toEqual([]);
+  });
+});
+
+describe("skill name resolution", () => {
+  const root = createWorkflowFixture({
+    "feature-flags": ["flag-create", "flag-toggle"],
+    experiments: ["experiment-stop"],
+    standalone: [],
+  });
+  const { skills } = _loadSkillsFromDirectory(root);
+  const resolvedName = (name: string) => _resolveSkill(skills, name)?.name;
+
+  afterAll(() => rmSync(root, { recursive: true, force: true }));
+
+  it("resolves qualified workflow names and domain names exactly", () => {
+    expect(resolvedName("feature-flags/references/flag-create")).toBe(
+      "feature-flags/references/flag-create",
+    );
+    expect(resolvedName("feature-flags")).toBe("feature-flags");
+  });
+
+  it("resolves the shapes a domain router and its siblings use", () => {
+    // The router's table lists `references/<workflow>.md`.
+    expect(resolvedName("references/flag-create.md")).toBe(
+      "feature-flags/references/flag-create",
+    );
+    // Cross-domain handoffs name the workflow alone.
+    expect(resolvedName("experiment-stop")).toBe(
+      "experiments/references/experiment-stop",
+    );
+    // A qualified name that kept its extension, and stray whitespace.
+    expect(resolvedName("feature-flags/references/flag-toggle.md")).toBe(
+      "feature-flags/references/flag-toggle",
+    );
+    expect(resolvedName(" standalone.md ")).toBe("standalone");
+  });
+
+  it("returns undefined for unknown names", () => {
+    expect(resolvedName("flag-nonexistent")).toBeUndefined();
+    expect(resolvedName("references/")).toBeUndefined();
+  });
+
+  it("returns undefined when a bare workflow name is ambiguous", () => {
+    const ambiguousRoot = createWorkflowFixture({
+      "domain-a": ["shared-workflow"],
+      "domain-b": ["shared-workflow"],
+    });
+    try {
+      const { skills: ambiguous } = _loadSkillsFromDirectory(ambiguousRoot);
+
+      expect(_resolveSkill(ambiguous, "shared-workflow")).toBeUndefined();
+      expect(
+        _resolveSkill(ambiguous, "domain-a/references/shared-workflow")?.name,
+      ).toBe("domain-a/references/shared-workflow");
+    } finally {
+      rmSync(ambiguousRoot, { recursive: true, force: true });
+    }
   });
 });

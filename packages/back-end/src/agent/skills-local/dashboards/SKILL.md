@@ -9,7 +9,7 @@ Domain router for Analytics dashboards. Use `callApi` for all REST calls.
 Dashboard endpoints are `/api/v1/dashboards`; the product analytics lookups a
 dashboard is built from are `/api/v1/product-analytics/*`.
 
-**Workflow:** read this router → `loadSkill('<leaf>')` for the matching
+**Workflow:** read this router → `loadSkill('dashboards/references/<leaf>')` for the matching
 sub-skill below → follow that leaf's workflow.
 
 Both leaves end the same way: one `proposeDashboard` call, which runs every
@@ -17,7 +17,7 @@ chart, lays out the grid, and shows the user a live preview with a Save button.
 You never run the charts yourself and you never save the dashboard.
 
 For a single one-off chart with no dashboard involved, call
-`loadSkill('product-analytics')` instead.
+`loadSkill('analytics')` instead.
 
 ## Which surface are you on?
 
@@ -31,12 +31,12 @@ Check your tools before doing anything else.
   queries first. _Editing_: apply the change directly via the dashboards API;
   see `<editing_without_a_preview>` in `dashboard-edit`.
 
-## Sub-skills
+## Workflows
 
-| Skill              | Use when                         |
-| ------------------ | -------------------------------- |
-| `dashboard-create` | Building a new dashboard         |
-| `dashboard-edit`   | Changing a dashboard that exists |
+| Workflow                         | Use when                         |
+| -------------------------------- | -------------------------------- |
+| `references/dashboard-create.md` | Building a new dashboard         |
+| `references/dashboard-edit.md`   | Changing a dashboard that exists |
 
 ## Scope
 
@@ -54,7 +54,7 @@ Anything else — in particular the per-experiment result blocks
 `experiment-metadata`, `experiment-traffic`) — belongs to an experiment's own
 dashboard and cannot go here. If the user wants results for one specific
 experiment, say those live on the experiment's page and offer
-`loadSkill('experiment-analyze')` instead.
+`loadSkill('experiments/references/experiment-analyze')` instead.
 
 Do not use the `metric-explorer` block type. It is deprecated; use
 `metric-exploration`.

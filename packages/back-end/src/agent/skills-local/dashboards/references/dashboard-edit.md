@@ -70,7 +70,7 @@ Step 1 is the same on either surface (see the `dashboards` skill). With
 4. **Stop.** One sentence naming what changed. Do not save it yourself.
 
 If you need the block shapes, the config schema, or the layout rules,
-`loadSkill('dashboard-create')` and read its `<blocks>`, `<config_schema>`, and
+`loadSkill('dashboards/references/dashboard-create')` and read its `<blocks>`, `<config_schema>`, and
 `<layout>` sections rather than guessing.
 
 <editing_without_a_preview>
@@ -172,6 +172,6 @@ Everything else goes through the `proposeDashboard` tool.
 
 ## Handoffs
 
-- `loadSkill('dashboard-create')` — for block shapes, config schema, and layout
+- `loadSkill('dashboards/references/dashboard-create')` — for block shapes, config schema, and layout
   rules, or to build a new dashboard
-- `loadSkill('product-analytics')` — if the user just wants to look at a chart
+- `loadSkill('analytics')` — if the user just wants to look at a chart

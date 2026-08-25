@@ -14,7 +14,7 @@ import {
   type DispatchInput,
   type DispatchResult,
 } from "back-end/src/agent/dispatcher";
-import { getSkillByName, getSkillNames } from "back-end/src/agent/skills";
+import { listDomainSkills, readSkill } from "back-end/src/agent/skills";
 import type { ReqContext } from "back-end/types/request";
 
 // `loadSkill`, `callApi` behind the mutation gate, and `askUser`. Shared, not
@@ -28,8 +28,8 @@ const EXPLORATION_PATH_RE =
   /^\/api\/v[12]\/product-analytics\/(metric|fact-table|data-source|funnel)-exploration\/?$/;
 
 /** Read-only POST that looks up distinct column values for a fact table. The
- * product-analytics skill mandates calling this during normal chart building,
- * so it must be exempt from the mutation-confirmation gate. */
+ * analytics skill mandates calling this during normal chart building, so it
+ * must be exempt from the mutation-confirmation gate. */
 const COLUMN_VALUES_PATH_RE =
   /^\/api\/v[12]\/product-analytics\/column-values\/?$/;
 
@@ -190,13 +190,13 @@ const loadSkillInputSchema = z.object({
     .string()
     .min(1)
     .describe(
-      "Name of the skill to load (must match one of the names in the 'Available skills' list in the system prompt).",
+      "Top-level skill name from 'Available skills', or a qualified <domain>/references/<workflow> path from a loaded domain router.",
     ),
 });
 
 const LOAD_SKILL_DESCRIPTION =
-  "Load the full instructions for a named skill. Call this when you've " +
-  "decided which skill applies to the user's request — its return value " +
+  "Load a top-level skill or qualified workflow reference. Call this when " +
+  "you've decided which skill applies to the user's request — its return value " +
   "contains the detailed REST API workflow (endpoints, request bodies, " +
   "examples) for that capability area. Returns { status, name, description, " +
   "body } on a hit, or { status: 'not_found', availableSkills } if the " +
@@ -204,7 +204,7 @@ const LOAD_SKILL_DESCRIPTION =
 
 /** Built here so a model-issued load and a slash-command-seeded one are identical. */
 export function loadSkillResult(name: string): SkillLoadResult | undefined {
-  const skill = getSkillByName(name);
+  const skill = readSkill(name);
   if (!skill) return undefined;
   return {
     status: "ok",
@@ -282,7 +282,7 @@ function stripQueryStrings(
 export interface AgentApiToolOptions {
   /** Which skills this agent may load. Defaults to the whole registry. */
   resolveSkill?: (name: string) => SkillLoadResult | undefined;
-  /** Skill names offered in the `loadSkill` error message. Defaults to all. */
+  /** Skill names offered in the `loadSkill` error message. Defaults to the domain routers. */
   availableSkillNames?: () => string[];
 }
 
@@ -294,7 +294,9 @@ export function buildAgentApiTools(
   options: AgentApiToolOptions = {},
 ) {
   const resolve = options.resolveSkill ?? loadSkillResult;
-  const listSkills = options.availableSkillNames ?? getSkillNames;
+  const listSkills =
+    options.availableSkillNames ??
+    (() => listDomainSkills().map((s) => s.name));
 
   return {
     loadSkill: aiTool({

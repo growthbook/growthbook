@@ -544,6 +544,7 @@ const funnelExplorationBlockInterface = baseBlockInterface.extend({
   type: z.literal("funnel-exploration"),
   ...explorationBlockCommon,
   config: funnelExplorationConfigValidator,
+  linkedFunnelMetricId: z.string().nullable().optional(),
 });
 
 /**

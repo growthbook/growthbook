@@ -11,10 +11,25 @@ jest.mock("back-end/src/enterprise/services/agent-handler", () => ({
   createAgentHandler: () => async () => undefined,
 }));
 
+import { _buildGeneralAgentSystemPrompt } from "back-end/src/agent/general-agent";
 import {
   _coerceBody,
   _requiresMutationConfirmation,
 } from "back-end/src/agent/shared-tools";
+
+describe("general agent system prompt", () => {
+  it("translates canonical skill runtime instructions", () => {
+    const prompt = _buildGeneralAgentSystemPrompt();
+
+    expect(prompt).toContain(
+      "translate every `gb-call METHOD PATH [body]` example into",
+    );
+    expect(prompt).toContain("Never run shell commands");
+    expect(prompt).toMatch(
+      /Ignore API-key, host,\s+`gb-setup`, and credential instructions/,
+    );
+  });
+});
 
 describe("coerceBody (callApi defensive parsing)", () => {
   it("returns objects unchanged", () => {

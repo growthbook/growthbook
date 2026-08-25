@@ -37393,6 +37393,7 @@ paths:
                                           - type: string
                                           - type: 'null'
                                       steps:
+                                        maxItems: 20
                                         type: array
                                         items:
                                           type: object
@@ -37486,6 +37487,10 @@ paths:
                                   - type
                                   - dataset
                                 additionalProperties: false
+                              linkedFunnelMetricId:
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
                             required:
                               - type
                               - title
@@ -40380,6 +40385,7 @@ paths:
                                           - type: string
                                           - type: 'null'
                                       steps:
+                                        maxItems: 20
                                         type: array
                                         items:
                                           type: object
@@ -40473,6 +40479,10 @@ paths:
                                   - type
                                   - dataset
                                 additionalProperties: false
+                              linkedFunnelMetricId:
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
                             required:
                               - organization
                               - id
@@ -43445,6 +43455,7 @@ paths:
                                       - type: string
                                       - type: 'null'
                                   steps:
+                                    maxItems: 20
                                     type: array
                                     items:
                                       type: object
@@ -43538,6 +43549,10 @@ paths:
                               - type
                               - dataset
                             additionalProperties: false
+                          linkedFunnelMetricId:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
                         required:
                           - type
                           - title
@@ -48360,6 +48375,7 @@ paths:
                         - type: string
                         - type: 'null'
                     steps:
+                      maxItems: 20
                       type: array
                       items:
                         type: object
@@ -48741,6 +48757,7 @@ paths:
                                       - type: string
                                       - type: 'null'
                                   steps:
+                                    maxItems: 20
                                     type: array
                                     items:
                                       type: object
@@ -64952,6 +64969,7 @@ components:
                               - type: string
                               - type: 'null'
                           steps:
+                            maxItems: 20
                             type: array
                             items:
                               type: object
@@ -65045,6 +65063,10 @@ components:
                       - type
                       - dataset
                     additionalProperties: false
+                  linkedFunnelMetricId:
+                    anyOf:
+                      - type: string
+                      - type: 'null'
                 required:
                   - organization
                   - id
@@ -65297,6 +65319,7 @@ components:
         - variations
         - datasource
         - contextualBanditQueryId
+        - seed
         - currentLeafWeights
         - banditVersion
         - contextualAttributes
@@ -67808,6 +67831,7 @@ components:
                         - type: string
                         - type: 'null'
                     steps:
+                      maxItems: 20
                       type: array
                       items:
                         type: object

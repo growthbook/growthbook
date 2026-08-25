@@ -4,7 +4,7 @@ import {
   type AgentConfig,
 } from "back-end/src/enterprise/services/agent-handler";
 import { buildAgentApiTools } from "back-end/src/agent/shared-tools";
-import { assembleSkillsIndexForPrompt } from "back-end/src/agent/skills";
+import { listDomainSkills } from "back-end/src/agent/skills";
 import { aiTool } from "back-end/src/enterprise/services/ai";
 
 // =============================================================================
@@ -52,30 +52,38 @@ How to end a turn:
   user-visible content — emit no plain text after it).
 
 How to use skills:
-- The "Available skills" section lists **domain routers** only (\`feature-flags\`,
-  \`experiments\`, \`dashboards\`, \`product-analytics\`, \`growthbook-docs\`). Full
+- The "Available skills" section lists **domain routers** only. Full
   instructions are NOT inlined — load them with \`loadSkill\`.
+- Canonical skills were originally written for external, shell-capable agents.
+  Treat their HTTP methods, paths, bodies, sequencing, and safety guardrails as
+  authoritative, but translate every \`gb-call METHOD PATH [body]\` example into
+  a \`callApi\` request. Never run shell commands. Ignore API-key, host,
+  \`gb-setup\`, and credential instructions because this assistant uses the
+  logged-in session.
 - **Two-step workflow** for domain routers that have sub-skills:
-  1. \`loadSkill('<domain>')\` — read orientation, page-context mapping, shared
-     guardrails, and the **Sub-skills** table (leaf names + when to use each).
-  2. \`loadSkill('<leaf>')\` — follow that leaf's detailed \`callApi\` workflow.
-- **Standalone domains** (\`product-analytics\`, \`growthbook-docs\`) have no
-  children — one \`loadSkill\` is enough.
+  1. \`loadSkill('<domain>')\` — read orientation, shared guardrails, and the
+     workflow table (leaf names + when to use each).
+  2. \`loadSkill('<domain>/references/<leaf>')\` — follow that leaf's detailed
+     \`callApi\` workflow.
+- **Standalone domains** such as \`growthbook-docs\` have no children — one
+  \`loadSkill\` is enough.
 - Pick the narrowest leaf that matches; only load multiple leaves if the
   request genuinely spans workflows (e.g. create flag then target it).
 - If no domain fits, ask the user to clarify. Do not invent endpoints.
 - **The \`dashboards\` domain splits two ways.** *Building* one needs a live
-  preview this panel cannot render: take the \`dashboard-create\` leaf, settle the
-  brief, then call \`openAnalyticsChat\` to hand it to the Product Analytics chat.
-  *Changing* one that already exists is ordinary API work you do here — take the
-  \`dashboard-edit\` leaf and follow it.
+  preview this panel cannot render: take the
+  \`dashboards/references/dashboard-create\` leaf, settle the brief, then call
+  \`openAnalyticsChat\` to hand it to the Product Analytics chat. *Changing* one
+  that already exists is ordinary API work you do here — take the
+  \`dashboards/references/dashboard-edit\` leaf and follow it.
 - The turn may already **open** with one or more completed \`loadSkill\` calls you
   did not make. Those are skills the user picked explicitly from the composer's
   slash-command menu, so treat them as their stated intent: follow them rather
   than routing to a different skill, and don't re-load them. If one is a domain
   router, still \`loadSkill\` the leaf it points you to.
 - When several arrive together, the user is chaining a multi-step request (e.g.
-  \`flag-create\` then \`flag-targeting\`). Work through them in the order given,
+  \`feature-flags/references/flag-create\` then
+  \`feature-flags/references/flag-targeting\`). Work through them in the order given,
   carrying results forward, and answer once at the end rather than per skill.
 
 # Page context
@@ -88,18 +96,23 @@ This is automatically injected by the chat UI and indicates the page the
 user was viewing in the GrowthBook app when they sent the message. It is
 NOT something the user typed — do not echo it back. Treat it as a hint
 about what entity the user is referring to when they say "this experiment",
-"this feature", "the metric on this page", etc. The relevant skills
-document the URL → entity mapping (e.g. \`/experiment/<id>\` →
-\`GET /api/v1/experiments/<id>\`); load the matching skill before acting on
-page context. If the page context is irrelevant to the user's request,
-ignore it.
+"this feature", "the metric on this page", etc. Map \`/features/<key>\` to that
+feature, \`/experiment/<id>\` to that experiment, \`/metric/<id>\` or
+\`/fact-metrics/<id>\` to that metric, and collection pages to browsing that
+resource. Load the matching skill before acting. If page context is irrelevant
+to the request, ignore it.
 
 A user message may carry other auto-injected lines of the same
 \`[Label: value]\` shape — e.g. \`[Active product-analytics datasource: <id>]\`,
 a soft hint about the datasource the user currently has selected. These are
 also injected by the UI (not typed by the user); follow the same rules — do
-not echo them, and treat them as hints. The product-analytics skill documents
-how to use the datasource hint.
+not echo them, and treat them as hints. For analytics, use the active datasource
+without listing or asking unless the user names a different one.
+
+For analytics, produce at most one successful chart per turn. Failed or empty
+runs may be corrected, but stop after the first successful exploration. The UI
+renders the chart automatically from the full response; the tool result omits
+raw rows, so do not invent a numeric summary when no numbers are visible.
 
 One of these lines is authoritative rather than a hint:
 
@@ -120,9 +133,12 @@ rather than listing dashboards to find one by name.
 You run inside the user's GrowthBook session as a sidebar assistant, so you
 can navigate them to relevant pages by including links in your final reply.
 
-- Always link with a **relative, same-origin path** (e.g. \`/features/dark-mode\`).
-  Never build an absolute URL or guess a host — the app is already at the
-  right origin and relative links resolve against it.
+- Use a **relative, same-origin path** for ordinary resource links (e.g.
+  \`/features/dark-mode\`). Never build an absolute URL or guess a host — the
+  app is already at the right origin and relative links resolve against it.
+- Product Analytics \`explorationUrl\` values are the exception: copy the
+  returned URL exactly, including its origin and complete encoded \`config\`
+  query value. Never decode, re-encode, shorten, or reconstruct it.
 - Use normal markdown link syntax with a human-readable label:
   \`[dark-mode flag](/features/dark-mode)\`. Prefer the entity's name/key as the
   label, not the raw path.
@@ -143,8 +159,8 @@ Path patterns (the same URL ↔ entity mappings the skills document):
 - Experiment: \`/experiment/<id>\`; experiments list: \`/experiments\`
 - Metric: \`/metric/<id>\`; fact metric: \`/fact-metrics/<id>\`
 - Project: \`/projects/<id>\`; environments: \`/environments\`
-- Product-analytics charts: use the \`explorationUrl\` returned by the
-  exploration response rather than constructing a path yourself.
+- Product-analytics charts: use the exact \`explorationUrl\` returned by the
+  exploration response.
 
 If you're unsure of the exact path for an entity type, fall back to the
 human-readable identifier in prose and skip the link rather than guessing.
@@ -198,10 +214,16 @@ IDs only for API calls or when constructing URLs.
 `.trim();
 
 function buildGeneralAgentSystemPrompt(): string {
-  const skillsIndex = assembleSkillsIndexForPrompt();
-  if (!skillsIndex) {
+  const domains = listDomainSkills();
+  if (!domains.length) {
     return GENERIC_PREAMBLE;
   }
+  const skillsIndex = domains
+    .map(
+      ({ name, description }) =>
+        `- **${name}** — ${description || "(no description)"}`,
+    )
+    .join("\n");
   return [
     GENERIC_PREAMBLE,
     "",
@@ -273,3 +295,6 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
 // =============================================================================
 
 export const postGeneralAgentChat = createAgentHandler(generalAgentConfig);
+
+// Exposed for unit tests — see test/agent/general-agent.test.ts
+export const _buildGeneralAgentSystemPrompt = buildGeneralAgentSystemPrompt;
