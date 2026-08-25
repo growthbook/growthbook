@@ -100,7 +100,7 @@ export default function ExplorationBubble({
           <LinkButton
             href={explorerUrl}
             variant="ghost"
-            size="md"
+            size="sm"
             color="violet"
           >
             Open in Explorer
