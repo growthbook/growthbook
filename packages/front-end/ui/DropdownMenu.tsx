@@ -213,6 +213,7 @@ type DropdownItemProps = {
   color?: "red" | "default";
   shortcut?: RadixDropdownMenu.ItemProps["shortcut"];
   tooltip?: string;
+  tooltipStyle?: React.CSSProperties;
   confirmation?: {
     submit: () => Promise<void> | void;
     getConfirmationContent?: () => Promise<string | ReactElement | null>;
@@ -234,6 +235,7 @@ export function DropdownMenuItem({
   onClick,
   confirmation,
   tooltip,
+  tooltipStyle = { width: "max-content" },
   ...props
 }: DropdownItemProps) {
   if (color === "default") {
@@ -340,7 +342,13 @@ export function DropdownMenuItem({
           {confirmationContent ?? "Are you sure? This action cannot be undone."}
         </ModalStandard>
       )}
-      {tooltip ? <Tooltip body={tooltip}>{menuItem}</Tooltip> : menuItem}
+      {tooltip ? (
+        <Tooltip body={tooltip} popperStyle={tooltipStyle}>
+          {menuItem}
+        </Tooltip>
+      ) : (
+        menuItem
+      )}
     </>
   );
 }

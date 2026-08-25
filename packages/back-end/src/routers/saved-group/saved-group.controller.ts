@@ -499,6 +499,9 @@ type PutSavedGroupRequest = AuthRequest<
   }
 >;
 
+// Cap on a single conflict value shipped back for display in a 409.
+const MAX_CONFLICT_VALUE_BYTES = 20_000;
+
 type PutSavedGroupResponse =
   | {
       status: 200;
@@ -601,6 +604,9 @@ export const putSavedGroup = async (
   let targetRevision: Revision | null = null;
   let comparisonBase: SavedGroupInterface = savedGroup;
 
+  // Set when comparing against a draft; tells the client a fork keeps both versions.
+  let draftComparisonVersion: number | undefined;
+
   if (revisionId) {
     targetRevision = await context.models.revisions.getByIdReadable(revisionId);
     // Writing `archived` into a PINNED revision is a write into someone else's
@@ -628,6 +634,7 @@ export const putSavedGroup = async (
         normalizeProposedChanges(targetRevision.target.proposedChanges),
       );
       comparisonBase = { ...savedGroup, ...patchedSnapshot };
+      draftComparisonVersion = targetRevision.version ?? 0;
     }
   }
 
@@ -641,26 +648,38 @@ export const putSavedGroup = async (
       projects,
     };
     const base = comparisonBase as unknown as Record<string, unknown>;
+    // An empty array and an absent field mean the same thing to the editor.
+    const norm = (v: unknown) =>
+      Array.isArray(v) && v.length === 0 ? null : (v ?? null);
     const contested = Object.keys(baseline).filter((k) => {
       const loaded = (baseline as Record<string, unknown>)[k];
-      if (isEqual(loaded ?? null, base[k] ?? null)) return false;
+      if (isEqual(norm(loaded), norm(base[k]))) return false;
       // Someone else changed it; only a differing submission is contested.
       return (
-        incoming[k] !== undefined &&
-        !isEqual(incoming[k] ?? null, base[k] ?? null)
+        incoming[k] !== undefined && !isEqual(norm(incoming[k]), norm(base[k]))
       );
     });
     if (contested.length) {
+      const current: Record<string, unknown> = Object.fromEntries(
+        Object.keys(baseline).map((k) => [k, base[k]]),
+      );
+      // Withhold huge lists; the client offers reload instead of merge choices.
+      const omittedFields = Object.keys(current).filter(
+        (k) =>
+          Array.isArray(current[k]) &&
+          JSON.stringify(current[k]).length > MAX_CONFLICT_VALUE_BYTES,
+      );
+      for (const k of omittedFields) delete current[k];
       return res.status(409).json({
         status: 409,
         message:
           "This saved group was changed by someone else after you loaded it. Review their version before saving.",
         conflict: {
           entityId: savedGroup.id,
-          current: Object.fromEntries(
-            Object.keys(baseline).map((k) => [k, base[k]]),
-          ),
+          current,
           liveVersion: 0,
+          draftVersion: draftComparisonVersion,
+          omittedFields: omittedFields.length ? omittedFields : undefined,
           merge: {
             contested: contested.map((k) => ({ key: k, fields: [k] })),
             theirFields: [],
