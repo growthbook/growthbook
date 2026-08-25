@@ -1,5 +1,5 @@
+import Link from "next/link";
 import Button from "@/ui/Button";
-import LinkButton from "@/ui/LinkButton";
 import Tooltip from "@/ui/Tooltip";
 
 export default function OpenInExplorerButton({
@@ -15,33 +15,25 @@ export default function OpenInExplorerButton({
 }) {
   if (!enabled) return null;
 
-  if (disabledReason) {
-    return (
-      <Tooltip content={disabledReason}>
-        <span style={{ cursor: "not-allowed" }}>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled
-            style={{ pointerEvents: "none" }}
-          >
-            Open in Explorer
-          </Button>
-        </span>
-      </Tooltip>
-    );
-  }
+  const button = (
+    <Button
+      variant="outline"
+      size="md"
+      disabled={!!disabledReason}
+      preventDefault={false}
+      style={disabledReason ? { pointerEvents: "none" } : undefined}
+    >
+      Open in Explorer
+    </Button>
+  );
 
   return (
-    <Tooltip content={tooltip}>
-      <LinkButton
-        href={href}
-        variant="outline"
-        size="sm"
-        preventDefault={false}
-      >
-        Open in Explorer
-      </LinkButton>
+    <Tooltip content={disabledReason ?? tooltip}>
+      {disabledReason ? (
+        <span style={{ cursor: "not-allowed" }}>{button}</span>
+      ) : (
+        <Link href={href}>{button}</Link>
+      )}
     </Tooltip>
   );
 }
