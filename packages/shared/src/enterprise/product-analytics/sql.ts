@@ -40,6 +40,7 @@ import {
   getRowFilterSQL,
   getColumnExpression,
   getAggregateFilters,
+  getFactTableTimestampColumn,
   isFactFunnelMetric,
 } from "../../experiments/experiments";
 
@@ -57,7 +58,7 @@ type MinimalFactTable = Pick<
 function toMinimalFactTable(factTable: FactTableInterface): MinimalFactTable {
   return {
     ...factTable,
-    timestampColumn: "timestamp",
+    timestampColumn: getFactTableTimestampColumn(factTable),
     quoteTimestampColumn: false,
   };
 }
@@ -1480,12 +1481,20 @@ export function buildFunnelSql(
     : null;
   const ctes: CTE[] = [];
 
+  const requireTimestampColumn = (ft: MinimalFactTable): string => {
+    const timestampColumn = getTimestampColumnExpression(ft, dialect);
+    if (!timestampColumn) {
+      throw new Error("Funnel steps require a timestamp column");
+    }
+    return timestampColumn;
+  };
+
   // 1a. Per-fact-table "raw" CTE — wraps the fact table SQL with the date
   // filter and preserves all raw columns so the optional top-N dimension
   // CTE can read the un-classified column.
   ftGroups.forEach((group) => {
     const ft = group.factTable;
-    const timestampColumn = ft.timestampColumn || "timestamp";
+    const timestampColumn = requireTimestampColumn(ft);
     const dateFilter = `${timestampColumn} >= ${dialect.toTimestamp(dateRange.startDate)} AND ${timestampColumn} <= ${dialect.toTimestamp(dateRange.endDate)}`;
     ctes.push({
       name: `__funnel_ft${group.index}_raw`,
@@ -1521,7 +1530,7 @@ export function buildFunnelSql(
   // source that step).
   ftGroups.forEach((group) => {
     const ft = group.factTable;
-    const timestampColumn = ft.timestampColumn || "timestamp";
+    const timestampColumn = requireTimestampColumn(ft);
     const selectCols: string[] = [
       `${unit} AS user_id`,
       `${timestampColumn} AS ts`,

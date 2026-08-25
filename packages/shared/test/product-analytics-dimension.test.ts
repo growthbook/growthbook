@@ -63,6 +63,7 @@ function makeFactTableGroup(timestampColumn = "event_time") {
       filters: [],
       userIdTypes: ["user_id"],
       timestampColumn,
+      quoteTimestampColumn: false,
     },
     metrics: [],
     units: [],

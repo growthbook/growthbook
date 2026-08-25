@@ -1051,9 +1051,14 @@ export function getFeatureDefinition({
           const exp = experimentMap.get(r.experimentId);
           if (!exp) return null;
 
-          if (!includeExperimentInPayload(exp)) return null;
-
           if (exp.status === "draft" && !includeDraftExperimentRefs)
+            return null;
+
+          if (
+            !includeExperimentInPayload(exp, [], {
+              includeDrafts: includeDraftExperimentRefs,
+            })
+          )
             return null;
 
           // Get current experiment phase and use it to set rule properties
