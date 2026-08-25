@@ -2083,11 +2083,12 @@ export async function postExperiment(
     const coverage = data.coverage;
     const phases = changes.phases || [...experiment.phases];
     const lastIndex = phases.length - 1;
-    phases.forEach((phase, i) => {
-      if (experiment.type !== "holdout" && i !== lastIndex) return;
-      phases[i] = { ...phase, coverage };
-    });
-    changes.phases = phases;
+    if (experiment.type === "holdout") {
+      changes.phases = phases.map((phase) => ({ ...phase, coverage }));
+    } else {
+      phases[lastIndex] = { ...phases[lastIndex], coverage };
+      changes.phases = phases;
+    }
   }
 
   // Only some fields affect production SDK payloads
