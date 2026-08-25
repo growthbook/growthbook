@@ -54766,6 +54766,8 @@ components:
                                   type: number
                                 chanceToBeatControl:
                                   type: number
+                                errorMessage:
+                                  type: string
                               required:
                                 - engine
                                 - numerator
