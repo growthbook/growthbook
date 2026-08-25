@@ -27,9 +27,6 @@ export function getFactSegmentCTE(
   let join = "";
   let userIdCol = "";
   const userIdTypes = factTable.userIdTypes;
-  // The fact table's SQL may name its identifier columns anything; each is
-  // aliased back to the id type here (or joined on) so downstream SQL doesn't
-  // have to know the real names.
   if (userIdTypes.includes(baseIdType)) {
     userIdCol = getFactTableIdColumnExpression(factTable, baseIdType, dialect);
   } else if (userIdTypes.length > 0) {

@@ -57,9 +57,6 @@ export function getFactMetricCTE(
   let join = "";
   let userIdCol = "";
   const userIdTypes = factTable.userIdTypes;
-  // The fact table's SQL may name its identifier columns anything; each is
-  // aliased back to the id type here (or joined on) so downstream SQL doesn't
-  // have to know the real names.
   if (userIdTypes.includes(baseIdType)) {
     userIdCol = getFactTableIdColumnExpression(factTable, baseIdType, dialect);
   } else if (userIdTypes.length > 0) {
@@ -79,8 +76,6 @@ export function getFactMetricCTE(
     }
   }
 
-  // The fact table's timestamp column, aliased to `timestamp` on the way out so
-  // downstream SQL never has to know its real name.
   const timestampColumn = `m.${getFactTableTimestampColumn(factTable)}`;
 
   // BQ datetime cast for SELECT statements (do not use for where)

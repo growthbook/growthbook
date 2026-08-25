@@ -71,9 +71,6 @@ export function getMetricCTE(
     throw new Error("Could not find fact table");
   }
 
-  // A fact table's identifier columns can be remapped; a legacy metric carries
-  // its own userIdColumns, already resolved into cols.userIds.
-
   // query builder does not use a sub-query to get a the userId column to
   // equal the userIdType, so when using the query builder, continue to
   // use the actual input column name rather than the id type
