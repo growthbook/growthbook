@@ -1,17 +1,11 @@
 ---
 title: Official GrowthBook MCP Server
-description: Connect Cursor, VS Code, Windsurf, Cline, or Claude to GrowthBook over MCP to create flags and inspect experiments from your editor.
+description: Connect AI tools like Cursor, VS Code, and Claude to GrowthBook using the Model Context Protocol (MCP). Use GrowthBook Cloud with OAuth, or run the server yourself.
 keywords: [MCP, AI]
 sidebarTitle: MCP Server
 ---
 
-[Model Context Protocol](https://modelcontextprotocol.io/introduction) (MCP) is a standard for integrating AI tools and agents with developer platforms like GrowthBook. This guide shows you how to connect your AI tools to GrowthBook's MCP server and which tools are available for use.
-
-<Frame caption="Demo of the MCP Server adding a feature flag to a codebase and GrowthBook">
-<video autoPlay loop muted style={{width: '100%', height: "auto" }} controls allowFullScreen>
-    <source src="/static/videos/mcp-example-c.mp4" type="video/mp4" />
-</video>
-</Frame>
+[Model Context Protocol](https://modelcontextprotocol.io/introduction) (MCP) is a standard for integrating AI tools and agents with platforms like GrowthBook. The official GrowthBook MCP server is a thin bridge: it loads GrowthBook [Agent Skills](/integrations/ai-agents/agent-skills) (workflows and guardrails) and makes authenticated calls to the [GrowthBook REST API](/app/api).
 
 <Info>
 **It's official!**
@@ -20,39 +14,54 @@ Check us out on the [official MCP Registry](https://registry.modelcontextprotoco
 
 </Info>
 
-## Prerequisites
+## How it works
 
-- **Node.js**: Check if you have it by running `node -v`. Install it from [nodejs.org](https://nodejs.org/)
-- **GrowthBook API Key**: To create a new key, go to **Settings** &rarr; **API Keys** &rarr; **New Secret Key**. Use this key in the next step.
+The server exposes four tools:
 
-## Installation
+| Tool                     | Purpose                                                                                       |
+| ------------------------ | --------------------------------------------------------------------------------------------- |
+| `growthbook_list_skills` | List bundled skill entry points (name + description)                                          |
+| `growthbook_read_skill`  | Return a listed skill, or a child path it names (e.g. `feature-flags/references/flag-create`) |
+| `growthbook_api_read`    | Authenticated `GET` against the GrowthBook REST API                                           |
+| `growthbook_api_write`   | Authenticated `POST` / `PUT` / `PATCH` / `DELETE` against the REST API                        |
 
-We cover how to connect the GrowthBook MCP server for the most popular tools below, but the installation steps are similar for most AI tools.
+Typical flow:
 
-Configuration uses the following environment variables:
+1. Call `growthbook_list_skills`, then `growthbook_read_skill` with the matching name.
+2. If that skill routes to a child path, call `growthbook_read_skill` again with that path.
+3. Follow the workflow. Skills show calls like `gb-call GET /api/v1/projects` — map `GET` to `growthbook_api_read` and mutating methods to `growthbook_api_write` with the same path and optional JSON body.
+4. Prefer the paths listed in the skill; do not invent endpoints.
 
-| Variable Name    | Status   | Description                                                                                           |
-| ---------------- | -------- | ----------------------------------------------------------------------------------------------------- |
-| GB_API_KEY       | Required | A GrowthBook API key or PAT. When using a PAT, you can only access tools that your permissions allow. |
-| GB_EMAIL         | Required | Your email address used with GrowthBook. Used when creating feature flags and experiments.            |
-| GB_API_URL       | Optional | Your GrowthBook API URL. Defaults to `https://api.growthbook.io`.                                     |
-| GB_APP_ORIGIN    | Optional | Your GrowthBook app URL Defaults to `https://app.growthbook.io`.                                      |
-| GB_HTTP_HEADER\* | Optional | Custom HTTP headers included in all API requests. See [Custom Headers](#custom-headers) below.        |
-
-<br />
+Competence lives in the skills (draft → review → publish, safe rollouts, and other guardrails). The API tools are authenticated passthroughs — they do not validate payloads.
 
 <Tip>
-**On GrowthBook Cloud?**
+**Capability-only mode**
 
-You only need to configure `GB_API_KEY` and `GB_EMAIL`.
+Connect to `/mcp/api` instead of `/mcp` (or set `GB_SKILLS_ENABLED=false` for a local process) to expose only `growthbook_api_read` and `growthbook_api_write`. Use this when your client or team supplies its own workflows.
 
 </Tip>
 
+<Warning>
+**Migrating from MCP 1.x?**
+
+GrowthBook MCP 2.x removes the old per-endpoint tools (`create_feature_flag`, `get_experiments`, and so on). Use the skill loader plus API read/write tools instead. Point Cloud clients at `https://mcp.growthbook.io/mcp`, or upgrade local installs to `@growthbook/mcp@latest`.
+
+</Warning>
+
+## GrowthBook Cloud
+
+If you use [GrowthBook Cloud](https://app.growthbook.io), connect your MCP client to the hosted server. You sign in with OAuth in the browser — no API key in the MCP config.
+
+| Endpoint                            | Tools                                 |
+| ----------------------------------- | ------------------------------------- |
+| `https://mcp.growthbook.io/mcp`     | Skills + API read/write (recommended) |
+| `https://mcp.growthbook.io/mcp/api` | API read/write only                   |
+
 ### Cursor
 
-<a href="https://cursor.com/en-US/install-mcp?name=growthbook&amp;config=eyJlbnYiOnsiR0JfQVBJX0tFWSI6IllPVVJfQVBJX0tFWSIsIkdCX0VNQUlMIjoiWU9VUl9FTUFJTCIsIkdCX0FQSV9VUkwiOiJZT1VSX0FQSV9VUkwiLCJHQl9BUFBfT1JJR0lOIjoiWU9VUl9BUFBfT1JJR0lOIn0sImNvbW1hbmQiOiJucHggLXkgQGdyb3d0aGJvb2svbWNwQGxhdGVzdCJ9">
-  <img 
-    src="https://cursor.com/deeplink/mcp-install-dark.svg" 
+<a href="https://cursor.com/en-US/install-mcp?name=growthbook&amp;config=eyJ1cmwiOiJodHRwczovL21jcC5ncm93dGhib29rLmlvL21jcCJ9">
+  <img
+    src="https://cursor.com/deeplink/mcp-install-dark.svg"
     alt="Install MCP Server"
     className="no-zoom"
   />
@@ -60,238 +69,97 @@ You only need to configure `GB_API_KEY` and `GB_EMAIL`.
 
 1. Open **Cursor Settings** &rarr; **MCP**
 2. Click **Add new global MCP server**
-3. Add an entry for the GrowthBook MCP, following the pattern below:
+3. Add:
 
-<CodeGroup>
-```json macOS
+```json
 {
   "mcpServers": {
     "growthbook": {
-      "command": "npx",
-      "args": ["-y", "@growthbook/mcp@latest"],
-      "env": {
-        "GB_API_KEY": "YOUR_API_KEY",
-        "GB_API_URL": "YOUR_API_URL",
-        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-        "GB_EMAIL": "YOUR_EMAIL"
-      }
+      "url": "https://mcp.growthbook.io/mcp"
     }
   }
 }
 ```
 
-```json Windows
-{
-  "mcpServers": {
-    "growthbook": {
-      "command": "cmd",
-      "args": ["/c", "npx", "-y", "@growthbook/mcp@latest"],
-      "env": {
-        "GB_API_KEY": "YOUR_API_KEY",
-        "GB_API_URL": "YOUR_API_URL",
-        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-        "GB_EMAIL": "YOUR_EMAIL"
-      }
-    }
-  }
-}
-```
+4. Save. When Cursor connects, complete the GrowthBook OAuth consent flow in the browser.
 
-```json WSL
-{
-  "mcpServers": {
-    "growthbook": {
-      "command": "wsl",
-      "args": ["npx", "-y", "@growthbook/mcp@latest"],
-      "env": {
-        "GB_API_KEY": "YOUR_API_KEY",
-        "GB_API_URL": "YOUR_API_URL",
-        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-        "GB_EMAIL": "YOUR_EMAIL"
-      }
-    }
-  }
-}
-```
-
-```json Linux
-{
-  "mcpServers": {
-    "growthbook": {
-      "command": "npx",
-      "args": ["-y", "@growthbook/mcp@latest"],
-      "env": {
-        "GB_API_KEY": "YOUR_API_KEY",
-        "GB_API_URL": "YOUR_API_URL",
-        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-        "GB_EMAIL": "YOUR_EMAIL"
-      }
-    }
-  }
-}
-```
-
-</CodeGroup>
-
-4. Save the settings.
-
-You should now see a green active status after the server successfully connects!
-
-<Frame>![GrowthBook MCP in Cursor](/static/images/integrations/mcp/mcp-cursor.png)</Frame>
+You should see a green active status after the server connects.
 
 ### VS Code
 
 1. Open **User Settings (JSON)**
-2. Add an MCP entry:
+2. Add:
 
-<CodeGroup>
-```json macOS
+```json
 {
   "servers": {
     "growthbook": {
-      "command": "npx",
-      "args": ["-y", "@growthbook/mcp@latest"],
-      "env": {
-        "GB_API_KEY": "YOUR_API_KEY",
-        "GB_API_URL": "YOUR_API_URL",
-        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-        "GB_EMAIL": "YOUR_EMAIL"
-      }
+      "type": "http",
+      "url": "https://mcp.growthbook.io/mcp"
     }
   }
 }
 ```
 
-```json Windows
-{
-  "servers": {
-    "growthbook": {
-      "command": "cmd",
-      "args": ["/c", "npx", "-y", "@growthbook/mcp@latest"],
-      "env": {
-        "GB_API_KEY": "YOUR_API_KEY",
-        "GB_API_URL": "YOUR_API_URL",
-        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-        "GB_EMAIL": "YOUR_EMAIL"
-      }
-    }
-  }
-}
-```
+3. Save. Start the server if prompted, then complete OAuth when your client opens the browser.
 
-```json WSL
-{
-  "servers": {
-    "growthbook": {
-      "command": "wsl",
-      "args": ["npx", "-y", "@growthbook/mcp@latest"],
-      "env": {
-        "GB_API_KEY": "YOUR_API_KEY",
-        "GB_API_URL": "YOUR_API_URL",
-        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-        "GB_EMAIL": "YOUR_EMAIL"
-      }
-    }
-  }
-}
-```
-
-```json Linux
-{
-  "servers": {
-    "growthbook": {
-      "command": "npx",
-      "args": ["-y", "@growthbook/mcp@latest"],
-      "env": {
-        "GB_API_KEY": "YOUR_API_KEY",
-        "GB_API_URL": "YOUR_API_URL",
-        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-        "GB_EMAIL": "YOUR_EMAIL"
-      }
-    }
-  }
-}
-```
-
-</CodeGroup>
-
-3. Save your settings. In your file, a **Start** button will appear. Click it to the start the server.
-
-In CoPilot Chat, you'll see a tool icon, indicating the server is connected successfully. GrowthBook MCP is now ready to use in VS Code.
-
-<Frame>![GrowthBook MCP in VS Code Copilot](/static/images/integrations/mcp/mcp-vscode.png)</Frame>
+In Copilot Chat, a tool icon indicates the server is connected.
 
 ### Claude Code
 
-Claude Code uses command-line commands to add MCP servers. Run the following command in your terminal:
-
 ```bash
-claude mcp add growthbook --transport stdio --env GB_API_KEY=YOUR_API_KEY --env GB_API_URL=YOUR_API_URL --env GB_APP_ORIGIN=YOUR_APP_ORIGIN --env GB_EMAIL=YOUR_EMAIL -- npx -y @growthbook/mcp@latest
+claude mcp add --transport http growthbook https://mcp.growthbook.io/mcp
 ```
 
-<Tip>
-**Command structure**
-
-All options (`--transport`, `--env`, etc.) must come **before** the server name. The `--` (double dash) separates the server name from the command and arguments that get passed to the MCP server.
-
-</Tip>
-
-You can verify the server was added by running:
-
-```bash
-claude mcp get growthbook
-```
-
-To see all configured MCP servers, use:
-
-```bash
-claude mcp list
-```
-
-Within Claude Code, you can check server status using the `/mcp` command.
+Verify with `claude mcp get growthbook` or `/mcp` inside Claude Code. Complete OAuth when prompted.
 
 ### Claude Desktop
 
-We have an official extension in the Connectors Directory.
+1. Go to **Settings** → **Connectors** (or **Extensions** → browse connectors, depending on your Claude Desktop version)
+2. Add a custom connector / remote MCP server pointed at `https://mcp.growthbook.io/mcp`
+3. Complete the GrowthBook OAuth consent flow
 
-1. Go to **Settings** → **Extensions** → **Browse Extensions**
-2. Select **Desktop Extensions** and search for "GrowthBook"
-3. Follow the prompts to install and configure the extension
-4. That's it!
+We also publish a GrowthBook entry in Anthropic's Connectors Directory when available — search for "GrowthBook" if you prefer the directory install.
 
-<Tip>
-**Node not required**
+### Other MCP clients
 
-Claude Desktop ships with its own version of Node, which means it's not required here
+Any client that supports remote HTTP MCP with OAuth can use:
 
-</Tip>
+```text
+https://mcp.growthbook.io/mcp
+```
 
-## Custom Headers
+Use the URL field (or equivalent) in that client's MCP settings. The server advertises OAuth protected-resource metadata so the client can discover GrowthBook as the authorization server.
 
-If your GrowthBook instance is behind a reverse proxy or requires additional authentication headers (e.g. Cloudflare Access), you can pass custom HTTP headers via environment variables using the `GB_HTTP_HEADER_*` prefix.
+## Example prompts
 
-Each environment variable following this pattern is automatically converted to a proper HTTP header and included in every API request the MCP server makes.
+Once connected, ask for the outcome and let the agent load the matching skill:
 
-### Naming Convention
+- "Create a boolean feature flag called `new-checkout-flow` that defaults to false."
+- "Which feature flags are stale and safe to clean up?"
+- "What are the results of our checkout experiment? Should we ship the winner?"
+- "Design and launch an A/B test on the `pricing-v2` flag."
+- "Chart daily signups by country for the last 30 days."
 
-The variable name after the `GB_HTTP_HEADER_` prefix is converted from `UPPER_SNAKE_CASE` to `Title-Case-With-Dashes`:
+Want slash commands and no MCP process? [Install the Agent Skills plugin](/integrations/ai-agents/agent-skills).
 
-| Environment Variable             | HTTP Header Sent  |
-| -------------------------------- | ----------------- |
-| `GB_HTTP_HEADER_X_TENANT_ID`     | `X-Tenant-ID`     |
-| `GB_HTTP_HEADER_CF_ACCESS_TOKEN` | `Cf-Access-Token` |
-| `GB_HTTP_HEADER_X_CUSTOM_AUTH`   | `X-Custom-Auth`   |
+## Self-hosted
 
-<Info>
-**Header precedence**
+If you run GrowthBook yourself, you can still use the official MCP server in two ways: a local stdio process in your editor, or the official Docker image as your own HTTP MCP endpoint.
 
-Custom headers cannot override the `Authorization` or `Content-Type` headers, which are always set by the MCP server.
+### Option A: Local stdio
 
-</Info>
+Runs `@growthbook/mcp` on your machine and talks to your GrowthBook API with an API key or personal access token (PAT). Requires **Node.js 18+**.
 
-### Example: Cloudflare Access
+1. Create a key in GrowthBook: **Settings** → **API Keys**, or a PAT under **Account** → **Personal Access Tokens**. A PAT is recommended so actions are attributed to your user and scoped to your permissions.
+2. Add an MCP server entry that runs `npx` with env vars:
 
-If your self-hosted GrowthBook is protected by [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/), add the service token headers:
+| Variable            | Status                   | Description                                                                     |
+| ------------------- | ------------------------ | ------------------------------------------------------------------------------- |
+| `GB_API_KEY`        | Required                 | GrowthBook API key or PAT                                                       |
+| `GB_API_URL`        | Required for self-hosted | Your GrowthBook API base URL (for example `https://growthbook-api.example.com`) |
+| `GB_SKILLS_ENABLED` | Optional                 | Set to `false` to register only the API tools                                   |
+| `GB_HTTP_HEADER_*`  | Optional                 | Extra headers on every API request (see [Custom headers](#custom-headers))      |
 
 <CodeGroup>
 ```json macOS / Linux
@@ -302,11 +170,7 @@ If your self-hosted GrowthBook is protected by [Cloudflare Access](https://devel
       "args": ["-y", "@growthbook/mcp@latest"],
       "env": {
         "GB_API_KEY": "YOUR_API_KEY",
-        "GB_API_URL": "https://growthbook.internal.example.com",
-        "GB_APP_ORIGIN": "https://growthbook.internal.example.com",
-        "GB_EMAIL": "YOUR_EMAIL",
-        "GB_HTTP_HEADER_CF_ACCESS_CLIENT_ID": "YOUR_CF_CLIENT_ID",
-        "GB_HTTP_HEADER_CF_ACCESS_CLIENT_SECRET": "YOUR_CF_CLIENT_SECRET"
+        "GB_API_URL": "https://growthbook-api.example.com"
       }
     }
   }
@@ -321,11 +185,22 @@ If your self-hosted GrowthBook is protected by [Cloudflare Access](https://devel
       "args": ["/c", "npx", "-y", "@growthbook/mcp@latest"],
       "env": {
         "GB_API_KEY": "YOUR_API_KEY",
-        "GB_API_URL": "https://growthbook.internal.example.com",
-        "GB_APP_ORIGIN": "https://growthbook.internal.example.com",
-        "GB_EMAIL": "YOUR_EMAIL",
-        "GB_HTTP_HEADER_CF_ACCESS_CLIENT_ID": "YOUR_CF_CLIENT_ID",
-        "GB_HTTP_HEADER_CF_ACCESS_CLIENT_SECRET": "YOUR_CF_CLIENT_SECRET"
+        "GB_API_URL": "https://growthbook-api.example.com"
+      }
+    }
+  }
+}
+```
+
+```json WSL
+{
+  "mcpServers": {
+    "growthbook": {
+      "command": "wsl",
+      "args": ["npx", "-y", "@growthbook/mcp@latest"],
+      "env": {
+        "GB_API_KEY": "YOUR_API_KEY",
+        "GB_API_URL": "https://growthbook-api.example.com"
       }
     }
   }
@@ -334,117 +209,103 @@ If your self-hosted GrowthBook is protected by [Cloudflare Access](https://devel
 
 </CodeGroup>
 
-For Claude Code, append the custom headers as additional `--env` flags:
+VS Code uses the same `command` / `args` / `env` values under a `servers` key instead of `mcpServers`.
+
+For Claude Code:
 
 ```bash
 claude mcp add growthbook --transport stdio \
   --env GB_API_KEY=YOUR_API_KEY \
-  --env GB_API_URL=https://growthbook.internal.example.com \
-  --env GB_APP_ORIGIN=https://growthbook.internal.example.com \
-  --env GB_EMAIL=YOUR_EMAIL \
-  --env GB_HTTP_HEADER_CF_ACCESS_CLIENT_ID=YOUR_CF_CLIENT_ID \
-  --env GB_HTTP_HEADER_CF_ACCESS_CLIENT_SECRET=YOUR_CF_CLIENT_SECRET \
+  --env GB_API_URL=https://growthbook-api.example.com \
   -- npx -y @growthbook/mcp@latest
 ```
 
-### Example: Multi-Tenant Proxy
+<Tip>
+**GrowthBook Cloud via stdio**
 
-If your API gateway requires a tenant identifier:
+You can also use stdio against Cloud by omitting `GB_API_URL` (it defaults to `https://api.growthbook.io`) and setting `GB_API_KEY`. Most Cloud users should prefer the [hosted OAuth endpoint](#growthbook-cloud) instead.
+
+</Tip>
+
+### Option B: Official Docker image (HTTP + OAuth)
+
+Run the same HTTP MCP server GrowthBook Cloud uses, against your own API. Clients connect with a URL and OAuth — no API key in the MCP client config.
+
+**Prerequisites**
+
+- Your GrowthBook API must expose the OAuth 2.1 Authorization Server. Set `OAUTH_AS_ENABLED=1` on the API process (see [Environment variables](/self-host/env#oauth-authorization-server-mcp)).
+- A public HTTPS URL for the MCP server (clients and OAuth metadata use this base URL).
+
+**Image:** [`ghcr.io/growthbook/growthbook-mcp`](https://github.com/growthbook/growthbook-mcp/pkgs/container/growthbook-mcp) — pin a version tag (for example `2.1.0`) rather than relying on `latest` in production.
+
+```bash
+docker run --rm -p 3333:3333 \
+  -e GB_MCP_TRANSPORT=http \
+  -e GB_MCP_HOST=0.0.0.0 \
+  -e GB_MCP_PORT=3333 \
+  -e GB_MCP_URL=https://mcp.example.com \
+  -e GB_API_URL=https://growthbook-api.example.com \
+  ghcr.io/growthbook/growthbook-mcp:2.1.0
+```
+
+| Variable                      | Required | Purpose                                                                                                            |
+| ----------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
+| `GB_MCP_URL`                  | Yes      | Public base URL of this MCP server (stamped into OAuth resource metadata; the process refuses to start without it) |
+| `GB_API_URL`                  | Yes      | Your GrowthBook API URL (also the default OAuth issuer)                                                            |
+| `GB_MCP_HOST` / `GB_MCP_PORT` | No       | Bind address/port inside the container (defaults shown above)                                                      |
+| `GB_OAUTH_ISSUER`             | No       | Override if the Authorization Server issuer is not `GB_API_URL`                                                    |
+| `GB_SKILLS_ENABLED`           | No       | Set `false` to disable skill tools on `/mcp`                                                                       |
+| `GB_HTTP_HEADER_*`            | No       | Extra headers on every API request (see [Custom headers](#custom-headers))                                         |
+
+Clients then use:
+
+- `https://mcp.example.com/mcp` — skills + API tools
+- `https://mcp.example.com/mcp/api` — API tools only
+
+Put TLS termination (and any network controls you need) in front of the container. For multi-tenant or public deployment, front the service with your own gateway and auth policies as you would any OAuth resource server.
+
+### Custom headers
+
+If your GrowthBook API sits behind a reverse proxy or extra auth (for example Cloudflare Access), pass headers via `GB_HTTP_HEADER_*` on the MCP process (stdio or Docker). Each name after the prefix is converted from `UPPER_SNAKE_CASE` to `Title-Case-With-Dashes`:
+
+| Environment variable             | HTTP header sent  |
+| -------------------------------- | ----------------- |
+| `GB_HTTP_HEADER_X_TENANT_ID`     | `X-Tenant-ID`     |
+| `GB_HTTP_HEADER_CF_ACCESS_TOKEN` | `Cf-Access-Token` |
+
+<Info>
+**Header precedence**
+
+Custom headers cannot override `Authorization` or `Content-Type`.
+
+</Info>
+
+Example (stdio + Cloudflare Access):
 
 ```json
-"env": {
-  "GB_API_KEY": "YOUR_API_KEY",
-  "GB_EMAIL": "YOUR_EMAIL",
-  "GB_HTTP_HEADER_X_TENANT_ID": "your-tenant-id"
+{
+  "mcpServers": {
+    "growthbook": {
+      "command": "npx",
+      "args": ["-y", "@growthbook/mcp@latest"],
+      "env": {
+        "GB_API_KEY": "YOUR_API_KEY",
+        "GB_API_URL": "https://growthbook.internal.example.com",
+        "GB_HTTP_HEADER_CF_ACCESS_CLIENT_ID": "YOUR_CF_CLIENT_ID",
+        "GB_HTTP_HEADER_CF_ACCESS_CLIENT_SECRET": "YOUR_CF_CLIENT_SECRET"
+      }
+    }
+  }
 }
 ```
 
 You can add as many `GB_HTTP_HEADER_*` variables as needed — each one becomes a separate header on every request.
 
-## Tools
-
-### Feature Flags
-
-- `create_feature_flag`: Create, add, or wrap an element with a feature flag. Accepts key, type, default value, and other metadata.
-- `get_feature_flags`: List feature flags in your GrowthBook instance. Include a feature ID to retrieve a single flag.
-- `get_stale_feature_flags`: Given a list of feature flag IDs, checks whether each one is stale and returns cleanup guidance including replacement values and SDK search patterns.
-- `create_force_rule`: Add a targeting condition (e.g., `country = CA`) to an existing flag.
-- `generate_flag_types`: Generate TypeScript types for feature flags.
-
-### Experiments
-
-- `get_experiments`: List experiments in GrowthBook. Include an experiment ID to return data about a single experiment.
-  - This tool has 3 modes:
-    1. `metadata`: The default response from the GrowthBook API, including basic information about experiments.
-    2. `full`: Metadata about experiments plus results. Warning: This returns a large payload, which fills up the context window quickly.
-    3. `summary`: Presents a high-level summary of experiments and their results, combining experiment metadata, results, and metrics.
-- `get_attributes`: List user attributes tracked in GrowthBook (useful for targeting).
-- `create_experiment`: Creates an A/B test. Optionally, provide a feature ID to link the experiment to a feature flag. Note: this tool calls `get_defaults`, which provides a sampling of previous experiments to help the AI agent create the experiment correctly. For better performance, these defaults are saved to the local file system and periodically updated.
-- `get_defaults`: Get default values for experiments including hypothesis, description, datasource, and assignment query. (Runs automatically when the create experiment tool is called.)
-- `create_defaults`: Set custom default values for experiments that will be used when creating new experiments.
-- `clear_user_defaults`: Clear user-defined defaults and revert to automatic defaults.
-
-### Environments
-
-- `get_environments`: List all environments (e.g., production, staging) configured in GrowthBook.
-
-### Projects
-
-- `get_projects`: List all projects in your GrowthBook instance.
-
-### SDK Connections
-
-- `get_sdk_connections`: List SDK connections (how GrowthBook connects to your apps).
-- `create_sdk_connection`: Create a new SDK connection for your app, specifying language and environment.
-
-### Metrics
-
-- `get_metrics`: List fact and legacy metrics (useful for better understanding experiments). Include a metric ID to return details about a specific metric.
-
-### Documentation Search
-
-- `search_growthbook_docs`: Search the GrowthBook documentation for information on how to use a feature, by keyword or question.
-
-## Example Prompts
-
-Here are some prompts to try with your AI assistant once the MCP server is connected:
-
-### Feature Flags
-
-- "Create a boolean feature flag called `new-checkout-flow` that defaults to `false`"
-- "Show me the details and rules for the `dark-mode` feature flag"
-- "Add a force rule to `new-checkout-flow` that enables it for users where `country` is `US`"
-- "Check if these flags are stale and can be cleaned up: `old-banner`, `beta-pricing`, `temp-fix`"
-- "Generate TypeScript types for all my feature flags"
-
-### Experiments
-
-- "Summarize the results of my last 5 experiments"
-- "Create an A/B test on the `new-checkout-flow` flag with a control (`false`) and treatment (`true`)"
-- "Show me the full results for experiment `exp_abc123`, including metric breakdowns"
-
-### General
-
-- "What SDK connections do I have set up?"
-- "Search the GrowthBook docs for how to set up a fact metric"
-- "List all my projects and environments"
-
-## Video Tutorial
-
-Watch this video for a complete walkthrough of setting up and using the GrowthBook MCP Server:
-
-<Frame>
-<iframe width="560" height="315" style={{aspectRatio: "16/9", width: "100%", height: "auto", marginBottom: "1rem"}} src="https://www.youtube.com/embed/fUp6VC1k6kA" title="YouTube video player" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen></iframe>
-</Frame>
-
 ## Next steps
 
-Now that you're connected, start using GrowthBook's MCP tools directly from your editor to:
-
-- Add new flags to your code and GrowthBook
-- Generate type definitions for your flags for [typesafe feature flagging](https://github.com/growthbook/examples/tree/main/vanilla-typescript)
-- Create new feature-flag experiements
-- Search the GrowthBooks docs without leaving the editor
-- Check out the [GrowthBook MCP Server code on GitHub](https://github.com/growthbook/growthbook-mcp)
+- [Install the Agent Skills plugin](/integrations/ai-agents/agent-skills) — same playbooks, no MCP process
+- [MCP vs the plugin](/integrations/ai-agents) — which to use when
+- [GrowthBook REST API](/app/api) — what the API tools call
+- [growthbook-mcp on GitHub](https://github.com/growthbook/growthbook-mcp)
 
 [Join our community Slack for additional tips and tricks](https://join.slack.com/t/growthbookusers/shared_invite/zt-2xw8fu279-Y~hwnfCEf7WrEI9qScHURQ)
