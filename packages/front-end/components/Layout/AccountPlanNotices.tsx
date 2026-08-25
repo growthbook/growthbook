@@ -545,11 +545,10 @@ export default function AccountPlanNotices() {
     }
 
     const isEnterpriseLicense = license.plan === "enterprise";
-    const isOrbManaged =
-      !!license.orbSubscription?.id &&
-      license.orbSubscription?.status === "active";
+    // Orb-managed licenses bill for seats in use, so the manual seat allotment
+    // never applies — including once the subscription has ended.
+    const isOrbManaged = !!license.orbSubscription?.id;
     const seatsExceedLicense = seatsInUse > (license.seats || 0);
-    // Orb enterprise includes a seat allotment and bills for anything above it.
     if (
       isEnterpriseLicense &&
       !isOrbManaged &&
