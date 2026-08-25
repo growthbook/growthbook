@@ -350,87 +350,81 @@ export default function SqlQuerySection({
               }}
             >
               <PanelGroup
-                direction="horizontal"
+                direction="vertical"
                 style={{
                   minHeight: fullHeight ? 0 : 360,
                   flex: fullHeight ? 1 : undefined,
                 }}
               >
-                <Panel order={1} defaultSize={100} minSize={45}>
-                  <PanelGroup direction="vertical">
-                    <Panel
-                      ref={editorPanelRef}
-                      order={1}
-                      defaultSize={previewResult && !resultsTarget ? 60 : 100}
-                      minSize={30}
-                    >
-                      <AreaWithHeader
-                        hideHeader={showHeader}
-                        borderless={showHeader}
-                        header={
-                          <Flex align="center" justify="between" gap="3">
-                            <Flex align="center" gap="2">
-                              <Text weight="medium">SQL</Text>
-                            </Flex>
-                            <Flex align="center" gap="2">
-                              <SqlQueryActions
-                                aiTrigger={trigger}
-                                canFormat={Boolean(localSql) && canFormat}
-                                canRun={canRunPreview}
-                                formatError={formatError}
-                                isAutocompleteEnabled={isAutocompleteEnabled}
-                                loading={loading}
-                                onFormat={handleFormatClick}
-                                onRun={() => void previewQuery(localSql)}
-                                onToggleAutocomplete={() =>
-                                  setIsAutocompleteEnabled(
-                                    !isAutocompleteEnabled,
-                                  )
-                                }
-                                queryHelp={!showHeader ? queryHelp : undefined}
-                              />
-                            </Flex>
-                          </Flex>
-                        }
-                      >
-                        {prompt}
-                        <CodeTextArea
-                          wrapperClassName={styles["sql-editor-wrapper"]}
-                          language="sql"
-                          value={localSql}
-                          setValue={(sql) => {
-                            setLocalSql(sql);
-                            setFormatError(null);
-                          }}
-                          disabled={loading || !canRunQueries}
-                          setCursorData={setCursorData}
-                          onCtrlEnter={() => {
-                            if (canRunPreview) {
-                              void previewQuery(localSql);
+                <Panel
+                  ref={editorPanelRef}
+                  order={1}
+                  defaultSize={previewResult && !resultsTarget ? 60 : 100}
+                  minSize={30}
+                >
+                  <AreaWithHeader
+                    hideHeader={showHeader}
+                    borderless={showHeader}
+                    header={
+                      <Flex align="center" justify="between" gap="3">
+                        <Flex align="center" gap="2">
+                          <Text weight="medium">SQL</Text>
+                        </Flex>
+                        <Flex align="center" gap="2">
+                          <SqlQueryActions
+                            aiTrigger={trigger}
+                            canFormat={Boolean(localSql) && canFormat}
+                            canRun={canRunPreview}
+                            formatError={formatError}
+                            isAutocompleteEnabled={isAutocompleteEnabled}
+                            loading={loading}
+                            onFormat={handleFormatClick}
+                            onRun={() => void previewQuery(localSql)}
+                            onToggleAutocomplete={() =>
+                              setIsAutocompleteEnabled(!isAutocompleteEnabled)
                             }
-                          }}
-                          completions={autoCompletions}
-                          fullHeight
-                          paddingTop={8}
-                          placeholder={SQL_PLACEHOLDER}
-                        />
-                      </AreaWithHeader>
-                    </Panel>
-                    {!resultsTarget && previewContent ? (
-                      <>
-                        <PanelResizeHandle />
-                        <Panel
-                          id="sql-query-preview"
-                          order={2}
-                          defaultSize={40}
-                          minSize={15}
-                        >
-                          {previewContent}
-                        </Panel>
-                      </>
-                    ) : null}
-                  </PanelGroup>
+                            queryHelp={!showHeader ? queryHelp : undefined}
+                          />
+                        </Flex>
+                      </Flex>
+                    }
+                  >
+                    {prompt}
+                    <CodeTextArea
+                      wrapperClassName={styles["sql-editor-wrapper"]}
+                      language="sql"
+                      value={localSql}
+                      setValue={(sql) => {
+                        setLocalSql(sql);
+                        setFormatError(null);
+                      }}
+                      disabled={loading || !canRunQueries}
+                      setCursorData={setCursorData}
+                      onCtrlEnter={() => {
+                        if (canRunPreview) {
+                          void previewQuery(localSql);
+                        }
+                      }}
+                      completions={autoCompletions}
+                      fullHeight
+                      paddingTop={8}
+                      placeholder={SQL_PLACEHOLDER}
+                    />
+                  </AreaWithHeader>
                 </Panel>
+                {!resultsTarget && previewContent ? (
+                  <>
+                    <PanelResizeHandle />
+                    <Panel
+                      id="sql-query-preview"
+                      order={2}
+                      defaultSize={40}
+                      minSize={15}
+                    >
+                      {previewContent}
+                    </Panel>
+                  </>
+                ) : null}
               </PanelGroup>
             </Flex>
           )}
