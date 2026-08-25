@@ -1,3 +1,4 @@
+import { getFactTableTimestampColumn } from "shared/experiments";
 import { FactTableInterface } from "shared/types/fact-table";
 import type { SQLVars, SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
@@ -38,7 +39,9 @@ export function getFactSegmentCTE(
   }
 
   // BQ datetime cast for SELECT statements (do not use for where)
-  const timestampDateTimeColumn = dialect.castUserDateCol("m.timestamp");
+  const timestampDateTimeColumn = dialect.castUserDateCol(
+    `m.${getFactTableTimestampColumn(factTable)}`,
+  );
 
   const sql = factTable.sql;
 

@@ -69,6 +69,9 @@ export const contextualBanditEventValidator = baseSchema
     sse_trajectory: z.array(contextualSseTrajectoryEntryValidator).optional(),
     weightsWereUpdated: z.boolean(),
     degreesOfFreedom: z.number().int().nonnegative().optional(),
+    // The seed that was applied to the CB when this event was persisted.
+    // Stored for historical tracking; the CB's current seed changes each epoch.
+    seed: z.string().optional(),
   })
   .strict();
 

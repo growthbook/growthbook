@@ -1655,6 +1655,7 @@ export async function getFeatureDefinitions(
       encryptionKey: args.encryptionKey,
       includeVisualExperiments: args.includeVisualExperiments,
       includeDraftExperiments: args.includeDraftExperiments,
+      includeDraftExperimentRefs: args.includeDraftExperimentRefs,
       includeExperimentNames: args.includeExperimentNames,
       includeRedirectExperiments: args.includeRedirectExperiments,
       includeRuleIds: args.includeRuleIds,

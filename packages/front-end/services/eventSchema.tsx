@@ -353,6 +353,7 @@ export const dataSourceConnections: {
       account: "",
       username: "",
       password: "",
+      authMethod: "key-pair",
     },
   },
   {
