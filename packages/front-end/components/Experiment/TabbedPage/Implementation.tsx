@@ -182,7 +182,7 @@ export default function Implementation({
             experiment={experiment}
             editTraffic={pendingScheduledStart ? null : editTraffic}
             editTargeting={pendingScheduledStart ? null : editTargeting}
-            phaseIndex={phases.length - 1}
+            phaseIndex={isHoldout ? 0 : phases.length - 1}
           />
         )}
         {!isHoldout &&

@@ -1682,7 +1682,10 @@ export async function postExperiment(
     validateVariationIds(data.variations);
   }
 
-  const latestPhase = experiment.phases?.[experiment.phases.length - 1];
+  const payloadPhase =
+    experiment.type === "holdout"
+      ? experiment.phases[0]
+      : experiment.phases[experiment.phases.length - 1];
   const existingKeyById = new Map(
     experiment.variations.map((v) => [v.id, v.key]),
   );
@@ -1690,17 +1693,18 @@ export async function postExperiment(
     !!data.variations &&
     !isEqual(
       data.variations.map((v) => v.id),
-      latestPhase?.variations.map((v) => v.id),
+      payloadPhase?.variations.map((v) => v.id),
     );
   // Variation keys are emitted in the SDK payload meta, so key edits also count
   const variationKeysChanged =
     !!data.variations &&
     data.variations.some((v) => v.key !== existingKeyById.get(v.id));
   const coverageChanged =
-    data.coverage !== undefined && data.coverage !== latestPhase?.coverage;
+    data.coverage !== undefined && data.coverage !== payloadPhase?.coverage;
   const variationWeightsChanged =
+    experiment.type !== "holdout" &&
     data.variationWeights !== undefined &&
-    !isEqual(data.variationWeights, latestPhase?.variationWeights);
+    !isEqual(data.variationWeights, payloadPhase?.variationWeights);
 
   const changesLivePayload =
     variationIdsChanged ||
@@ -2052,7 +2056,7 @@ export async function postExperiment(
     }
   }
 
-  if (data.variationWeights) {
+  if (data.variationWeights && experiment.type !== "holdout") {
     changes.phases = applyVariationWeightsToLatestPhase(
       experiment,
       data.variationWeights,
@@ -2075,9 +2079,9 @@ export async function postExperiment(
 
   if (data.coverage !== undefined) {
     const phases = changes.phases || [...experiment.phases];
-    const lastIndex = phases.length - 1;
-    phases[lastIndex] = {
-      ...phases[lastIndex],
+    const phaseIndex = experiment.type === "holdout" ? 0 : phases.length - 1;
+    phases[phaseIndex] = {
+      ...phases[phaseIndex],
       coverage: data.coverage,
     };
     changes.phases = phases;
@@ -2961,7 +2965,10 @@ export async function postExperimentTargeting(
   // scoped modal only edited a subset. Pass the persisted values as
   // `existingParts` so unchanged stale attributes don't block an unrelated
   // save — only newly changed attributes are validated.
-  const lastPersistedPhase = experiment.phases[experiment.phases.length - 1];
+  const baselinePhase =
+    experiment.type === "holdout"
+      ? experiment.phases[0]
+      : experiment.phases[experiment.phases.length - 1];
   assertRegisteredAttributes(
     context,
     {
@@ -2973,35 +2980,33 @@ export async function postExperimentTargeting(
     {
       hashAttribute: experiment.hashAttribute || "id",
       fallbackAttribute: experiment.fallbackAttribute,
-      condition: lastPersistedPhase?.condition,
+      condition: baselinePhase?.condition,
     },
     experiment.project,
   );
 
   const phases = [...experiment.phases];
 
-  // Already has phases and we're updating an existing phase
-  if (phases.length && !newPhase) {
-    if (experiment.type !== "holdout") {
-      phases[phases.length - 1] = {
-        ...phases[phases.length - 1],
-        condition,
-        savedGroups,
-        prerequisites,
-        coverage,
-        namespace,
-        variationWeights,
-        variations,
-        seed,
-      };
-    } else {
-      phases[phases.length - 1] = {
-        ...phases[phases.length - 1],
-        condition,
-        savedGroups,
-        coverage,
-      };
-    }
+  if (experiment.type === "holdout" && phases.length) {
+    // Holdouts serve targeting from phases[0], even during the analysis period.
+    phases[0] = {
+      ...phases[0],
+      condition,
+      savedGroups,
+      coverage,
+    };
+  } else if (phases.length && !newPhase) {
+    phases[phases.length - 1] = {
+      ...phases[phases.length - 1],
+      condition,
+      savedGroups,
+      prerequisites,
+      coverage,
+      namespace,
+      variationWeights,
+      variations,
+      seed,
+    };
   } else {
     // If we had a previous phase, mark it as ended
     if (phases.length) {
