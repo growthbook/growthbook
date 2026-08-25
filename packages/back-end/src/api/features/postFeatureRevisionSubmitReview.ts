@@ -1,8 +1,11 @@
 import { postFeatureRevisionSubmitReviewValidator } from "shared/validators";
 import { getReviewSetting } from "shared/util";
 import { canCommentOnRevisionEntity } from "shared/permissions";
+import {
+  getFeatureReviewFootprint,
+  toApiRevision,
+} from "back-end/src/services/features";
 import type { ApiRequestLocals } from "back-end/types/api";
-import { toApiRevision } from "back-end/src/services/features";
 import { dispatchRevisionReviewEvent } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -44,7 +47,9 @@ export async function submitRevisionReview(
       ? !canCommentOnRevisionEntity(req.context.permissions, "feature", null, {
           project: feature.project,
         })
-      : !req.context.permissions.canReviewFeatureDrafts(feature)
+      : !req.context.permissions.canReviewFeatureDrafts(feature, {
+          scope: "any",
+        })
   ) {
     req.context.permissions.throwPermissionError();
   }
@@ -58,11 +63,29 @@ export async function submitRevisionReview(
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");
 
+  // A verdict is judged against what the draft would change, so this waits on
+  // the revision. Comments keep their pre-fetch refusal above.
+  if (action !== "comment") {
+    const footprint = await getFeatureReviewFootprint({
+      context: req.context,
+      feature,
+      revision,
+    });
+    if (!req.context.permissions.canReviewFeatureDrafts(feature, footprint)) {
+      req.context.permissions.throwPermissionError();
+    }
+  }
+
   // Identityless principals may be the author and cannot submit a verdict.
   const creatorId =
     revision.createdBy != null && "id" in revision.createdBy
       ? revision.createdBy.id
       : "";
+  if (action !== "comment" && !req.context.userId) {
+    throw new BadRequestError(
+      "Submitting a review requires a user identity. Use a Personal Access Token instead of an organization key.",
+    );
+  }
   if (
     action !== "comment" &&
     mayBeRevisionAuthor(creatorId, req.context.userId)
