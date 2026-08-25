@@ -2,6 +2,7 @@ import type { Response } from "express";
 import {
   canInlineFilterColumn,
   expandVirtualColumnsInSql,
+  getFactTableTimestampColumn,
 } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { cloneDeep } from "lodash";
@@ -121,7 +122,7 @@ async function testFilterQuery(
     throw new Error("Testing not supported on this data source");
   }
 
-  const timestampColumn = "timestamp";
+  const timestampColumn = getFactTableTimestampColumn(factTable);
 
   const sql = integration.getTestQuery({
     // Must have a newline after factTable sql in case it ends with a comment.
@@ -179,7 +180,7 @@ async function testVirtualColumnQuery(
     throw new Error("Testing not supported on this data source");
   }
 
-  const timestampColumn = "timestamp";
+  const timestampColumn = getFactTableTimestampColumn(factTable);
 
   // Alias the computed expression with the real column id (sanitized to a safe
   // SQL identifier) so the preview matches what the saved column will be named.
@@ -304,7 +305,7 @@ export async function refreshColumns(
   datasource: DataSourceInterface,
   factTable: Pick<
     FactTableInterface,
-    "sql" | "eventName" | "columns" | "userIdTypes"
+    "sql" | "eventName" | "columns" | "userIdTypes" | "timestampColumn"
   >,
   forceColumnRefresh?: boolean,
 ): Promise<RefreshColumnsResult> {
@@ -323,7 +324,7 @@ export async function refreshColumns(
     !forceColumnRefresh &&
     integration.supportsLimitZeroColumnValidation?.()
   ) {
-    const timestampColumn = "timestamp";
+    const timestampColumn = getFactTableTimestampColumn(factTable);
 
     // Fast path: LIMIT 0 query
     const sql = integration.getTestQuery({

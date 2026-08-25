@@ -407,13 +407,11 @@ export async function revertFeatureRevision(
   });
   if (!liveRevision)
     throw new InternalServerError("Could not load live revision");
-
-  const allEnvironmentIds = getEnvironmentIdsFromOrg(context.org);
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
     baseRevision: liveRevision,
     revision: { ...liveRevision, ...revisionChanges } as typeof liveRevision,
-    allEnvironments: allEnvironmentIds,
+    orgEnvironments: getEnvironments(context.org),
     settings: organization.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });

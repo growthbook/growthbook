@@ -198,26 +198,45 @@ const dummyConfig = {
     environments: ["production"],
   },
 };
+// Mirrors what production hands the hook: reviews as reviewer verdicts
+// ({ userId, user, status, timestamp, teams }) and the author resolved the
+// same way — not the raw stored rows.
 const dummyConfigRevision = {
   version: 3,
   status: "approved",
   comment: "Raise the checkout item limit",
   authorId: "user_123",
   contributors: ["user_123"],
+  author: {
+    userId: "user_123",
+    user: {
+      type: "dashboard",
+      id: "user_123",
+      name: "Dana Author",
+      email: "dana@example.com",
+    },
+    teams: [{ id: "team_checkout", name: "Checkout" }],
+  },
+  coauthors: [],
   reviews: [
     {
       userId: "user_456",
-      decision: "approve",
-      comment: "",
-      stale: false,
-      dateCreated: new Date(),
+      user: {
+        type: "dashboard",
+        id: "user_456",
+        name: "Riley Reviewer",
+        email: "riley@example.com",
+      },
+      status: "approved",
+      timestamp: new Date(),
+      teams: [{ id: "team_payments", name: "Payments" }],
     },
     {
       userId: "key_abc123",
-      decision: "approve",
-      comment: "",
-      stale: false,
-      dateCreated: new Date(),
+      user: { type: "api_key", apiKey: "key_abc123" },
+      status: "approved",
+      timestamp: new Date(),
+      teams: [],
     },
   ],
 };
@@ -258,7 +277,7 @@ export const hookTypes: Record<
         testValue: stringify(dummyConfigRevision),
       },
     },
-    example: `\n// config.value is a parsed object — no JSON.parse needed.\n// Block the publish (hard error):\nif ((config.value.maxItems ?? 0) > 100) {\n  throw new Error("maxItems cannot exceed 100");\n}\n\n// Gate on approval policy:\nif (revision) {\n  const approvals = (revision.reviews || []).filter(r => r.decision === "approve" && !r.stale);\n  if (!approvals.some(r => r.userId === "key_abc123")) {\n    throw new Error("Requires release-bot approval");\n  }\n}`,
+    example: `\n// config.value is a parsed object — no JSON.parse needed.\n// Block the publish (hard error):\nif ((config.value.maxItems ?? 0) > 100) {\n  throw new Error("maxItems cannot exceed 100");\n}\n\n// Gate on approval policy:\nif (revision) {\n  const approvals = (revision.reviews || []).filter(r => r.status === "approved");\n  if (!approvals.some(r => r.userId === "key_abc123")) {\n    throw new Error("Requires release-bot approval");\n  }\n}`,
   },
   validateFeature: {
     label: "Validate Feature",
@@ -279,7 +298,29 @@ export const hookTypes: Record<
       },
       revision: {
         description: "The feature revision being validated",
-        testValue: stringify(dummyRevision),
+        // As production delivers it: reviewer verdicts carry teams, and the
+        // author/coauthors arrive resolved (see withHookRevisionContext).
+        testValue: stringify({
+          ...dummyRevision,
+          author: {
+            userId: "user_123",
+            user: {
+              type: "dashboard",
+              id: "user_123",
+              name: "User",
+              email: "user@example.com",
+            },
+            teams: [{ id: "team_checkout", name: "Checkout" }],
+          },
+          coauthors: [],
+          reviews: (dummyRevision.reviews ?? []).map((r) => ({
+            ...r,
+            teams:
+              r.userId === "user_456"
+                ? [{ id: "team_payments", name: "Payments" }]
+                : [],
+          })),
+        }),
       },
     },
     example: `\n// Block the save (hard error):\nif (!revision.rules.production || revision.rules.production.length === 0) {\n  throw new Error("At least one production rule is required");\n}\n\n// Or raise a soft warning the user can acknowledge:\nif (!revision.comment) {\n  addWarning("Consider adding a comment describing this change");\n}`,

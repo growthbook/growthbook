@@ -15,7 +15,7 @@ Images are some of the highest-impact A/B tests you can run — hero photography
 2. **AI generation** — describe the image and let a configured AI model produce it, optionally using the existing image as a reference.
 3. **Library** — pick from images your organization has already uploaded or generated, reusable across experiments and projects.
 
-All three paths land in the same `<img>` (or `<picture>`) replacement and are managed identically in the [Changes panel](/app/visual/manual-mode#change-list).
+All three paths land in the same `<img>` (or `<picture>`) replacement and are managed identically in the [Changes panel](/app/visual/manual-mode).
 
 ## Replacing an image
 
@@ -31,7 +31,7 @@ In Manual mode, the property panel shows an **Image** group with three tabs: **U
 
 Supported formats are PNG, JPEG, WebP, and GIF. There's no hard size limit, but very large images slow page load — keep production assets under ~500 KB where possible.
 
-#### `<picture>` and `srcset` handling
+#### `<picture>` and `srcset` handling {#picture-and-srcset-handling}
 
 Modern image markup often wraps an `<img>` in a `<picture>` element with multiple `<source>` candidates and a `srcset` attribute for responsive resolution selection. If you just replace the `src`, the browser will keep picking the original from `srcset` and your variation won't show up.
 
@@ -59,7 +59,7 @@ A few options:
 - **Model picker** — appears when your org has more than one image model configured. See [available models](#available-image-models) below.
 - **Aspect ratio and size** — pulled from the original image so the replacement fits the existing layout. (You can still override by editing CSS dimensions in the Background & Border group.)
 
-When you're happy with a candidate, click **Use this image** to accept it into the variation. Generated images are stored in the [image library](#the-library-tab) so you can reuse them later.
+When you're happy with a candidate, click **Use this image** to accept it into the variation. Generated images are stored in the [image library](#library-tab) so you can reuse them later.
 
 ### Library tab
 
