@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { OAuthError } from "@/components/OAuthError";
 import { getApiHost } from "@/services/env";
+import { getPostAuthRedirectPath } from "@/services/auth";
 
 export default function OAuthCallbackPage() {
   const router = useRouter();
@@ -14,29 +15,22 @@ export default function OAuthCallbackPage() {
         ? window.location.search
         : "?" + window.location.hash.substring(1);
 
-    window
-      .fetch(getApiHost() + `/auth/callback${qs}`, {
-        method: "POST",
-        credentials: "include",
-      })
-      .then((res) => res.json())
-      .then((json) => {
-        if (json?.status !== 200) {
-          setError(json?.message || "An unknown error occurred");
-        } else {
-          try {
-            let redirect =
-              window.sessionStorage.getItem("postAuthRedirectPath") ?? "/";
-            // make sure the redirect path is relative (starts with a / followed by a string or nothing)
-            if (!/^\/\w*/.test(redirect)) {
-              redirect = "/";
-            }
-            router.replace(redirect);
-          } catch (e) {
-            // just redirect to the home page if there's an error
-            router.replace("/");
-          }
+    const post = (path: string) =>
+      window
+        .fetch(getApiHost() + path, { method: "POST", credentials: "include" })
+        .then((res) => res.json());
+
+    post(`/auth/callback${qs}`)
+      .then(async (json) => {
+        if (json?.status === 200) {
+          return router.replace(getPostAuthRedirectPath());
         }
+        // Another tab may have already finished logging in, making this failure moot
+        const refresh = await post("/auth/refresh").catch(() => null);
+        if (refresh?.token) {
+          return router.replace(getPostAuthRedirectPath());
+        }
+        setError(json?.message || "An unknown error occurred");
       })
       .catch((e) => {
         setError(e.message);

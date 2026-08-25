@@ -42,6 +42,9 @@ type AuthChecks = {
   code_verifier: string;
 };
 
+// The cookie holds one entry per in-flight login so concurrent tabs don't clobber each other
+const MAX_PENDING_AUTH_CHECKS = 10;
+
 if (USE_PROXY) {
   custom.setHttpOptionsDefaults(getHttpOptions());
 }
@@ -116,8 +119,9 @@ export class OpenIdAuthConnection implements AuthConnection {
 
     // If there's an existing incomplete auth session for this Cloud SSO provider,
     // confirm with the user to give them a chance to cancel and reset to the default auth
-    const checks = this.getAuthChecks(req);
-    const confirm = !!connection.id && checks?.connection_id === connection.id;
+    const confirm =
+      !!connection.id &&
+      this.getAuthChecks(req).some((c) => c.connection_id === connection.id);
 
     return {
       redirectURI,
@@ -127,18 +131,29 @@ export class OpenIdAuthConnection implements AuthConnection {
   async processCallback(req: Request, res: Response): Promise<TokensResponse> {
     const { connection, client } = await getConnectionFromRequest(req, res);
 
-    // Get rid of temporary codeVerifier cookie
-    const checks = this.getAuthChecks(req);
-    AuthChecksCookie.setValue("", req, res);
+    const params = client.callbackParams(req.originalUrl);
+
+    // Consume only this flow's entry; other tabs' pending logins stay valid
+    const pending = this.getAuthChecks(req);
+    const checks = pending.find((c) => c.state === params.state);
+    const remaining = pending.filter((c) => c !== checks);
+    AuthChecksCookie.setValue(
+      remaining.length ? JSON.stringify(remaining) : "",
+      req,
+      res,
+    );
 
     if (!checks) {
-      throw new Error("Missing auth checks in session");
+      throw new Error(
+        pending.length
+          ? "No pending auth checks match the returned state"
+          : "Missing auth checks in session",
+      );
     }
     if (checks.connection_id !== (connection.id || "")) {
       throw new Error("Invalid auth checks in session");
     }
 
-    const params = client.callbackParams(req.originalUrl);
     const tokenSet = await client.callback(
       `${APP_ORIGIN}/oauth/callback`,
       params,
@@ -246,11 +261,12 @@ export class OpenIdAuthConnection implements AuthConnection {
     }
   }
 
-  private getAuthChecks(req: Request) {
+  private getAuthChecks(req: Request): AuthChecks[] {
     const checks = AuthChecksCookie.getValue(req);
-    if (!checks) return null;
-    const parsed: AuthChecks = JSON.parse(checks);
-    return parsed;
+    if (!checks) return [];
+    const parsed: AuthChecks | AuthChecks[] = JSON.parse(checks);
+    // Cookies written before the list format held a single object
+    return Array.isArray(parsed) ? parsed : [parsed];
   }
   private getMaxAge(tokenSet: TokenSet) {
     if (tokenSet.expires_in) {
@@ -286,7 +302,8 @@ export class OpenIdAuthConnection implements AuthConnection {
       state,
     };
 
-    AuthChecksCookie.setValue(JSON.stringify(checks), req, res);
+    const pending = this.getAuthChecks(req).slice(1 - MAX_PENDING_AUTH_CHECKS);
+    AuthChecksCookie.setValue(JSON.stringify([...pending, checks]), req, res);
 
     let url = client.authorizationUrl({
       scope: `openid email profile ${

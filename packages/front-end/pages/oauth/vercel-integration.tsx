@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { getApiHost } from "@/services/env";
 import { useProject } from "@/services/DefinitionsContext";
 import { OAuthError } from "@/components/OAuthError";
+import { getPostAuthRedirectPath } from "@/services/auth";
 
 type QueryParams = {
   code?: string;
@@ -43,14 +44,15 @@ const VercelPage = () => {
 
         const urlRegex = /^(features|experiment):/;
 
-        const baseUrl =
-          "/" +
-          (experimentationItemId?.match(urlRegex)
-            ? experimentationItemId.replace(urlRegex, "/$1/")
-            : "");
+        // Vercel deep links win; otherwise return to wherever the session expired
+        const baseUrl = experimentationItemId?.match(urlRegex)
+          ? "/" + experimentationItemId.replace(urlRegex, "/$1/")
+          : getPostAuthRedirectPath();
 
         if (projectId) setProject(projectId);
-        router.push(`${baseUrl}?org=${organizationId}`);
+        router.push(
+          `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}org=${organizationId}`,
+        );
       } catch (err) {
         setError(String(err));
       }

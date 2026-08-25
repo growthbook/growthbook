@@ -210,6 +210,16 @@ export async function safeLogout() {
   await redirectWithTimeout(json?.redirectURI || window.location.origin);
 }
 
+// Where to land once login completes; only a same-origin relative path is trusted
+export function getPostAuthRedirectPath(): string {
+  try {
+    const path = window.sessionStorage.getItem("postAuthRedirectPath") ?? "/";
+    return /^\/(?!\/)/.test(path) ? path : "/";
+  } catch (e) {
+    return "/";
+  }
+}
+
 export async function redirectWithTimeout(url: string, timeout: number = 5000) {
   // If the URL is the same as the current one, do a reload instead
   // This is the only way to force the page to refresh if the URL contains a hash

@@ -66,7 +66,8 @@ export const RefreshTokenCookie = new Cookie(
   "/auth",
 );
 export const IdTokenCookie = new Cookie("AUTH_ID_TOKEN", minutes(15));
-export const AuthChecksCookie = new Cookie("AUTH_CHECKS", minutes(10));
+// Long enough to sit on the IdP's login page for a while before coming back
+export const AuthChecksCookie = new Cookie("AUTH_CHECKS", minutes(60));
 
 // Read the JWT's `exp` claim without verifying the signature — we only trust
 // the cookie value once a downstream middleware has verified it.
