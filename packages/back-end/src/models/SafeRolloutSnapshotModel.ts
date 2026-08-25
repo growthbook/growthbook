@@ -3,6 +3,10 @@ import {
   SafeRolloutSnapshotInterface,
   safeRolloutSnapshotInterface,
 } from "shared/validators";
+import {
+  findAnalysisComputeFailure,
+  getSafeRolloutSnapshotAnalysis,
+} from "shared/util";
 import { updateSafeRolloutTimeSeries } from "back-end/src/services/safeRolloutTimeSeries";
 import {
   getSafeRolloutAnalysisSummary,
@@ -13,10 +17,7 @@ import {
   checkAndRollbackSafeRollout,
   updateRampUpSchedule,
 } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
-import {
-  evaluateRampScheduleAfterSafeRolloutSnapshot,
-  findErroredSafeRolloutMetricId,
-} from "back-end/src/services/rampScheduleEvaluator";
+import { evaluateRampScheduleAfterSafeRolloutSnapshot } from "back-end/src/services/rampScheduleEvaluator";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -110,7 +111,12 @@ export class SafeRolloutSnapshotModel extends BaseClass {
       latestSafeRolloutSnapshot === null ||
       latestSafeRolloutSnapshot?.id === updatedDoc.id;
 
-    if (isLatestSnapshot && updatedDoc.status === "success") {
+    if (
+      isLatestSnapshot &&
+      updatedDoc.status === "success" &&
+      findAnalysisComputeFailure(getSafeRolloutSnapshotAnalysis(updatedDoc)) ===
+        null
+    ) {
       const safeRollout = await this.context.models.safeRollout.getById(
         updatedDoc.safeRolloutId,
       );
@@ -184,11 +190,7 @@ export class SafeRolloutSnapshotModel extends BaseClass {
           ruleId: matchingRule.id,
           feature,
         });
-        // A metric that failed to compute used to error the snapshot and stop
-        // here; now the snapshot succeeds, so skip the advance explicitly.
-        const guardrailComputeFailed =
-          findErroredSafeRolloutMetricId(updatedDoc) !== null;
-        if (status === "running" && !guardrailComputeFailed) {
+        if (status === "running") {
           await updateRampUpSchedule({
             context: this.context,
             safeRollout,
