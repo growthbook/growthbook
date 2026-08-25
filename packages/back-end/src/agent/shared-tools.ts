@@ -27,12 +27,6 @@ import type { ReqContext } from "back-end/types/request";
 const EXPLORATION_PATH_RE =
   /^\/api\/v[12]\/product-analytics\/(metric|fact-table|data-source|funnel)-exploration\/?$/;
 
-/** Read-only POST that looks up distinct column values for a fact table. The
- * analytics skill mandates calling this during normal chart building, so it
- * must be exempt from the mutation-confirmation gate. */
-const COLUMN_VALUES_PATH_RE =
-  /^\/api\/v[12]\/product-analytics\/column-values\/?$/;
-
 function isExplorationPath(path: string): boolean {
   // Normalize first so we match the canonical `/api/v1/...` form the
   // dispatcher routes to, regardless of the prefix shape the LLM sent
@@ -48,9 +42,6 @@ function requiresMutationConfirmation(input: DispatchInput): boolean {
     return false;
   }
   if (isExplorationPath(path)) {
-    return false;
-  }
-  if (COLUMN_VALUES_PATH_RE.test(path)) {
     return false;
   }
   return true;

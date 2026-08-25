@@ -15,11 +15,12 @@ import {
   type DroppedDashboardBlock,
 } from "shared/enterprise";
 import { parseToolResult } from "shared/ai-chat";
-import { PiCheckCircleFill, PiSparkleFill } from "react-icons/pi";
-import Link from "next/link";
+import { PiCheckCircleFill, PiSparkle } from "react-icons/pi";
 import Button from "@/ui/Button";
+import LinkButton from "@/ui/LinkButton";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
+import { Select, SelectItem } from "@/ui/Select";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -65,7 +66,8 @@ export default function DashboardPreviewBubble({
   refreshOnMount = false,
 }: Props) {
   const { apiCall } = useAuth();
-  const { userId } = useUser();
+  const { userId, hasCommercialFeature } = useUser();
+  const hasSharing = hasCommercialFeature("share-product-analytics-dashboards");
   const { project, mutateDefinitions } = useDefinitions();
   const { fetchData: fetchExplorationData } = useExploreData();
 
@@ -82,6 +84,9 @@ export default function DashboardPreviewBubble({
   const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Separate from `error`: a rehydrate that may still paint older tiles is
+  // degraded, not blocked. Only a failed save stops the user outright.
+  const [staleData, setStaleData] = useState<string | null>(null);
 
   const title = draft.title;
   const isRevision = !!draft.dashboardId;
@@ -185,7 +190,7 @@ export default function DashboardPreviewBubble({
       // The tiles keep rendering whatever their stored analysis ids still
       // resolve to, which may be nothing. Say so rather than leaving the user
       // to wonder why a tile is blank.
-      setError(
+      setStaleData(
         "These tiles could not be refreshed, so they may be showing older results " +
           "or nothing at all. Change a filter and click Update to try again.",
       );
@@ -242,11 +247,12 @@ export default function DashboardPreviewBubble({
     <Box className={styles.wrapper}>
       <Flex align="center" justify="between" gap="3" mb="3" wrap="wrap">
         {/* No title field here: the dashboard renders its own title just below,
-            and renaming is a prompt away. */}
+            and renaming is a prompt away. The header keeps naming the artifact
+            after a save; the check on the right is the one confirmation. */}
         <Flex align="center" gap="2" flexGrow="1" minWidth="0">
-          <PiSparkleFill className={styles.icon} />
+          <PiSparkle className={styles.icon} />
           <Text size="md" weight="medium">
-            {savedId ? "Saved" : "Suggested dashboard"}
+            Suggested dashboard
           </Text>
         </Flex>
 
@@ -256,25 +262,30 @@ export default function DashboardPreviewBubble({
               <PiCheckCircleFill className={styles.saved} />
               <Text size="sm">Saved</Text>
             </Flex>
-            <Link href={`/product-analytics/dashboards/${savedId}`}>
+            <LinkButton
+              href={`/product-analytics/dashboards/${savedId}`}
+              variant="ghost"
+              size="sm"
+              color="violet"
+            >
               Open dashboard
-            </Link>
+            </LinkButton>
           </Flex>
         ) : (
-          <Flex align="center" gap="2">
-            <Button
-              variant="outline"
+          <Flex align="end" gap="2">
+            <Select
+              label="View access"
+              labelSize="sm"
               size="sm"
-              onClick={() =>
-                setShareLevel((s) =>
-                  s === "private" ? "published" : "private",
-                )
+              disabled={!hasSharing}
+              value={shareLevel}
+              setValue={(value) =>
+                setShareLevel(value as "private" | "published")
               }
             >
-              {shareLevel === "private"
-                ? "Private to you"
-                : "Visible to organization"}
-            </Button>
+              <SelectItem value="published">Organization members</SelectItem>
+              <SelectItem value="private">Only me</SelectItem>
+            </Select>
             <Button
               size="sm"
               loading={saving}
@@ -287,12 +298,42 @@ export default function DashboardPreviewBubble({
         )}
       </Flex>
 
+      {!savedId && !hasSharing && (
+        <Box mb="3">
+          <Callout status="warning" size="sm">
+            Your organization&apos;s plan does not support sharing dashboards,
+            so this one will be visible only to you.
+          </Callout>
+        </Box>
+      )}
+
       {droppedBlocks.length > 0 && (
         <Box mb="3">
           <Callout status="warning" size="sm">
-            {droppedBlocks.length === 1
-              ? `"${droppedBlocks[0].title}" was left off — ${droppedBlocks[0].reason}.`
-              : `${droppedBlocks.length} tiles were left off because their queries could not be started.`}
+            {droppedBlocks.length === 1 ? (
+              `"${droppedBlocks[0].title}" was left off — ${droppedBlocks[0].reason}.`
+            ) : (
+              // Per-tile reasons: three tiles lost to three different causes
+              // read as one vague failure without them.
+              <>
+                {droppedBlocks.length} tiles were left off:
+                <ul className="mb-0 mt-1 pl-3">
+                  {droppedBlocks.map((block) => (
+                    <li key={block.title}>
+                      {`"${block.title}" — ${block.reason}.`}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </Callout>
+        </Box>
+      )}
+
+      {staleData && (
+        <Box mb="3">
+          <Callout status="warning" size="sm">
+            {staleData}
           </Callout>
         </Box>
       )}
@@ -381,7 +422,11 @@ export default function DashboardPreviewBubble({
         />
       </DashboardSnapshotProvider>
 
-      {toolTransparency}
+      {toolTransparency ? (
+        <Box mt="2" pt="2" style={{ borderTop: "1px solid var(--gray-a5)" }}>
+          {toolTransparency}
+        </Box>
+      ) : null}
     </Box>
   );
 }

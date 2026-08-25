@@ -68,7 +68,9 @@ export function MentionPopoverContent({
       )}
       {description ? (
         <Description>{description}</Description>
-      ) : (
+      ) : mention.type === "dashboard" ? null : (
+        // "No description" is for a metric that could carry one; a dashboard
+        // never can, so the slot is only noise there.
         <div className={styles.empty}>No description</div>
       )}
       <Link href={metricHref(mention)} className={styles.action}>
