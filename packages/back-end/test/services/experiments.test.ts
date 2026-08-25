@@ -25,6 +25,7 @@ import {
   postMetricApiPayloadToMetricInterface,
   putMetricApiPayloadIsValid,
   putMetricApiPayloadToMetricInterface,
+  getExperimentPhaseTrafficSplit,
   updateExperimentApiPayloadToInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";
@@ -1638,6 +1639,63 @@ describe("putMetricApiPayloadToMetricInterface", () => {
         (changes as { assignmentQueryId?: string }).assignmentQueryId,
       ).toBe(undefined);
     });
+  });
+});
+
+describe("getExperimentPhaseTrafficSplit", () => {
+  it("uses each phase's variations for traffic splits", () => {
+    const experiment = {
+      trackingKey: "phase-variations",
+      variations: [
+        {
+          id: "control",
+          key: "0",
+          name: "Control",
+          screenshots: [],
+        },
+        {
+          id: "treatment",
+          key: "1",
+          name: "Treatment",
+          screenshots: [],
+        },
+      ],
+      phases: [
+        {
+          name: "Ramp",
+          dateStarted: new Date("2026-01-01"),
+          variationWeights: [0.75, 0.25],
+          variations: [
+            { id: "control", status: "active" },
+            { id: "treatment", status: "active" },
+          ],
+        },
+        {
+          name: "Main",
+          dateStarted: new Date("2026-02-01"),
+          variationWeights: [0.6, 0.4],
+          variations: [
+            { id: "treatment", status: "active" },
+            { id: "control", status: "active" },
+          ],
+        },
+      ],
+    } as unknown as ExperimentInterface;
+
+    expect(
+      experiment.phases.map((_, phaseIndex) =>
+        getExperimentPhaseTrafficSplit(experiment, phaseIndex),
+      ),
+    ).toEqual([
+      [
+        { variationId: "control", weight: 0.75 },
+        { variationId: "treatment", weight: 0.25 },
+      ],
+      [
+        { variationId: "treatment", weight: 0.6 },
+        { variationId: "control", weight: 0.4 },
+      ],
+    ]);
   });
 });
 

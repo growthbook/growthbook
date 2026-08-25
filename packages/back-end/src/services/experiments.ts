@@ -2943,6 +2943,19 @@ function getExperimentMetric(
   return ret;
 }
 
+export function getExperimentPhaseTrafficSplit(
+  experiment: ExperimentInterface,
+  phaseIndex: number,
+) {
+  const phase = experiment.phases[phaseIndex];
+  if (!phase) return [];
+
+  return getPhaseVariations(experiment, phaseIndex).map((variation, index) => ({
+    variationId: variation.id,
+    weight: phase.variationWeights[index] || 0,
+  }));
+}
+
 export async function toExperimentApiInterface(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
@@ -3004,17 +3017,14 @@ export async function toExperimentApiInterface(
         ),
       })),
     ),
-    phases: experiment.phases.map((p) => ({
+    phases: experiment.phases.map((p, phaseIndex) => ({
       name: p.name,
       dateStarted: p.dateStarted.toISOString(),
       dateEnded: p.dateEnded ? p.dateEnded.toISOString() : "",
       reasonForStopping: p.reason || "",
       seed: p.seed || experiment.trackingKey,
       coverage: p.coverage,
-      trafficSplit: getLatestPhaseVariations(experiment).map((v, i) => ({
-        variationId: v.id,
-        weight: p.variationWeights[i] || 0,
-      })),
+      trafficSplit: getExperimentPhaseTrafficSplit(experiment, phaseIndex),
       targetingCondition: p.condition || "",
       prerequisites: p.prerequisites || [],
       savedGroupTargeting: (p.savedGroups || []).map((s) => ({
