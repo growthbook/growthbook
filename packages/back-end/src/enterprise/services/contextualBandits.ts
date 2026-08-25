@@ -1,4 +1,5 @@
 import { cloneDeep, isEqual, omit } from "lodash";
+import { v4 as uuidv4 } from "uuid";
 import type {
   ExperimentSnapshotSettings,
   SnapshotStatusSummary,
@@ -1051,6 +1052,9 @@ export async function persistContextualBanditEvent(
     ? []
     : leafWeightsFromContextualBanditResult(result, cb.variations);
 
+  // Generate a new random seed when weights are updated to re-bucket users each period
+  const newSeed = weightsWereUpdated ? uuidv4() : undefined;
+
   const cbe = await context.models.contextualBanditEvents.create({
     contextualBandit: cb.id,
     snapshotId: cbs.id,
@@ -1061,14 +1065,41 @@ export async function persistContextualBanditEvent(
     sse_trajectory: result.sse_trajectory,
     weightsWereUpdated,
     ...(result.srm ? { degreesOfFreedom: result.srm.degreesOfFreedom } : {}),
+    // Store the seed for historical tracking
+    ...(newSeed ? { seed: newSeed } : {}),
   });
 
-  await context.models.contextualBandits.patchLeafWeights(cb.id, leafWeights, {
-    bumpVersion: weightsWereUpdated,
-  });
+  const updatedCb = await context.models.contextualBandits.patchLeafWeights(
+    cb.id,
+    leafWeights,
+    {
+      bumpVersion: weightsWereUpdated,
+      newSeed,
+    },
+  );
 
   if (weightsWereUpdated) {
-    await refreshLinkedFeaturePayloads(context, cb, "contextualBandit.refresh");
+    await refreshLinkedFeaturePayloads(
+      context,
+      updatedCb,
+      "contextualBandit.refresh",
+    );
+    // Best-effort: a throw here would leave the snapshot running and re-persist.
+    try {
+      await context.auditLog({
+        event: "contextualBandit.update",
+        entity: {
+          object: "contextualBandit",
+          id: cb.id,
+        },
+        details: auditDetailsUpdate(cb, updatedCb),
+      });
+    } catch (e) {
+      context.logger.error(
+        e,
+        `Error creating audit log for contextualBandit.update (${cb.id})`,
+      );
+    }
   }
 
   return cbe;

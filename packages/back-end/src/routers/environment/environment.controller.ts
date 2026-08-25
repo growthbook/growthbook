@@ -23,6 +23,7 @@ import { PrivateApiErrorResponse } from "back-end/types/api";
 import {
   getEnvironments,
   getContextFromReq,
+  getContextForAgendaJobByOrgId,
 } from "back-end/src/services/organizations";
 import { addEnvironmentToOrganizationEnvironments } from "back-end/src/util/environments";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
@@ -208,10 +209,16 @@ export const putEnvironment = async (
           (c) => c.environment === id,
         );
 
+        // Re-read the org: the request context still holds the pre-update environments, which would rebuild payloads against the old project list
         queueSDKPayloadRefresh({
-          context,
+          context: await getContextForAgendaJobByOrgId(org.id),
           payloadKeys: [],
           sdkConnections: affectedConnections,
+          auditContext: {
+            event: "projects changed",
+            model: "environment",
+            id,
+          },
         });
       }
     }

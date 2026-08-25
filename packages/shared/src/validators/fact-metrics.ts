@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import { MAX_FUNNEL_STEPS } from "shared/funnels";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 import {
   isValidRowFilterRangeLength,
-  MAX_FACT_METRIC_FUNNEL_STEPS,
   ROW_FILTER_RANGE_LENGTH_MESSAGE,
 } from "./fact-table";
 
@@ -175,7 +175,7 @@ const apiFunnelSettings = z
     steps: z
       .array(apiFunnelStep)
       .min(2)
-      .max(MAX_FACT_METRIC_FUNNEL_STEPS)
+      .max(MAX_FUNNEL_STEPS)
       .describe("Ordered list of funnel steps. Minimum 2 steps required."),
     ordering: z
       .enum(["sequential", "strict", "unordered"])
@@ -197,7 +197,7 @@ const postFunnelSettings = z
     steps: z
       .array(apiFunnelStep)
       .min(2)
-      .max(MAX_FACT_METRIC_FUNNEL_STEPS)
+      .max(MAX_FUNNEL_STEPS)
       .describe("Ordered list of funnel steps. Minimum 2 steps required."),
     ordering: z
       .enum(["sequential"])

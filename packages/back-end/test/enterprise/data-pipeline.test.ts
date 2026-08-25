@@ -428,6 +428,24 @@ describe("getExperimentSettingsHashForIncrementalRefresh — output hash", () =>
       "1c14c7b3c695413e66101563d2b606ab",
     );
   });
+
+  it("salts the hash when a segment is set so pre-fix units tables refresh", () => {
+    expect(
+      getExperimentSettingsHashForIncrementalRefresh({
+        ...GOLDEN_INPUT,
+        segment: "seg_1",
+      }),
+    ).toBe("87ac81f4eeb663e34dac3a40ff93eb1a");
+  });
+
+  it("salts the hash when a query filter is set so pre-fix units tables refresh", () => {
+    expect(
+      getExperimentSettingsHashForIncrementalRefresh({
+        ...GOLDEN_INPUT,
+        queryFilter: "country = 'US'",
+      }),
+    ).toBe("96e51c90778ee575dc6cae62b2e99df2");
+  });
 });
 
 describe("legacyDocDescribesPhase", () => {

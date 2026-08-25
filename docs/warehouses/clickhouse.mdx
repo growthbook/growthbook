@@ -1,0 +1,17 @@
+---
+title: Setting Up ClickHouse as a Data Source
+description: Connect ClickHouse to GrowthBook with a connection URL, database, and a read-only user. Whitelist the Cloud IP if needed.
+sidebarTitle: ClickHouse
+slug: clickhouse
+---
+
+Connecting to Clickhouse is very straightforward. You just need to provide the connection string and credentials. If you
+are using something like Clickhouse Cloud, you can find the connection string in the UI.
+
+<Frame>
+  <img src="/static/images/guides/guide-clickhouse-1.png" alt="Clickhouse Cloud Connection String" width="600" />
+</Frame>
+
+If you are making connection credentials just for GrowthBook, you can give it read-only access to the database.
+
+If you are using GrowthBook Cloud (app.growthbook.io), make sure to whitelist the ip address 52.70.79.40 if applicable.

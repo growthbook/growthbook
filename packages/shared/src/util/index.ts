@@ -29,6 +29,9 @@ export * from "./strings";
 export * from "./units-query-settings";
 export * from "./event-forwarder-destination";
 export * from "./features";
+export * from "./threeWayMerge";
+export * from "./draftConflict";
+export * from "./projectScopedRules";
 export * from "./featureDraftPurity";
 export * from "./configs";
 export * from "./deep-merge";
@@ -196,14 +199,20 @@ export function experimentHasLiveLinkedChanges(
 export function includeExperimentInPayload(
   exp: ExperimentInterface | ExperimentInterfaceStringDates,
   linkedFeatures: FeatureInterface[] = [],
+  options?: {
+    // Keep feature-only drafts (SDK connections with includeDraftExperimentRefs)
+    includeDrafts?: boolean;
+  },
 ): boolean {
   // Archived experiments are always excluded
   if (exp.archived) return false;
 
   if (!experimentHasLinkedChanges(exp)) return false;
 
-  // Exclude if experiment is a draft and there are no visual changes or redirects (feature flags always ignore draft experiment rules)
+  // Exclude if experiment is a draft and there are no visual changes or redirects
+  // (feature flags ignore draft experiment rules unless includeDrafts is set)
   if (
+    !options?.includeDrafts &&
     !exp.hasVisualChangesets &&
     !exp.hasURLRedirects &&
     exp.status === "draft"
