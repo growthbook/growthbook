@@ -60,6 +60,15 @@ import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicat
 import { RowError } from "@/components/Experiment/ResultsTable";
 import { getDefaultRuleValue, NewExperimentRefRule } from "./features";
 
+export const NO_DATA_ERROR_MESSAGE = "No data";
+
+export function getComputeErrorMessage(
+  stats?: Pick<SnapshotMetric, "errorMessage"> | null,
+): string | null {
+  const message = stats?.errorMessage;
+  return message && message !== NO_DATA_ERROR_MESSAGE ? message : null;
+}
+
 export const compareRows = (
   a: ExperimentTableRow,
   b: ExperimentTableRow,
