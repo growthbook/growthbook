@@ -419,9 +419,6 @@ export default function ExplorerMainSection({
                   fullHeight
                   onOpenChange={handleSqlQueryOpenChange}
                   onPreviewPresenceChange={setHasSqlPreview}
-                  onRunStart={() => setViewMode?.("dataset")}
-                  onRunSuccess={() => setViewMode?.("dataset")}
-                  onRunError={() => setViewMode?.("dataset")}
                   resultsTarget={hasSqlPreview ? sqlResultsTarget : null}
                 />
               </Panel>

@@ -26,15 +26,11 @@ const idleState: SqlQueryPreviewState = {
 export default function useSqlQueryPreview({
   dataset,
   datasourceId,
-  onRunStart,
-  onRunSuccess,
-  onRunError,
+  onRun,
 }: {
   dataset: SqlDataset | null;
   datasourceId: string;
-  onRunStart?: () => void;
-  onRunSuccess?: () => void;
-  onRunError?: () => void;
+  onRun?: () => void;
 }) {
   const { apiCall } = useAuth();
   const { setDraftExploreState } = useExplorerContext();
@@ -131,7 +127,7 @@ export default function useSqlQueryPreview({
       if (!sql.trim() || !datasourceId) return false;
 
       setIsQueryRunning(true);
-      onRunStart?.();
+      onRun?.();
       setState({ status: "loading", result: null, error: null });
 
       try {
@@ -150,7 +146,6 @@ export default function useSqlQueryPreview({
 
         if (response.error) {
           setState({ status: "error", result, error: response.error });
-          onRunError?.();
           return false;
         }
 
@@ -172,7 +167,6 @@ export default function useSqlQueryPreview({
         lastPreviewedSqlRef.current = sql;
         applyColumnMetadata(sql, columnTypes, timestampColumn);
         setState({ status: "success", result, error: null });
-        onRunSuccess?.();
         return true;
       } catch (caught) {
         const error = caught instanceof Error ? caught.message : String(caught);
@@ -185,21 +179,12 @@ export default function useSqlQueryPreview({
             sql,
           },
         });
-        onRunError?.();
         return false;
       } finally {
         setIsQueryRunning(false);
       }
     },
-    [
-      apiCall,
-      applyColumnMetadata,
-      datasourceId,
-      onRunError,
-      onRunStart,
-      onRunSuccess,
-      setIsQueryRunning,
-    ],
+    [apiCall, applyColumnMetadata, datasourceId, onRun, setIsQueryRunning],
   );
 
   return {

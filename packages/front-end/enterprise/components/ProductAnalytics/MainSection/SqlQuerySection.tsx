@@ -112,18 +112,12 @@ function SqlQueryActions({
 export default function SqlQuerySection({
   fullHeight = false,
   showHeader = true,
-  onRunStart,
-  onRunSuccess,
-  onRunError,
   resultsTarget,
   onOpenChange,
   onPreviewPresenceChange,
 }: {
   fullHeight?: boolean;
   showHeader?: boolean;
-  onRunStart?: () => void;
-  onRunSuccess?: () => void;
-  onRunError?: () => void;
   resultsTarget?: HTMLDivElement | null;
   onOpenChange?: (open: boolean) => void;
   onPreviewPresenceChange?: (hasPreview: boolean) => void;
@@ -165,9 +159,7 @@ export default function SqlQuerySection({
   } = useSqlQueryPreview({
     dataset,
     datasourceId: draftExploreState.datasource,
-    onRunStart,
-    onRunSuccess,
-    onRunError,
+    onRun: () => setViewMode("dataset"),
   });
 
   useEffect(() => {
