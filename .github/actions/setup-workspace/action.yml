@@ -18,7 +18,10 @@ runs:
         node-version: "24"
         cache: "pnpm"
 
+    # Only the build produces tsbuildinfo, so a job that skips it would other-
+    # wise race to save an empty cache under the shared key.
     - name: Cache tsbuildinfo
+      if: inputs.build-deps == 'true'
       uses: actions/cache@v5
       with:
         path: |

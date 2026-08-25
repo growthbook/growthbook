@@ -86,6 +86,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
+      # Before poetry exists, so the root postinstall skips its stats install and
+      # the explicit step below is the only one.
+      - uses: ./.github/actions/setup-workspace
+        with:
+          build-deps: "false"
+
       - name: Set up Python 3.11
         uses: actions/setup-python@v6
         with:
@@ -109,18 +115,6 @@ jobs:
           key: ${{ runner.os }}-poetry-${{ hashFiles('packages/stats/poetry.lock') }}
           restore-keys: |
             ${{ runner.os }}-poetry-
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v5
-        with:
-          node-version: "24"
-          cache: "pnpm"
-
-      - name: Install pnpm dependencies
-        run: pnpm install
 
       # `setup` and `test` are pnpm built-ins, so these need an explicit `run`.
       - name: Install stats engine
