@@ -87,12 +87,14 @@ export function useFeaturePageData(
   });
 
   // Only fetch a specific version if it isn't already in the base response or cache.
+  // Until the base response arrives we can't tell, so wait rather than double-fetch.
   const requestedVersionInBaseSet =
     baseData?.revisions?.some((r) => r.version === selectedVersion) ?? false;
   const requestedVersionInCache =
     selectedVersion != null && !!cachedRevisions[selectedVersion];
   const shouldFetchFromRevisionsEndpoint =
     !!fid &&
+    !!baseData &&
     selectedVersion != null &&
     !requestedVersionInBaseSet &&
     !requestedVersionInCache;
@@ -120,6 +122,7 @@ export function useFeaturePageData(
       false);
   const shouldFetchBaseVersion =
     !!fid &&
+    !!baseData &&
     selectedRevisionBaseVersion != null &&
     !baseVersionInCache &&
     !baseVersionInBaseSet;
