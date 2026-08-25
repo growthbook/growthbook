@@ -80,12 +80,8 @@ export function packDashboardBlocks<T extends { type: DashboardBlockType }>(
     for (const { block, w } of row) {
       packed.push({
         ...block,
-        layout: {
-          x: clamp(x, 0, Math.max(0, safeCols - w)),
-          y,
-          w,
-          h: rowHeight,
-        },
+        // `x` cannot overflow: the row above breaks before a block would.
+        layout: { x, y, w, h: rowHeight },
       });
       x += w;
     }

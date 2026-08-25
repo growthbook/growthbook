@@ -1,5 +1,3 @@
-/// <reference types="jest" />
-
 import {
   BlockSizeHint,
   packDashboardBlocks,
@@ -8,13 +6,6 @@ import {
   DASHBOARD_GRID_COLS,
   DashboardBlockType,
 } from "../../src/enterprise/validators/dashboard-block";
-
-declare const describe: (name: string, fn: () => void) => void;
-declare const it: (name: string, fn: () => void) => void;
-declare const expect: (value: unknown) => {
-  toEqual: (expected: unknown) => void;
-  toBe: (expected: unknown) => void;
-};
 
 function block(type: DashboardBlockType, sizeHint?: BlockSizeHint) {
   return { block: { type, title: "", description: "" }, sizeHint };

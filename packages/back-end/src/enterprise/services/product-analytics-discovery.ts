@@ -84,25 +84,45 @@ function normalizeForSearch(text: string): string {
     .join(" ");
 }
 
+/** The query, normalized once per search rather than once per candidate. */
+interface SearchQuery {
+  q: string;
+  qNorm: string;
+  tokens: string[];
+  tokensNorm: string[];
+}
+
+function parseSearchQuery(query: string): SearchQuery {
+  const q = query.trim().toLowerCase();
+  const tokens = q.split(/\s+/).filter(Boolean);
+  return {
+    q,
+    qNorm: normalizeForSearch(q),
+    tokens,
+    tokensNorm: tokens.map(singularizeWord),
+  };
+}
+
 /** Exact name/id 10, full substring 5, +1 per matching token; 0 means no match. */
 function scoreSearch(
-  q: string,
-  qNorm: string,
-  tokens: string[],
-  tokensNorm: string[],
-  haystack: string,
-  haystackNorm: string,
+  { q, qNorm, tokens, tokensNorm }: SearchQuery,
+  haystackParts: string[],
   name: string,
   id: string,
 ): number {
   const nameLower = name.toLowerCase();
   const idLower = id.toLowerCase();
-  const exactMatch =
-    nameLower === q || idLower === q || normalizeForSearch(nameLower) === qNorm;
-  if (exactMatch) return 10;
+  if (
+    nameLower === q ||
+    idLower === q ||
+    normalizeForSearch(nameLower) === qNorm
+  ) {
+    return 10;
+  }
 
-  const fullSubstring = haystack.includes(q) || haystackNorm.includes(qNorm);
-  let score = fullSubstring ? 5 : 0;
+  const haystack = haystackParts.join(" ").toLowerCase();
+  const haystackNorm = normalizeForSearch(haystack);
+  let score = haystack.includes(q) || haystackNorm.includes(qNorm) ? 5 : 0;
 
   if (tokens.length > 1) {
     for (let i = 0; i < tokens.length; i++) {
@@ -150,95 +170,78 @@ export function createProductAnalyticsSearchLoaders(
   };
 }
 
+type ScoredResult = { score: number; name: string; result: unknown };
+
+/** Scores one kind of candidate. A blank query keeps everything, unscored. */
+function collectMatches<T>(
+  items: T[],
+  search: SearchQuery | null,
+  toResult: (item: T) => { id: string; name: string } & Record<string, unknown>,
+  toHaystack: (item: T) => string[],
+): ScoredResult[] {
+  const out: ScoredResult[] = [];
+  for (const item of items) {
+    const result = toResult(item);
+    if (!search) {
+      out.push({ score: 0, name: result.name, result });
+      continue;
+    }
+    const score = scoreSearch(search, toHaystack(item), result.name, result.id);
+    if (score > 0) out.push({ score, name: result.name, result });
+  }
+  return out;
+}
+
 export async function runProductAnalyticsSearch(
   { getMetrics, getFactTables }: ProductAnalyticsSearchLoaders,
   input: ProductAnalyticsSearchInput,
 ): Promise<ProductAnalyticsDiscoveryResult> {
   const { query, limit, skip } = input;
-  const q = query.trim().toLowerCase();
-  const isBlank = q.length === 0;
-  const tokens = q.split(/\s+/).filter(Boolean);
-  const qNorm = normalizeForSearch(q);
-  const tokensNorm = tokens.map(singularizeWord);
-
-  type ScoredResult = { score: number; name: string; result: unknown };
-  const all: ScoredResult[] = [];
+  const parsed = parseSearchQuery(query);
+  const isBlank = parsed.q.length === 0;
+  const search = isBlank ? null : parsed;
 
   const metrics = await getMetrics();
-  for (const m of metrics) {
-    const metricResult = {
-      kind: "metric" as const,
-      explorerType: "metric" as const,
-      id: m.id,
-      name: m.name,
-      type: m.metricType,
-      official: m.managedBy === "admin",
-      description: m.description ?? null,
-      owner: m.owner ?? null,
-      tags: m.tags ?? [],
-    };
-    if (isBlank) {
-      all.push({ score: 0, name: m.name, result: metricResult });
-      continue;
-    }
-    const haystack = [
-      m.id,
-      m.name,
-      m.description ?? "",
-      m.owner ?? "",
-      ...(m.tags ?? []),
-    ]
-      .join(" ")
-      .toLowerCase();
-    const haystackNorm = normalizeForSearch(haystack);
-    const score = scoreSearch(
-      q,
-      qNorm,
-      tokens,
-      tokensNorm,
-      haystack,
-      haystackNorm,
-      m.name,
-      m.id,
-    );
-    if (score > 0) {
-      all.push({ score, name: m.name, result: metricResult });
-    }
-  }
-
   const factTables = await getFactTables();
-  for (const ft of factTables) {
-    const ftResult = {
-      kind: "fact_table" as const,
-      explorerType: "fact_table" as const,
-      id: ft.id,
-      name: ft.name,
-      official: ft.managedBy === "admin",
-      eventName: ft.eventName ?? null,
-      columnCount: (ft.columns ?? []).filter((c) => !c.deleted).length,
-    };
-    if (isBlank) {
-      all.push({ score: 0, name: ft.name, result: ftResult });
-      continue;
-    }
-    const haystack = [ft.id, ft.name, ft.eventName ?? ""]
-      .join(" ")
-      .toLowerCase();
-    const haystackNorm = normalizeForSearch(haystack);
-    const score = scoreSearch(
-      q,
-      qNorm,
-      tokens,
-      tokensNorm,
-      haystack,
-      haystackNorm,
-      ft.name,
-      ft.id,
-    );
-    if (score > 0) {
-      all.push({ score, name: ft.name, result: ftResult });
-    }
-  }
+
+  const all = [
+    ...collectMatches(
+      metrics,
+      search,
+      (m) => ({
+        kind: "metric" as const,
+        explorerType: "metric" as const,
+        id: m.id,
+        name: m.name,
+        type: m.metricType,
+        official: m.managedBy === "admin",
+        description: m.description ?? null,
+        owner: m.owner ?? null,
+        tags: m.tags ?? [],
+      }),
+      (m) => [
+        m.id,
+        m.name,
+        m.description ?? "",
+        m.owner ?? "",
+        ...(m.tags ?? []),
+      ],
+    ),
+    ...collectMatches(
+      factTables,
+      search,
+      (ft) => ({
+        kind: "fact_table" as const,
+        explorerType: "fact_table" as const,
+        id: ft.id,
+        name: ft.name,
+        official: ft.managedBy === "admin",
+        eventName: ft.eventName ?? null,
+        columnCount: (ft.columns ?? []).filter((c) => !c.deleted).length,
+      }),
+      (ft) => [ft.id, ft.name, ft.eventName ?? ""],
+    ),
+  ];
 
   const sorted = isBlank
     ? all.sort((a, b) => a.name.localeCompare(b.name))
@@ -426,7 +429,6 @@ export async function getProductAnalyticsColumnValues(
   const datasource = await getDataSourceById(ctx, factTable.datasource);
   if (!datasource) return fail(`Datasource not found.`);
 
-  // Separate requested columns into queryable (string-typed), skipped (wrong type), not-found
   const colsToQuery: ColumnInterface[] = [];
   const nonStringCols: string[] = [];
   const notFoundCols: string[] = [];
@@ -471,7 +473,6 @@ export async function getProductAnalyticsColumnValues(
     );
   }
 
-  // Apply searchTerm filter and respect limit
   const values: Record<string, string[]> = {};
   for (const col of Object.keys(rawValues)) {
     let vals = rawValues[col];

@@ -49,7 +49,7 @@ import {
   buildAgentApiTools,
   loadSkillResult,
 } from "back-end/src/agent/shared-tools";
-import { getSkillNamesForGroup } from "back-end/src/agent/skills";
+import { getSkillNamesForGroup, readSkill } from "back-end/src/agent/skills";
 import {
   getFactTable,
   getFactTablesForDatasource,
@@ -1069,8 +1069,12 @@ function productAnalyticsSkillNames(): string[] {
 function resolveProductAnalyticsSkill(
   name: string,
 ): SkillLoadResult | undefined {
-  if (!productAnalyticsSkillNames().includes(name)) return undefined;
-  return loadSkillResult(name);
+  // Resolve first, then gate on the group. An exact-name allowlist would reject
+  // the bare workflow names the router's table and this prompt both hand out
+  // (`dashboard-create`, not `dashboards/references/dashboard-create`).
+  const skill = readSkill(name);
+  if (skill?.group !== PRODUCT_ANALYTICS_CHAT_SKILL_GROUP) return undefined;
+  return loadSkillResult(skill.name);
 }
 
 const productAnalyticsAgentConfig: AgentConfig<PAParams> = {

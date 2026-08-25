@@ -22,6 +22,7 @@ import AskUserCard, {
 import ConfirmActionCard from "@/components/Agent/ConfirmActionCard";
 import { useMentionItems } from "@/enterprise/components/AIChat/Composer/useMentionItems";
 import { useChatFeedback } from "@/enterprise/components/AIChat/useChatFeedback";
+import { useChatSavedDashboards } from "@/enterprise/components/AIChat/useChatSavedDashboards";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
 import {
@@ -81,6 +82,14 @@ export default function ExplorerAIChat() {
     clearFeedback,
     conversationIdRef: feedbackConversationIdRef,
   } = useChatFeedback();
+
+  const {
+    savedDashboardMap,
+    handleDashboardSaved,
+    loadSavedDashboardsFromConversation,
+    clearSavedDashboards,
+    conversationIdRef: savedDashboardsConversationIdRef,
+  } = useChatSavedDashboards();
 
   // One-shot handoff: `buildRequestBody` is a stable callback, so the current
   // send's mentions and skills are stashed here rather than closed over.
@@ -146,6 +155,7 @@ export default function ExplorerAIChat() {
     onConversationLoaded: (data) => {
       syncFromConversation(data);
       loadFeedbackFromConversation(data);
+      loadSavedDashboardsFromConversation(data);
     },
     onMessageComplete: (info) => {
       track("AI Chat Response Completed", {
@@ -171,6 +181,7 @@ export default function ExplorerAIChat() {
   // Keep the feedback hook's ref in sync with the current conversation id.
   // The ref is only read inside event handlers, never during render.
   feedbackConversationIdRef.current = conversationId;
+  savedDashboardsConversationIdRef.current = conversationId;
 
   // -- Hooks that depend on useAIChat return values --------------------------
 
@@ -267,6 +278,7 @@ export default function ExplorerAIChat() {
     newChat();
     setChatModel(defaultAIModel);
     clearFeedback();
+    clearSavedDashboards();
     resetPrompts();
     refreshList();
   }, [
@@ -275,6 +287,7 @@ export default function ExplorerAIChat() {
     defaultAIModel,
     setChatModel,
     clearFeedback,
+    clearSavedDashboards,
     resetPrompts,
     messages.length,
   ]);
@@ -369,6 +382,8 @@ export default function ExplorerAIChat() {
           error={error}
           feedbackMap={feedbackMap}
           onFeedbackSubmit={handleFeedbackSubmit}
+          savedDashboardMap={savedDashboardMap}
+          onDashboardSaved={handleDashboardSaved}
           toolDetailsOpenRef={toolDetailsOpenRef}
           scrollContainerRef={scrollContainerRef}
           messagesEndRef={messagesEndRef}

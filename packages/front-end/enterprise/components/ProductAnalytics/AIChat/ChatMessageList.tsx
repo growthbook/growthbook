@@ -132,6 +132,9 @@ interface ChatMessageListProps {
     rating: "positive" | "negative" | null,
     comment: string,
   ) => void;
+  /** Dashboard already saved from each `proposeDashboard` tile, by tool call id. */
+  savedDashboardMap: Record<string, string>;
+  onDashboardSaved: (toolCallId: string, dashboardId: string) => void;
   toolDetailsOpenRef: React.MutableRefObject<Record<string, boolean>>;
   scrollContainerRef: React.RefObject<HTMLDivElement>;
   messagesEndRef: React.RefObject<HTMLDivElement>;
@@ -151,6 +154,8 @@ export default function ChatMessageList({
   waitingForNextStep,
   error,
   feedbackMap,
+  savedDashboardMap,
+  onDashboardSaved,
   onFeedbackSubmit,
   toolDetailsOpenRef,
   scrollContainerRef,
@@ -267,6 +272,44 @@ export default function ChatMessageList({
       return [];
     });
 
+  const renderDashboardPreview = ({
+    key,
+    toolCallId,
+    proposal,
+    toolInput,
+    toolOutput,
+    argsTextPreview,
+    refreshOnMount,
+  }: {
+    key: string;
+    toolCallId: string;
+    proposal: NonNullable<ReturnType<typeof dashboardDraftFromToolResult>>;
+    toolInput: Record<string, unknown> | undefined;
+    toolOutput: unknown;
+    argsTextPreview?: string;
+    refreshOnMount?: boolean;
+  }) => (
+    <DashboardPreviewBubble
+      key={key}
+      draft={proposal.draft}
+      droppedBlocks={proposal.droppedBlocks}
+      savedDashboardId={savedDashboardMap[toolCallId]}
+      onSaved={(id) => onDashboardSaved(toolCallId, id)}
+      refreshOnMount={refreshOnMount}
+      toolTransparency={
+        <ToolUsageDetails
+          embedded
+          summaryLabel="Dashboard definition"
+          toolInput={toolInput}
+          argsTextPreview={argsTextPreview}
+          toolOutput={toolOutput}
+          toolCallId={toolCallId}
+          openStateRef={toolDetailsOpenRef}
+        />
+      }
+    />
+  );
+
   const renderActiveTurnItem = (item: ActiveTurnItem) => {
     if (item.kind === "text") {
       const displayedContent = displayedTextMap.get(item.id) ?? "";
@@ -284,24 +327,14 @@ export default function ChatMessageList({
           ? dashboardDraftFromToolResult(item.toolResultData)
           : null;
       if (proposal) {
-        return (
-          <DashboardPreviewBubble
-            key={item.toolCallId}
-            draft={proposal.draft}
-            droppedBlocks={proposal.droppedBlocks}
-            toolTransparency={
-              <ToolUsageDetails
-                embedded
-                summaryLabel="Dashboard definition"
-                toolInput={item.toolInput}
-                argsTextPreview={item.argsTextPreview}
-                toolOutput={item.toolOutput}
-                toolCallId={item.toolCallId}
-                openStateRef={toolDetailsOpenRef}
-              />
-            }
-          />
-        );
+        return renderDashboardPreview({
+          key: item.toolCallId,
+          toolCallId: item.toolCallId,
+          proposal,
+          toolInput: item.toolInput,
+          argsTextPreview: item.argsTextPreview,
+          toolOutput: item.toolOutput,
+        });
       }
 
       const chartData = item.toolResultData
@@ -410,24 +443,14 @@ export default function ChatMessageList({
         if (part.toolName === "proposeDashboard") {
           const proposal = dashboardDraftFromToolResult(part.result);
           if (proposal) {
-            return (
-              <DashboardPreviewBubble
-                key={`${msg.id}-r${i}`}
-                draft={proposal.draft}
-                droppedBlocks={proposal.droppedBlocks}
-                refreshOnMount={rehydratedMessageIds.has(msg.id)}
-                toolTransparency={
-                  <ToolUsageDetails
-                    embedded
-                    summaryLabel="Dashboard definition"
-                    toolInput={pairedCall?.args}
-                    toolOutput={part.result}
-                    toolCallId={part.toolCallId}
-                    openStateRef={toolDetailsOpenRef}
-                  />
-                }
-              />
-            );
+            return renderDashboardPreview({
+              key: `${msg.id}-r${i}`,
+              toolCallId: part.toolCallId,
+              proposal,
+              toolInput: pairedCall?.args,
+              toolOutput: part.result,
+              refreshOnMount: rehydratedMessageIds.has(msg.id),
+            });
           }
         }
 

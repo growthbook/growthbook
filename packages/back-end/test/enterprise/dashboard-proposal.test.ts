@@ -164,49 +164,29 @@ describe("buildDashboardDraft", () => {
     expect(droppedBlocks).toHaveLength(1);
   });
 
-  it("carries the title, global controls, and dashboardId through", async () => {
+  it("carries every field the agent settled through to the draft", async () => {
+    // `projects: []` is load-bearing and distinct from omitting it: empty means
+    // every project, absent means fall back to the app's current selection.
     mockRunExploration.mockResolvedValue({ id: "expl_1" });
 
     const { draft } = await buildDashboardDraft(
       ctx,
       input([chartBlock("Revenue")], {
         dashboardId: "dash_abc",
+        projects: [],
         globalControls: { dateRange: { predefined: "last90Days" } },
       }),
     );
 
-    expect(draft.title).toBe("Growth KPIs");
-    expect(draft.dashboardId).toBe("dash_abc");
-    expect(draft.globalControls).toEqual({
-      dateRange: { predefined: "last90Days" },
+    expect(draft).toMatchObject({
+      title: "Growth KPIs",
+      dashboardId: "dash_abc",
+      projects: [],
+      globalControls: { dateRange: { predefined: "last90Days" } },
     });
   });
 
-  it("carries the projects the agent settled with the user", async () => {
-    mockRunExploration.mockResolvedValue({ id: "expl_1" });
-
-    const { draft } = await buildDashboardDraft(
-      ctx,
-      input([chartBlock("Revenue")], { projects: ["prj_abc"] }),
-    );
-
-    expect(draft.projects).toEqual(["prj_abc"]);
-  });
-
-  it("keeps an explicit empty projects array, which means every project", async () => {
-    // Distinct from omitting it: the preview falls back to the app's current
-    // project selection only when the agent could not establish one at all.
-    mockRunExploration.mockResolvedValue({ id: "expl_1" });
-
-    const { draft } = await buildDashboardDraft(
-      ctx,
-      input([chartBlock("Revenue")], { projects: [] }),
-    );
-
-    expect(draft.projects).toEqual([]);
-  });
-
-  it("omits dashboardId, projects, and globalControls when not given", async () => {
+  it("omits every optional field when the agent settled none", async () => {
     mockRunExploration.mockResolvedValue({ id: "expl_1" });
 
     const { draft } = await buildDashboardDraft(
@@ -214,9 +194,14 @@ describe("buildDashboardDraft", () => {
       input([chartBlock("Revenue")]),
     );
 
-    expect("dashboardId" in draft).toBe(false);
-    expect("projects" in draft).toBe(false);
-    expect("globalControls" in draft).toBe(false);
+    for (const key of [
+      "dashboardId",
+      "projects",
+      "globalControls",
+      "comparison",
+    ]) {
+      expect(key in draft).toBe(false);
+    }
   });
 
   it("enrolls chart blocks in the dashboard date control", async () => {
@@ -335,10 +320,7 @@ describe("buildDashboardDraft", () => {
       }),
     );
 
-    expect(draft.comparison).toEqual({
-      enabled: true,
-      mode: "previousPeriod",
-    });
+    expect(draft.comparison).toEqual({ enabled: true, mode: "previousPeriod" });
     expect(draft.blocks[0]["comparisonExplorerAnalysisId"]).toBe("expl_prev");
   });
 
@@ -362,17 +344,6 @@ describe("buildDashboardDraft", () => {
 
     expect(mockRunExploration).toHaveBeenCalledTimes(1);
     expect("comparisonExplorerAnalysisId" in draft.blocks[0]).toBe(false);
-  });
-
-  it("omits comparison from the draft when none was asked for", async () => {
-    mockRunExploration.mockResolvedValue({ id: "expl_1" });
-
-    const { draft } = await buildDashboardDraft(
-      ctx,
-      input([chartBlock("Revenue")]),
-    );
-
-    expect("comparison" in draft).toBe(false);
   });
 
   it("never serves a proposed tile from the exploration cache", async () => {

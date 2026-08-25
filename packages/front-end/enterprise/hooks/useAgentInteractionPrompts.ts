@@ -12,35 +12,6 @@ import type {
 // The two ways a turn hands control back: `askUser`, and a parked mutation. A
 // surface that streams `confirm-action` and renders nothing loses the write.
 
-export interface AgentInteractionPrompts {
-  askPrompt: AskUserPrompt | null;
-  confirmPrompt: ConfirmActionPrompt | null;
-
-  /** Feed every SSE event here; non-interaction events are ignored. */
-  handleSSEEvent: (event: {
-    type: string;
-    data: Record<string, unknown>;
-  }) => void;
-
-  /** Feed the conversation payload on load, so a parked mutation survives a reload. */
-  syncFromConversation: (data: unknown) => void;
-
-  /** Consume the decision for the next request; clears, so it rides exactly one. */
-  takePendingDecision: () => ConfirmDecisionBody | null;
-
-  /** Answering by typing rather than clicking still settles an open prompt. */
-  resolveOnUserMessage: () => void;
-
-  /** Mark the question answered; the caller sends the picked option's label. */
-  resolveAsk: () => boolean;
-
-  /** Stage the decision for the next request; false when there is nothing to decide. */
-  resolveConfirm: (decision: "confirm" | "cancel") => boolean;
-
-  /** Clear everything — for starting a new conversation. */
-  reset: () => void;
-}
-
 /** Parsed per-element, so one malformed option drops itself, not the question. */
 const askOptionSchema = z.object({
   id: z.string().min(1),
@@ -71,7 +42,7 @@ const pendingActionSchema = confirmFieldsSchema
   .extend({ id: z.string().min(1) })
   .transform(({ id, ...rest }) => ({ actionId: id, ...rest }));
 
-export function useAgentInteractionPrompts(): AgentInteractionPrompts {
+export function useAgentInteractionPrompts() {
   const [askPrompt, setAskPrompt] = useState<AskUserPrompt | null>(null);
   const [confirmPrompt, setConfirmPrompt] =
     useState<ConfirmActionPrompt | null>(null);
@@ -86,6 +57,7 @@ export function useAgentInteractionPrompts(): AgentInteractionPrompts {
   const confirmRef = useRef<ConfirmActionPrompt | null>(null);
   confirmRef.current = confirmPrompt;
 
+  /** Feed every SSE event here; non-interaction events are ignored. */
   const handleSSEEvent = useCallback(
     (event: { type: string; data: Record<string, unknown> }) => {
       if (event.type === "ask-user") {
@@ -120,8 +92,9 @@ export function useAgentInteractionPrompts(): AgentInteractionPrompts {
     [],
   );
 
-  // A non-null pendingAction always means "still awaiting" — the server clears
-  // it the moment the user confirms or cancels.
+  // Feed the conversation payload on load, so a parked mutation survives a
+  // reload. A non-null pendingAction always means "still awaiting" — the server
+  // clears it the moment the user confirms or cancels.
   const syncFromConversation = useCallback((data: unknown) => {
     const pending = z
       .object({ pendingAction: pendingActionSchema })
@@ -141,12 +114,14 @@ export function useAgentInteractionPrompts(): AgentInteractionPrompts {
     });
   }, []);
 
+  /** Consume the decision for the next request; clears, so it rides exactly one. */
   const takePendingDecision = useCallback(() => {
     const decision = pendingDecisionRef.current;
     pendingDecisionRef.current = null;
     return decision;
   }, []);
 
+  /** Answering by typing rather than clicking still settles an open prompt. */
   const resolveOnUserMessage = useCallback(() => {
     const ask = askRef.current;
     if (ask && !ask.resolved) {
@@ -160,6 +135,7 @@ export function useAgentInteractionPrompts(): AgentInteractionPrompts {
     }
   }, []);
 
+  /** Mark the question answered; the caller sends the picked option's label. */
   const resolveAsk = useCallback(() => {
     const ask = askRef.current;
     if (!ask || ask.resolved) return false;
@@ -167,6 +143,7 @@ export function useAgentInteractionPrompts(): AgentInteractionPrompts {
     return true;
   }, []);
 
+  /** Stage the decision for the next request; false when there is nothing to decide. */
   const resolveConfirm = useCallback((decision: "confirm" | "cancel") => {
     const confirm = confirmRef.current;
     if (!confirm || confirm.resolved) return false;
@@ -178,6 +155,7 @@ export function useAgentInteractionPrompts(): AgentInteractionPrompts {
     return true;
   }, []);
 
+  /** Clear everything — for starting a new conversation. */
   const reset = useCallback(() => {
     setAskPrompt(null);
     askSeqRef.current = 0;

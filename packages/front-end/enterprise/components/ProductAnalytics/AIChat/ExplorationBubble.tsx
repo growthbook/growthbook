@@ -5,7 +5,9 @@ import {
   ExplorationConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";
+import { z } from "zod";
 import { encodeExplorationConfig } from "shared/enterprise";
+import { parseToolResult } from "shared/ai-chat";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
@@ -29,21 +31,8 @@ const EXPLORER_PATHS: Record<ExplorationConfig["type"], string> = {
 };
 
 export function chartDataFromToolResult(result: unknown): ChartData | null {
-  if (typeof result === "string") {
-    try {
-      const parsed = JSON.parse(result) as unknown;
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        return chartDataFromRecord(parsed as Record<string, unknown>);
-      }
-    } catch {
-      return null;
-    }
-    return null;
-  }
-  if (!result || typeof result !== "object" || Array.isArray(result)) {
-    return null;
-  }
-  return chartDataFromRecord(result as Record<string, unknown>);
+  const record = parseToolResult(result, z.record(z.string(), z.unknown()));
+  return record ? chartDataFromRecord(record) : null;
 }
 
 export function chartDataFromRecord(

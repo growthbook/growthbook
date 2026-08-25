@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   productAnalyticsRunRequestBodyValidator,
   aiChatFeedbackRatingValidator,
+  aiChatSavedDashboardValidator,
   aiChatMentionValidator,
   aiChatSkillsValidator,
 } from "shared/validators";
@@ -86,6 +87,15 @@ router.post(
       .strict(),
   }),
   productAnalyticsController.postChatFeedback,
+);
+
+router.post(
+  "/chat/:conversationId/saved-dashboard",
+  validateRequestMiddleware({
+    params: z.object({ conversationId: z.string().min(1) }).strict(),
+    body: aiChatSavedDashboardValidator,
+  }),
+  productAnalyticsController.postChatSavedDashboard,
 );
 
 router.delete(

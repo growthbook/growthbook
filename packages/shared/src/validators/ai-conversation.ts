@@ -196,6 +196,27 @@ export type AIAgentPendingAction = z.infer<
 >;
 
 // ---------------------------------------------------------------------------
+// Saved dashboards
+// ---------------------------------------------------------------------------
+
+/**
+ * A dashboard the user saved from a `proposeDashboard` preview, keyed by the
+ * tool call that proposed it. Without this the binding lives only in component
+ * state, so re-opening the conversation offers Save again and creates a second
+ * dashboard from the same tile.
+ */
+export const aiChatSavedDashboardValidator = z
+  .object({
+    toolCallId: z.string().min(1).max(128),
+    dashboardId: z.string().min(1).max(128),
+  })
+  .strict();
+
+export type AIChatSavedDashboard = z.infer<
+  typeof aiChatSavedDashboardValidator
+>;
+
+// ---------------------------------------------------------------------------
 // Feedback validator
 // ---------------------------------------------------------------------------
 
@@ -246,6 +267,8 @@ export const aiConversationValidator = z
      * confirm; `null`/absent means there is no pending action.
      */
     pendingAction: aiAgentPendingActionValidator.nullable().optional(),
+    /** Dashboards saved from this conversation's previews, by tool call id. */
+    savedDashboards: aiChatSavedDashboardValidator.array().optional(),
   })
   .strict();
 

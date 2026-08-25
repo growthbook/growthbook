@@ -133,6 +133,14 @@ describe("agent skills loader", () => {
       "dashboards/references/dashboard-create",
       "dashboards/references/dashboard-edit",
     ]);
+
+    // The router's table and the chat's system prompt both name workflows bare,
+    // and the Product Analytics chat gates on the resolved skill's group — so a
+    // bare name must resolve, or that chat can load none of its own workflows.
+    expect(_resolveSkill(skills, "dashboard-create")).toMatchObject({
+      name: "dashboards/references/dashboard-create",
+      group: "dashboards",
+    });
   });
 });
 

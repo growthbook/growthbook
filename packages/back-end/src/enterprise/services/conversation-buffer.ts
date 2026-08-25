@@ -1,6 +1,7 @@
 import type { AIChatMessage, AIChatToolResultPart } from "shared/ai-chat";
 import type {
   AIChatFeedbackEntry,
+  AIChatSavedDashboard,
   AIAgentPendingAction,
 } from "shared/validators";
 import { logger } from "back-end/src/util/logger";
@@ -172,6 +173,8 @@ export interface ConversationStatus {
   feedback: AIChatFeedbackEntry[];
   /** Parked mutation awaiting the user's confirm/cancel; `null` if none. */
   pendingAction: AIAgentPendingAction | null;
+  /** Dashboards already saved from this conversation's previews. */
+  savedDashboards: AIChatSavedDashboard[];
 }
 
 export interface ConversationSummary {
@@ -301,6 +304,7 @@ export async function getConversationStatus(
     messages: doc.messages as AIChatMessage[],
     feedback: (doc.feedback ?? []) as AIChatFeedbackEntry[],
     pendingAction: doc.pendingAction ?? null,
+    savedDashboards: doc.savedDashboards ?? [],
   };
 }
 

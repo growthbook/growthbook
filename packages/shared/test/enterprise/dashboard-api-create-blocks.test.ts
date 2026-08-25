@@ -1,13 +1,4 @@
-/// <reference types="jest" />
-
 import { apiCreateDashboardBlockInterface } from "../../src/enterprise/validators/dashboard-block";
-
-declare const describe: (name: string, fn: () => void) => void;
-declare const it: (name: string, fn: () => void) => void;
-declare const expect: (value: unknown) => {
-  toEqual: (expected: unknown) => void;
-  toBe: (expected: unknown) => void;
-};
 
 // A type missing from the create union fails at write time with a union error
 // that names nothing.

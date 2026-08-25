@@ -54,6 +54,10 @@ export function dashboardDraftFromToolResult(result: unknown): {
 interface Props {
   draft: DashboardDraft;
   droppedBlocks?: DroppedDashboardBlock[];
+  /** Dashboard this tile was already saved to, from a previous visit. */
+  savedDashboardId?: string;
+  /** Persist the binding so a re-opened conversation updates rather than duplicates. */
+  onSaved?: (dashboardId: string) => void;
   toolTransparency?: React.ReactNode;
   /** Re-opened conversation: the stored analysis ids may have aged out, so re-query once. */
   refreshOnMount?: boolean;
@@ -62,6 +66,8 @@ interface Props {
 export default function DashboardPreviewBubble({
   draft,
   droppedBlocks = [],
+  savedDashboardId,
+  onSaved,
   toolTransparency,
   refreshOnMount = false,
 }: Props) {
@@ -82,14 +88,19 @@ export default function DashboardPreviewBubble({
     "private",
   );
   const [saving, setSaving] = useState(false);
-  const [savedId, setSavedId] = useState<string | null>(null);
+  const [justSaved, setJustSaved] = useState(false);
+  const [savedId, setSavedId] = useState<string | null>(
+    savedDashboardId ?? null,
+  );
   const [error, setError] = useState<string | null>(null);
   // Separate from `error`: a rehydrate that may still paint older tiles is
   // degraded, not blocked. Only a failed save stops the user outright.
   const [staleData, setStaleData] = useState<string | null>(null);
 
   const title = draft.title;
-  const isRevision = !!draft.dashboardId;
+  // The dashboard this tile writes to: the one the agent is revising, or the
+  // one a previous save created. Bound means update — never create a second.
+  const boundDashboardId = savedId ?? draft.dashboardId ?? null;
 
   // The agent's answer wins; the app's selection only stands in when it had
   // none. An explicit `[]` means "every project", not "unset".
@@ -176,6 +187,7 @@ export default function DashboardPreviewBubble({
         }),
       );
       setBlocks(next);
+      setJustSaved(false);
     },
     [blocks, globalControls, comparison, fetchExplorationData],
   );
@@ -204,20 +216,22 @@ export default function DashboardPreviewBubble({
       const res = await apiCall<{
         status: number;
         dashboard: DashboardInterface;
-      }>(isRevision ? `/dashboards/${draft.dashboardId}` : "/dashboards", {
-        method: isRevision ? "PUT" : "POST",
+      }>(boundDashboardId ? `/dashboards/${boundDashboardId}` : "/dashboards", {
+        method: boundDashboardId ? "PUT" : "POST",
         body: JSON.stringify({
           title,
           blocks,
           globalControls,
           // Explicit rather than omitted: an absent key reads as "leave alone".
           comparison: comparison ?? { enabled: false },
-          shareLevel,
-          editLevel: "published",
           enableAutoUpdates: false,
-          ...(isRevision
+          // Access is a create-time choice here. Sending it on an update would
+          // push this tile's default over whatever the dashboard already has.
+          ...(boundDashboardId
             ? {}
             : {
+                shareLevel,
+                editLevel: "published",
                 experimentId: "",
                 projects,
                 userId,
@@ -225,6 +239,10 @@ export default function DashboardPreviewBubble({
         }),
       });
       setSavedId(res.dashboard.id);
+      setJustSaved(true);
+      // Outlives this mount: without it a re-opened conversation offers Save
+      // again on the same tile and creates a duplicate dashboard.
+      onSaved?.(res.dashboard.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save the dashboard");
     } finally {
@@ -232,8 +250,8 @@ export default function DashboardPreviewBubble({
     }
   }, [
     apiCall,
-    isRevision,
-    draft.dashboardId,
+    boundDashboardId,
+    onSaved,
     title,
     blocks,
     globalControls,
@@ -256,23 +274,25 @@ export default function DashboardPreviewBubble({
           </Text>
         </Flex>
 
-        {savedId ? (
-          <Flex align="center" gap="3">
-            <Flex align="center" gap="1">
+        <Flex align="end" gap="2">
+          {justSaved && (
+            <Flex align="center" gap="1" pb="1">
               <PiCheckCircleFill className={styles.saved} />
               <Text size="sm">Saved</Text>
             </Flex>
+          )}
+          {boundDashboardId ? (
             <LinkButton
-              href={`/product-analytics/dashboards/${savedId}`}
+              href={`/product-analytics/dashboards/${boundDashboardId}`}
               variant="ghost"
               size="sm"
               color="violet"
             >
               Open dashboard
             </LinkButton>
-          </Flex>
-        ) : (
-          <Flex align="end" gap="2">
+          ) : (
+            // Only on the create path: an existing dashboard keeps the access
+            // it already has, changed from the dashboard's own share settings.
             <Select
               label="View access"
               labelSize="sm"
@@ -286,19 +306,19 @@ export default function DashboardPreviewBubble({
               <SelectItem value="published">Organization members</SelectItem>
               <SelectItem value="private">Only me</SelectItem>
             </Select>
-            <Button
-              size="sm"
-              loading={saving}
-              onClick={save}
-              disabled={!title.trim()}
-            >
-              {isRevision ? "Save changes" : "Save dashboard"}
-            </Button>
-          </Flex>
-        )}
+          )}
+          <Button
+            size="sm"
+            loading={saving}
+            onClick={save}
+            disabled={!title.trim()}
+          >
+            {boundDashboardId ? "Update dashboard" : "Save dashboard"}
+          </Button>
+        </Flex>
       </Flex>
 
-      {!savedId && !hasSharing && (
+      {!boundDashboardId && !hasSharing && (
         <Box mb="3">
           <Callout status="warning" size="sm">
             Your organization&apos;s plan does not support sharing dashboards,
@@ -358,7 +378,7 @@ export default function DashboardPreviewBubble({
           // Read-only contents, arrangeable layout: the user drags tiles here
           // and changes what's on them by asking the agent.
           isEditing={false}
-          allowLayoutEditing={!savedId}
+          allowLayoutEditing
           setBlock={undefined}
           projects={previewDashboard.projects ?? []}
           enableAutoUpdates={false}
