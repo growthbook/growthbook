@@ -11,8 +11,8 @@ export type ThreeWayMergeResult<T> = {
 export type ThreeWayMergeConfig<T> = {
   // Mutually-exclusive pairs; merged independently they can contradict.
   chunks?: string[][];
-  // What an absent field reads as (migration-added fields older docs lack),
-  // so materialized defaults never register as drift.
+  // What an absent field reads as, so migration-added fields older docs lack
+  // never register as drift.
   absentDefaults?: Record<string, unknown>;
   ignoreFields?: (entity: T) => string[];
   // Differing families skip the field merge entirely.
@@ -37,10 +37,8 @@ function canonicalize(v: unknown, absentDefault?: unknown): unknown {
   return v;
 }
 
-/**
- * The draft-guard notion of "same value". Guards that can't use threeWayMerge
- * (sparse-update endpoints) share it so the representation rules live once.
- */
+// The draft-guard notion of "same value"; guards that can't use threeWayMerge
+// (sparse-update endpoints) share it so the representation rules live once.
 export function draftValuesEqual(
   a: unknown,
   b: unknown,
