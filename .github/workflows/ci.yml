@@ -88,17 +88,17 @@ jobs:
         run: pnpm install
 
       - name: Install stats engine
-        run: pnpm --filter stats setup
+        run: pnpm --filter stats run setup
         env:
           CI: true
 
       - name: Lint
-        run: pnpm --filter stats lint:ci
+        run: pnpm --filter stats run lint:ci
         env:
           CI: true
 
       - name: Test
-        run: pnpm --filter stats test
+        run: pnpm --filter stats run test
         env:
           CI: true
 
