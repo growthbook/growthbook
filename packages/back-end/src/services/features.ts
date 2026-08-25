@@ -338,6 +338,7 @@ export function generateHoldoutsPayload({
     if (!exp) return;
 
     const mainPhase = exp.phases[0];
+    if (!mainPhase) return;
 
     const rule: FeatureDefinitionRule = {
       id: getHoldoutFeatureDefId(holdout.id),
