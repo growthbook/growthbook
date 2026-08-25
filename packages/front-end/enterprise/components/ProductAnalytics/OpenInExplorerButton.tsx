@@ -1,4 +1,4 @@
-import Button from "@/ui/Button";
+import Button, { Props as ButtonProps } from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import Tooltip from "@/ui/Tooltip";
 
@@ -15,16 +15,23 @@ export default function OpenInExplorerButton({
 }) {
   if (!enabled) return null;
 
-  const buttonProps = {
+  const buttonStyleProps: {
+    variant: ButtonProps["variant"];
+    size: ButtonProps["size"];
+  } = {
     variant: "outline",
     size: "md",
-  } as const;
+  };
 
   if (disabledReason) {
     return (
       <Tooltip content={disabledReason}>
         <span style={{ cursor: "not-allowed" }}>
-          <Button {...buttonProps} disabled style={{ pointerEvents: "none" }}>
+          <Button
+            {...buttonStyleProps}
+            disabled
+            style={{ pointerEvents: "none" }}
+          >
             Open in Explorer
           </Button>
         </span>
@@ -34,7 +41,7 @@ export default function OpenInExplorerButton({
 
   return (
     <Tooltip content={tooltip}>
-      <LinkButton href={href} {...buttonProps} preventDefault={false}>
+      <LinkButton href={href} {...buttonStyleProps} preventDefault={false}>
         Open in Explorer
       </LinkButton>
     </Tooltip>
