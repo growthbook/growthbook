@@ -2,16 +2,8 @@ import fs from "fs";
 import path from "path";
 import { allRoutes } from "back-end/src/api/api.router";
 
-/**
- * Every `/api/vN/...` path a skill documents must resolve to a route the agent
- * can actually reach. The agent is told never to invent endpoints, so a skill
- * naming a path that doesn't exist sends it into a 404 loop it cannot recover
- * from — and the skill reads as authoritative, so nothing else catches it.
- *
- * This guards two mistakes that have both already happened: documenting an
- * endpoint that was never built, and documenting the wrong API version for one
- * that was.
- */
+// A skill naming a path that doesn't exist sends the agent into a 404 loop it
+// cannot recover from. Both mistakes have happened: no such endpoint, wrong version.
 
 const SKILLS_DIR = path.join(__dirname, "..", "..", "src", "agent", "skills");
 
@@ -39,14 +31,8 @@ function routeFullPath(route: { path: string; version?: string }): string {
 const isPlaceholder = (segment: string) =>
   segment.startsWith(":") || segment.includes("<");
 
-/**
- * Segment-wise match of a documented path against one route.
- *
- * A route's own `:param` absorbs anything, which matters because skills
- * routinely document a *literal value* in a param position — `revisions/new`
- * and `revisions/latest` both land on `revisions/:version`. Comparing
- * normalized strings instead would reject those as phantom endpoints.
- */
+// Segment-wise, because a route's `:param` must absorb a documented literal:
+// `revisions/new` and `revisions/latest` both land on `revisions/:version`.
 function pathMatchesRoute(docPath: string, routePath: string): boolean {
   const doc = docPath.replace(/\/+$/, "").split("/");
   const route = routePath.replace(/\/+$/, "").split("/");

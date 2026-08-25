@@ -60,12 +60,7 @@ function toApiInterface(
   };
 }
 
-/**
- * Unwrap a discovery lookup for the REST surface. The service reports a failed
- * lookup as a value so each caller can shape it — here a bad fact table or
- * metric id is the client's mistake, so it becomes a 400 rather than a 200
- * carrying an error sentence.
- */
+/** A failed lookup is the client's mistake here, so it becomes a 400. */
 function unwrapDiscoveryResult(
   result: ProductAnalyticsDiscoveryResult,
 ): Record<string, unknown> {

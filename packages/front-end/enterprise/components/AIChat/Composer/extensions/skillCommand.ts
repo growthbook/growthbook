@@ -39,10 +39,7 @@ export const SkillCommand = Mention.extend<
   },
 });
 
-/**
- * Title/id matches first, then description. An empty query keeps the server's
- * order; the limit is generous because that case is the whole scrolling menu.
- */
+/** Title/id matches first, then description. An empty query keeps server order. */
 export function filterSkillItems(
   items: SkillItem[],
   query: string,

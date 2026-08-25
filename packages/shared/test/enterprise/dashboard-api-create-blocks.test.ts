@@ -9,13 +9,8 @@ declare const expect: (value: unknown) => {
   toBe: (expected: unknown) => void;
 };
 
-/**
- * Every block type allowed on a general (Analytics) dashboard has to be
- * creatable over the REST API, because that is the only way a programmatic
- * caller — the AI dashboard builder included — can put one there. A type
- * missing from this union fails at write time with a discriminated-union error
- * that names none of the missing types.
- */
+// A type missing from the create union fails at write time with a union error
+// that names nothing.
 
 const explorationBase = {
   datasource: "ds_abc",

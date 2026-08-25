@@ -32,6 +32,7 @@ import {
   filterMentionItems,
   type MentionItem,
   type MentionStorage,
+  mentionGroupLabel,
 } from "./extensions/metricMention";
 import {
   SkillCommand,
@@ -112,7 +113,11 @@ function toRows(suggestion: ActiveSuggestion): SuggestionRow[] {
     return suggestion.items.map((item) => ({
       key: item.id,
       primary: item.label,
-      secondary: <Badge size="xs" variant="soft" label={item.typeLabel} />,
+      groupLabel: mentionGroupLabel(item.metricType),
+      secondary:
+        item.metricType === "dashboard" ? undefined : (
+          <Badge size="xs" variant="soft" label={item.typeLabel} />
+        ),
     }));
   }
   return suggestion.items.map((item) => ({

@@ -5,19 +5,11 @@ import {
   getBlockSizeBounds,
 } from "../validators/dashboard-block";
 
-/**
- * Coarse width intent for a programmatically assembled dashboard. Three buckets
- * rather than column counts, so the caller states intent and
- * `packDashboardBlocks` owns the arithmetic.
- */
+/** Coarse width intent; `packDashboardBlocks` owns the arithmetic. */
 export type BlockSizeHint = "small" | "medium" | "full";
 
-/**
- * `small` is 8 (three across), not 6, on purpose: every exploration block has
- * `minW: 8`, injected at render rather than persisted, so a 6-wide block would
- * save fine and then jump to 8 on the first drag. Four-across needs `minW`
- * lowered first.
- */
+// `small` is 8, not 6: exploration blocks carry `minW: 8` injected at render, so
+// a 6-wide block saves fine then jumps on the first drag.
 const HINT_WIDTH: Record<BlockSizeHint, number> = {
   small: 8,
   medium: 12,
@@ -52,12 +44,7 @@ function resolveHeight(type: DashboardBlockType, sizeHint: BlockSizeHint) {
   return Math.max(1, h, bounds.minH);
 }
 
-/**
- * Pack blocks left to right into rows, wrapping when the next no longer fits.
- * Blocks sharing a row share its height (the tallest member) so tops and
- * bottoms line up. `normalizeLayouts` stays the authority on persisted layouts;
- * this only produces a sensible arrangement in the first place.
- */
+/** Rows left to right, each row as tall as its tallest block so edges line up. */
 export function packDashboardBlocks<T extends { type: DashboardBlockType }>(
   blocks: BlockToPack<T>[],
   cols: number = DASHBOARD_GRID_COLS,

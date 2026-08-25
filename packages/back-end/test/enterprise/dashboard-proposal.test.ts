@@ -374,4 +374,29 @@ describe("buildDashboardDraft", () => {
 
     expect("comparison" in draft).toBe(false);
   });
+
+  it("never serves a proposed tile from the exploration cache", async () => {
+    // A hit stores a config the tile compares against and reads as stale.
+    mockRunExploration.mockResolvedValue({ id: "expl_now" });
+
+    await buildDashboardDraft(
+      ctx,
+      input(
+        [
+          {
+            ...chartBlock("Revenue"),
+            comparison: { enabled: true, mode: "previousPeriod" as const },
+          },
+        ],
+        {
+          globalControls: { dateRange: { predefined: "last30Days" as const } },
+        },
+      ),
+    );
+
+    expect(mockRunExploration).toHaveBeenCalledTimes(2);
+    for (const call of mockRunExploration.mock.calls) {
+      expect(call[2]).toEqual({ cache: "never" });
+    }
+  });
 });

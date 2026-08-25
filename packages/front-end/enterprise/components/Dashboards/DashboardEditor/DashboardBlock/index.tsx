@@ -111,11 +111,7 @@ interface Props<DashboardBlock extends DashboardBlockInterface> {
   blockIndex?: number;
   isFocused: boolean;
   isEditing: boolean;
-  /**
-   * Allow dragging and resizing this block without entering edit mode. Set by
-   * the AI dashboard preview, where the layout is the user's to arrange but the
-   * block's contents are changed by prompting rather than by hand.
-   */
+  /** Drag and resize without edit mode — see the same prop on DashboardEditor. */
   allowLayoutEditing?: boolean;
   editingBlock: boolean;
   canMoveBlock: boolean;

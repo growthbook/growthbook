@@ -107,11 +107,7 @@ export function tryParseToolResultJson(resultJson: string): unknown {
   }
 }
 
-/**
- * Read a typed payload out of a tool result — a JSON string from the persisted
- * transcript, or already parsed from the live stream. Null on a mismatch, so a
- * malformed result renders nothing rather than throwing in the message list.
- */
+/** Tool results arrive as a JSON string or already parsed. Null on a mismatch. */
 export function parseToolResult<T>(
   result: unknown,
   schema: z.ZodType<T>,

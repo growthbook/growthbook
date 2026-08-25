@@ -16,6 +16,18 @@
   box-shadow: var(--shadow-4);
 }
 
+// `top: -4px` is the popup's padding, so no sliver of a row shows above a heading.
+.groupLabel {
+  position: sticky;
+  top: -4px;
+  z-index: 1;
+  padding: 10px 8px 4px;
+  background: var(--color-panel-solid);
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-medium);
+  color: var(--gray-a11);
+}
+
 .row {
   display: flex;
   align-items: baseline;
@@ -41,10 +53,9 @@
   }
 }
 
-// Names are short; give them what they need and let the description truncate.
+// The name gets the row; it only truncates once it has run out of it.
 .name {
-  flex-shrink: 0;
-  max-width: 60%;
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
@@ -54,8 +65,8 @@
 }
 
 .type {
-  flex-shrink: 1;
-  min-width: 0;
+  flex: 0 0 auto;
+  max-width: 40%;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;

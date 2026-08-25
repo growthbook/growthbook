@@ -13,12 +13,8 @@ import {
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { runColumnsTopValuesQuery } from "back-end/src/services/factTableColumns";
 
-/**
- * The three read-only lookups needed before building an exploration: find a
- * metric or fact table, list its columns, read real values from one. Shared by
- * the chat agent's tools and the REST endpoints the skill documents, so the two
- * cannot drift.
- */
+// The three lookups before an exploration, shared by the chat tools and the REST
+// endpoints so the two cannot drift.
 
 /** Failure is a value, not a throw: the chat tool wants a sentence, REST wants a 4xx. */
 export type ProductAnalyticsDiscoveryResult =
@@ -88,15 +84,7 @@ function normalizeForSearch(text: string): string {
     .join(" ");
 }
 
-/**
- * Score a search query against a haystack string.
- * - Exact name/id match with the full query: 10
- * - Full query found as substring in haystack: 5
- * - Per-token: each token found in haystack adds 1 point
- * Matching is also performed on a singularized form of both the query and
- * the haystack so plural/singular differences don't hide results.
- * Returns 0 if no tokens match.
- */
+/** Exact name/id 10, full substring 5, +1 per matching token; 0 means no match. */
 function scoreSearch(
   q: string,
   qNorm: string,
@@ -294,11 +282,7 @@ function toColumnSummaries(columns: ColumnInterface[]) {
     .map((c) => ({ column: c.column, name: c.name, datatype: c.datatype }));
 }
 
-/**
- * The fact table a lookup runs against: named directly, or behind the first
- * metric that has one. Shared so two endpoints can't resolve differently and
- * report the columns of one table with the values of another.
- */
+/** Named directly, or behind the first metric that has one. */
 async function resolveSourceFactTable(
   ctx: ReqContext,
   input: ProductAnalyticsColumnsInput,
@@ -504,10 +488,7 @@ export async function getProductAnalyticsColumnValues(
   });
 }
 
-/**
- * Render a lookup for a chat tool: the model gets indented JSON on success and
- * a plain sentence on failure, which it can act on without a schema.
- */
+/** Indented JSON on success, a plain sentence on failure. */
 export function discoveryResultToToolString(
   result: ProductAnalyticsDiscoveryResult,
 ): string {

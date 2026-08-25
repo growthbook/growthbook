@@ -163,11 +163,7 @@ interface Props {
   globalControlBlocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   id: string;
   isEditing: boolean;
-  /**
-   * Let the user rearrange the grid without entering edit mode, and without the
-   * add/edit/delete affordances. For the AI dashboard preview: the layout is
-   * theirs to arrange, but a block's contents change by prompting.
-   */
+  /** Rearrange the grid without edit mode's add/edit/delete. For the AI preview. */
   allowLayoutEditing?: boolean;
   projects: string[];
   enableAutoUpdates: boolean;

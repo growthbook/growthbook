@@ -150,6 +150,11 @@ export const apiCreateDashboardBody = z
       )
       .optional(),
     globalControls: dashboardGlobalControlsValidator.optional(),
+    comparison: blockComparisonValidator
+      .optional()
+      .describe(
+        'Dashboard-wide compare-to-previous-period, e.g. { "enabled": true, "mode": "previousPeriod" }. Overrides any per-block comparison.',
+      ),
     blocks: z.array(apiCreateDashboardBlockInterface),
   })
   .strict();
@@ -181,10 +186,8 @@ export type DashboardEditLevel = z.infer<typeof dashboardEditLevel>;
 export type DashboardShareLevel = z.infer<typeof dashboardShareLevel>;
 export type DashboardUpdateSchedule = z.infer<typeof dashboardUpdateSchedule>;
 
-// The `proposeDashboard` tool result, declared once because the back-end writes
-// it and the chat UI reads it back. `blocks` stays `unknown[]` — the server
-// already validated them on the way in, and re-checking the union here would
-// only add a way for a valid dashboard to render as nothing.
+// The `proposeDashboard` tool result. `blocks` stays `unknown[]` — already
+// validated on the way in, and re-checking here could only reject a valid one.
 
 export const droppedDashboardBlockValidator = z.object({
   title: z.string(),

@@ -16,16 +16,8 @@ import type { ReqContext } from "back-end/types/request";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { logger } from "back-end/src/util/logger";
 
-/**
- * Turn an agent's proposed dashboard into a concrete, renderable draft.
- *
- * The model describes blocks; this fills in everything it cannot know — it runs
- * each chart to get the analysis id the block renders from, and packs the grid.
- * Doing it here rather than making the agent run N explorations and thread N ids
- * back is the whole point: threading ids is the step most likely to go wrong,
- * and every intermediate run would otherwise surface as its own chart card in
- * the chat.
- */
+// Runs each proposed chart for its analysis id, then packs the grid — the agent
+// threading N ids back is the step most likely to go wrong.
 
 /** What the tool result carries: blocks the dashboards API can be handed. */
 export type DashboardDraft = DashboardDraftOf<CreateDashboardBlockInterface>;
@@ -38,32 +30,11 @@ export interface BuildDashboardDraftResult {
   droppedBlocks: DroppedDashboardBlock[];
 }
 
-/**
- * The block shape `getEffectiveExplorationConfig` reads: it only looks at
- * `config` and `globalControlSettings`, but its parameter is typed as a stored
- * block. A proposal has neither ids nor an analysis id yet, so this narrows to
- * what the function actually touches rather than inventing placeholder ids.
- */
+/** Narrowed to what `getEffectiveExplorationConfig` reads; a proposal has no ids. */
 type EffectiveConfigInput = Parameters<typeof getEffectiveExplorationConfig>[0];
 
-/**
- * Kick off the explorations behind one chart block and return their ids.
- *
- * Two things here are load-bearing for the tile actually rendering:
- *
- * - It queries the *effective* config — the block's own config with the
- *   dashboard's date control applied — because the tile recomputes that same
- *   effective config on render and compares its date fingerprint against what
- *   was queried. Querying the raw config instead leaves every tile showing
- *   "Global controls changed, click Update" on a dashboard nobody has touched.
- * - It runs the previous-period exploration too when the block compares, since
- *   that is a separate entity; without it a "vs prior period" tile renders
- *   primary-only.
- *
- * Deliberately does not wait for the warehouse: a block whose exploration is
- * still running renders a loading tile and polls itself, exactly as on a saved
- * dashboard. Waiting would only make the tool call slower.
- */
+// Queries the *effective* config, not the raw one, or every tile renders stale.
+// Does not wait for the warehouse; the tile polls, as on a saved dashboard.
 async function runBlockExplorations(
   context: ReqContext,
   blockType: string,
@@ -74,8 +45,9 @@ async function runBlockExplorations(
   comparisonExplorerAnalysisId?: string;
 } | null> {
   try {
+    // Never cached: a fuzzy hit stores a dateRange the tile reads as stale.
     const exploration = await runProductAnalyticsExploration(context, config, {
-      cache: "preferred",
+      cache: "never",
     });
     if (!exploration?.id) return null;
 
@@ -91,7 +63,8 @@ async function runBlockExplorations(
           config,
           resolveComparisonPreviousTimeFrame(config.dateRange, comparison),
         ),
-        { cache: "preferred" },
+        // Same reason; the tile reads the previous window off this analysis.
+        { cache: "never" },
       );
       return {
         explorerAnalysisId: exploration.id,

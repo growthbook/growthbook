@@ -1098,10 +1098,7 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
     );
 
     return {
-      // Chart building runs on the five purpose-built tools below; `loadSkill`
-      // / `callApi` / `askUser` are what let the same chat go on to save the
-      // charts as a dashboard. `callApi` writes only through the shared
-      // confirmation gate.
+      // What lets this chat go on to save its charts as a dashboard.
       ...buildAgentApiTools(ctx, buffer, emit, {
         resolveSkill: resolveProductAnalyticsSkill,
         availableSkillNames: productAnalyticsSkillNames,

@@ -52,12 +52,7 @@ export function useAIChat({
   });
 
   const [messages, setMessages] = useState<AIChatMessage[]>([]);
-  /**
-   * The transcript as it stood when this conversation was opened. Set only by
-   * the conversation-load effect below — not by the remote poll or by the
-   * end-of-turn resync, both of which carry messages the user just watched
-   * arrive.
-   */
+  // Set only by the conversation-load effect, never by the poll or the resync.
   const [rehydratedMessageIds, setRehydratedMessageIds] = useState<
     ReadonlySet<string>
   >(() => new Set());

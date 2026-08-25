@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import type { AIChatMentionType } from "shared/ai-chat";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useDashboards } from "@/hooks/useDashboards";
-import type { MentionItem } from "./extensions/metricMention";
+import { sortMentionItems, type MentionItem } from "./extensions/metricMention";
 
 const FACT_METRIC_LABELS: Record<string, string> = {
   proportion: "Proportion",
@@ -85,7 +85,7 @@ export function useMentionItems(datasourceId?: string): {
       });
     }
 
-    return items.sort((a, b) => a.label.localeCompare(b.label));
+    return sortMentionItems(items);
   }, [metrics, factMetrics, metricGroups, dashboards, datasourceId]);
 
   // Both sources have to land before the list is complete. Reporting ready too

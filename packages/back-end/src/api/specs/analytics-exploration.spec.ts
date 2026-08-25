@@ -98,14 +98,8 @@ export const postFunnelExplorationEndpoint = makeExplorationEndpoint(
   },
 );
 
-// -----------------------------------------------------------------------------
-// Discovery endpoints
-//
-// The three read-only lookups you need before you can build an exploration:
-// find a metric or fact table, list its columns, then read the real values in a
-// column. Column values are a POST only because the requested column list and
-// its search term don't belong in a URL; nothing is written.
-// -----------------------------------------------------------------------------
+// The three lookups before an exploration. Column values is a POST only because
+// the column list and search term don't belong in a URL; nothing is written.
 
 export const getProductAnalyticsSearchEndpoint = {
   pathFragment: "/search",

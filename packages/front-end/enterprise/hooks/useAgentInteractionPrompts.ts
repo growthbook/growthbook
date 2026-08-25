@@ -9,12 +9,8 @@ import type {
   ConfirmDecisionBody,
 } from "@/components/Agent/ConfirmActionCard";
 
-/**
- * The two ways an agent turn hands control back: a multiple-choice question
- * (`askUser`) and a parked mutation awaiting approval. Shared by every chat
- * surface — one that streams `confirm-action` and renders nothing leaves the
- * user with a write that silently never happens.
- */
+// The two ways a turn hands control back: `askUser`, and a parked mutation. A
+// surface that streams `confirm-action` and renders nothing loses the write.
 
 export interface AgentInteractionPrompts {
   askPrompt: AskUserPrompt | null;
@@ -58,12 +54,7 @@ const askEventSchema = z.object({
   allowMultiple: z.boolean().catch(false),
 });
 
-/**
- * The parked mutation. The SSE event keys the id `actionId`, the persisted
- * `pendingAction` keys it `id`; everything else matches. `.catch` on the display
- * fields because a bad summary is still a write the user must be able to
- * approve.
- */
+// The SSE event keys the id `actionId`, the persisted action keys it `id`.
 const confirmFieldsSchema = z.object({
   method: z.string().catch(""),
   path: z.string().catch(""),

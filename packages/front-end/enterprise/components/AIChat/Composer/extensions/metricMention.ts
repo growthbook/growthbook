@@ -13,6 +13,28 @@ export interface MentionItem {
   typeLabel: string;
 }
 
+/** Heading the item sits under in the `@` menu. */
+export function mentionGroupLabel(type: AIChatMentionType): string {
+  return type === "dashboard" ? "Dashboards" : "Metrics";
+}
+
+const GROUP_ORDER = ["Metrics", "Dashboards"];
+
+const groupRank = (item: MentionItem) =>
+  GROUP_ORDER.indexOf(mentionGroupLabel(item.metricType));
+
+/** Group order, then label. For the source list, which has nothing to rank by. */
+export function sortMentionItems(items: MentionItem[]): MentionItem[] {
+  return [...items].sort(
+    (a, b) => groupRank(a) - groupRank(b) || a.label.localeCompare(b.label),
+  );
+}
+
+/** Stable, so match ranking survives inside each group. */
+function byGroup(items: MentionItem[]): MentionItem[] {
+  return [...items].sort((a, b) => groupRank(a) - groupRank(b));
+}
+
 const STALE_MENTION_PLUGIN = new PluginKey("metricMentionStale");
 
 export interface MentionStorage {
@@ -88,10 +110,10 @@ export const MetricMention = Mention.extend<
 export function filterMentionItems(
   items: MentionItem[],
   query: string,
-  limit = 20,
+  limit = 50,
 ): MentionItem[] {
   const q = query.trim().toLowerCase();
-  if (!q) return items.slice(0, limit);
+  if (!q) return byGroup(items).slice(0, limit);
 
   const prefix: MentionItem[] = [];
   const substring: MentionItem[] = [];
@@ -100,5 +122,5 @@ export function filterMentionItems(
     if (label.startsWith(q)) prefix.push(item);
     else if (label.includes(q)) substring.push(item);
   }
-  return [...prefix, ...substring].slice(0, limit);
+  return byGroup([...prefix, ...substring].slice(0, limit));
 }

@@ -134,16 +134,8 @@ export interface ConversationLoadResponse {
 
 export interface UseAIChatReturn {
   messages: AIChatMessage[];
-  /**
-   * Ids of the messages the current conversation was *loaded* with, as opposed
-   * to ones that arrived by streaming in this session.
-   *
-   * The distinction matters for anything a message renders that goes stale on
-   * the shelf — a dashboard preview holds analysis ids that may have expired
-   * since the turn ran. It cannot be inferred from the message list alone:
-   * every turn ends by re-reading the transcript from the server, so a
-   * just-streamed message and a rehydrated one look identical by then.
-   */
+  // Loaded-with, not streamed-in. Not inferable from the list: every turn ends by
+  // re-reading the transcript, so by then the two look identical.
   rehydratedMessageIds: ReadonlySet<string>;
   activeTurnItems: ActiveTurnItem[];
   displayedTextMap: Map<string, string>;

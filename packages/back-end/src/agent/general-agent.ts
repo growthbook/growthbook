@@ -213,16 +213,8 @@ function buildGeneralAgentSystemPrompt(): string {
   ].join("\n");
 }
 
-// =============================================================================
-// Handoff to the Product Analytics chat
-// =============================================================================
-
-/**
- * Building a dashboard means showing the user a live preview to save, which
- * needs the `proposeDashboard` tool and a surface wide enough to render a grid
- * of charts. Neither exists in this panel. Rather than dead-end the request,
- * the agent writes the brief out and hands it over.
- */
+// Handoff to the Product Analytics chat: building a dashboard needs a live
+// preview, which this panel cannot render.
 const OPEN_ANALYTICS_CHAT_DESCRIPTION =
   "Hand a dashboard request to the Product Analytics chat, which can build one. " +
   "Offers the user a link that opens a fresh chat there with your brief already " +

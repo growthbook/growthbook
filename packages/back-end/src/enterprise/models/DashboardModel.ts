@@ -450,6 +450,7 @@ export class DashboardModel extends BaseClass {
       title,
       projects,
       globalControls,
+      comparison,
       blocks,
     } = apiCreateDashboardBody.parse(rawBody);
     const createdBlocks = await Promise.all(
@@ -478,6 +479,7 @@ export class DashboardModel extends BaseClass {
       title,
       projects,
       globalControls,
+      comparison,
       blocks: normalizeLayouts(blocksWithGlobalControls),
     };
   }

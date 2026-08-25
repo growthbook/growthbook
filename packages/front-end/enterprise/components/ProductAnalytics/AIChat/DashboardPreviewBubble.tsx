@@ -125,11 +125,7 @@ export default function DashboardPreviewBubble({
     ],
   );
 
-  /**
-   * Re-run the tiles against the current filter bar. Also what enables Update at
-   * all: `DashboardUpdateDisplay` disables it on an unsaved dashboard unless
-   * this callback is supplied, there being no id to refresh server-side.
-   */
+  // Also what enables Update: it is disabled on an unsaved dashboard without this.
   const refreshBlocks = useCallback(
     async (
       controls: DashboardInterface["globalControls"] = globalControls,

@@ -539,11 +539,7 @@ export function parseMetricIdsQueryField(value?: string): string[] {
     .filter((s) => s.length > 0);
 }
 
-/**
- * Which dataset the lookup runs against, shared by both endpoints. Only
- * `metricIds` differs between them — comma-separated in a query string, a real
- * array in a JSON body — so it is supplied per schema.
- */
+/** Shared by both endpoints; only `metricIds` differs (query string vs JSON body). */
 const columnSourceFields = {
   source: z
     .enum(productAnalyticsColumnSources)

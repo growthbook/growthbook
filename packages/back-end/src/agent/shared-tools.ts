@@ -17,13 +17,8 @@ import {
 import { getSkillByName, getSkillNames } from "back-end/src/agent/skills";
 import type { ReqContext } from "back-end/types/request";
 
-/**
- * The tools any GrowthBook agent needs to act on the app rather than talk about
- * it: `loadSkill`, `callApi` behind a mutation-confirmation gate, and `askUser`.
- *
- * Shared rather than copied per agent: one that parks writes slightly
- * differently is one that can write without the user seeing it.
- */
+// `loadSkill`, `callApi` behind the mutation gate, and `askUser`. Shared, not
+// copied per agent: one that parks writes differently can write unseen.
 
 // =============================================================================
 // Path matchers & helpers
@@ -45,11 +40,7 @@ function isExplorationPath(path: string): boolean {
   return EXPLORATION_PATH_RE.test(normalizePath(path));
 }
 
-/**
- * Deterministic mutation gate: every non-GET call is parked for confirmation
- * except an allowlist of read-only POSTs that compute rather than configure.
- * Normalized first, so the allowlist matches whichever prefix form the LLM sent.
- */
+/** Every non-GET is parked, bar an allowlist of read-only POSTs. Path normalized first. */
 function requiresMutationConfirmation(input: DispatchInput): boolean {
   if (input.method === "GET") return false;
   const path = normalizePath(input.path);
@@ -65,11 +56,7 @@ function requiresMutationConfirmation(input: DispatchInput): boolean {
   return true;
 }
 
-/**
- * Models sometimes JSON-encode `body` as a string even when told not to. Parse
- * it back so the handler's schema validates; anything not starting `{`/`[`
- * passes through untouched.
- */
+/** Models sometimes JSON-encode `body` as a string; parse it back. */
 function coerceBody(body: unknown): unknown {
   if (typeof body !== "string") return body;
   const trimmed = body.trim();
@@ -84,10 +71,7 @@ function coerceBody(body: unknown): unknown {
   }
 }
 
-/**
- * Trim what the agent sees: elide `exploration.result.rows` (the chart UI gets
- * them over SSE; the agent never reads them row by row) and cap the rest.
- */
+/** Elide `exploration.result.rows` — the chart UI gets them over SSE — and cap the rest. */
 const MAX_BODY_CHARS = 16_000;
 
 function summarizeResult(result: DispatchResult): {

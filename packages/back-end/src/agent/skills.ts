@@ -244,13 +244,7 @@ export function _clearSkillCacheForTests(): void {
   cachedSkills = null;
 }
 
-/**
- * Names of every skill filed under one domain, router included.
- *
- * Used to scope an agent to one area: the Product Analytics chat offers the
- * dashboard skills but has no business publishing a Feature Flag, and an agent
- * that cannot load a skill never learns the endpoints it documents.
- */
+/** Router and leaves for one domain, for scoping an agent to its own area. */
 export function getSkillNamesForGroup(group: string): string[] {
   return getAllSkills()
     .filter((s) => s.group === group)

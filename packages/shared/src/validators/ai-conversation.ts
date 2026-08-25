@@ -58,10 +58,7 @@ export const aiChatMentionValidator = z
   })
   .strict();
 
-/**
- * The brief the site-wide agent hands to the Product Analytics chat. Both the
- * `openAnalyticsChat` tool input and what the handoff card parses back out.
- */
+/** Both the `openAnalyticsChat` tool input and what the handoff card reads back. */
 export const analyticsHandoffValidator = z.object({
   prompt: z
     .string()

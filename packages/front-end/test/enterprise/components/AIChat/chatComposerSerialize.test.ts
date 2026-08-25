@@ -14,6 +14,8 @@ import {
   MetricMention,
   METRIC_MENTION_NAME,
   filterMentionItems,
+  mentionGroupLabel,
+  sortMentionItems,
   offeredMentionIds,
   type MentionItem,
 } from "@/enterprise/components/AIChat/Composer/extensions/metricMention";
@@ -469,5 +471,69 @@ describe("mentionTypeLabel", () => {
   it("names the kind rather than leaking a raw enum it doesn't know", () => {
     expect(mentionTypeLabel("factMetric", "somethingNew")).toBe("Fact Metric");
     expect(mentionTypeLabel("metric", undefined)).toBe("Metric");
+  });
+});
+
+describe("mention grouping", () => {
+  const items = [
+    {
+      id: "dash_1",
+      label: "Growth KPIs",
+      metricType: "dashboard" as const,
+      typeLabel: "Dashboard",
+    },
+    {
+      id: "met_rev",
+      label: "Revenue",
+      metricType: "metric" as const,
+      typeLabel: "Metric",
+    },
+    {
+      id: "fact_signup",
+      label: "Signups",
+      metricType: "factMetric" as const,
+      typeLabel: "Fact Metric",
+    },
+  ];
+
+  it("labels metrics and dashboards", () => {
+    expect(mentionGroupLabel("metric")).toBe("Metrics");
+    expect(mentionGroupLabel("factMetric")).toBe("Metrics");
+    expect(mentionGroupLabel("metricGroup")).toBe("Metrics");
+    expect(mentionGroupLabel("dashboard")).toBe("Dashboards");
+  });
+
+  it("puts metrics above dashboards with no query", () => {
+    expect(filterMentionItems(items, "").map((i) => i.id)).toEqual([
+      "met_rev",
+      "fact_signup",
+      "dash_1",
+    ]);
+  });
+
+  it("sorts the source list by group, then alphabetically", () => {
+    expect(sortMentionItems(items).map((i) => i.id)).toEqual([
+      "met_rev",
+      "fact_signup",
+      "dash_1",
+    ]);
+  });
+
+  it("keeps the groups apart when searching", () => {
+    const dashboardFirst = [
+      {
+        id: "dash_s",
+        label: "Sales board",
+        metricType: "dashboard" as const,
+        typeLabel: "Dashboard",
+      },
+      ...items,
+    ];
+    // Metrics first, then Dashboards, with match ranking intact inside each.
+    expect(filterMentionItems(dashboardFirst, "s").map((i) => i.id)).toEqual([
+      "fact_signup",
+      "dash_s",
+      "dash_1",
+    ]);
   });
 });

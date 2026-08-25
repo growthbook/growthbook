@@ -19,12 +19,7 @@ export function analyticsHandoffFromToolResult(
   );
 }
 
-/**
- * The offer to continue a dashboard request in the Product Analytics chat. The
- * user clicks rather than the tool navigating: the panel floats over whatever
- * they were doing. The brief rides the same sessionStorage stash the PA empty
- * state uses.
- */
+/** The user clicks rather than the tool navigating them off the page. */
 export default function AnalyticsHandoffCard({
   handoff,
 }: {

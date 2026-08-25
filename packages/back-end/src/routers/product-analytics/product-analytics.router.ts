@@ -44,14 +44,9 @@ router.post(
         datasourceId: z.string(),
         model: aiModelValidator,
         mentions: aiChatMentionValidator.array().optional(),
-        // Skills picked from the composer's `/` menu. Scoped server-side to the
-        // dashboard group (see PRODUCT_ANALYTICS_CHAT_SKILL_GROUP); anything
-        // else resolves to nothing.
+        // Scoped server-side to PRODUCT_ANALYTICS_CHAT_SKILL_GROUP.
         skills: aiChatSkillsValidator.optional(),
-        // Deterministic mutation-confirmation gate: when the user responds to
-        // a parked mutation, the UI sends the action id and their decision so
-        // the harness can replay or discard the exact stored call. Reachable
-        // here because the dashboard skills write via `callApi`.
+        // The user's answer to a parked mutation; the harness replays the stored call.
         confirmActionId: z.string().min(1).optional(),
         confirmDecision: z.enum(["confirm", "cancel"]).optional(),
       })

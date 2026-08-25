@@ -111,8 +111,29 @@ change straight to the dashboard and then send the user to look at it.
    }
    ```
 
+   **The body is strict. Do not echo back what `GET` returned.** It accepts only
+   `title`, `projects`, `editLevel`, `shareLevel`, `enableAutoUpdates`,
+   `updateSchedule`, `globalControls`, `comparison`, and `blocks`. Sending the
+   dashboard's own `organization`, `id`, `uid`, `userId`, `dateCreated`, or
+   `dateUpdated` fails the whole request with
+   `Unrecognized key: "<name>"`.
+
+   **Every chart block needs an `explorerAnalysisId`** — the one it already had,
+   or the one you got from step 1. A chart block without it fails with
+   `[blocks.N] Invalid input`, which does not name the missing field. Markdown
+   and experimentation blocks need none.
+
+   **A brand-new block has no `id`, `uid`, or `organization` — omit all three**
+   and the server assigns them. Never invent them: supply all three and they are
+   stored verbatim, leaving a block with an id nothing else can resolve.
+
    Carry each existing block's `layout` through so the grid does not rearrange
    itself. Leave `layout` off a brand-new block and it takes a default size.
+
+   Compare-to-previous-period is `comparison` at the top level:
+   `{ "enabled": true, "mode": "previousPeriod" }`, or `{ "enabled": false }` to
+   turn it off. It overrides any per-block `comparison`.
+
    This is a write, so the user confirms it — the `summary` is the only thing
    they read before approving, so name the actual change in their terms.
 
