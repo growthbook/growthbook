@@ -1,6 +1,6 @@
 import type { GrowthBook } from "../../GrowthBook";
 import { detectEnv, shouldSample, syncGrowthBookUrl } from "../util";
-import { subscribeToUrlChanges } from "./urlChangeObserver";
+import { subscribeToUrlChanges } from "../util/urlChangeObserver";
 import {
   resetPageState,
   updateVisibleTime,

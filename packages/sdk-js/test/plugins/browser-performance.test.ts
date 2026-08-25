@@ -7,7 +7,7 @@ import { _resetPageStateForTests } from "../../src/plugins/performance/pageState
 import {
   _resetUrlChangeObserverForTests,
   subscribeToUrlChanges,
-} from "../../src/plugins/performance/urlChangeObserver";
+} from "../../src/plugins/util/urlChangeObserver";
 import { browserEventsPlugin } from "../../src/plugins/performance/browser-events";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
