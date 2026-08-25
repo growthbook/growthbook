@@ -2,31 +2,73 @@ name: CI
 on:
   push:
     branches: [main]
-    paths:
-      - "packages/**"
-      - "pnpm-lock.yaml"
-      - "package.json"
-      - "eslint.config.mjs"
-      - "eslint-rules/**"
-      - "eslint-suppressions.json"
-      - ".github/workflows/ci.yml"
-      - ".github/actions/setup-workspace/**"
   pull_request:
-    paths:
-      - "packages/**"
-      - "pnpm-lock.yaml"
-      - "package.json"
-      - "eslint.config.mjs"
-      - "eslint-rules/**"
-      - "eslint-suppressions.json"
-      - ".github/workflows/ci.yml"
-      - ".github/actions/setup-workspace/**"
 
-# These jobs used to be sequential steps of a single job, which made the run the
-# sum of its parts (~14 min). They share no ordering, so they now run in
-# parallel and `ci` below aggregates them into the one required status check.
+# One workflow, always triggered, so exactly one check named `ci` is ever
+# reported for a commit.
+#
+# Splitting code / no-code across two workflows could not be made mutually
+# exclusive: `paths` fires when ANY changed file matches and `paths-ignore`
+# fires when ANY changed file does not, so a PR touching both kinds triggered
+# both. Both defined a job named `ci`, and the cheap one reported that check
+# green while the real jobs were still running. The `changes` job below decides
+# what to run instead, and `ci` at the bottom is the single required check.
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - name: Detect whether any code paths changed
+        id: filter
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          PR: ${{ github.event.number }}
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -uo pipefail
+          if [ "$EVENT" = "pull_request" ]; then
+            files=$(gh api --paginate "repos/$REPO/pulls/$PR/files" --jq '.[].filename') || files=""
+          else
+            files=$(gh api --paginate "repos/$REPO/compare/$BEFORE...$SHA" --jq '.files[]?.filename') || files=""
+          fi
+
+          # Failing to resolve the diff must never silently skip the test suite.
+          if [ -z "$files" ]; then
+            echo "Could not determine changed files; running every job."
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Changed files:"
+          echo "$files"
+          if echo "$files" | grep -qE '^(packages/|eslint-rules/|\.github/(workflows/ci\.yml|actions/)|pnpm-lock\.yaml$|package\.json$|eslint\.config\.mjs$|eslint-suppressions\.json$)'; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Runs on every commit, code or not — this is what the old ci-nochanges
+  # workflow existed to provide.
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup-workspace
+        with:
+          build-deps: "false"
+
+      - name: Check formatting
+        run: pnpm pretty:check
+
   lint:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -43,9 +85,11 @@ jobs:
         env:
           CI: true
 
-  # The Python engine's lint and pytest suite. Split out so the JS jobs above
-  # don't pay for a Python toolchain they never use.
+  # The Python engine's lint and pytest suite. Split out so the JS jobs don't
+  # pay for a Python toolchain they never use.
   stats:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -87,6 +131,7 @@ jobs:
       - name: Install pnpm dependencies
         run: pnpm install
 
+      # `setup` and `test` are pnpm built-ins, so these need an explicit `run`.
       - name: Install stats engine
         run: pnpm --filter stats run setup
         env:
@@ -102,7 +147,9 @@ jobs:
         env:
           CI: true
 
-  format-and-openapi:
+  openapi:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -110,15 +157,14 @@ jobs:
 
       - uses: ./.github/actions/setup-workspace
 
-      - name: Check formatting
-        run: pnpm pretty:check
-
       - name: Check OpenAPI spec
         run: |
           pnpm generate-openapi
           [[ -n $(git status --porcelain) ]] && echo "You need to run pnpm generate-openapi" && git status --porcelain && exit 1 || true
 
   type-check:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -137,6 +183,8 @@ jobs:
   # The back-end suite is ~80% of all test time, and a 4-vCPU runner gives Jest
   # only 3 workers for 300+ files. Split it across runners instead.
   test-back-end:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -163,6 +211,8 @@ jobs:
           CI: true
 
   test-packages:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -184,11 +234,21 @@ jobs:
         env:
           CI: true
 
-  # The one required status check: green only if every job above succeeded.
+  # The one required status check. Green only when every job above either
+  # succeeded or was deliberately skipped.
   ci:
     if: always()
     needs:
-      [lint, stats, format-and-openapi, type-check, test-back-end, test-packages]
+      [
+        changes,
+        format,
+        lint,
+        stats,
+        openapi,
+        type-check,
+        test-back-end,
+        test-packages,
+      ]
     runs-on: ubuntu-latest
     steps:
       - name: Check job results
@@ -197,8 +257,11 @@ jobs:
         run: |
           echo "Upstream results: $RESULTS"
           for r in $RESULTS; do
-            if [ "$r" != "success" ]; then
-              echo "A required job did not succeed."
-              exit 1
-            fi
+            case "$r" in
+              success | skipped) ;;
+              *)
+                echo "A required job did not succeed."
+                exit 1
+                ;;
+            esac
           done

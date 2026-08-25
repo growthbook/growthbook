@@ -1,6 +1,11 @@
 name: Set up workspace
 description: Install pnpm, Node and workspace dependencies, then build the shared packages.
 
+inputs:
+  build-deps:
+    description: Build the shared packages. Skip it for jobs that only need node_modules.
+    default: "true"
+
 runs:
   using: composite
   steps:
@@ -29,6 +34,7 @@ runs:
     # Lint, type-check and the tests all need sdk-js/sdk-react/shared/stats-ts
     # built. The Python engine is not built here; only the lint job needs it.
     - name: Build dependencies
+      if: inputs.build-deps == 'true'
       run: pnpm build:deps
       shell: bash
       env:
