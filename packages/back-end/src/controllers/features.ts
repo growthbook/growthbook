@@ -5595,8 +5595,12 @@ export async function putFeature(
       liveVersion: feature.version,
       ...(targetDraft ? { draftVersion: targetDraft.version } : {}),
       // Mutually exclusive, so merging them apart would target all projects and
-      // carry a list at the same time.
-      config: { chunks: [["targetingAllProjects", "targetingProjects"]] },
+      // carry a list at the same time. Older docs lack the migration-added
+      // flag; absent reads as false.
+      config: {
+        chunks: [["targetingAllProjects", "targetingProjects"]],
+        absentDefaults: { targetingAllProjects: false },
+      },
     });
     if (!resolution.ok) {
       return res.status(409).json({

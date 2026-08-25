@@ -1699,6 +1699,16 @@ export function featureRuleMergeConfig(
     ruleTypeFamily(yours.type) === "force-rollout";
   return {
     chunks: RULE_MERGE_CHUNKS,
+    // What an absent field means on legacy rules, matching the editor's seeds
+    // so materialized defaults never read as drift. allEnvironments is omitted:
+    // its absent meaning depends on whether an environments list is present.
+    absentDefaults: {
+      enabled: true,
+      allProjects: true,
+      coverage: 1,
+      hashAttribute: "id",
+      hashVersion: 1,
+    },
     family: (r) => ruleTypeFamily(r.type),
     ignoreFields: () => (derivesTypeFromCoverage ? ["id", "type"] : ["id"]),
     derive: derivesTypeFromCoverage
