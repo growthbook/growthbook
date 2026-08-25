@@ -117,6 +117,7 @@ COPY packages/stats-ts/package.json ./packages/stats-ts/package.json
 RUN pnpm install --frozen-lockfile --offline
 RUN pnpm postinstall
 COPY packages ./packages
+COPY skills-src ./skills-src
 RUN \
   pnpm build \
   && test -f packages/back-end/dist/server.js || (echo "ERROR: packages/back-end/dist/server.js is missing after build!" && exit 1) \
