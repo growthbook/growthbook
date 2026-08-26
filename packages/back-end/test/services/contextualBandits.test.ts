@@ -372,7 +372,7 @@ describe("persistContextualBanditEvent", () => {
       dateCreated: new Date(),
       dateUpdated: new Date(),
     });
-    const setLeafWeightsMock = jest.fn().mockResolvedValue(cb);
+    const applyWeightEpochUpdateMock = jest.fn().mockResolvedValue(cb);
     const getByIdMock = jest.fn().mockResolvedValue(cb);
 
     const context = {
@@ -380,7 +380,7 @@ describe("persistContextualBanditEvent", () => {
       models: {
         contextualBandits: {
           getById: getByIdMock,
-          setLeafWeights: setLeafWeightsMock,
+          applyWeightEpochUpdate: applyWeightEpochUpdateMock,
           update: jest.fn().mockResolvedValue(cb),
         },
         contextualBanditEvents: {
@@ -409,24 +409,20 @@ describe("persistContextualBanditEvent", () => {
       }),
     );
 
-    expect(setLeafWeightsMock).toHaveBeenCalledTimes(1);
-    const [cbIdArg, leafWeightsArg, patchOptions] =
-      setLeafWeightsMock.mock.calls[0];
+    expect(applyWeightEpochUpdateMock).toHaveBeenCalledTimes(1);
+    const [cbIdArg, changes] = applyWeightEpochUpdateMock.mock.calls[0];
     expect(cbIdArg).toBe(cb.id);
-    expect(leafWeightsArg).toHaveLength(2);
-    // Weights changed → the version bumps alongside the payload refresh, and a new seed is set
-    expect(patchOptions).toEqual({
-      bumpVersion: true,
-      expectedBanditVersion: cb.banditVersion,
-      newSeed: expect.any(String),
-    });
+    expect(changes.currentLeafWeights).toHaveLength(2);
+    expect(changes.bumpVersion).toBe(true);
+    expect(changes.expectedBanditVersion).toBe(cb.banditVersion);
+    expect(changes.newSeed).toEqual(expect.any(String));
     const expectedLeafWeights = leafWeightsFromContextualBanditResult(
       result,
       cb.variations,
     );
-    expect(leafWeightsArg).toEqual(expectedLeafWeights);
-    expect(leafWeightsArg[0].leafId).toBe(0);
-    expect(leafWeightsArg[0].condition).toEqual({
+    expect(changes.currentLeafWeights).toEqual(expectedLeafWeights);
+    expect(changes.currentLeafWeights[0].leafId).toBe(0);
+    expect(changes.currentLeafWeights[0].condition).toEqual({
       country: "US",
       device: "mobile",
     });
@@ -454,14 +450,14 @@ describe("persistContextualBanditEvent", () => {
       dateCreated: new Date(),
       dateUpdated: new Date(),
     });
-    const setLeafWeightsMock = jest.fn().mockResolvedValue(cb);
+    const applyWeightEpochUpdateMock = jest.fn().mockResolvedValue(cb);
 
     const context = {
       org: { id: "org_1" },
       models: {
         contextualBandits: {
           getById: jest.fn().mockResolvedValue(cb),
-          setLeafWeights: setLeafWeightsMock,
+          applyWeightEpochUpdate: applyWeightEpochUpdateMock,
           update: jest.fn().mockResolvedValue(cb),
         },
         contextualBanditEvents: {
@@ -472,7 +468,7 @@ describe("persistContextualBanditEvent", () => {
 
     await persistContextualBanditEvent(context, cbs, result);
 
-    expect(setLeafWeightsMock).not.toHaveBeenCalled();
+    expect(applyWeightEpochUpdateMock).not.toHaveBeenCalled();
     expect(refreshLinkedFeaturePayloadsMock).not.toHaveBeenCalled();
   });
 
@@ -482,7 +478,7 @@ describe("persistContextualBanditEvent", () => {
       models: {
         contextualBandits: {
           getById: jest.fn().mockResolvedValue(null),
-          setLeafWeights: jest.fn(),
+          applyWeightEpochUpdate: jest.fn(),
         },
         contextualBanditEvents: { create: jest.fn() },
       },
@@ -501,7 +497,7 @@ describe("persistContextualBanditEvent", () => {
     const cbs = makeCbs();
     const result = makeResult();
 
-    const setLeafWeightsMock = jest.fn().mockResolvedValue(cb);
+    const applyWeightEpochUpdateMock = jest.fn().mockResolvedValue(cb);
     const createCbeMock = jest.fn().mockResolvedValue({
       id: "cbe_1",
       organization: "org_1",
@@ -520,7 +516,7 @@ describe("persistContextualBanditEvent", () => {
       models: {
         contextualBandits: {
           getById: jest.fn().mockResolvedValue(cb),
-          setLeafWeights: setLeafWeightsMock,
+          applyWeightEpochUpdate: applyWeightEpochUpdateMock,
           update: updateMock,
         },
         contextualBanditEvents: {
@@ -532,7 +528,7 @@ describe("persistContextualBanditEvent", () => {
     await persistContextualBanditEvent(context, cbs, result);
 
     // Still "explore" per the CB doc, so weights are discarded for this run...
-    expect(setLeafWeightsMock).not.toHaveBeenCalled();
+    expect(applyWeightEpochUpdateMock).not.toHaveBeenCalled();
     expect(createCbeMock).toHaveBeenCalledWith(
       expect.objectContaining({ weightsWereUpdated: false }),
     );
@@ -551,13 +547,13 @@ describe("persistContextualBanditEvent", () => {
       result,
       cb.variations,
     );
-    const setLeafWeightsMock = jest.fn().mockResolvedValue(cb);
+    const applyWeightEpochUpdateMock = jest.fn().mockResolvedValue(cb);
     const context = {
       org: { id: "org_1" },
       models: {
         contextualBandits: {
           getById: jest.fn().mockResolvedValue(cb),
-          setLeafWeights: setLeafWeightsMock,
+          applyWeightEpochUpdate: applyWeightEpochUpdateMock,
           update: jest.fn().mockResolvedValue(cb),
         },
         contextualBanditEvents: {
@@ -578,11 +574,11 @@ describe("persistContextualBanditEvent", () => {
 
     await persistContextualBanditEvent(context, makeCbs(), result);
 
-    expect(setLeafWeightsMock).toHaveBeenCalledTimes(1);
-    expect(setLeafWeightsMock.mock.calls[0][2]).toEqual({
-      bumpVersion: false,
-      expectedBanditVersion: cb.banditVersion,
-    });
+    expect(applyWeightEpochUpdateMock).toHaveBeenCalledTimes(1);
+    expect(applyWeightEpochUpdateMock.mock.calls[0][1].bumpVersion).toBe(false);
+    expect(
+      applyWeightEpochUpdateMock.mock.calls[0][1].expectedBanditVersion,
+    ).toBe(cb.banditVersion);
     expect(refreshLinkedFeaturePayloadsMock).not.toHaveBeenCalled();
   });
 });
@@ -707,7 +703,7 @@ describe("persistContextualBanditEvent — P3 stale-epoch guard", () => {
   });
 
   function makeGuardContext(cb: ContextualBanditInterface) {
-    const setLeafWeightsMock = jest.fn().mockResolvedValue(cb);
+    const applyWeightEpochUpdateMock = jest.fn().mockResolvedValue(cb);
     const createCbeMock = jest.fn().mockImplementation((doc) =>
       Promise.resolve({
         id: "cbe_x",
@@ -725,24 +721,24 @@ describe("persistContextualBanditEvent — P3 stale-epoch guard", () => {
       models: {
         contextualBandits: {
           getById: jest.fn().mockResolvedValue(cb),
-          setLeafWeights: setLeafWeightsMock,
+          applyWeightEpochUpdate: applyWeightEpochUpdateMock,
           update: jest.fn(),
         },
         contextualBanditEvents: { create: createCbeMock },
       },
     } as unknown as ReqContext;
-    return { context, setLeafWeightsMock, createCbeMock, warnMock };
+    return { context, applyWeightEpochUpdateMock, createCbeMock, warnMock };
   }
 
   it("discards this run's weights when banditVersion changed mid-run", async () => {
     const cb = makeCb({ stage: "exploit", banditVersion: 5 });
     const cbs = makeCbs({ banditVersion: 3 });
-    const { context, setLeafWeightsMock, createCbeMock, warnMock } =
+    const { context, applyWeightEpochUpdateMock, createCbeMock, warnMock } =
       makeGuardContext(cb);
 
     await persistContextualBanditEvent(context, cbs, makeResult());
 
-    expect(setLeafWeightsMock).not.toHaveBeenCalled();
+    expect(applyWeightEpochUpdateMock).not.toHaveBeenCalled();
     expect(createCbeMock).toHaveBeenCalledWith(
       expect.objectContaining({ weightsWereUpdated: false }),
     );
@@ -752,24 +748,28 @@ describe("persistContextualBanditEvent — P3 stale-epoch guard", () => {
   it("persists weights when the run's banditVersion still matches the live CB", async () => {
     const cb = makeCb({ stage: "exploit", banditVersion: 5 });
     const cbs = makeCbs({ banditVersion: 5 });
-    const { context, setLeafWeightsMock, warnMock } = makeGuardContext(cb);
+    const { context, applyWeightEpochUpdateMock, warnMock } =
+      makeGuardContext(cb);
 
     await persistContextualBanditEvent(context, cbs, makeResult());
 
-    expect(setLeafWeightsMock.mock.calls[0][1].length).toBeGreaterThan(0);
+    expect(
+      applyWeightEpochUpdateMock.mock.calls[0][1].currentLeafWeights.length,
+    ).toBeGreaterThan(0);
     expect(warnMock).not.toHaveBeenCalled();
   });
 
   it("discards this run's weights when an arm change lands between the read and the leaf-weight write", async () => {
     const cb = makeCb({ stage: "exploit", banditVersion: 5 });
     const cbs = makeCbs({ banditVersion: 5 });
-    const { context, setLeafWeightsMock, warnMock } = makeGuardContext(cb);
-    setLeafWeightsMock.mockRejectedValueOnce(new CasConflictError());
+    const { context, applyWeightEpochUpdateMock, warnMock } =
+      makeGuardContext(cb);
+    applyWeightEpochUpdateMock.mockRejectedValueOnce(new CasConflictError());
 
     const cbe = await persistContextualBanditEvent(context, cbs, makeResult());
 
     expect(cbe).toEqual(expect.objectContaining({ id: "cbe_x" }));
-    expect(setLeafWeightsMock).toHaveBeenCalledTimes(1);
+    expect(applyWeightEpochUpdateMock).toHaveBeenCalledTimes(1);
     expect(warnMock).toHaveBeenCalledTimes(1);
   });
 });

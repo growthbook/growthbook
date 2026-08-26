@@ -963,6 +963,12 @@ function computePendingVariationIds(
   );
 }
 
+function contextualBanditWeightMode(
+  cb: ContextualBanditInterface,
+): WeightReconcileMode {
+  return !cb.stage || cb.stage === "explore" ? "uniform" : "redistribute";
+}
+
 async function writeReconciledArmStateGuarded(
   context: ReqContext | ApiReqContext,
   seed: ContextualBanditInterface,
@@ -983,12 +989,13 @@ async function writeReconciledArmStateGuarded(
             weights: reconcileVariationWeights(lw.weights, activeIds, mode),
           }));
     try {
-      return await context.models.contextualBandits.applyArmStateUpdate(
+      return await context.models.contextualBandits.applyWeightEpochUpdate(
         seed.id,
         {
           variations: finalVariations,
           variationWeights,
           currentLeafWeights: leafWeights,
+          bumpVersion: true,
           expectedBanditVersion: base.banditVersion,
           bypassPermissionCheck: opts?.bypassPermissionChecks,
         },
@@ -1033,8 +1040,7 @@ export async function activatePendingContextualBanditVariations(
     activatedSet.has(v.id) ? { ...v, status: "active" as const } : v,
   );
 
-  const mode: WeightReconcileMode =
-    !cb.stage || cb.stage === "explore" ? "uniform" : "redistribute";
+  const mode = contextualBanditWeightMode(cb);
   const activeIds = getActiveVariations(newVariations).map((v) => v.id);
   const variationWeights = reconcileVariationWeights(
     cb.variationWeights ?? [],
@@ -1134,8 +1140,7 @@ export async function executeContextualBanditVariationChange(
       ...tombstones,
     ];
 
-    const mode: WeightReconcileMode =
-      !cb.stage || cb.stage === "explore" ? "uniform" : "redistribute";
+    const mode = contextualBanditWeightMode(cb);
     const activeIds = getActiveVariations(provisionalVariations).map(
       (v) => v.id,
     );
@@ -1179,7 +1184,10 @@ export async function executeContextualBanditVariationChange(
       variations: finalVariations,
     });
     if (orderChanged) {
-      updated = await context.models.contextualBandits.bumpBanditVersion(cb.id);
+      updated = await context.models.contextualBandits.applyWeightEpochUpdate(
+        cb.id,
+        { bumpVersion: true },
+      );
     }
 
     // A re-save with pending arms or tombstones is a retry: re-attempt
@@ -1778,10 +1786,10 @@ export async function persistContextualBanditEvent(
   let updatedCb = cb;
   if (leafWeights.length > 0) {
     try {
-      updatedCb = await context.models.contextualBandits.setLeafWeights(
+      updatedCb = await context.models.contextualBandits.applyWeightEpochUpdate(
         cb.id,
-        leafWeights,
         {
+          currentLeafWeights: leafWeights,
           bumpVersion: weightsWereUpdated,
           expectedBanditVersion: cb.banditVersion,
           ...(newSeed ? { newSeed } : {}),

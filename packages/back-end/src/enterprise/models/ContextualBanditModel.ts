@@ -438,58 +438,13 @@ export class ContextualBanditModel extends BaseClass {
     );
   }
 
-  public async setLeafWeights(
-    cbId: string,
-    leafWeights: LeafWeight[],
-    options?: {
-      bumpVersion?: boolean;
-      expectedBanditVersion?: number;
-      bypassPermissionCheck?: boolean;
-      newSeed?: string;
-    },
-  ): Promise<ContextualBanditInterface> {
-    return this.applyWeightEpochUpdate(cbId, {
-      currentLeafWeights: leafWeights,
-      bumpVersion: options?.bumpVersion ?? false,
-      expectedBanditVersion: options?.expectedBanditVersion,
-      bypassPermissionCheck: options?.bypassPermissionCheck,
-      newSeed: options?.newSeed,
-    });
-  }
-
-  public async applyArmStateUpdate(
-    cbId: string,
-    changes: {
-      variations: ContextualBanditVariation[];
-      variationWeights: VariationWeightPair[];
-      currentLeafWeights: LeafWeight[];
-      expectedBanditVersion?: number;
-      bypassPermissionCheck?: boolean;
-    },
-  ): Promise<ContextualBanditInterface> {
-    return this.applyWeightEpochUpdate(cbId, {
-      variations: changes.variations,
-      variationWeights: changes.variationWeights,
-      currentLeafWeights: changes.currentLeafWeights,
-      bumpVersion: true,
-      expectedBanditVersion: changes.expectedBanditVersion,
-      bypassPermissionCheck: changes.bypassPermissionCheck,
-    });
-  }
-
-  public async bumpBanditVersion(
-    cbId: string,
-  ): Promise<ContextualBanditInterface> {
-    return this.applyWeightEpochUpdate(cbId, { bumpVersion: true });
-  }
-
-  private async applyWeightEpochUpdate(
+  public async applyWeightEpochUpdate(
     cbId: string,
     changes: {
       variations?: ContextualBanditVariation[];
       variationWeights?: VariationWeightPair[];
       currentLeafWeights?: LeafWeight[];
-      bumpVersion: boolean;
+      bumpVersion?: boolean;
       expectedBanditVersion?: number;
       bypassPermissionCheck?: boolean;
       newSeed?: string;

@@ -225,35 +225,26 @@ function makeContext(cb: ContextualBanditInterface) {
     currentDoc = { ...existing, ...changes };
     return currentDoc;
   });
-  const setLeafWeightsMock = jest
-    .fn()
-    .mockImplementation((_cbId: string, leafWeights) => {
-      currentDoc = {
-        ...currentDoc,
-        currentLeafWeights: leafWeights,
-        banditVersion: currentDoc.banditVersion + 1,
-      };
-      return currentDoc;
-    });
-  const applyArmStateUpdateMock = jest
+  const applyWeightEpochUpdateMock = jest
     .fn()
     .mockImplementation((_cbId: string, changes) => {
       currentDoc = {
         ...currentDoc,
-        variations: changes.variations,
-        variationWeights: changes.variationWeights,
-        currentLeafWeights: changes.currentLeafWeights,
-        banditVersion: currentDoc.banditVersion + 1,
+        ...(changes.variations !== undefined
+          ? { variations: changes.variations }
+          : {}),
+        ...(changes.variationWeights !== undefined
+          ? { variationWeights: changes.variationWeights }
+          : {}),
+        ...(changes.currentLeafWeights !== undefined
+          ? { currentLeafWeights: changes.currentLeafWeights }
+          : {}),
+        ...(changes.bumpVersion
+          ? { banditVersion: currentDoc.banditVersion + 1 }
+          : {}),
       };
       return currentDoc;
     });
-  const bumpBanditVersionMock = jest.fn().mockImplementation(() => {
-    currentDoc = {
-      ...currentDoc,
-      banditVersion: currentDoc.banditVersion + 1,
-    };
-    return currentDoc;
-  });
   const getByIdMock = jest.fn().mockImplementation(async () => currentDoc);
   const dangerousUpdateBypassPermissionMock = jest
     .fn()
@@ -281,9 +272,7 @@ function makeContext(cb: ContextualBanditInterface) {
     models: {
       contextualBandits: {
         update: updateMock,
-        setLeafWeights: setLeafWeightsMock,
-        applyArmStateUpdate: applyArmStateUpdateMock,
-        bumpBanditVersion: bumpBanditVersionMock,
+        applyWeightEpochUpdate: applyWeightEpochUpdateMock,
         getById: getByIdMock,
         dangerousUpdateBypassPermission: dangerousUpdateBypassPermissionMock,
       },
@@ -292,9 +281,7 @@ function makeContext(cb: ContextualBanditInterface) {
   return {
     context,
     updateMock,
-    setLeafWeightsMock,
-    applyArmStateUpdateMock,
-    bumpBanditVersionMock,
+    applyWeightEpochUpdateMock,
     getByIdMock,
     dangerousUpdateBypassPermissionMock,
     canPublishFeature,
@@ -510,8 +497,7 @@ describe("executeContextualBanditVariationChange", () => {
 
   it("allows metadata-only edits in exploit without reconciling weights, bumping version, or touching linked features", async () => {
     const cb = makeCb({ stage: "exploit" });
-    const { context, updateMock, setLeafWeightsMock, bumpBanditVersionMock } =
-      makeContext(cb);
+    const { context, updateMock, applyWeightEpochUpdateMock } = makeContext(cb);
 
     await executeContextualBanditVariationChange(context, cb, [
       v("v0", "0"),
@@ -522,8 +508,7 @@ describe("executeContextualBanditVariationChange", () => {
     const [, changes] = updateMock.mock.calls[0];
     expect(changes.variations[1].name).toBe("Renamed");
     expect(changes).not.toHaveProperty("variationWeights");
-    expect(setLeafWeightsMock).not.toHaveBeenCalled();
-    expect(bumpBanditVersionMock).not.toHaveBeenCalled();
+    expect(applyWeightEpochUpdateMock).not.toHaveBeenCalled();
     expect(getRefLinkedFeatureInfoMock).not.toHaveBeenCalled();
     expect(updateRevisionMock).not.toHaveBeenCalled();
   });
@@ -542,8 +527,7 @@ describe("executeContextualBanditVariationChange", () => {
         },
       ],
     });
-    const { context, updateMock, setLeafWeightsMock, bumpBanditVersionMock } =
-      makeContext(cb);
+    const { context, updateMock, applyWeightEpochUpdateMock } = makeContext(cb);
     const persistedLeafWeights = cb.currentLeafWeights;
 
     // Swap the order of the two existing arms.
@@ -561,8 +545,9 @@ describe("executeContextualBanditVariationChange", () => {
     ]);
     expect(changes).not.toHaveProperty("variationWeights");
     // ...but the version is bumped and the splits are left as they are.
-    expect(setLeafWeightsMock).not.toHaveBeenCalled();
-    expect(bumpBanditVersionMock).toHaveBeenCalledWith("cb_1");
+    expect(applyWeightEpochUpdateMock).toHaveBeenCalledWith("cb_1", {
+      bumpVersion: true,
+    });
     expect(updated.banditVersion).toBe(cb.banditVersion + 1);
     expect(updated.currentLeafWeights).toEqual(persistedLeafWeights);
   });
@@ -584,7 +569,7 @@ describe("executeContextualBanditVariationChange", () => {
     } as Partial<FeatureInterface>);
     getRefLinkedFeatureInfoMock.mockResolvedValue([linkedInfo(feature)]);
     const cb = makeCb({ linkedFeatures: ["feature"] });
-    const { context, updateMock, setLeafWeightsMock } = makeContext(cb);
+    const { context, updateMock, applyWeightEpochUpdateMock } = makeContext(cb);
 
     await expect(
       executeContextualBanditVariationChange(
@@ -597,7 +582,7 @@ describe("executeContextualBanditVariationChange", () => {
 
     // Nothing persisted.
     expect(updateMock).not.toHaveBeenCalled();
-    expect(setLeafWeightsMock).not.toHaveBeenCalled();
+    expect(applyWeightEpochUpdateMock).not.toHaveBeenCalled();
     expect(updateRevisionMock).not.toHaveBeenCalled();
   });
 
@@ -605,7 +590,7 @@ describe("executeContextualBanditVariationChange", () => {
     const feature = makeFeature();
     getRefLinkedFeatureInfoMock.mockResolvedValue([linkedInfo(feature)]);
     const cb = makeCb({ linkedFeatures: ["feature"] });
-    const { context, updateMock, setLeafWeightsMock } = makeContext(cb);
+    const { context, updateMock, applyWeightEpochUpdateMock } = makeContext(cb);
 
     await expect(
       executeContextualBanditVariationChange(context, cb, [
@@ -616,7 +601,7 @@ describe("executeContextualBanditVariationChange", () => {
     ).rejects.toThrow(/Set a Feature Flag value for every new variation/);
 
     expect(updateMock).not.toHaveBeenCalled();
-    expect(setLeafWeightsMock).not.toHaveBeenCalled();
+    expect(applyWeightEpochUpdateMock).not.toHaveBeenCalled();
     expect(updateRevisionMock).not.toHaveBeenCalled();
   });
 
@@ -900,7 +885,7 @@ describe("executeContextualBanditVariationChange", () => {
         { ...v("v2", "2"), status: "pending" as const },
       ],
     } as Partial<ContextualBanditInterface>);
-    const { context, applyArmStateUpdateMock } = makeContext(cb);
+    const { context, applyWeightEpochUpdateMock } = makeContext(cb);
 
     // Same visible arm set — the old code treated this re-save as a no-op.
     const { pendingVariationIds, updated } =
@@ -922,7 +907,7 @@ describe("executeContextualBanditVariationChange", () => {
       "v2",
     ]);
     // Activation opens a new weight epoch.
-    expect(applyArmStateUpdateMock).toHaveBeenCalledWith(
+    expect(applyWeightEpochUpdateMock).toHaveBeenCalledWith(
       "cb_1",
       expect.objectContaining({ currentLeafWeights: [] }),
     );
@@ -938,7 +923,7 @@ describe("executeContextualBanditVariationChange", () => {
         { ...v("v2", "2"), status: "pending" as const },
       ],
     } as Partial<ContextualBanditInterface>);
-    const { context, applyArmStateUpdateMock } = makeContext(cb);
+    const { context, applyWeightEpochUpdateMock } = makeContext(cb);
 
     const { pendingVariationIds, updated } =
       await executeContextualBanditVariationChange(context, cb, [
@@ -952,7 +937,7 @@ describe("executeContextualBanditVariationChange", () => {
       "pending",
     );
     // No activation → no weight epoch bump.
-    expect(applyArmStateUpdateMock).not.toHaveBeenCalled();
+    expect(applyWeightEpochUpdateMock).not.toHaveBeenCalled();
   });
 
   it("removing a variation tombstones it in place: id preserved, no weight, hidden from the API arm set", async () => {
@@ -1174,7 +1159,8 @@ describe("executeContextualBanditVariationChange", () => {
         },
       ],
     });
-    const { context, applyArmStateUpdateMock, getByIdMock } = makeContext(cb);
+    const { context, applyWeightEpochUpdateMock, getByIdMock } =
+      makeContext(cb);
 
     const runnerDoc = {
       ...cb,
@@ -1191,7 +1177,7 @@ describe("executeContextualBanditVariationChange", () => {
         },
       ],
     };
-    applyArmStateUpdateMock.mockImplementationOnce(() => {
+    applyWeightEpochUpdateMock.mockImplementationOnce(() => {
       throw new CasConflictError();
     });
     getByIdMock.mockResolvedValueOnce(runnerDoc);
@@ -1201,12 +1187,12 @@ describe("executeContextualBanditVariationChange", () => {
       v("v2", "2"),
     ]);
 
-    expect(applyArmStateUpdateMock).toHaveBeenCalledTimes(2);
-    expect(applyArmStateUpdateMock.mock.calls[0][1]).toEqual(
+    expect(applyWeightEpochUpdateMock).toHaveBeenCalledTimes(2);
+    expect(applyWeightEpochUpdateMock.mock.calls[0][1]).toEqual(
       expect.objectContaining({ expectedBanditVersion: cb.banditVersion }),
     );
     const retryWeights =
-      applyArmStateUpdateMock.mock.calls[1][1].currentLeafWeights[0].weights;
+      applyWeightEpochUpdateMock.mock.calls[1][1].currentLeafWeights[0].weights;
     const byId = Object.fromEntries(
       retryWeights.map((p: { variationId: string; weight: number }) => [
         p.variationId,
@@ -1215,7 +1201,7 @@ describe("executeContextualBanditVariationChange", () => {
     );
     expect(byId["v0"]).toBeCloseTo(0.8 / 0.9, 6);
     expect(byId["v2"]).toBeCloseTo(0.1 / 0.9, 6);
-    expect(applyArmStateUpdateMock.mock.calls[1][1]).toEqual(
+    expect(applyWeightEpochUpdateMock.mock.calls[1][1]).toEqual(
       expect.objectContaining({
         expectedBanditVersion: runnerDoc.banditVersion,
       }),
@@ -1336,7 +1322,7 @@ describe("executeContextualBanditVariationChange", () => {
         { ...v("v2", "2"), status: "pending" as const },
       ],
     } as Partial<ContextualBanditInterface>);
-    const { context, updateMock, applyArmStateUpdateMock } = makeContext(cb);
+    const { context, updateMock, applyWeightEpochUpdateMock } = makeContext(cb);
 
     const { activatedIds, updated } =
       await activatePendingContextualBanditVariations(context, cb, {
@@ -1348,7 +1334,7 @@ describe("executeContextualBanditVariationChange", () => {
       "active",
     );
     expect(updateMock).not.toHaveBeenCalled();
-    expect(applyArmStateUpdateMock).toHaveBeenCalledWith(
+    expect(applyWeightEpochUpdateMock).toHaveBeenCalledWith(
       "cb_1",
       expect.objectContaining({
         currentLeafWeights: [],
