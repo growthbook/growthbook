@@ -479,10 +479,8 @@ export function refreshHoldoutPayload(
 
 /**
  * Applies a validated REST update body to a Holdout and its companion
- * experiment. Splits the work across the three storage locations a Holdout
- * spans — the current experiment phase (targeting/sizing), the experiment
- * document (metadata and analysis settings), and the holdout document itself —
- * and returns the refreshed pair. Permission gating is the caller's job.
+ * experiment and returns the refreshed pair. Permission gating is the
+ * caller's job.
  */
 export async function updateHoldoutWithExperiment(
   context: ReqContext | ApiReqContext,
@@ -502,9 +500,7 @@ export async function updateHoldoutWithExperiment(
     holdout.environmentSettings,
   );
 
-  // Narrowing the scope must not strand linked entities (matches the internal
-  // update endpoint). Only when it actually changes, so a Holdout already
-  // holding a stranded link stays editable to be fixed.
+  // Narrowing the project scope must not strand linked entities
   if (
     body.projects !== undefined &&
     !isEqual(body.projects, holdout.projects)
