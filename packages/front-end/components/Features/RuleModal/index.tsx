@@ -84,6 +84,7 @@ import {
 import { decimalToPercent } from "@/services/utils";
 import {
   formatChunkValue,
+  namedProjectsFormatter,
   projectFormValues,
 } from "@/components/DraftConflicts/conflictValues";
 import StandardRuleFields, {
@@ -412,7 +413,11 @@ export default function RuleModal({
       return defaultRampSectionState(ruleRampSchedule);
     },
   );
-  const { datasources, project: currentProject } = useDefinitions();
+  const {
+    datasources,
+    project: currentProject,
+    getProjectById,
+  } = useDefinitions();
   const { experimentsMap, mutateExperiments } = useExperiments();
   const { templates: allTemplates } = useTemplates();
   const allEnvironments = useEnvironments();
@@ -1969,9 +1974,12 @@ export default function RuleModal({
           ? (conflict?.current ?? null)
           : (conflict?.attempted ?? null),
         chunk.fields,
-        RULE_VALUE_FORMATTERS,
+        {
+          ...RULE_VALUE_FORMATTERS,
+          projects: namedProjectsFormatter(getProjectById),
+        },
       ),
-    [conflict],
+    [conflict, getProjectById],
   );
 
   const conflictCallouts = conflict ? (

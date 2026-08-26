@@ -387,7 +387,7 @@ export type ScheduleStopAfter = z.infer<typeof scheduleStopAfterValidator>;
 // not just the dedicated scheduled-stop-plan service.
 const forceShipCriteriaHasVariation = (c: {
   mode: string;
-  fallback: string;
+  fallback?: string;
   fallbackVariationId?: string;
 }) =>
   !(
@@ -400,13 +400,27 @@ const forceShipVariationRefine = {
   path: ["fallbackVariationId"] as string[],
 };
 
+// `fallback` is only required when `mode` is "auto-ship" — it specifies what
+// happens when there's no clear winner. Other modes ignore this field.
+const autoShipRequiresFallback = (c: { mode: string; fallback?: string }) =>
+  !(c.mode === "auto-ship" && !c.fallback);
+const autoShipFallbackRefine = {
+  message: 'fallback is required when mode is "auto-ship".',
+  path: ["fallback"] as string[],
+};
+
 export const scheduledStopPlanValidator = z
   .object({
     mode: z.enum(SCHEDULED_STOP_MODES),
     tiebreakerMetricId: z.string().optional(),
-    fallback: z.enum(SCHEDULED_STOP_FALLBACKS),
+    /**
+     * What to do at the scheduled end when there is no clear winner. Required
+     * when `mode` is `"auto-ship"`; ignored for other modes.
+     */
+    fallback: z.enum(SCHEDULED_STOP_FALLBACKS).optional(),
     fallbackVariationId: z.string().optional(),
   })
+  .refine(autoShipRequiresFallback, autoShipFallbackRefine)
   .refine(forceShipCriteriaHasVariation, forceShipVariationRefine);
 export type ScheduledStopPlan = z.infer<typeof scheduledStopPlanValidator>;
 
@@ -842,9 +856,16 @@ export const apiScheduledStopPlanValidator = namedSchema(
     .object({
       mode: z.enum(SCHEDULED_STOP_MODES),
       tiebreakerMetricId: z.string().optional(),
-      fallback: z.enum(SCHEDULED_STOP_FALLBACKS),
+      fallback: z
+        .enum(SCHEDULED_STOP_FALLBACKS)
+        .describe(
+          "What to do at the scheduled end when there is no clear winner. " +
+            'Required when `mode` is `"auto-ship"`; ignored for other modes.',
+        )
+        .optional(),
       fallbackVariationId: z.string().optional(),
     })
+    .refine(autoShipRequiresFallback, autoShipFallbackRefine)
     .refine(forceShipCriteriaHasVariation, forceShipVariationRefine)
     .describe(
       "What happens at the scheduled end date. `notify` keeps the experiment " +
@@ -1057,11 +1078,17 @@ export const apiExperimentResultsValidator = namedSchema(
                       mean: z.coerce.number(),
                       stddev: z.coerce.number(),
                       percentChange: z.coerce.number(),
+                      effectStandardError: z.coerce
+                        .number()
+                        .describe(
+                          "Standard error of the estimated effect (`percentChange`).",
+                        ),
                       ciLow: z.coerce.number(),
                       ciHigh: z.coerce.number(),
                       pValue: z.coerce.number().optional(),
                       risk: z.coerce.number().optional(),
                       chanceToBeatControl: z.coerce.number().optional(),
+                      errorMessage: z.string().optional(),
                     }),
                   ),
                 }),
@@ -1161,10 +1188,15 @@ const apiBulkResultVariation = z.object({
       stddev: z.number().nullable(),
       // Estimated effect expressed according to differenceType.
       effect: z.number().nullable(),
+      effectStandardError: z
+        .number()
+        .nullable()
+        .describe("Standard error of `effect`, on the same scale."),
       ciLow: z.number().nullable(),
       ciHigh: z.number().nullable(),
       pValue: z.number().nullable().optional(),
       chanceToBeatControl: z.number().nullable().optional(),
+      errorMessage: z.string().optional(),
     }),
   ),
 });

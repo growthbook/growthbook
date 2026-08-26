@@ -5610,9 +5610,13 @@ export async function putFeature(
       incoming: pick((k) => (updates as unknown as Record<string, unknown>)[k]),
       liveVersion: feature.version,
       ...(targetDraft ? { draftVersion: targetDraft.version } : {}),
-      // Mutually exclusive, so merging them apart would target all projects and
-      // carry a list at the same time.
-      config: { chunks: [["targetingAllProjects", "targetingProjects"]] },
+      // Mutually exclusive, so merging them apart would target all projects
+      // and carry a list at the same time; on older docs the flag is absent,
+      // which reads as false.
+      config: {
+        chunks: [["targetingAllProjects", "targetingProjects"]],
+        absentDefaults: { targetingAllProjects: false },
+      },
     });
     if (!resolution.ok) {
       return res.status(409).json({
