@@ -54832,6 +54832,11 @@ components:
                                   type: number
                                 percentChange:
                                   type: number
+                                effectStandardError:
+                                  description: >-
+                                    Standard error of the estimated effect
+                                    (`percentChange`).
+                                  type: number
                                 ciLow:
                                   type: number
                                 ciHigh:
@@ -54851,6 +54856,7 @@ components:
                                 - mean
                                 - stddev
                                 - percentChange
+                                - effectStandardError
                                 - ciLow
                                 - ciHigh
                               additionalProperties: false
@@ -68234,6 +68240,9 @@ components:
                 type: number
               lift:
                 description: Relative uplift mean for this variation, if available
+                type: number
+              effectStandardError:
+                description: Standard error of `lift`, if available
                 type: number
               ci:
                 description: Confidence interval [lower, upper]

@@ -1076,6 +1076,11 @@ export const apiExperimentResultsValidator = namedSchema(
                       mean: z.coerce.number(),
                       stddev: z.coerce.number(),
                       percentChange: z.coerce.number(),
+                      effectStandardError: z.coerce
+                        .number()
+                        .describe(
+                          "Standard error of the estimated effect (`percentChange`).",
+                        ),
                       ciLow: z.coerce.number(),
                       ciHigh: z.coerce.number(),
                       pValue: z.coerce.number().optional(),
@@ -1181,6 +1186,10 @@ const apiBulkResultVariation = z.object({
       stddev: z.number().nullable(),
       // Estimated effect expressed according to differenceType.
       effect: z.number().nullable(),
+      effectStandardError: z
+        .number()
+        .nullable()
+        .describe("Standard error of `effect`, on the same scale."),
       ciLow: z.number().nullable(),
       ciHigh: z.number().nullable(),
       pValue: z.number().nullable().optional(),
