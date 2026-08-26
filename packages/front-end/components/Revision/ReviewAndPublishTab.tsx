@@ -20,6 +20,7 @@ import {
   findPublishLockingScheduledRevision,
   entityPublishFootprint,
   entityReviewFootprint,
+  isInReviewCycle,
 } from "shared/enterprise";
 import { serveFootprint } from "shared/permissions";
 import type { RevisionStatus } from "shared/validators";
@@ -613,9 +614,6 @@ function ReviewAndPublishRevision<T>({
     ) && hasCommercialFeature("require-approvals");
   const revisionAutoPublishArmed = !!revision.autoPublishOnApproval;
 
-  const isPendingReview =
-    revision.status === "pending-review" ||
-    revision.status === "changes-requested";
   const canReviewOrEdit = canReviewEntity ?? canEditEntity;
   const canDraftOrEdit = canManageDraftsEntity ?? canEditEntity;
   const hasRevertAuthority = canRevertEntity ?? canEditEntity;
@@ -677,8 +675,11 @@ function ReviewAndPublishRevision<T>({
   // the no-permission notice. Each individual action gates on its own atom.
   const hasAnyAuthority =
     canDraftOrEdit || canReviewOrEdit || canRevertOrEdit || canPublishOrEdit;
-  const canReview = isPendingReview && !isAuthor && canReviewOrEdit;
-  const approved = revision.status === "approved" || adminPublish;
+  // The whole review cycle accepts verdicts, "approved" included (matching the
+  // server): an approval that doesn't satisfy coverage or a required team must
+  // not lock out the one that would.
+  const canReview =
+    isInReviewCycle(revision.status) && !isAuthor && canReviewOrEdit;
 
   // ── Comments: posted as `comment`-decision reviews on the generic
   // revision endpoint; diff-ref blocks in the markdown resolve to gutter
@@ -1398,7 +1399,7 @@ function ReviewAndPublishRevision<T>({
         <Box mt="6">
           {/* Submit review — reviewer action, opens the comment/decision
               popover */}
-          {canReview && requiresApproval && !approved && (
+          {canReview && requiresApproval && !adminPublish && (
             <Flex direction="column" gap="3" mb="4">
               <ReviewCommentPopover
                 onSubmit={submitReviewDecision}
@@ -1417,6 +1418,15 @@ function ReviewAndPublishRevision<T>({
                 onSuccess={() => {}}
                 trigger={
                   <Button
+                    // Outline once publishing is live or armed on a schedule —
+                    // either way review is no longer the primary action.
+                    variant={
+                      state.submitAction === "publish" &&
+                      state.ctaEnabled &&
+                      canPublishOrEdit
+                        ? "outline"
+                        : undefined
+                    }
                     style={{ width: "100%" }}
                     icon={<PiCaretDownBold />}
                     iconPosition="right"
