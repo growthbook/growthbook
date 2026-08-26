@@ -641,6 +641,31 @@ describe("rollbackExperimentAfterHoldoutFailure", () => {
       expect(rollbackCall.changes.status).toBe("running");
     });
 
+    it("refreshes anyway when the rollback itself fails", async () => {
+      // The experiment write stands, and payload eligibility reads its status,
+      // so the cache no longer matches the database.
+      const experiment = makeExperiment({ status: "running" });
+      mockUpdateExperiment
+        .mockResolvedValueOnce(makeExperiment({ status: "stopped" }))
+        .mockRejectedValueOnce(new Error("experiment down"));
+      const holdoutUpdate = jest
+        .fn()
+        .mockRejectedValue(new Error("holdout down"));
+
+      await expect(
+        setHoldoutStage(makeContext(holdoutUpdate), {
+          holdout: makeRollbackHoldout(),
+          experiment,
+          stage: "stopped",
+        }),
+      ).rejects.toThrow("holdout down");
+
+      const events = mockQueueSDKPayloadRefresh.mock.calls.map(
+        ([arg]) => arg.auditContext.event,
+      );
+      expect(events).toEqual(["Rollback failed: Status changed to stopped"]);
+    });
+
     it("never queues the forward refresh when the holdout write is rolled back", async () => {
       const experiment = makeExperiment({ status: "running" });
       mockUpdateExperiment

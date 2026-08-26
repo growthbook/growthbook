@@ -767,12 +767,15 @@ export async function updateHoldoutWithExperiment(
     return { holdout: updatedHoldout, experiment };
   } catch (e) {
     if (experimentChanged) {
-      await rollbackExperimentAfterHoldoutFailure(
+      const reverted = await rollbackExperimentAfterHoldoutFailure(
         context,
         experiment,
         originalExperimentValues,
         "after holdout update failed",
       );
+      // See `commitTransition`: a failed revert leaves the experiment changed,
+      // so the cache needs rebuilding even though the write as a whole failed.
+      if (!reverted) refreshPayload(holdout);
     }
     throw e;
   }
@@ -948,9 +951,12 @@ export async function setHoldoutStage(
         { status: originalStatus, phases: originalPhases },
         `after holdout update failed during "${event}"`,
       );
-      if (reverted) {
-        refreshPayload(`Reverted: ${event}`);
-      }
+      // Refresh either way. A landed revert rebuilds to what the cache already
+      // has, but a failed one leaves the experiment write standing — and payload
+      // eligibility reads experiment.status, so the cache is then wrong.
+      refreshPayload(
+        reverted ? `Reverted: ${event}` : `Rollback failed: ${event}`,
+      );
       throw e;
     }
     refreshPayload(event);
