@@ -22,6 +22,9 @@ export function getExperimentFactMetricStatisticsCTE(
     eventQuantileData,
     baseIdType,
     joinedMetricTableName,
+    statisticsSourceTableName,
+    flattenedSources = false,
+    funnelsResolvedOnSource = false,
     eventQuantileTableName,
     capValueTableName,
     factTablesWithIndices,
@@ -31,7 +34,17 @@ export function getExperimentFactMetricStatisticsCTE(
     metricData: FactMetricData[];
     eventQuantileData: FactMetricQuantileData[];
     baseIdType: string;
+    /** Per-source per-user aggregate; source i is suffixed with `i` (0 is bare). */
     joinedMetricTableName: string;
+    /** Table read as `m`. Defaults to source 0's per-user aggregate. */
+    statisticsSourceTableName?: string;
+    /**
+     * Set when the source table already carries every source's columns, so no
+     * source needs joining a second time.
+     */
+    flattenedSources?: boolean;
+    /** Set when the source table carries resolved funnel step values. */
+    funnelsResolvedOnSource?: boolean;
     eventQuantileTableName: string;
     capValueTableName: string;
     factTablesWithIndices: { factTable: FactTableInterface; index: number }[];
@@ -39,6 +52,15 @@ export function getExperimentFactMetricStatisticsCTE(
   },
 ): string {
   const useArrayQuantileGrid = dialect.hasArrayQuantileGrid();
+  const sourceTableName = statisticsSourceTableName ?? joinedMetricTableName;
+  // Funnel step values come from the resolution chain, not a per-source
+  // aggregate.
+  const hasFunnelMetrics = metricData.some((d) => isFactFunnelMetric(d.metric));
+  if (hasFunnelMetrics && !funnelsResolvedOnSource) {
+    throw new Error(
+      "ImplementationError: funnel metrics require a resolved funnel table",
+    );
+  }
   return `SELECT
         m.variation AS variation
         ${dimensionCols.map((c) => `, m.${c.alias} AS ${c.alias}`).join("")}
@@ -199,9 +221,10 @@ export function getExperimentFactMetricStatisticsCTE(
           })
           .join("\n")}
       FROM
-        ${joinedMetricTableName} m
+        ${sourceTableName} m
         ${
-          eventQuantileData.length // TODO(sql): error if event quantiles have two tables
+          // Event quantiles never span sources (enforced by the query builder)
+          eventQuantileData.length
             ? `LEFT JOIN ${eventQuantileTableName} qm ON (
           qm.variation = m.variation 
           ${dimensionCols
@@ -215,7 +238,7 @@ export function getExperimentFactMetricStatisticsCTE(
           const suffix = `${index === 0 ? "" : index}`;
           return `
         ${
-          index === 0
+          index === 0 || flattenedSources
             ? ""
             : `LEFT JOIN ${joinedMetricTableName}${suffix} m${suffix} ON (
           m${suffix}.${baseIdType} = m.${baseIdType}

@@ -16,8 +16,8 @@ const SnowflakeForm: FC<{
   onManualParamChange: (name: string, value: string) => void;
 }> = ({ params, existing, onParamChange, onManualParamChange }) => {
   const [useAccessUrl, setUseAccessUrl] = useState(!!params.accessUrl);
-  // Convenience variable for the auth method to handle undefined
-  const authMethod = params.authMethod ?? "password";
+  // Saved connections without authMethod used password; new ones default to key-pair.
+  const authMethod = params.authMethod ?? (existing ? "password" : "key-pair");
   const canKeepExistingCredentials = useCanKeepExistingCredentials(
     existing,
     authMethod,
@@ -55,11 +55,11 @@ const SnowflakeForm: FC<{
           className="form-control"
           autoComplete="off"
           name="authMethod"
-          value={params.authMethod ?? "password"}
+          value={authMethod}
           onChange={(e) => onManualParamChange("authMethod", e.target.value)}
         >
-          <option value="password">Password</option>
           <option value="key-pair">Key Pair</option>
+          <option value="password">Password</option>
         </select>
       </div>
 

@@ -1854,6 +1854,7 @@ function StandardFactMetricModal({
         ) {
           if (values.numerator.column !== "$$distinctUsers") {
             values.numerator.aggregateFilterColumn = "";
+            values.numerator.aggregateFilter = undefined;
           } else {
             if (values.cappingSettings?.type) {
               throw new Error(

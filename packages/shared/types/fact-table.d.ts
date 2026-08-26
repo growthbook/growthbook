@@ -94,13 +94,16 @@ export interface FactTableInterface {
   datasource: string;
   userIdTypes: string[];
   sql: string;
+  // Column in the fact table SQL holding the event timestamp. Empty/undefined
+  // means "timestamp". SQL generation aliases it to `timestamp` in the first CTE
+  // that selects from the fact table, so everything downstream is unchanged.
+  timestampColumn?: string;
   eventName: string;
   columns: ColumnInterface[];
   columnsError?: string | null;
   columnRefreshPending?: boolean;
   filters: FactFilterInterface[];
   archived?: boolean;
-  timestampColumn?: string;
   autoSliceUpdatesEnabled?: boolean;
   // Null/undefined means the pipeline is disabled for this fact table.
   aggregatedFactTableSettings?: z.infer<

@@ -16,6 +16,13 @@ import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 import ProjectRowMenu from "@/components/Projects/ProjectRowMenu";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 
@@ -54,16 +61,21 @@ const ProjectsPage: FC = () => {
     computedPublicId: p.publicId || p.id,
   }));
 
-  const { items, searchInputProps, isFiltered, SortableTH, pagination } =
-    useSearch({
-      items: projectsWithComputedPublicId,
-      localStorageKey: "projects",
-      defaultSortField: "dateCreated",
-      defaultSortDir: -1,
-      searchFields: ["name^3", "description^2", "computedPublicId"],
-      pageSize: 50,
-      updateSearchQueryOnChange: true,
-    });
+  const {
+    items,
+    searchInputProps,
+    isFiltered,
+    SortableTableColumnHeader,
+    pagination,
+  } = useSearch({
+    items: projectsWithComputedPublicId,
+    localStorageKey: "projects",
+    defaultSortField: "dateCreated",
+    defaultSortDir: -1,
+    searchFields: ["name^3", "description^2", "computedPublicId"],
+    pageSize: 50,
+    updateSearchQueryOnChange: true,
+  });
 
   return (
     <div className="container-fluid pagecontents">
@@ -119,37 +131,46 @@ const ProjectsPage: FC = () => {
 
         {projects.length > 0 ? (
           <>
-            <Box className="relative" width="40%" mb="4">
+            <Box width="250px" mb="3">
               <Field
-                size="legacy"
                 placeholder="Search..."
                 type="search"
+                containerClassName="mb-0"
                 {...searchInputProps}
               />
             </Box>
-            <table
-              className="table appbox gbtable table-valign-top"
-              style={{ tableLayout: "fixed", width: "100%" }}
-            >
-              <thead>
-                <tr>
-                  <SortableTH field="name" style={{ width: "20%" }}>
+            <Table variant="surface" layout="fixed">
+              <TableHeader>
+                <TableRow>
+                  <SortableTableColumnHeader
+                    field="name"
+                    style={{ width: "20%" }}
+                  >
                     Project Name
-                  </SortableTH>
-                  <SortableTH field="computedPublicId" style={{ width: "20%" }}>
+                  </SortableTableColumnHeader>
+                  <SortableTableColumnHeader
+                    field="computedPublicId"
+                    style={{ width: "20%" }}
+                  >
                     Public ID
-                  </SortableTH>
-                  <th style={{ width: "30%" }}>Description</th>
-                  <SortableTH field="dateCreated" style={{ width: "15%" }}>
+                  </SortableTableColumnHeader>
+                  <TableColumnHeader width="30%">Description</TableColumnHeader>
+                  <SortableTableColumnHeader
+                    field="dateCreated"
+                    style={{ width: "15%" }}
+                  >
                     Date Created
-                  </SortableTH>
-                  <SortableTH field="dateUpdated" style={{ width: "15%" }}>
+                  </SortableTableColumnHeader>
+                  <SortableTableColumnHeader
+                    field="dateUpdated"
+                    style={{ width: "15%" }}
+                  >
                     Date Updated
-                  </SortableTH>
-                  <th style={{ width: 40, minWidth: 40 }} />
-                </tr>
-              </thead>
-              <tbody>
+                  </SortableTableColumnHeader>
+                  <TableColumnHeader width="50px" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {items.map((p) => {
                   const canEdit = permissionsUtil.canUpdateProject(p.id);
                   const canDelete =
@@ -161,8 +182,8 @@ const ProjectsPage: FC = () => {
                     organizationId: organization?.id,
                   });
                   return (
-                    <tr key={p.id}>
-                      <td className="text-gray">
+                    <TableRow key={p.id}>
+                      <TableCell>
                         {canEdit ? (
                           <Link
                             className="link-purple"
@@ -182,18 +203,18 @@ const ProjectsPage: FC = () => {
                             />
                           </div>
                         ) : null}
-                      </td>
-                      <td className="text-gray">
+                      </TableCell>
+                      <TableCell>
                         <code className="small">{p.publicId || p.id}</code>
-                      </td>
-                      <td className="text-gray">
+                      </TableCell>
+                      <TableCell>
                         {p.description && p.description.length > 80
                           ? p.description.substring(0, 80).trim() + "..."
                           : (p.description ?? "")}
-                      </td>
-                      <td className="text-gray">{ago(p.dateCreated)}</td>
-                      <td className="text-gray">{ago(p.dateUpdated)}</td>
-                      <td>
+                      </TableCell>
+                      <TableCell>{ago(p.dateCreated)}</TableCell>
+                      <TableCell>{ago(p.dateUpdated)}</TableCell>
+                      <TableCell>
                         <ProjectRowMenu
                           project={p}
                           canEdit={canEdit}
@@ -225,19 +246,19 @@ const ProjectsPage: FC = () => {
                           }
                           setDeleteProjectResources={setDeleteProjectResources}
                         />
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
                 {!items.length && isFiltered && (
-                  <tr>
-                    <td colSpan={6} align={"center"}>
+                  <TableRow>
+                    <TableCell colSpan={6} align="center">
                       No matching projects
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
             {pagination}
           </>
         ) : (
