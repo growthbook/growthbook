@@ -246,6 +246,7 @@ export function renderSDKConnectionExperiments(
   }> = [
     { key: "includeVisualExperiments", label: "Visual Editor experiments" },
     { key: "includeDraftExperiments", label: "Draft experiments" },
+    { key: "includeDraftExperimentRefs", label: "Draft experiment rules" },
     { key: "includeExperimentNames", label: "Experiment names" },
     { key: "includeRedirectExperiments", label: "Redirect experiments" },
     { key: "includeRuleIds", label: "Rule IDs" },
@@ -290,6 +291,10 @@ export function renderSDKConnectionMetadata(
     { key: "includeProjectIdInMetadata", label: "Include project ID" },
     { key: "includeCustomFieldsInMetadata", label: "Include custom fields" },
     { key: "includeTagsInMetadata", label: "Include tags" },
+    {
+      key: "includeExperimentScheduleInMetadata",
+      label: "Include experiment schedule dates",
+    },
     { key: "savedGroupReferencesEnabled", label: "Saved group references" },
     { key: "remoteEvalEnabled", label: "Remote evaluation" },
   ];

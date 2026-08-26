@@ -72,6 +72,7 @@ export const sdkConnectionSettingsSnapshotValidator = z
     hashSecureAttributes: z.boolean().optional(),
     includeVisualExperiments: z.boolean().optional(),
     includeDraftExperiments: z.boolean().optional(),
+    includeDraftExperimentRefs: z.boolean().optional(),
     includeExperimentNames: z.boolean().optional(),
     includeRedirectExperiments: z.boolean().optional(),
     includeRuleIds: z.boolean().optional(),
@@ -79,13 +80,16 @@ export const sdkConnectionSettingsSnapshotValidator = z
     includeCustomFieldsInMetadata: z.boolean().optional(),
     allowedCustomFieldsInMetadata: z.array(z.string()).optional(),
     includeTagsInMetadata: z.boolean().optional(),
+    includeExperimentScheduleInMetadata: z.boolean().optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
     archived: z.boolean().optional(),
-    dateCreated: z.date(),
-    dateUpdated: z.date(),
+    // NOTE: dateCreated/dateUpdated are deliberately excluded. Proposed changes
+    // target the whole `/sdkConnection` object, so conflict detection compares
+    // it wholesale — and `dateUpdated` changes on every write, which would make
+    // every draft look conflicted. They are not updatable fields either.
   })
   .strict();
 
@@ -140,6 +144,7 @@ export const sdkConnectionUpdatableFieldsSchema =
     hashSecureAttributes: true,
     includeVisualExperiments: true,
     includeDraftExperiments: true,
+    includeDraftExperimentRefs: true,
     includeExperimentNames: true,
     includeRedirectExperiments: true,
     includeRuleIds: true,
@@ -147,6 +152,7 @@ export const sdkConnectionUpdatableFieldsSchema =
     includeCustomFieldsInMetadata: true,
     allowedCustomFieldsInMetadata: true,
     includeTagsInMetadata: true,
+    includeExperimentScheduleInMetadata: true,
     remoteEvalEnabled: true,
     savedGroupReferencesEnabled: true,
     proxyEnabled: true,

@@ -1,13 +1,13 @@
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex, Separator } from "@radix-ui/themes";
 import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
-
-type Row = {
-  label: string;
-  sublabel?: string;
-  value: string;
-};
+import ClickToReveal from "@/components/Settings/ClickToReveal";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import Badge from "@/ui/Badge";
+import Callout from "@/ui/Callout";
+import DataList, { DataListItem } from "@/ui/DataList";
+import Frame from "@/ui/Frame";
 
 export default function SDKConnectionCredentialsCard({
   connection,
@@ -17,81 +17,94 @@ export default function SDKConnectionCredentialsCard({
   const hasProxy = !!connection.proxy?.enabled;
   const apiHost = getApiBaseUrl(connection);
   const clientKey = connection.key;
-  const featuresEndpoint = `${apiHost}/api/features/${clientKey}`;
-  const encryptionKey = connection.encryptPayload
-    ? connection.encryptionKey
-    : undefined;
+  const proxyHost = connection.proxy?.host || connection.proxy?.hostExternal;
+  const proxyError = connection.proxy?.error;
 
-  const rows: Row[] = [
-    {
-      label: "Full API Endpoint",
-      sublabel: hasProxy ? "proxied" : undefined,
-      value: featuresEndpoint,
-    },
+  const details: DataListItem[] = [
     {
       label: "API Host",
-      sublabel: hasProxy ? "proxied" : undefined,
-      value: apiHost,
+      tooltip: hasProxy
+        ? "Requests are routed through your GrowthBook Proxy."
+        : undefined,
+      value: <ClickToCopy compact>{apiHost}</ClickToCopy>,
     },
-    { label: "Client Key", value: clientKey },
+    {
+      label: "Client Key",
+      value: <ClickToCopy compact>{clientKey}</ClickToCopy>,
+    },
   ];
-  if (encryptionKey) {
-    rows.push({ label: "Decryption Key", value: encryptionKey });
+
+  // Only meaningful once a proxy has been configured.
+  if (proxyHost) {
+    details.push({
+      label: "Proxy Host",
+      value: (
+        <Flex align="center" gap="2" wrap="wrap">
+          <ClickToCopy compact>{proxyHost}</ClickToCopy>
+          {!connection.proxy?.enabled ? (
+            <Tooltip body="Proxy was disabled for too many consecutive failures">
+              <Badge color="red" variant="solid" label="Disabled" />
+            </Tooltip>
+          ) : null}
+          {proxyError !== undefined && !connection.proxy?.connected ? (
+            <Tooltip
+              usePortal={true}
+              body={
+                <>
+                  <div className="mb-2">
+                    Encountered an error while trying to connect:
+                  </div>
+                  {proxyError ? (
+                    <Callout status="error" mt="2">
+                      {proxyError}
+                    </Callout>
+                  ) : (
+                    <Callout status="error">
+                      <em>Unknown error</em>
+                    </Callout>
+                  )}
+                </>
+              }
+            >
+              <Badge color="red" variant="soft" label="error" />
+            </Tooltip>
+          ) : null}
+        </Flex>
+      ),
+    });
+  }
+
+  // Secret — only exists when the payload is encrypted, and stays hidden
+  // until explicitly revealed.
+  if (connection.encryptPayload && connection.encryptionKey) {
+    details.push({
+      label: "Decryption Key",
+      value: (
+        <ClickToReveal
+          valueWhenHidden="decryption_key_hidden"
+          getValue={async () => connection.encryptionKey}
+        />
+      ),
+    });
   }
 
   return (
-    <Box
-      style={{
-        border: "1px solid var(--gray-a5)",
-        borderRadius: 10,
-        background: "var(--color-panel-solid)",
-        overflow: "hidden",
-      }}
-    >
-      <Flex
-        align="center"
-        justify="between"
-        gap="2"
-        px="4"
-        py="3"
-        style={{ borderBottom: "1px solid var(--gray-a4)" }}
-      >
-        <Flex align="center" gap="2">
-          <h2 className="mb-0" style={{ fontSize: 15, fontWeight: 600 }}>
-            Connection details
-          </h2>
-        </Flex>
-      </Flex>
-      <Box>
-        {rows.map((row, i) => (
-          <Flex
-            key={row.label}
-            align="center"
-            gap="3"
-            px="4"
-            py="2"
-            style={{
-              borderTop: i === 0 ? "none" : "1px solid var(--gray-a4)",
-              minHeight: 44,
-            }}
-          >
-            <Box style={{ width: 180, flexShrink: 0 }}>
-              <span style={{ fontSize: 13, fontWeight: 500 }}>{row.label}</span>
-              {row.sublabel ? (
-                <span
-                  className="text-muted"
-                  style={{ fontSize: 12, marginLeft: 4 }}
-                >
-                  ({row.sublabel})
-                </span>
-              ) : null}
-            </Box>
-            <Box style={{ flex: 1, minWidth: 0 }}>
-              <ClickToCopy compact>{row.value}</ClickToCopy>
-            </Box>
-          </Flex>
-        ))}
-      </Box>
-    </Box>
+    <Frame mb="0">
+      <DataList
+        columns={1}
+        data={[
+          {
+            label: "Full API Endpoint",
+            value: (
+              <ClickToCopy
+                compact
+              >{`${apiHost}/api/features/${clientKey}`}</ClickToCopy>
+            ),
+          },
+        ]}
+      />
+      <Separator size="4" my="5" />
+      <DataList columns={2} maxColumns={2} data={details} />
+    </Frame>
   );
 }

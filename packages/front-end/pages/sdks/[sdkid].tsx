@@ -1,16 +1,15 @@
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
+  getConnectionSDKCapabilities,
+  getSDKCapabilityVersion,
+} from "shared/sdk-versioning";
+import {
   SDKConnectionRevisionSnapshot,
   SDKConnectionSettingsRevisionSnapshot,
 } from "shared/validators";
 import { useRouter } from "next/router";
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  PiGitDiff,
-  PiCaretDown,
-  PiCaretRight,
-  PiDotsThreeVertical,
-} from "react-icons/pi";
+import { PiGitDiff, PiDotsThreeVertical } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   Revision,
@@ -32,12 +31,13 @@ import SdkWebhooks from "@/components/Features/SDKConnections/SdkWebhooks";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
-import ConnectionDiagram, {
-  SDKConnectionEditSection,
-} from "@/components/Features/SDKConnections/ConnectionDiagram";
+import SDKConnectionSettingsCards from "@/components/Features/SDKConnections/SDKConnectionSettingsCards";
+import SDKConnectionHeaderMeta from "@/components/Features/SDKConnections/SDKConnectionHeaderMeta";
 import SDKConnectionCredentialsCard from "@/components/Features/SDKConnections/SDKConnectionCredentialsCard";
 import EditSDKOverviewModal from "@/components/Features/SDKConnections/edit-modals/EditSDKOverviewModal";
-import EditSDKSettingsModal from "@/components/Features/SDKConnections/edit-modals/EditSDKSettingsModal";
+import EditSDKSettingsModal, {
+  SDKConnectionEditSection,
+} from "@/components/Features/SDKConnections/edit-modals/EditSDKSettingsModal";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -53,6 +53,10 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
+import Link from "@/ui/Link";
+import Text from "@/ui/Text";
+import { docUrl } from "@/components/DocLink";
+import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import { capitalizeFirstLetter } from "@/services/utils";
 
 // Build the revision snapshot for a live connection (no webhooks — the live
@@ -84,6 +88,9 @@ function flattenConnection(
     ...(connection.includeDraftExperiments !== undefined && {
       includeDraftExperiments: connection.includeDraftExperiments,
     }),
+    ...(connection.includeDraftExperimentRefs !== undefined && {
+      includeDraftExperimentRefs: connection.includeDraftExperimentRefs,
+    }),
     ...(connection.includeExperimentNames !== undefined && {
       includeExperimentNames: connection.includeExperimentNames,
     }),
@@ -105,6 +112,10 @@ function flattenConnection(
     ...(connection.includeTagsInMetadata !== undefined && {
       includeTagsInMetadata: connection.includeTagsInMetadata,
     }),
+    ...(connection.includeExperimentScheduleInMetadata !== undefined && {
+      includeExperimentScheduleInMetadata:
+        connection.includeExperimentScheduleInMetadata,
+    }),
     ...(connection.remoteEvalEnabled !== undefined && {
       remoteEvalEnabled: connection.remoteEvalEnabled,
     }),
@@ -114,8 +125,6 @@ function flattenConnection(
     proxyEnabled: connection.proxy?.enabled,
     proxyHost: connection.proxy?.host,
     ...(connection.archived !== undefined && { archived: connection.archived }),
-    dateCreated: new Date(connection.dateCreated),
-    dateUpdated: new Date(connection.dateUpdated),
   };
   return { sdkConnection: settings, sdkWebhooks: [] };
 }
@@ -204,11 +213,9 @@ export default function SDKConnectionPage() {
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("overview");
-  const [instructionsOpen, setInstructionsOpen] = useState<boolean | null>(
-    null,
-  );
-  const [editSection, setEditSection] =
-    useState<SDKConnectionEditSection | null>(null);
+  const [editSection, setEditSection] = useState<
+    SDKConnectionEditSection | "overview" | null
+  >(null);
 
   const connection: SDKConnectionInterface | undefined =
     data?.connections?.find((conn) => conn.id === sdkid);
@@ -365,6 +372,18 @@ export default function SDKConnectionPage() {
   const displayedName = displayedConn.name;
   const displayedArchived = !!displayedConn.archived;
 
+  // V2 hashing requires a recent SDK version; warn when this connection's SDK
+  // predates it, same as the connections list does.
+  const supportsBucketingV2 =
+    getConnectionSDKCapabilities(displayedConn).includes("bucketingV2");
+  const bucketingV2IntroducedVersion = getSDKCapabilityVersion(
+    displayedConn.languages?.[0],
+    "bucketingV2",
+  );
+  const sdkDocSection = displayedConn.languages?.[0]
+    ? languageMapping[displayedConn.languages[0]]?.docs
+    : undefined;
+
   // Whether to surface revision/approval UI. Without the feature, edits just
   // auto-publish and the page behaves as before (minus archive-then-delete).
   const showRevisionUI = hasApprovalsFeature && hasRevisions;
@@ -379,7 +398,7 @@ export default function SDKConnectionPage() {
   };
 
   // Per-section edit modal routing. Each section opens its dedicated modal.
-  const openEditSection = (section: SDKConnectionEditSection) => {
+  const openEditSection = (section: SDKConnectionEditSection | "overview") => {
     setEditSection(section);
   };
   const closeEditSection = () => setEditSection(null);
@@ -520,6 +539,11 @@ export default function SDKConnectionPage() {
           <Heading size="x-large" as="h1" mb="0">
             {displayedName}
           </Heading>
+          {connection.connected ? (
+            <Badge color="green" variant="solid" label="Connected" />
+          ) : (
+            <Badge color="gray" variant="soft" label="Not connected" />
+          )}
           {displayedArchived && <Badge label="Archived" color="gray" />}
         </Flex>
         <Flex align="center" gap="4" pr="2">
@@ -618,6 +642,29 @@ export default function SDKConnectionPage() {
         </Flex>
       </Flex>
 
+      <SDKConnectionHeaderMeta
+        connection={displayedConn}
+        canUpdate={canUpdate}
+        onEditProjects={() => openEditSection("overview")}
+      />
+
+      {!supportsBucketingV2 && (
+        <Callout status="warning" mt="3">
+          <Text weight="semibold">
+            Upgrade to {bucketingV2IntroducedVersion}+ for V2 hashing.
+          </Text>{" "}
+          Until then, new experiments in this connection&apos;s projects fall
+          back to V1.{" "}
+          <Link
+            href={docUrl(sdkDocSection ?? "sdks")}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            View docs
+          </Link>
+        </Callout>
+      )}
+
       {showRevisionUI && (
         <RevisionStatusPanel
           entityNoun="SDK connection"
@@ -695,137 +742,94 @@ export default function SDKConnectionPage() {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
+          <TabsTrigger value="implementation">Implementation</TabsTrigger>
         </TabsList>
         <TabsContent value="overview">
-          <div className="mt-4">
-            <ConnectionDiagram
+          <Box mt="5">
+            <Flex align="center" justify="between" gap="2" mb="3">
+              <Heading size="large" as="h2" mb="0">
+                Connection Details
+              </Heading>
+              {canUpdate && (
+                <Link onClick={() => openEditSection("connection")}>Edit</Link>
+              )}
+            </Flex>
+            <SDKConnectionCredentialsCard connection={displayedConn} />
+          </Box>
+          <Box mt="5">
+            <Heading size="large" as="h2" mb="3">
+              Settings
+            </Heading>
+            <SDKConnectionSettingsCards
               connection={displayedConn}
               canUpdate={canUpdate}
-              showConnectionTitle={true}
-              onEdit={openEditForm}
               onEditSection={openEditSection}
             />
-            {editSection === "overview" && (
-              <EditSDKOverviewModal
-                connection={displayedConn}
-                close={closeEditSection}
-                mutate={mutate}
-                {...(hasApprovalsFeature
-                  ? {
-                      onRevisionCreated,
-                      openRevisions,
-                      allRevisions,
-                      selectedRevision,
-                      onSelectRevision: selectFlow,
-                      approvalRequired,
-                      canAutoPublish,
-                      metadataReviewRequired,
-                    }
-                  : {})}
-              />
-            )}
-            {editSection === "settings" && (
-              <EditSDKSettingsModal
-                connection={displayedConn}
-                close={closeEditSection}
-                mutate={mutate}
-                {...(hasApprovalsFeature
-                  ? {
-                      onRevisionCreated,
-                      openRevisions,
-                      allRevisions,
-                      selectedRevision,
-                      onSelectRevision: selectFlow,
-                      approvalRequired,
-                      canAutoPublish,
-                      metadataReviewRequired,
-                    }
-                  : {})}
-              />
-            )}
-          </div>
-          <div className="mt-4">
-            <SDKConnectionCredentialsCard connection={displayedConn} />
-          </div>
-          <div className="mt-5">
-            {(() => {
-              const isOpen =
-                instructionsOpen === null
-                  ? !connection.connected
-                  : instructionsOpen;
-              return (
-                <Box
-                  style={{
-                    border: "1px solid var(--gray-a5)",
-                    borderRadius: 10,
-                    background: "var(--color-panel-solid)",
-                    overflow: "hidden",
-                  }}
-                >
-                  <Flex
-                    align="center"
-                    justify="between"
-                    gap="2"
-                    px="4"
-                    py="3"
-                    onClick={() => setInstructionsOpen(!isOpen)}
-                    style={{
-                      cursor: "pointer",
-                      borderBottom: isOpen
-                        ? "1px dashed var(--gray-a5)"
-                        : "none",
-                    }}
-                  >
-                    <Flex align="center" gap="3">
-                      <h2 className="mb-0" style={{ fontSize: 17 }}>
-                        Setup instructions
-                      </h2>
-                    </Flex>
-                    <IconButton
-                      variant="ghost"
-                      color="gray"
-                      radius="full"
-                      size="2"
-                      highContrast
-                      aria-label={
-                        isOpen ? "Collapse instructions" : "Expand instructions"
-                      }
-                    >
-                      {isOpen ? (
-                        <PiCaretDown size={16} />
-                      ) : (
-                        <PiCaretRight size={16} />
-                      )}
-                    </IconButton>
-                  </Flex>
-                  {isOpen && (
-                    <Box px="4" py="4">
-                      <CodeSnippetModal
-                        connections={data.connections.map((c) =>
-                          c.id === displayedConn.id ? displayedConn : c,
-                        )}
-                        mutateConnections={mutate}
-                        sdkConnection={displayedConn}
-                        inline={true}
-                      />
-                    </Box>
-                  )}
-                </Box>
-              );
-            })()}
-          </div>
+          </Box>
         </TabsContent>
         <TabsContent value="webhooks">
-          <div className="mt-4">
+          <Box mt="4">
             <SdkWebhooks
               connection={connection}
               approvalRequired={approvalRequired}
               onRevisionCreated={onRevisionCreated}
               selectedRevision={selectedRevision}
             />
-          </div>
+          </Box>
+        </TabsContent>
+        <TabsContent value="implementation">
+          <Box mt="4">
+            <CodeSnippetModal
+              connections={data.connections.map((c) =>
+                c.id === displayedConn.id ? displayedConn : c,
+              )}
+              mutateConnections={mutate}
+              sdkConnection={displayedConn}
+              inline={true}
+            />
+          </Box>
         </TabsContent>
       </Tabs>
+
+      {editSection === "overview" && (
+        <EditSDKOverviewModal
+          connection={displayedConn}
+          close={closeEditSection}
+          mutate={mutate}
+          {...(hasApprovalsFeature
+            ? {
+                onRevisionCreated,
+                openRevisions,
+                allRevisions,
+                selectedRevision,
+                onSelectRevision: selectFlow,
+                approvalRequired,
+                canAutoPublish,
+                metadataReviewRequired,
+              }
+            : {})}
+        />
+      )}
+      {editSection !== null && editSection !== "overview" && (
+        <EditSDKSettingsModal
+          connection={displayedConn}
+          close={closeEditSection}
+          mutate={mutate}
+          section={editSection}
+          {...(hasApprovalsFeature
+            ? {
+                onRevisionCreated,
+                openRevisions,
+                allRevisions,
+                selectedRevision,
+                onSelectRevision: selectFlow,
+                approvalRequired,
+                canAutoPublish,
+                metadataReviewRequired,
+              }
+            : {})}
+        />
+      )}
     </div>
   );
 }

@@ -149,7 +149,24 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
     buildSnapshot(
       entity: SDKConnectionRevisionSnapshot,
     ): SDKConnectionRevisionSnapshot {
-      return toSnapshot(entity as unknown as Record<string, unknown>);
+      const raw = entity as unknown as Record<string, unknown>;
+
+      // Must be idempotent: `RevisionModel.createRequest` re-runs buildSnapshot
+      // on an already-built snapshot to strip legacy fields. Every other
+      // adapter's snapshot *is* its entity, so a second pass is a no-op there —
+      // but this snapshot is composite, so re-reading it as a live connection
+      // would look for `id`/`name`/... at the root and produce an empty
+      // `sdkConnection`. Re-clean the nested settings instead.
+      if (raw && typeof raw === "object" && "sdkConnection" in raw) {
+        return {
+          sdkConnection: toConnectionSettingsSnapshot(
+            (raw.sdkConnection ?? {}) as Record<string, unknown>,
+          ),
+          sdkWebhooks: (raw.sdkWebhooks ?? []) as SDKWebhookRevisionSnapshot[],
+        };
+      }
+
+      return toSnapshot(raw);
     },
 
     isRevisionRequired(context: Context): boolean {
