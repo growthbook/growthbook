@@ -532,10 +532,10 @@ const NeedingAttention = (): React.ReactElement | null => {
             </thead>
             <tbody>
               {paginatedFeatureFlags.map((item) => (
-                <tr key={item.featureId} className="hover-highlight">
+                <tr key={item.id} className="hover-highlight">
                   <td className={styles.nameTd}>
                     <Link
-                      href={`/features/${item.featureId}`}
+                      href={`/features/${item.featureId}?v=${item.version}`}
                       style={{
                         textDecoration: "none",
                         color: "inherit",
