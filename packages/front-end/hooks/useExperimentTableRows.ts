@@ -40,6 +40,7 @@ const METRIC_SELECTOR_IDS = [
 import {
   applyMetricOverrides,
   ExperimentTableRow,
+  NO_DATA_ERROR_MESSAGE,
 } from "@/services/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useTableSorting } from "@/hooks/useTableSorting";
@@ -150,6 +151,18 @@ export function useExperimentTableRows({
         hasGuardrailSelector ||
         (!hasGoalSelector && !hasSecondarySelector && !hasGuardrailSelector);
 
+      const allowedMetricIds = new Set<string>();
+      actualMetricFilter.forEach((id) => {
+        if (isMetricGroupId(id)) {
+          const group = allMetricGroups.find((g) => g.id === id);
+          if (group) {
+            group.metrics.forEach((metricId) => allowedMetricIds.add(metricId));
+          }
+        } else {
+          allowedMetricIds.add(id);
+        }
+      });
+
       // Filter by metric groups if filter is active
       let filteredGoalMetrics: string[] = [];
       let filteredSecondaryMetrics: string[] = [];
@@ -161,21 +174,6 @@ export function useExperimentTableRows({
         hasSecondarySelector ||
         hasGuardrailSelector
       ) {
-        // Create a set of allowed metric IDs from expanded groups and individual metrics
-        const allowedMetricIds = new Set<string>();
-        actualMetricFilter.forEach((id) => {
-          if (isMetricGroupId(id)) {
-            const group = allMetricGroups.find((g) => g.id === id);
-            if (group) {
-              group.metrics.forEach((metricId) =>
-                allowedMetricIds.add(metricId),
-              );
-            }
-          } else {
-            allowedMetricIds.add(id);
-          }
-        });
-
         // Filter metrics by group or allowed metric IDs
         // Only include categories that are selected via selector IDs
         if (includeGoals) {
@@ -248,21 +246,38 @@ export function useExperimentTableRows({
         allMetricGroups,
       );
 
+      // allowedMetricIds is the set of metrics that are explicitly selected
+      // by the user either directly or via the group. This code will drop
+      // metrics in groups that are not explicitly selected via the group or
+      // themselves.
+      const finalExpandedGoals =
+        actualMetricFilter.length > 0
+          ? expandedGoals.filter((id) => allowedMetricIds.has(id))
+          : expandedGoals;
+      const finalExpandedSecondaries =
+        actualMetricFilter.length > 0
+          ? expandedSecondaries.filter((id) => allowedMetricIds.has(id))
+          : expandedSecondaries;
+      const finalExpandedGuardrails =
+        actualMetricFilter.length > 0
+          ? expandedGuardrails.filter((id) => allowedMetricIds.has(id))
+          : expandedGuardrails;
+
       // Dedup metric rows to prevent rendering the same metric multiple times
       const dedupedGoals: string[] = [];
-      expandedGoals.forEach((metricId) => {
+      finalExpandedGoals.forEach((metricId) => {
         if (!dedupedGoals.includes(metricId)) {
           dedupedGoals.push(metricId);
         }
       });
       const dedupedSecondaries: string[] = [];
-      expandedSecondaries.forEach((metricId) => {
+      finalExpandedSecondaries.forEach((metricId) => {
         if (!dedupedSecondaries.includes(metricId)) {
           dedupedSecondaries.push(metricId);
         }
       });
       const dedupedGuardrails: string[] = [];
-      expandedGuardrails.forEach((metricId) => {
+      finalExpandedGuardrails.forEach((metricId) => {
         if (!dedupedGuardrails.includes(metricId)) {
           dedupedGuardrails.push(metricId);
         }
@@ -563,7 +578,7 @@ export function generateRowsForMetric({
           users: 0,
           value: 0,
           cr: 0,
-          errorMessage: "No data",
+          errorMessage: NO_DATA_ERROR_MESSAGE,
         }))
       : resultsArray[0].variations.map((v) => {
           return (
@@ -571,7 +586,7 @@ export function generateRowsForMetric({
               users: 0,
               value: 0,
               cr: 0,
-              errorMessage: "No data",
+              errorMessage: NO_DATA_ERROR_MESSAGE,
             }
           );
         }),
@@ -670,7 +685,7 @@ export function generateRowsForMetric({
               users: 0,
               value: 0,
               cr: 0,
-              errorMessage: "No data",
+              errorMessage: NO_DATA_ERROR_MESSAGE,
             }
           );
         }),
@@ -729,7 +744,7 @@ export function generateRowsForMetric({
               users: 0,
               value: 0,
               cr: 0,
-              errorMessage: "No data",
+              errorMessage: NO_DATA_ERROR_MESSAGE,
             },
         ),
         metricSnapshotSettings,

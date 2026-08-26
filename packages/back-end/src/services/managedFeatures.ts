@@ -585,7 +585,7 @@ export async function requestReviewForManagedDraft({
     feature,
     baseRevision: base,
     revision,
-    allEnvironments: context.environments,
+    orgEnvironments: getEnvironments(context.org),
     settings: context.org.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });

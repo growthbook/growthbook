@@ -5,16 +5,17 @@ import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import {
   MergeResultChanges,
-  checkIfRevisionNeedsReview,
-  autoMerge,
-  liveRevisionFromFeature,
   PermissionError,
-  rampRuleEnvKey,
-  stemRuleId,
-  resolveTargetingProjectIds,
+  autoMerge,
+  checkIfRevisionNeedsReview,
   computeHoldoutExperimentLinkageDelta,
+  getApplicableEnvIds,
   getExperimentIdsFromRules,
+  liveRevisionFromFeature,
   managedByExperimentId,
+  rampRuleEnvKey,
+  resolveTargetingProjectIds,
+  stemRuleId,
 } from "shared/util";
 import {
   SafeRolloutInterface,
@@ -93,7 +94,6 @@ import {
   resolveRampTargets,
   ensureUniqueRuleIds,
   flattenV1ToV2Rules,
-  getApplicableEnvIds,
   isPlausibleFeatureRule,
   V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
@@ -104,6 +104,7 @@ import {
   buildInheritedChildrenByAncestor,
   expandRuleEnvsForInheritance,
   getAffectedSDKPayloadKeys,
+  getReferenceIdsInRules,
   getSDKPayloadKeysByDiff,
 } from "back-end/src/util/features";
 import {
@@ -1780,6 +1781,7 @@ export async function setDefaultValue(
   defaultValue: string,
   user: EventUser,
   requireReview: boolean,
+  { guardDateUpdated = false }: { guardDateUpdated?: boolean } = {},
 ) {
   // Fail early on the internal draft-edit path (the REST default-value endpoint
   // enforces the same lock at its handler); publish re-checks regardless.
@@ -1797,6 +1799,7 @@ export async function setDefaultValue(
       value: JSON.stringify({ defaultValue }),
     },
     requireReview,
+    { guardDateUpdated },
   );
 }
 
@@ -4310,7 +4313,7 @@ export async function createAndPublishRevision({
     feature,
     baseRevision: liveBase,
     revision: preparedRevision,
-    allEnvironments,
+    orgEnvironments: getEnvironments(org),
     settings: org.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });
@@ -4377,15 +4380,12 @@ export async function createAndPublishRevision({
 function getLinkedExperiments(feature: FeatureInterface) {
   // Keep existing links even when a rule is removed — past revisions need
   // them to render correctly.
-  const expIds: Set<string> = new Set(feature.linkedExperiments || []);
-
-  (feature.rules ?? []).forEach((rule) => {
-    if (rule?.type === "experiment-ref") {
-      expIds.add(rule.experimentId);
-    }
-  });
-
-  return [...expIds];
+  return [
+    ...new Set([
+      ...(feature.linkedExperiments || []),
+      ...getReferenceIdsInRules(feature.rules, "experiment-ref"),
+    ]),
+  ];
 }
 
 export async function toggleNeverStale(
@@ -4488,6 +4488,8 @@ export async function getFeatureMetaInfoById(
       return {
         id: f.id,
         project: f.project,
+        targetingProjects: f.targetingProjects,
+        targetingAllProjects: f.targetingAllProjects,
         archived: f.archived,
         description: f.description,
         dateCreated: f.dateCreated,
@@ -4540,6 +4542,8 @@ export async function getFeatureMetaInfoByIds(
     .map((f) => ({
       id: f.id,
       project: f.project,
+      targetingProjects: f.targetingProjects,
+      targetingAllProjects: f.targetingAllProjects,
       archived: f.archived,
       description: f.description,
       dateCreated: f.dateCreated,

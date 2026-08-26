@@ -1,5 +1,5 @@
 import { canCommentOnRevisionEntity } from "shared/permissions";
-import { getReviewSetting } from "shared/util";
+import { ANY_REVIEW_FOOTPRINT, getReviewSetting } from "shared/util";
 import { FeatureInterface } from "shared/validators";
 import { EventUser } from "shared/types/events/event-types";
 import { ReqContext } from "back-end/types/request";
@@ -11,6 +11,7 @@ import {
   ReviewSubmittedType,
   submitReviewAndComments,
 } from "back-end/src/models/FeatureRevisionModel";
+import { getFeatureReviewFootprint } from "back-end/src/services/features";
 import { dispatchRevisionReviewEvent } from "back-end/src/services/featureRevisionEvents";
 import { maybeAutoPublishFeatureRevision } from "back-end/src/api/features/autoPublishOnApproval";
 
@@ -49,10 +50,14 @@ export async function submitFeatureRevisionReview({
     null,
     { project: feature.project },
   );
+  if (review === "Comment" && !canCommentHere) {
+    context.permissions.throwPermissionError();
+  }
+  // Coarse pre-fetch gate so callers without the review atom cannot probe
+  // which revision versions exist; the footprint check below still runs.
   if (
-    review === "Comment"
-      ? !canCommentHere
-      : !context.permissions.canReviewFeatureDrafts(feature)
+    review !== "Comment" &&
+    !context.permissions.canReviewFeatureDrafts(feature, ANY_REVIEW_FOOTPRINT)
   ) {
     context.permissions.throwPermissionError();
   }
@@ -66,6 +71,19 @@ export async function submitFeatureRevisionReview({
   });
   if (!revision) {
     throw new Error("Could not find feature revision");
+  }
+
+  // A verdict is judged against what the draft changes, so it waits on the
+  // revision. Comments keep their pre-fetch refusal.
+  if (review !== "Comment") {
+    const footprint = await getFeatureReviewFootprint({
+      context,
+      feature,
+      revision,
+    });
+    if (!context.permissions.canReviewFeatureDrafts(feature, footprint)) {
+      context.permissions.throwPermissionError();
+    }
   }
   // Verdicts may stand alone, but a plain comment must have a body.
   if (review === "Comment" && !comment?.trim()) {

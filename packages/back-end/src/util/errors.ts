@@ -262,14 +262,21 @@ export class RampAdvanceLockBusyError extends Error {
   }
 }
 
-export class ExperimentIncrementalPipelineRequiresFullRefreshError extends Error {
-  readonly status = 409;
-  readonly code = "requires_full_refresh";
-  readonly details: { reason: string };
+export class ExperimentIncrementalPipelineRequiresFullRefreshError extends ApiError<"requires_full_refresh"> {
   constructor(reason: string) {
-    super(reason);
+    super("requires_full_refresh", reason, {
+      reason,
+    });
     this.name = "ExperimentIncrementalPipelineRequiresFullRefreshError";
-    this.details = { reason };
+  }
+}
+
+export class DimensionAlreadyUpToDateError extends ApiError<"dimension_already_up_to_date"> {
+  constructor(message: string, overallResultsAsOf: string) {
+    super("dimension_already_up_to_date", message, {
+      overallResultsAsOf,
+    });
+    this.name = "DimensionAlreadyUpToDateError";
   }
 }
 

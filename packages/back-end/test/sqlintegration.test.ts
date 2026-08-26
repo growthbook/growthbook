@@ -481,6 +481,36 @@ describe("bigquery integration", () => {
     );
   });
 
+  it("uses the fact table's timestamp column and aliases it to timestamp", () => {
+    const factTable = factTableFactory.build({
+      sql: "SELECT user_id, anonymous_id, event_time, value FROM events",
+      timestampColumn: "event_time",
+    });
+    const factMetric = factMetricFactory.build({
+      metricType: "mean",
+      numerator: {
+        factTableId: factTable.id,
+        column: "value",
+        aggregation: "sum",
+      },
+    });
+
+    const result = getFactMetricCTE(bigQueryDialect, {
+      metricsWithIndices: [{ metric: factMetric, index: 0 }],
+      factTable,
+      baseIdType: "user_id",
+      idJoinMap: {},
+      startDate: new Date("2023-01-01"),
+      endDate: new Date("2023-01-31"),
+    });
+
+    expect(result).toContain("CAST(m.event_time as DATETIME) as timestamp");
+    expect(result).toContain(
+      "WHERE m.event_time >= '2023-01-01 00:00:00' AND m.event_time <= '2023-01-31 00:00:00'",
+    );
+    expect(result).not.toContain("m.timestamp");
+  });
+
   it("substitutes {{experimentId}} in fact table SQL when experimentId is provided", () => {
     const factTable = factTableFactory.build({
       sql: "SELECT user_id, timestamp, value FROM events WHERE sample_type = CONCAT('experiment:', '{{experimentId}}')",

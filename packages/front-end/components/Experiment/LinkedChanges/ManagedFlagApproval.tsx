@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { datetime } from "shared/dates";
+import { ANY_REVIEW_FOOTPRINT } from "shared/util";
 import { Box, Flex, Separator, IconButton } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
@@ -105,7 +106,10 @@ export default function ManagedFlagApproval({
     // Conflicts are surfaced by the card's callouts; never offer a failing CTA.
     mergeSuccess: !info.pendingDraft?.hasMergeConflict,
     hasChanges: true,
-    hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(info.feature),
+    hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(
+      info.feature,
+      ANY_REVIEW_FOOTPRINT,
+    ),
     canManageDraft: permissionsUtil.canEditFeatureDrafts(info.feature),
     isReviewRequester: revision?.createdBy?.id === userId,
     isContributor: (revision?.contributors ?? []).includes(userId ?? ""),
@@ -129,8 +133,15 @@ export default function ManagedFlagApproval({
     editsResetStatus: true,
   });
 
+  // "any": the precise footprint needs the live and base revisions, which this
+  // popover does not load (the full Review & Publish tab falls back the same way
+  // without them). The server recomputes it exactly and refuses if it does not
+  // hold, so the cost of being generous here is a 403, not a bad write.
   const canReview =
-    permissionsUtil.canReviewFeatureDrafts(info.feature) &&
+    permissionsUtil.canReviewFeatureDrafts(
+      info.feature,
+      ANY_REVIEW_FOOTPRINT,
+    ) &&
     status === "pending-review" &&
     !!revision &&
     revision.createdBy?.id !== userId;

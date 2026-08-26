@@ -1,5 +1,9 @@
 import Button from "@/components/Button";
-import { redirectWithTimeout, safeLogout } from "@/services/auth";
+import {
+  getPostAuthRedirectPath,
+  redirectWithTimeout,
+  safeLogout,
+} from "@/services/auth";
 import Callout from "@/ui/Callout";
 
 export const OAuthError = ({ error }: { error: string }) => (
@@ -12,7 +16,7 @@ export const OAuthError = ({ error }: { error: string }) => (
         <Button
           color="primary"
           onClick={async () => {
-            await redirectWithTimeout(window.location.origin);
+            await redirectWithTimeout(getPostAuthRedirectPath());
           }}
         >
           Retry

@@ -13,7 +13,6 @@ import {
   mergeResultHasChanges,
   reconcileMergeBaselines,
   resetReviewOnChange,
-  checkIfRevisionNeedsReview,
 } from "shared/util";
 import { isVariationWeightsSumValid } from "shared/experiments";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -32,6 +31,7 @@ import {
 import type { AuditInterfaceInput } from "shared/types/audit";
 import { ApiReqContext } from "back-end/types/api";
 import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
+import { assessRevisionApproval } from "back-end/src/services/featurePublishGates";
 import {
   addLinkedExperiment,
   editFeatureRules,
@@ -666,6 +666,34 @@ type ResolvedDraft = { featureId: string; revisionVersion: number };
 // followed by the same publish governance. `rebaseRequired` is only set for
 // the mergeable-but-blocked case (org requires rebase-before-publish or the
 // approval went stale) — true conflicts are reported via `mergeResult`.
+// The live revision is both the merge baseline and the review baseline; any
+// ramp actions on the draft are judged by the shared assessment like any other.
+async function assessRevisionApprovalForAutoPublish(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  live: FeatureRevisionInterface,
+  base: FeatureRevisionInterface,
+  mergeResult: AutoMergeResult,
+) {
+  const filledLive = { ...live, ...liveRevisionFromFeature(live, feature) };
+  return assessRevisionApproval({
+    context,
+    feature,
+    revision,
+    // What will land, not the raw draft: a diverged live moves the answer.
+    effectiveRevision: mergeResult.success
+      ? {
+          ...filledLive,
+          ...mergeResult.result,
+          rampActions: revision.rampActions,
+        }
+      : revision,
+    filledLive,
+    base,
+  });
+}
+
 export function mergeDraftForAutoPublish(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -768,23 +796,6 @@ export async function publishPendingFeatureDraftsForExperiment(
       feature,
       revision,
     });
-    const requiresReview = checkIfRevisionNeedsReview({
-      feature,
-      baseRevision: base,
-      revision,
-      allEnvironments: context.environments,
-      settings: context.org.settings,
-      requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
-    });
-    if (requiresReview && revision.status !== "approved") {
-      logger.warn(
-        { experimentId: experiment.id, featureId, revisionVersion },
-        "Cannot auto-publish pending feature draft: approval required but not yet approved",
-      );
-      failed.push({ featureId, revisionVersion, reason: "needs-approval" });
-      continue;
-    }
-
     const { mergeResult, rebaseRequired } = mergeDraftForAutoPublish(
       context,
       feature,
@@ -792,6 +803,32 @@ export async function publishPendingFeatureDraftsForExperiment(
       live,
       base,
     );
+    // The same question the publish button and the REST endpoint ask, so an
+    // autostart can never land a draft either of those would refuse.
+    const approval = await assessRevisionApprovalForAutoPublish(
+      context,
+      feature,
+      revision,
+      live,
+      base,
+      mergeResult,
+    );
+    if (!approval.satisfied) {
+      logger.warn(
+        {
+          experimentId: experiment.id,
+          featureId,
+          revisionVersion,
+          status: revision.status,
+          hasCoveringApproval: approval.hasCoveringApproval,
+          requiredTeamsSatisfied: approval.requiredApproverTeams.satisfied,
+        },
+        "Cannot auto-publish pending feature draft: approval requirements not met",
+      );
+      failed.push({ featureId, revisionVersion, reason: "needs-approval" });
+      continue;
+    }
+
     if (rebaseRequired) {
       logger.warn(
         { experimentId: experiment.id, featureId, revisionVersion },
@@ -999,23 +1036,31 @@ export async function publishPendingFeatureDraftsForContextualBandit(
       continue;
     }
 
-    const { base } = await getLiveAndBaseRevisionsForFeature({
+    const { live, base } = await getLiveAndBaseRevisionsForFeature({
       context,
       feature,
       revision,
     });
-    const requiresReview = checkIfRevisionNeedsReview({
+    const approval = await assessRevisionApprovalForAutoPublish(
+      context,
       feature,
-      baseRevision: base,
       revision,
-      allEnvironments: context.environments,
-      settings: context.org.settings,
-      requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
-    });
-    if (requiresReview && revision.status !== "approved") {
+      live,
+      base,
+      mergeDraftForAutoPublish(context, feature, revision, live, base)
+        .mergeResult,
+    );
+    if (!approval.satisfied) {
       logger.warn(
-        { contextualBanditId: cb.id, featureId, revisionVersion },
-        "Cannot auto-publish pending feature draft: approval required but not yet approved",
+        {
+          contextualBanditId: cb.id,
+          featureId,
+          revisionVersion,
+          status: revision.status,
+          hasCoveringApproval: approval.hasCoveringApproval,
+          requiredTeamsSatisfied: approval.requiredApproverTeams.satisfied,
+        },
+        "Cannot auto-publish pending feature draft: approval requirements not met",
       );
       failed.push({ featureId, revisionVersion, reason: "needs-approval" });
       continue;

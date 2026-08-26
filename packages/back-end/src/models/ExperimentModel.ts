@@ -313,6 +313,7 @@ const experimentSchema = new mongoose.Schema({
   hasVisualChangesets: Boolean,
   hasURLRedirects: Boolean,
   linkedFeatures: [String],
+  attributeScopeAllProjects: Boolean,
   pendingFeatureDrafts: [
     {
       _id: false,
@@ -1883,17 +1884,25 @@ export async function getExperimentMapForFeature(
 export async function getAllPayloadExperiments(
   context: ReqContext | ApiReqContext,
   projects?: string[],
+  // Experiments a delivered feature references, wanted whatever project they are in.
+  alsoIncludeIds: string[] = [],
 ): Promise<Map<string, ExperimentInterface>> {
-  const projectFilter =
+  const scoped =
     !projects || !projects.length
-      ? {}
+      ? undefined
       : projects.length === 1
         ? { project: projects[0] }
         : { project: { $in: projects } };
 
+  const scopeFilter = !scoped
+    ? {}
+    : alsoIncludeIds.length
+      ? { $and: [{ $or: [scoped, { id: { $in: alsoIncludeIds } }] }] }
+      : scoped;
+
   const experiments = await findExperiments(context, {
     organization: context.org.id,
-    ...projectFilter,
+    ...scopeFilter,
     archived: { $ne: true },
     $or: [
       {
@@ -1910,7 +1919,8 @@ export async function getAllPayloadExperiments(
 
   return new Map(
     experiments
-      .filter((e) => includeExperimentInPayload(e))
+      // Keep drafts; getFeatureDefinition filters them per connection
+      .filter((e) => includeExperimentInPayload(e, [], { includeDrafts: true }))
       .map((e) => [e.id, e]),
   );
 }
@@ -2083,8 +2093,13 @@ export function getPayloadKeys(
   // Every org project id — only consulted for linked features that target all projects.
   allProjectIds: string[] = [],
 ): SDKPayloadKey[] {
-  // If experiment is not included in the SDK payload
-  if (!includeExperimentInPayload(experiment, linkedFeatures)) {
+  // If experiment is not included in the SDK payload. Drafts count so their
+  // edits refresh the payloads serving includeDraftExperimentRefs connections.
+  if (
+    !includeExperimentInPayload(experiment, linkedFeatures, {
+      includeDrafts: true,
+    })
+  ) {
     return [];
   }
 
@@ -2158,8 +2173,8 @@ const hasChangesForSDKPayloadRefresh = (
 ): boolean => {
   // Skip experiments that don't have linked changes
   if (
-    !includeExperimentInPayload(oldExperiment) &&
-    !includeExperimentInPayload(newExperiment)
+    !includeExperimentInPayload(oldExperiment, [], { includeDrafts: true }) &&
+    !includeExperimentInPayload(newExperiment, [], { includeDrafts: true })
   ) {
     return false;
   }

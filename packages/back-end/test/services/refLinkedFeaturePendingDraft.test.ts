@@ -10,6 +10,8 @@ jest.mock("back-end/src/models/FeatureModel", () => ({
 }));
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
   getFeatureRevisionsByFeatureIds: jest.fn(),
+  // Feeds attributeScopeProjects, which these cases do not exercise.
+  getActiveDraftMetadataByFeatureIds: jest.fn(async () => ({})),
 }));
 jest.mock("back-end/src/services/features", () => ({
   getLiveAndBaseRevisionsForFeature: jest.fn(),

@@ -25,7 +25,7 @@ import { Size as SharedSize } from "@/ui/sizes";
 import ErrorDisplay from "../ErrorDisplay";
 import styles from "./Modal.module.scss";
 
-export type Size = SharedSize<"md" | "lg">;
+export type Size = SharedSize<"md" | "lg" | "xl">;
 
 // Modal does not use the shared Radix map. Radix Dialog's size drives padding
 // and border radius rather than a step on the control scale, its own default is
@@ -36,6 +36,7 @@ function getRadixSize(size: Size): Responsive<"3" | "4"> {
     case "md":
       return "3";
     case "lg":
+    case "xl":
       return "4";
   }
 }
@@ -46,6 +47,8 @@ function getMaxWidth(size: Size) {
       return "500px";
     case "lg":
       return "800px";
+    case "xl":
+      return "1100px";
   }
 }
 
