@@ -324,4 +324,58 @@ describe("ConditionInput", () => {
       expect(screen.getByText("Identifier")).toBeInTheDocument();
     });
   });
+
+  it("shows a warning when duplicate attributes will overwrite each other", async () => {
+    // Setup
+    const mockOnChange = vi.fn();
+    const { container } = render(
+      <RadixTheme>
+        <TooltipProvider>
+          <ConditionInput
+            defaultValue="[]"
+            onChange={mockOnChange}
+            project=""
+          />
+        </TooltipProvider>
+      </RadixTheme>,
+    );
+    await waitFor(() => {
+      expect(screen.getByText("Target by Attributes")).toBeInTheDocument();
+    });
+    const addButton = screen.getByText("Add attribute targeting");
+    fireEvent.click(addButton);
+    await waitFor(() => {
+      expect(screen.getByText("INCLUDE")).toBeInTheDocument();
+    });
+
+    // 1st Condition: user_id (default) = "5"
+    let valueInputs = screen.getAllByRole("textbox");
+    fireEvent.change(valueInputs[0], { target: { value: "5" } });
+
+    // Click 'AND' button to add a second condition in the same group
+    await waitFor(() => {
+      const addAndButton = container.querySelector(".and-button") as Element;
+      expect(addAndButton).toBeDefined();
+      fireEvent.click(addAndButton);
+    });
+
+    // 2nd Condition: user_id (default) = "10"
+    await waitFor(() => {
+      valueInputs = screen.getAllByRole("textbox");
+      expect(valueInputs.length).toBe(2);
+    });
+    fireEvent.change(valueInputs[1], { target: { value: "10" } });
+
+    // Assert that the warning is displayed because $eq and $eq conflict
+    await waitFor(() => {
+      expect(
+        screen.getAllByText(
+          (_, element) =>
+            element?.textContent?.includes(
+              "This condition conflicts with another condition",
+            ) ?? false,
+        ).length,
+      ).toBeGreaterThan(0);
+    });
+  });
 });
