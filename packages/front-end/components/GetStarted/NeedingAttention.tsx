@@ -170,8 +170,10 @@ const NeedingAttention = (): React.ReactElement | null => {
       if (Object.keys(recentlyUsed).length >= 4) {
         return false;
       }
-      if (!recentlyUsed[event.entity.id]) {
-        const { entity } = event;
+      // Legacy audit docs may be missing the entity field entirely
+      const { entity } = event;
+      if (!entity) return false;
+      if (!recentlyUsed[entity.id]) {
         switch (entity.object) {
           case "feature":
             recentlyUsed[entity.id] = {
