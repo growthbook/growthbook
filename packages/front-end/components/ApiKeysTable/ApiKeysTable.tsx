@@ -1,7 +1,7 @@
 import React, { FC, useState } from "react";
 import { FaCheck, FaFilter, FaTimes } from "react-icons/fa";
 import { ApiKeyInterface, ApiKeyWithRole } from "shared/types/apikey";
-import { getRoleDisplayName } from "shared/permissions";
+import { getRoleDisplayName, roleHasAccessToEnv } from "shared/permissions";
 import { ago, datetime } from "shared/dates";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
 import ApiKeyRowMenu from "@/components/ApiKeysTable/ApiKeyRowMenu";
@@ -9,7 +9,6 @@ import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useEnvironments } from "@/services/features";
-import { roleHasAccessToEnv } from "@/services/auth";
 import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
 import ConfirmDialog from "@/ui/ConfirmDialog";

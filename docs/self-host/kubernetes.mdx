@@ -484,6 +484,42 @@ ingress:
   </Tab>
 </Tabs>
 
+## Private Registry Mirrors
+
+If your cluster is only allowed to pull from an internal registry, mirror the published image into it rather than building from source. A source build additionally requires the [`docker login dhi.io` step](/self-host#building-from-source) and has to be maintained across upgrades.
+
+Copy the image registry-to-registry so the multi-arch index and its provenance attestation survive. A `docker pull` followed by a `docker push` round-trips through a local daemon, which collapses the index to a single architecture and drops the attestation:
+
+```bash
+# Azure Container Registry
+az acr import --name myregistry \
+  --source docker.io/growthbook/growthbook:5.0.1 \
+  --image growthbook/growthbook:5.0.1
+
+# Any registry — crane, oras and skopeo all preserve the index
+crane copy growthbook/growthbook:5.0.1 myregistry.example.com/growthbook/growthbook:5.0.1
+```
+
+Then point the chart at your mirror. Both the `frontend` and `backend` deployments run this image, so set it in both places. Use `image.digest` to pin an exact image — it takes precedence over `image.tag`:
+
+```yaml
+frontend:
+  image:
+    repository: myregistry.example.com/growthbook/growthbook
+    digest: "sha256:f53ead646b5f29a302d0526f02847e9e648445e66c5c1af039eac76ebc164b78"
+  imagePullSecrets:
+    - name: my-registry-credentials
+
+backend:
+  image:
+    repository: myregistry.example.com/growthbook/growthbook
+    digest: "sha256:f53ead646b5f29a302d0526f02847e9e648445e66c5c1af039eac76ebc164b78"
+  imagePullSecrets:
+    - name: my-registry-credentials
+```
+
+Read the digest of a published tag with `docker buildx imagetools inspect growthbook/growthbook:5.0.1`.
+
 ## Accessing GrowthBook
 
 After deploying with Helm, access GrowthBook using the Ingress hostnames you configured in your values file:

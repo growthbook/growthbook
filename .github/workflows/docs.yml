@@ -39,4 +39,4 @@ jobs:
 
       - name: Check for broken links
         working-directory: docs
-        run: mint broken-links
+        run: mint broken-links --check-anchors

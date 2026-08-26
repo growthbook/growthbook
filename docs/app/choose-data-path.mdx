@@ -48,7 +48,7 @@ GrowthBook connects to a data warehouse to query your experiment data and calcul
 
 - You already own a data warehouse (BigQuery or Snowflake today; Databricks soon) but don't have a production-grade event pipeline writing exposures into it.
 - You want feature usage and experiment exposure events captured automatically from GrowthBook SDKs, with the option to send any other custom events via SDK helpers or our Ingestion API.
-- You'd like to keep your data in your own warehouse so it can be joined with the rest of your business data.
+- You'd like to keep your data in your own warehouse so it can be joined with the rest of your organization's data.
 - You're on (or willing to upgrade to) the Pro or Enterprise plan and are comfortable with usage-based ingestion pricing.
 
 How it works at a glance: GrowthBook provisions destination tables in your warehouse (`feature_usage`, `experiment_views`, and a general `events` table). SDK plugins automatically forward feature/experiment events; everything else goes through our Ingestion API. Events are enriched and streamed into your warehouse in near real-time.

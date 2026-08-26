@@ -75,7 +75,23 @@ export async function updateSafeRolloutTimeSeries({
     factTableMap = await getFactTableMap(context);
   }
 
-  const timeSeriesVariationsPerMetricId = metricsIds.reduce(
+  // A metric whose analysis failed to compute is stored as a zeroed result
+  // flagged computeFailed. Skip it so we don't persist those zeros as a real
+  // time series point; surviving metrics still record.
+  const recordableMetricIds = metricsIds.filter(
+    (metricId) =>
+      !variations.some(
+        (_, variationIndex) =>
+          analysisResults?.variations[variationIndex]?.metrics[metricId]
+            ?.computeFailed,
+      ),
+  );
+
+  if (recordableMetricIds.length === 0) {
+    return;
+  }
+
+  const timeSeriesVariationsPerMetricId = recordableMetricIds.reduce(
     (acc, metricId) => {
       acc[metricId] = variations.map((_, variationIndex) => ({
         id: safeRolloutSnapshot.settings.variations[variationIndex].id,
@@ -98,7 +114,7 @@ export async function updateSafeRolloutTimeSeries({
   );
 
   const metricTimeSeriesSingleDataPoints: CreateMetricTimeSeriesSingleDataPoint[] =
-    metricsIds.map((metricId) => ({
+    recordableMetricIds.map((metricId) => ({
       source: "safe-rollout",
       sourceId: safeRollout.id,
       metricId,

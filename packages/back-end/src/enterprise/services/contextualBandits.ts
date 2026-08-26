@@ -1,4 +1,5 @@
 import { cloneDeep, isEqual, omit } from "lodash";
+import { v4 as uuidv4 } from "uuid";
 import type {
   ExperimentSnapshotSettings,
   SnapshotStatusSummary,
@@ -1051,6 +1052,9 @@ export async function persistContextualBanditEvent(
     ? []
     : leafWeightsFromContextualBanditResult(result, cb.variations);
 
+  // Generate a new random seed when weights are updated to re-bucket users each period
+  const newSeed = weightsWereUpdated ? uuidv4() : undefined;
+
   const cbe = await context.models.contextualBanditEvents.create({
     contextualBandit: cb.id,
     snapshotId: cbs.id,
@@ -1061,6 +1065,8 @@ export async function persistContextualBanditEvent(
     sse_trajectory: result.sse_trajectory,
     weightsWereUpdated,
     ...(result.srm ? { degreesOfFreedom: result.srm.degreesOfFreedom } : {}),
+    // Store the seed for historical tracking
+    ...(newSeed ? { seed: newSeed } : {}),
   });
 
   const updatedCb = await context.models.contextualBandits.patchLeafWeights(
@@ -1068,6 +1074,7 @@ export async function persistContextualBanditEvent(
     leafWeights,
     {
       bumpVersion: weightsWereUpdated,
+      newSeed,
     },
   );
 

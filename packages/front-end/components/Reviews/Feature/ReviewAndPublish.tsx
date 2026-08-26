@@ -17,7 +17,11 @@ import {
 import {
   autoMerge,
   fillRevisionFromFeature,
+  getReviewAuthorityFootprint,
+  governingReviewProjectsForFeature,
+  getRevisionReviewRequirement,
   liveRevisionFromFeature,
+  type ReviewAuthorityFootprint,
   filterEnvironmentsByFeature,
   getEnvsFromRampSchedule,
   isStrandedLiveRevision,
@@ -35,6 +39,7 @@ import {
   isScheduledPublishPending,
   isScheduledPublishLockActive,
   findPublishLockingScheduledRevision,
+  isInReviewCycle,
 } from "shared/enterprise";
 import {
   EventUserLoggedIn,
@@ -93,6 +98,7 @@ import {
   revisionStatusLabel,
 } from "@/components/Reviews/RevisionStatusBadge";
 import Callout from "@/ui/Callout";
+import UnmetApproverTeams from "@/components/Reviews/UnmetApproverTeams";
 import Checkbox from "@/ui/Checkbox";
 import SelectField from "@/components/Forms/SelectField";
 import { useHoldouts } from "@/hooks/useHoldouts";
@@ -120,6 +126,7 @@ import useURLHash from "@/hooks/useURLHash";
 // (notes, human-readable changes, review activity), "changes" is the diff-first
 // view (JSON diffs, full edit timeline, inline diff comments).
 type ReviewSubTab = "overview" | "changes";
+import { useApprovalCoverage } from "@/components/Reviews/useApprovalCoverage";
 import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
 import NoticeBanner from "@/components/Reviews/NoticeBanner";
 import HelperText from "@/ui/HelperText";
@@ -675,6 +682,65 @@ export default function ReviewAndPublish({
     );
   }, [revision, baseRevision, liveRevision, envIds, feature]);
 
+  // Derived the way the server derives it, so the UI agrees with the refusal.
+  // "any" while loading — optimism here risks a late refusal, nothing worse.
+  const reviewFootprint: ReviewAuthorityFootprint = useMemo(() => {
+    if (!revision || !baseRevision || !liveRevision) return { scope: "any" };
+    return getReviewAuthorityFootprint({
+      revision,
+      bases: [
+        { ...liveRevision, ...liveRevisionFromFeature(liveRevision, feature) },
+        fillRevisionFromFeature(baseRevision, feature),
+      ],
+      allEnvironments: envIds,
+      settings,
+      governingProjects: governingReviewProjectsForFeature({
+        feature,
+        revision,
+        settings,
+      }),
+    });
+  }, [revision, baseRevision, liveRevision, feature, envIds, settings]);
+
+  // Against LIVE, filled, because a different base selects different rules.
+  const reviewRules = useMemo(() => {
+    if (!revision || !liveRevision) return [];
+    return getRevisionReviewRequirement({
+      feature,
+      baseRevision: {
+        ...liveRevision,
+        ...liveRevisionFromFeature(liveRevision, feature),
+      },
+      revision,
+      orgEnvironments: environments,
+      settings,
+      requireApprovalsLicensed: hasCommercialFeature("require-approvals"),
+    }).rules;
+  }, [
+    revision,
+    liveRevision,
+    feature,
+    environments,
+    settings,
+    hasCommercialFeature,
+  ]);
+
+  const {
+    uncoveredApprovers,
+    uncoveredApproverReasons,
+    uncoveredFootprintEnvs,
+    approvalsCoverFootprint,
+    hasUncoveredApproval,
+    requiredTeams,
+  } = useApprovalCoverage({
+    reviewers,
+    footprint: reviewFootprint,
+    envIds,
+    model: "feature",
+    projects: feature.project ? [feature.project] : [],
+    reviewRules,
+  });
+
   // Fall back to all applicable environments until the merge footprint is known.
   const affectedRevisionEnvs = useMemo(() => {
     if (!mergeResult?.success) return envIds;
@@ -735,9 +801,6 @@ export default function ReviewAndPublish({
   );
   const featureLockedBySchedule = !!lockingScheduledSibling;
 
-  const isPendingReview =
-    revision?.status === "pending-review" ||
-    revision?.status === "changes-requested";
   const createdBy = revision?.createdBy as
     | EventUserLoggedIn
     | EventUserApiKey
@@ -749,10 +812,13 @@ export default function ReviewAndPublish({
   const isBlockedContributor =
     reviewSetting?.blockSelfApproval &&
     (revision?.contributors ?? []).some((id) => id === user?.id);
+  // The whole review cycle accepts verdicts, "approved" included (matching the
+  // server): an approval that doesn't satisfy coverage or a required team must
+  // not lock out the one that would.
   const canReview =
-    !!isPendingReview &&
+    isInReviewCycle(revision?.status) &&
     createdBy?.id !== user?.id &&
-    permissionsUtil.canReviewFeatureDrafts(feature);
+    permissionsUtil.canReviewFeatureDrafts(feature, reviewFootprint);
   // Advancing a draft takes draft authority, or revert/delete authority over a
   // draft that only does what they cover (or one the caller authored). The
   // client goes on provenance alone; the server re-verifies purity.
@@ -820,28 +886,18 @@ export default function ReviewAndPublish({
       affectedRevisionEnvs,
     );
 
-  // Only the draft / review-request owner can edit the arming; others see a
-  // read-only summary when armed (matching main's auto-publish-on-approval rule).
-  const isArmingOwner =
-    holdsSchedulePublish && (revision?.status === "draft" || isReviewRequester);
   const hasScheduledRevisions = hasCommercialFeature("scheduled-revisions");
-  // "when approved" only makes sense before approval — once approved it would
-  // just publish now (which Publish already does), so approved revisions only
-  // offer "on a date".
-  // The draft term matches the STAGING path (arming at request-review rides
-  // `postFeatureRequestReview`, which takes draft authority); the toggle
-  // endpoint itself gates on publish authority alone. Deliberately stricter
-  // than the endpoint on the arm side — arming is a content decision.
+  // Arming on a draft rides request-review, so it needs draft authority too.
+  const canArmSchedule =
+    holdsSchedulePublish &&
+    (revision?.status !== "draft" ||
+      permissionsUtil.canEditFeatureDrafts(feature));
+  // Only while an approval is still needed; once it can publish, Publish does that.
   const canArmWhenApproved =
     autopublishOnApproval &&
-    isArmingOwner &&
-    permissionsUtil.canEditFeatureDrafts(feature) &&
-    revision?.status !== "approved";
-  // Arming/editing a dated schedule needs only publish authority — not draft /
-  // review-request ownership — matching the backend `canScheduleFeaturePublish`
-  // gate, so a reviewer with publish permission can manage the schedule from the
-  // UI. The premium (`scheduled-revisions`) gate is applied at render.
-  const canArmOnDate = holdsSchedulePublish;
+    canArmSchedule &&
+    (revision?.status !== "approved" || !approvalsCoverFootprint);
+  const canArmOnDate = canArmSchedule;
   const effectivePublishMode: "approve" | "date" = canArmWhenApproved
     ? publishMode
     : "date";
@@ -1244,6 +1300,7 @@ export default function ReviewAndPublish({
           onRevisionMutate={mutate}
           // Same gate the generic timeline passes.
           canRetractVerdict={canRetractVerdict}
+          uncoveredApproverReasons={uncoveredApproverReasons}
           // Overview foregrounds the conversation: comments, verdicts, and
           // lifecycle events. Granular content-edit entries collapse into
           // per-run "N other events" toggles.
@@ -1504,6 +1561,11 @@ export default function ReviewAndPublish({
                           name={name || email}
                           timestamp={timestamp}
                           stale={stale}
+                          uncoveredReason={
+                            uncoveredApprovers.has(id)
+                              ? uncoveredApproverReasons.get(id)
+                              : undefined
+                          }
                         />
                       }
                     />
@@ -1714,7 +1776,7 @@ export default function ReviewAndPublish({
       feature,
       baseRevision: effectiveBase,
       revision: effectiveRevision,
-      allEnvironments: envIds,
+      orgEnvironments: environments,
       settings,
       requireApprovalsLicensed: hasCommercialFeature("require-approvals"),
       liveRampScheduleEnvs,
@@ -1729,7 +1791,10 @@ export default function ReviewAndPublish({
     status: revision.status,
     mergeSuccess: mergeResult.success,
     hasChanges: hasChanges || isStranded,
-    hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(feature),
+    hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(
+      feature,
+      reviewFootprint,
+    ),
     // Recall is derived from this in the state machine, and revert/delete
     // authority may recall a review request on a draft they authored — so pass
     // the widened predicate rather than the bare draft atom.
@@ -2196,7 +2261,12 @@ export default function ReviewAndPublish({
     ) : null;
 
   const canDoPrimary =
-    state.submitAction === "publish" ? hasPublishPermission : true;
+    state.submitAction === "publish"
+      ? hasPublishPermission &&
+        (adminPublish ||
+          !requireReviews ||
+          (approvalsCoverFootprint && requiredTeams.satisfied))
+      : true;
 
   // Shared by the no-changes empty state and the actions column kebab — the
   // only two places an active draft can be discarded from.
@@ -2252,6 +2322,13 @@ export default function ReviewAndPublish({
       !adminPublish &&
       ["draft", "pending-review", "changes-requested"].includes(revision.status)
     )
+      return { overridable: true };
+    // Overridable so the bypass affordance stays reachable — the state that
+    // most needs it.
+    if (requireReviews && !adminPublish && !approvalsCoverFootprint)
+      return { overridable: true };
+    // Properly approved, but the rule's required team has not signed off.
+    if (requireReviews && !adminPublish && !requiredTeams.satisfied)
       return { overridable: true };
     if (!adminPublish && !governance?.canPublish) return { overridable: true };
     if (!adminPublish && featureLockedByRamp) return { overridable: true };
@@ -2519,6 +2596,11 @@ export default function ReviewAndPublish({
                           name={name || email}
                           timestamp={timestamp}
                           stale={stale}
+                          uncoveredReason={
+                            uncoveredApprovers.has(id)
+                              ? uncoveredApproverReasons.get(id)
+                              : undefined
+                          }
                         />
                       }
                     />
@@ -2575,7 +2657,7 @@ export default function ReviewAndPublish({
             ))}
 
           {/* Submit review — reviewer action, opens the comment/decision popover */}
-          {canReview && isPendingReview && !approved && (
+          {canReview && !adminPublish && (
             <Flex direction="column" gap="3">
               <ReviewCommentPopover
                 submitUrl={`/feature/${feature.id}/${revision.version}/submit-review`}
@@ -2606,6 +2688,15 @@ export default function ReviewAndPublish({
                 }}
                 trigger={
                   <Button
+                    // Outline once publishing is live or armed on a schedule —
+                    // either way review is no longer the primary action.
+                    variant={
+                      state.submitAction === "publish" &&
+                      state.ctaEnabled &&
+                      canDoPrimary
+                        ? "outline"
+                        : undefined
+                    }
                     style={{ width: "100%" }}
                     icon={<PiCaretDownBold />}
                     iconPosition="right"
@@ -2865,6 +2956,25 @@ export default function ReviewAndPublish({
                     pt="4"
                     style={{ borderTop: "1px solid var(--gray-a5)" }}
                   >
+                    {/* The verdict stands, so the status stays "Approved". */}
+                    {requireReviews && !requiredTeams.satisfied && (
+                      <Box mb="3">
+                        <Callout status="warning" size="sm">
+                          <UnmetApproverTeams unmet={requiredTeams.unmet} />
+                        </Callout>
+                      </Box>
+                    )}
+
+                    {requireReviews && hasUncoveredApproval && (
+                      <Box mb="3">
+                        <Callout status="warning" size="sm">
+                          {uncoveredFootprintEnvs.length
+                            ? `Approved, but no reviewer has approval rights in ${uncoveredFootprintEnvs.join(", ")}. This draft needs approval from someone who does.`
+                            : `Approved, but no reviewer has approval rights across everything this draft changes.`}
+                        </Callout>
+                      </Box>
+                    )}
+
                     {/* Divergence/rebase notice renders above the publish button
                     so users consider rebasing before reaching for Publish. */}
                     {governance && (
