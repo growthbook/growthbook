@@ -18,7 +18,7 @@ export const holdoutStartEndpoint = {
   zodReturnObject: apiHoldoutActionReturn,
   summary: "Start the Holdout's Active Period",
   description:
-    "Feature Flags and experiments can be added during this period while the Holdout measures their cumulative impact.",
+    "Feature Flags and Experiments can be added during this period while the Holdout measures their cumulative impact.",
   possibleErrors: ["invalid_status"] as const,
 };
 
@@ -30,7 +30,7 @@ export const holdoutStartAnalysisEndpoint = {
   zodReturnObject: apiHoldoutActionReturn,
   summary: "Start the Holdout's Analysis Period",
   description:
-    "Move the holdout into an analysis phase. New Feature Flags and experiments can no longer be added, but existing traffic splits remain active for existing and new traffic. Results exclude data from before the analysis period so you can measure the cumulative impact after changes are frozen.",
+    "Move the holdout into an analysis phase. New Feature Flags and Experiments can no longer be added, but existing traffic splits remain active for existing and new traffic. Results exclude data from before the analysis period so you can measure the cumulative impact after changes are frozen.",
   possibleErrors: ["invalid_status"] as const,
 };
 
@@ -64,7 +64,7 @@ export const holdoutApiSpec = {
   ],
   crudDescriptions: {
     create:
-      "Creates a Holdout. The Holdout starts in the `draft` stage. Use POST /holdouts/{id}/start to start it.",
+      "Creates a Holdout. The Holdout starts in the `draft` stage. Use the start endpoint to start it.",
     update:
       "Updates a Holdout. Use the start, start-analysis, and stop endpoints to move it through its lifecycle.",
   },

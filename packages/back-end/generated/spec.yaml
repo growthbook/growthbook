@@ -49510,10 +49510,11 @@ paths:
                   type: boolean
                 holdoutSize:
                   description: >-
-                    Proportion of traffic held out, expressed as a decimal (e.g.
-                    0.05 for 5%). An equally-sized control group is bucketed
-                    alongside it, so the Holdout occupies twice this share of
-                    traffic in total. Must be greater than 0 and at most 0.5.
+                    Proportion of traffic placed in the holdout group (e.g. 0.05
+                    for 5%). An equally sized comparison group is sampled from
+                    the remaining traffic for measurement, so 2× this value
+                    enters the holdout experiment in total. Must be greater than
+                    0 and at most 0.5.
                   type: number
                   exclusiveMinimum: 0
                   maximum: 0.5
@@ -49629,8 +49630,8 @@ paths:
       operationId: createHoldout
       summary: Create a single holdout
       description: >-
-        Creates a Holdout. The Holdout starts in the `draft` stage. Use POST
-        /holdouts/{id}/start to start it.
+        Creates a Holdout. The Holdout starts in the `draft` stage. Use the
+        start endpoint to start it.
       tags:
         - Holdouts
       requestBody:
@@ -49847,7 +49848,7 @@ paths:
       operationId: startHoldout
       summary: Start the Holdout's Active Period
       description: >-
-        Feature Flags and experiments can be added during this period while the
+        Feature Flags and Experiments can be added during this period while the
         Holdout measures their cumulative impact.
       tags:
         - Holdouts
@@ -49903,7 +49904,7 @@ paths:
       summary: Start the Holdout's Analysis Period
       description: >-
         Move the holdout into an analysis phase. New Feature Flags and
-        experiments can no longer be added, but existing traffic splits remain
+        Experiments can no longer be added, but existing traffic splits remain
         active for existing and new traffic. Results exclude data from before
         the analysis period so you can measure the cumulative impact after
         changes are frozen.
@@ -65788,10 +65789,10 @@ components:
           type: boolean
         holdoutSize:
           description: >-
-            Proportion of traffic held out, expressed as a decimal (e.g. 0.05
-            for 5%). An equally-sized control group is bucketed alongside it, so
-            the Holdout occupies twice this share of traffic in total. Must be
-            greater than 0 and at most 0.5.
+            Proportion of traffic placed in the holdout group (e.g. 0.05 for
+            5%). An equally sized comparison group is sampled from the remaining
+            traffic for measurement, so 2× this value enters the holdout
+            experiment in total. Must be greater than 0 and at most 0.5.
           type: number
           exclusiveMinimum: 0
           maximum: 0.5

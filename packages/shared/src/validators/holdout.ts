@@ -162,7 +162,7 @@ const holdoutSizeField = z
   .positive("Holdout size must be greater than 0")
   .max(MAX_HOLDOUT_SIZE)
   .describe(
-    "Proportion of traffic held out, expressed as a decimal (e.g. 0.05 for 5%). An equally-sized control group is bucketed alongside it, so the Holdout occupies twice this share of traffic in total. Must be greater than 0 and at most 0.5.",
+    "Proportion of traffic placed in the holdout group (e.g. 0.05 for 5%). An equally sized comparison group is sampled from the remaining traffic for measurement, so 2× this value enters the holdout experiment in total. Must be greater than 0 and at most 0.5.",
   );
 
 const apiHoldoutStatusUpdateSchedule = z
