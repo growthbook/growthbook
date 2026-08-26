@@ -3,10 +3,6 @@ import { PiFunnel } from "react-icons/pi";
 import Tooltip from "@/ui/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
-// Mini icon button rendered inside attribute selects (via SelectField's
-// `extraIndicator` slot): toggles the experiment's persisted attribute scope
-// between its own projects and all projects. Mirrors MultiSelectField's
-// CopyButton pattern.
 export default function AttributeScopeToggle({
   allProjects,
   setAllProjects,
@@ -14,13 +10,10 @@ export default function AttributeScopeToggle({
 }: {
   allProjects: boolean;
   setAllProjects: (v: boolean) => void;
-  // Project ids of the restricted scope, used for the tooltip label.
   scopeProjects?: string[] | null;
 }) {
   const { getProjectById } = useDefinitions();
 
-  // The restricted scope is the experiment's project plus its linked
-  // features' targeting projects — always name the actual projects.
   const scopeNames = (scopeProjects ?? []).map(
     (id) => getProjectById(id)?.name || id,
   );
@@ -30,8 +23,8 @@ export default function AttributeScopeToggle({
   const scopePrefix = allProjects
     ? ""
     : scopeNames.length > 1
-      ? "projects "
-      : "project ";
+      ? "Projects: "
+      : "Project: ";
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -59,6 +52,7 @@ export default function AttributeScopeToggle({
           "gb-select__scope-toggle--filtering": !allProjects,
         })}
         aria-label={`Showing attributes for ${scopePrefix}${scopeLabel}`}
+        aria-pressed={allProjects}
         onClick={handleClick}
         onMouseDown={handleMouseDown}
       >
