@@ -22,6 +22,7 @@ import {
   ContextualBanditVariation,
   LeafWeight,
   Variation,
+  VariationWeightPair,
   RevisionRampAction,
 } from "shared/validators";
 import {
@@ -962,9 +963,11 @@ function computePendingVariationIds(
   );
 }
 
-async function setReconciledLeafWeightsGuarded(
+async function writeReconciledArmStateGuarded(
   context: ReqContext | ApiReqContext,
   seed: ContextualBanditInterface,
+  finalVariations: ContextualBanditVariation[],
+  variationWeights: VariationWeightPair[],
   activeIds: string[],
   mode: WeightReconcileMode,
   opts?: { bypassPermissionChecks?: boolean },
@@ -980,11 +983,12 @@ async function setReconciledLeafWeightsGuarded(
             weights: reconcileVariationWeights(lw.weights, activeIds, mode),
           }));
     try {
-      return await context.models.contextualBandits.setLeafWeights(
+      return await context.models.contextualBandits.applyArmStateUpdate(
         seed.id,
-        leafWeights,
         {
-          bumpVersion: true,
+          variations: finalVariations,
+          variationWeights,
+          currentLeafWeights: leafWeights,
           expectedBanditVersion: base.banditVersion,
           bypassPermissionCheck: opts?.bypassPermissionChecks,
         },
@@ -997,7 +1001,7 @@ async function setReconciledLeafWeightsGuarded(
       if (!fresh) throw err;
       context.logger.warn(
         { contextualBanditId: seed.id, attempt },
-        "banditVersion moved while reconciling leaf weights (concurrent snapshot run or arm change); recomputing from fresh weights",
+        "banditVersion moved while reconciling arm state (concurrent snapshot run or arm change); recomputing from fresh weights",
       );
       base = fresh;
     }
@@ -1038,20 +1042,11 @@ export async function activatePendingContextualBanditVariations(
     mode,
   );
 
-  if (opts?.bypassPermissionChecks) {
-    await context.models.contextualBandits.dangerousUpdateBypassPermission(cb, {
-      variations: newVariations,
-      variationWeights,
-    });
-  } else {
-    await context.models.contextualBandits.update(cb, {
-      variations: newVariations,
-      variationWeights,
-    });
-  }
-  const updated = await setReconciledLeafWeightsGuarded(
+  const updated = await writeReconciledArmStateGuarded(
     context,
     cb,
+    newVariations,
+    variationWeights,
     activeIds,
     mode,
     opts,
@@ -1126,30 +1121,11 @@ export async function executeContextualBanditVariationChange(
       generatedIds,
     );
 
-    ({ failures: featureDraftPublishFailures } =
-      await reconcileLinkedFeatureVariations(context, cb, {
-        addedIds: diff.addedIds,
-        removedIds: diff.removedIds,
-        providedValues: newVariationValues,
-        linkedInfo,
-      }));
-
-    // A new arm starts active only if its value is live on every linked
-    // feature; otherwise it stays pending rather than trusting the publish
-    // failure list alone.
-    const liveArmInfo = await getLiveArmIdsByLinkedFeature(context, cb);
-    const pendingAdded = new Set([
-      ...computePendingVariationIds(diff.addedIds, liveArmInfo),
-      ...(featureDraftPublishFailures.length > 0 ? diff.addedIds : []),
-    ]);
-
-    const finalVariations: ContextualBanditVariation[] = [
+    const provisionalVariations: ContextualBanditVariation[] = [
       ...newVariations.map((v) => {
         const prev = previousById.get(v.id);
         if (prev) return prev.status ? { ...v, status: prev.status } : v;
-        return pendingAdded.has(v.id)
-          ? { ...v, status: "pending" as const }
-          : v;
+        return { ...v, status: "pending" as const };
       }),
       ...diff.removedIds.map((id) => ({
         ...previousById.get(id)!,
@@ -1158,28 +1134,33 @@ export async function executeContextualBanditVariationChange(
       ...tombstones,
     ];
 
-    // Weights are reconciled over active arms only.
     const mode: WeightReconcileMode =
       !cb.stage || cb.stage === "explore" ? "uniform" : "redistribute";
-    const activeIds = getActiveVariations(finalVariations).map((v) => v.id);
-
+    const activeIds = getActiveVariations(provisionalVariations).map(
+      (v) => v.id,
+    );
     const newVariationWeights = reconcileVariationWeights(
       cb.variationWeights ?? [],
       activeIds,
       mode,
     );
 
-    await context.models.contextualBandits.update(cb, {
-      variations: finalVariations,
-      variationWeights: newVariationWeights,
-    });
-
-    updated = await setReconciledLeafWeightsGuarded(
+    updated = await writeReconciledArmStateGuarded(
       context,
       cb,
+      provisionalVariations,
+      newVariationWeights,
       activeIds,
       mode,
     );
+
+    ({ failures: featureDraftPublishFailures } =
+      await reconcileLinkedFeatureVariations(context, updated, {
+        addedIds: diff.addedIds,
+        removedIds: diff.removedIds,
+        providedValues: newVariationValues,
+        linkedInfo,
+      }));
   } else {
     // Same visible arm set: weights stay valid. A reorder still shifts the
     // positional SDK arrays, so it bumps banditVersion; a metadata-only edit

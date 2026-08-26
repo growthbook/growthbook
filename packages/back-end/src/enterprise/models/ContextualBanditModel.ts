@@ -12,8 +12,10 @@ import {
   assertExposureQueriesTargetingAttributeColumnsValid,
   CONTEXTUAL_BANDIT_API_UPDATE_FIELDS,
   ContextualBanditInterface,
+  ContextualBanditVariation,
   contextualBanditValidator,
   LeafWeight,
+  VariationWeightPair,
 } from "shared/validators";
 import {
   ContextualBanditLinkageDelta,
@@ -455,6 +457,26 @@ export class ContextualBanditModel extends BaseClass {
     });
   }
 
+  public async applyArmStateUpdate(
+    cbId: string,
+    changes: {
+      variations: ContextualBanditVariation[];
+      variationWeights: VariationWeightPair[];
+      currentLeafWeights: LeafWeight[];
+      expectedBanditVersion?: number;
+      bypassPermissionCheck?: boolean;
+    },
+  ): Promise<ContextualBanditInterface> {
+    return this.applyWeightEpochUpdate(cbId, {
+      variations: changes.variations,
+      variationWeights: changes.variationWeights,
+      currentLeafWeights: changes.currentLeafWeights,
+      bumpVersion: true,
+      expectedBanditVersion: changes.expectedBanditVersion,
+      bypassPermissionCheck: changes.bypassPermissionCheck,
+    });
+  }
+
   public async bumpBanditVersion(
     cbId: string,
   ): Promise<ContextualBanditInterface> {
@@ -464,6 +486,8 @@ export class ContextualBanditModel extends BaseClass {
   private async applyWeightEpochUpdate(
     cbId: string,
     changes: {
+      variations?: ContextualBanditVariation[];
+      variationWeights?: VariationWeightPair[];
       currentLeafWeights?: LeafWeight[];
       bumpVersion: boolean;
       expectedBanditVersion?: number;
@@ -482,7 +506,13 @@ export class ContextualBanditModel extends BaseClass {
     const collection = this._dangerousGetCollection();
     const now = new Date();
     const set: Record<string, unknown> = { dateUpdated: now };
-    if (changes.currentLeafWeights) {
+    if (changes.variations !== undefined) {
+      set.variations = changes.variations;
+    }
+    if (changes.variationWeights !== undefined) {
+      set.variationWeights = changes.variationWeights;
+    }
+    if (changes.currentLeafWeights !== undefined) {
       set.currentLeafWeights = changes.currentLeafWeights;
     }
     if (changes.newSeed) {
