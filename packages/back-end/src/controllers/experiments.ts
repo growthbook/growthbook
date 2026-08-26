@@ -3180,6 +3180,8 @@ export async function postExperimentPhase(
     context.permissions.throwPermissionError();
   }
 
+  // Intentionally loose: a condition carried forward from the previous phase
+  // is never re-validated, even if its attributes are now out of scope.
   await assertRegisteredAttributesScoped(
     context,
     { condition: data.condition },
