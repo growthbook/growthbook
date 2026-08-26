@@ -66,8 +66,7 @@ import RuleProjectScopeField, {
 import { getExposureQuery } from "@/services/datasources";
 import Text from "@/ui/Text";
 import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
   toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 
@@ -421,16 +420,7 @@ export default function ExperimentRefNewFields({
                   form.setValue("exposureQueryId", exposureQueryId);
                 }
               }}
-              formatOptionLabel={(o, meta) => {
-                return (
-                  <AttributeOptionWithTooltip
-                    option={o as AttributeOptionForTooltip}
-                    context={meta.context}
-                  >
-                    {o.label}
-                  </AttributeOptionWithTooltip>
-                );
-              }}
+              formatOptionLabel={formatAttributeOptionLabel}
             />
             {!!holdoutHashAttribute &&
               form.watch("hashAttribute") !== holdoutHashAttribute && (

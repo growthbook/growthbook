@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -9,8 +8,8 @@ import { useAttributeSchema, useEnvironments } from "@/services/features";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import {
-  AttributeOptionWithTooltip,
   type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
   toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 import SelectField from "@/components/Forms/SelectField";
@@ -46,11 +45,8 @@ export default function EditTargetingModal({
   mutate,
   safeToEdit,
 }: Props) {
-  const { enforcement: enforcementScope, dropdown: dropdownScope } = useMemo(
-    () =>
-      getLinkedExperimentAttributeScopes(experiment.project, linkedFeatures),
-    [experiment.project, linkedFeatures],
-  );
+  const { enforcement: enforcementScope, dropdown: dropdownScope } =
+    getLinkedExperimentAttributeScopes(experiment.project, linkedFeatures);
 
   const {
     form,
@@ -178,16 +174,7 @@ export default function EditTargetingModal({
             onChange={(v) => {
               form.setValue("hashAttribute", v);
             }}
-            formatOptionLabel={(o, meta) => {
-              return (
-                <AttributeOptionWithTooltip
-                  option={o as AttributeOptionForTooltip}
-                  context={meta.context}
-                >
-                  {o.label}
-                </AttributeOptionWithTooltip>
-              );
-            }}
+            formatOptionLabel={formatAttributeOptionLabel}
             helpText={
               "Will be hashed together with the Tracking Key to determine which variation to assign"
             }

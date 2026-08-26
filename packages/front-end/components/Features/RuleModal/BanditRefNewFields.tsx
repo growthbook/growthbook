@@ -38,8 +38,7 @@ import { useUser } from "@/services/UserContext";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
   toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 import Switch from "@/ui/Switch";
@@ -209,16 +208,7 @@ export default function BanditRefNewFields({
               onChange={(v) => {
                 form.setValue("hashAttribute", v);
               }}
-              formatOptionLabel={(o, meta) => {
-                return (
-                  <AttributeOptionWithTooltip
-                    option={o as AttributeOptionForTooltip}
-                    context={meta.context}
-                  >
-                    {o.label}
-                  </AttributeOptionWithTooltip>
-                );
-              }}
+              formatOptionLabel={formatAttributeOptionLabel}
             />
             <FallbackAttributeSelector
               form={form}

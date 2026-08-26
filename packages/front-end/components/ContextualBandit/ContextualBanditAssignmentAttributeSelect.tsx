@@ -3,8 +3,7 @@ import Text from "@/ui/Text";
 import SelectField from "@/components/Forms/SelectField";
 import { useAttributeSchema } from "@/services/features";
 import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
   toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 
@@ -40,14 +39,7 @@ export default function ContextualBanditAssignmentAttributeSelect({
         onChange={(v) => {
           form.setValue("hashAttribute", v);
         }}
-        formatOptionLabel={(o, meta) => (
-          <AttributeOptionWithTooltip
-            option={o as AttributeOptionForTooltip}
-            context={meta.context}
-          >
-            {o.label}
-          </AttributeOptionWithTooltip>
-        )}
+        formatOptionLabel={formatAttributeOptionLabel}
       />
     </div>
   );

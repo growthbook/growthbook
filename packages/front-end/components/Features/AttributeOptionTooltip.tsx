@@ -65,7 +65,7 @@ export function AttributeOptionTooltipContent({
       </Text>
       <Text size="sm" as="div">
         <Text size="sm" as="span" weight="semibold">
-          Projects:{" "}
+          {option.projects?.length === 1 ? "Project:" : "Projects:"}{" "}
         </Text>
         {option.projects?.length
           ? option.projects
@@ -124,6 +124,21 @@ export function AttributeOptionProjectsLabel({
         </Text>
       </Text>
     </Flex>
+  );
+}
+
+// Drop-in `formatOptionLabel` for attribute selects with the standard tooltip.
+export function formatAttributeOptionLabel(
+  o: { label: string },
+  meta: { context: string },
+) {
+  return (
+    <AttributeOptionWithTooltip
+      option={o as AttributeOptionForTooltip}
+      context={meta.context === "value" ? "value" : "menu"}
+    >
+      {o.label}
+    </AttributeOptionWithTooltip>
   );
 }
 

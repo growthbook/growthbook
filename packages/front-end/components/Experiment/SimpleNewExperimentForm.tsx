@@ -16,8 +16,7 @@ import SelectField from "@/components/Forms/SelectField";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
   toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 import HelperText from "@/ui/HelperText";
@@ -579,14 +578,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         options={attributeSchema
           .filter((s) => !hasHashAttributes || s.hashAttribute)
           .map(toAttributeOption)}
-        formatOptionLabel={(o, meta) => (
-          <AttributeOptionWithTooltip
-            option={o as AttributeOptionForTooltip}
-            context={meta.context}
-          >
-            {o.label}
-          </AttributeOptionWithTooltip>
-        )}
+        formatOptionLabel={formatAttributeOptionLabel}
         helpText={
           hashAttributeHoldoutMismatch ? (
             <HelperText status="warning" size="sm" mt="2">

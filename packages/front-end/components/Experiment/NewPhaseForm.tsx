@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useState } from "react";
 import { Separator } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
@@ -15,7 +15,6 @@ import {
 import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
-import { useStrictAttributeProjectScoping } from "@/services/features";
 import { useWatching } from "@/services/WatchProvider";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import Modal from "@/components/Modal";
@@ -28,7 +27,10 @@ import SavedGroupTargetingField, {
 } from "@/components/Features/SavedGroupTargetingField";
 import DatePicker from "@/components/DatePicker";
 import Callout from "@/ui/Callout";
-import { getLinkedExperimentAttributeScopes } from "./useAttributeScopePicker";
+import {
+  getLinkedExperimentAttributeScopes,
+  useAttributeScopePicker,
+} from "./useAttributeScopePicker";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -37,11 +39,20 @@ const NewPhaseForm: FC<{
   close: () => void;
   source?: string;
 }> = ({ experiment, linkedFeatures, close, mutate, source }) => {
-  const strictScoping = useStrictAttributeProjectScoping();
   const { dropdown: dropdownScope } = getLinkedExperimentAttributeScopes(
     experiment.project,
     linkedFeatures,
   );
+  const [scopeAllProjects, setScopeAllProjects] = useState(
+    !!experiment.attributeScopeAllProjects,
+  );
+  const { effectiveAttributeProjects, attributeScopeToggle } =
+    useAttributeScopePicker({
+      project: experiment.project,
+      scopeProjects: dropdownScope,
+      allProjects: scopeAllProjects,
+      setAllProjects: setScopeAllProjects,
+    });
   const { refreshWatching } = useWatching();
 
   const firstPhase = !experiment.phases.length;
@@ -191,11 +202,8 @@ const NewPhaseForm: FC<{
           onChange={(condition) => form.setValue("condition", condition)}
           key={conditionKey}
           project={experiment.project || ""}
-          attributeProjects={
-            experiment.attributeScopeAllProjects && !strictScoping
-              ? null
-              : dropdownScope
-          }
+          attributeProjects={effectiveAttributeProjects}
+          attributeSelectIndicator={attributeScopeToggle}
         />
       )}
 

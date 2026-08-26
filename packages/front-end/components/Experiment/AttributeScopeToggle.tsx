@@ -52,7 +52,7 @@ export default function AttributeScopeToggle({
           "gb-select__scope-toggle--filtering": !allProjects,
         })}
         aria-label={`Showing attributes for ${scopePrefix}${scopeLabel}`}
-        aria-pressed={allProjects}
+        aria-pressed={!allProjects}
         onClick={handleClick}
         onMouseDown={handleMouseDown}
       >

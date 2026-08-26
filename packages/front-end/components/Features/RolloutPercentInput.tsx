@@ -13,8 +13,7 @@ import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVe
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
   toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 
@@ -92,14 +91,7 @@ export function RolloutHashingOptions({
             onChange={(v) => setHashAttribute(v)}
             extraIndicator={extraIndicator}
             options={filteredAttributes.map(toAttributeOption)}
-            formatOptionLabel={(o, meta) => (
-              <AttributeOptionWithTooltip
-                option={o as AttributeOptionForTooltip}
-                context={meta.context}
-              >
-                {o.label}
-              </AttributeOptionWithTooltip>
-            )}
+            formatOptionLabel={formatAttributeOptionLabel}
             containerStyle={{ minHeight: 38, width: 150 }}
           />
         </Flex>

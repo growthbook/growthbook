@@ -45,8 +45,7 @@ import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
   toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 import { useUser } from "@/services/UserContext";
@@ -1414,16 +1413,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                         onChange={(v) => {
                           form.setValue("hashAttribute", v);
                         }}
-                        formatOptionLabel={(o, meta) => {
-                          return (
-                            <AttributeOptionWithTooltip
-                              option={o as AttributeOptionForTooltip}
-                              context={meta.context}
-                            >
-                              {o.label}
-                            </AttributeOptionWithTooltip>
-                          );
-                        }}
+                        formatOptionLabel={formatAttributeOptionLabel}
                       />
                     </div>
                     <FallbackAttributeSelector
