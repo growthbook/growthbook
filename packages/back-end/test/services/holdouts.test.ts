@@ -7,6 +7,7 @@ import { logger } from "back-end/src/util/logger";
 import type { ReqContext } from "back-end/types/request";
 import {
   getHoldoutLivePayloadChanges,
+  assertCanUpdateHoldout,
   assertValidHoldoutEnvironments,
   assertValidHoldoutSchedule,
   getNextScheduledStatusUpdateForStage,
@@ -493,11 +494,68 @@ describe("rollbackExperimentAfterHoldoutFailure", () => {
     });
   });
 
+  describe("registered attributes", () => {
+    const makeStrictContext = (): ReqContext =>
+      ({
+        org: {
+          id: "org",
+          settings: {
+            environments: [{ id: "production" }],
+            requireRegisteredAttributes: { isOn: true },
+            attributeSchema: [{ property: "id", datatype: "string" }],
+          },
+        },
+        models: {
+          holdout: { update: jest.fn() },
+          projects: { ensureProjectsExist: jest.fn() },
+        },
+      }) as unknown as ReqContext;
+
+    const experiment = () =>
+      makeExperiment({
+        status: "running",
+        hashAttribute: "id",
+        phases: [
+          { condition: '{"country":"US"}', coverage: 0.1 },
+        ] as unknown as ExperimentInterface["phases"],
+      });
+
+    it("rejects a condition that introduces an unregistered attribute", async () => {
+      await expect(
+        updateHoldoutWithExperiment(makeStrictContext(), {
+          holdout: makeRollbackHoldout(),
+          experiment: experiment(),
+          body: {
+            targetingCondition: '{"made_up":"x"}',
+          } as ApiUpdateHoldoutBody,
+        }),
+      ).rejects.toThrow(/made_up/);
+    });
+
+    it("allows a change that leaves the stored attributes alone", async () => {
+      mockUpdateExperiment.mockResolvedValueOnce(experiment());
+      // Echoes back the stored condition, which is already unregistered.
+      await expect(
+        updateHoldoutWithExperiment(makeStrictContext(), {
+          holdout: makeRollbackHoldout(),
+          experiment: experiment(),
+          body: {
+            targetingCondition: '{"country":"US"}',
+            holdoutSize: 0.2,
+          } as ApiUpdateHoldoutBody,
+        }),
+      ).resolves.toBeDefined();
+    });
+  });
+
   describe("payload refresh", () => {
     const makePayloadContext = (holdoutUpdate: jest.Mock): ReqContext =>
       ({
         org: { id: "org", settings: { environments: [{ id: "production" }] } },
-        models: { holdout: { update: holdoutUpdate } },
+        models: {
+          holdout: { update: holdoutUpdate },
+          projects: { ensureProjectsExist: jest.fn() },
+        },
       }) as unknown as ReqContext;
 
     const withProjects = (projects: string[]) =>
@@ -769,5 +827,78 @@ describe("assertValidHoldoutSchedule", () => {
         analysisStartDate: PAST,
       }),
     ).not.toThrow();
+  });
+});
+
+describe("assertCanUpdateHoldout", () => {
+  const makeContext = (canRun: boolean) =>
+    ({
+      org: { id: "org", settings: { environments: [{ id: "production" }] } },
+      permissions: {
+        canUpdateHoldout: () => true,
+        canRunHoldout: () => canRun,
+        throwPermissionError: () => {
+          throw new Error("permission denied");
+        },
+      },
+    }) as unknown as ReqContext;
+
+  const base = {
+    holdout: {
+      projects: [],
+      environmentSettings: { production: { enabled: true } },
+    } as unknown as HoldoutInterface,
+    isTargetingChange: false,
+    isScheduleChange: false,
+    isArchiveChange: false,
+    isRunning: true,
+  };
+
+  it("requires run permission to archive a running holdout", () => {
+    // Archiving pulls it out of the live payload, same as disabling every env.
+    expect(() =>
+      assertCanUpdateHoldout(makeContext(false), {
+        ...base,
+        isArchiveChange: true,
+      }),
+    ).toThrow("permission denied");
+    expect(() =>
+      assertCanUpdateHoldout(makeContext(true), {
+        ...base,
+        isArchiveChange: true,
+      }),
+    ).not.toThrow();
+  });
+
+  it("does not require run permission to archive a holdout that is not running", () => {
+    expect(() =>
+      assertCanUpdateHoldout(makeContext(false), {
+        ...base,
+        isArchiveChange: true,
+        isRunning: false,
+      }),
+    ).not.toThrow();
+  });
+
+  it("does not require run permission for a metadata-only change", () => {
+    expect(() =>
+      assertCanUpdateHoldout(makeContext(false), base),
+    ).not.toThrow();
+  });
+
+  it("requires run permission for targeting and schedule changes", () => {
+    expect(() =>
+      assertCanUpdateHoldout(makeContext(false), {
+        ...base,
+        isTargetingChange: true,
+      }),
+    ).toThrow("permission denied");
+    expect(() =>
+      assertCanUpdateHoldout(makeContext(false), {
+        ...base,
+        isScheduleChange: true,
+        isRunning: false,
+      }),
+    ).toThrow("permission denied");
   });
 });

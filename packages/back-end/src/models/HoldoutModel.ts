@@ -21,14 +21,14 @@ import {
 } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { ExperimentInterface } from "shared/types/experiment";
-import { getCollection } from "back-end/src/util/mongo.util";
-import { InvalidStatusError, NotFoundError } from "back-end/src/util/errors";
 import {
   holdoutApiSpec,
   holdoutStartAnalysisEndpoint,
   holdoutStartEndpoint,
   holdoutStopEndpoint,
 } from "back-end/src/api/specs/holdout.spec";
+import { getCollection } from "back-end/src/util/mongo.util";
+import { InvalidStatusError, NotFoundError } from "back-end/src/util/errors";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import { ApiRequest } from "back-end/src/util/handler";
 import {
@@ -478,6 +478,7 @@ export class HoldoutModel extends BaseClass {
         (field) => body[field] !== undefined,
       ),
       isScheduleChange: (body.statusUpdateSchedule ?? null) !== null,
+      isArchiveChange: body.archived !== undefined,
       isRunning: experiment.status === "running",
     });
 

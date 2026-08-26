@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import isEqual from "lodash/isEqual";
 import { getValidDate } from "shared/dates";
+import { getActivePhase } from "shared/experiments";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import {
   DEFAULT_HOLDOUT_SIZE,
@@ -53,6 +54,7 @@ import {
   validateExperimentData,
   validateVariationIds,
 } from "back-end/src/services/experiments";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 
 export function assertCanRunHoldoutEnvironments(
   context: ReqContext | ApiReqContext,
@@ -106,8 +108,8 @@ export function assertValidHoldoutEnvironments(
  * permission is always required, on the destination scope when the Holdout is
  * moving. A change additionally needs run permission when it authorizes a
  * deployment: schedule changes at any stage, since they hand the agenda job
- * authority to transition the Holdout later; targeting and environment changes
- * only while it is running, since that is when they reach live SDK payloads.
+ * authority to transition the Holdout later; targeting, environment and archive
+ * changes only while it is running, since that is when they reach the payload.
  */
 export function assertCanUpdateHoldout(
   context: ReqContext | ApiReqContext,
@@ -117,6 +119,7 @@ export function assertCanUpdateHoldout(
     requestedEnabledEnvironments,
     isTargetingChange,
     isScheduleChange,
+    isArchiveChange,
     isRunning,
   }: {
     holdout: HoldoutInterface;
@@ -124,6 +127,7 @@ export function assertCanUpdateHoldout(
     requestedEnabledEnvironments?: string[];
     isTargetingChange: boolean;
     isScheduleChange: boolean;
+    isArchiveChange: boolean;
     isRunning: boolean;
   },
 ): void {
@@ -138,7 +142,8 @@ export function assertCanUpdateHoldout(
   const isEnvironmentChange = requestedEnabledEnvironments !== undefined;
   const requiresRunPermission =
     isScheduleChange ||
-    (isRunning && (isTargetingChange || isEnvironmentChange));
+    (isRunning &&
+      (isTargetingChange || isEnvironmentChange || isArchiveChange));
   if (!requiresRunPermission) return;
 
   const enabledEnvironments = Array.from(
@@ -387,6 +392,14 @@ export async function createHoldoutWithExperiment(
     await context.models.projects.ensureProjectsExist(data.projects);
   }
 
+  assertRegisteredAttributes(
+    context,
+    { hashAttribute: data.hashAttribute, condition: data.targetingCondition },
+    "holdout",
+    undefined,
+    data.projects ?? [],
+  );
+
   assertValidHoldoutEnvironments(context, data.environmentSettings);
 
   const variations = [
@@ -571,11 +584,14 @@ export async function updateHoldoutWithExperiment(
     holdout.environmentSettings,
   );
 
-  // Narrowing the project scope must not strand linked entities
   if (
     body.projects !== undefined &&
     !isEqual(body.projects, holdout.projects)
   ) {
+    if (body.projects.length) {
+      await context.models.projects.ensureProjectsExist(body.projects);
+    }
+    // Narrowing the project scope must not strand linked entities
     await assertHoldoutScopeCoversLinked(context, holdout, body.projects);
   }
 
@@ -600,6 +616,23 @@ export async function updateHoldoutWithExperiment(
         );
       }
     }
+
+    // Passing the persisted values as `existingParts` limits this to attributes
+    // the request actually changes, so a Holdout that predates the org's
+    // registration setting stays editable.
+    assertRegisteredAttributes(
+      context,
+      {
+        hashAttribute: body.hashAttribute,
+        condition: body.targetingCondition,
+      },
+      "holdout",
+      {
+        hashAttribute: experiment.hashAttribute || "id",
+        condition: getActivePhase(experiment)?.condition,
+      },
+      body.projects ?? holdout.projects,
+    );
 
     // The analysis-period phase must carry the same targeting as the payload
     // phase, so mirror the change across every phase, not just the last.

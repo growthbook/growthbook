@@ -297,12 +297,16 @@ export const updateHoldout = async (
       : undefined,
     isTargetingChange: false,
     isScheduleChange: (scheduleInput ?? null) !== null,
+    isArchiveChange: false,
     isRunning: experiment.status === "running",
   });
 
   // Only when the scope actually changes, so a Holdout already holding a
   // stranded link stays editable to be fixed.
   if (updates.projects && !isEqual(updates.projects, holdout.projects)) {
+    if (updates.projects.length) {
+      await context.models.projects.ensureProjectsExist(updates.projects);
+    }
     await assertHoldoutScopeCoversLinked(context, holdout, updates.projects);
   }
 
