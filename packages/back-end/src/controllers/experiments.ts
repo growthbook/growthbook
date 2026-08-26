@@ -17,6 +17,7 @@ import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
   getAllVariations,
+  getActivePhase,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
@@ -166,7 +167,11 @@ import {
   validateExperimentFeatureUpdates,
   validateExperimentFeatureVariations,
 } from "back-end/src/services/experiment-feature";
-import { canLinkExperimentToHoldoutFromFeatures } from "back-end/src/services/holdouts";
+import {
+  canLinkExperimentToHoldoutFromFeatures,
+  getHoldoutLivePayloadChanges,
+  isHoldoutExperiment,
+} from "back-end/src/services/holdouts";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
@@ -1682,37 +1687,54 @@ export async function postExperiment(
     validateVariationIds(data.variations);
   }
 
-  const payloadPhase =
-    experiment.type === "holdout"
-      ? experiment.phases[0]
-      : experiment.phases[experiment.phases.length - 1];
-  const existingKeyById = new Map(
-    experiment.variations.map((v) => [v.id, v.key]),
-  );
-  const variationIdsChanged =
-    experiment.type !== "holdout" &&
-    !!data.variations &&
-    !isEqual(
-      data.variations.map((v) => v.id),
-      payloadPhase?.variations.map((v) => v.id),
+  let changesLivePayload: boolean;
+  let changedFields: string[];
+  if (isHoldoutExperiment(experiment)) {
+    ({ changesLivePayload, changedFields } = getHoldoutLivePayloadChanges(
+      experiment,
+      data.coverage,
+    ));
+  } else {
+    const latestPhase = experiment.phases[experiment.phases.length - 1];
+    const existingKeyById = new Map(
+      experiment.variations.map((v) => [v.id, v.key]),
     );
-  // Variation keys are emitted in the SDK payload meta, so key edits also count
-  const variationKeysChanged =
-    experiment.type !== "holdout" &&
-    !!data.variations &&
-    data.variations.some((v) => v.key !== existingKeyById.get(v.id));
-  const coverageChanged =
-    data.coverage !== undefined && data.coverage !== payloadPhase?.coverage;
-  const variationWeightsChanged =
-    experiment.type !== "holdout" &&
-    data.variationWeights !== undefined &&
-    !isEqual(data.variationWeights, payloadPhase?.variationWeights);
+    const variationIdsChanged =
+      !!data.variations &&
+      !isEqual(
+        data.variations.map((v) => v.id),
+        latestPhase?.variations.map((v) => v.id),
+      );
+    // Variation keys are emitted in the SDK payload meta, so key edits also count
+    const variationKeysChanged =
+      !!data.variations &&
+      data.variations.some((v) => v.key !== existingKeyById.get(v.id));
+    const coverageChanged =
+      data.coverage !== undefined && data.coverage !== latestPhase?.coverage;
+    const variationWeightsChanged =
+      data.variationWeights !== undefined &&
+      !isEqual(data.variationWeights, latestPhase?.variationWeights);
 
-  const changesLivePayload =
-    variationIdsChanged ||
-    (variationKeysChanged && !isVariationKeyReconciliation) ||
-    coverageChanged ||
-    variationWeightsChanged;
+    changedFields = [];
+    if (variationIdsChanged) {
+      changedFields.push("variation IDs");
+    }
+    if (variationKeysChanged) {
+      changedFields.push("variation keys");
+    }
+    if (coverageChanged) {
+      changedFields.push("coverage");
+    }
+    if (variationWeightsChanged) {
+      changedFields.push("variationWeights");
+    }
+
+    changesLivePayload =
+      variationIdsChanged ||
+      (variationKeysChanged && !isVariationKeyReconciliation) ||
+      coverageChanged ||
+      variationWeightsChanged;
+  }
   if (experiment.status === "running" && changesLivePayload) {
     const linkedFeaturesForPayload = await getFeaturesByIds(
       context,
@@ -1723,22 +1745,9 @@ export async function postExperiment(
       linkedFeaturesForPayload,
     );
     if (inPayload) {
-      const fields = [];
-      if (variationIdsChanged) {
-        fields.push("variation IDs");
-      }
-      if (variationKeysChanged) {
-        fields.push("variation keys");
-      }
-      if (coverageChanged) {
-        fields.push("coverage");
-      }
-      if (variationWeightsChanged) {
-        fields.push("variationWeights");
-      }
       res.status(400).json({
         status: 400,
-        message: `Cannot change: [${fields.join(", ")}] while the experiment is running and live in the SDK payload.`,
+        message: `Cannot change: [${changedFields.join(", ")}] while the experiment is running and live in the SDK payload.`,
       });
       return;
     }
@@ -2058,34 +2067,40 @@ export async function postExperiment(
     }
   }
 
-  if (data.variationWeights && experiment.type !== "holdout") {
-    changes.phases = applyVariationWeightsToLatestPhase(
-      experiment,
-      data.variationWeights,
-    );
-  }
-
-  // Re-order phase variations to match the order of the variations coming in via the request body
-  if (data.variations && experiment.type !== "holdout") {
-    const phases = changes.phases || [...experiment.phases];
-    const lastIndex = phases.length - 1;
-    phases[lastIndex] = {
-      ...phases[lastIndex],
-      variations: data.variations.map((v) => ({
-        id: v.id,
-        status: "active" as const,
-      })),
-    };
-    changes.phases = phases;
-  }
-
-  if (data.coverage !== undefined) {
-    const coverage = data.coverage;
-    const phases = changes.phases || [...experiment.phases];
-    const lastIndex = phases.length - 1;
-    if (experiment.type === "holdout") {
+  if (experiment.type === "holdout") {
+    // Holdouts have fixed variations/weights; coverage is the only
+    // payload-affecting field an update can change, and it applies to every phase.
+    if (data.coverage !== undefined) {
+      const coverage = data.coverage;
+      const phases = changes.phases || [...experiment.phases];
       changes.phases = phases.map((phase) => ({ ...phase, coverage }));
-    } else {
+    }
+  } else {
+    if (data.variationWeights) {
+      changes.phases = applyVariationWeightsToLatestPhase(
+        experiment,
+        data.variationWeights,
+      );
+    }
+
+    // Re-order phase variations to match the order of the variations coming in via the request body
+    if (data.variations) {
+      const phases = changes.phases || [...experiment.phases];
+      const lastIndex = phases.length - 1;
+      phases[lastIndex] = {
+        ...phases[lastIndex],
+        variations: data.variations.map((v) => ({
+          id: v.id,
+          status: "active" as const,
+        })),
+      };
+      changes.phases = phases;
+    }
+
+    if (data.coverage !== undefined) {
+      const coverage = data.coverage;
+      const phases = changes.phases || [...experiment.phases];
+      const lastIndex = phases.length - 1;
       phases[lastIndex] = { ...phases[lastIndex], coverage };
       changes.phases = phases;
     }
@@ -2969,10 +2984,7 @@ export async function postExperimentTargeting(
   // scoped modal only edited a subset. Pass the persisted values as
   // `existingParts` so unchanged stale attributes don't block an unrelated
   // save — only newly changed attributes are validated.
-  const baselinePhase =
-    experiment.type === "holdout"
-      ? experiment.phases[0]
-      : experiment.phases[experiment.phases.length - 1];
+  const activePhase = getActivePhase(experiment);
   assertRegisteredAttributes(
     context,
     {
@@ -2984,7 +2996,7 @@ export async function postExperimentTargeting(
     {
       hashAttribute: experiment.hashAttribute || "id",
       fallbackAttribute: experiment.fallbackAttribute,
-      condition: baselinePhase?.condition,
+      condition: activePhase?.condition,
     },
     experiment.project,
   );

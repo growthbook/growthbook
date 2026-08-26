@@ -9,6 +9,7 @@ import { useState } from "react";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { experimentHasLiveLinkedChanges } from "shared/util";
+import { getActivePhaseIndex } from "shared/experiments";
 import { Flex } from "@radix-ui/themes";
 import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -182,7 +183,7 @@ export default function Implementation({
             experiment={experiment}
             editTraffic={pendingScheduledStart ? null : editTraffic}
             editTargeting={pendingScheduledStart ? null : editTargeting}
-            phaseIndex={isHoldout ? 0 : phases.length - 1}
+            phaseIndex={getActivePhaseIndex(experiment)}
           />
         )}
         {!isHoldout &&
