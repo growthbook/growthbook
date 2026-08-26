@@ -12,7 +12,11 @@ import { useState } from "react";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
 import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
-import { NewExperimentRefRule, useAttributeSchema } from "@/services/features";
+import {
+  NewExperimentRefRule,
+  useAttributeSchema,
+  resolveAttributeFilter,
+} from "@/services/features";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import { type RuleCyclicResult } from "@/components/Features/PrerequisiteInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -23,8 +27,8 @@ import HelperText from "@/ui/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
+  toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
@@ -36,6 +40,8 @@ import Callout from "@/ui/Callout";
 
 export default function SafeRolloutFields({
   feature,
+  attributeProjects,
+  attributeSelectIndicator,
   environment,
   setPrerequisiteTargetingSdkIssues,
   isCyclic,
@@ -51,6 +57,8 @@ export default function SafeRolloutFields({
   onRuleCyclicChange,
 }: {
   feature: FeatureInterface;
+  attributeProjects?: string[] | null;
+  attributeSelectIndicator?: React.ReactNode;
   environment: string;
   defaultValues: FeatureRule | NewExperimentRefRule;
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
@@ -68,7 +76,10 @@ export default function SafeRolloutFields({
   const form = useFormContext();
   const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
   const [advancedOptionsSeedOpen, setAdvancedOptionsSeedOpen] = useState(false);
-  const attributeSchema = useAttributeSchema(false, feature.project);
+  const attributeSchema = useAttributeSchema(
+    false,
+    resolveAttributeFilter(attributeProjects, feature.project),
+  );
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
   const { datasources } = useDefinitions();
@@ -105,6 +116,7 @@ export default function SafeRolloutFields({
       <>
         <TargetingFieldsGroup
           project={feature.project || ""}
+          attributeProjects={attributeProjects}
           environments={[environment]}
           feature={feature}
           savedGroups={form.watch("savedGroups") || []}
@@ -167,30 +179,15 @@ export default function SafeRolloutFields({
           withRadixThemedPortal
           disabled={disableFields}
           label="Sample based on attribute"
+          extraIndicator={attributeSelectIndicator}
           options={attributeSchema
             .filter((s) => !hasHashAttributes || s.hashAttribute)
-            .map((s) => ({
-              label: s.property,
-              value: s.property,
-              description: s.description,
-              tags: s.tags,
-              datatype: s.datatype,
-              hashAttribute: s.hashAttribute,
-            }))}
+            .map(toAttributeOption)}
           value={form.watch("hashAttribute")}
           onChange={(v) => {
             form.setValue("hashAttribute", v);
           }}
-          formatOptionLabel={(o, meta) => {
-            return (
-              <AttributeOptionWithTooltip
-                option={o as AttributeOptionForTooltip}
-                context={meta.context}
-              >
-                {o.label}
-              </AttributeOptionWithTooltip>
-            );
-          }}
+          formatOptionLabel={formatAttributeOptionLabel}
           className="mb-2"
           required
         />

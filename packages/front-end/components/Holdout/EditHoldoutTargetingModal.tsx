@@ -13,8 +13,9 @@ import { useAttributeSchema } from "@/services/features";
 import ConditionInput from "@/components//Features/ConditionInput";
 import SelectField from "@/components//Forms/SelectField";
 import {
-  AttributeOptionWithTooltip,
   type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
+  toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
@@ -103,14 +104,7 @@ function TargetingForm({
 
   const hashAttributeOptions: AttributeOptionForTooltip[] = attributeSchema
     .filter((s) => !hasHashAttributes || s.hashAttribute)
-    .map((s) => ({
-      label: s.property,
-      value: s.property,
-      description: s.description,
-      tags: s.tags,
-      datatype: s.datatype,
-      hashAttribute: s.hashAttribute,
-    }));
+    .map(toAttributeOption);
 
   // If the current hashAttribute isn't in the list, add it for backwards compatibility
   // this could happen if the hashAttribute has been archived, or removed from the experiment's project after the experiment was creaetd
@@ -137,16 +131,7 @@ function TargetingForm({
           onChange={(v) => {
             form.setValue("hashAttribute", v);
           }}
-          formatOptionLabel={(o, meta) => {
-            return (
-              <AttributeOptionWithTooltip
-                option={o as AttributeOptionForTooltip}
-                context={meta.context}
-              >
-                {o.label}
-              </AttributeOptionWithTooltip>
-            );
-          }}
+          formatOptionLabel={formatAttributeOptionLabel}
           helpText={"The globally unique tracking key for the experiment"}
         />
 

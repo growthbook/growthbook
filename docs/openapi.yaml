@@ -13691,6 +13691,14 @@ paths:
                   type: string
                 fallbackAttribute:
                   type: string
+                attributeScopeAllProjects:
+                  description: >-
+                    Picker preference: show attributes from all projects in this
+                    experiment's targeting UI instead of only those in scope for
+                    its project and linked features. Does not loosen enforcement
+                    — when the organization requires registered attributes with
+                    project scoping, out-of-scope attributes are still rejected.
+                  type: boolean
                 hashVersion:
                   anyOf:
                     - type: number
@@ -14373,6 +14381,14 @@ paths:
                   type: string
                 fallbackAttribute:
                   type: string
+                attributeScopeAllProjects:
+                  description: >-
+                    Picker preference: show attributes from all projects in this
+                    experiment's targeting UI instead of only those in scope for
+                    its project and linked features. Does not loosen enforcement
+                    — when the organization requires registered attributes with
+                    project scoping, out-of-scope attributes are still rejected.
+                  type: boolean
                 hashVersion:
                   anyOf:
                     - type: number
@@ -54338,6 +54354,8 @@ components:
           type: array
           items:
             type: string
+        attributeScopeAllProjects:
+          type: boolean
         hasVisualChangesets:
           type: boolean
         hasURLRedirects:
@@ -55127,6 +55145,8 @@ components:
               type: array
               items:
                 type: string
+            attributeScopeAllProjects:
+              type: boolean
             hasVisualChangesets:
               type: boolean
             hasURLRedirects:
