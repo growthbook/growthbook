@@ -1688,12 +1688,10 @@ export async function postExperiment(
   }
 
   let changesLivePayload: boolean;
-  let changedFields: string[];
+  let changedPayloadFields: string[];
   if (isHoldoutExperiment(experiment)) {
-    ({ changesLivePayload, changedFields } = getHoldoutLivePayloadChanges(
-      experiment,
-      data.coverage,
-    ));
+    ({ changesLivePayload, changedFields: changedPayloadFields } =
+      getHoldoutLivePayloadChanges(experiment, data.coverage));
   } else {
     const latestPhase = experiment.phases[experiment.phases.length - 1];
     const existingKeyById = new Map(
@@ -1715,18 +1713,18 @@ export async function postExperiment(
       data.variationWeights !== undefined &&
       !isEqual(data.variationWeights, latestPhase?.variationWeights);
 
-    changedFields = [];
+    changedPayloadFields = [];
     if (variationIdsChanged) {
-      changedFields.push("variation IDs");
+      changedPayloadFields.push("variation IDs");
     }
     if (variationKeysChanged) {
-      changedFields.push("variation keys");
+      changedPayloadFields.push("variation keys");
     }
     if (coverageChanged) {
-      changedFields.push("coverage");
+      changedPayloadFields.push("coverage");
     }
     if (variationWeightsChanged) {
-      changedFields.push("variationWeights");
+      changedPayloadFields.push("variationWeights");
     }
 
     changesLivePayload =
@@ -1747,7 +1745,7 @@ export async function postExperiment(
     if (inPayload) {
       res.status(400).json({
         status: 400,
-        message: `Cannot change: [${changedFields.join(", ")}] while the experiment is running and live in the SDK payload.`,
+        message: `Cannot change: [${changedPayloadFields.join(", ")}] while the experiment is running and live in the SDK payload.`,
       });
       return;
     }
