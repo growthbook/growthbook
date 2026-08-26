@@ -20,7 +20,8 @@ import {
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { MemoryCache } from "back-end/src/services/cache";
 import {
-  AuthChecksCookie,
+  AuthSecretCookie,
+  PendingSSOConnectionCookie,
   SSOConnectionIdCookie,
 } from "back-end/src/util/cookie";
 import { APP_ORIGIN, IS_CLOUD, USE_PROXY } from "back-end/src/util/secrets";
@@ -35,12 +36,12 @@ import {
   VERCEL_CLIENT_SECRET,
 } from "back-end/src/services/vercel-native-integration.service";
 import { AuthConnection, TokensResponse } from "./AuthConnection";
-
-type AuthChecks = {
-  connection_id: string;
-  state: string;
-  code_verifier: string;
-};
+import {
+  createNonce,
+  deriveAuthChecks,
+  isNonceExpired,
+  nonceFromState,
+} from "./authChecks";
 
 if (USE_PROXY) {
   custom.setHttpOptionsDefaults(getHttpOptions());
@@ -112,12 +113,14 @@ export class OpenIdAuthConnection implements AuthConnection {
     res: Response,
   ): Promise<UnauthenticatedResponse> {
     const { connection, client } = await getConnectionFromRequest(req, res);
-    const redirectURI = this.getRedirectURI(connection, client, req, res);
 
     // If there's an existing incomplete auth session for this Cloud SSO provider,
     // confirm with the user to give them a chance to cancel and reset to the default auth
-    const checks = this.getAuthChecks(req);
-    const confirm = !!connection.id && checks?.connection_id === connection.id;
+    const confirm =
+      !!connection.id &&
+      PendingSSOConnectionCookie.getValue(req) === connection.id;
+
+    const redirectURI = this.getRedirectURI(connection, client, req, res);
 
     return {
       redirectURI,
@@ -127,26 +130,26 @@ export class OpenIdAuthConnection implements AuthConnection {
   async processCallback(req: Request, res: Response): Promise<TokensResponse> {
     const { connection, client } = await getConnectionFromRequest(req, res);
 
-    // Get rid of temporary codeVerifier cookie
-    const checks = this.getAuthChecks(req);
-    AuthChecksCookie.setValue("", req, res);
-
-    if (!checks) {
-      throw new Error("Missing auth checks in session");
-    }
-    if (checks.connection_id !== (connection.id || "")) {
-      throw new Error("Invalid auth checks in session");
-    }
-
     const params = client.callbackParams(req.originalUrl);
+
+    const secret = AuthSecretCookie.getValue(req);
+    if (!secret) {
+      throw new Error("Missing auth secret cookie");
+    }
+
+    const nonce = nonceFromState(params.state);
+    if (isNonceExpired(nonce)) {
+      throw new Error("Login attempt expired");
+    }
+
+    // A wrong connection or forged state fails the HMAC comparison inside callback()
+    const checks = deriveAuthChecks(secret, connection.id || "", nonce);
     const tokenSet = await client.callback(
       `${APP_ORIGIN}/oauth/callback`,
       params,
-      {
-        code_verifier: checks.code_verifier,
-        state: checks.state,
-      },
+      checks,
     );
+    PendingSSOConnectionCookie.setValue("", req, res);
 
     const email = tokenSet.claims().email;
     if (email) {
@@ -246,11 +249,11 @@ export class OpenIdAuthConnection implements AuthConnection {
     }
   }
 
-  private getAuthChecks(req: Request) {
-    const checks = AuthChecksCookie.getValue(req);
-    if (!checks) return null;
-    const parsed: AuthChecks = JSON.parse(checks);
-    return parsed;
+  // Re-set on every use so the TTL slides for active browsers
+  private getAuthSecret(req: Request, res: Response): string {
+    const secret = AuthSecretCookie.getValue(req) || generators.random();
+    AuthSecretCookie.setValue(secret, req, res);
+    return secret;
   }
   private getMaxAge(tokenSet: TokenSet) {
     if (tokenSet.expires_in) {
@@ -275,18 +278,16 @@ export class OpenIdAuthConnection implements AuthConnection {
       }/${installationId}`;
     }
 
-    const code_verifier = generators.codeVerifier();
+    const { state, code_verifier } = deriveAuthChecks(
+      this.getAuthSecret(req, res),
+      ssoConnection.id || "",
+      createNonce(),
+    );
     const code_challenge = generators.codeChallenge(code_verifier);
 
-    const state = generators.state();
-
-    const checks: AuthChecks = {
-      connection_id: ssoConnection.id || "",
-      code_verifier,
-      state,
-    };
-
-    AuthChecksCookie.setValue(JSON.stringify(checks), req, res);
+    if (ssoConnection.id) {
+      PendingSSOConnectionCookie.setValue(ssoConnection.id, req, res);
+    }
 
     let url = client.authorizationUrl({
       scope: `openid email profile ${
