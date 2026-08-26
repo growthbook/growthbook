@@ -1,0 +1,49 @@
+---
+title: Setting Up Postgres as a Data Source
+description: Connect Postgres to GrowthBook with a read-only user, whitelist the Cloud IP if needed, and enter host, port, database, and SSL settings.
+sidebarTitle: Postgres
+slug: postgres
+---
+
+GrowthBook runs `SELECT` queries against your Postgres database to compute experiment results. Create a dedicated read-only user, allow network access from GrowthBook, then add the connection in **Metrics and Data** → **Data Sources**.
+
+## 1. Create a read-only user
+
+Use a dedicated role so GrowthBook cannot modify data. Grant `SELECT` only on the schemas that hold experiment assignment and metric events.
+
+```sql
+CREATE USER growthbook WITH PASSWORD 'use-a-strong-password';
+GRANT CONNECT ON DATABASE your_database TO growthbook;
+GRANT USAGE ON SCHEMA public TO growthbook;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO growthbook;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO growthbook;
+```
+
+Replace `public` with your analytics schema if events live elsewhere.
+
+## 2. Allow network access
+
+If you use [GrowthBook Cloud](https://app.growthbook.io), whitelist `52.70.79.40` in your Postgres firewall, security group, or `pg_hba.conf`.
+
+Self-hosted GrowthBook runs in Docker. To reach a database on the host machine, use `host.docker.internal` as the host instead of `localhost`.
+
+## 3. Add Postgres in GrowthBook
+
+1. Go to **Metrics and Data** → **Data Sources**.
+2. Choose **Postgres** (guided setup if you use a supported event tracker, or manual setup for a custom schema).
+3. Enter the connection fields:
+
+| Field           | Notes                                                                                 |
+| --------------- | ------------------------------------------------------------------------------------- |
+| Host            | Public hostname or IP. Cloud cannot reach `localhost`.                                |
+| Port            | Default `5432`.                                                                       |
+| Database        | Used for the connection and the schema browser.                                       |
+| User / Password | The read-only user from step 1.                                                       |
+| Default Schema  | Optional. Prefixed onto generated SQL (for example `analytics.`).                     |
+| Require SSL     | Enable if your server requires TLS. You can attach a CA, client cert, and client key. |
+
+4. Save. GrowthBook runs a `SELECT 1` query to confirm the connection.
+
+## 4. Map assignments and metrics
+
+After the connection succeeds, define [experiment assignment queries](/app/datasources#experiment-assignment-queries) and [Fact Tables](/app/metrics). Postgres supports the Schema Browser, so you can inspect tables and columns while writing SQL.

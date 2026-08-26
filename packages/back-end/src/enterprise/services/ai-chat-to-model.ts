@@ -4,6 +4,7 @@ import {
   type AIChatAssistantContentPart,
   type AIChatFilePart,
   type AIChatImagePart,
+  type AIChatMention,
   type AIChatMessage,
   type AIChatUserContentPart,
 } from "shared/ai-chat";
@@ -26,6 +27,7 @@ function mapMediaPart(p: AIChatImagePart | AIChatFilePart) {
 function buildContextPrefix(
   currentPage?: string,
   datasourceHint?: string,
+  mentions?: AIChatMention[],
 ): string {
   const lines: string[] = [];
   if (currentPage && currentPage.trim()) {
@@ -36,6 +38,22 @@ function buildContextPrefix(
       `[Active product-analytics datasource: ${datasourceHint.trim()}]`,
     );
   }
+  if (mentions && mentions.length) {
+    const rendered = mentions
+      .map(
+        (m) =>
+          `${m.name} (${m.type}: ${m.id}${m.stale ? ", STALE — not in this datasource" : ""})`,
+      )
+      .join(", ");
+    lines.push(`[Referenced by the user: ${rendered}]`);
+    if (mentions.some((m) => m.stale)) {
+      lines.push(
+        "[Note: a reference marked STALE was picked under a different datasource and " +
+          "cannot be used here. Tell the user it is unavailable in the current datasource, " +
+          "name it, and ask them to re-pick it — do not query it or substitute a similar metric.]",
+      );
+    }
+  }
   return lines.length ? `${lines.join("\n")}\n\n` : "";
 }
 
@@ -43,8 +61,9 @@ function mapUserContent(
   content: string | AIChatUserContentPart[],
   currentPage?: string,
   datasourceHint?: string,
+  mentions?: AIChatMention[],
 ) {
-  const prefix = buildContextPrefix(currentPage, datasourceHint);
+  const prefix = buildContextPrefix(currentPage, datasourceHint, mentions);
 
   if (typeof content === "string") {
     return prefix ? `${prefix}${content}` : content;
@@ -136,6 +155,7 @@ export function toModelMessages(messages: AIChatMessage[]): ModelMessage[] {
             msg.content,
             msg.currentPage,
             msg.datasourceHint,
+            msg.mentions,
           ),
         } as ModelMessage;
       case "assistant":

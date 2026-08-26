@@ -23,6 +23,7 @@ import {
   autoMerge,
   draftHasChangesOutsideTargetRef,
   DRAFT_REVISION_STATUSES,
+  findAnalysisComputeFailure,
   fillRevisionFromFeature,
   generateVariationId,
   getMatchingRules,
@@ -52,6 +53,7 @@ import {
   isFactFunnelMetric,
   isFactMetric,
   isFactMetricId,
+  isFactMetricJoinable,
   isMetricJoinable,
   isDimensionPrecomputed,
   parseFunnelStepMetricId,
@@ -61,7 +63,6 @@ import {
   getAllVariations,
   getLatestPhaseVariations,
   getPhaseVariations,
-  getFactMetricPrimaryFactTableId,
 } from "shared/experiments";
 import { getValidDate, hoursBetween, resolveScheduledStop } from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
@@ -552,12 +553,20 @@ export function isJoinableMetric({
     return true;
   }
 
-  const metricIdTypes =
-    (isFactMetric(metric)
-      ? factTableMap.get(getFactMetricPrimaryFactTableId(metric))?.userIdTypes
-      : metric.userIdTypes) ?? [];
+  if (isFactMetric(metric)) {
+    return isFactMetricJoinable(
+      metric,
+      experimentIdType,
+      (id) => factTableMap.get(id),
+      datasource.settings,
+    );
+  }
 
-  return isMetricJoinable(metricIdTypes, experimentIdType, datasource.settings);
+  return isMetricJoinable(
+    metric.userIdTypes ?? [],
+    experimentIdType,
+    datasource.settings,
+  );
 }
 
 export function getSnapshotSettings({
@@ -1210,6 +1219,18 @@ export function updateExperimentBanditSettings({
   reweight?: boolean;
   isScheduled?: boolean;
 }): Changeset {
+  const computeFailure = snapshot
+    ? findAnalysisComputeFailure(getSnapshotAnalysis(snapshot))
+    : null;
+  if (computeFailure !== null) {
+    throw new Error(
+      `Bandit analysis failed: ${
+        computeFailure.errorMessage ||
+        `Metric ${computeFailure.metricId} failed to compute`
+      }`,
+    );
+  }
+
   if (!changes) changes = {};
   if (!changes.phases) {
     changes.phases = cloneDeep<ExperimentPhase[]>(experiment.phases);
@@ -3302,11 +3323,15 @@ export function toSnapshotApiInterface(
                     mean: safeFloat(data?.stats?.mean),
                     stddev: safeFloat(data?.stats?.stddev),
                     percentChange: safeFloat(data?.expected),
+                    effectStandardError: safeFloat(data?.uplift?.stddev),
                     ciLow: safeFloat(data?.ci?.[0]),
                     ciHigh: safeFloat(data?.ci?.[1]),
                     pValue: safeFloat(data?.pValue),
                     risk: safeFloat(data?.risk?.[1]),
                     chanceToBeatControl: safeFloat(data?.chanceToWin),
+                    ...(data?.errorMessage
+                      ? { errorMessage: data.errorMessage }
+                      : null),
                   },
                 ],
               };
@@ -4758,8 +4783,8 @@ export function updateExperimentApiPayloadToInterface(
     ...(metrics ? { goalMetrics: metrics } : {}),
     ...(guardrailMetrics ? { guardrailMetrics } : {}),
     ...(secondaryMetrics ? { secondaryMetrics } : {}),
-    ...(activationMetric ? { activationMetric } : {}),
-    ...(segmentId ? { segment: segmentId } : {}),
+    ...(activationMetric !== undefined ? { activationMetric } : {}),
+    ...(segmentId !== undefined ? { segment: segmentId } : {}),
     ...(queryFilter !== undefined ? { queryFilter } : {}),
     ...(archived !== undefined ? { archived } : {}),
     ...(status ? { status } : {}),

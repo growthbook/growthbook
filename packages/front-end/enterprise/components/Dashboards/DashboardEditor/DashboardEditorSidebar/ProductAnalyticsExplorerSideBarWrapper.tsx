@@ -50,6 +50,7 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     handleSubmit,
     loading,
     comparisonMode,
+    linkedFunnelMetricId,
   } = useExplorerContext();
   const pendingCloseRef = useRef(false);
   const onSaveAndCloseRef = useRef(onSaveAndClose);
@@ -93,6 +94,12 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
       ...(comparisonMode === "custom" ? { previousTimeFrame } : {}),
     };
   }, [comparisonMode, draftExploreState.previousTimeFrame]);
+  const blockLinkedMetricId =
+    "linkedFunnelMetricId" in block
+      ? (block.linkedFunnelMetricId ?? null)
+      : null;
+  const linkedMetricChanged = linkedFunnelMetricId !== blockLinkedMetricId;
+
   useEffect(() => {
     const nextDraftConfig = stripExplorerDraftFields(draftExploreState);
     const nextConfig = usesDashboardDateRange
@@ -105,7 +112,8 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     if (
       (needsUpdate && !isEqual(block.config, nextConfig)) ||
       comparisonChanged ||
-      shouldInvalidateResults
+      shouldInvalidateResults ||
+      linkedMetricChanged
     ) {
       setBlock({
         ...block,
@@ -118,6 +126,9 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
           nextComparison && (!needsFetch || !invalidateStaleResults)
             ? block.comparisonExplorerAnalysisId
             : undefined,
+        ...(block.type === "funnel-exploration"
+          ? { linkedFunnelMetricId }
+          : {}),
       } as
         | MetricExplorationBlockInterface
         | FactTableExplorationBlockInterface
@@ -135,6 +146,8 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     nextComparison,
     usesDashboardDateRange,
     explorerAnalysisId,
+    linkedMetricChanged,
+    linkedFunnelMetricId,
   ]);
 
   // When Save & Close is requested and the block is stale, run the analysis first.

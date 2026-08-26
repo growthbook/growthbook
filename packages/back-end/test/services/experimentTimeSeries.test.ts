@@ -38,12 +38,26 @@ function makeAnalysisSettings(
 function makeAnalysis({
   differenceType,
   value,
+  errored = false,
+  benignError = false,
   settings = {},
 }: {
   differenceType: "relative" | "absolute" | "scaled";
   value: number;
+  errored?: boolean;
+  benignError?: boolean;
   settings?: Partial<ExperimentSnapshotAnalysisSettings>;
 }): ExperimentSnapshotAnalysis {
+  // A stats-engine compute failure zeroes the metric and flags computeFailed on
+  // every variation, mirroring getFailedMetricResult in stats.ts.
+  const erroredMetric = {
+    value: 0,
+    cr: 0,
+    users: 0,
+    buckets: [],
+    errorMessage: "boom",
+    computeFailed: true,
+  };
   return {
     analysisKey: `analysis_${differenceType}_${value}`,
     dateCreated: new Date("2025-01-01T00:00:00Z"),
@@ -60,26 +74,34 @@ function makeAnalysis({
           {
             users: 100,
             metrics: {
-              met_1: {
-                value: 10,
-                cr: 0.1,
-                users: 100,
-                stats: { users: 100, mean: 0.1, stddev: 0.2 },
-              },
+              met_1: errored
+                ? erroredMetric
+                : {
+                    value: 10,
+                    cr: 0.1,
+                    users: 100,
+                    stats: { users: 100, mean: 0.1, stddev: 0.2 },
+                  },
             },
           },
           {
             users: 120,
             metrics: {
-              met_1: {
-                value,
-                cr: 0.2,
-                users: 120,
-                ci: [value - 0.1, value + 0.1],
-                pValue: 0.03,
-                expected: value,
-                stats: { users: 120, mean: 0.2, stddev: 0.3 },
-              },
+              met_1: errored
+                ? erroredMetric
+                : {
+                    value,
+                    cr: 0.2,
+                    users: 120,
+                    ci: [value - 0.1, value + 0.1],
+                    pValue: 0.03,
+                    expected: value,
+                    stats: { users: 120, mean: 0.2, stddev: 0.3 },
+                    // A successful metric can still carry an errorMessage (e.g.
+                    // gbstats null, or a benign "no units" note). It must not be
+                    // dropped, only computeFailed is.
+                    ...(benignError ? { errorMessage: "no units" } : {}),
+                  },
             },
           },
         ],
@@ -288,6 +310,141 @@ describe("updateExperimentAnalysisTimeSeries", () => {
     expect(dataPoints[0].singleDataPoint.variations[1].absolute?.value).toBe(
       12,
     );
+  });
+
+  it("records difference types that computed even when the base analysis errored", async () => {
+    const upsertMultipleSingleDataPoint = jest
+      .fn()
+      .mockResolvedValue(undefined);
+    const context = {
+      models: {
+        metricTimeSeries: {
+          upsertMultipleSingleDataPoint,
+        },
+      },
+    };
+
+    await updateExperimentAnalysisTimeSeries({
+      context: context as never,
+      experiment: makeExperiment(),
+      experimentSnapshot: makeSnapshot(),
+      analyses: [
+        makeAnalysis({ differenceType: "relative", value: 1.2, errored: true }),
+        makeAnalysis({ differenceType: "absolute", value: 12 }),
+        makeAnalysis({ differenceType: "scaled", value: 120 }),
+      ],
+      allMetricIds: ["met_1"],
+      factMetrics: undefined,
+      factTableMap: new Map(),
+    });
+
+    expect(upsertMultipleSingleDataPoint).toHaveBeenCalledTimes(1);
+    const [dataPoints] = upsertMultipleSingleDataPoint.mock.calls[0];
+    const variation = dataPoints[0].singleDataPoint.variations[1];
+    expect(variation.relative).toBeUndefined();
+    expect(variation.absolute?.value).toBe(12);
+    expect(variation.scaled?.value).toBe(120);
+    // stats must come from a computed difference type, not the errored base.
+    expect(variation.stats).toEqual({ users: 120, mean: 0.2, stddev: 0.3 });
+  });
+
+  it("drops an errored difference type instead of writing a zeroed value", async () => {
+    const upsertMultipleSingleDataPoint = jest
+      .fn()
+      .mockResolvedValue(undefined);
+    const context = {
+      models: {
+        metricTimeSeries: {
+          upsertMultipleSingleDataPoint,
+        },
+      },
+    };
+
+    await updateExperimentAnalysisTimeSeries({
+      context: context as never,
+      experiment: makeExperiment(),
+      experimentSnapshot: makeSnapshot(),
+      analyses: [
+        makeAnalysis({ differenceType: "relative", value: 1.2 }),
+        makeAnalysis({ differenceType: "absolute", value: 12 }),
+        makeAnalysis({ differenceType: "scaled", value: 120, errored: true }),
+      ],
+      allMetricIds: ["met_1"],
+      factMetrics: undefined,
+      factTableMap: new Map(),
+    });
+
+    expect(upsertMultipleSingleDataPoint).toHaveBeenCalledTimes(1);
+    const [dataPoints] = upsertMultipleSingleDataPoint.mock.calls[0];
+    const variation = dataPoints[0].singleDataPoint.variations[1];
+    expect(variation.relative?.value).toBe(1.2);
+    expect(variation.absolute?.value).toBe(12);
+    expect(variation.scaled).toBeUndefined();
+  });
+
+  it("skips a metric when every difference type errored", async () => {
+    const upsertMultipleSingleDataPoint = jest
+      .fn()
+      .mockResolvedValue(undefined);
+    const context = {
+      models: {
+        metricTimeSeries: {
+          upsertMultipleSingleDataPoint,
+        },
+      },
+    };
+
+    await updateExperimentAnalysisTimeSeries({
+      context: context as never,
+      experiment: makeExperiment(),
+      experimentSnapshot: makeSnapshot(),
+      analyses: [
+        makeAnalysis({ differenceType: "relative", value: 1.2, errored: true }),
+        makeAnalysis({ differenceType: "absolute", value: 12, errored: true }),
+        makeAnalysis({ differenceType: "scaled", value: 120, errored: true }),
+      ],
+      allMetricIds: ["met_1"],
+      factMetrics: undefined,
+      factTableMap: new Map(),
+    });
+
+    expect(upsertMultipleSingleDataPoint).not.toHaveBeenCalled();
+  });
+
+  it("records a successful metric that carries a non-fatal errorMessage", async () => {
+    const upsertMultipleSingleDataPoint = jest
+      .fn()
+      .mockResolvedValue(undefined);
+    const context = {
+      models: {
+        metricTimeSeries: {
+          upsertMultipleSingleDataPoint,
+        },
+      },
+    };
+
+    await updateExperimentAnalysisTimeSeries({
+      context: context as never,
+      experiment: makeExperiment(),
+      experimentSnapshot: makeSnapshot(),
+      analyses: [
+        makeAnalysis({
+          differenceType: "relative",
+          value: 1.2,
+          benignError: true,
+        }),
+        makeAnalysis({ differenceType: "absolute", value: 12 }),
+        makeAnalysis({ differenceType: "scaled", value: 120 }),
+      ],
+      allMetricIds: ["met_1"],
+      factMetrics: undefined,
+      factTableMap: new Map(),
+    });
+
+    expect(upsertMultipleSingleDataPoint).toHaveBeenCalledTimes(1);
+    const [dataPoints] = upsertMultipleSingleDataPoint.mock.calls[0];
+    const variation = dataPoints[0].singleDataPoint.variations[1];
+    expect(variation.relative?.value).toBe(1.2);
   });
 
   it("skips writes when there are no time-series-compatible analyses", async () => {
@@ -580,5 +737,111 @@ describe("getMetricSettingsHash funnel settings", () => {
         new Map([[changedFactTable.id, changedFactTable]]),
       ),
     ).not.toEqual(originalHash);
+  });
+
+  describe("steps spanning several fact tables", () => {
+    const ordersFactTable = factTableFactory.build({
+      id: "ft_orders",
+      sql: "SELECT user_id, timestamp FROM orders",
+      filters: [
+        {
+          id: "paid_filter",
+          name: "Paid orders",
+          description: "",
+          value: "status = 'paid'",
+          dateCreated: now,
+          dateUpdated: now,
+          managedBy: "",
+        },
+      ],
+    });
+    const crossTableMetric: FunnelFactMetricInterface = {
+      ...metric,
+      funnelSettings: {
+        steps: [
+          metric.funnelSettings.steps[0],
+          {
+            name: "Purchased",
+            factTableId: ordersFactTable.id,
+            rowFilters: [{ operator: "saved_filter", values: ["paid_filter"] }],
+            optional: false,
+            conversionWindow: { unit: "hours", value: 24 },
+          },
+        ],
+      },
+    };
+    const buildFactTableMap = (
+      orders: typeof ordersFactTable = ordersFactTable,
+    ) =>
+      new Map([
+        [factTable.id, factTable],
+        [orders.id, orders],
+      ]);
+
+    it("changes when a later step's fact table SQL changes", () => {
+      const originalHash = getMetricSettingsHash(
+        crossTableMetric.id,
+        undefined,
+        [crossTableMetric],
+        buildFactTableMap(),
+      );
+
+      expect(
+        getMetricSettingsHash(
+          crossTableMetric.id,
+          undefined,
+          [crossTableMetric],
+          buildFactTableMap({
+            ...ordersFactTable,
+            sql: "SELECT user_id, timestamp FROM orders_v2",
+          }),
+        ),
+      ).not.toEqual(originalHash);
+    });
+
+    it("changes when a saved filter on a later step's own fact table changes", () => {
+      const originalHash = getMetricSettingsHash(
+        crossTableMetric.id,
+        undefined,
+        [crossTableMetric],
+        buildFactTableMap(),
+      );
+
+      expect(
+        getMetricSettingsHash(
+          crossTableMetric.id,
+          undefined,
+          [crossTableMetric],
+          buildFactTableMap({
+            ...ordersFactTable,
+            filters: ordersFactTable.filters.map((filter) => ({
+              ...filter,
+              value: "status = 'refunded'",
+            })),
+          }),
+        ),
+      ).not.toEqual(originalHash);
+    });
+
+    it("ignores changes to fact tables the funnel does not read", () => {
+      const originalHash = getMetricSettingsHash(
+        metric.id,
+        undefined,
+        [metric],
+        buildFactTableMap(),
+      );
+
+      expect(
+        getMetricSettingsHash(
+          metric.id,
+          undefined,
+          [metric],
+          buildFactTableMap({
+            ...ordersFactTable,
+            sql: "SELECT user_id, timestamp FROM orders_v2",
+          }),
+        ),
+      ).toEqual(originalHash);
+    });
   });
 });
