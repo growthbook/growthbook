@@ -209,6 +209,7 @@ export function toApiHoldout(
     archived: experiment.archived,
     stage,
     trackingKey: experiment.trackingKey,
+    experimentId: holdout.experimentId,
     skipAsDefaultHoldout: holdout.skipAsDefaultHoldout ?? false,
 
     holdoutSize: coverageToHoldoutSize(phase?.coverage ?? 0),

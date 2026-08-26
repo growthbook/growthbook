@@ -49902,10 +49902,11 @@ paths:
       operationId: startHoldoutAnalysis
       summary: Start the Holdout's Analysis Period
       description: >-
-        New Feature Flags and experiments can no longer be added, but existing
-        traffic splits remain active. Results exclude data from before the
-        analysis period so you can measure the cumulative impact after changes
-        are frozen.
+        Move the holdout into an analysis phase. New Feature Flags and
+        experiments can no longer be added, but existing traffic splits remain
+        active for existing and new traffic. Results exclude data from before
+        the analysis period so you can measure the cumulative impact after
+        changes are frozen.
       tags:
         - Holdouts
       parameters:
@@ -65774,6 +65775,12 @@ components:
             - stopped
         trackingKey:
           type: string
+        experimentId:
+          description: >-
+            ID of the companion experiment that stores this Holdout's analysis.
+            Use it with the experiment results endpoints (e.g. GET
+            /experiments/{experimentId}/results).
+          type: string
         skipAsDefaultHoldout:
           description: >-
             When true, this Holdout is not selected automatically when creating
@@ -65971,6 +65978,7 @@ components:
         - archived
         - stage
         - trackingKey
+        - experimentId
         - skipAsDefaultHoldout
         - holdoutSize
         - hashAttribute

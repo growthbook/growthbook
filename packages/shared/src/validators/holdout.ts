@@ -215,6 +215,11 @@ export const apiHoldoutValidator = namedSchema(
         "Lifecycle stage of the Holdout. Use the start, start-analysis, and stop endpoints to move through the lifecycle.",
       ),
     trackingKey: z.string(),
+    experimentId: z
+      .string()
+      .describe(
+        "ID of the companion experiment that stores this Holdout's analysis. Use it with the experiment results endpoints (e.g. GET /experiments/{experimentId}/results).",
+      ),
     skipAsDefaultHoldout: z
       .boolean()
       .describe(
