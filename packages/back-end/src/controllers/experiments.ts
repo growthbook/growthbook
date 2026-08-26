@@ -68,7 +68,10 @@ import {
   validateExperimentData,
   fillEmptyVariationKeys,
 } from "back-end/src/services/experiments";
-import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import {
+  assertRegisteredAttributesScoped,
+  lazyAttributeScope,
+} from "back-end/src/services/attributes";
 import { validateScheduleUpdate } from "back-end/src/services/experimentScheduling";
 import {
   approveScheduledExperimentStart,
@@ -1192,11 +1195,13 @@ export async function postExperiments(
   // any DB writes so a typo'd attribute is rejected outright. Sweeps
   // `data.linkedFeatures` so experiments created from a feature (experiment-ref
   // rules) can use attributes from the feature's targeting projects.
-  const attributeScope = await getExperimentAttributeScopeProjects(context, {
-    project: data.project,
-    linkedFeatures: data.linkedFeatures,
-  });
-  assertRegisteredAttributes(
+  const attributeScope = lazyAttributeScope(() =>
+    getExperimentAttributeScopeProjects(context, {
+      project: data.project,
+      linkedFeatures: data.linkedFeatures,
+    }),
+  );
+  await assertRegisteredAttributesScoped(
     context,
     {
       hashAttribute: data.hashAttribute,
@@ -1207,7 +1212,7 @@ export async function postExperiments(
     attributeScope,
   );
   for (const phase of data.phases ?? []) {
-    assertRegisteredAttributes(
+    await assertRegisteredAttributesScoped(
       context,
       { condition: phase.condition },
       "experiment phase",
@@ -1548,15 +1553,17 @@ export async function postExperiment(
     context.permissions.throwPermissionError();
   }
 
-  // Opt-in attribute registration check (org-level setting).
-  const attributeScope = await getExperimentAttributeScopeProjects(context, {
-    project: "project" in data ? data.project : experiment.project,
-    linkedFeatures: experiment.linkedFeatures,
-  });
-  // Change-aware: this endpoint receives broad payloads from many modals, so
-  // only validate fields that actually differ from the persisted experiment —
-  // a grandfathered out-of-scope attribute must not block unrelated edits.
-  assertRegisteredAttributes(
+  // Opt-in attribute registration check (org-level setting). Change-aware:
+  // this endpoint receives broad payloads from many modals, so only validate
+  // fields that actually differ from the persisted experiment — a
+  // grandfathered out-of-scope attribute must not block unrelated edits.
+  const attributeScope = lazyAttributeScope(() =>
+    getExperimentAttributeScopeProjects(context, {
+      project: "project" in data ? data.project : experiment.project,
+      linkedFeatures: experiment.linkedFeatures,
+    }),
+  );
+  await assertRegisteredAttributesScoped(
     context,
     {
       hashAttribute: data.hashAttribute,
@@ -1575,7 +1582,7 @@ export async function postExperiment(
     (experiment.phases ?? []).map((p) => p.condition),
   );
   for (const phase of data.phases ?? []) {
-    assertRegisteredAttributes(
+    await assertRegisteredAttributesScoped(
       context,
       { condition: phase.condition },
       "experiment phase",
@@ -2864,16 +2871,13 @@ export async function putExperimentPhase(
   // Opt-in attribute registration check (org-level setting). Change-aware
   // against the phase being edited so a grandfathered out-of-scope attribute
   // doesn't block unrelated phase edits (dates, reason).
-  assertRegisteredAttributes(
+  await assertRegisteredAttributesScoped(
     context,
     { condition: phase.condition },
     "experiment phase",
     { condition: experiment.phases[i]?.condition },
-    await getExperimentAttributeScopeProjects(
-      context,
-      experiment,
-      linkedFeatures,
-    ),
+    () =>
+      getExperimentAttributeScopeProjects(context, experiment, linkedFeatures),
   );
 
   phase.dateStarted = phase.dateStarted
@@ -2995,7 +2999,7 @@ export async function postExperimentTargeting(
   // `existingParts` so unchanged stale attributes don't block an unrelated
   // save — only newly changed attributes are validated.
   const lastPersistedPhase = experiment.phases[experiment.phases.length - 1];
-  assertRegisteredAttributes(
+  await assertRegisteredAttributesScoped(
     context,
     {
       hashAttribute,
@@ -3008,14 +3012,15 @@ export async function postExperimentTargeting(
       fallbackAttribute: experiment.fallbackAttribute,
       condition: lastPersistedPhase?.condition,
     },
-    await getExperimentAttributeScopeProjects(
-      context,
-      {
-        project: experiment.project,
-        linkedFeatures: experiment.linkedFeatures,
-      },
-      linkedFeatures,
-    ),
+    () =>
+      getExperimentAttributeScopeProjects(
+        context,
+        {
+          project: experiment.project,
+          linkedFeatures: experiment.linkedFeatures,
+        },
+        linkedFeatures,
+      ),
   );
 
   const phases = [...experiment.phases];
@@ -3176,18 +3181,15 @@ export async function postExperimentPhase(
   // usually carries the previous phase's condition forward — change-aware
   // against it so a grandfathered out-of-scope attribute doesn't block
   // starting a new phase.
-  assertRegisteredAttributes(
+  await assertRegisteredAttributesScoped(
     context,
     { condition: data.condition },
     "experiment phase",
     {
       condition: experiment.phases[experiment.phases.length - 1]?.condition,
     },
-    await getExperimentAttributeScopeProjects(
-      context,
-      experiment,
-      linkedFeatures,
-    ),
+    () =>
+      getExperimentAttributeScopeProjects(context, experiment, linkedFeatures),
   );
 
   const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();

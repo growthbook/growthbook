@@ -16,7 +16,10 @@ import {
   updateExperimentApiPayloadToInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";
-import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import {
+  assertRegisteredAttributesScoped,
+  lazyAttributeScope,
+} from "back-end/src/services/attributes";
 import { validateScheduleUpdate } from "back-end/src/services/experimentScheduling";
 import {
   startExperiment,
@@ -283,18 +286,17 @@ export const updateExperiment = createApiRequestHandler(
 
   // Opt-in attribute registration check (org-level setting). Covers the
   // experiment-level hash/fallback attributes and every provided phase.
-  const attributeScope = await getExperimentAttributeScopeProjects(
-    req.context,
-    {
-      project:
-        req.body.project !== undefined ? req.body.project : experiment.project,
-      linkedFeatures: experiment.linkedFeatures,
-    },
-  );
   // Change-aware: REST clients commonly round-trip full payloads, so only
   // validate fields that differ from the persisted experiment — a
   // grandfathered out-of-scope attribute must not block unrelated updates.
-  assertRegisteredAttributes(
+  const attributeScope = lazyAttributeScope(() =>
+    getExperimentAttributeScopeProjects(req.context, {
+      project:
+        req.body.project !== undefined ? req.body.project : experiment.project,
+      linkedFeatures: experiment.linkedFeatures,
+    }),
+  );
+  await assertRegisteredAttributesScoped(
     req.context,
     {
       hashAttribute: req.body.hashAttribute,
@@ -313,7 +315,7 @@ export const updateExperiment = createApiRequestHandler(
     (experiment.phases ?? []).map((p) => p.condition),
   );
   for (const phase of req.body.phases ?? []) {
-    assertRegisteredAttributes(
+    await assertRegisteredAttributesScoped(
       req.context,
       { condition: phase.condition },
       "experiment phase",

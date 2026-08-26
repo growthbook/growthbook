@@ -16,7 +16,10 @@ import {
   toExperimentApiInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";
-import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import {
+  assertRegisteredAttributesScoped,
+  lazyAttributeScope,
+} from "back-end/src/services/attributes";
 import { validateScheduleUpdate } from "back-end/src/services/experimentScheduling";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
@@ -280,13 +283,12 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
 
     // Opt-in attribute registration check (org-level setting). Applies to the
     // experiment's hashAttribute/fallbackAttribute and every phase's condition.
-    const attributeScope = await getExperimentAttributeScopeProjects(
-      req.context,
-      {
+    const attributeScope = lazyAttributeScope(() =>
+      getExperimentAttributeScopeProjects(req.context, {
         project: payload.project,
-      },
+      }),
     );
-    assertRegisteredAttributes(
+    await assertRegisteredAttributesScoped(
       req.context,
       {
         hashAttribute: payload.hashAttribute,
@@ -297,7 +299,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       attributeScope,
     );
     for (const phase of payload.phases ?? []) {
-      assertRegisteredAttributes(
+      await assertRegisteredAttributesScoped(
         req.context,
         { condition: phase.condition },
         "experiment phase",

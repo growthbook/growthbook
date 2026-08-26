@@ -166,7 +166,10 @@ import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
 import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
-import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import {
+  assertRegisteredAttributes,
+  assertRegisteredAttributesScoped,
+} from "back-end/src/services/attributes";
 import {
   canLandArchivedState,
   isArchiveTransition,
@@ -3278,19 +3281,12 @@ export async function postFeatureRule(
     context.permissions.throwPermissionError();
   }
 
-  // Read-only revision lookup for staged targeting — getDraftRevision would
-  // persist a new draft before validation passes.
-  const existingRevision = await getRevision({
-    context,
-    organization: context.org.id,
-    featureId: feature.id,
-    feature,
-    version: parseInt(version),
-  });
-
   // Opt-in attribute registration check before any side effects (safe-rollout
-  // create, holdout linking, revision update).
-  assertRegisteredAttributes(
+  // create, holdout linking, revision update). The scope loader reads the
+  // revision read-only for staged targeting — getDraftRevision would persist
+  // a new draft before validation passes — and only runs when the org
+  // enforces project scoping and the rule references attributes at all.
+  await assertRegisteredAttributesScoped(
     context,
     {
       hashAttribute: (rule as { hashAttribute?: string }).hashAttribute,
@@ -3300,8 +3296,19 @@ export async function postFeatureRule(
     },
     "rule",
     undefined,
-    getAttributeScopeProjectIds(feature, existingRevision?.metadata) ??
-      undefined,
+    async () => {
+      const existingRevision = await getRevision({
+        context,
+        organization: context.org.id,
+        featureId: feature.id,
+        feature,
+        version: parseInt(version),
+      });
+      return (
+        getAttributeScopeProjectIds(feature, existingRevision?.metadata) ??
+        undefined
+      );
+    },
   );
 
   // Pre-generate the safeRollout id so hooks see the rule's final shape; the doc is created after prevalidation
