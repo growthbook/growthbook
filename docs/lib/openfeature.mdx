@@ -1,12 +1,12 @@
 ---
 title: OpenFeature Providers
-description: Use GrowthBook as an OpenFeature provider in Python, Go, .NET, and Java so you can evaluate flags through the OpenFeature API.
+description: Use GrowthBook as an OpenFeature provider in JavaScript, Python, Go, .NET, and Java so you can evaluate flags through the OpenFeature API.
 sidebarTitle: OpenFeature Providers
 slug: openfeature
 toc_max_heading_level: 4
 ---
 
-[OpenFeature](https://openfeature.dev) is a [CNCF-incubating](https://www.cncf.io/projects/openfeature/) open standard for feature flagging. GrowthBook provides OpenFeature provider SDKs for **Python**, **Go**, **.NET**, and **Java** — listed in the [OpenFeature ecosystem](https://openfeature.dev/ecosystem/?instant_search%5Bquery%5D=growthbook).
+[OpenFeature](https://openfeature.dev) is a [CNCF-incubating](https://www.cncf.io/projects/openfeature/) open standard for feature flagging. GrowthBook provides OpenFeature provider SDKs for **JavaScript** (Node.js and web), **Python**, **Go**, **.NET**, and **Java**, listed in the [OpenFeature ecosystem](https://openfeature.dev/ecosystem/?instant_search%5Bquery%5D=growthbook).
 
 ## Prerequisites
 
@@ -23,7 +23,7 @@ OpenFeature defines a vendor-neutral interface for evaluating feature flags. Usi
 - **Vendor portability** — Your flag evaluation code is identical regardless of which provider is active. Switching from or to GrowthBook only requires changing the provider bootstrap, not a single flag call.
 - **Standardized API** — Teams use the same OpenFeature interface they already know across all services.
 - **Ecosystem compatibility** — OpenFeature-aware tooling — including [OpenTelemetry hooks](https://openfeature.dev/docs/reference/technologies/observability/opentelemetry) and other instrumentation — works automatically with GrowthBook.
-- **Polyglot consistency** — The same conceptual API spans Python, Go, .NET, Java (and more), giving teams a single mental model.
+- **Polyglot consistency** — The same conceptual API spans JavaScript, Python, Go, .NET, Java (and more), giving teams a single mental model.
 
 <Tip>
 **When to use the native GrowthBook SDK instead**
@@ -35,6 +35,62 @@ The native GrowthBook SDKs expose features that go beyond the OpenFeature interf
 ## Installation & Setup
 
 <Tabs>
+<Tab title="JavaScript">
+
+Use `@openfeature/growthbook-provider` with `@openfeature/server-sdk` in Node.js. Use `@openfeature/growthbook-client-provider` with `@openfeature/web-sdk` in the browser. The two providers are not interchangeable: the web provider throws if you register it with the server SDK.
+
+<Tabs>
+<Tab title="Node.js (server)">
+
+**GitHub:** [js-sdk-contrib/providers/growthbook](https://github.com/open-feature/js-sdk-contrib/tree/main/libs/providers/growthbook) &nbsp;|&nbsp; **npm:** [@openfeature/growthbook-provider](https://www.npmjs.com/package/@openfeature/growthbook-provider)
+
+**Requirements:** Node.js 18+
+
+```bash
+npm install @openfeature/growthbook-provider @openfeature/server-sdk @growthbook/growthbook
+```
+
+```js
+import { OpenFeature } from "@openfeature/server-sdk";
+import { GrowthbookProvider } from "@openfeature/growthbook-provider";
+
+const gbClientOptions = {
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+};
+
+await OpenFeature.setProviderAndWait(new GrowthbookProvider(gbClientOptions));
+
+const client = OpenFeature.getClient("my-app");
+```
+
+</Tab>
+<Tab title="Web (client)">
+
+**GitHub:** [js-sdk-contrib/providers/growthbook-client](https://github.com/open-feature/js-sdk-contrib/tree/main/libs/providers/growthbook-client) &nbsp;|&nbsp; **npm:** [@openfeature/growthbook-client-provider](https://www.npmjs.com/package/@openfeature/growthbook-client-provider)
+
+```bash
+npm install @openfeature/growthbook-client-provider @openfeature/web-sdk @growthbook/growthbook
+```
+
+```js
+import { OpenFeature } from "@openfeature/web-sdk";
+import { GrowthbookClientProvider } from "@openfeature/growthbook-client-provider";
+
+const gbContext = {
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+};
+
+OpenFeature.setProvider(new GrowthbookClientProvider(gbContext));
+
+const client = OpenFeature.getClient("my-app");
+```
+
+</Tab>
+</Tabs>
+
+</Tab>
 <Tab title="Python">
 
 **GitHub:** [growthbook-openfeature-provider-python](https://github.com/growthbook/growthbook-openfeature-provider-python) &nbsp;|&nbsp; **PyPI:** [growthbook-openfeature-provider](https://pypi.org/project/growthbook-openfeature-provider/)
@@ -202,7 +258,18 @@ Pass user attributes to the OpenFeature client via an `EvaluationContext`. These
 
 The `targetingKey` maps to the user ID in GrowthBook. Additional attributes (e.g. `country`, `plan`, `email`) are matched against your feature flag targeting conditions.
 
+The JavaScript examples use the Node.js server SDK, which accepts an invocation-level context. On the web SDK, call `OpenFeature.setContext(context)` instead of passing context into each evaluation.
+
 <CodeGroup>
+
+```js JavaScript
+const context = {
+  targetingKey: "user-123",
+  country: "US",
+  plan: "premium",
+  email: "user@example.com",
+};
+```
 
 ```python Python
 from openfeature.evaluation_context import EvaluationContext
@@ -259,6 +326,14 @@ The most common type — use for on/off feature gates.
 
 <CodeGroup>
 
+```js JavaScript
+// Server SDK (async)
+const enabled = await client.getBooleanValue("dark-mode", false, context);
+
+// Returns full evaluation details (value, reason, variant, error)
+const details = await client.getBooleanDetails("dark-mode", false, context);
+```
+
 ```python Python
 # Synchronous
 enabled = client.get_boolean_value("dark-mode", False, context)
@@ -293,6 +368,10 @@ Use for multi-variant flags where the value is a string (e.g. button color, layo
 
 <CodeGroup>
 
+```js JavaScript
+const variant = await client.getStringValue("button-color", "blue", context);
+```
+
 ```python Python
 variant = client.get_string_value("button-color", "blue", context)
 ```
@@ -316,6 +395,11 @@ String variant = client.getStringValue("button-color", "blue", context);
 Use for numeric feature values such as rate limits, timeouts, or pricing.
 
 <CodeGroup>
+
+```js JavaScript
+const requestLimit = await client.getNumberValue("api-request-limit", 100, context);
+const price = await client.getNumberValue("subscription-price", 9.99, context);
+```
 
 ```python Python
 request_limit = client.get_integer_value("api-request-limit", 100, context)
@@ -345,6 +429,10 @@ Use for structured feature values (e.g. configuration payloads, theme objects).
 
 <CodeGroup>
 
+```js JavaScript
+const config = await client.getObjectValue("theme-config", { color: "blue" }, context);
+```
+
 ```python Python
 config = client.get_object_value("theme-config", {"color": "blue"}, context)
 ```
@@ -367,20 +455,24 @@ Value config = client.getObjectValue("theme-config", new MutableStructure(), con
 
 ## Configuration Options
 
-| Option                     | Python | Go  | .NET | Java | Description                                       |
-| -------------------------- | :----: | :-: | :--: | :--: | ------------------------------------------------- |
-| `api_host` / `apiHost`     |   ✓    |  ✓  |  ✓   |  ✓   | GrowthBook CDN or self-hosted URL                 |
-| `client_key` / `clientKey` |   ✓    |  ✓  |  ✓   |  ✓   | SDK Connection key from GrowthBook                |
-| `decryption_key`           |   ✓    |  —  |  —   |  —   | Key for encrypted SDK endpoint payloads           |
-| `cache_ttl`                |   ✓    |  ✓  |  —   |  —   | Seconds before re-fetching features (default: 60) |
-| `enabled`                  |   ✓    |  —  |  ✓   |  —   | Enable/disable the provider entirely              |
-| `qa_mode`                  |   ✓    |  —  |  —   |  —   | Forces all experiments into the control variation |
+| Option                     | JavaScript | Python | Go  | .NET | Java | Description                                       |
+| -------------------------- | :--------: | :----: | :-: | :--: | :--: | ------------------------------------------------- |
+| `api_host` / `apiHost`     |     ✓      |   ✓    |  ✓  |  ✓   |  ✓   | GrowthBook CDN or self-hosted URL                 |
+| `client_key` / `clientKey` |     ✓      |   ✓    |  ✓  |  ✓   |  ✓   | SDK Connection key from GrowthBook                |
+| `decryption_key`           |     ✓      |   ✓    |  —  |  —   |  —   | Key for encrypted SDK endpoint payloads           |
+| `cache_ttl`                |     —      |   ✓    |  ✓  |  —   |  —   | Seconds before re-fetching features (default: 60) |
+| `enabled`                  |     —      |   ✓    |  —  |  ✓   |  —   | Enable/disable the provider entirely              |
+| `qa_mode`                  |     —      |   ✓    |  —  |  —   |  —   | Forces all experiments into the control variation |
 
 ## Shutdown & Cleanup
 
 Always shut down the provider when your application exits to close background connections.
 
 <CodeGroup>
+
+```js JavaScript
+await OpenFeature.close();
+```
 
 ```python Python
 await provider.close()       # async
