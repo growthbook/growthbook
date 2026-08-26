@@ -4,8 +4,7 @@ import { defineConfig } from "vite";
 export default defineConfig({
   test: {
     globals: true,
-    // Files that need one opt in with a `// @vitest-environment jsdom` docblock.
-    environment: "node",
+    environment: "jsdom",
     setupFiles: ["./test/setup.ts"],
     // Off CI, tests share the box with a running `pnpm dev` stack, so cap
     // workers.

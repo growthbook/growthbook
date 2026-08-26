@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { act, renderHook } from "@testing-library/react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useIncrementalPipelineFallbackConfirm } from "@/hooks/useIncrementalPipelineFallbackConfirm";

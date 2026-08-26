@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { Editor, type JSONContent } from "@tiptap/core";
 import Document from "@tiptap/extension-document";
 import Paragraph from "@tiptap/extension-paragraph";

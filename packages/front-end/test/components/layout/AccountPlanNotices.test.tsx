@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import React from "react";
 import { useRouter } from "next/router";
 import { render, screen } from "@testing-library/react";
