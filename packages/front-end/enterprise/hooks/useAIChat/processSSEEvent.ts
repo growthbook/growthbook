@@ -12,7 +12,8 @@ function extractExplorationResultData(
   toolName: string,
   output: unknown,
 ): Record<string, unknown> | undefined {
-  if (toolName !== "runExploration") return undefined;
+  if (toolName !== "runExploration" && toolName !== "runQuery")
+    return undefined;
   if (!output || typeof output !== "object" || Array.isArray(output))
     return undefined;
 

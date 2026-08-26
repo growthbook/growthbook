@@ -1,4 +1,5 @@
 import {
+  assertSafeReadOnlySQL,
   buildMinimalOrCondition,
   decodeSQLResults,
   encodeSQLResults,
@@ -585,6 +586,224 @@ describe("buildMinimalOrCondition", () => {
         ["A", "B"],
       ]),
     ).toBe("(A AND B)");
+  });
+});
+
+describe("assertSafeReadOnlySQL", () => {
+  // --- Valid queries ---
+  it("allows simple SELECT", () => {
+    expect(() => assertSafeReadOnlySQL("SELECT 1")).not.toThrow();
+  });
+
+  it("allows SELECT with FROM", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * FROM users WHERE id = 1"),
+    ).not.toThrow();
+  });
+
+  it("allows WITH (CTE)", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("WITH cte AS (SELECT 1 AS n) SELECT * FROM cte"),
+    ).not.toThrow();
+  });
+
+  it("allows subqueries and aggregates", () => {
+    expect(() =>
+      assertSafeReadOnlySQL(
+        "SELECT source, COUNT(*) AS cnt FROM signups GROUP BY source ORDER BY cnt DESC LIMIT 10",
+      ),
+    ).not.toThrow();
+  });
+
+  // --- DML keywords inside string literals should NOT trigger ---
+  it("ignores DML keywords inside single-quoted strings", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * FROM t WHERE name = 'DROP TABLE'"),
+    ).not.toThrow();
+  });
+
+  it("ignores DML keywords inside double-quoted identifiers", () => {
+    expect(() => assertSafeReadOnlySQL('SELECT "DELETE" FROM t')).not.toThrow();
+  });
+
+  it("ignores DML keywords inside backtick-quoted identifiers", () => {
+    expect(() => assertSafeReadOnlySQL("SELECT `INSERT` FROM t")).not.toThrow();
+  });
+
+  // --- First keyword ---
+  it("rejects EXPLAIN", () => {
+    expect(() => assertSafeReadOnlySQL("EXPLAIN SELECT 1")).toThrow(
+      "Only SELECT and WITH",
+    );
+  });
+
+  it("rejects SHOW", () => {
+    expect(() => assertSafeReadOnlySQL("SHOW TABLES")).toThrow(
+      "Only SELECT and WITH",
+    );
+  });
+
+  it("rejects INSERT as first keyword", () => {
+    expect(() => assertSafeReadOnlySQL("INSERT INTO t VALUES (1)")).toThrow();
+  });
+
+  // --- Multi-statement ---
+  it("rejects multi-statement with semicolon", () => {
+    expect(() => assertSafeReadOnlySQL("SELECT 1; DROP TABLE users")).toThrow(
+      "Multi-statement",
+    );
+  });
+
+  it("allows trailing semicolon (stripped by parser)", () => {
+    expect(() => assertSafeReadOnlySQL("SELECT 1;")).not.toThrow();
+  });
+
+  // --- DML/DDL deny-list ---
+  it("rejects DELETE anywhere in query", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * FROM t WHERE 1=1 DELETE FROM t"),
+    ).toThrow("DELETE");
+  });
+
+  it("rejects DROP in subquery", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT (DROP TABLE users) FROM dual"),
+    ).toThrow("DROP");
+  });
+
+  it("rejects CREATE", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT 1 CREATE TABLE foo (id INT)"),
+    ).toThrow("CREATE");
+  });
+
+  it("rejects TRUNCATE", () => {
+    expect(() => assertSafeReadOnlySQL("SELECT 1 TRUNCATE TABLE foo")).toThrow(
+      "TRUNCATE",
+    );
+  });
+
+  it("rejects GRANT", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT 1 GRANT ALL ON foo TO bar"),
+    ).toThrow("GRANT");
+  });
+
+  // --- SELECT INTO ---
+  it("rejects SELECT INTO", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * INTO new_table FROM old_table"),
+    ).toThrow("SELECT INTO");
+  });
+
+  // --- Comment-wrapped DML ---
+  it("rejects DML after line comment on next line", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT 1 -- safe\nDROP TABLE x"),
+    ).toThrow("DROP");
+  });
+
+  it("rejects DML after block comment", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT 1 /* comment */ DROP TABLE x"),
+    ).toThrow("DROP");
+  });
+
+  it("allows DML keyword inside block comment (stripped)", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT /* DROP TABLE x */ 1 FROM t"),
+    ).not.toThrow();
+  });
+
+  // --- Dialect escape hatches ---
+  it("rejects INTO OUTFILE", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * FROM t INTO OUTFILE '/tmp/data.csv'"),
+    ).toThrow("INTO OUTFILE");
+  });
+
+  it("rejects INTO DUMPFILE", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * FROM t INTO DUMPFILE '/tmp/data.bin'"),
+    ).toThrow("INTO DUMPFILE");
+  });
+
+  it("rejects pg_read_file", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT pg_read_file('/etc/passwd')"),
+    ).toThrow("pg_read_file");
+  });
+
+  it("rejects LOAD_FILE", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT LOAD_FILE('/etc/passwd')"),
+    ).toThrow("LOAD_FILE");
+  });
+
+  it("rejects ClickHouse file() function", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * FROM file('/path/to/data.csv')"),
+    ).toThrow("file(");
+  });
+
+  it("rejects ClickHouse url() function", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * FROM url('http://evil.com/data')"),
+    ).toThrow("url(");
+  });
+
+  it("rejects ClickHouse s3() function", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * FROM s3('s3://bucket/key')"),
+    ).toThrow("s3(");
+  });
+
+  // --- Unterminated strings/comments ---
+  it("rejects unterminated single-quoted string", () => {
+    expect(() => assertSafeReadOnlySQL("SELECT 'unterminated")).toThrow(
+      "unterminated",
+    );
+  });
+
+  it("rejects unterminated block comment", () => {
+    expect(() => assertSafeReadOnlySQL("SELECT /* never closed")).toThrow(
+      "unterminated",
+    );
+  });
+
+  // --- Length cap ---
+  it("rejects queries exceeding length cap", () => {
+    const long = "SELECT " + "x".repeat(100_001);
+    expect(() => assertSafeReadOnlySQL(long)).toThrow("safety limit");
+  });
+
+  // --- Edge cases ---
+  it("allows quoted identifiers containing deny-list words", () => {
+    expect(() =>
+      assertSafeReadOnlySQL('SELECT 1 AS "EXECUTE" FROM t'),
+    ).not.toThrow();
+  });
+
+  it("does not false-positive on words containing deny-list substrings", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT updated_at, created_at FROM events"),
+    ).not.toThrow();
+  });
+
+  it("does not false-positive on 'file' as a column name (no parens)", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT file FROM documents"),
+    ).not.toThrow();
+  });
+
+  it("handles case-insensitive DML", () => {
+    expect(() => assertSafeReadOnlySQL("SELECT 1 dRoP TABLE foo")).toThrow(
+      "DROP",
+    );
+  });
+
+  it("handles leading whitespace and newlines", () => {
+    expect(() => assertSafeReadOnlySQL("  \n  SELECT 1 FROM t")).not.toThrow();
   });
 });
 

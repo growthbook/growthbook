@@ -1123,6 +1123,12 @@ export default abstract class SqlIntegration
 
     return formatInformationSchema(results.rows as RawInformationSchema[]);
   }
+  async estimateQueryCost(
+    _sql: string,
+  ): Promise<{ bytesProcessed: number; costEstimateUsd?: number }> {
+    return { bytesProcessed: 0 };
+  }
+
   async getTableData(
     databaseName: string,
     tableSchema: string,

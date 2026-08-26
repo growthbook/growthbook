@@ -114,6 +114,9 @@ export interface SourceIntegrationInterface<
     tableName: string,
   ): Promise<{ tableData: null | unknown[] }>;
   getInformationSchema?(): Promise<InformationSchema[]>;
+  estimateQueryCost?(
+    sql: string,
+  ): Promise<{ bytesProcessed: number; costEstimateUsd?: number }>;
   supportsLimitZeroColumnValidation?(): boolean;
   getTestValidityQuery?(
     query: string,

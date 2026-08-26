@@ -281,6 +281,7 @@ export interface OrganizationSettings {
   runHealthTrafficQuery?: boolean;
   srmThreshold?: number;
   aiEnabled?: boolean;
+  aiAskDataEnabled?: boolean;
   defaultAIModel?: AIModel;
   embeddingModel?: EmbeddingModel;
   /** @deprecated */

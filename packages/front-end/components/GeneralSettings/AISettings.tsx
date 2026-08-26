@@ -351,6 +351,32 @@ export default function AISettings({
                   </Callout>
                 </Box>
               )}
+              {form.watch("aiEnabled") && aiAgreedTo && (
+                <Flex gap="3" align="start" mb="4" mt="2">
+                  <Box>
+                    <Checkbox
+                      value={form.watch("aiAskDataEnabled") ?? false}
+                      setValue={(v) => form.setValue("aiAskDataEnabled", v)}
+                      id="toggle-aiAskDataEnabled"
+                      disabled={!canEdit}
+                      mt="1"
+                    />
+                  </Box>
+                  <Flex direction="column">
+                    <Text size="3" className="font-weight-semibold">
+                      <label htmlFor="toggle-aiAskDataEnabled">
+                        Ask your data
+                      </label>
+                    </Text>
+                    <Text>
+                      Allow users to ask questions about data in natural
+                      language. Schema, queries, and results are sent to the AI
+                      provider.
+                    </Text>
+                  </Flex>
+                </Flex>
+              )}
+
               <AIProviderKeys
                 access={aiProviderAccess}
                 showPermissionCallout={false}

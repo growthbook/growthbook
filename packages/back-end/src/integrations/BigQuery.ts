@@ -245,6 +245,24 @@ export default class BigQuery extends SqlIntegration {
     return formatInformationSchema(results as RawInformationSchema[]);
   }
 
+  async estimateQueryCost(
+    sql: string,
+  ): Promise<{ bytesProcessed: number; costEstimateUsd?: number }> {
+    const client = this.getClient();
+    const [job] = await client.createQueryJob({
+      query: sql,
+      useLegacySql: false,
+      dryRun: true,
+    });
+    const metadata = job.metadata;
+    const bytes = Number(metadata?.statistics?.totalBytesProcessed ?? 0);
+    const TIB = 1024 ** 4;
+    return {
+      bytesProcessed: bytes,
+      costEstimateUsd: (bytes / TIB) * 6.25,
+    };
+  }
+
   getQueryResultResponseColumns(
     bqQueryResultsResponse: QueryResultsResponse,
   ): QueryResponseColumnData[] | undefined {

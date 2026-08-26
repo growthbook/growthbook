@@ -38,6 +38,7 @@ export function createLikeStringMatchFn({
 }
 
 export const SQL_ROW_LIMIT = 1000;
+export const ASK_ROW_LIMIT = 500;
 
 export const MAX_SQL_LENGTH_TO_FORMAT = parseEnvInt(
   process.env.MAX_SQL_LENGTH_TO_FORMAT,
@@ -121,6 +122,63 @@ export function isReadOnlySQL(sql: string) {
 
   // Check the first keyword (e.g. "select", "with", etc.)
   return !!strippedSql.match(/^\s*(with|select|explain|show|describe|desc)\b/i);
+}
+
+const MAX_AGENT_SQL_LENGTH = 100_000;
+
+const DML_DDL_DENY_LIST =
+  /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|MERGE|GRANT|REVOKE|CALL|EXEC|EXECUTE)\b/i;
+
+const DIALECT_ESCAPE_HATCHES =
+  /\b(INTO\s+OUTFILE|INTO\s+DUMPFILE|COPY\s+.{1,200}\s+TO|pg_read_file|pg_read_binary_file|LOAD_FILE|EXECUTE\s+IMMEDIATE)\b|(?<!\w)(file|url|s3)\s*\(/i;
+
+/**
+ * Stricter read-only SQL guard for agent-generated queries. Unlike
+ * `isReadOnlySQL` (first-keyword only), this scans the entire stripped
+ * statement for DML/DDL keywords, multi-statement boundaries, and
+ * dialect-specific escape hatches. Throws on violation.
+ */
+export function assertSafeReadOnlySQL(sql: string): void {
+  if (sql.length > MAX_AGENT_SQL_LENGTH) {
+    throw new Error(
+      `Query exceeds the ${MAX_AGENT_SQL_LENGTH}-character safety limit`,
+    );
+  }
+
+  const { strippedSql, parseError } = stripCommentsAndStrings(sql, true);
+
+  if (parseError) {
+    throw new Error(
+      "Query has unterminated string or comment — cannot verify safety",
+    );
+  }
+
+  // First keyword must be SELECT or WITH
+  if (!/^\s*(SELECT|WITH)\b/i.test(strippedSql)) {
+    throw new Error("Only SELECT and WITH queries are allowed");
+  }
+
+  // Single statement only
+  if (strippedSql.includes(";")) {
+    throw new Error("Multi-statement queries are not allowed");
+  }
+
+  // Dialect-specific escape hatches (checked before generic SELECT INTO)
+  const escapeMatch = strippedSql.match(DIALECT_ESCAPE_HATCHES);
+  if (escapeMatch) {
+    throw new Error(`Disallowed expression: ${escapeMatch[0].trim()}`);
+  }
+
+  // SELECT INTO (but not INTO OUTFILE/DUMPFILE — caught above)
+  if (/\bSELECT\s+.*\bINTO\b/i.test(strippedSql)) {
+    throw new Error("SELECT INTO is not allowed");
+  }
+
+  // DML/DDL deny-list anywhere in the stripped SQL
+  const dmlMatch = strippedSql.match(DML_DDL_DENY_LIST);
+  if (dmlMatch) {
+    throw new Error(`Disallowed keyword: ${dmlMatch[0].toUpperCase()}`);
+  }
 }
 
 export function usesBackslashStringEscapes(
