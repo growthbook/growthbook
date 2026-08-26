@@ -1081,6 +1081,7 @@ export const apiExperimentResultsValidator = namedSchema(
                       pValue: z.coerce.number().optional(),
                       risk: z.coerce.number().optional(),
                       chanceToBeatControl: z.coerce.number().optional(),
+                      errorMessage: z.string().optional(),
                     }),
                   ),
                 }),
@@ -1184,6 +1185,7 @@ const apiBulkResultVariation = z.object({
       ciHigh: z.number().nullable(),
       pValue: z.number().nullable().optional(),
       chanceToBeatControl: z.number().nullable().optional(),
+      errorMessage: z.string().optional(),
     }),
   ),
 });
