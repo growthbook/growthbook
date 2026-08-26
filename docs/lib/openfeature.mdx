@@ -82,7 +82,7 @@ const gbContext = {
   clientKey: "sdk-abc123",
 };
 
-OpenFeature.setProvider(new GrowthbookClientProvider(gbContext));
+await OpenFeature.setProviderAndWait(new GrowthbookClientProvider(gbContext));
 
 const client = OpenFeature.getClient("my-app");
 ```
