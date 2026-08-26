@@ -1,6 +1,11 @@
 import cloneDeep from "lodash/cloneDeep";
 import { isFunnelSupportedDatasourceType } from "shared/enterprise";
-import { getUserIdTypes, isFactFunnelMetric } from "shared/experiments";
+import {
+  getUserIdTypes,
+  isFactFunnelMetric,
+  isLowerPercentileCappedMetric,
+  isUpperPercentileCappedMetric,
+} from "shared/experiments";
 import { format } from "shared/sql";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type {
@@ -194,26 +199,56 @@ export function getExperimentFactMetricsQuery(
   // TODO(sql): refactor so this is a property of the source table itself
   const percentileTableIndices = new Set<number>();
   const percentileData: FactMetricPercentileData[] = [];
+  const ignoreZerosFor = (m: (typeof metricData)[number]) =>
+    m.metric.cappingSettings.ignoreZeros ?? false;
   metricData
-    .filter((m) => m.isPercentileCapped)
+    .filter(
+      (m) =>
+        isUpperPercentileCappedMetric(m.metric) ||
+        isLowerPercentileCappedMetric(m.metric),
+    )
     .forEach((m) => {
-      percentileData.push({
-        valueCol: `${m.alias}_value`,
-        outputCol: `${m.alias}_value_cap`,
-        percentile: m.metric.cappingSettings.value ?? 1,
-        ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
-        sourceIndex: m.numeratorSourceIndex,
-      });
-      percentileTableIndices.add(m.numeratorSourceIndex);
-      if (m.ratioMetric) {
+      if (isUpperPercentileCappedMetric(m.metric)) {
         percentileData.push({
-          valueCol: `${m.alias}_denominator`,
-          outputCol: `${m.alias}_denominator_cap`,
+          valueCol: `${m.alias}_value`,
+          outputCol: `${m.alias}_value_cap`,
           percentile: m.metric.cappingSettings.value ?? 1,
-          ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
-          sourceIndex: m.denominatorSourceIndex,
+          ignoreZeros: ignoreZerosFor(m),
+          sourceIndex: m.numeratorSourceIndex,
         });
-        percentileTableIndices.add(m.denominatorSourceIndex);
+        percentileTableIndices.add(m.numeratorSourceIndex);
+        if (m.ratioMetric) {
+          percentileData.push({
+            valueCol: `${m.alias}_denominator`,
+            outputCol: `${m.alias}_denominator_cap`,
+            percentile: m.metric.cappingSettings.value ?? 1,
+            ignoreZeros: ignoreZerosFor(m),
+            sourceIndex: m.denominatorSourceIndex,
+          });
+          percentileTableIndices.add(m.denominatorSourceIndex);
+        }
+      }
+      if (isLowerPercentileCappedMetric(m.metric)) {
+        const lower = m.metric.lowerCappingSettings;
+        const lowerIgnoreZeros = lower?.ignoreZeros ?? false;
+        percentileData.push({
+          valueCol: `${m.alias}_value`,
+          outputCol: `${m.alias}_value_cap_lower`,
+          percentile: lower?.value ?? 0,
+          ignoreZeros: lowerIgnoreZeros,
+          sourceIndex: m.numeratorSourceIndex,
+        });
+        percentileTableIndices.add(m.numeratorSourceIndex);
+        if (m.ratioMetric) {
+          percentileData.push({
+            valueCol: `${m.alias}_denominator`,
+            outputCol: `${m.alias}_denominator_cap_lower`,
+            percentile: lower?.value ?? 0,
+            ignoreZeros: lowerIgnoreZeros,
+            sourceIndex: m.denominatorSourceIndex,
+          });
+          percentileTableIndices.add(m.denominatorSourceIndex);
+        }
       }
     });
 

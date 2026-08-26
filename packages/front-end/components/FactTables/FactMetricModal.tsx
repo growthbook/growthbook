@@ -9,6 +9,12 @@ import {
 } from "shared/constants";
 import { isProjectListValidForProject } from "shared/util";
 import {
+  getCappingTailState,
+  validateCappingSettingsIgnoreZerosConsistency,
+  validateCappingSettingsOrdering,
+  validateCappingSettingsValueEntered,
+} from "shared/validators";
+import {
   FactMetricInterface,
   ColumnRef,
   CreateFactMetricProps,
@@ -1829,9 +1835,49 @@ function StandardFactMetricModal({
           values.numerator.aggregateFilter = undefined;
         }
 
-        if (values.cappingSettings?.type) {
-          if (!values.cappingSettings.value) {
-            throw new Error("Capped Value cannot be 0");
+        {
+          const isCappableType =
+            values.metricType !== "quantile" &&
+            values.metricType !== "proportion" &&
+            values.metricType !== "retention" &&
+            values.metricType !== "dailyParticipation";
+
+          if (isCappableType) {
+            validateCappingSettingsValueEntered(values.cappingSettings, false);
+            validateCappingSettingsValueEntered(
+              values.lowerCappingSettings,
+              true,
+            );
+          }
+
+          const tails = getCappingTailState(
+            values.cappingSettings,
+            values.lowerCappingSettings,
+          );
+
+          // Clean the upper tail when it is not actually enabled.
+          if (!tails.upperAbsoluteCapped && !tails.upperPercentileCapped) {
+            values.cappingSettings = {
+              type: "",
+              value: 0,
+              ignoreZeros: false,
+            };
+          }
+
+          // Clean the independent lower tail when it is not actually enabled.
+          if (!tails.lowerAbsoluteCapped && !tails.lowerPercentileCapped) {
+            values.lowerCappingSettings = null;
+          }
+
+          if (tails.anyCap) {
+            validateCappingSettingsOrdering(
+              values.cappingSettings,
+              values.lowerCappingSettings,
+            );
+            validateCappingSettingsIgnoreZerosConsistency(
+              values.cappingSettings,
+              values.lowerCappingSettings,
+            );
           }
         }
 
@@ -1846,6 +1892,7 @@ function StandardFactMetricModal({
             type: "",
             value: 0,
           };
+          values.lowerCappingSettings = null;
         }
 
         if (
@@ -1856,7 +1903,7 @@ function StandardFactMetricModal({
             values.numerator.aggregateFilterColumn = "";
             values.numerator.aggregateFilter = undefined;
           } else {
-            if (values.cappingSettings?.type) {
+            if (values.cappingSettings?.type === "percentile") {
               throw new Error(
                 "Cannot specify both Percentile Capping and a User Filter. Please remove one of them.",
               );
@@ -2138,6 +2185,8 @@ function StandardFactMetricModal({
                     form.setValue("quantileSettings", quantileSettings);
                     // capping off for quantile metrics
                     form.setValue("cappingSettings.type", "");
+                    form.setValue("cappingSettings.value", 0);
+                    form.setValue("lowerCappingSettings", null);
 
                     if (
                       quantileSettings.type === "event" &&
@@ -2166,6 +2215,15 @@ function StandardFactMetricModal({
                     form.watch("cappingSettings.type") === "absolute"
                   ) {
                     form.setValue("cappingSettings.type", "");
+                    form.setValue("cappingSettings.value", 0);
+                  }
+                  // Ratio metrics only support percentile capping; drop an
+                  // absolute lower tail when switching to ratio.
+                  if (
+                    type === "ratio" &&
+                    form.watch("lowerCappingSettings")?.type === "absolute"
+                  ) {
+                    form.setValue("lowerCappingSettings", null);
                   }
                 }}
                 options={[
@@ -2625,6 +2683,7 @@ function StandardFactMetricModal({
                             form={form}
                             datasourceType={selectedDataSource.type}
                             metricType={type}
+                            allowLowerTailCapping
                           />
                         ) : null}
 

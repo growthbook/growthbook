@@ -121,6 +121,7 @@ export function getDefaultFactMetricProps({
       type: "",
       value: 0,
     },
+    lowerCappingSettings: existing?.lowerCappingSettings ?? null,
     managedBy: managedBy || "",
     quantileSettings: existing?.quantileSettings || null,
     // Funnel steps are tracked in modal state, not react-hook-form.

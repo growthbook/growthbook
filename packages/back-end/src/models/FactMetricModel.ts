@@ -11,7 +11,13 @@ import {
 } from "shared/experiments";
 import { getFunnelRuleViolations } from "shared/funnels";
 import { UpdateProps } from "shared/types/base-model";
-import { factMetricValidator, ApiFactMetric } from "shared/validators";
+import {
+  factMetricValidator,
+  ApiFactMetric,
+  validateCappingSettingsOrdering,
+  validateCappingSettingsIgnoreZerosConsistency,
+  validateCappingSettingsMetricTypeCompatibility,
+} from "shared/validators";
 import {
   ColumnRef,
   FactMetricInterface,
@@ -275,6 +281,16 @@ export class FactMetricModel extends BaseClass {
       newDoc.denominator = null;
     }
 
+    // Ratio metrics support only percentile capping.
+    if (newDoc.metricType === "ratio") {
+      if (newDoc.cappingSettings?.type === "absolute") {
+        newDoc.cappingSettings = { type: "", value: 0 };
+      }
+      if (newDoc.lowerCappingSettings?.type === "absolute") {
+        newDoc.lowerCappingSettings = null;
+      }
+    }
+
     if (newDoc.denominator) {
       newDoc.denominator = FactMetricModel.migrateColumnRef(newDoc.denominator);
     }
@@ -394,6 +410,22 @@ export class FactMetricModel extends BaseClass {
     previousData?: FactMetricInterface,
   ): Promise<void> {
     const existingMetric = previousData || null;
+
+    validateCappingSettingsOrdering(
+      data.cappingSettings,
+      data.lowerCappingSettings,
+    );
+
+    validateCappingSettingsIgnoreZerosConsistency(
+      data.cappingSettings,
+      data.lowerCappingSettings,
+    );
+
+    validateCappingSettingsMetricTypeCompatibility(
+      data.metricType,
+      data.cappingSettings,
+      data.lowerCappingSettings,
+    );
 
     const factTableMap = await this.getFactTableMap();
 
@@ -733,6 +765,7 @@ export class FactMetricModel extends BaseClass {
       quantileSettings,
       funnelSettings,
       cappingSettings,
+      lowerCappingSettings,
       windowSettings,
       regressionAdjustmentDays,
       regressionAdjustmentEnabled,
@@ -760,6 +793,15 @@ export class FactMetricModel extends BaseClass {
         ...cappingSettings,
         type: cappingSettings.type || "none",
         ignoreZeros: cappingSettings.ignoreZeros ?? undefined,
+        ...(lowerCappingSettings
+          ? {
+              lowerCappingSettings: {
+                type: lowerCappingSettings.type || "none",
+                value: lowerCappingSettings.value,
+                ignoreZeros: lowerCappingSettings.ignoreZeros ?? undefined,
+              },
+            }
+          : {}),
       },
       windowSettings: {
         ...windowSettings,

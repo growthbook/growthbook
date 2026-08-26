@@ -1191,9 +1191,9 @@ const MetricPage: FC = () => {
                           {metric.cappingSettings.type === "percentile" ? (
                             <span className="text-gray">{`(${
                               100 * metric.cappingSettings.value
-                            } pctile${
+                            }%${
                               metric.cappingSettings.ignoreZeros
-                                ? ", ignoring zeros"
+                                ? ", ignore zeros"
                                 : ""
                             })`}</span>
                           ) : (
